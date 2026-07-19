@@ -1,0 +1,139 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia">
+
+    <!--
+        Classic VB6 theme colour palette.
+        All IDE chrome colours are defined here. To create a new theme, add a
+        parallel file (e.g. Themes/Fluent.axaml) that overrides these keys, then
+        swap it in via IThemeService.Apply().
+
+        DO NOT use literal colour values anywhere in IDE chrome AXAML — always
+        reference a key from this file or from Classic.CommonControls SystemColors.
+    -->
+
+    <!--
+        Classic.Avalonia.Theme system-colour overrides.
+        Several Win32 system-colour DynamicResources are only populated when
+        ClassicTheme is loaded. We now use SimpleTheme, so we pin the values
+        that IDE chrome and the form/code-editor windows depend on.
+    -->
+
+    <!-- MDI desktop (Win11 VB6-on-Win11 pixel-sampled: #ABABAB) -->
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.AppWorkspaceBrushKey}"   Color="#ABABAB" />
+    <!-- Window / document background (white) -->
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.WindowBrushKey}"          Color="#FFFFFF" />
+    <!-- Window text (black) -->
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.WindowTextBrushKey}"      Color="#000000" />
+    <!-- MDI window / dialog title-bar colours (classic Win98 royal blue) -->
+    <SolidColorBrush x:Key="ActiveTitleBarBrush"   Color="#000080" />
+    <SolidColorBrush x:Key="InactiveTitleBarBrush" Color="#808080" />
+    <!-- Active caption text (white on blue) -->
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.ActiveCaptionTextBrushKey}" Color="#FFFFFF" />
+
+    <!-- Control-face colours (Win11 system colours, pixel-sampled from VB6-on-Win11) -->
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.ControlBrushKey}"          Color="#F0F0F0" />
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.ControlTextBrushKey}"       Color="#000000" />
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.ControlDarkBrushKey}"       Color="#808080" />
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.ControlLightBrushKey}"      Color="#FFFFFF" />
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.ControlLightLightBrushKey}" Color="#FFFFFF" />
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.ControlDarkDarkBrushKey}"   Color="#404040" />
+    <!-- Menu colours (Win11 system menu background: #F0F0F0) -->
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.MenuBrushKey}"              Color="#F0F0F0" />
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.MenuTextBrushKey}"          Color="#000000" />
+    <!-- Selection / highlight colours -->
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.HighlightBrushKey}"         Color="#000080" />
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.HighlightTextBrushKey}"     Color="#FFFFFF" />
+    <!-- Avalonia SimpleTheme reads SystemAccentColor (not CommonControls keys) for built-in
+         control selection states (ListBox, TreeView, ComboBox, CheckBox, ToggleButton, etc.).
+         Pin to VB6's Win32 highlight colour so all selection/focus chrome matches. -->
+    <Color x:Key="SystemAccentColor">#000080</Color>
+    <Color x:Key="SystemAccentColorLight1">#0000B3</Color>
+    <Color x:Key="SystemAccentColorLight2">#0000E6</Color>
+    <Color x:Key="SystemAccentColorDark1">#00004D</Color>
+    <Color x:Key="SystemAccentColorDark2">#00001A</Color>
+    <!-- Desktop (Win98 classic: black) -->
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.DesktopBrushKey}"           Color="#000000" />
+    <!-- Misc -->
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.GrayTextBrushKey}"          Color="#808080" />
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.InactiveCaptionBrushKey}"   Color="#ABABAB" />
+    <SolidColorBrush x:Key="{x:Static commonControls:SystemColors.InactiveCaptionTextBrushKey}" Color="#666666" />
+
+    <!-- Dock tool panel title bar (VB6 docked tool window header: light grayish-blue) -->
+    <SolidColorBrush x:Key="DockTitleBarBrush" Color="#BFCDDB" />
+
+    <!-- Designer: selection handle fill (#2D6BC1 = classic Visual Studio selection blue) -->
+    <SolidColorBrush x:Key="SelectionAdornerBrush"       Color="#2D6BC1" />
+    <!-- Designer: selection handle border (white outline around blue handle) -->
+    <SolidColorBrush x:Key="SelectionAdornerBorderBrush"  Color="White" />
+
+    <!-- Designer: grid dot pattern on form canvas -->
+    <SolidColorBrush x:Key="FormGridPatternBrush"         Color="#474747" />
+    <!-- Designer: phantom border shown while dragging a new control onto the canvas -->
+    <SolidColorBrush x:Key="ControlSpawnerPhantomBrush"   Color="#6C6959" />
+    <!-- Designer: rubber-band selection rectangle fill (10% opacity of selection blue) -->
+    <SolidColorBrush x:Key="RubberBandFillBrush"           Color="#1A2D6BC1" />
+
+    <!-- Colour palette tool: tile border and selected-tile indicator -->
+    <SolidColorBrush x:Key="ColorPaletteBorderBrush"      Color="Black" />
+    <SolidColorBrush x:Key="ColorPaletteHighlightBrush"   Color="White" />
+
+    <!-- "Here be dragons" developer-mode warning banner (amber; theme-agnostic) -->
+    <SolidColorBrush x:Key="WarningBannerBackgroundBrush" Color="#FFF4CE" />
+    <SolidColorBrush x:Key="WarningBannerBorderBrush"     Color="#D9A400" />
+    <SolidColorBrush x:Key="WarningBannerForegroundBrush" Color="#5C4400" />
+
+    <!-- Validation / error red (theme-agnostic) — used by the translation editor's red en-fallback
+         reference text and its rejected-edit status message. -->
+    <SolidColorBrush x:Key="ValidationErrorBrush" Color="#CC0000" />
+
+    <!-- Warning triangle icon (amber, with exclamation) for the developer-mode banner -->
+    <DrawingImage x:Key="WarningTriangleIcon">
+        <DrawingImage.Drawing>
+            <DrawingGroup>
+                <GeometryDrawing Brush="#E6A700">
+                    <GeometryDrawing.Pen>
+                        <Pen Brush="#9A7000" Thickness="1" LineJoin="Round" />
+                    </GeometryDrawing.Pen>
+                    <GeometryDrawing.Geometry>
+                        <PathGeometry Figures="M 8,1.5 L 15,14.5 L 1,14.5 Z" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="#3A2E00">
+                    <GeometryDrawing.Geometry>
+                        <RectangleGeometry Rect="7.25,5.5 1.5,5" RadiusX="0.6" RadiusY="0.6" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+                <GeometryDrawing Brush="#3A2E00">
+                    <GeometryDrawing.Geometry>
+                        <EllipseGeometry Center="8,12.6" RadiusX="0.95" RadiusY="0.95" />
+                    </GeometryDrawing.Geometry>
+                </GeometryDrawing>
+            </DrawingGroup>
+        </DrawingImage.Drawing>
+    </DrawingImage>
+
+    <!--
+        Toolbar separator: compact 1 px vertical divider matching Win32 toolbar style.
+
+        Avalonia's MenuItem provides its own ItemContainerTheme for Separator children,
+        so this override only affects bare <Separator /> elements outside menu item
+        collections (i.e. toolbar separators). Menu separators are unaffected.
+
+        VB6 reference: ~1 px line, #808080, ~3 px margin each side, full toolbar height
+        minus top/bottom margins (~16 px visible at 22 px button height).
+    -->
+    <ControlTheme x:Key="{x:Type Separator}" TargetType="Separator">
+        <Setter Property="Background" Value="{DynamicResource {x:Static commonControls:SystemColors.ControlDarkBrushKey}}" />
+        <Setter Property="Width" Value="1" />
+        <Setter Property="Margin" Value="3,3" />
+        <Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        VerticalAlignment="Stretch" />
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+</ResourceDictionary>

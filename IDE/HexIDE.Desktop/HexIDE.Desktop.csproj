@@ -1,0 +1,117 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!--If you are willing to use Windows/MacOS native APIs you will need to create 3 projects.
+    One for Windows with net10.0-windows TFM, one for MacOS with net10.0-macos and one with net10.0 TFM for Linux.-->
+    <TargetFrameworks>$(DotNetVersionDesktop)</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationIcon>..\HexIDE\Icons\AppIcon\hexide.ico</ApplicationIcon>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS1998</NoWarn>
+    <WarningsNotAsErrors>IL2026;IL3053;IL2104;</WarningsNotAsErrors>
+    <!-- Add-in system uses Assembly.Load; Desktop is not an AOT target -->
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia.Desktop" />
+    <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
+    <!-- The embedded MCP server is a DEV/automation tool. It is compiled out of Release builds: no
+         AspNetCore framework dependency, no Server/ code, no open port on an end-user's machine. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" Condition="'$(Configuration)' == 'Debug'" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" Condition="'$(Configuration)' == 'Debug'" />
+  </ItemGroup>
+
+  <!-- The MCP server implementation (Server/) is excluded from Release entirely. -->
+  <ItemGroup Condition="'$(Configuration)' != 'Debug'">
+    <Compile Remove="Server\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HexIDE\HexIDE.csproj" />
+    <!-- Signing tool that packages the first-party add-ins (build-only; not shipped). -->
+    <ProjectReference Include="..\HexIDE.AddinPacker\HexIDE.AddinPacker.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <!-- Build the bundled AI Chat add-in; it is packaged into addins/ by PackAIChatAddin below. -->
+    <ProjectReference Include="..\HexIDE.AIChat\HexIDE.AIChat.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <!-- Debug-only: bundle the TestAddin so the add-in Options-page seam can be exercised live -->
+    <ProjectReference Include="..\HexIDE.TestAddin\HexIDE.TestAddin.csproj" Condition="'$(Configuration)' == 'Debug'">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+    </ProjectReference>
+    <!-- Copy LspProxy exe to output so VB6_LSP_DEBUG_PROXY=1 can find it -->
+    <ProjectReference Include="..\HexIDE.LspProxy\HexIDE.LspProxy.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <OutputItemType>Content</OutputItemType>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </ProjectReference>
+    <!-- Copy VbLspServer exe to output for LSP diagnostics.
+         Path resolves to LspServer/ sibling repo when both repos are checked out together.
+         Omitted gracefully when only the IDE repo is checked out. -->
+    <ProjectReference Condition="Exists('..\..\LspServer\HexIDE.VbLspServer\HexIDE.VbLspServer.csproj')" Include="..\..\LspServer\HexIDE.VbLspServer\HexIDE.VbLspServer.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <OutputItemType>Content</OutputItemType>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </ProjectReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="..\HexIDE\Icons\AppIcon\hexide.ico">
+      <Link>Icons\AppIcon\hexide.ico</Link>
+    </AvaloniaResource>
+  </ItemGroup>
+
+  <!-- ── First-party add-in packaging ────────────────────────────────────────────────
+       Each first-party add-in is built into a SIGNED package folder under addins/<id>/ using the
+       HexIDE.AddinPacker tool and the (dev) first-party signing chain. The IDE verifies these against
+       the embedded root before loading. To repackage after changing an add-in, just rebuild. -->
+  <!-- Forward slashes throughout: they are valid path separators on Windows and Linux alike, whereas a
+       literal '\' is an ordinary filename char on Linux (breaks the CI Desktop build on ubuntu). -->
+  <PropertyGroup>
+    <AddinPacker>$(MSBuildProjectDirectory)/../HexIDE.AddinPacker/bin/$(Configuration)/net10.0/HexIDE.AddinPacker.dll</AddinPacker>
+    <AddinTrustDir>$(MSBuildProjectDirectory)/../HexIDE.AddinPacker/firstparty</AddinTrustDir>
+  </PropertyGroup>
+
+  <!-- Condition: inner (TF-specific) build only — '$(TargetFramework)' is empty in the outer
+       cross-targeting build, where '$(OutDir)' would point at the project dir.
+       NB: packs each add-in from its own per-project bin, so the Desktop build must use the default
+       per-project output layout (not a flattened 'dotnet build -o <dir>', which forces every referenced
+       project's output into one dir and would pack the whole IDE as the add-in).
+       KEY GATE (Exists firstparty.key): packing is SKIPPED unless the first-party signing key is present
+       in the trust dir. A source tree WITHOUT the key — a contributor clone, or the public repo before
+       the trust-chain rotation (see docs/trust-chain-rotation.md) — still builds cleanly; it simply ships
+       no bundled first-party add-ins. A release build supplies the key (locally in firstparty/, or in CI
+       from a secret written into the trust dir before Build), so the add-ins are signed and bundled. -->
+  <Target Name="PackAIChatAddin" AfterTargets="Build" Condition="'$(TargetFramework)' != '' and Exists('$(AddinTrustDir)/firstparty.key')">
+    <Exec Command="dotnet &quot;$(AddinPacker)&quot; pack --src &quot;$(MSBuildProjectDirectory)/../HexIDE.AIChat/bin/$(Configuration)/net10.0&quot; --out &quot;$(OutDir)addins/com.hexide.aichat&quot; --id com.hexide.aichat --title &quot;AI Chat&quot; --description &quot;AI-powered VB6 coding assistant&quot; --version 1.0.0 --author HexIDE --entry HexIDE.AIChat.dll --trust &quot;$(AddinTrustDir)&quot;" />
+  </Target>
+
+  <Target Name="PackTestAddin" AfterTargets="Build" Condition="'$(TargetFramework)' != '' and '$(Configuration)' == 'Debug' and Exists('$(AddinTrustDir)/firstparty.key')">
+    <Exec Command="dotnet &quot;$(AddinPacker)&quot; pack --src &quot;$(MSBuildProjectDirectory)/../HexIDE.TestAddin/bin/$(Configuration)/net10.0&quot; --out &quot;$(OutDir)addins/com.hexide.testaddin&quot; --id com.hexide.testaddin --title TestAddin --description &quot;Phase 4 verification add-in&quot; --version 4.0.0 --author HexIDE --entry HexIDE.TestAddin.dll --logo logo.png --trust &quot;$(AddinTrustDir)&quot;" />
+  </Target>
+
+  <!-- Visibility when the key is absent: make the skip explicit rather than silent. -->
+  <Target Name="WarnFirstPartyAddinsUnsigned" AfterTargets="Build" Condition="'$(TargetFramework)' != '' and !Exists('$(AddinTrustDir)/firstparty.key')">
+    <Message Importance="high" Text="HexIDE: no first-party signing key at $(AddinTrustDir)/firstparty.key — skipping add-in packing. This build bundles no first-party add-ins (expected for a keyless clone; a release build supplies the key — see docs/trust-chain-rotation.md)." />
+  </Target>
+
+  <!-- The Pack* targets above write into the build $(OutDir). 'dotnet publish -o <dir>' copies only the
+       publish file set, so without this the published distribution would omit the bundled add-ins. Copy
+       the packed addins/** into the publish output after publish has written its files (a plain Copy,
+       which avoids the publish item-pipeline's duplicate-path conflict, NETSDK1152). -->
+  <Target Name="CopyAddinsToPublishDir" AfterTargets="Publish" Condition="'$(TargetFramework)' != ''">
+    <ItemGroup>
+      <_PackedAddinFile Include="$(OutDir)addins/**/*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_PackedAddinFile)"
+          DestinationFiles="@(_PackedAddinFile->'$(PublishDir)addins/%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>

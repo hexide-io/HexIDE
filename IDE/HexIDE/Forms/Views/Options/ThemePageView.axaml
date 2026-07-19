@@ -1,0 +1,18 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels.Options"
+             mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="300"
+             x:DataType="vm:ThemePageViewModel"
+             x:Class="HexIDE.Forms.Views.Options.ThemePageView">
+    <HeaderedContentControl Header="{DynamicResource Str.Options.Theme.GroupHeader}" Padding="10" VerticalAlignment="Top">
+        <DockPanel>
+            <AccessText VerticalAlignment="Center" Margin="0,0,10,0" Text="{DynamicResource Str.Options.Theme.ThemeLabel}" />
+            <ComboBox ItemsSource="{CompiledBinding AvailableThemes}"
+                      SelectedItem="{CompiledBinding SelectedTheme}"
+                      HorizontalAlignment="Left"
+                      Width="160" />
+        </DockPanel>
+    </HeaderedContentControl>
+</UserControl>

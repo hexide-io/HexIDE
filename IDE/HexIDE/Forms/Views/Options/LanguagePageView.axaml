@@ -1,0 +1,45 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels.Options"
+             xmlns:loc="clr-namespace:HexIDE.Localization"
+             mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="300"
+             x:DataType="vm:LanguagePageViewModel"
+             x:Class="HexIDE.Forms.Views.Options.LanguagePageView">
+    <HeaderedContentControl Header="{DynamicResource Str.Options.Language.Header}" Padding="10" VerticalAlignment="Top">
+        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" >
+            <AccessText Grid.Row="0" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,6"
+                        Text="{DynamicResource Str.Options.Language.LanguageLabel}" />
+            <ComboBox Grid.Row="0" Grid.Column="1" Margin="0,0,0,6"
+                      ItemsSource="{CompiledBinding AvailableLanguages}"
+                      SelectedItem="{CompiledBinding SelectedLanguage}"
+                      HorizontalAlignment="Left" Width="200">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="loc:LanguageInfo">
+                        <TextBlock Text="{CompiledBinding DisplayName}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+
+            <AccessText Grid.Row="1" Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0"
+                        Text="{DynamicResource Str.Options.Language.RegionLabel}"
+                        IsEnabled="{CompiledBinding IsRegionEnabled}" />
+            <ComboBox Grid.Row="1" Grid.Column="1"
+                      ItemsSource="{CompiledBinding AvailableRegions}"
+                      SelectedItem="{CompiledBinding SelectedRegion}"
+                      IsEnabled="{CompiledBinding IsRegionEnabled}"
+                      HorizontalAlignment="Left" Width="200">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="loc:RegionInfo">
+                        <TextBlock Text="{CompiledBinding DisplayName}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+
+            <Button Grid.Row="2" Grid.Column="1" Margin="0,10,0,0" HorizontalAlignment="Left"
+                    Command="{CompiledBinding CustomizeCommand}"
+                    Content="{DynamicResource Str.Options.Language.Customize}" />
+        </Grid>
+    </HeaderedContentControl>
+</UserControl>

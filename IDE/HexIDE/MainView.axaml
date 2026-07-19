@@ -1,0 +1,685 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
+             xmlns:vb="clr-namespace:HexIDE"
+             xmlns:utils="clr-namespace:HexIDE.Utils"
+             xmlns:controls="clr-namespace:HexIDE.Controls"
+             xmlns:input="clr-namespace:Avalonia.Labs.Input"
+             xmlns:ide="clr-namespace:HexIDE.IDE;assembly=HexIDE.Core"
+             xmlns:projects="clr-namespace:HexIDE.Projects"
+             mc:Ignorable="d" d:DesignWidth="1080" d:DesignHeight="551"
+             x:DataType="vb:MainViewViewModel"
+             x:Name="RootView"
+             Design.DataContext="{x:Static vb:DISetup.DesignTimeRootViewModel}"
+             x:Class="HexIDE.MainView">
+    <input:CommandManager.CommandBindings>
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.NYICommand}"
+                              ExecutingCommand="{CompiledBinding NYI}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ExitCommand}"
+                              ExecutingCommand="{CompiledBinding Exit}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.NewProjectCommand}"
+                              ExecutingCommand="{CompiledBinding NewProject}"/>
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.AddProjectCommand}"
+                              ExecutingCommand="{CompiledBinding AddProject}"/>
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.AvaloniaOnWebCommand}"
+                              Executed="AvaloniaOnWeb"/>
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.AboutCommand}"
+                              ExecutingCommand="{CompiledBinding About}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenOptionsCommand}"
+                              ExecutingCommand="{CompiledBinding OpenOptions}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenProjectExplorerCommand}"
+                              ExecutingCommand="{CompiledBinding OpenProjectExplorerTool}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenPropertiesCommand}"
+                              ExecutingCommand="{CompiledBinding OpenPropertiesTool}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenFormLayoutCommand}"
+                              ExecutingCommand="{CompiledBinding OpenFormLayoutTool}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenObjectBrowserCommand}"
+                              ExecutingCommand="{CompiledBinding OpenObjectBrowserTool}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenToolBoxCommand}"
+                              ExecutingCommand="{CompiledBinding OpenToolBox}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenImmediateCommand}"
+                              ExecutingCommand="{CompiledBinding OpenImmediateTool}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenLocalsCommand}"
+                              ExecutingCommand="{CompiledBinding OpenLocalsTool}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenWatchesCommand}"
+                              ExecutingCommand="{CompiledBinding OpenWatchesTool}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenColorPaletteCommand}"
+                              ExecutingCommand="{CompiledBinding OpenColorPaletteTool}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ResetWindowLayoutCommand}"
+                              ExecutingCommand="{CompiledBinding ResetWindowLayout}" />
+
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.StartDefaultProjectCommand}"
+                              ExecutingCommand="{CompiledBinding StartDefaultProjectCommand}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.StartDefaultProjectWithFullCompileCommand}"
+                              ExecutingCommand="{CompiledBinding StartDefaultProjectWithFullCompileCommand}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.BreakProjectCommand}"
+                              ExecutingCommand="{CompiledBinding BreakProjectCommand}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.EndProjectCommand}"
+                              ExecutingCommand="{CompiledBinding EndProjectCommand}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.RestartProjectCommand}"
+                              ExecutingCommand="{CompiledBinding RestartProjectCommand}" />
+
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenDataViewCommand}"
+                              ExecutingCommand="{x:Static vb:ApplicationCommands.DisabledCommand}" />
+
+
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveProjectCommand}"
+                              ExecutingCommand="{CompiledBinding SaveProject}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveProjectAsCommand}"
+                              ExecutingCommand="{CompiledBinding SaveProjectAs}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenProjectCommand}"
+                              ExecutingCommand="{CompiledBinding OpenProject}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.MakeProjectCommand}"
+                              ExecutingCommand="{CompiledBinding MakeProjectCommand}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.RunWithVb6Command}"
+                              ExecutingCommand="{CompiledBinding RunWithVb6Command}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.MakeWithVb6Command}"
+                              ExecutingCommand="{CompiledBinding MakeWithVb6Command}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.RemoveProjectCommand}"
+                              ExecutingCommand="{CompiledBinding RemoveProjectCommand}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.MakeProjectGroupCommand}"
+                              ExecutingCommand="{CompiledBinding MakeProjectGroup}" />
+
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.StepIntoCommand}"
+                              ExecutingCommand="{CompiledBinding StepInto}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.StepOverCommand}"
+                              ExecutingCommand="{CompiledBinding StepOver}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.StepOutCommand}"
+                              ExecutingCommand="{CompiledBinding StepOut}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.RunToCursorCommand}"
+                              ExecutingCommand="{CompiledBinding RunToCursor}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.AddWatchCommand}"
+                              ExecutingCommand="{CompiledBinding AddWatch}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.EditWatchCommand}"
+                              ExecutingCommand="{CompiledBinding EditWatch}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.QuickWatchCommand}"
+                              ExecutingCommand="{CompiledBinding QuickWatch}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ToggleBreakpointCommand}"
+                              ExecutingCommand="{CompiledBinding ToggleBreakpoint}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ClearAllBreakpointsCommand}"
+                              ExecutingCommand="{CompiledBinding ClearAllBreakpoints}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SetNextStatementCommand}"
+                              ExecutingCommand="{CompiledBinding SetNextStatement}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ShowNextStatementCommand}"
+                              ExecutingCommand="{CompiledBinding ShowNextStatement}" />
+
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ProjectReferencesCommand}"
+                              ExecutingCommand="{CompiledBinding ProjectReferencesCommand}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ProjectComponentsCommand}"
+                              ExecutingCommand="{CompiledBinding ProjectComponentsCommand}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ProjectPropertiesCommand}"
+                              ExecutingCommand="{CompiledBinding ProjectPropertiesCommand}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.FindCommand}"
+                              ExecutingCommand="{CompiledBinding FindInCode}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.FindNextCommand}"
+                              ExecutingCommand="{CompiledBinding FindNextInCode}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ReplaceCommand}"
+                              ExecutingCommand="{CompiledBinding ReplaceInCode}" />
+    </input:CommandManager.CommandBindings>
+    <Panel HorizontalAlignment="Left" VerticalAlignment="Top">
+        <DockPanel>
+            <StackPanel Background="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}"
+                        Orientation="Vertical" DockPanel.Dock="Top">
+                <StackPanel.ContextFlyout>
+                    <MenuFlyout>
+                        <MenuItem Header="{DynamicResource Str.Toolbar.Standard}"    ToggleType="CheckBox" IsChecked="{CompiledBinding Settings.IsStandardToolbarVisible,   Mode=TwoWay}" />
+                        <MenuItem Header="{DynamicResource Str.Toolbar.Edit}"        ToggleType="CheckBox" IsChecked="{CompiledBinding Settings.IsEditToolbarVisible,       Mode=TwoWay}" />
+                        <MenuItem Header="{DynamicResource Str.Toolbar.Debug}"       ToggleType="CheckBox" IsChecked="{CompiledBinding Settings.IsDebugToolbarVisible,      Mode=TwoWay}" />
+                        <Separator />
+                        <MenuItem Header="{DynamicResource Str.Toolbar.Customize}" IsEnabled="False" />
+                    </MenuFlyout>
+                </StackPanel.ContextFlyout>
+                <ClassicBorderDecorator BorderStyle="ThinRaised" BorderThickness="1" DockPanel.Dock="Top">
+                    <Menu Margin="0,1,0,2" AutomationProperties.AutomationId="MenuBar">
+                        <MenuItem Header="{DynamicResource Str.Menu.File}">
+                            <MenuItem Header="{DynamicResource Str.Menu.File.NewProject}" Command="{x:Static vb:ApplicationCommands.NewProjectCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.File.OpenProject}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Open}" Command="{x:Static vb:ApplicationCommands.OpenProjectCommand}"/>
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.File.AddProject}" Command="{x:Static vb:ApplicationCommands.AddProjectCommand}" />
+                            <MenuItem Header="{CompiledBinding RemoveProjectMenuHeader}" Command="{x:Static vb:ApplicationCommands.RemoveProjectCommand}" />
+                            <Separator />
+                            <MenuItem Header="{CompiledBinding SaveProjectMenuHeader}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Save}" Command="{x:Static vb:ApplicationCommands.SaveProjectCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.File.SaveProjectAs}" Command="{x:Static vb:ApplicationCommands.SaveProjectAsCommand}" />
+                            <Separator />
+                            <MenuItem Header="{CompiledBinding SaveFormMenuHeader}" Command="{x:Static vb:ApplicationCommands.SaveCommand}" />
+                            <MenuItem Header="{CompiledBinding SaveFormAsMenuHeader}" Command="{x:Static vb:ApplicationCommands.SaveAsCommand}" />
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.File.Print}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Print}" Command="{x:Static vb:ApplicationCommands.NYICommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.File.PrintSetup}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Pagesetup}" Command="{x:Static vb:ApplicationCommands.NYICommand}" />
+                            <Separator />
+                            <MenuItem Header="{CompiledBinding MakeProjectMenuHeader}" Command="{x:Static vb:ApplicationCommands.MakeProjectCommand}"/>
+                            <MenuItem Header="{CompiledBinding MakeWithVb6MenuHeader}" Command="{x:Static vb:ApplicationCommands.MakeWithVb6Command}"/>
+                            <MenuItem Header="{DynamicResource Str.Menu.File.MakeProjectGroup}" Command="{x:Static vb:ApplicationCommands.MakeProjectGroupCommand}" />
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.File.RecentProjects}"
+                                      IsVisible="{CompiledBinding HasRecentProjects}"
+                                      ItemsSource="{CompiledBinding RecentProjects}">
+                                <MenuItem.ItemContainerTheme>
+                                    <ControlTheme TargetType="MenuItem"
+                                                  BasedOn="{StaticResource {x:Type MenuItem}}"
+                                                  x:CompileBindings="False">
+                                        <Setter Property="Header" Value="{Binding Header}" />
+                                        <Setter Property="Command" Value="{Binding Command}" />
+                                    </ControlTheme>
+                                </MenuItem.ItemContainerTheme>
+                            </MenuItem>
+                            <Separator IsVisible="{CompiledBinding HasRecentProjects}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.File.Exit}" Command="{x:Static vb:ApplicationCommands.ExitCommand}" />
+                        </MenuItem>
+                        <MenuItem Header="{DynamicResource Str.Menu.Edit}">
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.UndoCommand}" Header="{CompiledBinding UndoHeader}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Undo}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.RedoCommand}" Header="{CompiledBinding RedoHeader}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Redo}" />
+                            <Separator />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.CutCommand}" Header="{DynamicResource Str.Menu.Edit.Cut}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Cut}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.CopyCommand}" Header="{DynamicResource Str.Menu.Edit.Copy}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Copy}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.PasteCommand}" Header="{DynamicResource Str.Menu.Edit.Paste}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Paste}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.PasteLinkCommand}" Header="{DynamicResource Str.Menu.Edit.PasteLink}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.RemoveCommand}" Header="{DynamicResource Str.Menu.Edit.Remove}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.DeleteCommand}" Header="{DynamicResource Str.Menu.Edit.Delete}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.SelectAllCommand}" Header="{DynamicResource Str.Menu.Edit.SelectAll}" />
+                            <Separator />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.FindCommand}" Header="{DynamicResource Str.Menu.Edit.Find}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Find}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.FindNextCommand}" Header="{DynamicResource Str.Menu.Edit.FindNext}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.ReplaceCommand}" Header="{DynamicResource Str.Menu.Edit.Replace}" />
+                            <Separator />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.IndentCommand}" Header="{DynamicResource Str.Menu.Edit.Indent}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Indent}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.OutdentCommand}" Header="{DynamicResource Str.Menu.Edit.Outdent}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Outdent}" />
+                            <Separator />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.InsertFileCommand}" Header="{DynamicResource Str.Menu.Edit.InsertFile}" />
+                            <Separator />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.ListPropertiesMethodsCommand}" Header="{DynamicResource Str.Menu.Edit.ListPropertiesMethods}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Listproperties}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.ListConstantsCommand}" Header="{DynamicResource Str.Menu.Edit.ListConstants}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Listconstants}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.QuickInfoCommand}" Header="{DynamicResource Str.Menu.Edit.QuickInfo}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Quickinfo}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.ParameterInfoCommand}" Header="{DynamicResource Str.Menu.Edit.ParameterInfo}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Parameterinfo}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.CompleteWordCommand}" Header="{DynamicResource Str.Menu.Edit.CompleteWord}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Completeword}" />
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks}">
+                                <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks.Toggle}"    Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}"   InputGesture="Ctrl+F2" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks.Next}"      Command="{x:Static vb:ApplicationCommands.NextBookmarkCommand}" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks.Previous}"  Command="{x:Static vb:ApplicationCommands.PreviousBookmarkCommand}"  InputGesture="Shift+F2" />
+                                <Separator />
+                                <MenuItem Header="{DynamicResource Str.Menu.Edit.Bookmarks.ClearAll}" Command="{x:Static vb:ApplicationCommands.ClearAllBookmarksCommand}" InputGesture="Ctrl+Shift+F2" />
+                            </MenuItem>
+                        </MenuItem>
+                        <MenuItem Header="{DynamicResource Str.Menu.View}">
+                            <MenuItem Header="{DynamicResource Str.Menu.View.Code}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Viewcode}" Command="{x:Static vb:ApplicationCommands.ViewCodeCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.View.Object}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Viewobject}" Command="{x:Static vb:ApplicationCommands.ViewObjectCommand}"  />
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.View.Definition}" Command="{x:Static vb:ApplicationCommands.GoToDefinitionCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.View.LastPosition}" IsEnabled="False" />
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.View.ObjectBrowser}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Objectbrowser}" Command="{x:Static vb:ApplicationCommands.OpenObjectBrowserCommand}" />
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.View.ImmediateWindow}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Immediatewindow}" Command="{x:Static vb:ApplicationCommands.OpenImmediateCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.View.LocalsWindow}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Localswindow}" Command="{x:Static vb:ApplicationCommands.OpenLocalsCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.View.WatchWindow}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Watchwindow}" Command="{x:Static vb:ApplicationCommands.OpenWatchesCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.View.CallStack}" IsEnabled="False" />
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.View.ProjectExplorer}" utils:MenuUtils.MenuIcon="{StaticResource Geo.View_projectexplorer}" Command="{x:Static vb:ApplicationCommands.OpenProjectExplorerCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.View.PropertiesWindow}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Properties}" Command="{x:Static vb:ApplicationCommands.OpenPropertiesCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.View.FormLayoutWindow}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Formlayout}" Command="{x:Static vb:ApplicationCommands.OpenFormLayoutCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.View.PropertyPages}" IsEnabled="False" />
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.View.Toolbox}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Toolbox}" Command="{x:Static vb:ApplicationCommands.OpenToolBoxCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.View.ColorPalette}" Command="{x:Static vb:ApplicationCommands.OpenColorPaletteCommand}" />
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.View.Toolbars}">
+                                <MenuItem Header="{DynamicResource Str.Toolbar.Standard}"     IsChecked="{CompiledBinding Settings.IsStandardToolbarVisible,     Mode=TwoWay}" ToggleType="CheckBox" />
+                                <MenuItem Header="{DynamicResource Str.Toolbar.Edit}"         IsChecked="{CompiledBinding Settings.IsEditToolbarVisible,         Mode=TwoWay}" ToggleType="CheckBox" />
+                                <MenuItem Header="{DynamicResource Str.Toolbar.Debug}"        IsChecked="{CompiledBinding Settings.IsDebugToolbarVisible,        Mode=TwoWay}" ToggleType="CheckBox" />
+                                <MenuItem Header="{DynamicResource Str.Toolbar.FormEditor}"  IsChecked="{CompiledBinding Settings.IsFormEditorToolbarVisible,   Mode=TwoWay}" ToggleType="CheckBox" />
+                            </MenuItem>
+                            <MenuItem Header="{DynamicResource Str.Menu.View.Minimap}" IsChecked="{CompiledBinding Settings.IsMinimapVisible, Mode=TwoWay}" ToggleType="CheckBox" />
+                            <Separator />
+                        </MenuItem>
+                        <MenuItem Header="{DynamicResource Str.Menu.Project}">
+                            <MenuItem Header="{DynamicResource Str.Menu.Project.AddForm}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addform}" Command="{CompiledBinding AddFormCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Project.AddMDIForm}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addmdiform}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Project.AddModule}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addmodule}" Command="{CompiledBinding AddModuleCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Project.AddClassModule}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addclassmodule}" Command="{CompiledBinding AddClassModuleCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Project.AddUserControl}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addusercontrol}" Command="{CompiledBinding AddUserControlCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Project.AddPropertyPage}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addpropertypage}" Command="{CompiledBinding AddPropertyPageCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Project.AddFile}" />
+                            <Separator />
+                            <MenuItem Header="{CompiledBinding RemoveFormMenuHeader}" />
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.Project.References}" utils:MenuUtils.MenuIcon="{StaticResource Geo.References}" Command="{x:Static vb:ApplicationCommands.ProjectReferencesCommand}" IsVisible="{CompiledBinding Personality.IsProjectReferencesVisible}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Project.Components}" Command="{x:Static vb:ApplicationCommands.ProjectComponentsCommand}" />
+                            <Separator />
+                            <MenuItem Header="{CompiledBinding ProjectPropertiesMenuHeader}"
+                                      Command="{x:Static vb:ApplicationCommands.ProjectPropertiesCommand}"
+                                      />
+                        </MenuItem>
+                        <MenuItem Header="{DynamicResource Str.Menu.Format}">
+                            <MenuItem Header="{DynamicResource Str.Menu.Format.Align}">
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.Align.Lefts}"
+                                          Command="{x:Static vb:ApplicationCommands.AlignLeftsCommand}" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.Align.CentersHorizontally}"
+                                          Command="{x:Static vb:ApplicationCommands.AlignCentersHCommand}" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.Align.Rights}"
+                                          Command="{x:Static vb:ApplicationCommands.AlignRightsCommand}" />
+                                <Separator />
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.Align.Tops}"
+                                          Command="{x:Static vb:ApplicationCommands.AlignTopsCommand}" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.Align.CentersVertically}"
+                                          Command="{x:Static vb:ApplicationCommands.AlignCentersVCommand}" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.Align.Bottoms}"
+                                          Command="{x:Static vb:ApplicationCommands.AlignBottomsCommand}" />
+                            </MenuItem>
+                            <MenuItem Header="{DynamicResource Str.Menu.Format.MakeSameSize}">
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.MakeSameSize.Width}"
+                                          Command="{x:Static vb:ApplicationCommands.MakeSameWidthCommand}" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.MakeSameSize.Height}"
+                                          Command="{x:Static vb:ApplicationCommands.MakeSameHeightCommand}" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.MakeSameSize.Both}"
+                                          Command="{x:Static vb:ApplicationCommands.MakeSameSizeCommand}" />
+                            </MenuItem>
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.Format.SizeToGrid}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Sizetogrid}"
+                                      Command="{x:Static vb:ApplicationCommands.SizeToGridCommand}" />
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.Format.HorizontalSpacing}">
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.Spacing.MakeEqual}"
+                                          Command="{x:Static vb:ApplicationCommands.MakeHorizontalSpacingEqualCommand}" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.Spacing.Increase}"
+                                          Command="{x:Static vb:ApplicationCommands.IncreaseHorizontalSpacingCommand}" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.Spacing.Decrease}"
+                                          Command="{x:Static vb:ApplicationCommands.DecreaseHorizontalSpacingCommand}" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.Spacing.Remove}"
+                                          Command="{x:Static vb:ApplicationCommands.RemoveHorizontalSpacingCommand}" />
+                            </MenuItem>
+                            <MenuItem Header="{DynamicResource Str.Menu.Format.VerticalSpacing}">
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.Spacing.MakeEqual}"
+                                          Command="{x:Static vb:ApplicationCommands.MakeVerticalSpacingEqualCommand}" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.Spacing.Increase}"
+                                          Command="{x:Static vb:ApplicationCommands.IncreaseVerticalSpacingCommand}" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.Spacing.Decrease}"
+                                          Command="{x:Static vb:ApplicationCommands.DecreaseVerticalSpacingCommand}" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.Spacing.Remove}"
+                                          Command="{x:Static vb:ApplicationCommands.RemoveVerticalSpacingCommand}" />
+                            </MenuItem>
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.Format.CenterInForm}">
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.CenterInForm.Horizontally}"
+                                          Command="{x:Static vb:ApplicationCommands.CenterHorizontallyCommand}"
+                                          utils:MenuUtils.MenuIcon="{StaticResource Geo.Centerhorizontally}" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.CenterInForm.Vertically}"
+                                          Command="{x:Static vb:ApplicationCommands.CenterVerticallyCommand}"
+                                          utils:MenuUtils.MenuIcon="{StaticResource Geo.Centervertically}" />
+                            </MenuItem>
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.Format.Order}">
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.Order.BringToFront}"
+                                          utils:MenuUtils.MenuIcon="{StaticResource Geo.Bringtofront}"
+                                          Command="{x:Static vb:ApplicationCommands.BringToFrontCommand}" />
+                                <MenuItem Header="{DynamicResource Str.Menu.Format.Order.SendToBack}"
+                                          utils:MenuUtils.MenuIcon="{StaticResource Geo.Sendtoback}"
+                                          Command="{x:Static vb:ApplicationCommands.SendToBackCommand}" />
+                            </MenuItem>
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.Format.LockControls}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Lockcontrols}"
+                                      Command="{x:Static vb:ApplicationCommands.LockControlsCommand}" />
+                        </MenuItem>
+                        <MenuItem Header="{DynamicResource Str.Menu.Debug}">
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.StepIntoCommand}" Header="{DynamicResource Str.Menu.Debug.StepInto}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Stepinto}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.StepOverCommand}" Header="{DynamicResource Str.Menu.Debug.StepOver}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Stepover}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.StepOutCommand}" Header="{DynamicResource Str.Menu.Debug.StepOut}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Stepout}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.RunToCursorCommand}" Header="{DynamicResource Str.Menu.Debug.RunToCursor}" />
+                            <Separator />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.AddWatchCommand}" Header="{DynamicResource Str.Menu.Debug.AddWatch}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.EditWatchCommand}" Header="{DynamicResource Str.Menu.Debug.EditWatch}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.QuickWatchCommand}" Header="{DynamicResource Str.Menu.Debug.QuickWatch}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Quickwatch}" />
+                            <Separator />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.ToggleBreakpointCommand}" Header="{DynamicResource Str.Menu.Debug.ToggleBreakpoint}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Togglebreakpoint}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.ClearAllBreakpointsCommand}" Header="{DynamicResource Str.Menu.Debug.ClearAllBreakpoints}" />
+                            <Separator />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.SetNextStatementCommand}" Header="{DynamicResource Str.Menu.Debug.SetNextStatement}" />
+                            <MenuItem Command="{x:Static vb:ApplicationCommands.ShowNextStatementCommand}" Header="{DynamicResource Str.Menu.Debug.ShowNextStatement}" />
+                        </MenuItem>
+                        <MenuItem Header="{DynamicResource Str.Menu.Run}">
+                            <MenuItem Header="{DynamicResource Str.Menu.Run.Start}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Play}" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Run.StartWithFullCompile}" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectWithFullCompileCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Run.Break}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Pause}" Command="{x:Static vb:ApplicationCommands.BreakProjectCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Run.End}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Stop}" Command="{x:Static vb:ApplicationCommands.EndProjectCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Run.Restart}" Command="{x:Static vb:ApplicationCommands.RestartProjectCommand}" />
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.Run.StartWithVB6}" Command="{x:Static vb:ApplicationCommands.RunWithVb6Command}" />
+                        </MenuItem>
+                        <MenuItem Header="{DynamicResource Str.Menu.Tools}" x:Name="ToolsMenuItem">
+                            <MenuItem Header="{DynamicResource Str.Menu.Tools.AddProcedure}" Command="{x:Static vb:ApplicationCommands.AddProcedureCommand}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addprocedure}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Tools.ProcedureAttributes}" Command="{x:Static vb:ApplicationCommands.NYICommand}" />
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.Tools.MenuEditor}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Menubar}" Command="{x:Static vb:ApplicationCommands.EditMenuCommand}" />
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.Project.References}" utils:MenuUtils.MenuIcon="{StaticResource Geo.References}" Command="{x:Static vb:ApplicationCommands.ProjectReferencesCommand}" IsVisible="{CompiledBinding Personality.IsToolsReferencesVisible}" />
+                            <Separator IsVisible="{CompiledBinding Personality.IsToolsReferencesVisible}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Tools.Options}" Command="{x:Static vb:ApplicationCommands.OpenOptionsCommand}"/>
+                        </MenuItem>
+                        <MenuItem Header="{DynamicResource Str.Menu.AddIns}" x:Name="AddInsMenuItem" />
+                        <MenuItem Header="{DynamicResource Str.Menu.Window}">
+                            <MenuItem Header="{DynamicResource Str.Menu.Window.Split}" IsEnabled="False" />
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.Window.ResetLayout}" Command="{x:Static vb:ApplicationCommands.ResetWindowLayoutCommand}" />
+                        </MenuItem>
+                        <MenuItem Header="{DynamicResource Str.Menu.Help}">
+                            <MenuItem Header="{DynamicResource Str.Menu.Help.Contents}" Command="{x:Static vb:ApplicationCommands.NYICommand}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Contents}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Help.Index}" Command="{x:Static vb:ApplicationCommands.NYICommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Help.Search}" Command="{x:Static vb:ApplicationCommands.NYICommand}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Search}" />
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.Help.TechnicalSupport}" Command="{x:Static vb:ApplicationCommands.NYICommand}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Technicalsupport}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Help.AvaloniaOnWeb}" Command="{x:Static vb:ApplicationCommands.AvaloniaOnWebCommand}" />
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.Menu.Help.About}" Command="{x:Static vb:ApplicationCommands.AboutCommand}" />
+                        </MenuItem>
+                        <MenuItem Header="{DynamicResource Str.Menu.GoToGithubRepo}" Command="{CompiledBinding OpenGithubRepo}" IsVisible="{x:Static vb:Static.IsBrowser}" />
+                    </Menu>
+                </ClassicBorderDecorator>
+                <ClassicBorderDecorator BorderStyle="ThinRaised" BorderThickness="1" DockPanel.Dock="Top"
+                                        IsVisible="{CompiledBinding Settings.IsStandardToolbarVisible}"
+                                        HorizontalAlignment="Left"
+                                        AutomationProperties.AutomationId="StandardToolbar">
+                    <StackPanel Orientation="Horizontal" Margin="0,1">
+                        <Button Width="22" Height="22" Padding="3" AutomationProperties.AutomationId="Standard.AddProject">
+                            <Button.Flyout>
+                                <MenuFlyout>
+                                    <MenuItem Header="{DynamicResource Str.ProjectType.StandardEXE}" Command="{x:Static vb:ApplicationCommands.AddProjectCommand}" CommandParameter="{x:Static projects:IProjectTemplate.StandardEXE}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Standardexe16}" />
+                                    <MenuItem Header="{DynamicResource Str.ProjectType.ActiveXEXE}" Command="{x:Static vb:ApplicationCommands.AddProjectCommand}" CommandParameter="{x:Static projects:IProjectTemplate.ActiveXEXE}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Activexexe16}" />
+                                    <MenuItem Header="{DynamicResource Str.ProjectType.ActiveXDLL}" Command="{x:Static vb:ApplicationCommands.AddProjectCommand}" CommandParameter="{x:Static projects:IProjectTemplate.ActiveXDLL}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Activexdll16}" />
+                                    <MenuItem Header="{DynamicResource Str.ProjectType.ActiveXControl}" Command="{x:Static vb:ApplicationCommands.AddProjectCommand}" CommandParameter="{x:Static projects:IProjectTemplate.ActiveXControl}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Activexcontrol16}" />
+                                </MenuFlyout>
+                            </Button.Flyout>
+                            <Path Data="{StaticResource Geo.Addproject}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.AddForm}" AutomationProperties.AutomationId="Standard.AddForm">
+                            <Button.Flyout>
+                                <MenuFlyout>
+                                    <MenuItem Header="{DynamicResource Str.AddItem.Form}"               Command="{CompiledBinding AddFormCommand}"        utils:MenuUtils.MenuIcon="{StaticResource Geo.Addform}" />
+                                    <MenuItem Header="{DynamicResource Str.AddItem.MDIForm}"           Command="{x:Static vb:ApplicationCommands.DisabledCommand}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addmdiform}" />
+                                    <MenuItem Header="{DynamicResource Str.AddItem.Module}"             Command="{CompiledBinding AddModuleCommand}"      utils:MenuUtils.MenuIcon="{StaticResource Geo.Addmodule}" />
+                                    <MenuItem Header="{DynamicResource Str.AddItem.ClassModule}"       Command="{CompiledBinding AddClassModuleCommand}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addclassmodule}" />
+                                    <MenuItem Header="{DynamicResource Str.AddItem.UserControl}"       Command="{CompiledBinding AddUserControlCommand}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addusercontrol}" />
+                                    <MenuItem Header="{DynamicResource Str.AddItem.PropertyPage}"      Command="{CompiledBinding AddPropertyPageCommand}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addpropertypage}" />
+                                    <Separator />
+                                    <MenuItem Header="{DynamicResource Str.AddItem.AddFile}"        Command="{x:Static vb:ApplicationCommands.DisabledCommand}" />
+                                </MenuFlyout>
+                            </Button.Flyout>
+                            <Path Data="{StaticResource Geo.Addform}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.EditMenuCommand}" AutomationProperties.AutomationId="Standard.MenuEditor">
+                            <Path Data="{StaticResource Geo.Menubar}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Separator />
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenProjectCommand}" AutomationProperties.AutomationId="Standard.OpenProject">
+                            <Path Data="{StaticResource Geo.Open}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.SaveProjectCommand}" AutomationProperties.AutomationId="Standard.SaveProject">
+                            <Path Data="{StaticResource Geo.Save}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Separator />
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.CutCommand}" AutomationProperties.AutomationId="Standard.Cut">
+                            <Path Data="{StaticResource Geo.Cut}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.CopyCommand}" AutomationProperties.AutomationId="Standard.Copy">
+                            <Path Data="{StaticResource Geo.Copy}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.PasteCommand}" AutomationProperties.AutomationId="Standard.Paste">
+                            <Path Data="{StaticResource Geo.Paste}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.FindCommand}" AutomationProperties.AutomationId="Standard.Find">
+                            <Path Data="{StaticResource Geo.Find}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Separator />
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.UndoCommand}" AutomationProperties.AutomationId="Standard.Undo">
+                            <Path Data="{StaticResource Geo.Undo}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.RedoCommand}" AutomationProperties.AutomationId="Standard.Redo">
+                            <Path Data="{StaticResource Geo.Redo}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Separator />
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectCommand}" AutomationProperties.AutomationId="Standard.Start">
+                            <Path Data="{StaticResource Geo.Play}" Fill="{StaticResource IconRun}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.BreakProjectCommand}" AutomationProperties.AutomationId="Standard.Break">
+                            <Path Data="{StaticResource Geo.Pause}" Fill="{DynamicResource IconBreak}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.EndProjectCommand}" AutomationProperties.AutomationId="Standard.End">
+                            <Path Data="{StaticResource Geo.Stop}" Fill="{StaticResource IconStop}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Separator />
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenProjectExplorerCommand}" AutomationProperties.AutomationId="Standard.ProjectExplorer">
+                            <Path Data="{StaticResource Geo.Projectexplorer}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenPropertiesCommand}" AutomationProperties.AutomationId="Standard.PropertiesWindow">
+                            <Path Data="{StaticResource Geo.Properties}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenFormLayoutCommand}" AutomationProperties.AutomationId="Standard.FormLayout">
+                            <Path Data="{StaticResource Geo.Formlayout}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenObjectBrowserCommand}" AutomationProperties.AutomationId="Standard.ObjectBrowser">
+                            <Path Data="{StaticResource Geo.Objectbrowser}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenToolBoxCommand}" AutomationProperties.AutomationId="Standard.Toolbox">
+                            <Path Data="{StaticResource Geo.Toolbox}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenDataViewCommand}" AutomationProperties.AutomationId="Standard.DataView">
+                            <Path Data="{StaticResource Geo.Dataview}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+
+                        <Separator />
+                        <Path Data="{StaticResource Geo.Position}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        <TextBlock VerticalAlignment="Center" Text="{CompiledBinding FocusedProjectUtil.FocusedComponentPosition}" />
+                        <Border Width="50" />
+                        <Path Data="{StaticResource Geo.Size}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        <TextBlock VerticalAlignment="Center" Text="{CompiledBinding FocusedProjectUtil.FocusedComponentSize}" />
+                        <Border Width="20" />
+                    </StackPanel>
+                </ClassicBorderDecorator>
+                <ClassicBorderDecorator BorderStyle="ThinRaised" BorderThickness="1" DockPanel.Dock="Top"
+                                        IsVisible="{CompiledBinding Settings.IsEditToolbarVisible}"
+                                        HorizontalAlignment="Left"
+                                        AutomationProperties.AutomationId="EditToolbar">
+                    <StackPanel Orientation="Horizontal" Margin="0,1">
+                        <Button Width="22" Height="22" Padding="3" Focusable="False" Command="{x:Static vb:ApplicationCommands.ListPropertiesMethodsCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.ListPropertiesMethods}" AutomationProperties.AutomationId="Edit.ListPropertiesMethods">
+                            <Path Data="{StaticResource Geo.Listproperties}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Focusable="False" Command="{x:Static vb:ApplicationCommands.ListConstantsCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.ListConstants}" AutomationProperties.AutomationId="Edit.ListConstants">
+                            <Path Data="{StaticResource Geo.Listconstants}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Focusable="False" Command="{x:Static vb:ApplicationCommands.QuickInfoCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.QuickInfo}" AutomationProperties.AutomationId="Edit.QuickInfo">
+                            <Path Data="{StaticResource Geo.Quickinfo}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Focusable="False" Command="{x:Static vb:ApplicationCommands.ParameterInfoCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.ParameterInfo}" AutomationProperties.AutomationId="Edit.ParameterInfo">
+                            <Path Data="{StaticResource Geo.Parameterinfo}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Focusable="False" Command="{x:Static vb:ApplicationCommands.CompleteWordCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.CompleteWord}" AutomationProperties.AutomationId="Edit.CompleteWord">
+                            <Path Data="{StaticResource Geo.Completeword}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Separator />
+                        <Button Width="22" Height="22" Padding="3" Focusable="False" Command="{x:Static vb:ApplicationCommands.IndentCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Indent}" AutomationProperties.AutomationId="Edit.Indent">
+                            <Path Data="{StaticResource Geo.Indent}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Focusable="False" Command="{x:Static vb:ApplicationCommands.OutdentCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Outdent}" AutomationProperties.AutomationId="Edit.Outdent">
+                            <Path Data="{StaticResource Geo.Outdent}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Separator />
+                        <Button Width="22" Height="22" Padding="3" Focusable="False" Command="{x:Static vb:ApplicationCommands.ToggleBreakpointCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.ToggleBreakpoint}" AutomationProperties.AutomationId="Edit.ToggleBreakpoint">
+                            <Path Data="{StaticResource Geo.Togglebreakpoint}" Fill="{DynamicResource IconStop}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Separator />
+                        <Button Width="22" Height="22" Padding="3" Focusable="False" Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.ToggleBookmark}" AutomationProperties.AutomationId="Edit.ToggleBookmark">
+                            <Path Data="{StaticResource Geo.Togglebookmark}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Focusable="False" Command="{x:Static vb:ApplicationCommands.NextBookmarkCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.NextBookmark}" AutomationProperties.AutomationId="Edit.NextBookmark">
+                            <Path Data="{StaticResource Geo.Nextbookmark}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Focusable="False" Command="{x:Static vb:ApplicationCommands.PreviousBookmarkCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.PreviousBookmark}" AutomationProperties.AutomationId="Edit.PreviousBookmark">
+                            <Path Data="{StaticResource Geo.Previousbookmark}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Focusable="False" Command="{x:Static vb:ApplicationCommands.ClearAllBookmarksCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.ClearAllBookmarks}" AutomationProperties.AutomationId="Edit.ClearAllBookmarks">
+                            <Path Data="{StaticResource Geo.Clearallbookmarks}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                    </StackPanel>
+                </ClassicBorderDecorator>
+                <ClassicBorderDecorator BorderStyle="ThinRaised" BorderThickness="1" DockPanel.Dock="Top"
+                                        IsVisible="{CompiledBinding Settings.IsDebugToolbarVisible}"
+                                        HorizontalAlignment="Left"
+                                        AutomationProperties.AutomationId="DebugToolbar">
+                    <StackPanel Orientation="Horizontal" Margin="0,1">
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Start}" AutomationProperties.AutomationId="Debug.Start">
+                            <Path Data="{StaticResource Geo.Play}" Fill="{StaticResource IconRun}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.BreakProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Break}" AutomationProperties.AutomationId="Debug.Break">
+                            <Path Data="{StaticResource Geo.Pause}" Fill="{DynamicResource IconBreak}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.EndProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.End}" AutomationProperties.AutomationId="Debug.End">
+                            <Path Data="{StaticResource Geo.Stop}" Fill="{StaticResource IconStop}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Separator />
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.ToggleBreakpointCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.ToggleBreakpoint}" AutomationProperties.AutomationId="Debug.ToggleBreakpoint">
+                            <Path Data="{StaticResource Geo.Togglebreakpoint}" Fill="{DynamicResource IconStop}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Separator />
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.StepIntoCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.StepInto}" AutomationProperties.AutomationId="Debug.StepInto">
+                            <Path Data="{StaticResource Geo.Stepinto}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.StepOverCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.StepOver}" AutomationProperties.AutomationId="Debug.StepOver">
+                            <Path Data="{StaticResource Geo.Stepover}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.StepOutCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.StepOut}" AutomationProperties.AutomationId="Debug.StepOut">
+                            <Path Data="{StaticResource Geo.Stepout}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Separator />
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenLocalsCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.LocalsWindow}" AutomationProperties.AutomationId="Debug.LocalsWindow">
+                            <Path Data="{StaticResource Geo.Localswindow}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenImmediateCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.ImmediateWindow}" AutomationProperties.AutomationId="Debug.ImmediateWindow">
+                            <Path Data="{StaticResource Geo.Immediatewindow}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenWatchesCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.WatchWindow}" AutomationProperties.AutomationId="Debug.WatchWindow">
+                            <Path Data="{StaticResource Geo.Watchwindow}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Separator />
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.QuickWatchCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.QuickWatch}" AutomationProperties.AutomationId="Debug.QuickWatch">
+                            <Path Data="{StaticResource Geo.Quickwatch}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.NYICommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.CallStack}" AutomationProperties.AutomationId="Debug.CallStack" />
+                    </StackPanel>
+                </ClassicBorderDecorator>
+                <ClassicBorderDecorator BorderStyle="ThinRaised" BorderThickness="1" DockPanel.Dock="Top"
+                                        IsVisible="{CompiledBinding Settings.IsFormEditorToolbarVisible}"
+                                        HorizontalAlignment="Left"
+                                        AutomationProperties.AutomationId="FormEditorToolbar">
+                    <StackPanel Orientation="Horizontal" Margin="0,1">
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.BringToFrontCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.BringToFront}" AutomationProperties.AutomationId="FormEditor.BringToFront">
+                            <Path Data="{StaticResource Geo.Bringtofront}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.SendToBackCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.SendToBack}" AutomationProperties.AutomationId="FormEditor.SendToBack">
+                            <Path Data="{StaticResource Geo.Sendtoback}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Separator />
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.AlignLeftsCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.AlignLefts}" AutomationProperties.AutomationId="FormEditor.AlignLefts">
+                            <Path Data="{StaticResource Geo.Left}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.AlignCentersHCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.AlignCentersHorizontally}" AutomationProperties.AutomationId="FormEditor.AlignCentersH">
+                            <Path Data="{StaticResource Geo.Centerhorizontally}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.AlignRightsCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.AlignRights}" AutomationProperties.AutomationId="FormEditor.AlignRights">
+                            <Path Data="{StaticResource Geo.Right}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Separator />
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.AlignTopsCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.AlignTops}" AutomationProperties.AutomationId="FormEditor.AlignTops">
+                            <Path Data="{StaticResource Geo.Up}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.AlignCentersVCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.AlignCentersVertically}" AutomationProperties.AutomationId="FormEditor.AlignCentersV">
+                            <Path Data="{StaticResource Geo.Centervertically}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.AlignBottomsCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.AlignBottoms}" AutomationProperties.AutomationId="FormEditor.AlignBottoms">
+                            <Path Data="{StaticResource Geo.Bottom}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Separator />
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.MakeSameWidthCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.MakeSameWidth}" AutomationProperties.AutomationId="FormEditor.MakeSameWidth">
+                            <Path Data="{StaticResource Geo.Size}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.MakeSameHeightCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.MakeSameHeight}" AutomationProperties.AutomationId="FormEditor.MakeSameHeight">
+                            <Path Data="{StaticResource Geo.Size}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.MakeSameSizeCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.MakeSameSize}" AutomationProperties.AutomationId="FormEditor.MakeSameSize">
+                            <Path Data="{StaticResource Geo.Size}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
+                        <Separator />
+                        <ToggleButton Width="22" Height="22" Padding="3" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.LockControls}"
+                                     AutomationProperties.AutomationId="FormEditor.LockControls"
+                                     Command="{x:Static vb:ApplicationCommands.LockControlsCommand}"
+                                     IsChecked="{CompiledBinding FocusedProjectUtil.FocusedForm.LockControls, Mode=OneWay}">
+                            <Path Data="{StaticResource Geo.Lockcontrols}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </ToggleButton>
+                    </StackPanel>
+                </ClassicBorderDecorator>
+            </StackPanel>
+
+            <!-- Status bar (Win98-style sunken panels) -->
+            <ClassicBorderDecorator DockPanel.Dock="Bottom" BorderStyle="Raised" BorderThickness="1"
+                                    Background="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}"
+                                    Height="22"
+                                    AutomationProperties.AutomationId="StatusBar">
+                <DockPanel Margin="2,1">
+                    <!-- INS/OVR panel (rightmost) -->
+                    <ClassicBorderDecorator DockPanel.Dock="Right" BorderStyle="Sunken" BorderThickness="1"
+                                            Width="50" Margin="1,0,0,0">
+                        <TextBlock Text="{CompiledBinding StatusBar.InsertMode,
+                                          Converter={x:Static utils:StatusBarConverters.InsertModeConverter}}"
+                                   VerticalAlignment="Center" HorizontalAlignment="Center"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}" />
+                    </ClassicBorderDecorator>
+                    <!-- Ln / Col panel -->
+                    <ClassicBorderDecorator DockPanel.Dock="Right" BorderStyle="Sunken" BorderThickness="1"
+                                            Width="120" Margin="1,0,0,0">
+                        <TextBlock VerticalAlignment="Center" Margin="4,0"
+                                   FontSize="11"
+                                   Foreground="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}">
+                            <TextBlock.Text>
+                                <MultiBinding Converter="{x:Static utils:StatusBarConverters.LinColConverter}">
+                                    <Binding Path="StatusBar.Line" />
+                                    <Binding Path="StatusBar.Column" />
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
+                    </ClassicBorderDecorator>
+                    <!-- Message panel (fills remaining space) -->
+                    <ClassicBorderDecorator BorderStyle="Sunken" BorderThickness="1"
+                                            Margin="0,0,1,0">
+                        <TextBlock Text="{CompiledBinding StatusBar.Message}"
+                                   VerticalAlignment="Center" Margin="4,0"
+                                   FontSize="11"
+                                   TextTrimming="CharacterEllipsis"
+                                   Foreground="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}" />
+                    </ClassicBorderDecorator>
+                </DockPanel>
+            </ClassicBorderDecorator>
+
+            <DockControl x:Name="DockControl" Layout="{Binding Layout}">
+                <DockControl.Styles>
+                    <Style Selector="ToolChromeControl /template/ Button#PART_MenuButton">
+                        <Setter Property="IsVisible" Value="False" />
+                    </Style>
+                </DockControl.Styles>
+            </DockControl>
+        </DockPanel>
+
+        <controls:MDIHostPanel Name="PART_ModalHost" IsVisible="{Binding #PART_ModalHost.Children.Count}">
+            <Panel.Background>
+                <VisualBrush TileMode="Tile" SourceRect="0,0,2,2" DestinationRect="0,0,2,2">
+                    <VisualBrush.Visual>
+                        <Canvas Width="2" Height="2" Background="Transparent">
+                            <Rectangle Fill="{StaticResource {x:Static commonControls:SystemColors.ControlLightLightBrushKey}}" Width="1" Height="1" />
+                            <Rectangle Fill="{StaticResource {x:Static commonControls:SystemColors.ControlLightLightBrushKey}}" Width="1" Height="1" Canvas.Left="1" Canvas.Top="1" />
+                        </Canvas>
+                    </VisualBrush.Visual>
+                </VisualBrush>
+            </Panel.Background>
+        </controls:MDIHostPanel>
+    </Panel>
+</UserControl>

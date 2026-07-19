@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="HexIDE.VbLspServer/HexIDE.VbLspServer.csproj" />
+  <Project Path="HexIDE.VbLspServer.Tests/HexIDE.VbLspServer.Tests.csproj" />
+</Solution>

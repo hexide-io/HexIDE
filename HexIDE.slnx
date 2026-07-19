@@ -1,0 +1,27 @@
+<Solution>
+  <Folder Name="/IDE/">
+    <Project Path="IDE/HexIDE.Core/HexIDE.Core.csproj" />
+    <Project Path="IDE/HexIDE/HexIDE.csproj" />
+    <Project Path="IDE/HexIDE.AIChat/HexIDE.AIChat.csproj" />
+    <Project Path="IDE/HexIDE.TestAddin/HexIDE.TestAddin.csproj" />
+    <Project Path="IDE/HexIDE.Desktop/HexIDE.Desktop.csproj" />
+    <Project Path="IDE/HexIDE.Lsp/HexIDE.Lsp.csproj" />
+    <Project Path="IDE/HexIDE.LspProxy/HexIDE.LspProxy.csproj" />
+    <Project Path="IDE/HexIDE.Runtime/HexIDE.Runtime.csproj" />
+    <Project Path="IDE/HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj" />
+    <Project Path="IDE/HexIDE.Tests/HexIDE.Tests.csproj" />
+    <Project Path="IDE/HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj" />
+    <Project Path="IDE/HexIDE.Standalone/HexIDE.Standalone.csproj" />
+  </Folder>
+  <Folder Name="/LspServer/">
+    <Project Path="LspServer/HexIDE.VbLspServer/HexIDE.VbLspServer.csproj" />
+    <Project Path="LspServer/HexIDE.VbLspServer.Tests/HexIDE.VbLspServer.Tests.csproj" />
+  </Folder>
+  <Folder Name="/Solution Items/">
+    <File Path=".gitignore" />
+    <File Path="LICENSE" />
+    <File Path="README.md" />
+    <File Path="docs/LSP_FEATURES.md" />
+    <File Path="docs/ROADMAP.md" />
+  </Folder>
+</Solution>

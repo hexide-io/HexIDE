@@ -1,0 +1,33 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>$(DotNetVersion)</TargetFrameworks>
+        <Nullable>enable</Nullable>
+        <OutputType>Exe</OutputType>
+        <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Avalonia.Headless.XUnit" />
+        <PackageReference Include="Avalonia.Skia" />
+        <PackageReference Include="AwesomeAssertions" />
+        <PackageReference Include="NSubstitute" />
+        <PackageReference Include="xunit.v3" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="AwesomeAssertions" />
+        <Using Include="NSubstitute" />
+        <Using Include="Xunit" />
+        <Using Include="Avalonia.Headless.XUnit" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\HexIDE.Core\HexIDE.Core.csproj" />
+        <ProjectReference Include="..\HexIDE\HexIDE.csproj" />
+        <ProjectReference Include="..\HexIDE.Runtime\HexIDE.Runtime.csproj" />
+    </ItemGroup>
+
+</Project>

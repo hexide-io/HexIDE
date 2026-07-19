@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFrameworks>$(DotNetVersion)</TargetFrameworks>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+        <WarningsAsErrors>nullable</WarningsAsErrors>
+        <PublishAot>true</PublishAot>
+        <SelfContained>true</SelfContained>
+        <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+        <DebugSymbols>False</DebugSymbols>
+        <DebugType>None</DebugType>
+        <ApplicationIcon>form.ico</ApplicationIcon>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <NoWarn>$(NoWarn);CS1998</NoWarn>
+        <WarningsNotAsErrors>IL2026;IL3053;IL2104;</WarningsNotAsErrors>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <ApplicationManifest>app.manifest</ApplicationManifest>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Avalonia" />
+        <PackageReference Include="Avalonia.Themes.Simple" />
+        <PackageReference Include="Avalonia.Diagnostics" />
+        <PackageReference Include="Avalonia.Desktop" />
+        <PackageReference Include="Classic.Avalonia.Theme" />
+        <PackageReference Include="PropertyChanged.SourceGenerator" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\HexIDE.Runtime\HexIDE.Runtime.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <AvaloniaResource Include="Resources\**\*" />
+        <None Remove="form.ico" />
+        <AvaloniaResource Include="form.ico" />
+    </ItemGroup>
+</Project>

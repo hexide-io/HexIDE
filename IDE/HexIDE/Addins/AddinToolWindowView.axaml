@@ -1,0 +1,11 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:addins="clr-namespace:HexIDE.Addins"
+             x:DataType="addins:AddinToolWindowViewModel"
+             x:Class="HexIDE.Addins.AddinToolWindowView">
+    <!-- Hosted in code-behind (not a declarative bind): the addin's content is a single stateful Control,
+         and Dock re-materialises this view on a dock move, so two views can briefly want the same control.
+         The code-behind detaches it from any prior parent before adopting it, so the move just relocates it
+         instead of double-parenting (which crashed the IDE). -->
+    <Border x:Name="PART_Host" />
+</UserControl>

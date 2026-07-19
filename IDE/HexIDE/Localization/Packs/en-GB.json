@@ -1,0 +1,23 @@
+{
+  "name": "English (United Kingdom)",
+  "direction": "ltr",
+  "strings": {
+    "Str.Toolbar.Customize": "Customise...",
+    "Str.Menu.View.ColorPalette": "Colour Pa_lette",
+    "Str.Menu.Format.Align.CentersHorizontally": "Centres _Horizontally",
+    "Str.Menu.Format.Align.CentersVertically": "Centres _Vertically",
+    "Str.Menu.Format.CenterInForm": "_Centre in Form",
+    "Str.Toolbar.Tip.AlignCentersHorizontally": "Align Centres Horizontally",
+    "Str.Toolbar.Tip.AlignCentersVertically": "Align Centres Vertically",
+    "Str.Tool.ColorPalette.Button.DefineColors": "Define Colours",
+    "Str.Dialog.ProjectProperties.General.RequireLicenseKey": "Require Licence Key",
+    "Str.PropDesc.ForeColor": "The colour used for the object's text and graphics.",
+    "Str.PropDesc.Icon": "The icon shown when the form is minimised.",
+    "Str.PropDesc.BackColor": "The background colour used for the object's text and graphics.",
+    "Str.PropDesc.BorderColor": "The colour of the object's border.",
+    "Str.PropDesc.FillColor": "The colour used to fill shapes such as circles and boxes.",
+    "Str.PropDesc.MaxButton": "Whether the form's title bar shows a Maximise button.",
+    "Str.PropDesc.MinButton": "Whether the form's title bar shows a Minimise button.",
+    "Str.PropCategory.Behavior": "Behaviour"
+  }
+}

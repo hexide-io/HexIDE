@@ -1,0 +1,21 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="360" d:DesignHeight="160"
+             x:DataType="vm:LanguageRevertGateViewModel"
+             x:Class="HexIDE.Forms.Views.LanguageRevertGateView">
+    <StackPanel Margin="20" Spacing="14" MinWidth="320">
+        <TextBlock Text="{CompiledBinding Prompt}" FontWeight="Bold" TextWrapping="Wrap" />
+        <TextBlock Text="{CompiledBinding CountdownText}" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="{CompiledBinding KeepLabel}"
+                    Command="{CompiledBinding KeepCommand}"
+                    MinWidth="100" />
+            <Button Content="{CompiledBinding RevertLabel}"
+                    Command="{CompiledBinding RevertCommand}"
+                    MinWidth="100" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

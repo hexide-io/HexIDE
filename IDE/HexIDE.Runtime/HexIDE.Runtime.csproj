@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFrameworks>$(DotNetVersion)</TargetFrameworks>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+        <WarningsAsErrors>nullable</WarningsAsErrors>
+        <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+        <TrimMode>full</TrimMode>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <NoWarn>$(NoWarn);CS1998</NoWarn>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Avalonia" />
+        <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
+        <PackageReference Include="Classic.Avalonia.Theme" />
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="Serilog" />
+        <PackageReference Include="PropertyChanged.SourceGenerator" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+        <PackageReference Include="Antlr4.Runtime.Standard" />
+        <PackageReference Include="Antlr4BuildTasks" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\HexIDE.Core\HexIDE.Core.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Antlr4 Include="Interpreter\Grammar\VB6.g4">
+            <CustomToolNamespace>HexIDE.Runtime.Interpreter.Grammar</CustomToolNamespace>
+            <Listener>True</Listener>
+            <Visitor>True</Visitor>
+            <Log>True</Log>
+            <LongMessages />
+        </Antlr4>
+    </ItemGroup>
+</Project>

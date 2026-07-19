@@ -1,0 +1,13 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="HexIDE.Runtime.Dialogs.InputBox"
+             MinWidth="260" MaxWidth="400">
+    <StackPanel Margin="12,12,12,8" Spacing="8">
+        <TextBlock x:Name="PART_Prompt" TextWrapping="Wrap" MaxWidth="376" />
+        <TextBox x:Name="PART_Input" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8" Margin="0,4,0,4">
+            <Button x:Name="PART_Ok" Content="OK" MinWidth="75" Click="OkClick" />
+            <Button Content="Cancel" MinWidth="75" Click="CancelClick" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

@@ -1,0 +1,31 @@
+name: Build VB6 IDE
+
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+  build-linux-amd64:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Run Runtime Tests
+        run: dotnet test HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj
+
+      - name: Build HexIDE.Desktop (Linux)
+        run: dotnet build HexIDE.Desktop -f net10.0 -o bin/linux/
+
+      - name: Build HexIDE.Standalone (Linux)
+        run: dotnet build HexIDE.Standalone -f net10.0 -o bin/linux/standalone/

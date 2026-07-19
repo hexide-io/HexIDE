@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels.Options"
+             mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="300"
+             x:DataType="vm:KeymapPageViewModel"
+             x:Class="HexIDE.Forms.Views.Options.KeymapPageView">
+    <HeaderedContentControl Header="{DynamicResource Str.Options.Keymap.Header}" Padding="10" VerticalAlignment="Top">
+        <StackPanel Orientation="Vertical" Spacing="8">
+            <DockPanel>
+                <AccessText VerticalAlignment="Center" Margin="0,0,10,0" Text="{DynamicResource Str.Options.Keymap.Label}" />
+                <ComboBox ItemsSource="{CompiledBinding AvailableKeymaps}"
+                          SelectedItem="{CompiledBinding SelectedKeymap}"
+                          HorizontalAlignment="Left"
+                          Width="160" />
+            </DockPanel>
+            <TextBlock Opacity="0.7" FontSize="11" TextWrapping="Wrap"
+                       Text="{DynamicResource Str.Options.Keymap.AppliedHint}" />
+        </StackPanel>
+    </HeaderedContentControl>
+</UserControl>

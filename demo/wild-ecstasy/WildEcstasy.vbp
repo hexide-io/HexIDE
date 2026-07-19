@@ -1,0 +1,6 @@
+Name=WildEcstasy
+Type=EXE
+Form=Form1.frm
+Class=Class1; Class1.cls
+Startup=Form1
+Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0##OLE Automation

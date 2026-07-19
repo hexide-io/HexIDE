@@ -1,0 +1,134 @@
+name: Publish Release
+
+# Manual-only for now. This prevents an accidental tag push from shipping a build before the
+# pre-release pre-flight is done (asset-compliance / "Wave 0" and the add-in trust-chain rotation
+# — see docs/ROADMAP.md and TRUST.md). Re-enable a tag trigger, e.g.
+#   push:
+#     tags: ['v*.*.*']
+# once the release process is finalised.
+#
+# NOTE: builds are framework-dependent (require the .NET 10 runtime on the user's machine). AOT /
+# trimming was removed — it is incompatible with the Assembly.Load-based add-in system and with
+# StreamJsonRpc (IL3050) and the COM P/Invoke type-lib reader (IL2050). See IsAotCompatible=false
+# in HexIDE.Desktop.csproj.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows-amd64:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: IDE
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish HexIDE.Desktop (Windows)
+        run: dotnet publish HexIDE.Desktop -f net10.0 -c Release -o bin/windows/
+
+      - name: Publish HexIDE.Standalone (Windows)
+        run: dotnet publish HexIDE.Standalone -f net10.0 -c Release -o bin/windows/standalone/
+
+      - name: Strip debug symbols and rename launcher
+        shell: bash
+        run: |
+          find ./bin/windows -name "*.pdb" -type f -delete
+          mv ./bin/windows/HexIDE.Desktop.exe ./bin/windows/HexIDE.exe
+
+      - name: Zip Windows files
+        shell: pwsh
+        run: Compress-Archive -Path './bin/windows/*' -DestinationPath './bin/hexide-windows-amd64.zip'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hexide-windows-amd64
+          path: ./IDE/bin/hexide-windows-amd64.zip
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./IDE/bin/hexide-windows-amd64.zip
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  build-linux-amd64:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: IDE
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish HexIDE.Desktop (Linux)
+        run: dotnet publish HexIDE.Desktop -f net10.0 -c Release -o bin/linux/
+
+      - name: Publish HexIDE.Standalone (Linux)
+        run: dotnet publish HexIDE.Standalone -f net10.0 -c Release -o bin/linux/standalone/
+
+      - name: Strip debug symbols and rename launcher
+        run: |
+          find ./bin/linux -name "*.pdb" -type f -delete
+          chmod +x ./bin/linux/HexIDE.Desktop
+          chmod +x ./bin/linux/standalone/HexIDE.Standalone
+          mv ./bin/linux/HexIDE.Desktop ./bin/linux/HexIDE
+
+      - name: Tar files
+        run: tar -czf ./bin/hexide-linux-amd64.tar.gz -C ./bin/linux .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hexide-linux-amd64
+          path: ./IDE/bin/hexide-linux-amd64.tar.gz
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./IDE/bin/hexide-linux-amd64.tar.gz
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+  build-macos-arm64:
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: IDE
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish HexIDE.Desktop (macOS)
+        run: dotnet publish HexIDE.Desktop -f net10.0 -c Release -o bin/macos/
+
+      - name: Publish HexIDE.Standalone (macOS)
+        run: dotnet publish HexIDE.Standalone -f net10.0 -c Release -o bin/macos/standalone/
+
+      - name: Strip debug symbols and rename launcher
+        run: |
+          find ./bin/macos -name "*.pdb" -type f -delete
+          find ./bin/macos -name "*.dSYM" -type d -exec rm -rf {} +
+          chmod +x ./bin/macos/HexIDE.Desktop
+          chmod +x ./bin/macos/standalone/HexIDE.Standalone
+          mv ./bin/macos/HexIDE.Desktop ./bin/macos/HexIDE
+
+      - name: Tar files
+        run: tar -czf ./bin/hexide-macos-arm64.tar.gz -C ./bin/macos .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hexide-macos-arm64
+          path: ./IDE/bin/hexide-macos-arm64.tar.gz
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./IDE/bin/hexide-macos-arm64.tar.gz
+          token: ${{ secrets.GITHUB_TOKEN }}

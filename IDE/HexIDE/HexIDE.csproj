@@ -1,0 +1,66 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFrameworks>$(DotNetVersion)</TargetFrameworks>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+        <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+        <TrimMode>full</TrimMode>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <NoWarn>$(NoWarn);CS1998</NoWarn>
+        <WarningsNotAsErrors>IL2026;IL3053;IL2104;</WarningsNotAsErrors>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Avalonia" />
+        <PackageReference Include="Avalonia.Themes.Simple" />
+        <PackageReference Include="Avalonia.AvaloniaEdit" />
+        <PackageReference Include="Avalonia.Controls.DataGrid" />
+        <PackageReference Include="Avalonia.Controls.ColorPicker" />
+        <PackageReference Include="Classic.Avalonia.Theme" />
+        <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
+        <PackageReference Include="CommunityToolkit.Mvvm" />
+        <PackageReference Include="Pure.DI" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers" />
+        <PackageReference Include="Dock.Avalonia" />
+        <PackageReference Include="Dock.Avalonia.Themes.Simple" />
+        <PackageReference Include="Dock.Model" />
+        <PackageReference Include="Dock.Model.MVVM" />
+        <PackageReference Include="Dock.Model.Avalonia" />
+        <PackageReference Include="Dock.Serializer" />
+        <PackageReference Include="PropertyChanged.SourceGenerator" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+        <PackageReference Include="R3" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\HexIDE.Core\HexIDE.Core.csproj" />
+        <ProjectReference Include="..\HexIDE.Runtime\HexIDE.Runtime.csproj" />
+        <ProjectReference Include="..\HexIDE.Lsp\HexIDE.Lsp.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="HexIDE.Integration.Tests" />
+        <InternalsVisibleTo Include="HexIDE.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Remove="Icons\**\*.png" />
+        <AvaloniaResource Include="Icons\**\*.png" />
+        <AvaloniaResource Include="Resources\**\*" />
+        <None Remove="Icons\AppIcon\hexide.ico" />
+        <AvaloniaResource Include="Icons\AppIcon\hexide.ico" />
+        <None Remove="Themes\Packs\*.json" />
+        <AvaloniaResource Include="Themes\Packs\*.json" />
+        <None Remove="Keymaps\Packs\*.json" />
+        <AvaloniaResource Include="Keymaps\Packs\*.json" />
+        <None Remove="Localization\Packs\*.json" />
+        <AvaloniaResource Include="Localization\Packs\*.json" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- Baked-in add-in trust anchors: the root public key (every package chains to it), the pinned
+             first-party publisher key (first-party status is bound to this key, not a string), and the
+             bundled root-signed revocation floor list. -->
+        <EmbeddedResource Include="Addins\Trust\*.pub" />
+        <EmbeddedResource Include="Addins\Trust\revocations.json" />
+        <EmbeddedResource Include="Addins\Trust\revocations.sig" />
+    </ItemGroup>
+</Project>

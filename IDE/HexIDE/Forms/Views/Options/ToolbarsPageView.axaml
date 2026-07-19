@@ -1,0 +1,17 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels.Options"
+             mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="300"
+             x:DataType="vm:ToolbarsPageViewModel"
+             x:Class="HexIDE.Forms.Views.Options.ToolbarsPageView">
+    <HeaderedContentControl Header="{DynamicResource Str.Options.Toolbars.VisibleToolbars}" Padding="10" VerticalAlignment="Top">
+        <StackPanel Orientation="Vertical" Spacing="6">
+            <CheckBox IsChecked="{CompiledBinding StandardToolbarVisible}" Content="{DynamicResource Str.Options.Toolbars.Standard}" />
+            <CheckBox IsChecked="{CompiledBinding EditToolbarVisible}" Content="{DynamicResource Str.Options.Toolbars.Edit}" />
+            <CheckBox IsChecked="{CompiledBinding DebugToolbarVisible}" Content="{DynamicResource Str.Options.Toolbars.Debug}" />
+            <CheckBox IsChecked="{CompiledBinding FormEditorToolbarVisible}" Content="{DynamicResource Str.Options.Toolbars.FormEditor}" />
+        </StackPanel>
+    </HeaderedContentControl>
+</UserControl>

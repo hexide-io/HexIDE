@@ -1,0 +1,47 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:HexIDE="clr-namespace:HexIDE"
+             xmlns:dockSimple="clr-namespace:Dock.Avalonia.Themes.Simple;assembly=Dock.Avalonia.Themes.Simple"
+             xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
+             x:Class="HexIDE.App"
+             RequestedThemeVariant="Light">
+
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceInclude Source="Themes/Classic.axaml" />
+                <ResourceInclude Source="Themes/IconGeometry.axaml" />
+                <ResourceInclude Source="Controls/MDI/MDIWindow.axaml" />
+                <ResourceInclude Source="Controls/MDI/MDIHost.axaml" />
+                <ResourceInclude Source="Controls/ResizeAdorner.axaml" />
+                <ResourceInclude Source="Controls/Properties/PropertyBox.axaml" />
+                <ResourceInclude Source="avares://HexIDE.Runtime/BuiltinControls/VBTimer.axaml" />
+                <ResourceInclude Source="avares://HexIDE.Runtime/BuiltinControls/VBLabel.axaml" />
+                <ResourceInclude Source="avares://HexIDE.Runtime/BuiltinControls/Resources.axaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+
+    <Application.Styles>
+        <SimpleTheme />
+        <dockSimple:DockSimpleTheme />
+        <StyleInclude Source="avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml" />
+        <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml" />
+
+        <Style Selector="ToolChromeControl">
+            <Setter Property="Background" Value="{DynamicResource DockTitleBarBrush}" />
+        </Style>
+        <!-- PART_Background is the title bar panel; this covers the inactive (non-:active) state -->
+        <Style Selector="ToolChromeControl /template/ Border#PART_Background">
+            <Setter Property="Background" Value="{DynamicResource DockTitleBarBrush}" />
+        </Style>
+        <Style Selector="ToolChromeControl /template/ TextBlock#PART_Title">
+            <Setter Property="Padding" Value="1,1,0,0" />
+            <Setter Property="Foreground" Value="{DynamicResource {x:Static commonControls:SystemColors.ControlTextBrushKey}}" />
+        </Style>
+    </Application.Styles>
+
+    <Application.DataTemplates>
+        <HexIDE:ViewLocator />
+    </Application.DataTemplates>
+</Application>

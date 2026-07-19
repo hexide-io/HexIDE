@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>$(DotNetVersion)</TargetFrameworks>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Avalonia.Headless" />
+        <PackageReference Include="AwesomeAssertions" />
+        <PackageReference Include="coverlet.collector" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="NSubstitute" />
+        <PackageReference Include="xunit" />
+        <PackageReference Include="xunit.analyzers" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+        <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="AwesomeAssertions" />
+        <Using Include="NSubstitute" />
+        <Using Include="Xunit" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\HexIDE\HexIDE.csproj" />
+        <ProjectReference Include="..\HexIDE.Runtime\HexIDE.Runtime.csproj" />
+        <ProjectReference Include="..\HexIDE.AIChat\HexIDE.AIChat.csproj" />
+        <!-- PackageSigner is used to produce signed fixtures for the verifier tests. -->
+        <ProjectReference Include="..\HexIDE.AddinPacker\HexIDE.AddinPacker.csproj" />
+    </ItemGroup>
+
+</Project>

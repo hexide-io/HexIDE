@@ -1,0 +1,68 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:HexIDE.Forms.ViewModels"
+             x:Class="HexIDE.Forms.Views.FindReplaceView"
+             x:DataType="vm:FindReplaceViewModel">
+
+    <DockPanel Margin="8" LastChildFill="False">
+
+        <!-- Right-side buttons -->
+        <StackPanel DockPanel.Dock="Right" Width="80" Margin="8,0,0,0" Spacing="4">
+            <Button Content="{DynamicResource Str.Dialog.FindReplace.Button.FindNext}" Command="{CompiledBinding FindNextCommand}" IsDefault="True"
+                    HorizontalContentAlignment="Center" HorizontalAlignment="Stretch" />
+            <Button Content="{DynamicResource Str.Dialog.FindReplace.Button.Replace}" Command="{CompiledBinding ReplaceOneCommand}"
+                    IsVisible="{CompiledBinding ShowReplace}"
+                    HorizontalContentAlignment="Center" HorizontalAlignment="Stretch" />
+            <Button Content="{DynamicResource Str.Dialog.FindReplace.Button.ReplaceAll}" Command="{CompiledBinding ReplaceAllCommand}"
+                    IsVisible="{CompiledBinding ShowReplace}"
+                    HorizontalContentAlignment="Center" HorizontalAlignment="Stretch" />
+            <Button Content="{DynamicResource Str.Dialog.FindReplace.Button.Cancel}" Command="{CompiledBinding CancelCommand}" IsCancel="True"
+                    HorizontalContentAlignment="Center" HorizontalAlignment="Stretch" />
+        </StackPanel>
+
+        <!-- Main content -->
+        <StackPanel DockPanel.Dock="Left" Spacing="6" Width="260">
+
+            <!-- Find What -->
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Left" Text="{DynamicResource Str.Dialog.FindReplace.Label.FindWhat}" VerticalAlignment="Center" Width="75" />
+                <TextBox Text="{CompiledBinding SearchText, Mode=TwoWay}" />
+            </DockPanel>
+
+            <!-- Replace With (conditional) -->
+            <DockPanel IsVisible="{CompiledBinding ShowReplace}">
+                <TextBlock DockPanel.Dock="Left" Text="{DynamicResource Str.Dialog.FindReplace.Label.ReplaceWith}" VerticalAlignment="Center" Width="75" />
+                <TextBox Text="{CompiledBinding ReplaceText, Mode=TwoWay}" />
+            </DockPanel>
+
+            <!-- Search scope -->
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Left" Text="{DynamicResource Str.Dialog.FindReplace.Label.Search}" VerticalAlignment="Center" Width="75" />
+                <ComboBox ItemsSource="{CompiledBinding ScopeItems}"
+                          SelectedIndex="{CompiledBinding SelectedScopeIndex}"
+                          HorizontalAlignment="Stretch" />
+            </DockPanel>
+
+            <!-- Options -->
+            <StackPanel Spacing="2" Margin="0,2,0,0">
+
+                <!-- Direction -->
+                <DockPanel>
+                    <TextBlock DockPanel.Dock="Left" Text="{DynamicResource Str.Dialog.FindReplace.Label.Direction}" VerticalAlignment="Center" Width="75" />
+                    <StackPanel Orientation="Horizontal" Spacing="12">
+                        <RadioButton Content="{DynamicResource Str.Dialog.FindReplace.Direction.Up}" GroupName="Direction"
+                                     IsChecked="{CompiledBinding Direction, Converter={x:Static vm:FindDirectionConverters.IsUp}}" />
+                        <RadioButton Content="{DynamicResource Str.Dialog.FindReplace.Direction.Down}" GroupName="Direction"
+                                     IsChecked="{CompiledBinding Direction, Converter={x:Static vm:FindDirectionConverters.IsDown}}" />
+                    </StackPanel>
+                </DockPanel>
+
+                <CheckBox Content="{DynamicResource Str.Dialog.FindReplace.Option.MatchCase}" IsChecked="{CompiledBinding MatchCase}" />
+                <CheckBox Content="{DynamicResource Str.Dialog.FindReplace.Option.WholeWordOnly}" IsChecked="{CompiledBinding WholeWordOnly}" />
+                <CheckBox Content="{DynamicResource Str.Dialog.FindReplace.Option.UsePatternMatching}" IsChecked="{CompiledBinding UsePatternMatching}" />
+            </StackPanel>
+
+        </StackPanel>
+
+    </DockPanel>
+</UserControl>

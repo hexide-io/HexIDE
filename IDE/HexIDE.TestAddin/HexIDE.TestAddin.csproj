@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Avalonia" />
+    <ProjectReference Include="..\HexIDE.Core\HexIDE.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Publisher logo, copied to the build output so the add-in packager can hash it into the signed
+         package via its logo flag (exercises the Phase 13 logo path end-to-end). -->
+    <None Include="logo.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

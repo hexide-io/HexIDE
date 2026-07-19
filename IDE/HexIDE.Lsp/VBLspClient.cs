@@ -1,0 +1,429 @@
+using System.Collections.Concurrent;
+using System.Text.Json;
+using HexIDE.Lsp.Messages;
+using Microsoft.Extensions.Logging;
+using StreamJsonRpc;
+
+namespace HexIDE.Lsp;
+
+public sealed class VBLspClient : ILspClient
+{
+    private readonly ILspTransport _transport;
+    private readonly ILogger<VBLspClient> _logger;
+    // Currently-open documents (uri -> latest version+text), so they can be replayed after a reconnect.
+    private readonly ConcurrentDictionary<string, TrackedDocument> _openDocuments = new();
+    private readonly object _reconnectGate = new();
+    private JsonRpc? _rpc;
+    private volatile bool _initialized;
+    private volatile bool _stopping;
+    private Task _reconnectTask = Task.CompletedTask;   // the running reconnect loop (or completed)
+    private CancellationTokenSource? _reconnectCts;
+
+    private sealed record TrackedDocument(int Version, string Text);
+
+    public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
+
+    // Running only when the underlying transport is connected AND the initialize handshake completed.
+    public bool IsRunning => _transport.IsAlive && _initialized;
+
+    public VBLspClient(ILspTransport transport, ILogger<VBLspClient> logger)
+    {
+        _transport = transport;
+        _logger = logger;
+    }
+
+    public async Task StartAsync(CancellationToken cancellationToken = default)
+    {
+        // Channel-level death signal (e.g. stdio server process exit). WebSocket drops surface via
+        // JsonRpc.Disconnected instead, wired per-connection in ConnectAndInitializeAsync.
+        _transport.Closed += OnTransportClosed;
+
+        await ConnectAndInitializeAsync(cancellationToken);
+    }
+
+    /// <summary>Connects the transport, binds JSON-RPC, performs the initialize handshake, and
+    /// replays any tracked documents. Used for the first connect and for every reconnect.</summary>
+    private async Task ConnectAndInitializeAsync(CancellationToken cancellationToken)
+    {
+        // A FRESH formatter per connection: StreamJsonRpc formatters carry per-connection state and
+        // cannot be reused across JsonRpc instances — reusing one silently breaks every reconnect.
+        // It still carries the AOT-safe LspJsonContext config so serialization is identical each time.
+        var formatter = new SystemTextJsonFormatter
+        {
+            JsonSerializerOptions = new JsonSerializerOptions(LspJsonContext.Default.Options)
+            {
+                PropertyNameCaseInsensitive = true,
+            }
+        };
+        var handler = await _transport.ConnectAsync(formatter, cancellationToken);
+        if (handler is null)
+        {
+            // No server/endpoint available — run with LSP features disabled.
+            return;
+        }
+
+        var rpc = new JsonRpc(handler, new LspNotificationReceiver(this));
+        rpc.Disconnected += OnRpcDisconnected;
+        _rpc = rpc;
+        rpc.StartListening();
+
+        await InitializeAsync(cancellationToken);
+
+        if (_initialized)
+            await ReopenTrackedDocumentsAsync();
+    }
+
+    /// <summary>After a (re)connect, replay textDocument/didOpen for every tracked document so the
+    /// freshly-initialised server regains its document set and republishes diagnostics.</summary>
+    private async Task ReopenTrackedDocumentsAsync()
+    {
+        var rpc = _rpc;
+        if (rpc is null || !_initialized) return;
+        foreach (var (uri, doc) in _openDocuments)
+        {
+            var p = new DidOpenTextDocumentParams(new TextDocumentItem(uri, "vb6", doc.Version, doc.Text));
+            try { await rpc.NotifyWithParameterObjectAsync("textDocument/didOpen", p); }
+            catch (Exception ex) { _logger.LogDebug(ex, "re-open didOpen failed for {Uri}", uri); }
+        }
+    }
+
+    private void OnRpcDisconnected(object? sender, JsonRpcDisconnectedEventArgs e)
+    {
+        _initialized = false;
+        if (_stopping) return;
+        _logger.LogWarning("VB LSP connection lost: {Reason} ({Description})", e.Reason, e.Description);
+        if (!_transport.CanReconnect) return;
+        lock (_reconnectGate)
+        {
+            // Start a reconnect loop only if one isn't already running (and we're not stopping).
+            if (!_stopping && _reconnectTask.IsCompleted)
+                _reconnectTask = ReconnectLoopAsync();
+        }
+    }
+
+    /// <summary>Reconnect-with-backoff loop for transports that support it (WebSocket). Tears down the
+    /// faulted JSON-RPC and re-runs connect → initialise → re-open until it succeeds or Stop is called.</summary>
+    private async Task ReconnectLoopAsync()
+    {
+        // Single-loop invariant is enforced by the caller under _reconnectGate.
+        var cts = new CancellationTokenSource();
+        _reconnectCts = cts;
+        try
+        {
+            var delay = TimeSpan.FromSeconds(1);
+            var maxDelay = TimeSpan.FromSeconds(30);
+            while (!_stopping && !cts.IsCancellationRequested)
+            {
+                try { await Task.Delay(delay, cts.Token); }
+                catch (OperationCanceledException) { return; }
+                if (_stopping) return;
+
+                DisposeRpc();
+                try
+                {
+                    await ConnectAndInitializeAsync(cts.Token);
+                    if (_initialized && _transport.IsAlive)
+                    {
+                        _logger.LogInformation("VB LSP reconnected.");
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "VB LSP reconnect attempt failed");
+                }
+
+                delay = TimeSpan.FromTicks(Math.Min(delay.Ticks * 2, maxDelay.Ticks));
+            }
+        }
+        finally
+        {
+            if (ReferenceEquals(_reconnectCts, cts)) _reconnectCts = null;
+            cts.Dispose();
+        }
+    }
+
+    /// <summary>Unsubscribes and disposes the current JSON-RPC connection (leaving the transport intact).</summary>
+    private void DisposeRpc()
+    {
+        var rpc = _rpc;
+        _rpc = null;
+        if (rpc is not null)
+        {
+            rpc.Disconnected -= OnRpcDisconnected;
+            rpc.Dispose();
+        }
+    }
+
+    private async Task InitializeAsync(CancellationToken cancellationToken)
+    {
+        if (_rpc is null) return;
+
+        var initParams = new InitializeParams(
+            ProcessId: Environment.ProcessId,
+            RootUri: null,
+            Capabilities: new ClientCapabilities(
+                new TextDocumentClientCapabilities(
+                    PublishDiagnostics: new PublishDiagnosticsClientCapabilities(),
+                    Hover: new HoverClientCapabilities(ContentFormat: ["plaintext"]))));
+
+        try
+        {
+            await _rpc.InvokeWithParameterObjectAsync<InitializeResult>(
+                "initialize", initParams, cancellationToken);
+            await _rpc.NotifyWithParameterObjectAsync("initialized", EmptyParams.Instance);
+            _initialized = true;
+            _logger.LogInformation("VB6 LSP server initialized");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to initialize VB6 LSP server");
+        }
+    }
+
+    public async Task OpenDocumentAsync(string uri, string text, CancellationToken cancellationToken = default)
+    {
+        _openDocuments[uri] = new TrackedDocument(1, text);
+        var rpc = _rpc;
+        if (rpc is null || !_initialized) return;
+        var p = new DidOpenTextDocumentParams(new TextDocumentItem(uri, "vb6", 1, text));
+        try { await rpc.NotifyWithParameterObjectAsync("textDocument/didOpen", p); }
+        catch (Exception ex) { _logger.LogDebug(ex, "textDocument/didOpen failed"); }
+    }
+
+    public async Task ChangeDocumentAsync(string uri, int version, string text, CancellationToken cancellationToken = default)
+    {
+        _openDocuments[uri] = new TrackedDocument(version, text);
+        var rpc = _rpc;
+        if (rpc is null || !_initialized) return;
+        var p = new DidChangeTextDocumentParams(
+            new VersionedTextDocumentIdentifier(uri, version),
+            [new TextDocumentContentChangeEvent(text)]);
+        try { await rpc.NotifyWithParameterObjectAsync("textDocument/didChange", p); }
+        catch (Exception ex) { _logger.LogDebug(ex, "textDocument/didChange failed"); }
+    }
+
+    public async Task CloseDocumentAsync(string uri, CancellationToken cancellationToken = default)
+    {
+        _openDocuments.TryRemove(uri, out _);
+        var rpc = _rpc;
+        if (rpc is null || !_initialized) return;
+        var p = new DidCloseTextDocumentParams(new TextDocumentIdentifier(uri));
+        try { await rpc.NotifyWithParameterObjectAsync("textDocument/didClose", p); }
+        catch (Exception ex) { _logger.LogDebug(ex, "textDocument/didClose failed"); }
+    }
+
+    public async Task<HoverResult?> RequestHoverAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized) return null;
+        var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
+        try
+        {
+            return await _rpc.InvokeWithParameterObjectAsync<HoverResult?>(
+                "textDocument/hover", p, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "textDocument/hover request failed");
+            return null;
+        }
+    }
+
+    public async Task<DocumentSymbol[]> RequestDocumentSymbolsAsync(string uri, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized) return [];
+        var p = new DocumentSymbolParams(new TextDocumentIdentifier(uri));
+        try
+        {
+            return await _rpc.InvokeWithParameterObjectAsync<DocumentSymbol[]>(
+                "textDocument/documentSymbol", p, cancellationToken) ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "textDocument/documentSymbol request failed");
+            return [];
+        }
+    }
+
+    public async Task<FoldingRange[]> RequestFoldingRangesAsync(string uri, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized) return [];
+        var p = new FoldingRangeParams(new TextDocumentIdentifier(uri));
+        try
+        {
+            return await _rpc.InvokeWithParameterObjectAsync<FoldingRange[]>(
+                "textDocument/foldingRange", p, cancellationToken) ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "textDocument/foldingRange request failed");
+            return [];
+        }
+    }
+
+    public async Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized) return [];
+        var p = new CompletionParams(new TextDocumentIdentifier(uri), position);
+        try
+        {
+            var result = await _rpc.InvokeWithParameterObjectAsync<CompletionList?>(
+                "textDocument/completion", p, cancellationToken);
+            return result?.Items ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "textDocument/completion request failed");
+            return [];
+        }
+    }
+
+    public async Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized) return null;
+        var p = new SignatureHelpParams(new TextDocumentIdentifier(uri), position);
+        try
+        {
+            return await _rpc.InvokeWithParameterObjectAsync<SignatureHelp?>(
+                "textDocument/signatureHelp", p, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "textDocument/signatureHelp request failed");
+            return null;
+        }
+    }
+
+    public async Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized) return null;
+        var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
+        try
+        {
+            return await _rpc.InvokeWithParameterObjectAsync<Location[]?>(
+                "textDocument/definition", p, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "textDocument/definition request failed");
+            return null;
+        }
+    }
+
+    public async Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized) return null;
+        var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
+        try
+        {
+            return await _rpc.InvokeWithParameterObjectAsync<DocumentHighlight[]?>(
+                "textDocument/documentHighlight", p, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "textDocument/documentHighlight request failed");
+            return null;
+        }
+    }
+
+    public async Task<WorkspaceEdit?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized) return null;
+        var p = new RenameParams(new TextDocumentIdentifier(uri), position, newName);
+        try
+        {
+            return await _rpc.InvokeWithParameterObjectAsync<WorkspaceEdit?>(
+                "textDocument/rename", p, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "textDocument/rename request failed");
+            return null;
+        }
+    }
+
+    public async Task<TextEdit[]> RequestFormattingAsync(string uri, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized) return [];
+        var p = new DocumentFormattingParams(
+            new TextDocumentIdentifier(uri),
+            new FormattingOptions(4, true));
+        try
+        {
+            return await _rpc.InvokeWithParameterObjectAsync<TextEdit[]?>(
+                "textDocument/formatting", p, cancellationToken) ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "textDocument/formatting request failed");
+            return [];
+        }
+    }
+
+    public async Task<VbaBuiltinSymbol[]> RequestBuiltinSymbolsAsync(CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized) return [];
+        try
+        {
+            return await _rpc.InvokeWithParameterObjectAsync<VbaBuiltinSymbol[]>(
+                "vb/builtinSymbols", EmptyParams.Instance, cancellationToken) ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "vb/builtinSymbols request failed");
+            return [];
+        }
+    }
+
+    public async Task StopAsync()
+    {
+        _stopping = true;
+        // Safe even if the reconnect loop already disposed the CTS in its finally.
+        try { _reconnectCts?.Cancel(); } catch (ObjectDisposedException) { }
+
+        // Wait for any in-flight reconnect loop to fully exit so it cannot establish a new
+        // connection after we have torn everything down.
+        Task reconnectTask;
+        lock (_reconnectGate) { reconnectTask = _reconnectTask; }
+        try { await reconnectTask; } catch { /* loop is best-effort */ }
+
+        var rpc = _rpc;
+        if (rpc is not null)
+        {
+            try { await rpc.InvokeAsync("shutdown"); } catch { }
+            try { await rpc.NotifyWithParameterObjectAsync("exit", EmptyParams.Instance); } catch { }
+        }
+        DisposeRpc();
+
+        _transport.Closed -= OnTransportClosed;
+        await _transport.DisposeAsync();
+        _initialized = false;
+    }
+
+    public async ValueTask DisposeAsync() => await StopAsync();
+
+    private void OnTransportClosed(object? sender, EventArgs e) => _initialized = false;
+
+    internal void RaisePublishDiagnostics(PublishDiagnosticsParams p) =>
+        DiagnosticsPublished?.Invoke(this, p);
+
+    public Task InjectDiagnosticsAsync(string uri, Diagnostic[] diagnostics)
+    {
+        RaisePublishDiagnostics(new PublishDiagnosticsParams(uri, diagnostics));
+        return Task.CompletedTask;
+    }
+
+    private sealed class LspNotificationReceiver
+    {
+        private readonly VBLspClient _client;
+
+        public LspNotificationReceiver(VBLspClient client) => _client = client;
+
+        [JsonRpcMethod("textDocument/publishDiagnostics", UseSingleObjectParameterDeserialization = true)]
+        public void OnPublishDiagnostics(PublishDiagnosticsParams p)
+        {
+            _client._logger.LogDebug("publishDiagnostics: uri={Uri}, count={Count}", p.Uri, p.Diagnostics.Length);
+            _client.RaisePublishDiagnostics(p);
+        }
+    }
+}

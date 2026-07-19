@@ -1,0 +1,9 @@
+{
+  "name": "VB6",
+  "description": "Adds classic VB6 keyboard shortcuts not present in the Default keymap. Only overrides are listed; all Default gestures remain unchanged.",
+  "bindings": {
+    "GoToDefinitionCommand": "Shift+F2",
+    "StepIntoCommand":       "F8",
+    "StepOverCommand":       "Shift+F8"
+  }
+}

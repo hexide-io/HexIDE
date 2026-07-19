@@ -1,0 +1,38 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="340" d:DesignHeight="200"
+             x:DataType="vm:AboutDialogViewModel"
+             x:Class="HexIDE.Forms.Views.AboutDialog"
+             MinWidth="300">
+    <StackPanel Margin="16,16,16,8" Spacing="10">
+        <StackPanel Orientation="Horizontal" Spacing="12" HorizontalAlignment="Center">
+            <Image Source="{CompiledBinding Icon}" Width="48" Height="48"
+                   IsVisible="{CompiledBinding Icon, Converter={x:Static ObjectConverters.IsNotNull}}" />
+            <StackPanel VerticalAlignment="Center" Spacing="4">
+                <TextBlock Text="{CompiledBinding Title}" FontSize="18" FontWeight="Bold" />
+                <TextBlock Text="{CompiledBinding SubTitle}" />
+            </StackPanel>
+        </StackPanel>
+        <Separator />
+        <TextBlock Text="{CompiledBinding Copyright}" HorizontalAlignment="Center" FontSize="11" />
+
+        <!-- Canonical add-in trust-anchor fingerprints, for out-of-band verification. -->
+        <Expander Header="{DynamicResource Str.Dialog.About.SigningKeys.Header}" IsVisible="{CompiledBinding HasTrustAnchors}"
+                  HorizontalAlignment="Stretch">
+            <StackPanel Spacing="3" MaxWidth="300">
+                <TextBlock Text="{DynamicResource Str.Dialog.About.SigningKeys.RootKey}" Opacity="0.7" FontSize="11" />
+                <TextBlock Text="{CompiledBinding RootFingerprint}" TextWrapping="Wrap"
+                           FontFamily="Consolas,Courier New,monospace" FontSize="11" />
+                <TextBlock Text="{DynamicResource Str.Dialog.About.SigningKeys.FirstPartyKey}" Opacity="0.7" FontSize="11" Margin="0,4,0,0" />
+                <TextBlock Text="{CompiledBinding FirstPartyFingerprint}" TextWrapping="Wrap"
+                           FontFamily="Consolas,Courier New,monospace" FontSize="11" />
+            </StackPanel>
+        </Expander>
+
+        <Button Content="{DynamicResource Str.Dialog.About.Ok}" HorizontalAlignment="Center" MinWidth="75"
+                Margin="0,4,0,4" Click="OkClick" />
+    </StackPanel>
+</UserControl>

@@ -1,0 +1,135 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
+             xmlns:input="clr-namespace:Avalonia.Labs.Input"
+             xmlns:vb="clr-namespace:HexIDE"
+             xmlns:utils="clr-namespace:HexIDE.Utils"
+             xmlns:viewModels="clr-namespace:HexIDE.Forms.ViewModels"
+             xmlns:controls="clr-namespace:HexIDE.Controls"
+             xmlns:avaloniaEdit="https://github.com/avaloniaui/avaloniaedit"
+             x:DataType="viewModels:CodeEditorViewModel"
+             x:Name="Root"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="HexIDE.Forms.Views.CodeEditorView">
+    <input:CommandManager.CommandBindings>
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.AddProcedureCommand}"
+                              ExecutingCommand="{CompiledBinding AddProcedure}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ViewCodeCommand}"
+                              ExecutingCommand="{CompiledBinding ViewCode}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ViewObjectCommand}"
+                              ExecutingCommand="{CompiledBinding ViewObject}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.UndoCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.Undo}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.RedoCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.Redo}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CopyCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.Copy}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.PasteCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.Paste}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CutCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.Cut}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.DeleteCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.Delete}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.RemoveCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.Delete}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SelectAllCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.SelectAll}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.IndentCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.Indent}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OutdentCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.Outdent}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.InsertFileCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.InsertFile}" />
+
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ListPropertiesMethodsCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.TriggerCompletion}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ListConstantsCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.TriggerCompletion}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.QuickInfoCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.TriggerQuickInfo}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ParameterInfoCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.TriggerSignatureHelp}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CompleteWordCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.TriggerCompletion}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.ToggleBookmark}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.NextBookmarkCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.NextBookmark}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.PreviousBookmarkCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.PreviousBookmark}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ClearAllBookmarksCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.ClearAllBookmarks}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.GoToDefinitionCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.GoToDefinition}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.RenameSymbolCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.RenameSymbol}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.FormatDocumentCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.FormatDocument}" />
+
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveCommand}"
+                              ExecutingCommand="{CompiledBinding SaveForm}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveAsCommand}"
+                              ExecutingCommand="{CompiledBinding SaveFormAs}" />
+    </input:CommandManager.CommandBindings>
+    <DockPanel>
+        <Grid DockPanel.Dock="Top" ColumnDefinitions="10,*,10,*,10" Margin="0,0,0,2">
+            <ComboBox FontWeight="Bold" Grid.Column="1"
+                      ItemsSource="{CompiledBinding ObjectNames}"
+                      SelectedItem="{CompiledBinding SelectedObject}" />
+            <ComboBox FontWeight="Bold" Grid.Column="3"
+                      x:Name="ProcedureCombo"
+                      ItemsSource="{CompiledBinding ProcedureNames}"
+                      SelectedItem="{CompiledBinding SelectedProcedure}" />
+        </Grid>
+        <controls:MinimapControl x:Name="Minimap"
+                                 DockPanel.Dock="Right"
+                                 Width="110"
+                                 Margin="2,0,0,0"
+                                 IsVisible="{CompiledBinding Settings.IsMinimapVisible}" />
+        <ClassicBorderDecorator BorderStyle="Sunken" BorderThickness="2">
+            <avaloniaEdit:TextEditor Name="TextEditor"
+                                     FontFamily="Courier New,Monospace"
+                                     FontSize="13"
+                                     ShowLineNumbers="True"
+                                     Background="{DynamicResource {x:Static commonControls:SystemColors.WindowBrushKey}}"
+                                     Document="{CompiledBinding Document}"
+                                     HorizontalScrollBarVisibility="Visible"
+                                     VerticalScrollBarVisibility="Visible"
+                                     Padding="10,2,0,2">
+                <avaloniaEdit:TextEditor.ContextFlyout>
+                    <MenuFlyout>
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Cut}"   utils:MenuUtils.MenuIcon="{StaticResource Geo.Cut}"   Command="{x:Static vb:ApplicationCommands.CutCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Copy}"  utils:MenuUtils.MenuIcon="{StaticResource Geo.Copy}"  Command="{x:Static vb:ApplicationCommands.CopyCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Paste}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Paste}" Command="{x:Static vb:ApplicationCommands.PasteCommand}" />
+                        <Separator />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ListPropertiesMethods}" Command="{x:Static vb:ApplicationCommands.ListPropertiesMethodsCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ListConstants}"          Command="{x:Static vb:ApplicationCommands.ListConstantsCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.QuickInfo}"              utils:MenuUtils.MenuIcon="{StaticResource Geo.Quickinfo}"     Command="{x:Static vb:ApplicationCommands.QuickInfoCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ParameterInfo}"          utils:MenuUtils.MenuIcon="{StaticResource Geo.Parameterinfo}" Command="{x:Static vb:ApplicationCommands.ParameterInfoCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.CompleteWord}"           utils:MenuUtils.MenuIcon="{StaticResource Geo.Completeword}"  Command="{x:Static vb:ApplicationCommands.CompleteWordCommand}" />
+                        <Separator />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Indent}"      Command="{x:Static vb:ApplicationCommands.IndentCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Outdent}"     Command="{x:Static vb:ApplicationCommands.OutdentCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.InsertFile}" Command="{x:Static vb:ApplicationCommands.InsertFileCommand}" />
+                        <Separator />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleBreakpoint}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Togglebreakpoint}" Command="{x:Static vb:ApplicationCommands.DisabledCommand}" />
+                        <Separator />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Bookmarks}">
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ToggleBookmark}"    Command="{x:Static vb:ApplicationCommands.ToggleBookmarkCommand}"   InputGesture="Ctrl+F2" />
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.NextBookmark}"      Command="{x:Static vb:ApplicationCommands.NextBookmarkCommand}" />
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.PreviousBookmark}"  Command="{x:Static vb:ApplicationCommands.PreviousBookmarkCommand}"  InputGesture="Shift+F2" />
+                            <Separator />
+                            <MenuItem Header="{DynamicResource Str.CodeEditor.Context.ClearAllBookmarks}" Command="{x:Static vb:ApplicationCommands.ClearAllBookmarksCommand}" InputGesture="Ctrl+Shift+F2" />
+                        </MenuItem>
+                        <Separator />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToDefinition}" Command="{x:Static vb:ApplicationCommands.GoToDefinitionCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Rename}"        Command="{x:Static vb:ApplicationCommands.RenameSymbolCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.FormatDocument}"  Command="{x:Static vb:ApplicationCommands.FormatDocumentCommand}" />
+                    </MenuFlyout>
+                </avaloniaEdit:TextEditor.ContextFlyout>
+            </avaloniaEdit:TextEditor>
+        </ClassicBorderDecorator>
+    </DockPanel>
+</UserControl>

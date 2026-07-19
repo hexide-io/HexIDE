@@ -1,0 +1,90 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="clr-namespace:HexIDE.Forms.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="412" d:DesignHeight="353"
+             x:DataType="viewModels:ProjectPropertiesViewModel"
+             x:Class="HexIDE.Forms.Views.ProjectPropertiesView">
+    <Grid Margin="6" RowDefinitions="*,6,Auto">
+        <TabControl>
+
+            <TabItem Header="{DynamicResource Str.Dialog.ProjectProperties.Tab.General}">
+                <StackPanel Orientation="Vertical" Margin="12,7" Spacing="5">
+
+                    <Grid ColumnDefinitions="188,15,160" RowDefinitions="Auto,3,Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Str.Dialog.ProjectProperties.General.ProjectType}" />
+                        <TextBlock Grid.Row="0" Grid.Column="2" Text="{DynamicResource Str.Dialog.ProjectProperties.General.StartupObject}" />
+                        <ComboBox Grid.Row="2" Grid.Column="0"
+                                    SelectedItem="{CompiledBinding SelectedProjectType}"
+                                    ItemsSource="{CompiledBinding ProjectTypes}" />
+                        <ComboBox Grid.Row="2" Grid.Column="2"
+                                    SelectedItem="{CompiledBinding SelectedStartupObject}"
+                                    ItemsSource="{CompiledBinding StartupObjects}" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="250,28,*" RowDefinitions="Auto,3,Auto,Auto,3,Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Str.Dialog.ProjectProperties.General.ProjectName}" />
+                        <TextBox Grid.Row="2" Grid.Column="0" Text="{CompiledBinding ProjectName}" />
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource Str.Dialog.ProjectProperties.General.HelpFileName}" VerticalAlignment="Bottom" />
+                        <TextBox Grid.Row="5" Grid.Column="0" IsEnabled="False" />
+
+                        <TextBlock Grid.Row="3" Grid.Column="2" Text="{DynamicResource Str.Dialog.ProjectProperties.General.ProjectHelpContextId}" TextWrapping="WrapWithOverflow" />
+                        <TextBox Grid.Row="5" Grid.Column="2" Text="0" IsEnabled="False" />
+                    </Grid>
+
+                    <Grid RowDefinitions="Auto,3,Auto,Auto,3,Auto">
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Str.Dialog.ProjectProperties.General.ProjectDescription}" />
+                        <TextBox Grid.Row="2" Grid.Column="0" Text="{CompiledBinding ProjectDescription}" />
+                    </Grid>
+
+                    <Grid ColumnDefinitions="150,*">
+                        <StackPanel Spacing="9" Orientation="Vertical">
+                            <CheckBox IsEnabled="False" Content="{DynamicResource Str.Dialog.ProjectProperties.General.UnattendedExecution}" />
+                            <CheckBox IsEnabled="False" Content="{DynamicResource Str.Dialog.ProjectProperties.General.UpgradeActiveXControls}" />
+                            <CheckBox IsEnabled="False" Content="{DynamicResource Str.Dialog.ProjectProperties.General.RequireLicenseKey}" />
+                            <CheckBox IsEnabled="False" Content="{DynamicResource Str.Dialog.ProjectProperties.General.RetainedInMemory}" />
+                        </StackPanel>
+
+                        <HeaderedContentControl Grid.Column="1" Header="{DynamicResource Str.Dialog.ProjectProperties.General.ThreadingModel}" IsEnabled="False">
+                            <Grid RowDefinitions="Auto,2,Auto,2,Auto" ColumnDefinitions="*,*" Margin="2">
+                                <ComboBox Grid.ColumnSpan="2" />
+                                <RadioButton Grid.Row="2" Grid.ColumnSpan="2" Content="{DynamicResource Str.Dialog.ProjectProperties.General.ThreadPerObject}" />
+                                <RadioButton Grid.Row="4" IsChecked="True" Content="{DynamicResource Str.Dialog.ProjectProperties.General.ThreadPool}" />
+                                <DockPanel Grid.Row="4" Grid.Column="1" LastChildFill="False">
+                                    <NumericUpDown Value="1" MinWidth="60"/>
+                                    <AccessText VerticalAlignment="Center" Text="{DynamicResource Str.Dialog.ProjectProperties.General.Threads}" />
+                                </DockPanel>
+                            </Grid>
+                        </HeaderedContentControl>
+                    </Grid>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="{DynamicResource Str.Dialog.ProjectProperties.Tab.Make}" IsEnabled="False">
+
+            </TabItem>
+            <TabItem Header="{DynamicResource Str.Dialog.ProjectProperties.Tab.Compile}" IsEnabled="False">
+
+            </TabItem>
+            <TabItem Header="{DynamicResource Str.Dialog.ProjectProperties.Tab.Component}" IsEnabled="False">
+
+            </TabItem>
+            <TabItem Header="{DynamicResource Str.Dialog.ProjectProperties.Tab.Debugging}" IsEnabled="False">
+
+            </TabItem>
+
+        </TabControl>
+
+        <StackPanel Grid.Row="2" HorizontalAlignment="Right" Orientation="Horizontal" Spacing="6">
+            <Button Command="{CompiledBinding OkCommand}" Content="{DynamicResource Str.Dialog.ProjectProperties.Button.Ok}" />
+            <Button Command="{CompiledBinding CancelCommand}" Content="{DynamicResource Str.Dialog.ProjectProperties.Button.Cancel}" />
+            <Button Content="{DynamicResource Str.Dialog.ProjectProperties.Button.Help}" IsEnabled="False" />
+            <StackPanel.Styles>
+                <Style Selector="Button">
+                    <Setter Property="MinWidth" Value="75" />
+                </Style>
+            </StackPanel.Styles>
+        </StackPanel>
+    </Grid>
+</UserControl>

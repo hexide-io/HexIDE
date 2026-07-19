@@ -1,0 +1,16 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="HexIDE.Runtime.Dialogs.MessageBox"
+             MinWidth="240" MaxWidth="480">
+    <Grid Margin="12,12,12,8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" MinHeight="44" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+        <StackPanel x:Name="PART_Content" Orientation="Horizontal"
+                    Spacing="12" Margin="0,0,0,12" />
+        <StackPanel x:Name="PART_Buttons" Grid.Row="1"
+                    Orientation="Horizontal" HorizontalAlignment="Right"
+                    Spacing="8" Margin="0,4,0,4" />
+    </Grid>
+</UserControl>

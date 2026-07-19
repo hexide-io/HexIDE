@@ -1,0 +1,27 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="clr-namespace:HexIDE.Forms.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:DataType="viewModels:RuntimeErrorViewModel"
+             Width="365"
+             Height="176"
+             Padding="11,18,11,11"
+             x:Class="HexIDE.Forms.Views.RuntimeErrorView">
+
+    <DockPanel>
+
+        <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,13,*,13,*,13,*">
+
+            <Button Grid.Column="0" Command="{CompiledBinding Continue}" Content="{DynamicResource Str.Dialog.RuntimeError.Button.Continue}" />
+            <Button Grid.Column="2" Command="{CompiledBinding End}" Content="{DynamicResource Str.Dialog.RuntimeError.Button.End}" />
+            <Button Grid.Column="4" Command="{CompiledBinding Debug}" Content="{DynamicResource Str.Dialog.RuntimeError.Button.Debug}" />
+            <Button Grid.Column="6" Command="{CompiledBinding Help}" Content="{DynamicResource Str.Dialog.RuntimeError.Button.Help}" />
+
+        </Grid>
+        <TextBlock TextWrapping="WrapWithOverflow" Text="{CompiledBinding ErrorText}" />
+
+    </DockPanel>
+
+</UserControl>

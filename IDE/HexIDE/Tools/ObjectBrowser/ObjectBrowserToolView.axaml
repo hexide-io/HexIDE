@@ -1,0 +1,172 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ob="clr-namespace:HexIDE.Tools.ObjectBrowser"
+             xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="400"
+             x:DataType="ob:ObjectBrowserToolViewModel"
+             x:Class="HexIDE.Tools.ObjectBrowser.ObjectBrowserToolView">
+
+    <Grid RowDefinitions="Auto,Auto,*,100">
+
+        <!-- Chrome bar — styled to match ToolDock active title bar -->
+        <Border Grid.Row="0"
+                Background="{DynamicResource ActiveTitleBarBrush}"
+                Padding="0,1">
+            <Border.Styles>
+                <Style Selector="Button.obClose">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="Foreground" Value="{DynamicResource {x:Static commonControls:SystemColors.ActiveCaptionTextBrushKey}}" />
+                    <Setter Property="Padding" Value="3,0" />
+                    <Setter Property="MinWidth" Value="0" />
+                    <Setter Property="MinHeight" Value="0" />
+                </Style>
+                <Style Selector="Button.obClose:pointerover /template/ ContentPresenter">
+                    <Setter Property="Background" Value="{DynamicResource InactiveTitleBarBrush}" />
+                </Style>
+            </Border.Styles>
+            <DockPanel Margin="6,1">
+                <Button DockPanel.Dock="Right"
+                        Classes="obClose"
+                        Command="{CompiledBinding CloseCommand}"
+                        Width="18" Height="16"
+                        ToolTip.Tip="{DynamicResource Str.Tool.ObjectBrowser.Chrome.CloseTip}">
+                    <TextBlock Text="✕" FontSize="9"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center" />
+                </Button>
+                <TextBlock Text="{DynamicResource Str.Tool.ObjectBrowser.Chrome.Title}"
+                           VerticalAlignment="Center"
+                           FontSize="12"
+                           FontWeight="Bold"
+                           Foreground="{DynamicResource {x:Static commonControls:SystemColors.ActiveCaptionTextBrushKey}}" />
+            </DockPanel>
+        </Border>
+
+        <!-- Toolbar -->
+        <DockPanel Grid.Row="1" LastChildFill="True" Margin="2">
+            <ComboBox DockPanel.Dock="Left"
+                      Width="160"
+                      ItemsSource="{CompiledBinding Libraries}"
+                      SelectedItem="{CompiledBinding SelectedLibrary}" />
+            <!-- Right-docked buttons: declared right-to-left, rendered left-to-right -->
+            <Button DockPanel.Dock="Right" Width="22" Height="22" Padding="2"
+                    ToolTip.Tip="{DynamicResource Str.Tool.ObjectBrowser.Toolbar.GoToDefinition}"
+                    Command="{CompiledBinding GoToDefinitionCommand}">
+                <Path Data="{StaticResource Geo.Viewcode}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="16" Height="16" />
+            </Button>
+            <Button DockPanel.Dock="Right" Width="22" Height="22" Padding="2"
+                    ToolTip.Tip="{DynamicResource Str.Tool.ObjectBrowser.Toolbar.Forward}"
+                    Command="{CompiledBinding ForwardCommand}">
+                <TextBlock Text="▶" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Center" />
+            </Button>
+            <Button DockPanel.Dock="Right" Width="22" Height="22" Padding="2"
+                    ToolTip.Tip="{DynamicResource Str.Tool.ObjectBrowser.Toolbar.Back}"
+                    Command="{CompiledBinding BackCommand}">
+                <TextBlock Text="◀" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Center" />
+            </Button>
+            <Button DockPanel.Dock="Right" Width="22" Height="22" Padding="2"
+                    ToolTip.Tip="{DynamicResource Str.Tool.ObjectBrowser.Toolbar.CopySignature}"
+                    Click="Copy_OnClick">
+                <TextBlock Text="⎘" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Center" />
+            </Button>
+            <Button DockPanel.Dock="Right" Width="22" Height="22" Padding="2"
+                    ToolTip.Tip="{DynamicResource Str.Tool.ObjectBrowser.Toolbar.ClearSearch}"
+                    Command="{CompiledBinding ClearSearchCommand}">
+                <TextBlock Text="✕" FontSize="10" VerticalAlignment="Center" HorizontalAlignment="Center" />
+            </Button>
+            <Button DockPanel.Dock="Right" Width="22" Height="22" Padding="2"
+                    ToolTip.Tip="{DynamicResource Str.Tool.ObjectBrowser.Toolbar.Search}"
+                    Command="{CompiledBinding SearchCommand}">
+                <Path Data="{StaticResource Geo.Find}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="16" Height="16" />
+            </Button>
+            <TextBox Text="{CompiledBinding SearchText}"
+                     PlaceholderText="{DynamicResource Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder}"
+                     Margin="4,0">
+                <TextBox.KeyBindings>
+                    <KeyBinding Gesture="Return" Command="{CompiledBinding SearchCommand}" />
+                </TextBox.KeyBindings>
+            </TextBox>
+        </DockPanel>
+
+        <!-- Two-panel split -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,4,*">
+
+            <!-- Classes panel -->
+            <DockPanel Grid.Column="0">
+                <Border DockPanel.Dock="Top"
+                        BorderThickness="0,0,0,1"
+                        Padding="4,2">
+                    <TextBlock Text="{DynamicResource Str.Tool.ObjectBrowser.Panel.Classes}" FontWeight="SemiBold" />
+                </Border>
+                <ListBox ItemsSource="{CompiledBinding FilteredClasses}"
+                         SelectedItem="{CompiledBinding SelectedClass}">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="ob:OBClassViewModel">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <TextBlock Text="{CompiledBinding KindGlyph}"
+                                           FontSize="11"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Text="{CompiledBinding Name}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+
+            <GridSplitter Grid.Column="1" ResizeDirection="Columns" />
+
+            <!-- Members panel -->
+            <DockPanel Grid.Column="2">
+                <Border DockPanel.Dock="Top"
+                        BorderThickness="0,0,0,1"
+                        Padding="4,2">
+                    <TextBlock Text="{CompiledBinding MembersHeader}" FontWeight="SemiBold" />
+                </Border>
+                <Panel>
+                    <ListBox ItemsSource="{CompiledBinding FilteredMembers}"
+                             SelectedItem="{CompiledBinding SelectedMember}"
+                             DoubleTapped="Members_OnDoubleTapped">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="ob:OBMemberViewModel">
+                                <StackPanel Orientation="Horizontal" Spacing="4">
+                                    <TextBlock Text="{CompiledBinding KindGlyph}"
+                                               FontSize="11"
+                                               VerticalAlignment="Center" />
+                                    <TextBlock Text="{CompiledBinding Name}"
+                                               VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <ProgressBar IsIndeterminate="True"
+                                 IsVisible="{CompiledBinding IsLoadingMembers}"
+                                 VerticalAlignment="Top"
+                                 Height="3" />
+                </Panel>
+            </DockPanel>
+        </Grid>
+
+        <!-- Description panel -->
+        <Border Grid.Row="3"
+                BorderThickness="0,1,0,0"
+                Padding="6,4">
+            <StackPanel Spacing="2">
+                <TextBlock Text="{CompiledBinding DescriptionSignature}"
+                           FontFamily="Courier New"
+                           FontSize="12"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{CompiledBinding DescriptionMembership}"
+                           FontSize="11"
+                           TextWrapping="Wrap" />
+                <TextBlock Text="{CompiledBinding DescriptionText}"
+                           FontSize="11"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+    </Grid>
+</UserControl>

@@ -1,0 +1,7 @@
+{
+  "name": "Test neutral (zz)",
+  "strings": {
+    "Str.Menu.File": "zzFILE",
+    "Str.Menu.File.Exit": "zzEXIT"
+  }
+}

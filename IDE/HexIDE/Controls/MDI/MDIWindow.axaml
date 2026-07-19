@@ -1,0 +1,106 @@
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="clr-namespace:HexIDE.Controls"
+                    xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
+                    x:ClassModifier="internal">
+
+    <ControlTheme x:Key="{x:Type controls:MDICaptionButtons}" TargetType="controls:MDICaptionButtons">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <StackPanel Orientation="Horizontal" Spacing="1" VerticalAlignment="Center">
+                    <Button x:Name="PART_MinimizeButton"
+                            Width="16" Height="14"
+                            Padding="0" MinWidth="0" MinHeight="0">
+                        <!-- Minimize: horizontal bar at bottom -->
+                        <Rectangle Width="8" Height="2" VerticalAlignment="Bottom" Margin="0,0,0,2"
+                                   Fill="Black" />
+                    </Button>
+                    <Button x:Name="PART_RestoreButton"
+                            Width="16" Height="14"
+                            Padding="0" MinWidth="0" MinHeight="0">
+                        <Panel Width="9" Height="9">
+                            <!-- Maximize icon: box with double top border (shown when :normal) -->
+                            <Border x:Name="PART_MaximizeIcon"
+                                    Width="9" Height="9"
+                                    BorderBrush="Black" BorderThickness="1,2,1,1" />
+                            <!-- Restore icon: two overlapping boxes (shown when :maximized) -->
+                            <Panel x:Name="PART_RestoreIcon" Width="9" Height="9" IsVisible="False">
+                                <Border Width="6" Height="6"
+                                        HorizontalAlignment="Right" VerticalAlignment="Top"
+                                        BorderBrush="Black" BorderThickness="1,2,1,1" />
+                                <Border Width="6" Height="6"
+                                        HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                        Background="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}"
+                                        BorderBrush="Black" BorderThickness="1,2,1,1" />
+                            </Panel>
+                        </Panel>
+                    </Button>
+                    <Button x:Name="PART_CloseButton"
+                            Width="16" Height="14"
+                            Padding="0" MinWidth="0" MinHeight="0">
+                        <!-- Close: X glyph -->
+                        <Path Stretch="None"
+                              Data="M1,1 L7,7 M7,1 L1,7"
+                              Stroke="Black" StrokeThickness="1.5" StrokeLineCap="Square" />
+                    </Button>
+                </StackPanel>
+            </ControlTemplate>
+        </Setter>
+
+        <!-- Swap maximize↔restore icon based on window state -->
+        <Style Selector="^:maximized /template/ Button#PART_RestoreButton Border#PART_MaximizeIcon">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:maximized /template/ Button#PART_RestoreButton Panel#PART_RestoreIcon">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="{x:Type controls:MDIWindow}"
+                  TargetType="controls:MDIWindow">
+        <Setter Property="MinWidth" Value="70" />
+        <Setter Property="MinHeight" Value="24" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ClassicBorderDecorator Background="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}"
+                                        Padding="2"
+                                        Name="PART_Border"
+                                        BorderStyle="AltRaised" BorderThickness="2">
+                    <DockPanel ClipToBounds="True">
+                        <Panel DockPanel.Dock="Top" Margin="0,0,0,1">
+                            <Border Name="PART_TitleBar" />
+
+                            <DockPanel Margin="2,0,0,0">
+                                <controls:MDICaptionButtons DockPanel.Dock="Right" x:Name="PART_CaptionButtons" />
+
+                                <Image Source="{TemplateBinding Icon}" Width="16" Height="16" IsHitTestVisible="False" />
+
+                                <TextBlock Text="{TemplateBinding Title}"
+                                           VerticalAlignment="Center"
+                                           HorizontalAlignment="Stretch"
+                                           TextOptions.TextRenderingMode="Alias"
+                                           FontFamily="{DynamicResource {x:Static commonControls:NonClientMetrics.CaptionFontKey}}"
+                                           FontSize="{DynamicResource {x:Static commonControls:NonClientMetrics.CaptionFontSizeKey}}"
+                                           IsHitTestVisible="False"
+                                           Foreground="{DynamicResource {x:Static commonControls:SystemColors.ActiveCaptionTextBrushKey}}"
+                                           FontWeight="Bold" />
+                            </DockPanel>
+
+                        </Panel>
+                        <ContentPresenter Name="PART_ContentPresenter"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}" />
+                    </DockPanel>
+                </ClassicBorderDecorator>
+            </ControlTemplate>
+        </Setter>
+
+        <Style Selector="^ /template/ Border#PART_TitleBar">
+            <Setter Property="Background" Value="{DynamicResource InactiveTitleBarBrush}" />
+        </Style>
+
+        <Style Selector="^[(controls|MDIHostPanel.IsActive)=True] /template/ Border#PART_TitleBar">
+            <Setter Property="Background" Value="{DynamicResource ActiveTitleBarBrush}" />
+        </Style>
+    </ControlTheme>
+</ResourceDictionary>

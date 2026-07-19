@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>$(DotNetVersion)</TargetFramework>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <RootNamespace>HexIDE.VbLspServer</RootNamespace>
+    <!-- CS0108: generated VBAParser.cs has EMPTY() hiding inherited member — expected in generated code -->
+    <NoWarn>$(NoWarn);CS0108</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Antlr4.Runtime.Standard" />
+    <PackageReference Include="Antlr4BuildTasks" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+    <PackageReference Include="Serilog" />
+    <PackageReference Include="Serilog.Sinks.File" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Antlr4 Include="Grammar\VBALexer.g4">
+      <CustomToolNamespace>HexIDE.VbLspServer.Grammar</CustomToolNamespace>
+      <Listener>False</Listener>
+      <Visitor>False</Visitor>
+    </Antlr4>
+    <Antlr4 Include="Grammar\VBAParser.g4">
+      <CustomToolNamespace>HexIDE.VbLspServer.Grammar</CustomToolNamespace>
+      <Listener>False</Listener>
+      <Visitor>True</Visitor>
+    </Antlr4>
+  </ItemGroup>
+
+</Project>

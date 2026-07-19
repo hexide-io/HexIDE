@@ -1,0 +1,73 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels.Options"
+             xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="460" d:DesignHeight="320"
+             x:DataType="vm:AddinOptionsPageViewModel"
+             x:Class="HexIDE.Forms.Views.Options.AddinOptionsPageView">
+    <!-- Fixed add-in details header + Activate/Deactivate. In a later phase an add-in
+         may contribute its own settings control below this header. -->
+    <StackPanel Orientation="Vertical" Spacing="8" VerticalAlignment="Top">
+        <!-- Publisher logo (a verified, hash-checked in-package PNG) beside the title/description.
+             Informational only — the logo is publisher-asserted and is deliberately NOT shown at the
+             first-load consent prompt. When the add-in ships no logo, or it failed the safety gate, a
+             neutral placeholder renders instead (the two cases are visually identical). -->
+        <Grid ColumnDefinitions="Auto,*">
+            <Border Grid.Column="0" Width="128" Height="128" Margin="0,0,12,0" VerticalAlignment="Top"
+                    CornerRadius="4" BorderThickness="1"
+                    Background="{DynamicResource {x:Static commonControls:SystemColors.WindowBrushKey}}"
+                    BorderBrush="{DynamicResource {x:Static commonControls:SystemColors.GrayTextBrushKey}}">
+                <Panel>
+                    <Image Source="{CompiledBinding Logo}" IsVisible="{CompiledBinding HasLogo}"
+                           Stretch="Uniform" Margin="6" />
+                    <!-- Generic "image" glyph; a PathIcon inherits the ambient Foreground so it renders
+                         in any theme without depending on a resolvable brush resource. -->
+                    <PathIcon IsVisible="{CompiledBinding !HasLogo}"
+                              Width="44" Height="44" Opacity="0.45"
+                              HorizontalAlignment="Center" VerticalAlignment="Center"
+                              Data="M3,17 L8,11 L11,14 L15,9 L21,17 Z M7,7 m-1.6,0 a1.6,1.6 0 1,0 3.2,0 a1.6,1.6 0 1,0 -3.2,0" />
+                </Panel>
+            </Border>
+            <StackPanel Grid.Column="1" VerticalAlignment="Top" Spacing="4">
+                <TextBlock Text="{CompiledBinding Title}" FontWeight="Bold" FontSize="15" />
+                <TextBlock Text="{CompiledBinding Description}" TextWrapping="Wrap" Opacity="0.85" />
+            </StackPanel>
+        </Grid>
+
+        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,4,0,0">
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Str.Options.Addin.Details.Version}" Opacity="0.7" Margin="0,0,12,2" />
+            <TextBlock Grid.Row="0" Grid.Column="1" Text="{CompiledBinding Version}" Margin="0,0,0,2" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="{DynamicResource Str.Options.Addin.Details.Author}" Opacity="0.7" Margin="0,0,12,2" />
+            <TextBlock Grid.Row="1" Grid.Column="1" Text="{CompiledBinding Author}" Margin="0,0,0,2" />
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="{DynamicResource Str.Options.Addin.Details.Publisher}" Opacity="0.7" Margin="0,0,12,2" />
+            <TextBlock Grid.Row="2" Grid.Column="1" Text="{CompiledBinding Publisher}" Margin="0,0,0,2" />
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource Str.Options.Addin.Details.Consent}" Opacity="0.7" Margin="0,0,12,2" />
+            <TextBlock Grid.Row="3" Grid.Column="1" Text="{CompiledBinding ConsentText}" Margin="0,0,0,2" />
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="{DynamicResource Str.Options.Addin.Details.Status}" Opacity="0.7" Margin="0,0,12,2" />
+            <TextBlock Grid.Row="4" Grid.Column="1" Text="{CompiledBinding StatusText}" Margin="0,0,0,2" />
+        </Grid>
+
+        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,8,0,0">
+            <Button Command="{CompiledBinding ToggleEnabledCommand}"
+                    Content="{CompiledBinding ToggleLabel}"
+                    Width="100" />
+            <Button Command="{CompiledBinding RevokeConsentCommand}"
+                    Content="{DynamicResource Str.Options.Addin.RevokeConsent}"
+                    IsVisible="{CompiledBinding CanRevokeConsent}" />
+            <TextBlock VerticalAlignment="Center" Opacity="0.7" FontStyle="Italic"
+                       IsVisible="{CompiledBinding RestartNoteVisible}"
+                       Text="{DynamicResource Str.Options.Addin.RestartNote}" />
+        </StackPanel>
+
+        <!-- Read-only trust-chain inspector: the verified signing chain + key fingerprints. -->
+        <Expander Header="{DynamicResource Str.Options.Addin.Trust}" Margin="0,8,0,0">
+            <ContentControl Content="{CompiledBinding TrustChain}" />
+        </Expander>
+
+        <!-- The add-in's own contributed settings control (Phase 5 seam), if any. -->
+        <Separator Margin="0,12,0,4" IsVisible="{CompiledBinding HasContributedContent}" />
+        <ContentControl Content="{CompiledBinding ContributedContent}" />
+    </StackPanel>
+</UserControl>

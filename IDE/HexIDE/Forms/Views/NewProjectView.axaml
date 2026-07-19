@@ -1,0 +1,161 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
+             xmlns:viewModels="clr-namespace:HexIDE.Forms.ViewModels"
+             x:DataType="viewModels:NewProjectViewModel"
+             mc:Ignorable="d" d:DesignWidth="470" d:DesignHeight="401"
+             Width="470"
+             Height="400"
+             x:Class="HexIDE.Forms.Views.NewProjectView">
+
+    <Grid RowDefinitions="64,*,Auto" Margin="6,3">
+
+        <ClassicBorderDecorator BorderStyle="ThinPressed" BorderThickness="1">
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="12,0" Spacing="12">
+                <Image Source="/Icons/AppIcon/hexide-logo-64.png" Width="46" Height="46" />
+                <TextBlock Text="HexIDE" VerticalAlignment="Center" FontSize="24" FontWeight="Bold" />
+            </StackPanel>
+        </ClassicBorderDecorator>
+
+        <TabControl Grid.Row="1" Margin="0,3,0,3" Padding="8,5,8,9"
+                    SelectedIndex="{CompiledBinding SelectedTabIndex}">
+
+            <!-- =============== NEW TAB =============== -->
+            <TabItem Header="{DynamicResource Str.Dialog.NewProject.Tab.New}">
+                <Grid RowDefinitions="*,9,Auto">
+                    <ListBox ItemsSource="{CompiledBinding Templates}"
+                             SelectedItem="{CompiledBinding SelectedTemplate}"
+                             DoubleTapped="TemplateDoubleTap">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:ProjectTemplateViewModel">
+                                <StackPanel Orientation="Vertical" Width="64" Margin="4">
+                                    <Image Source="{CompiledBinding Icon}" Width="32" Height="32" HorizontalAlignment="Center" />
+                                    <TextBlock Text="{CompiledBinding Name}" TextAlignment="Center" TextWrapping="Wrap" FontSize="11" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <StackPanel Orientation="Vertical" Spacing="6" Grid.Row="2" HorizontalAlignment="Right" MinWidth="75" Margin="0,0,5,0">
+                        <Button Command="{CompiledBinding OkNew}" Content="{DynamicResource Str.Dialog.NewProject.Button.Open}" />
+                        <Button Command="{CompiledBinding Cancel}" Content="{DynamicResource Str.Dialog.NewProject.Button.Cancel}" />
+                        <Button IsEnabled="False" Content="{DynamicResource Str.Dialog.NewProject.Button.Help}" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- =============== EXISTING TAB =============== -->
+            <TabItem Header="{DynamicResource Str.Dialog.NewProject.Tab.Existing}">
+                <Grid RowDefinitions="Auto,*,Auto,Auto,9,Auto"
+                      x:DataType="viewModels:NewProjectViewModel">
+
+                    <!-- Look in: toolbar -->
+                    <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,4,0,4">
+                        <TextBlock Text="{DynamicResource Str.Dialog.NewProject.Label.LookIn}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBox Grid.Column="1"
+                                 Text="{CompiledBinding FileBrowser.CurrentDirectory, Mode=OneWay}"
+                                 IsReadOnly="True"
+                                 FontSize="11" />
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="2" Margin="4,0,0,0">
+                            <Button Command="{CompiledBinding FileBrowser.NavigateBackCommand}"
+                                    ToolTip.Tip="{DynamicResource Str.Dialog.NewProject.Tooltip.Back}" Width="24" Height="22" Padding="0">
+                                <Path Data="{StaticResource Geo.Left}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="16" Height="16" />
+                            </Button>
+                            <Button Command="{CompiledBinding FileBrowser.NavigateUpCommand}"
+                                    ToolTip.Tip="{DynamicResource Str.Dialog.NewProject.Tooltip.UpOneLevel}" Width="24" Height="22" Padding="0">
+                                <Path Data="{StaticResource Geo.Up}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="16" Height="16" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- File/folder list -->
+                    <ListBox Grid.Row="1"
+                             ItemsSource="{CompiledBinding FileBrowser.Entries}"
+                             SelectedItem="{CompiledBinding FileBrowser.SelectedEntry}"
+                             DoubleTapped="FileBrowserDoubleTap"
+                             ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:FileSystemEntryViewModel">
+                                <StackPanel Orientation="Horizontal" Spacing="4" Margin="2,1">
+                                    <Image Width="16" Height="16">
+                                        <Image.Source>
+                                            <MultiBinding Converter="{x:Static viewModels:FileEntryIconConverter.Instance}">
+                                                <Binding Path="IsDirectory" />
+                                            </MultiBinding>
+                                        </Image.Source>
+                                    </Image>
+                                    <TextBlock Text="{CompiledBinding Name}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <!-- File name -->
+                    <Grid Grid.Row="2" ColumnDefinitions="Auto,*" Margin="0,6,0,2">
+                        <TextBlock Text="{DynamicResource Str.Dialog.NewProject.Label.FileName}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <TextBox Grid.Column="1"
+                                 Text="{CompiledBinding FileBrowser.FileName}"
+                                 FontSize="11" />
+                    </Grid>
+
+                    <!-- Files of type -->
+                    <Grid Grid.Row="3" ColumnDefinitions="Auto,*" Margin="0,2,0,0">
+                        <TextBlock Text="{DynamicResource Str.Dialog.NewProject.Label.FilesOfType}" VerticalAlignment="Center" Margin="0,0,6,0" />
+                        <ComboBox Grid.Column="1"
+                                  ItemsSource="{CompiledBinding FileBrowser.FileTypeFilters}"
+                                  SelectedIndex="{CompiledBinding FileBrowser.SelectedFilterIndex}"
+                                  HorizontalAlignment="Stretch" />
+                    </Grid>
+
+                    <!-- Buttons -->
+                    <StackPanel Orientation="Horizontal" Spacing="6" Grid.Row="5"
+                                HorizontalAlignment="Right" Margin="0,0,5,0">
+                        <Button Command="{CompiledBinding OkExisting}" MinWidth="75" Content="{DynamicResource Str.Dialog.NewProject.Button.Open}" />
+                        <Button Command="{CompiledBinding Cancel}" MinWidth="75" Content="{DynamicResource Str.Dialog.NewProject.Button.Cancel}" />
+                        <Button IsEnabled="False" MinWidth="75" Content="{DynamicResource Str.Dialog.NewProject.Button.Help}" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- =============== RECENT TAB =============== -->
+            <TabItem Header="{DynamicResource Str.Dialog.NewProject.Tab.Recent}">
+                <Grid RowDefinitions="*,9,Auto">
+                    <ListBox ItemsSource="{CompiledBinding RecentProjects}"
+                             SelectedItem="{CompiledBinding SelectedRecentProject}"
+                             DoubleTapped="RecentProjectDoubleTap">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="viewModels:RecentProjectEntryViewModel">
+                                <StackPanel Orientation="Horizontal" Spacing="6" Margin="2,2">
+                                    <Path Data="{StaticResource Geo.Project}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="16" Height="16"
+                                           VerticalAlignment="Center" />
+                                    <StackPanel Orientation="Vertical">
+                                        <TextBlock Text="{CompiledBinding FileName}" FontWeight="Bold" />
+                                        <TextBlock Text="{CompiledBinding Directory}"
+                                                   FontSize="11" Foreground="{DynamicResource {x:Static commonControls:SystemColors.GrayTextBrushKey}}" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <StackPanel Orientation="Vertical" Spacing="6" Grid.Row="2" HorizontalAlignment="Right" MinWidth="75" Margin="0,0,5,0">
+                        <Button Command="{CompiledBinding OkRecent}" Content="{DynamicResource Str.Dialog.NewProject.Button.Open}" />
+                        <Button Command="{CompiledBinding Cancel}" Content="{DynamicResource Str.Dialog.NewProject.Button.Cancel}" />
+                        <Button IsEnabled="False" Content="{DynamicResource Str.Dialog.NewProject.Button.Help}" />
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+        </TabControl>
+
+        <CheckBox Grid.Row="2" Margin="0,5,0,13" IsChecked="{CompiledBinding DontShowOnStartup}" Content="{DynamicResource Str.Dialog.NewProject.Checkbox.DontShowOnStartup}" />
+
+    </Grid>
+</UserControl>

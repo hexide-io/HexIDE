@@ -1,0 +1,151 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:te="clr-namespace:HexIDE.Tools.TranslationEditor"
+             xmlns:loc="clr-namespace:HexIDE.Localization"
+             xmlns:conv="clr-namespace:HexIDE.Converters"
+             xmlns:ctrl="clr-namespace:HexIDE.Controls"
+             xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="500"
+             x:DataType="te:TranslationEditorViewModel"
+             x:Class="HexIDE.Tools.TranslationEditor.TranslationEditorView">
+
+    <UserControl.Resources>
+        <ctrl:BoolToWeightConverter x:Key="OverriddenWeight"
+                                    WhenTrue="Bold" WhenFalse="Normal" />
+        <conv:BoolToBrushConverter x:Key="RedFallbackBrush"
+                                   ActiveBrush="{DynamicResource ValidationErrorBrush}"
+                                   InactiveBrush="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}" />
+    </UserControl.Resources>
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+        <!-- Top bar: From / To cascades -->
+        <Grid Grid.Row="0" Margin="6,6,6,2"
+              ColumnDefinitions="Auto,Auto,Auto,Auto,16,Auto,Auto,Auto,Auto">
+            <TextBlock Grid.Column="0" VerticalAlignment="Center" Margin="0,0,4,0"
+                       Text="{DynamicResource Str.TranslationEditor.FromLabel}" />
+            <ComboBox Grid.Column="1" Width="150"
+                      ItemsSource="{CompiledBinding FromLanguages}"
+                      SelectedItem="{CompiledBinding FromLanguage}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="loc:LanguageInfo">
+                        <TextBlock Text="{CompiledBinding DisplayName}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="8,0,4,0"
+                       Text="{DynamicResource Str.TranslationEditor.RegionLabel}" />
+            <ComboBox Grid.Column="3" Width="140"
+                      IsEnabled="{CompiledBinding FromIsRegionEnabled}"
+                      ItemsSource="{CompiledBinding FromRegions}"
+                      SelectedItem="{CompiledBinding FromRegion}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="loc:RegionInfo">
+                        <TextBlock Text="{CompiledBinding DisplayName}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+
+            <TextBlock Grid.Column="5" VerticalAlignment="Center" Margin="0,0,4,0"
+                       Text="{DynamicResource Str.TranslationEditor.ToLabel}" />
+            <ComboBox Grid.Column="6" Width="150"
+                      ItemsSource="{CompiledBinding ToLanguages}"
+                      SelectedItem="{CompiledBinding ToLanguage}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="loc:LanguageInfo">
+                        <TextBlock Text="{CompiledBinding DisplayName}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBlock Grid.Column="7" VerticalAlignment="Center" Margin="8,0,4,0"
+                       Text="{DynamicResource Str.TranslationEditor.RegionLabel}" />
+            <ComboBox Grid.Column="8" Width="140"
+                      IsEnabled="{CompiledBinding ToIsRegionEnabled}"
+                      ItemsSource="{CompiledBinding ToRegions}"
+                      SelectedItem="{CompiledBinding ToRegion}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate x:DataType="loc:RegionInfo">
+                        <TextBlock Text="{CompiledBinding DisplayName}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </Grid>
+
+        <!-- Search + Reset All -->
+        <DockPanel Grid.Row="1" Margin="6,2,6,4" LastChildFill="True">
+            <Button DockPanel.Dock="Right" Margin="6,0,0,0"
+                    Content="{DynamicResource Str.TranslationEditor.ResetAll}"
+                    Command="{CompiledBinding ResetAllCommand}" />
+            <TextBox PlaceholderText="{DynamicResource Str.TranslationEditor.Search}"
+                     Text="{CompiledBinding SearchText}" />
+        </DockPanel>
+
+        <!-- The grid -->
+        <DataGrid Grid.Row="2"
+                  ItemsSource="{CompiledBinding RowsView}"
+                  CanUserResizeColumns="True"
+                  CanUserSortColumns="False"
+                  GridLinesVisibility="All"
+                  VerticalScrollBarVisibility="Visible">
+            <DataGrid.Columns>
+                <DataGridTextColumn Width="2*"
+                                    IsReadOnly="True"
+                                    Header="{DynamicResource Str.TranslationEditor.Column.Key}"
+                                    Binding="{CompiledBinding Key, x:DataType=te:TranslationRowViewModel}" />
+                <DataGridTemplateColumn Width="3*"
+                                        Header="{DynamicResource Str.TranslationEditor.Column.From}">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="te:TranslationRowViewModel">
+                            <!-- Red when the reference is "secretly English" (From ≠ en and this key has no
+                                 own translation in From's chain) — flags the From value, per the red rule. -->
+                            <TextBlock Text="{CompiledBinding FromValue}"
+                                       VerticalAlignment="Center"
+                                       Margin="4,0"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{CompiledBinding ChainTooltip}"
+                                       Foreground="{CompiledBinding IsRedFallback, Converter={StaticResource RedFallbackBrush}}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTemplateColumn Width="3*"
+                                        Header="{DynamicResource Str.TranslationEditor.Column.To}">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="te:TranslationRowViewModel">
+                            <!-- Bold when this key carries a user override; foreground stays normal (the red
+                                 en-fallback flag lives on the From column). -->
+                            <TextBlock Text="{CompiledBinding ToValue}"
+                                       VerticalAlignment="Center"
+                                       Margin="4,0"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip.Tip="{CompiledBinding ChainTooltip}"
+                                       FontWeight="{CompiledBinding IsOverridden, Converter={StaticResource OverriddenWeight}}">
+                                <TextBlock.ContextMenu>
+                                    <ContextMenu x:DataType="te:TranslationRowViewModel">
+                                        <MenuItem Header="{DynamicResource Str.TranslationEditor.ResetKey}"
+                                                  IsEnabled="{CompiledBinding IsOverridden}"
+                                                  Command="{CompiledBinding ResetCommand}" />
+                                    </ContextMenu>
+                                </TextBlock.ContextMenu>
+                            </TextBlock>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                    <DataGridTemplateColumn.CellEditingTemplate>
+                        <DataTemplate x:DataType="te:TranslationRowViewModel">
+                            <TextBox Text="{CompiledBinding ToValue, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                     VerticalAlignment="Center" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellEditingTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- Status -->
+        <TextBlock Grid.Row="3" Margin="6,2,6,4"
+                   IsVisible="{CompiledBinding StatusMessage, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                   Text="{CompiledBinding StatusMessage}"
+                   Foreground="{DynamicResource ValidationErrorBrush}"
+                   TextWrapping="Wrap" />
+    </Grid>
+</UserControl>

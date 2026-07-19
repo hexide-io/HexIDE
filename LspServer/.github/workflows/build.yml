@@ -1,0 +1,28 @@
+name: Build VB LSP Server
+
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+  build-linux-amd64:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Run VB LSP Server Tests
+        run: dotnet test HexIDE.VbLspServer.Tests/HexIDE.VbLspServer.Tests.csproj
+
+      - name: Build VB LSP Server
+        run: dotnet build HexIDE.VbLspServer/HexIDE.VbLspServer.csproj -o bin/

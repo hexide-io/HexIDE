@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFrameworks>$(DotNetVersion)</TargetFrameworks>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <RootNamespace>HexIDE</RootNamespace>
+        <Description>Framework-agnostic abstractions for building VB6 IDEs. Zero third-party dependencies.</Description>
+    </PropertyGroup>
+
+</Project>

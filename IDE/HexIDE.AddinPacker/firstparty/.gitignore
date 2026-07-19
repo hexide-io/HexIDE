@@ -1,0 +1,6 @@
+# The root and intermediate PRIVATE keys are only needed to rotate/regenerate the chain — which for a
+# real release must be done with an offline root anyway. They are deliberately NOT committed. Only the
+# first-party signing key (firstparty.key) is needed for ongoing dev builds, alongside the public
+# records (intermediate.json/.sig, publisher.json/.sig) and the root public key (hexide-root.pub).
+root.key
+intermediate.key

@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="460" d:DesignHeight="320"
+             x:DataType="vm:FontDialogViewModel"
+             x:Class="HexIDE.Forms.Views.FontDialog"
+             Width="460">
+    <Grid Margin="8" RowDefinitions="Auto,*,Auto,Auto">
+
+        <!-- Column header labels -->
+        <Grid Grid.Row="0" ColumnDefinitions="*,160,80" Margin="0,0,0,4">
+            <TextBlock Text="{DynamicResource Str.Dialog.Font.Label.Font}" Margin="4,0" />
+            <TextBlock Text="{DynamicResource Str.Dialog.Font.Label.FontStyle}" Grid.Column="1" Margin="4,0" />
+            <TextBlock Text="{DynamicResource Str.Dialog.Font.Label.Size}" Grid.Column="2" Margin="4,0" />
+        </Grid>
+
+        <!-- Selection lists -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,160,80" Height="160" Margin="0,0,0,8">
+            <ListBox ItemsSource="{CompiledBinding FontFamilies}"
+                     SelectedItem="{CompiledBinding SelectedFamily}"
+                     Margin="4,0" />
+            <ListBox Grid.Column="1" ItemsSource="{CompiledBinding FontStyles}"
+                     SelectedItem="{CompiledBinding SelectedStyle}"
+                     Margin="4,0" />
+            <ListBox Grid.Column="2" ItemsSource="{CompiledBinding FontSizes}"
+                     SelectedItem="{CompiledBinding SelectedSize}"
+                     Margin="4,0" />
+        </Grid>
+
+        <!-- Preview panel -->
+        <Border Grid.Row="2" BorderBrush="{DynamicResource SystemControlForegroundBaseMediumLowBrush}"
+                BorderThickness="1" Height="60" Margin="4,0,4,8" Padding="6">
+            <TextBlock Text="AaBbCcDdEe 0123"
+                       FontFamily="{CompiledBinding SelectedFamily}"
+                       FontStyle="{CompiledBinding PreviewFontStyle}"
+                       FontWeight="{CompiledBinding PreviewFontWeight}"
+                       FontSize="{CompiledBinding SelectedSize}"
+                       VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis" />
+        </Border>
+
+        <!-- Buttons -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right"
+                    Spacing="8" Margin="0,0,4,4">
+            <Button Content="{DynamicResource Str.Dialog.Font.Button.Ok}" MinWidth="75" Click="OkClick" />
+            <Button Content="{DynamicResource Str.Dialog.Font.Button.Cancel}" MinWidth="75" Click="CancelClick" />
+        </StackPanel>
+    </Grid>
+</UserControl>

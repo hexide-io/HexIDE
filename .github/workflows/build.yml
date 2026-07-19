@@ -1,0 +1,72 @@
+name: Build VB6
+
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+  build-ide:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: IDE
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Run Runtime Tests
+        run: dotnet test HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj
+
+      # First-party add-in signing: restore the publisher key from a repo secret so the (Exists-gated)
+      # PackAIChatAddin target signs and bundles the add-ins. Forks/PRs receive no secret → the value is
+      # empty → packing is skipped and the build still succeeds. The key never lives in the repo.
+      - name: Restore first-party signing key (if configured)
+        env:
+          HEXIDE_FIRSTPARTY_KEY: ${{ secrets.HEXIDE_FIRSTPARTY_KEY }}
+        run: |
+          if [ -n "$HEXIDE_FIRSTPARTY_KEY" ]; then
+            printf '%s' "$HEXIDE_FIRSTPARTY_KEY" > HexIDE.AddinPacker/firstparty/firstparty.key
+            echo "first-party signing key restored — add-ins will be signed"
+          else
+            echo "no HEXIDE_FIRSTPARTY_KEY secret — add-ins unsigned (expected for forks/PRs)"
+          fi
+
+      # No -o: the first-party add-in packaging targets in HexIDE.Desktop.csproj pack each add-in from
+      # its own per-project bin. 'dotnet build -o <dir>' forces every referenced project's output into a
+      # single flattened dir, which both breaks those paths and would pack the whole IDE as the add-in.
+      - name: Build HexIDE.Desktop (Linux)
+        run: dotnet build HexIDE.Desktop -f net10.0
+
+      - name: Build HexIDE.Standalone (Linux)
+        run: dotnet build HexIDE.Standalone -f net10.0
+
+  build-lsp-server:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: LspServer
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Run VB LSP Server Tests
+        run: dotnet test HexIDE.VbLspServer.Tests/HexIDE.VbLspServer.Tests.csproj
+
+      - name: Build VB LSP Server
+        run: dotnet build HexIDE.VbLspServer/HexIDE.VbLspServer.csproj

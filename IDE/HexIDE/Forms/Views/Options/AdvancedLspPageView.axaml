@@ -1,0 +1,20 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels.Options"
+             mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="300"
+             x:DataType="vm:AdvancedLspPageViewModel"
+             x:Class="HexIDE.Forms.Views.Options.AdvancedLspPageView">
+    <HeaderedContentControl Header="{DynamicResource Str.Options.Advanced.Header}" Padding="10" VerticalAlignment="Top">
+        <StackPanel Orientation="Vertical" Spacing="6">
+            <TextBlock Text="{DynamicResource Str.Options.Advanced.WebSocketUrlLabel}" />
+            <TextBox Text="{CompiledBinding LspWebSocketUrl}"
+                     PlaceholderText="ws://localhost:8123/"
+                     Width="280"
+                     HorizontalAlignment="Left" />
+            <TextBlock Opacity="0.7" FontSize="11" TextWrapping="Wrap"
+                       Text="{DynamicResource Str.Options.Advanced.WebSocketUrlHint}" />
+        </StackPanel>
+    </HeaderedContentControl>
+</UserControl>

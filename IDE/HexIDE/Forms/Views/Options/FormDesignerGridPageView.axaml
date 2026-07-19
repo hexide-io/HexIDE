@@ -1,0 +1,23 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels.Options"
+             mc:Ignorable="d" d:DesignWidth="420" d:DesignHeight="300"
+             x:DataType="vm:FormDesignerGridPageViewModel"
+             x:Class="HexIDE.Forms.Views.Options.FormDesignerGridPageView">
+    <HeaderedContentControl Header="{DynamicResource Str.Options.Grid.GroupHeader}" Padding="10" VerticalAlignment="Top">
+        <StackPanel Orientation="Vertical" Spacing="6">
+            <CheckBox IsChecked="{CompiledBinding ShowGrid}" Content="{DynamicResource Str.Options.Grid.ShowGrid}" />
+            <DockPanel Margin="20,0,0,0">
+                <AccessText VerticalAlignment="Center" Width="80" Text="{DynamicResource Str.Options.Grid.Width}" />
+                <TextBox Width="60" HorizontalAlignment="Left" Text="{CompiledBinding GridWidth}" />
+            </DockPanel>
+            <DockPanel Margin="20,0,0,0">
+                <AccessText VerticalAlignment="Center" Width="80" Text="{DynamicResource Str.Options.Grid.Height}" />
+                <TextBox Width="60" HorizontalAlignment="Left" Text="{CompiledBinding GridHeight}" />
+            </DockPanel>
+            <CheckBox IsChecked="{CompiledBinding AlignToGrid}" Content="{DynamicResource Str.Options.Grid.AlignControls}" />
+        </StackPanel>
+    </HeaderedContentControl>
+</UserControl>

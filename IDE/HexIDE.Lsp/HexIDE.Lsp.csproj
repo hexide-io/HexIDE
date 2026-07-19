@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFrameworks>$(DotNetVersion)</TargetFrameworks>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <NoWarn>$(NoWarn);CS1998</NoWarn>
+        <WarningsNotAsErrors>IL2026;IL3053;IL2104;IL2111;IL2072</WarningsNotAsErrors>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="StreamJsonRpc" />
+        <!-- Direct references to pin above vulnerable transitive versions pulled in by StreamJsonRpc:
+             Nerdbank.MessagePack above 1.0.2 (GHSA-2cwq-pwfr-wcw3), MessagePack above 2.5.198
+             (CVE-2026-48109 / GHSA-hv8m-jj95-wg3x). -->
+        <PackageReference Include="MessagePack" />
+        <PackageReference Include="Nerdbank.MessagePack" />
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+        <PackageReference Include="Serilog" />
+        <PackageReference Include="Serilog.Sinks.File" />
+        <PackageReference Include="Serilog.Extensions.Logging" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\HexIDE.Core\HexIDE.Core.csproj" />
+    </ItemGroup>
+</Project>

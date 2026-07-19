@@ -1,0 +1,113 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:tools="clr-namespace:HexIDE.Tools"
+xmlns:HexIDE="clr-namespace:HexIDE"
+             xmlns:utils="clr-namespace:HexIDE.Utils"
+             xmlns:converters="clr-namespace:HexIDE.Converters"
+             xmlns:controls="clr-namespace:HexIDE.Controls"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:DataType="tools:ProjectToolViewModel"
+             x:Class="HexIDE.Tools.ProjectToolView">
+    <UserControl.Resources>
+        <converters:StringFormatConverter x:Key="StringFormatConverter" Format="{}{0} ({1})" />
+        <controls:BoolToWeightConverter x:Key="ProjectTitleConverter" WhenTrue="Bold" />
+    </UserControl.Resources>
+    <UserControl.Styles>
+        <Style Selector="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+    </UserControl.Styles>
+    <DockPanel>
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+            <Button ToolTip.Tip="{DynamicResource Str.Tool.Project.Toolbar.ViewCode}" Command="{CompiledBinding ViewCodeCommand}" Width="22" Height="22" Padding="3">
+                <Path Data="{StaticResource Geo.Code}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="16" Height="16" />
+            </Button>
+            <Button ToolTip.Tip="{DynamicResource Str.Tool.Project.Toolbar.ViewObject}" Command="{CompiledBinding ViewObjectCommand}" Width="22" Height="22" Padding="3">
+                <Path Data="{StaticResource Geo.Object}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="16" Height="16" />
+            </Button>
+        </StackPanel>
+        <TreeView ItemsSource="{CompiledBinding RootItems}"
+                  SelectedItem="{CompiledBinding SelectedItem}"
+                  DoubleTapped="TreeView_OnDoubleTapped">
+            <TreeView.Styles>
+                <Style Selector="TreeViewItem">
+                    <Setter Property="IsExpanded" Value="{CompiledBinding IsExpanded, Mode=TwoWay}" x:DataType="tools:IProjectTreeElement"/>
+                </Style>
+            </TreeView.Styles>
+            <TreeView.DataTemplates>
+                <TreeDataTemplate x:DataType="tools:ProjectGroupViewModel" ItemsSource="{CompiledBinding Children}">
+                    <TextBlock Text="{CompiledBinding DisplayName}" FontWeight="Bold" />
+                </TreeDataTemplate>
+                <TreeDataTemplate x:DataType="tools:ProjectViewModel" ItemsSource="{CompiledBinding Elements}">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource Geo.Project}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="16" Height="16" />
+                        <TextBlock FontWeight="{CompiledBinding IsStartupProject, Converter={StaticResource ProjectTitleConverter}}">
+                            <TextBlock.Text>
+                                <MultiBinding Converter="{StaticResource StringFormatConverter}">
+                                    <Binding Path="Name" />
+                                    <Binding Path="File" />
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
+                    </StackPanel>
+                </TreeDataTemplate>
+                <TreeDataTemplate x:DataType="tools:DirectoryViewModel" ItemsSource="{CompiledBinding Children}">
+                    <StackPanel Orientation="Horizontal">
+                        <Panel>
+                            <Path Data="{StaticResource Geo.Project_folder}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="16" Height="16" IsVisible="{CompiledBinding IsExpanded}" />
+                            <Path Data="{StaticResource Geo.Folder_closed}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="16" Height="16" IsVisible="{CompiledBinding !IsExpanded}"/>
+                        </Panel>
+                        <TextBlock Text="{CompiledBinding Name}" />
+                    </StackPanel>
+                </TreeDataTemplate>
+                <TreeDataTemplate x:DataType="tools:FormViewModel">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource Geo.Form}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="16" Height="16" />
+                        <TextBlock>
+                            <TextBlock.Text>
+                                <MultiBinding Converter="{StaticResource StringFormatConverter}">
+                                    <Binding Path="Name" />
+                                    <Binding Path="File" />
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
+                    </StackPanel>
+                </TreeDataTemplate>
+                <TreeDataTemplate x:DataType="tools:ModuleViewModel">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource Geo.Code}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="16" Height="16" />
+                        <TextBlock>
+                            <TextBlock.Text>
+                                <MultiBinding Converter="{StaticResource StringFormatConverter}">
+                                    <Binding Path="Name" />
+                                    <Binding Path="File" />
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
+                    </StackPanel>
+                </TreeDataTemplate>
+            </TreeView.DataTemplates>
+            <TreeView.ContextFlyout>
+                <MenuFlyout>
+                    <MenuItem IsVisible="{CompiledBinding !!SelectedProject}" Header="{DynamicResource Str.Tool.Project.Menu.SetAsStartUp}" Command="{CompiledBinding SetAsStartUp}" />
+                    <MenuItem IsVisible="{CompiledBinding !!SelectedProject}" Header="{CompiledBinding ProjectPropertiesHeader}" Command="{CompiledBinding EditProjectProperties}" />
+                    <MenuItem IsVisible="{CompiledBinding SelectedFormOrFormPart}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Object}" Header="{DynamicResource Str.Tool.Project.Menu.ViewObject}" Command="{CompiledBinding ViewObjectCommand}" />
+                    <MenuItem IsVisible="{CompiledBinding SelectedFormOrFormPart}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Code}" Header="{DynamicResource Str.Tool.Project.Menu.ViewCode}" Command="{CompiledBinding ViewCodeCommand}" />
+                    <Separator IsVisible="{CompiledBinding SelectedFormOrFormPart}"/>
+                    <MenuItem IsVisible="{CompiledBinding SelectedForm}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Properties}" Header="{DynamicResource Str.Tool.Project.Menu.Properties}" Command="{CompiledBinding FormPropertiesCommand}" />
+                    <Separator IsVisible="{CompiledBinding SelectedFormOrFormPart}"/>
+                    <MenuItem Header="{DynamicResource Str.Tool.Project.Menu.Add}">
+                        <MenuItem utils:MenuUtils.MenuIcon="{StaticResource Geo.Addform}"  Command="{CompiledBinding AddFormCommand}" Header="{DynamicResource Str.Tool.Project.Menu.Add.Form}" />
+                    </MenuItem>
+                    <MenuItem IsVisible="{CompiledBinding !!SelectedForm}" Header="{CompiledBinding SaveFormHeader}" />
+                    <MenuItem IsVisible="{CompiledBinding !!SelectedForm}" Header="{CompiledBinding SaveFormAsHeader}" />
+                    <MenuItem IsVisible="{CompiledBinding !!SelectedForm}" Command="{CompiledBinding DeleteForm}" Header="{CompiledBinding RemoveFormHeader}" />
+                    <Separator />
+                    <MenuItem Header="{DynamicResource Str.Tool.Project.Menu.Print}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Print}" Command="{x:Static HexIDE:ApplicationCommands.DisabledCommand}" />
+                </MenuFlyout>
+            </TreeView.ContextFlyout>
+        </TreeView>
+    </DockPanel>
+</UserControl>

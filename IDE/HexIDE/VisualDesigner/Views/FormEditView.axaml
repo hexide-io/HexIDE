@@ -1,0 +1,268 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
+             xmlns:controls="clr-namespace:HexIDE.Controls"
+             xmlns:converters="clr-namespace:HexIDE.Converters"
+             xmlns:utils="clr-namespace:HexIDE.Utils"
+             xmlns:visualDesigner="clr-namespace:HexIDE.VisualDesigner"
+             xmlns:views="clr-namespace:HexIDE.VisualDesigner.Views"
+             xmlns:vb="clr-namespace:HexIDE"
+             xmlns:input="clr-namespace:Avalonia.Labs.Input"
+             xmlns:components="clr-namespace:HexIDE.Runtime.Components;assembly=HexIDE.Runtime"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="250"
+             x:DataType="visualDesigner:FormEditViewModel"
+             x:Name="Root"
+             controls:SnapGridUtils.SnapToGrid="True"
+             controls:SnapGridUtils.GridSize="8"
+             x:Class="HexIDE.VisualDesigner.FormEditView">
+    <input:CommandManager.CommandBindings>
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.EditMenuCommand}"
+                              ExecutingCommand="{CompiledBinding EditMenu}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveCommand}"
+                              ExecutingCommand="{CompiledBinding SaveForm}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveAsCommand}"
+                              ExecutingCommand="{CompiledBinding SaveFormAs}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ViewCodeCommand}"
+                              ExecutingCommand="{CompiledBinding ViewCode}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ViewObjectCommand}"
+                              ExecutingCommand="{CompiledBinding ViewObject}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.BringToFrontCommand}"
+                              ExecutingCommand="{CompiledBinding BringToFront}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SendToBackCommand}"
+                              ExecutingCommand="{CompiledBinding SendToBack}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CenterHorizontallyCommand}"
+                              ExecutingCommand="{CompiledBinding CenterHorizontally}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CenterVerticallyCommand}"
+                              ExecutingCommand="{CompiledBinding CenterVertically}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.AlignLeftsCommand}"
+                              ExecutingCommand="{CompiledBinding AlignLefts}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.AlignCentersHCommand}"
+                              ExecutingCommand="{CompiledBinding AlignCentersH}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.AlignRightsCommand}"
+                              ExecutingCommand="{CompiledBinding AlignRights}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.AlignTopsCommand}"
+                              ExecutingCommand="{CompiledBinding AlignTops}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.AlignCentersVCommand}"
+                              ExecutingCommand="{CompiledBinding AlignCentersV}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.AlignBottomsCommand}"
+                              ExecutingCommand="{CompiledBinding AlignBottoms}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.MakeSameWidthCommand}"
+                              ExecutingCommand="{CompiledBinding MakeSameWidth}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.MakeSameHeightCommand}"
+                              ExecutingCommand="{CompiledBinding MakeSameHeight}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.MakeSameSizeCommand}"
+                              ExecutingCommand="{CompiledBinding MakeSameSize}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.MakeHorizontalSpacingEqualCommand}"
+                              ExecutingCommand="{CompiledBinding MakeHorizontalSpacingEqual}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.IncreaseHorizontalSpacingCommand}"
+                              ExecutingCommand="{CompiledBinding IncreaseHorizontalSpacing}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.DecreaseHorizontalSpacingCommand}"
+                              ExecutingCommand="{CompiledBinding DecreaseHorizontalSpacing}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.RemoveHorizontalSpacingCommand}"
+                              ExecutingCommand="{CompiledBinding RemoveHorizontalSpacing}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.MakeVerticalSpacingEqualCommand}"
+                              ExecutingCommand="{CompiledBinding MakeVerticalSpacingEqual}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.IncreaseVerticalSpacingCommand}"
+                              ExecutingCommand="{CompiledBinding IncreaseVerticalSpacing}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.DecreaseVerticalSpacingCommand}"
+                              ExecutingCommand="{CompiledBinding DecreaseVerticalSpacing}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.RemoveVerticalSpacingCommand}"
+                              ExecutingCommand="{CompiledBinding RemoveVerticalSpacing}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SizeToGridCommand}"
+                              ExecutingCommand="{CompiledBinding SizeToGrid}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.LockControlsCommand}"
+                              ExecutingCommand="{CompiledBinding ToggleLockControls}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.DeleteCommand}"
+                              ExecutingCommand="{CompiledBinding DeleteSelected}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CopyCommand}"
+                              ExecutingCommand="{CompiledBinding CopySelectedControls}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.CutCommand}"
+                              ExecutingCommand="{CompiledBinding CutSelectedControls}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.PasteCommand}"
+                              ExecutingCommand="{CompiledBinding PasteControls}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.UndoCommand}"
+                              ExecutingCommand="{CompiledBinding UndoCommand}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.RedoCommand}"
+                              ExecutingCommand="{CompiledBinding RedoCommand}" />
+    </input:CommandManager.CommandBindings>
+    <Design.DataContext>
+        <visualDesigner:FormEditViewModel />
+    </Design.DataContext>
+    <UserControl.Resources>
+        <converters:BoolToBrushConverter ActiveBrush="{DynamicResource ActiveTitleBarBrush}"
+                                         InactiveBrush="{DynamicResource InactiveTitleBarBrush}"
+                                         x:Key="TitleBarConverter" />
+    </UserControl.Resources>
+    <UserControl.Styles>
+        <Style Selector="Border#PART_FormTitleBar">
+            <Setter Property="Background"
+                    Value="{Binding $parent[controls:MDIWindow].(controls:MDIHostPanel.IsActive), Converter={StaticResource TitleBarConverter}, TargetNullValue={x:True}}" />
+        </Style>
+    </UserControl.Styles>
+    <VisualLayerManager>
+        <Panel Background="{DynamicResource {x:Static commonControls:SystemColors.WindowBrushKey}}" ClipToBounds="True">
+            <!-- ThemeVariantScope keeps the form canvas on Light theme regardless of IDE chrome theme.
+                 FlowDirection is pinned LeftToRight too: RTL is a property of the form being designed,
+                 not of the IDE chrome, so an RTL IDE language must not mirror the design canvas. -->
+            <ThemeVariantScope RequestedThemeVariant="Light" FlowDirection="LeftToRight">
+            <ScrollViewer HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Auto">
+                <ClassicBorderDecorator Width="{CompiledBinding Form.Width, Mode=TwoWay}"
+                                        Height="{CompiledBinding Form.Height, Mode=TwoWay}"
+                                        HorizontalAlignment="Left"
+                                        VerticalAlignment="Top"
+                                        Background="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}"
+                                        Padding="2"
+                                        Margin="10"
+                                        x:Name="FormContainer"
+                                        PointerPressed="OnFormPressed"
+                                        Focusable="True"
+                                        BorderStyle="AltRaised" BorderThickness="2">
+                    <DockPanel>
+                        <Panel DockPanel.Dock="Top" Margin="0,0,0,1">
+                            <Border IsHitTestVisible="False" Name="PART_FormTitleBar" />
+
+                            <DockPanel Margin="2,0,0,0">
+                                <controls:MDICaptionButtons DockPanel.Dock="Right" IsHitTestVisible="False" />
+
+                                <Path Data="{StaticResource Geo.Form}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="16" Height="16" />
+
+                                <TextBlock
+                                    Text="{CompiledBinding Form.Caption}"
+                                    VerticalAlignment="Center"
+                                    HorizontalAlignment="Stretch"
+                                    TextOptions.TextRenderingMode="Alias"
+                                    FontFamily="{DynamicResource {x:Static commonControls:NonClientMetrics.CaptionFontKey}}"
+                                    FontSize="{DynamicResource {x:Static commonControls:NonClientMetrics.CaptionFontSizeKey}}"
+                                    IsHitTestVisible="False"
+                                    Foreground="{DynamicResource {x:Static commonControls:SystemColors.ActiveCaptionTextBrushKey}}"
+                                    FontWeight="Bold" />
+                            </DockPanel>
+
+                        </Panel>
+                        <DockPanel Background="{CompiledBinding Form.BackColor}">
+
+                            <Menu DockPanel.Dock="Top" ItemsSource="{CompiledBinding TopLevelMenu}">
+                                <Menu.Styles>
+                                    <Style Selector="MenuItem" x:DataType="visualDesigner:ComponentInstanceViewModel">
+                                        <Setter Property="Header" Value="{CompiledBinding Caption}" />
+                                        <Setter Property="ItemsSource" Value="{CompiledBinding ., Converter={x:Static views:PropertyConverter.Instance}, ConverterParameter={x:Static components:MenuComponentClass.SubItemsProperty}}" />
+                                    </Style>
+                                </Menu.Styles>
+                            </Menu>
+
+                            <Border x:Name="GridPatternBorder" DoubleTapped="OnFormDoubleTapped">
+                                <Border.Background>
+                                    <VisualBrush SourceRect="0,0,8,8"
+                                                 DestinationRect="0,0,8,8"
+                                                 TileMode="Tile"
+                                                 Stretch="UniformToFill">
+                                        <VisualBrush.Visual>
+                                            <Canvas Width="8" Height="8" Background="Transparent">
+                                                <Rectangle Height="1" Width="1" Fill="{DynamicResource FormGridPatternBrush}" />
+                                            </Canvas>
+                                        </VisualBrush.Visual>
+                                    </VisualBrush>
+                                </Border.Background>
+
+                                <Panel>
+                                    <controls:ControlsContainer
+                                        x:Name="ControlsContainer"
+                                        SelectionChanged="OnControlsContainerSelectionChanged"
+                                        ItemsSource="{CompiledBinding Components}">
+                                        <controls:ControlsContainer.Template>
+                                            <ControlTemplate TargetType="controls:ControlsContainer">
+                                                <ItemsPresenter Name="PART_ItemsPresenter"
+                                                                ItemsPanel="{TemplateBinding ItemsPanel}" />
+                                            </ControlTemplate>
+                                        </controls:ControlsContainer.Template>
+                                        <controls:ControlsContainer.ItemContainerTheme>
+                                            <ControlTheme TargetType="controls:ControlItem">
+                                                <Setter Property="ClipToBounds" Value="False" />
+                                                <Setter Property="Template">
+                                                    <ControlTemplate TargetType="controls:ControlItem">
+                                                        <ContentPresenter Name="PART_ContentPresenter"
+                                                                          Content="{TemplateBinding Content}"
+                                                                          ClipToBounds="True"
+                                                                          ContentTemplate="{TemplateBinding ContentTemplate}" />
+                                                    </ControlTemplate>
+                                                </Setter>
+                                                <Setter Property="ContextFlyout">
+                                                    <MenuFlyout>
+                                                        <MenuItem Header="{DynamicResource Str.Designer.Context.Cut}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Cut}"
+                                                                  Command="{x:Static vb:ApplicationCommands.CutCommand}" />
+                                                        <MenuItem Header="{DynamicResource Str.Designer.Context.Copy}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Copy}"
+                                                                  Command="{x:Static vb:ApplicationCommands.CopyCommand}" />
+                                                        <MenuItem Header="{DynamicResource Str.Designer.Context.Paste}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Paste}"
+                                                                  Command="{x:Static vb:ApplicationCommands.PasteCommand}" />
+                                                        <MenuItem Header="{DynamicResource Str.Designer.Context.Delete}" Command="{CompiledBinding #Root.((visualDesigner:FormEditViewModel)DataContext).DeleteSelected}" />
+                                                        <Separator />
+                                                        <MenuItem Header="{DynamicResource Str.Designer.Context.BringToFront}"
+                                                                  utils:MenuUtils.MenuIcon="{StaticResource Geo.Bringtofront}"
+                                                                  Command="{CompiledBinding #Root.((visualDesigner:FormEditViewModel)DataContext).BringToFront}"
+                                                                  CommandParameter="{CompiledBinding .}" />
+                                                        <MenuItem Header="{DynamicResource Str.Designer.Context.SendToBack}"
+                                                                  utils:MenuUtils.MenuIcon="{StaticResource Geo.Sendtoback}"
+                                                                  Command="{CompiledBinding #Root.((visualDesigner:FormEditViewModel)DataContext).SendToBack}"
+                                                                  CommandParameter="{CompiledBinding .}" />
+                                                        <Separator />
+                                                        <MenuItem Header="{DynamicResource Str.Designer.Context.ViewCode}"
+                                                                  Command="{x:Static vb:ApplicationCommands.ViewCodeCommand}"
+                                                                  utils:MenuUtils.MenuIcon="{StaticResource Geo.Viewcode}" />
+                                                        <MenuItem Header="{DynamicResource Str.Designer.Context.AlignToGrid}"
+                                                                  utils:MenuUtils.MenuIcon="{StaticResource Geo.Grid}" />
+                                                        <Separator />
+                                                        <MenuItem Header="{DynamicResource Str.Designer.Context.Properties}"
+                                                                  Command="{x:Static vb:ApplicationCommands.OpenPropertiesCommand}"
+                                                                  utils:MenuUtils.MenuIcon="{StaticResource Geo.Properties}" />
+                                                    </MenuFlyout>
+                                                </Setter>
+                                            </ControlTheme>
+                                        </controls:ControlsContainer.ItemContainerTheme>
+                                        <controls:ControlsContainer.ItemTemplate>
+                                            <DataTemplate x:DataType="visualDesigner:ComponentInstanceViewModel">
+                                                <controls:ControlRenderer Component="{CompiledBinding .}"
+                                                                          />
+                                            </DataTemplate>
+                                        </controls:ControlsContainer.ItemTemplate>
+                                        <controls:ControlsContainer.Styles>
+                                            <Style Selector="controls|ControlItem"
+                                                   x:DataType="visualDesigner:ComponentInstanceViewModel">
+                                                <Setter Property="Width" Value="{CompiledBinding Width, Mode=TwoWay}" />
+                                                <Setter Property="Height" Value="{CompiledBinding Height, Mode=TwoWay}" />
+                                                <Setter Property="(Canvas.Left)" Value="{CompiledBinding Left, Mode=TwoWay}" />
+                                                <Setter Property="(Canvas.Top)" Value="{CompiledBinding Top, Mode=TwoWay}" />
+                                            </Style>
+                                        </controls:ControlsContainer.Styles>
+                                        <controls:ControlsContainer.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <Canvas />
+                                            </ItemsPanelTemplate>
+                                        </controls:ControlsContainer.ItemsPanel>
+                                    </controls:ControlsContainer>
+                                    <Canvas Name="NewControlSpawner"
+                                            Background="Transparent"
+                                            IsVisible="{CompiledBinding !ToolsBoxToolViewModel.IsCursorSelected}">
+                                        <Border Name="NewControlSpawnerPhantom"
+                                                BorderBrush="{DynamicResource ControlSpawnerPhantomBrush}"
+                                                IsVisible="False"
+                                                BorderThickness="2" />
+                                    </Canvas>
+                                    <Canvas x:Name="RubberBandCanvas" IsHitTestVisible="False">
+                                        <Border x:Name="RubberBandRect"
+                                                IsVisible="False"
+                                                BorderBrush="{DynamicResource SelectionAdornerBrush}"
+                                                Background="{DynamicResource RubberBandFillBrush}"
+                                                BorderThickness="1" />
+                                    </Canvas>
+                                </Panel>
+                            </Border>
+                        </DockPanel>
+                    </DockPanel>
+                </ClassicBorderDecorator>
+            </ScrollViewer>
+            </ThemeVariantScope>
+        </Panel>
+    </VisualLayerManager>
+</UserControl>

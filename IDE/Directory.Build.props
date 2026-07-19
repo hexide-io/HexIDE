@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+    <PropertyGroup>
+        <DotNetVersion>net10.0</DotNetVersion>
+        <DotNetVersionDesktop>net10.0</DotNetVersionDesktop>
+        <DotNetVersionBrowser>net10.0-browser</DotNetVersionBrowser>
+        <DotNetVersionAndroid>net10.0-android</DotNetVersionAndroid>
+        <DotNetVersioniOS>net10.0-ios</DotNetVersioniOS>
+        <ImplicitUsings>enable</ImplicitUsings>
+    </PropertyGroup>
+    <ItemGroup>
+        <!-- Universal global usings — BCL namespaces not covered by ImplicitUsings=enable -->
+        <Using Include="System.ComponentModel" />
+    </ItemGroup>
+    <ItemGroup>
+        <!-- Pin Tmds.DBus.Protocol across all IDE projects to satisfy Avalonia 12 / HexIDE.Core minimum -->
+        <PackageReference Include="Tmds.DBus.Protocol" />
+    </ItemGroup>
+</Project>

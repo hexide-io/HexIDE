@@ -1,0 +1,14 @@
+<Solution>
+  <Project Path="HexIDE.Core/HexIDE.Core.csproj" />
+  <Project Path="HexIDE/HexIDE.csproj" />
+  <Project Path="HexIDE.AIChat/HexIDE.AIChat.csproj" />
+  <Project Path="HexIDE.TestAddin/HexIDE.TestAddin.csproj" />
+  <Project Path="HexIDE.Desktop/HexIDE.Desktop.csproj" />
+  <Project Path="HexIDE.Lsp/HexIDE.Lsp.csproj" />
+  <Project Path="HexIDE.LspProxy/HexIDE.LspProxy.csproj" />
+  <Project Path="HexIDE.Runtime/HexIDE.Runtime.csproj" />
+  <Project Path="HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj" />
+  <Project Path="HexIDE.Tests/HexIDE.Tests.csproj" />
+  <Project Path="HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj" />
+  <Project Path="HexIDE.Standalone/HexIDE.Standalone.csproj" />
+</Solution>

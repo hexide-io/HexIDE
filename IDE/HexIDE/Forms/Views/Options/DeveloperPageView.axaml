@@ -1,0 +1,41 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels.Options"
+             mc:Ignorable="d" d:DesignWidth="460" d:DesignHeight="320"
+             x:DataType="vm:DeveloperPageViewModel"
+             x:Class="HexIDE.Forms.Views.Options.DeveloperPageView">
+    <DockPanel LastChildFill="True">
+
+        <!-- Fixed "Here be dragons" warning banner (pinned at top; never scrolls away). -->
+        <Border DockPanel.Dock="Top"
+                Background="{DynamicResource WarningBannerBackgroundBrush}"
+                BorderBrush="{DynamicResource WarningBannerBorderBrush}"
+                BorderThickness="1" CornerRadius="3" Padding="10" Margin="0,0,0,12">
+            <Grid ColumnDefinitions="Auto,*">
+                <Image Grid.Column="0" Width="28" Height="28" VerticalAlignment="Top" Margin="0,1,10,0"
+                       Source="{DynamicResource WarningTriangleIcon}" />
+                <StackPanel Grid.Column="1" Spacing="5">
+                    <TextBlock Text="{DynamicResource Str.Options.Developer.Warning.Title}" FontWeight="Bold"
+                               Foreground="{DynamicResource WarningBannerForegroundBrush}" />
+                    <TextBlock TextWrapping="Wrap"
+                               Foreground="{DynamicResource WarningBannerForegroundBrush}"
+                               Text="{DynamicResource Str.Options.Developer.Warning.Body}" />
+                    <TextBlock TextWrapping="Wrap" FontWeight="Bold"
+                               Foreground="{DynamicResource WarningBannerForegroundBrush}"
+                               Text="{DynamicResource Str.Options.Developer.Warning.SocialEngineering}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Dev options (grows as capabilities are added). -->
+        <StackPanel Spacing="6" VerticalAlignment="Top">
+            <TextBlock Text="{DynamicResource Str.Options.Developer.AddIns.Header}" FontWeight="Bold" />
+            <CheckBox IsChecked="{CompiledBinding LoadUnsignedAddins}" Content="{DynamicResource Str.Options.Developer.AddIns.LoadUnsigned}" />
+            <TextBlock TextWrapping="Wrap" Opacity="0.7"
+                       Text="{DynamicResource Str.Options.Developer.AddIns.LoadUnsignedDescription}" />
+        </StackPanel>
+
+    </DockPanel>
+</UserControl>

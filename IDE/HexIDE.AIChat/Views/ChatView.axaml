@@ -1,0 +1,134 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:HexIDE.AIChat.Views"
+             x:DataType="local:ChatViewModel"
+             x:Class="HexIDE.AIChat.Views.ChatView"
+             MinWidth="280">
+    <Grid RowDefinitions="*,Auto">
+
+        <!-- Message history -->
+        <ScrollViewer Grid.Row="0"
+                      Name="Scroller"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <ItemsControl ItemsSource="{Binding Messages}" Margin="4">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="local:ChatMessageViewModel">
+                        <StackPanel>
+
+                            <!-- Status / tool-use line -->
+                            <TextBlock IsVisible="{Binding IsStatusLine}"
+                                       Text="{Binding RawContent}"
+                                       FontStyle="Italic"
+                                       Opacity="0.6"
+                                       Margin="4,2"
+                                       TextWrapping="Wrap" />
+
+                            <!-- Error line -->
+                            <TextBlock IsVisible="{Binding IsError}"
+                                       Text="{Binding RawContent}"
+                                       Foreground="#D32F2F"
+                                       FontWeight="SemiBold"
+                                       Margin="4,2"
+                                       TextWrapping="Wrap" />
+
+                            <!-- Write-tool approval prompt (apply_edit / run_project / stop_project) -->
+                            <Border IsVisible="{Binding IsApproval}"
+                                    Margin="4,3"
+                                    Padding="8,6"
+                                    CornerRadius="6"
+                                    Background="#33E0A22E"
+                                    BorderBrush="#E0A22E"
+                                    BorderThickness="1">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding RawContent}" TextWrapping="Wrap" />
+                                    <StackPanel Orientation="Horizontal"
+                                                Spacing="6"
+                                                Margin="0,6,0,0"
+                                                IsVisible="{Binding IsAwaitingDecision}">
+                                        <Button Content="Approve" Click="OnApproveClicked" />
+                                        <Button Content="Reject" Click="OnRejectClicked" />
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding ApprovalOutcome}"
+                                               IsVisible="{Binding !IsAwaitingDecision}"
+                                               FontStyle="Italic"
+                                               Opacity="0.7"
+                                               Margin="0,4,0,0" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- User / assistant message -->
+                            <Border IsVisible="{Binding IsBubble}"
+                                    Margin="4,3"
+                                    Padding="8,6"
+                                    CornerRadius="6"
+                                    HorizontalAlignment="{Binding IsUser, Converter={x:Static local:BoolToAlignmentConverter.Instance}}">
+                                <StackPanel>
+                                    <!-- Streaming: show raw text while in progress -->
+                                    <TextBlock IsVisible="{Binding IsStreaming}"
+                                               Text="{Binding RawContent}"
+                                               TextWrapping="Wrap"
+                                               FontFamily="Consolas,Monospace" />
+
+                                    <!-- Finished: rendered parts -->
+                                    <ItemsControl IsVisible="{Binding !IsStreaming}"
+                                                  ItemsSource="{Binding Parts}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="local:MessagePart">
+                                                <Panel>
+                                                    <TextBlock IsVisible="{Binding IsText}"
+                                                               Text="{Binding Content}"
+                                                               TextWrapping="Wrap"
+                                                               Margin="0,2" />
+                                                    <Border IsVisible="{Binding IsCode}"
+                                                            Margin="0,4"
+                                                            Padding="8"
+                                                            CornerRadius="4">
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding Content}"
+                                                                       FontFamily="Consolas,Monospace"
+                                                                       FontSize="12"
+                                                                       TextWrapping="Wrap" />
+                                                            <Button Content="Apply"
+                                                                    HorizontalAlignment="Right"
+                                                                    Margin="0,4,0,0"
+                                                                    Tag="{Binding Content}"
+                                                                    Click="OnApplyClicked" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                </Panel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Border>
+
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <!-- Input row -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" Margin="4">
+            <TextBox Grid.Column="0"
+                     Text="{Binding InputText}"
+                     PlaceholderText="Ask about your VB6 code…"
+                     AcceptsReturn="False"
+                     KeyDown="OnInputKeyDown"
+                     IsEnabled="{Binding !IsResponding}"
+                     VerticalContentAlignment="Center" />
+            <Button Grid.Column="1"
+                    Content="Send"
+                    Margin="4,0,0,0"
+                    IsEnabled="{Binding !IsResponding}"
+                    Click="OnSendClicked" />
+            <Button Grid.Column="2"
+                    Content="New"
+                    Margin="4,0,0,0"
+                    ToolTip.Tip="New chat (history is preserved)"
+                    Click="OnNewChatClicked" />
+        </Grid>
+
+    </Grid>
+</UserControl>

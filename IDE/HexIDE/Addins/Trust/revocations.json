@@ -1,0 +1,5 @@
+{
+  "schema": 1,
+  "issuedUtc": "2026-01-01T00:00:00Z",
+  "revoked": { "manifestHashes": [], "publisherIds": [], "intermediateIds": [] }
+}

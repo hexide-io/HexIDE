@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Build-time / SDK tool that produces SIGNED add-in packages. It is NOT shipped in the IDE — the
+    IDE only ever *verifies* (see HexIDE.Core/Addins/PackageCrypto + PackageVerifier). The Desktop
+    build references this project to package the first-party add-ins; HexIDE.Tests references it to
+    exercise the verifier against freshly-signed fixtures.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HexIDE.Core\HexIDE.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,62 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels"
+             xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="380" d:DesignHeight="420"
+             x:DataType="vm:TrustChainViewModel"
+             x:Class="HexIDE.Forms.Views.TrustChainView">
+    <StackPanel Margin="16" Spacing="10" MinWidth="340" MaxWidth="380">
+
+        <TextBlock Text="{DynamicResource Str.Dialog.TrustChain.Title}" FontSize="14" FontWeight="Bold" />
+
+        <!-- Revoked add-in: a prominent banner above the (still-valid) chain. -->
+        <Border IsVisible="{CompiledBinding IsRevoked}"
+                Background="{DynamicResource WarningBannerBackgroundBrush}"
+                BorderBrush="{DynamicResource WarningBannerBorderBrush}" BorderThickness="1"
+                CornerRadius="3" Padding="8">
+            <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource WarningBannerForegroundBrush}"
+                       Text="{DynamicResource Str.Dialog.TrustChain.RevokedBanner}" />
+        </Border>
+
+        <!-- No verifiable identity (unsigned / failed verification). -->
+        <TextBlock IsVisible="{CompiledBinding HasUnavailableReason}" TextWrapping="Wrap" Opacity="0.85"
+                   Text="{CompiledBinding UnavailableReason}" />
+
+        <ItemsControl IsVisible="{CompiledBinding HasChain}" ItemsSource="{CompiledBinding Rows}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:TrustRow">
+                    <StackPanel Spacing="1">
+                        <TextBlock Text="{DynamicResource Str.Dialog.TrustChain.SignedBy}" Opacity="0.55" FontSize="11" Margin="0,6,0,2"
+                                   IsVisible="{CompiledBinding ShowConnector}" />
+                        <TextBlock Text="{CompiledBinding Heading}" Opacity="0.7" FontSize="11" />
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="{CompiledBinding Primary}" FontWeight="SemiBold" />
+                            <TextBlock Text="{DynamicResource Str.Dialog.TrustChain.FirstPartyBadge}" FontWeight="SemiBold" FontSize="11"
+                                       VerticalAlignment="Center"
+                                       IsVisible="{CompiledBinding FirstPartyBadge}" />
+                        </StackPanel>
+                        <TextBlock Text="{CompiledBinding Id}" Opacity="0.6" FontSize="11"
+                                   IsVisible="{CompiledBinding Id, Converter={x:Static ObjectConverters.IsNotNull}}" />
+                        <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,1,0,0"
+                                    IsVisible="{CompiledBinding Fingerprint, Converter={x:Static ObjectConverters.IsNotNull}}">
+                            <TextBlock Text="{CompiledBinding Fingerprint}" TextWrapping="Wrap" MaxWidth="280"
+                                       FontFamily="Consolas,Courier New,monospace" FontSize="11"
+                                       VerticalAlignment="Center"
+                                       Foreground="{DynamicResource {x:Static commonControls:SystemColors.GrayTextBrushKey}}" />
+                            <Button Content="{DynamicResource Str.Dialog.TrustChain.Copy}" FontSize="11" Padding="6,1" VerticalAlignment="Center"
+                                    Click="CopyClick" CommandParameter="{CompiledBinding Fingerprint}" />
+                        </StackPanel>
+                    </StackPanel>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <TextBlock IsVisible="{CompiledBinding HasChain}" TextWrapping="Wrap" Opacity="0.7" FontSize="11"
+                   Text="{CompiledBinding CompareHint}" />
+
+        <Button Content="{DynamicResource Str.Dialog.TrustChain.Close}" HorizontalAlignment="Right" MinWidth="84" Margin="0,4,0,0"
+                IsVisible="{CompiledBinding ShowCloseButton}" Command="{CompiledBinding CloseCommand}" />
+    </StackPanel>
+</UserControl>

@@ -1,0 +1,39 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:visualDesigner="clr-namespace:HexIDE.VisualDesigner"
+             xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:DataType="visualDesigner:ToolBoxToolViewModel"
+             x:Class="HexIDE.VisualDesigner.Views.ToolBoxToolView">
+    <Design.DataContext>
+        <visualDesigner:ToolBoxToolViewModel />
+    </Design.DataContext>
+
+    <DockPanel>
+        <ClassicBorderDecorator DockPanel.Dock="Top" BorderStyle="Raised" BorderThickness="3"
+                                Background="{DynamicResource ActiveTitleBarBrush}">
+            <TextBlock VerticalAlignment="Center" TextAlignment="Center"
+                       Foreground="{DynamicResource {x:Static commonControls:SystemColors.ActiveCaptionTextBrushKey}}"
+                       Text="{DynamicResource Str.Toolbox.Tab.General}" />
+        </ClassicBorderDecorator>
+        <ItemsControl ItemsSource="{CompiledBinding Components}">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="visualDesigner:ComponentToolViewModel">
+                    <ToggleButton IsChecked="{CompiledBinding IsSelected}"
+                                  ToolTip.Tip="{CompiledBinding Name}"
+                                  Width="28" Height="28" Padding="4"
+                                  DoubleTapped="OnToolDoubleTap">
+                        <Image Source="{CompiledBinding Icon}" Width="20" Height="20" />
+                    </ToggleButton>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+        </ItemsControl>
+    </DockPanel>
+</UserControl>

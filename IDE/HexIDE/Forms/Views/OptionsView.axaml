@@ -1,0 +1,54 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="clr-namespace:HexIDE.Forms.ViewModels"
+             xmlns:options="clr-namespace:HexIDE.Forms.ViewModels.Options"
+             mc:Ignorable="d" d:DesignWidth="720" d:DesignHeight="520"
+             x:DataType="viewModels:OptionsViewModel"
+             Width="720" Height="520"
+             MinWidth="560" MinHeight="400"
+             x:Class="HexIDE.Forms.Views.OptionsView">
+    <Grid RowDefinitions="*,Auto" Margin="8">
+
+        <Grid Grid.Row="0" ColumnDefinitions="220,6,*">
+
+            <!-- Left pane: category tree -->
+            <TreeView Grid.Column="0"
+                      ItemsSource="{CompiledBinding RootNodes}"
+                      SelectedItem="{CompiledBinding SelectedNode}">
+                <TreeView.Styles>
+                    <Style Selector="TreeViewItem">
+                        <Setter Property="IsExpanded" Value="{CompiledBinding IsExpanded, Mode=TwoWay}" x:DataType="options:OptionsNodeViewModel" />
+                    </Style>
+                </TreeView.Styles>
+                <TreeView.DataTemplates>
+                    <TreeDataTemplate x:DataType="options:OptionsNodeViewModel" ItemsSource="{CompiledBinding Children}">
+                        <TextBlock Text="{CompiledBinding Title}" VerticalAlignment="Center" />
+                    </TreeDataTemplate>
+                </TreeView.DataTemplates>
+            </TreeView>
+
+            <GridSplitter Grid.Column="1" ResizeDirection="Columns" Background="Transparent" />
+
+            <!-- Right pane: selected page -->
+            <Border Grid.Column="2" Padding="8,0,0,0">
+                <ContentControl Content="{CompiledBinding CurrentPage}" />
+            </Border>
+
+        </Grid>
+
+        <DockPanel Grid.Row="1" Margin="0,8,0,0">
+            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" Spacing="6">
+                <Button Command="{CompiledBinding ResetAllCommand}" Content="{DynamicResource Str.Options.Shell.Buttons.ResetAll}" />
+                <Button Command="{CompiledBinding RestorePageDefaultsCommand}"
+                        IsEnabled="{CompiledBinding CanRestorePageDefaults}" Content="{DynamicResource Str.Options.Shell.Buttons.RestoreDefaults}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6">
+                <Button Command="{CompiledBinding OkCommand}" Width="80" IsDefault="True" Content="{DynamicResource Str.Options.Shell.Buttons.Ok}" />
+                <Button Command="{CompiledBinding CancelCommand}" Width="80" IsCancel="True" Content="{DynamicResource Str.Options.Shell.Buttons.Cancel}" />
+            </StackPanel>
+        </DockPanel>
+
+    </Grid>
+</UserControl>
