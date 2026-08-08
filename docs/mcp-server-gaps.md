@@ -230,6 +230,51 @@ first (the same key on a surface that *should* accept it), or verify at the mode
 resolves to the nearest editor, and report which control actually received the event — or return
 `success:false` when the resolved target cannot take keyboard focus.
 
+## 10. A crashed IDE is indistinguishable from a slow tool call
+
+**Symptom.** Driving the designer to compose a screenshot, `add_control` returned success, then the next
+call hung for the full 120 s timeout and every subsequent call failed with `Unable to connect. Is the
+computer able to access the url?`. That message reads like a networking problem. The IDE had in fact
+died — the tool call was fine, the process wasn't. The background-task notification said only
+`transport dropped mid-call; response for tool "add_control" was lost`.
+
+**Workaround.** When any tool starts failing to connect, check the process before changing approach:
+
+```sh
+powershell -NoProfile -Command "Get-Process HexIDE.Desktop -ErrorAction SilentlyContinue"
+curl -s -m 4 -o /dev/null -w '%{http_code}' http://localhost:5123/health
+```
+
+If it's gone, the IDE log (`%LOCALAPPDATA%\HexIDE\logs\ide\`) will end cleanly with no exception,
+because an unhandled render-thread exception terminates the process before Serilog flushes. The actual
+stack is in the Windows Application event log:
+
+```sh
+powershell -NoProfile -Command "Get-WinEvent -FilterHashtable @{LogName='Application'; ProviderName='.NET Runtime'; StartTime=(Get-Date).AddMinutes(-25)} | Where-Object { $_.Message -match 'HexIDE' } | Select-Object -First 1 -ExpandProperty Message"
+```
+
+That is how the `VBOptionButton` render crash was identified — nothing else surfaced it.
+
+**Fix consideration.** Have the MCP layer distinguish "server unreachable" from "server was reachable and
+has now gone", and surface the last few lines of the IDE log with the failure. A `--crash-log` style
+handler that flushes Serilog on `AppDomain.UnhandledException` would also make the IDE log self-sufficient.
+
+## 11. `add_control` mutates the designer but never persists
+
+**Symptom.** Nine controls were added successfully via `add_control`; the IDE then crashed and **all of
+them were lost** — `frmOrders.frm` on disk still held only the bare form. `set_control_property` saves;
+`add_control` does not.
+
+**Workaround.** For anything more than a couple of controls, author the `.frm` directly and open the
+project — the format is small and well understood (`Left`/`Top`/`Width`/`Height` in twips, i.e. pixels
+× 15, plus `Caption`/`Text`). That is also faster than one round trip per control, and it survives a
+crash. Use `add_control` for interactive exploration, not for composing a form.
+
+**Fix consideration.** Either save after `add_control` (consistent with `set_control_property`), or add
+an explicit `save_form` tool so a caller can batch adds and commit once.
+
+---
+
 ## Not an MCP gap (recorded to avoid confusion)
 
 - **`Debug.Print` didn't reach the Immediate window** — that was an *interpreter* bug (the `Debug` object was
