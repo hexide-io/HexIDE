@@ -51,8 +51,28 @@ permissions:
   contents: write
 
 jobs:
+  # Ten seconds, and it catches the mistake that otherwise ships silently: tagging v0.2.0 while
+  # Directory.Build.props still says 0.1.0, so every binary reports a version nobody can find.
+  preflight:
+    name: Check tag matches Version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          set -euo pipefail
+          version=$(grep -oP '(?<=<Version>)[^<]+' IDE/Directory.Build.props | head -1)
+          tag='${{ inputs.tag }}'
+          echo "Directory.Build.props <Version> = $version"
+          echo "requested tag              = $tag"
+          if [ "$tag" != "v$version" ]; then
+            echo "::error::Tag '$tag' does not match <Version> '$version'. Bump Directory.Build.props, or tag v$version."
+            exit 1
+          fi
+
   build:
     name: ${{ matrix.name }}
+    needs: preflight
     runs-on: ${{ matrix.runner }}
     defaults:
       run:
@@ -93,14 +113,21 @@ jobs:
       # matrix leg above is matched. If a leg fails here it is almost certainly a missing native
       # toolchain on the image (MSVC arm64, or Xcode CLT); the fallback is to drop PublishAot for that
       # leg with -p:PublishAot=false and accept a larger output.
+      # The SDK appends this to InformationalVersion as "+<sha>", so a build reports 0.1.0+4d9d4ba.
+      # Resolved once here rather than inline, because the publish steps run under pwsh on the Windows
+      # legs and bash elsewhere — an Actions-level expression is shell-agnostic.
+      - name: Resolve build stamp
+        shell: bash
+        run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+
       - name: Publish HexIDE.Standalone (${{ matrix.rid }}, AOT)
-        run: dotnet publish HexIDE.Standalone -f net10.0 -c Release -r ${{ matrix.rid }} -o bin/standalone/
+        run: dotnet publish HexIDE.Standalone -f net10.0 -c Release -r ${{ matrix.rid }} -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/standalone/
 
       - name: Publish HexIDE.Desktop (framework-dependent)
-        run: dotnet publish HexIDE.Desktop -f net10.0 -c Release -r ${{ matrix.rid }} --self-contained false -o bin/fdd/
+        run: dotnet publish HexIDE.Desktop -f net10.0 -c Release -r ${{ matrix.rid }} --self-contained false -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/fdd/
 
       - name: Publish HexIDE.Desktop (self-contained)
-        run: dotnet publish HexIDE.Desktop -f net10.0 -c Release -r ${{ matrix.rid }} --self-contained true -o bin/sc/
+        run: dotnet publish HexIDE.Desktop -f net10.0 -c Release -r ${{ matrix.rid }} --self-contained true -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/sc/
 
       - name: Stage both flavours
         shell: bash
@@ -139,6 +166,7 @@ jobs:
             APP="bin/$flavour-app/HexIDE.app"
             mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
             cp -R "bin/$flavour/." "$APP/Contents/MacOS/"
+            cp HexIDE/Icons/AppIcon/hexide.icns "$APP/Contents/Resources/hexide.icns"
             cat > "$APP/Contents/Info.plist" <<PLIST
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -148,6 +176,7 @@ jobs:
             <key>CFBundleDisplayName</key><string>HexIDE</string>
             <key>CFBundleIdentifier</key><string>io.hexide.HexIDE</string>
             <key>CFBundleExecutable</key><string>HexIDE</string>
+            <key>CFBundleIconFile</key><string>hexide</string>
             <key>CFBundlePackageType</key><string>APPL</string>
             <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
             <key>CFBundleShortVersionString</key><string>${VERSION}</string>
@@ -157,10 +186,6 @@ jobs:
           </dict>
           </plist>
           PLIST
-            # TODO: add CFBundleIconFile once a real .icns exists. The tree currently has only a 64 px
-            # PNG and an .ico; upscaling either produces a visibly poor Dock icon. Until then macOS
-            # shows the generic application icon — cosmetic, and it does not affect launching.
-
             # Renaming HexIDE.Desktop -> HexIDE invalidated the linker's ad-hoc signature, and an
             # arm64 Mach-O with a broken or absent signature is killed outright (SIGKILL) on Apple
             # Silicon regardless of quarantine. Re-sign ad-hoc, inner-out. Never --deep: it re-signs
