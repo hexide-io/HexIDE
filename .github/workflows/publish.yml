@@ -9,8 +9,11 @@ name: Publish Release
 # nobody targets — the "Windows" zip contained riscv64 Linux binaries. RID-specific is 47.5 MB / 17.4 MB.
 #
 # ── Two flavours per platform ─────────────────────────────────────────────────────────────────────
-#   framework-dependent  ~48 MB on disk, ~17 MB archived — needs the .NET 10 desktop runtime installed
-#   self-contained       ~124 MB on disk, ~51 MB archived — no prerequisites
+#   framework-dependent  ~26-32 MB archived — needs the .NET 10 desktop runtime installed
+#   self-contained       ~90-102 MB archived — no prerequisites
+# Measured from the v0.1.0 assets across all six RIDs. Roughly double the earlier figures, because
+# the standalone runner now ships in BOTH flavours as its own publish rather than as one shared AOT
+# binary — see the note above that step.
 # Both are kept deliberately: self-contained means WE own runtime CVE patching, framework-dependent
 # users get fixes from Microsoft Update.
 #
@@ -346,13 +349,23 @@ jobs:
           fail_on_unmatched_files: true
           files: artifacts/*
           token: ${{ secrets.GITHUB_TOKEN }}
+          # The saving warning leads, and is not decoration. A release page is reached directly --
+          # from search, from a link, from someone's chat message -- by people who never see the
+          # site. Without it here, the first thing they read is "nothing is signed", which sounds
+          # like an inconvenience rather than something that can cost them a project. Keep it
+          # worded the same as the site banner so the two cannot drift.
           body: |
-            Pre-alpha. Nothing here is signed or notarised.
+            An open, cross-platform recreation of the Visual Basic 6 IDE. **Alpha.**
+
+            > ⚠️ **Saving is not yet round-trip faithful.** A save can delete `.frx` binary companions and
+            > rewrite class settings you never touched. Work on a copy — not on a project you care about.
+            > [Exactly what goes wrong](https://hexide.io/scope.html#saving)
 
             **Which download?**
             - `hexide-<platform>-selfcontained.*` — no prerequisites. Start here.
             - `hexide-<platform>.*` — smaller, but needs the [.NET 10 desktop runtime](https://dotnet.microsoft.com/download/dotnet/10.0) installed.
 
+            Nothing here is signed or notarised.
             **Windows** shows a SmartScreen warning: More info → Run anyway.
             **macOS** — extract in Terminal with `tar -xzf <file>.tar.gz`. Unpacking with Finder
             instead applies a quarantine flag that an unsigned app cannot clear.
