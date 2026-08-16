@@ -42,6 +42,11 @@ public partial class App : Application
         _diSetup = new DISetup();
         _diSetup.ThemeService.Apply(_diSetup.SettingsService.ActiveTheme);
         _diSetup.KeymapService.Apply(_diSetup.SettingsService.ActiveKeymap);
+
+        // Register the VB6 highlighting definition and subscribe it to theme changes before any editor
+        // is built, so the first paint is already correct rather than light-until-you-switch. Must
+        // follow ThemeService.Apply above, which is what sets the variant this reads.
+        SyntaxHighlightingTheme.EnsureRegistered();
         // Localization: apply the saved language pack. The default "system" follows the OS UI culture
         // each launch; a specific id pins that language. A pack-selector string only — does NOT touch
         // thread culture (the invariant lock set in Initialize() stands). Applied before the views are

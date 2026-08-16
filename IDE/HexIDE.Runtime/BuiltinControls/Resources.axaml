@@ -11,7 +11,14 @@
                 <BulletDecorator Background="{TemplateBinding Background}">
                     <BulletDecorator.Bullet>
                         <!-- Draw Checkmark border and tick mark -->
+                        <!-- Width/Height pin the glyph to VB6's 13x13 check box. Without them the
+                             decorator is measured from its child, so hiding the tick (rules below)
+                             collapses the box to the border alone. It also removes an existing
+                             inconsistency: the 3D variant measured 11x11 while FlatVBCheckBox's 2px
+                             border pushed it to 13x13. -->
                         <ClassicBorderDecorator x:Name="CheckMark"
+                                                Width="13"
+                                                Height="13"
                                                 BorderStyle="Sunken"
                                                 Background="{DynamicResource {x:Static common:SystemColors.WindowBrushKey}}"
                                                 BorderThickness="{TemplateBinding BorderThickness}"
@@ -38,6 +45,21 @@
                 </BulletDecorator>
             </ControlTemplate>
         </Setter>
+        <!-- Tick visibility. The base CheckBox theme (SimpleTheme) drives a part it calls
+             Path#checkMark; this template names its tick CheckMarkPath, so those rules never matched
+             and the tick was painted in EVERY state — an unchecked box rendered ticked. Restated here
+             against the real part name. -->
+        <Style Selector="^ /template/ Path#CheckMarkPath">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:checked /template/ Path#CheckMarkPath">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <!-- VB6 Value = 2 (Greyed) arrives as IsChecked = null: tick shown, in the grey text colour. -->
+        <Style Selector="^:indeterminate /template/ Path#CheckMarkPath">
+            <Setter Property="IsVisible" Value="True" />
+            <Setter Property="Fill" Value="{DynamicResource {x:Static common:SystemColors.GrayTextBrushKey}}" />
+        </Style>
     </ControlTheme>
     <ControlTheme x:Key="FlatVBCheckBox"
                   TargetType="builtinControls:VBCheckBox"

@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Xml;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -17,12 +16,12 @@ using AvaloniaEdit.CodeCompletion;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.Folding;
 using AvaloniaEdit.Highlighting;
-using AvaloniaEdit.Highlighting.Xshd;
 using HexIDE.Bookmarks;
 using HexIDE.Controls;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.Editor;
+using HexIDE.Themes;
 using HexIDE.Utils;
 using R3;
 using Serilog;
@@ -55,6 +54,7 @@ public partial class CodeEditorView : UserControl
     private bool _resetPromptOpen;
     private string? _preEditSnapshot;   // document text captured before the first edit while running (for No→revert)
     private int _preEditCaret;
+    private Action? _onPaletteChanged;
 
     public DelegateCommand Undo { get; }
     public DelegateCommand Redo { get; }
@@ -66,22 +66,6 @@ public partial class CodeEditorView : UserControl
     public DelegateCommand Replace { get; }
     public DelegateCommand SelectAll { get; }
 
-    static CodeEditorView()
-    {
-        var uri = new Uri("avares://HexIDE/Resources/TextHighlighting/VB6.xshd.xml");
-
-        // Get the asset loader from Avalonia
-        var xshdContent = AssetLoader.Open(uri);
-        
-        if (xshdContent == null)
-            throw new InvalidOperationException("VB6 XSHD resource not found");
-
-        using var reader = new XmlTextReader(xshdContent);
-        var xshd = HighlightingLoader.LoadXshd(reader);
-        var highlightingDefinition = HighlightingLoader.Load(xshd, HighlightingManager.Instance);
-        HighlightingManager.Instance.RegisterHighlighting("VB6", new[] { ".vb6", ".bas", ".frm", ".cls" }, highlightingDefinition);
-    }
-    
     public CodeEditorView()
     {
         Undo = new DelegateCommand(() => TextEditor.Undo(), () => TextEditor?.CanUndo ?? false);
@@ -237,10 +221,17 @@ public partial class CodeEditorView : UserControl
             // TextArea.OnKeyDown inserts a default newline.
             TextEditor.TextArea.AddHandler(KeyDownEvent, OnEditorKeyDown, Avalonia.Interactivity.RoutingStrategies.Tunnel);
 
-            TextEditor.SyntaxHighlighting = HighlightingManager.Instance.GetDefinition("VB6");
+            TextEditor.SyntaxHighlighting = SyntaxHighlightingTheme.Definition;
 
             // Minimap (prototype)
-            Minimap.Attach(TextEditor, HighlightingManager.Instance.GetDefinition("VB6"));
+            Minimap.Attach(TextEditor, SyntaxHighlightingTheme.Definition);
+
+            // On a theme switch SyntaxHighlightingTheme has already retinted the shared definition by
+            // the time this fires — but AvaloniaEdit baked the old brushes into the visual lines it
+            // built, so Redraw() is what clears that cache and re-runs the colorizer. This is what
+            // makes ALREADY-OPEN editors recolour live instead of only on restart.
+            _onPaletteChanged = () => TextEditor.TextArea.TextView.Redraw();
+            SyntaxHighlightingTheme.PaletteChanged += _onPaletteChanged;
 
             // Apply tab width from settings
             TextEditor.Options.IndentationSize = vm.Settings.TabWidth;
@@ -291,6 +282,15 @@ public partial class CodeEditorView : UserControl
     {
         base.OnDetachedFromVisualTree(e);
         Minimap.Detach();
+
+        // PaletteChanged is a static event: a Dock document-move re-materialises this view, so an
+        // unremoved handler leaks it for the process lifetime and fires a stale redraw per theme
+        // switch. Same hazard _vmSelectionSync below is guarded against.
+        if (_onPaletteChanged is not null)
+        {
+            SyntaxHighlightingTheme.PaletteChanged -= _onPaletteChanged;
+            _onPaletteChanged = null;
+        }
 
         if (DataContext is CodeEditorViewModel vm)
         {

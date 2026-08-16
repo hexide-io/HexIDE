@@ -25,7 +25,14 @@
     <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.0.2" />
     <PackageVersion Include="Avalonia.Skia" Version="12.0.4" />
     <PackageVersion Include="Avalonia.Themes.Simple" Version="12.0.4" />
-    <PackageVersion Include="Classic.Avalonia.Theme" Version="11.3.0.3" />
+    <!-- 12.0.1-beta1 is the Avalonia-12 build. The 11.3.0.3 assembly was compiled against Avalonia 11,
+         and its ClassicBorderDecorator.DrawRadioButtonBorder called
+         StreamGeometryContext.ArcTo(Point, Size, double, bool, SweepDirection) — an overload Avalonia 12
+         replaced — so BorderStyle="RadioButton" threw MissingMethodException on the render thread and
+         took the whole process down with nothing in the managed log. Every VB6 option button hit it, in
+         the designer and at runtime. Do not pin back. Classic.CommonControls.Avalonia follows
+         transitively. <ClassicTheme /> is still NOT loaded and must not be. -->
+    <PackageVersion Include="Classic.Avalonia.Theme" Version="12.0.1-beta1" />
   </ItemGroup>
   <!-- Dock -->
   <ItemGroup>
