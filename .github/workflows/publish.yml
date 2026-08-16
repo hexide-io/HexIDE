@@ -206,11 +206,21 @@ jobs:
             # arm64 Mach-O with a broken or absent signature is killed outright (SIGKILL) on Apple
             # Silicon regardless of quarantine. Re-sign ad-hoc, inner-out. Never --deep: it re-signs
             # nested code with the outer identity and hides exactly the failures this is guarding.
-            # Managed assemblies are included deliberately. A .dll is a PE file, not Mach-O, so the
-            # Mach-O test alone skipped every one of them -- and codesign still treats nested managed
-            # code as part of the bundle, so verification failed on the first satellite assembly it
-            # reached (a localized *.resources.dll under Contents/MacOS/<lang>/). Signing native code
-            # only is what leaves the bundle "not signed at all" in a subcomponent.
+            # codesign decides what counts as a "code object" partly from the execute bit, so ANY
+            # file inside the bundle carrying +x is expected to bear a signature -- including data.
+            # dotnet publish hands back .json, .dll and friends with the bit set, which is why
+            # verification failed first on a localized *.resources.dll and then on a
+            # *.runtimeconfig.json: fixing them one file type at a time is chasing symptoms.
+            # Strip +x from everything that is not Mach-O; genuine entry points are Mach-O and keep
+            # theirs untouched.
+            find "$APP" -type f -perm +111 -print0 |
+              while IFS= read -r -d '' f; do
+                file -b "$f" | grep -q '^Mach-O' || chmod -x "$f" || true
+              done
+
+            # Managed assemblies are still signed explicitly. A .dll is a PE file, not Mach-O, so the
+            # Mach-O test alone skips them, and codesign treats nested managed code as part of the
+            # bundle whether or not it is executable.
             find "$APP" -type f \( -name '*.dylib' -o -name '*.so' -o -name '*.dll' -o -perm +111 \) -print0 |
               while IFS= read -r -d '' f; do
                 if [ "${f##*.}" = dll ] || file -b "$f" | grep -q '^Mach-O'; then
@@ -218,7 +228,13 @@ jobs:
                 fi
               done
             codesign --force --timestamp=none --sign - "$APP"
-            codesign --verify --verbose=2 "$APP"
+            # On failure, name every remaining candidate rather than only the first one codesign
+            # trips over, so a bad bundle takes one run to diagnose instead of one run per file.
+            if ! codesign --verify --verbose=2 "$APP"; then
+              echo "--- still-executable files in the bundle ---"
+              find "$APP" -type f -perm +111 -exec sh -c 'printf "%s :: %s\n" "$1" "$(file -b "$1")"' _ {} \;
+              exit 1
+            fi
           done
 
       - name: Smoke-check the staged output
