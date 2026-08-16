@@ -58,10 +58,17 @@ done < <(git grep -nIF 'C:\Users\' -- . "${EXCLUDE[@]}")
 #    run it by hand. Unset, the check announces that it did not run rather than passing
 #    silently — a guard that quietly does nothing is worse than no guard, because it
 #    still reads green.
+#
+#    Matched CASE-INSENSITIVELY, so write the pattern in plain lower case. Encoding case
+#    by hand as [Mm][Aa]... is easy to get subtly wrong, and getting it wrong fails open:
+#    an all-caps copyright header or a generated file would slip past a pattern that only
+#    anticipated title case. Keep the pattern to the distinctive parts — a surname and an
+#    employer, not a first name, which collides with unrelated third-party authors in
+#    THIRD-PARTY-NOTICES.md and trains everyone to ignore the check.
 if [ -n "${HEXIDE_IDENTITY_PATTERN:-}" ]; then
   while IFS= read -r hit; do
     [ -n "$hit" ] && note "personal-identity reference: $hit"
-  done < <(git grep -nIE "$HEXIDE_IDENTITY_PATTERN" -- . "${EXCLUDE[@]}")
+  done < <(git grep -nIiE "$HEXIDE_IDENTITY_PATTERN" -- . "${EXCLUDE[@]}")
 else
   printf '  \xE2\x97\x8B identity scan SKIPPED (HEXIDE_IDENTITY_PATTERN not set)\n'
 fi
