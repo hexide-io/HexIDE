@@ -18,7 +18,7 @@ Licence provenance is per-file, not per-repository. The copyleft obligation came
 most of the server was original work that could be relicensed freely — but "most" is not "all", and the
 distinction had to be checked rather than assumed.
 
-Three things were treated as tainted and rewritten or dropped: the grammar itself, generated parser output
+Three things were treated as carrying the obligation and rewritten or dropped: the grammar itself, generated parser output
 derived from it, and test inputs that had been taken from the replaced project's own suite. The test inputs
 are the subtle one — they look like ordinary fixtures, and reusing them would have carried the obligation
 across in a form nobody would notice until someone audited it.
