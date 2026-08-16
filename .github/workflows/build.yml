@@ -84,10 +84,25 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # No existence guard. The script used to live only in the private repository, so this
+      # step skipped here and reported success — the check has never actually run against
+      # this tree. If it goes missing again, this must go red rather than quietly pass.
       - name: Guard the 100%-MIT tree (no GPL-licensed artifacts)
-        run: |
-          if [ -f scripts/check-no-gpl.sh ]; then
-            bash scripts/check-no-gpl.sh
-          else
-            echo "scripts/check-no-gpl.sh absent (the sanitised public snapshot prunes scripts/) — the tree is MIT by construction; skipping."
-          fi
+        run: bash scripts/check-no-gpl.sh
+
+  # Repo-wide guard: the checks that used to run only when this tree was produced by a
+  # copy-in from elsewhere. There is no copy-in any more, so they run here.
+  guard-hygiene:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Guard tree hygiene (keys, artefacts, links, paths, naming)
+        env:
+          # Supplied from a repository secret so the pattern itself is never committed —
+          # writing it into the script would publish the string the check looks for. When
+          # the secret is absent (a pull request from a fork cannot read secrets) the
+          # script says the scan was skipped instead of reporting a pass it did not earn.
+          HEXIDE_IDENTITY_PATTERN: ${{ secrets.HEXIDE_IDENTITY_PATTERN }}
+        run: bash scripts/check-tree-hygiene.sh
