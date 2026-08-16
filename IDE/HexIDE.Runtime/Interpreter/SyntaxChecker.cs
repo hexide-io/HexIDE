@@ -29,6 +29,7 @@ public partial class SyntaxChecker : IAntlrErrorListener<IToken>, IAntlrErrorLis
 
         lexer.AddErrorListener(this);
         parser.AddErrorListener(this);
+        parser.AddParseListener(new ParseDepthGuard());   // reject pathological nesting as a compile error, not a crash
 
         var tree = parser.startRule();
     }

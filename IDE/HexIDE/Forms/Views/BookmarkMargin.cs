@@ -21,7 +21,6 @@ public sealed class BookmarkMargin : AbstractMargin
     {
         _bookmarkService = bookmarkService;
         _documentUri = documentUri;
-        _bookmarkService.BookmarksChanged += OnBookmarksChanged;
     }
 
     protected override void OnTextViewChanged(TextView? oldTextView, TextView? newTextView)
@@ -31,6 +30,14 @@ public sealed class BookmarkMargin : AbstractMargin
         base.OnTextViewChanged(oldTextView, newTextView);
         if (newTextView != null)
             newTextView.VisualLinesChanged += OnVisualLinesChanged;
+
+        // Subscribe to the session-singleton store only while attached, so a detached margin isn't retained by the
+        // store's event for the whole session (a leak on repeated tab open/close). `-=` before `+=` keeps a single
+        // subscription across repeated OnTextViewChanged calls.
+        _bookmarkService.BookmarksChanged -= OnBookmarksChanged;
+        if (newTextView != null)
+            _bookmarkService.BookmarksChanged += OnBookmarksChanged;
+
         InvalidateVisual();
     }
 

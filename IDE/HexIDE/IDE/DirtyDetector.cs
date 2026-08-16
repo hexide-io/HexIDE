@@ -1,5 +1,6 @@
 using System;
 using HexIDE.Forms.ViewModels;
+using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using HexIDE.VisualDesigner;
@@ -15,7 +16,8 @@ public enum ReloadDecision
     /// <summary>The IDE has unsaved edits for this file — a conflict (P1 skips; P2 shows a dialog).</summary>
     Conflict,
 
-    /// <summary>Dirtiness can't be determined cheaply/safely — skip for now (e.g. a not-open form).</summary>
+    /// <summary>Dirtiness can't be determined cheaply/safely — skip for now (e.g. a not-open module with
+    /// no recorded baseline, so there is nothing to compare the model against).</summary>
     Indeterminate,
 }
 
@@ -36,10 +38,12 @@ public sealed record WatchedFileTarget(
 
 /// <summary>
 /// Classifies an externally-changed file as a clean reload, a conflict, or indeterminate, using the
-/// editor buffer / designer undo state for open files and the on-disk baseline for not-open files.
+/// editor buffer / designer undo state for open files. For not-open files there are no views to consult:
+/// a module is compared against the on-disk baseline, and a form — whose serialized layout+code cannot be
+/// hashed against a buffer — is compared render-to-render via <see cref="IProjectService"/>.
 /// All view access happens on the UI thread (the watcher dispatches there before calling this).
 /// </summary>
-public sealed class DirtyDetector(IFileBaselineStore baselineStore)
+public sealed class DirtyDetector(IFileBaselineStore baselineStore, IProjectService projectService)
 {
     public ReloadDecision Classify(WatchedFileTarget t)
     {
@@ -73,21 +77,29 @@ public sealed class DirtyDetector(IFileBaselineStore baselineStore)
         // module.Code is the body only for .bas/.cls; reconstruct the on-disk form (header + body) so the
         // hash matches the baseline (which records the full file written to disk). No-op for .ctl/.pag.
         var modelOnDisk = ModuleFileFormat.HandlesHeader(module.Kind)
-            ? ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind)
+            ? ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind, module.OriginalHeader)
             : module.Code;
         return string.Equals(FileHasher.Hash(modelOnDisk), baseline.Hash, StringComparison.Ordinal)
             ? ReloadDecision.CleanReload
             : ReloadDecision.Conflict;
     }
 
-    private static ReloadDecision ClassifyForm(WatchedFileTarget t)
+    private ReloadDecision ClassifyForm(WatchedFileTarget t)
     {
         // A .frm is serialized layout + code, so we cannot compare a raw hash to the editor buffer
         // (which holds only the code) or to a re-serialized model (round-trip is not byte-identical).
         // Use the editor buffer vs the model code for code dirtiness and the designer undo stack for
         // layout dirtiness — both only meaningful while the file is open.
+        //
+        // With no views to consult, ask the project service the render-vs-render question the save
+        // prompt uses: has the model changed since it was last loaded, saved, or reloaded? That sidesteps
+        // the round-trip-fidelity problem, because both sides of the comparison are our own render.
+        // Skipping here instead would leave the cached model stale — and since SaveProject writes every
+        // form unconditionally, the next save would put the stale model back over the external change.
         if (!t.IsOpen)
-            return ReloadDecision.Indeterminate; // not-open forms handled in a later phase
+            return projectService.HasUnsavedChanges(t.Form!)
+                ? ReloadDecision.Conflict
+                : ReloadDecision.CleanReload;
 
         var codeDirty = t.CodeEditor is not null
             && !string.Equals(t.CodeEditor.Document.Text, t.Form!.Code, StringComparison.Ordinal);

@@ -4,6 +4,32 @@ namespace HexIDE.Runtime.Tests;
 
 public class StatementTests : BaseVBTestFixture
 {
+    // ChDir/ChDrive gap-audit fix: the old code used a string-unpack that never succeeds, so they ALWAYS threw
+    // (never applied anything). Now oracle-pinned (vb6.exe): ChDir failures → Path Not Found (76); ChDrive with a
+    // non-drive-letter first char → Invalid Procedure Call (5); empty ChDrive → no-op. These error/no-op paths do
+    // not mutate the process-global working directory, so they're CI-safe (a failed ChDir leaves CWD unchanged).
+    [Fact]
+    public async Task ChDir_NonexistentPath_RaisesPathNotFound()
+    {
+        await Run("On Error Resume Next\nChDir \"/no_such_dir_hexide_zzz_9999\"\nDebug.Print Err.Number\n");
+        AssertDebugLog([new Vb6Value(76L)]);
+    }
+
+    [Fact]
+    public async Task ChDrive_NonDriveLetter_RaisesInvalidProcedureCall()
+    {
+        // `ChDrive 5` coerces to "5"; '5' is not a valid drive letter → Error 5 (oracle-verified). Deterministic.
+        await Run("On Error Resume Next\nChDrive 5\nDebug.Print Err.Number\n");
+        AssertDebugLog([new Vb6Value(5L)]);
+    }
+
+    [Fact]
+    public async Task ChDrive_EmptyString_IsNoOp()
+    {
+        await Run("On Error Resume Next\nChDrive \"\"\nDebug.Print Err.Number\n");
+        AssertDebugLog([new Vb6Value(0L)]);
+    }
+
     public static TheoryData<int, int, int[], int> ForLoopData => new()
     {
         { 1, 5, new[] { 1, 2, 3, 4, 5, 6 }, 1 },          // Simple increment loop

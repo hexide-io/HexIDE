@@ -1,0 +1,33 @@
+schema: spec-driven
+
+context: |
+  HexIDE — a cross-platform recreation of the Visual Basic 6 IDE in C#/Avalonia.
+  Monorepo: IDE/ (the IDE, VB6 interpreter, LSP client) and LspServer/ (out-of-process
+  VB6/VBA language server). MIT throughout. .NET 10, Avalonia 12, xUnit +
+  AwesomeAssertions + NSubstitute.
+
+  Design north star: recognisable to a 20-year VB6 professional. Modern capability is
+  additive and overridable, never at the cost of familiarity. VB6 runtime semantics are
+  verified against real vb6.exe, which is the fidelity oracle.
+
+  Language tooling is syntactic (CST) only — HexIDE never builds a bound semantic model;
+  that is the job of a replaceable external backend behind the LSP seam.
+
+rules:
+  spec:
+    - Write specs as present-tense behaviour contracts, never as implementation plans.
+    - Describe observable behaviour; keep internal mechanisms in design.md.
+    - Do not name third-party projects; refer to "an external backend" generically.
+    - Put RFC 2119 keywords in the requirement body, not only in its heading.
+    - >-
+      Where the code contradicts the spec because the code is defective, state the intended
+      behaviour as the requirement, open an issue, and link it from a note under Purpose.
+      Matching a spec to a known bug enshrines the bug. See specs/object-browser.
+  change:
+    - >-
+      Let 'openspec archive' merge the delta into specs/. Never hand-place a change into
+      archive/ — the archive is not scanned, so the merge silently does not happen.
+    - Rewrite a spec's Purpose after archiving; the CLI overwrites it with a placeholder.
+    - >-
+      A change that intentionally touches no specs needs 'skip_specs: true' alongside
+      'schema: spec-driven' in the change's .openspec.yaml.

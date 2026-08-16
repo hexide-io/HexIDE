@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="380" d:DesignHeight="260"
+             x:DataType="vm:AddWatchDialogViewModel"
+             x:Class="HexIDE.Forms.Views.AddWatchDialog">
+    <StackPanel Margin="16" Spacing="12" Width="360">
+
+        <TextBlock Text="{CompiledBinding Title}" FontSize="15" FontWeight="Bold" />
+
+        <StackPanel Spacing="4">
+            <TextBlock Text="{DynamicResource Str.Dialog.AddWatch.Expression}" />
+            <TextBox Text="{CompiledBinding Expression, Mode=TwoWay}" AcceptsReturn="False" />
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" Spacing="6">
+            <TextBlock Text="{DynamicResource Str.Dialog.AddWatch.Context}" />
+            <TextBlock Text="{CompiledBinding Context}" FontWeight="Bold" />
+        </StackPanel>
+
+        <StackPanel Spacing="4">
+            <TextBlock Text="{DynamicResource Str.Dialog.AddWatch.WatchType}" FontWeight="Bold" />
+            <RadioButton GroupName="watchType" IsChecked="{CompiledBinding IsExpression, Mode=TwoWay}"
+                         Content="{DynamicResource Str.Dialog.AddWatch.Type.Expression}" />
+            <RadioButton GroupName="watchType" IsChecked="{CompiledBinding IsBreakWhenTrue, Mode=TwoWay}"
+                         Content="{DynamicResource Str.Dialog.AddWatch.Type.BreakTrue}" />
+            <RadioButton GroupName="watchType" IsChecked="{CompiledBinding IsBreakWhenChanged, Mode=TwoWay}"
+                         Content="{DynamicResource Str.Dialog.AddWatch.Type.BreakChanged}" />
+        </StackPanel>
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="{DynamicResource Str.Dialog.AddWatch.Cancel}"
+                    Command="{CompiledBinding CancelCommand}" MinWidth="84" />
+            <Button Content="{DynamicResource Str.Dialog.AddWatch.Ok}"
+                    Command="{CompiledBinding OkCommand}" MinWidth="84" IsDefault="True" />
+        </StackPanel>
+    </StackPanel>
+</UserControl>

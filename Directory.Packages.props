@@ -2,20 +2,28 @@
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
-  <!-- Avalonia UI -->
+  <!-- Avalonia UI. NOTE: not all on one version — Controls.DataGrid (12.0.0) and Headless (12.0.2) have
+       no 12.0.x patch matching the core's 12.0.4, so the app and the headless test host render slightly
+       different builds. True alignment needs the 12.1.0 minor, but 12.1.0 is a BREAKING migration here:
+       it tightened compiled method-binding resolution (AVLN2000 — a bound method must be parameterless or
+       take a single object), which HexIDE uses pervasively (~167 ExecutingCommand method bindings; e.g.
+       MainViewViewModel.AddProject(IProjectTemplate?) fails to resolve). Deferred to a dedicated
+       post-launch migration. AvaloniaEdit, Classic.Avalonia, and Avalonia.Diagnostics are independent
+       packages with their own version streams. (Android/iOS dropped — those platforms are out of scope.) -->
   <ItemGroup>
     <PackageVersion Include="Avalonia" Version="12.0.4" />
-    <PackageVersion Include="Avalonia.Android" Version="12.0.1" />
     <PackageVersion Include="Avalonia.AvaloniaEdit" Version="12.0.0" />
     <PackageVersion Include="Avalonia.Browser" Version="12.0.1" />
     <PackageVersion Include="Avalonia.Controls.ColorPicker" Version="12.0.4" />
     <PackageVersion Include="Avalonia.Controls.DataGrid" Version="12.0.0" />
+    <!-- NB: Avalonia.Controls.TreeDataGrid 12.x is a COMMERCIAL "Avalonia Accelerate" product (MIT only through
+         11.2.x) — building against it fails with AVLIC0001 (no licence key). Deliberately NOT used; the debugger
+         Locals pane uses a native Avalonia TreeView + a columnar row template instead. Do not re-add it. -->
     <PackageVersion Include="Avalonia.Desktop" Version="12.0.4" />
     <PackageVersion Include="Avalonia.Diagnostics" Version="11.3.17" />
     <PackageVersion Include="Avalonia.Headless" Version="12.0.2" />
     <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.0.2" />
     <PackageVersion Include="Avalonia.Skia" Version="12.0.4" />
-    <PackageVersion Include="Avalonia.iOS" Version="12.0.1" />
     <PackageVersion Include="Avalonia.Themes.Simple" Version="12.0.4" />
     <PackageVersion Include="Classic.Avalonia.Theme" Version="11.3.0.3" />
   </ItemGroup>
@@ -47,6 +55,12 @@
     <PackageVersion Include="Nerdbank.MessagePack" Version="1.2.4" />
     <PackageVersion Include="StreamJsonRpc" Version="2.24.92" />
   </ItemGroup>
+  <!-- LSP server shell (MIT) — EmmyLua.LanguageServer.Framework: JSON-RPC + LSP plumbing for the
+       MIT VB6 language server (replaces the GPLv3 hand-rolled dispatcher). net9 asset, zero deps,
+       rolls forward to net10. See openspec/specs/lsp-server-swap/spec.md. -->
+  <ItemGroup>
+    <PackageVersion Include="EmmyLua.LanguageServer.Framework" Version="0.9.2" />
+  </ItemGroup>
   <!-- MVVM / DI -->
   <ItemGroup>
     <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
@@ -74,6 +88,5 @@
     <PackageVersion Include="LanguageExt.Core" Version="5.0.0-beta-77" />
     <PackageVersion Include="Svg.Skia" Version="2.0.0" />
     <PackageVersion Include="Tmds.DBus.Protocol" Version="0.94.1" />
-    <PackageVersion Include="Xamarin.AndroidX.Core.SplashScreen" Version="1.0.1.1" />
   </ItemGroup>
 </Project>

@@ -28,6 +28,11 @@ public abstract class VB6Visitor<T> : VB6BaseVisitor<T>
                 tout = (TT)(object)(int)val.Value!;
                 return true;
             }
+            if (val.Type == Vb6Value.ValueType.Byte)
+            {
+                tout = (TT)(object)(int)(byte)val.Value!;   // Byte widens to Integer (VB6: Byte arithmetic promotes to Integer)
+                return true;
+            }
             if (val.Type == Vb6Value.ValueType.String)
             {
                 if (int.TryParse((string?)val.Value ?? "", out var asInt))
@@ -54,6 +59,11 @@ public abstract class VB6Visitor<T> : VB6BaseVisitor<T>
                 tout = (TT)(object)(float)(int)val.Value!;
                 return true;
             }
+            if (val.Type == Vb6Value.ValueType.Byte)
+            {
+                tout = (TT)(object)(float)(byte)val.Value!;
+                return true;
+            }
             if (val.Type == Vb6Value.ValueType.Single)
             {
                 tout = (TT)(object)(float)val.Value!;
@@ -63,19 +73,13 @@ public abstract class VB6Visitor<T> : VB6BaseVisitor<T>
         }
         if (typeof(TT) == typeof(double))
         {
-            if (val.Type == Vb6Value.ValueType.Integer)
+            // The catch-all numeric rung: reads every numeric subtype (Byte/Integer/Long/Single/Double/
+            // Currency/Decimal/Date) as a double. Also fixes the old Single branch, which boxed a float and
+            // then unboxed it as double (an InvalidCastException that was only dormant because Single never
+            // reached this rung).
+            if (Vb6Value.TryNumericToDouble(val, out var asDouble))
             {
-                tout = (TT)(object)(double)(int)val.Value!;
-                return true;
-            }
-            if (val.Type == Vb6Value.ValueType.Single)
-            {
-                tout = (TT)(object)(float)val.Value!;
-                return true;
-            }
-            if (val.Type == Vb6Value.ValueType.Double)
-            {
-                tout = (TT)(object)(double)val.Value!;
+                tout = (TT)(object)asDouble;
                 return true;
             }
             return false;
@@ -123,19 +127,13 @@ public abstract class VB6Visitor<T> : VB6BaseVisitor<T>
             if (asTypeClause.fieldLength() != null)
                 throw new NotImplementedException("fieldLength as type not implemented");
             if (asTypeClause.type().complexType() != null)
-                throw new NotImplementedException("complex type as type not implemented");
-            if (asTypeClause.type().baseType().STRING() != null)
-                type = Vb6Value.ValueType.String;
-            else if (asTypeClause.type().baseType().INTEGER() != null)
-                type = Vb6Value.ValueType.Integer;
-            else if (asTypeClause.type().baseType().SINGLE() != null)
-                type = Vb6Value.ValueType.Single;
-            else if (asTypeClause.type().baseType().DOUBLE() != null)
-                type = Vb6Value.ValueType.Double;
-            else if (asTypeClause.type().baseType().BOOLEAN() != null)
-                type = Vb6Value.ValueType.Boolean;
+                // A UDT/Enum param or return type — one generic UDT ValueType (the concrete identity is on the
+                // value). Enough for ByRef aliasability (both sides UDT) and to skip numeric coercion; a UDT-typed
+                // Dim itself is built directly in VisitVariableStmt, not here.
+                type = Vb6Value.ValueType.UserDefinedType;
             else
-                throw new NotImplementedException("base type " + asTypeClause.type().baseType().GetChild(0) + " not implemented");
+                type = BaseTypeMapper.Map(asTypeClause.type().baseType())
+                    ?? throw new NotImplementedException("base type " + asTypeClause.type().baseType().GetChild(0) + " not implemented");
         }
 
         if (isArray)

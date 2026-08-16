@@ -48,4 +48,6 @@ public class StandaloneStandardLib : IBasicStandardLibrary
         await window.ShowDialog(_parent);
         return result;
     }
+
+    public void DebugPrint(Vb6Value value) => VBDebugConsole.Emit(value);
 }

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "hexide": {
+      "url": "http://localhost:5123/mcp",
+      "type": "http"
+    }
+  }
+}

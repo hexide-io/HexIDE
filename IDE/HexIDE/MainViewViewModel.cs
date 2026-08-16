@@ -75,6 +75,7 @@ public partial class MainViewViewModel : ObservableObject
     public FormLayoutToolViewModel FormLayout { get; }
     public LocalsToolViewModel Locals { get; }
     public WatchesToolViewModel Watches { get; }
+    public CallStackToolViewModel CallStack { get; }
     public ProjectToolViewModel ProjectExplorer { get; }
     public ColorPaletteToolViewModel ColorPalette { get; }
     public ObjectBrowserToolViewModel ObjectBrowser { get; }
@@ -202,6 +203,7 @@ public partial class MainViewViewModel : ObservableObject
             ImmediateToolViewModel immediate,
             LocalsToolViewModel locals,
             WatchesToolViewModel watches,
+            CallStackToolViewModel callStack,
             ColorPaletteToolViewModel colorPalette,
             ObjectBrowserToolViewModel objectBrowser,
             TranslationEditorViewModel translationEditor,
@@ -217,6 +219,7 @@ public partial class MainViewViewModel : ObservableObject
                 ["immediate"]         = immediate,
                 ["locals"]            = locals,
                 ["watches"]           = watches,
+                ["callStack"]         = callStack,
                 ["colorPalette"]      = colorPalette,
                 ["objectBrowser"]     = objectBrowser,
                 ["translationEditor"] = translationEditor,
@@ -637,6 +640,9 @@ public partial class MainViewViewModel : ObservableObject
         }
     }
 
+    private readonly HexIDE.Debugging.IBreakpointService breakpointService;
+    private readonly HexIDE.Runtime.Debugging.IDebugController debugController;
+
     public MainViewViewModel(IWindowManager windowManager,
         ToolBoxToolViewModel toolBox,
         PropertiesToolViewModel properties,
@@ -644,6 +650,7 @@ public partial class MainViewViewModel : ObservableObject
         FormLayoutToolViewModel formLayout,
         LocalsToolViewModel locals,
         WatchesToolViewModel watches,
+        CallStackToolViewModel callStack,
         ProjectToolViewModel projectExplorer,
         ColorPaletteToolViewModel colorPalette,
         ObjectBrowserToolViewModel objectBrowser,
@@ -672,7 +679,9 @@ public partial class MainViewViewModel : ObservableObject
         AddinMenuService addinMenuService,
         AddinCommandService addinCommandService,
         AddinToolWindowService addinToolWindowService,
-        IWindowStateService windowStateService)
+        IWindowStateService windowStateService,
+        HexIDE.Debugging.IBreakpointService breakpointService,
+        HexIDE.Runtime.Debugging.IDebugController debugController)
     {
         Personality = personalityService;
         AddinMenuService = addinMenuService;
@@ -704,6 +713,11 @@ public partial class MainViewViewModel : ObservableObject
         this.developerModeService = developerModeService;
         this.projectManager = projectManager;
         this.editorService = editorService;
+        this.breakpointService = breakpointService;
+        this.debugController = debugController;
+        // When the interpreter breaks, bring the offending form/module's code editor forward. The editor view then
+        // paints the amber current-statement bar and scrolls to it (it reads the controller's CurrentStop on open).
+        debugController.Stopped += info => RevealBreak(info.Module);
         StatusBar = statusBarService;
         ToolBox = toolBox;
         Properties = properties;
@@ -711,6 +725,7 @@ public partial class MainViewViewModel : ObservableObject
         FormLayout = formLayout;
         Locals = locals;
         Watches = watches;
+        CallStack = callStack;
         ProjectExplorer = projectExplorer;
         ColorPalette = colorPalette;
         ObjectBrowser = objectBrowser;
@@ -732,8 +747,10 @@ public partial class MainViewViewModel : ObservableObject
 
         VBWindowContext.RunTimeError += (form, e) =>
         {
-            var line = form.Code.Substring(e.Context.Start.StartIndex, e.Context.Stop.StopIndex - e.Context.Start.StartIndex);
-            var vm = new RuntimeErrorViewModel(e.Message + "\n\nat " + line);
+            var at = e.Context is { } ctx
+                ? "\n\nat " + form.Code.Substring(ctx.Start.StartIndex, ctx.Stop.StopIndex - ctx.Start.StartIndex)
+                : "";   // built-in errors carry no parse context
+            var vm = new RuntimeErrorViewModel(e.Message + at);
             windowManager.ShowDialog(vm);
         };
 
@@ -744,9 +761,24 @@ public partial class MainViewViewModel : ObservableObject
             windowManager.MessageBox(e.Message, "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
         };
 
-        StartDefaultProjectCommand = new DelegateCommand(projectRunnerService.RunStartupProject,
-            () => projectRunnerService.CanStartDefaultProject);
-        StartDefaultProjectWithFullCompileCommand = new DelegateCommand(projectRunnerService.RunStartupProject,
+        // Route `Debug.Print` output from the running program into the Immediate pane (VB6's Immediate window).
+        VBDebugConsole.Output += text =>
+        {
+            Dispatcher.UIThread.Post(() =>
+                Immediate.Document.Insert(Immediate.Document.TextLength, text + "\n"));
+        };
+
+        // F5 doubles as Continue in break mode (VB6 semantics): resume if paused, otherwise start.
+        StartDefaultProjectCommand = new DelegateCommand(
+            () =>
+            {
+                if (projectRunnerService.CanContinueProject)
+                    projectRunnerService.ContinueProject();
+                else
+                    projectRunnerService.RunStartupProject();
+            },
+            () => projectRunnerService.CanStartDefaultProject || projectRunnerService.CanContinueProject);
+        StartDefaultProjectWithFullCompileCommand = new DelegateCommand(() => projectRunnerService.RunStartupProject(),
             () => projectRunnerService.CanStartDefaultProjectWithFullCompile);
         BreakProjectCommand = new DelegateCommand(projectRunnerService.BreakCurrentProject,
             () => projectRunnerService.CanBreakProject);
@@ -893,7 +925,9 @@ public partial class MainViewViewModel : ObservableObject
 
     public void Exit()
     {
-        (Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.Shutdown();
+        // Close the window rather than calling Shutdown(), so File > Exit goes through the same
+        // Closing handler as the title-bar X — one interception point for the save-changes prompt.
+        (Avalonia.Application.Current?.ApplicationLifetime as Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow?.Close();
     }
 
     public void NYI()
@@ -979,17 +1013,106 @@ public partial class MainViewViewModel : ObservableObject
     private void DebuggingNotImplementedYet() =>
         windowManager.MessageBox("Debugging is not yet implemented. Maybe one day?", icon: MessageBoxIcon.Information).ListenErrors();
 
-    public void StepInto() => DebuggingNotImplementedYet();
-    public void StepOver() => DebuggingNotImplementedYet();
-    public void StepOut() => DebuggingNotImplementedYet();
-    public void RunToCursor() => DebuggingNotImplementedYet();
-    public void AddWatch() => DebuggingNotImplementedYet();
-    public void EditWatch() => DebuggingNotImplementedYet();
-    public void QuickWatch() => DebuggingNotImplementedYet();
-    public void ToggleBreakpoint() => DebuggingNotImplementedYet();
-    public void ClearAllBreakpoints() => DebuggingNotImplementedYet();
-    public void SetNextStatement() => DebuggingNotImplementedYet();
-    public void ShowNextStatement() => DebuggingNotImplementedYet();
+    // F8 (Step Into): from idle, start + break at the first statement; while paused, step one statement; while
+    // running, break at the next. StepIntoProject handles all three states, so this is safe to invoke any time.
+    public void StepInto() => projectRunnerService.StepIntoProject();
+    public void StepOver() => projectRunnerService.StepOverProject();
+    public void StepOut() => projectRunnerService.StepOutProject();
+    // Run To Cursor (Ctrl+F8): run (starting the project if idle, else continuing) until the active editor's caret
+    // line, then break — a one-shot temp breakpoint.
+    public void RunToCursor()
+    {
+        if (documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.CodeEditorViewModel code)
+        {
+            var line = code.Document.GetLineByOffset(code.CaretOffset).LineNumber;
+            var uri = code.GetDocumentUriPublic();
+            var module = uri[(uri.LastIndexOf('/') + 1)..];   // vb6://form/Form1 → Form1
+            projectRunnerService.RunToCursorProject(module, line);
+        }
+    }
+
+    // Debug → Add Watch: open the Add Watch dialog (new, empty). Edit Watch (Ctrl+W): re-open it for the Watches
+    // window's selected row. Quick Watch (Shift+F9): open it pre-filled with the identifier under the caret.
+    public void AddWatch() => Watches.OpenAddWatchDialog().ListenErrors();
+    public void EditWatch() => Watches.EditSelected().ListenErrors();
+
+    public void QuickWatch()
+    {
+        string? expr = documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.CodeEditorViewModel code
+            ? IdentifierAt(code.Document.Text, code.CaretOffset)
+            : null;
+        Watches.OpenAddWatchDialog(string.IsNullOrWhiteSpace(expr) ? null : expr).ListenErrors();
+    }
+
+    // The run of identifier characters (letters / digits / _ / .) surrounding an offset — the word under the caret,
+    // including a simple member access like "obj.Field". Null when the caret isn't on an identifier.
+    private static string? IdentifierAt(string text, int offset)
+    {
+        if (string.IsNullOrEmpty(text) || offset < 0 || offset > text.Length)
+            return null;
+        static bool IsIdent(char c) => char.IsLetterOrDigit(c) || c == '_' || c == '.';
+        int start = offset, end = offset;
+        while (start > 0 && IsIdent(text[start - 1])) start--;
+        while (end < text.Length && IsIdent(text[end])) end++;
+        return end > start ? text[start..end] : null;
+    }
+
+    // Toggle a breakpoint on the active code editor's caret line (1-based). The gutter margin repaints itself via
+    // IBreakpointService.BreakpointsChanged, and a live run picks it up immediately (ProjectRunnerService pushes it).
+    public void ToggleBreakpoint()
+    {
+        if (documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.CodeEditorViewModel code)
+        {
+            var line = code.Document.GetLineByOffset(code.CaretOffset).LineNumber;
+            breakpointService.Toggle(code.GetDocumentUriPublic(), line);
+        }
+    }
+
+    public void ClearAllBreakpoints() => breakpointService.ClearAll();
+
+    // Bring the code editor for the module the interpreter just broke in to the front (creating/activating its tab).
+    private void RevealBreak(string module)
+    {
+        var project = projectManager.StartupProject;
+        if (project is null)
+            return;
+        var form = project.Forms.FirstOrDefault(f => string.Equals(f.Name, module, StringComparison.OrdinalIgnoreCase));
+        if (form is not null)
+        {
+            editorService.EditCode(form);
+            return;
+        }
+        var mod = project.Modules.FirstOrDefault(m => string.Equals(m.Name, module, StringComparison.OrdinalIgnoreCase));
+        if (mod is not null)
+            editorService.EditCode(mod);
+    }
+
+    // Set Next Statement (Ctrl+F9): move the execution point to the active editor's caret line without running the
+    // statements in between. TOP-LEVEL-body granularity only — a nested target (inside an If/For/Do/Select block), or
+    // a move while paused inside such a block, is refused with a message. This is an INTERPRETER limit, not VB6's:
+    // the top-level body is a pc-addressable loop, but nested blocks run via recursive C# descent that can't be
+    // jumped into without a linearized CFG (a parked rewrite). See docs/debugger-vb6-divergences.md.
+    public void SetNextStatement()
+    {
+        if (documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.CodeEditorViewModel code)
+        {
+            var line = code.Document.GetLineByOffset(code.CaretOffset).LineNumber;
+            var uri = code.GetDocumentUriPublic();
+            var module = uri[(uri.LastIndexOf('/') + 1)..];
+            if (!debugController.SetNextStatement(module, line))
+                windowManager.MessageBox(localization.GetString("Str.Debug.SetNextStatement.Refused"),
+                    icon: MessageBoxIcon.Information).ListenErrors();
+        }
+    }
+
+    // Show Next Statement (Debug menu): bring the paused module's current-statement line into view — RevealBreak
+    // opens/activates that editor, which scrolls to and paints the amber current-statement bar (it reads the
+    // controller's CurrentStop on open). A no-op when not paused.
+    public void ShowNextStatement()
+    {
+        if (debugController.CurrentStop is { } stop)
+            RevealBreak(stop.Module);
+    }
 
     public Task OpenGithubRepo()
     {
@@ -1114,6 +1237,7 @@ public partial class MainViewViewModel : ObservableObject
     public void OpenImmediateTool() => OpenOrActivateTool(Immediate, false);
     public void OpenLocalsTool() => OpenOrActivateTool(Locals, false);
     public void OpenWatchesTool() => OpenOrActivateTool(Watches, false);
+    public void OpenCallStackTool() => OpenOrActivateTool(CallStack, false);
     public void OpenColorPaletteTool() => OpenOrActivateTool(ColorPalette, false);
     public void OpenObjectBrowserTool()
     {
@@ -1171,6 +1295,7 @@ public partial class MainViewViewModel : ObservableObject
             new("Immediate",    IsToolInLayout(Immediate)),
             new("Locals",       IsToolInLayout(Locals)),
             new("Watches",      IsToolInLayout(Watches)),
+            new("CallStack",    IsToolInLayout(CallStack)),
         };
         result.AddRange(_addinToolWindowService.Tools
             .Select(t => new ToolWindowInfo(t.Title, IsToolInLayout(t))));
@@ -1188,6 +1313,7 @@ public partial class MainViewViewModel : ObservableObject
             "immediate"                   => (Immediate,              false),
             "locals"                      => (Locals,                 false),
             "watches"                     => (Watches,                false),
+            "callstack" or "call stack"   => (CallStack,              false),
             _                             => (null,                   false)
         };
 
@@ -1238,9 +1364,9 @@ public class VBMDIWindow : MDIWindow, IModuleExecutionRoot
         interpreter = new BasicInterpreter(new StandaloneStandardLib(this), ExecutionContext, Environment, code);
     }
 
-    public void ExecuteSub(string name)
+    public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
     {
-        interpreter!.ExecuteSub(name, null, true);
+        interpreter!.ExecuteSub(name, args is null ? null : new List<Vb6Value>(args), true);
     }
 
     public Vb6Value? GetPropertyValue(PropertyClass property)
@@ -1275,5 +1401,7 @@ public class VBMDIWindow : MDIWindow, IModuleExecutionRoot
         {
             return default;
         }
+
+        public void DebugPrint(Vb6Value value) => VBDebugConsole.Emit(value);
     }
 }

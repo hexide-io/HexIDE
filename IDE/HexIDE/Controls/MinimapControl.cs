@@ -22,13 +22,15 @@ namespace HexIDE.Controls;
 /// editor's <see cref="IHighlightingDefinition"/>. A translucent viewport rectangle marks
 /// the visible region; click/drag scrolls the editor.
 ///
-/// Prototype limitations (intentional, to be revisited if we keep it):
-///  • Scale-to-fill with a capped line height: the document maps into the control height,
-///    growing lines up to a cap for short files and shrinking to fit for long ones. Very large
-///    files (beyond ~Height/MinLineHeight lines) currently render only their top region —
-///    sampling / bitmap windowing is deferred.
-///  • The viewport rectangle assumes uniform line height — folded/word-wrapped regions skew it.
-///  • Read-only; colours are literals here (a drawing control, not themed IDE chrome).
+/// Layout: scale-to-fill with a capped line height — the document maps into the control
+/// height, growing lines up to a cap for short files. A file taller than the control can show
+/// at <c>MinLineHeight</c> is bucketed <c>Step</c> lines per row (see <c>ComputeLayout</c>), so
+/// the whole document spans the full height rather than only its top region. The cache
+/// renderer, the viewport rectangle and click hit-testing all derive from the same layout, so
+/// they agree whether or not the file is sampled.
+///
+/// Remaining limitation: the viewport rectangle assumes uniform line height in the *editor*, so
+/// folded or word-wrapped regions skew it. Read-only.
 /// </summary>
 public sealed class MinimapControl : Control
 {

@@ -6,6 +6,7 @@ using Avalonia.VisualTree;
 using HexIDE.Automation;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.ProjectElements;
 using ModelContextProtocol.Server;
 
@@ -292,8 +293,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 if (parsed is null)
                     return (null, null, $"Property '{property}' has type '{propClass.PropertyType.Name}' which is not supported by set_control_property");
             }
-            catch (FormatException)
+            catch (Exception ex) when (ex is FormatException or OverflowException)
             {
+                // OverflowException too: int/float/double.Parse of an out-of-range literal (e.g. "99999999999" as
+                // int) overflows — return a clean parse error instead of crashing the tool handler.
                 return (null, null, $"Cannot parse '{value}' as {propClass.PropertyType.Name}");
             }
 
@@ -487,7 +490,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "set_tool_window_visible")]
-    [Description("Shows or hides a named tool panel. Valid names: Toolbox, Properties, ProjectGroup, FormLayout, Immediate, Locals, Watches.")]
+    [Description("Shows or hides a named tool panel. Valid names: Toolbox, Properties, ProjectGroup, FormLayout, Immediate, Locals, Watches, CallStack.")]
     public async Task<MutateResult> SetToolWindowVisibleAsync(string name, bool visible, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -722,6 +725,262 @@ internal sealed class HexIdeTools(IdeContext ctx)
         });
     }
 
+    // ---- Debugger ----
+
+    [McpServerTool(Name = "get_breakpoints")]
+    [Description("Returns the breakpoint line numbers (1-based) for a named form or module. Empty array if none.")]
+    public async Task<BreakpointsResult> GetBreakpointsAsync(string name, CancellationToken ct)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            var project = ctx.ProjectManager.StartupProject;
+            if (project is null)
+                return new BreakpointsResult(null, [], "No project loaded");
+
+            var uri = ResolveDocumentUri(project, name);
+            if (uri is null)
+                return new BreakpointsResult(null, [], $"No form or module named '{name}' found");
+
+            return new BreakpointsResult(uri, [.. ctx.BreakpointService.GetBreakpoints(uri)], null);
+        });
+    }
+
+    [McpServerTool(Name = "set_breakpoints")]
+    [Description("Replaces all breakpoints for a named form or module with the supplied 1-based line numbers. Pass an empty array to clear that document's breakpoints. Takes effect immediately if the project is running.")]
+    public async Task<MutateResult> SetBreakpointsAsync(string name, int[] lines, CancellationToken ct)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            var project = ctx.ProjectManager.StartupProject;
+            if (project is null)
+                return new MutateResult(false, "No project loaded");
+
+            var uri = ResolveDocumentUri(project, name);
+            if (uri is null)
+                return new MutateResult(false, $"No form or module named '{name}' found");
+
+            ctx.BreakpointService.SetDocument(uri, lines);
+            return new MutateResult(true, null);
+        });
+    }
+
+    [McpServerTool(Name = "clear_all_breakpoints")]
+    [Description("Removes every breakpoint in the project.")]
+    public async Task<MutateResult> ClearAllBreakpointsAsync(CancellationToken ct)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            ctx.BreakpointService.ClearAll();
+            return new MutateResult(true, null);
+        });
+    }
+
+    [McpServerTool(Name = "break_program")]
+    [Description("Pauses the running project at the next executed statement (VB6 Break / Ctrl+Break). Error if not running or already paused.")]
+    public async Task<MutateResult> BreakProgramAsync(CancellationToken ct)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (!ctx.ProjectRunnerService.CanBreakProject)
+                return new MutateResult(false, ctx.ProjectRunnerService.IsRunning ? "Already paused" : "No project is running");
+            ctx.ProjectRunnerService.BreakCurrentProject();
+            return new MutateResult(true, null);
+        });
+    }
+
+    [McpServerTool(Name = "continue_program")]
+    [Description("Resumes a paused project (VB6 Continue / F5 in break mode). Error if not currently paused.")]
+    public async Task<MutateResult> ContinueProgramAsync(CancellationToken ct)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (!ctx.ProjectRunnerService.CanContinueProject)
+                return new MutateResult(false, "Project is not paused");
+            ctx.ProjectRunnerService.ContinueProject();
+            return new MutateResult(true, null);
+        });
+    }
+
+    [McpServerTool(Name = "step_into")]
+    [Description("Step Into (F8): from idle, starts the project and breaks at the first executed statement; while paused, executes the next statement and breaks (descending into any called Sub/Function); while running, breaks at the next statement. Call get_debug_state afterward to read the new paused module/line.")]
+    public async Task<MutateResult> StepIntoAsync(CancellationToken ct)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (!ctx.ProjectRunnerService.CanStepIntoProject)
+                return new MutateResult(false, "No project to step — load a project first");
+            ctx.ProjectRunnerService.StepIntoProject();
+            return new MutateResult(true, null);
+        });
+    }
+
+    [McpServerTool(Name = "step_over")]
+    [Description("Step Over (Shift+F8): while paused, executes the next statement and breaks in the SAME frame — a called Sub/Function runs to completion without descending (unlike step_into). On a non-call statement it behaves like step_into. From idle, starts the project and breaks at the first statement. Call get_debug_state afterward to read the new paused module/line.")]
+    public async Task<MutateResult> StepOverAsync(CancellationToken ct)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (!ctx.ProjectRunnerService.CanStepOverProject)
+                return new MutateResult(false, "No project to step — load a project first");
+            ctx.ProjectRunnerService.StepOverProject();
+            return new MutateResult(true, null);
+        });
+    }
+
+    [McpServerTool(Name = "step_out")]
+    [Description("Step Out (Ctrl+Shift+F8): while paused, runs the rest of the current procedure and breaks at the statement in the CALLER after it returns. Stepping out of the outermost frame runs that event/procedure to completion. From idle it starts the project (like Step Into); while running it requests a pause. Call get_debug_state afterward to read the new paused module/line.")]
+    public async Task<MutateResult> StepOutAsync(CancellationToken ct)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (!ctx.ProjectRunnerService.CanStepOutProject)
+                return new MutateResult(false, "No project to step — load a project first");
+            ctx.ProjectRunnerService.StepOutProject();
+            return new MutateResult(true, null);
+        });
+    }
+
+    [McpServerTool(Name = "run_to_cursor")]
+    [Description("Run To Cursor (Ctrl+F8): run until (module, 1-based line) then break — a one-shot temporary breakpoint. While paused it continues to the target; while running it arms the target; from idle it starts the project and runs to the target (a real breakpoint hit first stays paused there; continue proceeds toward the target). Call get_debug_state afterward to read the paused module/line.")]
+    public async Task<MutateResult> RunToCursorAsync(string module, int line, CancellationToken ct)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (!ctx.ProjectRunnerService.CanRunToCursor)
+                return new MutateResult(false, "No project to run — load a project first");
+            ctx.ProjectRunnerService.RunToCursorProject(module, line);
+            return new MutateResult(true, null);
+        });
+    }
+
+    [McpServerTool(Name = "set_next_statement")]
+    [Description("Set Next Statement (Ctrl+F9): move the execution point to (module, 1-based line) WITHOUT running the statements in between — the next step_into/continue executes from there. Only while paused, and only to a TOP-LEVEL statement of the currently paused procedure (a target nested inside an If/For/Do/Select block, or a move while paused inside such a block, is refused — a tree-walker limit, not VB6's). Returns an error result if refused. Call get_debug_state afterward to read the moved current line.")]
+    public async Task<MutateResult> SetNextStatementAsync(string module, int line, CancellationToken ct)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+            ctx.DebugController.SetNextStatement(module, line)
+                ? new MutateResult(true, null)
+                : new MutateResult(false, "Refused — must be paused, and the target must be a top-level statement of the paused procedure (not nested in a block)"));
+    }
+
+    [McpServerTool(Name = "get_debug_state")]
+    [Description("Returns the interpreter debug state: whether a project is running, the controller state (Running/Paused/Stopped), and — when paused — the break location (module, 1-based line) and reason.")]
+    public async Task<DebugStateResult> GetDebugStateAsync(CancellationToken ct)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            var stop = ctx.DebugController.CurrentStop;
+            return new DebugStateResult(
+                ctx.ProjectRunnerService.IsRunning,
+                ctx.DebugController.State.ToString(),
+                stop?.Reason.ToString(),
+                stop?.Module,
+                stop?.Line);
+        });
+    }
+
+    [McpServerTool(Name = "get_locals")]
+    [Description("Returns the paused frame's Locals as a tree (Expression/Value/Type), depth-capped. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false. 'context' is the Module.Procedure header; each row has has_children and, down to max_depth, nested children (arrays/UDTs/objects expand; a class instance's Me/fields appear under a Me/module root).")]
+    public async Task<LocalsResult> GetLocalsAsync(int maxDepth = 3, CancellationToken ct = default)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            var scope = ctx.DebugController.GetLocals();
+            if (scope is null)
+                return new LocalsResult(false, "Project is not paused", null, null);
+            int cap = Math.Clamp(maxDepth, 1, 8);
+            int[] budget = { MaxLocalsNodes };   // total-node budget across the whole eager projection
+            var rows = scope.Locals.Select(n => MapLocalsNode(n, cap, 1, budget)).ToArray();
+            return new LocalsResult(true, null, scope.Context, rows);
+        });
+    }
+
+    // Bound the eager depth-projection: even with the per-array element cap + depth cap, a pathologically wide
+    // nested tree could realize a lot of nodes on the UI thread. Stop after this many.
+    private const int MaxLocalsNodes = 5000;
+
+    // Depth-bounded projection of the lazy DebugNode tree into serializable rows. Children below max_depth are
+    // omitted (has_children still signals they exist); a truncated array tail becomes a "… N more" row.
+    private static LocalsRow MapLocalsNode(DebugNode node, int maxDepth, int depth, int[] budget)
+    {
+        LocalsRow[]? children = null;
+        if (node.HasChildren && depth < maxDepth && budget[0] > 0)
+        {
+            var kids = new List<LocalsRow>();
+            foreach (var c in node.Expand())
+            {
+                if (budget[0]-- <= 0)
+                    break;
+                kids.Add(MapLocalsNode(c, maxDepth, depth + 1, budget));
+            }
+            children = kids.ToArray();
+        }
+        string expression = node.TruncatedRemaining > 0 ? $"… {node.TruncatedRemaining} more" : node.Name;
+        return new LocalsRow(expression, node.Value, node.TypeName, node.HasChildren, children);
+    }
+
+    [McpServerTool(Name = "get_call_stack")]
+    [Description("Returns the call stack at the current break — the chain of running procedure activations, current/deepest frame first, each with proc, module, and 1-based line. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false with an empty list.")]
+    public async Task<CallStackResult> GetCallStackAsync(CancellationToken ct)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (ctx.DebugController.State != HexIDE.Runtime.Debugging.DebugState.Paused)
+                return new CallStackResult(false, "Project is not paused", System.Array.Empty<CallStackFrameRow>());
+            var frames = ctx.DebugController.GetCallStack()
+                .Select(f => new CallStackFrameRow(f.ProcName, f.Module, f.Line))
+                .ToArray();
+            return new CallStackResult(true, null, frames);
+        });
+    }
+
+    [McpServerTool(Name = "add_watch")]
+    [Description("Adds a watch expression to the Watches window. watchType is one of Expression (default; display the value), BreakWhenTrue, or BreakWhenChanged (P6a stores all three; only Expression displays a value today). Returns the full watch list after adding.")]
+    public async Task<WatchesResult> AddWatchAsync(string expression, string? watchType = null, CancellationToken ct = default)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            var type = watchType?.Trim().ToLowerInvariant() switch
+            {
+                "breakwhentrue" or "break_when_true" or "true"    => HexIDE.Debugging.WatchType.BreakWhenTrue,
+                "breakwhenchanged" or "break_when_changed" or "changed" => HexIDE.Debugging.WatchType.BreakWhenChanged,
+                _ => HexIDE.Debugging.WatchType.Expression,
+            };
+            var context = ctx.DebugController.GetLocals()?.Context ?? "(All Procedures)";
+            ctx.RootViewModel.Watches.Service.Add(new HexIDE.Debugging.WatchExpression(expression, type, context));
+            return await BuildWatchesResult();
+        });
+    }
+
+    [McpServerTool(Name = "get_watches")]
+    [Description("Returns every watch (expression, watch type, context) and its current value/type. Values are live only while paused (get_debug_state.state == Paused); otherwise value is '<Out of context>'.")]
+    public async Task<WatchesResult> GetWatchesAsync(CancellationToken ct = default)
+        => await Dispatcher.UIThread.InvokeAsync(BuildWatchesResult);
+
+    // Snapshot the watch list, evaluating each against the paused frame (live only while Paused).
+    private async Task<WatchesResult> BuildWatchesResult()
+    {
+        var rows = new List<WatchRow>();
+        foreach (var w in ctx.RootViewModel.Watches.Service.Watches)
+        {
+            var result = await ctx.DebugController.EvaluateWatchAsync(w.Expression);
+            rows.Add(new WatchRow(
+                w.Expression, w.Type.ToString(), w.Context,
+                result?.Display ?? "<Out of context>", result?.TypeName ?? "", result?.Ok ?? false));
+        }
+        return new WatchesResult(true, null, rows.ToArray());
+    }
+
+    [McpServerTool(Name = "evaluate")]
+    [Description("Runs an Immediate-window line against the paused frame. A leading ?/Print/Debug.Print (or a bare expression) EVALUATES and returns the value (variables, operators, intrinsics). A BARE assignment or Set (e.g. \"count = 7\", \"Set obj = Nothing\") is EXECUTED and mutates the paused frame (returns empty) — whereas \"?count = 7\" compares. User Sub/Function calls are still rejected (they would deadlock the paused gate). Valid only while paused (get_debug_state.state == Paused). Returns the formatted result / empty (for a statement) / a VB6-style error message.")]
+    public async Task<EvaluateResult> EvaluateAsync(string expression, CancellationToken ct = default)
+    {
+        string? result = await Dispatcher.UIThread.InvokeAsync(() => ctx.DebugController.EvaluateAsync(expression));
+        return result is null
+            ? new EvaluateResult(false, "Project is not paused", null)
+            : new EvaluateResult(true, null, result);
+    }
+
     [McpServerTool(Name = "get_toolbox_items")]
     [Description("Returns the names of all controls currently in the Toolbox, in order. Includes both built-in controls and any add-in registered controls.")]
     public async Task<ToolboxItemsResult> GetToolboxItemsAsync(CancellationToken ct)
@@ -749,11 +1008,17 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "shutdown_ide")]
-    [Description("Shuts down the HexIDE application cleanly, triggering all shutdown handlers.")]
-    public void ShutdownIde()
+    [Description("Shuts down the HexIDE application cleanly, triggering all shutdown handlers. " +
+                 "force (default true) skips the save-changes prompt and DISCARDS unsaved edits — " +
+                 "without it a modal dialog would block the shutdown and wedge automation. " +
+                 "Pass force=false to get exactly what a user closing the window sees, including the " +
+                 "prompt; the call then returns while the dialog is still open and the IDE may stay up " +
+                 "if the user cancels.")]
+    public void ShutdownIde(bool force = true)
     {
         Dispatcher.UIThread.Post(() =>
         {
+            Static.ForceCloseWithoutPrompt = force;
             var lifetime = Avalonia.Application.Current!.ApplicationLifetime as
                 Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
             lifetime?.MainWindow?.Close();
@@ -1113,6 +1378,24 @@ internal record UndoStateResult(
 internal record AddControlResult(bool Success, string? ControlName, string? Error);
 
 internal record BookmarksResult(string? Uri, int[] Lines, string? Error);
+
+internal record BreakpointsResult(string? Uri, int[] Lines, string? Error);
+
+internal record DebugStateResult(bool Running, string State, string? StopReason, string? Module, int? Line);
+
+internal record LocalsResult(bool Success, string? Error, string? Context, LocalsRow[]? Locals);
+
+internal record LocalsRow(string Expression, string Value, string Type, bool HasChildren, LocalsRow[]? Children);
+
+internal record EvaluateResult(bool Success, string? Error, string? Result);
+
+internal record CallStackResult(bool Success, string? Error, CallStackFrameRow[] Frames);
+
+internal record CallStackFrameRow(string Proc, string Module, int Line);
+
+internal record WatchesResult(bool Success, string? Error, WatchRow[] Watches);
+
+internal record WatchRow(string Expression, string WatchType, string Context, string Value, string Type, bool Ok);
 
 internal record ToolboxItem(string Name, string? VBTypeName);
 

@@ -7,19 +7,23 @@ namespace HexIDE.Runtime.Interpreter;
 
 public class VBRunTimeException : Exception
 {
-    public ParserRuleContext Context { get; }
+    public ParserRuleContext? Context { get; }
     private readonly VBStandardError stdError;
 
     public VBStandardError Error => stdError;
 
-    public VBRunTimeException(ParserRuleContext context, VBStandardError stdError, string? extraMessage = null) : base(
+    public VBRunTimeException(ParserRuleContext? context, VBStandardError stdError, string? extraMessage = null) : base(
         $"Run-time error '{stdError.ErrNo}':\n\n{stdError.Description}" + (extraMessage == null ? "" : "\n\n" + extraMessage))
     {
         Context = context;
         this.stdError = stdError;
     }
 
-    public VBRunTimeException(ParserRuleContext context, string custom) : base($"Run-time error:\n\n{custom}")
+    // Context-less form: raised by built-in functions (CInt overflow, a Type Mismatch on a bad arg) that don't
+    // have a parse context handy. Handlers must tolerate a null Context.
+    public VBRunTimeException(VBStandardError stdError, string? extraMessage = null) : this((ParserRuleContext?)null, stdError, extraMessage) { }
+
+    public VBRunTimeException(ParserRuleContext? context, string custom) : base($"Run-time error:\n\n{custom}")
     {
         Context = context;
     }
@@ -122,8 +126,10 @@ public struct VBStandardError
     public static readonly VBStandardError ComponentNotCorrectlyRegistered = new(336, "Component not correctly registered");
     public static readonly VBStandardError ComponentNotFound = new(337, "Component not found");
     public static readonly VBStandardError ComponentDidNotRunCorrectly = new(338, "Component did not run correctly");
+    public static readonly VBStandardError ControlArrayElementDoesntExist = new(340, "Control array element doesn't exist");
     public static readonly VBStandardError ObjectAlreadyLoaded = new(360, "Object already loaded");
     public static readonly VBStandardError CantLoadOrUnloadThisObject = new(361, "Can't load or unload this object");
+    public static readonly VBStandardError CantUnloadControlsCreatedAtDesignTime = new(362, "Can't unload controls created at design time");
     public static readonly VBStandardError ControlSpecifiedNotFound = new(363, "Control specified not found");
     public static readonly VBStandardError ObjectWasUnloaded = new(364, "Object was unloaded");
     public static readonly VBStandardError UnableToUnloadWithinThisContext = new(365, "Unable to unload within this context");

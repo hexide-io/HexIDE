@@ -122,14 +122,49 @@ public partial class App : Application
                         windowStateService.SaveWindowState(mainWindow);
                 };
 
-                // Save on Closing — fires before the OS restores the window from Maximized,
-                // ensuring we capture the correct state.
-                mainWindow.Closing += (_, _) =>
+                var closeConfirmed = false;
+
+                // Offer to save unsaved work, then save window state. The prompt is async and Closing is
+                // not, so the first close is vetoed, the dialog awaited, and the window re-closed once
+                // confirmed. Cancel in the dialog aborts the exit entirely, matching VB6.
+                mainWindow.Closing += (_, e) =>
                 {
+                    if (!closeConfirmed && !Static.ForceCloseWithoutPrompt)
+                    {
+                        e.Cancel = true;
+                        ConfirmThenClose();
+                        return;
+                    }
+
+                    // Window state is captured here rather than later because Closing fires before the OS
+                    // restores the window from Maximized.
                     windowClosing = true;
                     windowStateService.SaveWindowState(mainWindow);
                     rootViewModel.SaveLayout();
                 };
+
+                async void ConfirmThenClose()
+                {
+                    try
+                    {
+                        // Raises the save-changes prompt for anything dirty, saves what the user ticks,
+                        // and throws OperationCanceledException if they choose Cancel.
+                        await _diSetup.ProjectService.UnloadAllProjects();
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        return; // user cancelled — stay open
+                    }
+                    catch (Exception ex)
+                    {
+                        // A save failed. Staying open keeps the work recoverable; closing would not.
+                        Log.Error(ex, "Save-on-exit failed — leaving the window open");
+                        return;
+                    }
+
+                    closeConfirmed = true;
+                    mainWindow.Close();
+                }
             }
 
             desktop.ShutdownRequested += async (_, _) =>

@@ -13,8 +13,8 @@ namespace HexIDE.Runtime.Editor;
 /// </summary>
 /// <remarks>
 /// Regex patterns are clean-room derived from the VB6 language specification.
-/// This class is in the MIT-licensed Runtime project — it does not reference
-/// or copy from the GPLv3 VbFoldingProvider/VbFormatter in the LSP server.
+/// This class is clean-room and self-contained — it does not reference or copy
+/// from the LSP server's own VbFoldingProvider/VbFormatter (a separate copy).
 /// </remarks>
 public static class VbAutoCloseProvider
 {

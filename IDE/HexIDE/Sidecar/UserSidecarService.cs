@@ -7,6 +7,7 @@ using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using HexIDE.Bookmarks;
+using HexIDE.Debugging;
 using HexIDE.IDE;
 using HexIDE.Runtime.ProjectElements;
 using Serilog;
@@ -16,18 +17,53 @@ namespace HexIDE.Sidecar;
 public class UserSidecarService : IUserSidecarService
 {
     private readonly IBookmarkService bookmarkService;
+    private readonly IBreakpointService breakpointService;
     private readonly IProjectManager projectManager;
     private CancellationTokenSource? _saveCts;
     private bool _loading;
 
     private static readonly JsonSerializerOptions s_jsonOptions = new() { WriteIndented = true };
 
-    public UserSidecarService(IBookmarkService bookmarkService, IProjectManager projectManager)
+    public UserSidecarService(IBookmarkService bookmarkService, IBreakpointService breakpointService,
+        IProjectManager projectManager)
     {
         this.bookmarkService = bookmarkService;
+        this.breakpointService = breakpointService;
         this.projectManager = projectManager;
-        bookmarkService.BookmarksChanged += OnBookmarksChanged;
+        // Both personal-state stores persist to the same per-user sidecar (<project>.user.hexproj, beside the .vbp
+        // — the user chooses to commit or ignore it), on the same debounced save.
+        bookmarkService.BookmarksChanged += OnSidecarStateChanged;
+        breakpointService.BreakpointsChanged += OnSidecarStateChanged;
+        // The stores are app-lifetime singletons; unloading a project must drop its entries so they can't bleed
+        // into the next project opened under the same form/module names (its gutter, its run's breakpoints, or its
+        // sidecar).
+        projectManager.ProjectUnloaded += OnProjectUnloaded;
     }
+
+    private void OnProjectUnloaded(ProjectDefinition project)
+    {
+        // Clear this project's URIs from the shared stores WITHOUT persisting the emptied state: suppress the
+        // change-driven save (_loading) and cancel any pending debounce, so removing it from memory never erases
+        // the project's on-disk sidecar.
+        _saveCts?.Cancel();
+        _loading = true;
+        try
+        {
+            foreach (var uri in ProjectUris(project))
+            {
+                bookmarkService.SetBookmarks(uri, Array.Empty<int>());
+                breakpointService.ClearDocument(uri);
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static IEnumerable<string> ProjectUris(ProjectDefinition project) =>
+        project.Forms.Select(f => $"vb6://form/{f.Name}")
+            .Concat(project.Modules.Select(m => $"vb6://module/{m.Name}"));
 
     public async Task LoadAsync(ProjectDefinition project)
     {
@@ -39,10 +75,15 @@ public class UserSidecarService : IUserSidecarService
         {
             var json = await File.ReadAllTextAsync(path);
             var data = JsonSerializer.Deserialize<UserSidecarData>(json, s_jsonOptions);
-            if (data?.Bookmarks == null) return;
+            if (data == null) return;
 
-            foreach (var (uri, lines) in data.Bookmarks)
-                bookmarkService.SetBookmarks(uri, lines);
+            if (data.Bookmarks != null)
+                foreach (var (uri, lines) in data.Bookmarks)
+                    bookmarkService.SetBookmarks(uri, lines);
+
+            if (data.Breakpoints != null)
+                foreach (var (uri, lines) in data.Breakpoints)
+                    breakpointService.SetDocument(uri, lines);
         }
         catch (Exception ex)
         {
@@ -61,27 +102,27 @@ public class UserSidecarService : IUserSidecarService
 
         try
         {
-            var bookmarks = new Dictionary<string, List<int>>();
-
-            foreach (var form in project.Forms)
+            // Collect a per-document line map (keyed by the same vb6:// URIs) from a service.
+            Dictionary<string, List<int>> Collect(Func<string, IReadOnlyList<int>> getLines)
             {
-                var uri = $"vb6://form/{form.Name}";
-                var lines = bookmarkService.GetBookmarks(uri);
-                if (lines.Count > 0)
-                    bookmarks[uri] = new List<int>(lines);
+                var map = new Dictionary<string, List<int>>();
+                foreach (var uri in project.Forms.Select(f => $"vb6://form/{f.Name}")
+                             .Concat(project.Modules.Select(m => $"vb6://module/{m.Name}")))
+                {
+                    var lines = getLines(uri);
+                    if (lines.Count > 0)
+                        map[uri] = new List<int>(lines);
+                }
+                return map;
             }
 
-            foreach (var module in project.Modules)
-            {
-                var uri = $"vb6://module/{module.Name}";
-                var lines = bookmarkService.GetBookmarks(uri);
-                if (lines.Count > 0)
-                    bookmarks[uri] = new List<int>(lines);
-            }
+            var bookmarks = Collect(bookmarkService.GetBookmarks);
+            var breakpoints = Collect(breakpointService.GetBreakpoints);
 
             var data = new UserSidecarData
             {
-                Bookmarks = bookmarks.Count > 0 ? bookmarks : null
+                Bookmarks = bookmarks.Count > 0 ? bookmarks : null,
+                Breakpoints = breakpoints.Count > 0 ? breakpoints : null
             };
 
             var json = JsonSerializer.Serialize(data, s_jsonOptions);
@@ -97,7 +138,7 @@ public class UserSidecarService : IUserSidecarService
         }
     }
 
-    private void OnBookmarksChanged(string uri)
+    private void OnSidecarStateChanged(string uri)
     {
         if (_loading) return;
 
@@ -157,6 +198,9 @@ internal class UserSidecarData
 
     [JsonPropertyName("bookmarks")]
     public Dictionary<string, List<int>>? Bookmarks { get; set; }
+
+    [JsonPropertyName("breakpoints")]
+    public Dictionary<string, List<int>>? Breakpoints { get; set; }
 
     [JsonExtensionData]
     public Dictionary<string, JsonElement>? Extra { get; set; }

@@ -52,6 +52,29 @@ public class SerializationRoundTripTests
         public void LogError(string error) { }
     }
 
+    // Bug-hunt LOW: a corrupt/truncated .vbp value that is a lone `"` both starts and ends with `"`, so
+    // Substring(1, -1) threw ArgumentOutOfRangeException and aborted the whole project open.
+    [Fact]
+    public void ProjectDeserializer_LoneQuoteValue_DoesNotThrow()
+    {
+        var deserializer = new ProjectDeserializer();
+        var act = () => deserializer.Deserialize("Type=Exe\nHelpFile=\"\n", NullSink.Instance);
+        act.Should().NotThrow();
+    }
+
+    // Bug-hunt LOW: a crafted .frx blob length near int.MaxValue overflowed `pos + length`, defeating the bound and
+    // allocating ~2 GB. The impossible length must be rejected without allocating.
+    [Fact]
+    public void FrxDeserializer_HugeBlobLength_IsRejected_NotAllocated()
+    {
+        var crafted = new byte[8];
+        System.BitConverter.GetBytes(int.MaxValue).CopyTo(crafted, 0);   // length prefix = int.MaxValue, tiny payload
+
+        var blobs = FrxDeserializer.Read(crafted);
+
+        blobs.Should().BeEmpty();
+    }
+
     // ── ProjectSerializer: key names ─────────────────────────────────────────
 
     [Fact]

@@ -55,6 +55,13 @@ internal static class ColorKeyMapping
             ["RubberBandFill"]          = ("RubberBandFillBrush",                        true),
             ["ColorPaletteBorder"]      = ("ColorPaletteBorderBrush",                    true),
             ["ColorPaletteHighlight"]   = ("ColorPaletteHighlightBrush",                 true),
+            // Added to Classic.axaml after this table was written, so no theme pack could override them:
+            // a light-amber banner and red validation text sat on #1E1E1E chrome in Dark and Abyss. The
+            // read-only banner makes that far more visible, so it is fixed here rather than inherited.
+            ["WarningBannerBackground"] = ("WarningBannerBackgroundBrush",                true),
+            ["WarningBannerBorder"]     = ("WarningBannerBorderBrush",                    true),
+            ["WarningBannerForeground"] = ("WarningBannerForegroundBrush",                true),
+            ["ValidationError"]         = ("ValidationErrorBrush",                        true),
             // Accent colors stored as Color (not SolidColorBrush), matching Classic.axaml
             ["SystemAccentColor"]       = ("SystemAccentColor",                          false),
             ["SystemAccentColorLight1"] = ("SystemAccentColorLight1",                    false),

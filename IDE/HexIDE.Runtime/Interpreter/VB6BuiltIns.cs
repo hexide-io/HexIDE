@@ -1,12 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Antlr4.Runtime;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.IDE;
 
 namespace HexIDE.Runtime.Interpreter;
 
-public class VB6BuiltIns
+public partial class VB6BuiltIns
 {
     private readonly IBasicStandardLibrary stdLib;
 
@@ -735,18 +736,57 @@ public class VB6BuiltIns
 
     public async Task<Vb6Value?> EvaluateBuiltInFunction(string name, List<Vb6Value> args)
     {
-        name = name.ToLower();
-        return name switch
-        {
-            "mid" => (Vb6Value?)Mid(args),
-            "ucase" => UCase(args),
-            "lcase" => LCase(args),
-            "lbound" => LBound(args),
-            "ubound" => UBound(args),
-            "msgbox" => await MsgBox(args),
-            "inputbox" => await InputBox(args),
-            _ => (Vb6Value?)null
-        };
+        // The two async builtins await the standard library; every other builtin is in the sync registry.
+        if (string.Equals(name, "msgbox", StringComparison.OrdinalIgnoreCase))
+            return await MsgBox(args);
+        if (string.Equals(name, "inputbox", StringComparison.OrdinalIgnoreCase))
+            return await InputBox(args);
+        return Builtins.TryGetValue(name, out var fn) ? fn(this, args, null) : (Vb6Value?)null;
+    }
+
+    // ---- Built-in function registry ----
+    // Per-group partial files (VB6BuiltIns.Strings.cs, .Math.cs, …) register into this table. It is consulted
+    // strictly LAST in name resolution (after local vars/arrays and user procedures), so a user `Function Left()`
+    // shadows the intrinsic. The delegate carries `self` (for stateful builtins like Rnd) and the call-site parse
+    // context (for error locations); either may be unused.
+    internal delegate Vb6Value BuiltinFn(VB6BuiltIns self, IReadOnlyList<Vb6Value> args, ParserRuleContext? ctx);
+
+    private static readonly Dictionary<string, BuiltinFn> Builtins = BuildRegistry();
+
+    private static Dictionary<string, BuiltinFn> BuildRegistry()
+    {
+        var d = new Dictionary<string, BuiltinFn>(StringComparer.OrdinalIgnoreCase);
+        RegisterStrings(d);
+        RegisterConversion(d);
+        RegisterMath(d);
+        RegisterArray(d);
+        RegisterInspection(d);
+        RegisterDateTime(d);
+        RegisterFormat(d);
+        // DoEvents — a no-op here (the tree-walking interpreter has no message pump). VB6 yields to the message queue
+        // and returns the open-form count; returning Integer 0 lets both `DoEvents` and `x = DoEvents` run without
+        // crashing (documented approximation).
+        d["DoEvents"] = (_, _, _) => new Vb6Value(0);
+        return d;
+    }
+
+    // ---- shared coercion helpers (the VB6Visitor.TryUnpack ones aren't reachable here) ----
+    private static string AsStr(Vb6Value v) => v.Value?.ToString() ?? "";
+
+    private static int AsInt(Vb6Value v)
+    {
+        if (v.Value is int i) return i;
+        if (v.Value is long l) return (int)l;
+        if (v.Value is byte b) return b;
+        if (Vb6Value.TryNumericToDouble(v, out var d)) return (int)Math.Round(d, MidpointRounding.ToEven);
+        throw new VBRunTimeException(VBStandardError.TypeMismatch);
+    }
+
+    private static double AsDouble(Vb6Value v)
+    {
+        if (v.Value is bool bo) return bo ? -1 : 0;
+        if (Vb6Value.TryNumericToDouble(v, out var d)) return d;
+        throw new VBRunTimeException(VBStandardError.TypeMismatch);
     }
 
     private async Task<Vb6Value> InputBox(List<Vb6Value> args)
@@ -806,76 +846,7 @@ public class VB6BuiltIns
         return (int)vbResult;
     }
 
-    private static Vb6Value UCase(List<Vb6Value> args)
-    {
-        if (args.Count != 1)
-            throw new Exception("Error: UCase function requires one arg (string)");
-        if (args[0].IsNull)
-            return Vb6Value.Null;
-        if (args[0].Type != Vb6Value.ValueType.String)
-            throw new Exception("Type mismatch, string expected");
-        return ((string)args[0].Value!).ToUpper();
-    }
-
-    private static Vb6Value LCase(List<Vb6Value> args)
-    {
-        if (args.Count != 1)
-            throw new Exception("Error: LCase function requires one arg (string)");
-        if (args[0].IsNull)
-            return Vb6Value.Null;
-        if (args[0].Type != Vb6Value.ValueType.String)
-            throw new Exception("Type mismatch, string expected");
-        return ((string)args[0].Value!).ToLower();
-    }
-
-    private static Vb6Value LBound(List<Vb6Value> args)
-    {
-        if (args.Count < 1 || args.Count > 2)
-            throw new Exception("Error: LBound takes one or two args");
-        if (args[0].Value is not VBArray array)
-            throw new Exception("Error: Array expected");
-        int dimension = args.Count >= 2 ? (int)args[1].Value! : 1;
-        return new Vb6Value(array.LowerBound(dimension));
-    }
-
-    private static Vb6Value UBound(List<Vb6Value> args)
-    {
-        if (args.Count < 1 || args.Count > 2)
-            throw new Exception("Error: LBound takes one or two args");
-        if (args[0].Value is not VBArray array)
-            throw new Exception("Error: Array expected");
-        int dimension = args.Count >= 2 ? (int)args[1].Value! : 1;
-        return new Vb6Value(array.UpperBound(dimension));
-    }
-
-    private static Vb6Value Mid(List<Vb6Value> args)
-    {
-        if (args.Count < 2)
-            throw new Exception("Error: MID function requires at least two args (string, int)");
-        if (args[0].IsNull)
-            return Vb6Value.Null;
-        if (args[0].Type != Vb6Value.ValueType.String)
-            throw new Exception("Type mismatch, string expected");
-        if (args[1].Type != Vb6Value.ValueType.Integer)
-            throw new Exception("Type mismatch, int expected");
-        if (args.Count >= 3 && args[2].Type != Vb6Value.ValueType.Integer)
-            throw new Exception("Type mismatch, int expected");
-
-        var str = (string)args[0].Value!;
-        var start = (int)args[1].Value!;
-
-        if (start <= 0)
-            throw new Exception("Invalid procedure call or argument (start <= 0)");
-
-        var length = args.Count >= 3 ? (int)args[2].Value! : str.Length;
-
-        if (start >= str.Length)
-            return new Vb6Value("");
-
-        length = Math.Min(length, str.Length + 1 - start);
-
-        return new Vb6Value(str.Substring(start - 1, length));
-    }
+    // Mid / UCase / LCase moved to VB6BuiltIns.Strings.cs; LBound / UBound to VB6BuiltIns.Array.cs.
 
     public bool TryGetBuiltInConstant(string name, out Vb6Value constant)
     {

@@ -1,8 +1,8 @@
 # Third-Party Notices
 
 HexIDE incorporates third-party components. This file supplements the credits in
-[README.md](README.md) and the per-half licenses (the `IDE/` half is MIT, the `LspServer/` half
-is GPLv3).
+[README.md](README.md). The whole repository — both the `IDE/` and `LspServer/` halves — is
+**MIT-licensed**.
 
 ## Grammars
 
@@ -11,11 +11,10 @@ is GPLv3).
   <https://github.com/uwol/proleap-vb6-parser>
   Compiled into the VB6 interpreter (MIT half).
 
-- **Rubberduck VBA grammar** — `LspServer/HexIDE.VbLspServer/Grammar/VBALexer.g4`, `VBAParser.g4`
-  Copyright (C) 2014 Ulrich Wolffgang and the Rubberduck contributors. GNU GPL v3.0.
-  <https://github.com/rubberduck-vba/Rubberduck>
-  This is why the LSP server is GPLv3 and runs as a **separate process** — the license boundary
-  keeps GPL out of the MIT IDE. Full license text: [`LspServer/COPYING`](LspServer/COPYING).
+- **proleap / grammars-v4 VB6 grammar** — `LspServer/HexIDE.VbLspServer/Grammar/VisualBasic6Lexer.g4`, `VisualBasic6Parser.g4`
+  Copyright (C) 2017 Ulrich Wolffgang; maintained in [antlr/grammars-v4](https://github.com/antlr/grammars-v4/tree/master/vb6). MIT License.
+  The MIT VB6 language server parses with this grammar (carrying HexIDE's clean-room fixes). It runs as
+  a **separate process** for crash isolation + a replaceable backend — not for any licensing reason.
 
 ## Libraries
 
@@ -35,6 +34,8 @@ see each project for its authors and full license text.
 - **R3** — © Cysharp, Inc.
 - **LanguageExt.Core** — © Paul Louth
 - **StreamJsonRpc** — © Microsoft Corporation
+- **EmmyLua.LanguageServer.Framework** — the JSON-RPC + LSP protocol shell for the MIT VB6 language
+  server — © CppCXY (the EmmyLua project). <https://github.com/CppCXY/LanguageServer.Framework>
 - **MessagePack** (MessagePack-CSharp) — © Yoshifumi Kawai / Cysharp; **Nerdbank.MessagePack** — © Andrew Arnott
 - **Microsoft.Extensions.Logging.Abstractions** — © .NET Foundation and Contributors
 - **Pure.DI** — © Nikolay Pianikov; **PropertyChanged.SourceGenerator** — © Antony Male *(compile-time source generators)*
@@ -45,7 +46,7 @@ see each project for its authors and full license text.
 
 **BSD-3-Clause**:
 - **Antlr4.Runtime.Standard** — the ANTLR 4 runtime, © 2012–2022 The ANTLR Project. Compiled into
-  both the VB6 interpreter (MIT half) and the LSP server (GPL half); redistribution permitted under
+  both the VB6 interpreter and the LSP server (both MIT); redistribution permitted under
   the 3-clause BSD license with the standard warranty disclaimer.
 
 Upstream fork: **AvaloniaVisualBasic6** by Bartosz Korczyński — MIT. Icons: see **Icons** below.

@@ -41,18 +41,60 @@ public static class ModuleFileFormat
         _ => "",
     };
 
-    /// <summary>Produce the on-disk file content: header + body. (Body returned as-is for unmanaged kinds.)</summary>
-    public static string ToFileContent(string body, string name, ModuleKind kind) =>
-        HandlesHeader(kind) ? Header(name, kind) + body : body;
+    /// <summary>
+    /// Produce the on-disk file content: header + body. (Body returned as-is for unmanaged kinds.)
+    ///
+    /// <paramref name="preservedHeader"/> is the header exactly as read from disk. When supplied it is
+    /// re-emitted verbatim — only <c>Attribute VB_Name</c> is retargeted, so a rename still works. That
+    /// matters because <see cref="Header"/> is a fixed literal: regenerating from it resets VB_Exposed,
+    /// VB_Creatable, MultiUse, DataBindingBehavior and DataSourceBehavior, which are how VB6 encodes a
+    /// class's Instancing. Rewriting them changes what the class *is* to every consumer.
+    ///
+    /// Verbatim rather than a parsed model on purpose: it also preserves each line's comment text
+    /// (<c>0  'NotPersistable</c>), the key order, the *absence* of keys VB6 omitted, and any attribute
+    /// beyond the five in the literal — <c>VB_Description</c> among them.
+    ///
+    /// Pass null only for a module HexIDE is creating, which has no original to preserve.
+    /// </summary>
+    public static string ToFileContent(string body, string name, ModuleKind kind, string? preservedHeader = null)
+    {
+        if (!HandlesHeader(kind))
+            return body;
+
+        return string.IsNullOrEmpty(preservedHeader)
+            ? Header(name, kind) + body
+            : RetargetVbName(preservedHeader, name) + body;
+    }
+
+    /// <summary>Rewrites the <c>Attribute VB_Name</c> line so a renamed module still round-trips.</summary>
+    private static string RetargetVbName(string header, string name)
+    {
+        var lines = header.Replace("\r\n", "\n").Split('\n');
+        for (var i = 0; i < lines.Length; i++)
+        {
+            if (!lines[i].TrimStart().StartsWith("Attribute VB_Name", StringComparison.OrdinalIgnoreCase))
+                continue;
+            lines[i] = $"Attribute VB_Name = \"{name}\"";
+            break;
+        }
+        return string.Join("\r\n", lines);
+    }
 
     /// <summary>
     /// Strip a VB6 module header from file content, returning the code body. Idempotent — content with no
     /// recognised header (e.g. an already-stripped body) is returned unchanged.
     /// </summary>
-    public static string StripHeader(string fileContent, ModuleKind kind)
+    public static string StripHeader(string fileContent, ModuleKind kind) =>
+        SplitHeader(fileContent, kind).Body;
+
+    /// <summary>
+    /// Split file content into its verbatim header and its body. <c>Header</c> is empty when no header was
+    /// recognised, which is also the signal that there is nothing to preserve.
+    /// </summary>
+    public static (string Header, string Body) SplitHeader(string fileContent, ModuleKind kind)
     {
         if (!HandlesHeader(kind) || string.IsNullOrEmpty(fileContent))
-            return fileContent;
+            return ("", fileContent);
 
         var lines = fileContent.Replace("\r\n", "\n").Split('\n');
         var i = 0;
@@ -77,8 +119,9 @@ public static class ModuleFileFormat
             i++;
 
         if (i == 0)
-            return fileContent; // no header recognised — already a body
+            return ("", fileContent); // no header recognised — already a body
 
-        return string.Join("\r\n", lines, i, lines.Length - i);
+        return (string.Join("\r\n", lines, 0, i) + "\r\n",
+                string.Join("\r\n", lines, i, lines.Length - i));
     }
 }

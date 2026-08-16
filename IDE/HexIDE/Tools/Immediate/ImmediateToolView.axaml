@@ -10,7 +10,8 @@
              x:Class="HexIDE.Tools.ImmediateToolView">
     <ClassicBorderDecorator BorderStyle="Sunken" BorderThickness="2">
         <avaloniaEdit:TextEditor
-            IsReadOnly="True"
+            x:Name="Editor"
+            IsReadOnly="False"
             Document="{CompiledBinding Document}"
             FontFamily="Courier New,Monospace"
             FontSize="13"

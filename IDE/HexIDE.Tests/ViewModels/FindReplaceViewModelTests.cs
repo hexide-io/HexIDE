@@ -46,7 +46,10 @@ public class FindReplaceViewModelTests
         var ss = Substitute.For<ISettingsService>();
         var sb = Substitute.For<IStatusBarService>();
         var bs = Substitute.For<IBookmarkService>();
-        var vm = new CodeEditorViewModel(wm, es, ps, eb, lsp, ss, sb, bs, Substitute.For<ILocalizationService>());
+        var vm = new CodeEditorViewModel(wm, es, ps, eb, lsp, ss, sb, bs,
+            Substitute.For<HexIDE.Debugging.IBreakpointService>(),
+            Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
+            Substitute.For<ILocalizationService>());
         vm.Document.Text = text;
         vm.CaretOffset = 0;
         return vm;
@@ -350,10 +353,11 @@ public class FindReplaceViewModelTests
         var loc = Substitute.For<ILocalizationService>();
         loc.ActiveLanguage.Returns("en");
         var properties = new PropertiesToolViewModel(mockDocDock, eventBus, windowManager, loc);
-        var immediate = new ImmediateToolViewModel(loc);
+        var immediate = new ImmediateToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
         var formLayout = new FormLayoutToolViewModel(mockDocDock, eventBus, loc);
-        var locals = new LocalsToolViewModel(loc);
-        var watches = new WatchesToolViewModel(loc);
+        var locals = new LocalsToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
+        var watches = new WatchesToolViewModel(loc, new HexIDE.Debugging.WatchService(), Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.IDE.IWindowManager>());
+        var callStack = new CallStackToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
         var editorService = Substitute.For<IEditorService>();
         var projectService = Substitute.For<IProjectService>();
         var projectExplorer = new ProjectToolViewModel(projectManager, eventBus, projectService, editorService, loc);
@@ -363,7 +367,7 @@ public class FindReplaceViewModelTests
         var windowStateService = Substitute.For<IWindowStateService>();
         var dockFactory = new MainViewViewModel.DockFactory(
             toolBox, projectExplorer, properties, formLayout,
-            immediate, locals, watches, colorPalette, objectBrowser, translationEditor,
+            immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
             windowStateService);
 
         return new MainViewViewModel(
@@ -374,6 +378,7 @@ public class FindReplaceViewModelTests
             formLayout,
             locals,
             watches,
+            callStack,
             projectExplorer,
             colorPalette,
             objectBrowser,
@@ -402,6 +407,8 @@ public class FindReplaceViewModelTests
             new AddinMenuService(),
             new AddinCommandService(),
             new AddinToolWindowService(),
-            windowStateService);
+            windowStateService,
+            Substitute.For<HexIDE.Debugging.IBreakpointService>(),
+            Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
     }
 }

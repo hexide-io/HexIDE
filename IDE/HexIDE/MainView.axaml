@@ -45,6 +45,8 @@
                               ExecutingCommand="{CompiledBinding OpenLocalsTool}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenWatchesCommand}"
                               ExecutingCommand="{CompiledBinding OpenWatchesTool}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenCallStackCommand}"
+                              ExecutingCommand="{CompiledBinding OpenCallStackTool}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.OpenColorPaletteCommand}"
                               ExecutingCommand="{CompiledBinding OpenColorPaletteTool}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ResetWindowLayoutCommand}"
@@ -215,7 +217,7 @@
                             <MenuItem Header="{DynamicResource Str.Menu.View.ImmediateWindow}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Immediatewindow}" Command="{x:Static vb:ApplicationCommands.OpenImmediateCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.View.LocalsWindow}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Localswindow}" Command="{x:Static vb:ApplicationCommands.OpenLocalsCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.View.WatchWindow}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Watchwindow}" Command="{x:Static vb:ApplicationCommands.OpenWatchesCommand}" />
-                            <MenuItem Header="{DynamicResource Str.Menu.View.CallStack}" IsEnabled="False" />
+                            <MenuItem Header="{DynamicResource Str.Menu.View.CallStack}" Command="{x:Static vb:ApplicationCommands.OpenCallStackCommand}" />
                             <Separator />
                             <MenuItem Header="{DynamicResource Str.Menu.View.ProjectExplorer}" utils:MenuUtils.MenuIcon="{StaticResource Geo.View_projectexplorer}" Command="{x:Static vb:ApplicationCommands.OpenProjectExplorerCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.View.PropertiesWindow}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Properties}" Command="{x:Static vb:ApplicationCommands.OpenPropertiesCommand}" />
@@ -564,7 +566,9 @@
                         <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.QuickWatchCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.QuickWatch}" AutomationProperties.AutomationId="Debug.QuickWatch">
                             <Path Data="{StaticResource Geo.Quickwatch}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.NYICommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.CallStack}" AutomationProperties.AutomationId="Debug.CallStack" />
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenCallStackCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.CallStack}" AutomationProperties.AutomationId="Debug.CallStack">
+                            <Path Data="{StaticResource Geo.Callstack}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
+                        </Button>
                     </StackPanel>
                 </ClassicBorderDecorator>
                 <ClassicBorderDecorator BorderStyle="ThinRaised" BorderThickness="1" DockPanel.Dock="Top"

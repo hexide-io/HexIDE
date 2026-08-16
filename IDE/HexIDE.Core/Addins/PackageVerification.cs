@@ -145,7 +145,18 @@ public static class PackageVerification
         // 5. completeness: the manifest must be a FULL inventory of the package. Any payload file that
         // is not listed (and therefore not hash-verified) is rejected, so nothing unverified — e.g. a
         // dependency smuggled in for deps.json/native probing to pick up — can exist to be loaded.
-        foreach (var file in Directory.EnumerateFiles(packageDirectory, "*", SearchOption.AllDirectories))
+        IEnumerable<string> packageFiles;
+        try
+        {
+            // Materialize the enumeration inside the guard: EnumerateFiles is lazy, and an inaccessible subdirectory
+            // or a MAX_PATH-exceeding nested path throws DURING iteration — which must become Untrusted, not a crash.
+            packageFiles = Directory.EnumerateFiles(packageDirectory, "*", SearchOption.AllDirectories).ToList();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException)
+        {
+            return Untrusted($"package not fully enumerable: {ex.Message}");
+        }
+        foreach (var file in packageFiles)
         {
             var rel = Path.GetRelativePath(packageDirectory, file).Replace('\\', '/');
             if (s_envelopeFiles.Contains(rel) || listed.Contains(rel)) continue;
@@ -207,7 +218,13 @@ public static class PackageVerification
     private static bool TryReadBytes(string dir, string name, out byte[] bytes)
     {
         var path = Path.Combine(dir, name);
-        if (File.Exists(path)) { bytes = File.ReadAllBytes(path); return true; }
+        try
+        {
+            if (File.Exists(path)) { bytes = File.ReadAllBytes(path); return true; }
+        }
+        // A locked/unreadable envelope file (e.g. AV holding a scan lock on first launch) is treated as missing →
+        // Untrusted, never an exception that unwinds through IDE startup.
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException) { }
         bytes = [];
         return false;
     }
@@ -215,7 +232,11 @@ public static class PackageVerification
     private static bool TryReadText(string dir, string name, out string text)
     {
         var path = Path.Combine(dir, name);
-        if (File.Exists(path)) { text = File.ReadAllText(path).Trim(); return true; }
+        try
+        {
+            if (File.Exists(path)) { text = File.ReadAllText(path).Trim(); return true; }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException) { }
         text = "";
         return false;
     }

@@ -1,12 +1,12 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: MIT
 // Copyright (C) 2026 The HexIDE Authors
-// This file is part of HexIDE.VbLspServer, which uses the
-// Rubberduck VBA ANTLR4 grammar (GPLv3). See LICENSE for details.
+// Scope-level analysis over a parsed VB6 tree (proleap grammar): declaration collection +
+// the Option Explicit undeclared-variable inspection.
 
 namespace HexIDE.VbLspServer;
 
 /// <summary>
-/// Performs scope-level analysis over an already-parsed VB6/VBA parse tree.
+/// Performs scope-level analysis over an already-parsed VB6 parse tree.
 /// Currently detects undeclared variable assignments when <c>Option Explicit</c> is present.
 /// </summary>
 public static class VbScopeAnalyzer
@@ -28,7 +28,7 @@ public static class VbScopeAnalyzer
     /// Returns a map of declared name → type annotation string (null if untyped/Sub/Enum member).
     /// Used by the hover handler to show type info.
     /// </summary>
-    public static IReadOnlyDictionary<string, string?> GetDeclaredTypes(VBAParser.StartRuleContext tree)
+    public static IReadOnlyDictionary<string, string?> GetDeclaredTypes(VisualBasic6Parser.StartRuleContext tree)
     {
         var collector = new DeclarationCollectorVisitor();
         collector.Visit(tree);
@@ -40,7 +40,7 @@ public static class VbScopeAnalyzer
     /// Returns an empty list when <c>Option Explicit</c> is absent or when the
     /// source has syntax errors (to avoid cascading false positives).
     /// </summary>
-    public static List<LspDiagnostic> GetOptionExplicitDiagnostics(VBAParser.StartRuleContext tree)
+    public static List<LspDiagnostic> GetOptionExplicitDiagnostics(VisualBasic6Parser.StartRuleContext tree)
     {
         var collector = new DeclarationCollectorVisitor();
         collector.Visit(tree);
@@ -55,7 +55,7 @@ public static class VbScopeAnalyzer
 
     // ── Declaration collector ────────────────────────────────────────────────
 
-    private sealed class DeclarationCollectorVisitor : VBAParserBaseVisitor<object?>
+    private sealed class DeclarationCollectorVisitor : VisualBasic6ParserBaseVisitor<object?>
     {
         public bool HasOptionExplicit { get; private set; }
 
@@ -65,105 +65,104 @@ public static class VbScopeAnalyzer
         /// <summary>All declared names (computed from DeclaredTypes keys).</summary>
         public HashSet<string> DeclaredNames => new(DeclaredTypes.Keys, StringComparer.OrdinalIgnoreCase);
 
-        private static string? TypeText(VBAParser.AsTypeClauseContext? asType)
+        private static string? TypeText(VisualBasic6Parser.AsTypeClauseContext? asType)
         {
-            if (asType is null) return null;
-            // The grammar includes "As" in the node; strip it.
-            var raw = asType.type()?.GetText() ?? asType.GetText();
-            if (raw.StartsWith("As", StringComparison.OrdinalIgnoreCase) && raw.Length > 2)
-                raw = raw[2..].TrimStart();
-            return raw.Length > 0 ? raw : null;
+            // proleap: asTypeClause : AS WS (NEW WS)? type_ (WS fieldLength)? — the type is `type_`,
+            // so (unlike the RD grammar) there is no leading "As" to strip.
+            var raw = asType?.type_()?.GetText();
+            return raw is { Length: > 0 } ? raw : null;
         }
 
-        public override object? VisitOptionExplicitStmt(VBAParser.OptionExplicitStmtContext ctx)
+        public override object? VisitOptionExplicitStmt(VisualBasic6Parser.OptionExplicitStmtContext ctx)
         {
             HasOptionExplicit = true;
             return null;
         }
 
-        public override object? VisitVariableSubStmt(VBAParser.VariableSubStmtContext ctx)
+        public override object? VisitVariableSubStmt(VisualBasic6Parser.VariableSubStmtContext ctx)
         {
-            var name = ctx.identifier()?.GetText();
+            var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
                 DeclaredTypes[name] = TypeText(ctx.asTypeClause());
             return VisitChildren(ctx);
         }
 
-        public override object? VisitConstSubStmt(VBAParser.ConstSubStmtContext ctx)
+        public override object? VisitConstSubStmt(VisualBasic6Parser.ConstSubStmtContext ctx)
         {
-            var name = ctx.identifier()?.GetText();
+            var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
                 DeclaredTypes[name] = TypeText(ctx.asTypeClause());
             return VisitChildren(ctx);
         }
 
-        public override object? VisitArg(VBAParser.ArgContext ctx)
+        public override object? VisitArg(VisualBasic6Parser.ArgContext ctx)
         {
-            var name = ctx.unrestrictedIdentifier()?.GetText();
+            var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
                 DeclaredTypes[name] = TypeText(ctx.asTypeClause());
             return VisitChildren(ctx);
         }
 
-        public override object? VisitSubStmt(VBAParser.SubStmtContext ctx)
+        public override object? VisitSubStmt(VisualBasic6Parser.SubStmtContext ctx)
         {
-            var name = ctx.subroutineName()?.GetText();
+            var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
                 DeclaredTypes[name] = null; // Sub has no return type
             return VisitChildren(ctx);
         }
 
-        public override object? VisitFunctionStmt(VBAParser.FunctionStmtContext ctx)
+        public override object? VisitFunctionStmt(VisualBasic6Parser.FunctionStmtContext ctx)
         {
-            var name = ctx.functionName()?.GetText();
+            var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
                 DeclaredTypes[name] = TypeText(ctx.asTypeClause());
             return VisitChildren(ctx);
         }
 
-        public override object? VisitPropertyGetStmt(VBAParser.PropertyGetStmtContext ctx)
+        public override object? VisitPropertyGetStmt(VisualBasic6Parser.PropertyGetStmtContext ctx)
         {
-            var name = ctx.functionName()?.GetText();
+            var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
                 DeclaredTypes[name] = TypeText(ctx.asTypeClause());
             return VisitChildren(ctx);
         }
 
-        public override object? VisitPropertyLetStmt(VBAParser.PropertyLetStmtContext ctx)
+        public override object? VisitPropertyLetStmt(VisualBasic6Parser.PropertyLetStmtContext ctx)
         {
-            var name = ctx.subroutineName()?.GetText();
+            var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
                 DeclaredTypes[name] = null;
             return VisitChildren(ctx);
         }
 
-        public override object? VisitPropertySetStmt(VBAParser.PropertySetStmtContext ctx)
+        public override object? VisitPropertySetStmt(VisualBasic6Parser.PropertySetStmtContext ctx)
         {
-            var name = ctx.subroutineName()?.GetText();
+            var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
                 DeclaredTypes[name] = null;
             return VisitChildren(ctx);
         }
 
-        public override object? VisitEnumerationStmt_Constant(VBAParser.EnumerationStmt_ConstantContext ctx)
+        public override object? VisitEnumerationStmt_Constant(VisualBasic6Parser.EnumerationStmt_ConstantContext ctx)
         {
-            var name = ctx.identifier()?.GetText();
+            var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
                 DeclaredTypes[name] = null;
             return VisitChildren(ctx);
         }
 
-        public override object? VisitUdtDeclaration(VBAParser.UdtDeclarationContext ctx)
+        // proleap models a user-defined type (UDT) as `typeStmt` (RD grammar called it udtDeclaration).
+        public override object? VisitTypeStmt(VisualBasic6Parser.TypeStmtContext ctx)
         {
-            var name = ctx.untypedIdentifier()?.GetText();
+            var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
                 DeclaredTypes[name] = null;
             return VisitChildren(ctx);
         }
 
-        public override object? VisitEnumerationStmt(VBAParser.EnumerationStmtContext ctx)
+        public override object? VisitEnumerationStmt(VisualBasic6Parser.EnumerationStmtContext ctx)
         {
-            var name = ctx.identifier()?.GetText();
+            var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 })
                 DeclaredTypes[name] = null;
             return VisitChildren(ctx);
@@ -173,7 +172,7 @@ public static class VbScopeAnalyzer
     // ── Undeclared variable checker (expressions + assignments) ─────────────
 
     private sealed class UndeclaredVariableVisitor(HashSet<string> declaredNames)
-        : VBAParserBaseVisitor<object?>
+        : VisualBasic6ParserBaseVisitor<object?>
     {
         private readonly HashSet<(int Line, int Col)> _reported = [];
         private int _depth;
@@ -181,8 +180,7 @@ public static class VbScopeAnalyzer
 
         public List<LspDiagnostic> Diagnostics { get; } = [];
 
-        // Depth guard: the RD VBA grammar has known ambiguities; bail out before
-        // overflowing the stack on degenerate inputs.
+        // Depth guard: degenerate inputs can produce deep trees; bail out before overflowing the stack.
         public override object? Visit(Antlr4.Runtime.Tree.IParseTree? tree)
         {
             if (tree is null) return null;
@@ -191,9 +189,15 @@ public static class VbScopeAnalyzer
             finally { --_depth; }
         }
 
-        public override object? VisitSimpleNameExpr(VBAParser.SimpleNameExprContext ctx)
+        // proleap's simple variable/procedure reference. (RD grammar called this simpleNameExpr.)
+        public override object? VisitICS_S_VariableOrProcedureCall(VisualBasic6Parser.ICS_S_VariableOrProcedureCallContext ctx)
         {
-            var name = ctx.identifier()?.GetText();
+            // Skip the member half of a member access (obj.Foo): only `obj` is a module-scope variable
+            // reference; `Foo` is a member on it, not a name to check against declarations.
+            if (ctx.Parent is VisualBasic6Parser.ICS_S_MemberCallContext)
+                return null;
+
+            var name = ctx.ambiguousIdentifier()?.GetText();
             if (name is { Length: > 0 }
                 && !declaredNames.Contains(name)
                 && !VbBuiltins.IsKnownName(name))
@@ -210,7 +214,7 @@ public static class VbScopeAnalyzer
                         2));
                 }
             }
-            // Simple name expressions are leaves — don't recurse further.
+            // Simple name references are leaves for our purposes — don't recurse further.
             return null;
         }
     }

@@ -29,9 +29,10 @@ public class DockFactoryTests
         var toolBox = (ToolBoxToolViewModel)RuntimeHelpers.GetUninitializedObject(typeof(ToolBoxToolViewModel));
         var properties = new PropertiesToolViewModel(docDock, eventBus, windowManager, loc);
         var formLayout = new FormLayoutToolViewModel(docDock, eventBus, loc);
-        var immediate = new ImmediateToolViewModel(loc);
-        var locals = new LocalsToolViewModel(loc);
-        var watches = new WatchesToolViewModel(loc);
+        var immediate = new ImmediateToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
+        var locals = new LocalsToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
+        var watches = new WatchesToolViewModel(loc, new HexIDE.Debugging.WatchService(), Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.IDE.IWindowManager>());
+        var callStack = new CallStackToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
         var projectExplorer = new ProjectToolViewModel(projectManager, eventBus, projectService, editorService, loc);
         var colorPalette = new ColorPaletteToolViewModel(docDock);
         var objectBrowser = new ObjectBrowserToolViewModel(projectManager, Substitute.For<ILspClient>(),
@@ -44,7 +45,7 @@ public class DockFactoryTests
 
         var factory = new MainViewViewModel.DockFactory(
             toolBox, projectExplorer, properties, formLayout,
-            immediate, locals, watches, colorPalette, objectBrowser, translationEditor, wss);
+            immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor, wss);
         return (factory, immediate);
     }
 

@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.Threading;
 
 namespace HexIDE.Utils;
 
@@ -25,7 +26,11 @@ public static class IconFactory
 
     private static void EnsureWired()
     {
-        if (Application.Current is not { } app)
+        // ActualThemeVariant, Resources, and the ActualThemeVariantChanged subscription are all
+        // thread-affine (they VerifyAccess against the UI thread). Off that thread — e.g. a parallel
+        // xUnit worker building an icon — leave the default ink and skip wiring rather than throw a
+        // cross-thread exception. At runtime IconFactory is only ever called on the UI thread.
+        if (Application.Current is not { } app || !Dispatcher.UIThread.CheckAccess())
             return;
 
         Ink.Color = ResolveInk(app);
@@ -52,8 +57,10 @@ public static class IconFactory
 
     private static IImage Build(string geometryKey, IBrush brush)
     {
+        // The resource lookup reads ActualThemeVariant (thread-affine); guard it the same way so an
+        // off-UI-thread caller gets an un-themed (null-geometry) icon instead of a VerifyAccess throw.
         Geometry? geometry = null;
-        if (Application.Current is { } app &&
+        if (Application.Current is { } app && Dispatcher.UIThread.CheckAccess() &&
             app.Resources.TryGetResource(geometryKey, app.ActualThemeVariant, out var resource))
         {
             geometry = resource as Geometry;

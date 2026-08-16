@@ -180,7 +180,7 @@ static void Log(string message)
 // a freshly-spawned stdio HexIDE.VbLspServer, translating between WebSocket message framing (one
 // JSON-RPC message per WS message) and LSP Content-Length framing on the child's stdio. This lets a
 // WebSocket LSP client reach the stdio-only server end-to-end. It moves opaque bytes only (no JSON
-// parsing), so it stays dependency-free and MIT — the GPLv3 boundary remains the spawned server.
+// parsing), so it stays dependency-free; all VB6 parsing happens in the spawned language server.
 
 static async Task<int> RunWsServerAsync(string[] args)
 {

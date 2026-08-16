@@ -1,4 +1,5 @@
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Runtime.Debugging;
 using HexIDE.IDE;
 
 namespace HexIDE.Runtime.Tests;
@@ -13,8 +14,8 @@ public abstract class BaseVBTestFixture
     {
         context = new ModuleExecutionContext();
         rootEnv = new ExecutionEnvironment();
-        var debugProxy = new DebugProxy(debug);
-        context.AllocVariable(rootEnv, "Debug", new Vb6Value(debugProxy));
+        // `Debug` is seeded by BasicInterpreter itself (so it works in the live F5 run too); the interpreter
+        // routes Debug.Print to IBasicStandardLibrary.DebugPrint, which MockStdLib captures into `debug`.
     }
 
     public class Comparer : System.Collections.IComparer
@@ -30,6 +31,11 @@ public abstract class BaseVBTestFixture
         {
             if (x is Vb6Value xVal && y is Vb6Value yVal)
             {
+                // Type-first: two values of different VB6 subtypes are never equal. This lets tests
+                // distinguish Integer/Long/Currency/Decimal (and avoids CompareTo throwing across
+                // mismatched boxed CLR types, e.g. int vs long).
+                if (xVal.Type != yVal.Type)
+                    return -1;
                 if (xVal.Value is double aD && yVal.Value is double bD)
                     return Math.Abs(aD - bD) < epsilon ? 0 : aD.CompareTo(bD);
                 if (xVal.Value is float aF && yVal.Value is float bF)
@@ -52,8 +58,12 @@ public abstract class BaseVBTestFixture
             null => "Null",
             bool b => b ? "True" : "False",
             int i => i.ToString(),
+            long l => l + "&",                  // VB6 Long suffix (consumed once literal typing lands, 2.4)
+            byte bt => bt.ToString(),           // no VB6 Byte literal; a Byte target coerces the number
             float f => f.ToString("F") + "!",   // VB6 float suffix
             double d => d.ToString("F") + "#",  // VB6 double suffix
+            decimal m => m.ToString(System.Globalization.CultureInfo.InvariantCulture) + "@",  // Currency suffix
+            DateTime dt => "#" + dt.ToString("M/d/yyyy", System.Globalization.CultureInfo.InvariantCulture) + "#",
             string s => $"\"{s}\"",
             _ => throw new ArgumentException("Unsupported type")
         };
@@ -66,29 +76,42 @@ public abstract class BaseVBTestFixture
 
     protected async Task Run(string code)
     {
-        var vb = new BasicInterpreter(new MockStdLib(), context, rootEnv, code);
+        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, code);
         await vb.Execute();
     }
 
-    private class DebugProxy(List<Vb6Value> list) : ICSharpProxy
+    /// <summary>Build a debuggable interpreter: the given code as the startup module <paramref name="moduleName"/>
+    /// with a real <see cref="DebugController"/> attached. Do NOT await <c>vb.Execute()</c> directly — start it,
+    /// assert the paused state, then drive Continue/Stop and await the run. (Optional class modules for class tests.)</summary>
+    protected (BasicInterpreter vb, DebugController dbg) NewDebuggable(
+        string code, string moduleName = "Module1", params (string Name, string Code)[] classModules)
     {
-        private readonly List<Vb6Value> list = list;
-
-        public void Call(string method, List<Vb6Value> args)
-        {
-            if (method == "Print")
-            {
-                list.Add(args[0]);
-                Console.WriteLine(args[0]);
-            }
-            else
-                throw new Exception("No method named " + method);
-        }
+        var dbg = new DebugController();
+        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, code, moduleName, null,
+            classModules.Length == 0 ? null : classModules) { DebugController = dbg };
+        return (vb, dbg);
     }
 
-    private class MockStdLib : IBasicStandardLibrary
+    /// <summary>Run <paramref name="primaryCode"/> as the startup module "Module1", with additional named
+    /// standard modules also loaded into the project-wide registry (for cross-module resolution tests).</summary>
+    protected async Task RunModules(string primaryCode, params (string Name, string Code)[] modules)
+    {
+        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, primaryCode, "Module1", modules);
+        await vb.Execute();
+    }
+
+    /// <summary>Run <paramref name="primaryCode"/> with the given named CLASS modules registered (each
+    /// instantiable via <c>New Name</c>). Class modules are templates — not run at startup.</summary>
+    protected async Task RunClasses(string primaryCode, params (string Name, string Code)[] classModules)
+    {
+        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv, primaryCode, "Module1", null, classModules);
+        await vb.Execute();
+    }
+
+    private class MockStdLib(List<Vb6Value> debug) : IBasicStandardLibrary
     {
         public async Task<MessageBoxResult> MsgBox(string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon) => default;
         public async Task<string?> InputBox(string prompt, string title, string defaultText) => default;
+        public void DebugPrint(Vb6Value value) => debug.Add(value);
     }
 }

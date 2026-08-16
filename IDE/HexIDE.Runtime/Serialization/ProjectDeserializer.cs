@@ -58,7 +58,9 @@ public class ProjectDeserializer
 
             var key = parts[0].Trim();
             var value = parts.Length == 2 ? parts[1].Trim() : "";
-            if (value.StartsWith('"') && value.EndsWith('"'))
+            // Require at least the two quotes: a lone `"` (an unterminated value in a corrupt/truncated .vbp) both
+            // starts and ends with `"`, and Substring(1, -1) would throw and abort the whole project open.
+            if (value.Length >= 2 && value.StartsWith('"') && value.EndsWith('"'))
                 value = value.Substring(1, value.Length - 2).Replace("\"\"", "\"");
 
             if (key.Equals(SerializedProject.NameKey, StringComparison.OrdinalIgnoreCase))

@@ -1,5 +1,6 @@
 using System.IO;
 using HexIDE.IDE;
+using HexIDE.Projects;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
@@ -32,7 +33,7 @@ public class DirtyDetectorTests
         // so reconstruct the disk form to model "disk == model, no unsaved edits".
         baseline.Record(path, ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind));
 
-        var sut = new DirtyDetector(baseline);
+        var sut = new DirtyDetector(baseline, Substitute.For<IProjectService>());
         sut.Classify(new WatchedFileTarget(path, null, module, null, null))
             .Should().Be(ReloadDecision.CleanReload);
     }
@@ -45,7 +46,7 @@ public class DirtyDetectorTests
         baseline.Record(path, "Public Sub OnDisk()\nEnd Sub"); // last-known disk
         var module = Module("Public Sub EditedInIde()\nEnd Sub"); // unsaved in-memory edits
 
-        var sut = new DirtyDetector(baseline);
+        var sut = new DirtyDetector(baseline, Substitute.For<IProjectService>());
         sut.Classify(new WatchedFileTarget(path, null, module, null, null))
             .Should().Be(ReloadDecision.Conflict);
     }
@@ -56,20 +57,44 @@ public class DirtyDetectorTests
         var baseline = new FileBaselineStore();
         var module = Module("Public Sub Foo()\nEnd Sub");
 
-        var sut = new DirtyDetector(baseline);
+        var sut = new DirtyDetector(baseline, Substitute.For<IProjectService>());
         sut.Classify(new WatchedFileTarget(P("a.bas"), null, module, null, null))
             .Should().Be(ReloadDecision.Indeterminate);
     }
 
-    [Fact]
-    public void NotOpenForm_IsIndeterminate()
-    {
-        var baseline = new FileBaselineStore();
-        var project = new ProjectDefinition(VBProjectType.EXE, "Proj");
-        var form = new FormDefinition(project, FormComponentClass.Instance, "Form1");
+    // ── not-open forms (issue #23) ────────────────────────────────────────────
+    // A .frm can't be hashed against an editor buffer, so a not-open form is classified by asking the
+    // project service whether the model has unsaved edits. Skipping instead left the cached model stale,
+    // and SaveProject — which writes every form unconditionally — then wrote it back over the external
+    // change, silently discarding pulled work.
 
-        var sut = new DirtyDetector(baseline);
+    private static FormDefinition Form()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Proj");
+        return new FormDefinition(project, FormComponentClass.Instance, "Form1");
+    }
+
+    [Fact]
+    public void NotOpenForm_ModelHasNoUnsavedEdits_IsCleanReload()
+    {
+        var form = Form();
+        var projectService = Substitute.For<IProjectService>();
+        projectService.HasUnsavedChanges(form).Returns(false);
+
+        var sut = new DirtyDetector(new FileBaselineStore(), projectService);
         sut.Classify(new WatchedFileTarget(P("Form1.frm"), form, null, null, null))
-            .Should().Be(ReloadDecision.Indeterminate);
+            .Should().Be(ReloadDecision.CleanReload);
+    }
+
+    [Fact]
+    public void NotOpenForm_ModelHasUnsavedEdits_IsConflict()
+    {
+        var form = Form();
+        var projectService = Substitute.For<IProjectService>();
+        projectService.HasUnsavedChanges(form).Returns(true);
+
+        var sut = new DirtyDetector(new FileBaselineStore(), projectService);
+        sut.Classify(new WatchedFileTarget(P("Form1.frm"), form, null, null, null))
+            .Should().Be(ReloadDecision.Conflict);
     }
 }

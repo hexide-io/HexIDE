@@ -62,6 +62,23 @@ public sealed class StdioProcessLspTransport : ILspTransport
                 _logger.LogWarning("[proxy] VB6_LSP_DEBUG_PROXY=1 but proxy exe not found at {Path}", proxyExe);
             }
         }
+        else if (!OperatingSystem.IsWindows())
+        {
+            // Unix apphosts ship without the execute bit (neither the Content-copy into the IDE output nor
+            // the publish tar sets it), so Process.Start on the apphost fails and SILENTLY disables all LSP
+            // intelligence off-Windows. Launch the managed dll through the shared `dotnet` host instead —
+            // no execute bit required, and identical in dev and in a published tarball.
+            var dll = Path.ChangeExtension(serverInfo.FileName, ".dll");
+            if (File.Exists(dll))
+            {
+                arguments = string.IsNullOrEmpty(serverInfo.Arguments) ? $"\"{dll}\"" : $"\"{dll}\" {serverInfo.Arguments}";
+                fileName = "dotnet";
+            }
+            else
+            {
+                _logger.LogWarning("LSP server dll not found next to apphost ({Dll}); launching the apphost directly.", dll);
+            }
+        }
 
         _process = new Process
         {
@@ -87,8 +104,23 @@ public sealed class StdioProcessLspTransport : ILspTransport
 
         _process.Exited += OnProcessExited;
 
-        _process.Start();
-        _process.BeginErrorReadLine();
+        try
+        {
+            _process.Start();
+            _process.BeginErrorReadLine();
+        }
+        catch (Exception ex)
+        {
+            // The server exe is missing or can't launch (Win32Exception / FileNotFoundException). Don't let it escape
+            // as a faulted/unobserved task, and don't leave a never-started Process whose HasExited access throws —
+            // IsAlive would then throw on every poll. Tear it down and report "no transport"; LSP features simply
+            // degrade off (no diagnostics/definition/rename) rather than crashing the IDE.
+            _logger.LogError(ex, "Failed to start the VB6 LSP server process ({File})", fileName);
+            _process.Exited -= OnProcessExited;
+            _process.Dispose();
+            _process = null;
+            return Task.FromResult<IJsonRpcMessageHandler?>(null);
+        }
 
         var handler = new HeaderDelimitedMessageHandler(
             _process.StandardInput.BaseStream,

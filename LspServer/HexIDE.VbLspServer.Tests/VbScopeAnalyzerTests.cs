@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: MIT
 // Copyright (C) 2026 The HexIDE Authors
 
 using HexIDE.VbLspServer;
@@ -10,6 +10,28 @@ namespace HexIDE.VbLspServer.Tests;
 /// </summary>
 public class VbScopeAnalyzerTests
 {
+    // The undeclared-variable check is DEFAULT-OFF in the live provider path (see VbDiagnosticsProvider),
+    // because without a workspace symbol table it false-positives. These tests therefore exercise
+    // VbScopeAnalyzer DIRECTLY to keep validating its correctness for the future workspace-aware mode —
+    // mirroring the old provider wiring: parse, then run the Option-Explicit check on the tree.
+    private static List<LspDiagnostic> Analyze(string code)
+    {
+        var tree = VbDiagnosticsProvider.GetDiagnosticsAndTree(code).Tree;
+        return tree is null ? [] : VbScopeAnalyzer.GetOptionExplicitDiagnostics(tree);
+    }
+
+    // ── Provider default: the LIVE path must NOT emit undeclared-var warnings ─
+    [Fact]
+    public void Provider_DoesNotEmitUndeclaredWarnings_ByDefault()
+    {
+        const string code = "Option Explicit\nSub Test()\n    x = 42\nEnd Sub\n";
+
+        VbDiagnosticsProvider.GetDiagnostics(code).Should()
+            .BeEmpty("undeclared-var squiggles are off until a workspace symbol table exists");
+        Analyze(code).Should().ContainSingle(d => d.Message.Contains("'x'"),
+            "but the analyzer capability is retained and tested directly");
+    }
+
     // ── No Option Explicit → never warn ──────────────────────────────────────
 
     [Fact]
@@ -21,7 +43,7 @@ public class VbScopeAnalyzerTests
             End Sub
             """;
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         diags.Should().BeEmpty();
     }
@@ -39,7 +61,7 @@ public class VbScopeAnalyzerTests
             End Sub
             """;
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         diags.Should().BeEmpty();
     }
@@ -56,7 +78,7 @@ public class VbScopeAnalyzerTests
             End Sub
             """;
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         diags.Should().BeEmpty();
     }
@@ -74,7 +96,7 @@ public class VbScopeAnalyzerTests
             End Function
             """;
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         diags.Should().BeEmpty();
     }
@@ -91,7 +113,7 @@ public class VbScopeAnalyzerTests
             End Sub
             """;
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         diags.Should().HaveCount(1);
         diags[0].Message.Should().Contain("'x'").And.Contain("not declared");
@@ -104,7 +126,7 @@ public class VbScopeAnalyzerTests
         const string code = "Option Explicit\r\nSub Test()\r\n    undeclaredVar = 5\r\nEnd Sub";
         // Line 2 (0-based), col 4
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         var warn = diags.Should().ContainSingle(d => d.Message.Contains("'undeclaredVar'")).Subject;
         warn.Range.Start.Line.Should().Be(2);     // 0-based
@@ -122,7 +144,7 @@ public class VbScopeAnalyzerTests
             End Sub
             """;
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         diags.Should().HaveCount(2);
         diags.Should().Contain(d => d.Message.Contains("'a'"));
@@ -139,7 +161,7 @@ public class VbScopeAnalyzerTests
             End Sub
             """;
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         diags.Should().ContainSingle(d => d.Message.Contains("'obj'"));
     }
@@ -157,7 +179,7 @@ public class VbScopeAnalyzerTests
             End Function
             """;
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         diags.Should().BeEmpty();
     }
@@ -178,7 +200,7 @@ public class VbScopeAnalyzerTests
             End Sub
             """;
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         diags.Should().BeEmpty();
     }
@@ -196,7 +218,7 @@ public class VbScopeAnalyzerTests
             End Sub
             """;
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         diags.Should().BeEmpty();
     }
@@ -215,7 +237,7 @@ public class VbScopeAnalyzerTests
             End Sub
             """;
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         diags.Should().BeEmpty();
     }
@@ -234,7 +256,7 @@ public class VbScopeAnalyzerTests
             End Sub
             """;
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         diags.Should().ContainSingle();
         diags[0].Message.Should().Contain("'undeclared'");
@@ -254,7 +276,7 @@ public class VbScopeAnalyzerTests
             End Sub
             """;
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         diags.Should().BeEmpty();
     }
@@ -301,7 +323,7 @@ public class VbScopeAnalyzerTests
             End Sub
             """;
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         diags.Should().BeEmpty();
     }
@@ -325,7 +347,7 @@ public class VbScopeAnalyzerTests
             End Property
             """;
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         diags.Should().BeEmpty();
     }
@@ -343,7 +365,7 @@ public class VbScopeAnalyzerTests
             End Sub
             """;
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         diags.Should().ContainSingle(d => d.Message.Contains("'y'"));
     }
@@ -360,7 +382,7 @@ public class VbScopeAnalyzerTests
             End Sub
             """;
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         diags.Should().ContainSingle(d => d.Message.Contains("'undeclared'"));
     }
@@ -375,7 +397,7 @@ public class VbScopeAnalyzerTests
             End Sub
             """;
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         diags.Should().ContainSingle(d => d.Message.Contains("'missingVar'"));
     }
@@ -393,7 +415,7 @@ public class VbScopeAnalyzerTests
             End Sub
             """;
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         diags.Where(d => d.Message.Contains("'ghost'")).Should().HaveCount(2);
     }
@@ -416,7 +438,7 @@ public class VbScopeAnalyzerTests
             End Sub
             """;
 
-        var diags = VbDiagnosticsProvider.GetDiagnostics(code);
+        var diags = Analyze(code);
 
         diags.Should().BeEmpty();
     }

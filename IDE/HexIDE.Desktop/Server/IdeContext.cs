@@ -16,6 +16,8 @@ internal sealed class IdeContext : IDisposable
     public IProjectRunnerService ProjectRunnerService { get; }
     public IProjectService ProjectService { get; }
     public IBookmarkService BookmarkService { get; }
+    public HexIDE.Debugging.IBreakpointService BreakpointService { get; }
+    public HexIDE.Runtime.Debugging.IDebugController DebugController { get; }
     public MainViewViewModel RootViewModel { get; }
     public DiagnosticsCache Diagnostics { get; }
     public ToolBoxToolViewModel ToolBoxViewModel { get; }
@@ -31,6 +33,8 @@ internal sealed class IdeContext : IDisposable
         IProjectRunnerService projectRunnerService,
         IProjectService projectService,
         IBookmarkService bookmarkService,
+        HexIDE.Debugging.IBreakpointService breakpointService,
+        HexIDE.Runtime.Debugging.IDebugController debugController,
         MainViewViewModel rootViewModel,
         ToolBoxToolViewModel toolBoxViewModel,
         IPersonalityService personalityService,
@@ -44,6 +48,8 @@ internal sealed class IdeContext : IDisposable
         ProjectRunnerService = projectRunnerService;
         ProjectService = projectService;
         BookmarkService = bookmarkService;
+        BreakpointService = breakpointService;
+        DebugController = debugController;
         RootViewModel = rootViewModel;
         Diagnostics = new DiagnosticsCache(lspClient);
         ToolBoxViewModel = toolBoxViewModel;

@@ -1,7 +1,6 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: MIT
 // Copyright (C) 2026 The HexIDE Authors
-// This file is part of HexIDE.VbLspServer, which uses the
-// Rubberduck VBA ANTLR4 grammar (GPLv3). See LICENSE for details.
+// Hand-curated table of VB6/VBA built-in names (VB6 language facts, solely ours).
 
 namespace HexIDE.VbLspServer;
 

@@ -13,6 +13,7 @@ using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
 using HexIDE.IDE;
+using HexIDE.Localization;
 using HexIDE.Sidecar;
 using Serilog;
 
@@ -28,6 +29,7 @@ public class ProjectService : IProjectService
     private readonly IReferenceLibraryService referenceLibraryService;
     private readonly IUserSidecarService sidecar;
     private readonly IFileBaselineStore baselineStore;
+    private readonly ILocalizationService localization;
 
     public ProjectService(Func<NewProjectViewModel> newProjectVm,
         IWindowManager windowManager,
@@ -36,7 +38,8 @@ public class ProjectService : IProjectService
         IRecentProjectsService recentProjects,
         IReferenceLibraryService referenceLibraryService,
         IUserSidecarService sidecar,
-        IFileBaselineStore baselineStore)
+        IFileBaselineStore baselineStore,
+        ILocalizationService localization)
     {
         this.newProjectVm = newProjectVm;
         this.windowManager = windowManager;
@@ -46,6 +49,7 @@ public class ProjectService : IProjectService
         this.referenceLibraryService = referenceLibraryService;
         this.sidecar = sidecar;
         this.baselineStore = baselineStore;
+        this.localization = localization;
     }
 
     private async Task<IAddinProjectTemplate?> ChooseNewProject()
@@ -106,24 +110,32 @@ public class ProjectService : IProjectService
         if (projectManager.LoadedProjects.Count == 0)
             return;
 
+        // Flush open editor buffers into the model before deciding what is dirty.
+        eventBus.Publish(new ApplyAllUnsavedChangesEvent());
+
         var changedFilesVm = new SaveChangesViewModel();
         foreach (var loadedProject in projectManager.LoadedProjects)
         {
-            changedFilesVm.Add(loadedProject);
+            if (IsDirty(loadedProject))
+                changedFilesVm.Add(loadedProject);
             foreach (var form in loadedProject.Forms)
-                changedFilesVm.Add(form);
+                if (IsDirty(form))
+                    changedFilesVm.Add(form);
+            // Modules are half a VB6 project — omitting them here discarded .bas/.cls/.ctl edits silently.
+            foreach (var module in loadedProject.Modules)
+                if (IsDirty(module))
+                    changedFilesVm.Add(module);
         }
-        changedFilesVm.SelectedFiles.AddRange(changedFilesVm.ChangedFiles);
-        if (!await windowManager.ShowDialog(changedFilesVm))
-            throw new OperationCanceledException();
 
-        if (changedFilesVm.SaveChanges)
+        // Nothing was edited — opening a project, looking at it and closing must not raise a dialog.
+        if (changedFilesVm.ChangedFiles.Count > 0)
         {
-            foreach (var selected in changedFilesVm.SelectedFiles.Where(f => f.Form != null))
-                await SaveForm(selected.Form!, false);
+            changedFilesVm.SelectedFiles.AddRange(changedFilesVm.ChangedFiles);
+            if (!await windowManager.ShowDialog(changedFilesVm))
+                throw new OperationCanceledException();
 
-            foreach (var selected in changedFilesVm.SelectedFiles.Where(f => f.Project != null))
-                await SaveOnlyProject(selected.Project!, false);
+            if (changedFilesVm.SaveChanges)
+                await SaveSelected(changedFilesVm);
         }
 
         projectManager.UnloadAllProjects();
@@ -131,22 +143,26 @@ public class ProjectService : IProjectService
 
     public async Task UnloadProject(ProjectDefinition project)
     {
+        eventBus.Publish(new ApplyAllUnsavedChangesEvent());
+
         var changedFilesVm = new SaveChangesViewModel();
-        changedFilesVm.Add(project);
+        if (IsDirty(project))
+            changedFilesVm.Add(project);
         foreach (var form in project.Forms)
-            changedFilesVm.Add(form);
+            if (IsDirty(form))
+                changedFilesVm.Add(form);
+        foreach (var module in project.Modules)
+            if (IsDirty(module))
+                changedFilesVm.Add(module);
 
-        changedFilesVm.SelectedFiles.AddRange(changedFilesVm.ChangedFiles);
-        if (!await windowManager.ShowDialog(changedFilesVm))
-            throw new OperationCanceledException();
-
-        if (changedFilesVm.SaveChanges)
+        if (changedFilesVm.ChangedFiles.Count > 0)
         {
-            foreach (var selected in changedFilesVm.SelectedFiles.Where(f => f.Form != null))
-                await SaveForm(selected.Form!, false);
+            changedFilesVm.SelectedFiles.AddRange(changedFilesVm.ChangedFiles);
+            if (!await windowManager.ShowDialog(changedFilesVm))
+                throw new OperationCanceledException();
 
-            foreach (var selected in changedFilesVm.SelectedFiles.Where(f => f.Project != null))
-                await SaveOnlyProject(selected.Project!, false);
+            if (changedFilesVm.SaveChanges)
+                await SaveSelected(changedFilesVm);
         }
 
         projectManager.UnloadProject(project);
@@ -198,7 +214,7 @@ public class ProjectService : IProjectService
         var groupName = Path.GetFileNameWithoutExtension(groupPath);
 
         var serializedGroup = new GroupDeserializer()
-            .Deserialize(await File.ReadAllTextAsync(groupPath));
+            .Deserialize(await Vb6TextFile.ReadAllTextAsync(groupPath));
 
         foreach (var relPath in serializedGroup.ProjectRelativePaths)
         {
@@ -221,6 +237,13 @@ public class ProjectService : IProjectService
         recentProjects.Add(groupPath);
     }
 
+    // VB6 stores project-relative paths with Windows separators (e.g. Form=Forms\Main.frm). On non-Windows
+    // a backslash is a literal filename char, so a multi-folder project would resolve to a bogus path and
+    // silently drop the file. Normalize to the platform separator for FILESYSTEM resolution only — the raw
+    // value is still preserved verbatim on save (VB6 .vbp fidelity) and in the missing-file line.
+    internal static string ToLocalRelativePath(string relativePath) =>
+        relativePath.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
+
     private async Task LoadProjectFromDisk(string projectPath)
     {
         Log.Information("ProjectService: Opening project {ProjectPath}", projectPath);
@@ -233,7 +256,7 @@ public class ProjectService : IProjectService
         var formDeserializer = new FormDeserializer();
         var errorSink = new DeserializeErrorSink();
 
-        var serializedProject = projectDeserializer.Deserialize(await File.ReadAllTextAsync(projectPath), errorSink);
+        var serializedProject = projectDeserializer.Deserialize(await Vb6TextFile.ReadAllTextAsync(projectPath), errorSink);
 
         var project = new ProjectDefinition(serializedProject.ProjectType, serializedProject.Name ?? "Project1");
         project.AbsolutePath = projectPath;
@@ -246,19 +269,28 @@ public class ProjectService : IProjectService
 
             try
             {
-                var moduleAbsolutePath = Path.Join(Path.GetDirectoryName(projectPath)!, modulePath);
+                var moduleAbsolutePath = Path.Join(Path.GetDirectoryName(projectPath)!, ToLocalRelativePath(modulePath));
                 var module = new ModuleDefinition(project, moduleName, moduleKind);
                 module.AbsolutePath = moduleAbsolutePath;
                 if (File.Exists(moduleAbsolutePath))
                 {
-                    var moduleSource = await File.ReadAllTextAsync(moduleAbsolutePath);
-                    baselineStore.Record(moduleAbsolutePath, moduleSource);
-                    module.UpdateCode(moduleSource);
-                    var formPart = formDeserializer.Deserialize(project, moduleSource, errorSink);
+                    var (moduleSource, moduleBytes) = await Vb6TextFile.ReadWithBytesAsync(moduleAbsolutePath);
+                    baselineStore.Record(moduleAbsolutePath, moduleBytes);
+                    var ctxBlobs = await LoadCompanionBlobs(moduleAbsolutePath);
+                    var formPart = formDeserializer.Deserialize(project, moduleSource, errorSink, ctxBlobs);
                     if (formPart != null)
                     {
                         formPart.AbsolutePath = moduleAbsolutePath;
                         module.UpdateFormPart(formPart);
+                        // Body only. FormSerializer regenerates the Begin..End header and then appends Code
+                        // verbatim, so storing the whole file here emits the header twice on every save.
+                        module.UpdateCode(formPart.Code);
+                    }
+                    else
+                    {
+                        // Unparseable .ctl: keep it verbatim so a save round-trips it unchanged (SaveModule
+                        // falls through to the header-less branch when FormPart is null).
+                        module.UpdateCode(moduleSource);
                     }
                 }
                 project.AddModule(module);
@@ -275,7 +307,7 @@ public class ProjectService : IProjectService
         // Pass 2: .frm files — load forms using the UC registry
         foreach (var formPath in serializedProject.RelativeFormPaths)
         {
-            var formAbsolutePath = Path.Join(Path.GetDirectoryName(projectPath)!, formPath);
+            var formAbsolutePath = Path.Join(Path.GetDirectoryName(projectPath)!, ToLocalRelativePath(formPath));
 
             try
             {
@@ -289,18 +321,10 @@ public class ProjectService : IProjectService
                     continue;
                 }
 
-                // Load companion .frx binary resource file if it exists
-                IReadOnlyDictionary<int, byte[]>? frxBlobs = null;
-                var frxPath = Path.ChangeExtension(formAbsolutePath, ".frx");
-                if (File.Exists(frxPath))
-                {
-                    var frxBytes = await File.ReadAllBytesAsync(frxPath);
-                    baselineStore.Record(frxPath, frxBytes);
-                    frxBlobs = FrxDeserializer.Read(frxBytes);
-                }
+                var frxBlobs = await LoadCompanionBlobs(formAbsolutePath);
 
-                var formSource = await File.ReadAllTextAsync(formAbsolutePath);
-                baselineStore.Record(formAbsolutePath, formSource);
+                var (formSource, formBytes) = await Vb6TextFile.ReadWithBytesAsync(formAbsolutePath);
+                baselineStore.Record(formAbsolutePath, formBytes);
                 var form = formDeserializer.Deserialize(project, formSource, errorSink, frxBlobs, userControlRegistry);
                 if (form != null)
                 {
@@ -323,22 +347,30 @@ public class ProjectService : IProjectService
 
             try
             {
-                var moduleAbsolutePath = Path.Join(Path.GetDirectoryName(projectPath)!, modulePath);
+                var moduleAbsolutePath = Path.Join(Path.GetDirectoryName(projectPath)!, ToLocalRelativePath(modulePath));
                 var module = new ModuleDefinition(project, moduleName, moduleKind);
                 module.AbsolutePath = moduleAbsolutePath;
                 if (File.Exists(moduleAbsolutePath))
                 {
-                    var moduleSource = await File.ReadAllTextAsync(moduleAbsolutePath);
-                    baselineStore.Record(moduleAbsolutePath, moduleSource);
+                    var (moduleSource, moduleBytes) = await Vb6TextFile.ReadWithBytesAsync(moduleAbsolutePath);
+                    baselineStore.Record(moduleAbsolutePath, moduleBytes);
                     // .bas/.cls: strip the VB6 header so Code is the body only (no-op for .pag/.ctl).
-                    module.UpdateCode(ModuleFileFormat.StripHeader(moduleSource, moduleKind));
+                    var (preservedHeader, moduleBody) = ModuleFileFormat.SplitHeader(moduleSource, moduleKind);
+
+                    module.RecordOriginalHeader(preservedHeader);
+
+                    module.UpdateCode(moduleBody);
                     if (moduleKind == ModuleKind.PropertyPage)
                     {
-                        var formPart = formDeserializer.Deserialize(project, moduleSource, errorSink);
+                        var pgxBlobs = await LoadCompanionBlobs(moduleAbsolutePath);
+                        var formPart = formDeserializer.Deserialize(project, moduleSource, errorSink, pgxBlobs);
                         if (formPart != null)
                         {
                             formPart.AbsolutePath = moduleAbsolutePath;
                             module.UpdateFormPart(formPart);
+                            // StripHeader above is a no-op for .pag, so Code still holds the whole file —
+                            // replace it with the body only or the next save writes the header twice.
+                            module.UpdateCode(formPart.Code);
                         }
                     }
                 }
@@ -367,6 +399,9 @@ public class ProjectService : IProjectService
         projectManager.AddProject(project);
         recentProjects.Add(projectPath);
         await sidecar.LoadAsync(project);
+
+        // Establish the "nothing edited yet" point for the save-changes prompt.
+        SnapshotRenderBaselines(project);
 
         if (serializedProject.SkippedUserDocumentPaths.Count > 0)
         {
@@ -421,9 +456,26 @@ public class ProjectService : IProjectService
         public IReadOnlyList<string> Errors => errors;
     }
 
+    /// <summary>
+    /// Forms refused during the current save, so a batch reports once rather than per file.
+    /// </summary>
+    private readonly List<FormDefinition> refusedThisSave = new();
+
     public async Task SaveForm(FormDefinition form, bool saveAs)
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
+
+        // Writing this form would not reproduce it, and VB6 rejects the result outright for any menu
+        // carrying a shortcut or a separator. Refusing is the honest move: the original stays intact and
+        // the developer finds out now rather than the next time they open the project in VB6.
+        if (!form.CanSaveFaithfully && !saveAs)
+        {
+            Log.Warning("Refusing to save {Form}: {Reason}", form.Name, form.UnfaithfulSaveReason);
+            if (!refusedThisSave.Contains(form))
+                refusedThisSave.Add(form);
+            return;
+        }
+
         var formPath = form.AbsolutePath;
         if (formPath == null || saveAs)
         {
@@ -458,8 +510,8 @@ public class ProjectService : IProjectService
             frxBlobs = FrxDeserializer.Read(frxBytes);
         }
 
-        var source = await File.ReadAllTextAsync(path);
-        baselineStore.Record(path, source);
+        var (source, sourceBytes) = await Vb6TextFile.ReadWithBytesAsync(path);
+        baselineStore.Record(path, sourceBytes);
 
         var fresh = formDeserializer.Deserialize(project, source, errorSink, frxBlobs, BuildUserControlRegistry(project));
         if (fresh is null)
@@ -467,6 +519,7 @@ public class ProjectService : IProjectService
 
         form.UpdateCode(fresh.Code);
         form.UpdateComponents(fresh.Components);
+        SnapshotRenderBaseline(form);
         return true;
     }
 
@@ -476,17 +529,24 @@ public class ProjectService : IProjectService
         if (path is null || !File.Exists(path))
             return false;
 
-        var source = await File.ReadAllTextAsync(path);
-        baselineStore.Record(path, source);
-        module.UpdateCode(ModuleFileFormat.StripHeader(source, module.Kind));
+        var (source, sourceBytes) = await Vb6TextFile.ReadWithBytesAsync(path);
+        baselineStore.Record(path, sourceBytes);
+        var (preservedHeader, reloadedBody) = ModuleFileFormat.SplitHeader(source, module.Kind);
+
+        module.RecordOriginalHeader(preservedHeader);
+
+        module.UpdateCode(reloadedBody);
 
         if (module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
         {
             var formDeserializer = new FormDeserializer();
             var errorSink = new DeserializeErrorSink();
-            var fresh = formDeserializer.Deserialize(module.Owner, source, errorSink);
+            var blobs = await LoadCompanionBlobs(path);
+            var fresh = formDeserializer.Deserialize(module.Owner, source, errorSink, blobs);
             if (fresh != null)
             {
+                // StripHeader above is a no-op for these kinds, so Code still holds the whole file.
+                module.UpdateCode(fresh.Code);
                 if (module.FormPart is { } existing)
                 {
                     // Update the existing FormPart in place so an open designer's reference stays valid
@@ -501,6 +561,8 @@ public class ProjectService : IProjectService
                 }
             }
         }
+
+        SnapshotRenderBaseline(module);
         return true;
     }
 
@@ -664,6 +726,7 @@ public class ProjectService : IProjectService
         }
 
         await SaveOnlyProject(project, saveAs);
+        await ReportRefusedSaves();
     }
 
     public Task SaveProjectToDirectory(ProjectDefinition project, string directory)
@@ -694,9 +757,9 @@ public class ProjectService : IProjectService
         Directory.CreateDirectory(dir);
         module.AbsolutePath = Path.Join(dir, name + "." + ext);
         // Write the VB6 file header + (empty) body; the editor still shows only the body.
-        var diskContent = ModuleFileFormat.ToFileContent(module.Code, name, kind);
-        File.WriteAllText(module.AbsolutePath, diskContent);
-        baselineStore.Record(module.AbsolutePath, diskContent);
+        var diskContent = ModuleFileFormat.ToFileContent(module.Code, name, kind, module.OriginalHeader);
+        Vb6TextFile.WriteAllText(module.AbsolutePath, diskContent);
+        baselineStore.Record(module.AbsolutePath, Vb6TextFile.Encode(diskContent));
         project.AddModule(module);
         return Task.FromResult(module);
     }
@@ -712,8 +775,8 @@ public class ProjectService : IProjectService
         module.AbsolutePath = Path.Join(dir, name + ".ctl");
         var serializer = new FormSerializer();
         var (ctl, _) = serializer.Serialize(formPart, module.Code, name + ".ctl");
-        File.WriteAllText(module.AbsolutePath, ctl);
-        baselineStore.Record(module.AbsolutePath, ctl);
+        Vb6TextFile.WriteAllText(module.AbsolutePath, ctl);
+        baselineStore.Record(module.AbsolutePath, Vb6TextFile.Encode(ctl));
         project.AddModule(module);
         return Task.FromResult(module);
     }
@@ -729,8 +792,8 @@ public class ProjectService : IProjectService
         module.AbsolutePath = Path.Join(dir, name + ".pag");
         var serializer = new FormSerializer();
         var (pag, _) = serializer.Serialize(formPart, module.Code, name + ".pag");
-        File.WriteAllText(module.AbsolutePath, pag);
-        baselineStore.Record(module.AbsolutePath, pag);
+        Vb6TextFile.WriteAllText(module.AbsolutePath, pag);
+        baselineStore.Record(module.AbsolutePath, Vb6TextFile.Encode(pag));
         project.AddModule(module);
         return Task.FromResult(module);
     }
@@ -739,6 +802,49 @@ public class ProjectService : IProjectService
         project.AbsolutePath is { } p
             ? Path.GetDirectoryName(p)!
             : Path.Combine(Path.GetTempPath(), "hexide_" + project.Name);
+
+    /// <summary>Saves everything the user left ticked in the save-changes prompt.</summary>
+    private async Task SaveSelected(SaveChangesViewModel changedFilesVm)
+    {
+        foreach (var selected in changedFilesVm.SelectedFiles.Where(f => f.Form != null))
+            await SaveForm(selected.Form!, false);
+
+        foreach (var selected in changedFilesVm.SelectedFiles.Where(f => f.Module != null))
+            await SaveModule(selected.Module!, false);
+
+        foreach (var selected in changedFilesVm.SelectedFiles.Where(f => f.Project != null))
+            await SaveOnlyProject(selected.Project!, false);
+
+        await ReportRefusedSaves();
+    }
+
+    /// <summary>
+    /// Tells the developer which forms were not written, and why, once per save rather than per file.
+    /// Silence here would be the worst of both worlds — the file is protected but the user believes their
+    /// edit was persisted.
+    /// </summary>
+    private async Task ReportRefusedSaves()
+    {
+        if (refusedThisSave.Count == 0)
+            return;
+
+        var names = string.Join("\n", refusedThisSave.Select(f => $"  • {f.Name}"));
+        var singular = refusedThisSave.Count == 1;
+        refusedThisSave.Clear();
+
+        // The body is a whole localized sentence rather than an English frame with a reason injected into
+        // it. The earlier version read "These forms were not saved, because it contains…" — the reason is
+        // phrased for one form and the frame for many — and worse, that reason was a hardcoded English
+        // literal from FormDeserializer appearing verbatim in a user-facing dialog in every language.
+        // UnfaithfulSaveReason stays as-is for the log, which is developer-facing.
+        var body = localization.GetString(singular
+            ? "Str.Dialog.UnfaithfulSave.Body.One"
+            : "Str.Dialog.UnfaithfulSave.Body.Many");
+
+        await windowManager.MessageBox(
+            string.Format(body, names),
+            "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+    }
 
     private async Task SaveOnlyProject(ProjectDefinition project, bool saveAs)
     {
@@ -811,13 +917,61 @@ public class ProjectService : IProjectService
         var (frmText, frxContent) = serializer.Serialize(form, Path.GetFileName(formPath));
 
         AtomicWriteText(formPath, frmText);
-        var frxPath = Path.ChangeExtension(formPath, ".frx");
-        if (frxContent != null && frxContent.Length > 0)
-            AtomicWriteBytes(frxPath, frxContent);
-        else if (File.Exists(frxPath))
+        WriteCompanionBinary(formPath, frxContent, WouldLoseBlobs(form, frxContent));
+    }
+
+    /// <summary>
+    /// True when saving would write back fewer blobs than the load read, on any path — flagged or not.
+    /// The explicit flag catches the two known drop sites; this catches the rest, including properties
+    /// that are named but whose CLR type is unmapped and which vanish with no diagnostic at all.
+    /// </summary>
+    private static bool WouldLoseBlobs(FormDefinition form, byte[]? produced)
+    {
+        if (form.HasUnmodelledBinaryProperties)
+            return true;
+        if (form.LoadedCompanionBlobCount == 0)
+            return false;
+
+        var producedCount = 0;
+        if (produced is { Length: > 0 })
         {
-            File.Delete(frxPath);
-            baselineStore.Remove(frxPath);
+            try { producedCount = FrxDeserializer.Read(produced).Count; }
+            catch { return true; } // cannot even read back what we just wrote — do not risk the original
+        }
+        return producedCount < form.LoadedCompanionBlobCount;
+    }
+
+    /// <summary>
+    /// Write, replace, or remove a companion binary (.frx/.ctx/.pgx) beside <paramref name="sourcePath"/> —
+    /// unless loading dropped a blob-backed property we cannot reproduce, in which case the file on disk
+    /// holds the only copy of those bytes and is left exactly as it is.
+    ///
+    /// Both alternatives destroy user data: regenerating truncates (Splash Screen.frx, 790 bytes to 12) and
+    /// producing nothing is read as "delete it" (Button ListBox.frx, 2122 bytes gone). The images exist
+    /// nowhere else, so refusing to touch the file is the only safe option until unmodelled blobs are
+    /// passed through. Verified against VB6's own shipped forms — see SerializationCorpusTests.
+    /// </summary>
+    private void WriteCompanionBinary(string sourcePath, byte[]? content, bool binaryFidelityLost)
+    {
+        var companionPath = Path.ChangeExtension(sourcePath, CompanionBinaryExtension(sourcePath));
+
+        if (binaryFidelityLost && File.Exists(companionPath))
+        {
+            Log.Warning("Leaving {Companion} untouched — {Source} uses binary properties HexIDE does not "
+                      + "model, so writing a regenerated companion would lose data.",
+                        Path.GetFileName(companionPath), Path.GetFileName(sourcePath));
+            return;
+        }
+
+        if (content is { Length: > 0 })
+        {
+            AtomicWriteBytes(companionPath, content);
+        }
+        else if (File.Exists(companionPath))
+        {
+            File.Delete(companionPath);
+            baselineStore.Remove(companionPath);
+            renderBaselines.Remove(companionPath);
         }
     }
 
@@ -829,6 +983,22 @@ public class ProjectService : IProjectService
             _ => ".frx"
         };
 
+    /// <summary>
+    /// Read the companion binary resource file (.frx / .ctx / .pgx) beside a .frm / .ctl / .pag, if present.
+    /// Always route companion reads through here — hardcoding ".frx" silently drops UserControl and
+    /// PropertyPage resources, and the save path then deletes the companion it never read.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<int, byte[]>?> LoadCompanionBlobs(string sourceFilePath)
+    {
+        var companionPath = Path.ChangeExtension(sourceFilePath, CompanionBinaryExtension(sourceFilePath));
+        if (!File.Exists(companionPath))
+            return null;
+
+        var bytes = await File.ReadAllBytesAsync(companionPath);
+        baselineStore.Record(companionPath, bytes);
+        return FrxDeserializer.Read(bytes);
+    }
+
     // Instance (not static) so each atomic write records a baseline. Recording the just-written
     // content immediately — well before the resulting FileSystemWatcher event is processed (it is
     // debounced) — is the primary self-write-suppression mechanism for the file watcher: the watcher
@@ -838,9 +1008,16 @@ public class ProjectService : IProjectService
         var tmp = targetPath + ".tmp";
         try
         {
-            File.WriteAllText(tmp, content);
+            // Encode once and record the SAME bytes. FileHasher.Hash(string) hashes the UTF-8 encoding,
+            // which stopped matching the file the moment VB6 source began being written as ANSI — the
+            // watcher would re-hash from disk, see a different hash, and report every save as an external
+            // change. Recording the actual bytes keeps self-write suppression correct.
+            var bytes = Vb6TextFile.Encode(content);
+            File.WriteAllBytes(tmp, bytes);
             File.Move(tmp, targetPath, overwrite: true);
-            baselineStore.Record(targetPath, content);
+            baselineStore.Record(targetPath, bytes);
+            // Render baselines are only ever compared against other renders, so a string hash is fine.
+            renderBaselines[targetPath] = FileHasher.Hash(content);
         }
         catch
         {
@@ -857,6 +1034,7 @@ public class ProjectService : IProjectService
             File.WriteAllBytes(tmp, content);
             File.Move(tmp, targetPath, overwrite: true);
             baselineStore.Record(targetPath, content);
+            renderBaselines[targetPath] = FileHasher.Hash(content);
         }
         catch
         {
@@ -895,20 +1073,13 @@ public class ProjectService : IProjectService
             var fileName = Path.GetFileName(modulePath);
             var (text, binary) = serializer.Serialize(module.FormPart, module.Code, fileName);
             AtomicWriteText(modulePath, text);
-            var companionPath = Path.ChangeExtension(modulePath, CompanionBinaryExtension(modulePath));
-            if (binary is not null)
-                AtomicWriteBytes(companionPath, binary);
-            else if (File.Exists(companionPath))
-            {
-                File.Delete(companionPath);
-                baselineStore.Remove(companionPath);
-            }
+            WriteCompanionBinary(modulePath, binary, WouldLoseBlobs(module.FormPart, binary));
             return;
         }
 
         // .bas/.cls: prepend the canonical VB6 header (ModuleFileFormat) so vb6.exe can load it; Code itself
         // is body-only. (Unmanaged kinds return Code unchanged.)
-        AtomicWriteText(modulePath, ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind));
+        AtomicWriteText(modulePath, ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind, module.OriginalHeader));
     }
 
     private void SerializeOnlyProjectToFile(ProjectDefinition definition, string projectPath)
@@ -919,5 +1090,134 @@ public class ProjectService : IProjectService
         var serialized = serializer.Serialize(definition, projectPath);
 
         AtomicWriteText(projectPath, serialized);
+    }
+
+    // ── Dirty detection ───────────────────────────────────────────────────────────────────────
+    // "Dirty" means saving would change what is on disk. Each item is rendered through the very
+    // serializer its save path uses, then compared against the baseline recorded at load/save — so the
+    // check cannot drift from what a save would actually write. There is deliberately no per-model
+    // IsDirty flag: that would need setting at every mutation site and would rot silently.
+    //
+    // Callers must publish ApplyAllUnsavedChangesEvent first, so open editor buffers are flushed into
+    // the model before anything is rendered.
+
+    private bool IsDirty(ProjectDefinition project)
+    {
+        var path = project.AbsolutePath;
+        if (path is null)
+            return true; // never saved
+
+        return !BaselineMatches(path, new ProjectSerializer().Serialize(project, path));
+    }
+
+    public bool HasUnsavedChanges(FormDefinition form) => IsDirty(form);
+
+    private bool IsDirty(FormDefinition form)
+    {
+        var path = form.AbsolutePath;
+        if (path is null)
+            return true;
+
+        var (text, binary) = new FormSerializer().Serialize(form, Path.GetFileName(path));
+        return !BaselineMatches(path, text) || CompanionWouldChange(path, binary);
+    }
+
+    private bool IsDirty(ModuleDefinition module)
+    {
+        var path = module.AbsolutePath;
+        if (path is null)
+            return true;
+
+        if (module.FormPart is { } formPart && module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
+        {
+            var (text, binary) = new FormSerializer().Serialize(formPart, module.Code, Path.GetFileName(path));
+            return !BaselineMatches(path, text) || CompanionWouldChange(path, binary);
+        }
+
+        return !BaselineMatches(path, ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind, module.OriginalHeader));
+    }
+
+    /// <summary>
+    /// Hash of what each file rendered to when it was last loaded or saved. Deliberately NOT the
+    /// <see cref="IFileBaselineStore"/>, which holds the bytes actually on disk and answers a different
+    /// question ("did the file change underneath us?", for the file watcher).
+    ///
+    /// Comparing a fresh render against the on-disk bytes would conflate "the user edited something" with
+    /// "our serializer does not reproduce this file byte-for-byte" — and any serializer infidelity would
+    /// then mark an untouched project dirty and prompt on every single close. Comparing render-to-render
+    /// asks only whether the model changed, which is the question the save prompt is actually asking.
+    /// </summary>
+    private readonly Dictionary<string, string> renderBaselines = new(StringComparer.OrdinalIgnoreCase);
+
+    private bool BaselineMatches(string path, string rendered) =>
+        renderBaselines.TryGetValue(path, out var known) && known == FileHasher.Hash(rendered);
+
+    /// <summary>True when a save would write, change, or delete the companion binary (.frx/.ctx/.pgx).</summary>
+    private bool CompanionWouldChange(string sourcePath, byte[]? binary)
+    {
+        var companionPath = Path.ChangeExtension(sourcePath, CompanionBinaryExtension(sourcePath));
+        if (binary is { Length: > 0 })
+            return !renderBaselines.TryGetValue(companionPath, out var known)
+                   || known != FileHasher.Hash(binary);
+
+        return renderBaselines.ContainsKey(companionPath); // had one, and a save would now delete it
+    }
+
+    /// <summary>
+    /// Records what every file in <paramref name="project"/> renders to right now, establishing the
+    /// "unedited" point. Called once after a project finishes loading; saves keep themselves current via
+    /// <see cref="AtomicWriteText"/> / <see cref="AtomicWriteBytes"/>, which write the rendered content.
+    /// </summary>
+    private void SnapshotRenderBaselines(ProjectDefinition project)
+    {
+        if (project.AbsolutePath is { } projectPath)
+            renderBaselines[projectPath] = FileHasher.Hash(new ProjectSerializer().Serialize(project, projectPath));
+
+        foreach (var form in project.Forms)
+            SnapshotRenderBaseline(form);
+
+        foreach (var module in project.Modules)
+            SnapshotRenderBaseline(module);
+    }
+
+    /// <summary>
+    /// Re-establishes the "unedited" point for a single form. Called after a load and after
+    /// <see cref="ReloadFormFromDisk"/> adopts external content — without it the render baseline would
+    /// still describe the pre-reload model, so an untouched form would report itself as edited.
+    /// </summary>
+    private void SnapshotRenderBaseline(FormDefinition form)
+    {
+        if (form.AbsolutePath is not { } path)
+            return;
+        var (text, binary) = new FormSerializer().Serialize(form, Path.GetFileName(path));
+        RecordRender(path, text, binary);
+    }
+
+    /// <inheritdoc cref="SnapshotRenderBaseline(FormDefinition)"/>
+    private void SnapshotRenderBaseline(ModuleDefinition module)
+    {
+        if (module.AbsolutePath is not { } path)
+            return;
+
+        if (module.FormPart is { } formPart && module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
+        {
+            var (text, binary) = new FormSerializer().Serialize(formPart, module.Code, Path.GetFileName(path));
+            RecordRender(path, text, binary);
+        }
+        else
+        {
+            renderBaselines[path] = FileHasher.Hash(
+                ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind, module.OriginalHeader));
+        }
+    }
+
+    private void RecordRender(string path, string text, byte[]? binary)
+    {
+        renderBaselines[path] = FileHasher.Hash(text);
+        var companionPath = Path.ChangeExtension(path, CompanionBinaryExtension(path));
+        if (binary is { Length: > 0 })
+            renderBaselines[companionPath] = FileHasher.Hash(binary);
+        else
+            renderBaselines.Remove(companionPath);
     }
 }

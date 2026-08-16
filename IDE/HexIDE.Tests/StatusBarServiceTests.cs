@@ -81,8 +81,21 @@ public class StatusBarServiceTests
         _sut.SetTemporaryMessage("3 replacements made", TimeSpan.FromMilliseconds(100));
         _sut.Message.Should().Be("3 replacements made");
 
-        await Task.Delay(300);
-        _sut.Message.Should().Be("Ready");
+        // Poll for the timer-driven revert rather than asserting after a fixed delay: the revert runs on
+        // a thread-pool thread, which can be starved under a parallel test run on a busy CI box, making a
+        // fixed wait flaky. A generous poll stays deterministic without coupling to exact timing.
+        (await WaitForAsync(() => _sut.Message == "Ready")).Should()
+            .BeTrue("the 100 ms temporary message must revert to Ready");
+    }
+
+    private static async Task<bool> WaitForAsync(Func<bool> condition, int timeoutMs = 5000)
+    {
+        for (var waited = 0; waited < timeoutMs; waited += 20)
+        {
+            if (condition()) return true;
+            await Task.Delay(20);
+        }
+        return condition();
     }
 
     [Fact]

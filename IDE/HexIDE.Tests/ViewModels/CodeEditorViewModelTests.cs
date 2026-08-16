@@ -20,6 +20,8 @@ public class CodeEditorViewModelTests : IDisposable
     private readonly ISettingsService _settingsService = Substitute.For<ISettingsService>();
     private readonly IStatusBarService _statusBarService = Substitute.For<IStatusBarService>();
     private readonly IBookmarkService _bookmarkService = Substitute.For<IBookmarkService>();
+    private readonly HexIDE.Debugging.IBreakpointService _breakpointService = Substitute.For<HexIDE.Debugging.IBreakpointService>();
+    private readonly HexIDE.Runtime.Debugging.IDebugController _debugController = Substitute.For<HexIDE.Runtime.Debugging.IDebugController>();
     private readonly ILocalizationService _localization = Substitute.For<ILocalizationService>();
     private CodeEditorViewModel? _sut;
 
@@ -39,13 +41,46 @@ public class CodeEditorViewModelTests : IDisposable
     private CodeEditorViewModel CreateSut()
     {
         _sut = new CodeEditorViewModel(
-            _windowManager, _editorService, _projectService, _eventBus, _lspClient, _settingsService, _statusBarService, _bookmarkService, _localization);
+            _windowManager, _editorService, _projectService, _eventBus, _lspClient, _settingsService, _statusBarService, _bookmarkService, _breakpointService, _debugController, _localization);
         return _sut;
     }
 
     public void Dispose()
     {
         _sut?.Dispose();
+    }
+
+    // ── Edit-while-running reset prompt (VB6-faithful E&C affordance) ──
+
+    [Fact]
+    public async Task ConfirmResetWhileRunningAsync_Yes_RequestsProjectEnd()
+    {
+        _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>())
+            .Returns(MessageBoxResult.Yes);
+
+        var reset = await CreateSut().ConfirmResetWhileRunningAsync();
+
+        reset.Should().BeTrue();
+        _eventBus.Received(1).Publish(Arg.Any<EndProjectRequestedEvent>());
+    }
+
+    [Fact]
+    public async Task ConfirmResetWhileRunningAsync_No_KeepsRunning()
+    {
+        _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>())
+            .Returns(MessageBoxResult.No);
+
+        var reset = await CreateSut().ConfirmResetWhileRunningAsync();
+
+        reset.Should().BeFalse();
+        _eventBus.DidNotReceive().Publish(Arg.Any<EndProjectRequestedEvent>());
+    }
+
+    [Fact]
+    public void IsProjectRunning_ReflectsTheDebugController()
+    {
+        _debugController.IsSessionActive.Returns(true);
+        CreateSut().IsProjectRunning.Should().BeTrue();
     }
 
     // ── Initialization — Form ────────────────────────────────────────
@@ -462,5 +497,48 @@ public class CodeEditorViewModelTests : IDisposable
         var result = vm.Initialize(module);
 
         result.Should().BeSameAs(vm);
+    }
+
+    // ── Read-only gate (issues #21/#22) ─────────────────────────────────────────────────────────
+    // A form's code lives inside the .frm, so a form HexIDE refuses to save discards code edits too.
+    // Gating only the designer would leave the more likely loss — someone typing a procedure — unprotected.
+
+    private static FormDefinition MakeForm(bool faithful)
+    {
+        var form = TestHelpers.CreateForm(name: "Form1");
+        if (!faithful)
+            form.MarkUnfaithfulToSave("it contains nested controls or menus, which HexIDE would flatten on save");
+        return form;
+    }
+
+    [Fact]
+    public void IsReadOnly_IsTrue_ForAFormThatCannotBeSavedFaithfully()
+    {
+        var vm = CreateSut();
+        vm.Initialize(MakeForm(faithful: false));
+
+        vm.IsReadOnly.Should().BeTrue();
+        vm.ReadOnlyReason.Should().Contain("nested");
+    }
+
+    [Fact]
+    public void IsReadOnly_IsFalse_ForAnOrdinaryForm()
+    {
+        var vm = CreateSut();
+        vm.Initialize(MakeForm(faithful: true));
+
+        vm.IsReadOnly.Should().BeFalse("the gate must be narrow — an ordinary form stays editable");
+        vm.ReadOnlyReason.Should().BeNull();
+    }
+
+    [Fact]
+    public void IsReadOnly_IsFalse_ForAStandaloneModule()
+    {
+        // .bas/.cls round-trip byte-identically since #18, so they are never gated.
+        var vm = CreateSut();
+        vm.Initialize(new ModuleDefinition(new ProjectDefinition(VBProjectType.EXE, "P"),
+                                           "Module1", ModuleKind.StandardModule));
+
+        vm.IsReadOnly.Should().BeFalse();
     }
 }

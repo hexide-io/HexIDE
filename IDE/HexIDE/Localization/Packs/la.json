@@ -118,6 +118,7 @@
     "Str.Menu.Debug.ToggleBreakpoint": "_Commuta Punctum Interruptionis",
     "Str.Menu.Debug.ClearAllBreakpoints": "_Dele Omnia Puncta Interruptionis",
     "Str.Menu.Debug.SetNextStatement": "Statue _Proximam Sententiam",
+    "Str.Debug.SetNextStatement.Refused": "Hic proximam sententiam statuere non licet — sola sententia supremi gradus procedurae nunc intermissae sustinetur (non ea intra structuram If, For, Do, vel Select inclusa).",
     "Str.Menu.Debug.ShowNextStatement": "Monstra Pro_ximam Sententiam",
 
     "Str.Menu.Run": "_Exsecutio",
@@ -222,11 +223,28 @@
     "Str.Tool.Locals.Column.Expression": "Expressio",
     "Str.Tool.Locals.Column.Value": "Valor",
     "Str.Tool.Locals.Column.Type": "Typus",
+    "Str.Tool.Locals.MoreElements": "… {0} plura",
 
     "Str.Tool.Watches.Column.Expression": "Expressio",
     "Str.Tool.Watches.Column.Value": "Valor",
     "Str.Tool.Watches.Column.Type": "Typus",
     "Str.Tool.Watches.Column.Context": "Contextus",
+    "Str.Tool.Watches.OutOfContext": "<Extra contextum>",
+    "Str.Tool.Watches.Menu.Edit": "Recense Observationem...",
+    "Str.Tool.Watches.Menu.Delete": "Dele Observationem",
+    "Str.Dialog.AddWatch.Title": "Adde Observationem",
+    "Str.Dialog.AddWatch.EditTitle": "Recense Observationem",
+    "Str.Dialog.AddWatch.Expression": "Expressio:",
+    "Str.Dialog.AddWatch.Context": "Contextus:",
+    "Str.Dialog.AddWatch.WatchType": "Genus Observationis",
+    "Str.Dialog.AddWatch.Type.Expression": "Observatio Expressionis",
+    "Str.Dialog.AddWatch.Type.BreakTrue": "Interrumpe Cum Valor Verus Est",
+    "Str.Dialog.AddWatch.Type.BreakChanged": "Interrumpe Cum Valor Mutatus Est",
+    "Str.Dialog.AddWatch.Ok": "OK",
+    "Str.Dialog.AddWatch.Cancel": "Cancella",
+    "Str.Dialog.AddWatch.AllContext": "(Omnes Procedurae)",
+    "Str.Tool.CallStack.Column.Frame": "Procedura",
+    "Str.Tool.CallStack.Column.Line": "Linea",
 
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Claude Exploratorem Obiectorum",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Explorator Obiectorum",
@@ -239,6 +257,9 @@
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "Quaere",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Classes",
 
+    "Str.Dialog.UnfaithfulSave.Body.One": "Haec forma non servata est, quia moderaminibus in aliis inclusis aut indicibus utitur, quae HexIDE complanaret:\n\n{0}\n\nPlica eius in disco immutata manet. Si servaretur, forma efficeretur quam Visual Basic 6 aperire non posset, itaque HexIDE eam intactam relinquit potius quam eam corrumpat.",
+    "Str.Dialog.UnfaithfulSave.Body.Many": "Hae formae non servatae sunt, quia moderaminibus in aliis inclusis aut indicibus utuntur, quae HexIDE complanaret:\n\n{0}\n\nPlicae earum in disco immutatae manent. Si servarentur, formae efficerentur quas Visual Basic 6 aperire non posset, itaque HexIDE eas intactas relinquit potius quam eas corrumpat.",
+    "Str.Designer.ReadOnly.Banner": "Tantum legendum — haec forma moderaminibus in aliis inclusis aut indicibus utitur, quae HexIDE nondum servare potest quin ea corrumpat. Eam videre et exsequi potes, sed mutationes non servabuntur.",
     "Str.Designer.Context.Cut": "E_xscinde",
     "Str.Designer.Context.Copy": "_Describe",
     "Str.Designer.Context.Paste": "_Agglutina",
@@ -249,6 +270,7 @@
     "Str.Designer.Context.AlignToGrid": "Ordina ad Reticulum",
     "Str.Designer.Context.Properties": "Proprietates",
 
+    "Str.CodeEditor.ReadOnly.Banner": "Tantum legendum — haec forma moderaminibus in aliis inclusis aut indicibus utitur, quae HexIDE nondum servare potest quin ea corrumpat. Codex eius recenseri non potest donec id correctum erit.",
     "Str.CodeEditor.Context.Cut": "E_xscinde",
     "Str.CodeEditor.Context.Copy": "_Describe",
     "Str.CodeEditor.Context.Paste": "_Agglutina",
@@ -573,8 +595,10 @@
     "Str.Tool.Project.Title": "Grex Inceptorum - Group1",
     "Str.Tool.FormLayout.Title": "Dispositio Formae",
     "Str.Tool.Immediate.Title": "Immediata",
+    "Str.Tool.Immediate.BreakModeOnly": "Aestimatio tantum in modo intermissionis praesto est.",
     "Str.Tool.Locals.Title": "Localia",
     "Str.Tool.Watches.Title": "Observationes",
+    "Str.Tool.CallStack.Title": "Acervus Vocationum",
     "Str.Tool.ObjectBrowser.Title": "Explorator Obiectorum",
 
     "Str.StatusBar.Ready": "Paratus",
@@ -598,6 +622,8 @@
     "Str.Vb6Toolchain.RunFailedTitle": "Exsecutio Defecit",
 
     "Str.ProjectRunner.MustHaveStartupForm": "Forma initialis aut Sub Main() habenda est",
+
+    "Str.ProjectRunner.EditWhileRunningConfirm": "Haec actio inceptum tuum restituet. Visne pergere?",
 
     "Str.NewProject.Msg.Title": "Novum Inceptum",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Versio tua HexIDE {0} non sustinet",

@@ -747,6 +747,7 @@ baseType
    : BOOLEAN
    | BYTE
    | COLLECTION
+   | CURRENCY
    | DATE
    | DOUBLE
    | INTEGER
@@ -790,7 +791,7 @@ lineLabel
    ;
 
 literal
-   : COLORLITERAL
+   : HEXLITERAL
    | DATELITERAL
    | DOUBLELITERAL
    | FILENUMBER
@@ -1105,6 +1106,10 @@ CONST
    : C O N S T
    ;
 
+
+CURRENCY
+   : C U R R E N C Y
+   ;
 
 DATE
    : D A T E
@@ -2033,18 +2038,18 @@ DATELITERAL
    ;
 
 
-COLORLITERAL
-   : '&H' [0-9A-F] + AMPERSAND?
+HEXLITERAL
+   : '&H' [0-9A-F] + (AMPERSAND | PERCENT)?
    ;
 
 
 INTEGERLITERAL
-   : (PLUS | MINUS)? ('0' .. '9') + (('e' | 'E') INTEGERLITERAL)* (HASH | AMPERSAND | EXCLAMATIONMARK | AT)?
+   : (PLUS | MINUS)? ('0' .. '9') + (('e' | 'E') INTEGERLITERAL)* (HASH | AMPERSAND | EXCLAMATIONMARK | AT | PERCENT)?
    ;
 
 
 DOUBLELITERAL
-   : (PLUS | MINUS)? ('0' .. '9')* DOT ('0' .. '9') + (('e' | 'E') (PLUS | MINUS)? ('0' .. '9') +)* (HASH | AMPERSAND | EXCLAMATIONMARK | AT)?
+   : (PLUS | MINUS)? ('0' .. '9')* DOT ('0' .. '9') + (('e' | 'E') (PLUS | MINUS)? ('0' .. '9') +)* (HASH | AMPERSAND | EXCLAMATIONMARK | AT | PERCENT)?
    ;
 
 
@@ -2053,7 +2058,7 @@ FILENUMBER
    ;
 
 OCTALLITERAL
-   : (PLUS | MINUS)? '&O' [0-7] + AMPERSAND?
+   : (PLUS | MINUS)? '&O' [0-7] + (AMPERSAND | PERCENT)?
    ;
 
 // misc

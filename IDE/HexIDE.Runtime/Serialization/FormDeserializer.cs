@@ -60,10 +60,14 @@ public class FormDeserializer
     {
         VBSerializedComponent rootComponent;
         string code;
+        List<string> headerLines;
+        int maxBeginDepth;
         try
         {
             var vb = new VbFrmFormatDeserializer();
             (rootComponent, code) = vb.Deserialize(source);
+            headerLines = vb.HeaderLines;
+            maxBeginDepth = vb.MaxBeginDepth;
         }
         catch (Exception ex)
         {
@@ -78,6 +82,11 @@ public class FormDeserializer
         }
 
         var form = new FormDefinition(owner, Array.Empty<ComponentInstance>(), "");
+        form.HeaderLines.AddRange(headerLines);
+        if (maxBeginDepth > 2)
+            form.MarkUnfaithfulToSave(
+                "it contains nested controls or menus, which HexIDE would flatten on save");
+        form.RecordLoadedCompanionBlobCount(frxBlobs?.Count ?? 0);
         var components = new List<ComponentInstance>();
 
         void LoadRecur(VBSerializedComponent serializedComponent)
@@ -87,6 +96,10 @@ public class FormDeserializer
             {
                 // Unknown component type — reconstruct raw text and preserve for round-trip
                 var subtreeLines = ReconstructRawSubtree(serializedComponent, 1);
+                // The subtree's TEXT survives, but any blob it points at is never collected, so a
+                // regenerated companion would omit it. Record the loss so the save leaves the file alone.
+                if (subtreeLines.Any(FrxDeserializer.IsFrxReference))
+                    form.MarkUnmodelledBinaryProperty();
                 form.UnknownChildSubtreeTexts.Add(string.Join("\r\n", subtreeLines));
                 errorSink.LogError($"Class {serializedComponent.Type} of control {serializedComponent.Name} is not a supported control class — preserved as unknown.");
                 return;
@@ -233,12 +246,20 @@ public class FormDeserializer
                         continue;
                     }
 
+                    // A non-numeric BeginProperty Font metric (e.g. `Weight = Bold`) is malformed input — fall back to
+                    // the VB6 default rather than letting Convert.ToInt32 throw a FormatException that fails the whole
+                    // form load (and crashed `Standalone --check` instead of reporting the form as FAIL).
+                    static int MetricOr(object? v, int fallback)
+                    {
+                        try { return Convert.ToInt32(v); }
+                        catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException) { return fallback; }
+                    }
                     var fontNameStr = fontName as string ?? "MS Sans Serif";
                     var font = new VBFont(
                         fontNameStr,
-                        Convert.ToInt32(fontSize),
-                        bold: Convert.ToInt32(fontWeight) >= 700,
-                        italic: Convert.ToInt32(italic) != 0);
+                        MetricOr(fontSize, 8),
+                        bold: MetricOr(fontWeight, 400) >= 700,
+                        italic: MetricOr(italic, 0) != 0);
                     instance.SetUntypedProperty(propertyClass, font);
                 }
             }
@@ -251,6 +272,10 @@ public class FormDeserializer
                     continue;
                 if (rawLines.Any(l => FrxDeserializer.IsFrxReference(l)))
                 {
+                    // The property is dropped, so a save can no longer reproduce the blob it referenced.
+                    // Record that on the form: the save path uses it to leave the companion binary
+                    // untouched rather than truncating or deleting the user's images.
+                    form.MarkUnmodelledBinaryProperty();
                     errorSink.LogError($"Unknown binary-referencing property '{name}' in '{serializedComponent.Name}' cannot be preserved in phase 1 — deferred to binary round-trip phase.");
                     continue;
                 }

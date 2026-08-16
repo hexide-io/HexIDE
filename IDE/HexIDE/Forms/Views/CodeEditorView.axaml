@@ -74,6 +74,21 @@
                               ExecutingCommand="{CompiledBinding SaveFormAs}" />
     </input:CommandManager.CommandBindings>
     <DockPanel>
+        <!-- A form's code lives inside the .frm, so a form HexIDE refuses to save discards code edits too.
+             Gating only the designer would leave the more likely loss — someone typing a procedure —
+             completely unprotected. -->
+        <Border x:Name="ReadOnlyBanner"
+                DockPanel.Dock="Top"
+                IsVisible="{CompiledBinding IsReadOnly}"
+                Background="{DynamicResource WarningBannerBackgroundBrush}"
+                BorderBrush="{DynamicResource WarningBannerBorderBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="8,5"
+                Margin="0,0,0,2">
+            <TextBlock Text="{DynamicResource Str.CodeEditor.ReadOnly.Banner}"
+                       Foreground="{DynamicResource WarningBannerForegroundBrush}"
+                       TextWrapping="Wrap" />
+        </Border>
         <Grid DockPanel.Dock="Top" ColumnDefinitions="10,*,10,*,10" Margin="0,0,0,2">
             <ComboBox FontWeight="Bold" Grid.Column="1"
                       ItemsSource="{CompiledBinding ObjectNames}"
@@ -90,6 +105,7 @@
                                  IsVisible="{CompiledBinding Settings.IsMinimapVisible}" />
         <ClassicBorderDecorator BorderStyle="Sunken" BorderThickness="2">
             <avaloniaEdit:TextEditor Name="TextEditor"
+                                     IsReadOnly="{CompiledBinding IsReadOnly}"
                                      FontFamily="Courier New,Monospace"
                                      FontSize="13"
                                      ShowLineNumbers="True"

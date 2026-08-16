@@ -26,6 +26,12 @@
     </ItemGroup>
 
     <ItemGroup>
+        <InternalsVisibleTo Include="HexIDE.Runtime.Tests" />
+        <InternalsVisibleTo Include="HexIDE.Tests" />
+        <InternalsVisibleTo Include="HexIDE.Integration.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
         <Antlr4 Include="Interpreter\Grammar\VB6.g4">
             <CustomToolNamespace>HexIDE.Runtime.Interpreter.Grammar</CustomToolNamespace>
             <Listener>True</Listener>

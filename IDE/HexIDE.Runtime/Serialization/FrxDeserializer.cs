@@ -26,7 +26,10 @@ public static class FrxDeserializer
             var blobOffset = pos;
             var length = BitConverter.ToInt32(content, pos);
             pos += 4;
-            if (length < 0 || pos + length > content.Length)
+            // Subtract instead of `pos + length`: a crafted length near int.MaxValue would overflow the addition to a
+            // negative value, sneak past the bound, and allocate ~2 GB. content.Length - pos is >= 0 here (the while
+            // guard ensured pos <= content.Length), so this comparison can't overflow.
+            if (length < 0 || length > content.Length - pos)
                 break;
             var data = new byte[length];
             Array.Copy(content, pos, data, 0, length);

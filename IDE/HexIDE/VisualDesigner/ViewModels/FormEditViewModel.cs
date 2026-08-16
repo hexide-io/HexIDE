@@ -69,6 +69,18 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public FormDefinition? FormDefinition => formDefinition;
 
+    /// <summary>
+    /// True when this form cannot be written back faithfully, so editing it would waste the developer's
+    /// time — the save is refused (see ProjectService.SaveForm) and every change is lost.
+    ///
+    /// Enforced by disabling the design surface rather than by guarding each of the twenty-five mutation
+    /// methods: input that never arrives cannot mutate anything, and a guard-per-method would rot the
+    /// first time someone adds the twenty-sixth. There is no CanExecute routing to hook into either.
+    /// </summary>
+    public bool IsReadOnly => formDefinition is { CanSaveFaithfully: false };
+
+    public string? ReadOnlyReason => formDefinition?.UnfaithfulSaveReason;
+
     public DesignerUndoStack UndoStack { get; private set; } = null!;
     public DelegateCommand UndoCommand { get; private set; } = null!;
     public DelegateCommand RedoCommand { get; private set; } = null!;
@@ -91,8 +103,12 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         this.windowManager = windowManager;
         this.settingsService = settingsService;
         this.localization = localization;
-        // Refresh the tab title (its "(Form)"/"(UserControl)" suffix is localized) on language change.
-        localization.LanguageChanged += () => Title = ComputeTitle();
+        // Refresh the tab title (its "(Form)"/"(UserControl)" suffix is localized) on language change. Unsubscribe on
+        // Dispose (tab close) — a raw `+=` kept the whole designer VM (+ its component/undo graph) reachable from the
+        // singleton localization service forever, so closed designers never got collected.
+        Action onLanguageChanged = () => Title = ComputeTitle();
+        localization.LanguageChanged += onLanguageChanged;
+        AutoDispose(new ActionDisposable(() => localization.LanguageChanged -= onLanguageChanged));
         ToolsBoxToolViewModel = toolsBoxToolViewModel;
         UndoStack = new DesignerUndoStack(this);
         UndoCommand = new DelegateCommand(() => UndoStack.Undo(), () => UndoStack.CanUndo);
@@ -204,7 +220,13 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void SpawnControlAt(ComponentBaseClass baseClass, Rect rect)
     {
-        var newName = baseClass.Name + Components.Count;
+        // Name = base + the LOWEST unused index, so a name freed by a delete is reused and we never collide with an
+        // existing control. The old `baseClass.Name + Components.Count` collided after a delete: e.g. add Command0 +
+        // Command1, delete Command0 → Count is 1 again → a second control also named "Command1".
+        var used = new HashSet<string>(AllComponents.Select(c => c.Name), StringComparer.OrdinalIgnoreCase);
+        int index = 0;
+        while (used.Contains(baseClass.Name + index)) index++;
+        var newName = baseClass.Name + index;
         Log.Debug("FormEditViewModel: Spawning {ControlType} as {ControlName} at ({Left},{Top} {Width}x{Height})",
             baseClass.Name, newName, rect.Left, rect.Top, rect.Width, rect.Height);
         var newComponent = new ComponentInstanceViewModel(this, new ComponentInstance(baseClass, newName)
@@ -531,17 +553,23 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public void DeleteSelected()
     {
-        if (selectedComponent == null || selectedComponent == Form)
-            return;
+        // Delete the WHOLE selection (rubber-band / Ctrl-click), not just the primary — matching VB6, which deletes
+        // every selected control as one undoable action. Falls back to the primary when nothing multi-selected.
+        var targets = SelectedComponents.Count > 0
+            ? SelectedComponents
+            : (selectedComponent != null ? [selectedComponent] : (IReadOnlyList<ComponentInstanceViewModel>)[]);
+        var toDelete = targets.Where(c => c != Form).ToList();
+        if (toDelete.Count == 0) return;
 
-        var component = selectedComponent;
-        int ci = Components.IndexOf(component);
-        int ai = AllComponents.IndexOf(component);
-        Components.Remove(component);
-        AllComponents.Remove(component);
-        UndoStack.Push(new RemoveControlsCommand(
-            [(component, ci, ai)],
-            $"Delete: {component.Name}"));
+        var entries = toDelete.Select(c => (c, Components.IndexOf(c), AllComponents.IndexOf(c))).ToList();
+        foreach (var c in toDelete)
+        {
+            Components.Remove(c);
+            AllComponents.Remove(c);
+        }
+        SelectedComponent = Form;
+        string desc = entries.Count == 1 ? $"Delete: {entries[0].Item1.Name}" : $"Delete: {entries.Count} controls";
+        UndoStack.Push(new RemoveControlsCommand(entries, desc));
     }
 
     private int _pasteOffset;

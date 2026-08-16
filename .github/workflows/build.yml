@@ -3,10 +3,10 @@ name: Build VB6
 on:
   push:
     branches:
-      - '*'
+      - '**'
   pull_request:
     branches:
-      - '*'
+      - '**'
 
 jobs:
   build-ide:
@@ -17,7 +17,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -26,6 +26,12 @@ jobs:
 
       - name: Run Runtime Tests
         run: dotnet test HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj
+
+      - name: Run ViewModel Tests
+        run: dotnet test HexIDE.Tests/HexIDE.Tests.csproj
+
+      - name: Run Integration Tests (headless Avalonia UI)
+        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj
 
       # First-party add-in signing: restore the publisher key from a repo secret so the (Exists-gated)
       # PackAIChatAddin target signs and bundles the add-ins. Forks/PRs receive no secret → the value is
@@ -58,7 +64,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -70,3 +76,18 @@ jobs:
 
       - name: Build VB LSP Server
         run: dotnet build HexIDE.VbLspServer/HexIDE.VbLspServer.csproj
+
+  # Repo-wide guard: the tree must stay 100% MIT — no GPL-licensed artifacts may reappear.
+  guard-mit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Guard the 100%-MIT tree (no GPL-licensed artifacts)
+        run: |
+          if [ -f scripts/check-no-gpl.sh ]; then
+            bash scripts/check-no-gpl.sh
+          else
+            echo "scripts/check-no-gpl.sh absent (the sanitised public snapshot prunes scripts/) — the tree is MIT by construction; skipping."
+          fi

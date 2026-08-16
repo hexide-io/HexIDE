@@ -71,8 +71,30 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
             Log.Warning("AddinRegistry: developer mode + load-unsigned-add-ins is ON — unsigned add-ins will load");
 
         // Each immediate subdirectory is a package (addins/<id>/ with an addin.json manifest).
-        foreach (var packageDir in Directory.GetDirectories(dir))
-            LoadPackage(Path.GetFullPath(packageDir), allowUnsigned, host);
+        string[] packageDirs;
+        try
+        {
+            packageDirs = Directory.GetDirectories(dir);
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "AddinRegistry: cannot enumerate {Dir} — no add-ins loaded", dir);
+            return;
+        }
+        // Guard EACH package: a third-party package that can't be read/verified/loaded (a locked .sig held by AV on
+        // first launch, an inaccessible subdir, a MAX_PATH path, a malformed load) must be skipped — never abort the
+        // rest of the add-ins nor unwind through IDE startup. Startup robustness beats loading one broken add-in.
+        foreach (var packageDir in packageDirs)
+        {
+            try
+            {
+                LoadPackage(Path.GetFullPath(packageDir), allowUnsigned, host);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "AddinRegistry: failed to load package {Dir} — skipped", packageDir);
+            }
+        }
     }
 
     private void LoadPackage(string packageDir, bool allowUnsigned, IHexIdeHost host)

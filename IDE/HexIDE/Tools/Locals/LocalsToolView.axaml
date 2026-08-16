@@ -8,15 +8,52 @@
              x:Class="HexIDE.Tools.LocalsToolView">
     <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,5,*">
 
-        <TextBox IsEnabled="False" Text="{DynamicResource Str.Tool.Locals.ContextReady}"/>
+        <TextBox IsEnabled="False" Text="{CompiledBinding ContextLabel}"/>
         <Button Grid.Column="1" IsEnabled="False" Content="{DynamicResource Str.Tool.Locals.Ellipsis}" />
 
-        <DataGrid Grid.Row="2" Grid.ColumnSpan="2" VerticalScrollBarVisibility="Visible">
-            <DataGrid.Columns>
-                <DataGridTextColumn Header="{DynamicResource Str.Tool.Locals.Column.Expression}" Width="*" />
-                <DataGridTextColumn Header="{DynamicResource Str.Tool.Locals.Column.Value}" Width="*" />
-                <DataGridTextColumn Header="{DynamicResource Str.Tool.Locals.Column.Type}" Width="*" />
-            </DataGrid.Columns>
-        </DataGrid>
+        <!-- Row 2: a column-header strip over the tree. The Value/Type columns are docked right at fixed widths
+             (in both the header and every row template) so they line up regardless of the tree's indent depth. -->
+        <Grid Grid.Row="2" Grid.ColumnSpan="2" RowDefinitions="Auto,*">
+            <DockPanel Background="{DynamicResource DockTitleBarBrush}">
+                <TextBlock DockPanel.Dock="Right" Width="110" Padding="4,2"
+                           FontWeight="Bold" Text="{DynamicResource Str.Tool.Locals.Column.Type}" />
+                <TextBlock DockPanel.Dock="Right" Width="110" Padding="4,2"
+                           FontWeight="Bold" Text="{DynamicResource Str.Tool.Locals.Column.Value}" />
+                <TextBlock Padding="4,2" FontWeight="Bold"
+                           Text="{DynamicResource Str.Tool.Locals.Column.Expression}" />
+            </DockPanel>
+
+            <TreeView Grid.Row="1" ItemsSource="{CompiledBinding Roots}">
+                <TreeView.Styles>
+                    <!-- Stretch each item's header presenter to the viewport width so the docked-right Value/Type
+                         cells align as columns regardless of indent depth. -->
+                    <Style Selector="TreeViewItem /template/ ContentPresenter">
+                        <Setter Property="HorizontalAlignment" Value="Stretch" />
+                    </Style>
+                    <!-- Bind each item's expanded state to its node (TwoWay), so the VM can preserve expansion across
+                         a break-rebuild (D10) and the user's own expand/collapse flows back to the node. -->
+                    <Style Selector="TreeViewItem">
+                        <!-- A Style setter has no compile-time DataType; ReflectionBinding resolves IsExpanded on the
+                             item's DataContext (a LocalsVariableNode) at runtime. -->
+                        <Setter Property="IsExpanded" Value="{ReflectionBinding IsExpanded, Mode=TwoWay}" />
+                    </Style>
+                </TreeView.Styles>
+                <TreeView.ItemTemplate>
+                    <TreeDataTemplate x:DataType="locals:LocalsVariableNode"
+                                      ItemsSource="{CompiledBinding Children}">
+                        <DockPanel>
+                            <TextBlock DockPanel.Dock="Right" Width="110" Padding="4,0"
+                                       TextTrimming="CharacterEllipsis"
+                                       Text="{CompiledBinding TypeName}" />
+                            <TextBlock DockPanel.Dock="Right" Width="110" Padding="4,0"
+                                       TextTrimming="CharacterEllipsis"
+                                       Text="{CompiledBinding Value}" />
+                            <TextBlock Padding="4,0" TextTrimming="CharacterEllipsis"
+                                       Text="{CompiledBinding Expression}" />
+                        </DockPanel>
+                    </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
+        </Grid>
     </Grid>
 </UserControl>

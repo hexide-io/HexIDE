@@ -118,6 +118,7 @@
     "Str.Menu.Debug.ToggleBreakpoint": "_Toggle Breakpoint",
     "Str.Menu.Debug.ClearAllBreakpoints": "_Clear All Breakpoints",
     "Str.Menu.Debug.SetNextStatement": "Set _Next Statement",
+    "Str.Debug.SetNextStatement.Refused": "Can't set the next statement here — only a top-level statement of the currently paused procedure is supported (not one nested inside an If, For, Do, or Select block).",
     "Str.Menu.Debug.ShowNextStatement": "Show Ne_xt Statement",
 
     "Str.Menu.Run": "_Run",
@@ -222,11 +223,29 @@
     "Str.Tool.Locals.Column.Expression": "Expression",
     "Str.Tool.Locals.Column.Value": "Value",
     "Str.Tool.Locals.Column.Type": "Type",
+    "Str.Tool.Locals.MoreElements": "… {0} more",
 
     "Str.Tool.Watches.Column.Expression": "Expression",
     "Str.Tool.Watches.Column.Value": "Value",
     "Str.Tool.Watches.Column.Type": "Type",
     "Str.Tool.Watches.Column.Context": "Context",
+    "Str.Tool.Watches.OutOfContext": "<Out of context>",
+    "Str.Tool.Watches.Menu.Edit": "Edit Watch...",
+    "Str.Tool.Watches.Menu.Delete": "Delete Watch",
+    "Str.Dialog.AddWatch.Title": "Add Watch",
+    "Str.Dialog.AddWatch.EditTitle": "Edit Watch",
+    "Str.Dialog.AddWatch.Expression": "Expression:",
+    "Str.Dialog.AddWatch.Context": "Context:",
+    "Str.Dialog.AddWatch.WatchType": "Watch Type",
+    "Str.Dialog.AddWatch.Type.Expression": "Watch Expression",
+    "Str.Dialog.AddWatch.Type.BreakTrue": "Break When Value Is True",
+    "Str.Dialog.AddWatch.Type.BreakChanged": "Break When Value Has Changed",
+    "Str.Dialog.AddWatch.Ok": "OK",
+    "Str.Dialog.AddWatch.Cancel": "Cancel",
+    "Str.Dialog.AddWatch.AllContext": "(All Procedures)",
+
+    "Str.Tool.CallStack.Column.Frame": "Procedure",
+    "Str.Tool.CallStack.Column.Line": "Line",
 
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Close Object Browser",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Object Browser",
@@ -239,6 +258,9 @@
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "Search",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Classes",
 
+    "Str.Dialog.UnfaithfulSave.Body.One": "This form was not saved, because it uses nested controls or menus that HexIDE would flatten:\n\n{0}\n\nIts file on disk is unchanged. Saving it would produce a form that Visual Basic 6 cannot open, so HexIDE leaves it alone rather than damage it.",
+    "Str.Dialog.UnfaithfulSave.Body.Many": "These forms were not saved, because they use nested controls or menus that HexIDE would flatten:\n\n{0}\n\nTheir files on disk are unchanged. Saving them would produce forms that Visual Basic 6 cannot open, so HexIDE leaves them alone rather than damage them.",
+    "Str.Designer.ReadOnly.Banner": "Read-only — this form uses nested controls or menus that HexIDE cannot yet save without damaging them. You can view and run it, but changes will not be saved.",
     "Str.Designer.Context.Cut": "Cu_t",
     "Str.Designer.Context.Copy": "_Copy",
     "Str.Designer.Context.Paste": "_Paste",
@@ -249,6 +271,7 @@
     "Str.Designer.Context.AlignToGrid": "Align to Grid",
     "Str.Designer.Context.Properties": "Properties",
 
+    "Str.CodeEditor.ReadOnly.Banner": "Read-only — this form uses nested controls or menus that HexIDE cannot yet save without damaging them. Its code cannot be edited until that is fixed.",
     "Str.CodeEditor.Context.Cut": "Cu_t",
     "Str.CodeEditor.Context.Copy": "_Copy",
     "Str.CodeEditor.Context.Paste": "_Paste",
@@ -573,8 +596,10 @@
     "Str.Tool.Project.Title": "Project Group - Group1",
     "Str.Tool.FormLayout.Title": "Form Layout",
     "Str.Tool.Immediate.Title": "Immediate",
+    "Str.Tool.Immediate.BreakModeOnly": "Evaluation is only available in break mode.",
     "Str.Tool.Locals.Title": "Locals",
     "Str.Tool.Watches.Title": "Watches",
+    "Str.Tool.CallStack.Title": "Call Stack",
     "Str.Tool.ObjectBrowser.Title": "Object Browser",
 
     "Str.StatusBar.Ready": "Ready",
@@ -598,6 +623,8 @@
     "Str.Vb6Toolchain.RunFailedTitle": "Run Failed",
 
     "Str.ProjectRunner.MustHaveStartupForm": "Must have a startup form or Sub Main()",
+
+    "Str.ProjectRunner.EditWhileRunningConfirm": "This action will reset your project. Do you want to continue?",
 
     "Str.NewProject.Msg.Title": "New Project",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Your HexIDE version doesn't support {0}",

@@ -20,6 +20,15 @@ public static class AvaloniaInteroperability
 
     private static Dictionary<PropertyClass, List<IAvaloniaBinding>> bindingsByProperty = new();
 
+    // VB6 coerces any numeric to a numeric property (e.g. `Command1.Left = 100` assigns an Integer to the Double
+    // Left). The CLR box types must be converted before a `is TProperty` check, which is exact.
+    private static readonly HashSet<Type> NumericTypes = new()
+    {
+        typeof(byte), typeof(sbyte), typeof(short), typeof(ushort), typeof(int), typeof(uint),
+        typeof(long), typeof(ulong), typeof(float), typeof(double), typeof(decimal),
+    };
+    private static bool IsNumeric(Type t) => NumericTypes.Contains(t);
+
     private interface IAvaloniaBinding
     {
         public PropertyClass UntypedProperty { get; }
@@ -67,6 +76,12 @@ public static class AvaloniaInteroperability
                                     " expected " + typeof(TControl));
             if (val is int && typeof(TProperty).IsEnum)
                 val = Enum.ToObject(typeof(TProperty), val);
+            // Re-box across numeric CLR types before the exact type check: `Command1.Left = 100` hands a boxed Int32
+            // to a Double property. Without this the assignment throws, the caller swallows it, and the control never
+            // moves/resizes — the ubiquitous integer-literal case. (Overflow on a narrowing convert is left to the caller.)
+            else if (val is not null && IsNumeric(val.GetType()) && IsNumeric(typeof(TProperty))
+                     && val.GetType() != typeof(TProperty))
+                val = Convert.ChangeType(val, typeof(TProperty));
             if (val is not TProperty v)
                 throw new Exception("Invalid value type for setting " + Property.Name + ", got " + val?.GetType() +
                                     " expected " + typeof(TProperty));
@@ -164,7 +179,12 @@ public static class AvaloniaInteroperability
                 if (!prop.IsValidControl(control))
                     continue;
 
-                prop.SetUntyped(control, value.Value);
+                var raw = value.Value;
+                // VB6 assigns colours as a numeric OLE_COLOR (&HFF0000); convert at the colour-property boundary.
+                if (property is PropertyClass<VBColor> && value.Value is int or long)
+                    raw = VBColor.FromOle(System.Convert.ToInt64(value.Value));
+
+                prop.SetUntyped(control, raw);
                 return true;
             }
         }
@@ -190,24 +210,54 @@ public static class AvaloniaInteroperability
         return false;
     }
 
+    /// <summary>Enumerate the VB6 properties readable on a live control (name → current value), NAME-SORTED — the
+    /// Locals property surface (P8/D7). A property is included only when a registered binding applies to this
+    /// control's type (the same rule <see cref="TryGet"/> uses); duplicates by name are collapsed.</summary>
+    public static IReadOnlyList<(string Name, Vb6Value Value)> ReadProperties(Control c)
+    {
+        var byName = new SortedDictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
+        foreach (var property in bindingsByProperty.Keys)
+            if (!byName.ContainsKey(property.Name) && TryGet(c, property, out var value))
+                byName[property.Name] = value;
+        var list = new List<(string, Vb6Value)>(byName.Count);
+        foreach (var kv in byName)
+            list.Add((kv.Key, kv.Value));
+        return list;
+    }
+
     private static Vb6Value FromObject(object? untyped)
     {
         if (untyped is null)
             return Vb6Value.Null;
+        if (untyped is Vb6Value already)          // a property already exposing a VB6 value — pass it straight through
+            return already;
         if (untyped is int i)
             return new Vb6Value(i);
+        if (untyped is long l)
+            return new Vb6Value(l);
+        if (untyped is short sh)
+            return new Vb6Value((int)sh);         // fits Integer (magnitude rule keeps it Integer, not Long)
+        if (untyped is byte by)
+            return new Vb6Value(by);
         if (untyped is string s)
             return new Vb6Value(s);
         if (untyped is float f)
             return new Vb6Value(f);
         if (untyped is double d)
             return new Vb6Value(d);
+        if (untyped is decimal m)
+            return new Vb6Value((double)m);       // no Currency ctor here — nearest numeric mapping
         if (untyped is bool b)
             return new Vb6Value(b);
+        if (untyped is DateTime dt)
+            return new Vb6Value(dt);
         if (untyped is VBColor col)
             return new Vb6Value(col);
         if (untyped.GetType().IsEnum)
             return new Vb6Value((int)untyped);
-        throw new NotImplementedException("Type " + untyped.GetType() + " is not supported yet");
+        // A control property of a type we don't map yet (a novel Avalonia struct) must not crash a running program
+        // with an uncatchable NotImplementedException — render it as a String instead. Approximation-only (a
+        // long/Currency-valued property previously threw; see docs/interpreter-gaps.md).
+        return new Vb6Value(untyped.ToString());
     }
 }

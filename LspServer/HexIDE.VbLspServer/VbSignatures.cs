@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: MIT
 // Copyright (C) 2026 The HexIDE Authors
 // HexIDE.VbLspServer — static signature table for VB6 built-in functions
 // Used by textDocument/signatureHelp (infrastructure-first pass).

@@ -45,6 +45,16 @@ public partial class CodeEditorView : UserControl
     private CancellationTokenSource? _signatureCts;
     private DocumentHighlightRenderer? _highlightRenderer;
     private CancellationTokenSource? _highlightCts;
+    private HexIDE.Debugging.BreakpointMargin? _breakpointMargin;
+    private HexIDE.Debugging.CurrentLineRenderer? _currentLineRenderer;
+    private HexIDE.Runtime.Debugging.IDebugController? _debugController;
+    private Action<HexIDE.Runtime.Debugging.StoppedInfo>? _onDebugStopped;
+    private Action? _onDebugContinued;
+    private string? _debugModuleName;
+    private System.ComponentModel.PropertyChangedEventHandler? _vmSelectionSync;
+    private bool _resetPromptOpen;
+    private string? _preEditSnapshot;   // document text captured before the first edit while running (for No→revert)
+    private int _preEditCaret;
 
     public DelegateCommand Undo { get; }
     public DelegateCommand Redo { get; }
@@ -156,8 +166,10 @@ public partial class CodeEditorView : UserControl
                         TextEditor.CaretOffset = offset;
                 });
 
-            // Sync selection from ViewModel → TextEditor
-            vm.PropertyChanged += (_, args) =>
+            // Sync selection from ViewModel → TextEditor. Stored in a field so it can be removed on detach — a
+            // Dock document-move re-materialises the view against the SAME persistent VM, so an unremoved handler
+            // would accumulate on the VM and fire redundantly on every later selection change.
+            _vmSelectionSync = (_, args) =>
             {
                 if (args.PropertyName is nameof(CodeEditorViewModel.SelectionStart) or nameof(CodeEditorViewModel.SelectionLength))
                 {
@@ -170,6 +182,7 @@ public partial class CodeEditorView : UserControl
                     }
                 }
             };
+            vm.PropertyChanged += _vmSelectionSync;
 
             vm.FocusWindowRequest += VmOnFocusWindowRequest;
 
@@ -192,6 +205,24 @@ public partial class CodeEditorView : UserControl
             // Bookmark gutter margin
             _bookmarkMargin = new BookmarkMargin(vm.BookmarkService, vm.GetDocumentUriPublic());
             TextEditor.TextArea.LeftMargins.Insert(0, _bookmarkMargin);
+
+            // Debugger: breakpoint gutter (red dots, click-to-toggle) + the amber current-statement bar.
+            var docUri = vm.GetDocumentUriPublic();
+            _debugModuleName = docUri[(docUri.LastIndexOf('/') + 1)..]; // vb6://form/Form1 → Form1
+            _breakpointMargin = new HexIDE.Debugging.BreakpointMargin(vm.BreakpointService, docUri);
+            TextEditor.TextArea.LeftMargins.Insert(0, _breakpointMargin);
+            _currentLineRenderer = new HexIDE.Debugging.CurrentLineRenderer(TextEditor);
+            TextEditor.TextArea.TextView.BackgroundRenderers.Insert(0, _currentLineRenderer);
+
+            _debugController = vm.DebugController;
+            _onDebugStopped = info => ShowCurrentStatement(info.Module, info.Line);
+            _onDebugContinued = () => _currentLineRenderer?.SetLine(null);
+            _debugController.Stopped += _onDebugStopped;
+            _debugController.Continued += _onDebugContinued;
+            // If the interpreter is already paused (this tab was opened by the Stopped bridge after the break),
+            // show the current statement immediately rather than waiting for the next event.
+            if (_debugController.CurrentStop is { } stop)
+                ShowCurrentStatement(stop.Module, stop.Line);
 
             // Hover tooltip
             ToolTip.SetPlacement(TextEditor, PlacementMode.Pointer);
@@ -223,6 +254,27 @@ public partial class CodeEditorView : UserControl
         }
     }
 
+    // Paint (and reveal) the amber current-statement bar when the interpreter breaks in THIS document; clear it
+    // when the break is elsewhere. Lines are 1-based (matching the runtime and the breakpoint store). Invoked on
+    // the UI thread — the controller raises Stopped from the interpreter's own (UI-thread) execution.
+    private void ShowCurrentStatement(string module, int line)
+    {
+        if (_currentLineRenderer is null)
+            return;
+        if (!string.Equals(module, _debugModuleName, StringComparison.OrdinalIgnoreCase))
+        {
+            _currentLineRenderer.SetLine(null);
+            return;
+        }
+        _currentLineRenderer.SetLine(line);
+        if (line >= 1 && line <= TextEditor.Document.LineCount)
+        {
+            var docLine = TextEditor.Document.GetLineByNumber(line);
+            TextEditor.CaretOffset = docLine.Offset;
+            TextEditor.ScrollToLine(line);
+        }
+    }
+
     private void OnMarkersChanged(IReadOnlyList<LspMarker> markers)
     {
         _markerService?.SetMarkers(markers);
@@ -244,6 +296,11 @@ public partial class CodeEditorView : UserControl
         {
             vm.FocusWindowRequest -= VmOnFocusWindowRequest;
             vm.MarkersChanged -= OnMarkersChanged;
+            if (_vmSelectionSync is not null)
+            {
+                vm.PropertyChanged -= _vmSelectionSync;
+                _vmSelectionSync = null;
+            }
 
             // Clear status bar cursor info when this editor detaches
             vm.StatusBar.Line = null;
@@ -272,6 +329,27 @@ public partial class CodeEditorView : UserControl
         {
             TextEditor.TextArea.LeftMargins.Remove(_bookmarkMargin);
             _bookmarkMargin = null;
+        }
+
+        if (_breakpointMargin is not null)
+        {
+            TextEditor.TextArea.LeftMargins.Remove(_breakpointMargin);
+            _breakpointMargin = null;
+        }
+
+        if (_currentLineRenderer is not null)
+        {
+            TextEditor.TextArea.TextView.BackgroundRenderers.Remove(_currentLineRenderer);
+            _currentLineRenderer = null;
+        }
+
+        if (_debugController is not null)
+        {
+            if (_onDebugStopped is not null) _debugController.Stopped -= _onDebugStopped;
+            if (_onDebugContinued is not null) _debugController.Continued -= _onDebugContinued;
+            _debugController = null;
+            _onDebugStopped = null;
+            _onDebugContinued = null;
         }
 
         _foldCts?.Cancel();
@@ -384,12 +462,60 @@ public partial class CodeEditorView : UserControl
         var tvPos = TextEditor.TextArea.TextView.GetPosition(point);
         if (tvPos is null) return;
 
+        // Break-mode Auto Data Tip: hovering an identifier while the debugger is Paused shows its LIVE value
+        // (evaluated against the paused frame), taking precedence over LSP quick-info — VB6's Auto Data Tips.
+        if (_debugController is { State: HexIDE.Runtime.Debugging.DebugState.Paused })
+        {
+            int offset = TextEditor.Document.GetOffset(tvPos.Value.Line, tvPos.Value.Column);
+            _ = ShowDataTipAsync(offset, token);
+            return;
+        }
+
         var lspPos = new Position(tvPos.Value.Line - 1, tvPos.Value.Column - 1);
         if (DataContext is not CodeEditorViewModel vm) return;
         if (!vm.Settings.AutoQuickInfo) return;
 
         _ = HoverAfterDelayAsync(vm, lspPos, token);
     }
+
+    // Evaluate the hovered identifier against the paused frame and show "identifier = value" as a data tip. Uses the
+    // TYPED eval so only a genuine, in-scope value (Ok) produces a tip — a keyword or out-of-scope name yields no
+    // tip rather than an error string. No-ops the moment the walk resumes (State re-checked after the delay/eval).
+    private async Task ShowDataTipAsync(int offset, CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(400, token);   // match the quick-info dwell so tips don't flicker as the pointer sweeps
+            var word = WordAt(offset);
+            if (string.IsNullOrEmpty(word) || _debugController is not { State: HexIDE.Runtime.Debugging.DebugState.Paused } dc)
+                return;
+
+            var result = await dc.EvaluateWatchAsync(word);
+            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                var tip = token.IsCancellationRequested ? null : DataTipText(word, result);
+                if (tip is null)
+                {
+                    ToolTip.SetIsOpen(TextEditor, false);
+                    return;
+                }
+                ToolTip.SetTip(TextEditor, tip);
+                ToolTip.SetIsOpen(TextEditor, true);
+            });
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Log.Debug("[datatip] {ErrorMessage}", ex.Message);
+        }
+    }
+
+    /// <summary>The data-tip text for a hovered identifier, or <c>null</c> to show NO tip. A tip appears only for a
+    /// genuinely resolved, in-scope value (<see cref="HexIDE.Runtime.Debugging.DebugEvalResult.Ok"/>) — a keyword,
+    /// an out-of-scope name, or an evaluation error yields no tip rather than an error string in the editor. Pure +
+    /// internal so the show/suppress decision is unit-testable without a live view.</summary>
+    internal static string? DataTipText(string? word, HexIDE.Runtime.Debugging.DebugEvalResult? result)
+        => string.IsNullOrEmpty(word) || result is not { Ok: true } r ? null : $"{word} = {r.Display}";
 
     private void OnPointerExited(object? sender, PointerEventArgs e)
     {
@@ -499,6 +625,10 @@ public partial class CodeEditorView : UserControl
 
     private void OnTextEntering(object? sender, TextInputEventArgs e)
     {
+        // Editing while the project is running/paused can't be hot-patched. Let the edit land (VB6 shows it), and
+        // pop VB6's reset prompt — Yes keeps the edit + resets the project, No reverts it (see ShowResetPromptAsync).
+        if (e.Text is { Length: > 0 })
+            MaybeStartResetPrompt();
         // If a completion window is open and the user types a character that can't
         // be part of an identifier, close the window (AvaloniaEdit will then insert the char).
         if (_completionWindow is null || e.Text is not { Length: > 0 }) return;
@@ -506,6 +636,50 @@ public partial class CodeEditorView : UserControl
         if (!char.IsLetterOrDigit(ch) && ch != '_')
             _completionWindow.Close();
     }
+
+    // VB6-faithful Edit-and-Continue affordance: the interpreter can't apply an edit to a running program, so a code
+    // edit while running/paused pops VB6's "This action will reset your project" prompt. The edit is NOT cancelled
+    // (VB6 lets it appear); the pre-edit document is snapshotted here (this fires before the edit is applied) so a
+    // "No" answer can revert every edit made while the prompt was open. Fired once, guarded against keystroke stacking.
+    private void MaybeStartResetPrompt()
+    {
+        if (_resetPromptOpen || DataContext is not CodeEditorViewModel vm || !vm.IsProjectRunning)
+            return;
+        _resetPromptOpen = true;
+        _preEditSnapshot = TextEditor.Document.Text;
+        _preEditCaret = TextEditor.CaretOffset;
+        _ = ShowResetPromptAsync(vm);
+    }
+
+    private async Task ShowResetPromptAsync(CodeEditorViewModel vm)
+    {
+        try
+        {
+            var reset = await vm.ConfirmResetWhileRunningAsync();
+            // No → undo every edit made since the prompt opened, back to the pre-edit state. Yes → keep the edit
+            // (the run reset was already requested), matching VB6.
+            if (!reset && _preEditSnapshot is { } snapshot)
+            {
+                TextEditor.Document.Text = snapshot;
+                TextEditor.CaretOffset = System.Math.Min(_preEditCaret, snapshot.Length);
+            }
+        }
+        finally
+        {
+            _resetPromptOpen = false;
+            _preEditSnapshot = null;
+        }
+    }
+
+    // Keys that would modify the document (printable chars arrive via OnTextEntering, not here).
+    private static bool IsDocumentEditKey(KeyEventArgs e) => e.Key switch
+    {
+        Key.Back or Key.Delete or Key.Return or Key.Enter or Key.Tab
+            => e.KeyModifiers is KeyModifiers.None or KeyModifiers.Shift,
+        Key.V or Key.X   // paste / cut
+            => e.KeyModifiers.HasFlag(KeyModifiers.Control),
+        _ => false,
+    };
 
     private void OnTextEntered(object? sender, TextInputEventArgs e)
     {
@@ -524,6 +698,11 @@ public partial class CodeEditorView : UserControl
 
     private void OnEditorKeyDown(object? sender, KeyEventArgs e)
     {
+        // Editing while the project is running/paused → VB6 reset prompt (see MaybeStartResetPrompt). Covers the
+        // non-printable edit keys (Backspace/Delete/Enter/Tab/Ctrl+V/Ctrl+X); printable chars go via OnTextEntering.
+        // The edit is allowed to proceed (VB6 lets it land); No reverts it, Yes keeps it + resets the project.
+        if (IsDocumentEditKey(e))
+            MaybeStartResetPrompt();
         // Enter = auto-close block + auto-indent
         if (e.Key == Key.Return && e.KeyModifiers == KeyModifiers.None)
         {
@@ -927,10 +1106,13 @@ public partial class CodeEditorView : UserControl
         _ = RenameSymbolAsync(vm, lspPos, oldName);
     }
 
-    private string? GetWordUnderCaret()
+    private string? GetWordUnderCaret() => WordAt(TextEditor.CaretOffset);
+
+    // The VB6 identifier (letters / digits / underscore) spanning a document offset, or null if the offset isn't on
+    // one. Shared by Rename (caret offset) and the break-mode data tip (pointer offset).
+    private string? WordAt(int offset)
     {
         var doc = TextEditor.Document;
-        int offset = TextEditor.CaretOffset;
         if (offset < 0 || offset > doc.TextLength) return null;
 
         int start = offset;

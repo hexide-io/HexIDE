@@ -49,12 +49,18 @@ public class SaveChangesViewModel : ObservableObject, IDialog
     {
         ChangedFiles.Add(new ChangedFileViewModel(form));
     }
+
+    public void Add(ModuleDefinition module)
+    {
+        ChangedFiles.Add(new ChangedFileViewModel(module));
+    }
 }
 
 public class ChangedFileViewModel : ObservableObject
 {
     public ProjectDefinition? Project { get; }
     public FormDefinition? Form { get; }
+    public ModuleDefinition? Module { get; }
 
     public ChangedFileViewModel(ProjectDefinition project)
     {
@@ -67,6 +73,13 @@ public class ChangedFileViewModel : ObservableObject
     {
         Form = form;
         Name = form.Name;
+        Indent = true;
+    }
+
+    public ChangedFileViewModel(ModuleDefinition module)
+    {
+        Module = module;
+        Name = module.Name;
         Indent = true;
     }
 

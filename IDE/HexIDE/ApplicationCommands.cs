@@ -24,11 +24,12 @@ public class ApplicationCommands
     public static readonly RoutedCommand SaveProjectAsCommand = new RoutedCommand(nameof(SaveProjectAsCommand));
     public static readonly RoutedCommand SaveCommand = new RoutedCommand(nameof(SaveCommand), new KeyGesture(Key.S, GetPlatformCommandKey()));
     public static readonly RoutedCommand SaveAsCommand = new RoutedCommand(nameof(SaveAsCommand));
-    public static readonly RoutedCommand ViewCodeCommand = new RoutedCommand(nameof(ViewCodeCommand));
+    public static readonly RoutedCommand ViewCodeCommand = new RoutedCommand(nameof(ViewCodeCommand), new KeyGesture(Key.F7));
     public static readonly RoutedCommand ViewObjectCommand = new RoutedCommand(nameof(ViewObjectCommand), new KeyGesture(Key.F7, KeyModifiers.Shift));
     public static readonly RoutedCommand OpenImmediateCommand = new RoutedCommand(nameof(OpenImmediateCommand), new KeyGesture(Key.G, GetPlatformCommandKey()));
     public static readonly RoutedCommand OpenLocalsCommand = new RoutedCommand(nameof(OpenLocalsCommand));
     public static readonly RoutedCommand OpenWatchesCommand = new RoutedCommand(nameof(OpenWatchesCommand));
+    public static readonly RoutedCommand OpenCallStackCommand = new RoutedCommand(nameof(OpenCallStackCommand), new KeyGesture(Key.L, GetPlatformCommandKey()));
     public static readonly RoutedCommand OpenProjectExplorerCommand = new RoutedCommand(nameof(OpenProjectExplorerCommand), new KeyGesture(Key.R, GetPlatformCommandKey()));
     public static readonly RoutedCommand OpenPropertiesCommand = new RoutedCommand(nameof(OpenPropertiesCommand), new KeyGesture(Key.F4));
     public static readonly RoutedCommand OpenFormLayoutCommand = new RoutedCommand(nameof(OpenFormLayoutCommand));
@@ -81,15 +82,15 @@ public class ApplicationCommands
     public static readonly RoutedCommand ProjectComponentsCommand = new RoutedCommand(nameof(ProjectComponentsCommand));
     public static readonly RoutedCommand ProjectPropertiesCommand = new RoutedCommand(nameof(ProjectPropertiesCommand));
 
-    public static readonly RoutedCommand StepIntoCommand = new RoutedCommand(nameof(StepIntoCommand));
+    public static readonly RoutedCommand StepIntoCommand = new RoutedCommand(nameof(StepIntoCommand), new KeyGesture(Key.F8));
     public static readonly RoutedCommand StepOverCommand = new RoutedCommand(nameof(StepOverCommand));
     public static readonly RoutedCommand StepOutCommand = new RoutedCommand(nameof(StepOutCommand));
     public static readonly RoutedCommand RunToCursorCommand = new RoutedCommand(nameof(RunToCursorCommand));
     public static readonly RoutedCommand AddWatchCommand = new RoutedCommand(nameof(AddWatchCommand));
     public static readonly RoutedCommand EditWatchCommand = new RoutedCommand(nameof(EditWatchCommand));
     public static readonly RoutedCommand QuickWatchCommand = new RoutedCommand(nameof(QuickWatchCommand));
-    public static readonly RoutedCommand ToggleBreakpointCommand = new RoutedCommand(nameof(ToggleBreakpointCommand));
-    public static readonly RoutedCommand ClearAllBreakpointsCommand = new RoutedCommand(nameof(ClearAllBreakpointsCommand));
+    public static readonly RoutedCommand ToggleBreakpointCommand = new RoutedCommand(nameof(ToggleBreakpointCommand), new KeyGesture(Key.F9));
+    public static readonly RoutedCommand ClearAllBreakpointsCommand = new RoutedCommand(nameof(ClearAllBreakpointsCommand), new KeyGesture(Key.F9, GetPlatformCommandKey() | KeyModifiers.Shift));
     public static readonly RoutedCommand SetNextStatementCommand = new RoutedCommand(nameof(SetNextStatementCommand));
     public static readonly RoutedCommand ShowNextStatementCommand = new RoutedCommand(nameof(ShowNextStatementCommand));
 

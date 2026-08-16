@@ -102,7 +102,23 @@
         </Style>
     </UserControl.Styles>
     <VisualLayerManager>
-        <Panel Background="{DynamicResource {x:Static commonControls:SystemColors.WindowBrushKey}}" ClipToBounds="True">
+      <DockPanel>
+        <!-- Read-only banner. The design surface below is disabled rather than each mutation guarded:
+             input that never arrives cannot mutate anything. Silent read-only would be worse than either
+             option, so the reason is always on screen. -->
+        <Border DockPanel.Dock="Top"
+                IsVisible="{CompiledBinding IsReadOnly}"
+                Background="{DynamicResource WarningBannerBackgroundBrush}"
+                BorderBrush="{DynamicResource WarningBannerBorderBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="8,5">
+            <TextBlock Text="{DynamicResource Str.Designer.ReadOnly.Banner}"
+                       Foreground="{DynamicResource WarningBannerForegroundBrush}"
+                       TextWrapping="Wrap" />
+        </Border>
+        <Panel Background="{DynamicResource {x:Static commonControls:SystemColors.WindowBrushKey}}"
+               ClipToBounds="True"
+               IsEnabled="{CompiledBinding !IsReadOnly}">
             <!-- ThemeVariantScope keeps the form canvas on Light theme regardless of IDE chrome theme.
                  FlowDirection is pinned LeftToRight too: RTL is a property of the form being designed,
                  not of the IDE chrome, so an RTL IDE language must not mirror the design canvas. -->
@@ -264,5 +280,6 @@
             </ScrollViewer>
             </ThemeVariantScope>
         </Panel>
+      </DockPanel>
     </VisualLayerManager>
 </UserControl>

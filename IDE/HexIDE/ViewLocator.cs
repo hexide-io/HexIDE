@@ -51,10 +51,12 @@ public class ViewLocator : IDataTemplate
         Register<DeveloperPageViewModel, DeveloperPageView>();
         Register<AddinOptionsPageViewModel, AddinOptionsPageView>();
         Register<AddinConsentDialogViewModel, AddinConsentDialog>();
+        Register<AddWatchDialogViewModel, AddWatchDialog>();
         Register<TrustChainViewModel, TrustChainView>();
         Register<RuntimeErrorViewModel, RuntimeErrorView>();
         Register<LocalsToolViewModel, LocalsToolView>();
         Register<WatchesToolViewModel, WatchesToolView>();
+        Register<CallStackToolViewModel, CallStackToolView>();
         Register<ImmediateToolViewModel, ImmediateToolView>();
         Register<ColorPaletteToolViewModel, ColorPaletteToolView>();
         Register<ObjectBrowserToolViewModel, ObjectBrowserToolView>();

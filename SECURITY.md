@@ -7,7 +7,7 @@ HexIDE is pre-alpha software. We take security seriously and appreciate responsi
 **Please do not open a public issue for security problems.**
 
 Report privately via GitHub's
-[private vulnerability reporting](https://github.com/hexide-io/hexide/security/advisories/new)
+[private vulnerability reporting](https://github.com/hexide-io/HexIDE/security/advisories/new)
 (**Security → Advisories → "Report a vulnerability"**). If private reporting is unavailable, email
 **security@hexide.io** with details and, if possible, a proof of concept.
 

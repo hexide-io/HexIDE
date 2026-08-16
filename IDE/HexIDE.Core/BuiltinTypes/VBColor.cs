@@ -41,6 +41,11 @@ public readonly struct VBColor : IEquatable<VBColor>
         if (!str.StartsWith("&h", StringComparison.OrdinalIgnoreCase))
             return false;
 
+        // The fixed slices below read up to index 10 (`&H` + 8 hex digits). A shorter `&H…` value would make the
+        // range slice throw ArgumentOutOfRangeException — and a TryParse must never throw (it aborts form load).
+        if (str.Length < 10)
+            return false;
+
         if (!int.TryParse(str[2..4], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var type) ||
             !Enum.IsDefined(typeof(ColorType), type) ||
             !byte.TryParse(str[4..6], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var blue) ||
@@ -60,6 +65,17 @@ public readonly struct VBColor : IEquatable<VBColor>
     public static VBColor FromSystemColor(VbSystemColor systemColor)
     {
         return new VBColor(ColorType.SystemColor, (byte)systemColor, 0, 0);
+    }
+
+    /// <summary>Convert a numeric VB6 OLE_COLOR to a <see cref="VBColor"/>: high byte 0x80 selects a system
+    /// colour (low byte = index), otherwise it is a raw 0x00BBGGRR value. This is the property-boundary
+    /// conversion for <c>ctrl.BackColor = &amp;HFF0000</c>, now that &amp;H literals evaluate as numbers.</summary>
+    public static VBColor FromOle(long ole)
+    {
+        uint u = (uint)ole;
+        if ((u >> 24) == 0x80)
+            return FromSystemColor((VbSystemColor)(byte)(u & 0xFF));
+        return FromColor((byte)(u & 0xFF), (byte)((u >> 8) & 0xFF), (byte)((u >> 16) & 0xFF));   // 0x00BBGGRR
     }
 
     public enum ColorType

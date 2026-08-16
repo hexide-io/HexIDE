@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 using HexIDE.VbLspServer;
 
 namespace HexIDE.VbLspServer.Tests;

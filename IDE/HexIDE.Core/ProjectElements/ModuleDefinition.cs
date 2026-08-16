@@ -47,6 +47,18 @@ public partial class ModuleDefinition : INotifyPropertyChanged
 
     public void UpdateCode(string newCode) => Code = newCode;
 
+    /// <summary>
+    /// The module's VB6 header exactly as it was read from disk, re-emitted verbatim on save. Empty for a
+    /// module HexIDE created, which falls back to the canonical literal.
+    ///
+    /// Regenerating a class header from the literal resets VB_Exposed, VB_Creatable, MultiUse and the
+    /// data-binding keys — how VB6 encodes Instancing — on every save, including for files the user never
+    /// opened. Preserving the original text is both safer and simpler than modelling those settings.
+    /// </summary>
+    public string? OriginalHeader { get; private set; }
+
+    public void RecordOriginalHeader(string? header) => OriginalHeader = header;
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     protected virtual void OnPropertyChanged([CallerMemberName] string? propertyName = null)

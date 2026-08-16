@@ -4,6 +4,23 @@ namespace HexIDE.Runtime.Tests;
 
 public class OperatorTests : BaseVBTestFixture
 {
+    // Relational comparison of two strings uses VB6's default Option Compare Binary (ORDINAL) — pinned against
+    // vb6.exe (gap-audit fix: the operators previously threw / mis-parsed numeric-looking strings numerically).
+    [Theory]
+    [InlineData("\"a\" < \"b\"", true)]          // ordinal a<b
+    [InlineData("\"B\" < \"a\"", true)]          // ORDINAL: 'B'(66) < 'a'(97) — not case-insensitive
+    [InlineData("\"10\" < \"9\"", true)]         // STRING compare: '1'<'9' — not numeric (would be False)
+    [InlineData("\"abc\" < \"abd\"", true)]
+    [InlineData("\"apple\" >= \"apple\"", true)]
+    [InlineData("\"b\" > \"a\"", true)]
+    [InlineData("\"a\" > \"b\"", false)]
+    [InlineData("\"\" < \"a\"", true)]           // empty string is least
+    public async Task RelationalComparison_Strings_UseOrdinalBinaryCompare(string expr, bool expected)
+    {
+        await Run($"Dim r\nr = ({expr})\nDebug.Print r\n");
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
     [Theory]
     [InlineData(true, true, true)]
     [InlineData(true, false, false)]
@@ -272,16 +289,17 @@ public class OperatorTests : BaseVBTestFixture
         AssertDebugLog([expectedValue]);
     }
 
+    // VB6 Mod (verified against vb6.exe): operands are banker's-rounded to an integer first, then integer
+    // remainder (sign follows the dividend). Result is Integer only when both operands are Byte/Integer/Boolean;
+    // if either operand is Single/Double/Long it is Long. So 5.5 Mod 2 = 6 Mod 2 = 0, typed Long.
     [Theory]
-    [InlineData(5, 2, 1)]               // int Mod int
-    // These two cases fail now, return float/double instead. TODO  [InlineData(5, 2.5F, 0)]            // int Mod float
-    // These two cases fail now, return float/double instead. TODO  [InlineData(5, 2.5D, 0)]            // int Mod double
-    [InlineData(5.5F, 2, 1.5F)]         // float Mod int
-    [InlineData(5.5F, 2.5F, 0.5F)]      // float Mod float
-    [InlineData(5.5F, 2.5D, 0.5D)]      // float Mod double
-    [InlineData(5.5D, 2, 1.5D)]         // double Mod int
-    [InlineData(5.5D, 2.5F, 0.5D)]      // double Mod float
-    [InlineData(5.5D, 2.5D, 0.5D)]      // double Mod double
+    [InlineData(5, 2, 1)]               // Integer Mod Integer -> 1 (Integer)
+    [InlineData(5, 3, 2)]               // -> 2 (Integer)
+    [InlineData(8, 3, 2)]               // -> 2 (Integer)
+    [InlineData(5.5D, 2, 0L)]           // 5.5 rounds to 6; 6 Mod 2 = 0; a Double operand makes it Long
+    [InlineData(5.5F, 2, 0L)]           // a Single operand makes it Long
+    [InlineData(7.6D, 3, 2L)]           // 7.6 rounds to 8; 8 Mod 3 = 2 (Long)
+    [InlineData(2.5D, 2, 0L)]           // 2.5 rounds half-to-even to 2; 2 Mod 2 = 0 (Long)
     public async Task ModulusOperator_ShouldReturnExpectedResult(object operand1, object operand2, object expectedResult)
     {
         string vbOperand1 = ConvertToVb6Value(operand1);
@@ -294,7 +312,7 @@ public class OperatorTests : BaseVBTestFixture
 
         await Run(code);
 
-        Vb6Value expectedValue = expectedResult is int i ? new Vb6Value(i) : expectedResult is float f ? new Vb6Value(f) : expectedResult is double d ? new Vb6Value(d) : throw new Exception();
+        Vb6Value expectedValue = expectedResult is int i ? new Vb6Value(i) : expectedResult is long l ? new Vb6Value(l) : expectedResult is float f ? new Vb6Value(f) : expectedResult is double d ? new Vb6Value(d) : throw new Exception();
 
         AssertDebugLog([expectedValue]);
     }

@@ -34,6 +34,18 @@ public interface IProjectService
     /// Returns false if the file is missing. Used by the file watcher to adopt external changes.
     /// </summary>
     Task<bool> ReloadModuleFromDisk(ModuleDefinition module);
+
+    /// <summary>
+    /// True when saving <paramref name="form"/> would change what is on disk — i.e. the in-memory model
+    /// holds edits that have not been written. The form is rendered through the very serializer its save
+    /// path uses and compared against the baseline recorded at load/save/reload, so the answer cannot
+    /// drift from what a save would actually write.
+    ///
+    /// Used by the file watcher to classify a <b>not-open</b> form: a <c>.frm</c> is layout + code, so its
+    /// disk bytes cannot be hashed against an editor buffer the way a <c>.bas</c> can.
+    /// </summary>
+    bool HasUnsavedChanges(FormDefinition form);
+
     Task MakeProject();
     Task MakeProject(ProjectDefinition project);
     Task MakeProjectGroup();

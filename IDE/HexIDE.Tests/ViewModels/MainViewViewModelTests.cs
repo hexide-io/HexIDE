@@ -45,10 +45,11 @@ public class MainViewViewModelTests
         var toolBox = (ToolBoxToolViewModel)RuntimeHelpers.GetUninitializedObject(typeof(ToolBoxToolViewModel));
 
         var properties = new PropertiesToolViewModel(mockDocDock, _eventBus, _windowManager, loc);
-        var immediate = new ImmediateToolViewModel(loc);
+        var immediate = new ImmediateToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
         var formLayout = new FormLayoutToolViewModel(mockDocDock, _eventBus, loc);
-        var locals = new LocalsToolViewModel(loc);
-        var watches = new WatchesToolViewModel(loc);
+        var locals = new LocalsToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
+        var watches = new WatchesToolViewModel(loc, new HexIDE.Debugging.WatchService(), Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(), Substitute.For<HexIDE.IDE.IWindowManager>());
+        var callStack = new CallStackToolViewModel(loc, Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
         var editorService = Substitute.For<IEditorService>();
         var projectExplorer = new ProjectToolViewModel(_projectManager, _eventBus, _projectService, editorService, loc);
         var colorPalette = new ColorPaletteToolViewModel(mockDocDock);
@@ -58,7 +59,7 @@ public class MainViewViewModelTests
 
         var dockFactory = new MainViewViewModel.DockFactory(
             toolBox, projectExplorer, properties, formLayout,
-            immediate, locals, watches, colorPalette, objectBrowser, translationEditor,
+            immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
             windowStateService);
 
         _sut = new MainViewViewModel(
@@ -69,6 +70,7 @@ public class MainViewViewModelTests
             formLayout,
             locals,
             watches,
+            callStack,
             projectExplorer,
             colorPalette,
             objectBrowser,
@@ -97,7 +99,9 @@ public class MainViewViewModelTests
             new AddinMenuService(),
             new AddinCommandService(),
             new AddinToolWindowService(),
-            windowStateService);
+            windowStateService,
+            Substitute.For<HexIDE.Debugging.IBreakpointService>(),
+            Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
     }
 
     // --- Title ---

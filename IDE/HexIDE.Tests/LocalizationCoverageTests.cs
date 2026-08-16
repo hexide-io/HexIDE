@@ -46,7 +46,12 @@ public class LocalizationCoverageTests
         var loc = new LocalizationService();
         loc.Apply("en");
 
-        var missing = VBProperties.PropertiesByName.Keys
+        // PropertyCategory.Internal properties never appear in the property grid — Menu.SubItems is the
+        // structural child list, not something a user edits — so a localized description would be a string
+        // translated into 27 packs that nothing can ever display. The rule is about what the grid shows.
+        var missing = VBProperties.PropertiesByName
+            .Where(kv => kv.Value.All(p => p.Category != PropertyCategory.Internal))
+            .Select(kv => kv.Key)
             .Where(name => loc.GetPropertyDescription(name) is null)
             .ToList();
 

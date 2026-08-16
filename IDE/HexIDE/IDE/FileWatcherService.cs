@@ -71,7 +71,7 @@ public sealed class FileWatcherService : IFileWatcherService
         this.baselineStore = baselineStore;
 
         coalescer = new ChangeCoalescer(clock);
-        dirtyDetector = new DirtyDetector(baselineStore);
+        dirtyDetector = new DirtyDetector(baselineStore, projectService);
         reloader = new FileReloader(projectService, eventBus, statusBar, localization);
         conflictGate = new ConflictGate(windowManager, ReloadConflictsAsync, KeepConflictsAsync);
 

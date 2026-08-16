@@ -1,0 +1,10 @@
+Name=Battleship
+Type=Exe
+Module=Module1; Module1.bas
+Class=Ship; Ship.cls
+Class=Grid; Grid.cls
+Class=Game; Game.cls
+Class=Announcer; Announcer.cls
+Startup="Sub Main"
+ExeName32="Battleship.exe"
+Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0##OLE Automation

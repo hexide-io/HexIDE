@@ -49,6 +49,11 @@ public class FormSerializer
 
         var form = element.Components.Single(x => x.BaseClass is FormComponentClass);
 
+        // OCX declarations sit between VERSION and the root Begin. Re-emitted verbatim so a project
+        // depending on a control HexIDE cannot host is not corrupted by a save.
+        foreach (var headerLine in element.HeaderLines)
+            vb.WriteVerbatimLine(headerLine);
+
         vb.Begin(element.RootVBTypeName, form.GetPropertyOrDefault(VBProperties.NameProperty)!);
 
         WriteAllProperties(vb, form, frxName, offsetMap);
@@ -79,25 +84,44 @@ public class FormSerializer
         return (vb.GetOutput(), frxContent);
     }
 
+    /// <summary>
+    /// Pixels back to twips, rounded.
+    ///
+    /// The inbound conversion divides by 15, which is not exactly representable in binary floating point:
+    /// 6684 twips becomes 445.6 px, and 445.6 × 15 comes back as 6683.999999999999. Written verbatim that
+    /// is both ugly and unstable — the value loses another ULP on every subsequent save, so the file never
+    /// reaches a fixed point and source control never quiets down.
+    ///
+    /// Rounding at the write boundary fixes both without pretending the value is an integer. VB6 does
+    /// write genuinely fractional twips (About Dialog.frm: <c>ScaleWidth = 5380.766</c>), and six decimal
+    /// places is far finer than a twip — 1/1440 inch — will ever need, so those survive unchanged.
+    ///
+    /// The deeper fix is to store twips natively and convert only for layout, which would make the
+    /// conversion lossless rather than merely tidy. That touches the runtime window sizing and the
+    /// designer, so it is deliberately not done here.
+    /// </summary>
+    private static double ToTwips(double pixels) =>
+        Math.Round(pixels * VBScaleModeExtensions.PixelToTwips, 6);
+
     private void WriteFormMeasurements(VbFrmFormatSerializer vb, ComponentInstance form)
     {
         if (form.TryGetProperty(VBProperties.WidthProperty, out var width))
         {
-            vb.WriteProperty("ClientWidth", VBProperties.WidthProperty.PropertyType, width * VBScaleModeExtensions.PixelToTwips);
-            vb.WriteProperty("ScaleWidth", VBProperties.WidthProperty.PropertyType, width * VBScaleModeExtensions.PixelToTwips);
+            vb.WriteProperty("ClientWidth", VBProperties.WidthProperty.PropertyType, ToTwips(width));
+            vb.WriteProperty("ScaleWidth", VBProperties.WidthProperty.PropertyType, ToTwips(width));
         }
         if (form.TryGetProperty(VBProperties.HeightProperty, out var height))
         {
-            vb.WriteProperty("ClientHeight", VBProperties.HeightProperty.PropertyType, height * VBScaleModeExtensions.PixelToTwips);
-            vb.WriteProperty("ScaleHeight", VBProperties.HeightProperty.PropertyType, height * VBScaleModeExtensions.PixelToTwips);
+            vb.WriteProperty("ClientHeight", VBProperties.HeightProperty.PropertyType, ToTwips(height));
+            vb.WriteProperty("ScaleHeight", VBProperties.HeightProperty.PropertyType, ToTwips(height));
         }
         if (form.TryGetProperty(VBProperties.TopProperty, out var top))
         {
-            vb.WriteProperty("ClientTop", VBProperties.TopProperty.PropertyType, top * VBScaleModeExtensions.PixelToTwips);
+            vb.WriteProperty("ClientTop", VBProperties.TopProperty.PropertyType, ToTwips(top));
         }
         if (form.TryGetProperty(VBProperties.LeftProperty, out var left))
         {
-            vb.WriteProperty("ClientLeft", VBProperties.LeftProperty.PropertyType, left * VBScaleModeExtensions.PixelToTwips);
+            vb.WriteProperty("ClientLeft", VBProperties.LeftProperty.PropertyType, ToTwips(left));
         }
     }
 
@@ -123,7 +147,7 @@ public class FormSerializer
                 prop == VBProperties.HeightProperty)
             {
                 if (instance.TryGetProperty<double>((PropertyClass<double>)prop, out var measurement))
-                    vb.WriteProperty(prop.Name, prop.PropertyType, measurement * VBScaleModeExtensions.PixelToTwips);
+                    vb.WriteProperty(prop.Name, prop.PropertyType, ToTwips(measurement));
             }
             else if (prop.PropertyType == typeof(byte[]))
             {

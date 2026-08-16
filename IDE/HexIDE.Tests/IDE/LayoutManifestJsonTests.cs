@@ -50,17 +50,19 @@ public class LayoutManifestJsonTests
     }
 
     [Fact]
-    public void Default_HasTenToolsWithExpectedHomes()
+    public void Default_HasElevenToolsWithExpectedHomes()
     {
         var d = LayoutManifest.Default;
 
         d.Version.Should().Be(LayoutManifest.CurrentVersion);
-        d.Tools.Should().HaveCount(10);
+        d.Tools.Should().HaveCount(11);
 
         d.Tools.Single(t => t.Key == "toolbox").Region.Should().Be(DockRegion.Left);
         d.Tools.Single(t => t.Key == "properties").Region.Should().Be(DockRegion.Right);
         d.Tools.Single(t => t.Key == "properties").Order.Should().Be(1);
         d.Tools.Single(t => t.Key == "immediate").Region.Should().Be(DockRegion.Bottom);
+        d.Tools.Single(t => t.Key == "callStack").Region.Should().Be(DockRegion.Bottom);
+        d.Tools.Single(t => t.Key == "callStack").Open.Should().BeFalse();
         d.Tools.Single(t => t.Key == "objectBrowser").Region.Should().Be(DockRegion.Document);
 
         // Default open-state: the four left/right built-ins are open; debug + document tools start closed.

@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime;
 
@@ -31,8 +32,8 @@ public class VBFormRuntime : Window, IModuleExecutionRoot
         windowContext.ExecuteSub("Form_Resize");
     }
 
-    public void ExecuteSub(string name)
+    public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
     {
-        windowContext.ExecuteSub(name);
+        windowContext.ExecuteSub(name, args);
     }
 }

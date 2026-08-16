@@ -15,6 +15,13 @@ public class Static
     /// never persisted. Surfaced to consumers via <see cref="IDE.IDeveloperModeService"/>.</summary>
     public static bool DeveloperMode { get; set; }
 
+    /// <summary>
+    /// Suppresses the save-changes prompt on the next window close, discarding unsaved work. Set only by
+    /// automation (the <c>shutdown_ide</c> MCP tool), which would otherwise wedge on a modal dialog.
+    /// Never set from a user-driven path.
+    /// </summary>
+    public static bool ForceCloseWithoutPrompt { get; set; }
+
     public static bool ForceSingleView => false;
 
     public static bool SupportsWindowing { get; } = OperatingSystem.IsWindows() ||

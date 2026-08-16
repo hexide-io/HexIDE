@@ -6,12 +6,66 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:DataType="tools:WatchesToolViewModel"
              x:Class="HexIDE.Tools.WatchesToolView">
-    <DataGrid VerticalScrollBarVisibility="Visible">
-        <DataGrid.Columns>
-            <DataGridTextColumn Header="{DynamicResource Str.Tool.Watches.Column.Expression}" Width="*" />
-            <DataGridTextColumn Header="{DynamicResource Str.Tool.Watches.Column.Value}" Width="*" />
-            <DataGridTextColumn Header="{DynamicResource Str.Tool.Watches.Column.Type}" Width="*" />
-            <DataGridTextColumn Header="{DynamicResource Str.Tool.Watches.Column.Context}" Width="*" />
-        </DataGrid.Columns>
-    </DataGrid>
+    <UserControl.KeyBindings>
+        <KeyBinding Gesture="Delete" Command="{CompiledBinding DeleteWatchCommand}" />
+    </UserControl.KeyBindings>
+
+    <!-- Column-header strip over the tree. Value/Type/Context are docked right at fixed widths (header + every row
+         template) so they line up regardless of the tree's indent depth — the Locals-window pattern. -->
+    <Grid RowDefinitions="Auto,*">
+        <DockPanel Background="{DynamicResource DockTitleBarBrush}">
+            <TextBlock DockPanel.Dock="Right" Width="90" Padding="4,2"
+                       FontWeight="Bold" Text="{DynamicResource Str.Tool.Watches.Column.Context}" />
+            <TextBlock DockPanel.Dock="Right" Width="90" Padding="4,2"
+                       FontWeight="Bold" Text="{DynamicResource Str.Tool.Watches.Column.Type}" />
+            <TextBlock DockPanel.Dock="Right" Width="90" Padding="4,2"
+                       FontWeight="Bold" Text="{DynamicResource Str.Tool.Watches.Column.Value}" />
+            <TextBlock Padding="4,2" FontWeight="Bold"
+                       Text="{DynamicResource Str.Tool.Watches.Column.Expression}" />
+        </DockPanel>
+
+        <TreeView Grid.Row="1" ItemsSource="{CompiledBinding Rows}"
+                  SelectedItem="{CompiledBinding SelectedRow, Mode=TwoWay}">
+            <TreeView.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="{DynamicResource Str.Tool.Watches.Menu.Edit}"
+                              Command="{CompiledBinding EditWatchCommand}" />
+                    <MenuItem Header="{DynamicResource Str.Tool.Watches.Menu.Delete}"
+                              Command="{CompiledBinding DeleteWatchCommand}" />
+                </ContextMenu>
+            </TreeView.ContextMenu>
+            <TreeView.Styles>
+                <Style Selector="TreeViewItem /template/ ContentPresenter">
+                    <Setter Property="HorizontalAlignment" Value="Stretch" />
+                </Style>
+            </TreeView.Styles>
+            <TreeView.DataTemplates>
+                <!-- Top-level watch rows (Expression / Value / Type / Context). -->
+                <TreeDataTemplate DataType="tools:WatchRowViewModel" ItemsSource="{CompiledBinding Children}">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Width="90" Padding="4,0"
+                                   TextTrimming="CharacterEllipsis" Text="{CompiledBinding Context}" />
+                        <TextBlock DockPanel.Dock="Right" Width="90" Padding="4,0"
+                                   TextTrimming="CharacterEllipsis" Text="{CompiledBinding TypeName}" />
+                        <TextBlock DockPanel.Dock="Right" Width="90" Padding="4,0"
+                                   TextTrimming="CharacterEllipsis" Text="{CompiledBinding Value}" />
+                        <TextBlock Padding="4,0" TextTrimming="CharacterEllipsis"
+                                   Text="{CompiledBinding Expression}" />
+                    </DockPanel>
+                </TreeDataTemplate>
+                <!-- Expanded child nodes (object/array/UDT fields) — reused from Locals; no Context column. -->
+                <TreeDataTemplate DataType="tools:LocalsVariableNode" ItemsSource="{CompiledBinding Children}">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Width="90" Padding="4,0" Text="" />
+                        <TextBlock DockPanel.Dock="Right" Width="90" Padding="4,0"
+                                   TextTrimming="CharacterEllipsis" Text="{CompiledBinding TypeName}" />
+                        <TextBlock DockPanel.Dock="Right" Width="90" Padding="4,0"
+                                   TextTrimming="CharacterEllipsis" Text="{CompiledBinding Value}" />
+                        <TextBlock Padding="4,0" TextTrimming="CharacterEllipsis"
+                                   Text="{CompiledBinding Expression}" />
+                    </DockPanel>
+                </TreeDataTemplate>
+            </TreeView.DataTemplates>
+        </TreeView>
+    </Grid>
 </UserControl>

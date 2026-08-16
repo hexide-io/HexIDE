@@ -1,0 +1,8 @@
+Firing...
+(0,0) HIT
+(0,1) SUNK
+(5,5) MISS
+(2,0) HIT
+(2,1) HIT
+(2,2) SUNK
+AllSunk=False

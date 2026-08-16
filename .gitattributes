@@ -1,3 +1,24 @@
 # Shell scripts must stay LF even when checked out on Windows (autocrlf) — a CR after
 # the shebang breaks `#!/usr/bin/env bash` on Linux/CI (build_cloudflare.sh, copy-in script).
 *.sh text eol=lf
+
+# VB6 source is CRLF by format convention: VB6 wrote it that way, HexIDE writes it that way, and
+# SerializationCorpusTests compares bytes. Without these rules a Linux/macOS checkout normalizes the
+# demo projects to LF, so every demo module fails the round-trip gate on CI while passing on a
+# Windows dev box (where core.autocrlf=true restores CRLF). Blobs stay LF in the repo — this only
+# pins what lands in the working tree.
+*.vbp text eol=crlf
+*.vbg text eol=crlf
+*.frm text eol=crlf
+*.ctl text eol=crlf
+*.pag text eol=crlf
+*.cls text eol=crlf
+*.bas text eol=crlf
+*.dsr text eol=crlf
+
+# Companion binaries carry embedded assets (icons, pictures, list contents). Line-ending
+# normalization would corrupt them. None are tracked today; this is a guard for when a demo
+# project that has one is added.
+*.frx binary
+*.ctx binary
+*.pgx binary

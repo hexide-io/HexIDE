@@ -52,14 +52,27 @@
       <OutputItemType>Content</OutputItemType>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </ProjectReference>
-    <!-- Copy VbLspServer exe to output for LSP diagnostics.
-         Path resolves to LspServer/ sibling repo when both repos are checked out together.
-         Omitted gracefully when only the IDE repo is checked out. -->
+    <!-- Copy the MIT VB6 language server exe to output for LSP diagnostics (Phase 6 swap: was the GPLv3
+         HexIDE.VbLspServer). Both projects set AssemblyName=HexIDE.VbLspServer, so the exe name and the
+         LspServerLocator probe are unchanged — this repoint is the whole client-facing cutover. Path
+         resolves to the LspServer/ sibling; omitted gracefully when only the IDE repo is checked out. -->
     <ProjectReference Condition="Exists('..\..\LspServer\HexIDE.VbLspServer\HexIDE.VbLspServer.csproj')" Include="..\..\LspServer\HexIDE.VbLspServer\HexIDE.VbLspServer.csproj">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
       <OutputItemType>Content</OutputItemType>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </ProjectReference>
+    <!-- The ProjectReference copies the server's primary output (exe/dll/deps.json/runtimeconfig) but NOT
+         its NuGet closure. Of that closure the IDE already ships Serilog + Antlr4.Runtime.Standard
+         (byte-identical); the ONLY runtime dependency the MIT server adds is EmmyLua's
+         LanguageServer.Framework.dll (zero transitive deps). Copy just that file next to the exe — a
+         whole-bin copy would trip NETSDK1152 (duplicate publish paths) and clobber the IDE's own
+         Microsoft.NET.StringTools.dll. Literal path (built first via the ProjectReference above, so it
+         exists by copy time); Content+PreserveNewest flows to both build output and `dotnet publish`. -->
+    <Content Condition="Exists('..\..\LspServer\HexIDE.VbLspServer\HexIDE.VbLspServer.csproj')" Include="..\..\LspServer\HexIDE.VbLspServer\bin\$(Configuration)\net10.0\LanguageServer.Framework.dll">
+      <Link>LanguageServer.Framework.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Visible>false</Visible>
+    </Content>
   </ItemGroup>
 
   <ItemGroup>
@@ -86,7 +99,7 @@
        project's output into one dir and would pack the whole IDE as the add-in).
        KEY GATE (Exists firstparty.key): packing is SKIPPED unless the first-party signing key is present
        in the trust dir. A source tree WITHOUT the key — a contributor clone, or the public repo before
-       the trust-chain rotation (see docs/trust-chain-rotation.md) — still builds cleanly; it simply ships
+       the trust-chain rotation (see CONTRIBUTING.md) — still builds cleanly; it simply ships
        no bundled first-party add-ins. A release build supplies the key (locally in firstparty/, or in CI
        from a secret written into the trust dir before Build), so the add-ins are signed and bundled. -->
   <Target Name="PackAIChatAddin" AfterTargets="Build" Condition="'$(TargetFramework)' != '' and Exists('$(AddinTrustDir)/firstparty.key')">
@@ -99,7 +112,7 @@
 
   <!-- Visibility when the key is absent: make the skip explicit rather than silent. -->
   <Target Name="WarnFirstPartyAddinsUnsigned" AfterTargets="Build" Condition="'$(TargetFramework)' != '' and !Exists('$(AddinTrustDir)/firstparty.key')">
-    <Message Importance="high" Text="HexIDE: no first-party signing key at $(AddinTrustDir)/firstparty.key — skipping add-in packing. This build bundles no first-party add-ins (expected for a keyless clone; a release build supplies the key — see docs/trust-chain-rotation.md)." />
+    <Message Importance="high" Text="HexIDE: no first-party signing key at $(AddinTrustDir)/firstparty.key — skipping add-in packing. This build bundles no first-party add-ins (expected for a keyless clone; a release build supplies the key — see CONTRIBUTING.md)." />
   </Target>
 
   <!-- The Pack* targets above write into the build $(OutDir). 'dotnet publish -o <dir>' copies only the

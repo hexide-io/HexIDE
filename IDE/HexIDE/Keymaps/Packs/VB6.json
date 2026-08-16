@@ -4,6 +4,9 @@
   "bindings": {
     "GoToDefinitionCommand": "Shift+F2",
     "StepIntoCommand":       "F8",
-    "StepOverCommand":       "Shift+F8"
+    "StepOverCommand":       "Shift+F8",
+    "StepOutCommand":        "Ctrl+Shift+F8",
+    "RunToCursorCommand":    "Ctrl+F8",
+    "SetNextStatementCommand": "Ctrl+F9"
   }
 }

@@ -1,0 +1,791 @@
+# VB6 fidelity oracle — behaviour verified against `vb6.exe`
+
+HexIDE's in-box interpreter aims for **runtime-execution fidelity**: it reproduces VB6's *observable* behaviour
+without depending on `MSVBVM60.DLL` (see the CST-not-AST boundary in `CLAUDE.md`). The only trustworthy source
+of truth for "what does VB6 actually do here" is **the real compiler**. This document records the facts pinned
+against real `vb6.exe` during the interpreter type-system build-out (interpreter-core Phase 2), plus the
+**harness** for running the oracle cleanly — future phases (intrinsics: `CInt`/`CLng`/`CDate`/`Format`/`Rnd`;
+date functions; graphics) should extend it the same way.
+
+> **Why this matters:** the oracle repeatedly overturned "documented" assumptions. Building from memory / the
+> language reference alone would have shipped several wrong behaviours (see *Assumptions overturned* below).
+
+---
+
+## The oracle
+
+- **Binary:** `C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE` (the `Vb6ToolchainService`
+  auto-discovers it; the `VB6_EXE` env var overrides). Windows + a VB6 install required — this is a dev-time
+  fidelity check, not part of the shipped product.
+- **Method:** compile a tiny `Sub Main` console-less program with `VB6.EXE /make`, run the produced `.exe`, and
+  read back a file it wrote with `TypeName(expr)` + the value for each case.
+
+### Harness (reusable recipe)
+
+Two lessons learned the hard way:
+
+1. **Use absolute paths + `CreateNoWindow`.** A relative `.vbp` path (or launching via a shell) makes `VB6.EXE`
+   pop its GUI instead of doing a headless `/make`. Drive it through `System.Diagnostics.ProcessStartInfo`
+   with `UseShellExecute=false`, `CreateNoWindow=true`, and an **absolute** `.vbp` path + `/out <errlog>`.
+2. **Wrap every probe in `On Error Resume Next`.** A runtime error inside the probe (e.g. an overflow) pops a
+   **modal error dialog on the user's screen** and blocks the run until it's dismissed. Capture `Err.Number`
+   per case instead, so overflow is *data* (`ERR6`), not a modal. (This is exactly how the `Byte+Byte`
+   overflow was found — the first, un-guarded probe hung on a `Runtime Error 6` modal.)
+
+`Module1.bas` shape:
+
+```vb
+Attribute VB_Name = "Module1"
+Sub WT(f As Integer, label As String, v As Variant, en As Long)
+    If en <> 0 Then Print #f, label & "=ERR" & en Else Print #f, label & "=" & v & "|" & TypeName(v)
+End Sub
+Sub Main()
+    Dim f As Integer, v As Variant
+    f = FreeFile
+    Open "C:\...\out.txt" For Output As #f
+    On Error Resume Next
+    Err.Clear: v = 5.5 Mod 2: WT f, "mod", v, Err.Number   ' one line per case
+    Close #f
+End Sub
+```
+
+`verify.vbp` shape: `Type=Exe`, `Module=Module1; Module1.bas`, `Startup="Sub Main"`, `ExeName32="verify.exe"`.
+
+Driver (PowerShell): start `VB6.EXE /make "<abs>\verify.vbp" /out "<abs>\err.log"` with `CreateNoWindow`, wait +
+kill-on-timeout, then `Start-Process verify.exe -WindowStyle Hidden -PassThru -Wait`, then read `out.txt`.
+
+**Probes that use a class (`Class_Initialize`/`Terminate`, objects) — three gotchas** (learned building the
+Phase-4.2 refcount oracle):
+1. The `.vbp` **must** carry the OLE Automation reference line, or the compiler reports *"User-defined type not
+   defined"* for your own class: `Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0##OLE Automation`.
+   Copy a known-good `.vbp`/`.cls` header from `demo/*/` rather than hand-authoring the class-header bytes.
+2. VB6 needs **CRLF + ASCII** source. The `Write` tool emits LF; convert before `/make`
+   (`($c -replace "\`r\`n","\`n") -replace "\`n","\`r\`n"` then `WriteAllText(..., ASCII)`), or the module fails to
+   load (same misleading *"User-defined type not defined"*).
+3. Launching `vb6.exe` trips the shell sandbox — run the make/run PowerShell with `dangerouslyDisableSandbox:
+   true` (it only writes to the scratch dir; this is the authorized dev-time toolchain). Avoid `Remove-Item` near
+   the `C:\Program Files (x86)\…` path in the same command — the path-guard blocks it; let `/make` overwrite and
+   `For Output` truncate instead.
+
+---
+
+## Verified findings
+
+All rows below are **actual `vb6.exe` output** (`value | TypeName`). These are the source of the interpreter's
+test expectations (`VbNumeric`, `OperatorTests`, `ArithmeticFidelityTests`, `DateCurrencyVariantTests`,
+`LiteralTests`).
+
+### Arithmetic result types — `+ − *`
+
+Ladder (widest wins): **Byte < Integer < Long < Single < Double < Currency < Decimal**. Boolean and Empty
+behave as Integer. `Byte` and `Boolean` promote to Integer *only when the other operand forces it* — `Byte+Byte`
+stays `Byte`. There is **no** overflow auto-promotion: a result outside the result-type's range is `Err 6`.
+
+| expression | result | type |
+|---|---|---|
+| `CByte(100) + CByte(100)` | 200 | **Byte** |
+| `CByte(200) + CByte(100)` | — | **Err 6 (overflow)** — proves Byte+Byte → Byte |
+| `CByte(100) + 5` | 105 | Integer |
+| `True + CByte(100)` | 99 | Integer (Boolean → Integer; `True` = −1) |
+| `5 + 5` | 10 | Integer |
+| `30000 + 30000` (via Integer vars) | — | **Err 6** |
+| `5 + 3&` | 8 | Long |
+| `3& + 3&` | 6 | Long |
+| `5 + 2!` | 7 | Single |
+| `2! + 2!` | 4 | Single |
+| `5 + 2#` | 7 | Double |
+| `5 * 5` | 25 | Integer |
+| `30000 * 30000` (via vars) | — | **Err 6** |
+
+### Division `/` (real division)
+
+Result is **Single iff the widest operand is Single** (both operands in {Byte, Integer, Single}); otherwise
+**Double**. Notably **int/int → Double** and **Long/anything → Double**.
+
+| expression | result | type |
+|---|---|---|
+| `5 / 2` | 2.5 | **Double** (not Single!) |
+| `5 / 2!` | 2.5 | Single |
+| `5 / 2#` | 2.5 | Double |
+| `5.5! / 2.5!` | 2.2 | Single |
+| `40000 / 2` (Long/Int) | 20000 | Double |
+| `CLng(5) / CLng(2)` | 2.5 | Double |
+| `10@ / 4` | 2.5 | Double |
+
+### Integer division `\` and `Mod`
+
+Operands are **banker's-rounded to an integer first**, then the integer op. Result is **Integer only when both
+operands are Byte/Integer/Boolean; otherwise Long**. `\`/`Mod`/`/` by zero → **`Err 11` (Division by zero)**.
+
+| expression | result | type |
+|---|---|---|
+| `5 Mod 2` | 1 | Integer |
+| `5.5 Mod 2` | 0 | **Long** (5.5 → 6; 6 Mod 2) |
+| `5.5! Mod 2` | 0 | Long |
+| `-5.5 Mod 2` | 0 | Long |
+| `7 \ 2` | 3 | Integer |
+| `7.6 \ 2` | 4 | **Long** (7.6 → 8) |
+| `7.5 \ 2` | 4 | Long (7.5 → 8, half-to-even) |
+
+### `^`, unary `−`, `CInt` rounding
+
+| expression | result | type / note |
+|---|---|---|
+| `2 ^ 10` | 1024 | Double (always) |
+| `-iv` where `iv` is Integer −32768 | −32768 | **Integer, no error** — two's-complement wrap (we treat as overflow; documented divergence) |
+| `CInt(2.5), CInt(3.5), CInt(-2.5), CInt(0.5)` | 2, 4, −2, 0 | banker's (round-half-to-even) |
+
+### Date
+
+Serial epoch is **1899-12-30** (`CDbl(#1/1/2000#)` = **36526**).
+
+| expression | result | type |
+|---|---|---|
+| `#1/1/2000#` | 2000-01-01 | Date |
+| `#1/1/2000# + 31` | 2000-02-01 | Date |
+| `#1/1/2000# - 1` | 1999-12-31 | Date |
+| `#1/10/2000# - #1/1/2000#` | 9 | **Double** (day difference) |
+| `#1/1/2001# > #1/1/2000#` | True | Boolean |
+
+**Runtime error codes** (bug-hunt error-fidelity fixes — the interpreter must raise these **trappable** errors, not
+raw .NET exceptions). Pinned via the `On Error Resume Next` + `Err.Number` harness:
+
+| operation | `Err.Number` | note |
+|---|---|---|
+| `ReDim a(-2)` · `ReDim a(2 To 0)` · `ReDim a(5 To 1)` | **9** | inverted/negative bounds → Subscript out of range |
+| `ReDim a(0 To 0)` | 0 (ok) | a size-1 array — the empty case `(0,-1)` is also valid |
+| `UBound(a, 2)` on a rank-1 array · `LBound(a, 0)` | **9** | dimension < 1 or > rank |
+| `CDate(1E30)` · `CDate(2958466)` · `CDate(-657435)` | **6** | serial outside Date range → **Overflow** (NB **not** 13) |
+| `CDate(0)` | 0 (ok) | serial 0 = 1899-12-30 00:00 |
+
+### Currency (`@`)
+
+**Currency dominates Double** in `+ − *` (the biggest surprise). Fixed 4 dp, banker's rounding, hardware range
+→ `Err 6`. `/` still drops to Double.
+
+| expression | result | type |
+|---|---|---|
+| `10@ + 5` | 15 | Currency |
+| `10@ + 20@` | 30 | Currency |
+| `10@ + 1.5` | 11.5 | **Currency** (not Double!) |
+| `10@ * 3` | 30 | Currency |
+| `1.23455@` | 1.2346 | Currency (4-dp, 5→even 6) |
+| `1.23445@` | 1.2344 | Currency (4-dp, 4 stays even) |
+| `9e14@ + 1e14@` | — | **Err 6** |
+
+### Variant — Empty / Null
+
+| expression | result | type |
+|---|---|---|
+| `Empty & "x"` | `x` | String |
+| `Empty + 5` | 5 | Integer (Empty acts as 0) |
+| `Null + 1` | Null | Null (propagates) |
+| `Null & "x"` | `x` | String (`&` treats Null/Empty as "") |
+
+### Hex `&H` / Octal `&O` — unsigned bit-patterns (NOT colours)
+
+No suffix: fits 16 bits → Integer via **16-bit two's-complement**; else fits 32 bits → Long via **32-bit
+two's-complement**. `&` forces the Long reading (no 16-bit wrap); `%` forces the Integer reading. **Octal wraps
+identically to hex.**
+
+| literal | result | type |
+|---|---|---|
+| `&HFF` | 255 | Integer |
+| `&H7FFF` | 32767 | Integer |
+| `&H8000` | −32768 | Integer (16-bit wrap) |
+| `&HFFFF` | −1 | Integer |
+| `&H10000` | 65536 | Long |
+| `&HFFFFFFFF` | −1 | Long |
+| `&HFFFF&` | 65535 | Long (`&` forces Long) |
+| `&H8000&` | 32768 | Long |
+| `&HFFFF%` | −1 | Integer (`%` forces Integer) |
+| `&O17` | 15 | Integer |
+| `&O77777` | 32767 | Integer |
+| `&O177777` | −1 | Integer (16-bit wrap) |
+| `&O37777777777` | −1 | Long (32-bit wrap) |
+
+VB6 colours are numeric `OLE_COLOR` (`0x00BBGGRR`, or `0x80……` = system colour). A hex value assigned to a
+colour property is converted at the property boundary (`VBColor.FromOle`), not at literal time.
+
+### Math intrinsics (interpreter-core Phase 3.3)
+
+| expression | result | type |
+|---|---|---|
+| `Abs(-4)` | 4 | **Integer** (Abs preserves the operand type) |
+| `Abs(-4.5)` | 4.5 | Double |
+| `Int(-2.5)` | −3 | Double (**floor** toward −∞) |
+| `Fix(-2.5)` | −2 | Double (**truncate** toward zero) |
+| `Int(2.7)` / `Fix(2.7)` | 2 / 2 | Double |
+| `Sgn(-5)` | −1 | Integer |
+| `Sqr(9)` | 3 | Double |
+| `Round(2.5)` / `Round(3.5)` | 2 / 4 | Double (**banker's** rounding) |
+| `Round(2.567, 2)` | 2.57 | Double |
+| `TypeName(Sqr(9))` | `Double` | — |
+
+**`Rnd` — the exact 24-bit LCG (pinned).** Fresh state (no `Randomize`) is seed `&H50000`; each draw advances
+`seed = (seed * &H43FD43FD + &HC39EC3) And &HFFFFFF` and returns `seed / 2^24` as a **Single**. Verified first
+draws: `0.7055475, 0.533424, 0.5795186` (state after draw 1 = `11837123`, and `11837123 / 2^24 = 0.7055475`
+bit-exact). `Rnd(0)` returns the last value **without advancing**; `Rnd(<0)` reseeds from the argument.
+`Randomize [n]` only varies the starting seed — our reseed fold is deterministic-but-not-bit-identical to VB6's
+(documented divergence; the fixed-seed sequence itself *is* bit-exact).
+
+### Inspection intrinsics (interpreter-core Phase 3.4)
+
+`TypeName`/`VarType` (`vbEmpty=0, vbNull=1, vbInteger=2, vbLong=3, vbSingle=4, vbDouble=5, vbCurrency=6,
+vbDate=7, vbString=8, vbObject=9, vbBoolean=11, vbVariant=12, vbDecimal=14, vbByte=17`; arrays add
+`vbArray=8192` and `TypeName` appends `()`): `TypeName(Array-of-Integer) = "Integer()"`, `VarType = 8194`;
+a `Variant` array (`Array(1,2,3)`) → `"Variant()"`, `8204`.
+
+`IsNumeric` is **far more permissive than expected** (all verified True unless noted):
+
+| input | IsNumeric | note |
+|---|---|---|
+| `True` (Boolean) | **True** | Booleans are numeric |
+| `Empty` | **True** | Empty coerces to 0 |
+| a `Date` value | **False** | dates are *not* numeric |
+| `Null` | False | |
+| `"&HFF"`, `"&O17"` | **True** | hex/octal *strings* |
+| `"1,234"` | **True** | thousands separators |
+| `"(12)"` | **True** | accounting negative |
+| `"12-"` | **True** | trailing sign |
+| `"  12  "`, `"-12"`, `"+12"`, `"1E3"` | True | whitespace / signs / exponent |
+| `"$12"` | False | currency symbol rejected |
+| `"123&"`, `""`, `"abc"` | False | trailing type-char / empty / non-numeric |
+
+`IsDate`: a `Date`, or a **string** parseable as date/time (`"1/2/2020"`, `"2020-01-02"`, `"10:30:00 AM"`) →
+True; a **bare number is False** (`IsDate(40000) = False`, even though `CDate(40000)` works); `Empty`/`Null` →
+False. `IsEmpty`/`IsNull`/`IsObject`/`IsArray` each report only their own subtype (`IsEmpty(0)=False`,
+`IsNull(Empty)=False`, `IsObject(Nothing)=True`).
+
+> **Approximations (documented in-code):** VB6's `IsNumeric` string grammar is locale-influenced and lenient
+> about comma grouping and accounting notation; HexIDE strips a surrounding `()` and one trailing sign, removes
+> group separators, and parses the remainder — the common cases match but exotic comma placements may differ.
+
+### Array intrinsics (interpreter-core Phase 3.5)
+
+`Array`/`Split`/`Join`/`Filter` are all **0-based** and 1-D. Verified:
+
+| expression | result |
+|---|---|
+| `Array(10, 20, 30)` | Variant array, `LBound 0`, `UBound 2`, `TypeName "Variant()"`, `VarType 8204` |
+| `Split("a,b,c", ",")` | **`String()`** array (not Variant), `["a","b","c"]` |
+| `Split("a,,b", ",")` | `["a","","b"]` — empty middle elements **preserved** |
+| `Split("")` | **empty array** — `LBound 0`, `UBound −1` |
+| `Split("one two three")` | default delimiter is a **space** → `["one","two","three"]` |
+| `Split("a-b-c-d", "-", 2)` | limit 2 → `["a","b-c-d"]` (remainder in the last element) |
+| `Join(Array("a","b","c"), "-")` | `"a-b-c"` |
+| `Join(Array("a","b","c"))` | `"a b c"` — default delimiter is a **space** |
+| `Filter(Array("apple","banana","cherry"), "an")` | `["banana"]` (keep matches) |
+| `Filter(…, "an", False)` | `["apple","cherry"]` (drop matches) |
+| `Filter(…, "an", True, vbTextCompare)` | case-insensitive substring match |
+| `Filter(Array("apple","pear"), "xyz")` | **empty array** — `LBound 0`, `UBound −1` |
+
+> **Deferral:** `Array()`'s lower bound follows `Option Base` in VB6; HexIDE's builtin registry is static and
+> has no access to the module's `Option Base`, so `Array()` is always 0-based (correct for the default; a
+> documented divergence under `Option Base 1`). `Split`/`Join`/`Filter` are always 0-based regardless — no
+> divergence there.
+
+### Mid statement + Erase (2026-08-10 doc-debt sweep)
+
+The **Mid statement** `Mid(target, start[, length]) = replacement` overwrites characters **in place** — the target's
+total length **never changes**. Chars written = `min(length‖remaining, Len(replacement), Len(target) − start + 1)`.
+`start` is 1-based; **out of `[1, Len(target)]` → Err 5** (Invalid procedure call).
+
+| statement (target `s`) | result |
+|---|---|
+| `s="ABCDEF": Mid(s,2,3)="xy"` | `AxyDEF` — replacement shorter than length: only its 2 chars written |
+| `s="ABCDEF": Mid(s,2,3)="wxyz"` | `AwxyEF` — replacement truncated to `length`=3 |
+| `s="ABCDEF": Mid(s,3)="xyz"` | `ABxyzF` — no length: to end / replacement length |
+| `s="ABC": Mid(s,2)="XYZ"` | `AXY` — clamps to the 2 remaining chars |
+| `Mid(s,0)=…` · `Mid(s,Len(s)+1)=…` | **Err 5** |
+
+**Erase** — a **dynamic** array is *freed* (undimensioned): afterward `UBound`/`LBound`/index → **Err 9**, and it can
+be `ReDim`'d again. A **fixed** array keeps its bounds and resets every element to the type default (Integer → 0,
+String → `""`). *(HexIDE residual: a fixed array of UDT/class elements isn't reset — the `VBArray` lacks the
+interpreter context — scalar fixed arrays are faithful.)*
+
+### Date/Time intrinsics (interpreter-core Phase 3.6)
+
+Return types (verified): `Year/Month/Day/Hour/Minute/Second/Weekday/DatePart` → **Integer**;
+`DateAdd/DateSerial/TimeSerial/DateValue/Now/Date` → **Date**; `DateDiff` → **Long**; `Timer` → **Single**.
+
+| behaviour | verified |
+|---|---|
+| `Weekday(<Sunday>)` default | `1` (a **vbSunday** base); `Weekday(<Sunday>, vbMonday)` → `7` |
+| `DateSerial(2020, 13, 1)` | `2021-01-01` (month rolls over) |
+| `DateSerial(2020, 2, 30)` | `2020-03-01`; `DateSerial(2020, 3, 0)` → `2020-02-29` (day 0 = last of prev month) |
+| `TimeSerial(25, 0, 0)` | `01:00:00` (hours roll over) |
+| `DateAdd("m", 1, #1/31/2020#)` | `2020-02-29` — **month-end clamp** (not Mar 2) |
+| `DateAdd("yyyy", 1, #2/29/2020#)` | `2021-02-28` |
+| `DateAdd("yyyy", 100000, Now)` | **Err 5** (Invalid procedure call) — past the Date range |
+| `TimeSerial(9999999, 0, 0)` | **Err 6** (Overflow) — arg past `Integer` / the Date range. **NB the two overflow codes DIFFER**: DateAdd → 5, TimeSerial → 6 (do not assume both are 6) |
+| `DateDiff("d", #1/1/2020#, #12/31/2020#)` | `365`; `DateDiff("m", #1/15#, #3/10#)` → `2`; `DateDiff("yyyy", #12/31/2020#, #1/1/2021#)` → `1` |
+| `DateDiff("h", 8:30, 9:15)` | **`1`** — DateDiff counts interval **boundaries crossed**, not the floored difference (0.75 h still crosses one hour boundary) |
+| `DatePart("q", …)` / `DatePart("y", #2/1#)` / `DatePart("ww", #1/1/2020#)` / `DatePart("ww", #12/31/2020#)` | `1` / `32` / `1` / `53` (vbFirstJan1 + Sunday-start) |
+| `MonthName(1[,True])` / `MonthName(12)` | `January` / `Jan` / `December` |
+| `DateValue("March 15, 2020")` / `TimeValue("2:30:45 PM")` | `2020-03-15` / `14:30:45` |
+
+### Format — numeric (interpreter-core Phase 3.7.1)
+
+`Format`/`Format$` is being built facet-by-facet (3.7.1 numeric → 3.7.2 sections/scientific/scaling → 3.7.3
+date/time → 3.7.4 string/Boolean). Numeric findings:
+
+| call | result | note |
+|---|---|---|
+| `Format(2.5, "0")` | `3` | **half-away-from-zero** — NOT `CInt`'s banker's (`CInt(2.5)=2`) |
+| `Format(0.5, "0")` / `Format(1.5, "0")` | `1` / `2` | " |
+| `Format(2.345, "0.00")` | `2.35` | rounds the **decimal** value, not the raw double (2.3449… would floor to 2.34) |
+| `Format(0.5, "#.##")` / `Format(0.5, "0.##")` | `.5` / `0.5` | `#` omits an insignificant zero; `0` forces it |
+| `Format(0, "#")` / `Format(0, "0")` | `` (empty) / `0` | " |
+| `Format(5, "000")` | `005` | `0` pads |
+| `Format(1234.5678, "#,##0.00")` | `1,234.57` | grouping + 2 dp |
+| `Format(0.5, "0%")` | `50%` | `%` scales ×100 |
+| `Format(1234.5, "$#,##0.00")` | `$1,234.50` | `$` and other non-token chars are **literals** |
+| `Format(1234.5678, "General Number"/"Fixed"/"Standard"/"Percent")` | `1234.5678` / `1234.57` / `1,234.57` | named numeric |
+
+> **Rounding, pinned:** `Format` uses `MidpointRounding.AwayFromZero` on a `decimal` view of the value; this is
+> the single most important divergence from the `C*` conversions (banker's). Culture supplies the decimal/group
+> separators (and currency symbol for named `Currency`) — HexIDE uses `CurrentCulture` (faithful); tests stay on
+> `.`/`,` masks, which agree across en-* and Invariant.
+
+Advanced numeric (3.7.2):
+
+| call | result | note |
+|---|---|---|
+| `Format(-1234.5, "#,##0.00;(#,##0.00)")` | `(1,234.50)` | the **negative section is fed the ABSOLUTE value** — it must supply its own sign/parens |
+| `Format(0, "#,##0.00;(#,##0.00)")` | `0.00` | with 2 sections, zero uses the **positive** section |
+| `Format(0, "0.00;(0.00);0.0000")` / `Format(0, "0;0;Empty")` | `0.0000` / `Empty` | 3rd section = zero; a placeholder-free section is a literal |
+| `Format(1234.5678, "0.00E+00")` | `1.23E+03` | `E+` always prints the exponent sign |
+| `Format(1234.5678, "0.00E-00")` | `1.23E03` | `E-` prints the sign only for a **negative** exponent |
+| `Format(0.00012345, "0.00E+00")` | `1.23E-04` | |
+| `Format(1234567, "#,##0,")` | `1,235` | a **trailing comma** (end of the integer part) scales ÷1000 each |
+| `Format(1234567, "#,##0.0,")` | `1,234,567.0` | a comma **after** the decimal does NOT scale (dropped) |
+
+**Out-of-decimal-range magnitudes** (`|x| > ~7.9e28` — beyond `System.Decimal`). VB6 does **not** error (verified):
+
+| expression | vb6.exe | note |
+|---|---|---|
+| `Format(1E30)` / `Format(1E30, "General Number")` | `1E+30` | General/no-mask → **scientific** for very large/small |
+| `Format(-2.5E29)` | `-2.5E+29` | " |
+| `Format(1E300, "Scientific")` | `1.00E+300` | scientific named/mask → mantissa per the mask |
+| `Format(1E30, "0.00E+00")` | `1.00E+30` | " |
+| `Format(1E30, "0.00")` | `1000000000000000000000000000000.00` | a **fixed** mask FULLY EXPANDS (VB6's double-precision digit model) |
+| `Format(1E28, "0.00")` | `10000000000000000000000000000.00` | `1E28` is *within* decimal range — the precise engine handles it |
+| `Format(0.5, "0." & 20 zeros)` | `0.50000000000000000000` | a **wide fixed mask zero-pads** past the value's precision — VB6 does **not** error |
+| `Format(1.5, "0." & 30 zeros)` | `1.500000000000000000000000000000` | " (30 fractional places, all-zero tail) |
+
+> **HexIDE divergence (approximation):** the numeric Format engine is `decimal`-based, so it can't feed a magnitude
+> beyond decimal range. HexIDE renders **every** numeric format of such a value in scientific notation (`G15`) —
+> matching VB6 for General/Scientific, but **approximating** a fixed mask (`0.00`) as scientific rather than VB6's
+> full expansion. The point of the fix (bug-hunt HIGH) was to stop `(decimal)d` throwing an **uncatchable**
+> `OverflowException`; the fixed-mask expansion is a parked refinement.
+
+Date/time (3.7.3), anchor `#3/5/2020 2:07:09 PM#` (a Thursday):
+
+| token/mask | result | note |
+|---|---|---|
+| `d`/`dd`/`ddd`/`dddd` | `5` / `05` / `Thu` / `Thursday` | day |
+| `m`/`mm`/`mmm`/`mmmm` | `3` / `03` / `Mar` / `March` | month |
+| `yy`/`yyyy` | `20` / `2020`; `y` alone → `65` | year / **day-of-year** |
+| `h`/`hh` | `14` / `14` | **24-hour** — no AM/PM token present |
+| `h AM/PM` | `2 PM` | an AM/PM token switches `h` to **12-hour** |
+| `AM/PM`·`am/pm`·`A/P`·`a/p` | `PM`·`pm`·`P`·`p` | |
+| `hh:mm` / `hh:mm:ss` | `14:07` / `14:07:09` | **`m`/`mm` right after `h`/`hh` = MINUTE**; a separator between them doesn't reset it |
+| `mm` standalone / `m/d/yy` | `03` / `3/5/20` | month when not after an hour token |
+| `n`/`nn` | `7` / `07` | `n` is **always** minute |
+| `q` / `w` / `ww` | `1` / `5` / `10` | quarter / weekday (vbSunday base) / week-of-year |
+| `Format(0, "yyyy-mm-dd")` | `1899-12-30` | a **number under a date mask is its OLE serial** (serial 0 = 1899-12-30) |
+
+String / Boolean / default (3.7.4):
+
+| call | result | note |
+|---|---|---|
+| `Format("abc", "@@@@@")` | `  abc` | `@` = char-or-**space**, right-aligned |
+| `Format("abc", "&&&&&")` | `abc` | `&` = char-or-**nothing** |
+| `Format("abcde", "@@@")` | `abcde` | excess chars **overflow** — never truncated |
+| `Format("abc", "!@@@@@")` | `abc  ` | `!` left-aligns |
+| `Format("5551234", "(@@@) @@@-@@@@")` | `(   ) 555-1234` | literals kept; chars fill right-to-left |
+| `Format("HeLLo", "<")` / `Format("hello", ">")` | `hello` / `HELLO` | `<`/`>` force case |
+| `Format(True/5, "Yes/No")` / `Format(0, "Yes/No")` | `Yes` / `No` | Boolean formats: nonzero/True → first word |
+| `Format(0, "True/False")` / `Format(-1, "On/Off")` | `False` / `On` | |
+| `Format("abc", "0.00")` | `abc` | a **non-numeric string under a numeric mask is returned unchanged** |
+| `Format(True)` / `Format(1234.5678)` (no format) | `True` / `1234.5678` | default = General Number / the string / General Date / True|False |
+
+**Format engine complete** (3.7.1–3.7.4): numeric (named + custom, sections, scientific, scaling), date/time
+(all custom tokens + named), string (`@ & < > !`), Boolean named formats, and the no-format default dispatch —
+all `vb6.exe`-verified. `Format$` still awaits the `$`-type-hint dispatch (shared with the other `$`-twins).
+
+> **Environment-dependent (not a hardcode target):** `DateSerial`'s two-digit-year window follows the OS/culture
+> setting — this machine (window 1950–2049) gives `DateSerial(30,…) = 2030` and `DateSerial(75,…) = 1975`. VB6
+> reads the registry two-digit-year setting; HexIDE uses .NET's `Calendar.ToFourDigitYear` (same default), so
+> both track the host. Not asserted in CI. `WeekdayName`'s **default** `firstdayofweek` is likewise
+> system-influenced (this machine returned `Monday` for `WeekdayName(1)`); HexIDE defaults it to the documented
+> `vbSunday`, so only the explicit-`firstdayofweek` forms are asserted.
+
+---
+
+## Assumptions overturned by the oracle
+
+These are the cases where building from documentation/memory would have been **wrong** — the justification for
+always checking:
+
+1. **`/` int/int is `Double`, not `Single`.** The planning pass asserted "true VB6 = Single"; the oracle showed
+   Double, and the *existing* `DivisionOperator` test was already correct — the oracle **saved a wrong rewrite.**
+2. **`Byte + Byte → Byte`** (overflows at 255), not → Integer. Found via a runtime-overflow modal.
+3. **Currency dominates Double** in `+ − *` (`10@ + 1.5 → Currency`). The documented "Currency < Double" ladder
+   is wrong for arithmetic result types.
+4. **Octal `&O` two's-complement-wraps like hex** (`&O177777 → −1`). An earlier naive octal impl (magnitude
+   only) was wrong and had to be unified with hex.
+5. **Unary `−` of `Int16.MinValue` wraps to −32768 with no error** (a two's-complement quirk).
+6. **`IsNumeric` accepts hex/octal strings, thousands separators, accounting parentheses and trailing signs**
+   (`"&HFF"`, `"1,234"`, `"(12)"`, `"12-"` all True) but **rejects a currency symbol** (`"$12"` False) — much
+   more permissive than a naive "does it parse as a number" would suggest.
+7. **`IsNumeric(True) = True` and `IsNumeric(Empty) = True`, but `IsNumeric(<Date>) = False`** — Booleans/Empty
+   are numeric; Dates are not.
+8. **`Abs` preserves the operand type** (`Abs(-4) → Integer`), and **`Int` floors while `Fix` truncates**
+   (`Int(-2.5) = -3`, `Fix(-2.5) = -2`) — they diverge only for negatives.
+9. **A bare number is not a date to `IsDate`** (`IsDate(40000) = False`) even though `CDate(40000)` converts.
+10. **`DateDiff` counts interval boundaries crossed, not the floored difference** (`DateDiff("h", 8:30, 9:15) = 1`,
+    not `0`) — a naive "difference in units, truncated" would be wrong. And **`DateAdd` clamps month-ends**
+    (`Jan 31 + 1 month = Feb 29`, not Mar 2).
+11. **`For Each` over a multi-dimensional array is column-major — the FIRST subscript varies FASTEST.** A
+    `(1..2, 1..3)` array yields `11,21,12,22,13,23`, i.e. `(1,1),(2,1),(1,2),(2,2),(1,3),(2,3)`. The
+    interpreter-core spec's own note said "row-major, first subscript slowest" — **the oracle corrected the
+    spec.** A naive nested flatten (row-major) would have shipped the wrong order.
+12. **VB6's parser tolerates absurd expression nesting** — `/make` compiles **4096** nested parentheses
+    (`x = (((…1…)))`) with no error (probed at 64→4096, all succeed); its parser is effectively unbounded here.
+    HexIDE's recursive-descent parser overflows the C# stack near ~600, so it **cannot** match this — it installs a
+    `ParseDepthGuard` (rule-depth 300, ~6× above any real code's ~50) that rejects deeper nesting as a clean
+    "nesting too deep" compile error instead of an uncatchable crash. A **deliberate, documented divergence** on
+    degenerate input (see `docs/interpreter-gaps.md`); no real VB6 program approaches it.
+
+---
+
+## `Class_Terminate` lifecycle (interpreter-advanced Phase 4.2)
+
+Verified with a `Thing` class logging `Class_Initialize`/`Class_Terminate` to a file (via a module `Log` sub),
+driven through `Set`/scope-exit/escape scenarios. **VB6 `Class_Terminate` is true last-reference-drop
+(reference-counted)** — it fires exactly when the final reference to an instance goes away, never before:
+
+| Scenario | `vb6.exe` result |
+|---|---|
+| `Set x = New T` then `Set x = Nothing` (sole owner) | `Terminate` fires **synchronously** at the `Set … = Nothing` statement |
+| `Set y = New T` when `y` already holds an object | the **new** instance's `Initialize` fires **before** the old instance's `Terminate`; the old terminates at the reassignment (its last ref dropped) |
+| Two+ locals holding objects, at `End Sub`/`End Function` | terminate in **declaration order** (`Dim a,b,c` → `Term a`, `Term b`, `Term c` — *not* reverse/LIFO; declaration order == assignment order in the probe) |
+| Function returns a local object (`Set F = t`) | the local does **NOT** terminate at the function's scope exit — the return value holds a reference; it terminates when the **receiver** is later cleared |
+| Local stored into a module-global (factory: `Set gThing = t`) | the local does **NOT** terminate at scope exit — the module global holds it; terminates when the global is cleared |
+| Shared local (`Set b = a`) then `Set a = Nothing` | `Terminate` does **NOT** fire — `b` still references it; it fires when the **last** holder drops (here, `b` at `End Sub`) |
+| `Set gLast = Nothing` (drops the last *external* ref) **inside a running method** | `Terminate` fires **only after the method returns**, not mid-method — a running method's **`Me` is a counted reference** |
+| `New T` passed straight into a call (`Consume New T`), never stored — **`ByVal` and `ByRef`** | the temporary terminates **right after the call statement returns** — the temporary is a counted reference for the statement's duration |
+| `With New T … End With` | terminates at **`End With`** — the `With` target is a counted reference for the block |
+
+Every one of these is exactly what **reference counting** predicts (a reference is counted wherever it is held —
+named storage, a call parameter, `Me` during a call, a `With` target, a statement temporary — and `Terminate`
+fires when the count reaches zero). Phase 4.2 therefore implements **real slot-based reference counting** (runtime
+execution machinery — in bounds; the walls are CST-only / no-compile-stage / no-extended-language-surface, none of which
+refcounting touches), **not** a best-effort scan. Cycles leak (never reach zero) — faithful to VB6. The only
+documented divergence is interface-pointer-granularity temporaries beyond call arguments (rare).
+
+**Design consequence (recorded for Phase 4.2):** a best-effort scheme that fires `Terminate` on *every*
+`Set … = Nothing` or scope-exit **without** tracking whether another reference survives would **wrongly**
+terminate live objects in the return-escape, module-var-factory, and shared-ref cases — all common patterns, and
+a false-fire (running `Terminate` then continuing to use the object) is worse than not firing. Faithful behaviour
+needs the last-reference test — either a persistent refcount or a point-in-time reference scan. (Cycles leak in
+VB6 too — never collecting them is itself faithful.)
+
+## Custom events — `Event` / `RaiseEvent` / `WithEvents` (interpreter-advanced Phase 5)
+
+Verified with a `Clock` source class (declares `Event Tick(ByRef Cancel As Boolean)` + `Event Plain()`, raises
+them from `DoTick`/`DoPlain`) and a `Listener` class (`Private WithEvents src As Clock`, `src_Tick` handler, an
+`Attach`/`Detach` to `Set src`), driven from `Sub Main`.
+
+| Behaviour | `vb6.exe` result |
+|---|---|
+| `WithEvents` in a **standard `.bas`** module | **compile error: "Only valid in object module"** — `WithEvents` (and the event-sink pattern) is **class/form-only**. The sink is therefore always a class **instance**; the handler `{var}_{event}` is a method of that instance and runs **on it** (with `Me` = the listener instance). |
+| `RaiseEvent` with **no sink** bound (`WithEvents` var is `Nothing`) | **silent no-op** — the raiser's pre/post lines bracket nothing; a `ByRef Cancel` stays unchanged. |
+| `RaiseEvent` of an event with **no matching `{var}_{event}` handler** | **silent no-op** (handlers are optional; e.g. `Plain` with no `src_Plain`). |
+| handler present | runs **synchronously between** the raiser's surrounding statements (blocking); a **`ByRef Cancel` written by the handler is seen by the raiser** after `RaiseEvent` returns. |
+| **Multiple** `WithEvents` vars bound to one source (multicast) | **ALL fire, in *attachment* order** (first-`Set` fires first). The event's `ByRef` args are **shared across handlers** — a later handler sees an earlier one's write-back (e.g. `Cancel` left `True` by the first handler is `True` when the second runs, and to the raiser). |
+| `Set src = Nothing` | unbinds **that** sink only — other sinks on the same source still fire. |
+| Rebind `Set src = otherSource` | the sink **moves** — raising on the *old* source no longer reaches this handler; raising on the *new* source does. |
+| Advised listener whose **own** references drop (source stays alive elsewhere) | the listener **terminates** at scope-exit — a source does **NOT** hold a strong back-reference to its listeners, so there is **no leaked cycle**. VB6 then auto-unadvises, so a later raise on the still-alive source does **not** reach the (now-dead) handler. *(Overturned the initial "strong back-ref → leak" guess — the oracle says the opposite.)* |
+| `RaiseEvent Foo(SideEffect())` with **no listener** bound | the **argument expressions are still evaluated** (a side-effecting arg runs — a counter incremented to 1) — then dispatch is a no-op. VB6 evaluates `RaiseEvent` args regardless of whether any connection is advised. |
+| `Set src = Nothing` where the old source raises an event in its **own `Class_Terminate`** (source held only by that `WithEvents` field) | VB6 **unadvises before releasing** — the detaching listener is disconnected first, so the source's `Class_Terminate`-time `RaiseEvent` does **not** reach it. (Unadvise-then-release ordering.) |
+
+**`Set` slot ordering — assign the new reference BEFORE releasing the old.** Probed with a `CThing` whose
+`Class_Terminate` reports what the global `g` points to across `Set g = New CThing` (twice) then `Set g = Nothing`:
+result **`0;N;`**. So during the reassign, the release-triggered `Class_Terminate` of the *old* instance already sees
+`g` pointing at the *new* instance (whose `Id` is still 0), and the final `Set g = Nothing`'s terminate sees `g` as
+Nothing. Consequence for the interpreter: `Set` must write the slot/field/element **then** `ReleaseRef` the old
+occupant (not the reverse) — otherwise a terminate reads the dying object, and a reassignment made inside that
+terminate is clobbered by a late slot-write. (In the current interpreter this is defense-in-depth: a `Class_Terminate`
+can't yet read an outer-scope slot, so the scenario isn't reachable — but the ordering is now correct.)
+
+**Design consequence:** VB6 events are **multicast** with deterministic attach-order dispatch and shared ByRef
+args. A "single-sink" MVP would visibly diverge whenever ≥2 listeners bind one source (only one would fire). The
+sink is a **(listener-instance, WithEvents-var-name)** pair; a source keeps the set of currently-bound sinks and
+dispatches to `{varName}_{eventName}` on each listener instance, synchronously, in attach order, passing the same
+(ByRef-aliased) args to each.
+
+## `End` fires no `Class_Terminate` (interpreter-debugger reset)
+
+Verified: a module-level object held live, then `End` — the class's `Class_Terminate` does **not** run (output is
+`BEFORE-END` only; no `TERMINATE-FIRED`). VB6 `End` terminates abruptly and invokes **no** `Terminate` (nor
+`Unload`/`QueryUnload`). So the debugger's reset ("Stop") must unwind the walk **without** firing `Class_Terminate`
+— the interpreter suppresses it via an aborting-guard on `FireTerminate` while `IDebugController.IsAborting` is set.
+
+## Relational comparison + `ChDir`/`ChDrive` (2026-08-03 gap-audit fixes)
+
+**String relational comparison** (`< <= > >=`), verified against `vb6.exe`:
+
+| Case | Result | Rule |
+|---|---|---|
+| `"a" < "b"` | True | ordinal |
+| `"B" < "a"` | **True** | **Binary/ordinal** ('B'=66 < 'a'=97) — VB6 default `Option Compare Binary`, *not* case-insensitive |
+| `"10" < "9"` | **True** | **string** compare ('1' < '9') — *not* numeric (numeric would be False) |
+| `"" < "a"` | True | empty string is least |
+| `5 < "10"` | True | **string-vs-number → NUMERIC** (numeric string coerces): 5 < 10 |
+| `"10" < 5` | False | numeric: 10 < 5 |
+| `"abc" < 5` | **Err 13** | non-numeric string vs number → Type Mismatch |
+
+Two strings → ordinal `String.Compare(..., Ordinal)`. **Landed:** the both-string case (interpreter previously
+threw / mis-parsed numeric-looking strings numerically). **Still a gap:** string-vs-*number* comparison — the
+interpreter throws Type Mismatch (its `GetTwoValuesSameTypes` rejects any type mismatch) where VB6 coerces a
+numeric string and compares numerically. (`Option Compare Text` = case-insensitive is a separate wall.)
+
+**`ChDir` / `ChDrive`** (the args coerce to String; oracle-verified):
+
+| Statement | Result |
+|---|---|
+| `ChDir "<valid path>"` | ok |
+| `ChDir "<bad path>"` / `ChDir 5` (→ `"5"`) / `ChDir ""` | **Path Not Found (76)** — all failures, incl. a coerced number |
+| `ChDrive "C"` | ok |
+| `ChDrive "Q"` (valid letter, no such drive) | **Device Unavailable (68)** |
+| `ChDrive 5` (→ `"5"`, non-letter first char) | **Invalid Procedure Call (5)** |
+| `ChDrive ""` | no-op (Err 0) |
+
+(These were fully broken before — the string-unpack helper had no `String` branch, so both always threw. The
+audit's "applies the side-effect then throws" description was inaccurate.)
+
+## Control arrays (2026-08-10)
+
+Verified against `vb6.exe` with a real form-based probe (`/make` an EXE, run it, `Form_Load` writes results to a
+log under `On Error Resume Next`). Form has a 2-element `CommandButton` array `Command1(0)`, `Command1(1)`.
+
+| Probe | Result | Rule |
+|---|---|---|
+| `Command1.Count` | `2` | the array-name is a members-bearing object; `.Count` = element count |
+| `Command1.LBound` | `0` | lowest index present |
+| `Command1.UBound` | `1` | highest index present (`Count = UBound − LBound + 1`) |
+| `Command1(0).Index` | `0` | each element knows its own `Index` (read-only at runtime) |
+| `Command1(1).Caption` | `"B"` | indexed element property read |
+| `Command1(9).Caption` (read) | **Err 340** | **Control array element doesn't exist** — a missing element |
+| `Command1(9).Caption = "x"` (write) | **Err 340** | same on the write side |
+| `TypeName(Command1(0))` | `"CommandButton"` | an element's type is the control type, not "Object" |
+
+Compile facts (from `/make` succeeding): `.Count`/`.LBound`/`.UBound`/`(i).Index` all **compile** — the array
+name is a first-class object with those members. Not probed (textbook VB6, will pin via the interpreter's own live
+test): the shared event handler is `Private Sub Command1_Click(Index As Integer)` and the fired element's `Index`
+is passed as that leading argument. Harness + files were under a scratch dir (never committed).
+
+**Runtime `Load` / `Unload`** (second form probe, same method) — the array starts with design-time elements 0, 1:
+
+| Probe | Result | Rule |
+|---|---|---|
+| `Load Command1(5)` (new index) | `Err 0`, `Count`→3 | creates a new element |
+| loaded `Command1(5).Caption` | `"A"` | clones the **lowest-index** element's properties (index 0 = "A") |
+| loaded `Command1(5).Visible` | **`False`** | a loaded element starts **hidden** — you must set `.Visible = True` to show it |
+| loaded `Command1(5).Left` | `240` | inherits position from the template (overlaps index 0 until moved) |
+| loaded `Command1(5).Index` | `5` | its own index |
+| `Load Command1(0)` (existing) | **`Err 360`** | Object already loaded |
+| `Unload Command1(5)` (loaded) | `Err 0`, `Count`→2 | removes the loaded element |
+| `Unload Command1(0)` (design-time) | **`Err 362`** | Can't unload controls created at design time |
+| `Unload Command1(9)` (missing) | **`Err 340`** | Control array element doesn't exist |
+
+So `Load` = clone the lowest-index element's props but force `Visible=False`; the three failure modes are distinct
+codes (360 already-loaded, 362 can't-unload-design-time, 340 missing).
+
+## Extending the oracle (future phases)
+
+Phase 3 (intrinsics) and beyond should verify, at minimum:
+- Conversions: `CInt`/`CLng`/`CByte`/`CCur`/`CDec`/`CDbl`/`CSng`/`CDate` — rounding, ranges, overflow codes.
+- `Rnd`/`Randomize` — the exact 24-bit LCG seed + first outputs (pin constants only after oracle confirmation).
+- `Format`/`Format$` — the date/number/currency mask mini-language.
+- Date library: `DateAdd`/`DateDiff`/`DatePart`/`Year`/`Month`/`Weekday`/`Now`, and how they treat the epoch.
+- String funcs edge cases (`InStr` start arg, `Mid` boundaries, `Val` parsing).
+
+Reuse the `On Error Resume Next` + `TypeName` harness above; keep the probe `.bas`/`.vbp` under a scratch dir,
+never in the tree.
+
+---
+
+## Serialization / file-format fidelity (2026-08-11)
+
+First use of the oracle for **file format** rather than runtime semantics. Method: author a minimal Standard
+EXE, vary one aspect of the `.frm`, and run `VB6.EXE /make` headless. A `/make` must load and parse the form
+to build its resource, so a load failure is a compile failure — this exercises VB6's real form parser without
+driving the IDE. Harness at `scratchpad/oracle-q1` (see the recipe above: absolute paths, `CreateNoWindow`).
+
+Every result below is from a real `/make` run, not inference.
+
+| # | Question | Result | Consequence |
+|---|---|---|---|
+| Q1a | Is the **trailing space** after `Begin VB.Form Form1 ` required on load? | **No** — compiles without it | HexIDE omitting it is COSMETIC, not blocking |
+| Q1b | Is the **property-name column padding** (`Caption         =`) required? | **No** — compiles unpadded | COSMETIC |
+| Q1c | Both deviations together (HexIDE's actual output shape) | **Compiles** | Confirms the two are independent and neither is load-bearing |
+| Q5 | Does VB6 accept a **fractional** `ClientWidth`/`ScaleWidth` (`6683.999999999999`)? | **Yes** — compiles | HexIDE's float noise is value drift, not a load failure |
+| Q2a | Nested menus with `Shortcut` on a child (VB6's own shape) | **Compiles** | Control |
+| Q2b | **Flattened** menus, no shortcut | **Compiles** | Flattening alone destroys structure but still loads |
+| Q2c | **Flattened** menus **with** a shortcut | **FAILS TO LOAD** | See below |
+
+### Q2c is the important one
+
+```
+Line 16: Cannot set shortcut property in menu mnuFileNew. Parent menu cannot have a shortcut key.
+```
+
+VB6 treats a top-level `Begin VB.Menu` as a *parent menu* and **rejects** a `Shortcut` on it. HexIDE flattens
+nested `Begin` blocks on save, which promotes every child menu item to top level — so any form whose menus
+carry shortcuts is written out in a state **VB6 refuses to open**.
+
+This is not a corner case. Of the six menu templates VB6 ships, `File Menu.frm` (4 shortcuts) and
+`Edit Menu.frm` (5) use them — the two menus essentially every VB6 application has. `Ctrl+N`/`Ctrl+O`/`Ctrl+S`
+on a File menu is the canonical VB6 idiom.
+
+**Severity: the menu-flattening defect is BLOCKING, not CORRUPTING** — it produces files the oracle cannot
+load. Recorded against the round-trip epic.
+
+### Still unanswered
+
+Q3 (invented outer rect on a `.ctl` root), Q4 (which rect VB6 honours), Q6 (`Startup=` without quotes),
+Q9–Q10 (`.frx` record layouts), Q11 (`VERSION 4.00` upgrade), Q13–Q16. These need the interactive IDE or a
+hex dump rather than a `/make`, so they are a separate session.
+
+### `.frx` blob encoding is deterministic (2026-08-11)
+
+Byte-identical `.frx` round-trip is **achievable**, not a fool's errand — worth recording because the
+opposite is a plausible-sounding assumption drawn from a real neighbouring case.
+
+Four VB6-shipped forms in four separate projects (`COPY`, `DSKSPACE`, `PATH`, `SERVERDT`) produced companion
+files that are **byte-identical** (SHA-256 `2248962480f2260f…`, 1090 bytes each). The same icon encoded the
+same way across four independent saves. The record header carries nothing session- or machine-dependent:
+
+```
+06 03 00 00  6c 74 00 00  fe 02 00 00  00 00 01 00  01 00 20 20 …
+└ length ─┘  └ type tag ┘  └ size ────┘  └ raw .ico header ─────┘
+```
+
+No timestamp, no checksum, no GUID.
+
+**The Access precedent does not transfer.** MS Access under VSS famously showed diffs on untouched forms
+every commit — but the cause was specific to Access: `SaveAsText` embedded `PrtDevMode`/`PrtDevNames`
+(printer device settings snapshotted from the current default printer) plus a `Checksum` line. VB6 forms
+have neither.
+
+**Limit of this evidence:** it shows the *encoder* is deterministic for a given image. It does not prove
+that re-saving an unchanged form in the VB6 IDE reproduces byte-identical output — VB6 could still reorder
+blobs. That needs the interactive IDE and remains open.
+
+**Consequence for HexIDE:** none immediately, because blob *pass-through* (keep the original bytes at the
+original offsets) sidesteps encoding entirely. Matching VB6's encoder only becomes necessary if the designer
+ever lets a user edit an image — the comprehension problem, deliberately deferred.
+
+#### Qualification: that determinism finding covers INTRINSIC controls only
+
+The four byte-identical files above are a form `Icon` and a `PictureBox.Picture` — blobs VB6 encodes itself.
+It does **not** follow that every `.frx` is stable, because VB6 does not author all of a `.frx`.
+
+An OCX persists through the COM interfaces (`IPersistStream` / `IPersistPropertyBag`) and writes its own
+assets into the container's stream. `Template\Forms\Web Browser.frm:126` shows the shape — an ImageList
+persisting nested property bags that cite the companion:
+
+```
+BeginProperty Images {2C247F25-8591-11D1-B16A-00C0F0283628}
+   BeginProperty ListImage1 {2C247F27-8591-11D1-B16A-00C0F0283628}
+      Picture         =   "Web Browser.frx":0000
+```
+
+Those bytes come from third-party control code, not from VB6. Whether they are stable across saves depends
+on each control's implementation — one that serialises an internal buffer, re-renders a bitmap, or iterates
+an unordered collection would churn while nothing meaningful changed. Reported from practice (MS Access
+under VSS showed exactly this pattern; the Access-specific `PrtDevMode`/`Checksum` cause recorded above is a
+*different* mechanism that happens to produce the same symptom). **Untested here** — a single corpus snapshot
+cannot show churn.
+
+**The permanent consequence for HexIDE, which is a boundary and not a backlog item:** HexIDE does not host
+ActiveX controls, and only a control can serialise itself. HexIDE therefore can *never* correctly regenerate
+OCX-persisted bytes, at any level of effort. For that data, blob **pass-through — preserve the original
+bytes at their original offsets, never re-encode — is the only correct strategy that will ever exist**, not
+a pragmatic shortcut.
+
+This splits the binary layer cleanly:
+
+| Blob source | Relationship |
+|---|---|
+| Intrinsic VB controls (`Picture`, `Icon`, `DragIcon`, `MouseIcon`) | HexIDE can own it; encoder verified deterministic |
+| OCX property bags | Opaque bytes, permanently. Preserve, never regenerate. |
+
+Corollary: byte-identity is the wrong assertion for an OCX-hosted form, and a read-only gate is the wrong
+instinct — with pass-through such a form round-trips *perfectly*, precisely because nothing looks inside.
+
+#### Correction (same day): "never host ActiveX" was wrong, and so was the target
+
+Two errors in the entry above, both corrected here rather than edited away.
+
+**1. OCX hosting is in scope.** `CLAUDE.md:170` and `docs/OUT_OF_SCOPE.md:5` are explicit: COM/OLE is *not*
+excluded, it is Windows-gated and foundational to real-world VB6. What is excluded is ActiveX **Documents**
+(`.dob`) and ActiveX **Designers** (plug-ins needing Win32 subclassing) — not hosting an OCX on a form.
+So "HexIDE can never regenerate OCX-persisted bytes" is false as a permanent claim.
+
+It also conflated two separable concerns. **Rendering** an OCX needs the control and is Windows-gated;
+**storing** its persisted bytes is a byte format and needs nothing but the format. The persistence contract
+(`IPersistStream`, `IPersistStreamInit`, `IPersistPropertyBag`) is documented in the VBA SDK. Reading and
+writing those records is therefore knowable without hosting anything, on any platform.
+
+*(Licence note if the SDK is used: the same clean-room rule as the VBA-Docs repo — facts, APIs and
+semantics are not copyrightable, so learn-then-implement is fine; do not copy prose or code samples. Verify
+the SDK's own licence terms before relying on it.)*
+
+**2. The target is validity, not byte-identity.** VB6 developers using source control already treat `.frx`
+churn as noise and ignore it — a control writing its own state through the COM persistence interfaces has
+no obligation to emit identical bytes twice, and in practice does not. So **byte-identical `.frx`
+round-trip is not a fidelity requirement and should not be asserted anywhere.**
+
+The requirement is that the file stays **valid**: it loads, every offset the `.frm` cites resolves to a
+record, and each control gets back data it can consume.
+
+**Consequences:**
+
+- The corpus harness's byte comparison of companion binaries is the **wrong assertion** — for every `.frx`,
+  not merely OCX-hosted ones. The right invariant is the citation-resolution gate
+  (`Every_companion_offset_cited_by_a_form_resolves_to_a_blob`) plus "the record a given citation resolves
+  to is unchanged". Whole-file byte-identity should be dropped.
+- Blob **pass-through** remains the recommended first step, but as the cheapest route to validity — not,
+  as previously stated, the only strategy that could ever exist.
+- Regenerating records is legitimate once the layouts are known, which is a documentation problem rather
+  than a hosting problem.
+
+#### Correction to Q2c: separators are fatal too, independently of shortcuts
+
+The Q2 isolation above concluded "flattening alone still loads; flattening **with** a shortcut fails". That
+generalised from a hand-built two-item fixture with no separator, and it is wrong.
+
+The corpus-wide build gate (`Vb6OracleRoundTripTests`) shows menu flattening breaks VB6 for **two
+independent reasons**:
+
+```
+Line 20: Cannot set shortcut property in menu mnuEditUndo. Parent menu cannot have a shortcut key.
+Line 25: Parent menu mnuFileBar1 cannot be loaded as a separator.
+```
+
+A separator (`Caption = "-"`) promoted to top level is rejected exactly as a shortcut is. Three of the five
+broken corpus forms — `Explorer File Menu`, `Help Menu`, `View Menu` — carry **zero** shortcuts and fail
+purely on separators.
+
+So the affected set is not "menus with shortcuts" but "menus with shortcuts **or** separators", i.e.
+essentially every real menu. Recorded against #22.
+
+**Method note worth keeping:** the hand-built experiment was decisive about the mechanism and wrong about
+the scope, because a fixture only exercises what its author thought to include. The corpus gate found the
+second cause on its first run. Prefer running the corpus over reasoning from a minimal repro when the
+question is *how much* rather than *why*.

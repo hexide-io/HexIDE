@@ -138,10 +138,14 @@ public class NewProjectViewModelTests
     [Fact]
     public void RecentProjects_ShouldBePopulatedFromService()
     {
+        // Build with Path.Combine, not a literal "C:\...". On Linux CI a backslash is an ordinary
+        // filename character, so Path.GetFileName returns the whole string and FileName never
+        // narrows to "Project1.vbp" — the test passes on Windows and fails on CI.
+        var dir = Path.Combine(Path.GetTempPath(), "Projects");
         _recentProjects.GetRecent().Returns(new List<string>
         {
-            @"C:\Projects\Project1.vbp",
-            @"C:\Projects\Project2.vbp"
+            Path.Combine(dir, "Project1.vbp"),
+            Path.Combine(dir, "Project2.vbp")
         });
 
         var sut = CreateSut();

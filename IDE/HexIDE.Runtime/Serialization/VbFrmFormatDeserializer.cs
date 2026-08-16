@@ -13,12 +13,35 @@ public class VbFrmFormatDeserializer
     private readonly StringBuilder _codeBuilder = new StringBuilder();
     private bool parsingCode = false;
 
-    // Tracks the BeginProperty block currently being accumulated
-    private string? _currentBlockPropertyName;
-    private List<string>? _currentBlockLines;
-    private Dictionary<string, object>? nestedField;
+    /// <summary>
+    /// The open <c>BeginProperty</c> blocks, innermost last. A stack rather than three scalar fields
+    /// because these nest: an ImageList persists <c>BeginProperty Images</c> containing a
+    /// <c>BeginProperty ListImage1</c> per image. With scalars, the inner <c>EndProperty</c> cleared the
+    /// shared state and the outer one dereferenced null, so every form hosting a control that uses a
+    /// property bag failed to load.
+    /// </summary>
+    private sealed record OpenBlock(string PropertyName, List<string> Lines, Dictionary<string, object> Fields);
+
+    private readonly Stack<OpenBlock> _openBlocks = new();
 
     public string Code => _codeBuilder.ToString();
+
+    /// <summary>
+    /// Lines between the VERSION line and the root <c>Begin</c>, kept verbatim. Almost always OCX
+    /// <c>Object =</c> declarations.
+    /// </summary>
+    public List<string> HeaderLines { get; } = new();
+
+    /// <summary>
+    /// Deepest <c>Begin</c> nesting seen: 1 is the root alone, 2 is the root plus direct children, 3+ means
+    /// a container holding controls or a menu holding items.
+    ///
+    /// This is the signal that a save cannot be faithful. <c>FormDefinition.Components</c> is flat by
+    /// construction and <c>ComponentInstance</c> has no parent, so anything past depth 2 is re-parented to
+    /// the root on save — which destroys menu hierarchy outright and leaves a Frame's children carrying
+    /// frame-relative coordinates against the form.
+    /// </summary>
+    public int MaxBeginDepth { get; private set; }
 
     public (VBSerializedComponent, string) Deserialize(string input)
     {
@@ -41,9 +64,19 @@ public class VbFrmFormatDeserializer
                 {
                     continue;
                 }
+                // Anything before the root Begin is a file header — in practice the OCX declarations a
+                // form needs: Object = "{831FDD16-...}#2.0#0"; "mscomctl.ocx". These contain '=', so
+                // without this they fell through to the scalar-property branch and Peek()'d an empty
+                // stack, throwing "Stack empty" and taking out every form hosting an ActiveX control.
+                // Captured verbatim and re-emitted on save: HexIDE cannot host the control, but it must
+                // not corrupt the declaration of one. The .vbp side already works this way.
+                else if (componentStack.Count == 0 && rootComponent == null && !line.StartsWith("Begin"))
+                {
+                    HeaderLines.Add(rawLine);
+                    continue;
+                }
                 else if (line.StartsWith("BeginProperty"))
                 {
-                    nestedField = new();
                     var spaceIdx = line.IndexOf(' ');
                     var property = spaceIdx >= 0 && spaceIdx < line.Length - 1
                         ? line[(spaceIdx + 1)..].Trim()
@@ -52,29 +85,45 @@ public class VbFrmFormatDeserializer
                     var braceIdx = property.IndexOf('{');
                     if (braceIdx > 0)
                         property = property[..braceIdx].TrimEnd();
-                    _currentBlockPropertyName = property;
-                    _currentBlockLines = new List<string> { rawLine };
-                    componentStack.Peek().Properties[property] = nestedField;
+
+                    var block = new OpenBlock(property, new List<string> { rawLine }, new Dictionary<string, object>());
+
+                    // Nest into the enclosing bag when there is one, so an inner block does not overwrite
+                    // its parent's entry on the component.
+                    if (_openBlocks.Count > 0)
+                        _openBlocks.Peek().Fields[property] = block.Fields;
+                    else
+                        componentStack.Peek().Properties[property] = block.Fields;
+
+                    _openBlocks.Push(block);
                 }
                 else if (line.StartsWith("EndProperty"))
                 {
-                    _currentBlockLines!.Add(rawLine);
-                    componentStack.Peek().OrderedRawProperties.Add((_currentBlockPropertyName!, _currentBlockLines));
-                    nestedField = null;
-                    _currentBlockPropertyName = null;
-                    _currentBlockLines = null;
+                    if (_openBlocks.Count == 0)
+                        continue; // unbalanced EndProperty — malformed input, not worth throwing over
+
+                    var block = _openBlocks.Pop();
+                    block.Lines.Add(rawLine);
+
+                    // Verbatim text belongs to the enclosing block if there is one, so the parent's
+                    // round-trip capture includes its children.
+                    if (_openBlocks.Count > 0)
+                        _openBlocks.Peek().Lines.AddRange(block.Lines);
+                    else
+                        componentStack.Peek().OrderedRawProperties.Add((block.PropertyName, block.Lines));
                 }
-                else if (nestedField != null)
+                else if (_openBlocks.Count > 0)
                 {
-                    // Inside a BeginProperty block — accumulate raw line and parse into the nested dict
-                    _currentBlockLines!.Add(rawLine);
+                    // Inside a BeginProperty block — accumulate raw line and parse into the innermost bag
+                    var current = _openBlocks.Peek();
+                    current.Lines.Add(rawLine);
                     var parts = line.Split(['='], 2);
                     if (parts.Length == 2)
                     {
                         var k = parts[0].Trim();
                         var v = parts[1].Trim();
                         if (!string.IsNullOrEmpty(k) && !string.IsNullOrEmpty(v))
-                            nestedField[k] = ParseValue(v);
+                            current.Fields[k] = ParseValue(v);
                     }
                 }
                 else if (line.StartsWith("Begin"))
@@ -85,6 +134,8 @@ public class VbFrmFormatDeserializer
                     else
                         componentStack.Peek().SubComponents.Add(component);
                     componentStack.Push(component);
+                    if (componentStack.Count > MaxBeginDepth)
+                        MaxBeginDepth = componentStack.Count;
                 }
                 else if (line.StartsWith("End"))
                 {

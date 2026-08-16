@@ -35,6 +35,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
     private readonly ISettingsService settingsService;
     private readonly IStatusBarService statusBarService;
     private readonly IBookmarkService bookmarkService;
+    private readonly HexIDE.Debugging.IBreakpointService breakpointService;
+    private readonly HexIDE.Runtime.Debugging.IDebugController debugController;
     private readonly ILocalizationService localization;
     protected override string ComputeTitle()
     {
@@ -62,8 +64,44 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
     public ISettingsService Settings => settingsService;
     public IStatusBarService StatusBar => statusBarService;
     public IBookmarkService BookmarkService => bookmarkService;
+    public HexIDE.Debugging.IBreakpointService BreakpointService => breakpointService;
+    public HexIDE.Runtime.Debugging.IDebugController DebugController => debugController;
+
+    /// <summary>True while the project is running OR paused in the debugger — the window in which a code edit
+    /// triggers the VB6 "reset your project?" prompt (the interpreter can't hot-patch a running program). Read off
+    /// the debug controller (active between its run-start Reset and its run-end Stop) rather than
+    /// IProjectRunnerService, which would close a DI cycle via the editor factory.</summary>
+    public bool IsProjectRunning => debugController.IsSessionActive;
+
+    /// <summary>VB6-faithful Edit-and-Continue affordance: the interpreter can't apply an edit to a running program
+    /// live, so editing while running/paused pops VB6's own reset prompt. Yes → request a project reset (the edit
+    /// then stands); No → the edit is left cancelled and the run continues. Returns true if a reset was requested.
+    /// The reset goes through the event bus (ProjectRunnerService handles EndProjectRequestedEvent) to avoid a
+    /// direct dependency on the runner, which would cycle.</summary>
+    public async Task<bool> ConfirmResetWhileRunningAsync()
+    {
+        var result = await windowManager.MessageBox(
+            localization.GetString("Str.ProjectRunner.EditWhileRunningConfirm"),
+            buttons: MessageBoxButtons.YesNo, icon: MessageBoxIcon.Warning);
+        if (result != MessageBoxResult.Yes)
+            return false;
+        eventBus.Publish(new EndProjectRequestedEvent());
+        return true;
+    }
     public FormDefinition? FormDefinition => formDefinition;
     public ModuleDefinition? ModuleDefinition => moduleDefinition;
+
+    /// <summary>
+    /// True when the underlying file cannot be written back faithfully, so a code edit would be discarded
+    /// at save time.
+    ///
+    /// This covers a form's *code*, not just its layout: the code lives inside the .frm, so refusing to
+    /// save the form discards code edits too. Gating only the designer would leave the more likely loss
+    /// — someone typing a procedure — completely unprotected.
+    /// </summary>
+    public bool IsReadOnly => formDefinition is { CanSaveFaithfully: false };
+
+    public string? ReadOnlyReason => formDefinition?.UnfaithfulSaveReason;
 
     public ObservableCollection<string> ObjectNames    { get; } = new();
     public ObservableCollection<string> ProcedureNames { get; } = new();
@@ -86,6 +124,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
         ISettingsService settingsService,
         IStatusBarService statusBarService,
         IBookmarkService bookmarkService,
+        HexIDE.Debugging.IBreakpointService breakpointService,
+        HexIDE.Runtime.Debugging.IDebugController debugController,
         ILocalizationService localization)
     {
         this.windowManager = windowManager;
@@ -95,11 +135,17 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
         this.lspClient = lspClient;
         this.settingsService = settingsService;
         this.bookmarkService = bookmarkService;
+        this.breakpointService = breakpointService;
+        this.debugController = debugController;
         this.statusBarService = statusBarService;
         this.localization = localization;
 
-        // Refresh the tab title (its "(Code)" suffix is localized) when the language changes.
-        localization.LanguageChanged += () => Title = ComputeTitle();
+        // Refresh the tab title (its "(Code)" suffix is localized) when the language changes. Unsubscribe on Dispose
+        // (tab close) — a raw `+=` kept every closed code-editor VM (each holding a full document buffer) reachable
+        // from the singleton localization service, so none were collected and a language switch replayed on all of them.
+        Action onLanguageChanged = () => Title = ComputeTitle();
+        localization.LanguageChanged += onLanguageChanged;
+        AutoDispose(new ActionDisposable(() => localization.LanguageChanged -= onLanguageChanged));
 
         lspClient.DiagnosticsPublished += OnDiagnosticsPublished;
 

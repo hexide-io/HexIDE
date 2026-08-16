@@ -1,0 +1,38 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:callstack="clr-namespace:HexIDE.Tools"
+             mc:Ignorable="d" d:DesignWidth="400" d:DesignHeight="300"
+             x:DataType="callstack:CallStackToolViewModel"
+             x:Class="HexIDE.Tools.CallStackToolView">
+    <!-- Row 0: a column-header strip. The Line column is docked right at a fixed width (header + every row) so
+         it lines up regardless of the frame text. Deepest/current activation is first (marked with an arrow). -->
+    <Grid RowDefinitions="Auto,*">
+        <DockPanel Background="{DynamicResource DockTitleBarBrush}">
+            <TextBlock DockPanel.Dock="Right" Width="70" Padding="4,2"
+                       FontWeight="Bold" Text="{DynamicResource Str.Tool.CallStack.Column.Line}" />
+            <TextBlock Padding="4,2" FontWeight="Bold"
+                       Text="{DynamicResource Str.Tool.CallStack.Column.Frame}" />
+        </DockPanel>
+
+        <ListBox Grid.Row="1" ItemsSource="{CompiledBinding Frames}">
+            <ListBox.Styles>
+                <Style Selector="ListBoxItem">
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                </Style>
+            </ListBox.Styles>
+            <ListBox.ItemTemplate>
+                <DataTemplate x:DataType="callstack:CallStackRow">
+                    <DockPanel>
+                        <TextBlock DockPanel.Dock="Right" Width="70" Padding="4,0"
+                                   TextAlignment="Right" Text="{CompiledBinding Line}" />
+                        <TextBlock Padding="4,0" TextTrimming="CharacterEllipsis"
+                                   Text="{CompiledBinding Frame}" />
+                    </DockPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
+</UserControl>

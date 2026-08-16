@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 using HexIDE.VbLspServer;
 
 namespace HexIDE.VbLspServer.Tests;
@@ -36,6 +37,17 @@ public class VbFormatterTests
         var result = VbFormatter.Format(input);
         result.Should().Be(
             "Sub Test()\n    If True Then\n        x = 1\n    Else\n        x = 2\n    End If\nEnd Sub");
+    }
+
+    // Bug-hunt MED: ElseIf was matched as BOTH a mid-block line and an If opener, adding a second indent level, so
+    // the ElseIf body was 8-indented (not 4) and End If pulled in with it. Each ElseIf compounded it.
+    [Fact]
+    public void Format_HandlesElseIf()
+    {
+        var input = "Sub Test()\nIf True Then\nx = 1\nElseIf False Then\nx = 2\nEnd If\nEnd Sub";
+        var result = VbFormatter.Format(input);
+        result.Should().Be(
+            "Sub Test()\n    If True Then\n        x = 1\n    ElseIf False Then\n        x = 2\n    End If\nEnd Sub");
     }
 
     [Fact]

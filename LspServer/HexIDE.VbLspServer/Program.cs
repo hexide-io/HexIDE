@@ -1,24 +1,22 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: MIT
 // Copyright (C) 2026 The HexIDE Authors
-// HexIDE VB6 Language Server
-// Communicates over stdio using the Language Server Protocol (LSP).
-// Start rule: startRule (VBAParser.g4)
+// HexIDE VB6 Language Server (MIT) — EmmyLua.LanguageServer.Framework shell.
+// Communicates over stdio using the Language Server Protocol (LSP). stdout is the LSP channel;
+// all logging goes to a rolling file (never stdout — that would corrupt the frame stream).
 
 using HexIDE.VbLspServer;
 using Serilog;
 using Serilog.Events;
 
-// Ensure stdout is never line-buffered (critical for LSP framing)
+// stdout carries LSP frames — keep it byte-clean.
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-// Configure file logging for the LSP server — stdout is the LSP channel, never log there.
-// Each server process creates its own log file with a unique session timestamp.
+// Per-process rolling log under %LOCALAPPDATA%/HexIDE/logs/lsp (reproduces the prior server's contract).
 var logDir = GetLogDirectory("lsp");
-var minLevel = GetMinimumLevel();
 var sessionStamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
 
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Is(minLevel)
+    .MinimumLevel.Is(GetMinimumLevel())
     .WriteTo.File(
         path: Path.Combine(logDir, $"lsp-{sessionStamp}.log"),
         fileSizeLimitBytes: 50 * 1024 * 1024,
@@ -27,13 +25,12 @@ Log.Logger = new LoggerConfiguration()
     .CreateLogger();
 
 PruneOldLogs(logDir, "lsp-*.log", 7);
-
-Log.Information("HexIDE VB6 LSP server starting");
+Log.Information("HexIDE VB6 LSP server (MIT shell) starting");
 
 try
 {
-    var server = new LspServer(Console.OpenStandardInput(), Console.OpenStandardOutput());
-    server.Run();
+    var server = LspServerHost.Create(Console.OpenStandardInput(), Console.OpenStandardOutput());
+    await server.Run();
 }
 catch (Exception ex)
 {
@@ -81,6 +78,6 @@ static void PruneOldLogs(string directory, string pattern, int keepCount)
     }
     catch
     {
-        // Don't let cleanup prevent server startup
+        // Don't let cleanup prevent server startup.
     }
 }

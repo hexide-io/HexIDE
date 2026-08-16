@@ -1,7 +1,5 @@
-// SPDX-License-Identifier: GPL-3.0-or-later
+// SPDX-License-Identifier: MIT
 // Copyright (C) 2026 The HexIDE Authors
-// This file is part of HexIDE.VbLspServer, which uses the
-// Rubberduck VBA ANTLR4 grammar (GPLv3). See LICENSE for details.
 
 using System.Text;
 using System.Text.RegularExpressions;
@@ -73,8 +71,11 @@ public static class VbFormatter
         @"^\s*(private\s+|public\s+|friend\s+)?property\s+(get|let|set)\s+\w",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
+    // NB: matches `If … Then` only — NOT `ElseIf … Then`. ElseIf is a mid-block line (RxElseIf) that dedents its own
+    // line then re-indents its body; also treating it as an opener would add a SECOND indent level, double-indenting
+    // the ElseIf body (and pushing End If in with it). A block-If opener is `If <cond> Then` with nothing after Then.
     private static readonly Regex RxOpenerIf = new(
-        @"^\s*(else)?if\b.+\bthen\s*('.*)?$",
+        @"^\s*if\b.+\bthen\s*('.*)?$",
         RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly Regex RxOpenerFor = new(

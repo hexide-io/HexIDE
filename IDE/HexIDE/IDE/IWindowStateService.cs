@@ -5,7 +5,7 @@ namespace HexIDE.IDE;
 
 /// <summary>The four canonical dock regions a built-in tool window can occupy. Floating and pinning
 /// are disabled, so every arrangement resolves to one of these. See
-/// openspec/specs/ide-state-persistence/spec.md Phase 4.</summary>
+/// openspec/specs/ide-state-persistence/spec.md — the tool-window arrangement requirement.</summary>
 public enum DockRegion
 {
     Left,
@@ -44,7 +44,8 @@ public sealed record LayoutManifest(
             new("immediate",         false, DockRegion.Bottom,   0, 0.3),
             new("locals",            false, DockRegion.Bottom,   1, 0.3),
             new("watches",           false, DockRegion.Bottom,   2, 0.3),
-            new("colorPalette",      false, DockRegion.Bottom,   3, 0.3),
+            new("callStack",         false, DockRegion.Bottom,   3, 0.3),
+            new("colorPalette",      false, DockRegion.Bottom,   4, 0.3),
             new("objectBrowser",     false, DockRegion.Document, 0, null),
             new("translationEditor", false, DockRegion.Document, 1, null),
         });

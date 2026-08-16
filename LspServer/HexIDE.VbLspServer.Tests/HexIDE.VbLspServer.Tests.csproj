@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
+  <!-- SPDX-License-Identifier: MIT -->
   <PropertyGroup>
     <TargetFrameworks>$(DotNetVersion)</TargetFrameworks>
     <Nullable>enable</Nullable>
@@ -11,6 +12,12 @@
     <PackageReference Include="AwesomeAssertions" />
     <PackageReference Include="coverlet.collector" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <!-- Drive the server with the same transport the real IDE client uses (faithful framing check). -->
+    <PackageReference Include="StreamJsonRpc" />
+    <!-- Force the security-pinned MessagePack / Nerdbank.MessagePack over StreamJsonRpc's vulnerable
+         transitive versions (mirrors IDE/HexIDE.Lsp; see the CVE pins in Directory.Packages.props). -->
+    <PackageReference Include="MessagePack" />
+    <PackageReference Include="Nerdbank.MessagePack" />
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.analyzers" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
     <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />

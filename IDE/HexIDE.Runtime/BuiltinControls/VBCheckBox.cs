@@ -27,12 +27,17 @@ public class VBCheckBox : CheckBox
 
     protected override void OnClick()
     {
-        var was = IsChecked;
-        base.OnClick();
-        if (IsChecked == true && was != true)
+        base.OnClick();   // toggles IsChecked (user interaction only — a programmatic IsChecked/Value set skips this)
+        // Mirror the new checked state back into the VB6 Value so `CheckBox.Value` reads current after a user click
+        // (the ValueProperty→IsChecked sync is one-way). VB6 fires Click on EVERY user click — check AND uncheck —
+        // not only when the box becomes checked.
+        Value = IsChecked switch
         {
-            this.ExecuteSub(ComponentBaseClass.ClickEvent);
-        }
+            true => VBCheckValue.Checked,
+            null => VBCheckValue.Grayscale,
+            _    => VBCheckValue.Unchecked,
+        };
+        this.ExecuteSub(ComponentBaseClass.ClickEvent);
     }
 
     static VBCheckBox()
