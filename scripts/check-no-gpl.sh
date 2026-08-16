@@ -4,13 +4,13 @@
 # Fails (exit 1) if any GPL-*licensed artifact* reappears in the tree: the Rubberduck
 # VBA grammar, a GPL-named licence file, a GPL SPDX header, or the embedded GNU GPL
 # licence body. Plain-prose mentions of "GPL" (historical notes, and legitimate
-# references to external GPL projects such as RDCore or upstream Rubberduck) are
-# ALLOWED — this checks for real taint, not the word.
+# references to external GPL projects) are ALLOWED — this checks for real GPL
+# artifacts, not the word.
 #
 # NOTE: there is deliberately NO path-based "GPL server directory" check. The MIT
 # server now legitimately lives at LspServer/HexIDE.VbLspServer/ — it reclaimed that
-# name after the GPL server was deleted — so GPL taint is detected by CONTENT and by
-# the Rubberduck grammar filenames, never by directory name.
+# name after the GPL server was deleted — so GPL provenance is detected by CONTENT
+# and by the Rubberduck grammar filenames, never by directory name.
 #
 # Run from anywhere; it operates on the git-tracked tree. The guard-mit CI job calls it
 # with no arguments from the repository root.
@@ -26,7 +26,7 @@ note() { printf '  \xE2\x9C\x97 %s\n' "$1"; fail=1; }
 
 echo "check-no-gpl: scanning for GPL-licensed artifacts…"
 
-# 1. The Rubberduck VBA grammar (the GPL taint source) must not reappear.
+# 1. The Rubberduck VBA grammar (the origin of the GPL obligation) must not reappear.
 #    (Loops use process substitution so `fail` persists — a piped `while` runs in a subshell.)
 while IFS= read -r f; do
   [ -n "$f" ] && note "Rubberduck GPL grammar file present: $f"
