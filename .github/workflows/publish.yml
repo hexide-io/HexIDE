@@ -227,33 +227,40 @@ jobs:
                   codesign --force --timestamp=none --sign - "$f" >/dev/null 2>&1 || true
                 fi
               done
-            # --deep is used HERE and only here, and the earlier objection to it does not apply.
-            # That objection is about Developer ID signing: --deep re-signs nested code with the
-            # OUTER identity, so a component that should have failed silently inherits a valid one.
-            # With `--sign -` there is no identity to mis-apply. The requirement is only that every
-            # nested Mach-O carries some signature, because an arm64 binary with none is SIGKILLed.
+            # The bundle is deliberately NOT sealed with a bundle-level codesign, and that is a
+            # finding rather than an omission. A .NET publish payload in Contents/MacOS is not a
+            # valid signable bundle: it holds four apphost executables, a *.runtimeconfig.json
+            # beside each, a standalone/ subdirectory and per-language satellite directories.
+            # codesign reports that two different ways depending on flags, and both are the same
+            # fact:
+            #   plain   "code object is not signed at all, In subcomponent: <a runtimeconfig.json>"
+            #           -- data that cannot be signed and cannot be removed, so signing more file
+            #           types first only moves the error to the next one.
+            #   --deep  "bundle format unrecognized, invalid, or unsuitable"
+            #           -- it reads standalone/ and cs/, de/, ... as nested bundles, finds no
+            #           Info.plist, and rejects the structure.
+            # Sealing would mean moving the payload to Contents/Resources and shimming assembly
+            # resolution for all four executables. That is a restructure, not a signing flag.
             #
-            # Without it, sealing aborts on the first thing codesign counts as unsigned nested code,
-            # which in a .NET layout is a *.runtimeconfig.json sitting beside its apphost in
-            # Contents/MacOS. That file is data, cannot be signed, and cannot be removed -- so the
-            # non-deep seal cannot succeed against this layout no matter which file types we sign
-            # first. Three rounds were spent proving that, each fixing one file and surfacing the
-            # next: a .resources.dll, then VbLspServer's runtimeconfig, then LspProxy's.
-            if ! codesign --force --deep --timestamp=none --sign - "$APP"; then
-              echo "=== SEAL FAILED — bundle diagnostics ==="
-              echo "--- Contents/MacOS (top level) ---"
-              ls -la "$APP/Contents/MacOS" | head -40
-              echo "--- nested executables codesign treats as code ---"
-              find "$APP" -type f -perm +111 -exec sh -c 'printf "%s :: %s\n" "${1#*/HexIDE.app/}" "$(file -b "$1")"' _ {} \;
-              echo "--- non-Mach-O files still carrying +x ---"
-              find "$APP" -type f -perm +111 -exec sh -c 'file -b "$1" | grep -q "^Mach-O" || printf "%s\n" "${1#*/HexIDE.app/}"' _ {} \;
+            # Nothing depends on the seal. Gatekeeper is unsatisfiable here regardless -- no
+            # Developer ID, no notarisation -- and the archive is .tar.gz precisely so quarantine
+            # never engages. The requirement that DOES matter is the one at the top of this block:
+            # an arm64 Mach-O with no signature is SIGKILLed, and the inner-out pass above gives
+            # every one of them a signature.
+            #
+            # So the gate is per-binary rather than per-bundle. This checks the property users
+            # actually depend on, and unlike the bundle seal it is achievable against this layout.
+            unsigned=0
+            while IFS= read -r -d '' f; do
+              if file -b "$f" | grep -q '^Mach-O'; then
+                codesign --verify "$f" 2>/dev/null || { echo "UNSIGNED: ${f#*/HexIDE.app/}"; unsigned=1; }
+              fi
+            done < <(find "$APP" -type f -perm +111 -print0)
+            if [ "$unsigned" != 0 ]; then
+              echo "One or more Mach-O binaries are unsigned; Apple Silicon will refuse to run them."
               exit 1
             fi
-            if ! codesign --verify --verbose=2 "$APP"; then
-              echo "=== VERIFY FAILED after a successful seal ==="
-              codesign --verify --verbose=4 "$APP" 2>&1 | head -40
-              exit 1
-            fi
+            echo "signed: every Mach-O in $flavour verified"
           done
 
       - name: Smoke-check the staged output
