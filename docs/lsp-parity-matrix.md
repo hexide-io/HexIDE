@@ -70,7 +70,7 @@ The GPL on `LspServer/` stems from the Rubberduck grammar. Code solely authored 
 relicensed MIT at will — **the port plan assumes every non-grammar file in `LspServer/` is solely
 ours; verify before copying anything.** Known exceptions that must NOT carry over:
 
-1. `Grammar/VBALexer.g4` + `Grammar/VBAParser.g4` (the Rubberduck grammar — the taint source).
+1. `Grammar/VBALexer.g4` + `Grammar/VBAParser.g4` (the Rubberduck grammar — the origin of the GPL obligation).
 2. `RubberduckGrammarTests.cs` — **its test inputs are ported from Rubberduck's GPL test suite**
    (per its own header). The "reuse the server tests" plan must exclude this file's inputs.
 3. Generated ANTLR code in `obj/` (derived from the GPL grammar; regenerated from proleap's anyway).
