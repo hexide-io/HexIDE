@@ -206,9 +206,14 @@ jobs:
             # arm64 Mach-O with a broken or absent signature is killed outright (SIGKILL) on Apple
             # Silicon regardless of quarantine. Re-sign ad-hoc, inner-out. Never --deep: it re-signs
             # nested code with the outer identity and hides exactly the failures this is guarding.
-            find "$APP" -type f \( -name '*.dylib' -o -name '*.so' -o -perm +111 \) -print0 |
+            # Managed assemblies are included deliberately. A .dll is a PE file, not Mach-O, so the
+            # Mach-O test alone skipped every one of them -- and codesign still treats nested managed
+            # code as part of the bundle, so verification failed on the first satellite assembly it
+            # reached (a localized *.resources.dll under Contents/MacOS/<lang>/). Signing native code
+            # only is what leaves the bundle "not signed at all" in a subcomponent.
+            find "$APP" -type f \( -name '*.dylib' -o -name '*.so' -o -name '*.dll' -o -perm +111 \) -print0 |
               while IFS= read -r -d '' f; do
-                if file -b "$f" | grep -q '^Mach-O'; then
+                if [ "${f##*.}" = dll ] || file -b "$f" | grep -q '^Mach-O'; then
                   codesign --force --timestamp=none --sign - "$f" >/dev/null 2>&1 || true
                 fi
               done
