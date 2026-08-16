@@ -5,8 +5,18 @@
         <Nullable>enable</Nullable>
         <LangVersion>latest</LangVersion>
         <WarningsAsErrors>nullable</WarningsAsErrors>
-        <PublishAot>true</PublishAot>
-        <SelfContained>true</SelfContained>
+        <!--
+            AOT is off: ILCompiler crashes generating code for a LanguageExt generic instantiation
+            reached through HexIDE.Runtime (CodeGenerationFailedException wrapping an
+            IndexOutOfRangeException in LazyGenericsSupport). That is a compiler defect, not a
+            missing native toolchain, so it fails on every RID.
+
+            SelfContained is deliberately NOT set here. This runner ships inside both release
+            packages, and each needs a different answer, so the release workflow publishes the
+            project twice and passes the flag explicitly. A local publish without the flag is
+            framework dependent, which is what a dev machine wants.
+        -->
+        <PublishAot>false</PublishAot>
         <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
         <DebugSymbols>False</DebugSymbols>
         <DebugType>None</DebugType>
