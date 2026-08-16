@@ -64,19 +64,39 @@ public sealed class StdioProcessLspTransport : ILspTransport
         }
         else if (!OperatingSystem.IsWindows())
         {
-            // Unix apphosts ship without the execute bit (neither the Content-copy into the IDE output nor
-            // the publish tar sets it), so Process.Start on the apphost fails and SILENTLY disables all LSP
-            // intelligence off-Windows. Launch the managed dll through the shared `dotnet` host instead —
-            // no execute bit required, and identical in dev and in a published tarball.
-            var dll = Path.ChangeExtension(serverInfo.FileName, ".dll");
-            if (File.Exists(dll))
+            // Unix apphosts have historically shipped without the execute bit (neither the Content-copy
+            // into the IDE output nor the publish tar sets it), so Process.Start on the apphost fails and
+            // SILENTLY disables all LSP intelligence off-Windows. The previous fix was to ALWAYS launch the
+            // managed dll through the shared `dotnet` host — correct for a framework-dependent layout, but
+            // it reintroduces the very failure it was written to prevent in a SELF-CONTAINED bundle, which
+            // carries its own runtime and has no `dotnet` on PATH at all.
+            //
+            // So: prefer the apphost whenever it is genuinely executable, and fall back to `dotnet <dll>`
+            // only when it is not. The release pipeline chmod +x's the server apphost, so a published
+            // tarball takes the first path and works with or without a machine-wide .NET install.
+            var apphostIsExecutable = false;
+            try
             {
-                arguments = string.IsNullOrEmpty(serverInfo.Arguments) ? $"\"{dll}\"" : $"\"{dll}\" {serverInfo.Arguments}";
-                fileName = "dotnet";
+                const UnixFileMode anyExecute =
+                    UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
+                apphostIsExecutable = File.Exists(serverInfo.FileName)
+                    && (File.GetUnixFileMode(serverInfo.FileName) & anyExecute) != 0;
             }
-            else
+            catch (IOException) { /* unreadable mode — fall through to the dotnet host */ }
+            catch (UnauthorizedAccessException) { /* ditto */ }
+
+            if (!apphostIsExecutable)
             {
-                _logger.LogWarning("LSP server dll not found next to apphost ({Dll}); launching the apphost directly.", dll);
+                var dll = Path.ChangeExtension(serverInfo.FileName, ".dll");
+                if (File.Exists(dll))
+                {
+                    arguments = string.IsNullOrEmpty(serverInfo.Arguments) ? $"\"{dll}\"" : $"\"{dll}\" {serverInfo.Arguments}";
+                    fileName = "dotnet";
+                }
+                else
+                {
+                    _logger.LogWarning("LSP server apphost is not executable and no dll was found next to it ({Dll}); launching the apphost directly.", dll);
+                }
             }
         }
 

@@ -988,7 +988,7 @@ public partial class MainViewViewModel : ObservableObject
         windowManager.ShowAbout(new AboutDialogOptions()
         {
             Copyright = "© 2026 The HexIDE Authors. Not affiliated with, endorsed by, or sponsored by Microsoft.",
-            Title = "HexIDE",
+            Title = $"HexIDE {BuildInfo.Display}",
             SubTitle = "A cross-platform, VB6-compatible IDE",
             Icon = new Bitmap(AssetLoader.Open(new Uri("avares://HexIDE/Icons/AppIcon/hexide-logo-64.png")))
         }).ListenErrors();

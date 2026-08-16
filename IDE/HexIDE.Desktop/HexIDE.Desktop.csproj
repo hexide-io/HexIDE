@@ -18,6 +18,17 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
+  <!-- RuntimeIdentifier propagates to ProjectReferences that are EXECUTABLES, which then build into
+       bin/$(Configuration)/net10.0/$(RuntimeIdentifier)/ rather than bin/$(Configuration)/net10.0/.
+       Two references are affected: HexIDE.AddinPacker and HexIDE.VbLspServer (both OutputType=Exe).
+       Library references — HexIDE.AIChat, HexIDE.TestAddin — stay RID-agnostic and must NOT get the
+       suffix. $(RuntimeIdentifier) is empty for a RID-agnostic build, so both forms collapse correctly.
+       MSBuild evaluates every property before any item, so declaring this here reaches the Content
+       item below as well as the $(AddinPacker) path further down. -->
+  <PropertyGroup>
+    <RidSuffix Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)/</RidSuffix>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" />
     <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
@@ -68,7 +79,7 @@
          whole-bin copy would trip NETSDK1152 (duplicate publish paths) and clobber the IDE's own
          Microsoft.NET.StringTools.dll. Literal path (built first via the ProjectReference above, so it
          exists by copy time); Content+PreserveNewest flows to both build output and `dotnet publish`. -->
-    <Content Condition="Exists('..\..\LspServer\HexIDE.VbLspServer\HexIDE.VbLspServer.csproj')" Include="..\..\LspServer\HexIDE.VbLspServer\bin\$(Configuration)\net10.0\LanguageServer.Framework.dll">
+    <Content Condition="Exists('..\..\LspServer\HexIDE.VbLspServer\HexIDE.VbLspServer.csproj')" Include="..\..\LspServer\HexIDE.VbLspServer\bin\$(Configuration)\net10.0\$(RidSuffix)LanguageServer.Framework.dll">
       <Link>LanguageServer.Framework.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <Visible>false</Visible>
@@ -88,7 +99,7 @@
   <!-- Forward slashes throughout: they are valid path separators on Windows and Linux alike, whereas a
        literal '\' is an ordinary filename char on Linux (breaks the CI Desktop build on ubuntu). -->
   <PropertyGroup>
-    <AddinPacker>$(MSBuildProjectDirectory)/../HexIDE.AddinPacker/bin/$(Configuration)/net10.0/HexIDE.AddinPacker.dll</AddinPacker>
+    <AddinPacker>$(MSBuildProjectDirectory)/../HexIDE.AddinPacker/bin/$(Configuration)/net10.0/$(RidSuffix)HexIDE.AddinPacker.dll</AddinPacker>
     <AddinTrustDir>$(MSBuildProjectDirectory)/../HexIDE.AddinPacker/firstparty</AddinTrustDir>
   </PropertyGroup>
 

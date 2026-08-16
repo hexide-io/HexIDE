@@ -8,6 +8,22 @@
         <DotNetVersioniOS>net10.0-ios</DotNetVersioniOS>
         <ImplicitUsings>enable</ImplicitUsings>
     </PropertyGroup>
+
+    <!-- Version. SemVer, 0.x deliberately: the leading zero is the stability promise, and there isn't
+         one yet. Set here so every assembly in IDE/ carries it — before this, nothing in the tree had a
+         version at all and a shipped binary was unidentifiable.
+
+         SourceRevisionId is appended to InformationalVersion by the SDK as "+<sha>", so a release build
+         reports e.g. 0.1.0+4d9d4ba. CI passes the short SHA in via a SourceRevisionId property; a local
+         build simply omits the suffix. That is what turns an alpha bug report into an exact build.
+         (NB: an XML comment may not contain a double hyphen, so the literal git flag is not spelled
+         out here.) -->
+    <PropertyGroup>
+        <Version>0.1.0</Version>
+        <Product>HexIDE</Product>
+        <Company>The HexIDE Authors</Company>
+        <Copyright>© The HexIDE Authors</Copyright>
+    </PropertyGroup>
     <ItemGroup>
         <!-- Universal global usings — BCL namespaces not covered by ImplicitUsings=enable -->
         <Using Include="System.ComponentModel" />
