@@ -227,12 +227,31 @@ jobs:
                   codesign --force --timestamp=none --sign - "$f" >/dev/null 2>&1 || true
                 fi
               done
-            codesign --force --timestamp=none --sign - "$APP"
-            # On failure, name every remaining candidate rather than only the first one codesign
-            # trips over, so a bad bundle takes one run to diagnose instead of one run per file.
+            # --deep is used HERE and only here, and the earlier objection to it does not apply.
+            # That objection is about Developer ID signing: --deep re-signs nested code with the
+            # OUTER identity, so a component that should have failed silently inherits a valid one.
+            # With `--sign -` there is no identity to mis-apply. The requirement is only that every
+            # nested Mach-O carries some signature, because an arm64 binary with none is SIGKILLed.
+            #
+            # Without it, sealing aborts on the first thing codesign counts as unsigned nested code,
+            # which in a .NET layout is a *.runtimeconfig.json sitting beside its apphost in
+            # Contents/MacOS. That file is data, cannot be signed, and cannot be removed -- so the
+            # non-deep seal cannot succeed against this layout no matter which file types we sign
+            # first. Three rounds were spent proving that, each fixing one file and surfacing the
+            # next: a .resources.dll, then VbLspServer's runtimeconfig, then LspProxy's.
+            if ! codesign --force --deep --timestamp=none --sign - "$APP"; then
+              echo "=== SEAL FAILED — bundle diagnostics ==="
+              echo "--- Contents/MacOS (top level) ---"
+              ls -la "$APP/Contents/MacOS" | head -40
+              echo "--- nested executables codesign treats as code ---"
+              find "$APP" -type f -perm +111 -exec sh -c 'printf "%s :: %s\n" "${1#*/HexIDE.app/}" "$(file -b "$1")"' _ {} \;
+              echo "--- non-Mach-O files still carrying +x ---"
+              find "$APP" -type f -perm +111 -exec sh -c 'file -b "$1" | grep -q "^Mach-O" || printf "%s\n" "${1#*/HexIDE.app/}"' _ {} \;
+              exit 1
+            fi
             if ! codesign --verify --verbose=2 "$APP"; then
-              echo "--- still-executable files in the bundle ---"
-              find "$APP" -type f -perm +111 -exec sh -c 'printf "%s :: %s\n" "$1" "$(file -b "$1")"' _ {} \;
+              echo "=== VERIFY FAILED after a successful seal ==="
+              codesign --verify --verbose=4 "$APP" 2>&1 | head -40
               exit 1
             fi
           done
