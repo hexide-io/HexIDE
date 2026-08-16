@@ -1,78 +1,95 @@
 name: Publish Release
 
-# Manual-only for now. This prevents an accidental tag push from shipping a build before the
-# pre-release pre-flight is done (asset-compliance / "Wave 0" and the add-in trust-chain rotation
-# — see docs/ROADMAP.md and TRUST.md). Re-enable a tag trigger, e.g.
-#   push:
-#     tags: ['v*.*.*']
-# once the release process is finalised.
+# Manual-only. This prevents an accidental tag push from shipping a build before the pre-release
+# pre-flight is done. Re-enable a tag trigger once the release process is settled.
 #
-# NOTE: builds are framework-dependent (require the .NET 10 runtime on the user's machine). AOT /
-# trimming was removed — it is incompatible with the Assembly.Load-based add-in system and with
-# StreamJsonRpc (IL3050) and the COM P/Invoke type-lib reader (IL2050). See IsAotCompatible=false
-# in HexIDE.Desktop.csproj.
+# ── Why every publish here is RID-SPECIFIC ────────────────────────────────────────────────────────
+# A RID-agnostic `dotnet publish` keeps runtimes/** for every RID SkiaSharp ships. Measured on the
+# current shape: 277.5 MB on disk / 111.7 MB zipped, of which ~230 MB is native payload for platforms
+# nobody targets — the "Windows" zip contained riscv64 Linux binaries. RID-specific is 47.5 MB / 17.4 MB.
+#
+# ── Two flavours per platform ─────────────────────────────────────────────────────────────────────
+#   framework-dependent  ~48 MB on disk, ~17 MB archived — needs the .NET 10 desktop runtime installed
+#   self-contained       ~124 MB on disk, ~51 MB archived — no prerequisites
+# Both are kept deliberately: self-contained means WE own runtime CVE patching, framework-dependent
+# users get fixes from Microsoft Update.
+#
+# ── What is deliberately NOT enabled ──────────────────────────────────────────────────────────────
+# PublishTrimmed: the add-in system loads signed packages at runtime via
+# AssemblyLoadContext.LoadFromAssemblyPath, which is Microsoft's own documented counter-example for
+# trimming; BuiltInComInteropSupport=true is a second documented incompatibility. AOT is out for the
+# same reason (IsAotCompatible=false in HexIDE.Desktop.csproj).
+# PublishSingleFile: would swallow the LSP server's apphost, and IncludeNativeLibrariesForSelfExtract
+# is documented as incompatible with macOS ("Failed to create CoreCLR").
+#
+# ── Signing ───────────────────────────────────────────────────────────────────────────────────────
+# Nothing here is signed or notarised. macOS builds are ad-hoc signed only, which is what stops Apple
+# Silicon killing an unsigned arm64 binary outright — it is NOT Gatekeeper approval. macOS ships as
+# .tar.gz rather than .zip because tar does not propagate com.apple.quarantine, so Gatekeeper never
+# engages. That is a known gap, not a supported guarantee: if it stops working, the macOS download
+# needs a real Developer ID certificate.
+
 on:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag, e.g. v0.1.0'
+        required: true
+        type: string
+      draft:
+        description: 'Create as a draft release'
+        required: false
+        type: boolean
+        default: true
+      prerelease:
+        description: 'Mark as a pre-release'
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   contents: write
 
 jobs:
-  build-windows-amd64:
-    runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: IDE
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Restore first-party signing key (if configured)
-        shell: bash
-        env:
-          HEXIDE_FIRSTPARTY_KEY: ${{ secrets.HEXIDE_FIRSTPARTY_KEY }}
-        run: |
-          if [ -n "$HEXIDE_FIRSTPARTY_KEY" ]; then
-            printf '%s' "$HEXIDE_FIRSTPARTY_KEY" > HexIDE.AddinPacker/firstparty/firstparty.key
-            echo "first-party signing key restored — add-ins will be signed"
-          else
-            echo "no HEXIDE_FIRSTPARTY_KEY secret — this release will omit first-party add-ins"
-          fi
-
-      - name: Publish HexIDE.Desktop (Windows)
-        run: dotnet publish HexIDE.Desktop -f net10.0 -c Release -o bin/windows/
-
-      - name: Publish HexIDE.Standalone (Windows)
-        run: dotnet publish HexIDE.Standalone -f net10.0 -c Release -o bin/windows/standalone/
-
-      - name: Strip debug symbols and rename launcher
-        shell: bash
-        run: |
-          find ./bin/windows -name "*.pdb" -type f -delete
-          mv ./bin/windows/HexIDE.Desktop.exe ./bin/windows/HexIDE.exe
-
-      - name: Zip Windows files
-        shell: pwsh
-        run: Compress-Archive -Path './bin/windows/*' -DestinationPath './bin/hexide-windows-amd64.zip'
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: hexide-windows-amd64
-          path: ./IDE/bin/hexide-windows-amd64.zip
-
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ./IDE/bin/hexide-windows-amd64.zip
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-  build-linux-amd64:
+  # Ten seconds, and it catches the mistake that otherwise ships silently: tagging v0.2.0 while
+  # Directory.Build.props still says 0.1.0, so every binary reports a version nobody can find.
+  preflight:
+    name: Check tag matches Version
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - shell: bash
+        run: |
+          set -euo pipefail
+          version=$(grep -oP '(?<=<Version>)[^<]+' IDE/Directory.Build.props | head -1)
+          tag='${{ inputs.tag }}'
+          echo "Directory.Build.props <Version> = $version"
+          echo "requested tag              = $tag"
+          if [ "$tag" != "v$version" ]; then
+            echo "::error::Tag '$tag' does not match <Version> '$version'. Bump Directory.Build.props, or tag v$version."
+            exit 1
+          fi
+
+  build:
+    name: ${{ matrix.name }}
+    needs: preflight
+    runs-on: ${{ matrix.runner }}
     defaults:
       run:
         working-directory: IDE
+    strategy:
+      # One broken architecture must not sink the whole release.
+      fail-fast: false
+      matrix:
+        include:
+          - { name: windows-amd64, runner: windows-latest,  rid: win-x64,    os: win }
+          - { name: windows-arm64, runner: windows-11-arm,  rid: win-arm64,  os: win }
+          - { name: linux-amd64,   runner: ubuntu-latest,   rid: linux-x64,  os: linux }
+          - { name: linux-arm64,   runner: ubuntu-24.04-arm, rid: linux-arm64, os: linux }
+          - { name: macos-arm64,   runner: macos-latest,    rid: osx-arm64,  os: mac }
+          # Last x86_64 macOS image on GitHub Actions, retiring Fall 2027 alongside Rosetta 2.
+          # Intel Macs cannot run the arm64 build — Rosetta never translates arm64 to x64.
+          - { name: macos-amd64,   runner: macos-15-intel,  rid: osx-x64,    os: mac }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-dotnet@v4
@@ -91,80 +108,185 @@ jobs:
             echo "no HEXIDE_FIRSTPARTY_KEY secret — this release will omit first-party add-ins"
           fi
 
-      - name: Publish HexIDE.Desktop (Linux)
-        run: dotnet publish HexIDE.Desktop -f net10.0 -c Release -o bin/linux/
-
-      - name: Publish HexIDE.Standalone (Linux)
-        run: dotnet publish HexIDE.Standalone -f net10.0 -c Release -o bin/linux/standalone/
-
-      - name: Strip debug symbols and rename launcher
-        run: |
-          find ./bin/linux -name "*.pdb" -type f -delete
-          chmod +x ./bin/linux/HexIDE.Desktop
-          chmod +x ./bin/linux/standalone/HexIDE.Standalone
-          mv ./bin/linux/HexIDE.Desktop ./bin/linux/HexIDE
-
-      - name: Tar files
-        run: tar -czf ./bin/hexide-linux-amd64.tar.gz -C ./bin/linux .
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: hexide-linux-amd64
-          path: ./IDE/bin/hexide-linux-amd64.tar.gz
-
-      - name: Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ./IDE/bin/hexide-linux-amd64.tar.gz
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-  build-macos-arm64:
-    runs-on: macos-latest
-    defaults:
-      run:
-        working-directory: IDE
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-
-      - name: Restore first-party signing key (if configured)
+      # The standalone VB6 runner backs the IDE's "Make EXE" feature. It is PublishAot + SelfContained,
+      # i.e. a genuine native binary, so it must be built on an architecture-matched runner — every
+      # matrix leg above is matched. If a leg fails here it is almost certainly a missing native
+      # toolchain on the image (MSVC arm64, or Xcode CLT); the fallback is to drop PublishAot for that
+      # leg with -p:PublishAot=false and accept a larger output.
+      # The SDK appends this to InformationalVersion as "+<sha>", so a build reports 0.1.0+4d9d4ba.
+      # Resolved once here rather than inline, because the publish steps run under pwsh on the Windows
+      # legs and bash elsewhere — an Actions-level expression is shell-agnostic.
+      - name: Resolve build stamp
         shell: bash
-        env:
-          HEXIDE_FIRSTPARTY_KEY: ${{ secrets.HEXIDE_FIRSTPARTY_KEY }}
+        run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+
+      - name: Publish HexIDE.Standalone (${{ matrix.rid }}, AOT)
+        run: dotnet publish HexIDE.Standalone -f net10.0 -c Release -r ${{ matrix.rid }} -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/standalone/
+
+      - name: Publish HexIDE.Desktop (framework-dependent)
+        run: dotnet publish HexIDE.Desktop -f net10.0 -c Release -r ${{ matrix.rid }} --self-contained false -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/fdd/
+
+      - name: Publish HexIDE.Desktop (self-contained)
+        run: dotnet publish HexIDE.Desktop -f net10.0 -c Release -r ${{ matrix.rid }} --self-contained true -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/sc/
+
+      - name: Stage both flavours
+        shell: bash
         run: |
-          if [ -n "$HEXIDE_FIRSTPARTY_KEY" ]; then
-            printf '%s' "$HEXIDE_FIRSTPARTY_KEY" > HexIDE.AddinPacker/firstparty/firstparty.key
-            echo "first-party signing key restored — add-ins will be signed"
-          else
-            echo "no HEXIDE_FIRSTPARTY_KEY secret — this release will omit first-party add-ins"
-          fi
+          set -euo pipefail
+          for flavour in fdd sc; do
+            cp -R bin/standalone "bin/$flavour/standalone"
+            find "bin/$flavour" -name '*.pdb' -type f -delete
+            find "bin/$flavour" -name '*.dSYM' -type d -exec rm -rf {} + 2>/dev/null || true
 
-      - name: Publish HexIDE.Desktop (macOS)
-        run: dotnet publish HexIDE.Desktop -f net10.0 -c Release -o bin/macos/
+            if [ "${{ matrix.os }}" = "win" ]; then
+              mv "bin/$flavour/HexIDE.Desktop.exe" "bin/$flavour/HexIDE.exe"
+            else
+              # The execute bit matters for more than convenience: StdioProcessLspTransport prefers the
+              # LSP apphost when it is executable and only falls back to `dotnet <dll>` when it is not.
+              # A self-contained bundle has no `dotnet` on PATH, so without this chmod the fallback path
+              # would silently disable every LSP diagnostic.
+              chmod +x "bin/$flavour/HexIDE.Desktop" \
+                       "bin/$flavour/standalone/HexIDE.Standalone" \
+                       "bin/$flavour/HexIDE.VbLspServer" 2>/dev/null || true
+              mv "bin/$flavour/HexIDE.Desktop" "bin/$flavour/HexIDE"
+            fi
+            echo "staged $flavour: $(du -sh "bin/$flavour" | cut -f1)"
+          done
 
-      - name: Publish HexIDE.Standalone (macOS)
-        run: dotnet publish HexIDE.Standalone -f net10.0 -c Release -o bin/macos/standalone/
-
-      - name: Strip debug symbols and rename launcher
+      # Without a bundle, double-clicking a bare Unix executable in Finder opens a Terminal window
+      # instead of launching the app. The bundle is free and is required even when unsigned.
+      - name: Build macOS .app bundles
+        if: matrix.os == 'mac'
+        shell: bash
         run: |
-          find ./bin/macos -name "*.pdb" -type f -delete
-          find ./bin/macos -name "*.dSYM" -type d -exec rm -rf {} +
-          chmod +x ./bin/macos/HexIDE.Desktop
-          chmod +x ./bin/macos/standalone/HexIDE.Standalone
-          mv ./bin/macos/HexIDE.Desktop ./bin/macos/HexIDE
+          set -euo pipefail
+          TAG='${{ inputs.tag }}'
+          VERSION="${TAG#v}"
+          for flavour in fdd sc; do
+            APP="bin/$flavour-app/HexIDE.app"
+            mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
+            cp -R "bin/$flavour/." "$APP/Contents/MacOS/"
+            cp HexIDE/Icons/AppIcon/hexide.icns "$APP/Contents/Resources/hexide.icns"
+            cat > "$APP/Contents/Info.plist" <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key><string>HexIDE</string>
+            <key>CFBundleDisplayName</key><string>HexIDE</string>
+            <key>CFBundleIdentifier</key><string>io.hexide.HexIDE</string>
+            <key>CFBundleExecutable</key><string>HexIDE</string>
+            <key>CFBundleIconFile</key><string>hexide</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+            <key>CFBundleShortVersionString</key><string>${VERSION}</string>
+            <key>CFBundleVersion</key><string>${VERSION}</string>
+            <key>LSMinimumSystemVersion</key><string>13.0</string>
+            <key>NSHighResolutionCapable</key><true/>
+          </dict>
+          </plist>
+          PLIST
+            # Renaming HexIDE.Desktop -> HexIDE invalidated the linker's ad-hoc signature, and an
+            # arm64 Mach-O with a broken or absent signature is killed outright (SIGKILL) on Apple
+            # Silicon regardless of quarantine. Re-sign ad-hoc, inner-out. Never --deep: it re-signs
+            # nested code with the outer identity and hides exactly the failures this is guarding.
+            find "$APP" -type f \( -name '*.dylib' -o -name '*.so' -o -perm +111 \) -print0 |
+              while IFS= read -r -d '' f; do
+                if file -b "$f" | grep -q '^Mach-O'; then
+                  codesign --force --timestamp=none --sign - "$f" >/dev/null 2>&1 || true
+                fi
+              done
+            codesign --force --timestamp=none --sign - "$APP"
+            codesign --verify --verbose=2 "$APP"
+          done
 
-      - name: Tar files
-        run: tar -czf ./bin/hexide-macos-arm64.tar.gz -C ./bin/macos .
+      - name: Smoke-check the staged output
+        shell: bash
+        run: |
+          set -euo pipefail
+          fail=0
+          for flavour in fdd sc; do
+            d="bin/$flavour"
+            for f in HexIDE.VbLspServer.dll standalone; do
+              [ -e "$d/$f" ] || { echo "MISSING $d/$f"; fail=1; }
+            done
+            if [ "${{ matrix.os }}" != "win" ]; then
+              # Guards the regression class this pipeline exists to close.
+              [ -x "$d/HexIDE.VbLspServer" ] || { echo "NOT EXECUTABLE: $d/HexIDE.VbLspServer"; fail=1; }
+              [ -x "$d/HexIDE" ] || { echo "NOT EXECUTABLE: $d/HexIDE"; fail=1; }
+            fi
+            # A RID-specific publish flattens natives to the root; runtimes/ reappearing means the RID
+            # was dropped somewhere and the artifact is about to be six times too big.
+            # Written as an if rather than `[ -d x ] && {...}`: under set -e the exit status of a
+            # false test at the end of a loop body is not portably safe.
+            if [ -d "$d/runtimes" ]; then
+              echo "UNEXPECTED $d/runtimes — publish went RID-agnostic"
+              fail=1
+            fi
+          done
+          exit $fail
+
+      - name: Archive (Windows)
+        if: matrix.os == 'win'
+        shell: pwsh
+        run: |
+          Compress-Archive -Path './bin/fdd/*' -DestinationPath './bin/hexide-${{ matrix.name }}.zip'
+          Compress-Archive -Path './bin/sc/*'  -DestinationPath './bin/hexide-${{ matrix.name }}-selfcontained.zip'
+
+      - name: Archive (Linux)
+        if: matrix.os == 'linux'
+        run: |
+          tar -czf ./bin/hexide-${{ matrix.name }}.tar.gz -C ./bin/fdd .
+          tar -czf ./bin/hexide-${{ matrix.name }}-selfcontained.tar.gz -C ./bin/sc .
+
+      # .tar.gz, not .zip. A .zip unpacked by Finder carries com.apple.quarantine onto every extracted
+      # file, and on macOS 15+ an unsigned app then shows "Apple could not verify ... is free of
+      # malware" with Move to Trash / Done and NO Open button — the Control-click bypass was removed.
+      # tar does not propagate the attribute, so the app opens normally.
+      - name: Archive (macOS)
+        if: matrix.os == 'mac'
+        run: |
+          tar -czf ./bin/hexide-${{ matrix.name }}.tar.gz -C ./bin/fdd-app HexIDE.app
+          tar -czf ./bin/hexide-${{ matrix.name }}-selfcontained.tar.gz -C ./bin/sc-app HexIDE.app
 
       - uses: actions/upload-artifact@v4
         with:
-          name: hexide-macos-arm64
-          path: ./IDE/bin/hexide-macos-arm64.tar.gz
+          name: hexide-${{ matrix.name }}
+          path: ./IDE/bin/hexide-${{ matrix.name }}*.*
+          if-no-files-found: error
 
-      - name: Release
-        uses: softprops/action-gh-release@v2
+  # A single release job. Six matrix legs each calling action-gh-release would race to create the same
+  # release, and the loser can drop its assets.
+  release:
+    name: Publish release
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
         with:
-          files: ./IDE/bin/hexide-macos-arm64.tar.gz
+          path: artifacts
+          merge-multiple: true
+
+      - name: List assets
+        run: ls -lh artifacts
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: ${{ inputs.tag }}
+          draft: ${{ inputs.draft }}
+          prerelease: ${{ inputs.prerelease }}
+          fail_on_unmatched_files: true
+          files: artifacts/*
           token: ${{ secrets.GITHUB_TOKEN }}
+          body: |
+            Pre-alpha. Nothing here is signed or notarised.
+
+            **Which download?**
+            - `hexide-<platform>-selfcontained.*` — no prerequisites. Start here.
+            - `hexide-<platform>.*` — smaller, but needs the [.NET 10 desktop runtime](https://dotnet.microsoft.com/download/dotnet/10.0) installed.
+
+            **Windows** shows a SmartScreen warning: More info → Run anyway.
+            **macOS** — extract in Terminal with `tar -xzf <file>.tar.gz`. Unpacking with Finder
+            instead applies a quarantine flag that an unsigned app cannot clear.
+            **Linux** self-contained still needs the distro's `libX11`, `libICE`, `libSM` and `fontconfig`.
