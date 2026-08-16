@@ -49,7 +49,8 @@ see each project for its authors and full license text.
   both the VB6 interpreter and the LSP server (both MIT); redistribution permitted under
   the 3-clause BSD license with the standard warranty disclaimer.
 
-Upstream fork: **AvaloniaVisualBasic6** by Bartosz Korczyński — MIT. Icons: see **Icons** below.
+Upstream fork: HexIDE is a derived work of **AvaloniaVisualBasic6** by Bartosz Korczyński — MIT.
+<https://github.com/BAndysc/AvaloniaVisualBasic6>. Icons: see **Icons** below.
 
 *Build- and test-time only (not redistributed in the app):* Antlr4BuildTasks, Svg.Skia, xUnit,
 NSubstitute, AwesomeAssertions, coverlet, Microsoft.NET.Test.Sdk, Avalonia.Headless, Avalonia.Diagnostics.
