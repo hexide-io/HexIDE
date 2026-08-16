@@ -182,6 +182,62 @@ jobs:
           TAG='${{ inputs.tag }}'
           VERSION="${TAG#v}"
           for flavour in fdd sc; do
+            # Signing happens on the STAGED TREE, before the .app exists, and that ordering is
+            # load-bearing rather than tidiness.
+            #
+            # codesign canonicalises the path of a bundle's CFBundleExecutable to the BUNDLE. Once
+            # bin/$flavour/HexIDE sits at HexIDE.app/Contents/MacOS/HexIDE, signing "that path" no
+            # longer signs the file: it tries to seal the whole bundle, which this layout cannot do,
+            # and the failure was swallowed by the "|| true" below. Verifying it reported the
+            # unsealed bundle rather than the binary. That is why every other Mach-O verified while
+            # the main executable alone came back UNSIGNED -- it was the only file codesign resolved
+            # to something else, and it had never actually been signed in any build. Here it is an
+            # ordinary Mach-O in an ordinary directory. Signatures are embedded in the file, so the
+            # cp -R into the bundle preserves them.
+            SRC="bin/$flavour"
+
+            # codesign decides what counts as a "code object" partly from the execute bit, so any
+            # file carrying +x is expected to bear a signature -- including data. dotnet publish
+            # hands back .json, .dll and friends with the bit set. Strip it from everything that is
+            # not Mach-O; genuine entry points are Mach-O and keep theirs.
+            find "$SRC" -type f -perm +111 -print0 |
+              while IFS= read -r -d '' f; do
+                file -b "$f" | grep -q '^Mach-O' || chmod -x "$f" || true
+              done
+
+            # Renaming HexIDE.Desktop -> HexIDE invalidates the linker's ad-hoc signature, and an
+            # arm64 Mach-O with a broken or absent signature is killed outright (SIGKILL) on Apple
+            # Silicon regardless of quarantine. Managed assemblies are signed too: a .dll is a PE
+            # file, not Mach-O, so the Mach-O test alone would skip them.
+            find "$SRC" -type f \( -name '*.dylib' -o -name '*.so' -o -name '*.dll' -o -perm +111 \) -print0 |
+              while IFS= read -r -d '' f; do
+                if [ "${f##*.}" = dll ] || file -b "$f" | grep -q '^Mach-O'; then
+                  codesign --force --timestamp=none --sign - "$f" >/dev/null 2>&1 || true
+                fi
+              done
+
+            # The gate is per-binary, never per-bundle. The .app is deliberately not sealed: a .NET
+            # publish payload in Contents/MacOS is not a valid signable bundle (four apphosts, a
+            # *.runtimeconfig.json beside each, standalone/, per-language satellite directories).
+            # Plain codesign dies on a runtimeconfig.json it cannot sign; --deep dies with "bundle
+            # format unrecognized". Sealing would mean moving the payload to Contents/Resources and
+            # shimming assembly resolution for all four executables -- a restructure, not a flag.
+            # See docs/macos-signing.md. Nothing depends on it: Gatekeeper is unsatisfiable without
+            # a Developer ID either way, and .tar.gz keeps quarantine from engaging. What matters is
+            # that every Mach-O carries a signature, so assert exactly that -- which is also what
+            # catches the "|| true" above silently swallowing a failure.
+            unsigned=0
+            while IFS= read -r -d '' f; do
+              if file -b "$f" | grep -q '^Mach-O'; then
+                codesign --verify "$f" 2>/dev/null || { echo "UNSIGNED: ${f#$SRC/}"; unsigned=1; }
+              fi
+            done < <(find "$SRC" -type f -perm +111 -print0)
+            if [ "$unsigned" != 0 ]; then
+              echo "One or more Mach-O binaries are unsigned; Apple Silicon will refuse to run them."
+              exit 1
+            fi
+            echo "signed: every Mach-O in $flavour verified"
+
             APP="bin/$flavour-app/HexIDE.app"
             mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
             cp -R "bin/$flavour/." "$APP/Contents/MacOS/"
@@ -205,65 +261,6 @@ jobs:
           </dict>
           </plist>
           PLIST
-            # Renaming HexIDE.Desktop -> HexIDE invalidated the linker's ad-hoc signature, and an
-            # arm64 Mach-O with a broken or absent signature is killed outright (SIGKILL) on Apple
-            # Silicon regardless of quarantine. Re-sign ad-hoc, inner-out. Never --deep: it re-signs
-            # nested code with the outer identity and hides exactly the failures this is guarding.
-            # codesign decides what counts as a "code object" partly from the execute bit, so ANY
-            # file inside the bundle carrying +x is expected to bear a signature -- including data.
-            # dotnet publish hands back .json, .dll and friends with the bit set, which is why
-            # verification failed first on a localized *.resources.dll and then on a
-            # *.runtimeconfig.json: fixing them one file type at a time is chasing symptoms.
-            # Strip +x from everything that is not Mach-O; genuine entry points are Mach-O and keep
-            # theirs untouched.
-            find "$APP" -type f -perm +111 -print0 |
-              while IFS= read -r -d '' f; do
-                file -b "$f" | grep -q '^Mach-O' || chmod -x "$f" || true
-              done
-
-            # Managed assemblies are still signed explicitly. A .dll is a PE file, not Mach-O, so the
-            # Mach-O test alone skips them, and codesign treats nested managed code as part of the
-            # bundle whether or not it is executable.
-            find "$APP" -type f \( -name '*.dylib' -o -name '*.so' -o -name '*.dll' -o -perm +111 \) -print0 |
-              while IFS= read -r -d '' f; do
-                if [ "${f##*.}" = dll ] || file -b "$f" | grep -q '^Mach-O'; then
-                  codesign --force --timestamp=none --sign - "$f" >/dev/null 2>&1 || true
-                fi
-              done
-            # The bundle is deliberately NOT sealed with a bundle-level codesign, and that is a
-            # finding rather than an omission. A .NET publish payload in Contents/MacOS is not a
-            # valid signable bundle: it holds four apphost executables, a *.runtimeconfig.json
-            # beside each, a standalone/ subdirectory and per-language satellite directories.
-            # codesign reports that two different ways depending on flags, and both are the same
-            # fact:
-            #   plain   "code object is not signed at all, In subcomponent: <a runtimeconfig.json>"
-            #           -- data that cannot be signed and cannot be removed, so signing more file
-            #           types first only moves the error to the next one.
-            #   --deep  "bundle format unrecognized, invalid, or unsuitable"
-            #           -- it reads standalone/ and cs/, de/, ... as nested bundles, finds no
-            #           Info.plist, and rejects the structure.
-            # Sealing would mean moving the payload to Contents/Resources and shimming assembly
-            # resolution for all four executables. That is a restructure, not a signing flag.
-            #
-            # Nothing depends on the seal. Gatekeeper is unsatisfiable here regardless -- no
-            # Developer ID, no notarisation -- and the archive is .tar.gz precisely so quarantine
-            # never engages. The requirement that DOES matter is the one at the top of this block:
-            # an arm64 Mach-O with no signature is SIGKILLed, and the inner-out pass above gives
-            # every one of them a signature.
-            #
-            # So the gate is per-binary rather than per-bundle. This checks the property users
-            # actually depend on, and unlike the bundle seal it is achievable against this layout.
-            unsigned=0
-            while IFS= read -r -d '' f; do
-              if file -b "$f" | grep -q '^Mach-O'; then
-                codesign --verify "$f" 2>/dev/null || { echo "UNSIGNED: ${f#*/HexIDE.app/}"; unsigned=1; }
-              fi
-            done < <(find "$APP" -type f -perm +111 -print0)
-            if [ "$unsigned" != 0 ]; then
-              echo "One or more Mach-O binaries are unsigned; Apple Silicon will refuse to run them."
-              exit 1
-            fi
-            echo "signed: every Mach-O in $flavour verified"
           done
 
       - name: Smoke-check the staged output
