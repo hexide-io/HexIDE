@@ -29,6 +29,9 @@ name: Publish Release
 # .tar.gz rather than .zip because tar does not propagate com.apple.quarantine, so Gatekeeper never
 # engages. That is a known gap, not a supported guarantee: if it stops working, the macOS download
 # needs a real Developer ID certificate.
+# What that would take -- membership, certificate, hardened-runtime entitlements, notarytool and
+# stapling, and the bundle restructure it depends on -- is written up in docs/macos-signing.md so it
+# does not have to be re-derived under pressure.
 
 on:
   workflow_dispatch:
