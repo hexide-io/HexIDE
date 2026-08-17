@@ -9,8 +9,11 @@ name: Publish Release
 # nobody targets — the "Windows" zip contained riscv64 Linux binaries. RID-specific is 47.5 MB / 17.4 MB.
 #
 # ── Two flavours per platform ─────────────────────────────────────────────────────────────────────
-#   framework-dependent  ~48 MB on disk, ~17 MB archived — needs the .NET 10 desktop runtime installed
-#   self-contained       ~124 MB on disk, ~51 MB archived — no prerequisites
+#   framework-dependent  ~26-32 MB archived — needs the .NET 10 desktop runtime installed
+#   self-contained       ~90-102 MB archived — no prerequisites
+# Measured from the v0.1.0 assets across all six RIDs. Roughly double the earlier figures, because
+# the standalone runner now ships in BOTH flavours as its own publish rather than as one shared AOT
+# binary — see the note above that step.
 # Both are kept deliberately: self-contained means WE own runtime CVE patching, framework-dependent
 # users get fixes from Microsoft Update.
 #
@@ -18,7 +21,8 @@ name: Publish Release
 # PublishTrimmed: the add-in system loads signed packages at runtime via
 # AssemblyLoadContext.LoadFromAssemblyPath, which is Microsoft's own documented counter-example for
 # trimming; BuiltInComInteropSupport=true is a second documented incompatibility. AOT is out for the
-# same reason (IsAotCompatible=false in HexIDE.Desktop.csproj).
+# same reason (IsAotCompatible=false in HexIDE.Desktop.csproj), and separately for HexIDE.Standalone,
+# where ILCompiler crashes on a LanguageExt generic instantiation — see the note above that step.
 # PublishSingleFile: would swallow the LSP server's apphost, and IncludeNativeLibrariesForSelfExtract
 # is documented as incompatible with macOS ("Failed to create CoreCLR").
 #
@@ -28,6 +32,9 @@ name: Publish Release
 # .tar.gz rather than .zip because tar does not propagate com.apple.quarantine, so Gatekeeper never
 # engages. That is a known gap, not a supported guarantee: if it stops working, the macOS download
 # needs a real Developer ID certificate.
+# What that would take -- membership, certificate, hardened-runtime entitlements, notarytool and
+# stapling, and the bundle restructure it depends on -- is written up in docs/macos-signing.md so it
+# does not have to be re-derived under pressure.
 
 on:
   workflow_dispatch:
@@ -108,11 +115,21 @@ jobs:
             echo "no HEXIDE_FIRSTPARTY_KEY secret — this release will omit first-party add-ins"
           fi
 
-      # The standalone VB6 runner backs the IDE's "Make EXE" feature. It is PublishAot + SelfContained,
-      # i.e. a genuine native binary, so it must be built on an architecture-matched runner — every
-      # matrix leg above is matched. If a leg fails here it is almost certainly a missing native
-      # toolchain on the image (MSVC arm64, or Xcode CLT); the fallback is to drop PublishAot for that
-      # leg with -p:PublishAot=false and accept a larger output.
+      # The standalone VB6 runner backs the IDE's "Make EXE" feature, so it ships inside BOTH packages.
+      #
+      # It was PublishAot + SelfContained, which made one build usable in either package: a native
+      # binary needs no runtime, so the same copy worked in the self-contained bundle (which has no
+      # `dotnet` on PATH) and in the framework-dependent one. AOT no longer compiles — ILCompiler
+      # itself crashes on a LanguageExt generic instantiation reached through HexIDE.Runtime
+      # (CodeGenerationFailedException -> IndexOutOfRangeException in LazyGenericsSupport), which is a
+      # compiler bug rather than a missing native toolchain. Desktop already carries
+      # IsAotCompatible=false for unrelated reasons, so this was the last AOT project.
+      #
+      # Without AOT there is no single build that suits both packages, so it is published twice and
+      # each package gets the matching flavour — exactly what Desktop already does. A framework-
+      # dependent copy inside the self-contained bundle would not run; a self-contained copy inside
+      # the framework-dependent package would add a second runtime and erase the size difference that
+      # is that package's only reason to exist.
       # The SDK appends this to InformationalVersion as "+<sha>", so a build reports 0.1.0+4d9d4ba.
       # Resolved once here rather than inline, because the publish steps run under pwsh on the Windows
       # legs and bash elsewhere — an Actions-level expression is shell-agnostic.
@@ -120,8 +137,13 @@ jobs:
         shell: bash
         run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
 
-      - name: Publish HexIDE.Standalone (${{ matrix.rid }}, AOT)
-        run: dotnet publish HexIDE.Standalone -f net10.0 -c Release -r ${{ matrix.rid }} -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/standalone/
+      # Output directory names are load-bearing: the staging loop below copies bin/standalone-$flavour
+      # into bin/$flavour/standalone, so these suffixes must match the flavour names exactly.
+      - name: Publish HexIDE.Standalone (${{ matrix.rid }}, framework-dependent)
+        run: dotnet publish HexIDE.Standalone -f net10.0 -c Release -r ${{ matrix.rid }} --self-contained false -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/standalone-fdd/
+
+      - name: Publish HexIDE.Standalone (${{ matrix.rid }}, self-contained)
+        run: dotnet publish HexIDE.Standalone -f net10.0 -c Release -r ${{ matrix.rid }} --self-contained true -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/standalone-sc/
 
       - name: Publish HexIDE.Desktop (framework-dependent)
         run: dotnet publish HexIDE.Desktop -f net10.0 -c Release -r ${{ matrix.rid }} --self-contained false -p:SourceRevisionId=${{ env.SHORT_SHA }} -o bin/fdd/
@@ -134,7 +156,7 @@ jobs:
         run: |
           set -euo pipefail
           for flavour in fdd sc; do
-            cp -R bin/standalone "bin/$flavour/standalone"
+            cp -R "bin/standalone-$flavour" "bin/$flavour/standalone"
             find "bin/$flavour" -name '*.pdb' -type f -delete
             find "bin/$flavour" -name '*.dSYM' -type d -exec rm -rf {} + 2>/dev/null || true
 
@@ -163,6 +185,62 @@ jobs:
           TAG='${{ inputs.tag }}'
           VERSION="${TAG#v}"
           for flavour in fdd sc; do
+            # Signing happens on the STAGED TREE, before the .app exists, and that ordering is
+            # load-bearing rather than tidiness.
+            #
+            # codesign canonicalises the path of a bundle's CFBundleExecutable to the BUNDLE. Once
+            # bin/$flavour/HexIDE sits at HexIDE.app/Contents/MacOS/HexIDE, signing "that path" no
+            # longer signs the file: it tries to seal the whole bundle, which this layout cannot do,
+            # and the failure was swallowed by the "|| true" below. Verifying it reported the
+            # unsealed bundle rather than the binary. That is why every other Mach-O verified while
+            # the main executable alone came back UNSIGNED -- it was the only file codesign resolved
+            # to something else, and it had never actually been signed in any build. Here it is an
+            # ordinary Mach-O in an ordinary directory. Signatures are embedded in the file, so the
+            # cp -R into the bundle preserves them.
+            SRC="bin/$flavour"
+
+            # codesign decides what counts as a "code object" partly from the execute bit, so any
+            # file carrying +x is expected to bear a signature -- including data. dotnet publish
+            # hands back .json, .dll and friends with the bit set. Strip it from everything that is
+            # not Mach-O; genuine entry points are Mach-O and keep theirs.
+            find "$SRC" -type f -perm +111 -print0 |
+              while IFS= read -r -d '' f; do
+                file -b "$f" | grep -q '^Mach-O' || chmod -x "$f" || true
+              done
+
+            # Renaming HexIDE.Desktop -> HexIDE invalidates the linker's ad-hoc signature, and an
+            # arm64 Mach-O with a broken or absent signature is killed outright (SIGKILL) on Apple
+            # Silicon regardless of quarantine. Managed assemblies are signed too: a .dll is a PE
+            # file, not Mach-O, so the Mach-O test alone would skip them.
+            find "$SRC" -type f \( -name '*.dylib' -o -name '*.so' -o -name '*.dll' -o -perm +111 \) -print0 |
+              while IFS= read -r -d '' f; do
+                if [ "${f##*.}" = dll ] || file -b "$f" | grep -q '^Mach-O'; then
+                  codesign --force --timestamp=none --sign - "$f" >/dev/null 2>&1 || true
+                fi
+              done
+
+            # The gate is per-binary, never per-bundle. The .app is deliberately not sealed: a .NET
+            # publish payload in Contents/MacOS is not a valid signable bundle (four apphosts, a
+            # *.runtimeconfig.json beside each, standalone/, per-language satellite directories).
+            # Plain codesign dies on a runtimeconfig.json it cannot sign; --deep dies with "bundle
+            # format unrecognized". Sealing would mean moving the payload to Contents/Resources and
+            # shimming assembly resolution for all four executables -- a restructure, not a flag.
+            # See docs/macos-signing.md. Nothing depends on it: Gatekeeper is unsatisfiable without
+            # a Developer ID either way, and .tar.gz keeps quarantine from engaging. What matters is
+            # that every Mach-O carries a signature, so assert exactly that -- which is also what
+            # catches the "|| true" above silently swallowing a failure.
+            unsigned=0
+            while IFS= read -r -d '' f; do
+              if file -b "$f" | grep -q '^Mach-O'; then
+                codesign --verify "$f" 2>/dev/null || { echo "UNSIGNED: ${f#$SRC/}"; unsigned=1; }
+              fi
+            done < <(find "$SRC" -type f -perm +111 -print0)
+            if [ "$unsigned" != 0 ]; then
+              echo "One or more Mach-O binaries are unsigned; Apple Silicon will refuse to run them."
+              exit 1
+            fi
+            echo "signed: every Mach-O in $flavour verified"
+
             APP="bin/$flavour-app/HexIDE.app"
             mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
             cp -R "bin/$flavour/." "$APP/Contents/MacOS/"
@@ -186,18 +264,6 @@ jobs:
           </dict>
           </plist>
           PLIST
-            # Renaming HexIDE.Desktop -> HexIDE invalidated the linker's ad-hoc signature, and an
-            # arm64 Mach-O with a broken or absent signature is killed outright (SIGKILL) on Apple
-            # Silicon regardless of quarantine. Re-sign ad-hoc, inner-out. Never --deep: it re-signs
-            # nested code with the outer identity and hides exactly the failures this is guarding.
-            find "$APP" -type f \( -name '*.dylib' -o -name '*.so' -o -perm +111 \) -print0 |
-              while IFS= read -r -d '' f; do
-                if file -b "$f" | grep -q '^Mach-O'; then
-                  codesign --force --timestamp=none --sign - "$f" >/dev/null 2>&1 || true
-                fi
-              done
-            codesign --force --timestamp=none --sign - "$APP"
-            codesign --verify --verbose=2 "$APP"
           done
 
       - name: Smoke-check the staged output
@@ -219,10 +285,14 @@ jobs:
             # was dropped somewhere and the artifact is about to be six times too big.
             # Written as an if rather than `[ -d x ] && {...}`: under set -e the exit status of a
             # false test at the end of a loop body is not portably safe.
-            if [ -d "$d/runtimes" ]; then
-              echo "UNEXPECTED $d/runtimes — publish went RID-agnostic"
-              fail=1
-            fi
+            # Checked for the standalone runner too, not just the root: it is now a separate publish
+            # per flavour, and the self-contained one is exactly where a dropped RID would resurface.
+            for sub in "" "/standalone"; do
+              if [ -d "$d$sub/runtimes" ]; then
+                echo "UNEXPECTED $d$sub/runtimes — publish went RID-agnostic"
+                fail=1
+              fi
+            done
           done
           exit $fail
 
@@ -279,13 +349,23 @@ jobs:
           fail_on_unmatched_files: true
           files: artifacts/*
           token: ${{ secrets.GITHUB_TOKEN }}
+          # The saving warning leads, and is not decoration. A release page is reached directly --
+          # from search, from a link, from someone's chat message -- by people who never see the
+          # site. Without it here, the first thing they read is "nothing is signed", which sounds
+          # like an inconvenience rather than something that can cost them a project. Keep it
+          # worded the same as the site banner so the two cannot drift.
           body: |
-            Pre-alpha. Nothing here is signed or notarised.
+            An open, cross-platform recreation of the Visual Basic 6 IDE. **Alpha.**
+
+            > ⚠️ **Saving is not yet round-trip faithful.** A save can delete `.frx` binary companions and
+            > rewrite class settings you never touched. Work on a copy — not on a project you care about.
+            > [Exactly what goes wrong](https://hexide.io/scope.html#saving)
 
             **Which download?**
             - `hexide-<platform>-selfcontained.*` — no prerequisites. Start here.
             - `hexide-<platform>.*` — smaller, but needs the [.NET 10 desktop runtime](https://dotnet.microsoft.com/download/dotnet/10.0) installed.
 
+            Nothing here is signed or notarised.
             **Windows** shows a SmartScreen warning: More info → Run anyway.
             **macOS** — extract in Terminal with `tar -xzf <file>.tar.gz`. Unpacking with Finder
             instead applies a quarantine flag that an unsigned app cannot clear.
