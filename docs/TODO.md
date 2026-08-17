@@ -182,10 +182,8 @@ The VB6 interpreter has 200+ `NotImplementedException` throws across `StatementE
 
 ## AI Chat add-in
 
-- [ ] **Stale default model.** `ChatSettings.cs:17` defaults `modelId` to `claude-opus-4-8`; the current
-  Opus is `claude-opus-5`. One-line currency fix, deliberately deferred 2026-08-16 (user call: AI Chat is
-  fine as-is for alpha, time better spent on launch blockers). Same staleness in the spec's schema sample
-  at `openspec/specs/addin-system/spec.md:589`.
+- [x] **Stale default model.** `ChatSettings.cs:17` defaults `modelId` to `claude-opus-5`.
+  Updated from superseded `claude-opus-4-8`.
 - [ ] **The shipped default path runs through Anthropic's OpenAI-compatibility layer.** Verified reachable
   (`POST https://api.anthropic.com/v1/chat/completions` → 401 `authentication_error`, not 404), and the
   OpenAI-compatible design is a deliberate spec decision (`addin-system/spec.md:561`) that buys OpenAI /
