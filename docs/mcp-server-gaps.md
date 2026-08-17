@@ -28,7 +28,7 @@ logged rather than dialog'd.
 
 **Fix.** The modal-preference logic should also enumerate the runtime's managed dialog top-level windows and
 prefer them (reporting the title in `activeDialog`), the same way it prefers an IDE modal. *(Already filed in
-`docs/TODO.md` → "MCP dev/automation server"; this consolidates it.)*
+the old `docs/TODO.md` MCP section; this consolidates it.)*
 
 ---
 

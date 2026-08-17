@@ -119,7 +119,7 @@ If `shutdown_ide` is unavailable (MCP disconnected), use PowerShell: `Stop-Proce
 | `LspServer/` | MIT | Out-of-process VB6/VBA LSP server (EmmyLua shell + proleap grammar) |
 | `HexIDE.slnx` | — | Master solution (Visual Studio 2022+) |
 | `.github/` | — | CI workflows |
-| `docs/` | — | Engineering docs — MISSING_FEATURES.md, LSP_FEATURES.md, TODO.md, the fidelity oracle, the gap catalogues. **Ships publicly.** |
+| `docs/` | — | Engineering docs — MISSING_FEATURES.md, LSP_FEATURES.md, the fidelity oracle, the gap catalogues. **Ships publicly.** |
 | `docs/private/` | — | Strategy and ops — ROADMAP.md, EVOLUTION.md, the neighbour assessments, launch readiness, the signing runbook. **The only pruned part of `docs/`** — absent from a public clone by design; never link to it from a shipping file |
 
 ### Key IDE projects (`IDE/`)
@@ -347,7 +347,7 @@ widening visibility to `public` just for a test. When a new test project needs r
 - **`docs/private/ROADMAP.md`** *(maintainers)* — completed phases, design decisions, accepted/rejected ideas. Keep updated when phases complete or architectural decisions are made.
 - **`docs/private/EVOLUTION.md`** *(maintainers)* — Evolution-tier modernisation catalog: Remove/Keep/Change/Add tables with effort + persona-value ratings, the muscle-memory keep-list, and suggested waves. New Evolution work starts from this catalog; update rows as modernisation work lands.
 - **`docs/LSP_FEATURES.md`** — LSP capability mapping.
-- **`docs/TODO.md`** — backlog.
+- **The backlog lives in [GitHub Issues](https://github.com/hexide-io/HexIDE/issues)**, not in a file. `docs/TODO.md` was retired on 2026-08-17 and its actionable items opened as issues, so a contributor can find work without reading the repository. Note it down as an issue, not as a checklist entry.
 - **`openspec/`** — design records in [OpenSpec](https://github.com/Fission-AI/OpenSpec) format (CLI: `openspec`). **There is no status field anywhere — position in the tree *is* the status.**
   - `specs/{capability}/spec.md` — how the system behaves **today**, as present-tense `### Requirement:` / `#### Scenario:` pairs. RFC 2119 keywords (SHALL/MUST) must appear in the requirement **body**, not only its heading, or `--strict` warns.
   - `changes/{change-id}/` — work in flight: `proposal.md`, optional `design.md`, `tasks.md`, and spec deltas under `specs/{capability}/spec.md` (delta files start with `## ADDED Requirements` and carry **no H1**).
