@@ -61,43 +61,113 @@ public class FormSerializer
             vb.WriteProperty("LockControls", typeof(bool), true);
         WriteFormMeasurements(vb, form);
 
-        // A menu that some other menu claims as a sub-item is written by that parent, not from the flat
-        // list — otherwise every nested menu appears twice, once in the tree and once as a sibling.
+        // A menu nests through SubItems, a control through ContainedControls. One helper, so the writer has
+        // a single notion of "this component's children" without the two mechanisms being merged: probing
+        // SubItems on every component regardless of class is what would make a Frame writable as a menu
+        // item the moment anything populated that property on it.
+        static IReadOnlyList<ComponentInstance> ChildrenOf(ComponentInstance component)
+        {
+            if (component.BaseClass is not MenuComponentClass)
+                return component.ContainedControls;
+            if (component.GetPropertyOrDefault(MenuComponentClass.SubItemsProperty) is { } subItems)
+                return subItems;
+            return [];
+        }
+
+        // A component some other component claims as a child is written by that parent, not from the flat
+        // list — otherwise every nested component appears twice, once in the tree and once as a sibling.
+        //
+        // The form is excluded from the claim on purpose. Its own children are written by the root walk
+        // below, which draws from the flat list rather than from the form's ContainedControls, so a form
+        // the designer built — where nothing has recorded a containment link yet — still writes its
+        // controls instead of writing none of them.
         var claimedByAParent = new HashSet<ComponentInstance>();
         foreach (var component in element.Components)
         {
-            if (component.GetPropertyOrDefault(MenuComponentClass.SubItemsProperty) is { } subItems)
-                foreach (var child in subItems)
-                    claimedByAParent.Add(child);
+            if (component == form)
+                continue;
+            foreach (var child in ChildrenOf(component))
+                claimedByAParent.Add(child);
         }
+
+        void WriteVerbatimBlock(string text)
+        {
+            foreach (var line in text.Split(["\r\n", "\n"], StringSplitOptions.None))
+                vb.WriteVerbatimLine(line);
+        }
+
+        // Modelled children and preserved verbatim blocks, interleaved at the position each block held when
+        // it was read. Position among siblings is z-order, so writing every preserved block at the end
+        // reorders the form even when it reproduces the block itself byte for byte.
+        void WriteChildren(ComponentInstance container, IReadOnlyList<ComponentInstance> children)
+        {
+            var preserved = container.PreservedChildSubtrees;
+            var childIndex = 0;
+            var preservedIndex = 0;
+
+            for (var ordinal = 0; ordinal < children.Count + preserved.Count; ordinal++)
+            {
+                // <= rather than ==, so an ordinal that no longer lines up — two blocks recorded at one
+                // position, or a stale one left by an edit — still advances instead of stalling.
+                if (preservedIndex < preserved.Count && preserved[preservedIndex].Ordinal <= ordinal)
+                    WriteVerbatimBlock(preserved[preservedIndex++].Text);
+                else if (childIndex < children.Count)
+                    WriteComponentTree(children[childIndex++]);
+            }
+
+            // Whatever the ordinals could not place is still written rather than silently dropped.
+            for (; preservedIndex < preserved.Count; preservedIndex++)
+                WriteVerbatimBlock(preserved[preservedIndex].Text);
+            for (; childIndex < children.Count; childIndex++)
+                WriteComponentTree(children[childIndex]);
+        }
+
+        // Nothing in the model may be written twice, and nothing may be walked twice. The containment
+        // mutator refuses a cycle, so reaching one here means the model was corrupted some other way — and
+        // the two ways this recursion fails without the check are both bad: a cycle every member of which
+        // is claimed by a parent silently vanishes from the output, producing a plausible-looking .frm with
+        // controls missing, and a cycle below an unclaimed root recurses until the stack ends, which is a
+        // StackOverflowException .NET cannot catch — the process dies mid-save.
+        var written = new HashSet<ComponentInstance>();
 
         // Begin/End maintain the indent level themselves, so recursing here is all the nesting needs:
         // VB6's three-space step per level falls out of it.
         void WriteComponentTree(ComponentInstance component)
         {
+            if (!written.Add(component))
+                throw new InvalidOperationException(
+                    $"Component '{component.GetPropertyOrDefault(VBProperties.NameProperty)}' is reachable "
+                  + "more than once while writing the form — the containment tree is cyclic or has a "
+                  + "component claimed by two parents. Refusing to write a corrupted .frm.");
+
             vb.Begin(component.BaseClass.VBTypeName, component.GetPropertyOrDefault(VBProperties.NameProperty)!);
             WriteAllProperties(vb, component, frxName, offsetMap);
-
-            if (component.GetPropertyOrDefault(MenuComponentClass.SubItemsProperty) is { } subItems)
-                foreach (var child in subItems)
-                    WriteComponentTree(child);
-
+            WriteChildren(component, ChildrenOf(component));
             vb.End();
         }
 
+        var rootChildren = new List<ComponentInstance>();
         foreach (var component in element.Components)
         {
             if (component == form || claimedByAParent.Contains(component))
                 continue;
-
-            WriteComponentTree(component);
+            rootChildren.Add(component);
         }
 
-        foreach (var subtreeText in element.UnknownChildSubtreeTexts)
-        {
-            foreach (var line in subtreeText.Split(["\r\n", "\n"], StringSplitOptions.None))
-                vb.WriteVerbatimLine(line);
-        }
+        WriteChildren(form, rootChildren);
+
+        // The other half of the cycle guard, and the half that matters more. A component claimed by a
+        // parent that is itself never reached — the shape a cycle makes — is not written twice, it is not
+        // written AT ALL: the root loop skips it as claimed, and nothing else ever asks for it. That
+        // produces a valid-looking .frm with controls missing from it, which is the worst outcome in the
+        // taxonomy: a save that appears to have worked.
+        var unwritten = element.Components.Where(c => c != form && !written.Contains(c)).ToList();
+        if (unwritten.Count > 0)
+            throw new InvalidOperationException(
+                "These components are in the form but no parent wrote them, so the containment tree is "
+              + "cyclic or disconnected: "
+              + string.Join(", ", unwritten.Select(c => c.GetPropertyOrDefault(VBProperties.NameProperty)))
+              + ". Refusing to write a .frm with controls silently missing from it.");
 
         vb.End();
 

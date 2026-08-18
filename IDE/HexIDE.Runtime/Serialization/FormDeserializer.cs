@@ -91,32 +91,45 @@ public class FormDeserializer
         // instance each time, and two properties may legitimately cite one offset, so counting references
         // rather than assignments is what makes "fewer out than in" mean what it says.
         var capturedBlobs = new HashSet<byte[]>(ReferenceEqualityComparer.Instance);
+        // Preserved blocks are recorded on the container they came from, so reading them back per container
+        // walks containers in turn rather than walking the file. This counter is what restores the file's
+        // own order for the flat view.
+        var preservedSubtreesSeen = 0;
 
         // depth: the form itself is 1, its direct children 2, and so on — the same counting the
         // unfaithful-save gate uses. parent is null only for the form.
-        void LoadRecur(VBSerializedComponent serializedComponent, ComponentInstance? parent, int depth)
+        // ordinal: this component's index among its parent's children, modelled and unmodelled alike. It is
+        // what lets the writer put a preserved block back between the right two siblings.
+        void LoadRecur(VBSerializedComponent serializedComponent, ComponentInstance? parent, int depth, int ordinal)
         {
             if (!componentsByTypeNames.TryGetValue(serializedComponent.Type, out var componentClass) &&
                 (extraComponents == null || !extraComponents.TryGetValue(serializedComponent.Type, out componentClass)))
             {
-                // Unknown component type — reconstruct raw text and preserve for round-trip
-                var subtreeLines = ReconstructRawSubtree(serializedComponent, 1);
+                // Unknown component type — reconstruct raw text and preserve for round-trip.
+                //
+                // The indent is the component's real place in the file, not a fixed level: the property
+                // lines inside the block are replayed exactly as they were read, so a Begin/End pair
+                // generated at some other level would sit at odds with its own contents. A component at
+                // depth d was written at indent (d-1)*3, which is the step VB6 uses.
+                var subtreeLines = ReconstructRawSubtree(serializedComponent, depth - 1);
                 // The subtree's TEXT survives, but any blob it points at is never collected, so a
                 // regenerated companion would omit it. Record the loss so the save leaves the file alone.
                 if (subtreeLines.Any(FrxDeserializer.IsFrxReference))
                     form.MarkUnmodelledBinaryProperty();
-                form.UnknownChildSubtreeTexts.Add(string.Join("\r\n", subtreeLines));
+                // Recorded on the component it was read from, so the writer can put it back inside that
+                // container rather than just inside the root's closing End. The root is always a modelled
+                // class — VisualRootTypes is checked above and every member of it maps to
+                // FormComponentClass — so parent is never null here.
+                parent!.AddPreservedChildSubtree(ordinal, preservedSubtreesSeen++, string.Join("\r\n", subtreeLines));
                 errorSink.LogError($"Class {serializedComponent.Type} of control {serializedComponent.Name} is not a supported control class — preserved as unknown.");
 
-                // The text survives, but it is re-emitted at FORM level: UnknownChildSubtreeTexts is
-                // written just inside the root's closing End, with no memory of which container it came
-                // from. So an unmodelled control read from inside a Frame is flattened onto the form
-                // exactly like a modelled one, and until now nothing counted it — this branch returned
-                // before the depth accounting below, so such a form loaded as saveable.
-                //
                 // An unmodelled subtree is never a menu, so it always contributes its own depth. At depth
                 // 2 (a direct child of the form) that is a no-op, which is why the corpus set does not
                 // move: every unmodelled control in it sits directly under the form.
+                //
+                // It still counts even now that the block is written back inside its container, because
+                // the gate is about the whole form: the modelled siblings around it are what would be
+                // flattened, and Phase 7 is where that stops being true.
                 maxUnreproducibleDepth = Math.Max(maxUnreproducibleDepth, depth);
                 return;
             }
@@ -139,6 +152,21 @@ public class FormDeserializer
                 parent.SetProperty(MenuComponentClass.SubItemsProperty, subItems);
             }
 
+            // The containment link, recorded where the parent is already in hand. Two exclusions, both
+            // deliberate:
+            //
+            // A menu is never contained. It is not drawn inside anything, and its own tree is the SubItems
+            // list above; putting a top-level menu into the form's ContainedControls would make every later
+            // walk — the writer's, the runtime's canvas placement, the designer's origin walk — have to
+            // special-case it back out again.
+            //
+            // A parent that is not one of the three container classes gets no link either. The .frm format
+            // permits writing a control nested under a ListBox and VB6 loads it without complaint, so that
+            // is corrupt input rather than an exotic container: leaving the link unrecorded is what keeps
+            // the depth counter below seeing the nesting, so the refusal gate still fires on it.
+            if (!isMenu && parent is not null && ContainerClasses.IsContainer(parent.BaseClass))
+                instance.SetContainer(parent);
+
             // Depth the writer cannot yet reproduce. Menu-under-menu and menu-under-form are excluded
             // because the tree above now carries them; anything else — a control inside a Frame, say —
             // still flattens on save, so the form must stay read-only (#84).
@@ -156,7 +184,12 @@ public class FormDeserializer
                     propertyName = "Width";
                 if (propertyName == "ClientHeight")
                     propertyName = "Height";
-                if (propertyName == "ScaleHeight" || propertyName == "ScaleWidth")
+                // Scale* is skipped on the ROOT only, where the writer regenerates it from the form's own
+                // Width/Height. On a container it is content: ScaleMode is already preserved verbatim
+                // (it is not in SpecialCasedPropertyNames), so dropping Scale* wrote back a container
+                // declaring a user-defined scale with no scale — and a container's scale is exactly what
+                // gives its VB.Line children their units. Falling through preserves the lines verbatim.
+                if ((propertyName == "ScaleHeight" || propertyName == "ScaleWidth") && parent is null)
                     continue;
 
                 // LockControls is a form-level metadata flag, not a component property.
@@ -305,7 +338,7 @@ public class FormDeserializer
             }
 
             // Collect unknown raw property lines for round-trip preservation
-            var knownNames = BuildKnownPropertyNames(componentClass);
+            var knownNames = BuildKnownPropertyNames(componentClass, includeFormLevelNames: parent is null);
             foreach (var (name, rawLines) in serializedComponent.OrderedRawProperties)
             {
                 if (knownNames.Contains(name))
@@ -322,11 +355,11 @@ public class FormDeserializer
                 instance.UnknownRawPropertyLines.AddRange(rawLines);
             }
 
-            foreach (var nested in serializedComponent.SubComponents)
-                LoadRecur(nested, instance, depth + 1);
+            for (var i = 0; i < serializedComponent.SubComponents.Count; i++)
+                LoadRecur(serializedComponent.SubComponents[i], instance, depth + 1, i);
         }
 
-        LoadRecur(rootComponent, null, 1);
+        LoadRecur(rootComponent, null, 1, 0);
         form.RecordUnreproducibleNestingDepth(maxUnreproducibleDepth);
 
         // The refusal gate, decided here rather than from the parser's raw Begin depth, because only the
@@ -358,12 +391,20 @@ public class FormDeserializer
         return form;
     }
 
-    private static HashSet<string> BuildKnownPropertyNames(ComponentBaseClass componentClass)
+    /// <summary>
+    /// Property names this component does not need preserving verbatim, because the model already carries
+    /// them. <paramref name="includeFormLevelNames"/> adds <see cref="SpecialCasedPropertyNames"/>, every
+    /// member of which is meaningful only on the designer root: the Client* aliases, LockControls, and the
+    /// Scale* pair the writer regenerates from the form's own size. On a container those same names are
+    /// content, and claiming to know them is what silently dropped them.
+    /// </summary>
+    private static HashSet<string> BuildKnownPropertyNames(ComponentBaseClass componentClass, bool includeFormLevelNames)
     {
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var prop in componentClass.Properties)
             names.Add(prop.Name);
-        names.UnionWith(SpecialCasedPropertyNames);
+        if (includeFormLevelNames)
+            names.UnionWith(SpecialCasedPropertyNames);
         return names;
     }
 

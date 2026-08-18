@@ -123,7 +123,10 @@ public class MenuHierarchyLoadTests
     {
         var form = Load(FrameForm);
 
-        // The button is at depth 3 inside a Frame, and nothing yet records that parenting (#84).
+        // The button is at depth 3 inside a Frame. The parenting IS recorded now and the file round-trips,
+        // but the designer and the runtime still place children at face value, so the depth still counts
+        // and the gate still fires — see ContainerHierarchyLoadTests. The exemption lands with #84's last
+        // phase, not with its first.
         form.MaxUnreproducibleNestingDepth.Should().Be(3);
     }
 }
