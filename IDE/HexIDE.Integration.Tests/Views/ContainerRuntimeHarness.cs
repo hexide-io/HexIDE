@@ -67,6 +67,17 @@ internal static class ContainerRuntimeHarness
             {
                 Source = new Uri("avares://HexIDE.Runtime/BuiltinControls/Resources.axaml"),
             });
+
+        // The IDE's own theme, merged for the same reason the app merges it: without it these tests render
+        // against a DIFFERENT set of dictionaries than anything a user ever sees, and a defect that only
+        // appears under the real set passes here. That is not hypothetical — Classic.axaml carries an
+        // implicit ControlTheme for Separator that turns a menu separator into a two-pixel dot, and the menu
+        // tests were green throughout.
+        window.Resources.MergedDictionaries.Add(
+            new ResourceInclude(new Uri("avares://HexIDE.Integration.Tests/"))
+            {
+                Source = new Uri("avares://HexIDE/Themes/Classic.axaml"),
+            });
         foreach (var (key, brush) in SystemBrushes())
             window.Resources[key] = brush;
 

@@ -185,8 +185,15 @@ public class VBLoader
         return new Separator
         {
             Height = 1,
+            // Width is set to auto EXPLICITLY, and that is the whole reason this renders. The IDE's own
+            // Classic theme carries an implicit ControlTheme for every Separator that makes it a 1px
+            // VERTICAL toolbar divider. A local value is the only thing that beats it — without this, a menu
+            // separator inherits Width=1, meets Height=1 here, and draws as a two-pixel dot in the middle of
+            // the menu. It is invisible in a test that does not merge that theme, which is how it shipped.
+            Width = double.NaN,
             Margin = new Thickness(2, 3),
             HorizontalAlignment = HorizontalAlignment.Stretch,
+            VerticalAlignment = VerticalAlignment.Center,
             // A concrete brush rather than a DynamicResource lookup, on purpose. The 3-D shadow colour is the
             // right one and a resource reference would follow the theme — but a key that fails to resolve
             // leaves the brush null, and a null brush is an invisible line, which is the exact defect being

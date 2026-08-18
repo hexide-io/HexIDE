@@ -152,6 +152,13 @@ public class RuntimeMenuTests
         var line = separator.GetVisualDescendants().OfType<Border>().FirstOrDefault();
         line.Should().NotBeNull("the separator must template into something that paints");
         line!.Background.Should().NotBeNull("a line with no brush is a line nobody can see");
+
+        // And it has to be a RULE, not a mark. Asserting only that something is painted is not enough: the
+        // IDE's Classic theme styles every Separator as a 1px VERTICAL toolbar divider, which meets the 1px
+        // height here and renders as a two-pixel dot in the middle of the menu. It is brushed, it is present,
+        // and it is not a separator.
+        separator.Bounds.Width.Should().BeGreaterThan(separator.Bounds.Height * 10,
+            "a menu separator spans the menu rather than marking a point in it");
     }
 
     [AvaloniaFact]
