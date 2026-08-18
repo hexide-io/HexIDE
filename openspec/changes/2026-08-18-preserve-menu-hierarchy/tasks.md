@@ -1,9 +1,9 @@
 # Tasks
 
 ## 1. Load
-- [ ] 1.1 Populate `MenuComponentClass.SubItemsProperty` from nested `Begin VB.Menu` blocks in `FormDeserializer`
-- [ ] 1.2 Keep every menu in the flat `Components` list as well, so existing consumers are unaffected
-- [ ] 1.3 Record the depth of non-menu nesting separately from menu nesting
+- [x] 1.1 Populate `MenuComponentClass.SubItemsProperty` from nested `Begin VB.Menu` blocks in `FormDeserializer`
+- [x] 1.2 Keep every menu in the flat `Components` list as well, so existing consumers are unaffected
+- [x] 1.3 Record the depth of non-menu nesting separately from menu nesting
 
 ## 2. Save
 - [ ] 2.1 Walk `SubItemsProperty` in `FormSerializer` and emit nested `Begin VB.Menu` blocks

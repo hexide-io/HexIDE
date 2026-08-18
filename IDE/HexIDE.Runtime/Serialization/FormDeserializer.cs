@@ -88,8 +88,11 @@ public class FormDeserializer
                 "it contains nested controls or menus, which HexIDE would flatten on save");
         form.RecordLoadedCompanionBlobCount(frxBlobs?.Count ?? 0);
         var components = new List<ComponentInstance>();
+        var maxUnreproducibleDepth = 0;
 
-        void LoadRecur(VBSerializedComponent serializedComponent)
+        // depth: the form itself is 1, its direct children 2, and so on — the same counting the
+        // unfaithful-save gate uses. parent is null only for the form.
+        void LoadRecur(VBSerializedComponent serializedComponent, ComponentInstance? parent, int depth)
         {
             if (!componentsByTypeNames.TryGetValue(serializedComponent.Type, out var componentClass) &&
                 (extraComponents == null || !extraComponents.TryGetValue(serializedComponent.Type, out componentClass)))
@@ -106,7 +109,28 @@ public class FormDeserializer
             }
 
             var instance = new ComponentInstance(componentClass, serializedComponent.Name);
+            // Every component stays in the flat list, menus included. The tree below is additive, so
+            // nothing that reads FormDefinition.Components needs to know it exists.
             components.Add(instance);
+
+            var isMenu = componentClass is MenuComponentClass;
+            var parentIsMenu = parent?.BaseClass is MenuComponentClass;
+
+            // A .frm nests a menu tree as nested Begin VB.Menu blocks. Record the link on the parent,
+            // which is where the designer already keeps it, so the save path can walk the same tree.
+            if (isMenu && parentIsMenu)
+            {
+                var subItems = parent!.GetPropertyOrDefault(MenuComponentClass.SubItemsProperty)
+                               ?? new List<ComponentInstance>();
+                subItems.Add(instance);
+                parent.SetProperty(MenuComponentClass.SubItemsProperty, subItems);
+            }
+
+            // Depth the writer cannot yet reproduce. Menu-under-menu and menu-under-form are excluded
+            // because the tree above now carries them; anything else — a control inside a Frame, say —
+            // still flattens on save, so the form must stay read-only (#84).
+            if (!(isMenu && (parent is null || parentIsMenu)))
+                maxUnreproducibleDepth = Math.Max(maxUnreproducibleDepth, depth);
 
             foreach (var serializedProperty in serializedComponent.Properties)
             {
@@ -283,10 +307,11 @@ public class FormDeserializer
             }
 
             foreach (var nested in serializedComponent.SubComponents)
-                LoadRecur(nested);
+                LoadRecur(nested, instance, depth + 1);
         }
 
-        LoadRecur(rootComponent);
+        LoadRecur(rootComponent, null, 1);
+        form.RecordUnreproducibleNestingDepth(maxUnreproducibleDepth);
 
         form.UpdateCode(code);
         form.UpdateComponents(components);
