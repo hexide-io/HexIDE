@@ -280,3 +280,26 @@ an explicit `save_form` tool so a caller can batch adds and commit once.
 - **`Debug.Print` didn't reach the Immediate window** — that was an *interpreter* bug (the `Debug` object was
   seeded only in the test fixture, not the live F5 run), fixed this session (`VBDebugConsole`), not an MCP
   limitation. It's listed here only because gap #1 made it hard to *see* the resulting error.
+
+## MCP tools do not re-attach to a resumed session while the IDE keeps running
+
+**Symptom.** HexIDE was running throughout (`HexIDE.Desktop` PID alive, port 5123 `LISTENING`), the session
+was restarted twice specifically to pick the tools up, and `mcp__hexide__*` was still absent from the tool
+set both times. This is distinct from the known "tools drop when the IDE shuts down" case: nothing shut
+down, and the server was answering on its port the whole time.
+
+**Cost.** It blocks the mandatory visual verification in CLAUDE.md, and the documented escape hatch — raw
+HTTP — is explicitly forbidden, so the correct response is to stop and ask, which costs a round trip and
+sometimes more than one.
+
+**Workaround that does not violate the rule.** For an *isolated* surface, a headless Skia render test does
+the job: `AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }` is already configured in
+`TestApp.cs`, so `window.CaptureRenderedFrame()?.Save(path)` produces a real PNG that can be read back and
+looked at. Used to verify the reworded read-only banner at English and German lengths, and at a narrow dock
+width, without the running IDE. This does not replace MCP for anything live or modal — it only reaches
+surfaces that can be constructed standalone.
+
+**Suggested fix.** Either make tool discovery retry against `.mcp.json` when the endpoint becomes reachable
+mid-session, or have the launcher expose a readiness signal the client re-polls, so a restart with the IDE
+already up is sufficient. Failing that, document that the IDE must be started *after* the session, not
+before — which is the opposite of the intuitive order and worth stating explicitly.
