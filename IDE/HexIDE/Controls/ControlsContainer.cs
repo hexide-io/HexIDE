@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using HexIDE.Runtime.Components;
 using HexIDE.VisualDesigner;
 
 namespace HexIDE.Controls;
@@ -50,26 +51,60 @@ public class ControlsContainer : ListBox
             .OfType<ComponentInstanceViewModel>()
             .ToList();
 
+        // A selected control whose container is also selected must not be dragged in its own right: the
+        // container is already moving it, and the descendant fan-out re-reads its absolute position. Writing
+        // Canvas.Left on both makes the outcome depend on which TwoWay binding happens to fire first — one
+        // order leaves the child where it belongs, the other moves it twice as far as its container.
+        //
+        // A marquee across a Frame on this flat canvas produces exactly that selection, because VB6 scopes
+        // its marquee to the container the drag began in and HexIDE cannot yet. So this is the consequence of
+        // a stated divergence rather than a detail.
+        var selectedInstances = new HashSet<ComponentInstance>(allSelectedVms.Select(v => v.Instance));
+
+        bool ContainerIsSelected(ControlItem item)
+        {
+            if (item.DataContext is not ComponentInstanceViewModel vm)
+                return false;
+            for (var container = vm.Instance.Container; container is not null; container = container.Container)
+                if (selectedInstances.Contains(container))
+                    return true;
+            return false;
+        }
+
+        var dragSet = selectedItems.Where(i => !ContainerIsSelected(i)).ToList();
+        var dragSetVms = dragSet
+            .Select(i => i.DataContext as ComponentInstanceViewModel)
+            .OfType<ComponentInstanceViewModel>()
+            .ToList();
+
         foreach (var selectedItem in selectedItems)
         {
             if (AdornerLayer.GetAdorner(selectedItem) is ResizeAdorner adorner)
             {
-                if (selectedItems.Count > 1)
+                // Grabbing a control that sits inside a selected container moves just that control, within
+                // its container — which is a legitimate VB6 gesture, and the only coherent reading of a grab
+                // on a control the group drag is deliberately not moving.
+                var grabbedInsideSelection = ContainerIsSelected(selectedItem);
+
+                if (grabbedInsideSelection || dragSet.Count <= 1)
                 {
-                    var participants = new List<ControlItem>(selectedItems.Count - 1);
-                    foreach (var other in selectedItems)
+                    adorner.GroupDragParticipants = null;
+                }
+                else
+                {
+                    var participants = new List<ControlItem>(dragSet.Count - 1);
+                    foreach (var other in dragSet)
                     {
                         if (other != selectedItem)
                             participants.Add(other);
                     }
                     adorner.GroupDragParticipants = participants;
                 }
-                else
-                {
-                    adorner.GroupDragParticipants = null;
-                }
 
-                adorner.OnDragStarted = () => BeginDragCallback?.Invoke(allSelectedVms);
+                var dragTargets = grabbedInsideSelection
+                    ? (selectedItem.DataContext is ComponentInstanceViewModel one ? [one] : (IReadOnlyList<ComponentInstanceViewModel>)[])
+                    : dragSetVms;
+                adorner.OnDragStarted = () => BeginDragCallback?.Invoke(dragTargets);
                 adorner.OnDragCompleted = () => EndDragCallback?.Invoke();
             }
         }
