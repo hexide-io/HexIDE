@@ -108,8 +108,11 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **Genuine residuals (separate, documented elsewhere — NOT this row):** **control arrays** collapse to one variable
   (they aren't modelled as an indexed collection — interpreter-gaps "Runtime forms/controls surface" / E1); the
   **`Controls` collection** isn't modelled; **container-child nesting** (a control inside a Frame/PictureBox) shows
-  flat under `Me` rather than under its container, because the runtime spawns all controls flat on one form canvas
-  (a runtime-model limit, not a Locals limit); an *unloaded* form's **synthetic `Me` root** (D8 — no backing
+  flat under `Me` rather than under its container — the stated cause, that the runtime spawns all controls flat on
+  one form canvas, stopped being true with #84 (a Frame and a PictureBox now host their contents on their own
+  canvas), so what remains is that `DebugInspector`'s child provider enumerates the form's controls flat rather
+  than walking the containment tree the model records. Same symptom, smaller and purely-Locals-side cause; an
+  *unloaded* form's **synthetic `Me` root** (D8 — no backing
   control) has no property surface; and `ICSharpProxy` wrappers don't expand (a non-issue — the only proxied roots,
   `Debug`/`Err`, are `Hidden`). Value formatting is the inspector's approximate `FormatValue` (colours/fonts via
   their value, not `&H…`/font descriptors) — the D9 approximation.

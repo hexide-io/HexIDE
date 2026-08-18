@@ -144,6 +144,33 @@ public partial class FormDefinition : INotifyPropertyChanged
     public bool CanSaveFaithfully => UnfaithfulSaveCauses == UnfaithfulSaveCause.None;
 
     /// <summary>
+    /// Replaces this form's reproduction verdict, and the state it was derived from, with a freshly-parsed
+    /// one. For the reload path, where the file on disk has changed underneath an open form.
+    ///
+    /// Assignment rather than accumulation, which is the opposite of <see cref="MarkUnfaithfulToSave"/> and
+    /// deliberately so: within one load the causes OR together and never clear, but a RELOAD is a new load of
+    /// a different file. A form that had its unhostable nesting fixed externally has to stop being read-only,
+    /// and a form that gained a blob-backed property has to start.
+    ///
+    /// Adopting only Code and Components — which is what the reload used to do — leaves the verdict describing
+    /// a file that no longer exists: the banner keeps saying a form cannot be saved after the reason has been
+    /// removed, or worse, stops saying it after the reason has been introduced.
+    /// </summary>
+    public void AdoptFidelityState(FormDefinition fresh)
+    {
+        UnfaithfulSaveCauses = fresh.UnfaithfulSaveCauses;
+        UnfaithfulSaveReason = fresh.UnfaithfulSaveReason;
+        MaxUnreproducibleNestingDepth = fresh.MaxUnreproducibleNestingDepth;
+        HasUnmodelledBinaryProperties = fresh.HasUnmodelledBinaryProperties;
+        LoadedCompanionBlobCount = fresh.LoadedCompanionBlobCount;
+
+        // The OCX declarations between VERSION and the root Begin. Not fidelity as such, but read from the
+        // same file and just as stale: keeping the old ones would write another file's Object= lines back.
+        HeaderLines.Clear();
+        HeaderLines.AddRange(fresh.HeaderLines);
+    }
+
+    /// <summary>
     /// True when loading this form encountered a property backed by the companion binary (.frx/.ctx/.pgx)
     /// that HexIDE does not model — a <c>DragIcon</c>, a <c>CommandButton.Picture</c>, an <c>ItemData</c>.
     /// The property line is dropped, so a save cannot reproduce the blob it pointed at.

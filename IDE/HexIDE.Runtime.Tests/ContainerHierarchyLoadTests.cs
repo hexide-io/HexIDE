@@ -360,14 +360,35 @@ public class ContainerHierarchyLoadTests
     }
 
     [Fact]
-    public void ContainmentIsStillCountedAsUnreproducible_UntilTheDesignerAgrees()
+    public void ContainmentIsNoLongerCountedAsUnreproducible()
     {
         var form = Load(NestedForm);
 
-        // Recording the link and writing it back is only half of it. The designer and the runtime still
-        // place children at face value, so the gate stays shut until Phase 7 — opening here would convert
-        // misrendered read-only forms into misrendered editable ones.
-        form.MaxUnreproducibleNestingDepth.Should().Be(4);
+        // Successor to ContainmentIsStillCountedAsUnreproducible_UntilTheDesignerAgrees. Four Begin levels
+        // deep, and every layer now agrees where a child belongs: the loader records the containment, the
+        // writer nests it back, the runtime hosts it on its container's own canvas, and the designer draws it
+        // at the container's origin. That agreement was the condition for opening the gate.
+        form.MaxUnreproducibleNestingDepth.Should().BeLessThanOrEqualTo(2);
+        form.CanSaveFaithfully.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AControlNestedUnderANonContainer_StillHoldsTheFormReadOnly()
+    {
+        // The gate's remaining job. Nothing records a link for this, nothing can host it, and a save would
+        // re-parent it onto the form with its container-relative coordinates intact.
+        const string frm =
+            "VERSION 5.00\r\n" +
+            "Begin VB.Form Form1 \r\n" +
+            "   Begin VB.ListBox List1 \r\n" +
+            "      Begin VB.TextBox Text1 \r\n" +
+            "      End\r\n" +
+            "   End\r\n" +
+            "End\r\nAttribute VB_Name = \"Form1\"\r\n";
+
+        var form = Load(frm);
+
+        form.MaxUnreproducibleNestingDepth.Should().Be(3);
         form.CanSaveFaithfully.Should().BeFalse();
     }
 }

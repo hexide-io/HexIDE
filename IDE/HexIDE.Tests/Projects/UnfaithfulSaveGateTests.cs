@@ -86,9 +86,18 @@ public class UnfaithfulSaveGateTests : IDisposable
     /// This fixture used to be a nested menu, which is no longer gated: menu hierarchies survive a
     /// round-trip as of #83, so a menu form would exercise nothing here. Container nesting is #84.
     /// </summary>
+    /// <summary>
+    /// A form the gate still refuses. It used to be a CommandButton inside a Frame, which was the canonical
+    /// unreproducible shape; containers now round-trip, so the fixture moved to what remains — a control
+    /// nested under a class that is not a container.
+    ///
+    /// The format permits writing this and VB6 loads it without complaint, so it is corrupt input rather than
+    /// an exotic container: HexIDE has nowhere to host the button, records no containment link for it, and a
+    /// save would re-parent it onto the form still carrying its container-relative coordinates.
+    /// </summary>
     private const string NestedContainerForm =
         "VERSION 5.00\r\nBegin VB.Form Form1 \r\n   Caption         =   \"Form1\"\r\n" +
-        "   Begin VB.Frame Frame1 \r\n      Caption         =   \"Frame1\"\r\n" +
+        "   Begin VB.ListBox List1 \r\n" +
         "      Begin VB.CommandButton Command1 \r\n         Caption         =   \"Command1\"\r\n" +
         "      End\r\n   End\r\n" +
         "End\r\nAttribute VB_Name = \"Form1\"\r\n";
@@ -148,8 +157,11 @@ public class UnfaithfulSaveGateTests : IDisposable
         var svc = MakeService();
         await svc.OpenProject(Stage(NestedContainerForm));
 
+        // The wording moved with the gate: "flatten onto the form" described what a save did to a container's
+        // children, which no longer happens. What is left is re-parenting a control out of a class that cannot
+        // host it.
         loaded.Single().Forms.Single().UnfaithfulSaveReason
-            .Should().Contain("nested").And.Contain("flatten");
+            .Should().Contain("nests").And.Contain("not a container").And.Contain("re-parent");
     }
 
     [Fact]

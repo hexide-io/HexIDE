@@ -506,9 +506,12 @@ public class CodeEditorViewModelTests : IDisposable
     private static FormDefinition MakeForm(bool faithful)
     {
         var form = TestHelpers.CreateForm(name: "Form1");
+        // The binary cause, because that is what actually holds the six remaining corpus forms read-only now
+        // that containers round-trip. The fixture used to inject the container sentence, which the loader no
+        // longer produces — a synthetic string the product had stopped saying.
         if (!faithful)
-            form.MarkUnfaithfulToSave(UnfaithfulSaveCause.NestedContainers,
-                "it contains controls nested inside a container, which HexIDE would flatten onto the form on save");
+            form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreproducibleBinaryContent,
+                "it references companion binary content HexIDE cannot re-emit (0 of 1 blob(s) reached the model)");
         return form;
     }
 
@@ -519,7 +522,7 @@ public class CodeEditorViewModelTests : IDisposable
         vm.Initialize(MakeForm(faithful: false));
 
         vm.IsReadOnly.Should().BeTrue();
-        vm.ReadOnlyReason.Should().Contain("nested inside a container");
+        vm.ReadOnlyReason.Should().Contain("companion binary content");
     }
 
     [Fact]

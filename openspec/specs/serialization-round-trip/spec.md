@@ -24,9 +24,20 @@ cannot reproduce. Preservation where it understands the content, and refusal whe
 > read-only requirements *are* met, and are what makes the gap safe to ship with.
 >
 > That read-only count was 12 until menu hierarchies began surviving a round-trip
-> ([#83](https://github.com/hexide-io/HexIDE/issues/83)). The six that remain are controls nested inside a
-> container ([#84](https://github.com/hexide-io/HexIDE/issues/84)); none of them contains a menu. The
-> number is gated by a corpus test, so it can fall but not quietly rise.
+> ([#83](https://github.com/hexide-io/HexIDE/issues/83)), and container nesting has since been fixed as
+> well ([#84](https://github.com/hexide-io/HexIDE/issues/84)) — a control inside a `Frame` or a
+> `PictureBox` is recorded, written back nested, hosted by its container at run time and drawn inside it in
+> the designer.
+>
+> The count did not fall, and that is the honest part. Two forms left the read-only set and two entered it:
+> closing the container gap freed `Options Dialog.frm` and `Tip of the Day.frm`, while teaching the gate to
+> recognise **blob loss** caught `Button ListBox.frm` and `Mover ListBox.frm`, which until then saved
+> lossily — dropping a control's picture reference while the `.frx` bytes survived on disk. All six that
+> remain are held for unreproducible companion binary content, and none for nesting. That is why the gate is
+> tracked as a SET rather than a count: a count would have reported no progress on a change that removed two
+> whole classes of corruption.
+>
+> The set is gated by a corpus test, so membership cannot change quietly in either direction.
 
 ## Requirements
 ### Requirement: Content the IDE does not understand SHALL survive a round-trip

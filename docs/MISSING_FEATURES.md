@@ -18,7 +18,7 @@
 | Remove *{project}* | — | Done | |
 | Save Project | — | Partial | Saves every member HexIDE can reproduce; members it cannot are left untouched on disk and reported together in one dialog. See `Save {file}` |
 | Save Project As… | — | Done | |
-| Save *{file}* | Ctrl+S | Partial | Works, but not faithfully: **0 of VB6's own 22 template forms survive a save byte-for-byte**, and **6 of them are held read-only** because HexIDE knows it would flatten them (controls nested inside a container; menu trees round-trip as of #83). The gate is deliberate — refusing beats writing a `.frm` VB6 cannot open — but the round-trip guarantee itself is unmet. Epic [#21](https://github.com/hexide-io/HexIDE/issues/21); contract in [serialization-round-trip](../openspec/specs/serialization-round-trip/spec.md) |
+| Save *{file}* | Ctrl+S | Partial | Works, but not faithfully: **0 of VB6's own 22 template forms survive a save byte-for-byte**, and **6 of them are held read-only** because HexIDE knows it would not reproduce them — all six for companion binary content it cannot re-emit. Menu trees round-trip as of #83 and container nesting as of #84, so neither holds a form back any more. The gate is deliberate — refusing beats writing a `.frm` VB6 cannot open — but the round-trip guarantee itself is unmet. Epic [#21](https://github.com/hexide-io/HexIDE/issues/21); contract in [serialization-round-trip](../openspec/specs/serialization-round-trip/spec.md) |
 | Save *{file}* As… | — | Done | Bypasses the faithfulness gate by design: the original file is not at risk, so a read-only form can still be written elsewhere |
 | Print… | — | Stub | Bound to `NYICommand`; shows "not yet implemented" |
 | Print Setup… | — | Stub | Bound to `NYICommand` |
@@ -244,7 +244,7 @@
 | Insert File | Stub | Menu item present; no handler |
 | Find scope (project / all docs) | Partial | Scope dropdown shown in Find dialog; only current-module search implemented |
 | View Object (switch to designer) | Done | |
-| Read-only banner for unsaveable forms | Done | **HexIDE addition** (not in VB6) — a form HexIDE would flatten on save opens with its code editor read-only and a banner giving the reason (`CodeEditorViewModel.IsReadOnly`). Viewing and running still work. Rationale in [serialization-round-trip](../openspec/specs/serialization-round-trip/spec.md) |
+| Read-only banner for unsaveable forms | Done | **HexIDE addition** (not in VB6) — a form HexIDE cannot reproduce on save opens with its code editor read-only and a banner giving the reason (`CodeEditorViewModel.IsReadOnly`). Viewing and running still work. Rationale in [serialization-round-trip](../openspec/specs/serialization-round-trip/spec.md) |
 
 ---
 
@@ -278,7 +278,7 @@
 | Smart / alignment guides | Missing | Grid only |
 | Property search / filter | Missing | No search box in Properties window |
 | Control rendering quality | Partial | Bitmap snapshot via `ControlRenderer`; text/font preview approximate |
-| Read-only designer for unsaveable forms | Done | **HexIDE addition** (not in VB6) — a form with controls nested inside a container opens read-only with a banner (`FormEditViewModel.IsReadOnly`), because HexIDE would flatten the hierarchy on save. 6 of VB6's own 22 template forms are in this state today (was 12 before #83) ([#21](https://github.com/hexide-io/HexIDE/issues/21)) |
+| Read-only designer for unsaveable forms | Done | **HexIDE addition** (not in VB6) — a form HexIDE cannot reproduce opens read-only with a banner (`FormEditViewModel.IsReadOnly`). 6 of VB6's own 22 template forms are in this state today (was 12 before #83), all six for companion binary content rather than for nesting: containers round-trip as of #84 ([#21](https://github.com/hexide-io/HexIDE/issues/21)) |
 
 ---
 

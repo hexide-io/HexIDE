@@ -102,10 +102,17 @@ public class BlobLossGateTests
     [Fact]
     public void CausesAccumulate_RatherThanOverwritingEachOther()
     {
+        // A ListBox is not a container, so the Label nested inside it would be re-parented onto the form on
+        // save — and it carries a blob-backed property the writer cannot re-emit. Two independent causes on
+        // one form.
+        //
+        // The fixture used to be a Frame, which was the point when a Frame held a form read-only. Frames no
+        // longer do, so keeping it would have made this assert only the binary half while still claiming to
+        // prove the two accumulate.
         const string both =
             "VERSION 5.00\r\n" +
             "Begin VB.Form Form1 \r\n" +
-            "   Begin VB.Frame Frame1 \r\n" +
+            "   Begin VB.ListBox List1 \r\n" +
             "      Begin VB.Label Label1 \r\n" +
             "         Picture         =   \"Form1.frx\":0000\r\n" +
             "      End\r\n   End\r\n" +
@@ -113,8 +120,8 @@ public class BlobLossGateTests
 
         var form = Load(both, OneBlob());
 
-        // Splash Screen and three others are unreproducible in both ways at once. If one cause overwrote
-        // the other, fixing containers would appear to free a form that is still losing a picture.
+        // If one cause overwrote the other, fixing containers would appear to free a form that is still
+        // losing a picture.
         form.UnfaithfulSaveCauses.Should().Be(
             UnfaithfulSaveCause.NestedContainers | UnfaithfulSaveCause.UnreproducibleBinaryContent);
     }

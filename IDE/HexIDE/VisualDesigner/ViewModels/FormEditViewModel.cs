@@ -209,6 +209,13 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
         SelectedComponent = Form;
         UndoStack.Clear();
+
+        // The reload adopts the fresh parse's fidelity verdict, so the read-only state can have changed in
+        // either direction — a form whose unhostable nesting was fixed externally becomes editable, one that
+        // gained a blob-backed property stops being. Neither of these is a computed property the framework
+        // watches, so the banner and the disabled surface would keep the old answer until the tab was reopened.
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(IsReadOnly)));
+        OnPropertyChanged(new PropertyChangedEventArgs(nameof(ReadOnlyReason)));
     }
 
     /* ctr only for the previewer! */
