@@ -66,8 +66,9 @@ public class FormDeserializer
             var vb = new VbFrmFormatDeserializer();
             (rootComponent, code) = vb.Deserialize(source);
             headerLines = vb.HeaderLines;
-            // vb.MaxBeginDepth is deliberately not used: it counts every Begin, and the gate below needs
-            // to know which of that nesting was menus. Only the component walk can tell.
+            // The parser no longer reports a raw Begin depth. It counted every Begin without knowing what
+            // any of them were, which stopped being a usable gate signal once menu nesting became
+            // reproducible — only the component walk below can tell menu nesting from container nesting.
         }
         catch (Exception ex)
         {
@@ -106,6 +107,17 @@ public class FormDeserializer
                     form.MarkUnmodelledBinaryProperty();
                 form.UnknownChildSubtreeTexts.Add(string.Join("\r\n", subtreeLines));
                 errorSink.LogError($"Class {serializedComponent.Type} of control {serializedComponent.Name} is not a supported control class — preserved as unknown.");
+
+                // The text survives, but it is re-emitted at FORM level: UnknownChildSubtreeTexts is
+                // written just inside the root's closing End, with no memory of which container it came
+                // from. So an unmodelled control read from inside a Frame is flattened onto the form
+                // exactly like a modelled one, and until now nothing counted it — this branch returned
+                // before the depth accounting below, so such a form loaded as saveable.
+                //
+                // An unmodelled subtree is never a menu, so it always contributes its own depth. At depth
+                // 2 (a direct child of the form) that is a no-op, which is why the corpus set does not
+                // move: every unmodelled control in it sits directly under the form.
+                maxUnreproducibleDepth = Math.Max(maxUnreproducibleDepth, depth);
                 return;
             }
 
