@@ -83,9 +83,20 @@ public partial class FormDefinition : INotifyPropertyChanged
 
     public string RootVBTypeName { get; private set; } = "VB.Form";
 
-    // Raw text blocks for child component types that HexIDE does not support.
-    // Each entry is the full Begin...End block, preserved verbatim for round-trip fidelity.
-    public List<string> UnknownChildSubtreeTexts { get; } = [];
+    /// <summary>
+    /// Raw text blocks for child component types that HexIDE does not support — each the full
+    /// <c>Begin</c>…<c>End</c> block, preserved verbatim for round-trip fidelity.
+    ///
+    /// Derived, not stored. The blocks live on the <see cref="ComponentInstance"/> they were read from
+    /// (<see cref="ComponentInstance.PreservedChildSubtrees"/>), because a block re-emitted at form level
+    /// has been silently re-parented. This is the flat pre-order view of them, which is all any caller
+    /// outside the serializer ever wanted.
+    /// </summary>
+    public IReadOnlyList<string> UnknownChildSubtreeTexts =>
+        components.SelectMany(c => c.PreservedChildSubtrees)
+                  .OrderBy(s => s.DocumentOrder)
+                  .Select(s => s.Text)
+                  .ToList();
 
     /// <summary>
     /// Lines between the VERSION line and the root Begin — in practice the OCX declarations a form

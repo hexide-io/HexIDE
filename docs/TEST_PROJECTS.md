@@ -17,14 +17,23 @@ Round-trip fidelity is verified by the `HexIDE.Runtime.Tests` xUnit harness (see
 To run the corpus tests locally:
 
 ```
-dotnet test HexIDE.Runtime.Tests --filter Category=RoundTrip
+cd IDE && dotnet test HexIDE.Runtime.Tests --filter "FullyQualifiedName~SerializationCorpusTests"
 ```
 
-To generate a full JSON report:
+There is no test category or trait to filter on — `[Trait]` is not used anywhere in `IDE/`, so filter by
+type name.
 
-```
-HexIDE.Standalone.exe --roundtrip --corpus ./test-projects/ --report roundtrip-report.json
-```
+The corpus is discovered rather than configured. `HEXIDE_ROUNDTRIP_CORPUS` (a `;`-separated list of
+directories) replaces it outright; otherwise the roots are the VB98 template tree — `VB6_TEMPLATES`, or
+`C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template` — plus the repository's own `demo/`. CI is
+Linux and has no VB6, so there the corpus is `demo/` alone: HexIDE's own output, which proves nothing about
+fidelity. Read the report, not the pass.
+
+The run writes a per-file report to `hexide-roundtrip-report.txt` in the system temp directory, listing
+every `DIFF`, `BLOB-LOSS` and `BLOB-DIFF` with the first few differing lines. That is the full report — the
+JSON report and the `--roundtrip` / `--corpus` / `--report` flags described here previously do not exist;
+`HexIDE.Standalone` implements exactly one non-GUI mode, `--check <project.vbp>`, which loads a project and
+prints per-module results.
 
 ---
 
