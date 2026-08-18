@@ -519,6 +519,9 @@ public class ProjectService : IProjectService
 
         form.UpdateCode(fresh.Code);
         form.UpdateComponents(fresh.Components);
+        // The verdict comes from the file too. Adopting only code and components left the banner describing
+        // the version that was on disk when the form was first opened.
+        form.AdoptFidelityState(fresh);
         SnapshotRenderBaseline(form);
         return true;
     }
@@ -553,6 +556,7 @@ public class ProjectService : IProjectService
                     // (the designer's FormEditViewModel.FormDefinition points at this instance).
                     existing.UpdateCode(fresh.Code);
                     existing.UpdateComponents(fresh.Components);
+                    existing.AdoptFidelityState(fresh);
                 }
                 else
                 {

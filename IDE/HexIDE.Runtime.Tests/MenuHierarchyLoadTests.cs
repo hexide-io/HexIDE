@@ -119,14 +119,14 @@ public class MenuHierarchyLoadTests
     }
 
     [Fact]
-    public void ControlInsideAContainer_IsStillCountedAsUnreproducible()
+    public void ControlInsideAContainer_IsNoLongerCountedAsUnreproducible()
     {
         var form = Load(FrameForm);
 
-        // The button is at depth 3 inside a Frame. The parenting IS recorded now and the file round-trips,
-        // but the designer and the runtime still place children at face value, so the depth still counts
-        // and the gate still fires — see ContainerHierarchyLoadTests. The exemption lands with #84's last
-        // phase, not with its first.
-        form.MaxUnreproducibleNestingDepth.Should().Be(3);
+        // Successor to ControlInsideAContainer_IsStillCountedAsUnreproducible. The button is at depth 3
+        // inside a Frame, and every layer now agrees where it belongs: the loader records the containment,
+        // the writer nests it back, the runtime hosts it on the Frame's own canvas and the designer draws it
+        // at the Frame's origin. So it no longer counts, exactly as menu nesting stopped counting in #86.
+        form.MaxUnreproducibleNestingDepth.Should().BeLessThanOrEqualTo(2);
     }
 }

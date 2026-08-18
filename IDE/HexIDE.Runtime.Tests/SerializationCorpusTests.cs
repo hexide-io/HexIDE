@@ -30,6 +30,15 @@ public class SerializationCorpusTests
     private static readonly string ReportPath =
         Path.Join(Path.GetTempPath(), "hexide-roundtrip-report.txt");
 
+    /// <summary>
+    /// Where the corpus comes from, in priority order.
+    ///
+    /// The VB98 Template tree holds <b>22</b> designer files (.frm/.ctl) — and two of them, ADDIN.FRM and
+    /// FRMDATEN.FRM, are UPPERCASE. Every count in this file and in the docs is 22 because of those two; a
+    /// case-sensitive scan for "*.frm" finds 20 and quietly reports a different denominator. The enumeration
+    /// below is case-insensitive by virtue of running on Windows, so anything that re-implements it
+    /// elsewhere — a script, a CI step, a doc's claim — has to be checked against that.
+    /// </summary>
     private static IEnumerable<string> CorpusRoots()
     {
         var env = Environment.GetEnvironmentVariable("HEXIDE_ROUNDTRIP_CORPUS");
@@ -252,22 +261,22 @@ public class SerializationCorpusTests
         // Each entry names the causes, so a form moving between categories is visible rather than silent.
         // UPDATE this as phases land, and read a change carefully: a form gaining a cause is a regression
         // unless it is one of the deliberate widenings recorded in that phase's tasks.
+        // The final membership after #84. Six forms, every one of them held for unreproducible binary content
+        // and NONE for container nesting — a different six from the six that were held before the work
+        // started, which is the whole reason this is a set and not a count.
+        //
+        // Options Dialog and Tip of the Day are freed: they nest controls inside containers and nothing else,
+        // and containers now round-trip through the model, the writer, the runtime and the designer alike.
+        // Button ListBox and Mover ListBox moved the other way — they used to save lossily, dropping a
+        // control's picture reference while the companion file survived on disk, and are now honestly refused.
         var expected = new Dictionary<string, UnfaithfulSaveCause>
         {
-            // Nesting only — freed once containers round-trip (#84).
-            ["Options Dialog.frm"] = UnfaithfulSaveCause.NestedContainers,
-            ["Tip of the Day.frm"] = UnfaithfulSaveCause.NestedContainers,
-
-            // Binary only — these two saved lossily until the gate learned to see blob loss, dropping a
-            // control's picture reference while the companion file survived on disk.
+            ["Splash Screen.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
+            ["ODBC Log In.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
+            ["Web Browser.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
+            ["Treeview Listview Splitter.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
             ["Button ListBox.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
             ["Mover ListBox.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
-
-            // Both — still gated after the container work, on the binary half.
-            ["Splash Screen.frm"] = UnfaithfulSaveCause.NestedContainers | UnfaithfulSaveCause.UnreproducibleBinaryContent,
-            ["ODBC Log In.frm"] = UnfaithfulSaveCause.NestedContainers | UnfaithfulSaveCause.UnreproducibleBinaryContent,
-            ["Web Browser.frm"] = UnfaithfulSaveCause.NestedContainers | UnfaithfulSaveCause.UnreproducibleBinaryContent,
-            ["Treeview Listview Splitter.frm"] = UnfaithfulSaveCause.NestedContainers | UnfaithfulSaveCause.UnreproducibleBinaryContent,
         };
 
         var files = CorpusFiles(".frm", ".ctl");
@@ -297,6 +306,66 @@ public class SerializationCorpusTests
 
         actual.Should().BeEquivalentTo(expected,
             "the set of forms HexIDE refuses to save, and why, is the burndown this issue tracks");
+    }
+
+    [Fact]
+    public void Container_nesting_round_trips_and_no_longer_holds_a_form_read_only()
+    {
+        // Corpus-INDEPENDENT on purpose. Every other assertion about #84 needs the VB98 template tree, and CI
+        // is Linux with no VB6 install: there the corpus falls back to demo/, which contains no container
+        // nesting at all, so those assertions pass by having nothing to check. This one carries its own
+        // fixture, so the fix is observable on CI rather than only on a Windows dev box.
+        const string frm =
+            "VERSION 5.00\r\n" +
+            "Begin VB.Form Form1 \r\n" +
+            "   Begin VB.PictureBox picOuter \r\n" +
+            "      Left            =   300\r\n" +
+            "      Top             =   300\r\n" +
+            "      Width           =   4500\r\n" +
+            "      Height          =   3000\r\n" +
+            "      Begin VB.Frame fraInner \r\n" +
+            "         Caption         =   \"Inner\"\r\n" +
+            "         Left            =   150\r\n" +
+            "         Top             =   150\r\n" +
+            "         Width           =   3000\r\n" +
+            "         Height          =   1500\r\n" +
+            "         Begin VB.CommandButton cmdDeep \r\n" +
+            "            Caption         =   \"Deep\"\r\n" +
+            "            Left            =   150\r\n" +
+            "            Top             =   150\r\n" +
+            "            Width           =   1200\r\n" +
+            "            Height          =   375\r\n" +
+            "         End\r\n" +
+            "      End\r\n" +
+            "   End\r\n" +
+            "End\r\nAttribute VB_Name = \"Form1\"\r\n";
+
+        var form = new FormDeserializer().Deserialize(
+            new ProjectDefinition(VBProjectType.EXE, "Corpus"), frm, new Sink())!;
+
+        form.CanSaveFaithfully.Should().BeTrue("three levels of container nesting round-trip");
+
+        var (rendered, _) = new FormSerializer().Serialize(form, "Form1.frm");
+        var shape = rendered.Split(["\r\n", "\n"], StringSplitOptions.None)
+                            .Where(l => l.TrimStart().StartsWith("Begin ") || l.Trim() == "End")
+                            .Select(l => l.TrimEnd())
+                            .ToList();
+
+        shape.Should().Equal(
+            "Begin VB.Form Form1",
+            "   Begin VB.PictureBox picOuter",
+            "      Begin VB.Frame fraInner",
+            "         Begin VB.CommandButton cmdDeep",
+            "         End",
+            "      End",
+            "   End",
+            "End");
+
+        // And the coordinates stay the container-relative numbers the file gave, rather than being rebased
+        // onto the form — which is what a flattening save produced.
+        var deep = form.Components.Single(c =>
+            c.GetPropertyOrDefault(VBProperties.NameProperty) == "cmdDeep");
+        (deep.GetPropertyOrDefault(VBProperties.LeftProperty) * 15).Should().BeApproximately(150, 0.01);
     }
 
     [Fact]

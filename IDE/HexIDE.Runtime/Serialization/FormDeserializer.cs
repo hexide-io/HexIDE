@@ -123,14 +123,18 @@ public class FormDeserializer
                 parent!.AddPreservedChildSubtree(ordinal, preservedSubtreesSeen++, string.Join("\r\n", subtreeLines));
                 errorSink.LogError($"Class {serializedComponent.Type} of control {serializedComponent.Name} is not a supported control class — preserved as unknown.");
 
-                // An unmodelled subtree is never a menu, so it always contributes its own depth. At depth
-                // 2 (a direct child of the form) that is a no-op, which is why the corpus set does not
-                // move: every unmodelled control in it sits directly under the form.
+                // No depth contribution. The block is recorded on the component it was read from, indented
+                // to its real load depth, and re-emitted at the ordinal it held among that component's
+                // children — so it comes back exactly where it was, at any depth, under any parent class.
                 //
-                // It still counts even now that the block is written back inside its container, because
-                // the gate is about the whole form: the modelled siblings around it are what would be
-                // flattened, and Phase 7 is where that stops being true.
-                maxUnreproducibleDepth = Math.Max(maxUnreproducibleDepth, depth);
+                // This used to count, and correctly: while modelled siblings were still being flattened to
+                // form level, a form holding both was not reproducible even though the preserved half was.
+                // That is what Splash Screen.frm is — an unmodelled VB.Image beside eight modelled Labels
+                // inside a Frame — and it is why this line existed until the writer learned to nest.
+                //
+                // Any blob the block references is a separate matter, flagged just above: the text survives
+                // but the .frx-referencing property lines are dropped, which is the binary cause, not this
+                // one.
                 return;
             }
 
@@ -167,10 +171,23 @@ public class FormDeserializer
             if (!isMenu && parent is not null && ContainerClasses.IsContainer(parent.BaseClass))
                 instance.SetContainer(parent);
 
-            // Depth the writer cannot yet reproduce. Menu-under-menu and menu-under-form are excluded
-            // because the tree above now carries them; anything else — a control inside a Frame, say —
-            // still flattens on save, so the form must stay read-only (#84).
-            if (!(isMenu && (parent is null || parentIsMenu)))
+            // Depth HexIDE cannot reproduce. Two kinds of nesting are now excluded, and both are excluded
+            // for the same reason: something records the parent and something walks it back out.
+            //
+            // A menu under a menu, or under the form, rides on the parent's SubItems.
+            //
+            // A control under a container rides on the containment link recorded just above — and that link
+            // is only recorded when the parent is genuinely a Form, PictureBox or Frame. So the condition is
+            // simply "was a link recorded": a control nested under a ListBox gets none, still contributes its
+            // depth, and still holds the form read-only, which is the right answer for input the format
+            // permits and VB6 accepts silently. A component nested under an add-in-registered class is the
+            // same case.
+            //
+            // The old arm for a null parent is gone. LoadRecur is called with null exactly once, for the
+            // root, and a root that is not a visual root type has already been rejected — so `parent is
+            // null` could only ever describe the form itself, which contributes nothing anyway.
+            var ridesOnARecordedTree = isMenu ? parentIsMenu || parent is null : instance.Container is not null;
+            if (!ridesOnARecordedTree)
                 maxUnreproducibleDepth = Math.Max(maxUnreproducibleDepth, depth);
 
             foreach (var serializedProperty in serializedComponent.Properties)
@@ -362,12 +379,20 @@ public class FormDeserializer
         LoadRecur(rootComponent, null, 1, 0);
         form.RecordUnreproducibleNestingDepth(maxUnreproducibleDepth);
 
-        // The refusal gate, decided here rather than from the parser's raw Begin depth, because only the
-        // walk above knows which nesting was menu nesting. Menus now round-trip, so they no longer hold a
-        // form read-only; a control inside a Frame or PictureBox still does, until #84.
+        // The refusal gate, decided here rather than from the parser's raw Begin depth, because only the walk
+        // above knows which nesting rides on a tree something walks back out.
+        //
+        // What is left after #84 is nesting under a class that is NOT a container: the format permits writing
+        // a control inside a ListBox, and VB6 loads such a file without complaint, so it is corrupt input
+        // rather than an exotic container. HexIDE has nowhere to host it and no link recorded for it, so a
+        // save would re-parent it onto the form with its container-relative coordinates intact. A component
+        // nested under a class an add-in registered is the same case, for the same reason: HexIDE cannot host
+        // arbitrary children inside a control it did not build.
+        //
+        // Menus and real containers no longer reach here at all.
         if (maxUnreproducibleDepth > 2)
             form.MarkUnfaithfulToSave(UnfaithfulSaveCause.NestedContainers,
-                "it contains controls nested inside a container, which HexIDE would flatten onto the form on save");
+                "it nests a control inside a class that is not a container, which HexIDE would re-parent onto the form on save");
 
         // Binary content the writer cannot re-emit. Two ways it goes missing, and only the first announces
         // itself: a property on an unmodelled control (flagged during the walk), and a property that IS

@@ -116,7 +116,7 @@ public class MenuHierarchySaveTests
     }
 
     [Fact]
-    public void AFormWithAPopulatedContainer_IsStillHeldReadOnly()
+    public void AFormWithAPopulatedContainer_IsNoLongerHeldReadOnly()
     {
         const string frameForm =
             "VERSION 5.00\r\n" +
@@ -130,14 +130,39 @@ public class MenuHierarchySaveTests
 
         var form = Load(frameForm);
 
-        // #84 is not fixed by this change, and the gate is the only thing standing between that form
-        // and a save that re-parents the button to the form.
-        form.CanSaveFaithfully.Should().BeFalse();
-        form.UnfaithfulSaveReason.Should().Contain("container");
+        // Successor to AFormWithAPopulatedContainer_IsStillHeldReadOnly. #84 is fixed: the gate was the only
+        // thing standing between this form and a save that re-parented the button onto the form, and there is
+        // now nothing for it to stand in the way of.
+        form.CanSaveFaithfully.Should().BeTrue();
+        Save(form).Should().Contain("   Begin VB.Frame Frame1")
+                  .And.Contain("      Begin VB.CommandButton Command1");
     }
 
     [Fact]
-    public void AFormMixingMenusAndAPopulatedContainer_IsStillHeldReadOnly()
+    public void AControlNestedUnderANonContainer_IsStillHeldReadOnly()
+    {
+        // What the gate is FOR now. The format permits writing a control inside a ListBox and VB6 loads such
+        // a file without complaint, so it is corrupt input rather than an exotic container — HexIDE has
+        // nowhere to host it, records no containment link for it, and a save would re-parent it onto the form
+        // still carrying its container-relative coordinates.
+        const string listForm =
+            "VERSION 5.00\r\n" +
+            "Begin VB.Form Form1 \r\n" +
+            "   Begin VB.ListBox List1 \r\n" +
+            "      Begin VB.CommandButton Command1 \r\n" +
+            "      End\r\n" +
+            "   End\r\n" +
+            "End\r\n" +
+            "Attribute VB_Name = \"Form1\"\r\n";
+
+        var form = Load(listForm);
+
+        form.CanSaveFaithfully.Should().BeFalse();
+        form.UnfaithfulSaveCauses.Should().HaveFlag(UnfaithfulSaveCause.NestedContainers);
+    }
+
+    [Fact]
+    public void AFormMixingMenusAndAPopulatedContainer_RoundTripsBothTrees()
     {
         const string mixedForm =
             "VERSION 5.00\r\n" +
@@ -155,20 +180,32 @@ public class MenuHierarchySaveTests
 
         var form = Load(mixedForm);
 
-        // The menus being fine must not excuse the Frame — the gate narrows, it does not open.
-        form.CanSaveFaithfully.Should().BeFalse();
+        // Successor to AFormMixingMenusAndAPopulatedContainer_IsStillHeldReadOnly. The two trees are separate
+        // mechanisms — a menu nests through SubItems, a control through the containment link — and this is the
+        // fixture that would catch one being wired through the other. Both now come back out nested.
+        form.CanSaveFaithfully.Should().BeTrue();
+
+        // Not MenuShape here: it keeps every bare End, which is meaningless once the fixture also holds
+        // controls. Both trees are checked by the nesting of their own Begin lines instead.
+        var output = Save(form);
+        output.Should().Contain("   Begin VB.Frame Frame1")
+              .And.Contain("      Begin VB.CommandButton Command1")
+              .And.Contain("   Begin VB.Menu mnuFile")
+              .And.Contain("      Begin VB.Menu mnuFileNew");
     }
 
     [Fact]
-    public void AnUnmodelledControlInsideAContainer_IsHeldReadOnly()
+    public void AnUnmodelledControlInsideAContainer_IsWrittenBackInsideIt()
     {
-        // The shape the gate missed entirely. VB.Image is not modelled, so the loader preserves it as raw
-        // text and returned early — before any depth accounting. But UnknownChildSubtreeTexts is written
-        // back just inside the root's closing End, with no memory of the Frame it came from, so the image
-        // was silently re-parented onto the form by a save the gate called faithful.
+        // Successor to AnUnmodelledControlInsideAContainer_IsHeldReadOnly, which pinned the hole this shape
+        // fell through: VB.Image is not modelled, so the loader preserved it as raw text and re-emitted it
+        // just inside the ROOT's closing End with no memory of the Frame it came from. The image was silently
+        // re-parented onto the form by a save the gate called faithful, and the phase that closed the hole
+        // closed it by gating the form.
         //
-        // No modelled sibling here on purpose: with one, the form would be gated for that instead and the
-        // hole would stay covered.
+        // The block is now recorded on the Frame, indented to its real depth and written back at the ordinal
+        // it held, so there is nothing left to gate. No modelled sibling here on purpose: with one, the form
+        // would once have been gated for that instead and this case would have stayed invisible.
         const string frm =
             "VERSION 5.00\r\n" +
             "Begin VB.Form Form1 \r\n" +
@@ -180,8 +217,15 @@ public class MenuHierarchySaveTests
 
         var form = Load(frm);
 
-        form.UnfaithfulSaveCauses.Should().HaveFlag(UnfaithfulSaveCause.NestedContainers);
-        form.CanSaveFaithfully.Should().BeFalse();
+        form.CanSaveFaithfully.Should().BeTrue();
+
+        var output = Save(form);
+        var lines = output.Split(["\r\n", "\n"], StringSplitOptions.None).Select(l => l.TrimEnd()).ToList();
+        var frame = lines.IndexOf("   Begin VB.Frame Frame1");
+        var image = lines.IndexOf("      Begin VB.Image Image1");
+
+        frame.Should().BeGreaterThanOrEqualTo(0);
+        image.Should().BeGreaterThan(frame, "the preserved block belongs inside the Frame it was read from");
     }
 
     [Fact]
