@@ -110,6 +110,50 @@
     </ControlTheme>
 
 
+    <!-- VB6's Frame is a Win32 group box: an etched rectangle whose top edge is broken by the caption.
+         SimpleTheme's stock HeaderedContentControl draws no border at all, so until now a loaded Frame
+         rendered as a bare floating caption with nothing around it.
+
+         The child host is the part that matters beyond appearance. It fills the control's OUTER bounds,
+         because VB6 measures a Frame's children from the control's own top-left — the stock template's
+         presenter is inset by the border AND pushed below the header, which would displace every contained
+         control by an amount depending on whichever theme was loaded. -->
+    <ControlTheme x:Key="{x:Type builtinControls:VBFrame}"
+                  TargetType="builtinControls:VBFrame">
+        <Setter Property="Foreground" Value="{DynamicResource {x:Static common:SystemColors.ControlTextBrushKey}}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <!-- The Panel carries the BackColor across the whole control, as VB6 does; the decorator
+                     above it draws lines only. -->
+                <Panel Background="{TemplateBinding Background}">
+                    <!-- Top margin of 7 puts the etched edge through the middle of the caption's line,
+                         which is where Win32 draws it.
+
+                         The two 3D brushes are set explicitly for the same reason VBTimer.axaml sets them:
+                         ClassicBorderDecorator's defaults come from the Classic theme, and <ClassicTheme />
+                         is deliberately not loaded here — leave them unset and the decorator draws nothing
+                         at all, which is exactly what the first cut of this template did. -->
+                    <ClassicBorderDecorator BorderStyle="Etched"
+                                            BorderThickness="2"
+                                            Margin="0,7,0,0"
+                                            BorderDarkBrush="{DynamicResource {x:Static common:SystemColors.ControlDarkBrushKey}}"
+                                            BorderLightLightBrush="{DynamicResource {x:Static common:SystemColors.ControlLightLightBrushKey}}" />
+                    <!-- The caption paints its own background over that edge. That mask is how a group box
+                         breaks its border for the text; the frame's BackColor defaults to button face, so
+                         there is always something to mask with. -->
+                    <ContentPresenter Content="{TemplateBinding Header}"
+                                      Background="{TemplateBinding Background}"
+                                      Foreground="{TemplateBinding Foreground}"
+                                      Padding="3,0"
+                                      Margin="6,0,0,0"
+                                      HorizontalAlignment="Left"
+                                      VerticalAlignment="Top" />
+                    <ContentPresenter Content="{TemplateBinding ChildHost}" />
+                </Panel>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
     <ControlTheme x:Key="{x:Type builtinControls:VBPictureBox}"
                   TargetType="builtinControls:VBPictureBox">
         <Setter Property="Template">

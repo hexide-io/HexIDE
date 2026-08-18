@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -37,6 +38,38 @@ public abstract class ComponentBaseClass : IComponentClass
 
     /// <summary>Visible controls (default) have Width/Height/Visible; invisible ones (Timer) override false.</summary>
     public virtual bool IsVisual => true;
+
+    /// <summary>
+    /// The Canvas this control hosts its contained controls on, when it is a container. False for everything
+    /// else, which is most classes.
+    ///
+    /// Declared here rather than on <see cref="IComponentClass"/> on purpose. HexIDE.Core declares no
+    /// third-party dependencies and has no Avalonia reference, so it cannot name a Canvas; and
+    /// IComponentClass is the interface an add-in implements, where this would be a question no add-in can
+    /// answer — a class HexIDE did not build is not a container, and a control nested under one keeps the
+    /// form read-only.
+    /// </summary>
+    public virtual bool TryGetChildHost(Control control, [NotNullWhen(true)] out Canvas? host)
+    {
+        host = null;
+        return false;
+    }
+
+    /// <summary>
+    /// The Canvas a container class hands to its control at instantiation.
+    ///
+    /// <c>TabNavigation = Continue</c> is not a detail. VB6's tab order is a single flat form-wide
+    /// <c>TabIndex</c> sequence, and Avalonia resolves TabIndex among siblings within a navigation scope
+    /// before descending into one. Every control being a sibling on one canvas is the only reason the flat
+    /// order falls out for free today; the moment children move onto a container's own canvas, a scope here
+    /// would make ODBC Log In.frm tab 13, 12, 14 and only then descend into 0-11.
+    /// </summary>
+    protected static Canvas CreateChildHost()
+    {
+        var host = new Canvas { ClipToBounds = true };
+        KeyboardNavigation.SetTabNavigation(host, KeyboardNavigationMode.Continue);
+        return host;
+    }
 
     protected abstract Control InstantiateInternal(ComponentInstance instance);
 

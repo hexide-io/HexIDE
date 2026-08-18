@@ -49,35 +49,32 @@ public class VBLoader
             if (list.Count > 1 || list.Any(c => TryParseControlArrayIndex(c, out _)))
                 arrayGroups[nm] = new ControlArrayGroup(nm);
 
-        foreach (var component in element.Components)
+        void OnPlaced(ComponentInstance component, Control control, Canvas host)
         {
-            if (component.BaseClass is FormComponentClass)
-                continue;
+            if (component.GetPropertyOrDefault(VBProperties.NameProperty) is not { } name)
+                return;
 
-            var instance = ((ComponentBaseClass)component.BaseClass).Instantiate(component);
-            Canvas.SetLeft(instance, component.GetPropertyOrDefault(VBProperties.LeftProperty));
-            Canvas.SetTop(instance, component.GetPropertyOrDefault(VBProperties.TopProperty));
-            instance.Width = component.GetPropertyOrDefault(VBProperties.WidthProperty);
-            instance.Height = component.GetPropertyOrDefault(VBProperties.HeightProperty);
-            instance.IsVisible = component.GetPropertyOrDefault(VBProperties.VisibleProperty);
-            canvas.Children.Add(instance);
-            if (component.GetPropertyOrDefault(VBProperties.NameProperty) is { } name)
+            if (arrayGroups.TryGetValue(name, out var group))
             {
-                if (arrayGroups.TryGetValue(name, out var group))
-                {
-                    // Stamp each element with its Index (parsed from the .frm; positional fallback for a malformed
-                    // array with no Index lines) so event dispatch can pass it to the shared handler. The component
-                    // + canvas let a later runtime Load clone this element as a template.
-                    var index = TryParseControlArrayIndex(component, out var parsed) ? parsed : group.Count;
-                    VBProps.SetIndex(instance, index);
-                    group.AddDesignTimeElement(index, instance, component, canvas);
-                }
-                else
-                {
-                    executionContext.AllocVariable(environment, name, new Vb6Value(instance));
-                }
+                // Stamp each element with its Index (parsed from the .frm; positional fallback for a malformed
+                // array with no Index lines) so event dispatch can pass it to the shared handler. The component
+                // + the canvas it actually landed on let a later runtime Load clone this element as a template
+                // INTO THE SAME CONTAINER — a control array genuinely spans containers in VB6, so the host is
+                // per element rather than one canvas for the whole group.
+                var index = TryParseControlArrayIndex(component, out var parsed) ? parsed : group.Count;
+                VBProps.SetIndex(control, index);
+                group.AddDesignTimeElement(index, control, component, host);
+            }
+            else
+            {
+                // Form-module scope is flat in VB6: Text1 inside Frame1 is still Text1. So every control gets a
+                // form-level variable regardless of how deeply it is nested.
+                executionContext.AllocVariable(environment, name, new Vb6Value(control));
             }
         }
+
+        foreach (var component in TopLevelComponents(element))
+            PlaceComponentTree(component, canvas, canvas, OnPlaced);
 
         // Bind each control-array group to its shared Name once every element is in place.
         foreach (var (name, group) in arrayGroups)
@@ -112,24 +109,89 @@ public class VBLoader
         return false;
     }
 
+    /// <summary>
+    /// The components a form places directly on its own canvas: everything the form itself contains, plus
+    /// anything nothing has claimed.
+    ///
+    /// Two populations end up unclaimed, and both belong here. A form the designer built has no containment
+    /// links recorded on it at all, so every one of its controls arrives with a null Container; and a menu
+    /// is never contained by anything, yet it shares the component list with the controls. Filtering on
+    /// "has a container" alone would drop the first population entirely and leave a blank form.
+    /// </summary>
+    private static IEnumerable<ComponentInstance> TopLevelComponents(FormDefinition element)
+    {
+        var form = element.Components.FirstOrDefault(c => c.BaseClass is FormComponentClass);
+        foreach (var component in element.Components)
+        {
+            if (component.BaseClass is FormComponentClass)
+                continue;
+            // Placed by its own container's recursion instead.
+            if (component.Container is not null && !ReferenceEquals(component.Container, form))
+                continue;
+            yield return component;
+        }
+    }
+
+    /// <summary>
+    /// Places one component on <paramref name="host"/> and recurses into whatever it contains.
+    ///
+    /// Shared by the running form and the hosted-UserControl spawner, which stay separate methods on
+    /// purpose: only the first allocates interpreter variables and builds control-array groups, and folding
+    /// them together would give a UserControl hosted on a form a second set of both.
+    /// </summary>
+    /// <param name="formCanvas">
+    /// Where non-visual components go regardless of what contains them. A Timer is not drawn, so it has no
+    /// place inside a Frame's clipped host; the model still records the container so the file round-trips.
+    /// </param>
+    private static void PlaceComponentTree(ComponentInstance component, Canvas host, Canvas formCanvas,
+        Action<ComponentInstance, Control, Canvas>? onPlaced = null)
+    {
+        var componentClass = (ComponentBaseClass)component.BaseClass;
+        var control = componentClass.Instantiate(component);
+        var target = componentClass.IsVisual ? host : formCanvas;
+
+        Canvas.SetLeft(control, component.GetPropertyOrDefault(VBProperties.LeftProperty));
+        Canvas.SetTop(control, component.GetPropertyOrDefault(VBProperties.TopProperty));
+
+        if (componentClass.IsVisual)
+        {
+            control.Width = component.GetPropertyOrDefault(VBProperties.WidthProperty);
+            control.Height = component.GetPropertyOrDefault(VBProperties.HeightProperty);
+            VBVisibility.Set(control, component.GetPropertyOrDefault(VBProperties.VisibleProperty));
+        }
+        else
+        {
+            // A non-visual control has no Width/Height/Visible in the .frm, so those read back as zero — and
+            // zero is not what VBTimer renders at, because its template pins Min/MaxWidth to 28. That is why
+            // a running form has always shown a clock face in its top-left corner.
+            control.IsVisible = false;
+        }
+
+        target.Children.Add(control);
+        onPlaced?.Invoke(component, control, target);
+
+        if (component.ContainedControls.Count == 0)
+            return;
+
+        if (!componentClass.TryGetChildHost(control, out var childHost))
+        {
+            // A class that is not a container cannot have been recorded as one by the deserializer, so this
+            // is unreachable from a loaded file. Placing the children on this control's own host keeps them
+            // on screen rather than dropping them silently if some other path ever gets it wrong.
+            childHost = host;
+        }
+
+        foreach (var child in component.ContainedControls)
+            PlaceComponentTree(child, childHost, formCanvas, onPlaced);
+    }
+
     public static Canvas SpawnComponentsForDesigner(
         FormDefinition formDef,
         IReadOnlyDictionary<string, ComponentBaseClass>? extraComponents = null)
     {
         var canvas = new Canvas { ClipToBounds = true };
-        foreach (var component in formDef.Components)
-        {
-            if (component.BaseClass is FormComponentClass)
-                continue;
-
-            var instance = ((ComponentBaseClass)component.BaseClass).Instantiate(component);
-            Canvas.SetLeft(instance, component.GetPropertyOrDefault(VBProperties.LeftProperty));
-            Canvas.SetTop(instance, component.GetPropertyOrDefault(VBProperties.TopProperty));
-            instance.Width = component.GetPropertyOrDefault(VBProperties.WidthProperty);
-            instance.Height = component.GetPropertyOrDefault(VBProperties.HeightProperty);
-            instance.IsVisible = component.GetPropertyOrDefault(VBProperties.VisibleProperty);
-            canvas.Children.Add(instance);
-        }
+        foreach (var component in TopLevelComponents(formDef))
+            PlaceComponentTree(component, canvas, canvas);
         return canvas;
     }
 

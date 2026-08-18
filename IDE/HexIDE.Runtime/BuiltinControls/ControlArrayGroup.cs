@@ -17,10 +17,14 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
     private readonly SortedDictionary<int, Control> elements = new();
     // Indices present at load time (from the .frm) — VB6 refuses to Unload a design-time element (Err 362).
     private readonly HashSet<int> designTimeIndices = new();
-    // The lowest-index design-time component + the live canvas — Load clones the template into the canvas.
+    // The lowest-index design-time component — Load clones it into the same container it came from.
     private ComponentInstance? template;
     private int templateIndex = int.MaxValue;
-    private Canvas? canvas;
+    // The canvas each element actually sits on, by index. Not one canvas for the whole group: a VB6 control
+    // array genuinely spans containers — ODBC Log In.frm has a Frame that is itself array element 0, and
+    // Treeview Listview Splitter.frm puts a two-element lblTitle array entirely inside one picTitles — so a
+    // single field would clone a new element into whichever container happened to be registered last.
+    private readonly Dictionary<int, Canvas> hosts = new();
 
     public ControlArrayGroup(string name) => Name = name;
 
@@ -32,12 +36,13 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
     public IReadOnlyDictionary<int, Control> Elements => elements;
 
     /// <summary>Register a design-time element (from the .frm). Tracks the lowest-index component as the Load
-    /// template and the parent canvas, so a later <see cref="Load"/> can clone into the live form.</summary>
+    /// template, and remembers which canvas each element sits on, so a later <see cref="Load"/> clones into
+    /// the container the template came from rather than onto the form.</summary>
     public void AddDesignTimeElement(int index, Control control, ComponentInstance component, Canvas parentCanvas)
     {
         elements[index] = control;
         designTimeIndices.Add(index);
-        canvas = parentCanvas;
+        hosts[index] = parentCanvas;
         if (index < templateIndex)
         {
             templateIndex = index;
@@ -54,9 +59,12 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
     {
         if (elements.ContainsKey(index))
             throw new VBRunTimeException(VBStandardError.ObjectAlreadyLoaded);            // 360
-        if (template is not { } tmpl || canvas is not { } parent)
+        if (template is not { } tmpl || !hosts.TryGetValue(templateIndex, out var parent))
             throw new VBRunTimeException(VBStandardError.CantLoadOrUnloadThisObject);      // 361 (defensive)
 
+        // The clone is the control alone: if the template is itself a container, its contents are NOT
+        // cloned with it. Pinned as a test rather than asserted as correct — what VB6 does when you Load a
+        // new element of a Frame array is an open oracle question (see the change's open list).
         var control = ((ComponentBaseClass)tmpl.BaseClass).Instantiate(tmpl);
         Canvas.SetLeft(control, tmpl.GetPropertyOrDefault(VBProperties.LeftProperty));
         Canvas.SetTop(control, tmpl.GetPropertyOrDefault(VBProperties.TopProperty));
@@ -67,6 +75,7 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
         VBProps.SetIndex(control, index);
         parent.Children.Add(control);
         elements[index] = control;
+        hosts[index] = parent;
     }
 
     /// <summary>VB6 <c>Unload Command1(i)</c> — remove a runtime-loaded element. Err 340 if the index doesn't
@@ -77,8 +86,10 @@ public sealed class ControlArrayGroup : ICSharpProxy, ICSharpPropertyBag
             throw new VBRunTimeException(VBStandardError.ControlArrayElementDoesntExist);            // 340
         if (designTimeIndices.Contains(index))
             throw new VBRunTimeException(VBStandardError.CantUnloadControlsCreatedAtDesignTime);      // 362
-        canvas?.Children.Remove(control);
+        if (hosts.TryGetValue(index, out var host))
+            host.Children.Remove(control);
         elements.Remove(index);
+        hosts.Remove(index);
     }
 
     // VB6: a control array's LBound/UBound are the lowest/highest indices present. An empty array (every element

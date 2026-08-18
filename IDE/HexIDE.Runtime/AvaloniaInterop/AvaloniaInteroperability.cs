@@ -102,7 +102,9 @@ public static class AvaloniaInteroperability
         Register<Control, VBCursorType, Cursor?>(VBProperties.MousePointerProperty, InputElement.CursorProperty, x => x.ToCursor(), x => VBCursorType.Default);
         Register<Control, bool, FlowDirection>(VBProperties.RightToLeftProperty, Visual.FlowDirectionProperty, x => x ? FlowDirection.RightToLeft : FlowDirection.LeftToRight, x => x == FlowDirection.RightToLeft);
         Register<Control, double>(VBProperties.HeightProperty, Layoutable.HeightProperty);
-        Register<Control, bool>(VBProperties.VisibleProperty, Visual.IsVisibleProperty);
+        // Not Visual.IsVisibleProperty: hiding a CONTAINER that way unrealises everything inside it, and an
+        // unrealised control dispatches no events at all. See VBVisibility.
+        Register<Control, bool>(VBProperties.VisibleProperty, VBVisibility.Get, VBVisibility.Set);
         Register<Control, bool>(VBProperties.EnabledProperty, InputElement.IsEnabledProperty);
         Register<Control, object?>(VBProperties.TagProperty, Control.TagProperty);
         Register<TemplatedControl, VBColor, VBColor?>(VBProperties.BackColorProperty, AttachedProperties.BackColorProperty, x => x, x=> x ?? default);
