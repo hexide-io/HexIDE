@@ -315,7 +315,7 @@ public class FormDeserializer
         // form read-only; a control inside a Frame or PictureBox still does, until #84.
         if (maxUnreproducibleDepth > 2)
             form.MarkUnfaithfulToSave(
-                "it contains controls nested inside a container, which HexIDE would re-parent to the form on save");
+                "it contains controls nested inside a container, which HexIDE would flatten onto the form on save");
 
         form.UpdateCode(code);
         form.UpdateComponents(components);
