@@ -32,17 +32,6 @@ public class VbFrmFormatDeserializer
     /// </summary>
     public List<string> HeaderLines { get; } = new();
 
-    /// <summary>
-    /// Deepest <c>Begin</c> nesting seen: 1 is the root alone, 2 is the root plus direct children, 3+ means
-    /// a container holding controls or a menu holding items.
-    ///
-    /// This is the signal that a save cannot be faithful. <c>FormDefinition.Components</c> is flat by
-    /// construction and <c>ComponentInstance</c> has no parent, so anything past depth 2 is re-parented to
-    /// the root on save — which destroys menu hierarchy outright and leaves a Frame's children carrying
-    /// frame-relative coordinates against the form.
-    /// </summary>
-    public int MaxBeginDepth { get; private set; }
-
     public (VBSerializedComponent, string) Deserialize(string input)
     {
         using (var reader = new StringReader(input))
@@ -134,8 +123,6 @@ public class VbFrmFormatDeserializer
                     else
                         componentStack.Peek().SubComponents.Add(component);
                     componentStack.Push(component);
-                    if (componentStack.Count > MaxBeginDepth)
-                        MaxBeginDepth = componentStack.Count;
                 }
                 else if (line.StartsWith("End"))
                 {

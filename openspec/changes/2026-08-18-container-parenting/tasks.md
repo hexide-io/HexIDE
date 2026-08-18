@@ -39,11 +39,11 @@
 
 **Gate after this phase.** SHUT, and now shuts on a case it wrongly left open. The corpus set is unchanged; the rule tightens rather than the membership moving.
 
-- [ ] 2.1 Make an unmodelled subtree read from a non-form container contribute to `maxUnreproducibleDepth`, which today it cannot because `LoadRecur` returns at FormDeserializer.cs:105 before the depth line at :129-130.
-- [ ] 2.2 Do NOT change the writer in this phase. Re-placing raw subtrees inside their container while modelled children are still flattened would produce a third, new wrong shape; that work moves to Phase 3 where the writer can nest both.
-- [ ] 2.3 Confirm no corpus form moves: Splash Screen.frm is already gated by its modelled Labels, and every other unmodelled subtree in the corpus (imlIcons, tbsOptions, tvTreeView, lvListView, imgSplitter, brwWebBrowser, tbToolBar) sits at depth 2 directly under the form.
-- [ ] 2.4 Add a fixture for the exact shape the gate misses today — a `VB.Image` alone inside a `VB.Frame`, no modelled siblings — asserting it is now refused.
-- [ ] 2.5 Delete `VbFrmFormatDeserializer.MaxBeginDepth` (declared :44, written :137-138, read nowhere) and its stale summary at :36-43.
+- [x] 2.1 Make an unmodelled subtree read from a non-form container contribute to `maxUnreproducibleDepth`, which today it cannot because `LoadRecur` returns at FormDeserializer.cs:105 before the depth line at :129-130.
+- [x] 2.2 Do NOT change the writer in this phase. Re-placing raw subtrees inside their container while modelled children are still flattened would produce a third, new wrong shape; that work moves to Phase 3 where the writer can nest both.
+- [x] 2.3 Confirm no corpus form moves: Splash Screen.frm is already gated by its modelled Labels, and every other unmodelled subtree in the corpus (imlIcons, tbsOptions, tvTreeView, lvListView, imgSplitter, brwWebBrowser, tbToolBar) sits at depth 2 directly under the form.
+- [x] 2.4 Add a fixture for the exact shape the gate misses today — a `VB.Image` alone inside a `VB.Frame`, no modelled siblings — asserting it is now refused.
+- [x] 2.5 Delete `VbFrmFormatDeserializer.MaxBeginDepth` (declared :44, written :137-138, read nowhere) and its stale summary at :36-43.
 
 ## Phase 3 — The containment model, load and save
 
