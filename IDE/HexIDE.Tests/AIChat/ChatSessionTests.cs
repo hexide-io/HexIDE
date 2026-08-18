@@ -125,4 +125,11 @@ public class ChatSessionTests
         api[1]["role"]!.GetValue<string>().Should().Be("user");
         api[1]["content"]!.GetValue<string>().Should().Be("u1");
     }
+
+    [Fact]
+    public void ChatSettings_DefaultsModelIdToClaudeOpus5()
+    {
+        var settings = new ChatSettings();
+        settings.ModelId.Should().Be("claude-opus-5");
+    }
 }
