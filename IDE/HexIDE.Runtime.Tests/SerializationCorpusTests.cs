@@ -300,6 +300,77 @@ public class SerializationCorpusTests
     }
 
     [Fact]
+    public void The_computed_client_inset_agrees_with_the_files_own_ScaleWidth()
+    {
+        // Two independent routes to a container's client inset, which must give the same answer.
+        //
+        // The implementation reads it from BorderStyle and Appearance, because Scale* is not modelled and
+        // where ScaleMode is not twips the subtraction below is not even dimensionally meaningful. VB6's own
+        // general rule is (Width - ScaleWidth) / 2. Where a file states both in twips, the two must agree —
+        // and that is what makes the border table a measurement rather than a guess.
+        var files = CorpusFiles(".frm", ".ctl");
+        if (files.Count == 0) return;
+
+        var compared = 0;
+        foreach (var path in files)
+        {
+            var form = new FormDeserializer().Deserialize(
+                new ProjectDefinition(VBProjectType.EXE, "Corpus"), Vb6TextFile.ReadAllText(path), new Sink());
+            if (form is null) continue;
+
+            foreach (var component in form.Components)
+            {
+                if (component.BaseClass is not PictureBoxComponentClass) continue;
+
+                // ScaleMode is preserved verbatim rather than modelled, so it is read back off the raw lines.
+                // Absent means VB6's default of 1 - Twip; anything else (0 - User, 3 - Pixel) makes the
+                // arithmetic meaningless and is skipped.
+                var scaleMode = RawNumber(component, "ScaleMode");
+                if (scaleMode is not null && scaleMode != 1) continue;
+
+                var scaleWidth = RawNumber(component, "ScaleWidth");
+                if (scaleWidth is null) continue;
+
+                var widthTwips = component.GetPropertyOrDefault(VBProperties.WidthProperty) * 15;
+                var insetFromScale = (widthTwips - scaleWidth.Value) / 2;
+                var insetFromBorder = PictureBoxComponentClass.ClientBorder(
+                    component.GetPropertyOrDefault(VBProperties.BorderStyleProperty),
+                    component.GetPropertyOrDefault(VBProperties.AppearanceProperty)).Inset.Left * 15;
+
+                insetFromScale.Should().BeApproximately(insetFromBorder, 1,
+                    $"{Path.GetFileName(path)} / {component.GetPropertyOrDefault(VBProperties.NameProperty)} "
+                    + $"states Width {widthTwips} and ScaleWidth {scaleWidth} in twips");
+                compared++;
+            }
+        }
+
+        // Tip of the Day.frm's Picture1 is the live case — Width 3735, ScaleWidth 3675, no BorderStyle line,
+        // a 60-twip difference that is exactly 2 px per side. If that file is in the corpus the check must
+        // actually have run, or it has quietly become vacuous.
+        if (files.Any(f => Path.GetFileName(f).Equals("Tip of the Day.frm", StringComparison.OrdinalIgnoreCase)))
+            compared.Should().BeGreaterThan(0, "the one corpus form that states both numbers in twips");
+    }
+
+    /// <summary>A numeric value off a component's preserved raw property lines, or null when absent.</summary>
+    private static double? RawNumber(ComponentInstance component, string name)
+    {
+        foreach (var raw in component.UnknownRawPropertyLines)
+        {
+            var line = raw.Trim();
+            if (!line.StartsWith(name, StringComparison.OrdinalIgnoreCase) ||
+                (line.Length > name.Length && char.IsLetterOrDigit(line[name.Length])))
+                continue;
+            var eq = line.IndexOf('=');
+            if (eq < 0) continue;
+            // Values may carry a trailing VB6 comment: "0  'User".
+            var value = line[(eq + 1)..].Split('\'')[0].Trim();
+            if (double.TryParse(value, System.Globalization.CultureInfo.InvariantCulture, out var parsed))
+                return parsed;
+        }
+        return null;
+    }
+
+    [Fact]
     public void Every_corpus_form_can_be_opened()
     {
         // Outcome 0 — refusing to open — is safe but it is not free: a project HexIDE cannot open is a
