@@ -11,8 +11,8 @@
 - [x] 2.3 Emit each menu exactly once — a menu reachable from both the flat list and a parent must not double-write
 
 ## 3. Gate
-- [ ] 3.1 Narrow the unfaithful-save condition so menu-only nesting no longer marks a form read-only
-- [ ] 3.2 Confirm a form with a populated container still marks read-only (#84 is not fixed by this)
+- [x] 3.1 Narrow the unfaithful-save condition so menu-only nesting no longer marks a form read-only
+- [x] 3.2 Confirm a form with a populated container still marks read-only (#84 is not fixed by this)
 
 ## 4. Verify
 - [ ] 4.1 Round-trip the six menu templates from VB6's `VB98\Template` tree and diff against the originals

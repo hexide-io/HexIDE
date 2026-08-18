@@ -106,6 +106,60 @@ public class MenuHierarchySaveTests
     }
 
     [Fact]
+    public void AMenuOnlyForm_IsNoLongerHeldReadOnly()
+    {
+        var form = Load(MenuForm);
+
+        // Three Begin levels deep, all of it menus — which now round-trip, so the gate must let go.
+        form.CanSaveFaithfully.Should().BeTrue();
+        form.UnfaithfulSaveReason.Should().BeNull();
+    }
+
+    [Fact]
+    public void AFormWithAPopulatedContainer_IsStillHeldReadOnly()
+    {
+        const string frameForm =
+            "VERSION 5.00\r\n" +
+            "Begin VB.Form Form1 \r\n" +
+            "   Begin VB.Frame Frame1 \r\n" +
+            "      Begin VB.CommandButton Command1 \r\n" +
+            "      End\r\n" +
+            "   End\r\n" +
+            "End\r\n" +
+            "Attribute VB_Name = \"Form1\"\r\n";
+
+        var form = Load(frameForm);
+
+        // #84 is not fixed by this change, and the gate is the only thing standing between that form
+        // and a save that re-parents the button to the form.
+        form.CanSaveFaithfully.Should().BeFalse();
+        form.UnfaithfulSaveReason.Should().Contain("container");
+    }
+
+    [Fact]
+    public void AFormMixingMenusAndAPopulatedContainer_IsStillHeldReadOnly()
+    {
+        const string mixedForm =
+            "VERSION 5.00\r\n" +
+            "Begin VB.Form Form1 \r\n" +
+            "   Begin VB.Frame Frame1 \r\n" +
+            "      Begin VB.CommandButton Command1 \r\n" +
+            "      End\r\n" +
+            "   End\r\n" +
+            "   Begin VB.Menu mnuFile \r\n" +
+            "      Begin VB.Menu mnuFileNew \r\n" +
+            "      End\r\n" +
+            "   End\r\n" +
+            "End\r\n" +
+            "Attribute VB_Name = \"Form1\"\r\n";
+
+        var form = Load(mixedForm);
+
+        // The menus being fine must not excuse the Frame — the gate narrows, it does not open.
+        form.CanSaveFaithfully.Should().BeFalse();
+    }
+
+    [Fact]
     public void RoundTrip_OfVb6sOwnMenuTemplate_ReproducesTheMenuShape()
     {
         var templates = Environment.GetEnvironmentVariable("VB6_TEMPLATES")

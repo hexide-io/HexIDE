@@ -61,13 +61,13 @@ public class FormDeserializer
         VBSerializedComponent rootComponent;
         string code;
         List<string> headerLines;
-        int maxBeginDepth;
         try
         {
             var vb = new VbFrmFormatDeserializer();
             (rootComponent, code) = vb.Deserialize(source);
             headerLines = vb.HeaderLines;
-            maxBeginDepth = vb.MaxBeginDepth;
+            // vb.MaxBeginDepth is deliberately not used: it counts every Begin, and the gate below needs
+            // to know which of that nesting was menus. Only the component walk can tell.
         }
         catch (Exception ex)
         {
@@ -83,9 +83,6 @@ public class FormDeserializer
 
         var form = new FormDefinition(owner, Array.Empty<ComponentInstance>(), "");
         form.HeaderLines.AddRange(headerLines);
-        if (maxBeginDepth > 2)
-            form.MarkUnfaithfulToSave(
-                "it contains nested controls or menus, which HexIDE would flatten on save");
         form.RecordLoadedCompanionBlobCount(frxBlobs?.Count ?? 0);
         var components = new List<ComponentInstance>();
         var maxUnreproducibleDepth = 0;
@@ -312,6 +309,13 @@ public class FormDeserializer
 
         LoadRecur(rootComponent, null, 1);
         form.RecordUnreproducibleNestingDepth(maxUnreproducibleDepth);
+
+        // The refusal gate, decided here rather than from the parser's raw Begin depth, because only the
+        // walk above knows which nesting was menu nesting. Menus now round-trip, so they no longer hold a
+        // form read-only; a control inside a Frame or PictureBox still does, until #84.
+        if (maxUnreproducibleDepth > 2)
+            form.MarkUnfaithfulToSave(
+                "it contains controls nested inside a container, which HexIDE would re-parent to the form on save");
 
         form.UpdateCode(code);
         form.UpdateComponents(components);
