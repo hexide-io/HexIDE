@@ -117,8 +117,13 @@
         Toolbar separator: compact 1 px vertical divider matching Win32 toolbar style.
 
         Avalonia's MenuItem provides its own ItemContainerTheme for Separator children,
-        so this override only affects bare <Separator /> elements outside menu item
-        collections (i.e. toolbar separators). Menu separators are unaffected.
+        so a <Separator /> written INSIDE a menu's items in XAML is unaffected by this.
+
+        A Separator CONSTRUCTED IN CODE and added to MenuItem.Items is NOT exempt: it picks
+        this theme up and becomes a 1 px vertical divider in the middle of the menu. A VB6
+        form's runtime menu builds its separators that way, so VBLoader sets Width to auto
+        explicitly to beat this — a local value is the only thing that can. Anything else
+        that builds menu items in code has to do the same.
 
         VB6 reference: ~1 px line, #808080, ~3 px margin each side, full toolbar height
         minus top/bottom margins (~16 px visible at 22 px button height).

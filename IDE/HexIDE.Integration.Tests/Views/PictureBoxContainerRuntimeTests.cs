@@ -148,7 +148,10 @@ public class PictureBoxContainerRuntimeTests
             .Should().Be((ClassicBorderStyle.Thin, new Thickness(1)));
     }
 
-    [Fact]
+    // AvaloniaFact, not Fact: this one spawns real controls, so it needs the headless app. It passed as a
+    // plain Fact only because some other test in the assembly had already stood one up — which made it
+    // order-dependent, and it started failing the moment an unrelated test was added.
+    [AvaloniaFact]
     public void APictureBoxWithNoBorderStyleLine_IsBordered()
     {
         // VB6's PictureBox defaults to 1 - Fixed Single and VB6 omits default-valued properties, so a
