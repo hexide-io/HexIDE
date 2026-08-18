@@ -13,6 +13,11 @@ context: |
   Language tooling is syntactic (CST) only — HexIDE never builds a bound semantic model;
   that is the job of a replaceable external backend behind the LSP seam.
 
+# NOTE: these rules are applied BY HAND, not by the CLI. `openspec validate --strict` does not read
+# this block — the key here is `spec:` (singular) while the CLI's artifact IDs are plural, and renaming
+# it was not attempted because nothing established that the CLI would then honour it rather than reject
+# the file. Treat the lists below as a checklist for whoever is writing, and expect no tooling to enforce
+# them. There are five spec rules, not four: the last is a folded block scalar and reads as one.
 rules:
   spec:
     - Write specs as present-tense behaviour contracts, never as implementation plans.

@@ -40,24 +40,31 @@ itself. If HexIDE cannot re-emit those unchanged, it cannot re-emit yours.
 
 What changes in those 16 ranges from harmless to genuinely lossy. Property-name padding and key
 ordering are noise a maintainer can ignore. But HexIDE also re-expresses form geometry — writing
-`Height`/`Width` where VB6 wrote `ClientHeight`/`ClientWidth` — and on two of them
-(`Button ListBox.frm`, `Mover ListBox.frm`) it drops a control property that points at an embedded
-image: the `.frx` bytes survive on disk, the reference to them does not. **Treat saving a
-VB6-authored form as a change you review, not one you trust.**
+`Height`/`Width` where VB6 wrote `ClientHeight`/`ClientWidth`. **Treat saving a VB6-authored form as a
+change you review, not one you trust.**
+
+(The two forms that used to drop a picture reference while the `.frx` bytes survived on disk —
+`Button ListBox.frm` and `Mover ListBox.frm` — are no longer in that group: the gate now recognises
+that loss and refuses them outright instead.)
 
 Standard and class modules (`.bas`, `.cls`) *do* round-trip byte-for-byte, and are covered by a
 regression gate that fails the build if that stops being true.
 
-**Why forms are gated.** HexIDE's designer model has no parent link between controls, so saving a
-form whose controls sit inside a `Frame` or a `PictureBox` would flatten them into a flat sibling
-list — every child re-parented to the form. A form HexIDE cannot reproduce therefore opens
-**read-only**, with a banner saying so, and Save is refused. Refusing is recoverable; silently
-writing a file that only fails weeks later when you go back to VB6 is not. The reasoning is written
-up in [docs/serialization-outcomes.md](docs/serialization-outcomes.md).
+**Why forms are gated.** A form HexIDE cannot reproduce opens **read-only**, with a banner saying so,
+and Save is refused. Refusing is recoverable; silently writing a file that only fails weeks later
+when you go back to VB6 is not. The reasoning is written up in
+[docs/serialization-outcomes.md](docs/serialization-outcomes.md).
 
-That count was **12** until menu trees started surviving a round-trip, which is what freed VB6's six
-menu templates. Menus are recorded and written back nested now; container nesting is the half that
-remains, and it is the only thing still holding a form read-only.
+That count was **12** until menu trees started surviving a round-trip, which freed VB6's six menu
+templates. Container nesting has since been fixed too: a control inside a `Frame` or a `PictureBox`
+is recorded on the model, written back nested, hosted by its container when the form runs, and drawn
+inside it in the designer.
+
+The count stayed at six, and the reason is worth stating. Two forms left the set and two entered it —
+closing the container gap freed `Options Dialog.frm` and `Tip of the Day.frm`, while teaching the gate
+to recognise **blob loss** caught `Button ListBox.frm` and `Mover ListBox.frm`, which until then saved
+lossily. All six that remain are held for companion binary content HexIDE cannot re-emit, and none for
+nesting.
 
 **Companion binaries (`.frx`, `.ctx`, `.pgx`) are preserved, never regenerated.** They hold icons,
 pictures and list contents that exist nowhere else. When a form references a blob HexIDE does not
