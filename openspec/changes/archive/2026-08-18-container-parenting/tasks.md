@@ -29,7 +29,15 @@
 - [x] 1.3 Replace `No_more_corpus_forms_are_held_read_only_than_the_baseline` (SerializationCorpusTests.cs:249) with an expected-SET assertion keyed on file name and reason category, since the count alone cannot express a change that swaps two forms in and two out.
 - [x] 1.4 Record the predicted set for review: gated for unreproducible binary content = Splash Screen, ODBC Log In, Web Browser, Treeview Listview Splitter, Button ListBox, Mover ListBox; gated for container nesting = the same first four plus Options Dialog and Tip of the Day. Re-derive it by running the harness rather than trusting the prediction.
 - [x] 1.5 Correct the inverted comment above `KnownVb6Failures` (SerializationCorpusTests.cs:231-232) — it is an upper bound asserted with `BeLessThanOrEqualTo`, so raising it weakens the gate.
-- [ ] 1.6 Make the refusal reason a localisation key with a small closed set of categories rather than the hardcoded English literal at FormDeserializer.cs:317-318, and reword `Str.Dialog.UnfaithfulSave.Body.One`/`.Many` (33 packs) to be cause-neutral. This also fixes the existing untranslated banner surfaced through FormEditViewModel.cs:82 and CodeEditorViewModel.cs:104.
+- [x] 1.6 ~~Make the refusal reason a localisation key with a small closed set of categories rather than the hardcoded English literal, and reword `Str.Dialog.UnfaithfulSave.Body.One`/`.Many` (33 packs) to be cause-neutral.~~ **NOT DONE — dropped deliberately (maintainer's call).**
+
+  Half of it turned out to be already satisfied and the other half to be a worse design than what shipped.
+
+  The closed set of categories exists: it is `UnfaithfulSaveCause`, added in Phase 1, and the runtime records the cause rather than a sentence. The user-facing strings are already cause-neutral and already localised — the banner ("Read-only — HexIDE cannot yet reproduce this form faithfully, so saving it would change it") and the save-refusal dialog were both verified in the running IDE during Phase 7, in English, with correct number agreement.
+
+  What is left is the part that was rejected: surfacing WHICH cause applies. "It references companion binary content HexIDE cannot re-emit" is accurate and tells a VB6 developer nothing they can act on, whereas the generic sentence already tells them the only thing that matters — the form cannot be saved, work on a copy. Adding jargon to 28 language packs to say less useful things in more languages is not an improvement.
+
+  The cause remains available where it belongs: `UnfaithfulSaveReason` is an explicitly developer-facing sentence in the log, and `UnfaithfulSaveCauses` is queryable. Both are what a maintainer triaging a report needs; neither is what the developer looking at the banner needs.
 - [x] 1.7 Update the successors of `UnfaithfulSaveGateTests.cs:146-152` and `CodeEditorViewModelTests.cs:521`, which assert the literal words "nested" and "flatten".
 - [x] 1.8 Add checked-in fixtures: an unmodelled control carrying an .frx reference, and a modelled control carrying an unmodelled .frx-referencing property, each refused with the binary reason.
 
