@@ -123,10 +123,23 @@ public class ResizeAdorner : TemplatedControl
 
             double newWidth = originalBounds.Width, newHeight = originalBounds.Height, newTop = originalOrigin.Y, newLeft = originalOrigin.X;
 
-            double SnapToGrid(double x)
-            {
-                return SnapGridUtils.SnapToGrid(this, x);
-            }
+            // Everything below happens in the CONTAINER's space, not the canvas's. VB6 snaps to the grid it
+            // draws inside the container, and container origins are not grid multiples — a child at 2100 twips
+            // inside a container parked at -20000 twips snaps absolutely to 2120, which is off its own
+            // container's 120-twip grid, so repeated drags never settle.
+            var container = ContainerBoundsOfAdorned();
+
+            double SnapToGrid(double x) => SnapGridUtils.SnapToGrid(this, x);
+
+            double SnapX(double x) => SnapToGrid(x - container.X) + container.X;
+            double SnapY(double y) => SnapToGrid(y - container.Y) + container.Y;
+
+            // Clamp against the container's client edge, not canvas zero. Two bugs in one: pinning to absolute
+            // 0 puts the control on the FORM's left edge — storing a relative Left of +20000 twips for a
+            // container at -20000 — and where the container's origin is negative the old bounds were min > max,
+            // which makes Math.Clamp THROW. A left- or top-edge resize of anything inside an off-screen
+            // container crashed the designer; the four picOptions in Options Dialog.frm are exactly that.
+            static double ClampTo(double value, double min, double max) => Math.Clamp(value, min, Math.Max(min, max));
 
             if (xDirection == ResizeXDirection.Right)
             {
@@ -135,7 +148,7 @@ public class ResizeAdorner : TemplatedControl
             else if (xDirection == ResizeXDirection.Left)
             {
                 var originalRight = originalOrigin.X + originalBounds.Width;
-                newLeft = Math.Clamp(SnapToGrid(originalOrigin.X + diff.X), 0, originalRight);
+                newLeft = ClampTo(SnapX(originalOrigin.X + diff.X), container.X, originalRight);
                 newWidth = originalRight - newLeft;
             }
 
@@ -147,14 +160,14 @@ public class ResizeAdorner : TemplatedControl
             else if (yDirection == ResizeYDirection.Top)
             {
                 var originalBottom = originalOrigin.Y + originalBounds.Height;
-                newTop = Math.Clamp(SnapToGrid(originalOrigin.Y + diff.Y), 0, originalBottom);
+                newTop = ClampTo(SnapY(originalOrigin.Y + diff.Y), container.Y, originalBottom);
                 newHeight = originalBottom - newTop;
             }
 
             if (xDirection == ResizeXDirection.None && yDirection == ResizeYDirection.None)
             {
-                newLeft = SnapToGrid(originalOrigin.X + diff.X);
-                newTop = SnapToGrid(originalOrigin.Y + diff.Y);
+                newLeft = SnapX(originalOrigin.X + diff.X);
+                newTop = SnapY(originalOrigin.Y + diff.Y);
             }
 
             if (adornedElementChild != null)
@@ -187,6 +200,21 @@ public class ResizeAdorner : TemplatedControl
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// The client rectangle of whatever contains the control being dragged, in canvas space — read from the
+    /// view-model, which is the one place the accumulated origin is computed.
+    ///
+    /// The fallback is the old behaviour: origin zero and no far edge, for a drag on something that is not a
+    /// designed component.
+    /// </summary>
+    private Rect ContainerBoundsOfAdorned()
+    {
+        if (AdornerLayer.GetAdornedElement(this) is ControlItem item &&
+            item.DataContext is ComponentInstanceViewModel vm)
+            return vm.ContainerBounds;
+        return new Rect(0, 0, double.MaxValue, double.MaxValue);
     }
 
     private bool IsAdornedElementLocked()

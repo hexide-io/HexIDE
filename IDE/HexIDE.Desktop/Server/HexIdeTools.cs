@@ -231,12 +231,17 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     ? form.RootVBTypeName
                     : c.BaseClass.VBTypeName;
 
+                var container = c.Container is { } parent && parent.BaseClass is not FormComponentClass
+                    ? parent.GetPropertyOrDefault(VBProperties.NameProperty)
+                    : null;
+
                 return new ControlInfo(
                     controlName,
                     typeName,
                     left, top, width, height,
                     visible, enabled,
-                    caption, text);
+                    caption, text,
+                    container);
             }).ToArray();
 
             return new FormControlsResult(null, controls);
@@ -559,7 +564,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
         "then calls EndDrag — so the operation lands as a single undo step on the designer undo stack. " +
         "The form must already be open in the visual designer (call view_designer first). " +
         "Use the form's own name as controlName to resize the form itself. " +
-        "If left/top/width/height are all omitted, EndDrag is still called (tests the no-change path).")]
+        "If left/top/width/height are all omitted, EndDrag is still called (tests the no-change path). " +
+        "left/top are CONTAINER-RELATIVE, matching get_form_controls and the .frm: for a control inside a " +
+        "Frame or PictureBox they are measured from that container, not from the form. Note that a VB6 control " +
+        "array shares one name across its elements (Options Dialog.frm has four picOptions), so a name that is " +
+        "not unique resolves to the first in document order.")]
     public async Task<MutateResult> MoveControlAsync(
         string formName,
         string controlName,
@@ -589,10 +598,16 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
             designer.BeginDrag([target]);
 
-            if (left.HasValue)   target.Left   = left.Value;
-            if (top.HasValue)    target.Top    = top.Value;
-            if (width.HasValue)  target.Width  = width.Value;
-            if (height.HasValue) target.Height = height.Value;
+            // Written to the MODEL, not through the view-model. The view-model's Left/Top are canvas
+            // coordinates — they add the accumulated origin of every container above — while
+            // get_form_controls and set_control_property both read and write the model's container-relative
+            // values. Going through the view-model here would make move_control the only tool on the other
+            // side of that boundary, so a control inside a Frame would move to a different place than the
+            // number implies. Width and Height mean the same thing in either space.
+            if (left.HasValue)   target.Instance.SetProperty(VBProperties.LeftProperty, left.Value);
+            if (top.HasValue)    target.Instance.SetProperty(VBProperties.TopProperty, top.Value);
+            if (width.HasValue)  target.Instance.SetProperty(VBProperties.WidthProperty, width.Value);
+            if (height.HasValue) target.Instance.SetProperty(VBProperties.HeightProperty, height.Value);
 
             designer.EndDrag();
 
@@ -1331,7 +1346,10 @@ internal record ControlInfo(
     bool Visible,
     bool Enabled,
     string? Caption,
-    string? Text);
+    string? Text,
+    // The control this one sits inside, or null when it is on the form itself. Left/Top are measured from
+    // this container's client origin, exactly as the .frm records them, so the space is self-describing.
+    string? Container);
 
 internal record SnapshotResult(string? Path, string? Error, string? ActiveDialog);
 

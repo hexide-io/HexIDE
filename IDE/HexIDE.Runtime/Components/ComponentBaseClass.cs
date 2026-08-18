@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using Avalonia;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -54,6 +55,16 @@ public abstract class ComponentBaseClass : IComponentClass
         host = null;
         return false;
     }
+
+    /// <summary>
+    /// How far inside this control's own bounds its contained controls are measured from — zero for
+    /// everything that is not a bordered container.
+    ///
+    /// The run time gets this for free by hosting children inside the border decorator, which insets its
+    /// child by what it draws. The designer keeps one flat canvas and has to do the arithmetic, so it needs
+    /// the same number as a value; this is the single place it comes from, so the two cannot disagree.
+    /// </summary>
+    public virtual Thickness ClientInset(ComponentInstance instance) => default;
 
     /// <summary>
     /// The Canvas a container class hands to its control at instantiation.

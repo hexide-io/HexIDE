@@ -59,6 +59,28 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public ObservableCollection<ComponentInstanceViewModel> AllComponents { get; } = new();
 
+    /// <summary>
+    /// The view-model wrapping a given model component, for the walks that start from the model tree — the
+    /// containment chain and the descendant fan-out.
+    ///
+    /// A scan rather than a dictionary on purpose: <see cref="AllComponents"/> is mutated by spawn, delete,
+    /// paste and reload, and a second index would be one more thing to keep in step for a collection that
+    /// holds tens of entries on a busy form.
+    /// </summary>
+    internal bool TryGetViewModel(ComponentInstance instance, out ComponentInstanceViewModel viewModel)
+    {
+        foreach (var candidate in AllComponents)
+        {
+            if (ReferenceEquals(candidate.Instance, instance))
+            {
+                viewModel = candidate;
+                return true;
+            }
+        }
+        viewModel = null!;
+        return false;
+    }
+
     public ObservableCollection<ComponentInstanceViewModel> Components { get; } = new();
 
     public ComponentInstanceViewModel Form { get; private set; }
@@ -128,6 +150,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             {
                 orderedComponents.Add(component.Instance);
             }
+            RebuildContainmentOrder(positionInList);
             formDefinition?.UpdateComponents(orderedComponents);
         }));
         AutoDispose(this.eventBus.Subscribe<FormUnloadedEvent>(e =>
@@ -255,12 +278,76 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             BringToFront(selectedComponent);
     }
 
+    /// <summary>
+    /// Re-orders each container's contents to match the canvas order before the model is written.
+    ///
+    /// This handler is the only place the designer authors the model's component list, so whatever the canvas
+    /// holds has to become the tree here or a save flattens the form again. Menus are skipped: they share the
+    /// canvas collection but their order is their own tree, and reordering a control must not reorder a menu.
+    /// </summary>
+    private void RebuildContainmentOrder(Dictionary<ComponentInstanceViewModel, int> positionInList)
+    {
+        var canvasOrder = new Dictionary<ComponentInstance, int>();
+        foreach (var (vm, index) in positionInList)
+            canvasOrder[vm.Instance] = index;
+
+        foreach (var owner in AllComponents.Select(x => x.Instance))
+        {
+            if (owner.ContainedControls.Count < 2)
+                continue;
+
+            var ordered = owner.ContainedControls
+                .OrderBy(c => canvasOrder.TryGetValue(c, out var i) ? i : int.MaxValue)
+                .ToList();
+
+            // Re-inserting in ascending order rebuilds the list: each SetContainer detaches the child and
+            // puts it back at the index given, so by the time index i is written every earlier slot is final.
+            for (var i = 0; i < ordered.Count; i++)
+                ordered[i].SetContainer(owner, i);
+        }
+    }
+
+    /// <summary>
+    /// Where in <see cref="Components"/> this control's canvas siblings sit — the entries sharing its
+    /// container, menus excluded.
+    ///
+    /// Z-order is sibling-scoped: VB6 raises a control above the others INSIDE its container and never lifts
+    /// it out of one, so "front" is the last sibling's slot rather than the end of the whole list. Menus have
+    /// to be excluded because they share this collection with the controls (a loaded menu item is a
+    /// zero-sized item parked at the origin), so a Send to Back would otherwise reorder against a menu and
+    /// the write-back would reorder the menu tree with it.
+    /// </summary>
+    private List<int> CanvasSiblingIndices(ComponentInstanceViewModel instance)
+    {
+        // A menu has no canvas siblings and no z-order. It is only in this collection because a loaded menu
+        // item becomes a zero-sized item parked at the origin, which is a separate defect.
+        if (instance.Instance.BaseClass is MenuComponentClass)
+            return [];
+
+        var container = instance.Instance.Container;
+        var indices = new List<int>();
+        for (var i = 0; i < Components.Count; i++)
+        {
+            var candidate = Components[i].Instance;
+            if (candidate.BaseClass is MenuComponentClass)
+                continue;
+            if (!ReferenceEquals(candidate.Container, container))
+                continue;
+            indices.Add(i);
+        }
+        return indices;
+    }
+
     public void BringToFront(ComponentInstanceViewModel instance)
     {
         var indexOf = Components.IndexOf(instance);
         if (indexOf != -1)
         {
-            var newIndex = Components.Count - 1;
+            var siblings = CanvasSiblingIndices(instance);
+            // Empty means a menu, which has no z-order to change. Any real control is its own sibling, so a
+            // control with nothing else in its container still gets a one-entry list.
+            if (siblings.Count == 0) return;
+            var newIndex = siblings[^1];
             Components.Move(indexOf, newIndex);
             SelectedComponent = null; // required, otherwise GUI lose selected item
             SelectedComponent = instance;
@@ -280,11 +367,14 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         var indexOf = Components.IndexOf(instance);
         if (indexOf != -1)
         {
-            Components.Move(indexOf, 0);
+            var siblings = CanvasSiblingIndices(instance);
+            if (siblings.Count == 0) return;
+            var newIndex = siblings[0];
+            Components.Move(indexOf, newIndex);
             SelectedComponent = null; // required, otherwise GUI lose selected item
             SelectedComponent = instance;
-            if (indexOf != 0)
-                UndoStack.Push(new ZOrderCommand(instance, indexOf, 0, $"Send to Back: {instance.Name}"));
+            if (indexOf != newIndex)
+                UndoStack.Push(new ZOrderCommand(instance, indexOf, newIndex, $"Send to Back: {instance.Name}"));
         }
     }
 
@@ -558,7 +648,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         var targets = SelectedComponents.Count > 0
             ? SelectedComponents
             : (selectedComponent != null ? [selectedComponent] : (IReadOnlyList<ComponentInstanceViewModel>)[]);
-        var toDelete = targets.Where(c => c != Form).ToList();
+        var toDelete = WithContents(targets.Where(c => c != Form));
         if (toDelete.Count == 0) return;
 
         var entries = toDelete.Select(c => (c, Components.IndexOf(c), AllComponents.IndexOf(c))).ToList();
@@ -570,6 +660,55 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         SelectedComponent = Form;
         string desc = entries.Count == 1 ? $"Delete: {entries[0].Item1.Name}" : $"Delete: {entries.Count} controls";
         UndoStack.Push(new RemoveControlsCommand(entries, desc));
+    }
+
+    /// <summary>
+    /// A selection plus everything inside any container in it, in <see cref="AllComponents"/> order.
+    ///
+    /// Deleting a container has to take its contents with it: leaving them behind would leave controls whose
+    /// container is no longer in the form, and the write-back would then try to nest them inside a component
+    /// it is not writing. Restoring is symmetric, which is what makes it one undo rather than a dozen.
+    /// </summary>
+    private List<ComponentInstanceViewModel> WithContents(IEnumerable<ComponentInstanceViewModel> selection)
+    {
+        var included = new HashSet<ComponentInstanceViewModel>();
+
+        void Add(ComponentInstanceViewModel vm)
+        {
+            if (!included.Add(vm))
+                return;
+            foreach (var child in vm.Instance.ContainedControls)
+                if (TryGetViewModel(child, out var childVm))
+                    Add(childVm);
+        }
+
+        foreach (var vm in selection)
+            Add(vm);
+
+        // AllComponents order, so the captured indices ascend the way RemoveControlsCommand restores them.
+        return AllComponents.Where(included.Contains).ToList();
+    }
+
+    /// <summary>
+    /// The controls a drag should actually displace: a selected control whose container is also selected is
+    /// dropped, because its container is already moving it.
+    ///
+    /// A marquee across a Frame on this flat canvas selects the Frame AND its children — a selection VB6
+    /// never produces, because VB6 scopes the marquee to the container the drag began in. Container-scoped
+    /// marquee needs the same container hit-test that interactive re-parenting needs and is deferred with it,
+    /// so this rule is the consequence of a deliberate divergence rather than an implementation detail.
+    /// Without it a child inside a selected Frame moves twice as far as the Frame.
+    /// </summary>
+    internal List<ComponentInstanceViewModel> WithoutRedundantDragTargets(IReadOnlyList<ComponentInstanceViewModel> selection)
+    {
+        var selected = new HashSet<ComponentInstance>(selection.Select(v => v.Instance));
+        return selection.Where(vm =>
+        {
+            for (var container = vm.Instance.Container; container is not null; container = container.Container)
+                if (selected.Contains(container))
+                    return false;
+            return true;
+        }).ToList();
     }
 
     private int _pasteOffset;
@@ -586,7 +725,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     public void CutSelectedControls()
     {
         var targets = SelectedComponents.Count > 0 ? SelectedComponents : (selectedComponent != null ? [selectedComponent] : (IReadOnlyList<ComponentInstanceViewModel>)[]);
-        var toDelete = targets.Where(c => c != Form).ToList();
+        var toDelete = WithContents(targets.Where(c => c != Form));
         if (toDelete.Count == 0) return;
         var entries = toDelete.Select(c => (c, Components.IndexOf(c), AllComponents.IndexOf(c))).ToList();
         DesignerClipboard.Set(toDelete);
@@ -610,7 +749,8 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
         var pastedEntries = new List<(ComponentInstanceViewModel Vm, int ComponentsIdx, int AllComponentsIdx)>();
         ComponentInstanceViewModel? lastAdded = null;
-        foreach (var entry in entries)
+
+        void Build(DesignerClipboard.ClipboardEntry entry, ComponentInstance? container, double shiftX, double shiftY)
         {
             var newName = GenerateName(entry.BaseClass);
             var newInstance = new ComponentInstance(entry.BaseClass, newName);
@@ -618,17 +758,39 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
             {
                 if (ReferenceEquals(kvp.Key, VBProperties.NameProperty)) continue;
                 if (ReferenceEquals(kvp.Key, VBProperties.LeftProperty))
-                    newInstance.SetUntypedProperty(kvp.Key, (kvp.Value is double l ? l : 0.0) + offsetX);
+                    newInstance.SetUntypedProperty(kvp.Key, (kvp.Value is double l ? l : 0.0) + shiftX);
                 else if (ReferenceEquals(kvp.Key, VBProperties.TopProperty))
-                    newInstance.SetUntypedProperty(kvp.Key, (kvp.Value is double t ? t : 0.0) + offsetY);
+                    newInstance.SetUntypedProperty(kvp.Key, (kvp.Value is double t ? t : 0.0) + shiftY);
                 else
                     newInstance.SetUntypedProperty(kvp.Key, kvp.Value);
             }
+            if (container is not null)
+                newInstance.SetContainer(container);
+
             var newVm = new ComponentInstanceViewModel(this, newInstance);
             Components.Add(newVm);
             AllComponents.Add(newVm);
             pastedEntries.Add((newVm, Components.IndexOf(newVm), AllComponents.IndexOf(newVm)));
             lastAdded = newVm;
+
+            // Contents keep their own container-relative coordinates and are re-linked into the copy, so a
+            // pasted container arrives with its own children rather than sharing the original's.
+            foreach (var child in entry.Children)
+                Build(child, newInstance, 0, 0);
+        }
+
+        foreach (var entry in entries)
+        {
+            // Paste back into the container it came from where that container is still on this form. Where it
+            // is not — a different form, or the container has since been deleted — the copy lands at form
+            // level, and the recorded Left/Top were relative to a container that is not here, so they are
+            // rebased to form coordinates. Without that the copy appears wherever the old container's offset
+            // happened to put it.
+            var target = entry.SourceContainer is { } source && AllComponents.Any(c => ReferenceEquals(c.Instance, source))
+                ? source
+                : null;
+            var rebase = target is null ? entry.SourceContainerOrigin : default;
+            Build(entry, target, offsetX + rebase.X, offsetY + rebase.Y);
         }
 
         if (lastAdded != null)
@@ -660,7 +822,10 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     public void BeginDrag(IReadOnlyList<ComponentInstanceViewModel> targets)
     {
         IsDragging = true;
-        _dragStartRects = targets.ToDictionary(
+        // A control whose container is also being dragged is moved by that container, not in its own right —
+        // recording it here would push a MoveResizeCommand whose before/after are both correct and whose undo
+        // would then fight the container's.
+        _dragStartRects = WithoutRedundantDragTargets(targets).ToDictionary(
             t => t,
             t => new Rect(t.Left, t.Top, t.Width, t.Height));
     }

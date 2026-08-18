@@ -79,6 +79,10 @@ public class PictureBoxComponentClass : ComponentBaseClass
         return host is not null;
     }
 
+    public override Thickness ClientInset(ComponentInstance instance) =>
+        ClientBorder(instance.GetPropertyOrDefault(BorderStyleProperty),
+                     instance.GetPropertyOrDefault(AppearanceProperty)).Inset;
+
     static PictureBoxComponentClass()
     {
         // VB6's PictureBox defaults to 1 - Fixed Single, and VB6 omits default-valued properties from the

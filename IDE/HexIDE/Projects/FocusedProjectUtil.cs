@@ -71,12 +71,16 @@ public partial class FocusedProjectUtil : IFocusedProjectUtil
         if (formEditor == null)
             return;
 
+        // The container-relative value, which is what VB6 shows and what the Properties window reads off the
+        // model. Binding to the view-model's Left/Top would put the status bar on the far side of the
+        // relative/absolute boundary from the property grid, so the two would report different numbers for the
+        // same selection.
         var left = formEditor.ObservePropertyChanged(x => x.SelectedComponent)
             .Where(x => x != null)
-            .SelectMany(x => x!.ObservePropertyChanged(y => y.Left));
+            .SelectMany(x => x!.ObservePropertyChanged(y => y.RelativeLeft));
         var top = formEditor.ObservePropertyChanged(x => x.SelectedComponent)
             .Where(x => x != null)
-            .SelectMany(x => x!.ObservePropertyChanged(y => y.Top));
+            .SelectMany(x => x!.ObservePropertyChanged(y => y.RelativeTop));
         var width = formEditor.ObservePropertyChanged(x => x.SelectedComponent)
             .Where(x => x != null)
             .SelectMany(x => x!.ObservePropertyChanged(y => y.Width));
