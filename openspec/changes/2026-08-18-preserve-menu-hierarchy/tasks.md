@@ -6,9 +6,9 @@
 - [x] 1.3 Record the depth of non-menu nesting separately from menu nesting
 
 ## 2. Save
-- [ ] 2.1 Walk `SubItemsProperty` in `FormSerializer` and emit nested `Begin VB.Menu` blocks
-- [ ] 2.2 Indent each level to match VB6, verified against the corpus rather than assumed
-- [ ] 2.3 Emit each menu exactly once — a menu reachable from both the flat list and a parent must not double-write
+- [x] 2.1 Walk `SubItemsProperty` in `FormSerializer` and emit nested `Begin VB.Menu` blocks
+- [x] 2.2 Indent each level to match VB6, verified against the corpus rather than assumed
+- [x] 2.3 Emit each menu exactly once — a menu reachable from both the flat list and a parent must not double-write
 
 ## 3. Gate
 - [ ] 3.1 Narrow the unfaithful-save condition so menu-only nesting no longer marks a form read-only
