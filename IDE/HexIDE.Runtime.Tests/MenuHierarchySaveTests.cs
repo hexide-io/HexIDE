@@ -159,13 +159,17 @@ public class MenuHierarchySaveTests
         form.CanSaveFaithfully.Should().BeFalse();
     }
 
-    [Fact]
-    public void RoundTrip_OfVb6sOwnMenuTemplate_ReproducesTheMenuShape()
+    [Theory]
+    [InlineData("Edit Menu.frm")]
+    [InlineData("Explorer File Menu.frm")]
+    [InlineData("File Menu.frm")]
+    [InlineData("Help Menu.frm")]
+    [InlineData("View Menu.frm")]
+    [InlineData("Window Menu.frm")]
+    public void RoundTrip_OfVb6sOwnMenuTemplates_ReproducesTheMenuShape(string fileName)
     {
-        var templates = Environment.GetEnvironmentVariable("VB6_TEMPLATES")
-                        ?? @"C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template";
-        var path = Path.Join(templates, "Menus", "File Menu.frm");
-        if (!File.Exists(path))
+        var path = MenuTemplatePath(fileName);
+        if (path is null)
             return; // VB6 is a Windows dev-machine oracle; CI has no install.
 
         var original = File.ReadAllText(path);
@@ -173,5 +177,32 @@ public class MenuHierarchySaveTests
 
         // Microsoft wrote the input, so any difference in the menu skeleton is HexIDE's defect.
         MenuShape(output).Should().Equal(MenuShape(original));
+    }
+
+    [Theory]
+    [InlineData("Edit Menu.frm")]
+    [InlineData("Explorer File Menu.frm")]
+    [InlineData("File Menu.frm")]
+    [InlineData("Help Menu.frm")]
+    [InlineData("View Menu.frm")]
+    [InlineData("Window Menu.frm")]
+    public void Vb6sOwnMenuTemplates_AreNoLongerHeldReadOnly(string fileName)
+    {
+        var path = MenuTemplatePath(fileName);
+        if (path is null)
+            return;
+
+        var form = Load(File.ReadAllText(path));
+
+        // These six were half of the twelve corpus forms the refusal gate held read-only.
+        form.CanSaveFaithfully.Should().BeTrue();
+    }
+
+    private static string? MenuTemplatePath(string fileName)
+    {
+        var templates = Environment.GetEnvironmentVariable("VB6_TEMPLATES")
+                        ?? @"C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template";
+        var path = Path.Join(templates, "Menus", fileName);
+        return File.Exists(path) ? path : null;
     }
 }

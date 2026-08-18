@@ -237,6 +237,40 @@ public class SerializationCorpusTests
     }
 
     [Fact]
+    public void No_more_corpus_forms_are_held_read_only_than_the_baseline()
+    {
+        // The refusal gate is the honest response to a defect, but every form it holds is a form the
+        // developer cannot edit — so the count is a burndown, not a steady state. It was 12 of 22 until
+        // menu hierarchies round-tripped (#83). The six that remain are container nesting (#84), and
+        // none of them contains a menu at all.
+        //
+        // LOWER this as fixes land. Raising it means a form that used to be editable no longer is,
+        // which is a regression however good the reason sounds.
+        const int KnownReadOnly = 6;
+
+        var files = CorpusFiles(".frm", ".ctl");
+        if (files.Count == 0) return;
+
+        var gated = new List<string>();
+        foreach (var path in files)
+        {
+            var frxPath = Path.ChangeExtension(path,
+                Path.GetExtension(path).Equals(".ctl", StringComparison.OrdinalIgnoreCase) ? ".ctx" : ".frx");
+            IReadOnlyDictionary<int, byte[]>? blobs = null;
+            if (File.Exists(frxPath)) blobs = FrxDeserializer.Read(File.ReadAllBytes(frxPath));
+
+            var owner = new ProjectDefinition(VBProjectType.EXE, "Corpus");
+            var form = new FormDeserializer().Deserialize(owner, Vb6TextFile.ReadAllText(path), new Sink(), blobs);
+            if (form is not null && !form.CanSaveFaithfully)
+                gated.Add($"{Path.GetFileName(path)} — {form.UnfaithfulSaveReason}");
+        }
+
+        gated.Count.Should().BeLessThanOrEqualTo(KnownReadOnly,
+            "the refusal gate must narrow as reproduction improves, never widen\n"
+            + string.Join("\n", gated));
+    }
+
+    [Fact]
     public void Every_corpus_form_can_be_opened()
     {
         // Outcome 0 — refusing to open — is safe but it is not free: a project HexIDE cannot open is a

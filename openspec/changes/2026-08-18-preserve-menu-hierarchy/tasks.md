@@ -15,6 +15,6 @@
 - [x] 3.2 Confirm a form with a populated container still marks read-only (#84 is not fixed by this)
 
 ## 4. Verify
-- [ ] 4.1 Round-trip the six menu templates from VB6's `VB98\Template` tree and diff against the originals
-- [ ] 4.2 Update the corpus baseline in `SerializationCorpusTests`
-- [ ] 4.3 Confirm a menu still renders and still fires its Click handler at runtime after a load
+- [x] 4.1 Round-trip the six menu templates from VB6's `VB98\Template` tree and diff against the originals
+- [x] 4.2 Update the corpus baseline in `SerializationCorpusTests`
+- [x] 4.3 ~~Confirm a menu still renders and still fires its Click handler at runtime after a load~~ — the premise was wrong: menus have **never** rendered at runtime. `VBLoader` docks an empty `Menu` and the population loop is commented out, while every `VB.Menu` becomes a zero-sized canvas child. Pre-existing and untouched by this change; filed as #85. What is confirmed instead is no regression — the flat component list the runtime reads is byte-for-byte what it was, pinned by `EveryMenu_StaysInTheFlatComponentList`.
