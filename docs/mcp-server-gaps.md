@@ -303,3 +303,31 @@ surfaces that can be constructed standalone.
 mid-session, or have the launcher expose a readiness signal the client re-polls, so a restart with the IDE
 already up is sufficient. Failing that, document that the IDE must be started *after* the session, not
 before — which is the opposite of the intuitive order and worth stating explicitly.
+
+## 12. A menu popup on a running form cannot be seen or driven
+
+**Symptom.** Verifying that a running form's menus render correctly, `take_snapshot` shows the menu *bar*
+but never a dropped-down menu, and `dump_visual_tree` reports every top-level `MenuItem` with
+`"children": []`. `interact` refuses both `expand` and `invoke` on a top-level `MenuItem`
+(`element does not support 'expand'`), and pressing Enter or Down on it via `press_key` highlights the item
+without opening it.
+
+The consequence is that the *inside* of a menu is unverifiable through MCP: separators, shortcut text drawn
+right-aligned in the item, item enabled/checked state, and submenu nesting are all only reachable as data.
+
+**Cause.** A menu's items are realised in a popup, which is its own top-level window. `take_snapshot`
+captures the form's window, and the popup is not in it — the same reason
+[#61](https://github.com/hexide-io/HexIDE/issues/61) reports runtime modal dialogs as invisible. The empty
+`children` array is not a bug in the dump: sub-items genuinely do not exist in the tree until the menu is
+opened.
+
+**Workaround.** Assert the structure headlessly, where the objects the loader builds can be inspected
+directly — `RuntimeMenuTests` covers the bar's contents, sub-item nesting, separators, `InputGesture` and
+click dispatch that way. Then verify live only what the *form's own window* can show: the bar's captions,
+and the effect of a shortcut, by having the handler write to a `Label` on the form. That combination did
+verify #85 end to end, but it verified the dropdown's contents by proxy rather than by looking at them.
+
+**Suggested fix.** Whatever fixes #61 for modal dialogs should cover this, since it is the same underlying
+limitation — snapshot and tree-walk the topmost popup root rather than only the form's window. An
+`interact` action that opens a menu (`open`/`expand` mapped to `MenuItem.IsSubMenuOpen`) would be the other
+half, since a popup that cannot be opened cannot be captured either.

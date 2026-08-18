@@ -5,6 +5,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
@@ -24,10 +27,8 @@ public class VBLoader
         };
         var menu = new Menu();
         DockPanel.SetDock(menu, Avalonia.Controls.Dock.Top);
-        // foreach (var topLevelMenu in TopLevelMenu)
-        // {
-        //     menu.Items.Add(topLevelMenu.Instance.BaseClass.Instantiate(topLevelMenu));
-        // }
+        var shortcuts = new List<(KeyGesture Gesture, Action Invoke)>();
+        BuildMenuBar(element, menu, shortcuts);
 
         // A VB6 control array is 2+ controls sharing a Name, or a single control carrying an explicit `Index` (a
         // 1-element array). Detect the array Names first so each element joins a group rather than overwriting the
@@ -80,7 +81,7 @@ public class VBLoader
         foreach (var (name, group) in arrayGroups)
             executionContext.AllocVariable(environment, name, new Vb6Value(group));
 
-        return new DockPanel()
+        var root = new DockPanel()
         {
             Children =
             {
@@ -88,6 +89,29 @@ public class VBLoader
                 canvas
             }
         };
+
+        // Menu shortcuts are matched on the form's content, and in the TUNNEL phase, so they beat whatever
+        // has focus. That is VB6's behaviour — Ctrl+S saves from inside a text box — and it is also the only
+        // thing that works: KeyBindings on an ancestor are not evaluated for a key event raised on a
+        // descendant, so binding them here and letting them bubble fires nothing at all.
+        if (shortcuts.Count > 0)
+        {
+            root.AddHandler(InputElement.KeyDownEvent, (_, e) =>
+            {
+                if (e.Handled)
+                    return;
+                foreach (var (gesture, invoke) in shortcuts)
+                {
+                    if (!gesture.Matches(e))
+                        continue;
+                    e.Handled = true;
+                    invoke();
+                    return;
+                }
+            }, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
+        }
+
+        return root;
     }
 
     // Parse a control's VB6 `Index` off its preserved raw property lines (Index isn't a modelled PropertyClass in
@@ -110,6 +134,87 @@ public class VBLoader
     }
 
     /// <summary>
+    /// Fills the form's menu bar from its menus, and collects a key binding for each shortcut.
+    ///
+    /// The menu tree is the one the loader records on each menu's SubItems. Menus are NOT placed on the
+    /// canvas: a VB6 menu has no Left/Top/Width/Height, so every one of them used to land as a zero-sized
+    /// child of the form's canvas while the bar itself stayed empty.
+    /// </summary>
+    private static void BuildMenuBar(FormDefinition element, Menu menu, List<(KeyGesture Gesture, Action Invoke)> shortcuts)
+    {
+        // A menu some other menu claims as a sub-item belongs in that menu, not on the bar — the same
+        // filter the writer applies, and for the same reason.
+        var claimed = new HashSet<ComponentInstance>();
+        foreach (var component in element.Components)
+            foreach (var child in SubItemsOf(component))
+                claimed.Add(child);
+
+        foreach (var component in element.Components)
+        {
+            if (component.BaseClass is not MenuComponentClass || claimed.Contains(component))
+                continue;
+            if (BuildMenuItem(component, menu, shortcuts) is { } item)
+                menu.Items.Add(item);
+        }
+
+        // An empty bar still occupies a strip at the top of the form and pushes the canvas down, so a form
+        // with no menus would be laid out differently from the same form in VB6.
+        menu.IsVisible = menu.Items.Count > 0;
+    }
+
+    private static IReadOnlyList<ComponentInstance> SubItemsOf(ComponentInstance component) =>
+        component.BaseClass is MenuComponentClass &&
+        component.GetPropertyOrDefault(MenuComponentClass.SubItemsProperty) is { } subItems
+            ? subItems
+            : [];
+
+    /// <summary>
+    /// One menu item and everything under it, or a separator.
+    ///
+    /// Click is dispatched through the MENU rather than through the item, because a sub-item lives in a
+    /// popup with its own visual root: the usual walk up the tree to find the execution root leaves the
+    /// window entirely and finds nothing, so every submenu item would silently do nothing while the
+    /// top-level ones worked.
+    /// </summary>
+    private static Control? BuildMenuItem(ComponentInstance component, Menu menu, List<(KeyGesture Gesture, Action Invoke)> shortcuts)
+    {
+        var caption = component.GetPropertyOrDefault(VBProperties.CaptionProperty);
+
+        // VB6 spells a separator as a menu whose caption is a single hyphen.
+        if (caption == "-")
+            return new Separator();
+
+        var item = (MenuItem)((ComponentBaseClass)component.BaseClass).Instantiate(component);
+
+        var name = component.GetPropertyOrDefault(VBProperties.NameProperty);
+        if (name is not null)
+        {
+            item.Click += (_, e) =>
+            {
+                // Click bubbles, so a submenu click reaches every ancestor item too. VB6 raises Click on the
+                // item the user chose and on nothing above it — a parent with sub-items just opens.
+                if (!ReferenceEquals(e.Source, item))
+                    return;
+                menu.FindAncestorOfType<IModuleExecutionRoot>()?.ExecuteSub($"{name}_Click");
+            };
+
+            if (VBMenuShortcut.TryParse(component, out var gesture))
+            {
+                // Displays right-aligned in the item, as VB6 draws it.
+                item.InputGesture = gesture;
+                shortcuts.Add((gesture, () =>
+                    menu.FindAncestorOfType<IModuleExecutionRoot>()?.ExecuteSub($"{name}_Click")));
+            }
+        }
+
+        foreach (var child in SubItemsOf(component))
+            if (BuildMenuItem(child, menu, shortcuts) is { } childItem)
+                item.Items.Add(childItem);
+
+        return item;
+    }
+
+    /// <summary>
     /// The components a form places directly on its own canvas: everything the form itself contains, plus
     /// anything nothing has claimed.
     ///
@@ -124,6 +229,11 @@ public class VBLoader
         foreach (var component in element.Components)
         {
             if (component.BaseClass is FormComponentClass)
+                continue;
+            // A menu belongs in the menu bar, not on the canvas. It has no Left/Top/Width/Height, so placing
+            // one here made it a zero-sized child of the form at the origin — invisible, but present in the
+            // visual tree and in the way.
+            if (component.BaseClass is MenuComponentClass)
                 continue;
             // Placed by its own container's recursion instead.
             if (component.Container is not null && !ReferenceEquals(component.Container, form))
