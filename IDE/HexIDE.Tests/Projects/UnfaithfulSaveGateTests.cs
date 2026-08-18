@@ -13,10 +13,12 @@ namespace HexIDE.Tests.Projects;
 /// <summary>
 /// Guards the refuse-to-save gate for forms HexIDE cannot reproduce (issues #21, #22).
 ///
-/// HexIDE flattens nested Begin blocks, so a menu hierarchy is destroyed and a container's children are
-/// re-parented to the form. VB6 then rejects the file outright whenever a menu carries a shortcut or a
-/// separator — which is nearly every real menu. Writing it would move the defect to outcome 3 (works here,
-/// fails in VB6), the worst kind because it is silent.
+/// HexIDE flattens nested Begin blocks, so a container's children are re-parented to the form. Writing
+/// that would move the defect to outcome 3 (works here, fails in VB6), the worst kind because it is
+/// silent.
+///
+/// Menu hierarchies used to be gated for the same reason and no longer are — they survive a round-trip
+/// as of #83, so the fixtures here use container nesting, which is still flattened (#84).
 ///
 /// Refusing moves it to outcome 0 instead: the operation fails, the file is untouched, and the developer
 /// finds out immediately. See docs/serialization-outcomes.md.
@@ -78,11 +80,17 @@ public class UnfaithfulSaveGateTests : IDisposable
         "   Begin VB.TextBox Text1 \r\n      Left            =   120\r\n   End\r\n" +
         "End\r\nAttribute VB_Name = \"Form1\"\r\n";
 
-    private const string MenuForm =
+    /// <summary>
+    /// A control inside a container — still flattened on save, so still gated.
+    ///
+    /// This fixture used to be a nested menu, which is no longer gated: menu hierarchies survive a
+    /// round-trip as of #83, so a menu form would exercise nothing here. Container nesting is #84.
+    /// </summary>
+    private const string NestedContainerForm =
         "VERSION 5.00\r\nBegin VB.Form Form1 \r\n   Caption         =   \"Form1\"\r\n" +
-        "   Begin VB.Menu mnuFile \r\n      Caption         =   \"&File\"\r\n" +
-        "      Begin VB.Menu mnuFileNew \r\n         Caption         =   \"&New\"\r\n" +
-        "         Shortcut        =   ^N\r\n      End\r\n   End\r\n" +
+        "   Begin VB.Frame Frame1 \r\n      Caption         =   \"Frame1\"\r\n" +
+        "      Begin VB.CommandButton Command1 \r\n         Caption         =   \"Command1\"\r\n" +
+        "      End\r\n   End\r\n" +
         "End\r\nAttribute VB_Name = \"Form1\"\r\n";
 
     private string Stage(string formText)
@@ -97,7 +105,7 @@ public class UnfaithfulSaveGateTests : IDisposable
     public async Task A_nested_form_is_left_untouched_by_a_save()
     {
         var svc = MakeService();
-        await svc.OpenProject(Stage(MenuForm));
+        await svc.OpenProject(Stage(NestedContainerForm));
         var formPath = Path.Join(dir, "Form1.frm");
         var before = await File.ReadAllTextAsync(formPath);
 
@@ -112,7 +120,7 @@ public class UnfaithfulSaveGateTests : IDisposable
     {
         // Silence would be the worst outcome: the file is protected but the user believes it was written.
         var svc = MakeService();
-        await svc.OpenProject(Stage(MenuForm));
+        await svc.OpenProject(Stage(NestedContainerForm));
 
         await svc.SaveProject(loaded.Single(), saveAs: false);
 
@@ -138,7 +146,7 @@ public class UnfaithfulSaveGateTests : IDisposable
     public async Task The_reason_names_what_is_wrong()
     {
         var svc = MakeService();
-        await svc.OpenProject(Stage(MenuForm));
+        await svc.OpenProject(Stage(NestedContainerForm));
 
         loaded.Single().Forms.Single().UnfaithfulSaveReason
             .Should().Contain("nested").And.Contain("flatten");
@@ -151,7 +159,7 @@ public class UnfaithfulSaveGateTests : IDisposable
         // "These forms were not saved, because it contains…" — plural frame, singular reason, and the
         // reason itself was a hardcoded literal that appeared untranslated in every language.
         var svc = MakeService();
-        await svc.OpenProject(Stage(MenuForm));
+        await svc.OpenProject(Stage(NestedContainerForm));
 
         await svc.SaveProject(loaded.Single(), saveAs: false);
 
@@ -163,8 +171,8 @@ public class UnfaithfulSaveGateTests : IDisposable
     [Fact]
     public async Task Two_refused_forms_use_the_plural_message()
     {
-        File.WriteAllText(Path.Join(dir, "Form1.frm"), MenuForm);
-        File.WriteAllText(Path.Join(dir, "Form2.frm"), MenuForm.Replace("Form1", "Form2"));
+        File.WriteAllText(Path.Join(dir, "Form1.frm"), NestedContainerForm);
+        File.WriteAllText(Path.Join(dir, "Form2.frm"), NestedContainerForm.Replace("Form1", "Form2"));
         File.WriteAllText(Path.Join(dir, "Test.vbp"),
             "Type=Exe\r\nForm=Form1.frm\r\nForm=Form2.frm\r\nName=\"Test\"\r\n");
 
@@ -180,8 +188,8 @@ public class UnfaithfulSaveGateTests : IDisposable
     public async Task One_message_covers_a_whole_batch()
     {
         // Two unfaithful forms must not produce two dialogs.
-        File.WriteAllText(Path.Join(dir, "Form1.frm"), MenuForm);
-        File.WriteAllText(Path.Join(dir, "Form2.frm"), MenuForm.Replace("Form1", "Form2"));
+        File.WriteAllText(Path.Join(dir, "Form1.frm"), NestedContainerForm);
+        File.WriteAllText(Path.Join(dir, "Form2.frm"), NestedContainerForm.Replace("Form1", "Form2"));
         var vbp = Path.Join(dir, "Test.vbp");
         File.WriteAllText(vbp, "Type=Exe\r\nForm=Form1.frm\r\nForm=Form2.frm\r\nName=\"Test\"\r\n");
 

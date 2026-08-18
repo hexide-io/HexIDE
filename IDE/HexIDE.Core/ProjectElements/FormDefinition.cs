@@ -138,6 +138,23 @@ public partial class FormDefinition : INotifyPropertyChanged
 
     public void RecordLoadedCompanionBlobCount(int count) => LoadedCompanionBlobCount = count;
 
+    /// <summary>
+    /// The deepest nesting in this form that the writer cannot reproduce, counting the form itself as 1.
+    /// Anything above 2 means a component was nested inside something other than the form and would be
+    /// re-parented to the form on save.
+    ///
+    /// This is deliberately narrower than the raw <c>Begin</c> depth. A menu nested under a menu, or a
+    /// menu under the form, is excluded, because the loader records that hierarchy on the parent's
+    /// <c>SubItems</c> and the writer walks it back out. Everything else — a control inside a Frame or a
+    /// PictureBox — still flattens, so it still counts.
+    ///
+    /// The distinction is what lets the refusal gate narrow as reproduction improves rather than staying
+    /// shut for a defect that has since been fixed.
+    /// </summary>
+    public int MaxUnreproducibleNestingDepth { get; private set; }
+
+    public void RecordUnreproducibleNestingDepth(int depth) => MaxUnreproducibleNestingDepth = depth;
+
     public void UpdateRootTypeName(string typeName) => RootVBTypeName = typeName;
 
     public event PropertyChangedEventHandler? PropertyChanged;

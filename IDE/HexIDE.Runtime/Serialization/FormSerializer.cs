@@ -61,14 +61,36 @@ public class FormSerializer
             vb.WriteProperty("LockControls", typeof(bool), true);
         WriteFormMeasurements(vb, form);
 
+        // A menu that some other menu claims as a sub-item is written by that parent, not from the flat
+        // list — otherwise every nested menu appears twice, once in the tree and once as a sibling.
+        var claimedByAParent = new HashSet<ComponentInstance>();
         foreach (var component in element.Components)
         {
-            if (component != form)
-            {
-                vb.Begin(component.BaseClass.VBTypeName, component.GetPropertyOrDefault(VBProperties.NameProperty)!);
-                WriteAllProperties(vb, component, frxName, offsetMap);
-                vb.End();
-            }
+            if (component.GetPropertyOrDefault(MenuComponentClass.SubItemsProperty) is { } subItems)
+                foreach (var child in subItems)
+                    claimedByAParent.Add(child);
+        }
+
+        // Begin/End maintain the indent level themselves, so recursing here is all the nesting needs:
+        // VB6's three-space step per level falls out of it.
+        void WriteComponentTree(ComponentInstance component)
+        {
+            vb.Begin(component.BaseClass.VBTypeName, component.GetPropertyOrDefault(VBProperties.NameProperty)!);
+            WriteAllProperties(vb, component, frxName, offsetMap);
+
+            if (component.GetPropertyOrDefault(MenuComponentClass.SubItemsProperty) is { } subItems)
+                foreach (var child in subItems)
+                    WriteComponentTree(child);
+
+            vb.End();
+        }
+
+        foreach (var component in element.Components)
+        {
+            if (component == form || claimedByAParent.Contains(component))
+                continue;
+
+            WriteComponentTree(component);
         }
 
         foreach (var subtreeText in element.UnknownChildSubtreeTexts)
