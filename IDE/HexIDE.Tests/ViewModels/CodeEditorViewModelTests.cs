@@ -507,7 +507,8 @@ public class CodeEditorViewModelTests : IDisposable
     {
         var form = TestHelpers.CreateForm(name: "Form1");
         if (!faithful)
-            form.MarkUnfaithfulToSave("it contains nested controls or menus, which HexIDE would flatten on save");
+            form.MarkUnfaithfulToSave(UnfaithfulSaveCause.NestedContainers,
+                "it contains controls nested inside a container, which HexIDE would flatten onto the form on save");
         return form;
     }
 
@@ -518,7 +519,7 @@ public class CodeEditorViewModelTests : IDisposable
         vm.Initialize(MakeForm(faithful: false));
 
         vm.IsReadOnly.Should().BeTrue();
-        vm.ReadOnlyReason.Should().Contain("nested");
+        vm.ReadOnlyReason.Should().Contain("nested inside a container");
     }
 
     [Fact]

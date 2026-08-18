@@ -229,7 +229,12 @@ public class SerializationCorpusTests
         try { File.WriteAllText(ReportPath, report.ToString()); } catch { /* best effort */ }
 
         // A baseline, not zero. The backlog is tracked in issues; this gate exists to stop it growing
-        // and to make progress visible. RAISE this number as fixes land — never lower it.
+        // and to make progress visible.
+        //
+        // LOWER this as fixes land — never raise it. This counts FAILURES and is asserted as an upper
+        // bound, so raising it weakens the gate rather than recording progress. (The comment here used to
+        // say the opposite, which would have quietly disarmed the only thing stopping the round-trip
+        // backlog growing.)
         const int KnownVb6Failures = 22;
         vb6Failures.Should().BeLessThanOrEqualTo(KnownVb6Failures,
             $"VB6-authored round-trip regressed past the known baseline. Full report: {ReportPath}\n"
@@ -237,21 +242,46 @@ public class SerializationCorpusTests
     }
 
     [Fact]
-    public void No_more_corpus_forms_are_held_read_only_than_the_baseline()
+    public void The_forms_held_read_only_are_exactly_the_expected_set()
     {
-        // The refusal gate is the honest response to a defect, but every form it holds is a form the
-        // developer cannot edit — so the count is a burndown, not a steady state. It was 12 of 22 until
-        // menu hierarchies round-tripped (#83). The six that remain are container nesting (#84), and
-        // none of them contains a menu at all.
+        // A SET, not a count. A count cannot express what actually happens as this burns down: forms leave
+        // the gate and forms enter it, and the two can cancel out. Recognising unreproducible binary content
+        // added two forms that used to save lossily, and the container work will remove two others — 6 to 8
+        // to 6, with a different six each time. A count assertion would have shown nothing at all.
         //
-        // LOWER this as fixes land. Raising it means a form that used to be editable no longer is,
-        // which is a regression however good the reason sounds.
-        const int KnownReadOnly = 6;
+        // Each entry names the causes, so a form moving between categories is visible rather than silent.
+        // UPDATE this as phases land, and read a change carefully: a form gaining a cause is a regression
+        // unless it is one of the deliberate widenings recorded in that phase's tasks.
+        var expected = new Dictionary<string, UnfaithfulSaveCause>
+        {
+            // Nesting only — freed once containers round-trip (#84).
+            ["Options Dialog.frm"] = UnfaithfulSaveCause.NestedContainers,
+            ["Tip of the Day.frm"] = UnfaithfulSaveCause.NestedContainers,
+
+            // Binary only — these two saved lossily until the gate learned to see blob loss, dropping a
+            // control's picture reference while the companion file survived on disk.
+            ["Button ListBox.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
+            ["Mover ListBox.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
+
+            // Both — still gated after the container work, on the binary half.
+            ["Splash Screen.frm"] = UnfaithfulSaveCause.NestedContainers | UnfaithfulSaveCause.UnreproducibleBinaryContent,
+            ["ODBC Log In.frm"] = UnfaithfulSaveCause.NestedContainers | UnfaithfulSaveCause.UnreproducibleBinaryContent,
+            ["Web Browser.frm"] = UnfaithfulSaveCause.NestedContainers | UnfaithfulSaveCause.UnreproducibleBinaryContent,
+            ["Treeview Listview Splitter.frm"] = UnfaithfulSaveCause.NestedContainers | UnfaithfulSaveCause.UnreproducibleBinaryContent,
+        };
 
         var files = CorpusFiles(".frm", ".ctl");
         if (files.Count == 0) return;
 
-        var gated = new List<string>();
+        // Every name above is a VB6-authored file from the Template tree, which CI does not have — there
+        // the corpus falls back to demo/, whose files are HexIDE's own and gated by nothing. Comparing the
+        // full expected set on CI asserts the absence of files that were never there. So narrow the
+        // expectation to what is actually present: locally that is all eight, on CI it is none, and both
+        // are the same assertion rather than a skip that quietly stops checking anything.
+        var present = files.Select(Path.GetFileName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        expected = expected.Where(e => present.Contains(e.Key)).ToDictionary(e => e.Key, e => e.Value);
+
+        var actual = new Dictionary<string, UnfaithfulSaveCause>();
         foreach (var path in files)
         {
             var frxPath = Path.ChangeExtension(path,
@@ -262,12 +292,11 @@ public class SerializationCorpusTests
             var owner = new ProjectDefinition(VBProjectType.EXE, "Corpus");
             var form = new FormDeserializer().Deserialize(owner, Vb6TextFile.ReadAllText(path), new Sink(), blobs);
             if (form is not null && !form.CanSaveFaithfully)
-                gated.Add($"{Path.GetFileName(path)} — {form.UnfaithfulSaveReason}");
+                actual[Path.GetFileName(path)] = form.UnfaithfulSaveCauses;
         }
 
-        gated.Count.Should().BeLessThanOrEqualTo(KnownReadOnly,
-            "the refusal gate must narrow as reproduction improves, never widen\n"
-            + string.Join("\n", gated));
+        actual.Should().BeEquivalentTo(expected,
+            "the set of forms HexIDE refuses to save, and why, is the burndown this issue tracks");
     }
 
     [Fact]

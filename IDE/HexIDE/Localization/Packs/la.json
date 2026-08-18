@@ -257,9 +257,9 @@
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "Quaere",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Classes",
 
-    "Str.Dialog.UnfaithfulSave.Body.One": "Haec forma non servata est, quia moderaminibus in aliis inclusis aut indicibus utitur, quae HexIDE complanaret:\n\n{0}\n\nPlica eius in disco immutata manet. Si servaretur, forma efficeretur quam Visual Basic 6 aperire non posset, itaque HexIDE eam intactam relinquit potius quam eam corrumpat.",
-    "Str.Dialog.UnfaithfulSave.Body.Many": "Hae formae non servatae sunt, quia moderaminibus in aliis inclusis aut indicibus utuntur, quae HexIDE complanaret:\n\n{0}\n\nPlicae earum in disco immutatae manent. Si servarentur, formae efficerentur quas Visual Basic 6 aperire non posset, itaque HexIDE eas intactas relinquit potius quam eas corrumpat.",
-    "Str.Designer.ReadOnly.Banner": "Tantum legendum — haec forma moderaminibus in aliis inclusis aut indicibus utitur, quae HexIDE nondum servare potest quin ea corrumpat. Eam videre et exsequi potes, sed mutationes non servabuntur.",
+    "Str.Dialog.UnfaithfulSave.Body.One": "Haec forma non servata est, quia HexIDE eam nondum fideliter exprimere potest:\n\n{0}\n\nPlica eius in disco immutata manet. Si servaretur, forma tacite mutaretur — Visual Basic 6 plicam sic mutatam sine querela aperit, et ideo damnum facile latet — itaque HexIDE eam intactam relinquit potius quam eam corrumpat.",
+    "Str.Dialog.UnfaithfulSave.Body.Many": "Hae formae non servatae sunt, quia HexIDE eas nondum fideliter exprimere potest:\n\n{0}\n\nPlicae earum in disco immutatae manent. Si servarentur, formae tacite mutarentur — Visual Basic 6 plicas sic mutatas sine querela aperit, et ideo damnum facile latet — itaque HexIDE eas intactas relinquit potius quam eas corrumpat.",
+    "Str.Designer.ReadOnly.Banner": "Tantum legendum — HexIDE hanc formam nondum fideliter exprimere potest, itaque, si servaretur, mutaretur. Eam videre et exsequi potes, sed mutationes non servabuntur.",
     "Str.Designer.Context.Cut": "E_xscinde",
     "Str.Designer.Context.Copy": "_Describe",
     "Str.Designer.Context.Paste": "_Agglutina",
@@ -270,7 +270,7 @@
     "Str.Designer.Context.AlignToGrid": "Ordina ad Reticulum",
     "Str.Designer.Context.Properties": "Proprietates",
 
-    "Str.CodeEditor.ReadOnly.Banner": "Tantum legendum — haec forma moderaminibus in aliis inclusis aut indicibus utitur, quae HexIDE nondum servare potest quin ea corrumpat. Codex eius recenseri non potest donec id correctum erit.",
+    "Str.CodeEditor.ReadOnly.Banner": "Tantum legendum — HexIDE hanc formam nondum fideliter exprimere potest, itaque, si servaretur, mutaretur. Codex eius recenseri non potest donec id correctum erit.",
     "Str.CodeEditor.Context.Cut": "E_xscinde",
     "Str.CodeEditor.Context.Copy": "_Describe",
     "Str.CodeEditor.Context.Paste": "_Agglutina",

@@ -108,9 +108,29 @@ public partial class FormDefinition : INotifyPropertyChanged
     /// </summary>
     public string? UnfaithfulSaveReason { get; private set; }
 
-    public void MarkUnfaithfulToSave(string reason) => UnfaithfulSaveReason = reason;
+    /// <summary>
+    /// Every way in which this form cannot be reproduced, as causes rather than prose. The developer-facing
+    /// sentence is built from these in the IDE layer, where a localisation service exists; the runtime
+    /// records the cause and nothing more.
+    ///
+    /// A form can carry more than one — <c>Splash Screen.frm</c> is nested inside containers *and* holds
+    /// binary content HexIDE cannot re-emit — so these are OR-ed together and never cleared.
+    /// </summary>
+    public UnfaithfulSaveCause UnfaithfulSaveCauses { get; private set; } = UnfaithfulSaveCause.None;
 
-    public bool CanSaveFaithfully => UnfaithfulSaveReason is null;
+    /// <summary>
+    /// Records a cause, and a developer-facing English sentence for the log. The sentence is deliberately
+    /// not what the user sees: <see cref="UnfaithfulSaveCauses"/> is, via a localisation key.
+    /// </summary>
+    public void MarkUnfaithfulToSave(UnfaithfulSaveCause cause, string developerReason)
+    {
+        UnfaithfulSaveCauses |= cause;
+        // Keep the first sentence rather than the last, so the log names the cause found earliest in the
+        // load rather than whichever check happened to run last.
+        UnfaithfulSaveReason ??= developerReason;
+    }
+
+    public bool CanSaveFaithfully => UnfaithfulSaveCauses == UnfaithfulSaveCause.None;
 
     /// <summary>
     /// True when loading this form encountered a property backed by the companion binary (.frx/.ctx/.pgx)
