@@ -258,9 +258,9 @@
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "Search",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Classes",
 
-    "Str.Dialog.UnfaithfulSave.Body.One": "This form was not saved, because it uses nested controls or menus that HexIDE would flatten:\n\n{0}\n\nIts file on disk is unchanged. Saving it would produce a form that Visual Basic 6 cannot open, so HexIDE leaves it alone rather than damage it.",
-    "Str.Dialog.UnfaithfulSave.Body.Many": "These forms were not saved, because they use nested controls or menus that HexIDE would flatten:\n\n{0}\n\nTheir files on disk are unchanged. Saving them would produce forms that Visual Basic 6 cannot open, so HexIDE leaves them alone rather than damage them.",
-    "Str.Designer.ReadOnly.Banner": "Read-only — this form uses nested controls or menus that HexIDE cannot yet save without damaging them. You can view and run it, but changes will not be saved.",
+    "Str.Dialog.UnfaithfulSave.Body.One": "This form was not saved, because HexIDE cannot yet reproduce it faithfully:\n\n{0}\n\nIts file on disk is unchanged. Saving it would change the form silently — Visual Basic 6 opens the result without complaining, which is what makes the damage easy to miss — so HexIDE leaves it alone rather than damage it.",
+    "Str.Dialog.UnfaithfulSave.Body.Many": "These forms were not saved, because HexIDE cannot yet reproduce them faithfully:\n\n{0}\n\nTheir files on disk are unchanged. Saving them would change the forms silently — Visual Basic 6 opens the results without complaining, which is what makes the damage easy to miss — so HexIDE leaves them alone rather than damage them.",
+    "Str.Designer.ReadOnly.Banner": "Read-only — HexIDE cannot yet reproduce this form faithfully, so saving it would change it. You can view and run it, but changes will not be saved.",
     "Str.Designer.Context.Cut": "Cu_t",
     "Str.Designer.Context.Copy": "_Copy",
     "Str.Designer.Context.Paste": "_Paste",
@@ -271,7 +271,7 @@
     "Str.Designer.Context.AlignToGrid": "Align to Grid",
     "Str.Designer.Context.Properties": "Properties",
 
-    "Str.CodeEditor.ReadOnly.Banner": "Read-only — this form uses nested controls or menus that HexIDE cannot yet save without damaging them. Its code cannot be edited until that is fixed.",
+    "Str.CodeEditor.ReadOnly.Banner": "Read-only — HexIDE cannot yet reproduce this form faithfully, so saving it would change it. Its code cannot be edited until that is fixed.",
     "Str.CodeEditor.Context.Cut": "Cu_t",
     "Str.CodeEditor.Context.Copy": "_Copy",
     "Str.CodeEditor.Context.Paste": "_Paste",
