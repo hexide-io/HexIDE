@@ -98,11 +98,32 @@
 
 **Gate after this phase.** SHUT. Children are positioned correctly relative to their container in both container classes; `Align` docking remains unimplemented for Web Browser.frm and Treeview Listview Splitter.frm, and the designer is still wrong, which is what the maintainer's condition names.
 
-- [ ] 5.1 Rewrite the `VBPictureBox` ControlTheme (Resources.axaml:113-125) to drive its ClassicBorderDecorator's BorderStyle/BorderThickness from the modelled `BorderStyle` and `Appearance` (PictureBoxComponentClass.cs:14-15) instead of the hardcoded `Sunken`/`2`, and place the child host INSIDE the decorator so the host origin is the client origin by construction.
-- [ ] 5.2 Expose the host through the same owned-property seam as VBFrame; implement the inset as 2 px per side when bordered, 0 when flat or borderless, 0 for a Frame.
-- [ ] 5.3 Correct `BorderStyleProperty`'s default for PictureBox using the existing `PropertyClass.OverrideDefault<TComponent>` (PropertyClass.cs:159-163) — VB6's default is Fixed Single, HexIDE's is None (VBProperties.cs:46), and VB6 omits default-valued properties. Note in the change that this also alters what the property grid shows for every PictureBox with no BorderStyle line (PropertiesToolViewModel.cs:111), so it is not mistaken for a rendering regression.
-- [ ] 5.4 Add the cross-check assertion: where a container's ScaleMode is absent or twips and ScaleWidth is present, `(Width - ScaleWidth) / 2` must equal the inset the border table produces. Tip of the Day.frm:31-40 (Width 3735, ScaleWidth 3675, no BorderStyle line) is the live case.
-- [ ] 5.5 Headless render tests for a nested PictureBox including the inset, for the container-inside-container shape from Options Dialog.frm, and for option buttons inside a PictureBox forming their own group.
+- [x] 5.1 Rewrite the `VBPictureBox` ControlTheme (Resources.axaml:113-125) to drive its ClassicBorderDecorator's BorderStyle/BorderThickness from the modelled `BorderStyle` and `Appearance` (PictureBoxComponentClass.cs:14-15) instead of the hardcoded `Sunken`/`2`, and place the child host INSIDE the decorator so the host origin is the client origin by construction.
+- [x] 5.2 Expose the host through the same owned-property seam as VBFrame; implement the inset as 2 px per side when bordered, 0 when flat or borderless, 0 for a Frame.
+- [x] 5.3 Correct `BorderStyleProperty`'s default for PictureBox using the existing `PropertyClass.OverrideDefault<TComponent>` (PropertyClass.cs:159-163) — VB6's default is Fixed Single, HexIDE's is None (VBProperties.cs:46), and VB6 omits default-valued properties. Note in the change that this also alters what the property grid shows for every PictureBox with no BorderStyle line (PropertiesToolViewModel.cs:111), so it is not mistaken for a rendering regression.
+- [x] 5.4 Add the cross-check assertion: where a container's ScaleMode is absent or twips and ScaleWidth is present, `(Width - ScaleWidth) / 2` must equal the inset the border table produces. Tip of the Day.frm:31-40 (Width 3735, ScaleWidth 3675, no BorderStyle line) is the live case.
+- [x] 5.5 Headless render tests for a nested PictureBox including the inset, for the container-inside-container shape from Options Dialog.frm, and for option buttons inside a PictureBox forming their own group.
+
+**Notes from implementing this phase.**
+
+- The inset and the drawn border are literally the same number: the child host sits inside the
+  `ClassicBorderDecorator`, which insets its child by exactly the thickness it draws. There is no second
+  piece of arithmetic that could drift from what the user sees.
+- 5.2's wording — "2 px per side when bordered, 0 when flat or borderless" — leaves the flat-BUT-bordered
+  combination undefined, and it is one of the two cases the `GetWindowRect` session did not measure. VB6 draws
+  a one-pixel line for it, so one pixel is what it insets by here; keeping the two numbers identical is what
+  makes that coherent rather than arbitrary. The oracle question is already on the open list.
+- Correcting `BorderStyle`'s default moved **no** serialization output, which is worth recording because it
+  looks like it should have: the writer emits a property only where one was explicitly set, so a changed
+  *default* cannot reach the file. It changes what the property grid shows and what the runtime draws, and
+  nothing else.
+- `ClassicBorderDecorator`'s five 3-D brushes are set explicitly here as well, for the reason phase 4 found
+  the hard way: `<ClassicTheme />` is not loaded, so its defaults resolve to nothing and the border silently
+  does not draw. The previous template got away with a hardcoded `Sunken`/`2` because it never depended on
+  the thickness meaning anything.
+- The headless harness is now shared between the Frame and PictureBox suites
+  (`ContainerRuntimeHarness`) rather than duplicated. Both assert the same properties of two container
+  classes, and the second copy had already started to drift on which SystemColors brushes it stubbed.
 
 ## Phase 6 — The designer learns that coordinates are relative
 

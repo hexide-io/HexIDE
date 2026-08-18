@@ -154,15 +154,31 @@
         </Setter>
     </ControlTheme>
 
+    <!-- The border is no longer hardcoded Sunken/2: it comes from VB6's BorderStyle and Appearance, so a
+         PictureBox the file says is flat and borderless stops being drawn with a 3-D border around it.
+
+         The child host sits INSIDE the decorator on purpose. The decorator insets its child by exactly the
+         thickness it draws, so a contained control's origin IS the client origin by construction — the
+         layout offset cannot drift from the border the user can see, which is the same number. -->
     <ControlTheme x:Key="{x:Type builtinControls:VBPictureBox}"
                   TargetType="builtinControls:VBPictureBox">
         <Setter Property="Template">
             <ControlTemplate>
-                <ClassicBorderDecorator BorderStyle="Sunken" BorderThickness="2" Background="{TemplateBinding Background}">
-                    <Image Source="{TemplateBinding Picture}"
-                           Stretch="None"
-                           HorizontalAlignment="Left"
-                           VerticalAlignment="Top" />
+                <ClassicBorderDecorator BorderStyle="{TemplateBinding ClientBorderStyle}"
+                                        BorderThickness="{TemplateBinding ClientInset}"
+                                        Background="{TemplateBinding Background}"
+                                        BorderControlBrush="{DynamicResource {x:Static common:SystemColors.ControlBrushKey}}"
+                                        BorderLightBrush="{DynamicResource {x:Static common:SystemColors.ControlLightBrushKey}}"
+                                        BorderLightLightBrush="{DynamicResource {x:Static common:SystemColors.ControlLightLightBrushKey}}"
+                                        BorderDarkBrush="{DynamicResource {x:Static common:SystemColors.ControlDarkBrushKey}}"
+                                        BorderDarkDarkBrush="{DynamicResource {x:Static common:SystemColors.ControlDarkDarkBrushKey}}">
+                    <Panel>
+                        <Image Source="{TemplateBinding Picture}"
+                               Stretch="None"
+                               HorizontalAlignment="Left"
+                               VerticalAlignment="Top" />
+                        <ContentPresenter Content="{TemplateBinding ChildHost}" />
+                    </Panel>
                 </ClassicBorderDecorator>
             </ControlTemplate>
         </Setter>

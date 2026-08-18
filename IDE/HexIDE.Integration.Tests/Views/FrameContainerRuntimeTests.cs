@@ -31,23 +31,6 @@ namespace HexIDE.Integration.Tests.Views;
 /// </summary>
 public class FrameContainerRuntimeTests
 {
-    private static readonly ProjectDefinition Project = new(VBProjectType.EXE, "MyProject");
-
-    private class NullSink : IDeserializeErrorSink
-    {
-        public static readonly NullSink Instance = new();
-        public void LogError(string _) { }
-    }
-
-    private class CaptureLib(List<Vb6Value> debug) : IBasicStandardLibrary
-    {
-        public Task<MessageBoxResult> MsgBox(string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
-            => Task.FromResult<MessageBoxResult>(default);
-        public Task<string?> InputBox(string prompt, string title, string defaultText)
-            => Task.FromResult<string?>(null);
-        public void DebugPrint(Vb6Value value) => debug.Add(value);
-    }
-
     // Twips divided by 15 give pixels, so the Frame lands at (20, 10) and is 200x100; Text1 is at (10, 30)
     // INSIDE it, which is (30, 40) on the form. Those are the two numbers this whole phase is about.
     private const string FrameWithChildren = """
@@ -159,58 +142,19 @@ public class FrameContainerRuntimeTests
         Attribute VB_Name = "Form1"
         """;
 
+    // The harness is shared with the PictureBox suite: the same properties, a different container class.
     private static (Control root, Canvas canvas, ModuleExecutionContext ctx, ExecutionEnvironment env) Spawn(string frm)
-    {
-        var form = new FormDeserializer().Deserialize(Project, frm, NullSink.Instance)!;
-        var ctx = new ModuleExecutionContext();
-        var env = new ExecutionEnvironment();
-        var root = VBLoader.SpawnComponents(form, ctx, env);
-        // SpawnComponents hands back a DockPanel of [menu, canvas]; the canvas is where controls live and
-        // must stay the DockPanel's child, so anything hosting this hosts the whole root.
-        var canvas = ((DockPanel)root).Children.OfType<Canvas>().Single();
-        return (root, canvas, ctx, env);
-    }
+        => ContainerRuntimeHarness.Spawn(frm);
 
-    /// <summary>Spawns, hosts in a real window and runs a layout pass, so positions and enabled-ness resolve.</summary>
     private static (Canvas canvas, Window window, ModuleExecutionContext ctx, ExecutionEnvironment env) Laid(string frm)
-    {
-        var (root, canvas, ctx, env) = Spawn(frm);
-        var window = new Window { Width = 400, Height = 300, Background = Brushes.White };
+        => ContainerRuntimeHarness.Laid(frm);
 
-        // VBFrame now has a ControlTheme of its own rather than borrowing SimpleTheme's
-        // HeaderedContentControl, so without HexIDE's dictionary it gets no template, no content presenter
-        // and therefore no realised children — the bare headless test app carries neither this nor the
-        // SystemColors brushes it resolves, exactly as ClassicRenderTests notes.
-        window.Resources.MergedDictionaries.Add(
-            new ResourceInclude(new Uri("avares://HexIDE.Integration.Tests/"))
-            {
-                Source = new Uri("avares://HexIDE.Runtime/BuiltinControls/Resources.axaml"),
-            });
-        window.Resources[Classic.CommonControls.SystemColors.ControlTextBrushKey] = new SolidColorBrush(Colors.Black);
-        window.Resources[Classic.CommonControls.SystemColors.WindowBrushKey] = new SolidColorBrush(Colors.White);
-        window.Resources[Classic.CommonControls.SystemColors.WindowTextBrushKey] = new SolidColorBrush(Colors.Black);
-        window.Resources[Classic.CommonControls.SystemColors.GrayTextBrushKey] = new SolidColorBrush(Color.Parse("#808080"));
+    private static Task<List<Vb6Value>> Run(ModuleExecutionContext ctx, ExecutionEnvironment env, string code)
+        => ContainerRuntimeHarness.Run(ctx, env, code);
 
-        window.Content = root;
-        window.Show();
-        Dispatcher.UIThread.RunJobs();
-        window.Measure(new Size(400, 300));
-        window.Arrange(new Rect(0, 0, 400, 300));
-        Dispatcher.UIThread.RunJobs();
-        return (canvas, window, ctx, env);
-    }
+    private static string? NameOf(Control c) => ContainerRuntimeHarness.NameOf(c);
 
-    private static async Task<List<Vb6Value>> Run(ModuleExecutionContext ctx, ExecutionEnvironment env, string code)
-    {
-        var debug = new List<Vb6Value>();
-        await new BasicInterpreter(new CaptureLib(debug), ctx, env, code).Execute();
-        return debug;
-    }
-
-    private static string? NameOf(Control c) => VBProps.GetName(c);
-
-    private static Control Child(Canvas canvas, string name) =>
-        canvas.Children.OfType<Control>().First(c => NameOf(c) == name);
+    private static Control Child(Canvas canvas, string name) => ContainerRuntimeHarness.Child(canvas, name);
 
     private static VBFrame Frame(Canvas canvas, string name) => (VBFrame)Child(canvas, name);
 
