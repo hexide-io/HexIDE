@@ -11,7 +11,6 @@ idea of a community-extensible IDE, expressed in terms the host platform can act
 
 The trust decisions that gate loading — signing, consent, revocation — are a separate capability
 (`addin-trust`). This one covers what an add-in can do once it is allowed to run.
-
 ## Requirements
 ### Requirement: Add-ins SHALL extend the IDE through a curated host surface
 An add-in SHALL receive a single host object at initialization and SHALL reach every IDE capability through
@@ -49,11 +48,19 @@ need its own bespoke unregister call.
 ### Requirement: The IDE SHALL offer menu, tool window, command, control and template contribution
 The host surface SHALL let an add-in add menu items at a named location, register a dockable tool window
 from a factory, register a named command, register a custom VB6 control into the toolbox, and register a
-project template.
+project template. A contributed control SHALL NOT be a container, and a form nesting a control under one
+SHALL be held read-only rather than saved.
 
 These are the extension points the original add-in ecosystem actually used. Controls and project templates
 matter disproportionately: a custom control that appears in the toolbox and a project type that appears in
 the New Project dialog are what make an add-in feel like part of the product rather than a bolted-on panel.
+
+The container exclusion is not a policy about add-ins; it is a statement of what the IDE can actually do.
+Holding controls means drawing them inside the container's own client area, positioning them against its
+origin and clipping them to it — none of which the IDE can do inside a control whose drawing it does not
+own. Treating a contributed class as a container would therefore produce a file the IDE cannot reproduce
+while reporting that it can, which is the one outcome the refusal gate exists to prevent. Refusing to save
+such a form is recoverable; writing it is not.
 
 #### Scenario: Contributing a menu item
 - **WHEN** an add-in adds a menu item at a named parent location
@@ -68,6 +75,10 @@ the New Project dialog are what make an add-in feel like part of the product rat
 #### Scenario: Contributing a control
 - **WHEN** an add-in registers a custom VB6 control
 - **THEN** the control appears in the toolbox and can be placed on a form
+
+#### Scenario: A control nested under a contributed class
+- **WHEN** a form nests a control under a class an add-in contributed
+- **THEN** the form opens read-only and the save is refused, with the reason given
 
 ### Requirement: Add-ins SHALL be able to observe IDE lifecycle events
 The host surface SHALL raise events for project load and unload, file open and close, and run start and
@@ -149,3 +160,4 @@ decision to turn it back on.
 #### Scenario: Re-enabling a previously consented add-in
 - **WHEN** a user re-enables an add-in they had already allowed
 - **THEN** it loads without asking for consent again
+

@@ -8,7 +8,6 @@ The forcing requirement is that the form must open at all. A form referencing a 
 does not understand used to fail to load, leaving the developer with a project they could not edit because
 of a control they had not touched — the worst possible response, since it makes one unrecognised type take
 out the whole form.
-
 ## Requirements
 ### Requirement: A form referencing a project UserControl SHALL open, with the control in place
 Loading a form that hosts a UserControl defined in the same project SHALL succeed, and the control SHALL
@@ -24,11 +23,17 @@ the layout, and any arrangement the developer does around it is done against a f
 
 ### Requirement: A hosted UserControl SHALL be drawn from its own definition
 A hosted UserControl SHALL be drawn showing the child controls its definition contains, so it appears on the
-host form as it will at run time.
+host form as it will at run time. Where its definition holds those controls inside containers, they SHALL be
+drawn inside those containers.
 
 The point of placing a composite control is that it looks like the thing it is. A generic box conveys
 position and size but nothing about whether the layout around it is right, which is the question the
 developer is actually asking while arranging the form.
+
+That argument applies with more force to a UserControl built out of containers, which is what a composite
+control usually is. Drawing its contents flat would not merely lose the frames — it would pile controls that
+belong in different containers on top of each other near the corner, which looks less like the control than
+an empty box does.
 
 #### Scenario: A UserControl containing child controls
 - **WHEN** a UserControl containing child controls is hosted on a form
@@ -37,6 +42,10 @@ developer is actually asking while arranging the form.
 #### Scenario: The UserControl's definition changes
 - **WHEN** the UserControl's own definition is changed and the host form is opened again
 - **THEN** the host form shows the updated appearance
+
+#### Scenario: A UserControl whose children are held by containers
+- **WHEN** a UserControl whose definition holds controls inside a container is hosted on a form
+- **THEN** those controls appear inside that container, positioned as its definition places them
 
 ### Requirement: A hosted UserControl SHALL behave as one control on the host form
 On the host form the UserControl SHALL be selectable, movable and resizable as a single control, and its
@@ -86,3 +95,4 @@ between a designer that is incomplete and one that is destructive.
 #### Scenario: Saving a form with a hosted UserControl
 - **WHEN** a form hosting a UserControl is opened and saved without being edited
 - **THEN** every property of the hosted control is written back unchanged, including those the designer does not model
+
