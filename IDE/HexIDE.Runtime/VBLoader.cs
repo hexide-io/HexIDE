@@ -5,8 +5,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Templates;
+using Avalonia.Layout;
+using Avalonia.Media;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Controls.Primitives;
+using Avalonia.Styling;
 using Avalonia.VisualTree;
 using HexIDE.Runtime.BuiltinControls;
 using HexIDE.Runtime.Components;
@@ -162,6 +167,37 @@ public class VBLoader
         menu.IsVisible = menu.Items.Count > 0;
     }
 
+    /// <summary>
+    /// The line VB6 draws where a menu item's caption is a single hyphen.
+    ///
+    /// Templated and brushed here rather than left to whichever resource dictionaries happen to be merged,
+    /// because both answers the environment gives are invisible. Under the base theme alone a Separator is
+    /// laid out one pixel high and painted WhiteSmoke — a line that cannot be seen against a menu. With
+    /// HexIDE's own dictionaries merged it collapses to zero height and is not drawn at all. Neither looks
+    /// any different from a separator that was never added, which is exactly how this shipped: the object
+    /// was in the menu, the space was reserved, and there was no rule to see.
+    ///
+    /// Doing it in code rather than as a keyed theme also keeps it out of the IDE's own chrome, which uses
+    /// separators of its own that this has no business restyling.
+    /// </summary>
+    private static Separator NewMenuSeparator()
+    {
+        return new Separator
+        {
+            Height = 1,
+            Margin = new Thickness(2, 3),
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            // A concrete brush rather than a DynamicResource lookup, on purpose. The 3-D shadow colour is the
+            // right one and a resource reference would follow the theme — but a key that fails to resolve
+            // leaves the brush null, and a null brush is an invisible line, which is the exact defect being
+            // fixed here. A separator that silently disappears when a dictionary is missing is worse than one
+            // that is always the shade Win32 etches it in.
+            Background = new SolidColorBrush(Color.FromRgb(0x80, 0x80, 0x80)),
+            Template = new FuncControlTemplate<Separator>((separator, _) =>
+                new Border { [!Border.BackgroundProperty] = separator[!TemplatedControl.BackgroundProperty] }),
+        };
+    }
+
     private static IReadOnlyList<ComponentInstance> SubItemsOf(ComponentInstance component) =>
         component.BaseClass is MenuComponentClass &&
         component.GetPropertyOrDefault(MenuComponentClass.SubItemsProperty) is { } subItems
@@ -182,7 +218,7 @@ public class VBLoader
 
         // VB6 spells a separator as a menu whose caption is a single hyphen.
         if (caption == "-")
-            return new Separator();
+            return NewMenuSeparator();
 
         var item = (MenuItem)((ComponentBaseClass)component.BaseClass).Instantiate(component);
 
