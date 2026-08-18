@@ -93,7 +93,12 @@ public class RuntimeMenuTests
     private static (Menu bar, Canvas canvas, RecordingRoot root) Run(string frm)
     {
         var (content, canvas, _, _) = Spawn(frm);
-        var root = new RecordingRoot { Width = 400, Height = 300, Content = content };
+        var root = new RecordingRoot { Width = 400, Height = 300 };
+        // The application's own dictionaries, so what these tests render is what a user sees. Without them
+        // the menu draws against a theme set that exists nowhere else, which is how a separator shipped
+        // twice — once invisible, once as a dot — under a green suite.
+        MergeAppResources(root);
+        root.Content = content;
         root.Show();
         Dispatcher.UIThread.RunJobs();
         var bar = ((DockPanel)content).Children.OfType<Menu>().Single();

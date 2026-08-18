@@ -7,7 +7,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Avalonia.Layout;
-using Avalonia.Media;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Controls.Primitives;
@@ -194,14 +194,30 @@ public class VBLoader
             Margin = new Thickness(2, 3),
             HorizontalAlignment = HorizontalAlignment.Stretch,
             VerticalAlignment = VerticalAlignment.Center,
-            // A concrete brush rather than a DynamicResource lookup, on purpose. The 3-D shadow colour is the
-            // right one and a resource reference would follow the theme — but a key that fails to resolve
-            // leaves the brush null, and a null brush is an invisible line, which is the exact defect being
-            // fixed here. A separator that silently disappears when a dictionary is missing is worse than one
-            // that is always the shade Win32 etches it in.
-            Background = new SolidColorBrush(Color.FromRgb(0x80, 0x80, 0x80)),
-            Template = new FuncControlTemplate<Separator>((separator, _) =>
-                new Border { [!Border.BackgroundProperty] = separator[!TemplatedControl.BackgroundProperty] }),
+            // The 3-D shadow colour, which is what Win32 etches a menu separator in and what the IDE's own
+            // toolbar separators already use. Taken from the theme rather than written as a literal so it
+            // follows a dark theme pack, where a mid-grey rule on a dark menu would be as wrong as the
+            // near-black one this replaces.
+            //
+            // A key that fails to resolve would leave the brush null and the rule invisible, which is exactly
+            // the defect this started as. What makes that safe to rely on is the regression test: it asserts
+            // the rule has a brush AND is wider than it is tall, against the same dictionaries the
+            // application merges. If the key ever stops resolving, that fails rather than quietly shipping.
+            [!TemplatedControl.BackgroundProperty] =
+                new DynamicResourceExtension(Classic.CommonControls.SystemColors.ControlDarkBrushKey),
+            Template = new FuncControlTemplate<Separator>((separator, _) => new Border
+            {
+                [!Border.BackgroundProperty] = separator[!TemplatedControl.BackgroundProperty],
+                // The shadow colour at full strength is a hard rule — near-black against a light menu, and
+                // heavier than either VB6 or a modern menu draws. Win32 softens it by etching: the shadow
+                // line with a highlight line beneath it, which reads as a groove rather than a bar. That
+                // trick needs a background to lift against and does nothing on a white menu, so the same
+                // effect is had by letting the menu show through the rule instead.
+                //
+                // Opacity rather than a lighter colour because it stays right in both directions: on a dark
+                // theme pack the same rule softens against a dark menu, where a fixed light grey would glare.
+                Opacity = 0.45,
+            }),
         };
     }
 

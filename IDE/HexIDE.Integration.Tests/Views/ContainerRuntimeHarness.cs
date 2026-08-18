@@ -57,30 +57,7 @@ internal static class ContainerRuntimeHarness
     {
         var (root, canvas, ctx, env) = Spawn(frm);
         var window = new Window { Width = 400, Height = 300, Background = Brushes.White };
-
-        // VBFrame and VBPictureBox both have ControlThemes of their own, so without HexIDE's dictionary they
-        // get no template, no content presenter and therefore no realised children. The bare headless test
-        // app carries neither this nor the SystemColors brushes it resolves, exactly as ClassicRenderTests
-        // notes.
-        window.Resources.MergedDictionaries.Add(
-            new ResourceInclude(new Uri("avares://HexIDE.Integration.Tests/"))
-            {
-                Source = new Uri("avares://HexIDE.Runtime/BuiltinControls/Resources.axaml"),
-            });
-
-        // The IDE's own theme, merged for the same reason the app merges it: without it these tests render
-        // against a DIFFERENT set of dictionaries than anything a user ever sees, and a defect that only
-        // appears under the real set passes here. That is not hypothetical — Classic.axaml carries an
-        // implicit ControlTheme for Separator that turns a menu separator into a two-pixel dot, and the menu
-        // tests were green throughout.
-        window.Resources.MergedDictionaries.Add(
-            new ResourceInclude(new Uri("avares://HexIDE.Integration.Tests/"))
-            {
-                Source = new Uri("avares://HexIDE/Themes/Classic.axaml"),
-            });
-        foreach (var (key, brush) in SystemBrushes())
-            window.Resources[key] = brush;
-
+        MergeAppResources(window);
         window.Content = root;
         window.Show();
         Dispatcher.UIThread.RunJobs();
@@ -90,17 +67,32 @@ internal static class ContainerRuntimeHarness
         return (canvas, window, ctx, env);
     }
 
-    private static IEnumerable<(object Key, IBrush Brush)> SystemBrushes()
+    /// <summary>
+    /// Gives a test window the same resource dictionaries the application gives itself.
+    ///
+    /// Both halves matter. VBFrame and VBPictureBox have ControlThemes of their own, so without
+    /// HexIDE.Runtime's dictionary they get no template, no presenter and no realised children. And without
+    /// the IDE's own Classic theme these tests render against a set of dictionaries NO USER EVER SEES, so a
+    /// defect that appears only under the real set passes here — which is not hypothetical: Classic.axaml
+    /// carries an implicit ControlTheme for Separator that turns a menu separator into a two-pixel dot, and
+    /// the menu tests were green through two rounds of fixing it.
+    /// </summary>
+    internal static void MergeAppResources(Window window)
     {
-        yield return (Classic.CommonControls.SystemColors.ControlBrushKey, new SolidColorBrush(Color.Parse("#F0F0F0")));
-        yield return (Classic.CommonControls.SystemColors.ControlLightBrushKey, new SolidColorBrush(Color.Parse("#E3E3E3")));
-        yield return (Classic.CommonControls.SystemColors.ControlLightLightBrushKey, new SolidColorBrush(Colors.White));
-        yield return (Classic.CommonControls.SystemColors.ControlDarkBrushKey, new SolidColorBrush(Color.Parse("#A0A0A0")));
-        yield return (Classic.CommonControls.SystemColors.ControlDarkDarkBrushKey, new SolidColorBrush(Color.Parse("#696969")));
-        yield return (Classic.CommonControls.SystemColors.ControlTextBrushKey, new SolidColorBrush(Colors.Black));
-        yield return (Classic.CommonControls.SystemColors.WindowBrushKey, new SolidColorBrush(Colors.White));
-        yield return (Classic.CommonControls.SystemColors.WindowTextBrushKey, new SolidColorBrush(Colors.Black));
-        yield return (Classic.CommonControls.SystemColors.GrayTextBrushKey, new SolidColorBrush(Color.Parse("#808080")));
+        foreach (var source in new[]
+                 {
+                     "avares://HexIDE.Runtime/BuiltinControls/Resources.axaml",
+                     "avares://HexIDE/Themes/Classic.axaml",
+                 })
+        {
+            window.Resources.MergedDictionaries.Add(
+                new ResourceInclude(new Uri("avares://HexIDE.Integration.Tests/")) { Source = new Uri(source) });
+        }
+
+        // No stubbed SystemColors brushes. They used to be invented here, and inventing them is how a rule
+        // drawn in the theme's shadow colour measured #A0A0A0 in a test and rendered #808080 in the product.
+        // The dictionaries above supply the real ones; if a key ever stops resolving, a test failing is the
+        // outcome worth having.
     }
 
     internal static async Task<List<Vb6Value>> Run(ModuleExecutionContext ctx, ExecutionEnvironment env, string code)
