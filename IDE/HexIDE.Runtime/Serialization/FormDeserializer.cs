@@ -86,6 +86,10 @@ public class FormDeserializer
         form.RecordLoadedCompanionBlobCount(frxBlobs?.Count ?? 0);
         var components = new List<ComponentInstance>();
         var maxUnreproducibleDepth = 0;
+        // Blobs that actually reached the model, by reference — the dictionary hands out the same array
+        // instance each time, and two properties may legitimately cite one offset, so counting references
+        // rather than assignments is what makes "fewer out than in" mean what it says.
+        var capturedBlobs = new HashSet<byte[]>(ReferenceEqualityComparer.Instance);
 
         // depth: the form itself is 1, its direct children 2, and so on — the same counting the
         // unfaithful-save gate uses. parent is null only for the form.
@@ -244,7 +248,10 @@ public class FormDeserializer
                         {
                             var blob = FrxDeserializer.TryExtractBlob(frxRef, frxBlobs);
                             if (blob != null)
+                            {
                                 instance.SetUntypedProperty(propertyClass, blob);
+                                capturedBlobs.Add(blob);
+                            }
                             else
                                 errorSink.LogError($"Property {serializedProperty.Key} in {serializedComponent.Name}: .frx offset not found.");
                         }
@@ -314,8 +321,23 @@ public class FormDeserializer
         // walk above knows which nesting was menu nesting. Menus now round-trip, so they no longer hold a
         // form read-only; a control inside a Frame or PictureBox still does, until #84.
         if (maxUnreproducibleDepth > 2)
-            form.MarkUnfaithfulToSave(
+            form.MarkUnfaithfulToSave(UnfaithfulSaveCause.NestedContainers,
                 "it contains controls nested inside a container, which HexIDE would flatten onto the form on save");
+
+        // Binary content the writer cannot re-emit. Two ways it goes missing, and only the first announces
+        // itself: a property on an unmodelled control (flagged during the walk), and a property that IS
+        // named on a modelled control but whose CLR type is not byte[], which is dropped with no diagnostic
+        // at all — ODBC Log In's ComboBox List is exactly that. The count comparison is the safety net for
+        // the silent case, and it is why this is not simply "did anything set the flag".
+        //
+        // The bytes themselves are never lost: WriteCompanionBinary leaves the companion alone. What is
+        // lost is the reference, so the picture disappears from the control while the file that holds it
+        // stays on disk. That is a save which looks like it worked.
+        var loadedBlobCount = frxBlobs?.Count ?? 0;
+        if (form.HasUnmodelledBinaryProperties || capturedBlobs.Count < loadedBlobCount)
+            form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreproducibleBinaryContent,
+                $"it references companion binary content HexIDE cannot re-emit "
+                + $"({capturedBlobs.Count} of {loadedBlobCount} blob(s) reached the model)");
 
         form.UpdateCode(code);
         form.UpdateComponents(components);

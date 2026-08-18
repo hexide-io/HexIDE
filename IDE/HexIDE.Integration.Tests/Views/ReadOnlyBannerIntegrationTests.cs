@@ -32,7 +32,8 @@ public class ReadOnlyBannerIntegrationTests
         var root = new ComponentInstance(FormComponentClass.Instance, "Form1");
         var form = new FormDefinition(project, [root], "");
         if (!faithful)
-            form.MarkUnfaithfulToSave("it contains nested controls or menus, which HexIDE would flatten on save");
+            form.MarkUnfaithfulToSave(UnfaithfulSaveCause.NestedContainers,
+                "it contains controls nested inside a container, which HexIDE would flatten onto the form on save");
         return form;
     }
 
