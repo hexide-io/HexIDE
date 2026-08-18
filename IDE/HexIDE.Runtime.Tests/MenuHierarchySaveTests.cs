@@ -159,6 +159,49 @@ public class MenuHierarchySaveTests
         form.CanSaveFaithfully.Should().BeFalse();
     }
 
+    [Fact]
+    public void AnUnmodelledControlInsideAContainer_IsHeldReadOnly()
+    {
+        // The shape the gate missed entirely. VB.Image is not modelled, so the loader preserves it as raw
+        // text and returned early — before any depth accounting. But UnknownChildSubtreeTexts is written
+        // back just inside the root's closing End, with no memory of the Frame it came from, so the image
+        // was silently re-parented onto the form by a save the gate called faithful.
+        //
+        // No modelled sibling here on purpose: with one, the form would be gated for that instead and the
+        // hole would stay covered.
+        const string frm =
+            "VERSION 5.00\r\n" +
+            "Begin VB.Form Form1 \r\n" +
+            "   Begin VB.Frame Frame1 \r\n" +
+            "      Begin VB.Image Image1 \r\n" +
+            "      End\r\n" +
+            "   End\r\n" +
+            "End\r\nAttribute VB_Name = \"Form1\"\r\n";
+
+        var form = Load(frm);
+
+        form.UnfaithfulSaveCauses.Should().HaveFlag(UnfaithfulSaveCause.NestedContainers);
+        form.CanSaveFaithfully.Should().BeFalse();
+    }
+
+    [Fact]
+    public void AnUnmodelledControlDirectlyOnTheForm_IsNotHeldReadOnly()
+    {
+        // Depth 2 — nothing re-parents it, because the form is already where it would be written back.
+        // Every unmodelled control in the VB6 corpus is this shape, which is why tightening the rule
+        // above moves no corpus form.
+        const string frm =
+            "VERSION 5.00\r\n" +
+            "Begin VB.Form Form1 \r\n" +
+            "   Begin VB.Image Image1 \r\n" +
+            "   End\r\n" +
+            "End\r\nAttribute VB_Name = \"Form1\"\r\n";
+
+        var form = Load(frm);
+
+        form.CanSaveFaithfully.Should().BeTrue();
+    }
+
     [Theory]
     [InlineData("Edit Menu.frm")]
     [InlineData("Explorer File Menu.frm")]
