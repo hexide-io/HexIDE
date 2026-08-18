@@ -326,9 +326,22 @@ public class SerializationRoundTripTests
         output.Should().Contain("[CodeSMART]");
         output.Should().Contain("SomeAddinSetting=Value");
         // Extension section must appear after all known keys
-        var nameIdx      = output.IndexOf("Name=TestProject");
+        var nameIdx      = output.IndexOf("Name=");
         var extensionIdx = output.IndexOf("[CodeSMART]");
         extensionIdx.Should().BeGreaterThan(nameIdx);
+    }
+
+    [Fact]
+    public void ProjectSerializer_Name_WritesQuotedAndEscaped()
+    {
+        var project = MakeProject("My \"Quoted\" Project");
+        var serializer = new ProjectSerializer();
+        var output = serializer.Serialize(project, project.AbsolutePath!);
+
+        output.Should().Contain("Name=\"My \"\"Quoted\"\" Project\"");
+
+        var deserialized = new ProjectDeserializer().Deserialize(output, NullSink.Instance);
+        deserialized.Name.Should().Be("My \"Quoted\" Project");
     }
 
     [Fact]

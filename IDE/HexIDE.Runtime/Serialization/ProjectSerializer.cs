@@ -36,7 +36,7 @@ public class ProjectSerializer
             knownKeyCount++;
         }
 
-        WriteKnownLine($"{SerializedProject.NameKey}={project.Name}");
+        WriteKnownLine($"{SerializedProject.NameKey}=\"{(project.Name ?? "").Replace("\"", "\"\"")}\"");
         WriteKnownLine($"{SerializedProject.TypeKey}={ProjectTypeToString(project.ProjectType)}");
 
         foreach (var form in project.Forms)
