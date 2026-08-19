@@ -190,24 +190,77 @@ public class FormDeserializer
             if (!ridesOnARecordedTree)
                 maxUnreproducibleDepth = Math.Max(maxUnreproducibleDepth, depth);
 
+            // The root's two rectangles, gathered as the properties go past so the offset between them can
+            // be worked out once the whole block has been read. Both stay in twips, exactly as the file
+            // wrote them: the model's own copy goes through a divide-by-15 into pixels, and taking the
+            // difference on that side would fold two roundings into a number whose entire job is to be
+            // added back on save. Empty for every component that is not the root.
+            var rootClientRect = new Dictionary<string, double>(StringComparer.Ordinal);
+            var rootOuterRect = new Dictionary<string, double>(StringComparer.Ordinal);
+
+            // The root's declared scale, likewise gathered as the properties go past. ScaleMode defaults to
+            // Twip when the file omits it, which is what VB6 omitting a default-valued property means.
+            int? rootScaleMode = null;
+            double? rootScaleWidth = null;
+            double? rootScaleHeight = null;
+
             foreach (var serializedProperty in serializedComponent.Properties)
             {
                 var propertyName = serializedProperty.Key;
-                if (propertyName == "ClientTop")
-                    propertyName = "Top";
-                if (propertyName == "ClientLeft")
-                    propertyName = "Left";
-                if (propertyName == "ClientWidth")
-                    propertyName = "Width";
-                if (propertyName == "ClientHeight")
-                    propertyName = "Height";
-                // Scale* is skipped on the ROOT only, where the writer regenerates it from the form's own
-                // Width/Height. On a container it is content: ScaleMode is already preserved verbatim
-                // (it is not in SpecialCasedPropertyNames), so dropping Scale* wrote back a container
-                // declaring a user-defined scale with no scale — and a container's scale is exactly what
-                // gives its VB.Line children their units. Falling through preserves the lines verbatim.
-                if ((propertyName == "ScaleHeight" || propertyName == "ScaleWidth") && parent is null)
+
+                // The two rectangles. A designer root records its CLIENT rectangle as Client*, and may
+                // record its OUTER window rectangle beside it as the plain four — Dialog.frm is the file
+                // in VB6's Template tree that does, and its two rectangles differ by the window frame.
+                //
+                // The model keeps the CLIENT rectangle, which is what the controls on the form are
+                // positioned inside. The outer four are captured and then dropped rather than applied:
+                // letting them through set the same four properties a second time, so the model ended up
+                // holding whichever rectangle the file happened to write last — the client one for
+                // twenty-one files and the outer one for Dialog.frm. See FormDefinition.OuterRect.
+                var clientAxis = propertyName switch
+                {
+                    "ClientLeft" => "Left",
+                    "ClientTop" => "Top",
+                    "ClientWidth" => "Width",
+                    "ClientHeight" => "Height",
+                    _ => null,
+                };
+                if (clientAxis is not null)
+                {
+                    if (parent is null && TryReadNumber(serializedProperty.Value, out var clientTwips))
+                        rootClientRect[clientAxis] = clientTwips;
+                    propertyName = clientAxis;
+                }
+                else if (parent is null && propertyName is "Left" or "Top" or "Width" or "Height")
+                {
+                    if (TryReadNumber(serializedProperty.Value, out var outerTwips))
+                        rootOuterRect[propertyName] = outerTwips;
                     continue;
+                }
+                // ScaleMode is captured but NOT consumed: it falls through to be preserved as a raw line,
+                // comment and all, exactly as before. Capturing it here is only so the writer can tell
+                // what units the Scale* pair beside it is in.
+                if (propertyName == "ScaleMode" && parent is null && TryReadNumber(serializedProperty.Value, out var mode))
+                    rootScaleMode = (int)mode;
+
+                // Scale* is taken off the ROOT only. On a container it is content: ScaleMode is preserved
+                // verbatim (it is not in SpecialCasedPropertyNames), so dropping Scale* wrote back a
+                // container declaring a user-defined scale with no scale — and a container's scale is
+                // exactly what gives its VB.Line children their units. Falling through preserves those.
+                //
+                // On the root the pair is recorded rather than dropped. The writer used to regenerate it
+                // from the form's own width and height in twips regardless of the declared ScaleMode,
+                // which is right only when that mode IS twips; and it cannot be derived at all under a
+                // user scale, where the numbers are a coordinate system the developer chose.
+                if ((propertyName == "ScaleHeight" || propertyName == "ScaleWidth") && parent is null)
+                {
+                    if (TryReadNumber(serializedProperty.Value, out var scale))
+                    {
+                        if (propertyName == "ScaleWidth") rootScaleWidth = scale;
+                        else rootScaleHeight = scale;
+                    }
+                    continue;
+                }
 
                 // LockControls is a form-level metadata flag, not a component property.
                 if (propertyName == "LockControls" && componentClass is FormComponentClass)
@@ -354,6 +407,25 @@ public class FormDeserializer
                 }
             }
 
+            // The offset between the root's two rectangles, once both have been read. Recorded only when
+            // the file declared an outer rectangle at all — nineteen of VB6's twenty-two designer files
+            // declare none, and a save must not invent one for them. An axis the file left out of either
+            // rectangle offsets by zero, which reproduces the outer number it did write.
+            if (parent is null && rootOuterRect.Count > 0)
+            {
+                double Offset(string axis) =>
+                    rootOuterRect.TryGetValue(axis, out var outer)
+                        ? outer - (rootClientRect.TryGetValue(axis, out var client) ? client : outer)
+                        : 0;
+
+                form.OuterRect = new RootOuterRect(
+                    Offset("Left"), Offset("Top"), Offset("Width"), Offset("Height"));
+            }
+
+            if (parent is null && (rootScaleMode is not null || rootScaleWidth is not null || rootScaleHeight is not null))
+                form.Scale = new RootScale(
+                    rootScaleMode ?? (int)VBScaleMode.Twip, rootScaleWidth, rootScaleHeight);
+
             // Collect unknown raw property lines for round-trip preservation
             var knownNames = BuildKnownPropertyNames(componentClass, includeFormLevelNames: parent is null);
             foreach (var (name, rawLines) in serializedComponent.OrderedRawProperties)
@@ -431,6 +503,22 @@ public class FormDeserializer
         if (includeFormLevelNames)
             names.UnionWith(SpecialCasedPropertyNames);
         return names;
+    }
+
+    /// <summary>
+    /// A .frm's numeric property values arrive as <c>int</c> or <c>double</c> depending on whether the
+    /// literal had a decimal point — <c>ClientWidth = 6030</c> against <c>ScaleWidth = 5380.766</c> — so
+    /// anything reading one before it knows the target property's CLR type has to accept both.
+    /// </summary>
+    private static bool TryReadNumber(object? value, out double number)
+    {
+        switch (value)
+        {
+            case int i: number = i; return true;
+            case float f: number = f; return true;
+            case double d: number = d; return true;
+            default: number = 0; return false;
+        }
     }
 
     private static List<string> ReconstructRawSubtree(VBSerializedComponent component, int indentLevel)

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 
 namespace HexIDE.Runtime.ProjectElements;
@@ -144,6 +145,54 @@ public partial class FormDefinition : INotifyPropertyChanged
     public bool CanSaveFaithfully => UnfaithfulSaveCauses == UnfaithfulSaveCause.None;
 
     /// <summary>
+    /// The designer root's OUTER window rectangle, when the file declared one — held as the offset in
+    /// twips from its CLIENT rectangle. Null, which is the usual case, means the file declared only a
+    /// client rectangle and a save must not invent an outer one.
+    ///
+    /// A .frm records the root's geometry as <c>ClientLeft</c>/<c>ClientTop</c>/<c>ClientWidth</c>/
+    /// <c>ClientHeight</c>. Nineteen of the twenty-two designer files in VB6's own Template tree stop
+    /// there. <c>Forms\Dialog.frm</c> is the one that also writes <c>Left</c>/<c>Top</c>/<c>Width</c>/
+    /// <c>Height</c>, and those numbers are not the same numbers:
+    ///
+    /// <code>
+    ///   ClientLeft   2760     Left     2700      (-60)
+    ///   ClientTop    3750     Top      3405     (-345)
+    ///   ClientWidth  6030     Width    6150     (+120)
+    ///   ClientHeight 3195     Height   3600     (+405)
+    /// </code>
+    ///
+    /// That difference is the window frame of its <c>BorderStyle = 3 'Fixed Dialog</c>, and it is
+    /// self-consistent — 60 twips of border on each side, 345 of caption-plus-top-border against 60 of
+    /// bottom border. So the two rectangles are genuinely different things.
+    ///
+    /// <see cref="ComponentInstance"/> holds the CLIENT rectangle, because that is the rectangle every
+    /// control on the form is positioned inside and the one Avalonia's <c>Window.Width</c>/<c>Height</c>
+    /// already mean. Keeping the outer rectangle as an OFFSET rather than as absolute numbers is what
+    /// lets a resize in the designer move both together without HexIDE having to compute a frame size —
+    /// which it could not do honestly anyway, since the frame belongs to whichever machine opens the
+    /// form, not to the machine that saved it.
+    /// </summary>
+    public RootOuterRect? OuterRect { get; set; }
+
+    /// <summary>
+    /// The designer root's coordinate scale, as its file declared it. Null when the file declared none.
+    ///
+    /// <c>ScaleWidth</c>/<c>ScaleHeight</c> are expressed in <c>ScaleMode</c>'s units, so they are not the
+    /// client rectangle unless that mode happens to be twips. The writer used to copy the client width
+    /// straight into <c>ScaleWidth</c> and leave <c>ScaleMode</c> alone, which put the declared scale and
+    /// its own numbers a factor of fifteen apart on <c>Colorful Control.ctl</c> — <c>ScaleMode = 3 'Pixel</c>
+    /// beside a <c>ScaleWidth</c> in twips.
+    ///
+    /// For every mode but <see cref="VBScaleMode.User"/> the pair is DERIVED from the client rectangle, so
+    /// resizing the form keeps it correct. Twenty of the twenty-two designer files in VB6's Template tree
+    /// derive exactly. The other two — <c>About Dialog.frm</c> and <c>Log in Dialog.frm</c> — declare
+    /// <c>ScaleMode = 0 'User</c>, where the pair is a coordinate system the developer chose
+    /// (<c>ScaleHeight = 2453.724</c> against a <c>ClientHeight</c> of 3555) and nothing can derive it.
+    /// Those are preserved as read, which is also proof that VB6 does not recompute them on save.
+    /// </summary>
+    public RootScale? Scale { get; set; }
+
+    /// <summary>
     /// Replaces this form's reproduction verdict, and the state it was derived from, with a freshly-parsed
     /// one. For the reload path, where the file on disk has changed underneath an open form.
     ///
@@ -163,6 +212,8 @@ public partial class FormDefinition : INotifyPropertyChanged
         MaxUnreproducibleNestingDepth = fresh.MaxUnreproducibleNestingDepth;
         HasUnmodelledBinaryProperties = fresh.HasUnmodelledBinaryProperties;
         LoadedCompanionBlobCount = fresh.LoadedCompanionBlobCount;
+        OuterRect = fresh.OuterRect;
+        Scale = fresh.Scale;
 
         // The OCX declarations between VERSION and the root Begin. Not fidelity as such, but read from the
         // same file and just as stale: keeping the old ones would write another file's Object= lines back.
@@ -236,3 +287,30 @@ public partial class FormDefinition : INotifyPropertyChanged
         return true;
     }
 }
+
+/// <summary>
+/// A designer root's outer window rectangle, expressed as the offset in twips from its client
+/// rectangle. See <see cref="FormDefinition.OuterRect"/> for why it is an offset and not a rectangle.
+///
+/// The four axes are recorded and written as a set. VB6 writes them as a set, and a file that declared
+/// only some of them is malformed rather than merely unusual — reproducing that partial set exactly
+/// would mean four independent nullables threaded through the writer to preserve a shape no VB6 has
+/// ever emitted.
+/// </summary>
+public sealed record RootOuterRect(
+    double LeftOffsetTwips,
+    double TopOffsetTwips,
+    double WidthOffsetTwips,
+    double HeightOffsetTwips);
+
+/// <summary>
+/// A designer root's declared coordinate scale. See <see cref="FormDefinition.Scale"/>.
+///
+/// <paramref name="Mode"/> is the raw number from the file rather than a <see cref="VBScaleMode"/>,
+/// because ScaleMode is not a modelled property — it survives as a preserved raw line, comment and all,
+/// and a value outside the enum is input to be carried rather than input to be rejected.
+///
+/// <paramref name="Width"/> and <paramref name="Height"/> are null when the file declared no Scale* pair,
+/// which is what tells the writer it has nothing to preserve for a user scale.
+/// </summary>
+public sealed record RootScale(int Mode, double? Width, double? Height);
