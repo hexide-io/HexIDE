@@ -657,9 +657,45 @@ load. Recorded against the round-trip epic.
 
 ### Still unanswered
 
-Q3 (invented outer rect on a `.ctl` root), Q4 (which rect VB6 honours), Q6 (`Startup=` without quotes),
-Q9–Q10 (`.frx` record layouts), Q11 (`VERSION 4.00` upgrade), Q13–Q16. These need the interactive IDE or a
-hex dump rather than a `/make`, so they are a separate session.
+Q4 (which rect VB6 honours when a file declares two that contradict each other), Q6 (`Startup=` without
+quotes), Q9–Q10 (`.frx` record layouts), Q11 (`VERSION 4.00` upgrade), Q13–Q16. These need the interactive
+IDE or a hex dump rather than a `/make`, so they are a separate session.
+
+Q3 (invented outer rect on a root) stopped being a question when #104 removed the invention: HexIDE no
+longer writes a rectangle the file did not declare, so what VB6 would have made of one is moot.
+
+### Corpus-wide: VB6 accepts HexIDE's reformatted output (2026-08-19)
+
+Q1a/Q1b/Q1c above answered the "is the formatting load-bearing" question from a hand-built fixture. This
+is the same question asked of the **whole corpus**, which is what that section's own method note asks for —
+a fixture only exercises what its author thought to include.
+
+Method: round-trip all 20 `.frm` files in the Template tree through `FormDeserializer` +  `FormSerializer`,
+drop each into a generated single-form `.vbp` (carrying the `Object=` references from the form's own header
+and the original `.frx` beside it), and `VB6.EXE /make /out` each one.
+
+**Result: 15 of 20 build. The other 5 fail identically when the harness is given Microsoft's ORIGINAL file.**
+
+| Outcome | Forms |
+|---|---|
+| Built from HexIDE's output | About Dialog, Button ListBox, Dialog, Edit Menu, Explorer File Menu, File Menu, Form1, Help Menu, Log in Dialog, Mover ListBox, ODBC Log In, Splash Screen, Tip of the Day, View Menu, FRMDATEN |
+| Failed — **and the original fails the same way** | Window Menu (`Method or data member not found` — the template calls MDI methods with no MDI parent), Options Dialog / Treeview Listview Splitter (`Must have startup form` — the form fails to load without its project), ADDIN (`User-defined type not defined`), Web Browser (`Errors during load` — unregistered OCX) |
+
+So no form is broken by what HexIDE writes; the five failures are template forms lifted out of the project
+context they were written for.
+
+**The control run is the whole point.** Run only HexIDE's output and five failures look like five defects.
+The same harness on the original files is what turns them into harness artifacts — and it costs one extra
+loop. Do not report a `/make` failure against generated output without it.
+
+**Consequence:** property order, column padding, the trailing space on the `Begin` line and the missing enum
+comments are confirmed COSMETIC at corpus scale, not merely on a fixture. They keep a file from being
+byte-identical; they do not keep VB6 from loading it. That is what makes the remaining round-trip work a
+fidelity burndown rather than a data-loss one.
+
+**Limit of this evidence:** `/make` proves VB6 *loads and compiles* the form. It does not prove the built
+program looks the same — a form whose geometry changed still compiles. That is why #104 is a separate
+finding from this one, and why Q4 stays open.
 
 ### `.frx` blob encoding is deterministic (2026-08-11)
 

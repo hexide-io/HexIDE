@@ -118,6 +118,17 @@ public class SerializationCorpusTests
         path.Replace('\\', '/').Contains("/demo/", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
+    /// A file name is not an identity here. The corpus holds FOUR files called Form1.frm — VB6's own
+    /// new-project template and one per graphical demo — so every report line and every failure key
+    /// carries the containing folder as well.
+    /// </summary>
+    private static string Label(string path)
+    {
+        var dir = Path.GetFileName(Path.GetDirectoryName(path)) ?? "";
+        return dir.Length == 0 ? Path.GetFileName(path) : dir + "/" + Path.GetFileName(path);
+    }
+
+    /// <summary>
     /// Every differing line, capped. Reporting only the *first* is actively misleading here: one
     /// systematic defect early in the file (a trailing space on the Begin line, say) masks every other
     /// difference in the corpus and makes many distinct bugs look like one.
@@ -160,14 +171,20 @@ public class SerializationCorpusTests
         report.AppendLine($"Round-trip corpus report — {files.Count} form/control files");
         report.AppendLine(new string('=', 78));
 
+        // Keyed by PATH, never by file name. Keying by name silently merged the four Form1.frm files:
+        // the first one to fail claimed the key, the other three were then found already "present" by
+        // `failures.Contains`, so they printed neither DIFF nor OK — and the arithmetic below counted
+        // them as passes. That is how this lane reported "3/3 round-tripped" for three demo forms it
+        // had never actually compared, in the same run that printed zero OK lines.
         var failures = new List<string>();
 
         foreach (var path in files)
         {
             var name = Path.GetFileName(path);
+            var label = Label(path);
             string original;
             try { original = Vb6TextFile.ReadAllText(path); }
-            catch (Exception ex) { report.AppendLine($"READ-FAIL {name}: {ex.Message}"); continue; }
+            catch (Exception ex) { report.AppendLine($"READ-FAIL {label}: {ex.Message}"); continue; }
 
             try
             {
@@ -183,8 +200,8 @@ public class SerializationCorpusTests
 
                 if (form is null)
                 {
-                    failures.Add(name);
-                    report.AppendLine($"PARSE-FAIL {name}: deserializer returned null");
+                    failures.Add(path);
+                    report.AppendLine($"PARSE-FAIL {label}: deserializer returned null");
                     foreach (var e in sink.Errors.Take(3)) report.AppendLine($"      {e}");
                     continue;
                 }
@@ -203,17 +220,17 @@ public class SerializationCorpusTests
                     // unmodelled blob-backed properties — is real and still open.
                     if (binary is null || binary.Length == 0)
                     {
-                        failures.Add(name);
+                        failures.Add(path);
                         report.AppendLine(
-                            $"BLOB-LOSS {name}: companion {Path.GetFileName(frxPath)} holds "
+                            $"BLOB-LOSS {label}: companion {Path.GetFileName(frxPath)} holds "
                           + $"{originalBinary.Length} bytes ({blobs?.Count ?? 0} blob(s)) and the serializer "
                           + $"reproduces none — original preserved on disk by the save-path guard");
                     }
                     else if (!binary.SequenceEqual(originalBinary))
                     {
-                        failures.Add(name);
+                        failures.Add(path);
                         report.AppendLine(
-                            $"BLOB-DIFF {name}: companion {originalBinary.Length} bytes in, "
+                            $"BLOB-DIFF {label}: companion {originalBinary.Length} bytes in, "
                           + $"{binary.Length} bytes out — original preserved by the save-path guard");
                     }
                 }
@@ -221,25 +238,25 @@ public class SerializationCorpusTests
                 var diff = Differences(original, rendered);
                 if (diff is null)
                 {
-                    if (!failures.Contains(name)) report.AppendLine($"OK        {name}");
+                    if (!failures.Contains(path)) report.AppendLine($"OK        {label}");
                 }
                 else
                 {
-                    if (!failures.Contains(name)) failures.Add(name);
-                    report.AppendLine($"DIFF      {name}: {diff}");
+                    if (!failures.Contains(path)) failures.Add(path);
+                    report.AppendLine($"DIFF      {label}: {diff}");
                     if (sink.Errors.Count > 0)
                         report.AppendLine($"      (deserializer logged {sink.Errors.Count} error(s), first: {sink.Errors[0]})");
                 }
             }
             catch (Exception ex)
             {
-                failures.Add(name);
-                report.AppendLine($"THREW     {name}: {ex.GetType().Name}: {ex.Message}");
+                failures.Add(path);
+                report.AppendLine($"THREW     {label}: {ex.GetType().Name}: {ex.Message}");
             }
         }
 
-        var vb6Authored = files.Where(f => !IsHexIdeAuthored(f)).Select(Path.GetFileName).ToList();
-        var vb6Failures = failures.Where(f => vb6Authored.Contains(f)).Count();
+        var vb6Authored = files.Where(f => !IsHexIdeAuthored(f)).ToList();
+        var vb6Failures = failures.Count(f => !IsHexIdeAuthored(f));
 
         report.AppendLine(new string('=', 78));
         report.AppendLine($"VB6-authored:    {vb6Authored.Count - vb6Failures}/{vb6Authored.Count} round-tripped");
