@@ -6,7 +6,12 @@ until recently and each part broke in a way a passing test could not see.
 
 `Bill of fare` is the old term for a menu, which is the joke and the whole subject.
 
-![the demo running](screenshot.png)
+![the File menu open, showing separators, right-aligned shortcuts and a disabled item](screenshot.png)
+
+Everything in that one frame was broken at some point during
+[#85](https://github.com/hexide-io/HexIDE/issues/85): the bar was empty, then the separators drew nothing,
+then a dot, then near-black. It is here because a picture of an open menu is the only artefact that would
+have caught any of it.
 
 ## What it exercises
 
