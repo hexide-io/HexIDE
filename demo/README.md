@@ -4,18 +4,22 @@ A gallery of small, self-running VB6 demoscene intros — each built end-to-end 
 HexIDE IDE entirely through its MCP automation tools (the `demo-hexide-mcp` skill), then compiled
 with the real VB6 compiler and verified by screenshot + resize.
 
-Every **verified** demo is archived here in its own subfolder with its full VB6 source, the
-pre-compiled `.exe`, a screenshot, and a README. They are meant to be kept — each is a working
-example of what MCP-driven HexIDE automation can produce.
+Every **verified** demo is archived here in its own subfolder with its full VB6 source, a screenshot
+and a README. They are meant to be kept — each is a working example of what MCP-driven HexIDE
+automation can produce.
 
 ## Convention
 
 Each demo lives in `demo/<jaunty-name>/` and contains:
 
 - `<Name>.vbp` + `.frm`/`.cls`/`.bas` — the complete, self-contained VB6 source
-- `<Name>.exe` — the pre-built binary (committed; just run it)
 - `screenshot.png` — the effect running
 - `README.md` — what it is and how it works
+
+The built `.exe` is **not** committed. `scripts/check-tree-hygiene.sh` rejects a build artefact in the
+tree and CI enforces it, so a demo ships as source you rebuild rather than a binary you trust. This
+README promised a committed binary until 2026-08-19; it never had one to promise, because the demo
+executables stayed behind in the maintainers' repository when this one was split out.
 
 Each demo gets a fresh, random, jaunty project name (never "Project1") so its build never collides
 with another's. To rebuild any of them you need VB6 installed (`VB98\VB6.EXE`):

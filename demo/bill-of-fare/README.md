@@ -51,11 +51,12 @@ the same resource dictionaries the application merges rather than a set invented
 
 ## Running it
 
-`BillOfFare.exe` is committed — just run it. It was built with the real compiler
-(`VB98\VB6.EXE /make BillOfFare.vbp`), so the source is known to be genuine VB6 rather than something only
-HexIDE will accept.
-
 To open it in HexIDE: `HexIDE.Desktop.exe demo/bill-of-fare/BillOfFare.vbp`, then F5.
+
+To build a real binary you need VB6 installed: `VB98\VB6.EXE /make BillOfFare.vbp`. The source has been
+through that compiler and it succeeds, so this is known to be genuine VB6 rather than something only
+HexIDE will accept — but the `.exe` is deliberately not committed, because the tree-hygiene guard rejects
+a build artefact in the tree and CI enforces it.
 
 ## Provenance
 
