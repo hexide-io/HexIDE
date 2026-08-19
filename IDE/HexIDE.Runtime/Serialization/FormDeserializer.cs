@@ -23,6 +23,7 @@ public class FormDeserializer
         OptionButtonComponentClass.Instance,
         PictureBoxComponentClass.Instance,
         ShapeComponentClass.Instance,
+        ImageComponentClass.Instance,
         TextBoxComponentClass.Instance,
         TimerComponentClass.Instance,
         VScrollBarComponentClass.Instance,

@@ -512,6 +512,7 @@
     "Str.PropDesc.Icon": "La piktogramo montrata kiam la formularo estas minimumigita.",
     "Str.PropDesc.MouseIcon": "Propra bildo uzata por la musmontrilo.",
     "Str.PropDesc.DragIcon": "La bildo montrata dum la regilo estas trenata.",
+    "Str.PropDesc.Stretch": "Ĉu la bildo skaliĝas laŭ la regilo, anstataŭ la regilo laŭ la bildo.",
     "Str.PropDesc.OleObjectBlob": "Duumaj datumoj por enkorpigita OLE objekto.",
     "Str.PropDesc.Interval": "La prokrasto, en milisekundoj, inter la eventoj de Timer regilo.",
     "Str.PropDesc.Text": "La teksto tenata de la regilo.",

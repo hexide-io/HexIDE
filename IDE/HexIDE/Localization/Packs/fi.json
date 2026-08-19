@@ -513,6 +513,7 @@
     "Str.PropDesc.Icon": "Kuvake, joka näkyy lomakkeen ollessa pienennettynä.",
     "Str.PropDesc.MouseIcon": "Hiiren osoittimena käytettävä mukautettu kuva.",
     "Str.PropDesc.DragIcon": "Kuva, joka näytetään ohjausobjektia vedettäessä.",
+    "Str.PropDesc.Stretch": "Skaalataanko kuva ohjausobjektin kokoiseksi sen sijaan, että ohjausobjekti mukautetaan kuvaan.",
     "Str.PropDesc.OleObjectBlob": "Upotetun OLE-objektin binääritiedot.",
     "Str.PropDesc.Interval": "Viive millisekunteina Timer-ohjausobjektin tapahtumien välillä.",
     "Str.PropDesc.Text": "Ohjausobjektin sisältämä teksti.",

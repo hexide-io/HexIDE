@@ -281,7 +281,7 @@ public class SerializationCorpusTests
         // That makes this number and that set two views of one thing from here on: a form leaving the
         // read-only set without arriving here means the binary work landed, and a form arriving here
         // without leaving that set means something in the writer regressed.
-        const int KnownVb6Failures = 4;
+        const int KnownVb6Failures = 2;
         vb6Failures.Should().BeLessThanOrEqualTo(KnownVb6Failures,
             $"VB6-authored round-trip regressed past the known baseline. Full report: {ReportPath}\n"
             + report.ToString());
@@ -314,20 +314,20 @@ public class SerializationCorpusTests
         // it in the same run.
         //
         // What remains is four forms and three distinct causes:
-        //   Treeview Listview Splitter, Splash Screen — the blob is on a VB.Image, a control class HexIDE
-        //     does not model at all, so the whole Begin block is preserved as raw text and its .frx
-        //     reference stripped with it.
         //   ODBC Log In — ComboBox List/ItemData, which use the 2-byte-count record framing rather than the
-        //     4-byte length, and List is modelled as text rather than as a blob.
+        //     4-byte length, and List is modelled as text rather than as a blob. The last one that can move.
         //   Web Browser — six Pictures on an MSComctlLib.ImageList. That is an OCX, and hosting third-party
-        //     controls is the project's largest declared gap, so this one should stay refused. The realistic
-        //     ceiling for this corpus is 21 of 22, not 22.
+        //     controls is the project's largest declared gap, so this one SHOULD stay refused. It is the
+        //     reason the ceiling for this corpus is 21 of 22 rather than 22, and a change that removes it
+        //     from here without ActiveX hosting behind it is a regression, not progress.
+        //
+        // Treeview Listview Splitter and Splash Screen left together when VB.Image was modelled — their
+        // blobs sat on a control class HexIDE did not have, so the whole Begin block was preserved as raw
+        // text and the .frx reference stripped out with it.
         var expected = new Dictionary<string, UnfaithfulSaveCause>
         {
-            ["Splash Screen.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
             ["ODBC Log In.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
             ["Web Browser.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
-            ["Treeview Listview Splitter.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
         };
 
         var files = CorpusFiles(".frm", ".ctl");

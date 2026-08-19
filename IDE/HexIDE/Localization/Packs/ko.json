@@ -513,6 +513,7 @@
     "Str.PropDesc.Icon": "폼이 최소화될 때 표시되는 아이콘.",
     "Str.PropDesc.MouseIcon": "마우스 포인터에 사용되는 사용자 지정 이미지.",
     "Str.PropDesc.DragIcon": "컨트롤을 끄는 동안 표시되는 이미지입니다.",
+    "Str.PropDesc.Stretch": "그림을 컨트롤에 맞게 조정할지, 아니면 컨트롤을 그림에 맞출지 여부입니다.",
     "Str.PropDesc.OleObjectBlob": "포함된 OLE 개체의 이진 데이터.",
     "Str.PropDesc.Interval": "Timer 컨트롤 이벤트 사이의 지연 시간(밀리초).",
     "Str.PropDesc.Text": "컨트롤에 담긴 텍스트.",

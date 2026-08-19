@@ -513,6 +513,7 @@
     "Str.PropDesc.Icon": "Ikona wyświetlana po zminimalizowaniu formularza.",
     "Str.PropDesc.MouseIcon": "Niestandardowy obraz używany jako wskaźnik myszy.",
     "Str.PropDesc.DragIcon": "Obraz wyświetlany podczas przeciągania formantu.",
+    "Str.PropDesc.Stretch": "Czy obraz jest skalowany do rozmiaru formantu, zamiast dopasowywania formantu do obrazu.",
     "Str.PropDesc.OleObjectBlob": "Dane binarne osadzonego obiektu OLE.",
     "Str.PropDesc.Interval": "Opóźnienie w milisekundach między zdarzeniami formantu Timer.",
     "Str.PropDesc.Text": "Tekst przechowywany przez formant.",
