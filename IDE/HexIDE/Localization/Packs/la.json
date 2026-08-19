@@ -563,6 +563,7 @@
     "Str.PropDesc.Icon": "Signum ostensum cum forma minimatur.",
     "Str.PropDesc.MouseIcon": "Imago propria pro indice muris adhibita.",
     "Str.PropDesc.DragIcon": "Imago quae monstratur dum regimen trahitur.",
+    "Str.PropDesc.Stretch": "Utrum imago ad regimen accommodetur, potius quam regimen ad imaginem.",
     "Str.PropDesc.OleObjectBlob": "Data binaria pro obiecto OLE incluso.",
     "Str.PropDesc.Interval": "Mora, in millisecundis, inter eventus moderaminis Timer.",
     "Str.PropDesc.Text": "Textus a moderamine tentus.",

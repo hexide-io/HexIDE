@@ -513,6 +513,7 @@
     "Str.PropDesc.Icon": "Ikona zobrazená, když je formulář minimalizován.",
     "Str.PropDesc.MouseIcon": "Vlastní obrázek použitý jako ukazatel myši.",
     "Str.PropDesc.DragIcon": "Obrázek zobrazený při přetahování ovládacího prvku.",
+    "Str.PropDesc.Stretch": "Zda se obrázek přizpůsobí velikosti ovládacího prvku místo toho, aby se prvek přizpůsobil obrázku.",
     "Str.PropDesc.OleObjectBlob": "Binární data vloženého objektu OLE.",
     "Str.PropDesc.Interval": "Prodleva mezi událostmi prvku Timer v milisekundách.",
     "Str.PropDesc.Text": "Text uložený v prvku.",

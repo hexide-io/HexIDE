@@ -69,6 +69,14 @@ public static class VBProperties
     public static readonly PropertyClass<byte[]?> DragIconProperty = new PropertyClass<byte[]?>("DragIcon",
         "The image shown while the control is being dragged.", PropertyCategory.Behavior);
 
+    /// <summary>
+    /// False sizes the control to its picture; true scales the picture to the control. VB6's default is
+    /// False, which is why an un-stretched Image is exactly as big as what it shows.
+    /// </summary>
+    public static readonly PropertyClass<bool> StretchProperty = new PropertyClass<bool>("Stretch",
+        "Whether the picture is scaled to fit the control, rather than the control sized to the picture.",
+        PropertyCategory.Appearance);
+
     public static readonly PropertyClass<byte[]?> OleObjectBlobProperty = new PropertyClass<byte[]?>("OleObjectBlob",
         "Binary data for an embedded OLE object.", PropertyCategory.Misc);
 

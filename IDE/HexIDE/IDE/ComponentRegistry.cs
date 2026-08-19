@@ -21,6 +21,7 @@ public class ComponentRegistry : IComponentRegistry
         VScrollBarComponentClass.Instance,
         TimerComponentClass.Instance,
         ShapeComponentClass.Instance,
+        ImageComponentClass.Instance,
     ];
 
     public IReadOnlyList<IComponentClass> Components => _components;

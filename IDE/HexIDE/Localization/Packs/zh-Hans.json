@@ -513,6 +513,7 @@
     "Str.PropDesc.Icon": "窗体最小化时显示的图标。",
     "Str.PropDesc.MouseIcon": "用作鼠标指针的自定义图像。",
     "Str.PropDesc.DragIcon": "拖动控件时显示的图像。",
+    "Str.PropDesc.Stretch": "是否缩放图片以适应控件，而不是让控件适应图片。",
     "Str.PropDesc.OleObjectBlob": "嵌入式 OLE 对象的二进制数据。",
     "Str.PropDesc.Interval": "Timer 控件事件之间的延迟（毫秒）。",
     "Str.PropDesc.Text": "控件中保存的文本。",

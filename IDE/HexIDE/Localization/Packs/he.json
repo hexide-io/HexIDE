@@ -513,6 +513,7 @@
     "Str.PropDesc.Icon": "הסמל המוצג כשהטופס ממוזער.",
     "Str.PropDesc.MouseIcon": "תמונה מותאמת אישית המשמשת למצביע העכבר.",
     "Str.PropDesc.DragIcon": "התמונה המוצגת בעת גרירת הפקד.",
+    "Str.PropDesc.Stretch": "האם התמונה מותאמת לגודל הפקד, במקום שהפקד יותאם לתמונה.",
     "Str.PropDesc.OleObjectBlob": "נתונים בינאריים עבור אובייקט OLE מוטמע.",
     "Str.PropDesc.Interval": "ההשהיה, באלפיות שנייה, בין אירועים של פקד Timer.",
     "Str.PropDesc.Text": "הטקסט שמכיל הפקד.",

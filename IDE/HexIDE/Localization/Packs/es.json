@@ -513,6 +513,7 @@
     "Str.PropDesc.Icon": "El icono mostrado cuando el formulario está minimizado.",
     "Str.PropDesc.MouseIcon": "Una imagen personalizada usada para el puntero del ratón.",
     "Str.PropDesc.DragIcon": "La imagen que se muestra mientras se arrastra el control.",
+    "Str.PropDesc.Stretch": "Si la imagen se escala para ajustarse al control, en lugar de ajustar el control a la imagen.",
     "Str.PropDesc.OleObjectBlob": "Datos binarios de un objeto OLE incrustado.",
     "Str.PropDesc.Interval": "El intervalo, en milisegundos, entre los eventos de un control Timer.",
     "Str.PropDesc.Text": "El texto contenido en el control.",
