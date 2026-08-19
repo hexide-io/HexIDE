@@ -1,5 +1,40 @@
 # VB6 serialization fidelity — red-team findings, 2026-08-11
 
+> ## Status: this is the origin analysis, not the current state (updated 2026-08-19)
+>
+> Kept because the investigation is worth keeping — what was found, how, and why each thing mattered. Its
+> headline figures and several of its verdicts have since been overtaken by the work it prompted.
+>
+> | | 2026-08-11 | 2026-08-19 |
+> |---|---|---|
+> | VB6-authored files round-tripping byte-for-byte | **0 of 22** | **16 of 22** |
+> | Corpus files that fail to parse at all | 3 | **0** |
+> | Forms a save would damage | all of them, silently | **0** — the 6 it cannot reproduce are refused |
+>
+> The six that remain are exactly the six held read-only for companion binary content, so **every VB6 form
+> HexIDE is willing to save now round-trips byte-for-byte, and the ones that do not are the ones it
+> refuses.**
+>
+> Read the sections below with that in mind:
+>
+> - **§2's BLOCKING rows are all closed.** B1 (the `Object =` header throwing *"Stack empty"*) is #19,
+>   B2 (a save deleting the `.frx`) is #17, B3 (nested `BeginProperty`) no longer fails — nothing in the
+>   corpus fails to parse. Most of CORRUPTING went with them: #18, #20, and the container/menu flattening
+>   under #84.
+> - **§4's "needs design — do not attempt in three weeks"** was right about the nesting model and wrong
+>   about the timescale: #84 did it. What is left of that section is the `.frx` model, which is now the
+>   whole of the remaining burndown.
+> - **§5's launch call** was written against the 0-of-22 position and no longer describes the decision in
+>   front of anyone.
+> - **§6's open questions are partly answered.** The oracle results live in
+>   [`vb6-fidelity-oracle.md`](vb6-fidelity-oracle.md), which now carries the corpus-wide `/make` result,
+>   the `Scale*` rule and the two-rectangle finding.
+>
+> **The live number is not in this file.** It is `KnownVb6Failures` in
+> `IDE/HexIDE.Runtime.Tests/SerializationCorpusTests.cs`, asserted on every build against the same
+> twenty-two files, and it can only be lowered by fixing something. The burndown is tracked on
+> [#21](https://github.com/hexide-io/HexIDE/issues/21).
+
 Produced by a 25-agent red team (12 hunting lanes, each adversarially verified, plus synthesis) against a
 corpus of **Microsoft-authored VB6 files shipped with VB6 itself** (`VB98\Template`). 66 findings survived
 verification: 6 BLOCKING, 17 CORRUPTING, 17 LOSSY, 26 COSMETIC.
