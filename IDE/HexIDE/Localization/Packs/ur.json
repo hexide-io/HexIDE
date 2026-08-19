@@ -512,6 +512,7 @@
     "Str.PropDesc.Picture": "کنٹرول پر دکھائی جانے والی تصویر۔",
     "Str.PropDesc.Icon": "فارم چھوٹا کرنے پر دکھایا جانے والا آئیکن۔",
     "Str.PropDesc.MouseIcon": "ماؤس پوائنٹر کے لیے استعمال ہونے والی مخصوص تصویر۔",
+    "Str.PropDesc.DragIcon": "کنٹرول کو گھسیٹتے وقت دکھائی جانے والی تصویر۔",
     "Str.PropDesc.OleObjectBlob": "سرایت شدہ OLE آبجیکٹ کا بائنری ڈیٹا۔",
     "Str.PropDesc.Interval": "Timer کنٹرول کے واقعات کے درمیان ملی سیکنڈ میں تاخیر۔",
     "Str.PropDesc.Text": "کنٹرول میں موجود متن۔",

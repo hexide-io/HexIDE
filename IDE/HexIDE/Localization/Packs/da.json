@@ -512,6 +512,7 @@
     "Str.PropDesc.Picture": "Et billede, der vises på kontrolelementet.",
     "Str.PropDesc.Icon": "Ikonet, der vises, når formularen minimeres.",
     "Str.PropDesc.MouseIcon": "Et brugerdefineret billede til musemarkøren.",
+    "Str.PropDesc.DragIcon": "Billedet, der vises, mens kontrolelementet trækkes.",
     "Str.PropDesc.OleObjectBlob": "Binære data for et integreret OLE-objekt.",
     "Str.PropDesc.Interval": "Forsinkelsen i millisekunder mellem en Timers hændelser.",
     "Str.PropDesc.Text": "Teksten i kontrolelementet.",

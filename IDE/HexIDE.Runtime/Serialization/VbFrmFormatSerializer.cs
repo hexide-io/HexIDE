@@ -159,6 +159,15 @@ public class VbFrmFormatSerializer
 
     private void WriteSimpleType(string property, Type type, object value, string? comment = null)
     {
+        // A Variant-typed property (Tag) carries whatever the file had. Re-dispatch on the value's runtime
+        // type before anything is written, so a string comes back quoted and a number bare. Doing this
+        // first rather than inside the switch keeps the indent from being written twice.
+        if (type == typeof(object))
+        {
+            WriteSimpleType(property, value.GetType(), value, comment);
+            return;
+        }
+
         WriteIndent();
         var field = NameField(property);
         if (type == typeof(VBColor))
@@ -217,13 +226,16 @@ public class VbFrmFormatSerializer
                 // NOT alphabetical, and not an oversight: VB6 writes a Font block's members in this fixed
                 // order, unchanged in every one of them across the corpus. Only the block itself takes its
                 // place in the enclosing component's name order, under "Font".
+                // Every value comes from the font now. Charset was a hardcoded 2, Underline and
+                // Strikethrough hardcoded false, and Weight derived from a bool — so a save rewrote three
+                // fields it had never read and rounded a fourth.
                 WriteSimpleType("Name", typeof(string), font.FontFamilyName);
-                WriteSimpleType("Size", typeof(float), font.Size);
-                WriteSimpleType("Charset", typeof(int), 2);
-                WriteSimpleType("Weight", typeof(int), font.Bold ? 700 : 400);
-                WriteSimpleType("Underline", typeof(bool), false);
+                WriteSimpleType("Size", typeof(double), font.Size);
+                WriteSimpleType("Charset", typeof(int), font.Charset);
+                WriteSimpleType("Weight", typeof(int), font.Weight);
+                WriteSimpleType("Underline", typeof(bool), font.Underline);
                 WriteSimpleType("Italic", typeof(bool), font.Italic);
-                WriteSimpleType("Strikethrough", typeof(bool), false);
+                WriteSimpleType("Strikethrough", typeof(bool), font.Strikethrough);
                 indentLevel--;
                 WriteIndent();
                 Sink.WriteLine($"EndProperty");

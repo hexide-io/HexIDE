@@ -512,6 +512,7 @@
     "Str.PropDesc.Picture": "顯示於控制項上的影像。",
     "Str.PropDesc.Icon": "表單最小化時顯示的圖示。",
     "Str.PropDesc.MouseIcon": "用於滑鼠指標的自訂影像。",
+    "Str.PropDesc.DragIcon": "拖曳控制項時顯示的影像。",
     "Str.PropDesc.OleObjectBlob": "內嵌 OLE 物件的二進位資料。",
     "Str.PropDesc.Interval": "Timer 控制項事件之間的延遲（毫秒）。",
     "Str.PropDesc.Text": "控制項所包含的文字。",

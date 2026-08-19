@@ -377,6 +377,15 @@ public class FormDeserializer
                         // Not a .frx reference — ignore (binary properties must come from .frx)
                     }
                 }
+                else if (propertyClass.PropertyType == typeof(object))
+                {
+                    // A Variant-typed property — Tag, which ComponentBaseClass puts on EVERY component.
+                    // There was no branch for it here, so the value fell through every arm of this switch
+                    // and was silently discarded: `Tag = "2407"` in VB6's own Mover ListBox.frm went in and
+                    // never came out. Stored exactly as parsed; the writer re-dispatches on the runtime
+                    // type, so a string comes back quoted and a number bare.
+                    instance.SetUntypedProperty(propertyClass, val);
+                }
                 else if (propertyClass.PropertyType == typeof(VBFont))
                 {
                     if (val is not Dictionary<string, object> fontProps ||
@@ -397,12 +406,25 @@ public class FormDeserializer
                         try { return Convert.ToInt32(v); }
                         catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException) { return fallback; }
                     }
+                    // Size is fractional and the others were never read at all. VB6 writes Size = 9.6 and
+                    // Charset = 0 in its own templates; rounding the first and inventing the second is how a
+                    // save changed the font of a form nobody had edited.
+                    static double SizeOr(object? v, double fallback)
+                    {
+                        try { return Convert.ToDouble(v); }
+                        catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException) { return fallback; }
+                    }
                     var fontNameStr = fontName as string ?? "MS Sans Serif";
                     var font = new VBFont(
                         fontNameStr,
-                        MetricOr(fontSize, 8),
-                        bold: MetricOr(fontWeight, 400) >= 700,
-                        italic: MetricOr(italic, 0) != 0);
+                        SizeOr(fontSize, 8),
+                        italic: MetricOr(italic, 0) != 0,
+                        // Absent keys keep VB6's own defaults rather than a HexIDE invention: Charset 0 is
+                        // ANSI, and a font VB6 did not mark is neither underlined nor struck through.
+                        charset: fontProps.TryGetValue("Charset", out var cs) ? MetricOr(cs, 0) : 0,
+                        underline: fontProps.TryGetValue("Underline", out var ul) && MetricOr(ul, 0) != 0,
+                        strikethrough: fontProps.TryGetValue("Strikethrough", out var st) && MetricOr(st, 0) != 0,
+                        weight: MetricOr(fontWeight, VBFont.NormalWeight));
                     instance.SetUntypedProperty(propertyClass, font);
                 }
             }

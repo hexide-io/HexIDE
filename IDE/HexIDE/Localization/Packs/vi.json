@@ -512,6 +512,7 @@
     "Str.PropDesc.Picture": "Hình ảnh hiển thị trên điều khiển.",
     "Str.PropDesc.Icon": "Biểu tượng hiển thị khi biểu mẫu được thu nhỏ.",
     "Str.PropDesc.MouseIcon": "Hình ảnh tùy chỉnh dùng cho con trỏ chuột.",
+    "Str.PropDesc.DragIcon": "Hình ảnh được hiển thị khi kéo điều khiển.",
     "Str.PropDesc.OleObjectBlob": "Dữ liệu nhị phân của đối tượng OLE nhúng.",
     "Str.PropDesc.Interval": "Khoảng trễ, tính bằng mili giây, giữa các sự kiện của điều khiển Timer.",
     "Str.PropDesc.Text": "Văn bản chứa trong điều khiển.",

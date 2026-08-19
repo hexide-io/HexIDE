@@ -512,6 +512,7 @@
     "Str.PropDesc.Picture": "Une image affichée sur le contrôle.",
     "Str.PropDesc.Icon": "L'icône affichée lorsque la feuille est réduite.",
     "Str.PropDesc.MouseIcon": "Une image personnalisée utilisée pour le pointeur de la souris.",
+    "Str.PropDesc.DragIcon": "L'image affichée pendant le glissement du contrôle.",
     "Str.PropDesc.OleObjectBlob": "Les données binaires d'un objet OLE incorporé.",
     "Str.PropDesc.Interval": "Le délai, en millisecondes, entre les événements d'un contrôle Timer.",
     "Str.PropDesc.Text": "Le texte contenu dans le contrôle.",
