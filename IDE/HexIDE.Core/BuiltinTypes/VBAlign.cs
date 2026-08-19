@@ -2,9 +2,9 @@ namespace HexIDE.Runtime.BuiltinTypes;
 
 public enum VBAlign
 {
-    vbNone = 0,
-    vbAlignTop = 1,
-    vbAlignBottom = 2,
-    vbAlignLeft = 3,
-    vbAlignRight = 4,
+    [Vb6Name("None")]         vbNone = 0,
+    [Vb6Name("Align Top")]    vbAlignTop = 1,
+    [Vb6Name("Align Bottom")] vbAlignBottom = 2,
+    [Vb6Name("Align Left")]   vbAlignLeft = 3,
+    [Vb6Name("Align Right")]  vbAlignRight = 4,
 }

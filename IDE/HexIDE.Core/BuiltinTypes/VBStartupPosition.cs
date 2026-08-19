@@ -2,8 +2,8 @@ namespace HexIDE.Runtime.BuiltinTypes;
 
 public enum VBStartupPosition
 {
-    StartUpManual = 0,
-    StartUpOwner = 1,
-    StartUpScreen = 2,
-    StartUpWindowsDefault = 3,
+    [Vb6Name("Manual")]          StartUpManual = 0,
+    [Vb6Name("CenterOwner")]     StartUpOwner = 1,
+    [Vb6Name("CenterScreen")]    StartUpScreen = 2,
+    [Vb6Name("Windows Default")] StartUpWindowsDefault = 3,
 }

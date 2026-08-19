@@ -2,6 +2,6 @@ namespace HexIDE.Runtime.BuiltinTypes;
 
 public enum BackStyles
 {
-    Transparent,
-    Opaque
+    [Vb6Name("Transparent")] Transparent,
+    [Vb6Name("Opaque")]      Opaque
 }

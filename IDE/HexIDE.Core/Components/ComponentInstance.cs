@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using static HexIDE.Runtime.Components.VBProperties;
 
 namespace HexIDE.Runtime.Components;
@@ -13,8 +14,22 @@ public partial class ComponentInstance
 
     private Dictionary<PropertyClass, object?> properties { get; } = new();
 
-    // Raw lines of unrecognised properties, preserved verbatim for round-trip fidelity.
-    public List<string> UnknownRawPropertyLines { get; } = [];
+    /// <summary>
+    /// Properties HexIDE does not model, preserved verbatim for round-trip fidelity — each with the name
+    /// it was read under, because VB6 writes a component's properties in alphabetical order and a
+    /// preserved property has to take its place in that order like any other.
+    ///
+    /// Grouped rather than flat: a <c>BeginProperty</c> block HexIDE does not understand is several lines
+    /// under one name, and they have to move together.
+    /// </summary>
+    public List<UnknownRawProperty> UnknownRawProperties { get; } = [];
+
+    /// <summary>
+    /// The preserved lines in document order — the flat view, which is what every reader outside the
+    /// writer has ever wanted. Derived, so there is no second copy to keep in step.
+    /// </summary>
+    public IReadOnlyList<string> UnknownRawPropertyLines =>
+        UnknownRawProperties.SelectMany(p => p.Lines).ToList();
 
     public ComponentInstance(IComponentClass baseClass, string name)
     {
@@ -89,6 +104,14 @@ public partial class ComponentInstance
     /// file.
     /// </summary>
     public readonly record struct PreservedSubtree(int Ordinal, int DocumentOrder, string Text);
+
+    /// <summary>
+    /// A property HexIDE does not model, kept exactly as it was read, under the name it was read as.
+    ///
+    /// <paramref name="Lines"/> is more than one line whenever the property was a <c>BeginProperty</c>
+    /// block; the lines carry their own indentation, because that is the indentation the file had.
+    /// </summary>
+    public readonly record struct UnknownRawProperty(string Name, IReadOnlyList<string> Lines);
 
     private readonly List<PreservedSubtree> preservedChildSubtrees = [];
 

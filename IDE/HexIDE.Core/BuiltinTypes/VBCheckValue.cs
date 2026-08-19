@@ -2,7 +2,7 @@ namespace HexIDE.Runtime.BuiltinTypes;
 
 public enum VBCheckValue
 {
-    Unchecked,
-    Checked,
-    Grayscale
+    [Vb6Name("Unchecked")] Unchecked,
+    [Vb6Name("Checked")]   Checked,
+    [Vb6Name("Grayed")]    Grayscale
 }
