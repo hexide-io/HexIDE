@@ -512,6 +512,7 @@
     "Str.PropDesc.Picture": "Denetimde görüntülenen resim.",
     "Str.PropDesc.Icon": "Form simge durumuna küçültüldüğünde görünen simge.",
     "Str.PropDesc.MouseIcon": "Fare işaretçisi için kullanılan özel resim.",
+    "Str.PropDesc.DragIcon": "Denetim sürüklenirken gösterilen görüntü.",
     "Str.PropDesc.OleObjectBlob": "Katıştırılmış bir OLE nesnesi için ikili veri.",
     "Str.PropDesc.Interval": "Bir Timer denetiminin olayları arasındaki gecikme (milisaniye).",
     "Str.PropDesc.Text": "Denetimin tuttuğu metin.",

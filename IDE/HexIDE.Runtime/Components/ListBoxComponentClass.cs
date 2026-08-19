@@ -15,6 +15,8 @@ public class ListBoxComponentClass : ComponentBaseClass
         BackColorProperty,
         ListProperty,
         LockedProperty,
+        // Same reason as CommandButton.Picture: held so the blob survives, not because dragging draws it.
+        DragIconProperty,
         MousePointerProperty,
         RightToLeftProperty,
         AppearanceProperty,

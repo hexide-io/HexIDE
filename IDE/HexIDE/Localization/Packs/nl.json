@@ -512,6 +512,7 @@
     "Str.PropDesc.Picture": "Een afbeelding die op het besturingselement wordt weergegeven.",
     "Str.PropDesc.Icon": "Het pictogram dat wordt getoond wanneer het formulier is geminimaliseerd.",
     "Str.PropDesc.MouseIcon": "Een aangepaste afbeelding voor de muisaanwijzer.",
+    "Str.PropDesc.DragIcon": "De afbeelding die wordt weergegeven terwijl het besturingselement wordt gesleept.",
     "Str.PropDesc.OleObjectBlob": "Binaire gegevens voor een ingesloten OLE-object.",
     "Str.PropDesc.Interval": "De vertraging in milliseconden tussen de gebeurtenissen van een Timer.",
     "Str.PropDesc.Text": "De tekst in het besturingselement.",

@@ -512,6 +512,7 @@
     "Str.PropDesc.Picture": "कंट्रोल पर प्रदर्शित की जाने वाली छवि।",
     "Str.PropDesc.Icon": "फ़ॉर्म न्यूनतम होने पर दिखाया जाने वाला आइकन।",
     "Str.PropDesc.MouseIcon": "माउस पॉइंटर के लिए उपयोग की जाने वाली कस्टम छवि।",
+    "Str.PropDesc.DragIcon": "नियंत्रण को खींचते समय दिखाई जाने वाली छवि।",
     "Str.PropDesc.OleObjectBlob": "एम्बेडेड OLE ऑब्जेक्ट के लिए बाइनरी डेटा।",
     "Str.PropDesc.Interval": "Timer कंट्रोल की घटनाओं के बीच मिलीसेकंड में विलंब।",
     "Str.PropDesc.Text": "कंट्रोल में रखा गया टेक्स्ट।",

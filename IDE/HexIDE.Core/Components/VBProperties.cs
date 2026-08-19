@@ -66,6 +66,9 @@ public static class VBProperties
     public static readonly PropertyClass<byte[]?> MouseIconProperty = new PropertyClass<byte[]?>("MouseIcon",
         "A custom image used for the mouse pointer.", PropertyCategory.Behavior);
 
+    public static readonly PropertyClass<byte[]?> DragIconProperty = new PropertyClass<byte[]?>("DragIcon",
+        "The image shown while the control is being dragged.", PropertyCategory.Behavior);
+
     public static readonly PropertyClass<byte[]?> OleObjectBlobProperty = new PropertyClass<byte[]?>("OleObjectBlob",
         "Binary data for an embedded OLE object.", PropertyCategory.Misc);
 

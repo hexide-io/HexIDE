@@ -13,10 +13,18 @@ namespace HexIDE.Tests.Projects;
 /// <summary>
 /// Guards against destroying a companion binary on save (issue #17).
 ///
-/// HexIDE models only <c>Form.Icon</c> and <c>PictureBox.Picture</c> as blob-backed. A form using anything
-/// else — <c>DragIcon</c>, <c>CommandButton.Picture</c>, <c>ItemData</c> — had those property lines dropped
-/// on load, so the save produced either a truncated companion or none at all, and "none at all" was read by
-/// the write path as *delete it*. Verified destruction: 2122 bytes of `Button ListBox.frx`.
+/// A form whose blob-backed properties HexIDE does not model has those property lines dropped on load, so
+/// the save produces either a truncated companion or none at all — and "none at all" was read by the write
+/// path as *delete it*. Verified destruction: 2122 bytes of `Button ListBox.frx`.
+///
+/// The modelled set has since grown: <c>Form.Icon</c>, <c>PictureBox.Picture</c>, <c>CommandButton.Picture</c>
+/// and <c>ListBox.DragIcon</c> are all held now, which is why <c>Button ListBox.frm</c> and
+/// <c>Mover ListBox.frm</c> round-trip byte for byte, companion included. They stay in the theory below
+/// anyway: this guard is about a save never DESTROYING a companion, and a form that reproduces its own is
+/// still the strongest case that nothing was clobbered on the way through.
+///
+/// What is still unmodelled, and what the loss-flag test therefore uses: a blob on a <c>VB.Image</c>, a
+/// control class HexIDE does not model at all.
 ///
 /// The fixture is VB6's own shipped form, so it exercises the real shape rather than a contrived one. It is
 /// skipped where VB6 is not installed (CI is Linux).
@@ -134,13 +142,44 @@ public class CompanionBinaryPreservationTests : IDisposable
     [Fact]
     public async Task The_form_records_that_it_lost_binary_fidelity()
     {
+        // Splash Screen, not Button ListBox. Button ListBox stopped exercising this the moment
+        // CommandButton.Picture and ListBox.DragIcon were modelled — it now reproduces its companion
+        // exactly, so the flag correctly does NOT fire and the test was asserting a defect that had been
+        // fixed. Splash Screen's Picture sits on a VB.Image, a control class HexIDE does not model at all,
+        // so the whole Begin block is preserved as raw text and its .frx reference stripped with it.
+        var vbp = StageVb6Form(@"Forms\Splash Screen.frm");
+        if (vbp is null) return;
+
+        var svc = MakeService();
+        await svc.OpenProject(vbp);
+
+        // The CONCLUSION, not one of the two mechanisms that can reach it. ProjectService.WouldLoseBlobs
+        // has two arms: the explicit HasUnmodelledBinaryProperties flag, and a comparison of blobs written
+        // against blobs read — the safety net for properties that are named but whose CLR type is unmapped
+        // and which vanish with no diagnostic at all. Splash Screen trips the second: its Form.Icon is
+        // captured, the VB.Image's Picture is not, so one blob out of two reaches the model.
+        //
+        // Asserting the flag alone made this test claim a regression when the arm simply changed.
+        loaded.Single().Forms.Single().UnfaithfulSaveCauses
+            .Should().HaveFlag(UnfaithfulSaveCause.UnreproducibleBinaryContent,
+                "this is what holds the form read-only and stops the save touching the companion");
+    }
+
+    [Fact]
+    public async Task AFormWhoseBlobsAreAllModelled_DoesNotRaiseTheLossFlag()
+    {
+        // The other half, and the one that keeps the flag honest. A signal that fires for everything
+        // protects nothing: it would hold every form read-only forever and the burndown could never move.
         var vbp = StageVb6Form(@"Controls\Button ListBox.frm");
         if (vbp is null) return;
 
         var svc = MakeService();
         await svc.OpenProject(vbp);
 
-        loaded.Single().Forms.Single().HasUnmodelledBinaryProperties
-            .Should().BeTrue("this is the signal the save path relies on to protect the companion");
+        var form = loaded.Single().Forms.Single();
+        form.HasUnmodelledBinaryProperties.Should().BeFalse(
+            "every blob this form cites is on a modelled property now — Form.Icon, CommandButton.Picture "
+          + "and ListBox.DragIcon — so there is nothing it cannot reproduce");
+        form.CanSaveFaithfully.Should().BeTrue("and so it must no longer be held read-only");
     }
 }
