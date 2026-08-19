@@ -281,7 +281,7 @@ public class SerializationCorpusTests
         // That makes this number and that set two views of one thing from here on: a form leaving the
         // read-only set without arriving here means the binary work landed, and a form arriving here
         // without leaving that set means something in the writer regressed.
-        const int KnownVb6Failures = 6;
+        const int KnownVb6Failures = 4;
         vb6Failures.Should().BeLessThanOrEqualTo(KnownVb6Failures,
             $"VB6-authored round-trip regressed past the known baseline. Full report: {ReportPath}\n"
             + report.ToString());
@@ -306,14 +306,28 @@ public class SerializationCorpusTests
         // and containers now round-trip through the model, the writer, the runtime and the designer alike.
         // Button ListBox and Mover ListBox moved the other way — they used to save lossily, dropping a
         // control's picture reference while the companion file survived on disk, and are now honestly refused.
+        // Four, down from six. Button ListBox and Mover ListBox left together once the properties citing
+        // their blobs were modelled — CommandButton.Picture and ListBox.DragIcon — and BOTH now round-trip
+        // byte for byte, companion included. That pairing is the rule this set exists to enforce: a form
+        // may only leave here by becoming reproducible, never by having its cause go unnoticed. Registering
+        // Picture alone silenced the refusal while the save was still lossy, and the round-trip lane caught
+        // it in the same run.
+        //
+        // What remains is four forms and three distinct causes:
+        //   Treeview Listview Splitter, Splash Screen — the blob is on a VB.Image, a control class HexIDE
+        //     does not model at all, so the whole Begin block is preserved as raw text and its .frx
+        //     reference stripped with it.
+        //   ODBC Log In — ComboBox List/ItemData, which use the 2-byte-count record framing rather than the
+        //     4-byte length, and List is modelled as text rather than as a blob.
+        //   Web Browser — six Pictures on an MSComctlLib.ImageList. That is an OCX, and hosting third-party
+        //     controls is the project's largest declared gap, so this one should stay refused. The realistic
+        //     ceiling for this corpus is 21 of 22, not 22.
         var expected = new Dictionary<string, UnfaithfulSaveCause>
         {
             ["Splash Screen.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
             ["ODBC Log In.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
             ["Web Browser.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
             ["Treeview Listview Splitter.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
-            ["Button ListBox.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
-            ["Mover ListBox.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
         };
 
         var files = CorpusFiles(".frm", ".ctl");
@@ -538,15 +552,32 @@ public class SerializationCorpusTests
             IReadOnlyDictionary<int, byte[]>? blobs = null;
             if (File.Exists(frxPath)) blobs = FrxDeserializer.Read(File.ReadAllBytes(frxPath));
 
-            string? Pass(string text)
+            // A .frm and its companion are one artifact: the `"Name.frx":HHHH` references in the text are
+            // offsets into the companion written beside it. So each pass must be re-read with the companion
+            // THAT PASS produced, exactly as ProjectService writes and reads the pair together.
+            //
+            // Feeding the original blobs to the second pass — which this did until 2026-08-19 — asks HexIDE
+            // to resolve its own offsets against VB6's file. Those differ whenever the two disagree about
+            // how many blobs there are, so the lookup misses, the property is dropped, and the harness
+            // reports drift that the product cannot actually produce.
+            (string Text, IReadOnlyDictionary<int, byte[]>? Blobs)? Pass(
+                string text, IReadOnlyDictionary<int, byte[]>? inputBlobs)
             {
                 var owner = new ProjectDefinition(VBProjectType.EXE, "Corpus");
-                var form = new FormDeserializer().Deserialize(owner, text, new Sink(), blobs);
-                return form is null ? null : new FormSerializer().Serialize(form, name).Item1;
+                var form = new FormDeserializer().Deserialize(owner, text, new Sink(), inputBlobs);
+                if (form is null) return null;
+                var (rendered, companion) = new FormSerializer().Serialize(form, name);
+                return (rendered, companion is { Length: > 0 } ? FrxDeserializer.Read(companion) : null);
             }
 
             string? first, second;
-            try { first = Pass(Vb6TextFile.ReadAllText(path)); if (first is null) continue; second = Pass(first); }
+            try
+            {
+                var pass1 = Pass(Vb6TextFile.ReadAllText(path), blobs);
+                if (pass1 is null) continue;
+                first = pass1.Value.Text;
+                second = Pass(first, pass1.Value.Blobs)?.Text;
+            }
             catch { continue; } // outcome 0 — cannot open. Covered by the round-trip lane.
 
             if (second is null)

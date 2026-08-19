@@ -512,6 +512,7 @@
     "Str.PropDesc.Picture": "En bild som visas på kontrollen.",
     "Str.PropDesc.Icon": "Ikonen som visas när formuläret minimeras.",
     "Str.PropDesc.MouseIcon": "En egen bild som används för muspekaren.",
+    "Str.PropDesc.DragIcon": "Bilden som visas när kontrollen dras.",
     "Str.PropDesc.OleObjectBlob": "Binärdata för ett inbäddat OLE-objekt.",
     "Str.PropDesc.Interval": "Fördröjningen i millisekunder mellan en Timer-kontrolls händelser.",
     "Str.PropDesc.Text": "Texten som kontrollen innehåller.",

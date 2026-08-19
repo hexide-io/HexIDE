@@ -512,6 +512,7 @@
     "Str.PropDesc.Picture": "صورة معروضة على عنصر التحكم.",
     "Str.PropDesc.Icon": "الأيقونة المعروضة عند تصغير النموذج.",
     "Str.PropDesc.MouseIcon": "صورة مخصّصة تُستخدم لمؤشر الماوس.",
+    "Str.PropDesc.DragIcon": "الصورة التي تظهر أثناء سحب عنصر التحكم.",
     "Str.PropDesc.OleObjectBlob": "بيانات ثنائية لكائن OLE مضمّن.",
     "Str.PropDesc.Interval": "التأخير، بالميلي ثانية، بين أحداث عنصر تحكم Timer.",
     "Str.PropDesc.Text": "النص الذي يحتويه عنصر التحكم.",
