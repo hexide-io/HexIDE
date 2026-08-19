@@ -142,12 +142,15 @@ public class CompanionBinaryPreservationTests : IDisposable
     [Fact]
     public async Task The_form_records_that_it_lost_binary_fidelity()
     {
-        // Splash Screen, not Button ListBox. Button ListBox stopped exercising this the moment
-        // CommandButton.Picture and ListBox.DragIcon were modelled — it now reproduces its companion
-        // exactly, so the flag correctly does NOT fire and the test was asserting a defect that had been
-        // fixed. Splash Screen's Picture sits on a VB.Image, a control class HexIDE does not model at all,
-        // so the whole Begin block is preserved as raw text and its .frx reference stripped with it.
-        var vbp = StageVb6Form(@"Forms\Splash Screen.frm");
+        // Web Browser, and this is the third fixture this test has had. Button ListBox stopped exercising
+        // it when CommandButton.Picture and ListBox.DragIcon were modelled; Splash Screen stopped when
+        // VB.Image was. Each time the form began reproducing its own companion, the flag correctly stopped
+        // firing, and the test failed for the best possible reason.
+        //
+        // Web Browser is the durable choice: its six Pictures sit on an MSComctlLib.ImageList, and hosting
+        // third-party ActiveX controls is out of scope. If this one ever stops losing binary content, that
+        // is a change worth noticing rather than a fixture to swap out.
+        var vbp = StageVb6Form(@"Forms\Web Browser.frm");
         if (vbp is null) return;
 
         var svc = MakeService();

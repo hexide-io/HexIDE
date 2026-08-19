@@ -513,6 +513,7 @@
     "Str.PropDesc.Icon": "Das Symbol, das angezeigt wird, wenn das Formular minimiert ist.",
     "Str.PropDesc.MouseIcon": "Ein benutzerdefiniertes Bild für den Mauszeiger.",
     "Str.PropDesc.DragIcon": "Das Bild, das angezeigt wird, während das Steuerelement gezogen wird.",
+    "Str.PropDesc.Stretch": "Ob das Bild an das Steuerelement angepasst wird, statt das Steuerelement an das Bild.",
     "Str.PropDesc.OleObjectBlob": "Binärdaten für ein eingebettetes OLE-Objekt.",
     "Str.PropDesc.Interval": "Die Verzögerung in Millisekunden zwischen den Ereignissen eines Timer-Steuerelements.",
     "Str.PropDesc.Text": "Der im Steuerelement enthaltene Text.",

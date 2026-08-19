@@ -198,22 +198,27 @@ public class ContainerHierarchyLoadTests
         // Two unmodelled blocks: one inside a Frame, one after that Frame on the form. Reading them back
         // per container walks the form's list first and would report them the wrong way round, which is a
         // silent reordering of exactly the thing that is only being kept because it is verbatim.
+        //
+        // VB.Line, not VB.Image. This used VB.Image until Image was modelled, at which point the fixture
+        // stopped containing anything unmodelled and the test asserted document order over an empty list —
+        // it failed loudly, which is the good outcome, but the lesson is that a fixture standing in for
+        // "unmodelled" has a shelf life. VB.Line is the sibling test's choice for the same reason.
         const string frm =
             "VERSION 5.00\r\n" +
             "Begin VB.Form Form1 \r\n" +
             "   Begin VB.Frame Frame1 \r\n" +
-            "      Begin VB.Image imgInside \r\n" +
+            "      Begin VB.Line lineInside \r\n" +
             "      End\r\n" +
             "   End\r\n" +
-            "   Begin VB.Image imgOutside \r\n" +
+            "   Begin VB.Line lineOutside \r\n" +
             "   End\r\n" +
             "End\r\nAttribute VB_Name = \"Form1\"\r\n";
 
         var form = Load(frm);
 
         form.UnknownChildSubtreeTexts.Should().HaveCount(2);
-        form.UnknownChildSubtreeTexts[0].Should().Contain("imgInside");
-        form.UnknownChildSubtreeTexts[1].Should().Contain("imgOutside");
+        form.UnknownChildSubtreeTexts[0].Should().Contain("lineInside");
+        form.UnknownChildSubtreeTexts[1].Should().Contain("lineOutside");
     }
 
     [Fact]
