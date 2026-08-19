@@ -708,10 +708,22 @@ same way across four independent saves. The record header carries nothing sessio
 
 ```
 06 03 00 00  6c 74 00 00  fe 02 00 00  00 00 01 00  01 00 20 20 …
-└ length ─┘  └ type tag ┘  └ size ────┘  └ raw .ico header ─────┘
+└ length ─┘  └ Preamble ┘  └ Size ────┘  └ raw .ico header ─────┘
+             └──────── StdPicture stream, [MS-OFORMS] §2.4.5 ───────…
 ```
 
 No timestamp, no checksum, no GUID.
+
+**Correction (2026-08-19): the second field is not a "type tag".** It was labelled as one here when this
+was first written, from the hex alone. `6c 74 00 00` is `0x0000746C`, and [MS-OFORMS] §2.4.5 specifies
+that exactly: a `StdPicture` stream opens with a 4-byte **Preamble** that MUST be `0x0000746C`, followed
+by a 4-byte **Size** giving the length of the picture bytes that follow.
+
+The arithmetic confirms it rather than merely fitting it: the outer length is `0x306` = 774, and
+8 bytes of Preamble-plus-Size plus `0x2FE` = 766 bytes of payload is 774 exactly.
+
+So the record is **`[4-byte VB6 length][StdPicture stream]`** — VB6's own container wrapped around a
+structure that is published, and that HexIDE is licensed to implement. See the section below.
 
 **The Access precedent does not transfer.** MS Access under VSS famously showed diffs on untouched forms
 every commit — but the cause was specific to Access: `SaveAsText` embedded `PrtDevMode`/`PrtDevNames`
@@ -725,6 +737,48 @@ blobs. That needs the interactive IDE and remains open.
 **Consequence for HexIDE:** none immediately, because blob *pass-through* (keep the original bytes at the
 original offsets) sidesteps encoding entirely. Matching VB6's encoder only becomes necessary if the designer
 ever lets a user edit an image — the comprehension problem, deliberately deferred.
+
+### The `.frx` payloads have a published specification — the container does not (2026-08-19)
+
+A distinction worth keeping, because it splits the remaining `.frx` work into two very different halves.
+
+| | Documented where | May we implement from it? |
+|---|---|---|
+| The `.frx` **record container** — `[4-byte length][payload]`, and the 2-byte-count variant `List`/`ItemData` use | **Nowhere.** VB6-specific, undocumented | Black-box observation only, as below |
+| The **payload** of a `Picture`/`Icon` record — a `StdPicture` stream | **[MS-OFORMS] §2.4.5** | **Yes** |
+| The **payload** of a persisted font — a `StdFont`/`TextProps` structure | [MS-OFORMS] §2.4.x | **Yes** |
+
+[MS-OFORMS] is *Office Forms Binary File Formats* — the MSForms control set as persisted inside Word,
+Excel, PowerPoint and VBA project storage. **It is not a specification of VB6's designer files**, and it
+never mentions `.frm`, `.frx` or Visual Basic. What makes it useful anyway is that VB6 and Office Forms
+both persist standard OLE types the same way, so VB6's container turns out to be wrapped around
+structures Office documented.
+
+#### Why implementing from it is clean, where the VBA SDK was not
+
+Two independent clearances, both checked rather than assumed:
+
+- **Copyright.** The Open Specifications IP notice grants, in terms: *"you can make copies of it in order
+  to develop implementations of the technologies that are described in this documentation and can
+  distribute portions of it in your implementations that use these technologies or in your documentation
+  as necessary to properly document the implementation."* It also states plainly: *"Microsoft does not
+  claim any trade secret rights in this documentation."*
+- **Patents.** [MS-OFORMS] is a **Covered Specification** under the Microsoft Open Specification Promise,
+  listed by name under *Office Binary File Formats — First Published June 30, 2008*. Microsoft
+  *"irrevocably promises not to assert any Microsoft Necessary Claims against you for making, using,
+  selling, offering for sale, importing or distributing any implementation to the extent it conforms to a
+  Covered Specification."* [MS-CFB] is covered too, if a compound-file path is ever needed.
+
+So this may be read, implemented, and quoted into HexIDE's own documentation. That is a different licence
+from anything else consulted for this work, and the difference is deliberate: it is why the format facts
+above can be written down here at all.
+
+**Contrast, recorded so it is not re-litigated.** The VBA 6.4 SDK (`VBA6SDK`) was examined on the same day
+and is **not** a usable source: its EULA grants no distribution rights, restricts documentation to internal
+use with no republication, and forbids reverse engineering. It also turned out to be irrelevant — it is a
+COM host-embedding API (`IActiveDesigner`, `ICodeNavigate`, the `Apc*` interfaces) with zero mentions of
+`.frx`, file formats, `IPersistStream` or property bags anywhere in its headers or help file. Nothing from
+it has entered this project and nothing should.
 
 #### Qualification: that determinism finding covers INTRINSIC controls only
 
