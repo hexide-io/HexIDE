@@ -102,6 +102,18 @@ public class SerializationCorpusTests
     /// A file HexIDE itself wrote proves nothing about VB6 fidelity — it round-trips because both ends
     /// share the same defects. Scoring those separately stops them flattering the headline number.
     /// </summary>
+    /// <summary>
+    /// A path heuristic, and worth knowing where it is only approximately true.
+    ///
+    /// It means "lives in demo/", which stands in for "HexIDE wrote this file, so a clean round-trip proves
+    /// nothing — the same code is on both ends". That holds for the demos the MCP automation built.
+    ///
+    /// It does NOT hold for <c>demo/bill-of-fare</c>, which is hand-written in VB6's own format and verified
+    /// by the real compiler. Its differences are the writer's real divergences, the same ones the VB98
+    /// templates expose, and are worth reading rather than discounting. It is left in this bucket
+    /// deliberately: counting it as VB6-authored would push the failure count past its baseline and turn a
+    /// deliberate addition into a red gate.
+    /// </summary>
     private static bool IsHexIdeAuthored(string path) =>
         path.Replace('\\', '/').Contains("/demo/", StringComparison.OrdinalIgnoreCase);
 
