@@ -59,7 +59,7 @@ public class FormSerializer
         WriteAllProperties(vb, form, frxName, offsetMap);
         if (element.LockControls)
             vb.WriteProperty("LockControls", typeof(bool), true);
-        WriteFormMeasurements(vb, form);
+        WriteFormMeasurements(vb, form, element.OuterRect);
 
         // A menu nests through SubItems, a control through ContainedControls. One helper, so the writer has
         // a single notion of "this component's children" without the two mechanisms being merged: probing
@@ -195,7 +195,17 @@ public class FormSerializer
     private static double ToTwips(double pixels) =>
         Math.Round(pixels * VBScaleModeExtensions.PixelToTwips, 6);
 
-    private void WriteFormMeasurements(VbFrmFormatSerializer vb, ComponentInstance form)
+    /// <summary>
+    /// The designer root's geometry — both rectangles of it, which is why nothing else may write the
+    /// root's Left/Top/Width/Height.
+    ///
+    /// The model holds the CLIENT rectangle. <paramref name="outerRect"/> carries the offset to the outer
+    /// window rectangle for a form whose file declared one, and is null for the nineteen-in-twenty-two
+    /// that did not. Writing an outer rectangle for those would be inventing geometry the author never
+    /// recorded; deriving one would mean claiming to know a window frame that belongs to whichever
+    /// machine next opens the form.
+    /// </summary>
+    private void WriteFormMeasurements(VbFrmFormatSerializer vb, ComponentInstance form, RootOuterRect? outerRect)
     {
         if (form.TryGetProperty(VBProperties.WidthProperty, out var width))
         {
@@ -215,6 +225,23 @@ public class FormSerializer
         {
             vb.WriteProperty("ClientLeft", VBProperties.LeftProperty.PropertyType, ToTwips(left));
         }
+
+        if (outerRect is null)
+            return;
+
+        // Client plus the offset the file itself recorded, rather than client plus a frame HexIDE
+        // computed. A resize in the designer therefore moves both rectangles together and keeps the
+        // frame the author saved, on a machine whose window metrics may be nothing like theirs.
+        void WriteOuter(string name, PropertyClass<double> property, double offsetTwips)
+        {
+            if (form.TryGetProperty(property, out var clientPixels))
+                vb.WriteProperty(name, property.PropertyType, ToTwips(clientPixels) + offsetTwips);
+        }
+
+        WriteOuter("Height", VBProperties.HeightProperty, outerRect.HeightOffsetTwips);
+        WriteOuter("Left", VBProperties.LeftProperty, outerRect.LeftOffsetTwips);
+        WriteOuter("Top", VBProperties.TopProperty, outerRect.TopOffsetTwips);
+        WriteOuter("Width", VBProperties.WidthProperty, outerRect.WidthOffsetTwips);
     }
 
     private void WriteAllProperties(VbFrmFormatSerializer vb, ComponentInstance instance,
@@ -238,6 +265,13 @@ public class FormSerializer
                 prop == VBProperties.WidthProperty ||
                 prop == VBProperties.HeightProperty)
             {
+                // The designer root's geometry belongs to WriteFormMeasurements alone, which knows about
+                // both of its rectangles. Writing it here as well emitted the CLIENT numbers a second
+                // time under the OUTER names, so every saved form claimed a window whose frame was zero
+                // pixels wide — four properties VB6 never wrote, contradicting the four it did.
+                if (instance.BaseClass is FormComponentClass)
+                    continue;
+
                 if (instance.TryGetProperty<double>((PropertyClass<double>)prop, out var measurement))
                     vb.WriteProperty(prop.Name, prop.PropertyType, ToTwips(measurement));
             }
