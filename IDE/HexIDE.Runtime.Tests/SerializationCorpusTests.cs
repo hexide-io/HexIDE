@@ -192,7 +192,7 @@ public class SerializationCorpusTests
                 var frxPath = Path.ChangeExtension(path,
                     Path.GetExtension(path).Equals(".ctl", StringComparison.OrdinalIgnoreCase) ? ".ctx" : ".frx");
                 if (File.Exists(frxPath))
-                    blobs = FrxDeserializer.Read(File.ReadAllBytes(frxPath));
+                    blobs = FrxDeserializer.Read(File.ReadAllBytes(frxPath), Vb6TextFile.ReadAllText(path));
 
                 var owner = new ProjectDefinition(VBProjectType.EXE, "Corpus");
                 var sink = new Sink();
@@ -347,7 +347,7 @@ public class SerializationCorpusTests
             var frxPath = Path.ChangeExtension(path,
                 Path.GetExtension(path).Equals(".ctl", StringComparison.OrdinalIgnoreCase) ? ".ctx" : ".frx");
             IReadOnlyDictionary<int, byte[]>? blobs = null;
-            if (File.Exists(frxPath)) blobs = FrxDeserializer.Read(File.ReadAllBytes(frxPath));
+            if (File.Exists(frxPath)) blobs = FrxDeserializer.Read(File.ReadAllBytes(frxPath), Vb6TextFile.ReadAllText(path));
 
             var owner = new ProjectDefinition(VBProjectType.EXE, "Corpus");
             var form = new FormDeserializer().Deserialize(owner, Vb6TextFile.ReadAllText(path), new Sink(), blobs);
@@ -507,7 +507,7 @@ public class SerializationCorpusTests
             var frxPath = Path.ChangeExtension(path,
                 Path.GetExtension(path).Equals(".ctl", StringComparison.OrdinalIgnoreCase) ? ".ctx" : ".frx");
             IReadOnlyDictionary<int, byte[]>? blobs = null;
-            if (File.Exists(frxPath)) blobs = FrxDeserializer.Read(File.ReadAllBytes(frxPath));
+            if (File.Exists(frxPath)) blobs = FrxDeserializer.Read(File.ReadAllBytes(frxPath), Vb6TextFile.ReadAllText(path));
 
             var sink = new Sink();
             try
@@ -550,7 +550,7 @@ public class SerializationCorpusTests
             var frxPath = Path.ChangeExtension(path,
                 Path.GetExtension(path).Equals(".ctl", StringComparison.OrdinalIgnoreCase) ? ".ctx" : ".frx");
             IReadOnlyDictionary<int, byte[]>? blobs = null;
-            if (File.Exists(frxPath)) blobs = FrxDeserializer.Read(File.ReadAllBytes(frxPath));
+            if (File.Exists(frxPath)) blobs = FrxDeserializer.Read(File.ReadAllBytes(frxPath), Vb6TextFile.ReadAllText(path));
 
             // A .frm and its companion are one artifact: the `"Name.frx":HHHH` references in the text are
             // offsets into the companion written beside it. So each pass must be re-read with the companion
@@ -567,7 +567,7 @@ public class SerializationCorpusTests
                 var form = new FormDeserializer().Deserialize(owner, text, new Sink(), inputBlobs);
                 if (form is null) return null;
                 var (rendered, companion) = new FormSerializer().Serialize(form, name);
-                return (rendered, companion is { Length: > 0 } ? FrxDeserializer.Read(companion) : null);
+                return (rendered, companion is { Length: > 0 } ? FrxDeserializer.Read(companion, rendered) : null);
             }
 
             string? first, second;

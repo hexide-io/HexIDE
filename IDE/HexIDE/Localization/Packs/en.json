@@ -565,6 +565,7 @@
     "Str.PropDesc.MouseIcon": "A custom image used for the mouse pointer.",
     "Str.PropDesc.DragIcon": "The image shown while the control is being dragged.",
     "Str.PropDesc.Stretch": "Whether the picture is scaled to fit the control, rather than the control sized to the picture.",
+    "Str.PropDesc.ItemData": "Per-item numeric values stored alongside a list control's items.",
     "Str.PropDesc.OleObjectBlob": "Binary data for an embedded OLE object.",
     "Str.PropDesc.Interval": "The delay, in milliseconds, between a Timer control's events.",
     "Str.PropDesc.Text": "The text held by the control.",

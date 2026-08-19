@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using HexIDE.Runtime.Serialization;
 
 namespace HexIDE.Runtime.BuiltinControls;
 
@@ -71,7 +72,12 @@ public class VBImage : Control
         decoded = null;
         try
         {
-            var offset = StdPictureHeaderLength(bytes);
+            // Two layers to step over, in order: the .frx record's own framing, then the StdPicture
+            // preamble inside it. The bytes are held as the record verbatim so the writer can put them
+            // back untouched, which means a reader has to peel both.
+            var offset = FrxDeserializer.PayloadOffset(bytes);
+            offset += StdPictureHeaderLength(bytes, offset);
+            if (offset >= bytes.Length) return null;
             using var stream = new MemoryStream(bytes, offset, bytes.Length - offset, writable: false);
             decoded = new Bitmap(stream);
         }
@@ -86,11 +92,11 @@ public class VBImage : Control
     /// <summary>
     /// How many bytes to skip before the image itself: 8 for a StdPicture stream, 0 for anything else.
     /// </summary>
-    internal static int StdPictureHeaderLength(byte[] bytes)
+    internal static int StdPictureHeaderLength(byte[] bytes, int from = 0)
     {
         const uint StdPicturePreamble = 0x0000746C;
-        if (bytes.Length < 8) return 0;
-        var preamble = (uint)(bytes[0] | (bytes[1] << 8) | (bytes[2] << 16) | (bytes[3] << 24));
+        if (bytes.Length - from < 8) return 0;
+        var preamble = (uint)(bytes[from] | (bytes[from + 1] << 8) | (bytes[from + 2] << 16) | (bytes[from + 3] << 24));
         return preamble == StdPicturePreamble ? 8 : 0;
     }
 

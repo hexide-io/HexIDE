@@ -514,6 +514,7 @@
     "Str.PropDesc.MouseIcon": "Une image personnalisée utilisée pour le pointeur de la souris.",
     "Str.PropDesc.DragIcon": "L'image affichée pendant le glissement du contrôle.",
     "Str.PropDesc.Stretch": "Si l'image est mise à l'échelle du contrôle, plutôt que le contrôle dimensionné selon l'image.",
+    "Str.PropDesc.ItemData": "Valeurs numériques par élément, stockées avec les éléments du contrôle de liste.",
     "Str.PropDesc.OleObjectBlob": "Les données binaires d'un objet OLE incorporé.",
     "Str.PropDesc.Interval": "Le délai, en millisecondes, entre les événements d'un contrôle Timer.",
     "Str.PropDesc.Text": "Le texte contenu dans le contrôle.",

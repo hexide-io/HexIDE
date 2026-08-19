@@ -276,7 +276,7 @@ public class ProjectService : IProjectService
                 {
                     var (moduleSource, moduleBytes) = await Vb6TextFile.ReadWithBytesAsync(moduleAbsolutePath);
                     baselineStore.Record(moduleAbsolutePath, moduleBytes);
-                    var ctxBlobs = await LoadCompanionBlobs(moduleAbsolutePath);
+                    var ctxBlobs = await LoadCompanionBlobs(moduleAbsolutePath, moduleSource);
                     var formPart = formDeserializer.Deserialize(project, moduleSource, errorSink, ctxBlobs);
                     if (formPart != null)
                     {
@@ -321,10 +321,11 @@ public class ProjectService : IProjectService
                     continue;
                 }
 
-                var frxBlobs = await LoadCompanionBlobs(formAbsolutePath);
-
+                // Form text before companion: the .frm's cited offsets partition the .frx.
                 var (formSource, formBytes) = await Vb6TextFile.ReadWithBytesAsync(formAbsolutePath);
                 baselineStore.Record(formAbsolutePath, formBytes);
+
+                var frxBlobs = await LoadCompanionBlobs(formAbsolutePath, formSource);
                 var form = formDeserializer.Deserialize(project, formSource, errorSink, frxBlobs, userControlRegistry);
                 if (form != null)
                 {
@@ -362,7 +363,7 @@ public class ProjectService : IProjectService
                     module.UpdateCode(moduleBody);
                     if (moduleKind == ModuleKind.PropertyPage)
                     {
-                        var pgxBlobs = await LoadCompanionBlobs(moduleAbsolutePath);
+                        var pgxBlobs = await LoadCompanionBlobs(moduleAbsolutePath, moduleSource);
                         var formPart = formDeserializer.Deserialize(project, moduleSource, errorSink, pgxBlobs);
                         if (formPart != null)
                         {
@@ -501,17 +502,19 @@ public class ProjectService : IProjectService
         var formDeserializer = new FormDeserializer();
         var errorSink = new DeserializeErrorSink();
 
+        // The designer file is read FIRST: its cited offsets are what partition the companion, so the
+        // companion cannot be parsed without it. See FrxDeserializer.
+        var (source, sourceBytes) = await Vb6TextFile.ReadWithBytesAsync(path);
+        baselineStore.Record(path, sourceBytes);
+
         IReadOnlyDictionary<int, byte[]>? frxBlobs = null;
         var frxPath = Path.ChangeExtension(path, ".frx");
         if (File.Exists(frxPath))
         {
             var frxBytes = await File.ReadAllBytesAsync(frxPath);
             baselineStore.Record(frxPath, frxBytes);
-            frxBlobs = FrxDeserializer.Read(frxBytes);
+            frxBlobs = FrxDeserializer.Read(frxBytes, source);
         }
-
-        var (source, sourceBytes) = await Vb6TextFile.ReadWithBytesAsync(path);
-        baselineStore.Record(path, sourceBytes);
 
         var fresh = formDeserializer.Deserialize(project, source, errorSink, frxBlobs, BuildUserControlRegistry(project));
         if (fresh is null)
@@ -544,7 +547,7 @@ public class ProjectService : IProjectService
         {
             var formDeserializer = new FormDeserializer();
             var errorSink = new DeserializeErrorSink();
-            var blobs = await LoadCompanionBlobs(path);
+            var blobs = await LoadCompanionBlobs(path, source);
             var fresh = formDeserializer.Deserialize(module.Owner, source, errorSink, blobs);
             if (fresh != null)
             {
@@ -992,7 +995,13 @@ public class ProjectService : IProjectService
     /// Always route companion reads through here — hardcoding ".frx" silently drops UserControl and
     /// PropertyPage resources, and the save path then deletes the companion it never read.
     /// </summary>
-    private async Task<IReadOnlyDictionary<int, byte[]>?> LoadCompanionBlobs(string sourceFilePath)
+    /// <param name="citingSource">
+    /// The designer file's text. Its cited offsets are what partition the companion into records, so
+    /// omitting it falls back to walking the file as length-prefixed blobs — which cannot see a
+    /// <c>List</c>/<c>ItemData</c> record at all. Pass it wherever it is to hand.
+    /// </param>
+    private async Task<IReadOnlyDictionary<int, byte[]>?> LoadCompanionBlobs(
+        string sourceFilePath, string? citingSource = null)
     {
         var companionPath = Path.ChangeExtension(sourceFilePath, CompanionBinaryExtension(sourceFilePath));
         if (!File.Exists(companionPath))
@@ -1000,7 +1009,9 @@ public class ProjectService : IProjectService
 
         var bytes = await File.ReadAllBytesAsync(companionPath);
         baselineStore.Record(companionPath, bytes);
-        return FrxDeserializer.Read(bytes);
+        return citingSource is null
+            ? FrxDeserializer.Read(bytes)
+            : FrxDeserializer.Read(bytes, citingSource);
     }
 
     // Instance (not static) so each atomic write records a baseline. Recording the just-written

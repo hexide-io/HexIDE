@@ -514,6 +514,7 @@
     "Str.PropDesc.MouseIcon": "En egen bild som används för muspekaren.",
     "Str.PropDesc.DragIcon": "Bilden som visas när kontrollen dras.",
     "Str.PropDesc.Stretch": "Om bilden skalas för att passa kontrollen, i stället för att kontrollen anpassas till bilden.",
+    "Str.PropDesc.ItemData": "Numeriska värden per objekt som lagras tillsammans med listkontrollens objekt.",
     "Str.PropDesc.OleObjectBlob": "Binärdata för ett inbäddat OLE-objekt.",
     "Str.PropDesc.Interval": "Fördröjningen i millisekunder mellan en Timer-kontrolls händelser.",
     "Str.PropDesc.Text": "Texten som kontrollen innehåller.",
