@@ -88,15 +88,44 @@ public class VBShape : Control
             BackStyleProperty);
     }
 
+    /// <summary>
+    /// The dash pattern for a border style, or null for the two that draw a continuous line.
+    ///
+    /// NOT oracle-verified: the patterns are GDI's documented pen styles, and matching VB6's exact dash
+    /// lengths would need a pixel comparison against a running VB6 form rather than a `/make`. What IS
+    /// verified is the value-to-name mapping, which comes from VB6's own comments in the corpus. VB6 also
+    /// collapses styles 2-5 to solid when BorderWidth is greater than 1, a GDI limitation that is
+    /// deliberately not reproduced here — it is a limitation rather than an intent.
+    /// </summary>
+    private static IDashStyle? DashStyleFor(BorderStyles style) => style switch
+    {
+        BorderStyles.Dash => new DashStyle([4, 2], 0),
+        BorderStyles.Dot => new DashStyle([1, 2], 0),
+        BorderStyles.DashDot => new DashStyle([4, 2, 1, 2], 0),
+        BorderStyles.DashDotDot => new DashStyle([4, 2, 1, 2, 1, 2], 0),
+        _ => null,
+    };
+
     public override void Render(DrawingContext context)
     {
         base.Render(context);
         IBrush? fillBrush = FillStyle == FillStyles.Solid ? FillColor.ToBrush() : null;
-        IPen? borderPen = BorderStyle == BorderStyles.Solid ? new Pen(BorderColor.ToBrush(), BorderWidth) : null;
-        var width = Bounds.Width - (BorderStyle == BorderStyles.Transparent ? 0 : BorderWidth);
-        var height = Bounds.Height - (BorderStyle == BorderStyles.Transparent ? 0 : BorderWidth);
-        var x = BorderStyle == BorderStyles.Solid ? BorderWidth / 2 : 0;
-        var y = BorderStyle == BorderStyles.Solid ? BorderWidth / 2 : 0;
+
+        // Every style but Transparent draws a border. This used to test for Solid alone, so the five
+        // patterned styles — which did not exist on the enum at all — drew nothing: a shape declaring
+        // `BorderStyle = 6  'Inside Solid` came out with no outline. About Dialog.frm is the corpus case.
+        var drawsABorder = BorderStyle != BorderStyles.Transparent;
+        IPen? borderPen = drawsABorder
+            ? new Pen(BorderColor.ToBrush(), BorderWidth, DashStyleFor(BorderStyle))
+            : null;
+
+        var width = Bounds.Width - (drawsABorder ? BorderWidth : 0);
+        var height = Bounds.Height - (drawsABorder ? BorderWidth : 0);
+        // Inside Solid draws the whole stroke within the shape's edge rather than centred on it, so it
+        // is not inset by half the pen the way the centred styles are.
+        var inset = BorderStyle is BorderStyles.Transparent or BorderStyles.InsideSolid ? 0 : BorderWidth / 2;
+        var x = inset;
+        var y = inset;
         var size = Math.Min(width, height);
 
         IReadOnlyList<Control>? visualBrush = null;
