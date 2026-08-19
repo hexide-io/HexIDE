@@ -441,7 +441,7 @@ public class FormDeserializer
                     errorSink.LogError($"Unknown binary-referencing property '{name}' in '{serializedComponent.Name}' cannot be preserved in phase 1 — deferred to binary round-trip phase.");
                     continue;
                 }
-                instance.UnknownRawPropertyLines.AddRange(rawLines);
+                instance.UnknownRawProperties.Add(new ComponentInstance.UnknownRawProperty(name, rawLines));
             }
 
             for (var i = 0; i < serializedComponent.SubComponents.Count; i++)
@@ -525,7 +525,10 @@ public class FormDeserializer
     {
         var indent = new string(' ', indentLevel * 3);
         var lines = new List<string>();
-        lines.Add($"{indent}Begin {component.Type} {component.Name}");
+        // Trailing space, as VB6 writes it. This line is REGENERATED rather than preserved — the block's
+        // property lines are replayed verbatim but its Begin and End are rebuilt at the right indent — so
+        // it is the one part of an unmodelled subtree that has to reproduce VB6's formatting itself.
+        lines.Add($"{indent}Begin {component.Type} {component.Name} ");
 
         foreach (var (_, rawLines) in component.OrderedRawProperties)
         {

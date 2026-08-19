@@ -2,6 +2,6 @@ namespace HexIDE.Runtime.BuiltinTypes;
 
 public enum VBBorder
 {
-    None = 0,
-    FixedSingle = 1
+    [Vb6Name("None")]         None = 0,
+    [Vb6Name("Fixed Single")] FixedSingle = 1
 }
