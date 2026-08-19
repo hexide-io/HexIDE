@@ -149,7 +149,7 @@ public class RootRectangleTests
 
         var saved = Save(Load(frm));
 
-        saved.Should().Contain("      Left =   240");
-        saved.Should().Contain("      Width =   1215");
+        saved.Should().Contain("      Left            =   240");
+        saved.Should().Contain("      Width           =   1215");
     }
 }

@@ -1,81 +1,83 @@
 VERSION 5.00
-Begin VB.Form frmBillOfFare
+Begin VB.Form frmBillOfFare 
    Caption         =   "Bill of Fare — a tour of VB6 menus"
    ClientHeight    =   2760
    ClientLeft      =   120
    ClientTop       =   420
    ClientWidth     =   6240
-   Begin VB.TextBox txtScratch
+   ScaleHeight     =   2760
+   ScaleWidth      =   6240
+   Begin VB.TextBox txtScratch 
       Height          =   375
       Left            =   240
       Text            =   "type here, then press Ctrl+S"
       Top             =   1080
       Width           =   3255
    End
-   Begin VB.Label lblChosen
+   Begin VB.Label lblChosen 
       Caption         =   "nothing chosen yet"
       Height          =   375
       Left            =   240
       Top             =   1800
       Width           =   5775
    End
-   Begin VB.Label lblPrompt
+   Begin VB.Label lblPrompt 
       Caption         =   "Open the File menu, or press Alt+F. Every item below reports itself here."
       Height          =   375
       Left            =   240
       Top             =   360
       Width           =   5775
    End
-   Begin VB.Menu mnuFile
+   Begin VB.Menu mnuFile 
       Caption         =   "&File"
-      Begin VB.Menu mnuFileNew
+      Begin VB.Menu mnuFileNew 
          Caption         =   "&New"
          Shortcut        =   ^N
       End
-      Begin VB.Menu mnuFileOpen
+      Begin VB.Menu mnuFileOpen 
          Caption         =   "&Open..."
          Shortcut        =   ^O
       End
-      Begin VB.Menu mnuFileBar1
+      Begin VB.Menu mnuFileBar1 
          Caption         =   "-"
       End
-      Begin VB.Menu mnuFileSave
+      Begin VB.Menu mnuFileSave 
          Caption         =   "&Save"
          Shortcut        =   ^S
       End
-      Begin VB.Menu mnuFileNotYet
+      Begin VB.Menu mnuFileNotYet 
          Caption         =   "Save &As..."
          Enabled         =   0   'False
       End
-      Begin VB.Menu mnuFileBar2
+      Begin VB.Menu mnuFileBar2 
          Caption         =   "-"
       End
-      Begin VB.Menu mnuFileExit
+      Begin VB.Menu mnuFileExit 
          Caption         =   "E&xit"
       End
    End
-   Begin VB.Menu mnuView
+   Begin VB.Menu mnuView 
       Caption         =   "&View"
-      Begin VB.Menu mnuViewZoom
+      Begin VB.Menu mnuViewZoom 
          Caption         =   "&Zoom"
-         Begin VB.Menu mnuViewZoomIn
+         Begin VB.Menu mnuViewZoomIn 
             Caption         =   "Zoom &In"
          End
-         Begin VB.Menu mnuViewZoomOut
+         Begin VB.Menu mnuViewZoomOut 
             Caption         =   "Zoom &Out"
          End
       End
-      Begin VB.Menu mnuViewBar1
+      Begin VB.Menu mnuViewBar1 
          Caption         =   "-"
       End
-      Begin VB.Menu mnuViewRefresh
+      Begin VB.Menu mnuViewRefresh 
          Caption         =   "&Refresh"
          Shortcut        =   {F5}
       End
    End
-   Begin VB.Menu mnuHelp
+   Begin VB.Menu mnuHelp 
       Caption         =   "&Help"
-      Begin VB.Menu mnuHelpAbout
+      Begin VB.Menu mnuHelpAbout 
          Caption         =   "&About Bill of Fare"
          Shortcut        =   {F1}
       End

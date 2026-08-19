@@ -273,7 +273,15 @@ public class SerializationCorpusTests
         // bound, so raising it weakens the gate rather than recording progress. (The comment here used to
         // say the opposite, which would have quietly disarmed the only thing stopping the round-trip
         // backlog growing.)
-        const int KnownVb6Failures = 22;
+        // 22 to 6, and the 6 are not a residue of the burndown — they are exactly the six forms
+        // `The_forms_held_read_only_are_exactly_the_expected_set` lists, every one held for companion
+        // binary content HexIDE cannot re-emit. So every VB6-authored form HexIDE is WILLING to save now
+        // round-trips byte for byte, and the ones that do not are the ones it refuses.
+        //
+        // That makes this number and that set two views of one thing from here on: a form leaving the
+        // read-only set without arriving here means the binary work landed, and a form arriving here
+        // without leaving that set means something in the writer regressed.
+        const int KnownVb6Failures = 6;
         vb6Failures.Should().BeLessThanOrEqualTo(KnownVb6Failures,
             $"VB6-authored round-trip regressed past the known baseline. Full report: {ReportPath}\n"
             + report.ToString());

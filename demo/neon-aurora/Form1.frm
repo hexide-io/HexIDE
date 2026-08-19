@@ -1,13 +1,13 @@
 VERSION 5.00
-Begin VB.Form Form1
-   Caption =   "Form1"
-   ClientWidth =   6000
-   ScaleWidth =   6000
-   ClientHeight =   4500
-   ScaleHeight =   4500
-   Begin VB.Timer Timer0
-      Left =   300
-      Top =   300
+Begin VB.Form Form1 
+   Caption         =   "Form1"
+   ClientHeight    =   4500
+   ClientWidth     =   6000
+   ScaleHeight     =   4500
+   ScaleWidth      =   6000
+   Begin VB.Timer Timer0 
+      Left            =   300
+      Top             =   300
    End
 End
 Option Explicit

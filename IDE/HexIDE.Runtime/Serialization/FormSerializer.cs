@@ -56,10 +56,15 @@ public class FormSerializer
 
         vb.Begin(element.RootVBTypeName, form.GetPropertyOrDefault(VBProperties.NameProperty)!);
 
+        // One sorted block for the root, spanning all three sources of its properties. They used to be
+        // written in the order they appear here, which is the order of three unrelated lists rather than
+        // any order VB6 has ever produced.
+        vb.BeginSortedProperties();
         WriteAllProperties(vb, form, frxName, offsetMap);
         if (element.LockControls)
             vb.WriteProperty("LockControls", typeof(bool), true);
         WriteFormMeasurements(vb, form, element.OuterRect, element.Scale);
+        vb.EndSortedProperties();
 
         // A menu nests through SubItems, a control through ContainedControls. One helper, so the writer has
         // a single notion of "this component's children" without the two mechanisms being merged: probing
@@ -141,7 +146,9 @@ public class FormSerializer
                   + "component claimed by two parents. Refusing to write a corrupted .frm.");
 
             vb.Begin(component.BaseClass.VBTypeName, component.GetPropertyOrDefault(VBProperties.NameProperty)!);
+            vb.BeginSortedProperties();
             WriteAllProperties(vb, component, frxName, offsetMap);
+            vb.EndSortedProperties();
             WriteChildren(component, ChildrenOf(component));
             vb.End();
         }
@@ -307,12 +314,19 @@ public class FormSerializer
             {
                 if (instance.TryGetBoxedProperty(prop, out var boxedValue))
                 {
-                    vb.WriteProperty(prop.Name, prop.PropertyType, boxedValue);
+                    // Enums carry VB6's own name for the value as a trailing comment. Vb6EnumNames returns
+                    // null for anything it cannot name — an unattributed member, or a number outside the
+                    // enum, which a designer file may perfectly well contain — and the writer then emits a
+                    // bare value. A missing comment is a difference; a wrong one is a lie.
+                    vb.WriteProperty(prop.Name, prop.PropertyType, boxedValue, Vb6EnumNames.For(boxedValue));
                 }
             }
         }
 
-        foreach (var line in instance.UnknownRawPropertyLines)
-            vb.WriteVerbatimLine(line);
+        // Under their own names, so a preserved property sorts among the modelled ones instead of being
+        // appended after them. VB6 has no notion of "the ones HexIDE understood" — it writes one
+        // alphabetical run.
+        foreach (var raw in instance.UnknownRawProperties)
+            vb.WriteVerbatimProperty(raw.Name, raw.Lines);
     }
 }
