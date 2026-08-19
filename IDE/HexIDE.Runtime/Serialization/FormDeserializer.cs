@@ -198,6 +198,12 @@ public class FormDeserializer
             var rootClientRect = new Dictionary<string, double>(StringComparer.Ordinal);
             var rootOuterRect = new Dictionary<string, double>(StringComparer.Ordinal);
 
+            // The root's declared scale, likewise gathered as the properties go past. ScaleMode defaults to
+            // Twip when the file omits it, which is what VB6 omitting a default-valued property means.
+            int? rootScaleMode = null;
+            double? rootScaleWidth = null;
+            double? rootScaleHeight = null;
+
             foreach (var serializedProperty in serializedComponent.Properties)
             {
                 var propertyName = serializedProperty.Key;
@@ -231,13 +237,30 @@ public class FormDeserializer
                         rootOuterRect[propertyName] = outerTwips;
                     continue;
                 }
-                // Scale* is skipped on the ROOT only, where the writer regenerates it from the form's own
-                // Width/Height. On a container it is content: ScaleMode is already preserved verbatim
-                // (it is not in SpecialCasedPropertyNames), so dropping Scale* wrote back a container
-                // declaring a user-defined scale with no scale — and a container's scale is exactly what
-                // gives its VB.Line children their units. Falling through preserves the lines verbatim.
+                // ScaleMode is captured but NOT consumed: it falls through to be preserved as a raw line,
+                // comment and all, exactly as before. Capturing it here is only so the writer can tell
+                // what units the Scale* pair beside it is in.
+                if (propertyName == "ScaleMode" && parent is null && TryReadNumber(serializedProperty.Value, out var mode))
+                    rootScaleMode = (int)mode;
+
+                // Scale* is taken off the ROOT only. On a container it is content: ScaleMode is preserved
+                // verbatim (it is not in SpecialCasedPropertyNames), so dropping Scale* wrote back a
+                // container declaring a user-defined scale with no scale — and a container's scale is
+                // exactly what gives its VB.Line children their units. Falling through preserves those.
+                //
+                // On the root the pair is recorded rather than dropped. The writer used to regenerate it
+                // from the form's own width and height in twips regardless of the declared ScaleMode,
+                // which is right only when that mode IS twips; and it cannot be derived at all under a
+                // user scale, where the numbers are a coordinate system the developer chose.
                 if ((propertyName == "ScaleHeight" || propertyName == "ScaleWidth") && parent is null)
+                {
+                    if (TryReadNumber(serializedProperty.Value, out var scale))
+                    {
+                        if (propertyName == "ScaleWidth") rootScaleWidth = scale;
+                        else rootScaleHeight = scale;
+                    }
                     continue;
+                }
 
                 // LockControls is a form-level metadata flag, not a component property.
                 if (propertyName == "LockControls" && componentClass is FormComponentClass)
@@ -398,6 +421,10 @@ public class FormDeserializer
                 form.OuterRect = new RootOuterRect(
                     Offset("Left"), Offset("Top"), Offset("Width"), Offset("Height"));
             }
+
+            if (parent is null && (rootScaleMode is not null || rootScaleWidth is not null || rootScaleHeight is not null))
+                form.Scale = new RootScale(
+                    rootScaleMode ?? (int)VBScaleMode.Twip, rootScaleWidth, rootScaleHeight);
 
             // Collect unknown raw property lines for round-trip preservation
             var knownNames = BuildKnownPropertyNames(componentClass, includeFormLevelNames: parent is null);

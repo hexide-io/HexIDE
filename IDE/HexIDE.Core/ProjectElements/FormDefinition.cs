@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 
 namespace HexIDE.Runtime.ProjectElements;
@@ -174,6 +175,24 @@ public partial class FormDefinition : INotifyPropertyChanged
     public RootOuterRect? OuterRect { get; set; }
 
     /// <summary>
+    /// The designer root's coordinate scale, as its file declared it. Null when the file declared none.
+    ///
+    /// <c>ScaleWidth</c>/<c>ScaleHeight</c> are expressed in <c>ScaleMode</c>'s units, so they are not the
+    /// client rectangle unless that mode happens to be twips. The writer used to copy the client width
+    /// straight into <c>ScaleWidth</c> and leave <c>ScaleMode</c> alone, which put the declared scale and
+    /// its own numbers a factor of fifteen apart on <c>Colorful Control.ctl</c> — <c>ScaleMode = 3 'Pixel</c>
+    /// beside a <c>ScaleWidth</c> in twips.
+    ///
+    /// For every mode but <see cref="VBScaleMode.User"/> the pair is DERIVED from the client rectangle, so
+    /// resizing the form keeps it correct. Twenty of the twenty-two designer files in VB6's Template tree
+    /// derive exactly. The other two — <c>About Dialog.frm</c> and <c>Log in Dialog.frm</c> — declare
+    /// <c>ScaleMode = 0 'User</c>, where the pair is a coordinate system the developer chose
+    /// (<c>ScaleHeight = 2453.724</c> against a <c>ClientHeight</c> of 3555) and nothing can derive it.
+    /// Those are preserved as read, which is also proof that VB6 does not recompute them on save.
+    /// </summary>
+    public RootScale? Scale { get; set; }
+
+    /// <summary>
     /// Replaces this form's reproduction verdict, and the state it was derived from, with a freshly-parsed
     /// one. For the reload path, where the file on disk has changed underneath an open form.
     ///
@@ -194,6 +213,7 @@ public partial class FormDefinition : INotifyPropertyChanged
         HasUnmodelledBinaryProperties = fresh.HasUnmodelledBinaryProperties;
         LoadedCompanionBlobCount = fresh.LoadedCompanionBlobCount;
         OuterRect = fresh.OuterRect;
+        Scale = fresh.Scale;
 
         // The OCX declarations between VERSION and the root Begin. Not fidelity as such, but read from the
         // same file and just as stale: keeping the old ones would write another file's Object= lines back.
@@ -282,3 +302,15 @@ public sealed record RootOuterRect(
     double TopOffsetTwips,
     double WidthOffsetTwips,
     double HeightOffsetTwips);
+
+/// <summary>
+/// A designer root's declared coordinate scale. See <see cref="FormDefinition.Scale"/>.
+///
+/// <paramref name="Mode"/> is the raw number from the file rather than a <see cref="VBScaleMode"/>,
+/// because ScaleMode is not a modelled property — it survives as a preserved raw line, comment and all,
+/// and a value outside the enum is input to be carried rather than input to be rejected.
+///
+/// <paramref name="Width"/> and <paramref name="Height"/> are null when the file declared no Scale* pair,
+/// which is what tells the writer it has nothing to preserve for a user scale.
+/// </summary>
+public sealed record RootScale(int Mode, double? Width, double? Height);

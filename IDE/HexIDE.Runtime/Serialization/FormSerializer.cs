@@ -59,7 +59,7 @@ public class FormSerializer
         WriteAllProperties(vb, form, frxName, offsetMap);
         if (element.LockControls)
             vb.WriteProperty("LockControls", typeof(bool), true);
-        WriteFormMeasurements(vb, form, element.OuterRect);
+        WriteFormMeasurements(vb, form, element.OuterRect, element.Scale);
 
         // A menu nests through SubItems, a control through ContainedControls. One helper, so the writer has
         // a single notion of "this component's children" without the two mechanisms being merged: probing
@@ -205,17 +205,33 @@ public class FormSerializer
     /// recorded; deriving one would mean claiming to know a window frame that belongs to whichever
     /// machine next opens the form.
     /// </summary>
-    private void WriteFormMeasurements(VbFrmFormatSerializer vb, ComponentInstance form, RootOuterRect? outerRect)
+    private void WriteFormMeasurements(VbFrmFormatSerializer vb, ComponentInstance form,
+        RootOuterRect? outerRect, RootScale? scale)
     {
+        // ScaleWidth/ScaleHeight are in ScaleMode's units, not in twips. Deriving from the client
+        // rectangle is what keeps them right across a resize, and it reproduces twenty of VB6's own
+        // twenty-two designer files exactly. The two it cannot are the ones declaring ScaleMode = 0 'User,
+        // where the pair is a coordinate system the developer chose rather than a measurement — those are
+        // written back as they were read, which is what VB6 itself does with them.
+        var scaleMode = (VBScaleMode)(scale?.Mode ?? (int)VBScaleMode.Twip);
+        var isUserScale = scaleMode == VBScaleMode.User;
+        var (horizontalTwipsPerUnit, verticalTwipsPerUnit) = scaleMode.TwipsPerUnit();
+
         if (form.TryGetProperty(VBProperties.WidthProperty, out var width))
         {
             vb.WriteProperty("ClientWidth", VBProperties.WidthProperty.PropertyType, ToTwips(width));
-            vb.WriteProperty("ScaleWidth", VBProperties.WidthProperty.PropertyType, ToTwips(width));
+            var scaleWidth = isUserScale && scale?.Width is { } declared
+                ? declared
+                : Math.Round(ToTwips(width) / horizontalTwipsPerUnit, 6);
+            vb.WriteProperty("ScaleWidth", VBProperties.WidthProperty.PropertyType, scaleWidth);
         }
         if (form.TryGetProperty(VBProperties.HeightProperty, out var height))
         {
             vb.WriteProperty("ClientHeight", VBProperties.HeightProperty.PropertyType, ToTwips(height));
-            vb.WriteProperty("ScaleHeight", VBProperties.HeightProperty.PropertyType, ToTwips(height));
+            var scaleHeight = isUserScale && scale?.Height is { } declared
+                ? declared
+                : Math.Round(ToTwips(height) / verticalTwipsPerUnit, 6);
+            vb.WriteProperty("ScaleHeight", VBProperties.HeightProperty.PropertyType, scaleHeight);
         }
         if (form.TryGetProperty(VBProperties.TopProperty, out var top))
         {
