@@ -10,7 +10,6 @@ namespace HexIDE.Runtime.Tests;
 /// </summary>
 public class ImmediateEvalTests : BaseVBTestFixture
 {
-    private static readonly TimeSpan Guard = TimeSpan.FromSeconds(15);
 
     private static Task<StoppedInfo> NextStop(DebugController dbg)
     {
@@ -30,7 +29,7 @@ public class ImmediateEvalTests : BaseVBTestFixture
         dbg.SetBreakpoints("Module1", new[] { 7 });
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
         return (vb, dbg, run);
     }
 
@@ -47,7 +46,7 @@ public class ImmediateEvalTests : BaseVBTestFixture
         (await dbg.EvaluateAsync("Print greeting & \"!\"")).Should().Be("Ada!");   // Print prefix + concat
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -59,7 +58,7 @@ public class ImmediateEvalTests : BaseVBTestFixture
         result.Should().Contain("Immediate");   // "...not available in the Immediate window."
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -70,7 +69,7 @@ public class ImmediateEvalTests : BaseVBTestFixture
         (await dbg.EvaluateAsync("?count +")).Should().Be("Syntax error");
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -85,7 +84,7 @@ public class ImmediateEvalTests : BaseVBTestFixture
         dbg.SetBreakpoints("Module1", new[] { 6 });
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         (await dbg.EvaluateAsync("?s.Health")).Should().Be("100");                  // field read — not a call
         (await dbg.EvaluateAsync("?s")).Should().Be("Ship");                        // object -> class name
@@ -94,7 +93,7 @@ public class ImmediateEvalTests : BaseVBTestFixture
         (await dbg.EvaluateAsync("?New Ship")).Should().Contain("Immediate");       // NEW rejected
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -102,7 +101,7 @@ public class ImmediateEvalTests : BaseVBTestFixture
     {
         var (vb, dbg) = NewDebuggable("Debug.Print 1\n", "Module1");
         (await dbg.EvaluateAsync("?1")).Should().BeNull();   // never started
-        await vb.Execute().WaitAsync(Guard);
+        await vb.Execute().Guarded();
         (await dbg.EvaluateAsync("?1")).Should().BeNull();   // finished, not paused
     }
 }

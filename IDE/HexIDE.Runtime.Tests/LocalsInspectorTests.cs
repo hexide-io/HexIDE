@@ -10,7 +10,6 @@ namespace HexIDE.Runtime.Tests;
 /// </summary>
 public class LocalsInspectorTests : BaseVBTestFixture
 {
-    private static readonly TimeSpan Guard = TimeSpan.FromSeconds(15);   // generous — avoid false timeouts under full-suite parallel load
 
     private static Task<StoppedInfo> NextStop(DebugController dbg)
     {
@@ -35,7 +34,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         var scope = dbg.GetLocals();
         scope.Should().NotBeNull();
@@ -51,7 +50,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
         s.TypeName.Should().Be("String");
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -59,7 +58,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
     {
         var (vb, dbg) = NewDebuggable("Debug.Print 1\n", "Module1");
         dbg.GetLocals().Should().BeNull();   // never started
-        await vb.Execute().WaitAsync(Guard);
+        await vb.Execute().Guarded();
         dbg.GetLocals().Should().BeNull();   // finished, not paused
     }
 
@@ -73,7 +72,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         var scope = dbg.GetLocals();
         scope!.Context.Should().Be("C.Work");
@@ -87,7 +86,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
         Child(me, "my").Value.Should().Be("\"\"");   // default empty string, quoted
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -100,7 +99,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         var p = Child(dbg.GetLocals()!, "p");
         p.TypeName.Should().Be("TPoint");
@@ -109,7 +108,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
         Child(p, "Y").Value.Should().Be("0");   // unset field defaults to 0
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -121,7 +120,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         var a = Child(dbg.GetLocals()!, "a()");
         a.TypeName.Should().Be("Integer()");
@@ -132,7 +131,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
         elems.Select(e => e.Value).Should().Equal("10", "20", "0");
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -147,7 +146,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         var a = Child(dbg.GetLocals()!, "a");
         a.HasChildren.Should().BeTrue();
@@ -156,7 +155,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
         other.HasChildren.Should().BeFalse();   // cycle back to `a` — shown as a leaf, not expanded
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -170,14 +169,14 @@ public class LocalsInspectorTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         var scope = dbg.GetLocals()!;
         scope.Locals.Single(n => n.Name == "G").Value.Should().Be("5");   // the local, at proc level
         Child(scope.Locals.Single(n => n.Name == "Me"), "G").Value.Should().Be("100");   // the module var, under root
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -191,14 +190,14 @@ public class LocalsInspectorTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         var a = dbg.GetLocals()!.Locals.Single(n => n.Name == "a()");
         a.HasChildren.Should().BeFalse();
         a.Expand().Should().BeEmpty();   // and even if forced, no throw
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -212,14 +211,14 @@ public class LocalsInspectorTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         var c = dbg.GetLocals()!.Locals.Single(n => n.Name == "c");
         c.TypeName.Should().Be("EmptyC");
         c.HasChildren.Should().BeFalse();
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -233,14 +232,14 @@ public class LocalsInspectorTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         var scope = dbg.GetLocals()!;
         scope.Locals.Single(n => n.Name == "X").Value.Should().Be("42");        // the aliased param, at proc level
         Child(scope.Locals.Single(n => n.Name == "Me"), "G").Value.Should().Be("42");   // the module var, under root
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -253,14 +252,14 @@ public class LocalsInspectorTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         var scope = dbg.GetLocals()!;
         scope.Locals.Where(n => n.Name == "A").Should().BeEmpty();   // NOT a top-level local
         Child(scope.Locals.Single(n => n.Name == "Me"), "A").Value.Should().Be("7");
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -273,14 +272,14 @@ public class LocalsInspectorTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         var scope = dbg.GetLocals()!;
         scope.Context.Should().Be("Module1.Calc");
         scope.Locals.Single(n => n.Name == "Calc").Value.Should().Be("9");
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -294,7 +293,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         var o = Child(dbg.GetLocals()!, "o");
         o.TypeName.Should().Be("Outer");
@@ -305,7 +304,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
         Child(p, "X").Value.Should().Be("5");   // two levels deep
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -318,7 +317,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         var arr = Child(dbg.GetLocals()!, "arr()");
         arr.HasChildren.Should().BeTrue();
@@ -329,7 +328,7 @@ public class LocalsInspectorTests : BaseVBTestFixture
         Child(arr, "arr(2)").HasChildren.Should().BeFalse();
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -344,13 +343,13 @@ public class LocalsInspectorTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         var scope = dbg.GetLocals()!;
         Child(Child(scope, "a"), "V").Value.Should().Be("5");
         Child(Child(scope, "b"), "V").Value.Should().Be("5");   // shared, still expands
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 }

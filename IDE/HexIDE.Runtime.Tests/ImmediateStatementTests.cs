@@ -11,7 +11,6 @@ namespace HexIDE.Runtime.Tests;
 /// </summary>
 public class ImmediateStatementTests : BaseVBTestFixture
 {
-    private static readonly TimeSpan Guard = TimeSpan.FromSeconds(15);
 
     private static Task<StoppedInfo> NextStop(DebugController dbg)
     {
@@ -30,7 +29,7 @@ public class ImmediateStatementTests : BaseVBTestFixture
         dbg.SetBreakpoints("Module1", new[] { 7 });
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
         return (vb, dbg, run);
     }
 
@@ -45,7 +44,7 @@ public class ImmediateStatementTests : BaseVBTestFixture
         (await dbg.EvaluateAsync("?greeting")).Should().Be("Bea");
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -57,7 +56,7 @@ public class ImmediateStatementTests : BaseVBTestFixture
         (await dbg.EvaluateAsync("?count")).Should().Be("50");
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -70,7 +69,7 @@ public class ImmediateStatementTests : BaseVBTestFixture
         (await dbg.EvaluateAsync("?count")).Should().Be("42");   // unchanged
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -82,7 +81,7 @@ public class ImmediateStatementTests : BaseVBTestFixture
         (await dbg.EvaluateAsync("?count")).Should().Be("42");                        // not mutated
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -98,7 +97,7 @@ public class ImmediateStatementTests : BaseVBTestFixture
         debug.Should().BeEmpty();                                          // neither re-ran Go's body (line 7 not reached)
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -110,13 +109,13 @@ public class ImmediateStatementTests : BaseVBTestFixture
         dbg.SetBreakpoints("Module1", new[] { 6 });
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         (await dbg.EvaluateAsync("?s")).Should().Be("Ship");               // an object before
         (await dbg.EvaluateAsync("Set s = Nothing")).Should().BeEmpty();   // the Set statement executes
         (await dbg.EvaluateAsync("?s")).Should().Be("Nothing");            // now Nothing
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 }

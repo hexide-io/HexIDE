@@ -10,7 +10,6 @@ namespace HexIDE.Runtime.Tests;
 /// </summary>
 public class StepStackTests : BaseVBTestFixture
 {
-    private static readonly TimeSpan Guard = TimeSpan.FromSeconds(15);
 
     private static Task<StoppedInfo> NextStop(DebugController dbg)
     {
@@ -28,17 +27,17 @@ public class StepStackTests : BaseVBTestFixture
         dbg.SetBreakpoints("M", new[] { 5 });   // the `Helper` call line
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        (await stop.WaitAsync(Guard)).Line.Should().Be(5);
+        (await stop.Guarded()).Line.Should().Be(5);
 
         var next = NextStop(dbg);
         dbg.StepOver();
-        var info = await next.WaitAsync(Guard);
+        var info = await next.Guarded();
         info.Line.Should().Be(6);                       // AFTER the call, in Go — NOT inside Helper
         info.Reason.Should().Be(StopReason.Step);
         debug.Select(v => v.Value).Should().Contain(99);   // Helper ran to completion
 
         dbg.Continue();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -48,14 +47,14 @@ public class StepStackTests : BaseVBTestFixture
         dbg.SetBreakpoints("M", new[] { 2 });
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         var next = NextStop(dbg);
         dbg.StepOver();
-        (await next.WaitAsync(Guard)).Line.Should().Be(3);   // next statement, same frame
+        (await next.Guarded()).Line.Should().Be(3);   // next statement, same frame
 
         dbg.Continue();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -66,17 +65,17 @@ public class StepStackTests : BaseVBTestFixture
         dbg.SetBreakpoints("M", new[] { 8 });   // Debug.Print 2, inside Helper
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        (await stop.WaitAsync(Guard)).Line.Should().Be(8);
+        (await stop.Guarded()).Line.Should().Be(8);
         debug.Should().ContainSingle();   // only "1" has run so far
 
         var next = NextStop(dbg);
         dbg.StepOut();
-        var info = await next.WaitAsync(Guard);
+        var info = await next.Guarded();
         info.Line.Should().Be(4);          // back in Go, the statement after the Helper call
         debug.Select(v => v.Value).Should().Equal(1, 2, 3);   // Helper finished (2, 3 ran)
 
         dbg.Continue();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     // Regression (adversarial review, HIGH): with the old Max(1, ActivationStack.Count) depth clamp, the module
@@ -90,18 +89,18 @@ public class StepStackTests : BaseVBTestFixture
         dbg.SetBreakpoints("M", new[] { 1 });   // the top-level `Go` call
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         var next = NextStop(dbg);
         dbg.StepOver();
-        var info = await next.WaitAsync(Guard);
+        var info = await next.Guarded();
         info.Line.Should().Be(2);                          // back at top-level — NOT inside Go (line 4)
         info.Reason.Should().Be(StopReason.Step);
         debug.Select(v => v.Value).Should().Contain(1);    // Go ran to completion
         debug.Select(v => v.Value).Should().NotContain(5); // ...but the top-level continuation hasn't run yet
 
         dbg.Continue();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     // Regression (adversarial review, HIGH): with the old clamp, Step Out from a first-level proc (target depth 1)
@@ -115,17 +114,17 @@ public class StepStackTests : BaseVBTestFixture
         dbg.SetBreakpoints("M", new[] { 4 });   // Debug.Print 1, inside Go
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         var next = NextStop(dbg);
         dbg.StepOut();
-        var info = await next.WaitAsync(Guard);
+        var info = await next.Guarded();
         info.Line.Should().Be(2);                          // back at the top-level caller — NOT run to completion
         info.Reason.Should().Be(StopReason.Step);
         debug.Select(v => v.Value).Should().Equal(1, 2);   // Go finished; the top-level continuation (9) hasn't run
 
         dbg.Continue();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -136,7 +135,7 @@ public class StepStackTests : BaseVBTestFixture
         dbg.SetBreakpoints("M", new[] { 9 });   // inside C
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         var frames = dbg.GetCallStack();
         frames.Select(f => f.ProcName).Should().Equal("C", "B", "A");   // deepest (current) first
@@ -144,6 +143,6 @@ public class StepStackTests : BaseVBTestFixture
         frames.Should().OnlyContain(f => f.Module == "M");
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 }

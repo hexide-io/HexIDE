@@ -10,7 +10,6 @@ namespace HexIDE.Runtime.Tests;
 /// </summary>
 public class DebuggerTests : BaseVBTestFixture
 {
-    private static readonly TimeSpan Guard = TimeSpan.FromSeconds(15);   // generous — avoid false timeouts under full-suite parallel load (matches the other debugger test fixtures)
 
     // A task that completes when the controller next enters Break (one-shot).
     private static Task<StoppedInfo> NextStop(DebugController dbg)
@@ -29,7 +28,7 @@ public class DebuggerTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        var info = await stop.WaitAsync(Guard);
+        var info = await stop.Guarded();
 
         info.Line.Should().Be(2);
         info.Reason.Should().Be(StopReason.Breakpoint);
@@ -38,7 +37,7 @@ public class DebuggerTests : BaseVBTestFixture
         run.IsCompleted.Should().BeFalse();
 
         dbg.Continue();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
         dbg.State.Should().Be(DebugState.Running);
         AssertDebugLog(["a", "b", "c"]);
     }
@@ -47,7 +46,7 @@ public class DebuggerTests : BaseVBTestFixture
     public async Task NoBreakpoint_RunsToCompletion_NeverPauses()
     {
         var (vb, dbg) = NewDebuggable("Debug.Print \"x\"\nDebug.Print \"y\"\n", "M");
-        await vb.Execute().WaitAsync(Guard);
+        await vb.Execute().Guarded();
         dbg.State.Should().Be(DebugState.Running);   // never entered Break
         AssertDebugLog(["x", "y"]);
     }
@@ -59,14 +58,14 @@ public class DebuggerTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        var info = await stop.WaitAsync(Guard);
+        var info = await stop.Guarded();
 
         info.Reason.Should().Be(StopReason.StopStatement);
         info.Line.Should().Be(2);
         debug.Should().HaveCount(1);   // "before" only
 
         dbg.Continue();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
         AssertDebugLog(["before", "after"]);
     }
 
@@ -75,7 +74,7 @@ public class DebuggerTests : BaseVBTestFixture
     {
         // Run() uses a null controller — the compiled/standalone path. `Stop` ends the program (does NOT throw
         // NotImplementedException as before), so the statement after Stop never runs.
-        await Run("Debug.Print \"before\"\nStop\nDebug.Print \"after\"\n").WaitAsync(Guard);
+        await Run("Debug.Print \"before\"\nStop\nDebug.Print \"after\"\n").Guarded();
         AssertDebugLog(["before"]);
     }
 
@@ -93,11 +92,11 @@ public class DebuggerTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        var info = await stop.WaitAsync(Guard);
+        var info = await stop.Guarded();
         info.Line.Should().Be(6);
 
         dbg.Stop();
-        await run.WaitAsync(Guard);   // StopExecutionSignal unwinds cleanly and is swallowed
+        await run.Guarded();   // StopExecutionSignal unwinds cleanly and is swallowed
         // Nothing printed: "in-go" was never reached, the reset skipped "top-after", and NO "TERMINATE" fired.
         AssertDebugLog([]);
     }
@@ -112,12 +111,12 @@ public class DebuggerTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        var info = await stop.WaitAsync(Guard);
+        var info = await stop.Guarded();
         info.Line.Should().Be(3);
         debug.Should().HaveCount(1);   // "a" ran, break before "b"
 
         dbg.Continue();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
         AssertDebugLog(["a", "b"]);
     }
 
@@ -132,15 +131,15 @@ public class DebuggerTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
         debug.Should().HaveCount(1);   // "main1"
 
         var other = vb.ExecuteSub("Other");   // fires while paused → frozen at its first gate (before printing)
         other.IsCompleted.Should().BeFalse();  // can't complete while frozen on the resume gate
 
         dbg.Continue();
-        await run.WaitAsync(Guard);
-        await other.WaitAsync(Guard);
+        await run.Guarded();
+        await other.Guarded();
         debug.Select(v => v.Value?.ToString()).Should().Contain("other").And.Contain("main2");
     }
 
@@ -156,13 +155,13 @@ public class DebuggerTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
         debug.Should().HaveCount(1);   // "a" only
 
         dbg.Stop();     // End
         dbg.Reset();    // new run's fresh session, clearing _isAborting in the same turn
 
-        await run.WaitAsync(Guard);    // the stale walk unwinds via the session check
+        await run.Guarded();    // the stale walk unwinds via the session check
         debug.Should().HaveCount(1);   // "b"/"c" never ran — no resurrection
         debug.Select(v => v.Value?.ToString()).Should().NotContain("b").And.NotContain("c");
     }
@@ -177,12 +176,12 @@ public class DebuggerTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         var continued = false;
         dbg.Continued += () => continued = true;
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
 
         continued.Should().BeTrue();
     }
@@ -197,22 +196,22 @@ public class DebuggerTests : BaseVBTestFixture
 
         var s1 = NextStop(dbg);
         var run = vb.Execute();
-        var i1 = await s1.WaitAsync(Guard);
+        var i1 = await s1.Guarded();
         i1.Line.Should().Be(1);
         i1.Reason.Should().Be(StopReason.Step);
         debug.Should().BeEmpty();   // broke BEFORE line 1 ran
 
         var s2 = NextStop(dbg);
         dbg.StepInto();
-        (await s2.WaitAsync(Guard)).Line.Should().Be(2);
+        (await s2.Guarded()).Line.Should().Be(2);
         debug.Select(v => v.Value?.ToString()).Should().Equal("a");   // line 1 ran, break before line 2
 
         var s3 = NextStop(dbg);
         dbg.StepInto();
-        (await s3.WaitAsync(Guard)).Line.Should().Be(3);
+        (await s3.Guarded()).Line.Should().Be(3);
 
         dbg.Continue();   // F5 from a step break runs free
-        await run.WaitAsync(Guard);
+        await run.Guarded();
         AssertDebugLog(["a", "b", "c"]);
     }
 
@@ -226,18 +225,18 @@ public class DebuggerTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        (await stop.WaitAsync(Guard)).Line.Should().Be(2);
+        (await stop.Guarded()).Line.Should().Be(2);
         debug.Select(v => v.Value?.ToString()).Should().Equal("main-before");
 
         // Step Into the call → break at Foo's first body statement (line 5), not "main-after".
         var s2 = NextStop(dbg);
         dbg.StepInto();
-        var inFoo = await s2.WaitAsync(Guard);
+        var inFoo = await s2.Guarded();
         inFoo.Line.Should().Be(5);
         inFoo.Reason.Should().Be(StopReason.Step);
 
         dbg.Continue();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
         AssertDebugLog(["main-before", "in-foo", "main-after"]);
     }
 
@@ -249,10 +248,10 @@ public class DebuggerTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);   // paused at line 1 (step)
+        await stop.Guarded();   // paused at line 1 (step)
 
         dbg.Continue();                // disarms step
-        await run.WaitAsync(Guard);
+        await run.Guarded();
         AssertDebugLog(["a", "b", "c"]);   // ran to completion, no further step break
     }
 
@@ -268,18 +267,18 @@ public class DebuggerTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);   // paused at line 1
+        await stop.Guarded();   // paused at line 1
 
         var other = vb.ExecuteSub("Other");   // newcomer fires while paused → frozen
         other.IsCompleted.Should().BeFalse();
 
-        var s2 = NextStop(dbg); dbg.StepInto(); (await s2.WaitAsync(Guard)).Line.Should().Be(2);
-        var s3 = NextStop(dbg); dbg.StepInto(); (await s3.WaitAsync(Guard)).Line.Should().Be(3);
+        var s2 = NextStop(dbg); dbg.StepInto(); (await s2.Guarded()).Line.Should().Be(2);
+        var s3 = NextStop(dbg); dbg.StepInto(); (await s3.Guarded()).Line.Should().Be(3);
         other.IsCompleted.Should().BeFalse();  // still frozen across the steps, not stolen or orphaned
 
         dbg.Continue();
-        await run.WaitAsync(Guard);
-        await other.WaitAsync(Guard);          // released + ran on Continue
+        await run.Guarded();
+        await other.Guarded();          // released + ran on Continue
         debug.Select(v => v.Value?.ToString()).Should().Contain("other");
     }
 
