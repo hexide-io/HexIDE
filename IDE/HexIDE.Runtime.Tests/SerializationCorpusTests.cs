@@ -281,7 +281,7 @@ public class SerializationCorpusTests
         // That makes this number and that set two views of one thing from here on: a form leaving the
         // read-only set without arriving here means the binary work landed, and a form arriving here
         // without leaving that set means something in the writer regressed.
-        const int KnownVb6Failures = 2;
+        const int KnownVb6Failures = 1;
         vb6Failures.Should().BeLessThanOrEqualTo(KnownVb6Failures,
             $"VB6-authored round-trip regressed past the known baseline. Full report: {ReportPath}\n"
             + report.ToString());
@@ -314,19 +314,24 @@ public class SerializationCorpusTests
         // it in the same run.
         //
         // What remains is four forms and three distinct causes:
-        //   ODBC Log In — ComboBox List/ItemData, which use the 2-byte-count record framing rather than the
-        //     4-byte length, and List is modelled as text rather than as a blob. The last one that can move.
-        //   Web Browser — six Pictures on an MSComctlLib.ImageList. That is an OCX, and hosting third-party
-        //     controls is the project's largest declared gap, so this one SHOULD stay refused. It is the
-        //     reason the ceiling for this corpus is 21 of 22 rather than 22, and a change that removes it
-        //     from here without ActiveX hosting behind it is a regression, not progress.
+        // ONE, and it is the floor. Web Browser's six Pictures sit on an MSComctlLib.ImageList — an OCX,
+        // and hosting third-party controls is the project's largest declared gap. This form SHOULD stay
+        // refused, so 21 of 22 is the ceiling for this corpus rather than a waypoint.
         //
-        // Treeview Listview Splitter and Splash Screen left together when VB.Image was modelled — their
-        // blobs sat on a control class HexIDE did not have, so the whole Begin block was preserved as raw
-        // text and the .frx reference stripped out with it.
+        // A change that empties this set without ActiveX hosting behind it is a REGRESSION, not progress:
+        // it means a form started saving that HexIDE still cannot reproduce. The pairing with
+        // KnownVb6Failures is what catches that — a form may only leave here by round-tripping.
+        //
+        // How the other five left, in order, because each one names a different kind of gap:
+        //   Button ListBox, Mover ListBox — the properties citing their blobs were not registered
+        //     (CommandButton.Picture, ListBox.DragIcon).
+        //   Treeview Listview Splitter, Splash Screen — the blob sat on a VB.Image, a control class that
+        //     did not exist, so the Begin block was preserved as raw text and the reference stripped.
+        //   ODBC Log In — the companion was parsed as a flat sequence of length-prefixed blobs, which
+        //     cannot see a 2-byte List/ItemData record; and the blobs were collected in declaration order
+        //     while the references were written alphabetically, so the two offsets came out swapped.
         var expected = new Dictionary<string, UnfaithfulSaveCause>
         {
-            ["ODBC Log In.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
             ["Web Browser.frm"] = UnfaithfulSaveCause.UnreproducibleBinaryContent,
         };
 

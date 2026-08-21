@@ -31,7 +31,13 @@ public class ComboBoxComponentClass : ComponentBaseClass
     {
         return new VBComboBox()
         {
-            ItemsSource = instance.GetPropertyOrDefault(ListProperty),
+            // No ItemsSource. List is the companion record verbatim, and turning it into items needs a
+            // non-empty example to decode against — every List record in VB6's Template tree is an empty
+            // two-byte count. Binding it directly would compile and be wrong: byte[] IS an IEnumerable, so
+            // a populated list would render as a column of raw byte values.
+            //
+            // This renders empty, exactly as it did before: nothing ever populated the old strings model
+            // from a file either.
             [AttachedProperties.BackColorProperty] = instance.GetPropertyOrDefault(BackColorProperty),
             [AttachedProperties.ForeColorProperty] = instance.GetPropertyOrDefault(ForeColorProperty),
             [AttachedProperties.FontProperty] = instance.GetPropertyOrDefault(FontProperty),

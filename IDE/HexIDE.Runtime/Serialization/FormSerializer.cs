@@ -24,11 +24,19 @@ public class FormSerializer
 
     private (string frmText, byte[]? frxContent) SerializeCore(FormDefinition element, string code, string formFileName)
     {
-        // Collect all byte[] blobs first so we can assign offsets
+        // Collect all byte[] blobs first so we can assign offsets.
+        //
+        // ORDERED BY NAME, because that is the order the references are written in and the two must agree:
+        // a record's offset is where it lands in the companion, and the .frm cites it. Collecting in the
+        // component class's declaration order instead put ODBC Log In's ComboBox records the wrong way
+        // round — ItemData at 0x000E and List at 0x000C, where VB6 has them at 0x000C and 0x000E.
+        //
+        // It only shows on a component carrying more than one blob, which is why it survived every earlier
+        // file: Button ListBox's five are spread across five controls.
         var blobs = new List<byte[]>();
         void CollectBlobs(ComponentInstance inst)
         {
-            foreach (var prop in inst.BaseClass.Properties)
+            foreach (var prop in inst.BaseClass.Properties.OrderBy(p => p.Name, StringComparer.Ordinal))
             {
                 if (prop.PropertyType == typeof(byte[]) && inst.TryGetBoxedProperty(prop, out var boxed) && boxed is byte[] blob)
                     blobs.Add(blob);
