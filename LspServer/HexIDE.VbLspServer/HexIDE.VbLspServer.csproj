@@ -44,4 +44,12 @@
     </Antlr4>
   </ItemGroup>
 
+
+  <ItemGroup>
+    <!-- The budget race in VbDiagnosticsProvider.RunWithin cannot be asserted through a real parse:
+         ANTLR caches its DFA, so warm and cold runs differ by orders of magnitude. The test supplies
+         work of a known duration instead. -->
+    <InternalsVisibleTo Include="HexIDE.VbLspServer.Tests" />
+  </ItemGroup>
+
 </Project>
