@@ -514,6 +514,7 @@
     "Str.PropDesc.MouseIcon": "Gambar kustom yang digunakan untuk penunjuk mouse.",
     "Str.PropDesc.DragIcon": "Gambar yang ditampilkan saat kontrol diseret.",
     "Str.PropDesc.Stretch": "Apakah gambar diskalakan agar pas dengan kontrol, alih-alih kontrol disesuaikan dengan gambar.",
+    "Str.PropDesc.ItemData": "Nilai numerik per item yang disimpan bersama item kontrol daftar.",
     "Str.PropDesc.OleObjectBlob": "Data biner untuk objek OLE yang disematkan.",
     "Str.PropDesc.Interval": "Jeda, dalam milidetik, antar peristiwa kontrol Timer.",
     "Str.PropDesc.Text": "Teks yang disimpan oleh kontrol.",

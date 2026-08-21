@@ -514,6 +514,7 @@
     "Str.PropDesc.MouseIcon": "マウスポインターに使用するカスタム画像。",
     "Str.PropDesc.DragIcon": "コントロールのドラッグ中に表示される画像。",
     "Str.PropDesc.Stretch": "コントロールに合わせて画像を拡大縮小するか、画像に合わせてコントロールのサイズを変えるか。",
+    "Str.PropDesc.ItemData": "リスト コントロールの各項目とともに格納される項目ごとの数値。",
     "Str.PropDesc.OleObjectBlob": "埋め込み OLE オブジェクトのバイナリデータ。",
     "Str.PropDesc.Interval": "Timer コントロールのイベント間隔（ミリ秒）。",
     "Str.PropDesc.Text": "コントロールが保持する文字列。",

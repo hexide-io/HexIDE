@@ -80,6 +80,16 @@ public static class VBProperties
     public static readonly PropertyClass<byte[]?> OleObjectBlobProperty = new PropertyClass<byte[]?>("OleObjectBlob",
         "Binary data for an embedded OLE object.", PropertyCategory.Misc);
 
+    /// <summary>
+    /// A ListBox or ComboBox's per-item Long values, held as the companion record cites them.
+    ///
+    /// A blob rather than a modelled list because the record framing is a two-byte count and no VB6-shipped
+    /// file has a non-empty one to learn the rest from. Kept verbatim so it survives a save; understanding
+    /// what is inside can wait for an example to check against.
+    /// </summary>
+    public static readonly PropertyClass<byte[]?> ItemDataProperty = new PropertyClass<byte[]?>("ItemData",
+        "Per-item numeric values stored alongside a list control's items.", PropertyCategory.Misc);
+
     public static PropertyClass<int> IntervalProperty = new PropertyClass<int>("Interval", "The delay, in milliseconds, between a Timer control's events.", PropertyCategory.Misc, defaultValue: 1000);
 
     public static readonly PropertyClass<string> TextProperty = new PropertyClass<string>("Text", "The text held by the control.", PropertyCategory.Misc, "");
