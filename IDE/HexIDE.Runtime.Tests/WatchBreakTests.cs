@@ -12,7 +12,6 @@ namespace HexIDE.Runtime.Tests;
 /// </summary>
 public class WatchBreakTests : BaseVBTestFixture
 {
-    private static readonly TimeSpan Guard = TimeSpan.FromSeconds(15);
 
     private static Task<StoppedInfo> NextStop(DebugController dbg)
     {
@@ -32,7 +31,7 @@ public class WatchBreakTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        var info = await stop.WaitAsync(Guard);
+        var info = await stop.Guarded();
 
         info.Reason.Should().Be(StopReason.Watch);
         info.Line.Should().Be(5);                                   // at the body, with i == 5
@@ -41,7 +40,7 @@ public class WatchBreakTests : BaseVBTestFixture
         // Clear the watch and run free to completion (level-triggered would otherwise re-break while i stays 5).
         dbg.SetWatchBreaks(Array.Empty<WatchBreakSpec>());
         dbg.Continue();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
         debug.Select(v => v.Value).Should().Contain(10);
     }
 
@@ -54,14 +53,14 @@ public class WatchBreakTests : BaseVBTestFixture
 
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        var info = await stop.WaitAsync(Guard);
+        var info = await stop.Guarded();
 
         info.Reason.Should().Be(StopReason.Watch);
         info.Line.Should().Be(5);   // x changed 0 -> 1 after line 4; break before line 5
 
         dbg.SetWatchBreaks(Array.Empty<WatchBreakSpec>());
         dbg.Continue();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]
@@ -72,7 +71,7 @@ public class WatchBreakTests : BaseVBTestFixture
         dbg.SetWatchBreaks(new[] { new WatchBreakSpec("i = 99", BreakOnChange: false) });
 
         var run = vb.Execute();
-        await run.WaitAsync(Guard);   // never breaks — completes
+        await run.Guarded();   // never breaks — completes
 
         debug.Select(v => v.Value).Should().Equal(1, 2, 3);
     }
