@@ -62,10 +62,39 @@ public static class VbDiagnosticsProvider
     /// objects) this does not race the caches. It MUST run off-thread: inline it would block the
     /// SingleThreadScheduler's one worker for the full parse regardless of the budget.
     /// </summary>
-    public static async Task<(List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree)?>
+    public static Task<(List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree)?>
         TryGetDiagnosticsAndTreeWithin(string source, TimeSpan budget)
+        => RunWithin(() => GetDiagnosticsAndTree(source), budget);
+
+    /// <summary>
+    /// The budget race itself, with the work passed in.
+    /// </summary>
+    /// <remarks>
+    /// Split out so it can be tested. Asserting this through a real parse cannot be made reliable: ANTLR
+    /// caches its DFA across parses, so the same input that takes many milliseconds cold takes well under
+    /// one warm — the outcome then depends on which tests ran before, and the test passes alone and fails
+    /// in a full-suite run. Both attempts at a wall-clock assertion here were flaky for that reason,
+    /// the second one written while fixing the first.
+    ///
+    /// A test supplies work whose duration it controls, and asserts the DECISION rather than the parser's
+    /// speed. That is the only part of this worth asserting — the parser being fast is not a defect.
+    /// </remarks>
+    internal static async Task<(List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree)?>
+        RunWithin(
+            Func<(List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree)> work,
+            TimeSpan budget)
     {
-        var parseTask = Task.Run(() => GetDiagnosticsAndTree(source), CancellationToken.None);
+        // A budget that has already expired can admit nothing, so say so before starting work rather than
+        // starting a parse and racing it against a delay that is complete before it begins.
+        //
+        // Without this, Task.WhenAny decides it — and WhenAny returns the first task it finds completed,
+        // scanning in ARGUMENT order. With both complete it picks the parse, so a zero budget admitted a
+        // fast parse whenever the thread pool happened to beat the await continuation. That is scheduling
+        // luck rather than a decision, and it is what made the zero-budget test intermittent.
+        if (budget <= TimeSpan.Zero)
+            return null;
+
+        var parseTask = Task.Run(work, CancellationToken.None);
 
         using var delayCts = new CancellationTokenSource();
         var delayTask = Task.Delay(budget, delayCts.Token);

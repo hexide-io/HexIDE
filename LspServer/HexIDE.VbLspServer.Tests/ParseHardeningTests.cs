@@ -54,14 +54,67 @@ public class ParseHardeningTests
     }
 
     [Fact]
-    public async Task Parse_exceeding_the_budget_returns_null_analysis_pending()
+    public async Task A_budget_that_has_already_expired_parses_nothing()
     {
-        // A zero budget: the already-completed delay wins the race before the off-thread parse can
-        // finish, so the backstop abandons it and returns null (the caller keeps prior state).
+        // Asserts the guard, not a race. This test used to hand a zero budget a two-line input and expect
+        // the already-complete delay to win — but Task.WhenAny returns the first task it finds COMPLETED,
+        // scanning in argument order, and the parse is argument zero. Parsing `Sub Foo()` is microseconds,
+        // so on an idle runner both were complete by the time WhenAny looked and the parse won the scan.
+        //
+        // It was therefore asserting "the thread pool was slower than the current thread" — true almost
+        // always, never by design, and a re-run away from green when it was not. The provider now answers
+        // a non-positive budget without starting work at all.
         var result = await VbDiagnosticsProvider.TryGetDiagnosticsAndTreeWithin(
             "Sub Foo()\nEnd Sub\n", TimeSpan.Zero);
 
         result.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Work_exceeding_the_budget_is_abandoned()
+    {
+        // The decision, with work whose duration this test controls — NOT a real parse.
+        //
+        // Two earlier versions of this test drove it through the parser and both were flaky. ANTLR caches
+        // its DFA across parses, so an input taking many milliseconds cold takes well under one warm; the
+        // outcome then depends on which tests ran before it, and the test passes alone while failing in a
+        // full-suite run. The second version was written while fixing the first, and reproduced it exactly
+        // — caught only by running the suite ten times rather than once.
+        //
+        // The parser being fast is not a defect, so its speed is not what is worth asserting here.
+        var started = new TaskCompletionSource();
+        var release = new TaskCompletionSource();
+
+        var result = await VbDiagnosticsProvider.RunWithin(
+            () =>
+            {
+                started.TrySetResult();
+                release.Task.Wait(TimeSpan.FromSeconds(30));
+                return (new List<LspDiagnostic>(), (VisualBasic6Parser.StartRuleContext?)null);
+            },
+            TimeSpan.FromMilliseconds(20));
+
+        result.Should().BeNull("work that outlasts the budget is abandoned, and the caller keeps whatever "
+                             + "diagnostics it already had");
+
+        // Let the orphan finish rather than leaving a blocked pool thread behind for the rest of the run.
+        await started.Task;
+        release.TrySetResult();
+    }
+
+    [Fact]
+    public async Task Work_inside_the_budget_is_returned()
+    {
+        // The other direction, and the reason the test above cannot stand alone: a RunWithin that returned
+        // null unconditionally would satisfy it. Instant work against a generous budget has no race in it.
+        var marker = new List<LspDiagnostic>();
+
+        var result = await VbDiagnosticsProvider.RunWithin(
+            () => (marker, (VisualBasic6Parser.StartRuleContext?)null),
+            TimeSpan.FromSeconds(30));
+
+        result.Should().NotBeNull();
+        result!.Value.Diagnostics.Should().BeSameAs(marker);
     }
 
     // ── parser depth guard (bug-hunt HIGH) ───────────────────────────────────────────────────────
