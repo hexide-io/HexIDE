@@ -10,7 +10,6 @@ namespace HexIDE.Runtime.Tests;
 /// </summary>
 public class WatchEvalTests : BaseVBTestFixture
 {
-    private static readonly TimeSpan Guard = TimeSpan.FromSeconds(15);
 
     private static Task<StoppedInfo> NextStop(DebugController dbg)
     {
@@ -29,7 +28,7 @@ public class WatchEvalTests : BaseVBTestFixture
         dbg.SetBreakpoints("Module1", new[] { 7 });
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
         return (dbg, run);
     }
 
@@ -51,7 +50,7 @@ public class WatchEvalTests : BaseVBTestFixture
         bad.Display.Should().NotBeNullOrEmpty();
 
         dbg.Stop();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
     }
 
     [Fact]

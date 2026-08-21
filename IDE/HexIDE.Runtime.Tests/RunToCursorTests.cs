@@ -10,7 +10,6 @@ namespace HexIDE.Runtime.Tests;
 /// </summary>
 public class RunToCursorTests : BaseVBTestFixture
 {
-    private static readonly TimeSpan Guard = TimeSpan.FromSeconds(15);
 
     private static Task<StoppedInfo> NextStop(DebugController dbg)
     {
@@ -28,21 +27,21 @@ public class RunToCursorTests : BaseVBTestFixture
         dbg.SetBreakpoints("M", new[] { 3 });
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        (await stop.WaitAsync(Guard)).Line.Should().Be(3);
+        (await stop.Guarded()).Line.Should().Be(3);
         debug.Should().BeEmpty();   // nothing printed yet
 
         // Run to line 6 (Debug.Print 4): lines 3,4,5 execute (print 1,2,3), break before line 6.
         var next = NextStop(dbg);
         dbg.RunToCursor("M", 6);
         dbg.Continue();
-        var info = await next.WaitAsync(Guard);
+        var info = await next.Guarded();
         info.Line.Should().Be(6);
         info.Reason.Should().Be(StopReason.Breakpoint);   // a temp breakpoint hit
         debug.Select(v => v.Value).Should().Equal(1, 2, 3);   // 4 not printed yet
 
         // Target cleared (one-shot): a plain Continue now runs to completion.
         dbg.Continue();
-        await run.WaitAsync(Guard);
+        await run.Guarded();
         debug.Select(v => v.Value).Should().Equal(1, 2, 3, 4);
     }
 
@@ -54,11 +53,11 @@ public class RunToCursorTests : BaseVBTestFixture
         dbg.SetBreakpoints("M", new[] { 3 });
         var stop = NextStop(dbg);
         var run = vb.Execute();
-        await stop.WaitAsync(Guard);
+        await stop.Guarded();
 
         dbg.RunToCursor("M", 99);   // no such line — never reached
         dbg.Continue();
-        await run.WaitAsync(Guard);   // completes, no second break
+        await run.Guarded();   // completes, no second break
         debug.Select(v => v.Value).Should().Equal(1, 2);
     }
 }
