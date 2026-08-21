@@ -14,6 +14,7 @@ public class ComboBoxComponentClass : ComponentBaseClass
         ForeColorProperty,
         BackColorProperty,
         ListProperty,
+        ItemDataProperty,
         LockedProperty,
         MousePointerProperty,
         RightToLeftProperty,

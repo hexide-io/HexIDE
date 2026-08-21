@@ -514,6 +514,7 @@
     "Str.PropDesc.MouseIcon": "Un'immagine personalizzata usata per il puntatore del mouse.",
     "Str.PropDesc.DragIcon": "L'immagine visualizzata durante il trascinamento del controllo.",
     "Str.PropDesc.Stretch": "Se l'immagine viene ridimensionata per adattarsi al controllo, anziché il controllo all'immagine.",
+    "Str.PropDesc.ItemData": "Valori numerici per elemento memorizzati insieme agli elementi del controllo elenco.",
     "Str.PropDesc.OleObjectBlob": "Dati binari per un oggetto OLE incorporato.",
     "Str.PropDesc.Interval": "Il ritardo, in millisecondi, tra gli eventi di un controllo Timer.",
     "Str.PropDesc.Text": "Il testo contenuto nel controllo.",
