@@ -111,7 +111,20 @@ public static class VBProperties
 
     public static PropertyClass<ShapeTypes> ShapeProperty = new PropertyClass<ShapeTypes>("Shape", "The geometric form drawn by a Shape control.", PropertyCategory.Appearance, ShapeTypes.Rectangle);
 
-    public static PropertyClass<List<string>?> ListProperty = new PropertyClass<List<string>?>("List", "The set of items shown in the control's list.", PropertyCategory.List);
+    /// <summary>
+    /// A ListBox or ComboBox's items, held as the companion record cites them.
+    ///
+    /// This was <c>List&lt;string&gt;</c> until 2026-08-21, which read well and was never once populated
+    /// from a file: the deserializer has no branch for that type, so a <c>List = "Form1.frx":000E</c>
+    /// reference was dropped on a type mismatch and both controls rendered empty regardless. In a .frm the
+    /// items are ALWAYS a companion reference — VB6 never writes them inline — so the blob is what the
+    /// property actually is, and modelling it as strings was an aspiration rather than a description.
+    ///
+    /// Held verbatim so it survives a save. Decoding it into items needs a non-empty example to check
+    /// against, and no VB6-shipped file has one — every List and ItemData record in the Template tree is a
+    /// two-byte count of zero. See <see cref="ItemDataProperty"/>, which is the same situation.
+    /// </summary>
+    public static PropertyClass<byte[]?> ListProperty = new PropertyClass<byte[]?>("List", "The set of items shown in the control's list.", PropertyCategory.List);
 
     public static PropertyClass<int> ListIndexProperty = new PropertyClass<int>("ListIndex", "The index of the selected item, or -1 when nothing is selected.", PropertyCategory.List, -1);
 

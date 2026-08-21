@@ -33,7 +33,8 @@ public class ListBoxComponentClass : ComponentBaseClass
     {
         return new VBListBox()
         {
-            ItemsSource = instance.GetPropertyOrDefault(ListProperty),
+            // No ItemsSource — see ComboBoxComponentClass for why. Binding the blob compiles, because
+            // byte[] is an IEnumerable, and would render a populated list as raw byte values.
             [AttachedProperties.BackColorProperty] = instance.GetPropertyOrDefault(BackColorProperty),
             [AttachedProperties.ForeColorProperty] = instance.GetPropertyOrDefault(ForeColorProperty),
             [AttachedProperties.FontProperty] = instance.GetPropertyOrDefault(FontProperty),
