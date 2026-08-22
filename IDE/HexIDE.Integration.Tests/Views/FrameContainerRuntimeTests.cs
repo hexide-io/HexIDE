@@ -276,25 +276,24 @@ public class FrameContainerRuntimeTests
     // ── option-button grouping ───────────────────────────────────────────────────────────────────
 
     [AvaloniaFact]
-    public void OptionButtonsInDifferentFrames_AreDifferentGroups()
+    public async Task OptionButtonsInDifferentFrames_AreDifferentGroups()
     {
-        var (canvas, _, _, _) = Laid(TwoFramesOfOptions);
+        var (canvas, _, ctx, env) = Laid(TwoFramesOfOptions);
 
         var left = (VBOptionButton)Child(Frame(canvas, "fraLeft").ChildHost!, "optLeft");
         var right = (VBOptionButton)Child(Frame(canvas, "fraRight").ChildHost!, "optRight");
 
-        // Driven through the controls rather than through VB6 code because OptionButton.Value is not a
-        // modelled property yet — `optLeft.Value = True` raises error 461. That gap is real and tracked
-        // separately; the grouping this asserts is not affected by it.
-        left.IsChecked = true;
-        right.IsChecked = true;
+        // Driven through VB6 code, which is how a user reaches this. It went through IsChecked until #95,
+        // because `optLeft.Value = True` raised error 461 — so it asserted Avalonia's grouping rather than
+        // the VB6 surface built on top of it, which is the half that can regress independently.
+        await Run(ctx, env, "optLeft.Value = True\r\noptRight.Value = True\r\n");
         Dispatcher.UIThread.RunJobs();
 
         // The VB6 rule: a Frame is what scopes an option group, and scoping one is the main reason to put a
         // group of options in a Frame at all. Avalonia groups un-named radio buttons by their parent, so
         // flat on one canvas these were a single group and checking the second cleared the first.
-        left.IsChecked.Should().BeTrue();
-        right.IsChecked.Should().BeTrue();
+        left.Value.Should().BeTrue();
+        right.Value.Should().BeTrue();
     }
 
     // ── control arrays that span containers ──────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Interpreter;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
+using RecordingRoot = HexIDE.Integration.Tests.Views.ContainerRuntimeHarness.RecordingRoot;
 
 namespace HexIDE.Integration.Tests.Views;
 
@@ -154,14 +155,6 @@ public class ControlArrayTests
         debug[0].Value.Should().Be("two");
         Convert.ToInt64(debug[1].Value).Should().Be(2);   // UBound = highest index present
         Convert.ToInt64(debug[2].Value).Should().Be(340); // element 1 doesn't exist
-    }
-
-    // A Control that is an IModuleExecutionRoot in the visual tree, recording how event dispatch calls it. Uses the
-    // internal RuntimeExtensions.ExecuteSub (visible to this project via InternalsVisibleTo on HexIDE.Runtime).
-    private sealed class RecordingRoot : Decorator, IModuleExecutionRoot
-    {
-        public readonly List<(string Name, IReadOnlyList<Vb6Value>? Args)> Calls = new();
-        public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null) => Calls.Add((name, args));
     }
 
     [AvaloniaFact]
