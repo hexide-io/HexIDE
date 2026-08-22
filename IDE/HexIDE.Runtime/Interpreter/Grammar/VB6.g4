@@ -802,6 +802,7 @@ literal
    | FALSE
    | NOTHING
    | NULL
+   | EMPTY_
    ;
 
 publicPrivateVisibility
@@ -883,6 +884,7 @@ ambiguousKeyword
    | ELSEIF
    | END
    | ENUM
+   | EMPTY_
    | EQV
    | ERASE
    | ERROR
@@ -1263,6 +1265,11 @@ END
 
 ENDPROPERTY
    : E N D P R O P E R T Y
+   ;
+
+
+EMPTY_
+   : E M P T Y
    ;
 
 
