@@ -108,8 +108,10 @@ public static class VbNumeric
         // Result is Single iff the widest core operand is Single (no Long/Double). int/int -> Double.
         int lr = CoreRank(l.Type), rr = CoreRank(r.Type);
         bool single = lr >= 0 && rr >= 0 && Math.Max(lr, rr) == 3;
+        // Through NarrowDouble on BOTH paths. The Single path always went through it; the Double path did
+        // not, so `1E+308 / 0.0001` handed back an infinity instead of the Overflow vb6.exe raises.
         double res = a / b;
-        return single ? NarrowDouble(res, VT.Single, ctx) : new Vb6Value(res);
+        return NarrowDouble(res, single ? VT.Single : VT.Double, ctx);
     }
 
     // ===== \ (integer division) and Mod =====
@@ -136,7 +138,14 @@ public static class VbNumeric
     {
         if (!TryToDouble(l, out var a) || !TryToDouble(r, out var b))
             throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
-        return new Vb6Value(Math.Pow(a, b));   // ^ is always Double
+        // `^` distinguishes a DOMAIN error from an overflow, and the two get different numbers (measured):
+        // 0 to a negative power is Err 5, not the Err 6 its infinite result would otherwise suggest, and a
+        // negative base to a fractional power — .NET's NaN — is Err 5 as well. Only a genuine magnitude
+        // overflow (1E+308 ^ 2) is Err 6. NarrowDouble maps NaN → 5 and Infinity → 6, so the one case it
+        // cannot infer is 0 ^ negative, whose result is infinite but whose cause is not magnitude.
+        if (a == 0 && b < 0)
+            throw new VBRunTimeException(ctx, VBStandardError.InvalidProcedureCall);
+        return NarrowDouble(Math.Pow(a, b), VT.Double, ctx);   // ^ is always Double
     }
 
     public static Vb6Value Negate(Vb6Value v, ParserRuleContext? ctx)
@@ -241,12 +250,33 @@ public static class VbNumeric
         return new Vb6Value((long)res);
     }
 
+    /// <summary>
+    /// Land a double on its target type, and refuse to hand back a value VB6 has no way to represent.
+    ///
+    /// <para>
+    /// <b>VB6 has no Infinity and no NaN.</b> IEEE-754 produces them, VB6 raises instead — measured across
+    /// <c>*</c>, <c>/</c>, <c>^</c> and <c>Exp</c>: an infinite result is <c>Err 6</c> (Overflow) and a NaN is
+    /// <c>Err 5</c> (Invalid procedure call). Letting either escape is worse than an error, because it is a
+    /// wrong ANSWER: <c>1E+308 * 10</c> came back as the string "∞", which then propagates through every
+    /// comparison and every subsequent sum as something no VB6 program can test for or recover from.
+    /// </para>
+    ///
+    /// <para>
+    /// The Single branch already raised when a finite double did not fit a float. That guard carried
+    /// <c>&amp;&amp; !double.IsInfinity(res)</c>, which deliberately let an ALREADY-infinite double through —
+    /// exactly the case that needed raising. Both now raise, which is what vb6.exe does either way.
+    /// </para>
+    /// </summary>
     private static Vb6Value NarrowDouble(double res, VT target, ParserRuleContext? ctx)
     {
+        if (double.IsNaN(res))
+            throw new VBRunTimeException(ctx, VBStandardError.InvalidProcedureCall);
+        if (double.IsInfinity(res))
+            throw new VBRunTimeException(ctx, VBStandardError.Overflow);
         if (target == VT.Single)
         {
             var f = (float)res;
-            if (float.IsInfinity(f) && !double.IsInfinity(res))
+            if (float.IsInfinity(f))
                 throw new VBRunTimeException(ctx, VBStandardError.Overflow);
             return new Vb6Value(f);
         }
