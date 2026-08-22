@@ -35,7 +35,7 @@ public partial class VB6BuiltIns
         return VbNumeric.Narrow(num, target, null);
     }
 
-    private static double ToNum(Vb6Value v)
+    internal static double ToNum(Vb6Value v)
     {
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is bool bo) return bo ? -1 : 0;

@@ -1475,7 +1475,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 }
 
                 var localName = subStmt.ambiguousIdentifier().GetText();
-                interpreter.ExecutionContext.AllocVariable(currentEnv, localName, value);
+                // Record the DECLARED type, so later assignments coerce to it instead of replacing it. Only
+                // for a coercible scalar: an array, an object, a UDT and a Variant all take their value
+                // wholesale, and `Dim v` / `Dim v As Variant` must stay exactly as untyped as they read.
+                var declared = VbNumeric.IsDeclarableScalar(value.Type) ? value.Type : null;
+                interpreter.ExecutionContext.AllocVariable(currentEnv, localName, value, declared);
                 // Track this local so RunProcedure releases its reference (fires Class_Terminate) at scope-exit,
                 // in declaration order. Every Dim slot is tracked (a Variant can later hold an object via Set);
                 // ReleaseRef no-ops non-objects. Only proc-body executors have ownedSlots (module/field-init = null).
