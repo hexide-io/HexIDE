@@ -60,10 +60,20 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return (leftValue, rightValue);
 
-        // Empty coerces to a 0 of the partner's numeric type.
-        if (leftValue.Type == Vb6Value.ValueType.EmptyVariant && NumericRank(rightValue.Type) >= 0)
+        // Empty coerces to its partner's ZERO — 0 for a numeric, "" for a String, False for a Boolean. That
+        // is the whole character of the value: it has not decided what it is yet, so `Empty = 0`,
+        // `Empty = ""` and `Empty = False` are ALL True (measured). Only the numeric half was handled, which
+        // nothing noticed while the `Empty` literal was unwritable — an un-assigned Variant is the only other
+        // way to reach this, and comparing one against "" is rarer than writing the keyword.
+        //
+        // Date is deliberately not in the set: Empty against a Date is unmeasured, and guessing its zero
+        // (serial 0 = 1899-12-30) would be inventing a rule rather than reproducing one.
+        static bool ComparesAgainstEmpty(Vb6Value.ValueType t) =>
+            NumericRank(t) >= 0 || t == Vb6Value.ValueType.String || t == Vb6Value.ValueType.Boolean;
+
+        if (leftValue.Type == Vb6Value.ValueType.EmptyVariant && ComparesAgainstEmpty(rightValue.Type))
             leftValue = new Vb6Value(rightValue.Type);
-        if (rightValue.Type == Vb6Value.ValueType.EmptyVariant && NumericRank(leftValue.Type) >= 0)
+        if (rightValue.Type == Vb6Value.ValueType.EmptyVariant && ComparesAgainstEmpty(leftValue.Type))
             rightValue = new Vb6Value(leftValue.Type);
 
         if (leftValue.Type == rightValue.Type)
@@ -275,6 +285,20 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (literalContext.literal().NOTHING() is { })
         {
             return Vb6Value.Nothing;   // a null object reference
+        }
+        if (literalContext.literal().EMPTY_() is { })
+        {
+            // The fourth of VB6's value keywords, and the one that was missing — `Empty` had no token at
+            // all, so it lexed as an identifier and reported as "Variable not defined (Empty)", naming a
+            // variable the author never wrote. It is a keyword, not a constant: `Dim Empty As Integer` is a
+            // syntax error in vb6.exe (measured), which is why it belongs in the lexer beside NOTHING/NULL
+            // rather than in the built-in constants table where a user variable could shadow it.
+            //
+            // The VALUE was always reachable — an un-assigned Variant is Empty, and every measured
+            // behaviour (Empty = 0 and Empty = "" are both True, Empty = Null is Null, Empty + 1 is 1,
+            // Empty & "x" is "x", IsEmpty is True, VarType is 0) already matched EmptyVariant. Only the
+            // spelling was unavailable.
+            return new Vb6Value(Vb6Value.ValueType.EmptyVariant);
         }
         if (literalContext.literal().DATELITERAL() is { } dateliteral)
         {
