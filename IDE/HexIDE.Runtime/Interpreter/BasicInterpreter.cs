@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Antlr4.Runtime;
 using HexIDE.IDE;
@@ -458,6 +459,29 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // flag can never affect the RESUMED program walk if it leaks across an async intrinsic's UI-thread yield.
         if (SuppressUserProcedureCalls && DebugController?.State == Debugging.DebugState.Paused)
             throw new Debugging.ImmediateEvalException("Sub or Function calls are not available in the Immediate window.");
+
+        // VB6's Error 28, raised while there is still stack left to raise it with.
+        //
+        // A StackOverflowException on .NET cannot be caught — the runtime tears the process down where it
+        // stands — so `Sub A(): Call A(): End Sub` used to take the whole IDE with it, and every unsaved form
+        // in it, for a mistake a beginner makes in their first hour (#80).
+        //
+        // This is a REAL stack probe, deliberately, not a depth counter. VB6's stack limit is a physically
+        // real constraint and reproducing the error is fidelity, where a fixed recursion ceiling would be
+        // reintroducing an artificial limit this project does not impose. The measurement settles it more
+        // firmly than the principle does: real vb6.exe reaches 258,825 frames before raising 28, so any
+        // number a person would have picked is two orders of magnitude low — and low in the direction that
+        // breaks working programs rather than the one that catches broken ones.
+        //
+        // TryEnsureSufficientExecutionStack reserves enough headroom for the unwind that follows, which is
+        // what makes the error trappable and the program survivable afterwards, exactly as VB6 leaves it.
+        //
+        // RunProcedure is the single sink every user proc, instance method, Property accessor and lifecycle
+        // hook flows through, so one guard here covers call depth from all of them. It is NOT the guard for
+        // pathological NESTING — that is ParseDepthGuard, at parse time, on a different axis.
+        if (!RuntimeHelpers.TryEnsureSufficientExecutionStack())
+            throw new VBRunTimeException(VBStandardError.OutOfStackSpace);
+
         var callee = (baseEnv ?? owner.ModuleEnv).Clone();
         // Object-holding slots this activation OWNS and must Release at scope-exit: ByVal object params (added by
         // BindParameters) then the body's own Dim locals (appended by the StatementExecutor in declaration order).
