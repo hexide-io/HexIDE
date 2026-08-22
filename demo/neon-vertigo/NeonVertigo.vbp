@@ -1,5 +1,5 @@
-Name=NeonVertigo
-Type=EXE
-Form=Form1.frm
-Startup=Form1
+Type=Exe
 Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0##OLE Automation
+Form=Form1.frm
+Startup="Form1"
+Name="NeonVertigo"
