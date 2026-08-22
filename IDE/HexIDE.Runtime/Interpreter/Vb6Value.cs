@@ -405,6 +405,13 @@ public class VBArray
             arr = ((object[])arr)[i - bounds[index1].lbound];
         }
 
+        // Coerce to the DECLARED element type, the same way a declared scalar variable does — `Dim a(1 To 3)
+        // As Long : a(1) = 5` holds a Long, and `a(2) * 3` widens like a Long rather than overflowing an
+        // Integer (measured). elementType is null for `Dim a()` and for Array()/Split() results, which are
+        // Variant arrays and take the value unchanged.
+        if (elementType is { } et && VbNumeric.IsDeclarableScalar(et))
+            val = VbNumeric.CoerceOnStore(val, et, null);
+
         ((object[])arr)[index[^1] - bounds[^1].lbound] = val;
     }
 
