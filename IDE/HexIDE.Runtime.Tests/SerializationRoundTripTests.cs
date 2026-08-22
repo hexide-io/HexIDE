@@ -293,17 +293,26 @@ public class SerializationRoundTripTests
     [Fact]
     public void ProjectSerializer_UnknownScalarKey_PositionPreservedRelativeToKnownKeys()
     {
-        // Unknown appears after Name+Type (position 2) but before Startup
-        var vbp = "Name=TestProject\r\nType=EXE\r\nSomeUnknownKey=SomeValue\r\nStartup=Form1\r\n";
+        // The input is written in VB6's own key order — Type first, Name last — because that is the order
+        // the writer now emits and the order PositionHint is counted against. The unknown key sits between
+        // them and must come back between them.
+        var vbp = "Type=Exe\r\nSomeUnknownKey=SomeValue\r\nStartup=Form1\r\nName=TestProject\r\n";
         var sp = new ProjectDeserializer().Deserialize(vbp, NullSink.Instance);
         var project = ProjectFromSerialized(sp);
         project.StartupForm = null; // ensure Startup key is written
         var output = new ProjectSerializer().Serialize(project, project.AbsolutePath!);
 
-        var typeIdx    = output.IndexOf("Type=EXE");
+        var typeIdx    = output.IndexOf("Type=Exe");
         var unknownIdx = output.IndexOf("SomeUnknownKey=SomeValue");
-        typeIdx.Should().BeGreaterThan(-1);
+        var nameIdx    = output.IndexOf("Name=\"TestProject\"");
+
+        typeIdx.Should().BeGreaterThan(-1, "Type is written as VB6 spells it — Exe, not EXE");
         unknownIdx.Should().BeGreaterThan(typeIdx);
+        nameIdx.Should().BeGreaterThan(unknownIdx, "Name comes last of the known keys, as VB6 writes it");
+
+        // And the whole thing round-trips, which is the property the index checks only approximate.
+        output.Should().Be(vbp.Replace("Name=TestProject", "Name=\"TestProject\"")
+                              .Replace("Startup=Form1", "Startup=\"Form1\""));
     }
 
     [Fact]
@@ -486,7 +495,8 @@ public class SerializationRoundTripTests
 
         var output = new ProjectSerializer().Serialize(project, project.AbsolutePath!);
 
-        output.Should().Contain("Startup=MissingForm");
+        // Quoted, as VB6 writes every Startup= line in its own Template tree.
+        output.Should().Contain("Startup=\"MissingForm\"");
     }
 
     [Fact]

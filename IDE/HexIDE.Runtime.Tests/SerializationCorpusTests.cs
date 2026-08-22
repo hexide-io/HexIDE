@@ -673,6 +673,96 @@ public class SerializationCorpusTests
     }
 
     [Fact]
+    public void Project_files_round_trip_byte_for_byte()
+    {
+        // The .vbp had no lane at all until 2026-08-22, which is how `Type=EXE` and an unquoted
+        // `Startup=` survived: no corpus file was ever compared against what came back out. Every project
+        // has one of these, so it is the file most likely to show a spurious diff.
+        var files = CorpusFiles(".vbp");
+        if (files.Count == 0) return;
+
+        var report = new StringBuilder();
+        report.AppendLine($"Project round-trip report — {files.Count} .vbp files");
+        report.AppendLine(new string('=', 78));
+        var failures = new List<string>();
+
+        foreach (var path in files)
+        {
+            var label = Label(path);
+            string original;
+            try { original = Vb6TextFile.ReadAllText(path); }
+            catch (Exception ex) { report.AppendLine($"READ-FAIL {label}: {ex.Message}"); continue; }
+
+            try
+            {
+                var rendered = RoundTripProject(original, path);
+                var diff = Differences(original, rendered);
+                if (diff is null) { report.AppendLine($"OK        {label}"); continue; }
+                failures.Add(path);
+                report.AppendLine($"DIFF      {label}: {diff}");
+            }
+            catch (Exception ex)
+            {
+                failures.Add(path);
+                report.AppendLine($"THREW     {label}: {ex.GetType().Name}: {ex.Message}");
+            }
+        }
+
+        var vb6Authored = files.Where(f => !IsHexIdeAuthored(f)).ToList();
+        var vb6Failures = failures.Count(f => !IsHexIdeAuthored(f));
+        report.AppendLine(new string('=', 78));
+        report.AppendLine($"VB6-authored:    {vb6Authored.Count - vb6Failures}/{vb6Authored.Count} round-tripped");
+        try { File.WriteAllText(Path.Join(Path.GetTempPath(), "hexide-vbp-report.txt"), report.ToString()); } catch { }
+
+        // Zero, and it must stay zero. A .vbp carries no binary companion and no control model — there is
+        // nothing here HexIDE cannot reproduce, so anything but zero is a defect rather than a burndown.
+        vb6Failures.Should().Be(0, report.ToString());
+    }
+
+    /// <summary>
+    /// Text to model to text, without touching the disk.
+    ///
+    /// The real load path walks every referenced file to build Forms and Modules, which a corpus check
+    /// cannot do — the Template .vbp files point at forms in other directories. Rebuilding placeholders
+    /// with the right AbsolutePath is enough, because the writer only ever emits their RELATIVE PATH.
+    /// </summary>
+    private static string RoundTripProject(string source, string path)
+    {
+        var serialized = new ProjectDeserializer().Deserialize(source, new Sink());
+        var project = new ProjectDefinition(serialized.ProjectType, serialized.Name ?? "Project1")
+        {
+            AbsolutePath = path,
+            StartupFormName = serialized.StartupFormName,
+        };
+        var dir = Path.GetDirectoryName(path)!;
+
+        foreach (var relative in serialized.RelativeFormPaths)
+            project.AddForm(new FormDefinition(project, FormComponentClass.Instance, Path.GetFileNameWithoutExtension(relative))
+            {
+                AbsolutePath = Path.GetFullPath(Path.Join(dir, relative.Replace('\\', Path.DirectorySeparatorChar)))
+            });
+
+        foreach (var (name, relative, kind) in serialized.RelativeModulePaths)
+            project.AddModule(new ModuleDefinition(project, name, kind)
+            {
+                AbsolutePath = Path.GetFullPath(Path.Join(dir, relative.Replace('\\', Path.DirectorySeparatorChar)))
+            });
+
+        // Mirror ProjectService: AddForm sets `StartupForm ??= form`, so the FIRST form added silently
+        // becomes the startup form, and the loader then corrects it by matching the recorded name. Without
+        // this the harness reports a defect the product does not have — Data Project.vbp came back with
+        // Startup="frmDatEn" (the file name) instead of "frmDataEnv" (the form's own name).
+        project.StartupForm = project.Forms.FirstOrDefault(f => f.Name == serialized.StartupFormName);
+
+        project.SetReferences(serialized.References);
+        project.PreservedItemLines.AddRange(serialized.PreservedItemLines);
+        project.UnknownPreSectionLines.AddRange(serialized.UnknownPreSectionLines);
+        project.ExtensionTail = serialized.ExtensionTail;
+
+        return new ProjectSerializer().Serialize(project, path);
+    }
+
+    [Fact]
     public void Standard_and_class_modules_round_trip_byte_for_byte()
     {
         var files = CorpusFiles(".bas", ".cls");
