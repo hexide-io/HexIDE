@@ -4,6 +4,7 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using HexIDE.Runtime.BuiltinTypes;
 
 namespace HexIDE.Controls;
 
@@ -90,10 +91,25 @@ public class PropertyEnumBox : TemplatedControl
     {
         if (PropertyType != null && PropertyType.IsEnum)
         {
+            // VB6's name for the value, not the C# member's. They are not the same string for 33 of the
+            // values shown here, and one enum was worse than a spelling difference: VBAlign's members are
+            // named vbAlignTop / vbAlignBottom, so a Frame's Align property offered "1 - vbAlignTop" where
+            // VB6 offers "1 - Align Top".
+            //
+            // Vb6EnumNames is the serializer's source for the comment it writes beside an enum in the .frm
+            // (`Align = 1  'Align Top`), so reading it here is what stops HexIDE's two halves disagreeing
+            // about what one value is called — pick "Grayscale" in the designer, and the file said "Grayed".
+            //
+            // The fallback is the old behaviour, and stays deliberately: For() returns null for a member
+            // with no attribute, and a C# name is a better guess than no name at all in a dropdown. That is
+            // the opposite of the serializer's choice, which writes NO comment rather than one VB6 would not
+            // recognise — a dropdown has to show the user something, a file does not.
             var newOptions = new List<PropertyEnumViewModel>();
-            foreach (var enumValue in Enumerable.Zip(Enum.GetValuesAsUnderlyingType(PropertyType).OfType<object>(), Enum.GetNames(PropertyType)))
+            foreach (var value in Enum.GetValues(PropertyType))
             {
-                newOptions.Add(new PropertyEnumViewModel(enumValue.First, $"{enumValue.First} - {enumValue.Second.TrimStart('_')}"));
+                var underlying = Convert.ChangeType(value, PropertyType.GetEnumUnderlyingType());
+                var name = Vb6EnumNames.For(value) ?? value.ToString()!.TrimStart('_');
+                newOptions.Add(new PropertyEnumViewModel(underlying, $"{underlying} - {name}"));
             }
             SetCurrentValue(OptionsProperty, newOptions);
             if (SelectedValue != null)

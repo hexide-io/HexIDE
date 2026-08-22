@@ -42,7 +42,9 @@ public class OptionButtonPropertyEditorTests
         // which really does have three states.
         var box = EditorFor(CheckBoxComponentClass.Instance, "Value");
 
-        box.Options!.Should().HaveCount(3);
-        box.Options!.Select(o => o.Text).Should().Contain(n => n.EndsWith("Grayscale"));
+        // Named the way VB6 names them since #118. This test asserted "Grayscale" when it was written, which
+        // was pinning the very defect #118 turned out to be — a reminder that an expectation copied from the
+        // code under test is not an expectation at all.
+        box.Options!.Select(o => o.Text).Should().Equal("0 - Unchecked", "1 - Checked", "2 - Grayed");
     }
 }
