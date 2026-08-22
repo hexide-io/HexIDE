@@ -115,6 +115,11 @@ public static class AvaloniaInteroperability
         Register<VBCheckBox, VBAppearance>(VBProperties.AppearanceProperty, VBCheckBox.AppearanceProperty);
         Register<VBCheckBox, VBCheckValue>(VBProperties.CheckValueProperty, VBCheckBox.ValueProperty);
 
+        // The registration whose absence was #95: without a line here `Option1.Value` resolves to nothing and
+        // raises error 461, which is the whole interface of an option button unreachable from VB6 code.
+        Register<VBOptionButton, VBAppearance>(VBProperties.AppearanceProperty, VBOptionButton.AppearanceProperty);
+        Register<VBOptionButton, bool>(VBProperties.OptionValueProperty, VBOptionButton.ValueProperty);
+
         Register<VBLabel, string, string?>(VBProperties.CaptionProperty, VBLabel.TextProperty, x => x, x => x ?? "");
         Register<VBCheckBox, string, object?>(VBProperties.CaptionProperty, ContentControl.ContentProperty, x => x, x => x as string ?? "");
         Register<VBOptionButton, string, object?>(VBProperties.CaptionProperty, ContentControl.ContentProperty, x => x, x => x as string ?? "");
@@ -185,6 +190,18 @@ public static class AvaloniaInteroperability
                 // VB6 assigns colours as a numeric OLE_COLOR (&HFF0000); convert at the colour-property boundary.
                 if (property is PropertyClass<VBColor> && value.Value is int or long)
                     raw = VBColor.FromOle(System.Convert.ToInt64(value.Value));
+                // A number or a string into a Boolean property — `Command1.Enabled = 0`, `Option1.Value = 1` —
+                // is ordinary VB6 assignment, not a special case, and it was throwing a bare CLR exception for
+                // EVERY boolean property on every control. CBool is the interpreter's own already-oracle-pinned
+                // implementation of the rule, so the boundary agrees with `CBool(x)` written out longhand rather
+                // than growing a second opinion: non-zero is True (0.4 included — it is "non-zero", not
+                // "rounds to 1"), "False"/"1" parse, Empty is False, "banana" is a trappable Err 13 that leaves
+                // the property untouched, and Null is Err 94.
+                else if (property.PropertyType == typeof(bool) && value.Value is not bool)
+                    raw = VB6BuiltIns.CBool(value).Value;
+                // And the reverse crossing, which VB6 also allows: `Command1.Left = True` sets Left to -1.
+                else if (value.Value is bool flag && IsNumeric(property.PropertyType))
+                    raw = System.Convert.ChangeType(flag ? -1 : 0, property.PropertyType);
 
                 prop.SetUntyped(control, raw);
                 return true;

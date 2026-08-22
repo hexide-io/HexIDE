@@ -56,15 +56,49 @@ internal static class ContainerRuntimeHarness
     internal static (Canvas canvas, Window window, ModuleExecutionContext ctx, ExecutionEnvironment env) Laid(string frm)
     {
         var (root, canvas, ctx, env) = Spawn(frm);
+        return (canvas, Host(root), ctx, env);
+    }
+
+    /// <summary>
+    /// A <see cref="Control"/> that is also an <see cref="IModuleExecutionRoot"/>, recording the event
+    /// dispatches that reach it instead of running VB6 code. <c>RuntimeExtensions.ExecuteSub</c> walks up for
+    /// one of these, so putting it above a spawned form is how a test observes which handlers a control fired.
+    /// </summary>
+    internal sealed class RecordingRoot : Decorator, IModuleExecutionRoot
+    {
+        public readonly List<(string Name, IReadOnlyList<Vb6Value>? Args)> Calls = new();
+        public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null) => Calls.Add((name, args));
+    }
+
+    /// <summary>
+    /// As <see cref="Laid"/>, but with a <see cref="RecordingRoot"/> above the form so event dispatch is
+    /// observable.
+    ///
+    /// The execution root goes on AFTER <see cref="Spawn"/> has built the whole tree, because that is the
+    /// order the product uses — <c>VBLoader</c> instantiates every control, then hands the finished tree to a
+    /// window. Anything a control does to itself while being constructed therefore reaches no root and
+    /// dispatches nothing, which is why a designer-set <c>Value = -1 'True</c> raises no Click at load.
+    /// Attaching the recorder first would test a tree the product never builds.
+    /// </summary>
+    internal static (Canvas canvas, RecordingRoot recorder, ModuleExecutionContext ctx, ExecutionEnvironment env) Recorded(string frm)
+    {
+        var (root, canvas, ctx, env) = Spawn(frm);
+        var recorder = new RecordingRoot { Child = root };
+        Host(recorder);
+        return (canvas, recorder, ctx, env);
+    }
+
+    private static Window Host(Control content)
+    {
         var window = new Window { Width = 400, Height = 300, Background = Brushes.White };
         MergeAppResources(window);
-        window.Content = root;
+        window.Content = content;
         window.Show();
         Dispatcher.UIThread.RunJobs();
         window.Measure(new Size(400, 300));
         window.Arrange(new Rect(0, 0, 400, 300));
         Dispatcher.UIThread.RunJobs();
-        return (canvas, window, ctx, env);
+        return window;
     }
 
     /// <summary>
