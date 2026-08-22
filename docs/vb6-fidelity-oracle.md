@@ -79,7 +79,12 @@ test expectations (`VbNumeric`, `OperatorTests`, `ArithmeticFidelityTests`, `Dat
 
 Ladder (widest wins): **Byte < Integer < Long < Single < Double < Currency < Decimal**. Boolean and Empty
 behave as Integer. `Byte` and `Boolean` promote to Integer *only when the other operand forces it* — `Byte+Byte`
-stays `Byte`. There is **no** overflow auto-promotion: a result outside the result-type's range is `Err 6`.
+stays `Byte`. A result outside the result-type's range is `Err 6` — there is no overflow auto-promotion.
+
+> **That last sentence is about DECLARED types only.** Every row below was measured through declared
+> variables, and the qualifier turns out to be load-bearing: with **Variant** operands the same expressions
+> do not raise at all, they widen (Integer → Long → Double). See *Variant arithmetic promotes on overflow*
+> further down, which is the common path, since most VB6 code does not declare types.
 
 | expression | result | type |
 |---|---|---|
@@ -667,6 +672,58 @@ in #95 on the strength of this measurement rather than on that assumption.
 `Err 380` (Invalid property value), and the value is left unchanged. A check box's `Value` is 0..2 and −1 is
 outside it. This is the sharpest evidence that the two controls' `Value` properties cannot share a type: the
 literal that *selects* an option button is *refused* by a check box.
+
+
+## Out of stack space — Error 28 (2026-08-22, #80)
+
+Verified with a `Sub Main` probe (`/make`, run, append each line to a log so nothing is lost to buffering).
+
+| Probe | Result |
+|---|---|
+| `Sub A(): Call A(): End Sub`, `On Error GoTo` in the caller | **`Err 28`**, `"Out of stack space"` |
+| depth reached before it raises | **258,825 frames** |
+| the program afterwards | `2 + 2` = `4`, `Err.Number` = 0 — VB6 **does not terminate** |
+| `Err.Raise 28` | same number and description |
+
+**258,825 is the number that settles the design.** The fix for an interpreter is a *real stack probe*, not a
+depth counter, because any counter a person would choose is two orders of magnitude below VB6's real
+capacity — and wrong in the direction that breaks working programs rather than the one that catches broken
+ones. HexIDE uses `RuntimeHelpers.TryEnsureSufficientExecutionStack()` at `RunProcedure`, the single sink
+every user procedure, method, Property accessor and lifecycle hook flows through.
+
+**Known divergence in depth, not in behaviour.** HexIDE's own frames are far fatter than compiled VB6's — an
+async state machine plus an ANTLR visitor walk per call — so on a 1 MB Windows thread stack it reaches about
+**202** frames for a bare `Call A(n + 1)` sub and **between 60 and 80** for a recursive Function. Linux
+main threads get 8 MB and go several times deeper. That gap is tracked on its own; it is not a regression
+from the guard, since the process was already dying at the same depth.
+
+Two probes did **not** complete and their answers are still open:
+
+- a recursive **Function** (`DeepFn = DeepFn()`) had not raised 28 after 120 s, where the equivalent Sub
+  raises in well under a second. Whether VB6 gets much deeper in a Function or simply takes far longer is
+  unmeasured;
+- `On Error Resume Next` **inside** the recursive Sub ran for minutes without settling. Each frame swallows
+  the error and carries on, so the unwind re-recurses; whether it terminates at all is unmeasured.
+
+### Variant arithmetic PROMOTES on overflow — the ladder row above is about DECLARED types
+
+Found while writing the #80 tests, and a correction to *Arithmetic result types* above, which says "there is
+no overflow auto-promotion" and cites `30000 + 30000` **via Integer vars**. That qualifier is load-bearing:
+with **Variant** operands the same expressions do not raise, they widen.
+
+| expression (Variant operands) | result | type |
+|---|---|---|
+| `30000 * 3` | 90000 | **Long** |
+| `30000 + 30000` | 60000 | **Long** |
+| `2000000000 * 3` | 6000000000 | **Double** |
+| `Fact(10)` (untyped recursive Function) | 3628800 | **Long** |
+| `Fact(13)` | 6227020800 | **Double** |
+| `Fact(20)` | 2.43290200817664E+18 | **Double** |
+| the same `30000 * 3` via **declared** `Integer` vars | — | **Err 6** |
+
+So the rule is: a declared type is a ceiling and overflowing it is `Err 6`; a Variant has no ceiling and
+widens Integer → Long → Double instead. Untyped variables are what most VB6 code actually uses, so this is
+the common path, not the edge.
 
 ## Extending the oracle (future phases)
 
