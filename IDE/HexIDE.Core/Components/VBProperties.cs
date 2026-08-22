@@ -144,6 +144,23 @@ public static class VBProperties
 
     public static PropertyClass<VBCheckValue> CheckValueProperty = new PropertyClass<VBCheckValue>("Value", "The current value of the object.", PropertyCategory.Misc);
 
+    /// <summary>
+    /// An option button's <c>Value</c>, which is a plain <b>Boolean</b> — NOT the tri-state
+    /// <see cref="CheckValueProperty"/> a check box uses.
+    ///
+    /// The two controls look like siblings and are taught as a pair, so sharing one property class looked
+    /// like tidiness. <c>vb6.exe</c> says otherwise: <c>TypeName(Option1.Value)</c> is <c>Boolean</c> and
+    /// <c>TypeName(Check1.Value)</c> is <c>Integer</c>, and the divergence is not cosmetic —
+    /// <c>Option1.Value = 2</c> is <c>True</c> (VB6's ordinary "any non-zero" Boolean coercion) where
+    /// <c>Check1.Value = 2</c> is <i>Grayed</i>, and <c>Check1.Value = True</c> is refused outright with
+    /// error 380 because -1 is outside 0..2. A check box has three states; an option button has two, and
+    /// which of a group holds the True is the whole of what it means.
+    ///
+    /// This is also what the designer file says: VB6 writes <c>Value  =  -1  'True</c> for a selected
+    /// option button, the boolean spelling, never <c>1  'Checked</c>.
+    /// </summary>
+    public static PropertyClass<bool> OptionValueProperty = new PropertyClass<bool>("Value", "Whether this option button is the selected one in its group.", PropertyCategory.Misc, false);
+
     public static PropertyClass<bool> LockedProperty = new PropertyClass<bool>("Locked", "Whether the control's contents can be edited.", PropertyCategory.Behavior, false);
 
     public static PropertyClass<VBStartupPosition> StartUpPositionProperty = new PropertyClass<VBStartupPosition>("StartUpPosition", "Where the form is placed on screen when it first opens.", PropertyCategory.Position, VBStartupPosition.StartUpWindowsDefault);

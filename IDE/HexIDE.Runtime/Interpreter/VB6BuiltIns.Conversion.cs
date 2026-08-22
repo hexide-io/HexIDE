@@ -46,7 +46,7 @@ public partial class VB6BuiltIns
         throw new VBRunTimeException(VBStandardError.TypeMismatch);
     }
 
-    private static Vb6Value CBool(Vb6Value v)
+    internal static Vb6Value CBool(Vb6Value v)
     {
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is bool b) return new Vb6Value(b);

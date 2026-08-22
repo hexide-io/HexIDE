@@ -222,21 +222,21 @@ public class PictureBoxContainerRuntimeTests
     }
 
     [AvaloniaFact]
-    public void OptionButtonsInDifferentPictureBoxes_AreDifferentGroups()
+    public async Task OptionButtonsInDifferentPictureBoxes_AreDifferentGroups()
     {
-        var (canvas, _, _, _) = Laid(TwoPicturesOfOptions);
+        var (canvas, _, ctx, env) = Laid(TwoPicturesOfOptions);
 
         var left = (VBOptionButton)Child(HostOf(canvas, "picLeft"), "optLeft");
         var right = (VBOptionButton)Child(HostOf(canvas, "picRight"), "optRight");
 
-        left.IsChecked = true;
-        right.IsChecked = true;
+        // Through VB6 code since #95 modelled Value; this drove IsChecked directly before then.
+        await Run(ctx, env, "optLeft.Value = True\r\noptRight.Value = True\r\n");
         Dispatcher.UIThread.RunJobs();
 
         // A PictureBox scopes an option group exactly as a Frame does. Flat on one canvas these were a single
         // group and checking the second cleared the first.
-        left.IsChecked.Should().BeTrue();
-        right.IsChecked.Should().BeTrue();
+        left.Value.Should().BeTrue();
+        right.Value.Should().BeTrue();
     }
 
     [AvaloniaFact]

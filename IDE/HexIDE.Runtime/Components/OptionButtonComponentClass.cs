@@ -17,7 +17,7 @@ public class OptionButtonComponentClass : ComponentBaseClass
         MousePointerProperty,
         RightToLeftProperty,
         ToolTipTextProperty,
-        CheckValueProperty,
+        OptionValueProperty,
         AppearanceProperty,
         TabStopProperty,
         TabIndexProperty], [ClickEvent])
@@ -33,7 +33,7 @@ public class OptionButtonComponentClass : ComponentBaseClass
         {
             Content = instance.GetPropertyOrDefault(CaptionProperty),
             Appearance = instance.GetPropertyOrDefault(AppearanceProperty),
-            Value = instance.GetPropertyOrDefault(CheckValueProperty),
+            Value = instance.GetPropertyOrDefault(OptionValueProperty),
             [AttachedProperties.BackColorProperty] = instance.GetPropertyOrDefault(BackColorProperty),
             [AttachedProperties.ForeColorProperty] = instance.GetPropertyOrDefault(ForeColorProperty),
             [AttachedProperties.FontProperty] = instance.GetPropertyOrDefault(FontProperty),

@@ -741,4 +741,83 @@ public class SerializationRoundTripTests
         sp.RelativeModulePaths.Should().ContainSingle()
             .Which.Path.Should().Be(@"..\Common\Shared.bas");
     }
+
+    // ── option button Value (#95) — the boolean spelling, not the check box's ────────────────────
+
+    private const string FormWithSelectedOption = """
+        VERSION 5.00
+        Begin VB.Form Form1 
+           Caption         =   "Form1"
+           Begin VB.OptionButton Option1 
+              Caption         =   "Option1"
+              Height          =   300
+              Left            =   300
+              Top             =   400
+              Value           =   -1  'True
+              Width           =   1500
+           End
+        End
+        Attribute VB_Name = "Form1"
+        """;
+
+    private const string FormWithUnselectedOption = """
+        VERSION 5.00
+        Begin VB.Form Form1
+           Caption         =   "Form1"
+           Begin VB.OptionButton Option1
+              Caption         =   "Option1"
+              Height          =   300
+              Left            =   300
+              Top             =   400
+              Width           =   1500
+           End
+        End
+        Attribute VB_Name = "Form1"
+        """;
+
+    [Fact]
+    public void FormRoundTrip_SelectedOptionButton_KeepsTheBooleanSpelling()
+    {
+        // VB98's own Template tree contains not one OptionButton, so the corpus lane cannot reach this and
+        // the spelling has to come from elsewhere. It comes from two measured facts rather than a guess:
+        // vb6.exe compiles and loads this exact file with Option1.Value reading True (see the #95 probe in
+        // docs/vb6-fidelity-oracle.md), and `-1  'True` is the boolean layout the corpus already pinned
+        // (VbFrmFormatSerializer.BooleanValueWidth, from EditAtDesignTime).
+        //
+        // What this catches is the property being modelled as the check box's tri-state, which would write
+        // `Value           =   1   'Checked` — a file VB6 still loads, wrong by one byte in the value and
+        // six in the comment, on every option button anyone ever selected in the designer.
+        var p = MakeProject();
+        var form = new FormDeserializer().Deserialize(p, FormWithSelectedOption, NullSink.Instance)!;
+
+        var (frm, _) = new FormSerializer().Serialize(form, "Form1.frm");
+
+        frm.Should().Contain("   Value           =   -1  'True");
+        frm.Should().NotContain("Checked");
+    }
+
+    [Fact]
+    public void FormRoundTrip_UnselectedOptionButton_OmitsValueEntirely()
+    {
+        // False is the default, and VB6 writes no line for a property left at its default.
+        var p = MakeProject();
+        var form = new FormDeserializer().Deserialize(p, FormWithUnselectedOption, NullSink.Instance)!;
+
+        var (frm, _) = new FormSerializer().Serialize(form, "Form1.frm");
+
+        frm.Should().NotContain("Value");
+    }
+
+    [Fact]
+    public void FormRoundTrip_SelectedOptionButton_IsIdempotent()
+    {
+        var p = MakeProject();
+        var form = new FormDeserializer().Deserialize(p, FormWithSelectedOption, NullSink.Instance)!;
+        var (once, _) = new FormSerializer().Serialize(form, "Form1.frm");
+
+        var reloaded = new FormDeserializer().Deserialize(MakeProject(), once, NullSink.Instance)!;
+        var (twice, _) = new FormSerializer().Serialize(reloaded, "Form1.frm");
+
+        twice.Should().Be(once);
+    }
 }
