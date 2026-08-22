@@ -58,6 +58,17 @@ public class ProjectDeserializer
 
             var key = parts[0].Trim();
             var value = parts.Length == 2 ? parts[1].Trim() : "";
+
+            // The same value with its TRAILING whitespace intact, for the one key where that whitespace is
+            // data: a Reference's name can legitimately end in a space. VB6's own DHTML Application.vbp
+            // ships `#MSHTMLPG Control Library ` — trimming it means the file comes back one byte shorter
+            // than it went in. Leading whitespace is still dropped; that is indentation, not content.
+            //
+            // Kept as a separate value rather than loosening the Trim() above, because every other key
+            // here wants the trimmed one and a blanket change would start preserving stray spaces
+            // wherever an author happened to leave one.
+            var rawParts = rawLine.TrimEnd('\r', '\n').Split('=', 2);
+            var untrimmedValue = rawParts.Length == 2 ? rawParts[1].TrimStart() : value;
             // Require at least the two quotes: a lone `"` (an unterminated value in a corrupt/truncated .vbp) both
             // starts and ends with `"`, and Substring(1, -1) would throw and abort the whole project open.
             if (value.Length >= 2 && value.StartsWith('"') && value.EndsWith('"'))
@@ -134,7 +145,7 @@ public class ProjectDeserializer
             else if (key.Equals(SerializedProject.ReferenceKey, StringComparison.OrdinalIgnoreCase))
             {
                 // Format: *\G{GUID}#Version#LCID#LibPath#Name (LibPath and Name may both be empty).
-                var refStr = value;
+                var refStr = untrimmedValue;
                 if (refStr.StartsWith("*\\G", StringComparison.OrdinalIgnoreCase))
                     refStr = refStr[3..];
                 var refParts = refStr.Split('#', 5);
