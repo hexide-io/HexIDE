@@ -705,25 +705,105 @@ Two probes did **not** complete and their answers are still open:
 - `On Error Resume Next` **inside** the recursive Sub ran for minutes without settling. Each frame swallows
   the error and carries on, so the unwind re-recurses; whether it terminates at all is unmeasured.
 
-### Variant arithmetic PROMOTES on overflow — the ladder row above is about DECLARED types
+### Variant arithmetic promotes on overflow
 
-Found while writing the #80 tests, and a correction to *Arithmetic result types* above, which says "there is
-no overflow auto-promotion" and cites `30000 + 30000` **via Integer vars**. That qualifier is load-bearing:
-with **Variant** operands the same expressions do not raise, they widen.
+First spotted while writing the #80 tests (an untyped `Fact(10)` should be 3628800 as a Long, and raised
+Err 6 instead). Superseded by the fuller measurement in *Declared type, Variant subtype, and overflow
+promotion* below, which has the whole ladder and the declared-vs-Variant rule that drives it.
+
+
+## Infinity, NaN, and division by zero (2026-08-22)
+
+VB6 has **no Infinity and no NaN**. IEEE-754 produces them; VB6 raises instead — so a result that is not a
+VB6 number is always an error, never a value.
+
+| Probe | Result | Rule |
+|---|---|---|
+| `1E+308 * 10` | **Err 6** | infinite magnitude → Overflow |
+| `1E+308 / 0.0001` | **Err 6** | same, through `/` |
+| `1E+308 ^ 2` | **Err 6** | same, through `^` |
+| `Exp(1000)` | **Err 6** | same, through an intrinsic |
+| `CSng(3E+38) * CSng(10)` | **Err 6** | Single overflows at its own range |
+| `(-2) ^ 0.5` | **Err 5** | NaN → Invalid procedure call |
+| `0 ^ -1` | **Err 5** | infinite, but a DOMAIN error, so 5 and not 6 |
+| `Sqr(-1)`, `Log(0)`, `Log(-1)` | **Err 5** | domain |
+| `2 ^ 10` | `1024` Double | `^` is always Double |
+
+`0 ^ -1` is the row worth keeping: the result is infinite, so the obvious rule says Overflow, and vb6.exe
+says Invalid procedure call. No inspection of the result can get it right — the distinction is in the cause.
+
+### Division by zero depends on whether the operands were DECLARED
+
+| Probe | Result |
+|---|---|
+| `a / b` with **Variant** operands (`a = 1`, `b = 0`) | **Err 6** |
+| `a / b` with **declared** `Integer` or `Double` operands | **Err 11** |
+| `1 / 0` (literals) | **Err 11** |
+| `a \ b` by zero, declared or Variant | **Err 11** |
+| `a Mod b` by zero | **Err 11** |
+
+Real division by zero is *Overflow* on the Variant path and *Division by zero* everywhere else — the OLE
+Automation `VarDiv` quirk, which maps a zero divisor to `DISP_E_OVERFLOW`. `\` and `Mod` are Err 11 either
+way. HexIDE cannot express the Variant row yet: it has no notion of which operands were declared (see
+*Declared variables do not retain their declared type* below), so it raises 11 for all of them.
+
+## Declared type, Variant subtype, and overflow promotion (2026-08-22)
+
+Three behaviours turn on the same distinction — **was this operand statically typed, or a Variant?** — and
+HexIDE currently cannot tell, because a declared variable does not keep its type.
+
+### A declared variable reports its declared type
+
+| `Dim x As T`, `x = 3`, `TypeName(x)` | VB6 | HexIDE |
+|---|---|---|
+| `Integer` | `Integer` | `Integer` ✓ |
+| `Long` | `Long` | **`Integer`** |
+| `Double` | `Double` | **`Integer`** |
+| `Single` | `Single` | **`Integer`** |
+| `Byte` | `Byte` | **`Integer`** |
+| `Currency` | `Currency` | **`Integer`** |
+| `Boolean` / `String` | `Boolean` / `String` | ✓ |
+
+The assignment overwrites the slot with the *literal's* subtype and the declared type is lost. `Dim` itself
+is right — it seeds a correctly-typed zero — so this is purely an assignment-side loss.
+
+### …and the declared type drives the result type
+
+| expression | VB6 |
+|---|---|
+| `declInt * declLong` (30000 * 3) | `90000` **Long** — the ladder already widens; no promotion needed |
+| `declInt * declDbl` (3 * 2) | `6` **Double** |
+| `declByte * declInt` (100 * 3) | `300` **Integer** |
+| `declByte * declByte` (200 + 200) | **Err 6** — Byte+Byte stays Byte |
+
+`declInt * declLong` is the one that shows the cost: HexIDE raises Err 6 there, not because promotion is
+missing but because it thinks the Long operand is an Integer.
+
+### Variant arithmetic widens instead of overflowing
+
+Byte → Integer → Long → Double, and **stops**. Currency, Decimal and Double are terminal — overflowing one
+of those is Err 6 with no promotion.
 
 | expression (Variant operands) | result | type |
 |---|---|---|
+| `CByte(200) + CByte(100)` | 300 | **Integer** |
 | `30000 * 3` | 90000 | **Long** |
-| `30000 + 30000` | 60000 | **Long** |
+| `2147483647 + 1` | 2147483648 | **Double** |
 | `2000000000 * 3` | 6000000000 | **Double** |
-| `Fact(10)` (untyped recursive Function) | 3628800 | **Long** |
-| `Fact(13)` | 6227020800 | **Double** |
-| `Fact(20)` | 2.43290200817664E+18 | **Double** |
-| the same `30000 * 3` via **declared** `Integer` vars | — | **Err 6** |
+| `CSng(3E+38) * CSng(3)` | 9.0E+38 | **Double** |
+| `CCur(9E+14) * 10` | — | **Err 6** |
+| `CDec("7.9E+28") * 10` | — | **Err 6** |
+| `1E+308 * 10` | — | **Err 6** |
+| `variant * declInt` (30000 * 3) | 90000 | **Long** — one Variant operand is enough |
+| `variant * literal` (30000 * 3) | 90000 | **Long** |
+| `declInt * declInt` / literal-only | — | **Err 6** — no Variant, no widening |
 
-So the rule is: a declared type is a ceiling and overflowing it is `Err 6`; a Variant has no ceiling and
-widens Integer → Long → Double instead. Untyped variables are what most VB6 code actually uses, so this is
-the common path, not the edge.
+Operators that widen: `+`, `-`, `*`, `\` (`CInt(-32768) \ CInt(-1)` = 32768 **Long**), unary `-`, and `Abs`.
+`/` and `^` are always Double anyway. Assigning a widened result back into a declared variable range-checks
+normally: `i = 30000 * 3` is Err 6, `l = 30000 * 3` is 90000.
+
+> **This corrects the qualifier in *Arithmetic result types* above.** That table was measured entirely
+> through declared variables, and its conclusion — "there is no overflow auto-promotion" — holds only there.
 
 ## Extending the oracle (future phases)
 

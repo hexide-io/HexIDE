@@ -22,7 +22,10 @@ public partial class VB6BuiltIns
         d["Cos"]   = (_, a, _) => new Vb6Value(Math.Cos(AsDouble(a[0])));
         d["Tan"]   = (_, a, _) => new Vb6Value(Math.Tan(AsDouble(a[0])));
         d["Atn"]   = (_, a, _) => new Vb6Value(Math.Atan(AsDouble(a[0])));
-        d["Exp"]   = (_, a, _) => new Vb6Value(Math.Exp(AsDouble(a[0])));
+        // Exp is the one intrinsic here that can overflow a Double from an ordinary-looking argument —
+        // Exp(1000) is Err 6, measured. Sqr and Log already guard their domains; Sin/Cos/Atn cannot leave
+        // their range, and Tan's asymptote is unreachable in binary floating point.
+        d["Exp"]   = (_, a, _) => Finite(Math.Exp(AsDouble(a[0])));
         d["Log"]   = (_, a, _) => { var x = AsDouble(a[0]); if (x <= 0) throw InvalidCall(); return new Vb6Value(Math.Log(x)); };
         d["Round"] = (_, a, _) => new Vb6Value(Math.Round(AsDouble(a[0]), a.Count >= 2 ? AsInt(a[1]) : 0, MidpointRounding.ToEven));
         d["Rnd"]   = (self, a, _) => new Vb6Value(self.Rnd(a.Count >= 1 ? (float)AsDouble(a[0]) : 1f));
@@ -38,6 +41,16 @@ public partial class VB6BuiltIns
         decimal m => v.Type == VT.Currency ? Vb6Value.NewCurrency(Math.Abs(m)) : Vb6Value.NewDecimal(Math.Abs(m)),
         _ => new Vb6Value(Math.Abs(AsDouble(v)))
     };
+
+    /// <summary>A Double result, or the error VB6 raises rather than representing it. VB6 has no Infinity
+    /// and no NaN: an infinite result is Err 6 and a NaN is Err 5 (measured — see VbNumeric.NarrowDouble,
+    /// which applies the same rule to the operators).</summary>
+    private static Vb6Value Finite(double d)
+    {
+        if (double.IsNaN(d)) throw InvalidCall();
+        if (double.IsInfinity(d)) throw new VBRunTimeException(VBStandardError.Overflow);
+        return new Vb6Value(d);
+    }
 
     private static Vb6Value Whole(Vb6Value v, bool truncate)
     {
