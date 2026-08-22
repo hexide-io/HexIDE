@@ -838,6 +838,7 @@ literal
     | FALSE
     | NOTHING
     | NULL_
+    | EMPTY_
     ;
 
 publicPrivateVisibility
@@ -919,6 +920,7 @@ ambiguousKeyword
     | ELSEIF
     | END
     | ENUM
+    | EMPTY_
     | EQV
     | ERASE
     | ERROR
