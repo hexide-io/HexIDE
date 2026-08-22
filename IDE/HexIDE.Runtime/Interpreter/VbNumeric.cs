@@ -189,6 +189,50 @@ public static class VbNumeric
         return v;
     }
 
+    /// <summary>
+    /// Coerce a value on its way into a <b>declared</b> variable, which is what makes `Dim l As Long` mean
+    /// anything after the Dim line. VB6 stores the declared type, not the assigned value's — so `l = 3` holds
+    /// a Long 3 and `TypeName(l)` is "Long", where a Variant would hold an Integer.
+    ///
+    /// <para>
+    /// Every rule here is vb6.exe output (see <i>Coercion-on-store</i> in docs/vb6-fidelity-oracle.md):
+    /// String takes anything (`5` → "5", `True` → "True"); Boolean is CBool (any non-zero is True, "banana"
+    /// is Err 13); a numeric target parses a String and raises Err 13 on garbage, rounds half-to-even
+    /// (`12.5` → 12, `12.6` → 13) and range-checks (`Dim b As Byte : b = 300` is Err 6); Empty is 0 or "";
+    /// and <b>Null into any declared variable is Err 94</b>, including a String one.
+    /// </para>
+    ///
+    /// <para>
+    /// A Variant target never gets here — the caller only calls this for slots that recorded a declared
+    /// scalar type, which is the whole distinction VB6 draws and HexIDE previously could not.
+    /// </para>
+    /// </summary>
+    public static Vb6Value CoerceOnStore(Vb6Value v, VT target, ParserRuleContext? ctx)
+    {
+        if (v.Type == target)
+            return v;
+        // Before every branch, including String: `Dim s As String : s = Null` is Err 94, not "".
+        if (v.IsNull)
+            throw new VBRunTimeException(ctx, VBStandardError.InvalidUseOfNull);
+        if (target == VT.String)
+            return new Vb6Value(v.Value?.ToString() ?? "");
+        if (target == VT.Boolean)
+            return VB6BuiltIns.CBool(v);
+        // Narrow's ToDouble answers 0.0 for a String rather than parsing it, so `Dim i As Integer : i = "12"`
+        // would silently store 0 and `i = "abc"` would too. ToNum is the interpreter's own already-pinned
+        // string→number rule, Err 13 and all. Routed only for Strings, so the Currency/Decimal paths below
+        // keep their decimal precision instead of going through a double.
+        if (v.Type == VT.String)
+            return Narrow(new Vb6Value(VB6BuiltIns.ToNum(v)), target, ctx);
+        return Narrow(v, target, ctx);
+    }
+
+    /// <summary>True if <paramref name="t"/> is a subtype a DECLARED variable can hold, and therefore one
+    /// <see cref="CoerceOnStore"/> can target. Excludes Variant/Empty (no declared type at all), Object,
+    /// UDT and arrays, whose slots are replaced wholesale rather than coerced.</summary>
+    public static bool IsDeclarableScalar(VT t) =>
+        !t.IsArray && (IsCoreNumeric(t) || t == VT.Decimal || t == VT.Date || t == VT.String || t == VT.Boolean);
+
     /// <summary>True if <paramref name="t"/> is a fixed numeric subtype that coercion-on-store should target
     /// (i.e. a declared numeric variable, not a Variant/Empty/String/Object).</summary>
     public static bool IsCoreNumeric(VT t) =>

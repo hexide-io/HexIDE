@@ -805,6 +805,34 @@ normally: `i = 30000 * 3` is Err 6, `l = 30000 * 3` is 90000.
 > **This corrects the qualifier in *Arithmetic result types* above.** That table was measured entirely
 > through declared variables, and its conclusion — "there is no overflow auto-promotion" — holds only there.
 
+
+### Coercion-on-store — what a declared variable does to the value you put in it
+
+| assignment | result | rule |
+|---|---|---|
+| `Dim s As String : s = 5` | `"5"` String | anything stringifies |
+| `s = True` | `"True"` String | |
+| `Dim b As Boolean : b = 5` | `True` | CBool: any non-zero |
+| `b = "True"` | `True` | strings parse |
+| `b = "banana"` | **Err 13** | and raise when they cannot |
+| `Dim i As Integer : i = "12"` | `12` | a numeric target parses a String too |
+| `i = "abc"` | **Err 13** | |
+| `i = 12.6` / `i = 12.5` | `13` / **`12`** | half-to-even, not away-from-zero |
+| `i = True` | `-1` | |
+| `Dim b As Byte : b = 300` | **Err 6** | the declared range is enforced on store |
+| `Dim x As T : x = Null` | **Err 94** | every T, String included |
+| `x = Empty` | `0` / `""` | |
+| `Dim l As Long : l = 3 : l = l + 1` | `4` **Long** | the declared type survives arithmetic |
+| `Dim a(1 To 3) As Long : a(1) = 5` | `5` **Long** | array elements carry the element type |
+| `a(2) = 30000 : a(2) * 3` | `90000` **Long** | …and widen like one |
+
+### ByRef takes its type from the caller, because VB6 will not let it differ
+
+`Call TakesLong(v)` with `v As Variant` and `Sub TakesLong(ByRef x As Long)` is a **compile error** —
+*"ByRef argument type mismatch"*. So the two sides always agree, and a ByRef alias can inherit the caller's
+declared type with nothing to convert at the boundary. (HexIDE does not reject it: compile-time argument
+type checking needs a bound AST, which is the language engine's job, not HexIDE's.)
+
 ## Extending the oracle (future phases)
 
 Phase 3 (intrinsics) and beyond should verify, at minimum:
