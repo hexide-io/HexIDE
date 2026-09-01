@@ -6,6 +6,7 @@ using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Serialization;
 using HexIDE.Sidecar;
 
 namespace HexIDE.Tests.Projects;
@@ -33,9 +34,25 @@ public class CompanionBinaryPreservationTests : IDisposable
 {
     private readonly string dir = Path.Join(Path.GetTempPath(), "hexide-frx-" + Guid.NewGuid().ToString("N"));
 
+    // HEXIDE_ROUNDTRIP_CORPUS FIRST, because that is the variable the corpus is actually configured under
+    // (SerializationCorpusTests reads it, CLAUDE.md documents it, and it is what a developer sets). This
+    // file read only VB6_TEMPLATES, so on a machine where the corpus was present and correctly configured
+    // every test in it returned at the `vbp is null` guard and passed in 25 ms without asserting anything.
+    // A guard that skips is indistinguishable from a guard that passes, which is precisely how verification
+    // tooling fails open.
     private static readonly string Vb6Template =
-        Environment.GetEnvironmentVariable("VB6_TEMPLATES")
-        ?? @"C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template";
+        FirstExistingDirectory(
+            Environment.GetEnvironmentVariable("HEXIDE_ROUNDTRIP_CORPUS")?.Split(';', StringSplitOptions.RemoveEmptyEntries),
+            Environment.GetEnvironmentVariable("VB6_TEMPLATES"),
+            @"C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template");
+
+    private static string FirstExistingDirectory(string[]? candidates, params string?[] fallbacks)
+    {
+        foreach (var c in (candidates ?? []).Concat(fallbacks))
+            if (!string.IsNullOrWhiteSpace(c) && Directory.Exists(c))
+                return c;
+        return fallbacks[^1]!;
+    }
 
     public CompanionBinaryPreservationTests() => Directory.CreateDirectory(dir);
 
@@ -184,5 +201,119 @@ public class CompanionBinaryPreservationTests : IDisposable
             "every blob this form cites is on a modelled property now — Form.Icon, CommandButton.Picture "
           + "and ListBox.DragIcon — so there is nothing it cannot reproduce");
         form.CanSaveFaithfully.Should().BeTrue("and so it must no longer be held read-only");
+    }
+
+    // ------------------------------------------------------------------------------------------------
+    // #148 — a save writes BOTH halves or NEITHER.
+    //
+    // FrxSerializer gives each record the offset of wherever it lands, so the .frm's citations are only
+    // meaningful against the exact companion produced alongside them. Writing the text while refusing the
+    // companion leaves citations addressing a partition that is no longer there — and because a form's
+    // faithfulness is re-derived from its own citations, the damaged pair reopens as FAITHFUL.
+    // ------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// The invariant, stated directly: the two files on disk must be the two halves of ONE Serialize
+    /// result. Saving is deterministic over an unchanged model, so re-serializing yields exactly what the
+    /// save should have written — and any half that was skipped or written from a different run shows up.
+    /// </summary>
+    private static void AssertDiskHoldsOneSerializeResult(FormDefinition form, string frmPath)
+    {
+        var (expectedText, expectedCompanion) = new FormSerializer().Serialize(form, Path.GetFileName(frmPath));
+        var frxPath = Path.ChangeExtension(frmPath, ".frx");
+
+        Vb6TextFile.ReadAllText(frmPath).Should().Be(expectedText,
+            "the designer text on disk must be the half the serializer produced");
+
+        if (expectedCompanion is { Length: > 0 })
+        {
+            File.Exists(frxPath).Should().BeTrue("the form cites companion content, so it must be beside it");
+            File.ReadAllBytes(frxPath).Should().Equal(expectedCompanion,
+                "the companion must be the OTHER half of that same result — one written without the other "
+              + "leaves every citation addressing a partition that does not exist");
+        }
+    }
+
+    [Fact]
+    public async Task Dropping_a_blob_bearing_control_keeps_both_halves_in_step()
+    {
+        // Button ListBox carries five blobs across five controls, so removing one moves every offset after
+        // it. That is the mutation the old gate could not survive: it compared a walk of the produced
+        // companion (4) against a load-time constant (5), refused the companion write, and wrote the .frm
+        // anyway — with four freshly renumbered citations pointing into the untouched five-record file.
+        var vbp = StageVb6Form(@"Controls\Button ListBox.frm");
+        if (vbp is null) return;
+
+        var svc = MakeService();
+        await svc.OpenProject(vbp);
+        var form = loaded.Single().Forms.Single();
+        var frmPath = form.AbsolutePath!;
+
+        var blobBearing = form.Components.First(c =>
+            c.BaseClass.Properties.Any(p => p.PropertyType == typeof(byte[])
+                                            && c.TryGetBoxedProperty(p, out var v) && v is byte[]));
+        form.UpdateComponents(form.Components.Where(c => c != blobBearing).ToList());
+
+        await svc.SaveProject(loaded.Single(), saveAs: false);
+
+        AssertDiskHoldsOneSerializeResult(form, frmPath);
+    }
+
+    [Fact]
+    public async Task A_form_that_reproduces_its_companion_is_never_denied_the_write()
+    {
+        // ODBC Log In was refused its companion on EVERY save while reproducing it byte for byte. The two
+        // sides of the old comparison were counted by different readers: the load partitioned by cited
+        // offset (3), the save walked flat length-prefixed records (2) — a reader whose own documentation
+        // says it is wrong for exactly the List/ItemData records this form carries.
+        //
+        // A plain save hid it, because the bytes it declined to write happened to equal the bytes already
+        // there. Perturbing the file on disk makes the refusal observable.
+        var vbp = StageVb6Form(@"Forms\ODBC Log In.frm");
+        if (vbp is null) return;
+
+        var frxPath = Directory.EnumerateFiles(dir, "*.frx").Single();
+
+        var svc = MakeService();
+        await svc.OpenProject(vbp);
+        var form = loaded.Single().Forms.Single();
+
+        // AFTER the load, so the model does not absorb it. The last cited record runs to end-of-file, so a
+        // byte appended BEFORE loading simply becomes part of that record and is faithfully written back —
+        // which says nothing about whether the save wrote the companion at all.
+        await File.WriteAllBytesAsync(frxPath, (await File.ReadAllBytesAsync(frxPath)).Append((byte)0xEE).ToArray());
+
+        await svc.SaveProject(loaded.Single(), saveAs: false);
+
+        File.ReadAllBytes(frxPath).Should().NotContain((byte)0xEE,
+            "the form reproduces its companion exactly, so the save must write it rather than decline");
+        AssertDiskHoldsOneSerializeResult(form, form.AbsolutePath!);
+    }
+
+    [Fact]
+    public async Task A_companion_nothing_cites_is_left_alone_rather_than_deleted()
+    {
+        // A form citing nothing produces no blobs, every save, forever. Reading that as "the developer
+        // cleared the last picture" deletes a file this form never referenced and never modelled — its
+        // bytes are read by falling back to a flat walk and are not held anywhere else.
+        //
+        // The old blob-count comparison blocked this by accident. Removing it made the deletion reachable,
+        // so the guard is now stated in terms of what the designer file actually cites.
+        var frm = Path.Join(dir, "Bare.frm");
+        await File.WriteAllTextAsync(frm,
+            "VERSION 5.00\r\nBegin VB.Form Form1 \r\n   Caption = \"x\"\r\nEnd\r\nAttribute VB_Name = \"Bare\"\r\n");
+        var orphan = Path.ChangeExtension(frm, ".frx");
+        var orphanBytes = new byte[] { 4, 0, 0, 0, 1, 2, 3, 4 };
+        await File.WriteAllBytesAsync(orphan, orphanBytes);
+
+        var vbp = Path.Join(dir, "Test.vbp");
+        await File.WriteAllTextAsync(vbp, "Type=Exe\r\nForm=Bare.frm\r\nName=\"Test\"\r\n");
+
+        var svc = MakeService();
+        await svc.OpenProject(vbp);
+        await svc.SaveProject(loaded.Single(), saveAs: false);
+
+        File.Exists(orphan).Should().BeTrue("a companion this form never cited is not the save's to delete");
+        File.ReadAllBytes(orphan).Should().Equal(orphanBytes);
     }
 }

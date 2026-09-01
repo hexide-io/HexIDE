@@ -458,9 +458,23 @@ public class ProjectService : IProjectService
     }
 
     /// <summary>
-    /// Forms refused during the current save, so a batch reports once rather than per file.
+    /// Names refused during the current save, so a batch reports once rather than per file.
+    ///
+    /// Names rather than forms: a UserControl is refused as a <see cref="ModuleDefinition"/>, which is not a
+    /// <see cref="FormDefinition"/>, and both belong in the same report.
     /// </summary>
-    private readonly List<FormDefinition> refusedThisSave = new();
+    private readonly List<string> refusedThisSave = new();
+
+    /// <summary>
+    /// Bank a refusal for the current save. Only ever called by an entry point that is followed by a drain
+    /// — never by the write helpers themselves, or a path with no drain of its own would leave the entry
+    /// sitting there to surface during the next unrelated save, naming a file that was not in that batch.
+    /// </summary>
+    private void RecordRefusal(string name)
+    {
+        if (!refusedThisSave.Contains(name))
+            refusedThisSave.Add(name);
+    }
 
     /// <summary>
     /// Save one form on its own. A refusal is reported at the moment it happens — unlike
@@ -494,8 +508,7 @@ public class ProjectService : IProjectService
         if (!form.CanSaveFaithfully)
         {
             Log.Warning("Refusing to save {Form}: {Reason}", form.Name, form.UnfaithfulSaveReason);
-            if (!refusedThisSave.Contains(form))
-                refusedThisSave.Add(form);
+            RecordRefusal(form.Name);
             return;
         }
 
@@ -511,6 +524,11 @@ public class ProjectService : IProjectService
             if (formPath == null)
                 throw new OperationCanceledException();
         }
+        // The return is deliberately not banked here. The refusal above already covers this path — and it
+        // sits above the picker on purpose, so the developer is never asked for a destination that will not
+        // be written. The check inside SerializeFormToFile is the write-site backstop for the paths that do
+        // NOT come through here (Save Project's batch, Make EXE, Save-to-directory). Two checks, two jobs;
+        // collapsing them into one would either reinstate the picker prompt or leave those paths ungated.
         SerializeFormToFile(form, formPath);
     }
 
@@ -718,18 +736,42 @@ public class ProjectService : IProjectService
         var originalAbsolutePath = projectDefinition.AbsolutePath;
         var originalFormPaths = projectDefinition.Forms.Select(x => (x, x.AbsolutePath)).ToList();
 
-        foreach (var form in projectDefinition.Forms)
-            SerializeFormToFile(form, Path.Join(tempPath, Path.ChangeExtension(form.Name, "frm")));
-        SerializeOnlyProjectToFile(projectDefinition, Path.Join(tempPath, Path.ChangeExtension(exeFileName, "vbp")));
+        // try/finally because the restore below is not bookkeeping — it is the only thing putting the model
+        // back after every form has been repointed into a temp directory. Any escape between here and there
+        // leaves the whole project pointing at %TEMP%, and the next ordinary Ctrl+S writes there. That was
+        // survivable while this block could not fail; a refused form makes it an early exit. (#148)
+        var refused = new List<string>();
+        try
+        {
+            foreach (var form in projectDefinition.Forms)
+                if (!SerializeFormToFile(form, Path.Join(tempPath, Path.ChangeExtension(form.Name, "frm"))))
+                    refused.Add(form.Name);
 
-        // vvv this is a bad design. TODO a better way to handle paths
-        projectDefinition.AbsolutePath = originalAbsolutePath;
-        foreach (var (form, original) in originalFormPaths)
-            form.AbsolutePath = original;
+            // Abort the whole Make rather than package a project whose .vbp names a form that was never
+            // written. Omitting the form silently produces an archive that fails on open, at a remove from
+            // the cause; refusing costs nothing, because the source project has not been touched.
+            if (refused.Count > 0)
+            {
+                foreach (var name in refused)
+                    RecordRefusal(name);
+                await ReportRefusedSaves();
+                throw new OperationCanceledException();
+            }
 
-        // This is not a .dll file, but it will look better :wink: :wink:
-        ZipFile.CreateFromDirectory(tempPath, Path.ChangeExtension(exePath, "dll")!);
-        Directory.Delete(tempPath, true);
+            SerializeOnlyProjectToFile(projectDefinition, Path.Join(tempPath, Path.ChangeExtension(exeFileName, "vbp")));
+
+            // This is not a .dll file, but it will look better :wink: :wink:
+            ZipFile.CreateFromDirectory(tempPath, Path.ChangeExtension(exePath, "dll")!);
+        }
+        finally
+        {
+            // vvv this is a bad design. TODO a better way to handle paths
+            projectDefinition.AbsolutePath = originalAbsolutePath;
+            foreach (var (form, original) in originalFormPaths)
+                form.AbsolutePath = original;
+
+            try { Directory.Delete(tempPath, true); } catch { /* best effort — the temp dir is disposable */ }
+        }
 
         foreach (var standaloneFile in requiredNativeFiles.Select(f => f.FirstOrDefault(x => x.Exists)))
         {
@@ -745,25 +787,48 @@ public class ProjectService : IProjectService
     public async Task SaveProject(ProjectDefinition project, bool saveAs)
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
-        foreach (var form in project.Forms)
+        // try/finally so the drain runs even when the batch is abandoned part-way. SaveOnlyProject and
+        // SaveModule both throw OperationCanceledException when their picker is dismissed, which skipped the
+        // report and left every refusal banked — to surface during the next unrelated save, naming files
+        // that were not in it. That is the leak #145 fixed for the lone path and left open here.
+        try
         {
-            await SaveFormCore(form, false);
-        }
-        foreach (var module in project.Modules)
-        {
-            await SaveModule(module, false);
-        }
+            foreach (var form in project.Forms)
+            {
+                await SaveFormCore(form, false);
+            }
+            foreach (var module in project.Modules)
+            {
+                await SaveModule(module, false);
+            }
 
-        await SaveOnlyProject(project, saveAs);
-        await ReportRefusedSaves();
+            await SaveOnlyProject(project, saveAs);
+        }
+        finally
+        {
+            await ReportRefusedSaves();
+        }
     }
 
     public Task SaveProjectToDirectory(ProjectDefinition project, string directory)
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
         Directory.CreateDirectory(directory);
+
+        // Reported here rather than banked. This method has no drain of its own, so a refusal added to the
+        // shared list would sit there and surface during the next unrelated Save Project, naming a file
+        // that was not part of it. Throwing keeps the report attached to the operation that caused it, and
+        // stops a .vbp being written that names forms which are not beside it. (#148)
+        var refused = new List<string>();
         foreach (var form in project.Forms)
-            SerializeFormToFile(form, Path.Join(directory, form.Name + ".frm"));
+            if (!SerializeFormToFile(form, Path.Join(directory, form.Name + ".frm")))
+                refused.Add(form.Name);
+
+        if (refused.Count > 0)
+            throw new InvalidOperationException(
+                $"Cannot write this project to {directory}: HexIDE cannot reproduce "
+              + $"{string.Join(", ", refused)}, so no project file was written.");
+
         SerializeOnlyProjectToFile(project, Path.Join(directory, project.Name + ".vbp"));
         return Task.CompletedTask;
     }
@@ -773,7 +838,11 @@ public class ProjectService : IProjectService
         var form = new FormDefinition(project, FormComponentClass.Instance, name);
         var dir = ProjectFilesDirectory(project);
         Directory.CreateDirectory(dir);
-        SerializeFormToFile(form, Path.Join(dir, name + ".frm"));
+        // A brand new form has no unfaithful causes and cites no companion, so this cannot refuse. Asserted
+        // rather than ignored: if it ever did, the form would be added to the project with no file behind
+        // it, and the .vbp would name a path that does not exist.
+        if (!SerializeFormToFile(form, Path.Join(dir, name + ".frm")))
+            throw new InvalidOperationException($"A new form ({name}) could not be written.");
         project.AddForm(form);
         return Task.FromResult(form);
     }
@@ -835,16 +904,23 @@ public class ProjectService : IProjectService
     /// <summary>Saves everything the user left ticked in the save-changes prompt.</summary>
     private async Task SaveSelected(SaveChangesViewModel changedFilesVm)
     {
-        foreach (var selected in changedFilesVm.SelectedFiles.Where(f => f.Form != null))
-            await SaveFormCore(selected.Form!, false);
+        // try/finally for the same reason as SaveProject: a dismissed picker anywhere in this batch used to
+        // skip the drain and leave refusals banked for the next unrelated save.
+        try
+        {
+            foreach (var selected in changedFilesVm.SelectedFiles.Where(f => f.Form != null))
+                await SaveFormCore(selected.Form!, false);
 
-        foreach (var selected in changedFilesVm.SelectedFiles.Where(f => f.Module != null))
-            await SaveModule(selected.Module!, false);
+            foreach (var selected in changedFilesVm.SelectedFiles.Where(f => f.Module != null))
+                await SaveModule(selected.Module!, false);
 
-        foreach (var selected in changedFilesVm.SelectedFiles.Where(f => f.Project != null))
-            await SaveOnlyProject(selected.Project!, false);
-
-        await ReportRefusedSaves();
+            foreach (var selected in changedFilesVm.SelectedFiles.Where(f => f.Project != null))
+                await SaveOnlyProject(selected.Project!, false);
+        }
+        finally
+        {
+            await ReportRefusedSaves();
+        }
     }
 
     /// <summary>
@@ -857,7 +933,7 @@ public class ProjectService : IProjectService
         if (refusedThisSave.Count == 0)
             return;
 
-        var names = string.Join("\n", refusedThisSave.Select(f => $"  • {f.Name}"));
+        var names = string.Join("\n", refusedThisSave.Select(n => $"  • {n}"));
         var singular = refusedThisSave.Count == 1;
         refusedThisSave.Clear();
 
@@ -939,69 +1015,104 @@ public class ProjectService : IProjectService
         Log.Information("ProjectService: Saved group {Path}", group.AbsolutePath);
     }
 
-    private void SerializeFormToFile(FormDefinition form, string formPath)
+    /// <summary>
+    /// Write a form's two halves — the designer text and its companion binary — or write neither.
+    ///
+    /// Returns false when the form was refused, in which case nothing was written and nothing on the model
+    /// was repointed. Reporting is the caller's: a lone save says so immediately, a batch collects.
+    /// </summary>
+    private bool SerializeFormToFile(FormDefinition form, string formPath)
     {
-        form.AbsolutePath = formPath;
+        // ONE ruler, asked ONCE, before either half is written. (#148)
+        //
+        // The text write used to be unconditional while the companion write carried a refusal of its own,
+        // decided on a different measure. When that refusal fired, the .frm went to disk citing freshly
+        // renumbered offsets beside a companion that still held the OLD partition — FrxSerializer assigns
+        // each record's offset by where it lands, so every citation moves the moment the record set does.
+        // The damaged pair then reopened as FAITHFUL, because the citations that would have flagged it are
+        // precisely what the renumbering overwrote.
+        //
+        // The two measures could never agree. This one is answered at LOAD, from the file, by counting what
+        // the .frm cites against what reached the model. The other walked the PRODUCED companion as flat
+        // length-prefixed records — a reader whose own documentation says it is wrong for List and ItemData,
+        // and which called VB6's own ODBC Log In unsavable while it reproduced byte for byte.
+        //
+        // Whether HexIDE can reproduce a file is a question about the file, so it is answered where the file
+        // is read. The save path's only remaining job is to keep the two halves in step.
+        if (!form.CanSaveFaithfully)
+        {
+            Log.Warning("Refusing to write {Form}: {Reason}", form.Name, form.UnfaithfulSaveReason);
+            return false;
+        }
+
         var serializer = new FormSerializer();
         var (frmText, frxContent) = serializer.Serialize(form, Path.GetFileName(formPath));
 
+        // Below the decision. A refused Save As must not leave the model pointing at a path that was never
+        // written — the .vbp records forms by AbsolutePath, so it would name a file that does not exist.
+        form.AbsolutePath = formPath;
+
+        // COMPANION FIRST, and the order is load-bearing.
+        //
+        // These are two File.Move calls; nothing makes the pair atomic, so an interruption between them
+        // always leaves one half of the new save on disk. The order decides WHICH half, and the two
+        // outcomes are not equally bad.
+        //
+        //   text first     -> new .frm beside the old companion. Its renumbered citations still land inside
+        //                     the larger, stale file, so they all resolve — to the wrong records. The pair
+        //                     reopens as faithful. That is outcome 3: silent, and it launders.
+        //   companion first-> old .frm beside the new companion. Its citations were written for the old
+        //                     partition, so a shortfall leaves an offset past the end and the load gate
+        //                     refuses the form. That is outcome 0: loud, and recoverable.
+        //
+        // Neither is correct, but a crash should fail towards the one the developer is told about.
+        WriteCompanionBinary(formPath, frxContent, form);
         AtomicWriteText(formPath, frmText);
-        WriteCompanionBinary(formPath, frxContent, WouldLoseBlobs(form, frxContent));
+        return true;
     }
 
     /// <summary>
-    /// True when saving would write back fewer blobs than the load read, on any path — flagged or not.
-    /// The explicit flag catches the two known drop sites; this catches the rest, including properties
-    /// that are named but whose CLR type is unmapped and which vanish with no diagnostic at all.
-    /// </summary>
-    private static bool WouldLoseBlobs(FormDefinition form, byte[]? produced)
-    {
-        if (form.HasUnmodelledBinaryProperties)
-            return true;
-        if (form.LoadedCompanionBlobCount == 0)
-            return false;
-
-        var producedCount = 0;
-        if (produced is { Length: > 0 })
-        {
-            try { producedCount = FrxDeserializer.Read(produced).Count; }
-            catch { return true; } // cannot even read back what we just wrote — do not risk the original
-        }
-        return producedCount < form.LoadedCompanionBlobCount;
-    }
-
-    /// <summary>
-    /// Write, replace, or remove a companion binary (.frx/.ctx/.pgx) beside <paramref name="sourcePath"/> —
-    /// unless loading dropped a blob-backed property we cannot reproduce, in which case the file on disk
-    /// holds the only copy of those bytes and is left exactly as it is.
+    /// Write, replace, or remove a companion binary (.frx/.ctx/.pgx) beside <paramref name="sourcePath"/>.
     ///
-    /// Both alternatives destroy user data: regenerating truncates (Splash Screen.frx, 790 bytes to 12) and
-    /// producing nothing is read as "delete it" (Button ListBox.frx, 2122 bytes gone). The images exist
-    /// nowhere else, so refusing to touch the file is the only safe option until unmodelled blobs are
-    /// passed through. Verified against VB6's own shipped forms — see SerializationCorpusTests.
+    /// Only ever called for a form the caller has already decided it can reproduce, so regenerating the
+    /// companion is safe by then: the records going out are the records that came in. This used to carry a
+    /// SECOND refusal of its own, on a different measure from the caller's, which is what let a .frm be
+    /// written beside a companion that was not — see <see cref="SerializeFormToFile"/> (#148).
+    ///
+    /// It keeps one guard, and only one: a companion this form never cited is not ours to delete.
     /// </summary>
-    private void WriteCompanionBinary(string sourcePath, byte[]? content, bool binaryFidelityLost)
+    private void WriteCompanionBinary(string sourcePath, byte[]? content, FormDefinition form)
     {
         var companionPath = Path.ChangeExtension(sourcePath, CompanionBinaryExtension(sourcePath));
-
-        if (binaryFidelityLost && File.Exists(companionPath))
-        {
-            Log.Warning("Leaving {Companion} untouched — {Source} uses binary properties HexIDE does not "
-                      + "model, so writing a regenerated companion would lose data.",
-                        Path.GetFileName(companionPath), Path.GetFileName(sourcePath));
-            return;
-        }
 
         if (content is { Length: > 0 })
         {
             AtomicWriteBytes(companionPath, content);
+            return;
         }
-        else if (File.Exists(companionPath))
+
+        if (!File.Exists(companionPath))
+            return;
+
+        // Producing no blobs means "delete it" only if this form had blobs to lose. A companion NOTHING
+        // cites is read by falling back to a flat walk, so it yields records the model never captured and
+        // never cites back — and a form that cited nothing on the way in produces nothing on the way out,
+        // every single save. Treating that as "the developer cleared the last picture" deletes a file whose
+        // bytes exist nowhere else, on an ordinary save of a form that never referenced it.
+        //
+        // The old blob-count refusal happened to block this, for the wrong reason. Removing it made the
+        // deletion reachable, so the guard is now stated in terms of what the form actually cited.
+        if (form.CitedCompanionBlobCount == 0)
         {
-            File.Delete(companionPath);
-            baselineStore.Remove(companionPath);
-            renderBaselines.Remove(companionPath);
+            Log.Warning("Leaving {Companion} untouched — {Source} cites no companion content, so this file "
+                      + "is not one this save produced or can account for.",
+                        Path.GetFileName(companionPath), Path.GetFileName(sourcePath));
+            return;
         }
+
+        File.Delete(companionPath);
+        baselineStore.Remove(companionPath);
+        renderBaselines.Remove(companionPath);
     }
 
     private static string CompanionBinaryExtension(string sourceFilePath) =>
@@ -1102,15 +1213,31 @@ public class ProjectService : IProjectService
             if (modulePath == null)
                 throw new OperationCanceledException();
         }
+        // A UserControl or PropertyPage is a form in all the ways that matter here: it has a designer half
+        // and a companion beside it, so it gets the same rule — both halves or neither, decided before
+        // either is written and before the module is repointed at a path that may never exist. (#148)
+        var designerPart = module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage
+            ? module.FormPart
+            : null;
+
+        if (designerPart is not null && !designerPart.CanSaveFaithfully)
+        {
+            Log.Warning("Refusing to write {Module}: {Reason}", module.Name, designerPart.UnfaithfulSaveReason);
+            RecordRefusal(module.Name);
+            return;
+        }
+
         module.AbsolutePath = modulePath;
 
-        if (module.FormPart is not null && module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
+        if (designerPart is not null)
         {
             var serializer = new FormSerializer();
             var fileName = Path.GetFileName(modulePath);
-            var (text, binary) = serializer.Serialize(module.FormPart, module.Code, fileName);
+            var (text, binary) = serializer.Serialize(designerPart, module.Code, fileName);
+            // Companion first — see SerializeFormToFile for why the order is the difference between a
+            // crash leaving a laundered file and a crash leaving a refused one.
+            WriteCompanionBinary(modulePath, binary, designerPart);
             AtomicWriteText(modulePath, text);
-            WriteCompanionBinary(modulePath, binary, WouldLoseBlobs(module.FormPart, binary));
             return;
         }
 
