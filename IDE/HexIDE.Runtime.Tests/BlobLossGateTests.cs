@@ -14,11 +14,18 @@ namespace HexIDE.Runtime.Tests;
 /// result is a save that looks successful and silently removes a control's picture, with the bytes still
 /// sitting on disk unreferenced.
 ///
-/// There are two ways it goes missing and only one announces itself, which is why the gate needs both a
+/// There are three ways it goes missing and only one announces itself, which is why the gate needs both a
 /// flag and a count:
 ///   - an UNMODELLED CONTROL carrying an .frx reference — flagged during the walk
 ///   - a MODELLED control carrying a property that is named but whose CLR type is not byte[] — dropped
 ///     with no diagnostic at all. ODBC Log In's ComboBox List is exactly this.
+///   - the COMPANION ITSELF absent or truncated, so a citation on an entirely ordinary property cannot be
+///     honoured. Nothing about the form is unusual; the file beside it is what is missing (#146).
+///
+/// The count is taken against what the .frm CITES, not against what the companion yielded. Counting the
+/// companion cannot see that third case — with no companion there is nothing to count, and with a truncated
+/// one both sides fall to the same lower number and agree. The citations live in the .frm, so they are
+/// there to be counted whatever became of the file beside it.
 /// </summary>
 public class BlobLossGateTests
 {
@@ -124,5 +131,111 @@ public class BlobLossGateTests
         // losing a picture.
         form.UnfaithfulSaveCauses.Should().Be(
             UnfaithfulSaveCause.NestedContainers | UnfaithfulSaveCause.UnreproducibleBinaryContent);
+    }
+
+    // ── A companion that is not there (#146) ─────────────────────────────────────────────────────────
+    //
+    // The gate used to count what the COMPANION yielded — `frxBlobs?.Count ?? 0` — so with no companion the
+    // test became `capturedBlobs.Count < 0`, always false. A .frm separated from its .frx was never
+    // flagged, and an ordinary Ctrl+S at its ORIGINAL path rewrote it with every citation dropped. The
+    // damaged file then reopened as faithful, because the citations were the only thing that would have
+    // flagged it.
+    //
+    // Counting what the SOURCE cites closes it: the citations live in the .frm, so the check no longer
+    // depends on the file that may be the one missing.
+    //
+    // `AFormWithNoCompanionAtAll_IsUnaffected` above is the other side of this and still holds — a form
+    // that cites NOTHING is fine without a companion. These cover a form that cites one it does not have.
+
+    [Fact]
+    public void AModelledPictureWhoseCompanionIsMissing_HoldsTheFormReadOnly()
+    {
+        // The near-universal shape: Picture/Icon on a control HexIDE models perfectly well. Nothing is
+        // wrong with the form — the companion is simply absent, and the citation cannot be honoured.
+        var form = Load(ModelledPictureForm);
+
+        form.CanSaveFaithfully.Should().BeFalse(
+            "the form cites a blob it could not load, so saving would drop the citation");
+        form.UnfaithfulSaveCauses.Should().HaveFlag(UnfaithfulSaveCause.UnreproducibleBinaryContent);
+    }
+
+    [Fact]
+    public void AnUnmodelledOwnerWhoseCompanionIsMissing_HoldsTheFormReadOnly()
+    {
+        var form = Load(UnmodelledOwnerForm);
+
+        form.CanSaveFaithfully.Should().BeFalse();
+    }
+
+    [Fact]
+    public void AnUnmodelledPropertyWhoseCompanionIsMissing_HoldsTheFormReadOnly()
+    {
+        var form = Load(UnmodelledPropertyForm);
+
+        form.CanSaveFaithfully.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ATruncatedCompanion_HoldsTheFormReadOnly()
+    {
+        // The case nobody had noticed. A cited offset past the end of the companion is filtered out of the
+        // blob dictionary AND fails to extract, so under the old count BOTH sides fell to the same lower
+        // number and the two agreed. Counting citations makes the shortfall visible.
+        var twoCitations =
+            "VERSION 5.00\r\n" +
+            "Begin VB.Form Form1 \r\n" +
+            "   Begin VB.PictureBox Picture1 \r\n" +
+            "      Picture         =   \"Form1.frx\":0000\r\n" +
+            "   End\r\n" +
+            "   Begin VB.PictureBox Picture2 \r\n" +
+            "      Picture         =   \"Form1.frx\":00FF\r\n" +   // past the end of the 4-byte companion
+            "   End\r\n" +
+            "End\r\nAttribute VB_Name = \"Form1\"\r\n";
+
+        var form = Load(twoCitations, FrxDeserializer.Read(new byte[] { 1, 2, 3, 4 }, twoCitations));
+
+        form.CanSaveFaithfully.Should().BeFalse("one of the two cited blobs is not in the companion");
+    }
+
+    [Fact]
+    public void AFormWhoseCitationsAreAllHonoured_StaysSavable()
+    {
+        // The guard against over-reaching: counting citations must not flag a form that is perfectly fine.
+        // Two citations, two blobs, both captured.
+        var twoCitations =
+            "VERSION 5.00\r\n" +
+            "Begin VB.Form Form1 \r\n" +
+            "   Begin VB.PictureBox Picture1 \r\n" +
+            "      Picture         =   \"Form1.frx\":0000\r\n" +
+            "   End\r\n" +
+            "   Begin VB.PictureBox Picture2 \r\n" +
+            "      Picture         =   \"Form1.frx\":0004\r\n" +
+            "   End\r\n" +
+            "End\r\nAttribute VB_Name = \"Form1\"\r\n";
+
+        var form = Load(twoCitations, FrxDeserializer.Read(new byte[] { 1, 2, 3, 4, 9, 9, 9, 9 }, twoCitations));
+
+        form.CanSaveFaithfully.Should().BeTrue();
+    }
+
+    [Fact]
+    public void TwoPropertiesCitingOneOffset_CountAsOneBlob()
+    {
+        // Distinct(): two controls sharing an image cite the same offset, which is one blob, not two.
+        // Counting citations naively would flag this perfectly reproducible form.
+        var sharedOffset =
+            "VERSION 5.00\r\n" +
+            "Begin VB.Form Form1 \r\n" +
+            "   Begin VB.PictureBox Picture1 \r\n" +
+            "      Picture         =   \"Form1.frx\":0000\r\n" +
+            "   End\r\n" +
+            "   Begin VB.PictureBox Picture2 \r\n" +
+            "      Picture         =   \"Form1.frx\":0000\r\n" +
+            "   End\r\n" +
+            "End\r\nAttribute VB_Name = \"Form1\"\r\n";
+
+        var form = Load(sharedOffset, FrxDeserializer.Read(new byte[] { 1, 2, 3, 4 }, sharedOffset));
+
+        form.CanSaveFaithfully.Should().BeTrue("one offset cited twice is one blob");
     }
 }
