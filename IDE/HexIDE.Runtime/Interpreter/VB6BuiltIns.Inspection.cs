@@ -23,8 +23,16 @@ public partial class VB6BuiltIns
         d["IsNull"]    = (_, a, _) => new Vb6Value(a[0].Type == VT.Null);
         d["IsArray"]   = (_, a, _) => new Vb6Value(a[0].Type.IsArray);
         d["IsObject"]  = (_, a, _) => new Vb6Value(IsObjectValue(a[0]));
-        // No vbError/CVErr subtype exists in the value model yet, so IsError is always False for now.
-        d["IsError"]   = (_, a, _) => new Vb6Value(false);
+
+        // True only for an argument the caller left out, and only where there was nothing to put in its
+        // place — an Optional with a declared type or a default gets that instead and is NOT missing.
+        // Measured; see "IsMissing and the shape of an omitted argument" in docs/vb6-fidelity-oracle.md.
+        d["IsMissing"] = (_, a, _) => new Vb6Value(a[0].IsMissing);
+
+        // An omitted argument is a Variant of subtype vbError, so IsError reports it — measured as True.
+        // It is the only vbError value the model has: CVErr is still unimplemented, and when it lands it
+        // belongs here too.
+        d["IsError"]   = (_, a, _) => new Vb6Value(a[0].IsMissing);
     }
 
     /// <summary>The debugger's Type-column label for a value — like <see cref="TypeNameOf"/> but names a
@@ -77,6 +85,10 @@ public partial class VB6BuiltIns
         VTP.Boolean           => ("Boolean", 11),
         VTP.Null              => ("Null", 1),
         VTP.EmptyVariant      => ("Empty", 0),
+        // An omitted argument, which VB6 reports as an Error-subtype Variant — TypeName "Error", VarType
+        // vbError (10). Deliberately not "Empty"/0: IsEmpty is False for it, and conflating the two is
+        // what makes IsMissing impossible to express.
+        VTP.Missing           => ("Error", 10),
         VTP.Nothing           => ("Nothing", 9),
         VTP.Color             => ("Long", 3),   // VB6 has no colour type — a colour is a Long
         VTP.Control           => ("Object", 9),
