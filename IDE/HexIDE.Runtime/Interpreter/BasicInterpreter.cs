@@ -643,7 +643,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             if (p.ParamArray)
                 throw new NotImplementedException("ParamArray parameters are not yet supported");
 
-            if (i < args.Count)
+            // A blank slot at this position (`Foo 1, , 3`) occupies it only so the arguments after it bind
+            // correctly. It is NOT a value: fall through to the Optional branch so the parameter takes its
+            // declared default, exactly as if the caller had stopped short.
+            if (i < args.Count && !args[i].Value.IsMissing)
             {
                 var arg = args[i];
                 bool aliasable = p.ByRef && arg.Location is not null

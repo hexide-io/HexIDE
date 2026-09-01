@@ -176,21 +176,61 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return vb6Value;
     }
 
+    /// <summary>
+    /// The argument slots of a call, blanks included.
+    ///
+    /// <para>The grammar's <c>argsCall</c> makes each <c>argCall</c> optional, so a blank argument —
+    /// <c>Foo 1, , 3</c>, which VB6 allows freely — produces no node at all. Reading
+    /// <c>context.argCall()</c> therefore yields only the arguments that were written, and everything
+    /// after a blank silently shifts one position left: in <c>MsgBox "x", , vbCritical</c> the icon
+    /// constant, written in the Title position, arrived as Buttons and set an icon nobody asked for.</para>
+    ///
+    /// <para>Positions come from the separators instead: slots = commas + 1, each holding the argument
+    /// written between them or <c>null</c> for a blank.</para>
+    /// </summary>
+    private static List<VB6Parser.ArgCallContext?> ArgSlots(VB6Parser.ArgsCallContext? context)
+    {
+        var slots = new List<VB6Parser.ArgCallContext?>();
+        if (context?.children is null) return slots;
+
+        VB6Parser.ArgCallContext? pending = null;
+        var sawAnything = false;
+        foreach (var child in context.children)
+        {
+            switch (child)
+            {
+                case VB6Parser.ArgCallContext arg:
+                    pending = arg;
+                    sawAnything = true;
+                    break;
+                case ITerminalNode t when t.Symbol.Type is VB6Parser.COMMA or VB6Parser.SEMICOLON:
+                    slots.Add(pending);
+                    pending = null;
+                    sawAnything = true;
+                    break;
+            }
+        }
+        // The final slot closes at the end of the list rather than at a separator.
+        if (sawAnything) slots.Add(pending);
+        return slots;
+    }
+
     public async Task<List<Vb6Value>> EvaluateCallArgs(VB6Parser.ArgsCallContext? context)
     {
         List<Vb6Value> callArgs = new();
-        if (context != null)
+        foreach (var arg in ArgSlots(context))
         {
-            var args = context.argCall();
-            foreach (var arg in args)
+            if (arg is null)
             {
-                if (arg.BYREF() != null)
-                    throw new NotImplementedException("ByReference arguments are not supported");
-                if (arg.PARAMARRAY() != null)
-                    throw new NotImplementedException("PARAMARRAY arguments are not supported");
-
-                callArgs.Add(await EvaluateValue(arg.valueStmt()));
+                callArgs.Add(Vb6Value.Missing);
+                continue;
             }
+            if (arg.BYREF() != null)
+                throw new NotImplementedException("ByReference arguments are not supported");
+            if (arg.PARAMARRAY() != null)
+                throw new NotImplementedException("PARAMARRAY arguments are not supported");
+
+            callArgs.Add(await EvaluateValue(arg.valueStmt()));
         }
 
         return callArgs;
@@ -201,10 +241,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     public async Task<List<CallArg>> ResolveCallArgs(VB6Parser.ArgsCallContext? context)
     {
         var result = new List<CallArg>();
-        if (context == null)
-            return result;
-        foreach (var arg in context.argCall())
+        foreach (var arg in ArgSlots(context))
         {
+            // A blank slot has no lvalue to alias, so it can never be ByRef.
+            if (arg is null)
+            {
+                result.Add(new CallArg(Vb6Value.Missing, null));
+                continue;
+            }
             if (arg.PARAMARRAY() != null)
                 throw new NotImplementedException("ParamArray arguments are not yet supported");
             var value = await EvaluateValue(arg.valueStmt());
