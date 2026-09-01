@@ -131,8 +131,12 @@ public static class DebugInspector
 
     // Program-global objects seeded into every module env (see BasicInterpreter.SeedProgramGlobal) — never shown
     // as user variables. "Me" is handled as the root, not a plain local.
+    //
+    // This list has to grow with SeedProgramGlobal. A class instance's env is CLONED from its class template,
+    // so a newly seeded global appears inside every object too: adding App made a field-less instance report
+    // HasChildren, i.e. an expander that opens to one thing the user never declared.
     private static readonly HashSet<string> Hidden =
-        new(StringComparer.OrdinalIgnoreCase) { "Debug", "Err", "Me" };
+        new(StringComparer.OrdinalIgnoreCase) { "Debug", "Err", "App", "Me" };
 
     public static DebugScope Build(ExecutionEnvironment env, ModuleInfo module, BasicInterpreter interp, string? procName)
     {
