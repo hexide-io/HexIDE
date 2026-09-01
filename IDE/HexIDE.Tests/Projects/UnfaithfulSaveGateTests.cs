@@ -392,4 +392,74 @@ public class UnfaithfulSaveGateTests : IDisposable
         warningsShown.Should().Be(0, "nothing was refused");
         File.Exists(Path.Join(dir, "UserControl1.ctl")).Should().BeTrue();
     }
+
+    // ── #149: a project written elsewhere takes its modules with it ─────────────────────────
+    //
+    // Forms and the .vbp were written; modules were not. And because every item is recorded in the .vbp by
+    // AbsolutePath, leaving a module on its original path made ProjectSerializer emit it relative to the
+    // NEW directory — so the project file both named files that were not beside it and published a path
+    // back to the developer's own source tree.
+
+    private string StageProjectWithModule()
+    {
+        File.WriteAllText(Path.Join(dir, "Form1.frm"), FlatForm);
+        File.WriteAllText(Path.Join(dir, "Module1.bas"),
+            "Attribute VB_Name = \"Module1\"\r\nOption Explicit\r\n\r\nPublic Sub Go()\r\nEnd Sub\r\n");
+        var vbp = Path.Join(dir, "Test.vbp");
+        File.WriteAllText(vbp,
+            "Type=Exe\r\nForm=Form1.frm\r\nModule=Module1; Module1.bas\r\nName=\"Test\"\r\n");
+        return vbp;
+    }
+
+    [Fact]
+    public async Task Saving_a_project_to_a_directory_writes_its_modules()
+    {
+        var svc = MakeService();
+        await svc.OpenProject(StageProjectWithModule());
+        var target = Path.Join(dir, "out");
+
+        await svc.SaveProjectToDirectory(loaded.Single(), target);
+
+        File.Exists(Path.Join(target, "Form1.frm")).Should().BeTrue();
+        File.Exists(Path.Join(target, "Module1.bas")).Should()
+            .BeTrue("a project written elsewhere is not a project without its modules");
+    }
+
+    [Fact]
+    public async Task The_written_vbp_names_a_module_beside_it_not_where_it_came_from()
+    {
+        // The leak. With the module left on its original path, the emitted line was
+        // `Module=Module1; ..\..\..\<the developer's source tree>\Module1.bas`.
+        var svc = MakeService();
+        await svc.OpenProject(StageProjectWithModule());
+        var target = Path.Join(dir, "out");
+
+        await svc.SaveProjectToDirectory(loaded.Single(), target);
+
+        var vbp = await File.ReadAllTextAsync(Path.Join(target, "Test.vbp"));
+        vbp.Should().Contain("Module1.bas");
+        vbp.Should().NotContain("..",
+            "every item must be named relative to the project file beside it — a path that climbs out of "
+          + "the directory names a file that is not in it and discloses where the original lives");
+    }
+
+    [Fact]
+    public async Task A_refused_UserControl_stops_a_directory_save()
+    {
+        // The gate reaches this path too: a module HexIDE cannot reproduce must not be written to a new
+        // location any more than to its own, and the .vbp must not be written naming it.
+        File.WriteAllText(Path.Join(dir, "UserControl1.ctl"), NestedContainerUserControl);
+        var vbp = Path.Join(dir, "Test.vbp");
+        File.WriteAllText(vbp, "Type=Exe\r\nUserControl=UserControl1.ctl\r\nName=\"Test\"\r\n");
+
+        var svc = MakeService();
+        await svc.OpenProject(vbp);
+        var target = Path.Join(dir, "out");
+
+        var act = async () => await svc.SaveProjectToDirectory(loaded.Single(), target);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        File.Exists(Path.Join(target, "Test.vbp")).Should()
+            .BeFalse("no project file may name a control that was refused");
+    }
 }
