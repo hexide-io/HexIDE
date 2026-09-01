@@ -20,9 +20,9 @@ public class StandaloneStandardLib : IBasicStandardLibrary
     /// the application name. An empty string means they passed one deliberately, and stays empty.
     /// </summary>
     /// <remarks>
-    /// The stand-in below is not the real answer: VB6 uses <c>App.Title</c>, which defaults to the project
-    /// name, and this runtime has no App object yet. Deliberately not a project name threaded through by
-    /// hand — that would be a second source to unpick once App (#136) exists.
+    /// <c>App.Title</c> is substituted upstream now that the App object exists (#136), so a null reaching
+    /// here means there was no project behind the program at all — a bare interpreter or the headless
+    /// runner. This is the last resort for that case, not the application-name default.
     /// </remarks>
     private const string OmittedTitleStandIn = "HexIDE";
 

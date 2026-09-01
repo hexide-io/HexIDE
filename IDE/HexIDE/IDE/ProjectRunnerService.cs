@@ -333,7 +333,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
         var task = windowManager.ShowManagedWindow(window);
         window.Content = VBLoader.SpawnComponents(element, window.Context.ExecutionContext, window.Context.RootEnv);
 
-        window.Context.SetCode(code: element.Code, moduleName: formName ?? "Module1", debugController: debugController);
+        window.Context.SetCode(code: element.Code, moduleName: formName ?? "Module1", debugController: debugController,
+            appInfo: HexIDE.Runtime.Interpreter.AppInfo.FromProject(element.Owner));
         token.Register((state, _) =>
         {
             (state as MDIWindow)!.CloseCommand.Execute(null);

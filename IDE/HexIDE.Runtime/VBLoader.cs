@@ -382,7 +382,8 @@ public class VBLoader
         window.Content = SpawnComponents(element, window.Context.ExecutionContext, window.Context.RootEnv);
         // The form's own code runs as the primary module named after the form, so the debug gate reports — and
         // breakpoints are keyed by — the form's real name (matching the editor's vb6://form/{name} document).
-        window.Context.SetCode(code: element.Code, moduleName: formName ?? "Module1", debugController: debugController);
+        window.Context.SetCode(code: element.Code, moduleName: formName ?? "Module1", debugController: debugController,
+            appInfo: Interpreter.AppInfo.FromProject(element.Owner));
         window.Show();
 #if DEBUG
         window.AttachDevTools();
