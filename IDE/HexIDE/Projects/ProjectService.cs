@@ -462,14 +462,36 @@ public class ProjectService : IProjectService
     /// </summary>
     private readonly List<FormDefinition> refusedThisSave = new();
 
+    /// <summary>
+    /// Save one form on its own. A refusal is reported at the moment it happens — unlike
+    /// <see cref="SaveFormCore"/>, which the project-wide batch uses so that N refusals produce one dialog
+    /// rather than N.
+    /// </summary>
     public async Task SaveForm(FormDefinition form, bool saveAs)
+    {
+        await SaveFormCore(form, saveAs);
+        // Without this a lone refusal did not merely go unreported: the entry SURVIVED in refusedThisSave
+        // and surfaced during the next unrelated Save Project, naming a file that was not in that batch.
+        await ReportRefusedSaves();
+    }
+
+    private async Task SaveFormCore(FormDefinition form, bool saveAs)
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
-        // Writing this form would not reproduce it, and VB6 rejects the result outright for any menu
-        // carrying a shortcut or a separator. Refusing is the honest move: the original stays intact and
-        // the developer finds out now rather than the next time they open the project in VB6.
-        if (!form.CanSaveFaithfully && !saveAs)
+        // Writing this form would not reproduce it. Refusing is the honest move: the original stays intact
+        // and the developer finds out now rather than the next time they open the project in VB6.
+        //
+        // Save As is refused TOO, and refused HERE — above the file picker, so the developer is not asked
+        // for a destination that will never be written.
+        //
+        // It used to be exempt, on the reasoning that "the original file is not at risk". True of the
+        // original, and silent about the copy. WriteCompanionBinary can only protect a companion that
+        // already EXISTS, so at a new path the blobs are dropped — and the copy then reopens as FAITHFUL,
+        // because the citations that flagged it are the very thing that went missing. A refusal we can
+        // recover from becomes a file that looks clean and is not, which is the one outcome
+        // docs/serialization-outcomes.md says is never acceptable. (#143)
+        if (!form.CanSaveFaithfully)
         {
             Log.Warning("Refusing to save {Form}: {Reason}", form.Name, form.UnfaithfulSaveReason);
             if (!refusedThisSave.Contains(form))
@@ -725,7 +747,7 @@ public class ProjectService : IProjectService
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
         foreach (var form in project.Forms)
         {
-            await SaveForm(form, false);
+            await SaveFormCore(form, false);
         }
         foreach (var module in project.Modules)
         {
@@ -814,7 +836,7 @@ public class ProjectService : IProjectService
     private async Task SaveSelected(SaveChangesViewModel changedFilesVm)
     {
         foreach (var selected in changedFilesVm.SelectedFiles.Where(f => f.Form != null))
-            await SaveForm(selected.Form!, false);
+            await SaveFormCore(selected.Form!, false);
 
         foreach (var selected in changedFilesVm.SelectedFiles.Where(f => f.Module != null))
             await SaveModule(selected.Module!, false);
