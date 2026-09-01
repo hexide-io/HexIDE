@@ -48,7 +48,7 @@ The holdout is `Web Browser.frm`, and it is the floor rather than a waypoint. It
 `MSComctlLib.ImageList` — an OCX, and hosting third-party controls is the project's largest declared gap.
 It *should* stay refused until that lands, which makes 21 of 22 the ceiling for this corpus.
 
-VB6's own seven `.vbp` project files round-trip byte-for-byte as well. So do standard and class modules
+VB6's own project files (`.vbp`) round-trip byte-for-byte as well. So do standard and class modules
 (`.bas`, `.cls`) — all three are covered by regression gates that fail the build if that stops being true.
 
 **Why forms are gated.** A form HexIDE cannot reproduce opens **read-only**, with a banner saying so,
