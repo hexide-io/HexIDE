@@ -6,9 +6,18 @@ namespace HexIDE.Runtime.Debugging;
 
 /// <summary>
 /// The default <see cref="IDebugController"/> — a cooperative, single-threaded (UI-thread) debug session for the
-/// tree-walking interpreter. Everything runs on one thread (the Avalonia UI dispatcher in the IDE; the test
-/// thread in headless tests), so no locking is needed: the walk and the front-end (Continue/Pause/Stop) never run
-/// concurrently — the walk is suspended at a <c>TaskCompletionSource</c> whenever the front-end acts.
+/// tree-walking interpreter. Everything runs on one thread, so no locking is needed: the walk and the front-end
+/// (Continue/Pause/Stop) never run concurrently — the walk is suspended at a <c>TaskCompletionSource</c>
+/// whenever the front-end acts.
+///
+/// <para><b>That invariant is the HOST's to provide, and only the IDE actually provides it.</b> In the IDE every
+/// gate continuation posts back to the Avalonia dispatcher, so it holds. A headless host gets it only if it
+/// installs a single-threaded context — and xunit does not: by the time a walk parks, the ambient context is
+/// gone, so <see cref="Continue"/>'s two <c>TrySetResult</c> calls hand the decider and a frozen newcomer to the
+/// thread pool and TWO walks run concurrently over state that assumes one. (This header used to claim "the test
+/// thread in headless tests", which is what made the hazard invisible; it cost an intermittent lost
+/// <c>Debug.Print</c> — issue #139.) A future headless host that attaches a controller and resumes two
+/// activations must supply the single thread itself.</para>
 ///
 /// FREEZE model: the ONE activation that decides to break parks on its own per-break TCS (<c>_breakTcs</c>); any
 /// NEWCOMER activation (a Timer tick / control event that fires while paused) parks on a shared resume gate
