@@ -481,15 +481,20 @@ public class ProjectService : IProjectService
     /// <see cref="SaveFormCore"/>, which the project-wide batch uses so that N refusals produce one dialog
     /// rather than N.
     /// </summary>
-    public async Task SaveForm(FormDefinition form, bool saveAs)
+    public async Task<bool> SaveForm(FormDefinition form, bool saveAs)
     {
-        await SaveFormCore(form, saveAs);
+        var written = await SaveFormCore(form, saveAs);
         // Without this a lone refusal did not merely go unreported: the entry SURVIVED in refusedThisSave
         // and surfaced during the next unrelated Save Project, naming a file that was not in that batch.
         await ReportRefusedSaves();
+        // Returned so a non-interactive caller can tell a refusal from a save. The MCP write tools reported
+        // success unconditionally, which told an agent a file had been written when it had not — and an
+        // agent, unlike a developer, has no dialog to read and will build on the answer.
+        return written;
     }
 
-    private async Task SaveFormCore(FormDefinition form, bool saveAs)
+    /// <summary>Returns false when the form was refused and nothing was written.</summary>
+    private async Task<bool> SaveFormCore(FormDefinition form, bool saveAs)
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
@@ -509,7 +514,7 @@ public class ProjectService : IProjectService
         {
             Log.Warning("Refusing to save {Form}: {Reason}", form.Name, form.UnfaithfulSaveReason);
             RecordRefusal(form.Name);
-            return;
+            return false;
         }
 
         var formPath = form.AbsolutePath;
@@ -529,7 +534,7 @@ public class ProjectService : IProjectService
         // be written. The check inside SerializeFormToFile is the write-site backstop for the paths that do
         // NOT come through here (Save Project's batch, Make EXE, Save-to-directory). Two checks, two jobs;
         // collapsing them into one would either reinstate the picker prompt or leave those paths ungated.
-        SerializeFormToFile(form, formPath);
+        return SerializeFormToFile(form, formPath);
     }
 
     public async Task<bool> ReloadFormFromDisk(FormDefinition form)
@@ -799,7 +804,7 @@ public class ProjectService : IProjectService
             }
             foreach (var module in project.Modules)
             {
-                await SaveModule(module, false);
+                await SaveModuleCore(module, false);
             }
 
             await SaveOnlyProject(project, saveAs);
@@ -912,7 +917,7 @@ public class ProjectService : IProjectService
                 await SaveFormCore(selected.Form!, false);
 
             foreach (var selected in changedFilesVm.SelectedFiles.Where(f => f.Module != null))
-                await SaveModule(selected.Module!, false);
+                await SaveModuleCore(selected.Module!, false);
 
             foreach (var selected in changedFilesVm.SelectedFiles.Where(f => f.Project != null))
                 await SaveOnlyProject(selected.Project!, false);
@@ -1191,9 +1196,47 @@ public class ProjectService : IProjectService
         }
     }
 
-    public async Task SaveModule(ModuleDefinition module, bool saveAs)
+    /// <summary>
+    /// Save one module on its own. A refusal is reported at the moment it happens — mirroring
+    /// <see cref="SaveForm"/>, and for the same reason: without a drain the entry survives in
+    /// <c>refusedThisSave</c> and surfaces during the next unrelated save, naming a file that was not in
+    /// that batch. Returns false when the module was refused and nothing was written.
+    /// </summary>
+    public async Task<bool> SaveModule(ModuleDefinition module, bool saveAs)
+    {
+        var written = await SaveModuleCore(module, saveAs);
+        await ReportRefusedSaves();
+        return written;
+    }
+
+    /// <summary>
+    /// The batch-safe half: refusals are banked, not reported, so N of them produce one dialog rather
+    /// than N. Callers that are not part of a batch use <see cref="SaveModule"/>.
+    /// </summary>
+    private async Task<bool> SaveModuleCore(ModuleDefinition module, bool saveAs)
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
+
+        // ABOVE the picker, for the reason SaveFormCore gives: the developer must not be asked for a
+        // destination that will never be written. This used to sit below it, so Save As on an unfaithful
+        // UserControl asked where to put the file and then declined to write it — which is the behaviour
+        // #145 removed for forms and left in place here, and which the merged requirement rules out in
+        // terms ("no destination is asked for"). Nothing in the predicate depends on the picker's result,
+        // so hoisting it is a pure statement move. (#147)
+        //
+        // A brand-new module is unaffected: it has no designer half yet, or a fresh one with no unfaithful
+        // causes, so the gate does not fire before its first save.
+        var designerPart = module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage
+            ? module.FormPart
+            : null;
+
+        if (designerPart is not null && !designerPart.CanSaveFaithfully)
+        {
+            Log.Warning("Refusing to write {Module}: {Reason}", module.Name, designerPart.UnfaithfulSaveReason);
+            RecordRefusal(module.Name);
+            return false;
+        }
+
         var modulePath = module.AbsolutePath;
         if (modulePath == null || saveAs)
         {
@@ -1213,20 +1256,7 @@ public class ProjectService : IProjectService
             if (modulePath == null)
                 throw new OperationCanceledException();
         }
-        // A UserControl or PropertyPage is a form in all the ways that matter here: it has a designer half
-        // and a companion beside it, so it gets the same rule — both halves or neither, decided before
-        // either is written and before the module is repointed at a path that may never exist. (#148)
-        var designerPart = module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage
-            ? module.FormPart
-            : null;
-
-        if (designerPart is not null && !designerPart.CanSaveFaithfully)
-        {
-            Log.Warning("Refusing to write {Module}: {Reason}", module.Name, designerPart.UnfaithfulSaveReason);
-            RecordRefusal(module.Name);
-            return;
-        }
-
+        // Repointed only now the destination is known and the write is going to happen. (#148)
         module.AbsolutePath = modulePath;
 
         if (designerPart is not null)
@@ -1238,12 +1268,13 @@ public class ProjectService : IProjectService
             // crash leaving a laundered file and a crash leaving a refused one.
             WriteCompanionBinary(modulePath, binary, designerPart);
             AtomicWriteText(modulePath, text);
-            return;
+            return true;
         }
 
         // .bas/.cls: prepend the canonical VB6 header (ModuleFileFormat) so vb6.exe can load it; Code itself
         // is body-only. (Unmanaged kinds return Code unchanged.)
         AtomicWriteText(modulePath, ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind, module.OriginalHeader));
+        return true;
     }
 
     private void SerializeOnlyProjectToFile(ProjectDefinition definition, string projectPath)
