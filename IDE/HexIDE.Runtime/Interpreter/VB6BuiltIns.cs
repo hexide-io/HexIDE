@@ -11,6 +11,18 @@ public partial class VB6BuiltIns
 {
     private readonly IBasicStandardLibrary stdLib;
 
+    /// <summary>
+    /// The application name <c>MsgBox</c> / <c>InputBox</c> put in the caption when the caller omits the
+    /// Title argument — <c>App.Title</c>. Set by the interpreter that owns these builtins.
+    /// </summary>
+    /// <remarks>
+    /// Returns null when there is no project behind the program (the test harness, the bare interpreter):
+    /// an omitted title then stays omitted all the way to the host, which supplies its own last-resort
+    /// caption. Substituting an empty string here instead would look like a deliberately blank title and
+    /// lose the distinction #131 exists to keep.
+    /// </remarks>
+    public Func<string?>? AppTitle { get; set; }
+
     private static Dictionary<string, Vb6Value> builtInConstants = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase)
     {
         ["vb3DDKShadow"] = -2147483627,
@@ -795,6 +807,7 @@ public partial class VB6BuiltIns
         // InputBox(Prompt, [Title], [Default], ...) — the Title was read, but an omitted one arrived as
         // "" and so could never take the application-name default. Same null-vs-empty rule as MsgBox.
         var caption = args.Count >= 2 ? args[1].Value?.ToString() : null;
+        caption ??= AppTitle?.Invoke();
         var defaultText = args.Count >= 3 ? args[2].Value?.ToString() : "";
         var result = await stdLib.InputBox(prompt ?? "", caption, defaultText ?? "");
         return (result ?? "");
@@ -839,6 +852,9 @@ public partial class VB6BuiltIns
         // deliberately suppressed. Supplying the omitted-case default is the caller's job — and properly
         // it is App.Title, which does not exist yet (#136).
         var title = args.Count >= 3 ? args[2].Value?.ToString() : null;
+        // Omitted (null) takes App.Title, as in VB6. An explicitly empty title is NOT omitted and stays
+        // empty — see #131 — so this substitutes only for null.
+        title ??= AppTitle?.Invoke();
 
         var result = await stdLib.MsgBox(text ?? "", title, buttons, icon);
         var vbResult = result switch

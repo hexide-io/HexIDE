@@ -440,3 +440,38 @@ Stopping the running project first (`stop_project`) should also clear it.
 **Suggested fix.** Make `shutdown_ide` close any runtime dialogs and stop a running project before closing
 the shell, and have it confirm the lifetime actually completed rather than returning on request. A result
 that distinguished *requested* from *exited* would be enough on its own to make the failure legible.
+
+---
+
+## 14. `set_file_content` silently drops a form's `Attribute` header if the caller omits it
+
+**Symptom.** Writing a fresh body to a form removes its attribute block:
+
+```
+-Attribute VB_Name = "frmBillOfFare"
+-Attribute VB_GlobalNameSpace = False
+-Attribute VB_Creatable = False
+-Attribute VB_PredeclaredId = True
+-Attribute VB_Exposed = False
+```
+
+No warning, no error, and the change is written straight to disk — `hasUnsavedChanges` reads `false`
+afterwards, because as far as the IDE is concerned the save succeeded.
+
+**How it bit.** Using `set_file_content` to drop a few probe lines into `demo/bill-of-fare`'s form for a
+live check. It replaced the whole code section, taking the header and every event handler with it, and the
+damage reached a commit before it was spotted in `git diff`.
+
+**Not a defect in the tool.** `get_file_content` returns the attribute block too, so the pair is
+self-consistent and a **get → modify → set** round-trip preserves everything. The trap is that "the VB6
+source code of a form" *includes* the `Attribute` header, which is easy not to know: it is invisible in the
+IDE's editor, VB6 hides it, and nothing in the tool description mentions it. `VB_Name` is load-bearing.
+
+**Workarounds.** (a) Always `get_file_content` first and edit the returned text. (b) For a throwaway probe,
+use a scratch project (`--newproject`) rather than a demo or a real one. (c) `git status` before committing
+after any live verification — that is what caught it here, one commit late.
+
+**Suggested fix.** Either preserve the `Attribute` block when the incoming content has none — the IDE knows
+the form's name and can re-emit the header it just parsed — or refuse the write with "content is missing
+the Attribute header; call get_file_content first". Silently accepting a body that destroys a form's
+identity is the one behaviour that should not be available.

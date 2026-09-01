@@ -240,7 +240,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         IReadOnlyList<(string Name, string Code)>? classModules = null)
     {
         ExecutionContext = executionContext;
-        BuiltIns = new VB6BuiltIns(stdLib);
+        BuiltIns = new VB6BuiltIns(stdLib) { AppTitle = () => App.TitleOrNull };
         this.stdLib = stdLib;
         this.rootEnv = rootEnv;
         this.code = code;
@@ -275,6 +275,21 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // Err field/slot divergence across a SetCode recompile.
         SeedProgramGlobal("Debug", () => new Vb6Value(new DebugProxy(stdLib)));
         SeedProgramGlobal("Err", () => new Vb6Value(Err));
+        SeedProgramGlobal("App", () => new Vb6Value(App));
+    }
+
+    /// <summary>The program-global <c>App</c> object, describing the project this program came from.</summary>
+    public VbApp App { get; private set; } = new(AppInfo.None);
+
+    /// <summary>
+    /// Tell the running program which project it is. Called by the host before <c>Execute</c>; a program
+    /// with no project behind it (the test harness, the bare interpreter) keeps <see cref="AppInfo.None"/>
+    /// and reports empty strings rather than inventing an identity.
+    /// </summary>
+    public void SetAppInfo(AppInfo info)
+    {
+        App = new VbApp(info);
+        SeedProgramGlobal("App", () => new Vb6Value(App));
     }
 
     /// <summary>The program-global <c>Err</c> object. Shared with the <c>Err</c> slot in every module env (see

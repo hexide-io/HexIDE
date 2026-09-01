@@ -33,13 +33,18 @@ public class VBWindowContext : IModuleExecutionRoot
     /// by), so it must be the form/module's real name, not the "Module1" default. <paramref name="debugController"/>
     /// is the per-session controller (null ⇒ no debugging, zero gate overhead).
     /// </summary>
-    public void SetCode(string code, string moduleName = "Module1", Debugging.IDebugController? debugController = null)
+    public void SetCode(string code, string moduleName = "Module1", Debugging.IDebugController? debugController = null,
+        Interpreter.AppInfo? appInfo = null)
     {
         Code = code;
         interpreter = new BasicInterpreter(standardLibrary, ExecutionContext, RootEnv, code, moduleName)
         {
             DebugController = debugController
         };
+        // What `App` reports. Null means no project behind this run (a bare context), and App then reports
+        // empty rather than inventing an identity.
+        if (appInfo is not null)
+            interpreter.SetAppInfo(appInfo);
     }
 
     public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
