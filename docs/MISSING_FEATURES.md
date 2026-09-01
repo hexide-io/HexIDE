@@ -511,7 +511,7 @@
 | OLE / COM automation | Windows-only | `CreateObject`, late-bound dispatch; Windows only |
 | File I/O (Open/Close/Write/Read) | Missing | No VB6 file I/O statements |
 | Screen / Printer objects | Missing | |
-| App object | Missing | |
+| App object | Partial | `App.Title`, `EXEName`, `Path`, `ProductName`, `Major`/`Minor`/`Revision`, `PrevInstance` and the version-info strings, seeded from the project (#136). Values follow VB6 at DESIGN TIME, which is where the interpreter permanently sits — `EXEName` is the `.vbp` file name and `ProductName` is empty, both measured under F5. `Title` is writable; `LogEvent`/`StartLogging`/`TaskVisible` are not implemented |
 | Clipboard object | Missing | |
 | Collection object | Missing | |
 | Registry functions (GetSetting etc.) | Missing | |
