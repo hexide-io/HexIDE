@@ -115,7 +115,13 @@ public class FormDeserializer
                 var subtreeLines = ReconstructRawSubtree(serializedComponent, depth - 1);
                 // The subtree's TEXT survives, but any blob it points at is never collected, so a
                 // regenerated companion would omit it. Record the loss so the save leaves the file alone.
-                if (subtreeLines.Any(FrxDeserializer.IsFrxReference))
+                //
+                // Asked of the component's OWN properties, not of subtreeLines. It used to test the
+                // reconstructed lines — which ReconstructRawSubtree has already stripped of every
+                // FRX-citing property group (see its `continue`), so the condition could never be true and
+                // this detector had been dead since it was written. The count in the gate below was
+                // carrying the whole case alone (#146).
+                if (CitesCompanionBinary(serializedComponent))
                     form.MarkUnmodelledBinaryProperty();
                 // Recorded on the component it was read from, so the writer can put it back inside that
                 // container rather than just inside the root's closing End. The root is always a modelled
@@ -371,7 +377,12 @@ public class FormDeserializer
                             else
                                 errorSink.LogError($"Property {serializedProperty.Key} in {serializedComponent.Name}: .frx offset not found.");
                         }
-                        // If no frx data provided, silently skip — blob will remain null (default)
+                        // No companion at all: skip, leaving the blob null. Silent HERE by design — this
+                        // arm cannot tell a missing file from a form that never had one, and refusing to
+                        // load is worse than opening read-only. The citation is counted regardless, by
+                        // the gate below, so the form is held unsaveable rather than quietly stripped on
+                        // the next Ctrl+S. That count is what makes this skip safe (#146); before it, this
+                        // line was the whole of the loss.
                     }
                     else
                     {
@@ -498,11 +509,23 @@ public class FormDeserializer
         // The bytes themselves are never lost: WriteCompanionBinary leaves the companion alone. What is
         // lost is the reference, so the picture disappears from the control while the file that holds it
         // stays on disk. That is a save which looks like it worked.
-        var loadedBlobCount = frxBlobs?.Count ?? 0;
-        if (form.HasUnmodelledBinaryProperties || capturedBlobs.Count < loadedBlobCount)
+        // Counted against what the SOURCE cites, not against what the companion happened to yield.
+        //
+        // This used to be `frxBlobs?.Count ?? 0`, which asks the companion how much it holds — so with no
+        // companion at all the test became `capturedBlobs.Count < 0`, always false, and a form separated
+        // from its .frx was never flagged. A plain Ctrl+S then rewrote it with every citation dropped, and
+        // the result reopened as faithful because the citations were the only thing that would have flagged
+        // it. That is #146, and it hit the ORIGINAL file rather than a copy.
+        //
+        // The citations are in the .frm, so they are always available — the check no longer depends on the
+        // file that may be the missing one. It also closes a case nobody had noticed: a TRUNCATED companion,
+        // where an out-of-range offset is filtered out of the blob dictionary AND fails to extract, so the
+        // two counts used to agree at a number lower than the form actually cites.
+        var citedBlobCount = FrxDeserializer.CitedOffsets(source).Distinct().Count();
+        if (form.HasUnmodelledBinaryProperties || capturedBlobs.Count < citedBlobCount)
             form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreproducibleBinaryContent,
                 $"it references companion binary content HexIDE cannot re-emit "
-                + $"({capturedBlobs.Count} of {loadedBlobCount} blob(s) reached the model)");
+                + $"({capturedBlobs.Count} of {citedBlobCount} blob(s) reached the model)");
 
         form.UpdateCode(code);
         form.UpdateComponents(components);
@@ -542,6 +565,25 @@ public class FormDeserializer
             case double d: number = d; return true;
             default: number = 0; return false;
         }
+    }
+
+    /// <summary>
+    /// Does this component, or anything nested inside it, cite the companion binary?
+    ///
+    /// Read from the component's own raw properties, because the reconstructed subtree has had exactly
+    /// those lines removed — testing the reconstruction for them is what made the old check dead.
+    /// </summary>
+    private static bool CitesCompanionBinary(VBSerializedComponent component)
+    {
+        foreach (var (_, rawLines) in component.OrderedRawProperties)
+            if (rawLines.Any(FrxDeserializer.IsFrxReference))
+                return true;
+
+        foreach (var sub in component.SubComponents)
+            if (CitesCompanionBinary(sub))
+                return true;
+
+        return false;
     }
 
     private static List<string> ReconstructRawSubtree(VBSerializedComponent component, int indentLevel)
