@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia.Platform.Storage;
 using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
 using HexIDE.Projects;
@@ -38,6 +39,7 @@ public class UnfaithfulSaveGateTests : IDisposable
     private readonly List<ProjectDefinition> loaded = new();
     private int warningsShown;
     private readonly List<string> requestedKeys = new();
+    private IWindowManager? lastWindowManager;
 
     private ProjectService MakeService()
     {
@@ -47,6 +49,7 @@ public class UnfaithfulSaveGateTests : IDisposable
                       .Do(ci => loaded.Add(ci.Arg<ProjectDefinition>()));
 
         var windowManager = Substitute.For<IWindowManager>();
+        lastWindowManager = windowManager;
         windowManager.ShowDialog(Arg.Any<IDialog>()).Returns(ci =>
         {
             if (ci.Arg<IDialog>() is SaveChangesViewModel vm) vm.Yes();
@@ -292,5 +295,101 @@ public class UnfaithfulSaveGateTests : IDisposable
 
         warningsShown.Should().Be(0, "nothing was refused");
         File.Exists(Path.Join(dir, "Form1.frm")).Should().BeTrue();
+    }
+
+    // ── #147: the gate applies to a UserControl, and refuses ABOVE its picker ────────────────
+    //
+    // A .ctl has a designer half and a companion beside it, so everything above applies to it — and until
+    // now none of it was tested here. The repo carries no .ctl or .ctx fixture anywhere, so this path had
+    // never been exercised at all.
+
+    private const string NestedContainerUserControl =
+        "VERSION 5.00\r\nBegin VB.UserControl UserControl1 \r\n   ClientHeight    =   3000\r\n" +
+        "   Begin VB.ListBox List1 \r\n" +
+        "      Begin VB.CommandButton Command1 \r\n         Caption         =   \"Command1\"\r\n" +
+        "      End\r\n   End\r\n" +
+        "End\r\nAttribute VB_Name = \"UserControl1\"\r\n";
+
+    private const string FlatUserControl =
+        "VERSION 5.00\r\nBegin VB.UserControl UserControl1 \r\n   ClientHeight    =   3000\r\n" +
+        "   Begin VB.TextBox Text1 \r\n      Left            =   120\r\n   End\r\n" +
+        "End\r\nAttribute VB_Name = \"UserControl1\"\r\n";
+
+    private string StageUserControl(string ctlText)
+    {
+        File.WriteAllText(Path.Join(dir, "UserControl1.ctl"), ctlText);
+        var vbp = Path.Join(dir, "Test.vbp");
+        File.WriteAllText(vbp, "Type=Exe\r\nUserControl=UserControl1.ctl\r\nName=\"Test\"\r\n");
+        return vbp;
+    }
+
+    [Fact]
+    public async Task A_UserControl_the_gate_refuses_is_left_untouched_by_a_save()
+    {
+        var svc = MakeService();
+        await svc.OpenProject(StageUserControl(NestedContainerUserControl));
+        var ctlPath = Path.Join(dir, "UserControl1.ctl");
+        var before = await File.ReadAllTextAsync(ctlPath);
+
+        await svc.SaveProject(loaded.Single(), saveAs: false);
+
+        (await File.ReadAllTextAsync(ctlPath)).Should().Be(before,
+            "a .ctl HexIDE cannot reproduce is left alone, exactly as a .frm is");
+    }
+
+    [Fact]
+    public async Task Save_as_on_a_UserControl_refuses_before_asking_for_a_destination()
+    {
+        // The refusal used to sit BELOW the picker, so the developer was asked where to put a file that
+        // was never going to be written. The merged requirement rules that out in terms — "no destination
+        // is asked for" — and it was honoured for forms and not for modules.
+        var svc = MakeService();
+        await svc.OpenProject(StageUserControl(NestedContainerUserControl));
+
+        var written = await svc.SaveModule(loaded.Single().Modules.Single(), saveAs: true);
+
+        written.Should().BeFalse();
+        await lastWindowManager!.DidNotReceive().SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>());
+    }
+
+    [Fact]
+    public async Task SaveModule_reports_a_refusal_to_its_caller()
+    {
+        // Not cosmetic: the MCP write tools answered MutateResult(true, null) after any save that did not
+        // throw, so a refused write was reported to an agent as success. An agent has no dialog to read
+        // and will build on the answer.
+        var svc = MakeService();
+        await svc.OpenProject(StageUserControl(NestedContainerUserControl));
+
+        var written = await svc.SaveModule(loaded.Single().Modules.Single(), saveAs: false);
+
+        written.Should().BeFalse("the file was not written, and the caller has no other way to tell");
+    }
+
+    [Fact]
+    public async Task A_lone_UserControl_refusal_is_reported_when_it_happens()
+    {
+        var svc = MakeService();
+        await svc.OpenProject(StageUserControl(NestedContainerUserControl));
+
+        await svc.SaveModule(loaded.Single().Modules.Single(), saveAs: false);
+
+        warningsShown.Should().Be(1,
+            "a lone module refusal is reported at the moment it happens, like a lone form refusal — "
+          + "otherwise it survives to surface during the next unrelated save");
+    }
+
+    [Fact]
+    public async Task A_faithful_UserControl_still_saves()
+    {
+        // The over-reach guard: hoisting the gate above the picker must not refuse an ordinary .ctl.
+        var svc = MakeService();
+        await svc.OpenProject(StageUserControl(FlatUserControl));
+
+        var written = await svc.SaveModule(loaded.Single().Modules.Single(), saveAs: false);
+
+        written.Should().BeTrue();
+        warningsShown.Should().Be(0, "nothing was refused");
+        File.Exists(Path.Join(dir, "UserControl1.ctl")).Should().BeTrue();
     }
 }

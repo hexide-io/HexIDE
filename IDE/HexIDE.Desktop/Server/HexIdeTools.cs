@@ -139,11 +139,16 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
         try
         {
-            if (form is not null)
-                await ctx.ProjectService.SaveForm(form, false);
-            else if (module is not null)
-                await ctx.ProjectService.SaveModule(module, false);
-            return new MutateResult(true, null);
+            // The result is honoured rather than assumed. A refusal used to come back as
+            // MutateResult(true, null) — success for a file that was not written — and an agent, unlike a
+            // developer, has no dialog to read and will build on that answer. (#147)
+            var written = form is not null
+                ? await ctx.ProjectService.SaveForm(form, false)
+                : module is not null && await ctx.ProjectService.SaveModule(module, false);
+            return written
+                ? new MutateResult(true, null)
+                : new MutateResult(false, "HexIDE cannot reproduce this file faithfully, so it was not "
+                                        + "written and the copy on disk is unchanged.");
         }
         catch (Exception ex)
         {
@@ -318,19 +323,24 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
         try
         {
+            bool written;
             if (ownerModule is not null)
             {
                 if (ownerModule.AbsolutePath is null)
                     return new MutateResult(false, "UserControl has no saved path — save the project via File > Save first");
-                await ctx.ProjectService.SaveModule(ownerModule, false);
+                written = await ctx.ProjectService.SaveModule(ownerModule, false);
             }
             else
             {
                 if (form!.AbsolutePath is null)
                     return new MutateResult(false, "Form has no saved path — save the project via File > Save first");
-                await ctx.ProjectService.SaveForm(form, false);
+                written = await ctx.ProjectService.SaveForm(form, false);
             }
-            return new MutateResult(true, null);
+            // See the note on the other write tool: a refusal must not come back as success. (#147)
+            return written
+                ? new MutateResult(true, null)
+                : new MutateResult(false, "HexIDE cannot reproduce this file faithfully, so it was not "
+                                        + "written and the copy on disk is unchanged.");
         }
         catch (Exception ex)
         {
