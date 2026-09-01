@@ -3,6 +3,12 @@
 Decided 2026-08-11. The axis for judging any round-trip defect: **what does it do to the user's file?**
 This replaces ad-hoc severity labels, which kept conflating "ugly diff" with "destroyed project".
 
+> **The framework stands; the numbers in it are the 2026-08-11 position.** Where this file says "0/22",
+> read it as the state that prompted the decision, not the state today — that is now **21 of 22**, with
+> the 22nd refused rather than saved. The prediction below was borne out: pass-through landed, and it
+> moved the number without the text writer changing. The live figure is `KnownVb6Failures` in
+> `IDE/HexIDE.Runtime.Tests/SerializationCorpusTests.cs`.
+
 ## The five outcomes
 
 | # | Outcome | Verdict |
