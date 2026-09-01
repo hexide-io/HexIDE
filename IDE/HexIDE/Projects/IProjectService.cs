@@ -18,8 +18,8 @@ public interface IProjectService
     Task<ModuleDefinition> AddNewModule(ProjectDefinition project, string name, ModuleKind kind);
     Task<ModuleDefinition> AddNewUserControl(ProjectDefinition project, string name);
     Task<ModuleDefinition> AddNewPropertyPage(ProjectDefinition project, string name);
-    Task SaveForm(FormDefinition form, bool saveAs);
-    Task SaveModule(ModuleDefinition module, bool saveAs);
+    Task<bool> SaveForm(FormDefinition form, bool saveAs);
+    Task<bool> SaveModule(ModuleDefinition module, bool saveAs);
 
     /// <summary>
     /// Re-reads <paramref name="form"/>'s <c>.frm</c> (and companion <c>.frx</c>) from disk and updates the
