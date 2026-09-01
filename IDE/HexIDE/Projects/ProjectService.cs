@@ -740,6 +740,12 @@ public class ProjectService : IProjectService
 
         var originalAbsolutePath = projectDefinition.AbsolutePath;
         var originalFormPaths = projectDefinition.Forms.Select(x => (x, x.AbsolutePath)).ToList();
+        // Modules are repointed and restored exactly as forms are. They used not to be written at ALL, and
+        // because the .vbp records every item by AbsolutePath, leaving them on their original paths made
+        // ProjectSerializer emit each one relative to the TEMP directory — producing lines like
+        // `Module1; ..\..\..\Users\me\Projects\Real\Module1.bas`. So the package both omitted every .bas,
+        // .cls, .ctl and .pag and published the layout of the developer's source tree. (#149)
+        var originalModulePaths = projectDefinition.Modules.Select(x => (x, x.AbsolutePath)).ToList();
 
         // try/finally because the restore below is not bookkeeping — it is the only thing putting the model
         // back after every form has been repointed into a temp directory. Any escape between here and there
@@ -751,6 +757,18 @@ public class ProjectService : IProjectService
             foreach (var form in projectDefinition.Forms)
                 if (!SerializeFormToFile(form, Path.Join(tempPath, Path.ChangeExtension(form.Name, "frm"))))
                     refused.Add(form.Name);
+
+            // Modules too. SaveModuleCore rather than SaveModule, because this is a batch: a refusal is
+            // banked and reported once below, with the forms', rather than one dialog per module.
+            //
+            // The path is assigned first so the picker is never reached — a Make must not stop to ask where
+            // to put a file, and a module that has never been saved still belongs in the package.
+            foreach (var module in projectDefinition.Modules)
+            {
+                module.AbsolutePath = Path.Join(tempPath, module.Name + "." + ModuleExtension(module.Kind));
+                if (!await SaveModuleCore(module, saveAs: false))
+                    refused.Add(module.Name);
+            }
 
             // Abort the whole Make rather than package a project whose .vbp names a form that was never
             // written. Omitting the form silently produces an archive that fails on open, at a remove from
@@ -774,6 +792,8 @@ public class ProjectService : IProjectService
             projectDefinition.AbsolutePath = originalAbsolutePath;
             foreach (var (form, original) in originalFormPaths)
                 form.AbsolutePath = original;
+            foreach (var (module, original) in originalModulePaths)
+                module.AbsolutePath = original;
 
             try { Directory.Delete(tempPath, true); } catch { /* best effort — the temp dir is disposable */ }
         }
@@ -815,7 +835,7 @@ public class ProjectService : IProjectService
         }
     }
 
-    public Task SaveProjectToDirectory(ProjectDefinition project, string directory)
+    public async Task SaveProjectToDirectory(ProjectDefinition project, string directory)
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
         Directory.CreateDirectory(directory);
@@ -829,13 +849,25 @@ public class ProjectService : IProjectService
             if (!SerializeFormToFile(form, Path.Join(directory, form.Name + ".frm")))
                 refused.Add(form.Name);
 
+        // Modules as well. Writing the forms and the .vbp but not the modules produced a directory whose
+        // project file named .bas, .cls and .ctl files that were not in it — and, because every item is
+        // recorded by AbsolutePath, named them by a path back to wherever they had been. (#149)
+        //
+        // The repointing here is permanent, unlike Make's: this is "write the project to this directory",
+        // so the project genuinely lives there afterwards, which is already how the forms above behave.
+        foreach (var module in project.Modules)
+        {
+            module.AbsolutePath = Path.Join(directory, module.Name + "." + ModuleExtension(module.Kind));
+            if (!await SaveModuleCore(module, saveAs: false))
+                refused.Add(module.Name);
+        }
+
         if (refused.Count > 0)
             throw new InvalidOperationException(
                 $"Cannot write this project to {directory}: HexIDE cannot reproduce "
               + $"{string.Join(", ", refused)}, so no project file was written.");
 
         SerializeOnlyProjectToFile(project, Path.Join(directory, project.Name + ".vbp"));
-        return Task.CompletedTask;
     }
 
     public Task<FormDefinition> AddNewForm(ProjectDefinition project, string name)
@@ -1196,6 +1228,15 @@ public class ProjectService : IProjectService
         }
     }
 
+    /// <summary>The file extension VB6 gives a module of this kind.</summary>
+    private static string ModuleExtension(ModuleKind kind) => kind switch
+    {
+        ModuleKind.ClassModule  => "cls",
+        ModuleKind.UserControl  => "ctl",
+        ModuleKind.PropertyPage => "pag",
+        _                       => "bas"
+    };
+
     /// <summary>
     /// Save one module on its own. A refusal is reported at the moment it happens — mirroring
     /// <see cref="SaveForm"/>, and for the same reason: without a drain the entry survives in
@@ -1240,13 +1281,7 @@ public class ProjectService : IProjectService
         var modulePath = module.AbsolutePath;
         if (modulePath == null || saveAs)
         {
-            var ext = module.Kind switch
-            {
-                ModuleKind.ClassModule  => "cls",
-                ModuleKind.UserControl  => "ctl",
-                ModuleKind.PropertyPage => "pag",
-                _                       => "bas"
-            };
+            var ext = ModuleExtension(module.Kind);
             modulePath = await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions()
             {
                 DefaultExtension = ext,
