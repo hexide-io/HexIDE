@@ -16,8 +16,8 @@ cd IDE && dotnet build HexIDE.Desktop/HexIDE.Desktop.csproj
 cd IDE && dotnet run --project HexIDE.Desktop/
 
 # Tests
-cd IDE && dotnet test HexIDE.Runtime.Tests/              # ~383 VB6 interpreter tests
-cd LspServer && dotnet test HexIDE.VbLspServer.Tests/    # ~105 LSP server tests
+cd IDE && dotnet test HexIDE.Runtime.Tests/              # ~1000 VB6 interpreter tests
+cd LspServer && dotnet test HexIDE.VbLspServer.Tests/    # ~115 LSP server tests
 cd IDE && dotnet test HexIDE.Tests/                      # IDE ViewModel tests
 cd IDE && dotnet test HexIDE.Integration.Tests/          # Headless Avalonia UI tests (xunit v3/MTP)
 

@@ -15,9 +15,11 @@ no Visual Studio required.
 > original VB6 (Windows only). Treat it as an early preview, not a finished product.
 > Contributions and feedback are very welcome.
 >
-> **Work on a copy.** HexIDE does not yet reproduce the VB6 file format faithfully enough to be
-> trusted with a project you care about — see [Opening real VB6 projects](#real-projects)
-> for exactly what it does and does not preserve.
+> **Work on a copy.** The file-format work has come a long way — 21 of VB6's own 22 template forms now
+> survive a save byte-for-byte, and the one that does not is refused rather than damaged — but that
+> corpus is Microsoft's templates, not your project. Anything hosting a third-party OCX is the known
+> weak edge. See [Opening real VB6 projects](#real-projects) for exactly what it does and does not
+> preserve.
 
 ---
 
@@ -34,37 +36,42 @@ itself. If HexIDE cannot re-emit those unchanged, it cannot re-emit yours.
 | Against VB6's own 22 template forms | Today |
 |---|---|
 | Open, edit code, and run | **all 22** |
-| Survive open-then-save **byte-for-byte** | **0** |
-| Open **read-only** — HexIDE refuses to save rather than damage them | **6** |
-| Will save, but will not reproduce the original file | 16 |
+| Survive open-then-save **byte-for-byte** | **21** |
+| Open **read-only** — HexIDE refuses to save rather than damage them | **1** |
+| Will save, but will not reproduce the original file | **0** |
 
-What changes in those 16 ranges from harmless to genuinely lossy. Property-name padding and key
-ordering are noise a maintainer can ignore. But HexIDE also re-expresses form geometry — writing
-`Height`/`Width` where VB6 wrote `ClientHeight`/`ClientWidth`. **Treat saving a VB6-authored form as a
-change you review, not one you trust.**
+The last three rows are two views of one thing, and that is the point: **every VB6-authored form HexIDE is
+willing to save round-trips byte-for-byte, and the one it cannot reproduce it refuses outright.** There is
+no longer a middle category — nothing saves lossily.
 
-(The two forms that used to drop a picture reference while the `.frx` bytes survived on disk —
-`Button ListBox.frm` and `Mover ListBox.frm` — are no longer in that group: the gate now recognises
-that loss and refuses them outright instead.)
+The holdout is `Web Browser.frm`, and it is the floor rather than a waypoint. Its six pictures sit on an
+`MSComctlLib.ImageList` — an OCX, and hosting third-party controls is the project's largest declared gap.
+It *should* stay refused until that lands, which makes 21 of 22 the ceiling for this corpus.
 
-Standard and class modules (`.bas`, `.cls`) *do* round-trip byte-for-byte, and are covered by a
-regression gate that fails the build if that stops being true.
+VB6's own seven `.vbp` project files round-trip byte-for-byte as well. So do standard and class modules
+(`.bas`, `.cls`) — all three are covered by regression gates that fail the build if that stops being true.
 
 **Why forms are gated.** A form HexIDE cannot reproduce opens **read-only**, with a banner saying so,
 and Save is refused. Refusing is recoverable; silently writing a file that only fails weeks later
 when you go back to VB6 is not. The reasoning is written up in
 [docs/serialization-outcomes.md](docs/serialization-outcomes.md).
 
-That count was **12** until menu trees started surviving a round-trip, which freed VB6's six menu
-templates. Container nesting has since been fixed too: a control inside a `Frame` or a `PictureBox`
-is recorded on the model, written back nested, hosted by its container when the form runs, and drawn
-inside it in the designer.
+That count was **12**, then six, and is now one. Menu trees started surviving a round-trip, which freed
+VB6's six menu templates. Container nesting followed: a control inside a `Frame` or a `PictureBox` is
+recorded on the model, written back nested, hosted by its container when the form runs, and drawn inside
+it in the designer — which freed `Options Dialog.frm` and `Tip of the Day.frm`.
 
-The count stayed at six, and the reason is worth stating. Two forms left the set and two entered it —
-closing the container gap freed `Options Dialog.frm` and `Tip of the Day.frm`, while teaching the gate
-to recognise **blob loss** caught `Button ListBox.frm` and `Mover ListBox.frm`, which until then saved
-lossily. All six that remain are held for companion binary content HexIDE cannot re-emit, and none for
-nesting.
+Then the companion-file model closed the rest. `Button ListBox.frm` and `Mover ListBox.frm` had been
+saving lossily, dropping a control's picture reference while the `.frx` bytes survived on disk; the gate
+learned to recognise that loss and refused them, and registering the properties that cite those blobs —
+`CommandButton.Picture` and `ListBox.DragIcon` — made both reproducible instead. `Treeview Listview
+Splitter.frm` and `Splash Screen.frm` needed a `VB.Image` control class that did not exist. `ODBC Log
+In.frm` needed a `.frx` reader driven by the references in the form rather than a flat scan, because a
+2-byte `List`/`ItemData` record is invisible to one.
+
+The rule those six left under is the one the regression gate enforces: **a form may only leave the
+read-only set by becoming reproducible, never by having its cause go unnoticed.** A change that empties
+the set without OCX hosting behind it is a regression, not progress.
 
 **Companion binaries (`.frx`, `.ctx`, `.pgx`) are preserved, never regenerated.** They hold icons,
 pictures and list contents that exist nowhere else. When a form references a blob HexIDE does not
