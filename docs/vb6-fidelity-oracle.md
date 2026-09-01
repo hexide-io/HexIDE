@@ -16,11 +16,82 @@ date functions; graphics) should extend it the same way.
 
 - **Binary:** `C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE` (the `Vb6ToolchainService`
   auto-discovers it; the `VB6_EXE` env var overrides). Windows + a VB6 install required — this is a dev-time
-  fidelity check, not part of the shipped product.
+  fidelity check, not part of the shipped product. The install does **not** have to be on your own machine:
+  see [the scripted harness](#the-scripted-harness--scriptsvb6-oracleps1), which drives a copy in a Hyper-V
+  guest just as happily.
 - **Method:** compile a tiny `Sub Main` console-less program with `VB6.EXE /make`, run the produced `.exe`, and
   read back a file it wrote with `TypeName(expr)` + the value for each case.
 
-### Harness (reusable recipe)
+### The scripted harness — `scripts/vb6-oracle.ps1`
+
+Everything below this section is what the script automates. **Prefer the script**; keep reading only if you
+need to do something it does not cover, or to understand why it does what it does.
+
+```powershell
+.\scripts\vb6-oracle.ps1 'CByte(100) + CByte(100)', 'CByte(200) + CByte(100)', '5 / 2'
+
+Expression              Value Type    Err
+----------              ----- ----    ---
+CByte(100) + CByte(100) 200   Byte
+CByte(200) + CByte(100)                 6
+5 / 2                   2.5   Double
+```
+
+You give it expressions; it compiles them into a `Sub Main`, runs the real `vb6.exe`, and reports
+`value | TypeName` — or `ERR<n>` where VB6 raised. `-Path probes.txt` reads one expression per line
+(`'` comments and blanks skipped, `label: expression` to name a row). Objects come back on the pipeline,
+so `| Format-Table`, `| Export-Csv`, `| Where-Object Err` all work.
+
+**Two ways to reach VB6.** `-Local` uses an install on this machine. With no switch it opens a
+**PowerShell Direct** session to a Hyper-V guest (`-VMName`, default `Win10`) — which is how the
+maintainers run it, since VB6 is a 1998 Windows-only installer that few people want on their daily
+driver. PowerShell Direct runs over the VMBus, so the guest needs **no network at all** — an isolated
+switch with no IP route is fine.
+
+Guest side, once:
+
+```powershell
+# in the guest, as an existing admin
+$pw = Read-Host "password" -AsSecureString
+New-LocalUser -Name hexoracle -Password $pw -PasswordNeverExpires
+Add-LocalGroupMember -Group Administrators -Member hexoracle   # PowerShell Direct admits admins only
+```
+
+Host side, once:
+
+```powershell
+New-Item -ItemType Directory -Force "$env:USERPROFILE\.hexide" | Out-Null
+Get-Credential | Export-Clixml "$env:USERPROFILE\.hexide\win10.cred"
+```
+
+`Export-Clixml` encrypts under DPAPI, so the file is readable only by that Windows account on that
+machine — the password never lands in a script, a command line or a shell history. Override the location
+with `-CredentialPath`.
+
+**Getting the corpus out of the guest.** The round-trip tests need VB6's `VB98\Template` tree, and
+`Copy-VMFile` only goes host→guest. Pull it the other way through the same session:
+
+```powershell
+$s = New-PSSession -VMName Win10 -Credential (Import-Clixml "$env:USERPROFILE\.hexide\win10.cred")
+Copy-Item -FromSession $s -Recurse `
+  -Path 'C:\Program Files (x86)\Microsoft Visual Studio\VB98\Template' `
+  -Destination "$env:USERPROFILE\.hexide\vb6-template"
+Remove-PSSession $s
+```
+
+Then set `HEXIDE_ROUNDTRIP_CORPUS` to that path. **This matters more than it looks:** without it
+`SerializationCorpusTests` falls back to `demo/`, whose files are HexIDE-authored and filtered out by
+`IsHexIdeAuthored`, so the gate passes **vacuously** — a serialization regression goes green. The corpus
+is Microsoft's redistributable-restricted content and must stay out of the repository.
+
+> **Sanity-check the harness before trusting a new answer.** Run a handful of rows that are already in
+> the tables below — `CByte(100) + CByte(100)` → `200 | Byte` and `CByte(200) + CByte(100)` → `ERR6` are
+> a good pair, because the second proves `Byte + Byte` really does stay `Byte`. If those reproduce, the
+> loop is sound and a surprising new result is VB6 being surprising rather than the harness lying.
+
+### Harness (reusable recipe) — the manual version
+
+What `vb6-oracle.ps1` does internally, kept because the reasons are worth knowing when a probe misbehaves.
 
 Two lessons learned the hard way:
 
@@ -31,6 +102,12 @@ Two lessons learned the hard way:
    **modal error dialog on the user's screen** and blocks the run until it's dismissed. Capture `Err.Number`
    per case instead, so overflow is *data* (`ERR6`), not a modal. (This is exactly how the `Byte+Byte`
    overflow was found — the first, un-guarded probe hung on a `Runtime Error 6` modal.)
+3. **The writer sub needs its own guard, and must print on every path.** `On Error Resume Next` is
+   **per-procedure**, so `Main`'s guard does not extend into the helper that formats the row. `CStr(Null)`
+   raises 94 and `CStr(<object>)` raises 438 — both perfectly good probe results — and an unguarded helper
+   simply returns without printing. The case then **vanishes from the output**, which reads like a case you
+   never ran rather than one that went wrong. Test `Null + 1` against any new harness: it should come back
+   `Null | Null`, not disappear. Count the rows you get against the cases you sent.
 
 `Module1.bas` shape:
 
