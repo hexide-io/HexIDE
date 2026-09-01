@@ -339,12 +339,12 @@
 | HScrollBar | Done | |
 | VScrollBar | Done | |
 | Timer | Done | |
-| DriveListBox | Missing | Not in toolbox |
-| DirListBox | Missing | Not in toolbox |
-| FileListBox | Missing | Not in toolbox |
+| DriveListBox | Missing | Not in toolbox. Tracked with its two siblings as one item — the VB6 idiom is the change-event chain, so one without the others is unusable ([#164](https://github.com/hexide-io/HexIDE/issues/164)) |
+| DirListBox | Missing | Not in toolbox — see DriveListBox |
+| FileListBox | Missing | Not in toolbox — see DriveListBox |
 | Shape | Done | |
-| Line | Missing | Not in toolbox |
-| Image | Missing | Not in toolbox |
+| Line | Missing | Not in toolbox. The only intrinsic that is not a rectangle — its geometry is X1/Y1/X2/Y2, which the designer's bounding-box model has no concept of ([#163](https://github.com/hexide-io/HexIDE/issues/163)) |
+| Image | Done | `ImageComponentClass` + `VBImage`; decodes an .frx picture record by peeling both the record framing and the StdPicture preamble |
 | OLE | Windows-only | OLE Container control; in-process COM hosting; Windows only |
 | PictureBox | Done | |
 | Custom tab / component groups | Missing | Single flat list; no tab support |
@@ -506,8 +506,8 @@
 | Breakpoint / step debugging | Done | Native debugger v1 (Phases 1–4) + v2 (P5–P8) COMPLETE: breakpoints, Break/Continue/End, `Stop`, the amber current-statement bar, **Step Into/Over/Out**, the **Call Stack window (Ctrl+L)**, the **Locals window** (expandable tree, now with a live control's **property surface** + preserved expansion), the evaluating **+ assigning** Immediate window, **Watches** (incl. Break-When-True/Changed **conditional break**), **Data Tips** (hover), **Run To Cursor (Ctrl+F8)**, **Set Next Statement (Ctrl+F9)** — all against the interpreter (cooperative async pause-gate on `IDebugController`). Deferred: calling user procs from Immediate (deadlock-prone), modern per-line conditional-breakpoints/hit-counts (additive Evolution item), the D7 residuals (form `Me` / child-control-tree / proxy expansion). |
 | Watch / variable inspection at runtime | Done | Watches window (Add/Edit/Quick Watch, expandable tree; MCP `add_watch`/`get_watches`) + the Locals window + Data Tips (hover in break mode) — native debugger P6/P8 |
 | Call stack | Done | Call Stack window (Ctrl+L) — native debugger P5; MCP `get_call_stack` |
-| DriveListBox / DirListBox / FileListBox | Missing | Controls not implemented |
-| Line / Image controls | Missing | Controls not implemented |
+| DriveListBox / DirListBox / FileListBox | Missing | Controls not implemented ([#164](https://github.com/hexide-io/HexIDE/issues/164)) |
+| Line control | Missing | Not implemented ([#163](https://github.com/hexide-io/HexIDE/issues/163)) |
 | OLE / COM automation | Windows-only | `CreateObject`, late-bound dispatch; Windows only |
 | File I/O (Open/Close/Write/Read) | Missing | No VB6 file I/O statements |
 | Screen / Printer objects | Missing | |
