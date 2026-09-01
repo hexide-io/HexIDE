@@ -1063,10 +1063,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return new SnapshotResult(null, "No main window", null);
 
             // A modal dialog is a separate top-level window; capture it (so the dialog UI is
-            // visible) in preference to the main window underneath.
-            var dialog = lifetime!.Windows.FirstOrDefault(w => w != mainWindow && w.IsVisible);
-            var window = dialog ?? mainWindow;
-            var activeDialog = dialog?.Title;
+            // visible) in preference to whatever is underneath — which may be a running program's
+            // form rather than the main window.
+            var window = HexIDE.IDE.ForegroundWindow.Pick(mainWindow, lifetime!.Windows);
+            var activeDialog = window != mainWindow ? DescribeWindow(window) : null;
 
             var scaling = window.DesktopScaling;
             var size = new Avalonia.PixelSize(
@@ -1195,10 +1195,21 @@ internal sealed class HexIdeTools(IdeContext ctx)
         if (mainWindow is null)
             return (null, null, "No main window");
 
-        var dialog = lifetime!.Windows.FirstOrDefault(w => w != mainWindow && w.IsVisible);
-        var window = dialog ?? mainWindow;
-        var label = dialog is not null ? dialog.Title ?? "Dialog" : "MainWindow";
+        var window = HexIDE.IDE.ForegroundWindow.Pick(mainWindow, lifetime!.Windows);
+        var label = window != mainWindow ? DescribeWindow(window) : "MainWindow";
         return (window, label, null);
+    }
+
+    /// <summary>
+    /// A name the caller can act on. Title first, but it cannot be relied on: a VB6 `MsgBox` reaches the
+    /// runtime with an empty caption (issue #131), and a blank label reads as "no dialog is open" — the
+    /// exact confusion #61 existed to remove. Fall back to what the window is showing.
+    /// </summary>
+    private static string DescribeWindow(Avalonia.Controls.Window window)
+    {
+        if (!string.IsNullOrWhiteSpace(window.Title))
+            return window.Title;
+        return window.Content?.GetType().Name is { Length: > 0 } content ? content : "Dialog";
     }
 
     [McpServerTool(Name = "get_document_tabs")]

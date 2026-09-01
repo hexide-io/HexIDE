@@ -8,7 +8,27 @@ Recorded here so they can be fixed deliberately; the generic trio (`dump_visual_
 
 ---
 
-## 1. Blind to runtime modal dialogs layered over a running form
+## 1. Blind to runtime modal dialogs layered over a running form — **CLOSED** (#61, 2026-09-01)
+
+> **Fixed.** The root cause below was close but not quite right: the dialogs *were* enumerated. Both
+> `take_snapshot` and `ResolveActiveWindow` picked with `Windows.FirstOrDefault(w => w != mainWindow &&
+> w.IsVisible)`, which is correct only while exactly one non-main window exists. A running program adds a
+> `VBFormRuntime`; its `MsgBox` adds a second window *on top* — but the form was created first, so
+> first-wins returned the form and the dialog above it was invisible.
+>
+> Both call sites now share `ForegroundWindow.Pick` (`IDE/HexIDE/IDE/`), which keys on **ownership**:
+> every dialog is shown via `ShowDialog(owner)`, so a window owning a visible window is underneath it by
+> construction. Discard those and the foreground is what remains. `IsActive` is only a tiebreak — it is
+> false for every window when the app is backgrounded, and headless never sets it.
+>
+> Verified live: a `Form_Load` `MsgBox` over a running form is now captured by `take_snapshot`, reported
+> in `activeDialog`, and its OK button is addressable via `dump_visual_tree` → `interact`. Dismissing it
+> hands the foreground back to the form rather than stranding the tools on a dead dialog. Guarded by
+> `ForegroundWindowTests`, which fail on the old rule.
+>
+> **`activeDialog` no longer reports the title alone.** A VB6 `MsgBox` reaches the runtime with an empty
+> caption (issue #131), and a blank label reads as *"no dialog is open"* — the exact confusion this gap
+> existed to remove. It now falls back to the content type, e.g. `MessageBox`.
 
 **Symptom.** When a *running* VB6 program shows a `MsgBox`, or the runtime surfaces a compile/runtime-error
 dialog (e.g. "Variable not defined"), `take_snapshot` and `dump_visual_tree` capture the `VBFormRuntime` window
@@ -331,3 +351,32 @@ verify #85 end to end, but it verified the dropdown's contents by proxy rather t
 limitation — snapshot and tree-walk the topmost popup root rather than only the form's window. An
 `interact` action that opens a menu (`open`/`expand` mapped to `MenuItem.IsSubMenuOpen`) would be the other
 half, since a popup that cannot be opened cannot be captured either.
+
+---
+
+## 13. `shutdown_ide` reports success but the process survives a runtime modal
+
+**Symptom.** With a running VB6 program showing a `MsgBox`, `shutdown_ide` returned without error and the
+process stayed alive. The next `dotnet build` then failed on a file lock:
+
+```
+error MSB3027: Could not copy "apphost.exe" to "bin\Debug\net10.0\HexIDE.Desktop.exe".
+Exceeded retry count of 10. The file is locked by: "HexIDE.Desktop (13436)"
+```
+
+**How it bit.** It breaks step 1 of the documented rebuild cycle in `CLAUDE.md` precisely when a modal is on
+screen — which, since [#61](https://github.com/hexide-io/HexIDE/issues/61), is exactly the state you are
+most likely to be in while verifying dialog behaviour. The failure is silent at the tool boundary: the
+success result says shutdown happened, and the lock error arrives one step later looking like a build
+problem rather than a shutdown one.
+
+**Cause (probable, not confirmed).** Shutdown runs the normal close path, and a modal dialog owning the
+message loop keeps a window alive, so the lifetime never completes. The tool returns once it has *requested*
+shutdown rather than waiting for the process to exit.
+
+**Workaround.** The fallback already in `CLAUDE.md`: `Stop-Process -Name HexIDE.Desktop -Force`, then build.
+Stopping the running project first (`stop_project`) should also clear it.
+
+**Suggested fix.** Make `shutdown_ide` close any runtime dialogs and stop a running project before closing
+the shell, and have it confirm the lifetime actually completed rather than returning on request. A result
+that distinguished *requested* from *exited* would be enough on its own to make the failure legible.
