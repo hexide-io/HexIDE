@@ -56,6 +56,42 @@ ask an OCX whether the bytes it wrote are good. So pass-through lands at outcome
 *means*, not a goal: we keep the bytes because it is the only way to guarantee meaning, not because the
 bytes must match.
 
+#### "Must not be asserted" is about the control, not about us
+
+Read the paragraph above and then `SerializationCorpusTests.Forms_and_controls_round_trip_byte_for_byte`,
+which fails a form as `BLOB-DIFF` when the companion it produces differs from the one it read, and the two
+look like a direct contradiction. They are not, and the reason is worth stating because it is the whole
+justification for the pass-through design.
+
+They are obligations of **different parties**.
+
+**The control that wrote the blob owes nothing.** Asked to persist twice, it may serialise an internal
+buffer, re-render a bitmap, or walk an unordered collection, and emit different bytes each time with nothing
+meaningful changed. That is why byte-identity must not be asserted *of a control's output*: a diff there is
+not evidence of damage, and a test that treated it as such would fail on correct behaviour.
+
+**The thing holding the blob owes everything**, and that is us. Three obligations, and they are the whole of
+what HexIDE promises for content it cannot read:
+
+1. **Give back exactly what you were given.** The bytes that came out of the file go back into the file.
+2. **Do not reorder or reinterpret them.** A record's position is part of its identity, because that is what
+   the designer file's citations address.
+3. **Never emit a stream you were not handed.** If content did not arrive, no citation to it may leave.
+
+So byte-identity *is* the right assertion — against our own output, never against a control's. The corpus
+test is measuring whether we returned what we were lent, which is a question about us and has a definite
+answer, not whether a control is deterministic, which is a question about someone else and does not.
+
+Stated plainly like that because it needs no COM to be true or to be tested. The **rationale** is COM: this
+is the data-handling half of what a container owes a control under `IPersistStream` /
+`IPersistPropertyBag`. HexIDE is **not** a COM container — it calls no interface, instantiates no control,
+and there is no COM code behind any of this. It owes the obligation because it is holding someone else's
+data, and it discharges it by keeping the bytes still.
+
+Each obligation is already enforced: (1) and (2) by the `BLOB-DIFF` arm of the corpus round-trip, (3) by the
+citation-partition invariant from #148 and by `A_companion_nothing_cites_is_left_alone_rather_than_deleted`.
+If one of those tests ever looks arbitrary, this is what it is testing.
+
 ### The two targets are coupled — text byte-identity depends on the blob strategy
 
 The offsets live **in the text**:
