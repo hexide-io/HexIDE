@@ -226,6 +226,9 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
         // live on the VbObject. A null Value = Nothing.
         public static readonly ValueType Object = new ValueType(ValueTypePrimitive.Object, false);
 
+        /// <summary>A blank argument slot. See <see cref="ValueTypePrimitive.Missing"/>.</summary>
+        public static readonly ValueType Missing = new ValueType(ValueTypePrimitive.Missing, false);
+
         protected bool Equals(ValueType other) => type.Equals(other.type) && array == other.array;
 
         public override bool Equals(object? obj)
@@ -271,7 +274,18 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
         Currency,
         Decimal,
         UserDefinedType,
-        Object
+        Object,
+
+        /// <summary>
+        /// An argument the caller left blank — <c>Foo 1, , 3</c>. It occupies its position so the
+        /// arguments after it still land in the right parameters, and is distinguishable from every real
+        /// value so the callee can tell "not supplied" from "supplied as Empty". Those are different in
+        /// VB6 (<c>IsMissing</c> vs <c>IsEmpty</c>), and conflating them would silently override an
+        /// <c>Optional</c> parameter's declared default with Empty.
+        ///
+        /// It should never escape into general value flow: argument binding consumes it.
+        /// </summary>
+        Missing
     }
 
     public static implicit operator Vb6Value(int value) =>
@@ -300,7 +314,14 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     // ReferenceEquals-on-Value path and never split Nothing across two types.
     public static readonly Vb6Value Nothing = new Vb6Value(ValueType.Object, (object?)null);
     public static readonly Vb6Value Variant = new Vb6Value(ValueType.EmptyVariant);
+
+    /// <summary>A blank argument at a call site: <c>Foo 1, , 3</c>. See <see cref="ValueTypePrimitive.Missing"/>.</summary>
+    public static readonly Vb6Value Missing = new Vb6Value(ValueType.Missing, (object?)null);
+
     public bool IsNull => Type == ValueType.Null;
+
+    /// <summary>True when the caller left this argument's position blank.</summary>
+    public bool IsMissing => Type == ValueType.Missing;
 }
 
 public class VBArray

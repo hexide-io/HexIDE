@@ -21,11 +21,13 @@ public class MsgBoxTitleTests
     private sealed class RecordingStdLib : IBasicStandardLibrary
     {
         public string? LastCaption { get; private set; }
+        public MessageBoxIcon LastIcon { get; private set; }
         public bool Called { get; private set; }
 
         public Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
         {
             LastCaption = caption;
+            LastIcon = icon;
             Called = true;
             return Task.FromResult(MessageBoxResult.Ok);
         }
@@ -82,23 +84,34 @@ public class MsgBoxTitleTests
         lib.LastCaption.Should().BeEmpty();
     }
 
-    [Fact(Skip = "Blocked on #135 — an omitted positional argument is dropped, shifting the rest left.")]
+    [Fact]
     public async Task MsgBox_still_passes_the_title_when_buttons_are_omitted_by_position()
     {
         // `MsgBox "x", , "T"` — the middle argument left blank, which VB6 allows freely. The title is
         // still the third position, and reading it by index has to survive that.
         //
-        // Kept rather than deleted, and asserting the RIGHT answer rather than today's: the interpreter
-        // drops the blank and shifts everything after it one place left, so "Positional" arrives as the
-        // Buttons argument. Proven with `MsgBox "hello", , vbCritical`, which sets the icon — a constant
-        // written in the Title position being read as Buttons. That is a general argument-binding defect
-        // rather than anything to do with MsgBox, so it is #135; inverting this test to match would
-        // enshrine the bug, and deleting it would lose the case.
+        // Was #135, and was skipped here until it was fixed: a blank produced no parse node, so
+        // everything after it shifted one place left and "Positional" arrived as Buttons.
         var lib = await Run("""
             MsgBox "hello", , "Positional"
             """);
 
         lib.LastCaption.Should().Be("Positional");
+    }
+
+    [Fact]
+    public async Task A_constant_in_the_title_position_is_not_read_as_buttons()
+    {
+        // The exact evidence #135 was filed on. `vbCritical` is written third, so it is a *Title* — a
+        // string, nonsense as one, but not an icon request. The dialog came up with an error icon the
+        // author never asked for, which is the shape of failure that makes a binding bug hard to find:
+        // no error, just a different argument in a different slot.
+        var lib = await Run("""
+            MsgBox "hello", , vbCritical
+            """);
+
+        lib.LastIcon.Should().Be(MessageBoxIcon.None);
+        lib.LastCaption.Should().Be("16", "vbCritical lands in Title, and Title is a string");
     }
 
     [Fact]
