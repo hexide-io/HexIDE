@@ -211,4 +211,86 @@ public class UnfaithfulSaveGateTests : IDisposable
 
         warningsShown.Should().Be(1);
     }
+
+    // ── Save As is gated too (#143) ──────────────────────────────────────────────────────────────────
+    //
+    // These are the cases that were missing. The suite drove `saveAs: false` exclusively, so the bypass
+    // — `!form.CanSaveFaithfully && !saveAs` — was invisible to it.
+    //
+    // The bypass was not merely a hole in the gate. A copy written at a new path loses its blobs, because
+    // WriteCompanionBinary can only protect a companion that already exists; and it then REOPENS AS
+    // FAITHFUL, because the citations that flagged it are exactly what went missing. A recoverable
+    // refusal turned into a file that looks clean and is not.
+
+    [Fact]
+    public async Task Save_as_refuses_a_form_it_cannot_reproduce()
+    {
+        var svc = MakeService();
+        await svc.OpenProject(Stage(NestedContainerForm));
+        var form = loaded.Single().Forms.Single();
+        var target = Path.Join(dir, "Copy.frm");
+
+        await svc.SaveForm(form, saveAs: true);
+
+        File.Exists(target).Should().BeFalse("a copy HexIDE cannot reproduce must not be written either");
+        Directory.GetFiles(dir, "*.frm").Should().ContainSingle(
+            "Save As must not have produced a second, degraded form");
+    }
+
+    [Fact]
+    public async Task Save_as_leaves_the_original_untouched()
+    {
+        var svc = MakeService();
+        await svc.OpenProject(Stage(NestedContainerForm));
+        var formPath = Path.Join(dir, "Form1.frm");
+        var before = await File.ReadAllTextAsync(formPath);
+
+        await svc.SaveForm(loaded.Single().Forms.Single(), saveAs: true);
+
+        (await File.ReadAllTextAsync(formPath)).Should().Be(before);
+    }
+
+    [Fact]
+    public async Task Save_as_tells_the_developer_at_the_moment_it_refuses()
+    {
+        // The lone-save path used not to report at all: the refusal sat in the pending list and surfaced
+        // during the NEXT unrelated Save Project, naming a file that was not in that batch.
+        var svc = MakeService();
+        await svc.OpenProject(Stage(NestedContainerForm));
+
+        await svc.SaveForm(loaded.Single().Forms.Single(), saveAs: true);
+
+        warningsShown.Should().Be(1, "a refusal must be reported when it happens, not banked for a later batch");
+    }
+
+    [Fact]
+    public async Task A_lone_refusal_is_not_replayed_into_the_next_save()
+    {
+        // The consequence of banking it: a second, unrelated save reported a file it had not been asked
+        // to write. Draining at the point of refusal is what stops that.
+        var svc = MakeService();
+        await svc.OpenProject(Stage(NestedContainerForm));
+        var project = loaded.Single();
+
+        await svc.SaveForm(project.Forms.Single(), saveAs: false);
+        warningsShown.Should().Be(1);
+
+        await svc.SaveProject(project, saveAs: false);
+
+        warningsShown.Should().Be(2, "the batch reports its own refusal once — not that one plus the earlier one twice");
+    }
+
+    [Fact]
+    public async Task A_faithful_form_still_saves_as_normally()
+    {
+        // The gate must not have swallowed the ordinary path: a reproducible form still writes.
+        var svc = MakeService();
+        await svc.OpenProject(Stage(FlatForm));
+        var form = loaded.Single().Forms.Single();
+
+        await svc.SaveForm(form, saveAs: false);
+
+        warningsShown.Should().Be(0, "nothing was refused");
+        File.Exists(Path.Join(dir, "Form1.frm")).Should().BeTrue();
+    }
 }
