@@ -324,7 +324,44 @@ mid-session, or have the launcher expose a readiness signal the client re-polls,
 already up is sufficient. Failing that, document that the IDE must be started *after* the session, not
 before — which is the opposite of the intuitive order and worth stating explicitly.
 
-## 12. A menu popup on a running form cannot be seen or driven
+## 12. A menu popup on a running form cannot be seen or driven — **MOSTLY CLOSED** (2026-09-01)
+
+> **Fixed for the tree and for driving; `take_snapshot` still cannot show a dropped-down menu.**
+>
+> The suggested fix said #61 would cover this. It did not, and could not: #61 picks between *windows*, and
+> a popup never enters `lifetime.Windows`. Two separate causes, both now addressed.
+>
+> **Seeing.** A popup's content is not under the popup in the visual tree — it is realised in the popup's
+> own root — so the walk crossed nothing and every open menu reported `"children": []`. The control-view
+> collector (and the `#AutomationId` descendant search) now step through an open `Popup` into its content.
+> Because `Resolve` shares that collector, the emitted paths round-trip, so `interact` and `press_key`
+> reach popup items too.
+>
+> **Driving.** `MenuItemAutomationPeer` exposes **no providers at all** — not `invoke`, not
+> `expandCollapse` — which is why every verb failed, not just `expand`. `Interact` now falls back to
+> `MenuItem.Open()`/`Close()` for a submenu, and to raising `Click` for invoke (MenuItem's class handler
+> for that event executes a bound `Command`, so one raise does what a real click does). `DescribeProviders`
+> reports those tokens for a `MenuItem`, because an action nobody can see advertised is an action nobody
+> tries — `expandCollapse` only where `HasSubMenu`, so a leaf still refuses honestly.
+>
+> **Separators** are no longer collapsed as structural. They match every "transparent wrapper" condition
+> and are still not plumbing: a separator's *position* is the VB6-fidelity question. **They appear only
+> under `interactiveOnly: false`** — the default filter drops them, since they have no providers and no
+> interactive descendants.
+>
+> Verified live against `demo/bill-of-fare` while running: `File` and `View` open via `interact expand`;
+> `Save As...` reports `isEnabled: false`; `PART_InputGestureText` carries the shortcut text; the
+> `Separator` sits between `Zoom` and `Refresh`; `View ▸ Zoom ▸ Zoom In` — two popups deep — resolves and
+> invokes, and the form's own label reads *"you chose: View > Zoom > Zoom In (a submenu, two levels
+> deep)"*. Eight headless tests in `MenuPopupTests` pin the behaviour.
+>
+> **What remains.** `take_snapshot` still captures the form's window, so a *picture* of an open menu is
+> not available — the popup is a separate top-level and compositing two of them is a different piece of
+> work from picking one. Everything the gap listed as unverifiable (separators, shortcut text, enabled
+> state, submenu nesting) is now reachable as live structure and drivable, which is what the consequence
+> below was actually about; the remaining hole is pixels only.
+
+
 
 **Symptom.** Verifying that a running form's menus render correctly, `take_snapshot` shows the menu *bar*
 but never a dropped-down menu, and `dump_visual_tree` reports every top-level `MenuItem` with

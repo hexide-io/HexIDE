@@ -5,6 +5,7 @@ using Avalonia.Automation;
 using Avalonia.Automation.Peers;
 using Avalonia.Automation.Provider;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.VisualTree;
 using AvaloniaEdit;
@@ -49,7 +50,7 @@ public static class UiAutomationDriver
     public static UiNodeDetail Inspect(Control control, string path)
     {
         var peer = ControlAutomationPeer.CreatePeerForElement(control);
-        var providers = DescribeProviders(peer);
+        var providers = DescribeProviders(peer, control);
 
         string[] selection = [];
         if (peer.GetProvider<ISelectionProvider>() is { } sel)
@@ -102,8 +103,13 @@ public static class UiAutomationDriver
         return [.. members];
     }
 
-    /// <summary>The provider tokens a peer supports (e.g. "invoke", "selectionItem", "value").</summary>
-    public static string[] DescribeProviders(AutomationPeer peer)
+    /// <summary>
+    /// The action tokens a control actually accepts. Mostly its automation providers, but not only:
+    /// <see cref="Interact"/> has fallbacks for controls whose peer offers nothing, and a token missing
+    /// here is a token nobody tries. <c>MenuItemAutomationPeer</c> exposes <b>no providers at all</b>, so
+    /// reporting the peer verbatim would advertise a menu as undrivable while every verb on it works.
+    /// </summary>
+    public static string[] DescribeProviders(AutomationPeer peer, Control? control = null)
     {
         var list = new List<string>();
         if (peer.GetProvider<IInvokeProvider>() is not null) list.Add("invoke");
@@ -114,6 +120,15 @@ public static class UiAutomationDriver
         if (peer.GetProvider<IExpandCollapseProvider>() is not null) list.Add("expandCollapse");
         if (peer.GetProvider<IRangeValueProvider>() is not null) list.Add("rangeValue");
         if (peer.GetProvider<IScrollProvider>() is not null) list.Add("scroll");
+
+        if (control is MenuItem menuItem)
+        {
+            if (!list.Contains("invoke")) list.Add("invoke");
+            // Only where there is a submenu to open: advertising expandCollapse on a leaf would promise
+            // an action that correctly refuses.
+            if (menuItem.HasSubMenu && !list.Contains("expandCollapse")) list.Add("expandCollapse");
+        }
+
         return [.. list];
     }
 
@@ -137,9 +152,21 @@ public static class UiAutomationDriver
             switch (norm)
             {
                 case "invoke":
-                    if (peer.GetProvider<IInvokeProvider>() is not { } inv) return Unsupported("invoke");
-                    inv.Invoke();
-                    return Ok($"invoked {ControlTypeOf(peer)} '{LabelOf(control, peer)}'");
+                    if (peer.GetProvider<IInvokeProvider>() is { } inv)
+                    {
+                        inv.Invoke();
+                        return Ok($"invoked {ControlTypeOf(peer)} '{LabelOf(control, peer)}'");
+                    }
+                    // MenuItemAutomationPeer exposes NO providers at all — not invoke, not
+                    // expandCollapse — so every verb failed on a menu and none of it was reachable.
+                    // Raising Click is what a real click does: MenuItem's class handler for the event
+                    // executes Command, so both plain Click handlers and bound commands fire once.
+                    if (control is MenuItem clickItem)
+                    {
+                        clickItem.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
+                        return Ok($"invoked MenuItem '{LabelOf(control, peer)}'");
+                    }
+                    return Unsupported("invoke");
 
                 case "toggle":
                     if (peer.GetProvider<IToggleProvider>() is not { } tog) return Unsupported("toggle");
@@ -147,14 +174,33 @@ public static class UiAutomationDriver
                     return Ok($"toggled '{LabelOf(control, peer)}'");
 
                 case "expand":
-                    if (peer.GetProvider<IExpandCollapseProvider>() is not { } exp) return Unsupported("expand");
-                    exp.Expand();
-                    return Ok($"expanded '{LabelOf(control, peer)}'");
+                    if (peer.GetProvider<IExpandCollapseProvider>() is { } exp)
+                    {
+                        exp.Expand();
+                        return Ok($"expanded '{LabelOf(control, peer)}'");
+                    }
+                    // A MenuItem exposes no ExpandCollapse provider, so without this a menu could not be
+                    // opened through automation at all — and a menu that cannot be opened cannot be read
+                    // either, since its items are only realised once the popup is up.
+                    if (control is MenuItem { HasSubMenu: true } openMenu)
+                    {
+                        openMenu.Open();
+                        return Ok($"opened menu '{LabelOf(control, peer)}'");
+                    }
+                    return Unsupported("expand");
 
                 case "collapse":
-                    if (peer.GetProvider<IExpandCollapseProvider>() is not { } col) return Unsupported("collapse");
-                    col.Collapse();
-                    return Ok($"collapsed '{LabelOf(control, peer)}'");
+                    if (peer.GetProvider<IExpandCollapseProvider>() is { } col)
+                    {
+                        col.Collapse();
+                        return Ok($"collapsed '{LabelOf(control, peer)}'");
+                    }
+                    if (control is MenuItem { HasSubMenu: true } closeMenu)
+                    {
+                        closeMenu.Close();
+                        return Ok($"closed menu '{LabelOf(control, peer)}'");
+                    }
+                    return Unsupported("collapse");
 
                 case "setvalue":
                     if (peer.GetProvider<IValueProvider>() is not { } val) return Unsupported("set_value");
@@ -533,7 +579,11 @@ public static class UiAutomationDriver
     {
         foreach (var v in parent.GetVisualChildren())
         {
-            if (v is Control c)
+            if (v is Popup popup)
+            {
+                CollectPopupChildren(popup, acc);
+            }
+            else if (v is Control c)
             {
                 var info = Classify(c);
                 if (info.Structural) CollectMeaningfulChildren(c, acc);
@@ -546,12 +596,35 @@ public static class UiAutomationDriver
         }
     }
 
-    // All Control descendants at any depth (for the #AutomationId shortcut).
+    // A popup's content is NOT under the popup in this visual tree — it is realised in the popup's own
+    // root (a separate top-level window on desktop, an overlay host elsewhere). So a dropped-down menu,
+    // a combo's list, and a flyout are all invisible to a plain visual walk, which is why an open
+    // MenuItem used to report "children": [] and its items could not be addressed at all.
+    //
+    // Grafting the popup's content in at the popup's own position keeps paths reading the way the UI
+    // looks — Window/Menu/MenuItem[File]/MenuItem[Open] — and, because Resolve walks through this same
+    // collector, those paths round-trip straight back to the live control for interact/press_key.
+    private static void CollectPopupChildren(Popup popup, List<MeaningfulChild> acc)
+    {
+        // A closed popup has no realised content: its items genuinely do not exist yet, so there is
+        // nothing to report and nothing to address. Open it first (interact expand).
+        if (!popup.IsOpen) return;
+        if (popup.Child is Visual content) CollectMeaningfulChildren(content, acc);
+    }
+
+    // All Control descendants at any depth (for the #AutomationId shortcut). Crosses into open popups
+    // for the same reason the control-view walk does — otherwise #SomeId finds an item on the menu bar
+    // but never one inside an open menu.
     private static IEnumerable<Control> Descendants(Visual parent)
     {
         foreach (var v in parent.GetVisualChildren())
         {
-            if (v is Control c)
+            if (v is Popup { IsOpen: true } popup)
+            {
+                if (popup.Child is Visual content)
+                    foreach (var d in Descendants(content)) yield return d;
+            }
+            else if (v is Control c)
             {
                 yield return c;
                 foreach (var d in Descendants(c)) yield return d;
@@ -605,7 +678,7 @@ public static class UiAutomationDriver
         try { peer = ControlAutomationPeer.CreatePeerForElement(control); }
         catch { /* still emit it (non-structural) so a meaningful control is never silently lost */ }
 
-        var providers = peer is null ? [] : DescribeProviders(peer);
+        var providers = peer is null ? [] : DescribeProviders(peer, control);
         var type = peer is null ? "Control" : ControlTypeOf(peer);
         var name = peer is null ? NullIfEmpty(control.Name) : NameOf(control, peer);
         var autoId = NullIfEmpty(AutomationProperties.GetAutomationId(control));
@@ -616,6 +689,14 @@ public static class UiAutomationDriver
         // (Panel/Border/ContentPresenter/StackPanel/dock plumbing). An AutomationId-tagged control is
         // intentional — keep it visible so it isn't addressable-via-#id yet invisible in the dump.
         var structural = type == "None" && providers.Length == 0 && !focusable && autoId is null;
+
+        // A Separator matches every one of those conditions and is still not plumbing: it is a visible
+        // element of a menu whose POSITION is the thing under test. Collapsing it away left a dump that
+        // could not answer "is the separator above Exit or below it" — a real VB6-fidelity question. UIA
+        // agrees; it has a Separator control type rather than treating one as a wrapper.
+        if (control is Separator)
+            return new NodeClass(peer, providers, "Separator", name, autoId, focusable, false);
+
         return new NodeClass(peer, providers, type, name, autoId, focusable, structural);
     }
 
