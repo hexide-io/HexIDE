@@ -15,13 +15,24 @@ public class StandaloneStandardLib : IBasicStandardLibrary
         _parent = parent;
     }
 
-    public async Task<MessageBoxResult> MsgBox(string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
+    /// <summary>
+    /// A null <paramref name="caption"/> means the VB6 caller omitted the Title argument, where VB6 shows
+    /// the application name. An empty string means they passed one deliberately, and stays empty.
+    /// </summary>
+    /// <remarks>
+    /// The stand-in below is not the real answer: VB6 uses <c>App.Title</c>, which defaults to the project
+    /// name, and this runtime has no App object yet. Deliberately not a project name threaded through by
+    /// hand — that would be a second source to unpick once App (#136) exists.
+    /// </remarks>
+    private const string OmittedTitleStandIn = "HexIDE";
+
+    public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
     {
         MessageBoxResult result = MessageBoxResult.None;
         var msgBox = new MessageBox { Text = text, Buttons = buttons, Icon = icon };
         var window = new Window
         {
-            Title = caption,
+            Title = caption ?? OmittedTitleStandIn,
             Content = msgBox,
             SizeToContent = SizeToContent.WidthAndHeight,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
@@ -32,13 +43,13 @@ public class StandaloneStandardLib : IBasicStandardLibrary
         return result;
     }
 
-    public async Task<string?> InputBox(string prompt, string title, string defaultText)
+    public async Task<string?> InputBox(string prompt, string? title, string defaultText)
     {
         string? result = null;
         var inputBox = new InputBox { Prompt = prompt, Text = defaultText };
         var window = new Window
         {
-            Title = title,
+            Title = title ?? OmittedTitleStandIn,
             Content = inputBox,
             SizeToContent = SizeToContent.WidthAndHeight,
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
