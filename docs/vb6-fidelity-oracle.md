@@ -1030,7 +1030,14 @@ nothing inside it. No diagonals corner-to-corner, no X, no type name, no control
 empty sunken frame where the control would be.
 
 The recollection this was checked against was "an empty box with diagonal lines from each corner". That is
-wrong, and it is the sort of detail worth having right before anyone draws one.
+wrong **for VB6**, and it is the sort of detail worth having right before anyone draws one.
+
+It may well be right about something else — VBA's editor, or a later Visual Studio — and that is the point
+rather than a footnote. A crossed placeholder is a real thing someone has genuinely seen; it just is not
+this product. This is the hazard `CLAUDE.md` names when it says VBA diverges from VB6 at the edges and
+`vb6.exe` always wins: a memory can be perfectly accurate and still be about the wrong host. Which host it
+came from was not worth chasing, because the only question that mattered — what VB6 draws — now has a
+screenshot behind it.
 
 The probe used a made-up GUID (`{A1B2C3D4-1111-2222-3333-444455556666}`, `NOSUCH.OCX`) with a real
 `CommandButton` beneath it for scale; the box's width matched the button's `3015` twips, so the geometry
