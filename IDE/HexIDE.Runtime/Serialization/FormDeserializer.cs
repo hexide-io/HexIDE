@@ -522,6 +522,9 @@ public class FormDeserializer
         // where an out-of-range offset is filtered out of the blob dictionary AND fails to extract, so the
         // two counts used to agree at a number lower than the form actually cites.
         var citedBlobCount = FrxDeserializer.CitedOffsets(source).Distinct().Count();
+        // Kept on the model as well: the save path needs it to tell a companion this form referenced from
+        // one it never did, and only the latter must survive a save that produces no blobs (#148).
+        form.RecordCitedCompanionBlobCount(citedBlobCount);
         if (form.HasUnmodelledBinaryProperties || capturedBlobs.Count < citedBlobCount)
             form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreproducibleBinaryContent,
                 $"it references companion binary content HexIDE cannot re-emit "

@@ -238,4 +238,32 @@ public class BlobLossGateTests
 
         form.CanSaveFaithfully.Should().BeTrue("one offset cited twice is one blob");
     }
+
+    [Fact]
+    public void OneRecordCitedTwice_IsWrittenOnce()
+    {
+        // FrxDeserializer hands the SAME array instance to every property citing an offset, so a form where
+        // two controls share an image arrives as one object seen twice. The writer collected per property,
+        // so it wrote the bytes twice — and because FrxSerializer keys its offset map by reference, the
+        // second write overwrote the first's entry and BOTH citations came out pointing at the second copy,
+        // leaving the first uncited. The file grew and stopped matching what VB6 wrote.
+        var shared =
+            "VERSION 5.00\r\n" +
+            "Begin VB.Form Form1 \r\n" +
+            "   Begin VB.PictureBox Picture1 \r\n" +
+            "      Picture         =   \"Form1.frx\":0000\r\n" +
+            "   End\r\n" +
+            "   Begin VB.PictureBox Picture2 \r\n" +
+            "      Picture         =   \"Form1.frx\":0000\r\n" +
+            "   End\r\n" +
+            "End\r\nAttribute VB_Name = \"Form1\"\r\n";
+        var companion = new byte[] { 4, 0, 0, 0, 7, 7, 7, 7 };
+
+        var form = Load(shared, FrxDeserializer.Read(companion, shared));
+        var (text, produced) = new FormSerializer().Serialize(form, "Form1.frm");
+
+        produced.Should().Equal(companion, "one record cited twice is one record");
+        FrxDeserializer.CitedOffsets(text).Distinct().Should().ContainSingle()
+            .Which.Should().Be(0, "both properties cite the one record, at the offset it actually occupies");
+    }
 }
