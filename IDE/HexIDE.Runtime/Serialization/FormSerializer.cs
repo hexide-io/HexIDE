@@ -34,11 +34,18 @@ public class FormSerializer
         // It only shows on a component carrying more than one blob, which is why it survived every earlier
         // file: Button ListBox's five are spread across five controls.
         var blobs = new List<byte[]>();
+        // BY REFERENCE, because one record cited twice is one record. FrxDeserializer hands the SAME array
+        // instance to every property citing an offset, so two controls sharing an image arrive here as one
+        // object seen twice. Adding it twice wrote the bytes twice and — since FrxSerializer keys its
+        // offset map by reference — left BOTH citations pointing at the second copy, with the first copy
+        // uncited dead weight. The file came back bigger than VB6 wrote it and no longer round-tripped.
+        var seen = new HashSet<byte[]>(ReferenceEqualityComparer.Instance);
         void CollectBlobs(ComponentInstance inst)
         {
             foreach (var prop in inst.BaseClass.Properties.OrderBy(p => p.Name, StringComparer.Ordinal))
             {
-                if (prop.PropertyType == typeof(byte[]) && inst.TryGetBoxedProperty(prop, out var boxed) && boxed is byte[] blob)
+                if (prop.PropertyType == typeof(byte[]) && inst.TryGetBoxedProperty(prop, out var boxed) && boxed is byte[] blob
+                    && seen.Add(blob))
                     blobs.Add(blob);
             }
         }

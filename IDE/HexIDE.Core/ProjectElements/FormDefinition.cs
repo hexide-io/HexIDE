@@ -236,16 +236,30 @@ public partial class FormDefinition : INotifyPropertyChanged
     public void MarkUnmodelledBinaryProperty() => HasUnmodelledBinaryProperties = true;
 
     /// <summary>
-    /// How many blobs the companion binary held when this form was loaded. The save path compares this
-    /// against what it is about to write: fewer blobs out than in means something was lost on a path
-    /// nobody flagged, which is the general safety net behind
-    /// <see cref="HasUnmodelledBinaryProperties"/>. Properties that are named but whose CLR type is
-    /// unmapped (ComboBox <c>List</c>, <c>ItemData</c>) are dropped with no diagnostic at all, so an
-    /// explicit flag alone cannot be trusted to catch every case.
+    /// How many blobs the companion binary yielded when this form was loaded.
+    ///
+    /// Informational only. The save path used to compare this against a walk of what it was about to
+    /// write, which is what #148 was: two different readers, one of them known to misread <c>List</c> and
+    /// <c>ItemData</c>, measuring two different things and disagreeing on files that reproduce perfectly.
+    /// Whether a file can be reproduced is decided at load, once, by
+    /// <see cref="CanSaveFaithfully"/>.
     /// </summary>
     public int LoadedCompanionBlobCount { get; private set; }
 
     public void RecordLoadedCompanionBlobCount(int count) => LoadedCompanionBlobCount = count;
+
+    /// <summary>
+    /// How many distinct companion offsets this form's designer file CITED when it was loaded.
+    ///
+    /// Distinct from <see cref="LoadedCompanionBlobCount"/> in the case that matters: a companion nothing
+    /// cites is read by falling back to a flat walk, so it yields records while this stays zero. That is
+    /// what separates "the developer cleared the last picture" — cited before, cites nothing now, so the
+    /// companion is ours to remove — from "a companion this form never referenced", whose bytes we never
+    /// modelled and must not delete.
+    /// </summary>
+    public int CitedCompanionBlobCount { get; private set; }
+
+    public void RecordCitedCompanionBlobCount(int count) => CitedCompanionBlobCount = count;
 
     /// <summary>
     /// The deepest nesting in this form that the writer cannot reproduce, counting the form itself as 1.
