@@ -1024,20 +1024,71 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
     [McpServerTool(Name = "shutdown_ide")]
     [Description("Shuts down the HexIDE application cleanly, triggering all shutdown handlers. " +
+                 "Stops a running project and closes any dialogs still open first — otherwise the app " +
+                 "keeps running (its shutdown mode is last-window-close) and the next build fails on a " +
+                 "file lock. The reply says what was torn down; it CANNOT confirm the process exited, " +
+                 "because the reply has to be sent before it does — poll /health until it stops " +
+                 "answering for that. " +
                  "force (default true) skips the save-changes prompt and DISCARDS unsaved edits — " +
-                 "without it a modal dialog would block the shutdown and wedge automation. " +
+                 "without it that prompt would block the shutdown and wedge automation. " +
                  "Pass force=false to get exactly what a user closing the window sees, including the " +
-                 "prompt; the call then returns while the dialog is still open and the IDE may stay up " +
-                 "if the user cancels.")]
-    public void ShutdownIde(bool force = true)
+                 "prompt; the IDE then stays up if the user cancels.")]
+    public async Task<ShutdownResult> ShutdownIdeAsync(bool force = true, CancellationToken ct = default)
     {
-        Dispatcher.UIThread.Post(() =>
+        // Tear down synchronously, so the reply can say what actually happened, then post the main-window
+        // close. Closing every window here instead would end the process mid-request and the caller would
+        // see a dropped connection rather than a result.
+        var (projectStopped, dialogsClosed) = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             Static.ForceCloseWithoutPrompt = force;
+
+            // Only when force was asked for. force=false promises exactly what a user closing the window
+            // sees, and a user closing it does not have their running program stopped or their open
+            // dialogs shut from under them — so that path is left alone, and the IDE staying up is then
+            // a correct outcome rather than the bug below.
+            //
+            // A running program owns windows the main window does not: its VBFormRuntime, and any MsgBox
+            // or InputBox layered over that. Under ShutdownMode.OnLastWindowClose those keep the app
+            // alive after the main window goes, and the symptom lands on whoever builds next —
+            // "file is locked by HexIDE.Desktop" — which looks nothing like a shutdown problem.
+            var stopped = false;
+            if (force && ctx.ProjectRunnerService.CanEndProject)
+            {
+                ctx.ProjectRunnerService.EndProject();
+                stopped = true;
+            }
+
+            var lifetime = Avalonia.Application.Current!.ApplicationLifetime as
+                Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
+            var mainWindow = lifetime?.MainWindow;
+
+            // Whatever survived that — a dialog whose owner is gone, an IDE modal, a runtime error box.
+            // Close children before parents: closing an owner does not close what it owns, and a dialog
+            // outliving its owner is exactly the window that keeps the process up.
+            var closed = 0;
+            if (force && lifetime is not null)
+            {
+                foreach (var w in lifetime.Windows.Reverse().ToList())
+                {
+                    if (w == mainWindow || !w.IsVisible)
+                        continue;
+                    w.Close();
+                    closed++;
+                }
+            }
+
+            return (stopped, closed);
+        });
+
+        Dispatcher.UIThread.Post(() =>
+        {
             var lifetime = Avalonia.Application.Current!.ApplicationLifetime as
                 Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
             lifetime?.MainWindow?.Close();
         });
+
+        return new ShutdownResult(true, projectStopped, dialogsClosed,
+            "Shutdown requested. Poll /health until it stops answering to confirm the process exited.");
     }
 
     [McpServerTool(Name = "set_ide_language")]
@@ -1384,6 +1435,13 @@ internal record DiagnosticItem(
     int Column);
 
 internal record MutateResult(bool Success, string? Error);
+
+/// <summary>
+/// What <c>shutdown_ide</c> tore down on the way out. <see cref="Requested"/> is deliberately not
+/// "succeeded": the reply has to be sent before the process exits, so no in-process result can honestly
+/// claim it did. Poll <c>/health</c> for that.
+/// </summary>
+internal record ShutdownResult(bool Requested, bool ProjectStopped, int DialogsClosed, string Note);
 
 internal record AddFileResult(bool Success, string? Path, string? Error);
 
