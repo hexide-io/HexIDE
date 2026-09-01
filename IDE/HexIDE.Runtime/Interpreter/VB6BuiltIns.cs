@@ -792,9 +792,11 @@ public partial class VB6BuiltIns
     private async Task<Vb6Value> InputBox(List<Vb6Value> args)
     {
         var prompt = args.Count >= 1 ? args[0].Value?.ToString() : "";
-        var caption = args.Count >= 2 ? args[1].Value?.ToString() : "";
+        // InputBox(Prompt, [Title], [Default], ...) — the Title was read, but an omitted one arrived as
+        // "" and so could never take the application-name default. Same null-vs-empty rule as MsgBox.
+        var caption = args.Count >= 2 ? args[1].Value?.ToString() : null;
         var defaultText = args.Count >= 3 ? args[2].Value?.ToString() : "";
-        var result = await stdLib.InputBox(prompt ?? "", caption ?? "", defaultText ?? "");
+        var result = await stdLib.InputBox(prompt ?? "", caption, defaultText ?? "");
         return (result ?? "");
     }
 
@@ -828,7 +830,17 @@ public partial class VB6BuiltIns
         else if (styleButtons == VBMsgBoxStyle.vbRetryCancel)
             buttons = MessageBoxButtons.RetryCancel;
 
-        var result = await stdLib.MsgBox(text ?? "", "", buttons, icon);
+        // MsgBox(Prompt, [Buttons], [Title], ...). The Title argument used to be dropped on the floor,
+        // so every message box came out captionless however it was called.
+        //
+        // null and "" are NOT the same thing here, which is why this is not `?? ""`: VB6 shows an
+        // explicitly empty title as empty, and substitutes the application name only when the argument
+        // was OMITTED. Collapsing the two would make `MsgBox "x", 0, ""` sprout a caption the author
+        // deliberately suppressed. Supplying the omitted-case default is the caller's job — and properly
+        // it is App.Title, which does not exist yet (#136).
+        var title = args.Count >= 3 ? args[2].Value?.ToString() : null;
+
+        var result = await stdLib.MsgBox(text ?? "", title, buttons, icon);
         var vbResult = result switch
         {
             MessageBoxResult.None => VBMsgBoxResult.vbOK,

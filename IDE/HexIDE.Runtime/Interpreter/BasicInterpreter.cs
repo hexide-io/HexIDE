@@ -10,8 +10,8 @@ namespace HexIDE.Runtime.Interpreter;
 
 public interface IBasicStandardLibrary
 {
-    Task<MessageBoxResult> MsgBox(string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon);
-    Task<string?> InputBox(string prompt, string title, string defaultText);
+    Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon);
+    Task<string?> InputBox(string prompt, string? title, string defaultText);
 
     /// <summary>Sink for <c>Debug.Print</c>. Receives the typed value (live → Immediate window; test → capture).</summary>
     void DebugPrint(Vb6Value value);
