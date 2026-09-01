@@ -324,7 +324,7 @@ mid-session, or have the launcher expose a readiness signal the client re-polls,
 already up is sufficient. Failing that, document that the IDE must be started *after* the session, not
 before — which is the opposite of the intuitive order and worth stating explicitly.
 
-## 12. A menu popup on a running form cannot be seen or driven — **MOSTLY CLOSED** (2026-09-01)
+## 12. A menu popup on a running form cannot be seen or driven — **CLOSED** (2026-09-01)
 
 > **Fixed for the tree and for driving; `take_snapshot` still cannot show a dropped-down menu.**
 >
@@ -355,11 +355,26 @@ before — which is the opposite of the intuitive order and worth stating explic
 > invokes, and the form's own label reads *"you chose: View > Zoom > Zoom In (a submenu, two levels
 > deep)"*. Eight headless tests in `MenuPopupTests` pin the behaviour.
 >
-> **What remains.** `take_snapshot` still captures the form's window, so a *picture* of an open menu is
-> not available — the popup is a separate top-level and compositing two of them is a different piece of
-> work from picking one. Everything the gap listed as unverifiable (separators, shortcut text, enabled
-> state, submenu nesting) is now reachable as live structure and drivable, which is what the consequence
-> below was actually about; the remaining hole is pixels only.
+> **The snapshot half is closed too, in a follow-up.** `SnapshotComposer` renders the window and each open
+> popup root separately and composes them at their real screen positions, so a dropped-down menu is now in
+> the picture — verified live on `demo/bill-of-fare`: *Zoom ▶*, the separator as a rule, *Refresh  F5* with
+> its shortcut, and the Zoom submenu open beside its parent in the right z-order.
+>
+> Three things that cost a build cycle each, worth knowing before touching this code:
+>
+> - **Render the popup's ROOT, not `Popup.Child`.** The root owns the border, padding and shadow the menu
+>   is drawn with; the child alone came out short and shifted.
+> - **`DrawingContext.DrawImage(image, destRect)` samples the source's *device-independent* extent.** On a
+>   150% display that reads the top-left two-thirds of the piece and stretches it to fill — a correctly
+>   placed, correctly sized menu box with magnified, clipped contents. The three-argument overload with an
+>   explicit pixel source rect is what is wanted.
+> - **The window still goes through `RenderTargetBitmap.Render`, not the context.** That path was already
+>   right; routing it through `DrawImage` made the whole form `scaling` times too big.
+>
+> None of this is visible headlessly, because **headless hosts popups as overlays inside the window** — so
+> the defect cannot occur there and a "the popup appears" test passes with the fix removed. The headless
+> tests therefore cover the overlay path (the composer must not draw an already-rendered popup twice) and
+> the desktop path is verified against the running IDE.
 
 
 

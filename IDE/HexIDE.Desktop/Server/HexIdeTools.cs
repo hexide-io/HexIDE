@@ -1119,17 +1119,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
             var window = HexIDE.IDE.ForegroundWindow.Pick(mainWindow, lifetime!.Windows);
             var activeDialog = window != mainWindow ? DescribeWindow(window) : null;
 
-            var scaling = window.DesktopScaling;
-            var size = new Avalonia.PixelSize(
-                (int)(window.ClientSize.Width * scaling),
-                (int)(window.ClientSize.Height * scaling));
-
-            if (size.Width <= 0 || size.Height <= 0)
+            // A dropped-down menu, a combo's list, a flyout: each is realised in its own top-level root,
+            // so rendering the window alone gives a menu bar with no menu. The composer draws them in
+            // their real positions — gap 12 in docs/mcp-server-gaps.md.
+            using var bitmap = HexIDE.Automation.SnapshotComposer.Capture(window);
+            if (bitmap is null)
                 return new SnapshotResult(null, "Window has no size", activeDialog);
-
-            var bitmap = new Avalonia.Media.Imaging.RenderTargetBitmap(
-                size, new Avalonia.Vector(96 * scaling, 96 * scaling));
-            bitmap.Render(window);
 
             var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide_snapshot.png");
             bitmap.Save(path);
