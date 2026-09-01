@@ -545,4 +545,94 @@ public class CodeEditorViewModelTests : IDisposable
 
         vm.IsReadOnly.Should().BeFalse();
     }
+
+    // ── #152: a UserControl is ONE file, so its editor holds BOTH halves ──────────────
+
+    /// <summary>A UserControl module with a designer half, as ProjectService builds one on load.</summary>
+    private static ModuleDefinition CreateUserControl(string code = "Option Explicit\r\n", bool faithful = true)
+    {
+        var project = TestHelpers.CreateProject("UCProject");
+        var module = new ModuleDefinition(project, "UserControl1", ModuleKind.UserControl);
+        var formPart = TestHelpers.CreateForm(owner: project, name: "UserControl1");
+        formPart.UpdateCode(code);
+        if (!faithful)
+            formPart.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreproducibleBinaryContent, "test");
+        module.UpdateFormPart(formPart);
+        module.UpdateCode(code);
+        return module;
+    }
+
+    [Fact]
+    public void Initialize_Module_WithADesignerHalf_AdoptsIt()
+    {
+        // The whole of #152 in one assertion. This used to be null, so the module door and the designer
+        // door built different editors over one .ctl, each flushing to its own buffer — and the two save
+        // paths read different ones, so whichever the developer had NOT typed into reached disk.
+        var module = CreateUserControl();
+        var vm = CreateSut().Initialize(module);
+
+        vm.ModuleDefinition.Should().BeSameAs(module);
+        vm.FormDefinition.Should().BeSameAs(module.FormPart, "a UserControl's editor holds both halves");
+    }
+
+    [Fact]
+    public void Initialize_Module_WithADesignerHalf_ListsItsControls()
+    {
+        // Not cosmetic: FindComponent returns null without a form definition, so the event dropdown stays
+        // empty and double-clicking a control in the designer cannot navigate to its handler.
+        var module = CreateUserControl();
+        var vm = CreateSut().Initialize(module);
+
+        vm.ObjectNames.Should().Contain("(General)");
+        vm.SelectedObject.Should().Be("(General)");
+    }
+
+    [Fact]
+    public void Initialize_Module_WithoutADesignerHalf_LeavesTheFormNull()
+    {
+        // A .bas or .cls has no designer half, and everything downstream keys off that rather than off a
+        // kind check — so this is what keeps IsReadOnly, the object combo and the save path correct for them.
+        var module = TestHelpers.CreateModule(name: "Module1", kind: ModuleKind.StandardModule);
+        var vm = CreateSut().Initialize(module);
+
+        vm.FormDefinition.Should().BeNull();
+        vm.ObjectNames.Should().ContainSingle().Which.Should().Be("(General)");
+        vm.SelectedObject.Should().Be("(General)");
+        vm.IsReadOnly.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Initialize_Module_WithAnUnfaithfulDesignerHalf_IsReadOnly()
+    {
+        // #147's other half, which falls out of #152 rather than needing its own wiring: an unfaithful
+        // UserControl is refused on save, and the editor must say so rather than accept typing that will
+        // never reach disk.
+        var module = CreateUserControl(faithful: false);
+        var vm = CreateSut().Initialize(module);
+
+        vm.IsReadOnly.Should().BeTrue("its designer half cannot be reproduced, so the save will refuse it");
+        vm.ReadOnlyReason.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public void FlushingAUserControlsEditor_UpdatesBothHalves()
+    {
+        // The divergence itself. SaveModule serializes module.Code; SerializeFormToFile serializes
+        // formPart.Code. If a flush reaches only one of them the other goes to disk stale, and IsDirty —
+        // which reads module.Code — does not even report the file as changed.
+        Action<ApplyAllUnsavedChangesEvent>? flush = null;
+        _eventBus.Subscribe(Arg.Do<Action<ApplyAllUnsavedChangesEvent>>(a => flush = a))
+                 .Returns(Substitute.For<IDisposable>());
+
+        var module = CreateUserControl(code: "Option Explicit\r\n");
+        var vm = CreateSut().Initialize(module);
+        vm.Document.Text = "Private Sub UserControl_Initialize()\r\nEnd Sub\r\n";
+
+        flush.Should().NotBeNull("the editor subscribes to the flush event");
+        flush!(new ApplyAllUnsavedChangesEvent());
+
+        module.Code.Should().Contain("UserControl_Initialize", "the module half is what SaveModule writes");
+        module.FormPart!.Code.Should().Contain("UserControl_Initialize",
+            "the designer half is what SerializeFormToFile writes — both must carry the edit");
+    }
 }

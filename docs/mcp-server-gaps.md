@@ -490,3 +490,30 @@ after any live verification — that is what caught it here, one commit late.
 the form's name and can re-emit the header it just parsed — or refuse the write with "content is missing
 the Attribute header; call get_file_content first". Silently accepting a body that destroys a form's
 identity is the one behaviour that should not be available.
+
+## 15. `dump_visual_tree` shows a hidden element as though it were on screen
+
+**Symptom.** The read-only banner `TextBlock` appears in the tree for a form that is *not* read-only, with
+`isOffscreen: false` and no other flag distinguishing it from a rendered element:
+
+```
+"path": ".../Custom[Root]/Text[Read-only — HexIDE cannot yet reproduce this form faithfully, ...]",
+"isEnabled": true, "isOffscreen": false
+```
+
+The banner is bound to `IsReadOnly` and was collapsed. Nothing in the node says so.
+
+**How it bit.** Verifying #152 against a brand-new UserControl. The tree said the read-only banner was
+present and on screen, which would have meant a fresh, empty, perfectly reproducible `.ctl` was being held
+unsaveable — a serious bug, and one entirely consistent with the change under test. It took a
+`take_snapshot` to establish that nothing was rendered and the IDE was behaving correctly.
+
+**Workaround.** Treat presence in the tree as "exists in the template", never as "visible". For anything
+whose whole meaning is *whether it is showing* — banners, validation text, overlays, empty-state
+placeholders — confirm with `take_snapshot`, or assert the bound view-model property via
+`inspect_element` rather than reading the tree.
+
+**Suggested fix.** Carry the real visibility on the node — `isVisible` from `Visual.IsVisible` (and ideally
+`isEffectivelyVisible`, since an ancestor may be the one collapsed). `isOffscreen` is a UIA concept about
+scroll position and clipping, and it does not answer this question. Without it the tree cannot be used to
+assert the absence of a warning, which is exactly the assertion a fidelity gate needs.

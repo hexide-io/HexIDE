@@ -218,16 +218,27 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
     public CodeEditorViewModel Initialize(ModuleDefinition moduleElement)
     {
         this.moduleDefinition = moduleElement;
+        // BOTH halves, because a UserControl or PropertyPage HAS both and they are one file.
+        //
+        // This used to set only the module, while the designer's View Code went through
+        // Initialize(FormDefinition) and set only the form part. Two tabs could then stand open over one
+        // .ctl, each flushing to its own buffer — and the two save paths read different ones (SaveModule
+        // serializes module.Code, SerializeFormToFile serializes formPart.Code). Code typed in one tab was
+        // written by neither the other's save nor reported by IsDirty, which reads module.Code. It went
+        // silently missing. (#152)
+        //
+        // Null for a .bas or .cls, which have no designer half — so everything downstream that tests
+        // formDefinition stays correct for them without a kind check.
+        this.formDefinition = moduleElement.FormPart;
         AutoDispose(moduleElement.ObservePropertyChanged(x => x.Name)
             .Subscribe(_ => Title = ComputeTitle()));
         AutoDispose(moduleElement.Owner.ObservePropertyChanged(x => x.Name)
             .Subscribe(_ => Title = ComputeTitle()));
         Document.Text = moduleElement.Code;
 
-        // Modules have no form components — just "(General)" in the object combo
-        ObjectNames.Clear();
-        ObjectNames.Add(GeneralObject);
-        SelectedObject = GeneralObject;
+        // A module with a designer half lists its controls like a form's editor does; one without falls
+        // back to "(General)" alone, which is what this used to hardcode.
+        PopulateObjectNames();
 
         if (lspClient.IsRunning)
             lspClient.OpenDocumentAsync(GetDocumentUri(), Document.Text).ListenErrors();
@@ -256,6 +267,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
     {
         ObjectNames.Clear();
         ObjectNames.Add(GeneralObject);
+        // Selected before the early return, not after the loop: a .bas or .cls has no designer half and
+        // takes that return, and it still needs "(General)" selected rather than left null.
+        SelectedObject = GeneralObject;
         if (formDefinition is null) return;
         foreach (var component in formDefinition.Components)
         {
@@ -263,7 +277,6 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
             if (name is { Length: > 0 })
                 ObjectNames.Add(name);
         }
-        SelectedObject = GeneralObject;
     }
 
     private void OnTextChanged(object? sender, EventArgs e)
