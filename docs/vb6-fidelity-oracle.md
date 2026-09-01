@@ -1,4 +1,4 @@
-# VB6 fidelity oracle — behaviour verified against `vb6.exe`
+﻿# VB6 fidelity oracle — behaviour verified against `vb6.exe`
 
 HexIDE's in-box interpreter aims for **runtime-execution fidelity**: it reproduces VB6's *observable* behaviour
 without depending on `MSVBVM60.DLL` (see the CST-not-AST boundary in `CLAUDE.md`). The only trustworthy source
@@ -1019,6 +1019,44 @@ blank argument keeps its position).
 **Measured but not implemented:** using a missing value in a string concatenation raises **Error 13, Type
 mismatch**. Recorded so the next person does not have to re-derive it; HexIDE currently lets such a value
 flow rather than raising.
+
+## A control VB6 cannot load renders as an empty box (2026-09-01, design-time)
+
+**Verified**, by the human-in-the-loop method in *Note on method* above: a `.frm` citing an unregistered
+OCX pushed into the VM, opened in `VB6.EXE`, screenshotted.
+
+VB6 draws a control it cannot load as a **plain etched rectangle at the recorded position and size** —
+nothing inside it. No diagonals corner-to-corner, no X, no type name, no control name, no icon. Just an
+empty sunken frame where the control would be.
+
+The recollection this was checked against was "an empty box with diagonal lines from each corner". That is
+wrong **for VB6**, and it is the sort of detail worth having right before anyone draws one.
+
+It may well be right about something else — VBA's editor, or a later Visual Studio — and that is the point
+rather than a footnote. A crossed placeholder is a real thing someone has genuinely seen; it just is not
+this product. This is the hazard `CLAUDE.md` names when it says VBA diverges from VB6 at the edges and
+`vb6.exe` always wins: a memory can be perfectly accurate and still be about the wrong host. Which host it
+came from was not worth chasing, because the only question that mattered — what VB6 draws — now has a
+screenshot behind it.
+
+The probe used a made-up GUID (`{A1B2C3D4-1111-2222-3333-444455556666}`, `NOSUCH.OCX`) with a real
+`CommandButton` beneath it for scale; the box's width matched the button's `3015` twips, so the geometry
+comes straight from the designer file's `Left`/`Top`/`Width`/`Height`.
+
+### Why HexIDE should NOT copy it exactly
+
+VB6's box carries meaning it does not itself supply: the developer reached it by dismissing a *"cannot load
+control"* dialog seconds earlier, so an unlabelled rectangle is enough to say "the thing you were just told
+about goes here".
+
+HexIDE has no such dialog, and its box would mean something different — **not** "this OCX is missing from
+this machine" but "HexIDE does not model this control", which stays true on a machine where the OCX is
+correctly installed and registered. A developer following VB6 muscle memory would install the control,
+reopen, see the same empty box, and reasonably conclude HexIDE is broken.
+
+So: keep the geometry, which is VB6's intended behaviour and is exactly reproducible from the file; replace
+the emptiness, which is a shortcoming rather than a design. Per the Fidelity Principle, a divergence — and
+recorded here so it stays deliberate.
 
 ## Extending the oracle (future phases)
 
