@@ -110,8 +110,8 @@ public abstract class BaseVBTestFixture
 
     private class MockStdLib(List<Vb6Value> debug) : IBasicStandardLibrary
     {
-        public async Task<MessageBoxResult> MsgBox(string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon) => default;
-        public async Task<string?> InputBox(string prompt, string title, string defaultText) => default;
+        public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon) => default;
+        public async Task<string?> InputBox(string prompt, string? title, string defaultText) => default;
         public void DebugPrint(Vb6Value value) => debug.Add(value);
     }
 }

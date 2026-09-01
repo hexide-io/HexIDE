@@ -1391,13 +1391,13 @@ public class VBMDIWindow : MDIWindow, IModuleExecutionRoot
             this.form = form;
         }
 
-        public async Task<MessageBoxResult> MsgBox(string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
+        public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
         {
             return default;
             //return await MessageBox.ShowDialog(form, text, caption, buttons, icon);
         }
 
-        public async Task<string?> InputBox(string prompt, string title, string defaultText)
+        public async Task<string?> InputBox(string prompt, string? title, string defaultText)
         {
             return default;
         }

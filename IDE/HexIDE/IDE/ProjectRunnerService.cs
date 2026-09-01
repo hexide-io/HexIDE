@@ -388,12 +388,12 @@ public partial class ProjectRunnerService : IProjectRunnerService
             this.windowManager = windowManager;
         }
 
-        public async Task<MessageBoxResult> MsgBox(string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
+        public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
         {
             return await windowManager.MessageBox(text, caption, buttons, icon);
         }
 
-        public async Task<string?> InputBox(string prompt, string title, string defaultText)
+        public async Task<string?> InputBox(string prompt, string? title, string defaultText)
         {
             return await windowManager.InputBox(prompt, title, defaultText);
         }

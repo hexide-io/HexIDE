@@ -24,9 +24,9 @@ public class WithControlInteropTests
 
     private class CaptureLib(List<Vb6Value> debug) : IBasicStandardLibrary
     {
-        public Task<MessageBoxResult> MsgBox(string text, string caption, MessageBoxButtons buttons, MessageBoxIcon icon)
+        public Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
             => Task.FromResult<MessageBoxResult>(default);
-        public Task<string?> InputBox(string prompt, string title, string defaultText)
+        public Task<string?> InputBox(string prompt, string? title, string defaultText)
             => Task.FromResult<string?>(null);
         public void DebugPrint(Vb6Value value) => debug.Add(value);
     }
