@@ -18,7 +18,7 @@
 | Remove *{project}* | — | Done | |
 | Save Project | — | Partial | Saves every member HexIDE can reproduce; members it cannot are left untouched on disk and reported together in one dialog. See `Save {file}` |
 | Save Project As… | — | Done | |
-| Save *{file}* | Ctrl+S | Partial | Works, but not faithfully: **0 of VB6's own 22 template forms survive a save byte-for-byte**, and **6 of them are held read-only** because HexIDE knows it would not reproduce them — all six for companion binary content it cannot re-emit. Menu trees round-trip as of #83 and container nesting as of #84, so neither holds a form back any more. The gate is deliberate — refusing beats writing a `.frm` VB6 cannot open — but the round-trip guarantee itself is unmet. Epic [#21](https://github.com/hexide-io/HexIDE/issues/21); contract in [serialization-round-trip](../openspec/specs/serialization-round-trip/spec.md) |
+| Save *{file}* | Ctrl+S | Partial | **21 of VB6's own 22 template forms survive a save byte-for-byte**, and the 22nd (`Web Browser.frm`) is **held read-only** rather than damaged — nothing saves lossily any more. Menu trees round-trip as of #83, container nesting as of #84, and the companion-file model closed the rest (#107–#113); VB6's seven `.vbp` files round-trip as of #116. Still `Partial`, not `Done`: the holdout needs OCX hosting, the measured corpus is VB6's own templates rather than real-world projects, and unknown OCX properties citing a blob are still dropped on save ([#60](https://github.com/hexide-io/HexIDE/issues/60)). Epic [#21](https://github.com/hexide-io/HexIDE/issues/21); contract in [serialization-round-trip](../openspec/specs/serialization-round-trip/spec.md) |
 | Save *{file}* As… | — | Done | Bypasses the faithfulness gate by design: the original file is not at risk, so a read-only form can still be written elsewhere |
 | Print… | — | Stub | Bound to `NYICommand`; shows "not yet implemented" |
 | Print Setup… | — | Stub | Bound to `NYICommand` |
@@ -278,7 +278,7 @@
 | Smart / alignment guides | Missing | Grid only |
 | Property search / filter | Missing | No search box in Properties window |
 | Control rendering quality | Partial | Bitmap snapshot via `ControlRenderer`; text/font preview approximate |
-| Read-only designer for unsaveable forms | Done | **HexIDE addition** (not in VB6) — a form HexIDE cannot reproduce opens read-only with a banner (`FormEditViewModel.IsReadOnly`). 6 of VB6's own 22 template forms are in this state today (was 12 before #83), all six for companion binary content rather than for nesting: containers round-trip as of #84 ([#21](https://github.com/hexide-io/HexIDE/issues/21)) |
+| Read-only designer for unsaveable forms | Done | **HexIDE addition** (not in VB6) — a form HexIDE cannot reproduce opens read-only with a banner (`FormEditViewModel.IsReadOnly`). 1 of VB6's own 22 template forms is in this state today — `Web Browser.frm`, whose pictures sit on an `MSComctlLib.ImageList` OCX (was 12 before #83, then 6 before #107–#113). That is the floor until OCX hosting lands ([#21](https://github.com/hexide-io/HexIDE/issues/21)) |
 
 ---
 
