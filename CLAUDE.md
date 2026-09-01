@@ -201,6 +201,30 @@ intelligence" rows are marked as belonging to that engine rather than to HexIDE.
 AST / semantic model, it belongs in the backend engine, not in HexIDE. Decided 2026-07 (user, external
 advisor concurring).
 
+**Where the pre-pass sits, because it looks like a violation and is not.** `PrePass.cs` walks a module
+before execution and builds tables — procedures, properties, events, `WithEvents` names, UDTs, enums,
+`Option Base`, `Option Explicit`. That is sanctioned, and the rule that decides it is:
+
+> **Collecting symbols up front is fine, including where it is the only way. Analysing the *relationships
+> between* symbols up front is not.**
+
+Collection is *"here is every `Sub` in this module"*, *"here is every `Public` variable in the project"*,
+*"here is every `DefInt` letter range and its type"*. Relating is *"this identifier refers to **that**
+declaration"*, *"this expression has type T"* — which is **binding**, and binding is the AST.
+
+A weaker test — *"could the walk do this itself, just slower?"* — is tempting and wrong: it forbids
+order-independent `Const` evaluation, which no single walk can do and which is plainly not AST-building.
+Necessity is not the line. Relationships are.
+
+The rule also decides **how** to build what it permits. `Const A = B + 1` looks like a symbol relationship,
+so do not topologically sort the constants up front — collect the *expressions* and evaluate lazily and
+memoised, letting the walk resolve the dependency when it reaches it. Same behaviour, and the pre-pass
+stays pure collection.
+
+What it still refuses, for the same reason rather than a different one: the linearized CFG that `GoSub` /
+`Return` / `On expr GoTo` and nested-granular `Resume` are deferred pending. A control-flow graph relates
+statements to each other; it is a map of the program, not a lookup for the walk.
+
 ## Currency & Best Practice
 
 **This project always aims for current best practice.** If you spot anything that looks even slightly
