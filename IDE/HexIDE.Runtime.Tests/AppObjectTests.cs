@@ -124,11 +124,19 @@ public class AppObjectTests
 
     // ── deriving AppInfo from a real project ────────────────────────────────────────────────────────
 
+    // Built with the running platform's separator. A hardcoded `C:\some\where\...` passes on Windows and
+    // fails on the Linux CI runner, where a backslash is an ordinary filename character rather than a
+    // separator — Path.GetFileNameWithoutExtension then returns the whole string.
+    private static readonly string ProjectFilePath =
+        System.IO.Path.Combine(System.IO.Path.GetTempPath(), "some", "where", "TheProjectFile.vbp");
+
+    private static readonly string ProjectFolder = System.IO.Path.GetDirectoryName(ProjectFilePath)!;
+
     private static ProjectElements.ProjectDefinition ProjectWith(string name, params string[] preSectionLines)
     {
         var p = new ProjectElements.ProjectDefinition(ProjectElements.VBProjectType.EXE, name)
         {
-            AbsolutePath = @"C:\some\where\TheProjectFile.vbp",
+            AbsolutePath = ProjectFilePath,
         };
         for (var i = 0; i < preSectionLines.Length; i++)
             p.UnknownPreSectionLines.Add((i, preSectionLines[i]));
@@ -162,7 +170,7 @@ public class AppObjectTests
         var info = AppInfo.FromProject(ProjectWith("NameKey", "ExeName32=\"ExeNameKey.exe\""));
 
         info.ExeName.Should().Be("TheProjectFile");
-        info.Path.Should().Be(@"C:\some\where");
+        info.Path.Should().Be(ProjectFolder);
     }
 
     [Fact]
