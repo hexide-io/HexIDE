@@ -140,6 +140,9 @@ public class DebuggerTests : BaseVBTestFixture
         dbg.Continue();
         await run.Guarded();
         await other.Guarded();
+        // Count first: Contain/Contain passes on a TWO-element log, so it caught the loss that dropped
+        // "other" and would have missed the one that dropped "main2" — and both directions occur (#139).
+        debug.Should().HaveCount(3, "no Debug.Print may be lost when two walks resume together");
         debug.Select(v => v.Value?.ToString()).Should().Contain("other").And.Contain("main2");
     }
 
@@ -279,6 +282,9 @@ public class DebuggerTests : BaseVBTestFixture
         dbg.Continue();
         await run.Guarded();
         await other.Guarded();          // released + ran on Continue
+        // The other test with two live activations, and so the other one exposed to #139's lost update.
+        // Four here: m1, m2, m3 and other.
+        debug.Should().HaveCount(4, "no Debug.Print may be lost when two walks resume together");
         debug.Select(v => v.Value?.ToString()).Should().Contain("other");
     }
 
