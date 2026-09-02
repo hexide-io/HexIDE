@@ -1341,6 +1341,44 @@ binds names to them, so a static local is "look up or create the slot, bind the 
 it to `ownedSlots`" — the last part being what keeps scope-exit from releasing it and firing a premature
 `Class_Terminate`. Recursion then shares the slot without any extra work, which is what VB6 does.
 
+## Omitted optional arguments, and string operands to numeric intrinsics (2026-09-02)
+
+Measured to check two defects an adversarial pass reported against HexIDE. Both were real; one was
+described wrongly, in a way that would have produced the wrong fix.
+
+| probe | VB6 | HexIDE |
+|---|---|---|
+| `Split("a b c", , 2)` | **`n=1 [a][b c]`** — 2 elements on the default space delimiter | returns the whole string as ONE element |
+| `Split("a,b,c", ",", , 1)` | **`n=2 [a]`** — 3 elements, compare arg accepted | raises **Err 13** |
+| `Abs("abc")` | **Err 13** | Err 13 — correct |
+| `Abs("5")` | **`5`** | Err 13 — wrong |
+
+### The omitted-argument hole
+
+A skipped middle argument (`Split(s, , 2)`) must take the parameter's default. HexIDE materialises a blank
+call-site slot as `Vb6Value.Missing`, but `VB6BuiltIns.Array.HasArg` tests `!= EmptyVariant`, so the guard
+never fires: the delimiter becomes `AsStr(Missing)` = `""`, and the empty-delimiter branch returns the
+input unsplit. Skipping `limit` is worse than a wrong answer — `a.Count >= 3` is satisfied by the blank
+slot, `AsInt(Missing)` falls past every case, and it throws. `Filter` shares the bug.
+
+The comment above `HasArg` asserts that a skipped optional "arrives as Empty". That is wrong about this
+interpreter's own call machinery, and the wrong comment is what kept the bug alive.
+
+### Why the `Abs` row needed the oracle
+
+The report was "a String operand raises Err 13", offered as the defect. **VB6 raises Err 13 there too**,
+so taken at face value it would have led to making `Abs("abc")` return something — a change away from
+VB6, not toward it.
+
+The real divergence is narrower and opposite in shape: VB6 accepts a *numeric* string and rejects a
+non-numeric one; HexIDE rejects **both**, because `TryNumericToDouble` switches only over the numeric CLR
+types plus `DateTime` and returns false for `String`. The same path is shared by `Sqr`, `Sgn`, `Sin`,
+`Cos`, `Exp`, `Log`, `Tan`, `Atn`, `Hex`, `Oct`, `CDate` and `CBool`, so one fix covers all of them —
+which is only visible once the boundary is stated correctly.
+
+This is the second time a plausible-sounding defect report would have moved HexIDE *away* from VB6 if
+implemented as written. Measure the claim, not just the behaviour it complains about.
+
 ## Extending the oracle (future phases)
 
 Phase 3 (intrinsics) and beyond should verify, at minimum:
