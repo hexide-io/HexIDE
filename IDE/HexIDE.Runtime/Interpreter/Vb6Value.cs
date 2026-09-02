@@ -75,14 +75,40 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     public readonly ValueType Type;
     public readonly object? Value;
 
-    private Vb6Value(ValueType type, object? value)
+    /// <summary>
+    /// True when this value carries a FIXED type rather than being a Variant that currently happens to
+    /// hold one — a declared variable's value, or a literal.
+    ///
+    /// VB6 treats a declared type as a ceiling and a Variant as having none, so arithmetic that overflows
+    /// raises Err 6 for the first and WIDENS for the second (Integer -> Long -> Double). The two are
+    /// otherwise indistinguishable: `TypeName` reports a Variant's subtype, so a Variant holding 30000 and
+    /// a `Dim x As Integer` holding 30000 both report Integer. Arithmetic is the only observer. (#122)
+    ///
+    /// Measured: a Variant on EITHER side lifts the ceiling, and fixedness PROPAGATES through
+    /// sub-expressions — `(a + 0) * 3` with a declared `a` still raises Err 6, which is why this rides on
+    /// the value rather than being looked up at the operator.
+    ///
+    /// Deliberately NOT part of Equals or GetHashCode: 30000 equals 30000 however it was obtained, and
+    /// nothing outside arithmetic may branch on this.
+    /// </summary>
+    public readonly bool HasFixedType;
+
+    /// <summary>This value with a fixed type — a declared variable's value, or a literal.</summary>
+    public Vb6Value AsFixedType() => new Vb6Value(Type, Value, true);
+
+    /// <summary>This value as a Variant subtype — no ceiling, so arithmetic widens rather than overflowing.</summary>
+    public Vb6Value AsVariantSubtype() => new Vb6Value(Type, Value, false);
+
+    private Vb6Value(ValueType type, object? value, bool hasFixedType = false)
     {
         Type = type;
         Value = value;
+        HasFixedType = hasFixedType;
     }
 
     public Vb6Value(int value)
     {
+        HasFixedType = false;
         // Magnitude rule: a C# int that fits Int16 is a VB6 Integer (kept int-boxed — its 16-bit range is
         // enforced by range-checks at operator/store boundaries later, not by the box); otherwise it is a Long.
         // This keeps existing `new Vb6Value(3)` an Integer (zero test churn) while `new Vb6Value(40000)` is a Long.

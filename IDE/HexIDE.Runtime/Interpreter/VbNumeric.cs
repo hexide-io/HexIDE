@@ -94,7 +94,7 @@ public static class VbNumeric
         }
 
         long la = ToLong(l), lb = ToLong(r);
-        return NarrowLong(op == '+' ? la + lb : op == '-' ? la - lb : la * lb, rt, ctx);
+        return NarrowLong(op == '+' ? la + lb : op == '-' ? la - lb : la * lb, rt, ctx, l.HasFixedType && r.HasFixedType);
     }
 
     // ===== / (real division) =====
@@ -159,7 +159,7 @@ public static class VbNumeric
         }
         var rt = rank <= 1 ? VT.Integer : CoreType(rank);   // Byte/Boolean negate into Integer
         if (rt == VT.Integer || rt == VT.Long)
-            return NarrowLong(-ToLong(v), rt, ctx);
+            return NarrowLong(-ToLong(v), rt, ctx, v.HasFixedType);
         return NarrowDouble(-ToDouble(v), rt, ctx);
     }
 
@@ -277,21 +277,39 @@ public static class VbNumeric
     private static bool IsByteIntBool(VT t) =>
         t == VT.Byte || t == VT.Integer || t == VT.Boolean || t == VT.EmptyVariant;
 
-    private static Vb6Value NarrowLong(long res, VT target, ParserRuleContext? ctx)
+    /// <summary>
+    /// Land an integral result on its target type.
+    ///
+    /// <paramref name="fixedType"/> is the whole of #122: a DECLARED type is a ceiling, so overflowing it
+    /// is Err 6; a Variant has none, so it WIDENS — Byte -> Integer -> Long -> Double. Measured, including
+    /// that a Variant on either side lifts the ceiling and that fixedness propagates, so an all-fixed
+    /// operation hands back a fixed result and `(a + 0) * 3` still raises Err 6 for a declared `a`.
+    ///
+    /// VB6's Long is 32-bit, so anything past Int32 becomes Double — which is why untyped `Fact(13)` is a
+    /// Double. The C# long intermediate is wide enough for the products that reach here: both operands are
+    /// at most a VB6 Long, so the product cannot exceed Int64.
+    /// </summary>
+    private static Vb6Value NarrowLong(long res, VT target, ParserRuleContext? ctx, bool fixedType = true)
     {
+        Vb6Value Land(Vb6Value v) => fixedType ? v.AsFixedType() : v;
+
         if (target == VT.Byte)
         {
-            if (res < 0 || res > 255) throw new VBRunTimeException(ctx, VBStandardError.Overflow);
-            return new Vb6Value((byte)res);
+            if (res >= 0 && res <= 255) return Land(new Vb6Value((byte)res));
+            if (fixedType) throw new VBRunTimeException(ctx, VBStandardError.Overflow);
+            target = VT.Integer;   // widen and fall through
         }
         if (target == VT.Integer)
         {
-            if (res < short.MinValue || res > short.MaxValue) throw new VBRunTimeException(ctx, VBStandardError.Overflow);
-            return new Vb6Value((int)res);   // in Int16 range, so the magnitude ctor keeps it Integer
+            if (res >= short.MinValue && res <= short.MaxValue)
+                return Land(new Vb6Value((int)res));   // in Int16 range, so the magnitude ctor keeps it Integer
+            if (fixedType) throw new VBRunTimeException(ctx, VBStandardError.Overflow);
+            target = VT.Long;
         }
         // Long
-        if (res < int.MinValue || res > int.MaxValue) throw new VBRunTimeException(ctx, VBStandardError.Overflow);
-        return new Vb6Value((long)res);
+        if (res >= int.MinValue && res <= int.MaxValue) return Land(new Vb6Value((long)res));
+        if (fixedType) throw new VBRunTimeException(ctx, VBStandardError.Overflow);
+        return new Vb6Value((double)res);   // past VB6's 32-bit Long: a Variant becomes Double
     }
 
     /// <summary>

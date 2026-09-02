@@ -281,7 +281,19 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
 
     // EXPRESSION
+    /// <summary>
+    /// A literal carries a FIXED type, not a Variant subtype — measured: `Dim a As Integer` plus the literal
+    /// 30000 raises Err 6 rather than widening, and `30000 * 3` written out raises Err 6 too. Treating
+    /// literals as Variants would silently promote `i = i + 1` past a declared Integer's ceiling, which is
+    /// the common shape rather than a rare one. (#122)
+    /// </summary>
     public override async Task<object?> VisitVsLiteral(VB6Parser.VsLiteralContext literalContext)
+    {
+        var result = await VisitVsLiteralCore(literalContext);
+        return result is Vb6Value v ? v.AsFixedType() : result;
+    }
+
+    private async Task<object?> VisitVsLiteralCore(VB6Parser.VsLiteralContext literalContext)
     {
         if (literalContext.literal().STRINGLITERAL() is { } stringliteral)
         {
