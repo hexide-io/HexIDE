@@ -1,0 +1,247 @@
+{
+  "area": "continuation-and-separator/separator-and-continuation-together",
+  "cases": [
+    {
+      "id": "continuation-then-colon-opens-next-line",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "Debug.Print \"A\" _",
+        ": Debug.Print \"B\"",
+        "Debug.Print \"C\""
+      ],
+      "why": "The mirror image of the familiar colon-then-continuation shape: here the continuation ends the line and the colon is the first thing on the joined-in line. After joining, the logical line is Debug.Print \"A\" : Debug.Print \"B\", so the colon separates two statements that were never on the same physical line. Predicting legal because continuation is a pre-parse line splice; a tokenizer that instead treats a line-leading colon specially (label terminator, empty statement) would diverge. Output A, B, C proves the splice happened before separator handling."
+    },
+    {
+      "id": "indented-colon-opens-continued-line",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "Debug.Print \"A\" _",
+        "    : Debug.Print \"B\"",
+        "Debug.Print \"C\""
+      ],
+      "why": "As above but with leading whitespace before the colon on the spliced line. Named separately because the repo grammar tokenizes a separator as a colon followed by a literal space, so whitespace before rather than after the colon exercises a different lexer path. Real VB6 should not care; output A, B, C either way."
+    },
+    {
+      "id": "colon-immediately-before-underscore-no-space",
+      "scope": "statement",
+      "expect": "illegal",
+      "code": [
+        "Debug.Print \"A\" :_",
+        "Debug.Print \"B\""
+      ],
+      "why": "A colon abutting the continuation underscore with no whitespace between them. The continuation sequence is whitespace then underscore at end of line; a colon is punctuation, not whitespace, so the underscore should not be recognised as a continuation and is left as a stray token after an empty statement. Predicting illegal. This is the exact adjacency this area owns, and it is worth measuring because a lexer that scans back over any non-space delimiter would accept it."
+    },
+    {
+      "id": "colon-space-underscore-with-space-before-colon",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "Debug.Print \"A\" : _",
+        "Debug.Print \"B\"",
+        "Debug.Print \"C\""
+      ],
+      "why": "Control for the previous case: identical except the underscore is preceded by a space. Included so a failure of colon-immediately-before-underscore-no-space is attributable to the missing space rather than to the colon itself. Output A, B, C."
+    },
+    {
+      "id": "continuation-line-is-a-bare-colon",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "Debug.Print \"A\" _",
+        ":",
+        "Debug.Print \"B\""
+      ],
+      "why": "The spliced-in line contributes nothing but a colon, so the logical line ends with a trailing separator and an empty statement after it. Tests that a colon with no statement following it is tolerated when it arrived via a continuation rather than being typed at the end of the original line. Predicting legal; output A then B."
+    },
+    {
+      "id": "colon-either-side-of-the-splice",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "Debug.Print \"A\" : _",
+        ": Debug.Print \"B\"",
+        "Debug.Print \"C\""
+      ],
+      "why": "A colon closes the first physical line and another opens the second, so the joined line contains two adjacent separators with nothing between them. Two colons in a row are an empty statement and are accepted when typed literally, so the question is only whether the splice preserves that; predicting legal, output A, B, C."
+    },
+    {
+      "id": "colon-continued-chain-three-physical-lines",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "Debug.Print \"A\" : _",
+        "Debug.Print \"B\" : _",
+        "Debug.Print \"C\"",
+        "Debug.Print \"D\""
+      ],
+      "why": "Three physical lines welded into one logical line by two continuations, with a separator at each weld: one logical line holding three statements. Distinct from a single colon-plus-continuation because it tests that continuation state resets correctly after a spliced line that itself ends in a continuation. Output A, B, C, D."
+    },
+    {
+      "id": "both-operands-of-a-colon-are-continued",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "Debug.Print \"A\" & _",
+        "    \"B\" : Debug.Print \"C\" & _",
+        "    \"D\"",
+        "Debug.Print \"E\""
+      ],
+      "why": "The colon sits mid-physical-line, with a continued expression finishing immediately before it and another continued expression starting immediately after it. The separator is therefore interior to a splice on both sides, which is the shape a naive line-oriented splitter (split on colons first, join continuations second) gets wrong. Expect AB, CD, E."
+    },
+    {
+      "id": "colon-joined-member-continued-over-three-lines",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "Debug.Print \"S1\" : Debug.Print \"A\" & _",
+        "    \"B\" & _",
+        "    \"C\" : Debug.Print \"S3\"",
+        "Debug.Print \"END\""
+      ],
+      "why": "One member of a colon-joined line is itself spread across three physical lines, and a further colon-joined statement follows the last of them: separator, splice, splice, separator, all in one logical line. Output S1, ABC, S3, END; anything less means a physical line boundary leaked through a continuation."
+    },
+    {
+      "id": "label-colon-then-continuation-then-statement",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "GoTo Skip",
+        "Debug.Print \"SKIPPED\"",
+        "Skip: _",
+        "Debug.Print \"AFTER\""
+      ],
+      "why": "Label, its terminating colon, then a continuation, then the statement on the next physical line. The colon here is doing label duty, not separator duty, so the question is whether a line label may be followed by a continuation at all or whether VB6 wants the label closed by a real end of line or a same-line statement. Predicting legal because splicing happens first; output AFTER only. Distinct from splitting the label from its colon, which puts the continuation on the other side of that colon."
+    },
+    {
+      "id": "label-then-continuation-then-colon-joined-pair",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "GoTo Skip",
+        "Debug.Print \"SKIPPED\"",
+        "Skip: _",
+        "Debug.Print \"ONE\" : Debug.Print \"TWO\""
+      ],
+      "why": "Extends the previous case: after the label and the splice, the spliced line carries two colon-separated statements, so one logical line holds a label plus two statements. Tests that label recognition neither consumes nor is confused by the later separator. Expect ONE then TWO."
+    },
+    {
+      "id": "continuation-drags-a-label-onto-a-statement",
+      "scope": "statement",
+      "expect": "illegal",
+      "code": [
+        "Debug.Print \"A\" _",
+        "Skip: Debug.Print \"B\""
+      ],
+      "why": "The continuation joins a would-be label onto the end of a complete statement, giving one logical line reading Debug.Print \"A\" Skip: Debug.Print \"B\". A label is a line-leading construct and after splicing this one no longer leads its logical line, so it should be a syntax error rather than silently defining Skip. Predicting illegal; acceptance would mean labels are recognised per physical line and the splice-first model is wrong."
+    },
+    {
+      "id": "single-line-if-three-line-body-then-colon",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "If False Then Debug.Print \"T1\" & _",
+        "    \"T2\" & _",
+        "    \"T3\" : Debug.Print \"T4\"",
+        "Debug.Print \"AFTER\""
+      ],
+      "why": "Branch membership under maximum stress: a single-line If whose Then statement is spread over three physical lines and is then colon-joined to a fourth statement. With the condition False, printing only AFTER proves T4 belongs to the Then branch; printing T4 would prove the If was closed at a physical line boundary. Predicting legal with output AFTER only."
+    },
+    {
+      "id": "single-line-if-colon-then-continuation-then-else",
+      "scope": "statement",
+      "expect": "unsure",
+      "code": [
+        "If False Then Debug.Print \"T\" : _",
+        "Else Debug.Print \"E\"",
+        "Debug.Print \"AFTER\""
+      ],
+      "why": "After splicing this reads If False Then Debug.Print \"T\" : Else Debug.Print \"E\" — an empty statement standing between the Then branch and Else. Genuinely unsure: the colon before Else may be swallowed as a harmless empty statement or rejected because Else must follow a statement, and nothing documented settles it. If legal the output is E then AFTER."
+    },
+    {
+      "id": "nested-single-line-if-after-colon-across-splice",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "If True Then Debug.Print \"OUTER\" : _",
+        "    If False Then Debug.Print \"INNER\" Else Debug.Print \"ELSE\"",
+        "Debug.Print \"AFTER\""
+      ],
+      "why": "A whole second single-line If, with its own Else, arrives as the colon-joined continuation of the outer If's Then branch. Tests both that the inner If is a legal branch member and that its Else binds to the inner If rather than the outer one. Expected output OUTER, ELSE, AFTER; OUTER, AFTER would mean the Else bound outward."
+    },
+    {
+      "id": "single-line-for-next-with-continued-limit",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "Dim i As Long",
+        "For i = 1 To _",
+        "    2 : Debug.Print \"IN\" : Next i",
+        "Debug.Print \"AFTER\""
+      ],
+      "why": "A whole loop on one logical line, where the header's To expression is completed by a splice and the body and Next are reached by colons on the spliced line. A single-line For with colon separators is ordinary VB6; the novelty is the loop header straddling the splice. Expect IN twice then AFTER."
+    },
+    {
+      "id": "next-split-from-its-loop-variable",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "Dim i As Long",
+        "For i = 1 To 2 : Debug.Print \"IN\" : Next _",
+        "    i",
+        "Debug.Print \"AFTER\""
+      ],
+      "why": "The colon-joined line ends with Next and the loop variable arrives only after a splice, so the loop terminator itself spans the physical line break. Complements the previous case by moving the splice from the header to the closer. Expect IN twice then AFTER."
+    },
+    {
+      "id": "dim-continued-then-colon-joined-use",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "Dim n As _",
+        "    Long : n = 5 : Debug.Print n"
+      ],
+      "why": "A declaration split by a continuation between As and its type, then colon-joined to two executable statements on the same logical line. Declarations are treated specially in VB6, so it is worth checking a spliced Dim can still be followed by separators rather than needing a line of its own. Expect 5."
+    },
+    {
+      "id": "case-clause-colon-then-continuation",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "Select Case 2",
+        "Case 2 : _",
+        "    Debug.Print \"TWO\"",
+        "End Select",
+        "Debug.Print \"AFTER\""
+      ],
+      "why": "The colon after a Case clause is a statement separator, and here it is followed by a continuation so the case body arrives on the next physical line. Puts the separator/continuation pair in the one place where a colon commonly follows a clause rather than a statement. Expect TWO then AFTER."
+    },
+    {
+      "id": "colon-continuation-into-end-sub",
+      "scope": "module",
+      "expect": "unsure",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Test()",
+        "    Debug.Print \"A\" : _",
+        "End Sub"
+      ],
+      "why": "The splice pulls End Sub onto the same logical line as a statement, via a colon. Unsure: procedure terminators may be required to start their own logical line, in which case this is a compile error; if colon-joined End Sub is accepted when typed literally then this should be accepted too. Measuring it settles whether that restriction is physical-line or logical-line based."
+    },
+    {
+      "id": "sub-header-colon-continuation-first-statement",
+      "scope": "module",
+      "expect": "unsure",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Test() : _",
+        "    Debug.Print \"A\"",
+        "End Sub"
+      ],
+      "why": "Mirror of the previous case at the opening end: a colon after the Sub header, then a splice bringing the first statement onto the same logical line. Unsure for the same reason — whether a procedure header owns its logical line. The pair tells you whether the rule is symmetric, which no documentation states."
+    }
+  ]
+}

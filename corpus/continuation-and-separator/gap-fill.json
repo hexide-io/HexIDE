@@ -1,0 +1,506 @@
+{
+  "area": "continuation-and-separator/gap-fill",
+  "cases": [
+    {
+      "id": "cont-multiple-spaces-before-underscore",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 +   _",
+        "  1",
+        "Debug.Print x"
+      ],
+      "expect": "legal",
+      "why": "The grammar's LINE_CONTINUATION rule is literally ' ' '_' '\\r'? '\\n' -- exactly ONE space. Three spaces before the underscore make WS ([ \\t]+) win the longest match and swallow all three, leaving a bare underscore that lexes as an identifier. The reference only ever says 'a space followed by an underscore', and no reader of that sentence would conclude a second space is fatal; hand-written and IDE-reformatted VB6 is full of multi-space alignment before the underscore. Predicting legal. Sibling files test tab-before and space-after but never more than one space before."
+    },
+    {
+      "id": "cont-tab-then-space-before-underscore",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + \t _",
+        "  1",
+        "Debug.Print x"
+      ],
+      "expect": "legal",
+      "why": "Mixed whitespace run (space, tab, space) immediately before the underscore. Same longest-match trap as the previous case, and it also mixes the two WS characters, so a lexer that special-cased 'tab then underscore' still loses. The existing corpus has cont-tab-before-underscore (a single tab) but nothing with a whitespace RUN."
+    },
+    {
+      "id": "colon-tight-before-uppercase-hex-identifier",
+      "scope": "statement",
+      "code": [
+        "Dim ABC As Long",
+        "ABC = 1:ABC = ABC + 1",
+        "Debug.Print ABC"
+      ],
+      "expect": "legal",
+      "why": "The grammar has a FRX_OFFSET token, COLON [0-9A-F]+, meant for .frm resource offsets. It is live in the same lexer as ordinary code, so ':ABC' lexes as one FRX_OFFSET rather than COLON + IDENTIFIER, and the statement separator silently disappears. Existing tight-colon cases (sep-no-space-around-colon, separator-colon-no-surrounding-space) all happen to put a NON-hex letter after the colon, so the hazard is never triggered. Nothing in VB6 makes an all-uppercase-hex-letter variable name special, so legal."
+    },
+    {
+      "id": "colon-tight-before-hex-digit-name",
+      "scope": "statement",
+      "code": [
+        "Dim E5 As Long",
+        "E5 = 1:E5 = 2",
+        "Debug.Print E5"
+      ],
+      "expect": "legal",
+      "why": "Worst case for FRX_OFFSET: ':E5' is entirely [0-9A-F], so the separator plus the whole name is one token. It also brushes the INTEGERLITERAL exponent rule (('e'|'E') INTEGERLITERAL), so a lexer could instead try to read '1:E5' as a mangled exponent. VB6 has no such rule, so legal."
+    },
+    {
+      "id": "hex-literal-then-tight-colon-then-hex-name",
+      "scope": "statement",
+      "code": [
+        "Dim F1 As Long",
+        "F1 = &HFF:F1 = F1 + 1",
+        "Debug.Print F1"
+      ],
+      "expect": "legal",
+      "why": "Double token-boundary hazard on one line: HEXLITERAL is '&H' [0-9A-F]+ (greedy, so it must stop at the colon and not eat it), and the very next characters ':F1' are a perfect FRX_OFFSET. A lexer that gets either boundary wrong loses the separator or the literal. No hex literal appears anywhere in this corpus area today."
+    },
+    {
+      "id": "time-literal-colons-are-not-separators",
+      "scope": "statement",
+      "code": [
+        "Dim t As Date",
+        "t = #12:30:00 PM#",
+        "Debug.Print Hour(t)"
+      ],
+      "expect": "legal",
+      "why": "A VB6 time literal contains two colons, and one of them is followed by a space -- which is exactly the grammar's alternative spelling of NEWLINE (COLON ' '). Anything that scans for colons before recognising the # ... # literal splits this into bogus statements. The whole corpus area currently contains no date or time literal at all, despite the colon being part of the literal's own syntax."
+    },
+    {
+      "id": "time-literal-then-real-colon-separator",
+      "scope": "statement",
+      "code": [
+        "Dim t As Date",
+        "t = #12:30:00 PM#: Debug.Print Minute(t)",
+        "Debug.Print \"AFTER\""
+      ],
+      "expect": "legal",
+      "why": "The discriminating version of the previous case: three colons on one line, two inside the literal and only the third a separator. A parser must get the # ... # extent right to pick the right one. Legal -- date literals and colon joins are independent features."
+    },
+    {
+      "id": "date-literal-split-by-continuation",
+      "scope": "statement",
+      "code": [
+        "Dim d As Date",
+        "d = #1/1/ _",
+        "2000#",
+        "Debug.Print Year(d)"
+      ],
+      "expect": "unsure",
+      "why": "Genuinely unknown. The documented restriction is only that a continuation cannot be used 'within a string expression'; date literals are never mentioned. If VB6 splices physical lines at the character level before tokenising, the joined text is a valid date literal and this compiles; if the literal is scanned per physical line (as the grammar's DATELITERAL does, excluding CR and LF) it fails. Existing cases pin the string-literal answer but nobody has asked the same question of # ... #."
+    },
+    {
+      "id": "two-file-numbers-across-a-colon",
+      "scope": "statement",
+      "code": [
+        "Dim i As Long",
+        "i = 0",
+        "If i > 0 Then Print #1, \"a\": Print #2, \"b\"",
+        "Debug.Print \"OK\""
+      ],
+      "expect": "legal",
+      "why": "Two file numbers on one line put two '#' characters around a colon, so a greedy DATELITERAL (HASH (~[#CR LF])* HASH) matches from the first #1 to the second #, eating the statement separator, the string and the keyword whole. This is ordinary, extremely common VB6 file I/O -- exactly the 'legal but ugly' shape that takes down a whole module when a parser gets it wrong. Guarded by a false condition so the case compiles and runs without touching the disk."
+    },
+    {
+      "id": "bare-rem-with-no-text",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\"",
+        "Rem",
+        "Debug.Print \"B\""
+      ],
+      "expect": "legal",
+      "why": "The COMMENT rule requires REM to be followed by a literal space, so a Rem with nothing after it at all does not lex as a comment and instead becomes a bare identifier statement. The documentation's wording ('Rem followed by a space') is what produced that rule, but an empty remark line is trivially something a person types. Predicting legal. Every Rem case in the corpus today has text after it."
+    },
+    {
+      "id": "rem-separated-by-a-tab",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\"",
+        "Rem\tnote after a tab",
+        "Debug.Print \"B\""
+      ],
+      "expect": "unsure",
+      "why": "The docs say 'Rem followed by a space' and the grammar encodes precisely a space, not WS. Whether vb6.exe accepts a tab as the separator is undocumented and is the kind of thing only measurement settles. Marked unsure deliberately."
+    },
+    {
+      "id": "identifier-beginning-with-rem",
+      "scope": "statement",
+      "code": [
+        "Dim Remaining As Long",
+        "Remaining = 5",
+        "Debug.Print Remaining"
+      ],
+      "expect": "legal",
+      "why": "The negative control for the Rem rule: 'Remaining' must NOT start a comment, because the required separator is absent. A lexer that matches REM without checking what follows silently comments out the rest of the line -- a whole-procedure failure from a perfectly ordinary variable name. Nothing in the corpus currently tests a Rem-prefixed identifier."
+    },
+    {
+      "id": "rem-immediately-followed-by-colon",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\"",
+        "Rem: Debug.Print \"B\"",
+        "Debug.Print \"C\""
+      ],
+      "expect": "unsure",
+      "why": "'Rem:' has no space between the keyword and the colon, so under the grammar's COLON? REM ' ' shape it is not a comment start; under a rule that keys only on the Rem keyword the entire rest of the line (colon included) is comment text and the middle Debug.Print never runs. Both readings are defensible for acceptance and they disagree about behaviour, which makes this worth measuring. Unsure."
+    },
+    {
+      "id": "colon-tight-before-rem",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\":Rem tight colon before the remark",
+        "Debug.Print \"B\""
+      ],
+      "expect": "legal",
+      "why": "The documented rule is that Rem after another statement must be separated by a colon; it says nothing about spaces around that colon. The grammar folds this into COMMENT as COLON? REM ' ', which requires a space after Rem but not before the colon. Existing cases (sep-rem-after-colon, rem-after-colon) all use ': Rem' with a space. Legal."
+    },
+    {
+      "id": "label-then-rem-as-branch-target",
+      "scope": "statement",
+      "code": [
+        "GoTo Lbl",
+        "Lbl: Rem just a remark",
+        "Debug.Print \"A\""
+      ],
+      "expect": "legal",
+      "why": "Explicitly documented: you can branch to a line containing a Rem statement, and execution continues at the first executable statement after it. That makes 'Lbl: Rem ...' a label whose line has no executable content -- so the colon is a label terminator AND the Rem separator at once. Documented behaviour that no case exercises."
+    },
+    {
+      "id": "line-number-then-rem-without-a-colon",
+      "scope": "statement",
+      "code": [
+        "GoTo 10",
+        "10 Rem a remark after a line number",
+        "Debug.Print \"A\""
+      ],
+      "expect": "legal",
+      "why": "The colon requirement is documented for Rem 'following other statements'. A line number is not a statement and needs no colon of its own, so '10 Rem ...' should be accepted where '10 x = 1 Rem ...' would not. The corpus tests Rem-without-colon after a statement (illegal) but never after a line number."
+    },
+    {
+      "id": "twenty-four-consecutive-continuations",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1",
+        "Debug.Print x"
+      ],
+      "expect": "legal",
+      "why": "The documented boundary: up to 25 physical lines may be joined, i.e. 24 consecutive line-continuation characters. This is exactly 24, so it should be the last legal one. The corpus's longest chain today is eight, so the documented limit is never approached from either side."
+    },
+    {
+      "id": "twenty-five-consecutive-continuations",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1 _",
+        "+ 1",
+        "Debug.Print x"
+      ],
+      "expect": "illegal",
+      "why": "One past the documented limit: 25 continuations / 26 physical lines should raise 'Too many line continuations'. Paired with the previous case this brackets the boundary, which is the only way to learn whether the limit is real, off by one, or unenforced by the command-line compiler."
+    },
+    {
+      "id": "physical-line-over-1023-characters",
+      "scope": "statement",
+      "code": [
+        "Dim s As String",
+        "s = \"ZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ\"",
+        "Debug.Print Len(s)"
+      ],
+      "expect": "illegal",
+      "why": "A single PHYSICAL line of about 1108 characters. The documented limit is 1023 characters per physical line ('Line too long'), and the corpus's logical-line-over-1023-chars case deliberately keeps every physical line short, so the physical limit itself has never been probed. Predicting illegal, though it is quite possible the limit is enforced only by the IDE editor and not by vb6.exe -- which is precisely what makes it worth measuring."
+    },
+    {
+      "id": "continuation-splits-identifier-from-type-character",
+      "scope": "statement",
+      "code": [
+        "Dim x$",
+        "x _",
+        "$ = \"A\"",
+        "Debug.Print x"
+      ],
+      "expect": "unsure",
+      "why": "A type-declaration character normally binds tight to its identifier. Splicing a continuation between them yields 'x $ = ...' on the logical line, so the question is really whether VB6 tolerates whitespace between a name and its suffix at all. The corpus has trailing-underscore-then-type-hint (s_$) which is a different question entirely: that is an underscore INSIDE the name. Unsure."
+    },
+    {
+      "id": "continuation-between-ampersand-and-hex-marker",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = & _",
+        "H10",
+        "Debug.Print x"
+      ],
+      "expect": "illegal",
+      "why": "'&H' is a single literal prefix, not an operator followed by a letter. Splitting it should fail the way split-number and split-keyword do, but with an extra twist: the joined text is a plausible concatenation with a variable named H10, so a lenient parser may accept it and produce a type error instead of a syntax error. Predicting illegal."
+    },
+    {
+      "id": "end-if-split-by-continuation",
+      "scope": "statement",
+      "code": [
+        "Dim b As Boolean",
+        "b = True",
+        "If b Then",
+        "    Debug.Print \"IN\"",
+        "End _",
+        "If",
+        "Debug.Print \"AFTER\""
+      ],
+      "expect": "legal",
+      "why": "'End If' is two keywords with real whitespace between them, so the continuation splices at a legitimate token boundary -- the same shape the corpus already confirms for 'End _ Sub'. If End/Sub is legal then End/If must be too, and a parser that special-cased only End Sub is caught here."
+    },
+    {
+      "id": "select-case-and-end-select-split-by-continuation",
+      "scope": "statement",
+      "code": [
+        "Dim n As Long",
+        "n = 2",
+        "Select _",
+        "Case n",
+        "Case 2",
+        "    Debug.Print \"TWO\"",
+        "End _",
+        "Select",
+        "Debug.Print \"AFTER\""
+      ],
+      "expect": "legal",
+      "why": "Splits both halves of the Select construct. 'Select _ / Case n' is the nastiest of the multi-word splits because the second physical line then begins with the word Case, itself a clause introducer -- a parser recovering line by line reads it as an orphan Case. No multi-word keyword other than End Sub is split anywhere in the corpus."
+    },
+    {
+      "id": "exit-for-split-by-continuation",
+      "scope": "statement",
+      "code": [
+        "Dim i As Long",
+        "For i = 1 To 3",
+        "    If i = 2 Then",
+        "        Exit _",
+        "For",
+        "    End If",
+        "Next i",
+        "Debug.Print \"done\""
+      ],
+      "expect": "legal",
+      "why": "Third multi-word keyword split, and the one where the continuation line starts with 'For' -- a loop introducer -- inside a live For block. Tests that the splice happens before any block-structure decision is made."
+    },
+    {
+      "id": "else-if-joined-by-continuation",
+      "scope": "statement",
+      "code": [
+        "Dim n As Long",
+        "n = 3",
+        "If n = 1 Then",
+        "    Debug.Print \"ONE\"",
+        "Else _",
+        "If n = 3 Then",
+        "    Debug.Print \"THREE\"",
+        "End If",
+        "End If",
+        "Debug.Print \"AFTER\""
+      ],
+      "expect": "unsure",
+      "why": "The reverse of the previous three: the continuation MANUFACTURES a two-word sequence, 'Else If', which is not the ElseIf keyword. Written with two End Ifs on the assumption that it parses as a block Else containing a nested block If. Whether VB6 accepts a block Else with anything else on its logical line -- which is what this becomes -- is exactly the doubt. Unsure; the corpus splits keywords apart but never joins two into a near-keyword."
+    },
+    {
+      "id": "bracketed-identifier-containing-a-colon",
+      "scope": "statement",
+      "code": [
+        "Dim [a:b] As Long",
+        "[a:b] = 3",
+        "Debug.Print [a:b]"
+      ],
+      "expect": "unsure",
+      "why": "Bracketed identifiers exist to carry characters the normal identifier rules forbid. If the brackets suppress separator handling, a colon inside them is just a character; if colon splitting happens first, this shatters into fragments. The corpus has one bracket case (bracketed-leading-underscore) and it involves neither a separator nor a space. Unsure."
+    },
+    {
+      "id": "bracketed-identifier-split-by-continuation",
+      "scope": "statement",
+      "code": [
+        "Dim [a b] As Long",
+        "[a _",
+        "b] = 3",
+        "Debug.Print [a b]"
+      ],
+      "expect": "illegal",
+      "why": "A bracketed name that legitimately contains a space, split across that space by a continuation. If continuation splicing happens before bracket scanning this joins back up and works; if brackets are scanned per physical line the open bracket is unterminated. Predicting illegal by analogy with the string-literal rule, the closest documented case of a delimited construct refusing to span lines."
+    },
+    {
+      "id": "named-argument-colon-and-equals-split",
+      "scope": "module",
+      "code": [
+        "Public Sub Main()",
+        "    Emit Msg: _",
+        "= \"T\"",
+        "End Sub",
+        "",
+        "Private Sub Emit(Msg As String)",
+        "    Debug.Print Msg",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "':=' is almost certainly one token, so splitting it should fail -- but the failure mode is interesting because 'Emit Msg:' on its own is a good call followed by a statement separator, which then leaves a stray '= \"T\"'. So this asks whether the colon is claimed by ':=' or by the separator rule, and the answer is not deducible from the grammar (which has no ':=' token at all). Unsure."
+    },
+    {
+      "id": "named-argument-continuation-before-colon-equals",
+      "scope": "module",
+      "code": [
+        "Public Sub Main()",
+        "    Emit Msg _",
+        "        := \"T\"",
+        "End Sub",
+        "",
+        "Private Sub Emit(Msg As String)",
+        "    Debug.Print Msg",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "The safe mirror of the previous case: the splice is between the argument name and an intact ':=' token, an ordinary whitespace position. Predicting legal. Worth having as the control, since without it a failure of the split-':=' case is uninterpretable. The corpus's cont-named-arg-after-assign continues AFTER the ':=' but never before it."
+    },
+    {
+      "id": "nested-for-next-colon-joined-one-line",
+      "scope": "statement",
+      "code": [
+        "Dim i As Long, j As Long",
+        "For i = 1 To 2: For j = 1 To 2: Debug.Print i * j: Next j: Next i",
+        "Debug.Print \"END\""
+      ],
+      "expect": "legal",
+      "why": "Two nested loops opened and closed on a single physical line, so the parser has to track block nesting purely across colons with no newline anywhere. The corpus has one-line-for-next-with-colons but only for a single, non-nested loop, which does not exercise the stack."
+    },
+    {
+      "id": "two-labels-on-one-line",
+      "scope": "statement",
+      "code": [
+        "GoTo Second",
+        "First: Second: Debug.Print \"A\"",
+        "Debug.Print \"B\""
+      ],
+      "expect": "unsure",
+      "why": "Is the second name a second label, or a call statement to an undefined procedure? The corpus has second-name-colon-is-not-a-label at module level and sep-label-double-colon ('Skip::'), but never two distinct label-shaped names in sequence with a GoTo aimed at the SECOND one -- which is what makes the answer observable rather than merely a matter of acceptance. Unsure."
+    },
+    {
+      "id": "gosub-return-colon-joined-one-line",
+      "scope": "statement",
+      "code": [
+        "GoSub Marker: Debug.Print \"BACK\": Exit Sub",
+        "Marker: Debug.Print \"IN\": Return"
+      ],
+      "expect": "legal",
+      "why": "The one branching construct whose target must be a label on a line that also carries colon-joined statements, with the Return itself colon-joined. Documented as a legal combination (On...GoSub/GoTo and Rem both discuss branching into such lines). GoSub appears nowhere in this corpus area."
+    },
+    {
+      "id": "with-block-colon-tight-against-dot-and-end",
+      "scope": "module",
+      "code": [
+        "Private Type TPoint",
+        "    X As Long",
+        "End Type",
+        "",
+        "Public Sub Main()",
+        "    Dim p As TPoint",
+        "    With p:.X = 5:End With",
+        "    Debug.Print p.X",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "Two tight colons with no space anywhere: ':.' (separator immediately followed by a leading-dot member access, which a member-continuation rule may try to claim) and ':End' (where 'E' is a hex digit, so FRX_OFFSET can swallow it). The corpus's sep-with-block-one-line uses spaced colons and an object, so neither hazard fires there."
+    },
+    {
+      "id": "semicolon-then-colon-adjacent",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\";: Debug.Print \"B\"",
+        "Debug.Print \"C\""
+      ],
+      "expect": "legal",
+      "why": "';:' with nothing between them -- a Print output list terminated by a suppressing semicolon and immediately followed by a statement separator. Both characters are meaningful and adjacent, and the grammar's output-list rule is permissive about trailing separators, so a parser can easily attach the colon to the output list instead. cont-print-semicolon-separator continues after a semicolon but never abuts it against a colon."
+    },
+    {
+      "id": "print-tab-and-spc-with-colon-joined-statements",
+      "scope": "statement",
+      "code": [
+        "Debug.Print Tab(3); \"A\": Debug.Print Spc(2); \"B\"",
+        "Debug.Print \"C\""
+      ],
+      "expect": "legal",
+      "why": "Tab() and Spc() are Print-only pseudo-functions, so the output list is parsed by a special rule; joining two such statements with a colon tests that the special rule terminates at the separator instead of running on. No case in the area uses Tab or Spc."
+    },
+    {
+      "id": "continuation-line-begins-with-a-number",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _",
+        "10",
+        "Debug.Print x"
+      ],
+      "expect": "legal",
+      "why": "The continuation line starts with '10' in column one -- which in any other context is a line number. The splice must win, making it the right operand rather than a label. The corpus has continuation-after-line-number-label (a continuation FOLLOWING a line number) but not this direction, which is the one where a line-oriented parser mis-fires."
+    },
+    {
+      "id": "continuation-after-hash-end-if",
+      "scope": "module",
+      "code": [
+        "Public Sub Main()",
+        "#If True Then",
+        "    Debug.Print \"IN\"",
+        "#End If _",
+        "    Debug.Print \"AFTER\"",
+        "End Sub"
+      ],
+      "expect": "illegal",
+      "why": "Conditional-compilation directives are consumed by a line-oriented pre-pass, so a continuation trying to drag a statement onto a '#End If' should fail -- the same reason hashif-colon-statement-same-line is illegal. The corpus tests a colon after #End If and a continuation inside a #If expression, but never a continuation attached to the END of a directive. Predicting illegal."
+    }
+  ]
+}
