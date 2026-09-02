@@ -3427,5 +3427,176 @@
     "Verdict": "agrees",
     "Error": "Build of 'verify.exe' succeeded.",
     "Why": "A split keyword inside a single-line If - the two constructs this corpus has already had to fix, interacting. The single-line If body ends at the newline, and the continuation is precisely a way of postponing that newline, so this asks whether the two agree about where the statement stops. Predicting legal, and predicting output [a]: the Exit For must still leave the loop."
+  },
+  {
+    "Key": "rem-forms/rem-bare-then-colon-alone-on-a-line",
+    "Area": "rem-forms",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "A line consisting of Rem and a colon and nothing else. If Rem takes the rest of the line as text then the colon is text; if the colon separates statements then this is a comment followed by an empty statement. Both readings accept it, so the interest is in what it constrains, not whether it compiles. Predicting legal."
+  },
+  {
+    "Key": "rem-forms/identifier-beginning-with-rem",
+    "Area": "rem-forms",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "THE hazard case for this whole group. Widening the Rem separator risks lexing `RemX` as the keyword Rem followed by X, which would turn an assignment into a comment and silently delete the statement. VB6 must treat RemX as an ordinary identifier - if it did not, no VB6 program could name a variable Remainder. Predicting legal, and predicting it prints 5. Written to fail loudly if a fix over-reaches."
+  },
+  {
+    "Key": "rem-forms/identifier-rem-followed-by-a-digit",
+    "Area": "rem-forms",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The same hazard with a digit rather than a letter after Rem, because a separator rule written as 'Rem followed by anything that is not a letter' would admit this one while excluding RemX. Measuring both is what distinguishes a rule keyed on the identifier boundary from one keyed on a character class."
+  },
+  {
+    "Key": "rem-forms/rem-as-a-variable-name",
+    "Area": "rem-forms",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is Rem a reserved word? If it is, this fails at the Dim. Predicting illegal, but the prediction is worth little: VB6's reserved-word list is not what anyone remembers it to be, and several words that feel reserved are not. The answer decides whether the grammar may treat REM as an unconditional keyword token."
+  },
+  {
+    "Key": "rem-forms/rem-immediately-followed-by-equals",
+    "Area": "rem-forms",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Genuinely ambiguous and genuinely useful. If Rem is a keyword the moment it is not part of a longer identifier, this is a comment reading `=1`. If Rem can be an implicitly-declared Variant, this is an assignment. If Rem is reserved AND requires a separator, it is a syntax error. Three defensible outcomes, and they need different grammars. Unsure."
+  },
+  {
+    "Key": "rem-forms/rem-immediately-followed-by-an-apostrophe",
+    "Area": "rem-forms",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "No whitespace between Rem and the apostrophe. Under a separator-required rule this is not a comment at all and probably a syntax error; under a keyword-only rule the apostrophe is just the first character of the remark text. Unsure, and cheap to measure."
+  },
+  {
+    "Key": "rem-forms/rem-immediately-followed-by-a-string-literal",
+    "Area": "rem-forms",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "A keyword abutting a string literal, which the keyword-splitting work established VB6 tolerates elsewhere (Lib\"kernel32\" compiles). Whether that tolerance extends to Rem is a separate question - Rem is unusual in that what follows it is not a token at all but raw text."
+  },
+  {
+    "Key": "rem-forms/rem-with-only-a-tab-after-it",
+    "Area": "rem-forms",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Rem, a tab, then end of line - a bare Rem that a trailing tab has been left on, which is what a text editor produces when someone deletes a remark's text. Distinct from bare-rem-with-no-text because the separator IS present here; only the remark is empty."
+  },
+  {
+    "Key": "rem-forms/rem-continued-onto-the-next-line",
+    "Area": "rem-forms",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The current COMMENT rule admits LINE_CONTINUATION inside the comment body, which would make the Debug.Print \"B\" line part of the remark and silently delete it. That is a wrong-value failure, not a late-error one, so it matters more than most. VB6's actual behaviour is undocumented here and the two candidate readings differ in what the program prints, so this needs both a legality and a behaviour measurement. Unsure."
+  },
+  {
+    "Key": "rem-forms/rem-continued-onto-a-line-holding-end-sub",
+    "Area": "rem-forms",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 2 : Expected End Sub Build of 'verify.exe' failed.",
+    "Why": "The same question with the worst possible payload. If a trailing underscore extends a Rem comment onto the following line, this module has no End Sub and will not compile - which is exactly how a user would discover the behaviour, from a procedure that mysteriously will not close. Included because the failure mode is a whole module rather than one statement."
+  },
+  {
+    "Key": "rem-forms/rem-inside-a-single-line-if",
+    "Area": "rem-forms",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 4 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "A single-line If whose entire Then branch is a comment - so the branch has no statement in it at all. The corpus already established that the joined tail after Then belongs to the branch; this asks whether a branch may be empty once the comment is removed. Unsure: an If with a genuinely empty Then is often a syntax error even where the comment form is not."
+  },
+  {
+    "Key": "rem-forms/rem-as-the-else-branch-of-a-single-line-if",
+    "Area": "rem-forms",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The Else half of the same question, and a real idiom - Else Rem is how a VB6 author documents a deliberately empty alternative. If this is illegal the idiom is not what I think it is, which is worth knowing either way."
+  },
+  {
+    "Key": "rem-forms/rem-after-a-line-label-with-its-colon",
+    "Area": "rem-forms",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "A named label already carries a colon, so this should satisfy the documented 'Rem following another statement needs a colon' rule without a second colon. The corpus covers the numeric-line-number form of this but not the named-label form, and they go through different grammar rules here."
+  },
+  {
+    "Key": "rem-forms/line-number-then-colon-then-rem",
+    "Area": "rem-forms",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The line-number form WITH the optional colon, as the companion to the existing case that omits it. Both should be legal; measuring both is what shows the colon is optional after a line number rather than merely tolerated in one arrangement."
+  },
+  {
+    "Key": "rem-forms/two-colons-then-rem",
+    "Area": "rem-forms",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "An empty statement between the assignment and the Rem. The colon-separator work established that a run of colons is legal; this checks that a Rem may follow one, which the grammar's COLON? prefix - matching at most ONE colon - would refuse."
+  },
+  {
+    "Key": "rem-forms/rem-as-a-procedure-name",
+    "Area": "rem-forms",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 0 : Expected: identifier Build of 'verify.exe' failed.",
+    "Why": "The reserved-word question from the other side, and the one that would be genuinely nasty: if Rem may name a procedure, then a bare `Rem` on a line is ambiguous between a comment and a call. Predicting illegal. If it is legal, the bare-Rem fix needs to know which reading VB6 takes."
+  },
+  {
+    "Key": "rem-forms/udt-member-named-rem",
+    "Area": "rem-forms",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 0 : User-defined type without members not allowed Build of 'verify.exe' failed.",
+    "Why": "The grammar lists REM in `ambiguousKeyword`, the rule that lets a keyword act as an identifier in positions like a member name. If Rem begins a comment the moment it stands as a whole word, no such position can exist and that listing is wrong. Predicting illegal - and if it IS illegal, REM should come out of ambiguousKeyword rather than being left as a rule nothing can reach."
+  },
+  {
+    "Key": "rem-forms/enum-member-named-rem",
+    "Area": "rem-forms",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 2 : Enum without members not allowed Build of 'verify.exe' failed.",
+    "Why": "Rem as the ONLY enum member, which is what makes this decisive. The first version of this case listed Rem alongside a second member and compiled - and I read that as 'Rem may name an enum member', which is exactly backwards. It compiled because the Rem line VANISHED as a comment and the other member carried the enum. With Rem alone there is nothing left, so an empty-enum error proves the line is a comment. The companion UDT case says the same thing more loudly: it fails with 'User-defined type without members not allowed'."
+  },
+  {
+    "Key": "rem-forms/rem-as-a-named-argument",
+    "Area": "rem-forms",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 0 : Expected: identifier Build of 'verify.exe' failed.",
+    "Why": "A parameter named Rem. Included because a parameter list is the position where a reserved word most often turns out to be permitted, and because getting this wrong would make a real Declare or Sub signature unparseable."
   }
 ]

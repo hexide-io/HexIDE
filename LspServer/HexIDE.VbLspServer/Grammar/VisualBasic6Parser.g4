@@ -149,7 +149,17 @@ attributeStmt
     ;
 
 block
-    : (lineNumber WS? COLON? WS?)? blockStmt (blockSep (lineNumber WS? COLON? WS?)? blockStmt)* blockSep?
+    : emptyLineNumber* (lineNumber WS? COLON? WS?)? blockStmt
+      (blockSep emptyLineNumber* (lineNumber WS? COLON? WS?)? blockStmt)*
+      blockSep?
+    ;
+
+// A line number with NO statement after it on the line. `10` alone is a legal jump target, and so is
+// `10 Rem a remark` once the remark is a comment - both leave a number with an empty line behind it.
+// Without this the number is an "extraneous input" and the whole procedure fails to parse. It labels the
+// NEXT executable statement. Mirrored from the interpreter's grammar.
+emptyLineNumber
+    : lineNumber WS? COLON? WS? blockSep
     ;
 
 // A statement separator: a newline, a colon, or a run of them. Mirrored from the interpreter's
@@ -378,7 +388,11 @@ inlineIfBody
 ifThenElseStmt
     // Clean-room: single-line If permits an empty Then (Then Else ...), a bare line number as an
     // implicit-GoTo target, and a single/nested body (VB6 Language Reference, If...Then...Else).
-    : IF WS ifConditionStmt WS THEN WS ((inlineIfBody | lineNumber) (WS? ELSE WS (inlineIfBody | lineNumber))? | ELSE WS (inlineIfBody | lineNumber)) # inlineIfThenElse
+    // The else body is OPTIONAL: `If c Then x = 1 Else Rem nothing` is legal while `If c Then Rem
+    // nothing` is a syntax error, and a comment is invisible to the parser either way - so the only way
+    // to accept the first is to allow an empty else. A bare trailing `Else` is legal too, measured, which
+    // is what makes this faithful rather than a widening. Mirrored from the interpreter's grammar.
+    : IF WS ifConditionStmt WS THEN WS ((inlineIfBody | lineNumber) (WS? ELSE (WS (inlineIfBody | lineNumber))?)? | ELSE (WS (inlineIfBody | lineNumber))?) # inlineIfThenElse
     | ifBlockStmt ifElseIfBlockStmt* ifElseBlockStmt? END_IF             # blockIfThenElse
     ;
 
