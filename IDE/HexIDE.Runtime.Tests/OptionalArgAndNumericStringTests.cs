@@ -23,7 +23,7 @@ public class OptionalArgAndNumericStringTests : BaseVBTestFixture
     {
         // VB6: n=1 [a][b c] — two elements on the default space delimiter, honouring limit 2.
         await Run("Dim p\np = Split(\"a b c\", , 2)\nDebug.Print UBound(p)\nDebug.Print p(0)\nDebug.Print p(1)\n");
-        AssertDebugLog([new Vb6Value(1), new Vb6Value("a"), new Vb6Value("b c")]);
+        AssertDebugLog([new Vb6Value(1L), new Vb6Value("a"), new Vb6Value("b c")]);   // UBound is Long (#193)
     }
 
     [Fact]
@@ -32,7 +32,7 @@ public class OptionalArgAndNumericStringTests : BaseVBTestFixture
         // The documented way to ask for a case-insensitive split. Raised Err 13 before: the blank slot
         // satisfied the arity test and AsInt(Missing) fell through to a throw.
         await Run("Dim p\np = Split(\"a,b,c\", \",\", , 1)\nDebug.Print UBound(p)\nDebug.Print p(0)\n");
-        AssertDebugLog([new Vb6Value(2), new Vb6Value("a")]);
+        AssertDebugLog([new Vb6Value(2L), new Vb6Value("a")]);   // UBound is Long (#193)
     }
 
     [Fact]
@@ -42,7 +42,7 @@ public class OptionalArgAndNumericStringTests : BaseVBTestFixture
         // is "" and the whole string comes back as one element. Measured n=0 [a b c]. If `Supplied` tested
         // Empty rather than Missing, this would wrongly take the space default.
         await Run("Dim e\nDim p\np = Split(\"a b c\", e, 2)\nDebug.Print UBound(p)\nDebug.Print p(0)\n");
-        AssertDebugLog([new Vb6Value(0), new Vb6Value("a b c")]);
+        AssertDebugLog([new Vb6Value(0L), new Vb6Value("a b c")]);   // UBound is Long (#193)
     }
 
     [Fact]
@@ -51,7 +51,7 @@ public class OptionalArgAndNumericStringTests : BaseVBTestFixture
         // VB6: n=0 [BANANA] — include defaults True, compare 1 is case-insensitive.
         await Run("Dim r\nr = Filter(Array(\"apple\", \"BANANA\", \"cherry\"), \"an\", , 1)\n" +
                   "Debug.Print UBound(r)\nDebug.Print r(0)\n");
-        AssertDebugLog([new Vb6Value(0), new Vb6Value("BANANA")]);
+        AssertDebugLog([new Vb6Value(0L), new Vb6Value("BANANA")]);   // UBound is Long (#193)
     }
 
     [Fact]
@@ -69,7 +69,7 @@ public class OptionalArgAndNumericStringTests : BaseVBTestFixture
         // Same class of bug, found by auditing every arity-based optional rather than only the reported
         // three. There were 21 such sites.
         await Run("Dim n\nn = InStr(1, \"hello\", \"L\", 1)\nDebug.Print n\n");
-        AssertDebugLog([new Vb6Value(3)]);
+        AssertDebugLog([new Vb6Value(3L)]);   // InStr is Long (#193)
     }
 
     // ── Numeric strings are valid operands ──────────────────────────────────────────────────────────
@@ -119,13 +119,10 @@ public class OptionalArgAndNumericStringTests : BaseVBTestFixture
                   "Debug.Print InStr(\"1\", \"hello\", \"l\")\n" +
                   "Debug.Print Round(2.345, \"2\")\n" +
                   "Debug.Print Left(\"hello\", \"&H3\")\n");
-        // InStr's result is asserted as Integer, which is what HexIDE returns and NOT what VB6 returns.
-        // VB6 gives Long from InStr, InStrRev, Len, LBound and UBound (and Integer from Asc and Sgn) —
-        // measured. HexIDE's magnitude rule in `new Vb6Value(int)` makes every small result an Integer, so
-        // those five are wrong for small values. That is a pre-existing divergence, independent of this
-        // change and reachable with all-numeric arguments too; it is tracked in #193 rather than
-        // silently blessed here, because this test is about the string coercion, not the return width.
-        AssertDebugLog([new Vb6Value("hel"), new Vb6Value("ell"), new Vb6Value(3),
+        // InStr is Long — fixed in #193, which this comment used to point forward to while asserting the
+        // wrong Integer. Left as a note because the pointer worked: the divergence was recorded at the
+        // exact spot someone would otherwise have "corrected" the test to match the bug.
+        AssertDebugLog([new Vb6Value("hel"), new Vb6Value("ell"), new Vb6Value(3L),
                         new Vb6Value(2.35), new Vb6Value("hel")]);
     }
 

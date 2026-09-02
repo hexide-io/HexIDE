@@ -35,12 +35,24 @@ public class StringFunctionsTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(expected)]);
     }
 
+    // Len, InStr and InStrRev return LONG in VB6 however small the answer is — a fixed declared return
+    // type, not a magnitude-dependent one. These were asserted as Integer, which pinned HexIDE's bug
+    // rather than VB6's behaviour. (#193)
     [Theory]
-    [InlineData("Len(\"Hello\")", 5)]
-    [InlineData("InStr(\"Hello World\", \"o\")", 5)]
-    [InlineData("InStr(6, \"Hello World\", \"o\")", 8)]
-    [InlineData("InStr(\"abc\", \"x\")", 0)]
-    [InlineData("InStrRev(\"abcabc\", \"a\")", 4)]
+    [InlineData("Len(\"Hello\")", 5L)]
+    [InlineData("InStr(\"Hello World\", \"o\")", 5L)]
+    [InlineData("InStr(6, \"Hello World\", \"o\")", 8L)]
+    [InlineData("InStr(\"abc\", \"x\")", 0L)]
+    [InlineData("InStrRev(\"abcabc\", \"a\")", 4L)]
+    public async Task StringFunction_ReturnsExpectedLong(string expr, long expected)
+    {
+        await Run($"Debug.Print {expr}\n");
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    // Asc, by contrast, really is Integer — measured. It is not one rule applied everywhere, which is why
+    // this stayed a separate case rather than being folded into the Long theory above.
+    [Theory]
     [InlineData("Asc(\"A\")", 65)]
     public async Task StringFunction_ReturnsExpectedInteger(string expr, int expected)
     {
