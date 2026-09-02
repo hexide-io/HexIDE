@@ -107,6 +107,35 @@ public class OptionalArgAndNumericStringTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(13L)]);
     }
 
+    // These cover the AsInt path rather than AsDouble. Added because mutation testing proved nothing
+    // exercised it: breaking AsInt's string branch left the whole suite green.
+    [Fact]
+    public async Task IntegerValuedArguments_AlsoAcceptNumericStrings()
+    {
+        // Measured: Left("hello","3")="hel", Mid("hello","2","3")="ell", InStr("1","hello","l")=3,
+        // Round(2.345,"2")=2.35, and a hex string works here too — Left("hello","&H3")="hel".
+        await Run("Debug.Print Left(\"hello\", \"3\")\n" +
+                  "Debug.Print Mid(\"hello\", \"2\", \"3\")\n" +
+                  "Debug.Print InStr(\"1\", \"hello\", \"l\")\n" +
+                  "Debug.Print Round(2.345, \"2\")\n" +
+                  "Debug.Print Left(\"hello\", \"&H3\")\n");
+        // InStr's result is asserted as Integer, which is what HexIDE returns and NOT what VB6 returns.
+        // VB6 gives Long from InStr, InStrRev, Len, LBound and UBound (and Integer from Asc and Sgn) —
+        // measured. HexIDE's magnitude rule in `new Vb6Value(int)` makes every small result an Integer, so
+        // those five are wrong for small values. That is a pre-existing divergence, independent of this
+        // change and reachable with all-numeric arguments too; it is tracked in #193 rather than
+        // silently blessed here, because this test is about the string coercion, not the return width.
+        AssertDebugLog([new Vb6Value("hel"), new Vb6Value("ell"), new Vb6Value(3),
+                        new Vb6Value(2.35), new Vb6Value("hel")]);
+    }
+
+    [Fact]
+    public async Task IntegerValuedArgument_OfANonNumericString_IsTypeMismatch()
+    {
+        await Run("On Error Resume Next\nDim s\ns = Left(\"hello\", \"abc\")\nDebug.Print Err.Number\n");
+        AssertDebugLog([new Vb6Value(13L)]);
+    }
+
     [Fact]
     public async Task TheWholeAsDoubleFamily_AcceptsNumericStrings()
     {
