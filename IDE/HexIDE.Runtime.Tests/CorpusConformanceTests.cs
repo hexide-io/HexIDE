@@ -8,7 +8,7 @@ namespace HexIDE.Runtime.Tests;
 /// Does HexIDE's grammar agree with real VB6 about what is legal?
 ///
 /// <para>
-/// The corpus under <c>/corpus</c> is 352 clean-room cases on line continuations and statement
+/// The corpus under <c>/corpus</c> is 355 clean-room cases on line continuations and statement
 /// separators, each already compiled by <c>vb6.exe</c> and its verdict recorded in <c>results.json</c>.
 /// This turns those recorded facts into a gate: parse every case with the interpreter's own grammar and
 /// compare.
@@ -46,7 +46,7 @@ public class CorpusConformanceTests
     /// <para>
     /// Grouped by CAUSE, because this corpus has already taught that lesson the expensive way — a bucket
     /// labelled LABEL turned out to be mostly one over-broad lexer token, and nine cases across three
-    /// areas collapsed into a single fix once that was seen. These fifty-four rows are seventeen defects,
+    /// areas collapsed into a single fix once that was seen. These fifty-six rows are eighteen defects,
     /// and the largest of them is one character in one character class.
     /// </para>
     /// </remarks>
@@ -93,16 +93,16 @@ public class CorpusConformanceTests
         ["separator-with-declarations/hashconst-value-continued"] = "OTHER-REJECTION",
         ["whitespace-and-eol-edges/eof-mid-continuation-no-trailing-newline"] = "OTHER-REJECTION",
 
-        // ===== FALSE ACCEPTANCES (43) — the mild direction, newly gated. =====
+        // ===== FALSE ACCEPTANCES (45) — the mild direction, newly gated. =====
 
-        // UNDERSCORE-STARTS-AN-IDENTIFIER (13) — the largest lever in the corpus, and one character.
+        // UNDERSCORE-STARTS-AN-IDENTIFIER (12) — the largest lever in the corpus, and one character.
         //   A VB6 name may CONTAIN an underscore but may not BEGIN with one. `fragment LETTER` includes
         //   `_` and its only consumer is `IDENTIFIER : LETTER LETTERORDIGIT*`, so `_`, `__`, `_z` and `_ab`
         //   are all well-formed identifiers here — every malformed continuation quietly becomes an operand
         //   instead of a syntax error, and `x = 1 +_` is read as an addition against a variable named `_`.
         //   `LETTERORDIGIT` keeps its `_`; that is what makes `my_var` and `ab_` legal, all measured.
         //
-        //   Note what is NOT at fault: in all thirteen, LINE_CONTINUATION and COMMENT refuse correctly
+        //   Note what is NOT at fault: in all twelve, LINE_CONTINUATION and COMMENT refuse correctly
         //   every time. Three of these look like comment-handling bugs and three like continuation bugs.
         //
         //   The lexer fix is COUPLED and was tried and reverted here. Dropping `_` from LETTER alone turns
@@ -118,12 +118,29 @@ public class CorpusConformanceTests
         ["continuation-illegal/letter-after-underscore"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
         ["continuation-illegal/no-space-before-underscore-after-operator"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
         ["continuation-illegal/underscore-only-line-at-column-one"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-vs-identifier/bracketed-leading-underscore"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
         ["continuation-vs-identifier/comment-after-continuation"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
         ["continuation-vs-identifier/continuation-without-preceding-space"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
         ["continuation-vs-identifier/leading-underscore-name"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
         ["continuation-vs-identifier/lone-underscore-name"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
         ["separator-and-continuation-together/colon-immediately-before-underscore-no-space"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
+
+        // BRACKETED-IDENTIFIER-NOT-VB6 (3)
+        //   `ambiguousIdentifier` has a `[name]` alternative. **VB6 has no such syntax.** Measured:
+        //   `Dim [q] As Long`, `Dim [Print] As Long` and `Dim [Rem] As Long` are ALL a syntax error at the
+        //   Dim. Bracket-escaping a reserved name is a VBA / VB.NET feature that VB6 predates, and the
+        //   alternative is an over-acceptance under every bracket case in the corpus.
+        //
+        //   Worth recording how this was found, because two independent reviewers asserted the opposite
+        //   with confidence. The Rem work made `[Rem]` stop parsing — the comment rule fires inside the
+        //   brackets and eats the closing one — and that was reported as a REGRESSION on "the documented
+        //   escape hatch for a name that collides with a keyword", to be fixed before shipping. Measuring
+        //   it instead showed the escape hatch does not exist in this language, so the change had
+        //   accidentally moved one case TOWARDS VB6. The right fix is to drop the alternative, which
+        //   retires all three; not done here because it is unrelated to Rem and wants its own check that
+        //   nothing in the designer-file rules depends on it.
+        ["continuation-vs-identifier/bracketed-leading-underscore"] = "BRACKETED-IDENTIFIER-NOT-VB6",
+        ["rem-forms/bracketed-plain-identifier"] = "BRACKETED-IDENTIFIER-NOT-VB6",
+        ["rem-forms/bracketed-reserved-word"] = "BRACKETED-IDENTIFIER-NOT-VB6",
 
         // UNBOUND-PROCEDURE-NAME (6) — PERMANENT, and not a label defect at all.
         //   A name-colon is a label only at the head of a logical line; anywhere else VB6 reads it as a

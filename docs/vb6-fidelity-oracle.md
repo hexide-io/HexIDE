@@ -1745,6 +1745,34 @@ rule's scope wide would turn a missing error into a false rejection of a whole m
 this project refuses. What is unmeasured is the scope: whether the restriction covers the whole Enum body
 or only a member's value expression, and whether the header line is affected. Two probes would settle it.
 
+### VB6 has no bracket-escaped identifiers (2026-09-02)
+
+| probe | verdict |
+|---|---|
+| `Dim [q] As Long` / `[q] = 5` | **illegal** — Syntax error, line 1 |
+| `Dim [Print] As Long` | **illegal** — Syntax error, line 1 |
+| `Dim [Rem] As Long` | **illegal** — Syntax error, line 1 |
+
+`[name]` is a **VBA / VB.NET** feature. VB6 predates it and does not have it, so there is no escape hatch
+for a name that collides with a keyword — the name is simply unavailable.
+
+**How this was found is the point, and it is a caution about confident review.** The `Rem` change made
+`Dim [Rem] As Long` stop parsing: the comment rule fires inside the brackets and eats the closing one.
+Two independent reviewers, working separately, reported that as a **regression to fix before shipping** —
+one calling `[…]` *"the documented escape hatch for a name that collides with a keyword"*, and both
+correctly observing that HexIDE had accepted it the week before. The reasoning was sound and the
+conclusion was wrong, because the premise was a VBA fact wearing VB6 clothes.
+
+Measuring it inverted the finding entirely. `[Rem]` no longer parsing is not a regression: it is one case
+that accidentally moved *towards* VB6. The grammar's bracket alternative in `ambiguousIdentifier` is an
+over-acceptance in every other case, and dropping it retires three corpus rows rather than costing any.
+
+This is the same failure mode the oracle file was created for, and it is worth naming because it recurs:
+**a rule remembered from a neighbouring product, asserted confidently, and wrong here.** It has now
+happened with the VBA documentation (`Rem` requires a space — it does not), with a reviewer's mental model
+(`[…]` escapes keywords — not in VB6), and, in this same change, with my own reading of an enum probe.
+The defence is not better reviewers. It is that nothing counts until `vb6.exe` has been asked.
+
 ## Extending the oracle (future phases)
 
 Phase 3 (intrinsics) and beyond should verify, at minimum:

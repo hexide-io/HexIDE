@@ -3634,5 +3634,32 @@
     "Verdict": "agrees",
     "Error": "Build of 'verify.exe' succeeded.",
     "Why": "The control for the previous case: colon after Then with the body on the same line and no End If. Included so the pair isolates WHERE the body sits, rather than confounding it with whether an End If is present. Predicting legal."
+  },
+  {
+    "Key": "rem-forms/bracketed-plain-identifier",
+    "Area": "rem-forms",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Does vb6.exe accept bracket-escaped identifiers AT ALL? Everything else in this group depends on the answer and nothing in the corpus establishes it. HexIDE's grammar has a bracket alternative in ambiguousIdentifier, so it accepts them today; if VB6 does not, that is an unrecorded over-acceptance sitting under every bracket case."
+  },
+  {
+    "Key": "rem-forms/bracketed-reserved-word",
+    "Area": "rem-forms",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "The escape hatch doing the job it exists for - a name that collides with a keyword. If the plain form is legal and this one is not, brackets are not an escape hatch at all and the grammar's bracket alternative is too permissive."
+  },
+  {
+    "Key": "rem-forms/bracketed-rem",
+    "Area": "rem-forms",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Rem specifically, because Rem is not an ordinary reserved word - it starts a comment lexically, and a comment rule keyed on the keyword will eat the closing bracket and the rest of the line whatever the brackets were meant to do. This is the case that decides whether a comment rule may be allowed to fire inside brackets. Genuinely unsure: `Dim Rem` is illegal, and whether the escape hatch reaches a lexical construct rather than merely a reserved name is exactly the sort of thing only the compiler knows."
   }
 ]
