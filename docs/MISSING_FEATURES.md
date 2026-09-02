@@ -487,6 +487,10 @@
 > **Full gap catalogue:** [`docs/interpreter-gaps.md`](interpreter-gaps.md) — the authoritative, categorised
 > (Missed / Deferred / Walled / Partial) list of interpreter gaps from the 2026-08-03 multi-agent audit. The rows
 > below are the headline status; the catalogue is the complete map.
+>
+> **Full language coverage:** [`docs/MISSING_LANGUAGE.md`](MISSING_LANGUAGE.md) — all 1182 VB6 built-in
+> statements, functions, operators, keywords, literals, directives, constants and in-box objects, each with its
+> support level, ordered by what happens when the user presses F5.
 
 | Feature | Status | Notes |
 |---|---|---|

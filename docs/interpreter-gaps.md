@@ -4,6 +4,9 @@
 > miners → consolidate/dedup → **one verifier per claim** → synthesis). Scope: the in-process tree-walking
 > interpreter only (`IDE/HexIDE.Runtime/Interpreter/`). Fidelity method: `docs/vb6-fidelity-oracle.md`. This file
 > is the documented home for the interpreter's gaps — it discharges the spec's "every wall is documented" rule.
+> The **positive counterpart** — every VB6 construct, function, operator, keyword and constant with its current
+> support level — is [`MISSING_LANGUAGE.md`](MISSING_LANGUAGE.md). This file owns *why* something is missing and
+> what kind of limit it is; that one owns *what runs*. Do not restate this file's classifications there.
 > The interpreter is **approximation-only** by design; the *Walled off* items are the permanent line where a
 > real language engine or compiler backend takes over, not oversights.
 
@@ -43,7 +46,9 @@ Platform: 4 · Partial: 12 · Other: 0.
 > per-item findings are retained below for detail):
 > - **Implemented:** **Erase** (dynamic → free / then `UBound`·index → Err 9; fixed scalar → bounds kept, elements
 >   reset; oracle-pinned) · **Mid statement** `Mid(s,i[,n])=repl` (in-place, length never grows, `start` out of range
->   → Err 5; oracle-pinned) · **DoEvents** (no-op → Integer 0) · **Beep** (no-op) · **Option Compare / Option Private
+>   → Err 5; oracle-pinned) · **DoEvents** (no-op → Integer 0) · **Beep** (really implemented as of
+>   2026-09-02 — `Console.Beep()`, platform-guarded and fail-safe; the earlier cross-platform justification for
+>   the no-op was measured and found wrong) · **Option Compare / Option Private
 >   Module** (now tolerated — the module loads; `Option Compare Text` accepted-but-always-Binary is the residual
 >   divergence).
 > - **→ Deferred:** Load/Unload · Deftype · `#If`/`#Const` (now a **clean compile error**, not a raw crash) · chained

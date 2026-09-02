@@ -62,7 +62,7 @@ interpreter. They are principled walls, not backlog:
 | **Default members** | Implicit default-property use — `s = Text1` (meaning `Text1.Text`), `If obj = 5` |
 | **Bang / dictionary** | `rs!Field`, `obj!key` |
 | **Parameterized properties** | `Property Get Item(i)`, `obj.Item(1) = x` (the built-in `Collection.Item` is the sole exception) |
-| **Advanced classes** | `As New` / auto-instantiation, `Implements` / interfaces, `Friend`, instancing modes |
+| **Advanced classes** | `As New` / auto-instantiation, `Friend`, instancing modes (`Implements` is now supported — see [`MISSING_LANGUAGE.md`](../../docs/MISSING_LANGUAGE.md)) |
 | **Fixed-length strings** | `Dim s As String * 10` |
 | **UDT composition** | Arrays *of* a UDT (`Dim a(5) As TThing`), array *fields inside* a UDT |
 | **Type/Enum scoping** | `Private Type` / `Private Enum` isolation (all aggregate program-wide) |
