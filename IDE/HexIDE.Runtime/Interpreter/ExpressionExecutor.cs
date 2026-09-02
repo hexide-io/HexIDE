@@ -451,7 +451,18 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 // variable/constant/user Function of the same name still wins above.
                 if (await EvaluateFunction(identifier, []) is { } builtInFn)
                     return builtInFn;
-                throw new VBVariableNotDefinedException(identifier);
+                // Nothing else claims the name, so VB6 makes it a variable: reading an undeclared name is
+                // legal and yields Empty (measured). LAST, after procedures and intrinsics — a mistyped
+                // function call must not become a silent Empty. (#171)
+                //
+                // Returned WITHOUT allocating. Creating here would make evaluating an expression mutate
+                // the environment, and the debugger evaluates watch expressions on its own schedule — a
+                // watch on an undeclared name would create it and fire a change the program never made.
+                // That is not hypothetical: it broke WatchBreakTests, which caught the observer changing
+                // what it observed. The write path allocates; a read only reports.
+                if (currentModule.PrePass.RequireVariableDefinitions || interpreter.SuppressImplicitDeclaration)
+                    throw new VBVariableNotDefinedException(identifier);
+                return Vb6Value.Variant;
             }
 
             return variable;
