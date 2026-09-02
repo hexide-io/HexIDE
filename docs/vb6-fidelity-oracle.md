@@ -1556,6 +1556,51 @@ labels, separators, control flow — were all this one token. Narrowing it to th
 `FRX_OFFSET` as a hazard, noting that every existing tight-colon case happened to put a non-hex letter
 after the colon and so missed it. It then wrote the cases that caught it.
 
+### A continuation may fall inside a multi-word keyword (2026-09-02)
+
+`End _ Sub` is legal, and so is every other multi-word keyword split the same way. Ten new corpus cases
+(`corpus/continuation-and-separator/keyword-splitting.json`), all compiled by `vb6.exe`:
+
+| probe | verdict |
+|---|---|
+| `For _` ⏎ `Each c In Array(1, 2)` | legal |
+| `On Error Resume _` ⏎ `Next` | legal |
+| `Select _` ⏎ `Case n` | legal |
+| `Declare Function … Lib _` ⏎ `"kernel32"` | legal |
+| `Declare Function … Lib"kernel32"` — **no separator at all** | **legal** |
+| `… Alias _` ⏎ `"GetTickCount"` | legal |
+| `Option Base _` ⏎ `1` | legal |
+| `End _` ⏎ `  _` ⏎ `Sub` — two continuations in a row | legal |
+| `If i = 2 Then Exit _` ⏎ `For` — split keyword inside a single-line If | legal |
+| `End _` ⏎ `'a comment` ⏎ `Sub` | **illegal** |
+
+Ten predictions, zero disagreements — the first clean sweep this corpus has had, and worth noting only
+because the two cases marked `unsure` were the ones that mattered.
+
+**`Lib"kernel32"` compiles.** That was the genuinely open question, and the answer decided a grammar
+change. HexIDE spells the multi-word keywords as single lexer tokens joined by a literal space, which is
+right — `End` and `Sub` mean something else apart than together — but three of them (`Select Case`,
+`For Each`, `Resume Next`) are assembled by the *parser* from two tokens with a mandatory `WS` between,
+and a continuation is hidden from the parser by the time it looks. For those three, making the `WS`
+optional is provably not a widening: `SelectCase` lexes as one `IDENTIFIER`, so the parser can only ever
+see `SELECT` and `CASE` adjacent if something hidden separated them.
+
+That argument does not reach `Lib "x"`, because a keyword and a string literal *can* abut with nothing
+between them — which is exactly why it was measured instead of reasoned about. The measurement came back
+better than the argument would have: VB6 accepts the abutting form outright, so `WS?` there is not a
+tolerated widening but a faithful one.
+
+**The illegal case is the useful one.** A comment is hidden from the parser on the same channel as a
+continuation, so a grammar that admitted "anything hidden may separate the two words" would have admitted
+`End _` ⏎ `'comment` ⏎ `Sub` as well. VB6 rejects it — a comment ends the statement, continuation or not.
+The separator has to admit continuations and whitespace specifically, not hidden tokens generally.
+
+**Incidental:** `Rem` followed by a **tab** is a comment. `COMMENT` shared the same single-space spelling
+and was widened with the keywords.
+
+Corpus false rejections: 21 → 14, clearing this group entirely. What remains is four causes —
+`REM-FORM`, `STRING-CONTINUATION`, `LABEL`, `OTHER`.
+
 ## Extending the oracle (future phases)
 
 Phase 3 (intrinsics) and beyond should verify, at minimum:

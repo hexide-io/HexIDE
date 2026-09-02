@@ -8,7 +8,7 @@ namespace HexIDE.Runtime.Tests;
 /// Does HexIDE's grammar agree with real VB6 about what is legal?
 ///
 /// <para>
-/// The corpus under <c>/corpus</c> is 319 clean-room cases on line continuations and statement
+/// The corpus under <c>/corpus</c> is 329 clean-room cases on line continuations and statement
 /// separators, each already compiled by <c>vb6.exe</c> and its verdict recorded in <c>results.json</c>.
 /// This turns those recorded facts into a gate: parse every case with the interpreter's own grammar and
 /// compare.

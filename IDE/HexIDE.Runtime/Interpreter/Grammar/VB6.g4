@@ -67,8 +67,10 @@ moduleOptions
    : (moduleOption blockSep) +
    ;
 
+// `Option Base _ 1` — WS? because a directive was the likeliest member of this family to turn out
+// line-oriented, and measurement says it is not. See the note on selectCaseStmt.
 moduleOption
-   : OPTION_BASE WS INTEGERLITERAL # optionBaseStmt
+   : OPTION_BASE WS? INTEGERLITERAL # optionBaseStmt
    | OPTION_COMPARE WS (BINARY | TEXT) # optionCompareStmt
    | OPTION_EXPLICIT # optionExplicitStmt
    | OPTION_PRIVATE_MODULE # optionPrivateModuleStmt
@@ -261,8 +263,11 @@ dateStmt
    : DATE WS? EQ WS? valueStmt
    ;
 
+// `Lib WS? "x"` / `Alias WS? "x"` — a Declare line is long and gets continued before the library name.
+// Measured, not reasoned: vb6.exe accepts both the continuation and the wholly unseparated `Lib"kernel32"`.
+// See the note on selectCaseStmt for why this pair needed measuring where the keyword pairs did not.
 declareStmt
-   : (visibility WS)? DECLARE WS (FUNCTION typeHint? | SUB) WS ambiguousIdentifier typeHint? WS LIB WS STRINGLITERAL (WS ALIAS WS STRINGLITERAL)? (WS? argList)? (WS asTypeClause)?
+   : (visibility WS)? DECLARE WS (FUNCTION typeHint? | SUB) WS ambiguousIdentifier typeHint? WS LIB WS? STRINGLITERAL (WS ALIAS WS? STRINGLITERAL)? (WS? argList)? (WS asTypeClause)?
    ;
 
 deftypeStmt
@@ -541,9 +546,15 @@ seekStmt
 // Optional is not a widening here. Two adjacent word-tokens cannot occur in the stream without something
 // between them: `SelectCase` lexes as one IDENTIFIER, never as SELECT then CASE. So the only way the
 // parser ever sees them adjacent is that a hidden-channel token — a continuation — sat between them,
-// which is exactly the case being admitted. Applied ONLY where both neighbours are word-tokens; the
-// literal-operand pairs (`Lib "x"`, `Option Base 1`) are lexically able to abut and so are not covered
-// by this argument. They are recorded in the corpus as unmeasured rather than relaxed on a guess.
+// which is exactly the case being admitted.
+//
+// That argument does NOT reach the keyword-then-literal pairs (`Lib "x"`, `Alias "x"`, `Option Base 1`),
+// because a keyword and a string CAN abut with nothing between them. Those were measured instead, and
+// the answer was better than the argument: vb6.exe compiles `Lib"kernel32"` with no separator at all, so
+// WS? there is not a widening either — it is what VB6 does. See corpus/…/keyword-splitting.json.
+//
+// `VERSION WS DOUBLELITERAL` is deliberately NOT relaxed. It is a .frm header line the IDE writes, never
+// something a user continues, so there is no case to measure and no reason to loosen it.
 selectCaseStmt
    : SELECT WS? CASE WS valueStmt blockSep sC_Case* WS? END_SELECT
    ;

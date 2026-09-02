@@ -265,9 +265,10 @@ dateStmt
     : DATE WS? EQ WS? valueStmt
     ;
 
+// `Lib WS? "x"` / `Alias WS? "x"` - measured, not reasoned; see the note on selectCaseStmt.
 declareStmt
-    : (visibility WS)? DECLARE WS (FUNCTION typeHint? | SUB) WS ambiguousIdentifier typeHint? WS LIB WS STRINGLITERAL (
-        WS ALIAS WS STRINGLITERAL
+    : (visibility WS)? DECLARE WS (FUNCTION typeHint? | SUB) WS ambiguousIdentifier typeHint? WS LIB WS? STRINGLITERAL (
+        WS ALIAS WS? STRINGLITERAL
     )? (WS? argList)? (WS asTypeClause)?
     ;
 
@@ -571,8 +572,10 @@ seekStmt
 // between them: `SelectCase` lexes as one IDENTIFIER, never as SELECT then CASE. So the only way the
 // parser ever sees them adjacent is that a skipped token - a continuation - sat between them, which is
 // exactly the case being admitted. Applied ONLY where both neighbours are word-tokens; the
-// literal-operand pairs (`Lib "x"`, `Option Base 1`) are lexically able to abut and so are not covered
-// by this argument. Mirrored from the interpreter's grammar.
+// That argument does NOT reach the keyword-then-literal pairs (`Lib "x"`, `Alias "x"`), because a keyword
+// and a string CAN abut with nothing between them. Those were measured instead, and the answer was better
+// than the argument: vb6.exe compiles `Lib"kernel32"` with no separator at all, so WS? there is not a
+// widening either - it is what VB6 does. Mirrored from the interpreter's grammar.
 selectCaseStmt
     : SELECT WS? CASE WS valueStmt blockSep sC_Case* WS? END_SELECT
     ;

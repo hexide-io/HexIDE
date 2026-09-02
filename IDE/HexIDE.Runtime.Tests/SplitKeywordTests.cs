@@ -74,6 +74,24 @@ public class SplitKeywordTests : BaseVBTestFixture
     }
 
     [Fact]
+    public async Task ARunOfContinuationsMaySplitAKeyword()
+    {
+        // Two in a row, which is what reformatting a line twice produces. The separator has to repeat,
+        // not merely allow one.
+        await Run("Go\nSub Go()\n    Debug.Print \"ran\"\nEnd _\n  _\nSub\n");
+        AssertDebugLog([new Vb6Value("ran")]);
+    }
+
+    [Fact]
+    public async Task AContinuationMaySplitOptionBaseFromItsNumber()
+    {
+        // Keyword-then-literal rather than keyword-then-keyword, and a directive besides — the likeliest
+        // member of the family to have turned out line-oriented. Measured legal, so it is accepted.
+        await Run("Option Base _\n  1\nDim a(3)\nDebug.Print LBound(a)\n");
+        AssertDebugLog([new Vb6Value(1L)]);   // LBound returns Long
+    }
+
+    [Fact]
     public async Task ATabMayFollowRem()
     {
         // COMMENT shared the same single-space spelling, so `Rem` + tab was not a comment. Widening the
