@@ -39,48 +39,28 @@ public class CorpusConformanceTests
     /// so the list can only shrink deliberately.</summary>
     private static readonly Dictionary<string, string> KnownDivergences = new()
     {
-        // Grouped by CAUSE: six defects, not thirty-two. The list may only shrink, and never silently -
+        // Grouped by CAUSE: five defects, not twenty-one. The list may only shrink, and never silently -
         // KnownDivergencesAreStillReal fails if an entry outlives the bug it describes.
         //
-        //  LABEL               The largest group now. lineLabel is a blockStmt, so it COMPETES with the
-        //                      statement it prefixes instead of introducing it. The fix is already
-        //                      prototyped: make it a prefix, the way lineNumber became one in #197. That
-        //                      also covers a numeric label carrying a colon and a label named after a
-        //                      keyword.
-        //  SPLIT-KEYWORD       VB6 lets a continuation split a MULTI-WORD keyword (End _ Sub, End _ If).
-        //                      Those are single lexer tokens here, so the split breaks them.
-        //  FRX-OFFSET          FRX_OFFSET (COLON [0-9A-F]+) is a DESIGNER-FILE token live in ordinary code,
-        //                      so a colon followed by hex digits lexes as one token and eats the separator.
+        //  SPLIT-KEYWORD       The largest group now. VB6 lets a continuation split a MULTI-WORD keyword
+        //                      (End _ Sub, End _ If, Select _ Case, End _ Type). Those are single lexer
+        //                      tokens here - END_SUB, END_IF - so the continuation breaks them in half.
+        //                      Fixing it means matching the pair across the hidden-channel continuation
+        //                      rather than as one literal.
         //  REM-FORM            COMMENT requires REM to be followed by a space, so a bare Rem, a Rem after a
         //                      tab, and Rem followed by a colon are all refused.
         //  STRING-CONTINUATION A trailing underscore INSIDE a string. Measured but NOT understood - it
         //                      continues the line in a Debug.Print output list and not in an assignment.
-        //                      Deliberately not implemented to a rule nobody can state.
+        //                      Deliberately unimplemented: there is no rule here anyone can state.
+        //  LABEL               What survived the label work: a label named after a keyword, and a numeric
+        //                      label alone on its line (which needs the prefix to bind across a separator).
         //  OTHER               Individually caused; see each case's own why in the corpus.
-        ["separator-and-continuation-together/continuation-drags-a-label-onto-a-statement"] = "LABEL",
-        ["separator-basics/sep-double-colon-tight"] = "LABEL",
-        ["separator-basics/sep-mixed-chain-with-empty-statement"] = "LABEL",
-        ["separator-basics/sep-numeric-line-number-with-colon"] = "LABEL",
-        ["separator-in-control-flow/then-tail-colon-no-spaces"] = "LABEL",
-        ["separator-vs-label/label-colon-no-space-before-stmt"] = "LABEL",
-        ["separator-vs-label/label-named-reserved-word"] = "LABEL",
-        ["separator-vs-label/label-named-soft-keyword"] = "LABEL",
-        ["separator-vs-label/numeric-label-alone-on-line"] = "LABEL",
-        ["separator-vs-label/numeric-label-with-colon"] = "LABEL",
-        ["separator-vs-label/separator-colon-no-surrounding-space"] = "LABEL",
-
         ["continuation-basics/cont-splitting-end-sub"] = "SPLIT-KEYWORD",
         ["continuation-illegal/continuation-splitting-end-sub"] = "SPLIT-KEYWORD",
         ["continuation-vs-identifier/continuation-splits-end-sub"] = "SPLIT-KEYWORD",
         ["gap-fill/end-if-split-by-continuation"] = "SPLIT-KEYWORD",
         ["gap-fill/select-case-and-end-select-split-by-continuation"] = "SPLIT-KEYWORD",
         ["separator-with-declarations/end-type-split-by-continuation"] = "SPLIT-KEYWORD",
-
-        ["gap-fill/colon-tight-before-hex-digit-name"] = "FRX-OFFSET",
-        ["gap-fill/colon-tight-before-uppercase-hex-identifier"] = "FRX-OFFSET",
-        ["gap-fill/hex-literal-then-tight-colon-then-hex-name"] = "FRX-OFFSET",
-        ["gap-fill/two-file-numbers-across-a-colon"] = "FRX-OFFSET",
-        ["gap-fill/with-block-colon-tight-against-dot-and-end"] = "FRX-OFFSET",
 
         ["gap-fill/bare-rem-with-no-text"] = "REM-FORM",
         ["gap-fill/line-number-then-rem-without-a-colon"] = "REM-FORM",
@@ -91,7 +71,13 @@ public class CorpusConformanceTests
         ["continuation-illegal/split-string-literal"] = "STRING-CONTINUATION",
         ["continuation-in-strings-comments/string-underscore-at-eol-unterminated"] = "STRING-CONTINUATION",
 
+        ["separator-vs-label/label-named-reserved-word"] = "LABEL",
+        ["separator-vs-label/label-named-soft-keyword"] = "LABEL",
+        ["separator-vs-label/numeric-label-alone-on-line"] = "LABEL",
+
         ["continuation-basics/cont-after-member-dot"] = "OTHER",
+        ["gap-fill/two-file-numbers-across-a-colon"] = "OTHER",
+        ["separator-and-continuation-together/continuation-drags-a-label-onto-a-statement"] = "OTHER",
         ["separator-with-declarations/hashconst-value-continued"] = "OTHER",
         ["whitespace-and-eol-edges/eof-mid-continuation-no-trailing-newline"] = "OTHER",
     };

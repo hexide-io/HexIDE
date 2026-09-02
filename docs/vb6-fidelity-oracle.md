@@ -1533,6 +1533,29 @@ direction.
 A consequence worth stating for implementers: because the branch is a run of statements rather than one,
 control leaving it must stop the rest. `If i = 2 Then Exit For : s = s & "X"` must not append.
 
+### A designer-file token was eating statement separators (2026-09-02)
+
+Not a VB6 fact but a HexIDE one, recorded here because the corpus is what found it and because it is the
+best example so far of why grouping failures by SYMPTOM misleads.
+
+`FRX_OFFSET` matches a companion-binary offset in a designer file — `Picture = "Form1.frx":0000`. It was
+written `COLON [0-9A-F]+` and, being an ordinary lexer rule, was live in ordinary code. A-F are hex
+digits, so:
+
+| source | lexed as |
+|---|---|
+| `Debug.Print "A":Debug.Print "B"` | `:D` became an OFFSET, swallowing the separator |
+| `a = 1:b = 2` | `:b` likewise |
+| `Skip:Debug.Print` | `:D` likewise |
+
+Nine corpus cases, spread across three different areas and filed under three different apparent causes —
+labels, separators, control flow — were all this one token. Narrowing it to the shape VB6 actually writes
+(a leading digit and at least four hex digits, which zero-padding guarantees) fixed all nine at once.
+
+**It was predicted before it was measured.** The agent auditing the corpus read the lexer and flagged
+`FRX_OFFSET` as a hazard, noting that every existing tight-colon case happened to put a non-hex letter
+after the colon and so missed it. It then wrote the cases that caught it.
+
 ## Extending the oracle (future phases)
 
 Phase 3 (intrinsics) and beyond should verify, at minimum:
