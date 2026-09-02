@@ -334,8 +334,9 @@ filecopyStmt
     : FILECOPY WS valueStmt WS? COMMA WS? valueStmt
     ;
 
+// `For _ Each` - WS? between the two keywords; see the note on selectCaseStmt.
 forEachStmt
-    : FOR WS EACH WS ambiguousIdentifier typeHint? WS IN WS valueStmt blockSep (block blockSep)? NEXT (
+    : FOR WS? EACH WS ambiguousIdentifier typeHint? WS IN WS valueStmt blockSep (block blockSep)? NEXT (
         WS ambiguousIdentifier
     )?
     ;
@@ -456,8 +457,9 @@ nameStmt
     : NAME WS valueStmt WS AS WS valueStmt
     ;
 
+// `Resume _ Next` - WS? between the two keywords; see the note on selectCaseStmt.
 onErrorStmt
-    : (ON_ERROR | ON_LOCAL_ERROR) WS (GOTO WS valueStmt COLON? | RESUME WS NEXT)
+    : (ON_ERROR | ON_LOCAL_ERROR) WS (GOTO WS valueStmt COLON? | RESUME WS? NEXT)
     ;
 
 onGoToStmt
@@ -560,8 +562,19 @@ seekStmt
     : SEEK WS valueStmt WS? COMMA WS? valueStmt
     ;
 
+// `Select _` / `Case` is legal VB6, and the WS between the two keywords was mandatory, so it was not.
+// The other multi-word keywords are single lexer tokens and were fixed there with KWSEP; these three
+// (`Select Case`, `For Each`, `Resume Next`) are assembled by the PARSER instead, and a continuation is
+// invisible to it - the lexer has already skipped it. So the WS has to become optional.
+//
+// Optional is not a widening here. Two adjacent word-tokens cannot occur in the stream without something
+// between them: `SelectCase` lexes as one IDENTIFIER, never as SELECT then CASE. So the only way the
+// parser ever sees them adjacent is that a skipped token - a continuation - sat between them, which is
+// exactly the case being admitted. Applied ONLY where both neighbours are word-tokens; the
+// literal-operand pairs (`Lib "x"`, `Option Base 1`) are lexically able to abut and so are not covered
+// by this argument. Mirrored from the interpreter's grammar.
 selectCaseStmt
-    : SELECT WS CASE WS valueStmt blockSep sC_Case* WS? END_SELECT
+    : SELECT WS? CASE WS valueStmt blockSep sC_Case* WS? END_SELECT
     ;
 
 sC_Case
