@@ -323,8 +323,37 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitBeepStmt(VB6Parser.BeepStmtContext context)
     {
-        // Beep is a runtime no-op in HexIDE (headless / cross-platform; documented divergence — real VB6 sounds the
-        // system bell). It must not crash a program that calls it.
+        // VB6 sounds the system bell. This used to be a flat no-op justified as a cross-platform limit, which
+        // measurement did not support: `Console.Beep()` is attributed UnsupportedOSPlatform for android, browser,
+        // ios and tvos only — every desktop platform HexIDE ships to is fine. (It is the frequency/duration
+        // OVERLOAD that is Windows-only. VB6's Beep takes no arguments, so we never need it.)
+        //
+        // The platform guard is FORWARD-LOOKING, not currently required, and that is worth stating precisely
+        // because the obvious guess is wrong. Measured both ways: CA1416 does NOT fire for this call in a plain
+        // net10.0 library, which is what HexIDE.Runtime targets today; it fires only when the project itself
+        // targets browser, where it is an ERROR under TreatWarningsAsErrors. So the guard costs nothing now and
+        // is what keeps this compiling if the Browser aspiration ever multi-targets the runtime. It also spares
+        // WASM an exception per call. The analyzer recognises this guard form; the bare call it does not.
+        //
+        // Audible on Windows (Win32 Beep, 800 Hz for 200 ms). On Linux and macOS this resolves to the terminal
+        // bell, so it sounds from a terminal launch and is silent from a desktop launcher. Silent is an acceptable
+        // outcome here; it withholds a sound rather than misleading anyone, which is why this is safe to degrade
+        // where a file-writing statement would not be.
+        //
+        // It BLOCKS for that 200 ms on the interpreter's thread, which is faithful — VB6 blocks too — but means
+        // `For i = 1 To 100: Beep: Next` stops the world for twenty seconds. Recorded so that is recognised as
+        // fidelity rather than filed as a hang.
+        try
+        {
+            if (OperatingSystem.IsWindows() || OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+                Console.Beep();
+        }
+        catch (Exception)
+        {
+            // Fail-safe, deliberately broad: a missing audio device, a locked-down container or a redirected
+            // console must not take a user's program down over a bell. Every failure here degrades to silence,
+            // which is what a muted speaker gives anyway — and VB6 raises no error for an inaudible Beep either.
+        }
         return ControlFlow.Nothing;
     }
 

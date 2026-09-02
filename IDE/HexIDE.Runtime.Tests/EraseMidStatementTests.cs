@@ -77,12 +77,34 @@ public class EraseMidStatementTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value("[]")]);
     }
 
-    // ── Beep / DoEvents: clean no-ops, never crash ──────────────────────────────────────────────────
+    // ── Beep / DoEvents: never crash, never interrupt the program ──────────────────────────────────────────────────
+    // Beep actually sounds the bell now (Console.Beep, guarded to the desktop platforms we ship to). What a
+    // test can assert is the part that matters to a running program: it is fail-safe. On a build agent with no
+    // audio device the call throws inside, and the program must carry on regardless — so the assertion is that
+    // execution CONTINUES, not that anything was audible.
     [Fact]
-    public async Task Beep_IsANoOp_DoesNotCrash()
+    public async Task Beep_IsFailSafe_ExecutionContinues()
     {
         await Run("Beep\nDebug.Print 1\n");
         AssertDebugLog([new Vb6Value(1)]);
+    }
+
+    [Fact]
+    public async Task Beep_RepeatedAndInsideALoop_StillContinues()
+    {
+        // The shape that would expose a Beep throwing only on its second call, or one that swallows its
+        // exception but leaves the statement walker somewhere bad.
+        await Run("Dim i\nFor i = 1 To 3\n    Beep\nNext i\nBeep\nDebug.Print 2\n");
+        AssertDebugLog([new Vb6Value(2)]);
+    }
+
+    [Fact]
+    public async Task Beep_DoesNotSetErr()
+    {
+        // If the internal failure ever escaped as a trappable VB6 error this would report a non-zero number.
+        // Real VB6 raises nothing for an inaudible Beep, so neither may we.
+        await Run("On Error Resume Next\nBeep\nDebug.Print Err.Number\n");
+        AssertDebugLog([new Vb6Value(0L)]);
     }
 
     [Fact]
