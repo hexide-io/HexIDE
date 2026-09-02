@@ -392,7 +392,10 @@ ifThenElseStmt
     // nothing` is a syntax error, and a comment is invisible to the parser either way - so the only way
     // to accept the first is to allow an empty else. A bare trailing `Else` is legal too, measured, which
     // is what makes this faithful rather than a widening. Mirrored from the interpreter's grammar.
-    : IF WS ifConditionStmt WS THEN WS ((inlineIfBody | lineNumber) (WS? ELSE (WS (inlineIfBody | lineNumber))?)? | ELSE (WS (inlineIfBody | lineNumber))?) # inlineIfThenElse
+    // `WS?` after THEN: `If True Then: Debug.Print "A"` is legal and was refused, because the mandatory
+    // whitespace had nothing to match - inlineIfBody's own leading `(WS? COLON WS?)*` already admits the
+    // colon. Safe by adjacency: `ThenX` lexes as one IDENTIFIER. Mirrored from the interpreter's grammar.
+    : IF WS ifConditionStmt WS THEN WS? ((inlineIfBody | lineNumber) (WS? ELSE (WS (inlineIfBody | lineNumber))?)? | ELSE (WS (inlineIfBody | lineNumber))?) # inlineIfThenElse
     | ifBlockStmt ifElseIfBlockStmt* ifElseBlockStmt? END_IF             # blockIfThenElse
     ;
 

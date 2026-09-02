@@ -8,7 +8,7 @@ namespace HexIDE.Runtime.Tests;
 /// Does HexIDE's grammar agree with real VB6 about what is legal?
 ///
 /// <para>
-/// The corpus under <c>/corpus</c> is 348 clean-room cases on line continuations and statement
+/// The corpus under <c>/corpus</c> is 352 clean-room cases on line continuations and statement
 /// separators, each already compiled by <c>vb6.exe</c> and its verdict recorded in <c>results.json</c>.
 /// This turns those recorded facts into a gate: parse every case with the interpreter's own grammar and
 /// compare.
@@ -46,13 +46,13 @@ public class CorpusConformanceTests
     /// <para>
     /// Grouped by CAUSE, because this corpus has already taught that lesson the expensive way — a bucket
     /// labelled LABEL turned out to be mostly one over-broad lexer token, and nine cases across three
-    /// areas collapsed into a single fix once that was seen. These fifty-three rows are sixteen defects,
-/// and the largest of them is one character in one character class.
+    /// areas collapsed into a single fix once that was seen. These fifty-four rows are seventeen defects,
+    /// and the largest of them is one character in one character class.
     /// </para>
     /// </remarks>
     private static readonly Dictionary<string, string> KnownDivergences = new()
     {
-        // ===== FALSE REJECTIONS (10) — the damaging direction. =====
+        // ===== FALSE REJECTIONS (11) — the damaging direction. =====
 
         // STRING-CONTINUATION (3)
         //   A trailing underscore INSIDE a string literal. Measured but NOT understood: it continues the
@@ -68,6 +68,23 @@ public class CorpusConformanceTests
         //   reach every reserved word, so `Error:` and friends are refused as labels.
         ["separator-vs-label/label-named-reserved-word"] = "LABEL-NAME",
         ["separator-vs-label/label-named-soft-keyword"] = "LABEL-NAME",
+
+        // EMPTY-INLINE-IF-BODY (1)
+        //   `If True Then:` with the body on the NEXT line. The colon commits VB6 to the single-line form
+        //   with an EMPTY body, so the construct is complete on that line and the following statement is
+        //   an ordinary one — no End If is wanted or allowed. `inlineIfBody` requires at least one
+        //   blockStmt, so HexIDE has no parse: the inline alternative wants a statement it cannot find,
+        //   and the block alternative wants an END_IF that is not there.
+        //
+        //   Found by inspection rather than by the corpus, in the gap between two cases that DO cover the
+        //   neighbours — `If x Then: <body on the same line>` (legal, and fixed here by making the
+        //   whitespace after THEN optional) and `If x Then:` followed by an End If (illegal, and currently
+        //   a false acceptance under COLON-ENDS-THE-THEN-LINE). Two cases either side and the middle one
+        //   missing, which is how a false rejection hides.
+        //
+        //   Not fixed here because the fix — permitting an empty inlineIfBody — is the same edit as
+        //   COLON-ENDS-THE-THEN-LINE and conflicts with it if done separately. They ship together.
+        ["rem-forms/then-colon-with-the-body-on-the-next-line"] = "EMPTY-INLINE-IF-BODY",
 
         // OTHER-REJECTION (5) — individually caused; see each case's own why in the corpus.
         ["continuation-basics/cont-after-member-dot"] = "OTHER-REJECTION",

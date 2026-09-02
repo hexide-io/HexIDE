@@ -3598,5 +3598,41 @@
     "Verdict": "agrees",
     "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 0 : Expected: identifier Build of 'verify.exe' failed.",
     "Why": "A parameter named Rem. Included because a parameter list is the position where a reserved word most often turns out to be permitted, and because getting this wrong would make a real Declare or Sub signature unparseable."
+  },
+  {
+    "Key": "rem-forms/bare-else-with-nothing-after-it",
+    "Area": "rem-forms",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The question the Else-Rem case raises once the comment is removed. `Else Rem x` is legal, and a comment is invisible to the parser, so the grammar can only accept it by allowing an EMPTY else body - which also accepts a bare trailing Else. Whether that is faithful or a widening depends entirely on this measurement, and I have no confident prediction: a dangling Else is the kind of thing a compiler either shrugs at or refuses outright."
+  },
+  {
+    "Key": "rem-forms/else-followed-by-an-apostrophe-comment",
+    "Area": "rem-forms",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The apostrophe spelling of the Else-Rem idiom. Both forms are invisible to the parser, so if these two disagree the difference cannot be syntactic and something else is going on. Predicting legal, and predicting it agrees with the Rem form - a cross-check on the reading rather than a new fact."
+  },
+  {
+    "Key": "rem-forms/then-colon-with-the-body-on-the-next-line",
+    "Area": "rem-forms",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "A colon straight after Then, with what looks like the body on the following line and no End If. The corpus already measures `If x Then: Debug.Print` (colon then body on the SAME line, legal) and `If x Then:` followed by an End If (illegal, because the colon commits VB6 to the single-line form and the End If then has no block to close). This third arrangement is the one neither covers, and HexIDE rejects it today - so if VB6 accepts it, it is a FALSE REJECTION hiding in a gap between two existing cases, which is the direction that takes a whole module down."
+  },
+  {
+    "Key": "rem-forms/then-colon-then-body-same-line-no-endif",
+    "Area": "rem-forms",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The control for the previous case: colon after Then with the body on the same line and no End If. Included so the pair isolates WHERE the body sits, rather than confounding it with whether an End If is present. Predicting legal."
   }
 ]

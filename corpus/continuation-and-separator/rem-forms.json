@@ -252,6 +252,29 @@
       ],
       "expect": "legal",
       "why": "The apostrophe spelling of the Else-Rem idiom. Both forms are invisible to the parser, so if these two disagree the difference cannot be syntactic and something else is going on. Predicting legal, and predicting it agrees with the Rem form - a cross-check on the reading rather than a new fact."
+    },
+    {
+      "id": "then-colon-with-the-body-on-the-next-line",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "    If True Then:",
+        "    Debug.Print \"A\"",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "A colon straight after Then, with what looks like the body on the following line and no End If. The corpus already measures `If x Then: Debug.Print` (colon then body on the SAME line, legal) and `If x Then:` followed by an End If (illegal, because the colon commits VB6 to the single-line form and the End If then has no block to close). This third arrangement is the one neither covers, and HexIDE rejects it today - so if VB6 accepts it, it is a FALSE REJECTION hiding in a gap between two existing cases, which is the direction that takes a whole module down."
+    },
+    {
+      "id": "then-colon-then-body-same-line-no-endif",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "    If True Then: Debug.Print \"A\"",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "The control for the previous case: colon after Then with the body on the same line and no End If. Included so the pair isolates WHERE the body sits, rather than confounding it with whether an End If is present. Predicting legal."
     }
   ]
 }

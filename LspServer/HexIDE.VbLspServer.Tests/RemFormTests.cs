@@ -56,6 +56,15 @@ public class RemFormTests
     }
 
     [Fact]
+    public void AColonMayFollowThenWithNoSpaceAtAll()
+    {
+        // `Then:` with no space. The whitespace after THEN was mandatory in the parser while inlineIfBody
+        // already admitted the colon, so an ordinary line was underlined in the editor.
+        VbDiagnosticsProvider.GetDiagnostics("Sub S()\r\n    Dim x As Long\r\n    If True Then: x = 1\r\nEnd Sub\r\n")
+            .Should().BeEmpty();
+    }
+
+    [Fact]
     public void ATrailingUnderscoreExtendsARemCommentAndCanSwallowEndSub()
     {
         // vb6.exe reports "Expected End Sub" here, and so should we — the continuation genuinely pulls the

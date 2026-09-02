@@ -380,8 +380,13 @@ inlineIfBody
 // invisible to the parser either way, so the only way to accept the first is to allow an empty else — and
 // a bare trailing `Else` with nothing at all after it turns out to be legal too, which is what makes this
 // faithful rather than a widening. `Else Rem …` is a real idiom for a deliberately empty alternative.
+// `WS?` after THEN, not `WS`. `If True Then: Debug.Print "A"` is legal and was refused, because the
+// mandatory whitespace had nothing to match — inlineIfBody's own leading `(WS? COLON WS?)*` already
+// admits the colon, so the space was being demanded twice and supplied once. Optional is safe by the
+// adjacency argument used for the multi-word keywords: `ThenX` lexes as one IDENTIFIER, so THEN can only
+// be adjacent to the next token if something separated them.
 ifThenElseStmt
-   : IF WS ifConditionStmt WS THEN WS inlineIfBody (WS? ELSE (WS inlineIfBody)?)? # inlineIfThenElse
+   : IF WS ifConditionStmt WS THEN WS? inlineIfBody (WS? ELSE (WS inlineIfBody)?)? # inlineIfThenElse
    | ifBlockStmt ifElseIfBlockStmt* ifElseBlockStmt? END_IF # blockIfThenElse
    ;
 
