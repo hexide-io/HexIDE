@@ -174,7 +174,27 @@ See [OUT_OF_SCOPE.md](docs/OUT_OF_SCOPE.md) for the full list of VB6 features th
 
 **Fidelity means reproducing VB6's intended behaviour, not its bugs.** Where VB6 had a known defect, HexIDE should do the right thing even in Classic mode. The canonical example: in VB6 the Object Browser lost its MDI chrome (title bar, close button) when maximised, because it was an MDI child window — that was a Windows MDI system limitation, not an intended design. In HexIDE the Object Browser is a `Document` tab in the `DocumentDock`, so the Dock framework always owns its tab header and close button; maximising an MDI child inside the host cannot affect it. Whenever a feature diverges from VB6 behaviour, document the reason here or in the relevant spec.
 
-**Verify actual VB6 behaviour against the real compiler — never guess.** Any doubt about what VB6 *actually does* at runtime (a numeric result type, an overflow/error code, a rounding rule, a coercion, a literal's type, a `Format`/intrinsic edge) **must be tested against real `vb6.exe`** — the fidelity oracle — before you pin an interpreter test expectation. Documentation and memory are repeatedly wrong here; the oracle has overturned "obvious" assumptions many times. Record every verified fact (and the reusable `On Error Resume Next` `/make` harness) in [`docs/vb6-fidelity-oracle.md`](docs/vb6-fidelity-oracle.md) so it is never re-derived. `vb6.exe` is at `C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE` (or `$VB6_EXE`) — the same toolchain as the "Make/Run with VB6" feature. This is a Windows dev-time check; it never becomes a runtime dependency (HexIDE re-implements VB6's behaviour, it does not call `MSVBVM60`).
+**Verify actual VB6 behaviour against the real compiler — never guess.** Any doubt about what VB6 *actually does* at runtime (a numeric result type, an overflow/error code, a rounding rule, a coercion, a literal's type, a `Format`/intrinsic edge) **must be tested against real `vb6.exe`** — the fidelity oracle — before you pin an interpreter test expectation. Documentation and memory are repeatedly wrong here; the oracle has overturned "obvious" assumptions many times. Record every verified fact (and the reusable `On Error Resume Next` `/make` harness) in [`docs/vb6-fidelity-oracle.md`](docs/vb6-fidelity-oracle.md). `vb6.exe` is at `C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE` (or `$VB6_EXE`) — the same toolchain as the "Make/Run with VB6" feature. This is a Windows dev-time check; it never becomes a runtime dependency (HexIDE re-implements VB6's behaviour, it does not call `MSVBVM60`).
+
+**`vb6-fidelity-oracle.md` is a PRIMARY OUTPUT of this project, not a scratchpad.** It ranks with the code,
+and a change that measures something new is not finished until the measurement is written down there.
+
+VB6 is end-of-life. Its documentation is archived and, on the details that matter here, repeatedly wrong.
+The people who held these rules in their heads have dispersed, and — as this project keeps demonstrating —
+what they remember is often a rule from a *neighbouring* product. So a file of behaviours obtained by
+running the real compiler and reading what came back is very likely the most complete systematic record of
+VB6's actual runtime semantics that exists anywhere. Treat it accordingly:
+
+- **Record the measurement, not just the conclusion.** The probe, the value, the type. A later reader must
+  be able to see what was asked as well as what was answered.
+- **Record what was overturned, and by whom.** "The obvious guess was X; it is Y" is worth more than "it is
+  Y", because the obvious guess is what the next person will also make. Several entries record *our own*
+  wrong expectations for exactly this reason.
+- **Record what resisted explanation.** An honest "measured, but no rule I would defend" is a result. Do not
+  tidy it into a plausible rule — that is how a wrong generalisation gets laundered into a fact, which has
+  already happened once here and cost a silent bug.
+- **Never delete a row because it looks odd.** Odd is the signal. Most oddities in this file dissolved once
+  a storage width or a subsystem boundary was understood; the ones that did not are the valuable ones.
 
 **Secondary reference (subordinate to the oracle): the VBA documentation** — a local clone of `MicrosoftDocs/VBA-Docs` (the VBA language + object-model reference), located via `$VBA_DOCS`. Licence-vetted MIT-clean: docs are **CC BY 4.0** (attribution-only, *no* copyleft — cannot infect HexIDE's MIT), code samples are **MIT** (© Microsoft). Use it as a **reference for the object model, intrinsic surface, and general semantics** — never as the fidelity authority: it describes *VBA* (VBA7), which diverges from *VB6* at the edges, so `vb6.exe` **always wins** on any behavioural conflict, and every pinned test expectation still comes from the oracle, not the docs. **Two rules to keep clean-room status: (1) never copy the doc prose verbatim** into HexIDE code/comments/docs (facts/APIs/semantics aren't copyrightable, so learning-then-implementing is fine; copying *expression* is not — if you ever quote prose, attribute per CC BY; copied code samples are MIT, keep the notice); **(2) fidelity stays oracle-driven** — this is a lookup aid, not a spec to implement from (that spec-driven lane belongs to a real language engine; HexIDE stays independent). NB this is the docs repo, *not* the formal `[MS-VBAL]` Open Specification (a separate artifact under Microsoft's Open Specifications programme).
 
