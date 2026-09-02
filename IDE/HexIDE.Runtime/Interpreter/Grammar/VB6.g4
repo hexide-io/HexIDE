@@ -139,7 +139,7 @@ attributeStmt
    ;
 
 block
-   : (lineNumber WS?)? blockStmt (blockSep (lineNumber WS?)? blockStmt)* blockSep?
+   : (lineNumber WS? COLON? WS?)? blockStmt (blockSep (lineNumber WS? COLON? WS?)? blockStmt)* blockSep?
    ;
 
 // A statement separator: a newline, a colon, or any run of them.
@@ -923,6 +923,7 @@ ambiguousKeyword
    | EMPTY_
    | EQV
    | ERASE
+   | NAME
    | ERROR
    | EVENT
    | FALSE
@@ -2105,8 +2106,19 @@ OCTALLITERAL
    ;
 
 // misc
+// A companion-binary offset in a DESIGNER file: `Picture = "Form1.frx":0000`.
+//
+// It used to be `COLON [0-9A-F]+`, which is live in ordinary code too — and A-F are hex digits, so
+// `Debug.Print "A":Debug.Print "B"` lexed `:D` as an offset and swallowed the statement separator. The
+// same for `:b`, `:a`, `:F` and `Skip:Debug`. That single token was responsible for most of what the
+// conformance corpus reported as label and separator failures.
+//
+// Narrowed to the shape VB6 actually writes: a leading DIGIT and at least four hex digits in total, which
+// is what zero-padding guarantees. `:Debug`, `:b` and `:1a` no longer match; `:0000` and `:1A2B` still do.
+// The residual risk is an offset into a .frx large enough to start with A-F (0xA0000 bytes and up); the
+// round-trip corpus gate would catch that, and it is a far rarer shape than a colon before an identifier.
 FRX_OFFSET
-	: COLON [0-9A-F]+
+	: COLON [0-9] [0-9A-F] [0-9A-F] [0-9A-F]+
 	;
 
 GUID

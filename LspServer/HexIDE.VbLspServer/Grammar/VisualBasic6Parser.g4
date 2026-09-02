@@ -149,7 +149,7 @@ attributeStmt
     ;
 
 block
-    : (lineNumber WS?)? blockStmt (blockSep (lineNumber WS?)? blockStmt)* blockSep?
+    : (lineNumber WS? COLON? WS?)? blockStmt (blockSep (lineNumber WS? COLON? WS?)? blockStmt)* blockSep?
     ;
 
 // A statement separator: a newline, a colon, or a run of them. Mirrored from the interpreter's
@@ -941,6 +941,7 @@ ambiguousKeyword
     | EMPTY_
     | EQV
     | ERASE
+    | NAME
     | ERROR
     | EVENT
     | FALSE
