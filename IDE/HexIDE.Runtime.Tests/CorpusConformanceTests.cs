@@ -8,7 +8,7 @@ namespace HexIDE.Runtime.Tests;
 /// Does HexIDE's grammar agree with real VB6 about what is legal?
 ///
 /// <para>
-/// The corpus under <c>/corpus</c> is 355 clean-room cases on line continuations and statement
+/// The corpus under <c>/corpus</c> is 365 clean-room cases on line continuations and statement
 /// separators, each already compiled by <c>vb6.exe</c> and its verdict recorded in <c>results.json</c>.
 /// This turns those recorded facts into a gate: parse every case with the interpreter's own grammar and
 /// compare.
@@ -52,7 +52,7 @@ public class CorpusConformanceTests
     /// </remarks>
     private static readonly Dictionary<string, string> KnownDivergences = new()
     {
-        // ===== FALSE REJECTIONS (11) — the damaging direction. =====
+        // ===== FALSE REJECTIONS (9) — the damaging direction. =====
 
         // STRING-CONTINUATION (3)
         //   A trailing underscore INSIDE a string literal. Measured but NOT understood: it continues the
@@ -62,12 +62,6 @@ public class CorpusConformanceTests
         ["continuation-basics/cont-inside-string-literal"] = "STRING-CONTINUATION",
         ["continuation-illegal/split-string-literal"] = "STRING-CONTINUATION",
         ["continuation-in-strings-comments/string-underscore-at-eol-unterminated"] = "STRING-CONTINUATION",
-
-        // LABEL-NAME (2)
-        //   A line label named after a keyword. `lineLabel` takes an `ambiguousIdentifier`, which does not
-        //   reach every reserved word, so `Error:` and friends are refused as labels.
-        ["separator-vs-label/label-named-reserved-word"] = "LABEL-NAME",
-        ["separator-vs-label/label-named-soft-keyword"] = "LABEL-NAME",
 
         // EMPTY-INLINE-IF-BODY (1)
         //   `If True Then:` with the body on the NEXT line. The colon commits VB6 to the single-line form
@@ -93,7 +87,7 @@ public class CorpusConformanceTests
         ["separator-with-declarations/hashconst-value-continued"] = "OTHER-REJECTION",
         ["whitespace-and-eol-edges/eof-mid-continuation-no-trailing-newline"] = "OTHER-REJECTION",
 
-        // ===== FALSE ACCEPTANCES (45) — the mild direction, newly gated. =====
+        // ===== FALSE ACCEPTANCES (47) — the mild direction. =====
 
         // UNDERSCORE-STARTS-AN-IDENTIFIER (12) — the largest lever in the corpus, and one character.
         //   A VB6 name may CONTAIN an underscore but may not BEGIN with one. `fragment LETTER` includes
@@ -142,7 +136,16 @@ public class CorpusConformanceTests
         ["rem-forms/bracketed-plain-identifier"] = "BRACKETED-IDENTIFIER-NOT-VB6",
         ["rem-forms/bracketed-reserved-word"] = "BRACKETED-IDENTIFIER-NOT-VB6",
 
-        // UNBOUND-PROCEDURE-NAME (6) — PERMANENT, and not a label defect at all.
+        // LABEL-OUTSIDE-A-PROCEDURE (1)
+        //   `Orphan:` at module level, between two procedures. A label is a procedure-scoped jump target,
+        //   so there is nowhere to jump from and vb6.exe refuses it outright: "Only comments may appear
+        //   after End Sub, End Function, or End Property". HexIDE's `moduleBody` reaches `block`, which
+        //   now carries the line-head, so it takes the label happily. A parser fix — the module body
+        //   wants a narrower element list than a procedure body — and unrelated to how labels work
+        //   INSIDE a procedure, which is what this change is about.
+        ["line-labels/label-at-module-level-between-procedures"] = "LABEL-OUTSIDE-A-PROCEDURE",
+
+        // UNBOUND-PROCEDURE-NAME (7) — PERMANENT, and not a label defect at all.
         //   A name-colon is a label only at the head of a logical line; anywhere else VB6 reads it as a
         //   bare procedure call and rejects it at BIND time ("Sub or Function not defined"). HexIDE
         //   produces the IDENTICAL parse — it agrees with VB6 about where labels are and registers none of
@@ -152,6 +155,11 @@ public class CorpusConformanceTests
         //   translation interpreter-core:40-42 prescribes; only the timing differs, and a parse-only gate
         //   can never see it. These entries will never be retired.
         ["gap-fill/two-labels-on-one-line"] = "UNBOUND-PROCEDURE-NAME",
+        // Measured directly, and it is what confirms the whole reading of this group: vb6.exe answers
+        // `z = 1:: Here: z = 2` with "Sub or Function not defined", not with a syntax error. VB6 is
+        // reading `Here` as a CALL, exactly as HexIDE does — the parses agree and only the timing of the
+        // complaint differs.
+        ["line-labels/label-after-a-double-colon"] = "UNBOUND-PROCEDURE-NAME",
         ["separator-basics/sep-label-mid-line-after-colon"] = "UNBOUND-PROCEDURE-NAME",
         ["separator-in-control-flow/label-in-the-middle-of-a-line"] = "UNBOUND-PROCEDURE-NAME",
         ["separator-vs-label/label-after-continuation-midline"] = "UNBOUND-PROCEDURE-NAME",

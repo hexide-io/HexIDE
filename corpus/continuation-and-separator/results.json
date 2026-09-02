@@ -3661,5 +3661,95 @@
     "Verdict": "resolved",
     "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
     "Why": "Rem specifically, because Rem is not an ordinary reserved word - it starts a comment lexically, and a comment rule keyed on the keyword will eat the closing bracket and the rest of the line whatever the brackets were meant to do. This is the case that decides whether a comment rule may be allowed to fire inside brackets. Genuinely unsure: `Dim Rem` is illegal, and whether the escape hatch reaches a lexical construct rather than merely a reserved name is exactly the sort of thing only the compiler knows."
+  },
+  {
+    "Key": "line-labels/line-number-then-named-label-same-line",
+    "Area": "line-labels",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "A numeric line number AND a named label heading the same line. The corpus establishes that each works alone and that two NAMED labels on one line are illegal, but never asks whether the two kinds can stack. It matters for the grammar shape: if this is legal the line head is a sequence, and if it is illegal the head is a choice of one."
+  },
+  {
+    "Key": "line-labels/named-label-then-line-number-same-line",
+    "Area": "line-labels",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 3 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "The same stack in the other order. Worth measuring separately because a line number is documented as a property of the line rather than a statement prefix, so the two orders are not obviously equivalent, and a grammar written for one would quietly accept the other."
+  },
+  {
+    "Key": "line-labels/label-after-a-double-colon",
+    "Area": "line-labels",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 2 : Sub or Function not defined Build of 'verify.exe' failed.",
+    "Why": "A label after a statement and an EMPTY statement. The corpus has the single-colon form (illegal), and the empty statement between is the plausible loophole - if a run of colons somehow re-opened the head position, this would be the shape that revealed it. Predicting illegal: a colon is a colon however many there are."
+  },
+  {
+    "Key": "line-labels/label-at-module-level-between-procedures",
+    "Area": "line-labels",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 4 : Only comments may appear after End Sub, End Function, or End Property Build of 'verify.exe' failed.",
+    "Why": "A label outside any procedure. Labels are procedure-scoped jump targets, so module level should have nowhere to jump from - but HexIDE's moduleBody reaches `block` and would accept it, and the grammar cannot tell the difference without being asked. Predicting illegal."
+  },
+  {
+    "Key": "line-labels/label-named-after-its-own-procedure",
+    "Area": "line-labels",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "A label sharing its name with the procedure that contains it. Labels and variables are already known to live in separate namespaces here (a label may shadow a variable, measured legal); whether that extends to procedure names is a different question, and the answer decides whether label collection may ignore the procedure table entirely."
+  },
+  {
+    "Key": "line-labels/two-labels-on-consecutive-lines",
+    "Area": "line-labels",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Two labels, each alone on its own line, both naming the same following statement. The illegal case is two labels on ONE line; this is the legal arrangement of the same intent, and it is what a line-head design must keep working when it stops allowing the other. Predicting legal."
+  },
+  {
+    "Key": "line-labels/goto-the-first-of-two-stacked-labels",
+    "Area": "line-labels",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The companion to the previous case, jumping to the FIRST of the pair rather than the second. Both must resolve to the same statement, which is the behaviour a head-collection routine has to implement - an unclaimed head carries forward rather than being overwritten."
+  },
+  {
+    "Key": "line-labels/label-then-a-block-if-opener-on-one-line",
+    "Area": "line-labels",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Already recorded legal in a parse-only case, but repeated here as an executable one because it is the arrangement most likely to break under a line-head restructure: the head is followed by a construct that spans lines rather than by a simple statement, so the head must attach to the multi-line statement and not to its first inner line."
+  },
+  {
+    "Key": "line-labels/label-immediately-before-a-loop-terminator",
+    "Area": "line-labels",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "A label sharing its line with `Next` - the loop-continue idiom, and the reason a label before a TERMINATOR matters as much as one before an opener. The corpus has label-before-End-If and label-before-End-Sub (both legal); `Next` is the one that also carries an expression after it, so it is not obviously the same."
+  },
+  {
+    "Key": "line-labels/label-with-a-tab-before-its-colon",
+    "Area": "line-labels",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The space-before-colon form is measured legal; this asks whether the whitespace admitted there is a space specifically or a whitespace run generally. Every other separator in this grammar turned out to be a run, and each time the one-character reading was the bug."
   }
 ]

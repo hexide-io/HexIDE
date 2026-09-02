@@ -1,0 +1,135 @@
+{
+  "area": "continuation-and-separator/line-labels",
+  "cases": [
+    {
+      "id": "line-number-then-named-label-same-line",
+      "scope": "statement",
+      "code": [
+        "GoTo 10",
+        "Debug.Print \"skipped\"",
+        "10 Skip: Debug.Print \"A\"",
+        "Debug.Print \"B\""
+      ],
+      "expect": "unsure",
+      "why": "A numeric line number AND a named label heading the same line. The corpus establishes that each works alone and that two NAMED labels on one line are illegal, but never asks whether the two kinds can stack. It matters for the grammar shape: if this is legal the line head is a sequence, and if it is illegal the head is a choice of one."
+    },
+    {
+      "id": "named-label-then-line-number-same-line",
+      "scope": "statement",
+      "code": [
+        "GoTo Skip",
+        "Debug.Print \"skipped\"",
+        "Skip: 10 Debug.Print \"A\"",
+        "Debug.Print \"B\""
+      ],
+      "expect": "unsure",
+      "why": "The same stack in the other order. Worth measuring separately because a line number is documented as a property of the line rather than a statement prefix, so the two orders are not obviously equivalent, and a grammar written for one would quietly accept the other."
+    },
+    {
+      "id": "label-after-a-double-colon",
+      "scope": "statement",
+      "code": [
+        "Dim z As Long",
+        "z = 1:: Here: z = 2",
+        "Debug.Print z"
+      ],
+      "expect": "illegal",
+      "why": "A label after a statement and an EMPTY statement. The corpus has the single-colon form (illegal), and the empty statement between is the plausible loophole - if a run of colons somehow re-opened the head position, this would be the shape that revealed it. Predicting illegal: a colon is a colon however many there are."
+    },
+    {
+      "id": "label-at-module-level-between-procedures",
+      "scope": "module",
+      "code": [
+        "Sub First()",
+        "    Debug.Print \"A\"",
+        "End Sub",
+        "",
+        "Orphan:",
+        "",
+        "Sub Main()",
+        "    First",
+        "End Sub"
+      ],
+      "expect": "illegal",
+      "why": "A label outside any procedure. Labels are procedure-scoped jump targets, so module level should have nowhere to jump from - but HexIDE's moduleBody reaches `block` and would accept it, and the grammar cannot tell the difference without being asked. Predicting illegal."
+    },
+    {
+      "id": "label-named-after-its-own-procedure",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "    GoTo Main",
+        "    Debug.Print \"skipped\"",
+        "Main: Debug.Print \"A\"",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "A label sharing its name with the procedure that contains it. Labels and variables are already known to live in separate namespaces here (a label may shadow a variable, measured legal); whether that extends to procedure names is a different question, and the answer decides whether label collection may ignore the procedure table entirely."
+    },
+    {
+      "id": "two-labels-on-consecutive-lines",
+      "scope": "statement",
+      "code": [
+        "GoTo Second",
+        "Debug.Print \"skipped\"",
+        "First:",
+        "Second:",
+        "Debug.Print \"A\""
+      ],
+      "expect": "legal",
+      "why": "Two labels, each alone on its own line, both naming the same following statement. The illegal case is two labels on ONE line; this is the legal arrangement of the same intent, and it is what a line-head design must keep working when it stops allowing the other. Predicting legal."
+    },
+    {
+      "id": "goto-the-first-of-two-stacked-labels",
+      "scope": "statement",
+      "code": [
+        "GoTo First",
+        "Debug.Print \"skipped\"",
+        "First:",
+        "Second:",
+        "Debug.Print \"A\""
+      ],
+      "expect": "legal",
+      "why": "The companion to the previous case, jumping to the FIRST of the pair rather than the second. Both must resolve to the same statement, which is the behaviour a head-collection routine has to implement - an unclaimed head carries forward rather than being overwritten."
+    },
+    {
+      "id": "label-then-a-block-if-opener-on-one-line",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "GoTo Chk",
+        "Debug.Print \"skipped\"",
+        "Chk: If True Then",
+        "    x = 1",
+        "End If",
+        "Debug.Print x"
+      ],
+      "expect": "legal",
+      "why": "Already recorded legal in a parse-only case, but repeated here as an executable one because it is the arrangement most likely to break under a line-head restructure: the head is followed by a construct that spans lines rather than by a simple statement, so the head must attach to the multi-line statement and not to its first inner line."
+    },
+    {
+      "id": "label-immediately-before-a-loop-terminator",
+      "scope": "statement",
+      "code": [
+        "Dim i As Long",
+        "For i = 1 To 3",
+        "    If i = 2 Then GoTo Cont",
+        "    Debug.Print i",
+        "Cont: Next i"
+      ],
+      "expect": "unsure",
+      "why": "A label sharing its line with `Next` - the loop-continue idiom, and the reason a label before a TERMINATOR matters as much as one before an opener. The corpus has label-before-End-If and label-before-End-Sub (both legal); `Next` is the one that also carries an expression after it, so it is not obviously the same."
+    },
+    {
+      "id": "label-with-a-tab-before-its-colon",
+      "scope": "statement",
+      "code": [
+        "GoTo Skip",
+        "Debug.Print \"skipped\"",
+        "Skip\t: Debug.Print \"A\""
+      ],
+      "expect": "legal",
+      "why": "The space-before-colon form is measured legal; this asks whether the whitespace admitted there is a space specifically or a whitespace run generally. Every other separator in this grammar turned out to be a run, and each time the one-character reading was the bug."
+    }
+  ]
+}
