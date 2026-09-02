@@ -40,8 +40,26 @@ public partial class VB6BuiltIns
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is bool bo) return bo ? -1 : 0;
         if (v.Type == VT.String)
-            return double.TryParse(AsStr(v).Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var sd)
+        {
+            var s = AsStr(v).Trim();
+            // `&H`/`&O` prefixed strings are numbers to VB6, everywhere a string is coerced — measured:
+            // CDbl("&H10") and Val("&H10") are both 16, `Dim i As Integer : i = "&H10"` stores 16, and
+            // "&O17" is 15. A trailing `&` (the Long type character) is allowed on the literal form. (#190)
+            if (s.Length > 2 && s[0] == '&' && (s[1] == 'H' || s[1] == 'h' || s[1] == 'O' || s[1] == 'o'))
+            {
+                var digits = s.Substring(2).TrimEnd('&');
+                try
+                {
+                    return Convert.ToInt64(digits, s[1] is 'H' or 'h' ? 16 : 8);
+                }
+                catch (Exception e) when (e is FormatException or OverflowException or ArgumentException)
+                {
+                    throw new VBRunTimeException(VBStandardError.TypeMismatch);
+                }
+            }
+            return double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var sd)
                 ? sd : throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        }
         if (Vb6Value.TryNumericToDouble(v, out var d)) return d;   // numeric + Date (via OA serial)
         throw new VBRunTimeException(VBStandardError.TypeMismatch);
     }

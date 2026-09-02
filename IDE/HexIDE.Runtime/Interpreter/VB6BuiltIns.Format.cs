@@ -24,7 +24,7 @@ public partial class VB6BuiltIns
     {
         if (a.Count < 1) throw InvalidCall();
         var v = a[0];
-        string fmt = a.Count >= 2 && a[1].Type != Vb6Value.ValueType.EmptyVariant ? AsStr(a[1]) : "";
+        string fmt = Supplied(a, 1) && a[1].Type != Vb6Value.ValueType.EmptyVariant ? AsStr(a[1]) : "";
 
         if (fmt.Length == 0)
             return new Vb6Value(GeneralNumberOrString(v));
