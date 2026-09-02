@@ -1700,6 +1700,51 @@ recognise it — so removing the underscore from the identifier start refuses tw
 illegal. One false acceptance bought for two false rejections is the wrong direction, and the honest
 record of it is worth more than a fix that traded badly.
 
+### Two asymmetries that were sitting in the corpus unread (2026-09-02)
+
+Both of these were measured months ago and recorded as pass/fail verdicts. Neither had ever been turned
+into a *rule*, which is the difference between a corpus and an oracle — and both were found only when the
+false-acceptance list was grouped by cause and someone had to say what each group actually was.
+
+**A continuation line of nothing but an underscore is legal if and only if it is indented.**
+
+| probe | verdict |
+|---|---|
+| `x = 1 + _` ⏎ `_` ⏎ `2` — the lone underscore in column 1 | **illegal** |
+| `x = 1 + _` ⏎ `  _` ⏎ `2` — the same file, indented two spaces | **legal** |
+
+Two files differing by two space characters. So the whitespace before the underscore is *literally
+required*, not merely how the documentation phrases it — and a continuation is genuinely
+whitespace-then-underscore-then-end-of-line, with no exemption at the start of a line.
+
+This is why the obvious repair for HexIDE's biggest remaining divergence does not work. `LETTER` includes
+`_`, so a lone `_` lexes as an identifier and `x = 1 +_` completes as arithmetic instead of failing —
+16 of the 43 false acceptances, one character. But removing `_` from the identifier start alone breaks the
+indented form, because `NEWLINE` (`WS? '\r'? '\n' WS?`) has already eaten the space that
+`LINE_CONTINUATION` (`[ \t]+ '_' …`) needs to recognise it. The two rules are arguing over the same
+whitespace, and until that is settled the fix trades one false acceptance for two false rejections.
+
+**A continuation is honoured in every declaration block except an Enum body.**
+
+| probe | verdict |
+|---|---|
+| `Private Type TPoint` / `X _` ⏎ `As Long` / `End Type` | legal |
+| `Private Declare Function GetTickCount _` ⏎ `Lib "kernel32" _` ⏎ `() As Long` | legal |
+| `Attribute VB_Name = _` ⏎ `"Mod1"` | legal |
+| `#Const DBG = _` ⏎ `1` | legal |
+| `Private Enum EColor` / `Red = _` ⏎ `3` / `End Enum` | **illegal** — *Invalid inside Enum* |
+
+The obvious guess is that continuations are lexical and therefore work everywhere. They do not, in exactly
+one declaration block, and the error message is specific enough (*"Invalid inside Enum"*, anchored on the
+member line) that it is clearly a rule rather than an accident. The inverse holds too: an Enum body accepts
+colon separators, and a Type body does not.
+
+**Recorded, and deliberately not implemented.** Matching it means a lexer mode pushed on `Enum` and popped
+on `End Enum` — context-sensitive lexing driven by parser state, for one measured shape. Guessing the
+rule's scope wide would turn a missing error into a false rejection of a whole module, which is the trade
+this project refuses. What is unmeasured is the scope: whether the restriction covers the whole Enum body
+or only a member's value expression, and whether the header line is affected. Two probes would settle it.
+
 ## Extending the oracle (future phases)
 
 Phase 3 (intrinsics) and beyond should verify, at minimum:
