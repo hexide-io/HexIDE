@@ -100,21 +100,21 @@ ELSE: 'ELSE';
 
 ELSEIF: 'ELSEIF';
 
-END_ENUM: 'END ENUM';
+END_ENUM: 'END' KWSEP 'ENUM';
 
-END_FUNCTION: 'END FUNCTION';
+END_FUNCTION: 'END' KWSEP 'FUNCTION';
 
-END_IF: 'END IF';
+END_IF: 'END' KWSEP 'IF';
 
-END_PROPERTY: 'END PROPERTY';
+END_PROPERTY: 'END' KWSEP 'PROPERTY';
 
-END_SELECT: 'END SELECT';
+END_SELECT: 'END' KWSEP 'SELECT';
 
-END_SUB: 'END SUB';
+END_SUB: 'END' KWSEP 'SUB';
 
-END_TYPE: 'END TYPE';
+END_TYPE: 'END' KWSEP 'TYPE';
 
-END_WITH: 'END WITH';
+END_WITH: 'END' KWSEP 'WITH';
 
 END: 'END';
 
@@ -132,15 +132,15 @@ ERROR: 'ERROR';
 
 EVENT: 'EVENT';
 
-EXIT_DO: 'EXIT DO';
+EXIT_DO: 'EXIT' KWSEP 'DO';
 
-EXIT_FOR: 'EXIT FOR';
+EXIT_FOR: 'EXIT' KWSEP 'FOR';
 
-EXIT_FUNCTION: 'EXIT FUNCTION';
+EXIT_FUNCTION: 'EXIT' KWSEP 'FUNCTION';
 
-EXIT_PROPERTY: 'EXIT PROPERTY';
+EXIT_PROPERTY: 'EXIT' KWSEP 'PROPERTY';
 
-EXIT_SUB: 'EXIT SUB';
+EXIT_SUB: 'EXIT' KWSEP 'SUB';
 
 FALSE: 'FALSE';
 
@@ -192,13 +192,13 @@ LIB: 'LIB';
 
 LIKE: 'LIKE';
 
-LINE_INPUT: 'LINE INPUT';
+LINE_INPUT: 'LINE' KWSEP 'INPUT';
 
-LOCK_READ: 'LOCK READ';
+LOCK_READ: 'LOCK' KWSEP 'READ';
 
-LOCK_WRITE: 'LOCK WRITE';
+LOCK_WRITE: 'LOCK' KWSEP 'WRITE';
 
-LOCK_READ_WRITE: 'LOCK READ WRITE';
+LOCK_READ_WRITE: 'LOCK' KWSEP 'READ' KWSEP 'WRITE';
 
 LSET: 'LSET';
 
@@ -208,7 +208,7 @@ MACRO_ELSEIF: HASH 'ELSEIF';
 
 MACRO_ELSE: HASH 'ELSE';
 
-MACRO_END_IF: HASH 'END IF';
+MACRO_END_IF: HASH 'END' KWSEP 'IF';
 
 ME: 'ME';
 
@@ -234,21 +234,21 @@ OBJECT: 'OBJECT';
 
 ON: 'ON';
 
-ON_ERROR: 'ON ERROR';
+ON_ERROR: 'ON' KWSEP 'ERROR';
 
-ON_LOCAL_ERROR: 'ON LOCAL ERROR';
+ON_LOCAL_ERROR: 'ON' KWSEP 'LOCAL' KWSEP 'ERROR';
 
 OPEN: 'OPEN';
 
 OPTIONAL: 'OPTIONAL';
 
-OPTION_BASE: 'OPTION BASE';
+OPTION_BASE: 'OPTION' KWSEP 'BASE';
 
-OPTION_EXPLICIT: 'OPTION EXPLICIT';
+OPTION_EXPLICIT: 'OPTION' KWSEP 'EXPLICIT';
 
-OPTION_COMPARE: 'OPTION COMPARE';
+OPTION_COMPARE: 'OPTION' KWSEP 'COMPARE';
 
-OPTION_PRIVATE_MODULE: 'OPTION PRIVATE MODULE';
+OPTION_PRIVATE_MODULE: 'OPTION' KWSEP 'PRIVATE' KWSEP 'MODULE';
 
 OR: 'OR';
 
@@ -262,11 +262,11 @@ PRINT: 'PRINT';
 
 PRIVATE: 'PRIVATE';
 
-PROPERTY_GET: 'PROPERTY GET';
+PROPERTY_GET: 'PROPERTY' KWSEP 'GET';
 
-PROPERTY_LET: 'PROPERTY LET';
+PROPERTY_LET: 'PROPERTY' KWSEP 'LET';
 
-PROPERTY_SET: 'PROPERTY SET';
+PROPERTY_SET: 'PROPERTY' KWSEP 'SET';
 
 PUBLIC: 'PUBLIC';
 
@@ -280,7 +280,7 @@ RAISEEVENT: 'RAISEEVENT';
 
 READ: 'READ';
 
-READ_WRITE: 'READ WRITE';
+READ_WRITE: 'READ' KWSEP 'WRITE';
 
 REDIM: 'REDIM';
 
@@ -471,12 +471,18 @@ IDENTIFIER: LETTER LETTERORDIGIT*;
 // interpreter refuses, or the reverse.
 LINE_CONTINUATION: [ \t]+ '_' [ \t]* '\r'? '\n' -> skip;
 
+// The separator INSIDE a multi-word keyword. Mirrored from the interpreter's grammar: a single literal
+// space refused both an aligning run of spaces and a line continuation between the two words, and
+// `End _` / `Sub` is legal VB6. A continuation cannot do the separating from outside, because by the
+// time the parser sees the tokens it has been skipped — so the keyword token has to absorb it itself.
+fragment KWSEP: ([ \t] | LINE_CONTINUATION)+;
+
 // A newline only. The colon alternative moved to the parser rule `blockSep` — see the note there. It
 // could not stay here: `COLON ' '` demanded a space after the colon, and widening it to a bare colon
 // consumes the token lineLabel needs to be a label at all.
 NEWLINE: WS? '\r'? '\n' WS?;
 
-COMMENT: WS? ('\'' | COLON? REM ' ') ( LINE_CONTINUATION | ~ ('\n' | '\r'))* -> skip;
+COMMENT: WS? ('\'' | COLON? REM KWSEP) ( LINE_CONTINUATION | ~ ('\n' | '\r'))* -> skip;
 
 WS: [ \t]+;
 

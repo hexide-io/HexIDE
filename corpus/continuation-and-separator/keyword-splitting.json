@@ -1,0 +1,143 @@
+{
+  "area": "continuation-and-separator/keyword-splitting",
+  "cases": [
+    {
+      "id": "for-each-split-by-continuation",
+      "scope": "statement",
+      "code": [
+        "Dim c",
+        "For _",
+        "Each c In Array(1, 2)",
+        "    Debug.Print c",
+        "Next c"
+      ],
+      "expect": "legal",
+      "why": "`For Each` is not one lexer token here - it is two keywords joined by a mandatory WS in the parser rule. A continuation is on the hidden channel, so the parser sees FOR and EACH adjacent with no WS between them and the rule cannot match. Predicting legal, on the same footing as End _ Sub: nothing in the reference distinguishes the multi-word keywords VB6 happens to lex as one token from the ones it assembles later, and a writer splitting a long For Each line has no way to know which kind they are dealing with."
+    },
+    {
+      "id": "resume-next-split-by-continuation",
+      "scope": "statement",
+      "code": [
+        "On Error Resume _",
+        "Next",
+        "Debug.Print CInt(\"x\")",
+        "Debug.Print \"survived\""
+      ],
+      "expect": "legal",
+      "why": "Same shape as For _ Each: RESUME and NEXT are joined by a parser-level WS, not lexed as one token. Worth measuring separately because Next is also a statement in its own right, so if VB6 rejected the split it might plausibly do so by reading the second line as a stray Next rather than as a syntax error - a different diagnostic, and a different fix."
+    },
+    {
+      "id": "select-case-split-by-continuation",
+      "scope": "statement",
+      "code": [
+        "Dim n As Long",
+        "n = 2",
+        "Select _",
+        "Case n",
+        "    Case 2",
+        "        Debug.Print \"two\"",
+        "End Select"
+      ],
+      "expect": "legal",
+      "why": "The third parser-assembled pair. Distinct from the other two because the very next line begins with Case, so a compiler that rejected the split would be choosing between 'Select is not a statement' and 'Case without Select' - and this file exists partly to find out which errors VB6 actually issues for the family."
+    },
+    {
+      "id": "lib-then-continuation-before-the-string",
+      "scope": "module",
+      "code": [
+        "Private Declare Function GetTickCount Lib _",
+        "  \"kernel32\" () As Long",
+        "",
+        "Sub Main()",
+        "    Debug.Print GetTickCount > 0",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "The keyword-then-literal shape, deliberately NOT relaxed in the grammar. Unlike two adjacent keywords, `Lib` and a string literal CAN abut in the token stream with nothing between them, so 'they are adjacent, therefore something hidden separated them' is not a valid argument here and the WS could not be made optional on reasoning alone. This case is what decides it. Predicting legal - a Declare line is long and splitting it before the library name is the obvious place."
+    },
+    {
+      "id": "lib-with-no-space-before-the-string",
+      "scope": "module",
+      "code": [
+        "Private Declare Function GetTickCount Lib\"kernel32\" () As Long",
+        "",
+        "Sub Main()",
+        "    Debug.Print GetTickCount > 0",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "The other half of the same question, and the reason the previous case cannot simply be waved through. If VB6 accepts `Lib\"kernel32\"` with no separator at all, then making the WS optional is faithful; if it rejects it, then WS? would be a real widening and the fix has to admit the continuation more narrowly. Genuinely unsure: VB6 is lax about whitespace in many places and strict in a few, and I know of no rule that predicts which this is."
+    },
+    {
+      "id": "alias-then-continuation-before-the-string",
+      "scope": "module",
+      "code": [
+        "Private Declare Function GetTick Lib \"kernel32\" Alias _",
+        "  \"GetTickCount\" () As Long",
+        "",
+        "Sub Main()",
+        "    Debug.Print GetTick > 0",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "Alias sits in the same rule as Lib and has the same keyword-then-literal shape. Measured separately rather than assumed to follow Lib, because the two are different tokens in different positions and this corpus has already been wrong once about a rule generalising across a rule boundary."
+    },
+    {
+      "id": "option-base-then-continuation-before-the-number",
+      "scope": "module",
+      "code": [
+        "Option Base _",
+        "  1",
+        "",
+        "Sub Main()",
+        "    Dim a(3) As Long",
+        "    Debug.Print LBound(a)",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "Keyword-then-numeric-literal, and a module-level directive rather than a statement. Unsure for a reason the other cases do not have: Option lines are read by the compiler's front end before much else, and directives are exactly the kind of construct that can turn out to be line-oriented in a way ordinary statements are not. If any member of this family is illegal, this is the one."
+    },
+    {
+      "id": "end-sub-split-with-a-comment-between",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "    Debug.Print \"ran\"",
+        "End _",
+        "    'a comment on the continued line",
+        "Sub"
+      ],
+      "expect": "illegal",
+      "why": "The boundary of the fix. A continuation is hidden from the parser, and so is a comment - so a grammar that admits hidden tokens between End and Sub would admit this too. Predicting illegal: VB6 does not allow a comment on a continued line at all (it ends the statement), so this should fail regardless of the keyword split. Included because if it turns out LEGAL, the keyword separator is not the whole story."
+    },
+    {
+      "id": "end-sub-split-across-a-blank-continued-line",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "    Debug.Print \"ran\"",
+        "End _",
+        "  _",
+        "Sub"
+      ],
+      "expect": "legal",
+      "why": "Two continuations in a row inside the keyword. The separator either accepts a run of them or it does not, and a run is what real reformatted code produces when a line is split twice. Predicting legal by the same reasoning as one continuation, but it is a distinct grammar path - the fragment has to repeat, not merely allow one."
+    },
+    {
+      "id": "exit-for-split-inside-a-single-line-if",
+      "scope": "statement",
+      "code": [
+        "Dim i As Long",
+        "Dim s As String",
+        "For i = 1 To 3",
+        "    If i = 2 Then Exit _",
+        "        For",
+        "    s = s & \"a\"",
+        "Next i",
+        "Debug.Print \"[\" & s & \"]\""
+      ],
+      "expect": "legal",
+      "why": "A split keyword inside a single-line If - the two constructs this corpus has already had to fix, interacting. The single-line If body ends at the newline, and the continuation is precisely a way of postponing that newline, so this asks whether the two agree about where the statement stops. Predicting legal, and predicting output [a]: the Exit For must still leave the loop."
+    }
+  ]
+}

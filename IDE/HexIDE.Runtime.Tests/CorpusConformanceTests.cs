@@ -8,7 +8,7 @@ namespace HexIDE.Runtime.Tests;
 /// Does HexIDE's grammar agree with real VB6 about what is legal?
 ///
 /// <para>
-/// The corpus under <c>/corpus</c> is 319 clean-room cases on line continuations and statement
+/// The corpus under <c>/corpus</c> is 329 clean-room cases on line continuations and statement
 /// separators, each already compiled by <c>vb6.exe</c> and its verdict recorded in <c>results.json</c>.
 /// This turns those recorded facts into a gate: parse every case with the interpreter's own grammar and
 /// compare.
@@ -39,33 +39,21 @@ public class CorpusConformanceTests
     /// so the list can only shrink deliberately.</summary>
     private static readonly Dictionary<string, string> KnownDivergences = new()
     {
-        // Grouped by CAUSE: five defects, not twenty-one. The list may only shrink, and never silently -
+        // Grouped by CAUSE: four defects, not fourteen. The list may only shrink, and never silently -
         // KnownDivergencesAreStillReal fails if an entry outlives the bug it describes.
         //
-        //  SPLIT-KEYWORD       The largest group now. VB6 lets a continuation split a MULTI-WORD keyword
-        //                      (End _ Sub, End _ If, Select _ Case, End _ Type). Those are single lexer
-        //                      tokens here - END_SUB, END_IF - so the continuation breaks them in half.
-        //                      Fixing it means matching the pair across the hidden-channel continuation
-        //                      rather than as one literal.
-        //  REM-FORM            COMMENT requires REM to be followed by a space, so a bare Rem, a Rem after a
-        //                      tab, and Rem followed by a colon are all refused.
+        //  REM-FORM            COMMENT requires REM to be followed by a separator, so a bare Rem and Rem
+        //                      followed immediately by a colon are still refused. (Rem-then-tab was fixed
+        //                      incidentally by the keyword separator, which COMMENT shares.)
         //  STRING-CONTINUATION A trailing underscore INSIDE a string. Measured but NOT understood - it
         //                      continues the line in a Debug.Print output list and not in an assignment.
         //                      Deliberately unimplemented: there is no rule here anyone can state.
         //  LABEL               What survived the label work: a label named after a keyword, and a numeric
         //                      label alone on its line (which needs the prefix to bind across a separator).
         //  OTHER               Individually caused; see each case's own why in the corpus.
-        ["continuation-basics/cont-splitting-end-sub"] = "SPLIT-KEYWORD",
-        ["continuation-illegal/continuation-splitting-end-sub"] = "SPLIT-KEYWORD",
-        ["continuation-vs-identifier/continuation-splits-end-sub"] = "SPLIT-KEYWORD",
-        ["gap-fill/end-if-split-by-continuation"] = "SPLIT-KEYWORD",
-        ["gap-fill/select-case-and-end-select-split-by-continuation"] = "SPLIT-KEYWORD",
-        ["separator-with-declarations/end-type-split-by-continuation"] = "SPLIT-KEYWORD",
-
         ["gap-fill/bare-rem-with-no-text"] = "REM-FORM",
         ["gap-fill/line-number-then-rem-without-a-colon"] = "REM-FORM",
         ["gap-fill/rem-immediately-followed-by-colon"] = "REM-FORM",
-        ["gap-fill/rem-separated-by-a-tab"] = "REM-FORM",
 
         ["continuation-basics/cont-inside-string-literal"] = "STRING-CONTINUATION",
         ["continuation-illegal/split-string-literal"] = "STRING-CONTINUATION",
