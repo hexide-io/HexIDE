@@ -60,11 +60,11 @@ moduleConfigElement
    ;
 
 moduleAttributes
-   : (attributeStmt NEWLINE +) +
+   : (attributeStmt blockSep) +
    ;
 
 moduleOptions
-   : (moduleOption NEWLINE +) +
+   : (moduleOption blockSep) +
    ;
 
 moduleOption
@@ -75,7 +75,7 @@ moduleOption
    ;
 
 moduleBody
-   : moduleBodyElement (NEWLINE + moduleBodyElement)*
+   : moduleBodyElement (blockSep moduleBodyElement)*
    ;
 
 moduleBodyElement
@@ -139,7 +139,21 @@ attributeStmt
    ;
 
 block
-   : (lineNumber WS?)? blockStmt (NEWLINE + WS? (lineNumber WS?)? blockStmt)*
+   : (lineNumber WS?)? blockStmt (blockSep (lineNumber WS?)? blockStmt)* blockSep?
+   ;
+
+// A statement separator: a newline, a colon, or any run of them.
+//
+// The colon USED to live in the NEWLINE lexer rule as `COLON ' '` — a colon counted only when a space
+// followed it. That rejected `a = 1:b = 2`, `a::b`, a trailing colon, a line of only colons, and a colon
+// before Else, all of which VB6 accepts and all of which are ordinary style. It cannot be fixed there:
+// widening NEWLINE to swallow a bare colon deletes the very token `lineLabel` needs, so a label would
+// stop being a label. Separating statements is a PARSER concern, so it moved here.
+//
+// The trailing `blockSep?` on `block` is what lets a body end on a separator — `Debug.Print 1:` and a
+// procedure whose whole body is a colon.
+blockSep
+   : (WS? (NEWLINE | COLON) WS?) +
    ;
 
 blockStmt
@@ -260,9 +274,9 @@ deleteSettingStmt
    ;
 
 doLoopStmt
-   : DO NEWLINE + (block NEWLINE +)? LOOP # doBlockLoop
-   | DO WS (WHILE | UNTIL) WS valueStmt NEWLINE + (block NEWLINE +)? LOOP # doWhileBlockLoop
-   | DO NEWLINE + (block NEWLINE +) LOOP WS (WHILE | UNTIL) WS valueStmt # doBlockWhileLoop
+   : DO blockSep (block blockSep)? LOOP # doBlockLoop
+   | DO WS (WHILE | UNTIL) WS valueStmt blockSep (block blockSep)? LOOP # doWhileBlockLoop
+   | DO blockSep (block blockSep) LOOP WS (WHILE | UNTIL) WS valueStmt # doBlockWhileLoop
    ;
 
 endStmt
@@ -270,11 +284,11 @@ endStmt
    ;
 
 enumerationStmt
-   : (publicPrivateVisibility WS)? ENUM WS ambiguousIdentifier NEWLINE + (enumerationStmt_Constant)* END_ENUM
+   : (publicPrivateVisibility WS)? ENUM WS ambiguousIdentifier blockSep (enumerationStmt_Constant)* END_ENUM
    ;
 
 enumerationStmt_Constant
-   : ambiguousIdentifier (WS? EQ WS? valueStmt)? NEWLINE +
+   : ambiguousIdentifier (WS? EQ WS? valueStmt)? blockSep
    ;
 
 eraseStmt
@@ -306,15 +320,15 @@ filecopyStmt
    ;
 
 forEachStmt
-   : FOR WS EACH WS ambiguousIdentifier typeHint? WS IN WS valueStmt NEWLINE + (block NEWLINE +)? NEXT (WS ambiguousIdentifier)?
+   : FOR WS EACH WS ambiguousIdentifier typeHint? WS IN WS valueStmt blockSep (block blockSep)? NEXT (WS ambiguousIdentifier)?
    ;
 
 forNextStmt
-   : FOR WS iCS_S_VariableOrProcedureCall typeHint? (WS asTypeClause)? WS? EQ WS? valueStmt WS TO WS valueStmt (WS STEP WS valueStmt)? NEWLINE + (block NEWLINE +)? NEXT (WS ambiguousIdentifier typeHint?)?
+   : FOR WS iCS_S_VariableOrProcedureCall typeHint? (WS asTypeClause)? WS? EQ WS? valueStmt WS TO WS valueStmt (WS STEP WS valueStmt)? blockSep (block blockSep)? NEXT (WS ambiguousIdentifier typeHint?)?
    ;
 
 functionStmt
-   : (visibility WS)? (STATIC WS)? FUNCTION WS ambiguousIdentifier (WS? argList)? (WS asTypeClause)? NEWLINE + (block NEWLINE +)? END_FUNCTION
+   : (visibility WS)? (STATIC WS)? FUNCTION WS ambiguousIdentifier (WS? argList)? (WS asTypeClause)? blockSep (block blockSep)? END_FUNCTION
    ;
 
 getStmt
@@ -335,7 +349,7 @@ ifThenElseStmt
    ;
 
 ifBlockStmt
-   : IF WS ifConditionStmt WS THEN NEWLINE + (block NEWLINE +)?
+   : IF WS ifConditionStmt WS THEN blockSep (block blockSep)?
    ;
 
 ifConditionStmt
@@ -343,11 +357,11 @@ ifConditionStmt
    ;
 
 ifElseIfBlockStmt
-   : ELSEIF WS ifConditionStmt WS THEN NEWLINE + (block NEWLINE +)?
+   : ELSEIF WS ifConditionStmt WS THEN blockSep (block blockSep)?
    ;
 
 ifElseBlockStmt
-   : ELSE NEWLINE + (block NEWLINE +)?
+   : ELSE blockSep (block blockSep)?
    ;
 
 implementsStmt
@@ -441,15 +455,15 @@ printStmt
    ;
 
 propertyGetStmt
-   : (visibility WS)? (STATIC WS)? PROPERTY_GET WS ambiguousIdentifier typeHint? (WS? argList)? (WS asTypeClause)? NEWLINE + (block NEWLINE +)? END_PROPERTY
+   : (visibility WS)? (STATIC WS)? PROPERTY_GET WS ambiguousIdentifier typeHint? (WS? argList)? (WS asTypeClause)? blockSep (block blockSep)? END_PROPERTY
    ;
 
 propertySetStmt
-   : (visibility WS)? (STATIC WS)? PROPERTY_SET WS ambiguousIdentifier (WS? argList)? NEWLINE + (block NEWLINE +)? END_PROPERTY
+   : (visibility WS)? (STATIC WS)? PROPERTY_SET WS ambiguousIdentifier (WS? argList)? blockSep (block blockSep)? END_PROPERTY
    ;
 
 propertyLetStmt
-   : (visibility WS)? (STATIC WS)? PROPERTY_LET WS ambiguousIdentifier (WS? argList)? NEWLINE + (block NEWLINE +)? END_PROPERTY
+   : (visibility WS)? (STATIC WS)? PROPERTY_LET WS ambiguousIdentifier (WS? argList)? blockSep (block blockSep)? END_PROPERTY
    ;
 
 putStmt
@@ -505,11 +519,11 @@ seekStmt
    ;
 
 selectCaseStmt
-   : SELECT WS CASE WS valueStmt NEWLINE + sC_Case* WS? END_SELECT
+   : SELECT WS CASE WS valueStmt blockSep sC_Case* WS? END_SELECT
    ;
 
 sC_Case
-   : CASE WS sC_Cond WS? (COLON? NEWLINE* | NEWLINE +) (block NEWLINE +)?
+   : CASE WS sC_Cond WS? (COLON? NEWLINE* | blockSep) (block blockSep)?
    ;
 
 // ELSE first, so that it is not interpreted as a variable call
@@ -541,7 +555,7 @@ stopStmt
    ;
 
 subStmt
-   : (visibility WS)? (STATIC WS)? SUB WS ambiguousIdentifier (WS? argList)? NEWLINE + (block NEWLINE +)? END_SUB
+   : (visibility WS)? (STATIC WS)? SUB WS ambiguousIdentifier (WS? argList)? blockSep (block blockSep)? END_SUB
    ;
 
 timeStmt
@@ -549,11 +563,11 @@ timeStmt
    ;
 
 typeStmt
-   : (visibility WS)? TYPE WS ambiguousIdentifier NEWLINE + (typeStmt_Element)* END_TYPE
+   : (visibility WS)? TYPE WS ambiguousIdentifier blockSep (typeStmt_Element)* END_TYPE
    ;
 
 typeStmt_Element
-   : ambiguousIdentifier (WS? LPAREN (WS? subscripts)? WS? RPAREN)? (WS asTypeClause)? NEWLINE +
+   : ambiguousIdentifier (WS? LPAREN (WS? subscripts)? WS? RPAREN)? (WS asTypeClause)? blockSep
    ;
 
 typeOfStmt
@@ -616,7 +630,7 @@ variableSubStmt
    ;
 
 whileWendStmt
-   : WHILE WS valueStmt NEWLINE + block* NEWLINE* WEND
+   : WHILE WS valueStmt blockSep block* NEWLINE* WEND
    ;
 
 widthStmt
@@ -624,7 +638,7 @@ widthStmt
    ;
 
 withStmt
-   : WITH WS (NEW WS)? implicitCallStmt_InStmt NEWLINE + (block NEWLINE +)? END_WITH
+   : WITH WS (NEW WS)? implicitCallStmt_InStmt blockSep (block blockSep)? END_WITH
    ;
 
 writeStmt
@@ -2105,8 +2119,11 @@ LINE_CONTINUATION
    ;
 
 
+// A newline only. The colon alternative moved to the parser rule `blockSep` — see the note there for
+// why it could not stay: `COLON ' '` required a space after the colon, and widening it to a bare colon
+// would consume the token `lineLabel` needs to be a label at all.
 NEWLINE
-   : WS? ('\r'? '\n' | COLON ' ') WS?
+   : WS? '\r'? '\n' WS?
    ;
 
 

@@ -467,7 +467,10 @@ IDENTIFIER: LETTER LETTERORDIGIT*;
 // interpreter refuses, or the reverse.
 LINE_CONTINUATION: [ \t]+ '_' [ \t]* '\r'? '\n' -> skip;
 
-NEWLINE: WS? ('\r'? '\n' | COLON ' ') WS?;
+// A newline only. The colon alternative moved to the parser rule `blockSep` — see the note there. It
+// could not stay here: `COLON ' '` demanded a space after the colon, and widening it to a bare colon
+// consumes the token lineLabel needs to be a label at all.
+NEWLINE: WS? '\r'? '\n' WS?;
 
 COMMENT: WS? ('\'' | COLON? REM ' ') ( LINE_CONTINUATION | ~ ('\n' | '\r'))* -> skip;
 
