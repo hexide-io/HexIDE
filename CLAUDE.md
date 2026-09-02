@@ -245,6 +245,25 @@ What it still refuses, for the same reason rather than a different one: the line
 `Return` / `On expr GoTo` and nested-granular `Resume` are deferred pending. A control-flow graph relates
 statements to each other; it is a map of the program, not a lookup for the walk.
 
+**The interpreter is an APPROXIMATION, not a reimplementation.** If a program is valid VB6 and can be made
+to run, running it beats refusing it — even at a different evaluation point, even with an error raised later
+than VB6 would raise it, even where a diagnostic VB6 gives at compile time can only be given here as the
+statement executes. `interpreter-core:40-42` already prescribes that translation: same error number, at run
+time rather than before it.
+
+So a construct is walled only when it cannot be **executed** — never merely because it cannot be
+**validated the way VB6 validates it**. That distinction is what nine entries in `interpreter-gaps.md` got
+wrong: a compile-time check that genuinely needs binding was taken to wall the whole feature, when the
+feature itself was a runtime lookup. Interface conformance is the clearest case — the check needs binding
+only if you insist on making it *before* the program runs; after a class is instantiated, comparing two
+already-collected member tables is ordinary execution. VB6's own COM substrate asks this question at
+runtime, via `QueryInterface`.
+
+**The guardrail, and it is not negotiable:** this licenses approximating *when and how an error surfaces*.
+It never licenses approximating a **result**. A wrong answer that runs is worse than a clean refusal — that
+is the whole of `docs/serialization-outcomes.md`, and it applies here identically. Late error: acceptable.
+Missing error on a path never taken: acceptable, and documented. Wrong value: never.
+
 **Three limits, not one — do not conflate them.** The CST/AST line is only one of the things that bounds
 this interpreter, and filing everything under it is how `interpreter-gaps.md` came to have nine deferrals
 sitting in its "Walled off (by design)" section, `GoSub` and `Implements` justified identically when
