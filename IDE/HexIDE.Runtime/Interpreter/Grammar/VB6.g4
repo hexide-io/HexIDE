@@ -343,8 +343,21 @@ goToStmt
    : GOTO WS valueStmt
    ;
 
+// One branch of a SINGLE-LINE If: a colon-joined run of statements, all of which belong to the branch.
+//
+// Measured, because the naive reading is wrong and wrong in the dangerous direction. In
+// `If False Then A : B` VB6 runs NEITHER statement — the whole joined tail is the Then branch, not just
+// the first. Treating B as unconditional would silently execute code the program said not to.
+//
+// A colon may also sit immediately before Else (`If c Then A : Else B`), so the trailing statement after a
+// colon is optional. Newlines are deliberately NOT accepted here: that is what separates the single-line
+// form from the block form.
+inlineIfBody
+   : (WS? COLON WS?)* blockStmt (WS? COLON (WS? blockStmt)?)*
+   ;
+
 ifThenElseStmt
-   : IF WS ifConditionStmt WS THEN WS blockStmt (WS ELSE WS blockStmt)? # inlineIfThenElse
+   : IF WS ifConditionStmt WS THEN WS inlineIfBody (WS? ELSE WS inlineIfBody)? # inlineIfThenElse
    | ifBlockStmt ifElseIfBlockStmt* ifElseBlockStmt? END_IF # blockIfThenElse
    ;
 

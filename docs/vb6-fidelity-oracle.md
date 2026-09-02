@@ -1513,6 +1513,26 @@ Both symptoms presented as surprising VB6 behaviour in the direction the author 
 the most dangerous shape an error can take. Check that a suspicious cluster shares a compiler *message*
 before believing it shares a *cause*.
 
+### The single-line If: where a colon-joined tail belongs (2026-09-02)
+
+The question the conformance corpus was built to ask, and the one a legality oracle cannot answer — the
+line compiles either way, so only running it says what it means.
+
+| probe | measured |
+|---|---|
+| `If False Then A : B` | **`[]`** — NEITHER runs. The whole joined tail is the Then branch. |
+| `If True Then A : B` | `[AB]` — the whole tail runs, in order |
+| `If False Then A : B Else C` | `[C]` — Else binds to the If, after the entire tail |
+| `If False Then A : Else C` | `[C]` — a colon may sit immediately before Else |
+
+**The intuitive reading is wrong, and wrong in the dangerous direction.** Treating the tail as
+unconditional would silently execute code the program said not to — no error, nothing to debug from. It
+is the same harm shape as the silent-failure class closed in #191, arrived at from a completely different
+direction.
+
+A consequence worth stating for implementers: because the branch is a run of statements rather than one,
+control leaving it must stop the rest. `If i = 2 Then Exit For : s = s & "X"` must not append.
+
 ## Extending the oracle (future phases)
 
 Phase 3 (intrinsics) and beyond should verify, at minimum:

@@ -775,20 +775,27 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     public override async Task<ControlFlow> VisitInlineIfThenElse(VB6Parser.InlineIfThenElseContext context)
     {
         var condition = await expressionExecutor.EvaluateValue(context.ifConditionStmt());
-        if (TryUnpack(condition, out bool conditionMet))
-        {
-            if (conditionMet)
-                return await Visit(context.blockStmt(0));
-            else
-            {
-                if (context.blockStmt(1) is { } @else)
-                    return await Visit(@else);
-            }
-
-            return ControlFlow.Nothing;
-        }
-        else
+        if (!TryUnpack(condition, out bool conditionMet))
             throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
+
+        // A branch is a colon-joined RUN of statements, not one statement. Measured: `If False Then A : B`
+        // runs neither — the whole tail belongs to the Then. Running only the first and letting the rest
+        // fall through would silently execute code the program said not to.
+        var branch = conditionMet ? context.inlineIfBody(0) : context.inlineIfBody(1);
+        return branch is null ? ControlFlow.Nothing : await RunInlineBranch(branch);
+    }
+
+    /// <summary>Run every statement of one single-line-If branch, stopping the moment control leaves it —
+    /// an `Exit For` or a `GoTo` inside a joined tail must not let the statements after it run.</summary>
+    private async Task<ControlFlow> RunInlineBranch(VB6Parser.InlineIfBodyContext body)
+    {
+        foreach (var stmt in body.blockStmt())
+        {
+            var flow = await Visit(stmt);
+            if (flow != ControlFlow.Nothing)
+                return flow;
+        }
+        return ControlFlow.Nothing;
     }
 
     public override Task<ControlFlow> VisitImplementsStmt(VB6Parser.ImplementsStmtContext context)
