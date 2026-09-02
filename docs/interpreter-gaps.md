@@ -178,8 +178,7 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   example has eight members and every one is `&H…&`, so every one throws today. Colour and bit-flag enums
   are ordinary VB6. `ClassifyRadixLiteral` (`ExpressionExecutor.cs:389`) already parses `&H`/`&O`,
   oracle-pinned.
-- **Multi-level qualified member access** (`Module1.Something.Field`) — one arity guard
-  (`ExpressionExecutor.cs:631-632`); the same fold already runs for local roots. Sibling of #173.
+- ~~**Multi-level qualified member access**~~ — **READS FIXED 2026-09-02 (#173)**. A module qualifier is simply the first step of an ordinary chain; measured to four levels (`Module1.p.In1.Z`). Folded through the same `ResolveMemberChain` as unqualified chains — they were only ever different in the KIND of the first step. **Chained assignment (`a.b.c = 5`) is still refused**: the prefix may resolve to a UDT, which is a value type, so whether the write reaches its owner is an aliasing question with its own tests to write.
 - **Parameterized `Property Get`/`Let`/`Set`** — the method branch resolves arguments at
   `ExpressionExecutor.cs:503`; the property branch detects them and throws eight lines later at `:510-511`,
   then passes `[]`. Same receiver, same `RunProcedure`. The carve-out "Collection.Item the only exception"
