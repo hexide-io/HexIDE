@@ -685,7 +685,7 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `IsNull` | Supported | Registered: new Vb6Value(a[0].Type == VT.Null). Tested: IsNull(Null)=True, IsNull(Empty)=False, IsNull(0)=False (InspectionFunctionsTests.cs), matching the oracle's "IsNull(Empty)=False". | VB6BuiltIns.Inspection.cs |
 | `IsNumeric` | Supported | Registered; IsNumericValue reports numerics, Boolean, Empty and Color as True, Date/Null/objects/arrays as False, and strings via IsNumericString (&H/&O literals, thousands separators… | VB6BuiltIns.Inspection.cs |
 | `IsObject` | Supported | Registered; IsObjectValue is True for VT.Control, VT.CSharpProxyObject, VT.Nothing and VT.Object — so IsObject(Nothing)=True as the oracle requires. Tested (False case) at… | VB6BuiltIns.Inspection.cs |
-| `VarType` | Supported | Registered: new Vb6Value(TypeInfo(a[0]).code) returning an Integer. Full VbVarType map at VB6BuiltIns.Inspection.cs (vbEmpty 0, vbNull 1, vbInteger 2, vbLong 3, vbSingle 4, vbDouble 5… | VB6BuiltIns.Inspection.cs |
+| `VarType` | Supported | **Fixed by #193** — returned an Integer, VB6 returns Long. Registered: new Vb6Value((long)TypeInfo(a[0]).code). Full VbVarType map at VB6BuiltIns.Inspection.cs (vbEmpty 0, vbNull 1, vbInteger 2, vbLong 3, vbSingle 4, vbDouble 5… | VB6BuiltIns.Inspection.cs |
 
 **interaction** (22)
 

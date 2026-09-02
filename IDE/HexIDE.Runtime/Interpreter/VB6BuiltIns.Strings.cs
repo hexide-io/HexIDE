@@ -15,7 +15,7 @@ public partial class VB6BuiltIns
         d["Left"]       = (_, a, _) => NullOrStr(a[0], s => Left(s, AsInt(a[1])));
         d["Right"]      = (_, a, _) => NullOrStr(a[0], s => Right(s, AsInt(a[1])));
         d["Mid"]        = (_, a, _) => NullOrStr(a[0], s => Mid(s, AsInt(a[1]), Supplied(a, 2) ? AsInt(a[2]) : (int?)null));
-        d["Len"]        = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(AsStr(a[0]).Length);
+        d["Len"]        = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value((long)AsStr(a[0]).Length);   // Long — see InStr
         d["InStr"]      = (_, a, _) => InStr(a);
         d["InStrRev"]   = (_, a, _) => InStrRev(a);
         d["Replace"]    = (_, a, _) => new Vb6Value(Replace(a));
@@ -79,6 +79,11 @@ public partial class VB6BuiltIns
         return new Vb6Value(new string(chars));
     }
 
+    // Long, NOT the magnitude rule. These have a FIXED declared return type in VB6 — measured:
+    // Len, InStr, InStrRev, LBound, UBound, DateDiff and VarType are Long however small the answer
+    // is, while Asc, Sgn, DatePart and the date parts really are Integer. Building the result from an
+    // `int` runs it through Vb6Value(int)'s magnitude rule, which reports anything fitting Int16 as an
+    // Integer — right for an arithmetic literal, wrong for a function with a declared return type. (#193)
     private static Vb6Value InStr(IReadOnlyList<Vb6Value> a)
     {
         // InStr([start,] string1, string2[, compare]). A leading numeric start is present only with 3+ args.
@@ -88,9 +93,9 @@ public partial class VB6BuiltIns
         if (a[i].IsNull || a[i + 1].IsNull) return Vb6Value.Null;
         if (start < 1) throw InvalidCall();
         string s1 = AsStr(a[i]), s2 = AsStr(a[i + 1]);
-        if (start > s1.Length) return new Vb6Value(0);
+        if (start > s1.Length) return new Vb6Value(0L);
         var cmp = compare == 1 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        return new Vb6Value(s1.IndexOf(s2, start - 1, cmp) + 1);   // 1-based; 0 when not found
+        return new Vb6Value((long)s1.IndexOf(s2, start - 1, cmp) + 1);   // 1-based; 0 when not found
     }
 
     private static Vb6Value InStrRev(IReadOnlyList<Vb6Value> a)
@@ -102,8 +107,8 @@ public partial class VB6BuiltIns
         int compare = Supplied(a, 3) ? AsInt(a[3]) : 0;
         var cmp = compare == 1 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         int from = start < 0 ? s1.Length - 1 : Math.Min(start - 1, s1.Length - 1);
-        if (from < 0 || s1.Length == 0) return new Vb6Value(s2.Length == 0 ? 0 : 0);
-        return new Vb6Value(s1.LastIndexOf(s2, from, cmp) + 1);
+        if (from < 0 || s1.Length == 0) return new Vb6Value(0L);
+        return new Vb6Value((long)s1.LastIndexOf(s2, from, cmp) + 1);
     }
 
     private static string Replace(IReadOnlyList<Vb6Value> a)

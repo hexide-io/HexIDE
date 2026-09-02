@@ -30,7 +30,8 @@ public partial class VB6BuiltIns
         // indexing bounds[dimension-1] directly would throw an ArgumentOutOfRangeException that On Error can't trap.
         if (dimension < 1 || dimension > array.Rank)
             throw new VBRunTimeException(VBStandardError.SubscriptOutOfRange);
-        return new Vb6Value(upper ? array.UpperBound(dimension) : array.LowerBound(dimension));
+        // Long, not the magnitude rule — LBound/UBound have a fixed declared return type. See InStr. (#193)
+        return new Vb6Value((long)(upper ? array.UpperBound(dimension) : array.LowerBound(dimension)));
     }
 
     // Builds a 0-based 1-D array from items. Empty items -> bounds (0,-1), matching VB6's empty-array result.

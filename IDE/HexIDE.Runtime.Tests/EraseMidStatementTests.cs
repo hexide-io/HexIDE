@@ -67,7 +67,8 @@ public class EraseMidStatementTests : BaseVBTestFixture
     public async Task Erase_FixedArray_KeepsBounds_ResetsElements()
     {
         await Run("Dim fx(3) As Integer\nfx(1) = 9\nErase fx\nDebug.Print fx(1)\nDebug.Print UBound(fx)\nDebug.Print LBound(fx)\n");
-        AssertDebugLog([new Vb6Value(0), new Vb6Value(3), new Vb6Value(0)]);
+        // The element is Integer (a Dim ... As Integer); the two bounds are Long (#193).
+        AssertDebugLog([new Vb6Value(0), new Vb6Value(3L), new Vb6Value(0L)]);
     }
 
     [Fact]
