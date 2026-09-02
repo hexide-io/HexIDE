@@ -69,6 +69,13 @@ param(
     [Parameter(ParameterSetName = 'Path', Mandatory)]
     [string] $Path,
 
+    # Lines for the module's DECLARATIONS section, before Sub Main. Replaces the default
+    # `Option Explicit` — pass it yourself if you want it. This is how a directive that is not an
+    # expression gets probed at all: Option Base, Option Compare, DefInt/DefStr, module-level Const.
+    # DefType in particular CANNOT be measured with Option Explicit on, because it is a rule about
+    # undeclared variables.
+    [string[]] $Declarations,
+
     [switch] $Local,
     [string] $VMName = 'Win10',
     [string] $CredentialPath = (Join-Path $env:USERPROFILE '.hexide\win10.cred'),
@@ -122,7 +129,11 @@ end {
 
     $sb = [System.Text.StringBuilder]::new()
     [void]$sb.AppendLine('Attribute VB_Name = "Module1"')
-    [void]$sb.AppendLine('Option Explicit')
+    if ($Declarations) {
+        foreach ($d in $Declarations) { [void]$sb.AppendLine($d) }
+    } else {
+        [void]$sb.AppendLine('Option Explicit')
+    }
     [void]$sb.AppendLine('')
     # Value and type in one line, or the error number if VB6 raised. Variant `v` so the probe never
     # imposes a type of its own — the whole point is to observe the type VB6 chose.

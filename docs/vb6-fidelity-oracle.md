@@ -1135,6 +1135,40 @@ mismatch on Null, unchanged, and the rule is left to the Null-propagation work t
 
 `True And 2` is **2** (Integer), not `True`. `True` is -1, so `-1 And 2` = 2. `And` never becomes a logical
 short-circuit operator: `True And True` is `True` only because `-1 And -1` is `-1`.
+## DefType — default typing by first letter (2026-09-02, #169)
+
+Measured with `scripts/vb6-oracle.ps1 -Declarations`, which this work added: `DefType` is a declarations-
+section directive, so it cannot be probed as an expression, and it **cannot be measured with
+`Option Explicit` on at all** — it is a rule about undeclared variables.
+
+| probe (under `DefInt A-M`) | result | rule |
+|---|---|---|
+| `TypeName(apple)` | `Integer` | first letter in range |
+| `TypeName(mango)` | `Integer` | range is **inclusive at both ends** |
+| `TypeName(zebra)` | `Empty` | outside the range: an ordinary Variant |
+| `Dim explicitVar As String` | `String` | an explicit `Dim` **overrides** the directive |
+| `kilos$ = "text"` | `String` | a **type suffix overrides** it too |
+| `quantity = 2.6` | **3**, `Integer` | coerces on store, exactly like `Dim x As Integer` |
+| `amount = 2.5` | **2** | half-to-even, as everywhere else in VB6 |
+
+### Overlapping ranges are a compile error
+
+`DefInt A-M` followed by `DefStr A-C` does **not** resolve by last-wins or first-wins. `vb6.exe` refuses
+the module:
+
+```
+Compile Error in File 'Module1.bas', Line 1 : Duplicate Deftype statement
+```
+
+Discovered by a probe that was trying to measure precedence and could not compile — which is the answer.
+Any letter covered by two directives is rejected before the program runs, so an interpreter never has to
+decide which wins.
+
+### Why this is a lookup and not a map
+
+The whole implementation is a letter-range → type table consulted when an undeclared variable is created.
+No relationship between symbols appears anywhere in it, which is why it sits inside the pre-pass boundary
+in `CLAUDE.md` rather than against it.
 
 ## Extending the oracle (future phases)
 
