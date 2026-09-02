@@ -23,11 +23,18 @@
 in the 2026-08-10 doc-debt sweep)* were silent, undocumented omissions — statements/operators/intrinsics that threw
 `NotImplementedException` (or misrouted) with no wall/deferral note. The spec's "every wall is documented" rule now
 holds. **Deferred** are acknowledged backlog items on the post-launch fidelity roadmap — intended eventually, not
-walled. **Walled off** are principled, by-design permanent boundaries (the RDC/TB line) — mostly the object-model /
-default-member / multi-dot surface that requires a bound AST. **Partial** work for a real subset but fail on specific
+walled. **Walled off** are principled, by-design permanent boundaries (the RDC/TB line) — each one *relates two
+symbols without executing them*, which is binding, which is the AST. **Platform limits** are real and hard but
+are NOT that boundary — COM/OLE is in scope and Windows-gated, per CLAUDE.md. **Partial** work for a real subset but fail on specific
 paths. **Other: 0.**
 
-Counts — Missed: **0** (was 15; cleared 2026-08-10 — 5 implemented, 9 → Deferred, 2 → Walled) · Deferred: 26 · Walled: 13 · Partial: 12 · Other: 0.
+Counts — Missed: **0** (was 15; cleared 2026-08-10) · Deferred: 26 **+ 9 reclassified** · Walled: **5** (was 13) ·
+Platform: 4 · Partial: 12 · Other: 0.
+
+> **The Walled count fell from 13 to 5 on 2026-09-02**, not because anything was implemented but because the
+> section was audited entry by entry against the code and the documents it cited. Nine entries were
+> deferrals or platform limits wearing a wall's label, and roughly nineteen of its thirty citations pointed
+> past end-of-file or at sections that exist in no file. See the note at the head of that section.
 
 ## Missed — CLEARED (2026-08-10 doc-debt sweep)
 
@@ -111,17 +118,96 @@ _Original per-item findings (retained for detail; dispositions above supersede t
 
 ## Walled off (by design)
 
-- **LSet / RSet** — LSet-between-UDTs is an explicit Phase-2 wall, and the string-justify forms exist mainly to pad fixed-length strings (also walled). interpreter-advanced Phase-2 Walls (bare string form not named verbatim).
-- **Bang / dictionary-call access** (`obj!key`) — rides on default parameterized members (VB_UserMemId=0), rejected in the boundary map; all paths throw by design. interpreter-advanced Walls (216-217,389), ROADMAP (283-287).
-- **Multi-dot object member chains** (`obj.a.b`) — single-dot by design; VB6 composes the dot operator freely. Boundary map "not a backlog": interpreter-advanced:107,391; ROADMAP:199,285.
-- **Multi-level qualified member access** (`Module1.Something.Field`) — single-dot only (UDT field-chain from a local root the sole lifted exception); code comment calls it "the deferred general member-chain wall" (ExpressionExecutor.cs:522-525). interpreter-advanced:107,391; interpreter-core:428/446; ROADMAP:285.
-- **Default-property dereference / VB_UserMemId=0** (`s = txtBox`, `If obj = 5`) — permanent wall; only Collection gets a hard-coded default member. interpreter-advanced Phase-4 Walls (216) + boundary map (389); Collection.Item exception (368-374).
-- **Parameterized Property Get/Let/Set** (`obj.Item(1)`, `obj.Item(i)=x`) — principled wall, Collection.Item the only exception; VB6 allows arglist on Property statements. interpreter-advanced Walls (~216)/boundary (~389), ROADMAP (~284).
-- **Fixed-length strings** (`Dim s As String * n`, incl. UDT fields) — throws deliberately at all three sites; VB6 space-pads/truncates 1–65,526-char fixed strings. interpreter-advanced Phase-2 Walls (138) + boundary map (393); ROADMAP:184,285.
-- **Array fields inside a UDT, and arrays OF a UDT** (`Dim a(5) As Employee`) — VB6 allows both with per-element value semantics. Boundary map "not a backlog": interpreter-advanced Phase-2 Walls (138) + 393. (Nit: arrays-of-UDT leg fails silently at first element access rather than a clean Dim-time wall error.)
-- **Enum members with non-literal values** (hex, expressions, refs to prior members) — PrePass.cs:177-181 handles only decimal literals + auto-increment, else throws; VB6 accepts any constant Long expression. interpreter-advanced Phase-2 Walls.
-- **Private Type / Private Enum module scoping** — PrePass.cs:20-22 ignores visibility; all Types/Enums aggregate into one program-wide table (BasicInterpreter.cs:235-241); VB6 restricts a Private Type to its module. interpreter-advanced:140, ROADMAP:184-185.
-- **Object-model class features** (As New / With New auto-instantiation, Implements/interfaces, Friend, instancing modes, Set type-enforcement, New with qualified class name) — VB6 supports all; the demonstrator ends here (needs bound AST). interpreter-advanced Phase-3 Walls (173-174,180) + boundary map (385,391,394-397); With-New at 219,283; Friend-as-Public at ProcedureModel.cs:18.
+> **Audited 2026-09-02.** Every entry in this section was re-checked against the code it describes and the
+> documents it cited. **Nine of the eleven former entries were not walls** — they were deferrals, or
+> platform limits, filed here because a walled *diagnostic* inside them was taken to justify walling the
+> whole feature. They have moved to **Deferred** and to **Platform limits** below.
+>
+> The citations were worse than the classifications: of roughly thirty, **two were exact**, three pointed at
+> the wrong line, and about nineteen pointed past end-of-file or named sections that exist nowhere —
+> `interpreter-advanced/spec.md` is 164 lines and was cited at 173, 180, 216, 219, 283, 287, 385, 389, 391,
+> 393 and 394-397. `"Phase-2 Walls"`, `"Phase-3 Walls"` and `"Phase-4 Walls"` appear in **no file but this
+> one**. The August OpenSpec migration rewrote the documents and the line numbers were never updated, so the
+> section's whole justification apparatus referred to a filing system that no longer exists.
+>
+> The definition in this file's preamble was never the problem. Applied honestly, it evicts most of what was
+> here.
+
+What remains are boundaries in the real sense: each **relates two symbols without executing them**, which is
+binding, which is the AST. Note the shape they share — in every case the *construct* is buildable and only
+the *compile-time diagnostic* is walled. `interpreter-core:40-42` already prescribes the in-bounds
+translation: raise VB6's error number at run time instead of before it.
+
+- **Exposing a `Private Type` through a `Public` signature** — VB6 rejects at compile time a `Public`
+  procedure whose parameter or return type is a `Private Type`. Deciding it means binding a signature to a
+  declaration in another module without running either. The clearest true wall here.
+- **`Property Let`/`Set` agreeing with `Property Get`** — VB6 checks the accessors' parameter lists match.
+  Relates two declarations to each other; needs neither to execute.
+- **Interface conformance** (`Implements IFoo`) — does the class supply every member of the interface?
+  Whole-type comparison, statically. The `Implements` *construct* is a deferral (see below); only this check
+  is walled.
+- **`LSet` between UDTs containing strings, objects or Variants** — VB6 refuses at compile time. The
+  layout-compatibility judgement is static; `LSet` itself is a deferral.
+- **Default members of third-party COM types** — see Platform limits; the marker lives in a type library, not
+  in any source HexIDE parsed. (For a `.cls` HexIDE *did* parse, collecting it is permitted — #174.)
+
+## Platform limits (COM / OS / type libraries)
+
+Real, hard, and **not** the language-analysis boundary. `CLAUDE.md` is explicit that COM/OLE is *"not
+excluded — it is in scope but Windows-gated"*, so filing these as CST-vs-AST walls misdescribed them and
+made them look permanent in a way they are not.
+
+- **`CreateObject` / `GetObject`, library-qualified `New`** (`New Excel.Application`) — needs COM activation.
+- **Default members and bang access on a COM receiver** (`rs!Field` on an ADO Recordset) — the default member
+  is declared in a type library. The same syntax over a HexIDE-parsed class is a deferral (#174, #173).
+- **COM-visible class instancing** (`VB_Creatable`, `VB_Exposed`, `VB_GlobalNameSpace`) — meaningful only to
+  external COM clients. `VB_PredeclaredId` is **not** in this group: it is a marker in the class's own
+  header, so collecting it is permitted, and it is how `Form1.Show` works without `New`.
+- **OS automation** — `AppActivate`, `SendKeys`.
+
+### Reclassified out of this section (2026-09-02)
+
+Now **Deferred**, with the real work named. None needs a bound AST; each is unimplemented, awkward or costly.
+
+- **Enum members with non-literal values** — the entire restriction is one `long.TryParse` on text
+  (`PrePass.cs:189-190`), holding the CST node it declines to evaluate. Microsoft's own canonical `Enum`
+  example has eight members and every one is `&H…&`, so every one throws today. Colour and bit-flag enums
+  are ordinary VB6. `ClassifyRadixLiteral` (`ExpressionExecutor.cs:389`) already parses `&H`/`&O`,
+  oracle-pinned.
+- **Multi-level qualified member access** (`Module1.Something.Field`) — one arity guard
+  (`ExpressionExecutor.cs:631-632`); the same fold already runs for local roots. Sibling of #173.
+- **Parameterized `Property Get`/`Let`/`Set`** — the method branch resolves arguments at
+  `ExpressionExecutor.cs:503`; the property branch detects them and throws eight lines later at `:510-511`,
+  then passes `[]`. Same receiver, same `RunProcedure`. The carve-out "Collection.Item the only exception"
+  is phantom — no Collection object exists yet.
+- **Fixed-length strings** (`Dim s As String * n`) — the width is a CST child of the declaration; the
+  behaviour is store-time coercion on a declared type, the mechanism `CoerceOnStore` already runs for
+  Integer/Long/Date. The UDT-field leg needs a new coercion site: `VbUdt.TrySet` writes the field bag with
+  no coercion at all.
+- **Arrays OF a UDT, and array fields inside a UDT** — two independent slices. `PrePass.cs:282-283` says
+  "is *not yet* supported"; the arrays-of-UDT leg has no throw at all, just a `!isArray` guard that routes
+  past the lookup the scalar case performs.
+- **`LSet` / `RSet`** (string-justify form) — read, measure, pad, write back; the shape already running for
+  `Mid`. The UDT form waits on a shared byte-layout model, tracked with `Get`/`Put`.
+- **Bang access** (`obj!key`) — the grammar already yields `(receiver, key)`; desugars to a call on a value
+  in hand. Gated on #174 and on a Collection existing, not on a boundary.
+- **Private `Type`/`Enum` module scoping** — HexIDE already ships this algorithm for procedures
+  (`TryResolveProcedure` + `IsPrivate`); Types and Enums simply never read `context.visibility()`. Mostly a
+  **correctness** issue: two modules each declaring `Type Point` differently collapse last-writer-wins in
+  silence, where the procedure path raises "Ambiguous name detected".
+- **Object-model class features** — `As New`, `With New`, `Implements`, `Friend`, `Set` type-enforcement and
+  same-project qualified `New` are runtime lookups, not analysis. (`Friend` treated as Public is arguably not
+  a gap at all in a single-project interpreter — there are no external clients to hide from.)
+
+### Found while auditing — bugs, not classification
+
+- **`a(1) = b` for a UDT array** calls `SetValue` with no `CopyIfValueType`, unlike every other UDT value
+  boundary — a silent wrong answer waiting for arrays-of-UDT to land.
+- **`t.arr(3) = 5` discards the index**, so it would overwrite the whole array slot; the `MemberHasArgs`
+  guard is applied in the Object branch and not the `VbUdt` branch.
+- **Several boundary throws carry no message at all**, and nothing in `IDE/` catches
+  `NotImplementedException` — against `interpreter-advanced:70-72`, which requires a boundary construct to
+  *"fail clearly"*.
 
 ## Partial
 
