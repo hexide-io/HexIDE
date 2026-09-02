@@ -50,6 +50,17 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// never affect the RESUMED program walk even if it leaks across an async intrinsic's UI-thread yield.</summary>
     public bool SuppressUserProcedureCalls { get; set; }
 
+    /// <summary>
+    /// While set, an unresolvable name is an ERROR rather than an implicitly-declared Empty.
+    ///
+    /// Implicit declaration is a property of the running PROGRAM, not of anything looking at it. A watch or
+    /// an Immediate expression naming something out of scope must report that it cannot be evaluated — if it
+    /// reports Empty instead, the debugger has invented a variable, and a Break-When-Changed watch then takes
+    /// a baseline from a name the program never had and trips on the real one appearing. Sibling of
+    /// <see cref="SuppressUserProcedureCalls"/>, and the same principle: observing must not alter.
+    /// </summary>
+    public bool SuppressImplicitDeclaration { get; set; }
+
     private ModuleInfo primaryModule = null!;
 
     /// <summary>The startup module — where top-level statements (or a future <c>Sub Main</c>) run.</summary>
@@ -525,7 +536,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 // suspended chain.
                 activationStack.Add(executor);
                 executor.SetFrameDepth(activationStack.Count);   // captured per-frame depth (1 = outermost proc)
-                try { await executor.Execute(proc.Body); }
+                // Every Dim in the body, allocated BEFORE the body runs: in VB6 a Dim is a declaration, not
+                // an executable statement, so the local exists for the whole invocation. Reading one before
+                // its Dim line is legal and yields the declared type's zero — where previously the name
+                // resolved to a module-level procedure of the same name, and a watch on it saw a change the
+                // program never made. Inside the try, so a fault while allocating still unwinds normally.
+                try { await executor.HoistDeclaredLocals(proc); await executor.Execute(proc.Body); }
                 finally { activationStack.Remove(executor); }
             }
             if (proc.IsFunction)
