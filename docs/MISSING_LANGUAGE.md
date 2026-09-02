@@ -37,14 +37,19 @@ same harm shape as a silently lossy save, which
 [`serialization-outcomes.md`](serialization-outcomes.md) rules out entirely.
 
 **The mechanism, because it generalises.** An unregistered bare name is not an error in VB6's default
-configuration and is not one here either: it falls through to implicit declaration and evaluates to
-`Empty`. So `s = CurDir` yields Empty rather than raising. Only the `Option Explicit` path — **off by
-default**, as it was in VB6 — turns those into errors. Every intrinsic that is *called bare*, without
-parentheses, is therefore a candidate for this category rather than for Dies.
+configuration and was not one here either: it fell through to implicit declaration and evaluated to
+`Empty`, so `s = CurDir` yielded Empty rather than raising, with only the `Option Explicit` path — **off
+by default**, as it was in VB6 — turning it into an error. Every intrinsic *called bare*, without
+parentheses, was therefore a candidate for this category rather than for Dies.
 
-The rows below marked **Silently wrong** are the ones a verification pass proved by execution. **They are
-almost certainly not all of them** — the Dies count should be read as an upper bound, and any Dies row for
-a function normally written without parentheses deserves a probe before it is trusted.
+**That mechanism is closed** as of [#191](https://github.com/hexide-io/HexIDE/issues/191): both the read
+path and the bare-statement path now raise for any name VB6 defines as an intrinsic, keyed off a list of
+VB6's *surface* rather than of our gaps — so implementing a function needs no edit to it, and a name we
+have never heard of still gets VB6's own "Sub or Function not defined".
+
+The category is kept at zero rather than deleted, because the shape is what matters: **anything that
+fails without saying so belongs here rather than under Dies.** If a construct is found doing that again,
+this is where it goes.
 
 **Not every absence is safe to demote into No-op.** `DoEvents` returning 0 without pumping messages
 withholds a behaviour and lies about nothing. `Print #` as a no-op would silently not write the user's
@@ -89,15 +94,15 @@ on the write path (`obj.a.b = x`, `Set obj.a.b = o`).
 
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Statements | 1 | 0 | 46 | 35 | 0 | 23 | 105 |
+| Statements | 0 | 0 | 47 | 35 | 0 | 23 | 105 |
 | Operators | 0 | 0 | 3 | 18 | 0 | 11 | 32 |
-| Intrinsic functions | 6 | 0 | 65 | 37 | 1 | 44 | 153 |
+| Intrinsic functions | 0 | 0 | 71 | 37 | 1 | 44 | 153 |
 | Keywords and modifiers | 0 | 0 | 11 | 22 | 1 | 17 | 51 |
 | Literals, types and suffixes | 0 | 3 | 7 | 17 | 0 | 23 | 50 |
 | Compiler directives and options | 0 | 1 | 16 | 9 | 13 | 8 | 47 |
-| In-box objects | 1 | 0 | 97 | 8 | 0 | 17 | 123 |
+| In-box objects | 0 | 0 | 98 | 8 | 0 | 17 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **8** | **4** | **253** | **407** | **15** | **495** | **1182** |
+| **Total** | **0** | **4** | **261** | **407** | **15** | **495** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -126,22 +131,24 @@ That is the honest answer to "will my code run?" — the arithmetic will; the pl
 not. The classic file-I/O family is absent as a block, which is the most common way a real program dies
 here, usually within its first few statements.
 
-## Silently wrong — 8 names
+## Silently wrong — 0 names
 
-Proved by execution. Each of these parses, runs, does nothing useful, and lets the program continue — so
-the user sees no error and goes looking for a bug in their own code. Fixing any of them to *throw* would
-be an improvement even before it is implemented properly.
+**Closed by [#191](https://github.com/hexide-io/HexIDE/issues/191).** Eight constructs used to sit here:
+`Shell`, `FreeFile`, `Command`, `CurDir`, `Cls`, `Erl`, `Dir` and `Time = x`. Each parsed, ran, did
+nothing, and let the program continue — so the user saw no error and went looking for a bug in their own
+code.
 
-| Name | Status | Detail | Source |
-|---|---|---|---|
-| `Cls` | **Silently wrong** | Bare `Cls` does not throw: it resolves to no procedure, the unregistered-name result is discarded, and the statement is a no-op. | StatementExecutor.cs |
-| `Command` | **Silently wrong** | Written bare (`s = Command`), the normal spelling, it returns **Empty** with no error. | ExpressionExecutor.cs |
-| `CurDir` | **Silently wrong** | Written bare (`s = CurDir`), a normal spelling, it yields **Empty** with no error. | ExpressionExecutor.cs |
-| `Erl` | **Silently wrong** | Never throws — a bare identifier that resolves to nothing, yielding Empty. | ExpressionExecutor.cs |
-| `FreeFile` | **Silently wrong** | The near-universal bare spelling `f = FreeFile` does not throw: it returns **Empty**. | ExpressionExecutor.cs |
-| `Shell` | **Silently wrong** | `Shell "notepad.exe", vbNormalFocus` does not throw — it silently does nothing and execution continues as if the process had launched. | StatementExecutor.cs |
-| `Time` | **Silently wrong** | Does NOT throw. `TIME` is an ambiguousKeyword and `letStmt` precedes `timeStmt` in the block alternatives, so `Time = x` parses as an ordinary assignment and silently creates a variable named `Time`, shadowing the intrinsic. `VisitTimeStmt` is unreachable… | VB6BuiltIns.DateTime.cs |
-| `Time` | **Silently wrong** | Does NOT throw. `TIME` is an ambiguousKeyword and `letStmt` precedes `timeStmt` in the block alternatives, so `Time = x` parses as an ordinary assignment and silently creates a variable named `Time`, shadowing the intrinsic. `VisitTimeStmt` is unreachable… | StatementExecutor.cs |
+Two causes, both now fixed. An unregistered bare name fell through to VB6's implicit-declaration rule and
+evaluated to `Empty`; the read path now raises for any name VB6 defines as an intrinsic, and the
+bare-statement path no longer discards the "not a builtin" result. And `Time = x` was grammar-shadowed —
+`TIME` is an ambiguousKeyword and `letStmt` was matched ahead of `timeStmt`, so it silently created a
+*variable* called `Time` and left the throw in `VisitTimeStmt` as unreachable dead code. `dateStmt`
+already sat ahead of `letStmt`, which is the only reason `Date = x` threw and `Time = x` did not.
+
+**The category stays in this document even at zero**, because it is the failure mode worth watching for:
+anything that fails without saying so belongs here rather than under Dies, and the reasoning above is how
+to recognise the next one. The check keys off a list of VB6's *surface* rather than of our gaps, so
+implementing a function does not require maintaining it.
 
 ## Won't load — 4 names
 
@@ -440,7 +447,7 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `Time` | **Silently wrong** | Does NOT throw. `TIME` is an ambiguousKeyword and `letStmt` precedes `timeStmt` in the block alternatives, so `Time = x` parses as an ordinary assignment and silently creates a variable named `Time`, shadowing the intrinsic. `VisitTimeStmt` is unreachable… | StatementExecutor.cs |
+| `Time` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 | `AppActivate` | **Dies** | throws `"AppActivate not implemented"` — Grammar rule `appActivateStmt : APPACTIVATE WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4); the visitor body is a single throw:… | StatementExecutor.cs |
 | `Close` | **Dies** | `closeStmt : CLOSE (WS valueStmt (WS? COMMA WS? valueStmt)*)?` (Grammar/VB6.g4) and a visitor exists, but its whole body is the throw. Probed both `Close #1` and bare `Close` ->… | StatementExecutor.cs |
 | `Date` | **Dies** | throws `"Date not implemented"` — The grammar has a dedicated rule `dateStmt : DATE WS? EQ WS? valueStmt` (VB6.g4), listed in the block alternatives at VB6.g4 ahead of letStmt so it… | StatementExecutor.cs |
@@ -620,7 +627,7 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `Time` | **Silently wrong** | Does NOT throw. `TIME` is an ambiguousKeyword and `letStmt` precedes `timeStmt` in the block alternatives, so `Time = x` parses as an ordinary assignment and silently creates a variable named `Time`, shadowing the intrinsic. `VisitTimeStmt` is unreachable… | VB6BuiltIns.DateTime.cs |
+| `Time` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | VB6BuiltIns.DateTime.cs |
 | `DatePart` | Partial | Registered and working for every interval, but two documented arguments are not honoured: the optional firstweekofyear (args[3]) is never read, and DatePart("ww", ...) routes to… | VB6BuiltIns.DateTime.cs |
 | `TimeSerial` | Partial | d["TimeSerial"] = (_, a, _) => TimeSerial(AsInt(a[0]), AsInt(a[1]), AsInt(a[2])) - builds on the 1899-12-30 epoch so hours roll over. Overflow is Err 6, deliberately NOT Err 5: comment "Err… | VB6BuiltIns.DateTime.cs |
 | `WeekdayName` | Partial | Registered (d["WeekdayName"] = (_, a, _) => WeekdayName(AsInt(a[0]), a.Count >= 2 && AsDouble(a[1]) != 0, Fdow(a, 2))) and correct when firstdayofweek is passed explicitly, but the… | VB6BuiltIns.DateTime.cs |
@@ -644,8 +651,8 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `CurDir` | **Silently wrong** | Written bare (`s = CurDir`), a normal spelling, it yields **Empty** with no error. | ExpressionExecutor.cs |
-| `FreeFile` | **Silently wrong** | The near-universal bare spelling `f = FreeFile` does not throw: it returns **Empty**. | ExpressionExecutor.cs |
+| `CurDir` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | ExpressionExecutor.cs |
+| `FreeFile` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | ExpressionExecutor.cs |
 | `Dir` | **Dies** | fails at name resolution: unregistered in every VB6BuiltIns partial. Probed `Debug.Print Dir("*.*")` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined… | ExpressionExecutor.cs |
 | `EOF` | **Dies** | fails at name resolution: unregistered. Probed `Debug.Print EOF(1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined (EOF)". docs/interpreter-gaps.md:83. | ExpressionExecutor.cs |
 | `FileAttr` | **Dies** | fails at name resolution: unregistered. Probed `Debug.Print FileAttr(1, 1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined (FileAttr)"… | ExpressionExecutor.cs |
@@ -664,7 +671,7 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `Erl` | **Silently wrong** | Never throws — a bare identifier that resolves to nothing, yielding Empty. | ExpressionExecutor.cs |
+| `Erl` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | ExpressionExecutor.cs |
 | `Error` | **Dies** | `Error(n)` (the function returning an error's message text) is not in BuildRegistry. Measured: `Debug.Print Error(6)` -> VBSubOrFunctionNotDefinedException. `Debug.Print Error$(6)` ->… | VB6BuiltIns.cs |
 | `ObjPtr` | **Dies** | Zero hits anywhere in IDE/ outside obj/bin; not in BuildRegistry (VB6BuiltIns.cs), not in Grammar/VB6.g4, not even in the editor metadata (VbKeywordNormalizer.cs / VbSignatures.cs). A call… | VB6BuiltIns.cs |
 | `StrPtr` | **Dies** | Zero hits anywhere in IDE/ outside obj/bin — not registered, not in the grammar, not in editor metadata; ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined… | VB6BuiltIns.cs |
@@ -684,8 +691,8 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `Command` | **Silently wrong** | Written bare (`s = Command`), the normal spelling, it returns **Empty** with no error. | ExpressionExecutor.cs |
-| `Shell` | **Silently wrong** | `Shell "notepad.exe", vbNormalFocus` does not throw — it silently does nothing and execution continues as if the process had launched. | StatementExecutor.cs |
+| `Command` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | ExpressionExecutor.cs |
+| `Shell` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 | `CallByName` | **Dies** | Zero occurrences anywhere in HexIDE.Runtime; not registered by any Register* partial, so BuildRegistry has no entry. The call reaches ExpressionExecutor's final fallthrough and throws… | ExpressionExecutor.cs |
 | `Choose` | **Dies** | Not in BuildRegistry - a grep of every d["..."] registration across all VB6BuiltIns partials returns no Choose. `x = Choose(i, "a", "b")` throws VBSubOrFunctionNotDefinedException: "Sub or… | ExpressionExecutor.cs |
 | `CreateObject` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. `Set o = CreateObject("Excel.Application")` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined… | ExpressionExecutor.cs |
@@ -946,7 +953,7 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
-| `Cls` | **Silently wrong** | Bare `Cls` does not throw: it resolves to no procedure, the unregistered-name result is discarded, and the statement is a no-op. | StatementExecutor.cs |
+| `Cls` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 | `AmbientProperties` | **Dies** | Measured for `Dim a As AmbientProperties`: VBCompileErrorException: "User-defined type not defined: AmbientProperties" (StatementExecutor.cs). The route to a real instance is gone too:… | StatementExecutor.cs |
 | `AmbientProperties.BackColor` | **Dies** | Unreachable: there is no `Ambient` and no `UserControl` global to read it from — measured VBVariableNotDefinedException: "Variable not defined (Ambient)" and "Variable not defined… | BasicInterpreter.cs |
 | `AmbientProperties.DisplayAsDefault` | **Dies** | Unreachable: no `Ambient`/`UserControl` global exists — measured VBVariableNotDefinedException: "Variable not defined (Ambient)" / "Variable not defined (UserControl)"… | BasicInterpreter.cs |

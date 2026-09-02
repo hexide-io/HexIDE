@@ -1812,7 +1812,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         else
         {
             List<Vb6Value> builtinArgs = await expressionExecutor.EvaluateCallArgs(context.argsCall());
-            await expressionExecutor.EvaluateFunction(subName, builtinArgs);
+            // EvaluateFunction answers null for a name the registry does not have. Discarding that made an
+            // unimplemented statement-form intrinsic a silent no-op: `Shell "notepad.exe", vbNormalFocus`
+            // ran, launched nothing, and continued as though it had. (#191)
+            if (await expressionExecutor.EvaluateFunction(subName, builtinArgs) is null)
+                throw VbIntrinsicNames.IsIntrinsic(subName)
+                    ? new NotImplementedException(subName + " is a VB6 intrinsic that HexIDE does not implement yet")
+                    : new VBCompileErrorException("Sub or Function not defined (" + subName + ')');
         }
         return ControlFlow.Nothing;
     }
