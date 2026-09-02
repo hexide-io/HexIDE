@@ -91,6 +91,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return string.Empty;
 
         interpreter.SuppressUserProcedureCalls = true;   // reject user Sub/Function calls in break mode (D14–D15)
+        interpreter.SuppressImplicitDeclaration = true;  // an out-of-scope name is unevaluable, not Empty
         try
         {
             // Bare assignment / Set → EXECUTE against the paused frame (mutates currentEnv). A user call in the RHS
@@ -121,6 +122,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         finally
         {
             interpreter.SuppressUserProcedureCalls = false;
+            interpreter.SuppressImplicitDeclaration = false;
         }
     }
 
@@ -134,6 +136,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return EvalErr(expression, string.Empty);
 
         interpreter.SuppressUserProcedureCalls = true;
+        interpreter.SuppressImplicitDeclaration = true;
         try
         {
             var tree = interpreter.ParseValueStmt(expr);
@@ -151,6 +154,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         finally
         {
             interpreter.SuppressUserProcedureCalls = false;
+            interpreter.SuppressImplicitDeclaration = false;
         }
 
         // Error result: the message sits in the Value column, Ok=false so a condition tells this from a real False.
@@ -789,7 +793,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             var identifier = varOrProcCall.GetText() ?? throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Null variable name");
             // A UDT is a value type: `b = a` stores an independent deep copy so mutating b never touches a.
             if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out var oldLet))
-                throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Variable " + identifier + " is not declared");
+            {
+                // VB6 creates an undeclared variable on first use — a procedure-local Variant, Empty, fresh
+                // per call (all measured). "Require Variable Declaration" is OFF by default in VB6, so a
+                // module without Option Explicit is the ordinary case rather than a legacy one, and this
+                // used to raise Err 424 on it. (#171)
+                if (currentModule.PrePass.RequireVariableDefinitions)
+                    throw new VBVariableNotDefinedException(identifier);
+                interpreter.ExecutionContext.AllocVariable(currentEnv, identifier, Vb6Value.Variant);
+                interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out oldLet);
+            }
             interpreter.ExecutionContext.TryUpdateVariable(currentEnv, identifier, BasicInterpreter.CopyIfValueType(value));
             // Refcount (Phase 4.2): a Variant slot that held an object and is now overwritten by a scalar drops
             // that reference — release it (no-op unless the old value was an object). The new value is non-object
@@ -1440,13 +1453,32 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (context.DIM() != null || context.visibility() != null)
         {
             foreach (var subStmt in context.variableListStmt().variableSubStmt())
+                await DeclareLocal(subStmt);
+        }
+        else
+            throw new NotImplementedException("non dim variables not supported");
+
+        return default;
+    }
+
+    /// <summary>
+    /// Allocate one declared variable. Called from the Dim statement itself for module-level and
+    /// field-initialiser executors, and from <see cref="HoistDeclaredLocals"/> at procedure entry for a
+    /// procedure body — where VB6 says the local already exists.
+    ///
+    /// Idempotent per activation via <c>declaredLocals</c>, which is what lets a hoisted local make the Dim
+    /// statement a no-op when execution reaches it, and what already made a Dim inside a loop allocate once.
+    /// </summary>
+    private async Task DeclareLocal(VB6Parser.VariableSubStmtContext subStmt)
+    {
+        {
             {
                 if (subStmt.typeHint() != null)
                     throw new NotImplementedException("DIM type hints not implemented");
                 // A Dim allocates its local exactly once per activation; a re-executed Dim (inside a loop) keeps the
                 // existing value. The first Dim rebinds the name to a fresh slot, so it still shadows a module var.
                 if (!declaredLocals.Add(subStmt.ambiguousIdentifier().GetText()))
-                    continue;
+                    return;
                 bool isArray = false;
                 List<(int, int)>? dimensions = null;
                 if (subStmt.LPAREN() != null && subStmt.RPAREN() != null) // array
@@ -1487,10 +1519,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     ownedSlots.Add(localLoc);
             }
         }
-        else
-            throw new NotImplementedException("non dim variables not supported");
+    }
 
-        return default;
+    /// <summary>
+    /// Allocate every local a procedure declares, before its body runs — because in VB6 a Dim is a
+    /// declaration, not an executable statement. Declaration order, which is also the order scope-exit
+    /// releases them in; previously that was EXECUTION order, so a Dim in an untaken branch was released
+    /// never and one in a loop was ordered by when it first ran.
+    /// </summary>
+    internal async Task HoistDeclaredLocals(ProcedureInfo proc)
+    {
+        foreach (var subStmt in proc.DeclaredLocals)
+            await DeclareLocal(subStmt);
     }
 
     private async Task<List<(int, int)>?> ExtractDimensions(VB6Parser.SubscriptsContext? subscripts)
