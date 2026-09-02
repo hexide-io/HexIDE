@@ -67,8 +67,10 @@ moduleOptions
    : (moduleOption blockSep) +
    ;
 
+// `Option Base _ 1` — WS? because a directive was the likeliest member of this family to turn out
+// line-oriented, and measurement says it is not. See the note on selectCaseStmt.
 moduleOption
-   : OPTION_BASE WS INTEGERLITERAL # optionBaseStmt
+   : OPTION_BASE WS? INTEGERLITERAL # optionBaseStmt
    | OPTION_COMPARE WS (BINARY | TEXT) # optionCompareStmt
    | OPTION_EXPLICIT # optionExplicitStmt
    | OPTION_PRIVATE_MODULE # optionPrivateModuleStmt
@@ -261,8 +263,11 @@ dateStmt
    : DATE WS? EQ WS? valueStmt
    ;
 
+// `Lib WS? "x"` / `Alias WS? "x"` — a Declare line is long and gets continued before the library name.
+// Measured, not reasoned: vb6.exe accepts both the continuation and the wholly unseparated `Lib"kernel32"`.
+// See the note on selectCaseStmt for why this pair needed measuring where the keyword pairs did not.
 declareStmt
-   : (visibility WS)? DECLARE WS (FUNCTION typeHint? | SUB) WS ambiguousIdentifier typeHint? WS LIB WS STRINGLITERAL (WS ALIAS WS STRINGLITERAL)? (WS? argList)? (WS asTypeClause)?
+   : (visibility WS)? DECLARE WS (FUNCTION typeHint? | SUB) WS ambiguousIdentifier typeHint? WS LIB WS? STRINGLITERAL (WS ALIAS WS? STRINGLITERAL)? (WS? argList)? (WS asTypeClause)?
    ;
 
 deftypeStmt
@@ -319,8 +324,9 @@ filecopyStmt
    : FILECOPY WS valueStmt WS? COMMA WS? valueStmt
    ;
 
+// `For _ Each` — WS? between the two keywords; see the note on selectCaseStmt for why that is not a widening.
 forEachStmt
-   : FOR WS EACH WS ambiguousIdentifier typeHint? WS IN WS valueStmt blockSep (block blockSep)? NEXT (WS ambiguousIdentifier)?
+   : FOR WS? EACH WS ambiguousIdentifier typeHint? WS IN WS valueStmt blockSep (block blockSep)? NEXT (WS ambiguousIdentifier)?
    ;
 
 forNextStmt
@@ -437,8 +443,9 @@ nameStmt
    : NAME WS valueStmt WS AS WS valueStmt
    ;
 
+// `Resume _ Next` — WS? between the two keywords; see the note on selectCaseStmt.
 onErrorStmt
-   : (ON_ERROR | ON_LOCAL_ERROR) WS (GOTO WS valueStmt COLON? | RESUME WS NEXT)
+   : (ON_ERROR | ON_LOCAL_ERROR) WS (GOTO WS valueStmt COLON? | RESUME WS? NEXT)
    ;
 
 onGoToStmt
@@ -531,8 +538,25 @@ seekStmt
    : SEEK WS valueStmt WS? COMMA WS? valueStmt
    ;
 
+// `Select _` / `Case` is legal VB6, and the WS between the two keywords was mandatory, so it was not.
+// The other multi-word keywords are single lexer tokens and were fixed there with KWSEP; these three
+// (`Select Case`, `For Each`, `Resume Next`) are assembled by the PARSER instead, and a continuation is
+// invisible to it — the lexer has already hidden it. So the WS has to become optional.
+//
+// Optional is not a widening here. Two adjacent word-tokens cannot occur in the stream without something
+// between them: `SelectCase` lexes as one IDENTIFIER, never as SELECT then CASE. So the only way the
+// parser ever sees them adjacent is that a hidden-channel token — a continuation — sat between them,
+// which is exactly the case being admitted.
+//
+// That argument does NOT reach the keyword-then-literal pairs (`Lib "x"`, `Alias "x"`, `Option Base 1`),
+// because a keyword and a string CAN abut with nothing between them. Those were measured instead, and
+// the answer was better than the argument: vb6.exe compiles `Lib"kernel32"` with no separator at all, so
+// WS? there is not a widening either — it is what VB6 does. See corpus/…/keyword-splitting.json.
+//
+// `VERSION WS DOUBLELITERAL` is deliberately NOT relaxed. It is a .frm header line the IDE writes, never
+// something a user continues, so there is no case to measure and no reason to loosen it.
 selectCaseStmt
-   : SELECT WS CASE WS valueStmt blockSep sC_Case* WS? END_SELECT
+   : SELECT WS? CASE WS valueStmt blockSep sC_Case* WS? END_SELECT
    ;
 
 sC_Case
@@ -1256,42 +1280,42 @@ ELSEIF
 
 
 END_ENUM
-   : E N D ' ' E N U M
+   : E N D KWSEP E N U M
    ;
 
 
 END_FUNCTION
-   : E N D ' ' F U N C T I O N
+   : E N D KWSEP F U N C T I O N
    ;
 
 
 END_IF
-   : E N D ' ' I F
+   : E N D KWSEP I F
    ;
 
 
 END_PROPERTY
-   : E N D ' ' P R O P E R T Y
+   : E N D KWSEP P R O P E R T Y
    ;
 
 
 END_SELECT
-   : E N D ' ' S E L E C T
+   : E N D KWSEP S E L E C T
    ;
 
 
 END_SUB
-   : E N D ' ' S U B
+   : E N D KWSEP S U B
    ;
 
 
 END_TYPE
-   : E N D ' ' T Y P E
+   : E N D KWSEP T Y P E
    ;
 
 
 END_WITH
-   : E N D ' ' W I T H
+   : E N D KWSEP W I T H
    ;
 
 
@@ -1339,27 +1363,27 @@ CONTINUE_DO
     ;
 
 EXIT_DO
-   : E X I T ' ' D O
+   : E X I T KWSEP D O
    ;
 
 
 EXIT_FOR
-   : E X I T ' ' F O R
+   : E X I T KWSEP F O R
    ;
 
 
 EXIT_FUNCTION
-   : E X I T ' ' F U N C T I O N
+   : E X I T KWSEP F U N C T I O N
    ;
 
 
 EXIT_PROPERTY
-   : E X I T ' ' P R O P E R T Y
+   : E X I T KWSEP P R O P E R T Y
    ;
 
 
 EXIT_SUB
-   : E X I T ' ' S U B
+   : E X I T KWSEP S U B
    ;
 
 
@@ -1489,22 +1513,22 @@ LIKE
 
 
 LINE_INPUT
-   : L I N E ' ' I N P U T
+   : L I N E KWSEP I N P U T
    ;
 
 
 LOCK_READ
-   : L O C K ' ' R E A D
+   : L O C K KWSEP R E A D
    ;
 
 
 LOCK_WRITE
-   : L O C K ' ' W R I T E
+   : L O C K KWSEP W R I T E
    ;
 
 
 LOCK_READ_WRITE
-   : L O C K ' ' R E A D ' ' W R I T E
+   : L O C K KWSEP R E A D KWSEP W R I T E
    ;
 
 
@@ -1529,7 +1553,7 @@ MACRO_ELSE
 
 
 MACRO_END_IF
-   : HASH E N D ' ' I F
+   : HASH E N D KWSEP I F
    ;
 
 
@@ -1592,12 +1616,12 @@ ON
 
 
 ON_ERROR
-   : O N ' ' E R R O R
+   : O N KWSEP E R R O R
    ;
 
 
 ON_LOCAL_ERROR
-   : O N ' ' L O C A L ' ' E R R O R
+   : O N KWSEP L O C A L KWSEP E R R O R
    ;
 
 
@@ -1612,22 +1636,22 @@ OPTIONAL
 
 
 OPTION_BASE
-   : O P T I O N ' ' B A S E
+   : O P T I O N KWSEP B A S E
    ;
 
 
 OPTION_EXPLICIT
-   : O P T I O N ' ' E X P L I C I T
+   : O P T I O N KWSEP E X P L I C I T
    ;
 
 
 OPTION_COMPARE
-   : O P T I O N ' ' C O M P A R E
+   : O P T I O N KWSEP C O M P A R E
    ;
 
 
 OPTION_PRIVATE_MODULE
-   : O P T I O N ' ' P R I V A T E ' ' M O D U L E
+   : O P T I O N KWSEP P R I V A T E KWSEP M O D U L E
    ;
 
 
@@ -1662,17 +1686,17 @@ PRIVATE
 
 
 PROPERTY_GET
-   : P R O P E R T Y ' ' G E T
+   : P R O P E R T Y KWSEP G E T
    ;
 
 
 PROPERTY_LET
-   : P R O P E R T Y ' ' L E T
+   : P R O P E R T Y KWSEP L E T
    ;
 
 
 PROPERTY_SET
-   : P R O P E R T Y ' ' S E T
+   : P R O P E R T Y KWSEP S E T
    ;
 
 
@@ -1707,7 +1731,7 @@ READ
 
 
 READ_WRITE
-   : R E A D ' ' W R I T E
+   : R E A D KWSEP W R I T E
    ;
 
 
@@ -2143,6 +2167,19 @@ LINE_CONTINUATION
    : [ \t]+ '_' [ \t]* '\r'? '\n' -> channel(HIDDEN)
    ;
 
+// The separator INSIDE a multi-word keyword: End Sub, Exit For, On Error, Option Explicit.
+//
+// It used to be a single literal space, which refused two things VB6 accepts: extra spaces or a tab
+// between the words, and a LINE CONTINUATION between them. `End _` / `Sub` is legal VB6 and was a
+// parse failure here, which costs the whole module rather than one statement.
+//
+// The continuation is on the hidden channel, so it cannot separate the words from the parser's side;
+// it has to be part of the token. Referencing LINE_CONTINUATION from inside another lexer rule
+// matches its text without applying its channel command, which is exactly what is wanted.
+fragment KWSEP
+   : ( [ \t] | LINE_CONTINUATION ) +
+   ;
+
 
 // A newline only. The colon alternative moved to the parser rule `blockSep` — see the note there for
 // why it could not stay: `COLON ' '` required a space after the colon, and widening it to a bare colon
@@ -2153,7 +2190,7 @@ NEWLINE
 
 
 COMMENT
-   : WS? ('\'' | COLON? REM ' ') (LINE_CONTINUATION | ~ ('\n' | '\r'))* -> channel(HIDDEN)
+   : WS? ('\'' | COLON? REM KWSEP) (LINE_CONTINUATION | ~ ('\n' | '\r'))* -> channel(HIDDEN)
    ;
 
 
