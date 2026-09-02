@@ -76,6 +76,12 @@ param(
     # undeclared variables.
     [string[]] $Declarations,
 
+    # Class modules to compile alongside the probe, as name -> body. The canonical .cls header is
+    # supplied; give only the members. Without this the whole object model is unmeasurable — Implements,
+    # As New, Set type-enforcement, default members and parameterized properties all need at least one
+    # class, and several need two.
+    [hashtable] $Classes,
+
     [switch] $Local,
     [string] $VMName = 'Win10',
     [string] $CredentialPath = (Join-Path $env:USERPROFILE '.hexide\win10.cred'),
@@ -180,9 +186,14 @@ end {
     [void]$sb.AppendLine('End Sub')
 
     $bas = $sb.ToString()
+    $classLines = ''
+    if ($Classes) {
+        foreach ($name in $Classes.Keys) { $classLines += "Class=$name; $name.cls`r`n" }
+    }
     $vbp = @"
 Type=Exe
 Module=Module1; Module1.bas
+$classLines
 Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0#..\..\Windows\SysWOW64\stdole2.tlb#OLE Automation
 Startup="Sub Main"
 ExeName32="verify.exe"
@@ -194,12 +205,18 @@ Name="verify"
     # with an ABSOLUTE .vbp path and CreateNoWindow — a relative path, or launching via a shell,
     # makes VB6.EXE open its GUI instead of doing a headless /make.
     $work = {
-        param($dir, $basText, $vbpText, $exePath, $timeoutSec)
+        param($dir, $basText, $vbpText, $exePath, $timeoutSec, $classText)
 
         $null = New-Item -ItemType Directory -Force -Path $dir
         $toCrLf = { param($t) ($t -replace "`r`n", "`n") -replace "`n", "`r`n" }
         [System.IO.File]::WriteAllText("$dir\Module1.bas", (& $toCrLf $basText), [System.Text.Encoding]::ASCII)
         [System.IO.File]::WriteAllText("$dir\verify.vbp", (& $toCrLf $vbpText), [System.Text.Encoding]::ASCII)
+        if ($classText) { foreach ($clsName in $classText.Keys) {
+            # The header VB6 writes itself. Without VB_Name the class has no identity and the project
+            # will not load; MultiUse/Creatable make it instantiable with New from the module.
+            $hdr = "VERSION 1.0 CLASS`r`nBEGIN`r`n  MultiUse = -1  'True`r`nEND`r`n" + "Attribute VB_Name = `"$clsName`"`r`n" + "Attribute VB_GlobalNameSpace = False`r`nAttribute VB_Creatable = True`r`n" + "Attribute VB_PredeclaredId = False`r`nAttribute VB_Exposed = False`r`n"
+            [System.IO.File]::WriteAllText("$dir\$clsName.cls", (& $toCrLf ($hdr + $classText[$clsName])), [System.Text.Encoding]::ASCII)
+        } }
         foreach ($stale in "$dir\out.txt", "$dir\err.log", "$dir\verify.exe") {
             if (Test-Path $stale) { [System.IO.File]::Delete($stale) }
         }
@@ -235,7 +252,7 @@ Name="verify"
 
     if ($Local) {
         Write-Verbose "Running locally against $Vb6Exe"
-        $result = & $work $guestDir $bas $vbp $Vb6Exe 120
+        $result = & $work $guestDir $bas $vbp $Vb6Exe 120 $Classes
     } else {
         if (-not (Test-Path $CredentialPath)) {
             throw "No credential at $CredentialPath. Create it with:`n" +
@@ -246,7 +263,7 @@ Name="verify"
         $session = New-PSSession -VMName $VMName -Credential $cred
         try {
             $result = Invoke-Command -Session $session -ScriptBlock $work `
-                        -ArgumentList $guestDir, $bas, $vbp, $Vb6Exe, 120
+                        -ArgumentList $guestDir, $bas, $vbp, $Vb6Exe, 120, $Classes
         } finally {
             Remove-PSSession $session
         }
