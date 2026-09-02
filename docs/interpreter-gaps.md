@@ -4,6 +4,9 @@
 > miners → consolidate/dedup → **one verifier per claim** → synthesis). Scope: the in-process tree-walking
 > interpreter only (`IDE/HexIDE.Runtime/Interpreter/`). Fidelity method: `docs/vb6-fidelity-oracle.md`. This file
 > is the documented home for the interpreter's gaps — it discharges the spec's "every wall is documented" rule.
+> The **positive counterpart** — every VB6 construct, function, operator, keyword and constant with its current
+> support level — is [`MISSING_LANGUAGE.md`](MISSING_LANGUAGE.md). This file owns *why* something is missing and
+> what kind of limit it is; that one owns *what runs*. Do not restate this file's classifications there.
 > The interpreter is **approximation-only** by design; the *Walled off* items are the permanent line where a
 > real language engine or compiler backend takes over, not oversights.
 
@@ -43,7 +46,9 @@ Platform: 4 · Partial: 12 · Other: 0.
 > per-item findings are retained below for detail):
 > - **Implemented:** **Erase** (dynamic → free / then `UBound`·index → Err 9; fixed scalar → bounds kept, elements
 >   reset; oracle-pinned) · **Mid statement** `Mid(s,i[,n])=repl` (in-place, length never grows, `start` out of range
->   → Err 5; oracle-pinned) · **DoEvents** (no-op → Integer 0) · **Beep** (no-op) · **Option Compare / Option Private
+>   → Err 5; oracle-pinned) · **DoEvents** (no-op → Integer 0) · **Beep** (really implemented as of
+>   2026-09-02 — `Console.Beep()`, platform-guarded and fail-safe; the earlier cross-platform justification for
+>   the no-op was measured and found wrong) · **Option Compare / Option Private
 >   Module** (now tolerated — the module loads; `Option Compare Text` accepted-but-always-Binary is the residual
 >   divergence).
 > - **→ Deferred:** Load/Unload · Deftype · `#If`/`#Const` (now a **clean compile error**, not a raw crash) · chained
@@ -82,7 +87,7 @@ _Original per-item findings (retained for detail; dispositions above supersede t
 - **File/directory management** (Kill, Name…As, FileCopy, MkDir, RmDir, SetAttr) — all six throw; VB6 delete/rename/copy/dir/attr with trappable errors (53, 75/76). Covered family-level by the File I/O deferral, though these six are never named individually.
 - **File-related functions** (FreeFile, EOF, LOF, Loc, Seek fn, FileLen, Dir/Dir$, CurDir, GetAttr, FileDateTime, FileAttr, Input$, Spc, Tab) — absent from the builtin registry; companions to the deferred channel statements. Documented family-level (interpreter-core "fidelity roadmap", MISSING_FEATURES.md:504).
 - **Registry settings** (SaveSetting/DeleteSetting statements + GetSetting/GetAllSettings functions) — statements throw (StatementExecutor.cs:161/817), read fns absent; VB6 persists under HKCU\Software\VB and VBA Program Settings. Documented "Missing" at MISSING_FEATURES.md:509.
-- **Stop / End** — both unhandled (StatementExecutor.cs:248-250, 1003-1005); VB6 End terminates (firing Class_Terminate), Stop breaks into the debugger. `End`/program-end hook deferred in interpreter-advanced Phase 4; Stop rides the same hook.
+- **End** — unhandled; VB6 `End` terminates the program, firing `Class_Terminate`. Deferred to the program-end hook in interpreter-advanced Phase 4. **`Stop` is implemented** (breaks into the debugger in the IDE; raises `StopExecutionSignal` headless) — this row said otherwise until 2026-09-02.
 - **GoSub/Return, On expr GoTo/GoSub** — all four throw; VB6 legacy in-procedure computed branching. Deferred pending linearized CFG/bytecode: interpreter-core "fidelity roadmap" line 524.
 - **Date / Time statements** (set system clock) — both throw (StatementExecutor.cs:156, 1010); VB6 sets host clock. Documented "Out of Phase 2" (interpreter-core:336, Time not named).
 - **Attribute statement in a procedure body** — `VisitAttributeStmt` throws instead of no-op-skipping, and `ModuleFileFormat` strips only the top-of-file header, so member-level attributes in real VB6-authored .cls/.frm crash execution; VB6 ignores Attribute lines at runtime. Documented as a "pre-existing wart, ignore for launch" (lsp-parity-matrix.md). Honoring VB_UserMemId (default members) is a separate permanent wall.
@@ -143,13 +148,14 @@ translation: raise VB6's error number at run time instead of before it.
   declaration in another module without running either. The clearest true wall here.
 - **`Property Let`/`Set` agreeing with `Property Get`** — VB6 checks the accessors' parameter lists match.
   Relates two declarations to each other; needs neither to execute.
-- **Interface conformance** (`Implements IFoo`), **as a compile-time diagnostic only** — deciding it
-  *before the program runs* needs binding. **Checking it at all does not.** Both member tables are already
-  collected by `PrePass`, so comparing them when a class is first instantiated is ordinary execution, and
-  memoising per (class, interface) pair makes it once-per-class. VB6's own COM substrate asks this question
-  at runtime via `QueryInterface`; the compile-time check is a convenience over it. So what is walled is the
-  *timing*, and `interpreter-core:40-42` already prescribes the translation. The `Implements` construct is a
-  deferral, not a wall.
+- **Interface conformance** (`Implements IFoo`) — **RESOLVED 2026-09-02 (#186); the reasoning below is why.**
+  Deciding it *before the program runs* needs binding. **Checking it at all does not.** Both member tables are
+  already collected by `PrePass`, so comparing them when a class is first instantiated is ordinary execution,
+  and memoising per class makes it once-per-class. VB6's own COM substrate asks this question at runtime via
+  `QueryInterface`; the compile-time check is a convenience over it. So what was ever walled is the *timing*,
+  and `interpreter-core:40-42` prescribes the translation — which is exactly what shipped: HexIDE raises VB6's
+  own message, verbatim, at first instantiation instead of refusing to build. A class never instantiated is
+  never checked, which is the accepted error-on-a-path-never-taken divergence.
 - **`LSet` between UDTs containing strings, objects or Variants** — VB6 refuses at compile time. The
   layout-compatibility judgement is static; `LSet` itself is a deferral.
 - **Default members of third-party COM types** — see Platform limits; the marker lives in a type library, not
@@ -198,7 +204,7 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   (`TryResolveProcedure` + `IsPrivate`); Types and Enums simply never read `context.visibility()`. Mostly a
   **correctness** issue: two modules each declaring `Type Point` differently collapse last-writer-wins in
   silence, where the procedure path raises "Ambiguous name detected".
-- **Object-model class features** — `As New`, `With New`, `Implements`, `Friend`, `Set` type-enforcement and
+- **Object-model class features** — `As New`, `With New`, `Friend`, and
   same-project qualified `New` are runtime lookups, not analysis. (`Friend` treated as Public is arguably not
   a gap at all in a single-project interpreter — there are no external clients to hide from.)
 
