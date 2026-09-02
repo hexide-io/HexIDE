@@ -450,7 +450,11 @@ FILENUMBER: HASH LETTERORDIGIT+;
 OCTALLITERAL: '&O' [0-7]+ ( AMPERSAND | PERCENT )?;
 
 // misc
-FRX_OFFSET: COLON [0-9A-F]+;
+// A companion-binary offset in a DESIGNER file (`"Form1.frx":0000`). Narrowed from `COLON [0-9A-F]+`,
+// which was live in ordinary code and — because A-F are hex digits — lexed the `:D` of
+// `Debug.Print "A":Debug.Print "B"` as an offset, swallowing the statement separator. Mirrored from the
+// interpreter's grammar; see the fuller note there.
+FRX_OFFSET: COLON [0-9] [0-9A-F] [0-9A-F] [0-9A-F]+;
 
 GUID: LBRACE [0-9A-F]+ MINUS [0-9A-F]+ MINUS [0-9A-F]+ MINUS [0-9A-F]+ MINUS [0-9A-F]+ RBRACE;
 
