@@ -170,6 +170,7 @@ blockStmt
    | implementsStmt
    | inputStmt
    | killStmt
+   | timeStmt
    | letStmt
    | lineInputStmt
    | lineLabel
@@ -202,7 +203,6 @@ blockStmt
    | setattrStmt
    | setStmt
    | stopStmt
-   | timeStmt
    | unloadStmt
    | unlockStmt
    | variableStmt

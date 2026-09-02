@@ -1403,6 +1403,21 @@ return type* in VB6 rather than a magnitude-dependent one.
 Reachable with entirely ordinary arguments — `TypeName(InStr("hello", "l"))` is `Integer` in HexIDE and
 `Long` in VB6 — so it is not an edge case, merely an invisible one until something asks for the type.
 
+### `Join(a, )` is a syntax error — only a MIDDLE argument can be omitted (2026-09-02)
+
+Found while fixing #190, when a probe would not compile:
+
+```
+Compile Error in File 'Module1.bas', Line 10 : Syntax error
+```
+
+`Split(s, , 2)` is fine; `Join(arr, )` is not. VB6 permits an omitted argument only *between* supplied
+ones, never trailing with a dangling comma. So a short argument list genuinely means "the rest were
+omitted", and an interior blank is the only case an implementation has to model.
+
+That is what makes the fix for #190 safe: `Supplied(a, i)` can test `a.Count > i` for the trailing case
+and `Missing` for the interior one, without a third possibility to worry about.
+
 ## Extending the oracle (future phases)
 
 Phase 3 (intrinsics) and beyond should verify, at minimum:
