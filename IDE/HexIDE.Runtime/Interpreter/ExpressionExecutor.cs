@@ -506,62 +506,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                     ? withTargets.Peek()
                     : throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
 
-            // UDT field read (`e.City`, nested `e.Address.City`) — navigate owned bags. Lifts the single-member
-            // restriction for UDT field chains (object chains stay single-dot).
-            if (variable.Value is VbUdt)
-                return GetUdtField(variable, membersCall.iCS_S_MemberCall(), ctx);
-
-            // A class instance member (`obj.Method(args)` or `obj.Field`) — method dispatch wins over a field of
-            // the same name. Nothing.Member → Error 91.
-            if (variable.Type == Vb6Value.ValueType.Object)
-            {
-                if (variable.Value is not VbObject vobj)
-                    throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
-                if (membersCall.iCS_S_MemberCall().Length != 1)
-                    throw new NotImplementedException("Object member chains are single-dot only");
-                var member = membersCall.iCS_S_MemberCall()[0];
-                var memberName = MemberName(member);
-                if (vobj.ClassDef.PrePass.Procedures.TryGetValue(memberName, out var method))
-                {
-                    var callArgs = MemberArgs(member) is { } ac ? await ResolveCallArgs(ac) : new List<CallArg>();
-                    return await interpreter.RunProcedure(vobj.ClassDef, method, callArgs, vobj.InstanceEnv, variable, stmtFrames)
-                        ?? throw new VBSubOrFunctionNotDefinedException(memberName);   // a Sub used as a value
-                }
-                // A read (`= x.P`) dispatches the Property Get accessor (Function-like: returns via its name).
-                if (vobj.ClassDef.PrePass.Properties.TryGetValue(memberName, out var prop) && prop.Get is { } getter)
-                {
-                    if (MemberArgs(member) != null)
-                        throw new NotImplementedException("Parameterized property access is not supported");
-                    return await interpreter.RunProcedure(vobj.ClassDef, getter, [], vobj.InstanceEnv, variable, stmtFrames)
-                        ?? throw new VBSubOrFunctionNotDefinedException(memberName);
-                }
-                if (interpreter.ExecutionContext.TryGetVariable(vobj.InstanceEnv, memberName, out var fieldVal))
-                    return fieldVal;
-                throw new VBMethodOrDataMemberNotFoundException(memberName, variable.Type);
-            }
-
-            if (membersCall.iCS_S_MemberCall().Length != 1)
-                throw new NotImplementedException("Only single member call (single dot) is supported as of now");
-
-            var memberIdentifier = membersCall.iCS_S_MemberCall()[0].GetText().TrimStart('.') ?? throw new VBRunTimeException(ctx, VBStandardError.ObjectRequired, "Null member name");
-
-            // A CSharp property bag (e.g. Err.Number) resolves its own properties by name.
-            if (variable.Value is ICSharpPropertyBag propertyBag && propertyBag.TryGetProperty(memberIdentifier, out var bagValue))
-                return bagValue;
-
-            if (variable.Type != Vb6Value.ValueType.Control ||
-                variable.Value is not Control control)
-                throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
-
-            var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
-
-            foreach (var prop in props)
-            {
-                if (AvaloniaInteroperability.TryGet(control, prop, out var value))
-                    return value;
-            }
-
-            throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
+            // Every member in the chain, folded left to right. `a.b.c` is `a`, then `b` on that, then `c` on
+            // that — each step a lookup on a value that exists by the time it is needed, which is execution
+            // rather than analysis. Object chains used to stop at one dot. (#173)
+            return await ResolveMemberChain(variable, membersCall.iCS_S_MemberCall(), 0, ctx);
         }
         else if (ctx.iCS_S_ProcedureOrArrayCall() is { } procOrArrayCall)
         {
@@ -641,6 +589,83 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // `Module1.PublicConst`, `VBA.Abs(x)`, `VBA.Math.Abs(x)`, `VBA.vbCrLf`. Library-module segments
     // (`Math`/`Strings`/…) are transparent and skipped permissively; multi-level object-graph chains are not
     // supported here (that is the deferred general member-chain wall).
+
+    /// <summary>
+    /// Resolve ONE member on a value: `.Name` applied to whatever the previous step produced.
+    ///
+    /// Extracted so a chain can fold it. It used to be inline and shaped for exactly one dot, which is the
+    /// whole of why `obj.a.b` was refused — not anything the CST could not represent. (#173)
+    /// </summary>
+    private async Task<Vb6Value> ResolveOneMember(
+        Vb6Value variable, VB6Parser.ICS_S_MemberCallContext member, Antlr4.Runtime.ParserRuleContext ctx)
+    {
+        // A class instance member (`obj.Method(args)` or `obj.Field`) — method dispatch wins over a field of
+        // the same name. Nothing.Member → Error 91.
+        if (variable.Type == Vb6Value.ValueType.Object)
+        {
+            if (variable.Value is not VbObject vobj)
+                throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
+            var memberName = MemberName(member);
+            if (vobj.ClassDef.PrePass.Procedures.TryGetValue(memberName, out var method))
+            {
+                var callArgs = MemberArgs(member) is { } ac ? await ResolveCallArgs(ac) : new List<CallArg>();
+                return await interpreter.RunProcedure(vobj.ClassDef, method, callArgs, vobj.InstanceEnv, variable, stmtFrames)
+                    ?? throw new VBSubOrFunctionNotDefinedException(memberName);   // a Sub used as a value
+            }
+            // A read (`= x.P`) dispatches the Property Get accessor (Function-like: returns via its name).
+            if (vobj.ClassDef.PrePass.Properties.TryGetValue(memberName, out var prop) && prop.Get is { } getter)
+            {
+                if (MemberArgs(member) != null)
+                    throw new NotImplementedException("Parameterized property access is not supported");
+                return await interpreter.RunProcedure(vobj.ClassDef, getter, [], vobj.InstanceEnv, variable, stmtFrames)
+                    ?? throw new VBSubOrFunctionNotDefinedException(memberName);
+            }
+            if (interpreter.ExecutionContext.TryGetVariable(vobj.InstanceEnv, memberName, out var fieldVal))
+                return fieldVal;
+            throw new VBMethodOrDataMemberNotFoundException(memberName, variable.Type);
+        }
+
+        var memberIdentifier = member.GetText().TrimStart('.') ?? throw new VBRunTimeException(ctx, VBStandardError.ObjectRequired, "Null member name");
+
+        // A CSharp property bag (e.g. Err.Number) resolves its own properties by name.
+        if (variable.Value is ICSharpPropertyBag propertyBag && propertyBag.TryGetProperty(memberIdentifier, out var bagValue))
+            return bagValue;
+
+        if (variable.Type != Vb6Value.ValueType.Control ||
+            variable.Value is not Control control)
+            throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
+
+        var props = VBProperties.PropertiesByName.GetValueOrDefault(memberIdentifier, []);
+
+        foreach (var prop in props)
+        {
+            if (AvaloniaInteroperability.TryGet(control, prop, out var value))
+                return value;
+        }
+
+        throw new VBMethodOrDataMemberNotFoundException(memberIdentifier, variable.Type);
+    }
+
+    /// <summary>
+    /// Fold every remaining member onto a value, left to right.
+    ///
+    /// A UDT hands the rest of the chain to <see cref="GetUdtField"/>, which already walked its own bags.
+    /// Everything else resolves a step at a time — so a chain may change kind as it goes (an object field
+    /// holding a UDT, a UDT field holding an object) without any step needing to know what follows it.
+    /// </summary>
+    private async Task<Vb6Value> ResolveMemberChain(
+        Vb6Value current, VB6Parser.ICS_S_MemberCallContext[] members, int from,
+        Antlr4.Runtime.ParserRuleContext ctx)
+    {
+        for (var i = from; i < members.Length; i++)
+        {
+            if (current.Value is VbUdt)
+                return (Vb6Value)GetUdtField(current, members[i..], ctx)!;
+            current = await ResolveOneMember(current, members[i], ctx);
+        }
+        return current;
+    }
+
     private async Task<object?> ResolveQualifiedMemberValue(
         BasicInterpreter.QualifierTarget qualifier,
         VB6Parser.ICS_S_MemberCallContext[] members,
@@ -651,8 +676,15 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             while (idx < members.Length - 1 && BasicInterpreter.IsIntrinsicModuleSegment(MemberName(members[idx])))
                 idx++;   // skip transparent VBA.<module>. segments
 
-        if (idx != members.Length - 1)
-            throw new NotImplementedException("Multi-level qualified member access is not supported");
+        // The qualifier is simply the FIRST step of an ordinary chain: `Module1.p.In1.Z` is Module1 -> p
+        // -> In1 -> Z, and everything after the first resolves exactly as it would unqualified — measured,
+        // to four levels. This used to refuse anything past one member while the very same chain worked
+        // without the qualifier, because the two were treated as different problems when only the first
+        // step differs in kind. (#173)
+        async Task<object?> ThenTheRest(Vb6Value head) =>
+            idx + 1 < members.Length
+                ? await ResolveMemberChain(head, members, idx + 1, ctx)
+                : head;
 
         var member = members[idx];
         var memberName = MemberName(member);
@@ -663,9 +695,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // A library-qualified name resolves against the intrinsic registry (function) or a builtin constant.
             var args = argsCtx != null ? await EvaluateCallArgs(argsCtx) : new List<Vb6Value>();
             if (await EvaluateFunction(memberName, args) is { } fn)
-                return fn;
+                return await ThenTheRest(fn);
             if (args.Count == 0 && interpreter.BuiltIns.TryGetBuiltInConstant(memberName, out var c))
-                return c;
+                return await ThenTheRest(c);
             throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
         }
 
@@ -673,7 +705,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         {
             // MyEnum.Member -> the member's Long value.
             if (qualifier.EnumMembers!.TryGetValue(memberName, out var enumValue))
-                return new Vb6Value(enumValue);
+                return await ThenTheRest(new Vb6Value(enumValue));
             throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
         }
 
@@ -685,11 +717,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         {
             var callArgs = argsCtx != null ? await ResolveCallArgs(argsCtx) : new List<CallArg>();
             if (await interpreter.RunProcedure(module, proc, callArgs, callerFrames: stmtFrames) is { } result)
-                return result;
+                return await ThenTheRest(result);
             throw new VBSubOrFunctionNotDefinedException(memberName);   // a Sub used where a value is required
         }
         if (interpreter.ExecutionContext.TryGetVariable(module.ModuleEnv, memberName, out var v))
-            return v;
+            return await ThenTheRest(v);
         throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
     }
 
