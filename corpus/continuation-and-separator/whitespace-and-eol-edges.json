@@ -1,0 +1,288 @@
+{
+ "area": "whitespace, blank lines and end-of-file edges",
+ "file": "C:\\Repos\\GitHub\\HexIDE\\HexIDE\\corpus\\continuation-and-separator\\whitespace-and-eol-edges.json",
+ "count": 22,
+ "cases": [
+  {
+   "id": "tabs-as-token-separators",
+   "scope": "statement",
+   "code": [
+    "Dim\tx\tAs\tLong",
+    "x\t=\t1\t+\t2",
+    "Debug.Print\t\"tabs=\"\t&\tx"
+   ],
+   "expect": "legal",
+   "why": "Every inter-token gap is a single TAB rather than a space, including the ones the grammar spells as a mandatory WS (Dim WS ident WS As WS type). The repo lexer defines WS as [ \\t]+ so it should cope, but a hand-written tokenizer that special-cases the space character would reject the whole module. Expect tabs=3."
+  },
+  {
+   "id": "tab-indentation-nested-block",
+   "scope": "statement",
+   "code": [
+    "Dim i As Long",
+    "For i = 1 To 2",
+    "\tIf i = 2 Then",
+    "\t\tDebug.Print \"deep\"",
+    "\tEnd If",
+    "Next i"
+   ],
+   "expect": "legal",
+   "why": "Leading indentation is tabs only, at two depths. VB6 is not layout-sensitive so indentation should be pure noise; this checks that nothing keys off column position. Expect deep."
+  },
+  {
+   "id": "trailing-whitespace-after-every-line",
+   "scope": "statement",
+   "code": [
+    "Dim x As Long   ",
+    "x = 5\t\t",
+    "If x = 5 Then \t",
+    "Debug.Print \"trail\"  \t ",
+    "End If\t"
+   ],
+   "expect": "legal",
+   "why": "Trailing spaces and tabs after every statement, including after Then in a block If. That one matters: whether Then is last on the line decides block form versus single-line form, so the trailing whitespace must be discarded before that test or this becomes a single-line If with an empty body plus a stray End If. Expect trail."
+  },
+  {
+   "id": "tab-around-colon-separator",
+   "scope": "statement",
+   "code": [
+    "Dim a As Long, b As Long",
+    "a = 1\t:\tb = 2",
+    "Debug.Print \"a\" & a & \"b\" & b"
+   ],
+   "expect": "legal",
+   "why": "The statement separator is surrounded by TABs rather than spaces. A direct hit on the repo grammar, whose NEWLINE rule is WS? ('\\r'? '\\n' | COLON ' ') WS? -- the colon alternative demands a literal space after the colon, so a tab there is not a separator at all. Real VB6 should not care. Expect a1b2."
+  },
+  {
+   "id": "colon-then-eol-on-final-line",
+   "scope": "module",
+   "code": [
+    "Sub S()",
+    "Debug.Print \"ran\"",
+    "End Sub:"
+   ],
+   "expect": "unsure",
+   "why": "A separator colon with nothing after it, on the very last line of the file, following End Sub -- so the empty statement it introduces would land at module level, outside any procedure. A trailing colon inside a procedure is ordinary; whether module scope tolerates the same empty statement is the open question. Differs from the covered statement-colon-End-Sub shape in that here the colon comes after End Sub."
+  },
+  {
+   "id": "empty-proc-body-colon-only",
+   "scope": "module",
+   "code": [
+    "Sub S()",
+    ":",
+    "End Sub"
+   ],
+   "expect": "legal",
+   "why": "A procedure whose entire body is one colon: a line holding only a separator, hence two empty statements and no real one. The parser must accept an empty statement as a whole block, not merely as filler between real statements."
+  },
+  {
+   "id": "colon-only-line-at-module-level",
+   "scope": "module",
+   "code": [
+    "Option Explicit",
+    ":",
+    "Sub S()",
+    "Debug.Print \"m\"",
+    "End Sub"
+   ],
+   "expect": "illegal",
+   "why": "The same lone colon, but between declarations at module level where only declarations and procedure headers are allowed. If the empty statement is manufactured by the tokenizer rather than the parser it may slip through here too; predicting illegal because module level has no statement slot to put it in."
+  },
+  {
+   "id": "blank-lines-throughout-module",
+   "scope": "module",
+   "code": [
+    "",
+    "",
+    "Option Explicit",
+    "",
+    "Sub S()",
+    "",
+    "Debug.Print \"blanks\"",
+    "",
+    "End Sub",
+    "",
+    ""
+   ],
+   "expect": "legal",
+   "why": "Blank lines in every structural position at once: before the option block, between it and the procedure header, immediately after the header, before End Sub, and twice after it at end of file. Each is a separate NEWLINE+ site in the grammar, and any one of them written as exactly-one-NEWLINE would fail. Expect blanks."
+  },
+  {
+   "id": "whitespace-only-lines-between-statements",
+   "scope": "statement",
+   "code": [
+    "Dim x As Long",
+    "   ",
+    "x = 9",
+    "\t",
+    " \t ",
+    "Debug.Print \"ws\" & x"
+   ],
+   "expect": "legal",
+   "why": "The separating lines are not empty -- they hold spaces, a lone tab, and a mixture. A truly blank line and a line of invisible whitespace are different token streams (WS then newline, versus newline alone), so they are worth separating. Expect ws9."
+  },
+  {
+   "id": "blank-line-before-first-case",
+   "scope": "statement",
+   "code": [
+    "Dim x As Long",
+    "x = 2",
+    "Select Case x",
+    "",
+    "Case 2",
+    "Debug.Print \"two\"",
+    "End Select"
+   ],
+   "expect": "legal",
+   "why": "The gap between Select Case and the first Case is the one place in VB6 where an ordinary statement is forbidden. Blank lines and comments are the documented exception, so this should compile -- but a grammar that models the gap as nothing at all, rather than as NEWLINE+, will reject it. Expect two."
+  },
+  {
+   "id": "continuation-then-blank-inside-arglist",
+   "scope": "statement",
+   "code": [
+    "Debug.Print Mid$(\"abcdef\", _",
+    "",
+    "2, 3)"
+   ],
+   "expect": "illegal",
+   "why": "A continuation followed by a wholly blank line, but with an argument list still open. Distinct from the plain blank-after-continuation case because a joiner that tracks bracket depth might keep gluing lines while a paren is unclosed. VB6 continuation is purely lexical with no bracket awareness, so the blank line should end the logical line and leave an unclosed call."
+  },
+  {
+   "id": "continuation-then-tab-only-line",
+   "scope": "statement",
+   "code": [
+    "Dim x As Long",
+    "x = 1 + _",
+    "\t",
+    "2",
+    "Debug.Print x"
+   ],
+   "expect": "illegal",
+   "why": "The line after the continuation contains exactly one TAB. Whether that counts as blank decides between 'x = 1 +' (incomplete, an error) and 'x = 1 + 2'. Named separately from the space-only variant because a blankness test written as a run of spaces would treat the two differently."
+  },
+  {
+   "id": "eof-mid-continuation-no-trailing-newline",
+   "scope": "module",
+   "code": [
+    "Sub S()",
+    "Debug.Print \"a\"",
+    "End Sub _"
+   ],
+   "expect": "illegal",
+   "why": "The file's last characters are space-underscore with no line terminator at all. The repo's LINE_CONTINUATION rule requires ' ' '_' '\\r'? '\\n', so at true EOF the underscore is not a continuation but a stray token after End Sub. Real VB6 must either synthesise a final newline (leaving a continuation with nothing to continue) or choke on the underscore; both are errors, so the prediction survives either reading. NB this tests what it claims only if the harness does not append a trailing newline."
+  },
+  {
+   "id": "eof-no-trailing-newline-after-end-sub",
+   "scope": "module",
+   "code": [
+    "Sub S()",
+    "Debug.Print \"eof\"",
+    "End Sub"
+   ],
+   "expect": "legal",
+   "why": "The control for the case above: a well-formed module whose final End Sub has no terminating newline. The grammar's startRule ends with 'module EOF' and most inner rules are spelled NEWLINE+, so a required final newline is exactly the kind of thing a grammar acquires by accident. Expect eof. Also harness-dependent -- if the writer appends a newline this degenerates to an ordinary module."
+  },
+  {
+   "id": "lf-only-line-endings",
+   "scope": "module",
+   "code": [
+    "Sub S()\nDebug.Print \"lf\"\nEnd Sub"
+   ],
+   "expect": "unsure",
+   "why": "The whole module is one JSON string whose internal separators are bare LF, so the file has Unix endings however the harness joins array elements. VB6 wrote CRLF exclusively and its reader may or may not tolerate LF alone; the repo grammar spells it '\\r'? '\\n' and would accept. Genuinely unmeasured. Expect lf if legal.",
+   "skip": "Not measurable with vb6-legality.ps1: it writes every module as ASCII+CRLF by design (VB6 will not load an LF-terminated module and misreports it as a user-defined-type error), so this case cannot be delivered as written. Needs a harness that writes raw bytes."
+  },
+  {
+   "id": "cr-only-line-endings",
+   "scope": "module",
+   "code": [
+    "Sub S()\rDebug.Print \"cr\"\rEnd Sub"
+   ],
+   "expect": "unsure",
+   "why": "Classic-Mac endings: bare CR with no LF anywhere. The repo lexer cannot see these as newlines at all (every alternative demands '\\n'), so the module would arrive as one enormous physical line. Leaning illegal, but VB6's reader might normalise CR the way some Windows text APIs do, which is why this is unsure rather than a prediction.",
+   "skip": "Not measurable with vb6-legality.ps1: it writes every module as ASCII+CRLF by design (VB6 will not load an LF-terminated module and misreports it as a user-defined-type error), so this case cannot be delivered as written. Needs a harness that writes raw bytes."
+  },
+  {
+   "id": "mixed-crlf-and-lf",
+   "scope": "module",
+   "code": [
+    "Sub S()",
+    "Debug.Print \"a\"\nDebug.Print \"b\"",
+    "End Sub"
+   ],
+   "expect": "unsure",
+   "why": "One module in both conventions: the array joins supply CRLF, the embedded escape supplies a bare LF between the two Debug.Print calls. Tests whether the line splitter is uniform or latches onto the first terminator style it sees. If legal, expect a then b on separate lines -- which distinguishes 'LF accepted as a separator' from 'LF swallowed and the two calls merged'.",
+   "skip": "Not measurable with vb6-legality.ps1: it writes every module as ASCII+CRLF by design (VB6 will not load an LF-terminated module and misreports it as a user-defined-type error), so this case cannot be delivered as written. Needs a harness that writes raw bytes."
+  },
+  {
+   "id": "long-continuation-chain-eight",
+   "scope": "statement",
+   "code": [
+    "Dim x As Long",
+    "x = 1 + _",
+    "  1 + _",
+    "  1 + _",
+    "  1 + _",
+    "  1 + _",
+    "  1 + _",
+    "  1 + _",
+    "  1 + _",
+    "  1",
+    "Debug.Print \"chain=\" & x"
+   ],
+   "expect": "legal",
+   "why": "Eight consecutive continuations in one logical line, far deeper than the two- and three-line chains elsewhere in this corpus. VB6 documents a ceiling of 25 continuations per logical line, so eight should be comfortably legal; the point is to catch a joiner with a small fixed lookahead or one stack frame per joined line. Expect chain=9."
+  },
+  {
+   "id": "logical-line-over-1023-chars",
+   "scope": "statement",
+   "code": [
+    "Dim s As String",
+    "s = \"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\" & _",
+    "    \"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\" & _",
+    "    \"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC\" & _",
+    "    \"DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD\" & _",
+    "    \"EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE\"",
+    "Debug.Print Len(s)"
+   ],
+   "expect": "unsure",
+   "why": "Five 240-character literals joined by continuations: every physical line stays short but the joined logical line runs to roughly 1250 characters. VB6 documents a 1023-character line limit, and it is not clear whether that is measured per physical line (fine here) or after joining (over the limit). If legal, expect 1200."
+  },
+  {
+   "id": "nbsp-as-indentation",
+   "scope": "statement",
+   "code": [
+    "Dim x As Long",
+    " x = 4",
+    "Debug.Print \"nbsp\" & x"
+   ],
+   "expect": "illegal",
+   "why": "A non-breaking space (U+00A0) where indentation would go -- the classic paste-from-a-web-page failure. It looks like whitespace and is not: VB6's whitespace class is space and tab, and this byte is a printable character in the ANSI codepage, so the line should read as a garbage identifier. A pass here would mean the tokenizer uses a Unicode whitespace test."
+  },
+  {
+   "id": "vertical-tab-between-tokens",
+   "scope": "statement",
+   "code": [
+    "Dim\u000bx As Long",
+    "x = 6",
+    "Debug.Print \"vt\" & x"
+   ],
+   "expect": "unsure",
+   "why": "A vertical tab (U+000B) doing the job of the mandatory space after Dim. It is a C-family whitespace character and an ASCII control, but VB6's own whitespace class is space and tab only. Leaning illegal, though control characters are exactly where a reader written against a C runtime's isspace would diverge from the language definition."
+  },
+  {
+   "id": "form-feed-as-page-break-line",
+   "scope": "module",
+   "code": [
+    "Sub S()",
+    "Debug.Print \"one\"",
+    "End Sub",
+    "\f",
+    "Sub T()",
+    "Debug.Print \"two\"",
+    "End Sub"
+   ],
+   "expect": "unsure",
+   "why": "A form feed (U+000C) alone on a line between two procedures -- the printer page-break convention older BASIC listings used. Whether VB6 treats it as whitespace, as a line terminator, or as garbage at module level is unrecorded. If legal, both procedures compile."
+  }
+ ]
+}

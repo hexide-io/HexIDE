@@ -1443,6 +1443,75 @@ Worth recording separately: this gap existed **only in the interpreter's grammar
 already had a `lineNumber` rule, so the editor reported no syntax error on a file the interpreter could
 not load. Grammar divergence between the two halves is now guarded by `GrammarParityTests`.
 
+## Line continuations and statement separators (2026-09-02)
+
+319 clean-room cases compiled against real vb6.exe by `scripts/vb6-legality.ps1`. **243 legal, 76
+illegal; 16 predictions wrong and 60 genuine unknowns resolved.** Every case was authored from the VB6
+Language Reference and the grammar; Rubberduck's GPLv3 suite was never consulted, which matters because
+relicensing it is permanently out (no CLA, and tracing every contributor was established as impractical).
+
+### An unterminated string literal auto-closes at end of line
+
+| probe | measured |
+|---|---|
+| `Debug.Print "A` | **legal** — the string closes itself at the newline |
+| `s = "A` | **legal** — same in an assignment |
+
+Not a quirk of `Debug.Print`, and not what most people expect of a language with no multi-line strings.
+
+### A trailing `_` inside a string continues the line — but only sometimes
+
+| probe | measured |
+|---|---|
+| `Debug.Print "A _` then `B"` | **legal** |
+| `Debug.Print "A _` alone | **illegal** — Syntax error |
+| `s = "A _` then `B"` | **illegal** — Syntax error |
+| `Debug.Print "AB_` (no space before `_`) | **illegal** — the whitespace-before rule holds inside a string too |
+
+The first row only makes sense if the `_` joins the two physical lines, giving `Debug.Print "A B"` — and
+the second row supports that, because alone it swallows the following `End Sub`. **But then the third row
+should be legal, and it reproducibly is not**, with or without a later use of `s`.
+
+Recorded as measured and unexplained rather than tidied into a rule. Both halves reproduce in isolation.
+Something distinguishes an output list from an assignment here, and this document would rather say so than
+invent the reason.
+
+### Colons, and where they are refused
+
+| probe | measured |
+|---|---|
+| `Debug.Print 1:` (trailing colon) | legal |
+| a colon-only line at module level | legal |
+| `Enum` members colon-joined | legal |
+| `Type` header colon first member, and members colon-joined | legal |
+| `Attribute` colon `Option` | legal |
+| a statement colon `End If` | legal |
+| a label named `Error` | legal — a statement keyword is still usable as a label |
+| **two `Declare`s colon-joined at module level** | **illegal** — "Expected: statement or end of statement" |
+| **a continuation inside an `Enum` member value** | **illegal** — "Invalid inside Enum" |
+
+The last two are the only places in the whole sweep where colons and continuations are refused in a
+context that otherwise accepts them. Continuations work almost everywhere — including the canonical
+multi-line Win32 `Declare` — which makes the `Enum` exception worth remembering.
+
+### The harness lesson, which cost more than the findings
+
+The first run reported **35** wrong predictions. Nineteen of them were the harness's fault, in two ways:
+
+1. It appended its own `Sub Main` to every module-scope case, including the many that define one. VB6
+   answers *"Ambiguous name detected: Main"*, and the case is recorded illegal for a reason with nothing
+   to do with what it tested — quietly converting a whole family of declaration probes into confident
+   wrong facts. The canonical multi-line `Declare` was among them.
+2. The guard added to fix that silently never fired, because a shell heredoc turned the `\b` in its regex
+   into a literal **backspace byte** (0x08). The pattern `Sub\s+Main<BS>` cannot match anything, and the
+   character is invisible in every editor, diff and terminal rendering — it was found only by hexdumping
+   the line.
+
+**A corpus is only as good as the harness, and a harness bug looks exactly like a language discovery.**
+Both symptoms presented as surprising VB6 behaviour in the direction the author half-expected, which is
+the most dangerous shape an error can take. Check that a suspicious cluster shares a compiler *message*
+before believing it shares a *cause*.
+
 ## Extending the oracle (future phases)
 
 Phase 3 (intrinsics) and beyond should verify, at minimum:

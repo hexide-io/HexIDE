@@ -1,0 +1,396 @@
+{
+  "area": "colons and continuations around declarations and directives",
+  "cases": [
+    {
+      "id": "option-explicit-colon-option-base",
+      "scope": "module",
+      "code": [
+        "Option Explicit: Option Base 1",
+        "Sub Main()",
+        "  Dim a(3) As Long",
+        "  Debug.Print LBound(a)",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "The headline question of this area: two module-level directives joined by a colon. Designed so the output settles it rather than merely proving it compiled -- prints 1 if Option Base 1 really took effect, 0 if the colon-joined half was parsed but discarded. This repo's grammar accepts it by accident, because moduleOptions is (moduleOption NEWLINE+)+ and its NEWLINE token has a COLON alternative, so a colon reads as a line break even in the options section. Whether real VB6 agrees is unknown; the declarations section is handled by a different code path from a procedure body, and this is where any module-vs-procedure divergence should first appear."
+    },
+    {
+      "id": "option-explicit-colon-declaration",
+      "scope": "module",
+      "code": [
+        "Option Explicit: Private g As Long",
+        "Sub Main()",
+        "  g = 7",
+        "  Debug.Print g",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "Same colon join but across two different KINDS of module-level line -- a compiler directive followed by a real declaration. Separates two possibilities the previous case confounds: VB6 might allow colons between declarations generally while still requiring an Option statement to own its line (the reference only pins down its position, that it must precede all procedures, not that it must be alone). If this is legal and the previous case is not, the rule is about Option specifically, not about colons at module level."
+    },
+    {
+      "id": "option-explicit-split-by-continuation",
+      "scope": "module",
+      "code": [
+        "Option _",
+        "Explicit",
+        "Sub Main()",
+        "  Debug.Print \"OPTOK\"",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "A continuation inside a two-word keyword pair. Predicted legal because a continuation is a lexical line join: the physical lines merge before any keyword is recognised, so the scanner should see 'Option Explicit' with an unusual run of whitespace between the words. It is a direct hit on this repo's grammar, which defines OPTION_EXPLICIT as a single lexer token with a literal space baked in, and a token like that can never match a continuation-joined pair -- so if VB6 accepts this, the grammar has a real defect."
+    },
+    {
+      "id": "option-explicit-inside-procedure",
+      "scope": "statement",
+      "code": [
+        "Option Explicit",
+        "Debug.Print \"RAN\""
+      ],
+      "expect": "illegal",
+      "why": "The control for the whole module-versus-procedure axis: the same directive, unambiguously inside a procedure body and not joined to anything. The reference is explicit that Option Explicit is used at module level and must appear before any procedure, so this should be rejected outright. Included so that a failure in the colon cases above can be attributed to the colon rather than to the directive having wandered out of the declarations section."
+    },
+    {
+      "id": "module-two-declarations-colon",
+      "scope": "module",
+      "code": [
+        "Private a As Long: Private b As Long",
+        "Sub Main()",
+        "  a = 1: b = 2",
+        "  Debug.Print a + b",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "Two ordinary module-level variable declarations on one line. Predicted legal: a Private declaration is a statement like any other and the colon is VB6's general statement separator, with nothing about the declarations section documented as suspending that. Prints 3 only if BOTH declarations took effect -- if the second were silently dropped, b would be an undeclared Variant and, with no Option Explicit in this module, would quietly evaluate to Empty and print 1 instead. That difference in output is the point of the case."
+    },
+    {
+      "id": "module-const-colon-const",
+      "scope": "module",
+      "code": [
+        "Const A = 1: Const B = 2",
+        "Sub Main()",
+        "  Debug.Print A; B",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "The Const variant of the previous case, kept separate because a Const is resolved at compile time rather than allocated, so it travels a different path through the compiler than a Private variable. Prints '1 2' if both constants exist; if only the first survived, B would be an undefined name and the module would fail to compile rather than print something wrong -- so this case cannot silently pass on half the line."
+    },
+    {
+      "id": "module-declare-colon-declare",
+      "scope": "module",
+      "code": [
+        "Private Declare Sub Sleep Lib \"kernel32\" (ByVal ms As Long): Private Declare Function GetTickCount Lib \"kernel32\" () As Long",
+        "Sub Main()",
+        "  Debug.Print GetTickCount > 0",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "Two Declare statements colon-joined at module level. Harder than the Const case because a Declare ends with an argument list and an optional As clause, so the parser must decide the statement is finished at the closing paren before it can treat the colon as a separator rather than as part of the signature. Predicted legal on the same reasoning as the other declaration joins, and calling the second import proves the tail of the line was really compiled and not just skipped past."
+    },
+    {
+      "id": "deftype-colon-joined",
+      "scope": "module",
+      "code": [
+        "DefInt A-M: DefStr N-Z",
+        "Sub Main()",
+        "  k = 1",
+        "  p = \"x\"",
+        "  Debug.Print TypeName(k); \" \"; TypeName(p)",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "Two Deftype statements joined by a colon. These are the most position-sensitive lines in a module -- VB6 has a dedicated error for a Deftype appearing after declarations -- so they are the best test of whether the colon is understood before or after the compiler decides which section of the module it is reading. Fully observable: prints 'Integer String' only if both ranges were installed, and 'Integer Variant' if the half after the colon was lost."
+    },
+    {
+      "id": "colon-before-sub-header",
+      "scope": "module",
+      "code": [
+        "Private x As Long: Sub Main()",
+        "  Debug.Print \"IN\"",
+        "End Sub"
+      ],
+      "expect": "illegal",
+      "why": "A colon that would have to open a procedure definition rather than merely separate two statements. Predicted illegal on a structural argument, not a lexical one: VB6 splits a module into procedures before compiling any of them -- this is why the VBE can display one procedure at a time -- and that split is by physical line, so a Sub header sharing a line with a preceding declaration has nowhere to start. Distinct from the declaration joins above in exactly one respect: what follows the colon is a block header, not a statement."
+    },
+    {
+      "id": "single-line-whole-sub",
+      "scope": "module",
+      "code": [
+        "Sub Main(): Debug.Print \"IN\": End Sub"
+      ],
+      "expect": "unsure",
+      "why": "An entire procedure -- header, body and terminator -- on one physical line. Genuinely unsure and worth measuring: the lexical view says these are three ordinary statements separated by colons, while the structural view above says a procedure boundary is a property of the physical line. Prints IN if the whole line compiled, so a legal result also confirms the body ran rather than being parsed and discarded. If this is legal but the previous case is not, the rule is 'a procedure must START a line', not 'a procedure must own its lines'."
+    },
+    {
+      "id": "end-sub-colon-next-sub",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "  Debug.Print \"MAIN\"",
+        "End Sub: Sub Foo()",
+        "  Debug.Print \"FOO\"",
+        "End Sub"
+      ],
+      "expect": "illegal",
+      "why": "The other half of the procedure-boundary question: a colon joining one procedure's terminator to the next one's header. Predicted illegal for the same by-physical-line splitting reason. Worth having alongside the previous two because it is the shape a code generator or minifier most plausibly emits, and because it fails in a different place -- the colon sits between two procedures rather than inside or before one."
+    },
+    {
+      "id": "type-member-continued-before-as",
+      "scope": "module",
+      "code": [
+        "Private Type TPoint",
+        "  X _",
+        "    As Long",
+        "End Type",
+        "Sub Main()",
+        "  Dim p As TPoint",
+        "  p.X = 5",
+        "  Debug.Print p.X",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "A Type member split by a continuation between the member name and its As clause. Predicted legal because continuations are resolved by the scanner, below the level at which the Type block's member syntax is recognised. This is the legal-but-ugly half of the Type pair: a parser that gives Type blocks their own line-oriented sub-parser -- as this repo's grammar effectively does, with typeStmt_Element terminated by NEWLINE+ -- risks rejecting valid code here, which is the more damaging direction of error because it takes the whole module down."
+    },
+    {
+      "id": "type-members-colon-joined",
+      "scope": "module",
+      "code": [
+        "Private Type TPoint",
+        "  X As Long: Y As Long",
+        "End Type",
+        "Sub Main()",
+        "  Dim p As TPoint",
+        "  p.Y = 9",
+        "  Debug.Print p.Y",
+        "End Sub"
+      ],
+      "expect": "illegal",
+      "why": "Two Type members on one line, separated by a colon. Predicted illegal, and this is the case most likely to overturn my reasoning elsewhere: a Type member is not a statement -- it is an element of a record layout, with its own restricted syntax and its own compiler errors -- so the general statement separator has no obvious business inside the block. Assigning and printing Y makes the outcome legible if I am wrong: it prints 9 only if the member after the colon really became part of the record."
+    },
+    {
+      "id": "type-header-colon-first-member",
+      "scope": "module",
+      "code": [
+        "Private Type TPoint: X As Long",
+        "End Type",
+        "Sub Main()",
+        "  Dim p As TPoint",
+        "  Debug.Print \"TYPEOK\"",
+        "End Sub"
+      ],
+      "expect": "illegal",
+      "why": "A colon joining the Type header to its first member -- the block-opener analogue of the Sub-header case, and a tighter test than joining two members. Even a compiler that accepted colons between members would still have to separately permit a block header that does not end its own line. Predicted illegal; kept distinct from the previous case so the two candidate rules ('no colons in a Type block at all' versus 'no colon after the header') can be told apart."
+    },
+    {
+      "id": "end-type-split-by-continuation",
+      "scope": "module",
+      "code": [
+        "Private Type TPoint",
+        "  X As Long",
+        "End _",
+        "Type",
+        "Sub Main()",
+        "  Dim p As TPoint",
+        "  Debug.Print \"TYPEOK\"",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "A continuation inside the two-word block terminator End Type. Same lexical argument as splitting Option Explicit, and the same trap for this repo's grammar, which defines END_TYPE as one token containing a literal space. Distinct from the Option case because a block terminator is matched by the block parser rather than scanned in the declarations preamble, so an implementation that handles one correctly may still not handle the other."
+    },
+    {
+      "id": "enum-member-value-continued",
+      "scope": "module",
+      "code": [
+        "Private Enum EColor",
+        "  Red = _",
+        "    3",
+        "End Enum",
+        "Sub Main()",
+        "  Debug.Print Red",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "An Enum member whose initialiser is continued onto the next line. Predicted legal for the ordinary lexical reason, and the printed value pins down which of two failure modes a wrong implementation has: printing 3 means the continuation was joined properly, while printing 0 would mean the member was accepted with no initialiser and the stray value line swallowed -- a silent wrong answer, which is worse than a parse error."
+    },
+    {
+      "id": "enum-members-colon-joined",
+      "scope": "module",
+      "code": [
+        "Private Enum EColor",
+        "  Red = 1: Blue = 2",
+        "End Enum",
+        "Sub Main()",
+        "  Debug.Print Blue",
+        "End Sub"
+      ],
+      "expect": "illegal",
+      "why": "The Enum twin of the colon-joined Type members, and predicted illegal for the same reason: an enumeration constant is a member of a block with its own syntax, not a free-standing statement. Kept as a separate case rather than assumed to follow the Type result, because an Enum member carries an expression on its right-hand side while a Type member carries a type, so the two blocks may well be parsed by different code. Prints 2 if I am wrong."
+    },
+    {
+      "id": "declare-continued-across-lines",
+      "scope": "module",
+      "code": [
+        "Private Declare Function GetTickCount _",
+        "  Lib \"kernel32\" _",
+        "  () As Long",
+        "Sub Main()",
+        "  Debug.Print GetTickCount > 0",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "The single most consequential case in this file: the canonical multi-line Win32 Declare, broken before Lib and again before the argument list. Nearly every real VB6 module that touches the API is written this way, so a parser that mishandles it is not merely inaccurate, it is unusable. Predicted legal with high confidence. Calling the import rather than only declaring it confirms the reassembled statement was compiled correctly and not merely tolerated."
+    },
+    {
+      "id": "declare-continuation-inside-lib-string",
+      "scope": "module",
+      "code": [
+        "Private Declare Function GetTickCount Lib \"kern_",
+        "el32\" () As Long",
+        "Sub Main()",
+        "  Debug.Print \"X\"",
+        "End Sub"
+      ],
+      "expect": "illegal",
+      "why": "The same Declare, but the break falls inside the library-name string literal. Predicted illegal: inside a string the underscore is just a character, so no line join happens, the literal is left unterminated at the end of the physical line, and the statement is malformed. The interesting failure mode is the opposite one -- an implementation that strips continuations in a pre-pass over raw text, before it knows about string literals, will happily produce a working import of 'kernel32' and accept code the real compiler rejects."
+    },
+    {
+      "id": "declare-continued-after-alias-keyword",
+      "scope": "module",
+      "code": [
+        "Private Declare Function GTC Lib \"kernel32\" Alias _",
+        "  \"GetTickCount\" () As Long",
+        "Sub Main()",
+        "  Debug.Print GTC > 0",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "A continuation between a keyword and the string literal it governs, rather than between two whole clauses. Distinct from the multi-line Declare above because the break lands mid-clause, where a parser that tries to resynchronise on line boundaries has the least context to work with. Predicted legal. Renaming the import to GTC makes the Alias clause load-bearing: the call only resolves if the continued string really attached to the Alias keyword."
+    },
+    {
+      "id": "const-list-continued-after-comma",
+      "scope": "statement",
+      "code": [
+        "Const A = 1, _",
+        "  B = 2",
+        "Debug.Print A + B"
+      ],
+      "expect": "legal",
+      "why": "A single Const statement declaring two constants, continued after the comma. Predicted legal: this is the shape the continuation character exists for, and the trailing comma leaves the statement obviously incomplete, so even a recovery-based parser has a clear signal. Prints 3 only if the second constant was really declared by the same statement; if the continuation were mishandled, B would be undefined and the module would fail rather than print a wrong number."
+    },
+    {
+      "id": "const-continued-before-equals",
+      "scope": "statement",
+      "code": [
+        "Const A _",
+        "  = 5",
+        "Debug.Print A"
+      ],
+      "expect": "legal",
+      "why": "The same statement broken at a nastier point -- between the constant's name and its equals sign, so the first physical line ends with a bare identifier that would look like a complete line on its own. Unlike the comma case there is no dangling operator to signal incompleteness, which is what makes this the harder half of the pair. Predicted legal; prints 5."
+    },
+    {
+      "id": "module-const-colon-then-continuation",
+      "scope": "module",
+      "code": [
+        "Const A = 1: Const B = _",
+        "  2",
+        "Sub Main()",
+        "  Debug.Print A + B",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "The two mechanisms of this area interacting on one logical line at module level: a colon separator, then a continuation carrying the second statement onto the next physical line. Order of operations matters -- the continuation is joined by the scanner while the colon is interpreted by the parser -- so this only works if the join happens first and the resulting logical line is then split at the colon. Unsure also because it inherits whatever module-level colon rule the earlier cases establish. Prints 3 if both statements survived."
+    },
+    {
+      "id": "attribute-then-option",
+      "scope": "module",
+      "code": [
+        "Attribute VB_Name = \"Mod1\"",
+        "Option Explicit",
+        "Sub Main()",
+        "  Debug.Print \"ATTROK\"",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "The baseline for the Attribute lines: one on its own line, ahead of the options, exactly as VB6 itself writes them when it saves a .bas file. Predicted legal for a file compiled from disk. Worth measuring anyway because Attribute has a split personality -- the VBE refuses a hand-typed Attribute line inside the editor while the file format requires it -- so a harness that feeds source through the editor and one that compiles a file may legitimately disagree here, and knowing which is being measured is needed to read the other two Attribute cases."
+    },
+    {
+      "id": "attribute-colon-option",
+      "scope": "module",
+      "code": [
+        "Attribute VB_Name = \"Mod1\": Option Explicit",
+        "Sub Main()",
+        "  Debug.Print \"X\"",
+        "End Sub"
+      ],
+      "expect": "illegal",
+      "why": "An Attribute line colon-joined to an ordinary directive. Predicted illegal on the grounds that Attribute is barely a statement in the language at all -- it is file-format metadata the compiler reads positionally, ahead of the code proper -- so the statement separator should not reach it. If it turns out legal, the useful consequence is that Attribute is going through the same machinery as everything else, which would also predict the next case going the same way."
+    },
+    {
+      "id": "attribute-value-continued",
+      "scope": "module",
+      "code": [
+        "Attribute VB_Name = _",
+        "  \"Mod1\"",
+        "Sub Main()",
+        "  Debug.Print \"X\"",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "The continuation counterpart to the previous case, and unsure for the reason that makes it interesting: if Attribute lines are consumed by a positional pre-scan of the file header, that scan may never have been taught about continuations, because nothing that legitimately writes these lines has ever needed one. A rare spot where the answer plausibly differs between two things that are both 'just lexing'."
+    },
+    {
+      "id": "hashif-colon-statement-same-line",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "#If True Then: Debug.Print \"IN\": #End If",
+        "End Sub"
+      ],
+      "expect": "illegal",
+      "why": "A whole conditional block collapsed onto one line with colons. Predicted illegal on documented grounds rather than by guess: the language reference states the directive forms have no single-line variant and that no other code may share a line with them -- a restriction it calls out precisely because the corresponding If statement DOES have a single-line form, so a reader would otherwise assume symmetry. The Debug.Print is there so that a legal result is observable instead of silent."
+    },
+    {
+      "id": "hashif-expression-continued",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "#If True Or _",
+        "  False Then",
+        "  Debug.Print \"IN\"",
+        "#End If",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "A continuation inside a directive's condition -- the case where the two documented rules collide. 'No other code on the directive's line' is a rule about code, and a continuation is not code; but if directives are scanned by physical line, the continuation never gets a chance to join anything. Both readings are defensible from the reference, which is exactly why this needs measuring rather than deciding. Prints IN if it compiles at all, since the condition is true under either reading."
+    },
+    {
+      "id": "hashconst-value-continued",
+      "scope": "module",
+      "code": [
+        "#Const DBG = _",
+        "  1",
+        "Sub Main()",
+        "#If DBG Then",
+        "  Debug.Print \"DBG\"",
+        "#End If",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "The same continuation question aimed at #Const rather than #If, and it separates two rules the previous case cannot. #Const is a definition, not a block opener, so the single-line prohibition the reference states for #If, #ElseIf, #Else and #End If does not name it at all. Made observable through a following #If: printing DBG proves the constant really became 1, and silence would mean the continued value never reached it -- an undefined conditional constant evaluates as Empty rather than raising an error, so this can fail quietly."
+    },
+    {
+      "id": "hashendif-trailing-colon",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "#If True Then",
+        "  Debug.Print \"IN\"",
+        "#End If:",
+        "End Sub"
+      ],
+      "expect": "illegal",
+      "why": "The minimal violation of the directive line rule: not a statement sharing the line, just a trailing colon with nothing after it. Predicted illegal because the documented restriction is stated about the line, not about whether anything meaningful follows. Everywhere else in VB6 a trailing colon is a harmless empty statement, which makes this the sharpest available test of whether directives are policed as lines or as statements -- and it is the shape most likely to arrive from a text-processing tool rather than a human."
+    }
+  ]
+}

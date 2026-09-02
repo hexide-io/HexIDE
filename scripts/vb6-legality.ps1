@@ -64,10 +64,18 @@ $files = if (Test-Path $CorpusPath -PathType Container) {
 } else { Get-Item $CorpusPath }
 
 $cases = [System.Collections.Generic.List[object]]::new()
+$skipped = [System.Collections.Generic.List[object]]::new()
 foreach ($f in $files) {
     $doc = Get-Content $f.FullName -Raw | ConvertFrom-Json
     foreach ($c in $doc.cases) {
         if (-not $c.id -or -not $c.code) { continue }
+        # A case may declare itself undeliverable by THIS harness — the line-ending cases cannot be,
+        # because every module is written ASCII+CRLF on purpose. Recording a result for one would be a
+        # confident answer that measured nothing, which is worse than no answer.
+        if ($c.skip) {
+            $skipped.Add([pscustomobject]@{ Key = "$($f.BaseName)/$($c.id)"; Reason = $c.skip })
+            continue
+        }
         # A case is identified by file AND id: ids are only unique within an area, and a collision
         # would silently drop a case from the report rather than fail.
         $cases.Add([pscustomobject]@{
@@ -85,11 +93,27 @@ if ($cases.Count -eq 0) { throw "No cases found under $CorpusPath" }
 Write-Verbose "Loaded $($cases.Count) cases from $($files.Count) file(s)"
 
 # A statement-scope case is the body of a procedure; a module-scope case is the whole module. Both
-# get Sub Main as the startup, because a .vbp needs one to build at all.
+# need a Sub Main, because the .vbp names it as the startup and will not build without one.
+#
+# A module-scope case may define its OWN Sub Main, and appending a second one unconditionally is a
+# mistake that costs real results: VB6 answers "Ambiguous name detected: Main" and the case is recorded
+# as ILLEGAL for a reason with nothing to do with what it was testing. That silently converted a large
+# share of the declaration cases — Declare continued across lines, a continued procedure signature,
+# `Option _ Explicit` — into confident wrong facts about VB6.
 foreach ($c in $cases) {
+    # Line by line rather than one multiline regex. This decides whether a second Sub Main is appended,
+    # and getting it wrong is expensive but SILENT: VB6 answers "Ambiguous name detected: Main" and the
+    # case is recorded illegal for a reason unrelated to what it tested, which quietly turned a whole
+    # family of declaration cases into confident wrong facts about VB6.
+    $needsMain = $true
+    foreach ($srcLine in ($c.Source -split "`r`n")) {
+        if ($srcLine.Trim() -match '^(Public |Private |Friend )?Sub +Main') { $needsMain = $false; break }
+    }
+    Write-Verbose "[$($c.Key)] scope=$($c.Scope) needsMain=$needsMain"
     $c | Add-Member -NotePropertyName Module -NotePropertyValue $(
-        if ($c.Scope -eq 'module') { $c.Source + "`r`n`r`nSub Main()`r`nEnd Sub`r`n" }
-        else { "Sub Main()`r`n" + $c.Source + "`r`nEnd Sub`r`n" })
+        if ($c.Scope -eq 'module') {
+            if ($needsMain) { $c.Source + "`r`n`r`nSub Main()`r`nEnd Sub`r`n" } else { $c.Source + "`r`n" }
+        } else { "Sub Main()`r`n" + $c.Source + "`r`nEnd Sub`r`n" })
 }
 
 $payload = $cases | ForEach-Object { @{ Key = $_.Key; Module = $_.Module } }
@@ -208,6 +232,7 @@ Write-Host "  legal      $legal   illegal $($rows.Count - $legal)"
 Write-Host "  agrees     $agree"
 Write-Host "  DISAGREES  $disagree   <- the interesting ones"
 Write-Host "  resolved   $resolved   (predicted 'unsure')"
+if ($skipped.Count) { Write-Host "  skipped    $($skipped.Count)   (undeliverable by this harness)" }
 Write-Host "  written to $OutFile"
 Write-Host ""
 
