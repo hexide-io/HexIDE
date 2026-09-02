@@ -16,6 +16,27 @@ Every fix here is authored **only** from the **VB6 Language Reference** (MSDN aa
 shape (e.g. `lineNumber` not RD's `lineNumberLabel`; no `MINUS?`). This provenance is what keeps the fixes
 MIT-cleanly upstreamable. Preserve it for every future entry.
 
+## Why the corpus is authored rather than borrowed (2026-09-02)
+
+Rubberduck's VB6 test suite is a well-known body of language torture tests, and it is **permanently
+unavailable to this project**: RD2 has no CLA, and previous relicensing discussions established that
+tracing every contributor is impractical. So this is settled rather than pending — there is no version of
+"ask again later".
+
+That is not only a licence problem. This repository has already paid the cost once: the GPLv3 LSP server
+that was replaced carried `RubberduckGrammarTests.cs`, whose inputs were ported from that suite, and
+`lsp-parity-matrix.md` names it as one of the two things creating the GPL obligation the swap existed to
+shed. Porting them back would re-acquire it.
+
+**The replacement is better, not merely legal.** Those tests encode what their authors believed VB6
+accepts. A corpus generated here and compiled by `vb6.exe` encodes what VB6 *actually* accepts — the
+legality oracle (`scripts/vb6-legality.ps1`) is what makes that difference real. The first such corpus,
+319 cases on line continuations and statement separators, corrected 16 of its own predictions and resolved
+60 questions nobody could answer from documentation.
+
+Because it is authored here and validated by the compiler, it is also publishable — which makes it
+something this project can offer outward rather than something it must ask for.
+
 ## Method / local artifacts
 
 - **Corpus** — a `vb6-corpus/` checkout beside this repo: clean-room legal-VB6 conformance files (a

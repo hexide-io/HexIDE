@@ -1,0 +1,609 @@
+{
+  "area": "audit of corpus/continuation-and-separator",
+  "file": "C:\\Repos\\GitHub\\HexIDE\\HexIDE\\corpus\\continuation-and-separator\\audit.json",
+  "count": 52,
+  "cases": [
+    {
+      "id": "dup-trailing-whitespace-after-underscore",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _  ",
+        "    2",
+        "Debug.Print x"
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE, and the predictions disagree. The same probe - whitespace between the continuation underscore and the newline - appears three times: continuation-basics/cont-trailing-space-after-underscore (two trailing spaces, 'unsure'), continuation-vs-identifier/trailing-space-after-continuation (two trailing spaces, byte-identical apart from the variable name, 'unsure'), and continuation-illegal/trailing-space-after-underscore (one trailing space, 'legal'). Three rows will resolve to one fact, and the corpus will then contain a prediction recorded as both correct and wrong. Keep ONE; if the one-space vs two-space distinction is wanted, say so explicitly rather than leaving it implicit in a whitespace difference nobody can see. Note also that all three die silently if any part of the pipeline right-trims a source line.  [snippet quoted verbatim from continuation-basics.json / cont-trailing-space-after-underscore]"
+    },
+    {
+      "id": "dup-tab-before-underscore",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 +\t_",
+        "    2",
+        "Debug.Print x"
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE with opposite predictions. continuation-basics/cont-tab-before-underscore says 'legal'; continuation-vs-identifier/tab-before-continuation is the same snippet (TAB before the underscore, variable renamed to c) and says 'unsure'. Whichever way vb6.exe falls, one of the two is scored wrong for no reason other than that two files asked the same question. continuation-illegal/trailing-tab-after-underscore probes a tab on the OTHER side of the underscore, which is a genuinely different question and should be kept.  [snippet quoted verbatim from continuation-basics.json / cont-tab-before-underscore]"
+    },
+    {
+      "id": "dup-empty-continuation-line",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _",
+        " _",
+        "    2",
+        "Debug.Print x"
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE x3 with two different predictions. A continuation line whose entire content is whitespace-plus-underscore appears as continuation-basics/cont-empty-continuation-line ('unsure', one leading space), continuation-illegal/underscore-only-line-indented ('legal', two leading spaces) and continuation-in-strings-comments/consecutive-continuation-only-lines ('legal', one leading space, inside a concatenation). continuation-illegal/underscore-only-line-at-column-one is the one genuine variant of the family (no preceding space at all) and should be kept; the other three collapse to one.  [snippet quoted verbatim from continuation-basics.json / cont-empty-continuation-line]"
+    },
+    {
+      "id": "dup-continuation-after-member-dot",
+      "scope": "statement",
+      "code": [
+        "Debug. _",
+        "    Print \"D\""
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE with opposite predictions: continuation-basics/cont-after-member-dot ('unsure') and continuation-illegal/continuation-after-member-dot ('legal') are the same two lines with a different string literal. continuation-illegal/continuation-before-member-dot (break BEFORE the dot) is a real second case and should stay.  [snippet quoted verbatim from continuation-basics.json / cont-after-member-dot]"
+    },
+    {
+      "id": "dup-colon-immediately-after-then",
+      "scope": "statement",
+      "code": [
+        "If True Then:",
+        "Debug.Print \"A\"",
+        "End If"
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE with opposite predictions. separator-basics/sep-colon-immediately-after-then ('unsure') and separator-in-control-flow/then-colon-then-endif ('illegal') are the same probe - 'If <cond> Then :' followed by a block body and an End If - differing only by a Dim/assignment preamble and one space. Both whys reason from the same documented rule and reach different confidence, so one row will be scored wrong. separator-in-control-flow/colon-immediately-after-then ('If x Then : Debug.Print') is a different question (single-line form, no End If) and should be kept.  [snippet quoted verbatim from separator-basics.json / sep-colon-immediately-after-then]"
+    },
+    {
+      "id": "dup-identifier-ending-in-underscore",
+      "scope": "statement",
+      "code": [
+        "Dim ab_ As Long",
+        "ab_ = 12",
+        "Debug.Print ab_"
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE x3 with mixed predictions: continuation-vs-identifier/trailing-underscore-name-midline ('legal'), continuation-vs-identifier/trailing-underscore-at-eol-no-space ('legal' - the same declaration plus one extra Debug.Print) and continuation-illegal/identifier-ending-in-underscore ('unsure' - the same thing wrapped in a Sub). The trailing-underscore-at-eol variant is the only one carrying the discriminating observation (an identifier ending the physical line), so it is the one to keep; the other two ask 'may a name end in _' a second and third time.  [snippet quoted verbatim from continuation-vs-identifier.json / trailing-underscore-name-midline]"
+    },
+    {
+      "id": "dup-label-after-a-colon-mid-line",
+      "scope": "statement",
+      "code": [
+        "Dim z As Long",
+        "z = 1: Here: z = 2",
+        "Debug.Print z"
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE x4 with four different predictions - the largest disagreement in the area. 'Is name-colon a label when it is not first on the physical line' is asked by separator-basics/sep-label-mid-line-after-colon ('illegal'), separator-in-control-flow/label-in-the-middle-of-a-line ('unsure'), separator-vs-label/second-name-colon-is-not-a-label ('illegal') and gap-fill/two-labels-on-one-line ('unsure'). They are not equal in quality, and the right survivor is gap-fill/two-labels-on-one-line: it is the only one that aims the GoTo at the SECOND name, so acceptance and label-hood are separately observable. The control-flow variant additionally loops forever if the answer is 'legal' - see malformed-mid-line-label-loops-forever. Note gap-fill's why explicitly checked for prior art and cited second-name-colon-is-not-a-label before adding its own, so this is a near-miss rather than blind duplication: the fix is to retire the older three, not to reject the new one.  [snippet quoted verbatim from separator-basics.json / sep-label-mid-line-after-colon]"
+    },
+    {
+      "id": "dup-rem-with-and-without-colon",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\": Rem trailing remark",
+        "Debug.Print \"B\""
+      ],
+      "expect": "unsure",
+      "why": "BYTE-IDENTICAL DUPLICATES across files. separator-basics/sep-rem-after-colon and separator-vs-label/rem-after-colon are the same snippet character for character; so are separator-basics/sep-rem-without-colon and separator-vs-label/rem-without-colon. Four rows, two facts. A third relative, continuation-in-strings-comments/rem-after-statement-without-colon, re-tests 'Rem needs a colon' a third time while claiming to test continuation - see the malformed finding for it.  [snippet quoted verbatim from separator-basics.json / sep-rem-after-colon]"
+    },
+    {
+      "id": "dup-trailing-colon-at-end-of-line",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\":",
+        "Debug.Print \"B\""
+      ],
+      "expect": "unsure",
+      "why": "BYTE-IDENTICAL DUPLICATE: separator-basics/sep-trailing-colon-end-of-line and separator-vs-label/trailing-colon-end-of-line are the same two lines. separator-basics/sep-leading-colon-start-of-line and separator-vs-label/leading-colon-on-line are the same pair in the other direction, differing only by a trailing Debug.Print.  [snippet quoted verbatim from separator-basics.json / sep-trailing-colon-end-of-line]"
+    },
+    {
+      "id": "dup-block-if-after-a-colon",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\": If True Then",
+        "Debug.Print \"B\"",
+        "End If"
+      ],
+      "expect": "unsure",
+      "why": "BYTE-IDENTICAL DUPLICATE (modulo indentation): separator-basics/sep-block-if-not-first-on-line and separator-vs-label/block-if-after-colon. Both 'illegal', both testing that a block If must open its own logical line.  [snippet quoted verbatim from separator-basics.json / sep-block-if-not-first-on-line]"
+    },
+    {
+      "id": "dup-module-declarations-colon-joined",
+      "scope": "module",
+      "code": [
+        "Private a As Long: Private b As Long",
+        "",
+        "Sub Main()",
+        "a = 1: b = 2",
+        "Debug.Print a + b",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "BYTE-IDENTICAL DUPLICATE (modulo one blank line): separator-basics/sep-module-level-declarations-joined and separator-with-declarations/module-two-declarations-colon are the same module. Two files claim the same fact.  [snippet quoted verbatim from separator-basics.json / sep-module-level-declarations-joined]"
+    },
+    {
+      "id": "dup-numeric-label-with-colon",
+      "scope": "statement",
+      "code": [
+        "GoTo 10",
+        "Debug.Print \"SKIPPED\"",
+        "10: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "BYTE-IDENTICAL DUPLICATE, both 'unsure': separator-basics/sep-numeric-line-number-with-colon and separator-vs-label/numeric-label-with-colon. separator-vs-label carries three further line-number cases (no-colon, colon-joined, alone-on-line) that separator-basics does not, so the whole line-number family belongs in one file.  [snippet quoted verbatim from separator-basics.json / sep-numeric-line-number-with-colon]"
+    },
+    {
+      "id": "dup-colon-then-line-continuation",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\": _",
+        "Debug.Print \"B\""
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE x4 of the most-repeated probe in the corpus: a colon separator immediately followed by a line continuation. continuation-basics/cont-after-colon-separator, continuation-illegal/continuation-after-colon-separator, separator-basics/sep-colon-then-line-continuation and separator-and-continuation-together/colon-space-underscore-with-space-before-colon are the same two lines. Only separator-and-continuation-together/colon-immediately-before-underscore-no-space (colon with no space before the underscore) is a distinct question.  [snippet quoted verbatim from continuation-basics.json / cont-after-colon-separator]"
+    },
+    {
+      "id": "dup-comment-after-the-underscore",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _ ' add two",
+        "    2",
+        "Debug.Print x"
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE x4, all 'illegal': continuation-basics/cont-comment-after-underscore, continuation-illegal/comment-after-underscore, continuation-vs-identifier/comment-after-continuation and continuation-in-strings-comments/comment-after-continuation-on-same-line. Same question (does a trailing comment defeat the continuation), same prediction, four rows.  [snippet quoted verbatim from continuation-basics.json / cont-comment-after-underscore]"
+    },
+    {
+      "id": "dup-no-space-before-the-underscore",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 +_",
+        "    2",
+        "Debug.Print x"
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE x4, all 'illegal': continuation-basics/cont-no-space-before-underscore, continuation-illegal/no-space-before-underscore-after-operator, continuation-vs-identifier/continuation-without-preceding-space and continuation-in-strings-comments/operator-then-underscore-with-no-space. All four are operator-then-underscore with no space. The one genuinely different member of the family is continuation-illegal/no-space-before-underscore-after-identifier, where the preceding character can absorb the underscore.  [snippet quoted verbatim from continuation-basics.json / cont-no-space-before-underscore]"
+    },
+    {
+      "id": "dup-comment-only-continued-line",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _",
+        "' a comment",
+        "    2",
+        "Debug.Print x"
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE x3, all 'illegal': continuation-basics/cont-comment-line-then-continued, continuation-illegal/comment-on-the-continued-line and continuation-in-strings-comments/continuation-then-comment-only-line. A continuation whose target line is a full-line comment, asked three times.  [snippet quoted verbatim from continuation-basics.json / cont-comment-line-then-continued]"
+    },
+    {
+      "id": "dup-blank-line-after-a-continuation",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _",
+        "",
+        "    2",
+        "Debug.Print x"
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE x3, all 'illegal': continuation-basics/cont-blank-line-inside, continuation-illegal/blank-line-after-continuation and continuation-vs-identifier/continuation-onto-blank-line. The whitespace-only siblings continuation-illegal/whitespace-only-line-after-continuation (three spaces) and whitespace-and-eol-edges/continuation-then-tab-only-line (one tab) are a fourth and fifth pass at the same family and differ from each other by one character. continuation-in-strings-comments/continuation-then-blank-line is the one worth keeping - there the first physical line is already a complete statement, which is a different question.  [snippet quoted verbatim from continuation-basics.json / cont-blank-line-inside]"
+    },
+    {
+      "id": "dup-continuation-splits-end-sub",
+      "scope": "module",
+      "code": [
+        "Public Sub Main()",
+        "    Debug.Print \"K\"",
+        "End _",
+        "Sub"
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE x3, all 'legal': continuation-basics/cont-splitting-end-sub, continuation-illegal/continuation-splitting-end-sub and continuation-vs-identifier/continuation-splits-end-sub. The mirror probe (a continuation joining the last statement INTO End Sub) is itself duplicated: continuation-basics/cont-dangling-before-end-sub and continuation-illegal/continuation-joins-into-end-sub.  [snippet quoted verbatim from continuation-basics.json / cont-splitting-end-sub]"
+    },
+    {
+      "id": "dup-continuation-splits-a-token",
+      "scope": "statement",
+      "code": [
+        "Dim value As Long",
+        "val _",
+        "ue = 5",
+        "Debug.Print value"
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE x3, all 'illegal': continuation-illegal/split-identifier (val_/ue), continuation-vs-identifier/continuation-splits-identifier (tot_/al) and continuation-in-strings-comments/continuation-splitting-a-token (Debug.Pri_/nt). continuation-illegal/split-keyword (I_/f) and continuation-illegal/split-number (12_/34) are worth keeping as separate token classes, but three copies of 'split an identifier' is two too many.  [snippet quoted verbatim from continuation-illegal.json / split-identifier]"
+    },
+    {
+      "id": "dup-underscore-inside-an-unterminated-string",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A _",
+        "B\""
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE x3, all 'illegal': continuation-basics/cont-inside-string-literal, continuation-illegal/split-string-literal and continuation-in-strings-comments/string-underscore-at-eol-unterminated. All three are 'space-underscore inside an open string literal at end of line'. A fourth, separator-with-declarations/declare-continuation-inside-lib-string, claims to be this test and is not - see the malformed finding.  [snippet quoted verbatim from continuation-basics.json / cont-inside-string-literal]"
+    },
+    {
+      "id": "dup-comment-underscore-swallows-next-line",
+      "scope": "statement",
+      "code": [
+        "' note _",
+        "Debug.Print \"RAN\"",
+        "Debug.Print \"AFTER\""
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE: continuation-illegal/continuation-at-end-of-apostrophe-comment and continuation-in-strings-comments/comment-trailing-underscore-swallows-next-statement are the same probe with different literals, both 'legal'. The Rem-form siblings (continuation-illegal/continuation-at-end-of-rem-comment, continuation-in-strings-comments/rem-trailing-underscore-swallows-end-sub) are legitimately distinct, as is comment-underscore-without-preceding-space.  [snippet quoted verbatim from continuation-illegal.json / continuation-at-end-of-apostrophe-comment]"
+    },
+    {
+      "id": "dup-option-explicit-split-by-continuation",
+      "scope": "module",
+      "code": [
+        "Option _",
+        "Explicit",
+        "",
+        "Public Sub Main()",
+        "    Debug.Print \"OK\"",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE, both 'legal': continuation-basics/cont-option-explicit and separator-with-declarations/option-explicit-split-by-continuation are the same module.  [snippet quoted verbatim from continuation-basics.json / cont-option-explicit]"
+    },
+    {
+      "id": "dup-single-line-if-else-continued",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 0",
+        "If x = 1 Then Debug.Print \"THEN\" Else _",
+        "    Debug.Print \"ELSE\"",
+        "Debug.Print \"AFTER\""
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE, both 'legal': continuation-basics/cont-single-line-if-else-branch and continuation-in-strings-comments/single-line-if-else-branch-continued - a continuation after Else in a single-line If.  [snippet quoted verbatim from continuation-basics.json / cont-single-line-if-else-branch]"
+    },
+    {
+      "id": "dup-continuation-inside-argument-list",
+      "scope": "statement",
+      "code": [
+        "Debug.Print Mid$(\"abcdef\", _",
+        "    2, _",
+        "    3)"
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE, both 'legal': continuation-basics/cont-arglist-after-comma and continuation-illegal/continuation-inside-argument-list are the same wrapped Mid$ call (the latter also breaks after the open paren, which continuation-basics/cont-after-open-paren already covers). Related padding: continuation-basics/cont-after-binary-operator, continuation-basics/cont-string-concat, continuation-vs-identifier/continuation-baseline and continuation-illegal/baseline-well-formed-continuation are four control cases for one control. One per file is defensible; four in one area is not.  [snippet quoted verbatim from continuation-basics.json / cont-arglist-after-comma]"
+    },
+    {
+      "id": "dup-label-then-statement-same-line",
+      "scope": "statement",
+      "code": [
+        "GoTo Skip",
+        "Debug.Print \"SKIPPED\"",
+        "Skip: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE x3, all 'legal': separator-basics/sep-label-then-statement-same-line, separator-vs-label/label-then-stmt-same-line and separator-vs-label/label-colon-no-space-before-stmt (the last differs only by the space after the colon, which separator-vs-label/space-before-label-colon already probes from the other side). separator-basics/sep-label-alone-before-end-sub and separator-vs-label/label-immediately-before-end-sub are a further pair.  [snippet quoted verbatim from separator-basics.json / sep-label-then-statement-same-line]"
+    },
+    {
+      "id": "dup-end-sub-on-a-colon-joined-line",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "Debug.Print \"A\": End Sub"
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE, both 'unsure': separator-basics/sep-end-sub-after-statement and separator-vs-label/end-sub-after-colon are the same module (the second adds Option Explicit and indentation). separator-and-continuation-together/colon-continuation-into-end-sub is the continuation variant and is distinct.  [snippet quoted verbatim from separator-basics.json / sep-end-sub-after-statement]"
+    },
+    {
+      "id": "dup-statement-before-end-if",
+      "scope": "statement",
+      "code": [
+        "If True Then",
+        "Debug.Print \"A\": End If"
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE, both 'illegal': separator-basics/sep-end-if-after-statement and separator-in-control-flow/statement-before-endif. Also duplicated across those same two files: sep-colon-before-else-single-line / colon-immediately-before-else (both 'unsure'), sep-whole-select-one-line / select-case-entirely-on-one-line (both 'unsure'), sep-for-next-one-line / one-line-for-next-with-colons (both 'legal'), and sep-case-colon-then-statement / case-body-colon-joined / separator-vs-label:case-clause-colon (three copies of Case-colon-statement).  [snippet quoted verbatim from separator-basics.json / sep-end-if-after-statement]"
+    },
+    {
+      "id": "dup-single-line-if-colon-tail-membership",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 0",
+        "If x = 1 Then Debug.Print \"THEN\": Debug.Print \"AFTER\"",
+        "Debug.Print \"END\""
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE x4, all 'legal'. 'Does a colon tail after a single-line If belong to the Then branch' appears as separator-basics/sep-single-line-if-branch-membership, separator-in-control-flow/then-tail-colon-membership, separator-vs-label/single-line-if-colon-branch-membership and continuation-illegal/single-line-if-branch-membership. separator-in-control-flow/both-branches-colon-joined-module is a fifth pass, combining it with the Else-tail case (separator-in-control-flow/else-tail-colon-membership) that is already tested on its own.  [snippet quoted verbatim from separator-basics.json / sep-single-line-if-branch-membership]"
+    },
+    {
+      "id": "dup-double-colon-empty-statement",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\"::Debug.Print \"B\""
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE, both 'legal': separator-basics/sep-double-colon-tight and separator-vs-label/double-colon-empty-statement, differing only in the spaces around the '::'. separator-in-control-flow/double-colon-empty-statement-in-then is a legitimate third context and should stay.  [snippet quoted verbatim from separator-basics.json / sep-double-colon-tight]"
+    },
+    {
+      "id": "dup-label-name-collides-with-variable",
+      "scope": "statement",
+      "code": [
+        "Dim Foo As Long",
+        "Foo = 1",
+        "GoTo Foo",
+        "Foo: Debug.Print Foo"
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE, both 'unsure': separator-basics/sep-label-name-shadows-variable and separator-vs-label/label-name-collides-with-variable. The separator-basics version additionally prints the variable after jumping to the label, which is a second question (does the label consume the name) bolted onto the first - so it is also the less minimal of the two.  [snippet quoted verbatim from separator-basics.json / sep-label-name-shadows-variable]"
+    },
+    {
+      "id": "dup-colon-inside-a-string-literal",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"a:b\": Debug.Print \"c::d\""
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATE x3, all 'legal': separator-basics/sep-colon-inside-string-literal, separator-vs-label/colon-inside-string-literal and continuation-in-strings-comments/string-holds-colon-space-and-underscore. The last is the strongest of the three because its literal carries a colon AND a space-underscore, so keep that one.  [snippet quoted verbatim from separator-basics.json / sep-colon-inside-string-literal]"
+    },
+    {
+      "id": "nonmin-comment-after-colon",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\": ' comment after a colon",
+        "Debug.Print \"B\" ' comment with no colon"
+      ],
+      "expect": "unsure",
+      "why": "NON-MINIMAL. separator-basics/sep-comment-after-colon tests two separate rules in one snippet - an apostrophe comment after a colon separator (line 1) and an apostrophe comment with no colon (line 2). Its own why says 'both spellings on adjacent lines so a single result covers the pair', which is exactly the problem: a rejection does not say which line caused it. Split into two cases.  [snippet quoted verbatim from separator-basics.json / sep-comment-after-colon]"
+    },
+    {
+      "id": "nonmin-trailing-whitespace-everywhere",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long   ",
+        "x = 5\t\t",
+        "If x = 5 Then \t",
+        "Debug.Print \"trail\"  \t ",
+        "End If\t"
+      ],
+      "expect": "unsure",
+      "why": "NON-MINIMAL. whitespace-and-eol-edges/trailing-whitespace-after-every-line puts trailing spaces and tabs on five different constructs at once - a Dim, an assignment, a block-If header, a Debug.Print and an End If. Its why admits the load-bearing one is the whitespace after Then, because that decides block form versus single-line form; everything else is noise that makes a failure impossible to localise. Extract 'If x = 5 Then <TAB>' as its own case (sibling to separator-in-control-flow/comment-after-then-is-still-block) and keep at most one plain trailing-whitespace case.  [snippet quoted verbatim from whitespace-and-eol-edges.json / trailing-whitespace-after-every-line]"
+    },
+    {
+      "id": "nonmin-deftype-colon-joined",
+      "scope": "module",
+      "code": [
+        "DefInt A-M: DefStr N-Z",
+        "Sub Main()",
+        "  k = 1",
+        "  p = \"x\"",
+        "  Debug.Print TypeName(k); \" \"; TypeName(p)",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "NON-MINIMAL. separator-with-declarations/deftype-colon-joined stacks three independent facts: that a colon may join two module-level Deftype statements, that DefInt installs A-M, and that DefStr installs N-Z - then reads the result through TypeName. A wrong answer localises only if you already trust the other two. The colon question needs one Deftype and one implicitly-typed variable.  [snippet quoted verbatim from separator-with-declarations.json / deftype-colon-joined]"
+    },
+    {
+      "id": "nonmin-mixed-separator-chain",
+      "scope": "statement",
+      "code": [
+        "Dim a As Long, b As Long",
+        "a = 1:b = 2 :a = a + b:  :Debug.Print a"
+      ],
+      "expect": "unsure",
+      "why": "NON-MINIMAL. separator-basics/sep-mixed-chain-with-empty-statement packs four probes into one line: a colon with no surrounding space, a space before the colon, an empty statement between two colons, and a spaced empty statement. Each already has its own case in the same file (sep-no-space-around-colon, sep-wide-whitespace-around-colon, sep-double-colon-tight, sep-spaced-empty-statements), so this row adds no fact and cannot localise a failure.  [snippet quoted verbatim from separator-basics.json / sep-mixed-chain-with-empty-statement]"
+    },
+    {
+      "id": "nonmin-event-name-with-underscore",
+      "scope": "module",
+      "code": [
+        "Public Event Data_Ready()",
+        "",
+        "Public Sub Fire()",
+        "    RaiseEvent Data_Ready",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "NON-MINIMAL / does not localise. continuation-vs-identifier/event-declaration-with-underscore predicts 'illegal' and its own why concedes two unrelated reasons: 'Invalid event name' if compiled as a class module, and 'Event not permitted' if compiled as a standard module. A pass/fail result therefore proves nothing about underscores in event names, which is the stated subject. Either pin the scope to a class module and say so, or drop it - underscores in identifiers are already covered by interior-underscore-name and public-class-member-with-underscore.  [snippet quoted verbatim from continuation-vs-identifier.json / event-declaration-with-underscore]"
+    },
+    {
+      "id": "nonmin-label-after-then-not-a-label",
+      "scope": "statement",
+      "code": [
+        "GoTo Foo",
+        "Debug.Print \"SKIPPED\"",
+        "If True Then Foo: Debug.Print \"AFTER\""
+      ],
+      "expect": "unsure",
+      "why": "NON-MINIMAL. separator-vs-label/label-after-then-not-a-label fails twice over if the prediction holds: 'GoTo Foo' is an undefined label AND 'Foo' after Then is a call to an undefined Sub. The same double fault applies to separator-vs-label/second-name-colon-is-not-a-label and separator-vs-label/label-named-reserved-word (where 'GoTo Error' is independently suspect because Error is a statement keyword). A one-bit legal/illegal result cannot separate the two causes; a companion case that defines the missing Sub - as second-name-colon-runs-as-call already does - is what makes these measurable.  [snippet quoted verbatim from separator-vs-label.json / label-after-then-not-a-label]"
+    },
+    {
+      "id": "nonmin-nested-if-across-a-splice",
+      "scope": "statement",
+      "code": [
+        "If True Then Debug.Print \"OUTER\" : _",
+        "    If False Then Debug.Print \"INNER\" Else Debug.Print \"ELSE\"",
+        "Debug.Print \"AFTER\""
+      ],
+      "expect": "unsure",
+      "why": "NON-MINIMAL. separator-and-continuation-together/nested-single-line-if-after-colon-across-splice combines the colon-then-continuation splice with a nested single-line If AND a dangling Else. The dangling-Else binding is already measured on its own by separator-in-control-flow/dangling-else-binds-inner-if, so a failure here has two candidate causes.  [snippet quoted verbatim from separator-and-continuation-together.json / nested-single-line-if-after-colon-across-splice]"
+    },
+    {
+      "id": "nonmin-on-error-goto-trailing-colon",
+      "scope": "statement",
+      "code": [
+        "On Error GoTo Handler:",
+        "Err.Raise 5",
+        "Handler: Debug.Print \"HANDLED\""
+      ],
+      "expect": "unsure",
+      "why": "NON-MINIMAL, mildly. separator-vs-label/on-error-goto-trailing-colon is the only case in the area whose observable requires a runtime error to be raised and handled. The syntactic question - may a colon follow the label REFERENCE in On Error GoTo - is answerable without Err.Raise, and mixing in error-handler semantics means a wrong output has causes outside this area.  [snippet quoted verbatim from separator-vs-label.json / on-error-goto-trailing-colon]"
+    },
+    {
+      "id": "malformed-declare-continuation-inside-lib-string",
+      "scope": "module",
+      "code": [
+        "Private Declare Function GetTickCount Lib \"kern_",
+        "el32\" () As Long",
+        "Sub Main()",
+        "  Debug.Print \"X\"",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "MIS-TARGETED: it cannot fail the way its why claims. separator-with-declarations/declare-continuation-inside-lib-string breaks the line at \"kern_ / el32\" - the underscore is preceded by the letter n, not by a space. No implementation, naive or otherwise, reads that as a continuation, because every candidate rule requires whitespace before the underscore. The stated interesting failure mode ('an implementation that strips continuations in a pre-pass over raw text will happily produce a working import of kernel32') is therefore unreachable, and all this measures is an unterminated string literal - already covered three times over. Fix by writing \"kern _ / el32\" so a space precedes the underscore, which is what continuation-basics/cont-inside-string-literal does correctly.  [snippet quoted verbatim from separator-with-declarations.json / declare-continuation-inside-lib-string]"
+    },
+    {
+      "id": "malformed-rem-without-colon-carrying-a-continuation",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 Rem note _",
+        "Debug.Print \"AFTER\""
+      ],
+      "expect": "unsure",
+      "why": "MIS-TARGETED: illegal for a reason unrelated to the thing under test. continuation-in-strings-comments/rem-after-statement-without-colon sits in a file about underscores in literals and comments, but its own why concedes the rejection happens at Rem, because a Rem following another statement needs a colon. That fact is already measured twice (separator-basics/sep-rem-without-colon, separator-vs-label/rem-without-colon), and because the snippet dies before the underscore matters, the continuation question it exists to ask is unmeasurable. Add the colon and it becomes a real probe of whether a Rem comment swallows a continuation.  [snippet quoted verbatim from continuation-in-strings-comments.json / rem-after-statement-without-colon]"
+    },
+    {
+      "id": "malformed-mid-line-label-loops-forever",
+      "scope": "statement",
+      "code": [
+        "Dim n As Long",
+        "Debug.Print \"A\" : Retry: Debug.Print \"B\"",
+        "n = n + 1",
+        "If n < 2 Then GoTo Retry",
+        "Debug.Print \"AFTER\""
+      ],
+      "expect": "unsure",
+      "why": "HARNESS HAZARD. separator-in-control-flow/label-in-the-middle-of-a-line jumps backwards to a label that precedes its own GoTo with no exit condition: if the answer is 'legal', the program prints B and loops forever. Its why says '(Note this snippet loops forever if legal -- it is a compile-only probe.)', but the case schema has no compile-only field, so a runner that executes the corpus hangs there and every other legal case in the area gets attributed a timeout. The code above is the SUGGESTED REPLACEMENT, not the offending snippet: it asks the identical question (may a name-colon be a label when it is not first on the physical line) with a guard variable so it terminates, printing A B B AFTER if legal. The offending original is separator-in-control-flow/label-in-the-middle-of-a-line, two lines: 'Debug.Print \"A\" : Retry: Debug.Print \"B\"' followed by 'GoTo Retry'. separator-in-control-flow/label-then-colon-joined-goto-target already uses the guard pattern, so the fix is in-house."
+    },
+    {
+      "id": "malformed-embedded-newlines-in-code-array",
+      "scope": "module",
+      "code": [
+        "Sub S()\rDebug.Print \"cr\"\rEnd Sub"
+      ],
+      "expect": "unsure",
+      "why": "SCHEMA VIOLATION, three cases. The code field is specified as one string per physical line, but whitespace-and-eol-edges/cr-only-line-endings embeds bare CR inside a single element, /lf-only-line-endings embeds bare LF, and /mixed-crlf-and-lf embeds an LF inside element two. What reaches vb6.exe then depends entirely on how the harness joins and whether it normalises: a harness that splits on any newline, or writes through a text-mode writer that translates LF to CRLF, silently converts all three into the ordinary CRLF case and reports a confident 'legal' that measures nothing. If line endings are to be measured they need a field that says so, not an escape smuggled through a field documented as line-per-element.  [snippet quoted verbatim from whitespace-and-eol-edges.json / cr-only-line-endings]"
+    },
+    {
+      "id": "malformed-nbsp-depends-on-file-encoding",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        " x = 4",
+        "Debug.Print \"nbsp\" & x"
+      ],
+      "expect": "unsure",
+      "why": "ENCODING-DEPENDENT. whitespace-and-eol-edges/nbsp-as-indentation puts U+00A0 at the start of a line and reasons that 'this byte is a printable character in the ANSI codepage'. That holds only if the file is written as Windows-1252 (one byte, 0xA0). Written as UTF-8 - the normal default - vb6.exe sees two bytes, 0xC2 0xA0: still illegal, but for a different reason, so the recorded fact would be wrong even though the prediction is right. The same exposure applies to any non-ASCII byte in the corpus. State the required file encoding, or restrict the case to ASCII controls the way vertical-tab-between-tokens and form-feed-as-page-break-line do.  [snippet quoted verbatim from whitespace-and-eol-edges.json / nbsp-as-indentation]"
+    },
+    {
+      "id": "malformed-attribute-line-may-collide-with-harness-header",
+      "scope": "module",
+      "code": [
+        "Attribute VB_Name = \"Mod1\"",
+        "Option Explicit",
+        "Sub Main()",
+        "  Debug.Print \"ATTROK\"",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "HARNESS COLLISION, three cases. separator-with-declarations/attribute-then-option, /attribute-colon-option and /attribute-value-continued each write an explicit Attribute VB_Name = \"Mod1\" line into the module body. A .bas file exported or generated by the toolchain already begins with its own Attribute VB_Name for the module being saved, so unless the harness knows to strip its header for these three, vb6.exe sees a duplicate or conflicting attribute and the result is illegal for a reason with nothing to do with colons or continuations. That turns attribute-then-option ('legal') into a false negative and makes attribute-colon-option ('illegal') true for the wrong reason.  [snippet quoted verbatim from separator-with-declarations.json / attribute-then-option]"
+    },
+    {
+      "id": "malformed-undeclared-name-when-option-explicit-is-implicit",
+      "scope": "statement",
+      "code": [
+        "Dim ab As Long",
+        "ab = 7",
+        "Debug.Print ab_",
+        "Debug.Print \"SECOND\""
+      ],
+      "expect": "unsure",
+      "why": "CONFOUNDED BY UNSTATED HARNESS POLICY. continuation-illegal/no-space-before-underscore-after-identifier relies on ab_ lexing as a fresh, never-declared Variant - outcome (b) in its own why. That outcome exists only if the enclosing module has no Option Explicit. Several module-scope cases elsewhere in the corpus open with Option Explicit, so the statement-scope wrapper is doing something unstated; if it ever adds Option Explicit, this case reports 'illegal' for an undeclared variable rather than for anything to do with underscores. The same exposure covers separator-with-declarations/deftype-colon-joined (needs implicit k and p) continuation-vs-identifier/lone-continuation-line-between-statements, and gap-fill/named-argument-colon-and-equals-split (where Msg is the callee's parameter name and is undeclared in Main, so under an Option Explicit wrapper the module fails on the name rather than on the split ':=' it exists to probe). Pin the wrapper's Option Explicit policy in the notes and make every case that depends on it say so.  [snippet quoted verbatim from continuation-illegal.json / no-space-before-underscore-after-identifier]"
+    },
+    {
+      "id": "malformed-module-entry-point-inconsistency",
+      "scope": "module",
+      "code": [
+        "Sub S()",
+        "Debug.Print \"one\"",
+        "End Sub",
+        "\f",
+        "Sub T()",
+        "Debug.Print \"two\"",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "HARNESS CONTRACT, unstated. Module-scope cases in this area disagree about the entry point: most use Sub Main (continuation-basics/cont-signature-between-params, most of separator-with-declarations), separator-vs-label and continuation-in-strings-comments use Sub Test, and every whitespace-and-eol-edges module uses Sub S - with /form-feed-as-page-break-line defining Sub S and Sub T and no Main at all. If the harness only compiles, this is harmless; if it links or runs, the no-Main cases fail for a reason unrelated to whitespace. Either fix on one convention or record in the notes that module cases are compile-only.  [snippet quoted verbatim from whitespace-and-eol-edges.json / form-feed-as-page-break-line]"
+    },
+    {
+      "id": "malformed-count-and-area-fields-inconsistent",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\" & _",
+        "  \"B\""
+      ],
+      "expect": "unsure",
+      "why": "METADATA DEFECT - not the snippet quoted, which is a sound control case and appears only because this finding needs a code field. Seven of the eleven files omit the top-level count field entirely: continuation-illegal, continuation-vs-identifier, gap-fill, separator-and-continuation-together, separator-basics, separator-vs-label, separator-with-declarations. gap-fill additionally ships an empty notes field, where every other file uses notes to record load-bearing whitespace and harness caveats - and gap-fill has the most whitespace-critical content in the area (a TAB after Rem, a TAB-then-space before an underscore, a 1106-character physical line that any JSON reformatter would be tempted to wrap). The area field is also inconsistent in kind: four files give prose ('colon as a statement separator'), four give a slug path ('continuation-and-separator/gap-fill'), so the field cannot be grouped on. 322 cases across eleven files in two metadata shapes will not aggregate cleanly.  [snippet quoted verbatim from continuation-illegal.json / baseline-well-formed-continuation]"
+    },
+    {
+      "id": "nonmin-with-block-two-tight-colon-hazards",
+      "scope": "module",
+      "code": [
+        "Private Type TPoint",
+        "    X As Long",
+        "End Type",
+        "",
+        "Public Sub Main()",
+        "    Dim p As TPoint",
+        "    With p:.X = 5:End With",
+        "    Debug.Print p.X",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "NON-MINIMAL, and its own why says so. gap-fill/with-block-colon-tight-against-dot-and-end fires two distinct lexer hazards in one line - ':.' (separator immediately followed by a leading-dot member access) and ':End' (where E is a hex digit that the grammar's FRX_OFFSET token could swallow). Both are real and both deserve a case, but a rejection here cannot say which one caused it, which is exactly what the corpus needs to know. It also drags in a Private Type declaration purely to have something with a dotted member, where separator-basics/sep-with-block-one-line reaches the same shape with the intrinsic Err object and no declaration at all. Split into 'With Err:.Number ...' and '... :End With' as two cases.  [snippet quoted verbatim from gap-fill.json / with-block-colon-tight-against-dot-and-end]"
+    },
+    {
+      "id": "nonmin-print-tab-and-spc-together",
+      "scope": "statement",
+      "code": [
+        "Debug.Print Tab(3); \"A\": Debug.Print Spc(2); \"B\"",
+        "Debug.Print \"C\""
+      ],
+      "expect": "unsure",
+      "why": "NON-MINIMAL, mildly. gap-fill/print-tab-and-spc-with-colon-joined-statements probes Tab() and Spc() in the same snippet. They are separate Print-only pseudo-functions handled by the same special output-list rule, so one of them is enough to test whether that rule terminates at a colon; carrying both means a failure needs a second run to localise. Low cost to split, and worth it because this is the only case in the area that touches either name.  [snippet quoted verbatim from gap-fill.json / print-tab-and-spc-with-colon-joined-statements]"
+    },
+    {
+      "id": "dup-rem-family-scattered-across-five-files",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\"",
+        "Rem",
+        "Debug.Print \"B\""
+      ],
+      "expect": "unsure",
+      "why": "DUPLICATION BY DISPERSAL rather than by repetition. Rem is now probed by roughly fifteen cases spread over five files with no single owner: separator-basics/sep-rem-after-colon and /sep-rem-without-colon, separator-vs-label/rem-after-colon and /rem-without-colon (both byte-identical to the separator-basics pair - see dup-rem-with-and-without-colon), separator-in-control-flow/rem-after-then-is-still-block, continuation-illegal/continuation-at-end-of-rem-comment, continuation-in-strings-comments/rem-trailing-underscore-swallows-end-sub and /rem-after-statement-without-colon (itself mis-targeted - see malformed-rem-without-colon-carrying-a-continuation), and now seven more in gap-fill (bare-rem-with-no-text, rem-separated-by-a-tab, identifier-beginning-with-rem, rem-immediately-followed-by-colon, colon-tight-before-rem, label-then-rem-as-branch-target, line-number-then-rem-without-a-colon). The gap-fill seven are individually good and mostly new, but with the family split five ways nobody can see that the colon-before-Rem question is already answered four times. Give Rem one file.  [snippet quoted verbatim from gap-fill.json / bare-rem-with-no-text]"
+    },
+    {
+      "id": "dup-tight-colon-before-a-name",
+      "scope": "statement",
+      "code": [
+        "Dim ABC As Long",
+        "ABC = 1:ABC = ABC + 1",
+        "Debug.Print ABC"
+      ],
+      "expect": "unsure",
+      "why": "PARTIAL DUPLICATE. gap-fill adds three tight-colon cases - colon-tight-before-uppercase-hex-identifier, colon-tight-before-hex-digit-name and hex-literal-then-tight-colon-then-hex-name - on the stated grounds that the grammar's FRX_OFFSET token (COLON [0-9A-F]+) could swallow ':ABC'. That is a sharp observation and the second and third cases carry it well (a name that is entirely hex digits; a hex literal immediately before the colon). The first adds little the others do not: 'ABC = 1:ABC = ABC + 1' differs from the two existing plain tight-colon cases, separator-basics/sep-no-space-around-colon and separator-vs-label/separator-colon-no-surrounding-space, only in the letters chosen for the variable. Keep two of the three.  [snippet quoted verbatim from gap-fill.json / colon-tight-before-uppercase-hex-identifier]"
+    }
+  ],
+  "notes": "Provenance and quality audit of the eleven case files in this directory (322 cases total; gap-fill.json landed while this audit was in progress and is covered). Clean-room: produced by reading only the sibling JSON files here, the repo grammar IDE/HexIDE.Runtime/Interpreter/Grammar/VB6.g4, and the local VBA-Docs corpus for language facts. No GPL-licensed VB6 grammar or test suite was consulted, searched for, or recalled; no sibling file was modified or deleted. Every case below is expect:'unsure' because each flags a defect in a sibling case rather than asserting a fact about vb6.exe; the code array reproduces the offending snippet verbatim, whitespace preserved, so a runner can still execute it, and the why names the offending id. HEADLINE: at least 31 distinct questions are asked more than once, accounting for roughly 90 of the 285 cases - and SEVEN of those duplicate groups carry CONTRADICTORY predictions, so one compiler run will score the same fact both right and wrong. Those seven (dup-trailing-whitespace-after-underscore, dup-tab-before-underscore, dup-empty-continuation-line, dup-continuation-after-member-dot, dup-colon-immediately-after-then, dup-identifier-ending-in-underscore, dup-label-after-a-colon-mid-line) are the highest-value fix, because they are the only ones that can actively corrupt the recorded result rather than merely waste a run. The heaviest structural overlaps are separator-basics against separator-vs-label and separator-basics against separator-in-control-flow (roughly eight pairs each, several byte-identical), and the four continuation files against each other, where four probes - comment-after-underscore, no-space-before-underscore, colon-then-continuation, single-line-if-colon-tail - each appear four times. THREE FINDINGS WOULD PRODUCE FALSE 'ILLEGAL' RESULTS: declare-continuation-inside-lib-string (the underscore is not preceded by a space, so the continuation it claims to test cannot fire and only an unterminated string is measured); rem-after-statement-without-colon (dies at Rem before the underscore is reached); and the Attribute VB_Name trio, which will likely collide with a harness-generated .bas header. THREE MORE WOULD PRODUCE A CONFIDENT ANSWER THAT MEASURES NOTHING: the embedded-newline trio in whitespace-and-eol-edges, which a normalising harness silently converts into the ordinary CRLF case; nbsp-as-indentation, right answer for the wrong reason unless the file is written as Windows-1252; and no-space-before-underscore-after-identifier, which flips on an unstated Option Explicit policy. ONE OPERATIONAL HAZARD: label-in-the-middle-of-a-line runs forever if the answer is 'legal', and a run-and-capture harness will read that as a timeout across the whole area. NOT A DEFECT BUT WORTH PROTECTING: whitespace is load-bearing and invisible in at least a dozen cases - trailing spaces and tabs after an underscore, a lone space-underscore line, tabs standing in for spaces, and the VT/FF/NBSP characters in whitespace-and-eol-edges. Any reformat, right-trim, or re-encode of these files destroys the measurement without visibly changing the JSON. gap-fill.json deserves separate mention: it is the only file whose whys check for prior art by name before adding a case, and most of what it adds is genuinely new (time and date literals whose colons are not separators, the 24-vs-25 consecutive-continuation cap, a physical line over 1023 characters as the complement to whitespace-and-eol-edges/logical-line-over-1023-chars, End If / End Select / Exit For split by a continuation, bracketed identifiers containing a colon, a continuation between & and the H of a hex literal). Its four findings here are near-misses, not blind duplication. The corpus is otherwise strong: the whys are unusually honest about their own reasoning, 'unsure' is used where it genuinely belongs rather than as a hedge, and most legal cases print a discriminating literal so acceptance can be told apart from correct execution. The problems here are almost entirely the result of ten files being authored against overlapping briefs with no cross-file dedup pass, not of weak individual cases."
+}

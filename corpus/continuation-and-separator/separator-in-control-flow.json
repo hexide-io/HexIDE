@@ -1,0 +1,384 @@
+{
+  "area": "colon inside single-line control flow",
+  "file": "corpus/continuation-and-separator/separator-in-control-flow.json",
+  "count": 31,
+  "cases": [
+    {
+      "id": "then-tail-colon-membership",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean",
+        "x = False",
+        "If x Then Debug.Print \"THEN\" : Debug.Print \"TAIL\"",
+        "Debug.Print \"END\""
+      ],
+      "expect": "legal",
+      "why": "The core branch-membership question. The VB6 language reference states that with the single-line form multiple statements separated by colons are ALL executed as a result of the If decision, so TAIL belongs to the Then branch. Prediction: compiles, and with x = False the output is END only. If a parser instead treats the colon as a line break (as HexIDE's VB6.g4 does -- its NEWLINE token is WS? ('\\r'? '\\n' | COLON ' ') and inlineIfThenElse takes exactly ONE blockStmt per branch) it would wrongly print TAIL then END."
+    },
+    {
+      "id": "then-tail-colon-no-spaces",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean",
+        "x = True",
+        "If x Then Debug.Print \"A\":Debug.Print \"B\""
+      ],
+      "expect": "legal",
+      "why": "Same construct with no whitespace around the colon. VB6's colon is a plain statement separator so this is identical to the spaced form (A then B, both in the Then branch). Included because HexIDE's grammar only recognises a colon as a separator when it is followed by a space (COLON ' '), so a tight colon is a lexer cliff on code real VB6 accepts -- the damaging kind of bug, since it takes down the whole module."
+    },
+    {
+      "id": "else-tail-colon-membership",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean",
+        "x = True",
+        "If x Then Debug.Print \"THEN\" Else Debug.Print \"ELSE\" : Debug.Print \"TAIL\"",
+        "Debug.Print \"END\""
+      ],
+      "expect": "legal",
+      "why": "The mirror-image membership question on the Else side. The reference describes elsestatements as 'one or more statements', so by symmetry with the Then side everything after Else to end of line is the Else branch. Prediction: compiles, and with x = True the output is THEN then END -- TAIL is skipped. An implementation that ends the Else branch at the first colon would print THEN, TAIL, END."
+    },
+    {
+      "id": "multi-then-statements-before-else",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean",
+        "x = False",
+        "If x Then Debug.Print \"T1\" : Debug.Print \"T2\" Else Debug.Print \"E1\""
+      ],
+      "expect": "legal",
+      "why": "A colon-joined Then list that is terminated by Else rather than by end of line -- the parser must scan past colons looking for the Else keyword without treating the colon as a statement terminator that closes the If. Prediction: legal; with x = False only E1 prints."
+    },
+    {
+      "id": "colon-immediately-before-else",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean",
+        "x = False",
+        "If x Then Debug.Print \"T\" : Else Debug.Print \"E\""
+      ],
+      "expect": "unsure",
+      "why": "A colon sitting directly between the Then list and the Else keyword, i.e. an empty statement as the last element of the Then branch. In older BASIC dialects IF c THEN a : ELSE b was idiomatic. Whether VB6 tolerates the empty statement before Else, or requires Else to follow a real statement, is exactly the sort of thing nobody knows without measuring. Marked unsure deliberately."
+    },
+    {
+      "id": "colon-immediately-after-then",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean",
+        "x = True",
+        "If x Then : Debug.Print \"A\"",
+        "Debug.Print \"END\""
+      ],
+      "expect": "unsure",
+      "why": "The reference's block-vs-single-line test is: if anything other than a comment appears after Then on the same line, it is a single-line If. A colon is not a comment, so by that rule this is a single-line If whose Then branch is (empty statement, Debug.Print \"A\") and both A and END print here. But a colon is also VB6's line separator, so an implementation could equally read it as If x Then <newline> Debug.Print \"A\" -- which would be an unterminated block If and a compile error. Genuinely two-way; unsure."
+    },
+    {
+      "id": "then-colon-then-endif",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean",
+        "x = True",
+        "If x Then :",
+        "Debug.Print \"A\"",
+        "End If"
+      ],
+      "expect": "illegal",
+      "why": "Disambiguates the previous case by adding an End If. Applying the documented rule literally -- anything other than a comment after Then makes it single-line -- the trailing colon makes line 3 a complete single-line If, so the End If on line 5 has no block If to close: 'End If without block If'. Prediction illegal. If instead this compiles, that proves VB6 treats a trailing colon as a genuine line terminator and the previous case resolves the other way, so the pair is informative whichever way it falls."
+    },
+    {
+      "id": "comment-after-then-is-still-block",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean",
+        "x = True",
+        "If x Then ' trailing comment, still a block If",
+        "Debug.Print \"A\"",
+        "End If"
+      ],
+      "expect": "legal",
+      "why": "The documented exception to the block-vs-single-line test: a comment after Then does NOT make the statement single-line. Legal but ugly, and easy for a hand-written parser to get wrong if it decides block-vs-inline on raw token position rather than after comment stripping. Prediction: legal block If, prints A."
+    },
+    {
+      "id": "rem-after-then-is-still-block",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean",
+        "x = True",
+        "If x Then Rem trailing remark",
+        "Debug.Print \"A\"",
+        "End If"
+      ],
+      "expect": "unsure",
+      "why": "Same as the previous case but using the Rem comment statement instead of an apostrophe. Rem is lexically a statement keyword in VB6 even though it introduces a comment, so whether it counts as 'a comment' for the block-vs-single-line test or as 'anything other than a comment' is undocumented. Unsure -- and note HexIDE's lexer routes COLON? REM ' ' to the hidden channel, which would make it a comment."
+    },
+    {
+      "id": "statement-before-endif",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean",
+        "x = True",
+        "If x Then",
+        "Debug.Print \"A\" : End If"
+      ],
+      "expect": "illegal",
+      "why": "The reference says the Else, ElseIf and End If parts of a block If may have only a line number or line label preceding them on their line. A Debug.Print preceding End If across a colon violates that. Prediction: illegal ('End If without block If' or similar). This is the rule that makes colon handling asymmetric -- colons join statements freely, except in front of the block If keywords."
+    },
+    {
+      "id": "label-before-endif",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean",
+        "x = True",
+        "If x Then",
+        "Debug.Print \"A\"",
+        "Skip: End If"
+      ],
+      "expect": "legal",
+      "why": "The explicitly permitted half of the previous rule: a line label may precede End If on the same line, which means the parser must accept exactly one colon-terminated token there while rejecting any statement. Prediction: legal. Ugly, rare, and a plausible false-reject for a parser that simply bans anything before End If."
+    },
+    {
+      "id": "statement-before-else-block-form",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean",
+        "x = False",
+        "If x Then",
+        "Debug.Print \"A\" : Else",
+        "Debug.Print \"B\"",
+        "End If"
+      ],
+      "expect": "illegal",
+      "why": "Same restriction applied to Else rather than End If: a statement colon-joined in front of the Else keyword of a block If. Prediction: illegal. Pairs with the next case, which is the same characters in the other order and should be fine."
+    },
+    {
+      "id": "else-first-then-colon-joined-body",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean",
+        "x = False",
+        "If x Then",
+        "Debug.Print \"A\"",
+        "Else : Debug.Print \"B\" : Debug.Print \"C\"",
+        "End If"
+      ],
+      "expect": "legal",
+      "why": "Else is first on its line, so the restriction is satisfied, and the rest of the line is an ordinary colon-joined statement list forming the Else body. Prediction: legal; prints B then C. Contrast with the previous case: the colon is fine after Else and fatal before it."
+    },
+    {
+      "id": "one-line-for-next-with-colons",
+      "scope": "statement",
+      "code": [
+        "Dim i As Long",
+        "For i = 1 To 3 : Debug.Print i : Next i",
+        "Debug.Print \"END\""
+      ],
+      "expect": "legal",
+      "why": "There is no single-line For form in VB6 -- this works only because colons separate statements and a block construct may span them. Prediction: legal, prints 1 2 3 END. Important as the legal baseline for the two Exit For cases below."
+    },
+    {
+      "id": "exit-for-swallows-the-next",
+      "scope": "statement",
+      "code": [
+        "Dim i As Long",
+        "For i = 1 To 3 : If i = 2 Then Exit For : Next i",
+        "Debug.Print \"END\""
+      ],
+      "expect": "illegal",
+      "why": "The sharpest consequence of Then-branch colon membership: because everything after Then belongs to the Then branch, Next i is swallowed into it, leaving the For loop with no Next at its own nesting level. Prediction: compile error, 'For without Next'. This is the case where getting membership wrong changes legality rather than just output -- an implementation that ends the Then branch at the colon would happily compile it."
+    },
+    {
+      "id": "exit-for-with-next-on-own-line",
+      "scope": "statement",
+      "code": [
+        "Dim i As Long",
+        "For i = 1 To 3 : If i = 2 Then Exit For",
+        "Next i",
+        "Debug.Print i"
+      ],
+      "expect": "legal",
+      "why": "The control for the previous case: identical text except Next moves to its own line, so nothing is swallowed. Prediction: legal, prints 2 (the loop variable retains the value it had when Exit For fired). Confirms the difference is branch membership, not the one-line For itself."
+    },
+    {
+      "id": "exit-do-swallows-the-loop",
+      "scope": "statement",
+      "code": [
+        "Dim i As Long",
+        "i = 0",
+        "Do : i = i + 1 : If i = 3 Then Exit Do : Loop",
+        "Debug.Print i"
+      ],
+      "expect": "illegal",
+      "why": "Same swallowing effect on a Do...Loop: Loop lands inside the Then branch, so the Do is unterminated. Prediction: compile error, 'Do without Loop'. Included alongside the For case because a parser may special-case one loop form and not the other."
+    },
+    {
+      "id": "while-wend-one-line",
+      "scope": "statement",
+      "code": [
+        "Dim i As Long",
+        "While i < 3 : i = i + 1 : Wend",
+        "Debug.Print i"
+      ],
+      "expect": "legal",
+      "why": "A whole While...Wend on one line with no If involved, so no branch can swallow the Wend. Prediction: legal, prints 3. Establishes that the colon itself is never the problem -- only the interaction with a single-line If's open-ended branch is."
+    },
+    {
+      "id": "case-body-colon-joined",
+      "scope": "statement",
+      "code": [
+        "Dim n As Long",
+        "n = 1",
+        "Select Case n",
+        "Case 1: Debug.Print \"A\" : Debug.Print \"B\"",
+        "Case Else: Debug.Print \"C\"",
+        "End Select"
+      ],
+      "expect": "legal",
+      "why": "The colon after Case 1 is the conventional VB6 idiom and is a plain statement separator, not part of the Case clause. A Case body is a statement block, not a single-line-If branch, so both A and B run. Prediction: legal, prints A then B. Worth pinning because it looks superficially like the single-line If and yet has no branch to close -- everything after the colon runs when the Case is selected."
+    },
+    {
+      "id": "select-case-entirely-on-one-line",
+      "scope": "statement",
+      "code": [
+        "Dim n As Long",
+        "n = 1",
+        "Select Case n : Case 1 : Debug.Print \"A\" : Case Else : Debug.Print \"B\" : End Select"
+      ],
+      "expect": "unsure",
+      "why": "The reference says nothing but a comment may appear between Select Case and its first Case. Whether a colon counts as ending the Select Case line (making the following Case legitimately first on the next line) or as putting the Case on the same line as the selector is undocumented. Unsure -- and the answer also settles whether End Select tolerates a preceding colon the way End If does not."
+    },
+    {
+      "id": "single-line-if-inside-case-body",
+      "scope": "statement",
+      "code": [
+        "Dim n As Long, y As Boolean",
+        "n = 1 : y = False",
+        "Select Case n",
+        "Case 1: If y Then Debug.Print \"T\" : Debug.Print \"TAIL\"",
+        "End Select",
+        "Debug.Print \"END\""
+      ],
+      "expect": "legal",
+      "why": "Two different colon roles on one line: the Case separator colon, then a colon inside the Then branch of a single-line If. Prediction: legal; with y = False the output is END only, because TAIL belongs to the Then branch and not to the Case body. If an implementation lets the Case body reclaim the tail, TAIL prints."
+    },
+    {
+      "id": "nested-single-line-if-tail-binds-inner",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean, y As Boolean",
+        "x = True : y = False",
+        "If x Then If y Then Debug.Print \"INNER\" : Debug.Print \"TAIL\"",
+        "Debug.Print \"END\""
+      ],
+      "expect": "legal",
+      "why": "Which If does the colon-joined tail belong to when single-line Ifs nest? The inner If's Then branch is what is open at the colon, so TAIL should join the INNER branch, not the outer one. Prediction: legal; with x True and y False the output is END only. If TAIL bound to the outer If it would print TAIL then END -- a distinguishing output by design."
+    },
+    {
+      "id": "dangling-else-binds-inner-if",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean, y As Boolean",
+        "x = True : y = False",
+        "If x Then If y Then Debug.Print \"A\" Else Debug.Print \"B\"",
+        "Debug.Print \"END\""
+      ],
+      "expect": "legal",
+      "why": "The classic dangling-else, in the single-line form where it cannot be disambiguated by End If. The Else should attach to the nearest open If (the inner one). Prediction: legal; with x True, y False the output is B then END. If it bound to the outer If, nothing but END would print -- again chosen so the output names the answer."
+    },
+    {
+      "id": "double-colon-empty-statement-in-then",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean",
+        "x = True",
+        "If x Then Debug.Print \"A\" :: Debug.Print \"B\""
+      ],
+      "expect": "legal",
+      "why": "Two adjacent colons, i.e. an empty statement in the middle of a Then branch. VB6 generally tolerates empty statements between separators. Prediction: legal, prints A then B. Cheap to get wrong in a grammar that makes the separator a token requiring a statement on both sides."
+    },
+    {
+      "id": "trailing-colon-at-end-of-then-branch",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean",
+        "x = True",
+        "If x Then Debug.Print \"A\" :",
+        "Debug.Print \"END\""
+      ],
+      "expect": "legal",
+      "why": "A dangling colon at end of line, i.e. an empty final statement in the Then branch. Prediction: legal, prints A then END. Separately interesting because it is the same trailing colon as the If x Then : case but with a real statement in front of it -- if that case turns out to be a block If, this one must still be single-line, and any rule has to explain both."
+    },
+    {
+      "id": "elseif-on-single-line-if",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean, y As Boolean",
+        "x = False : y = True",
+        "If x Then Debug.Print \"A\" ElseIf y Then Debug.Print \"B\""
+      ],
+      "expect": "illegal",
+      "why": "ElseIf exists only in the block form -- the single-line syntax admits Then and Else and nothing else. Prediction: illegal (syntax error / 'ElseIf without If'). Included because a grammar that builds the single-line and block forms from shared pieces will accidentally accept it."
+    },
+    {
+      "id": "elseif-after-colon-on-single-line-if",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean, y As Boolean",
+        "x = False : y = True",
+        "If x Then Debug.Print \"A\" : ElseIf y Then Debug.Print \"B\""
+      ],
+      "expect": "illegal",
+      "why": "Same as the previous case with a colon in front of ElseIf, on the theory that the colon might reset the line and make ElseIf legal as a block-form continuation. It should not: line 3 is a single-line If, so nothing on it opens a block, and ElseIf is orphaned either way. Prediction: illegal. Distinct from the previous case because the failure has to survive the colon."
+    },
+    {
+      "id": "exit-sub-then-colon-tail",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean",
+        "x = False",
+        "If x Then Exit Sub : Debug.Print \"AFTER\"",
+        "Debug.Print \"END\""
+      ],
+      "expect": "legal",
+      "why": "Branch membership made unambiguous by an Exit Sub: AFTER can only print if it is BOTH in the Then branch and reachable after an Exit Sub, i.e. never. Prediction: legal, and the output is END for x = False and nothing at all for x = True. An implementation that treats the tail as unconditional prints AFTER then END here, so this single case answers the membership question without needing the compiler to say anything."
+    },
+    {
+      "id": "label-then-colon-joined-goto-target",
+      "scope": "statement",
+      "code": [
+        "Dim i As Long",
+        "i = 0",
+        "Retry: i = i + 1 : If i < 2 Then GoTo Retry",
+        "Debug.Print i"
+      ],
+      "expect": "legal",
+      "why": "A line label sharing a line with colon-joined statements, one of which jumps back to it -- so the label's colon and the separator colons must be told apart, and the jump must land at the start of the line and re-run the whole colon-joined sequence. Prediction: legal, prints 2. If GoTo resumed after the label's own statement it would loop forever or print 1."
+    },
+    {
+      "id": "label-in-the-middle-of-a-line",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\" : Retry: Debug.Print \"B\"",
+        "GoTo Retry"
+      ],
+      "expect": "unsure",
+      "why": "Can a line label appear after a colon rather than at the start of a physical line? If VB6's colon is a true line separator this should be a legal jump target; if labels are anchored to physical line starts it is a syntax error, or worse, Retry: gets parsed as an expression statement. Unsure. (Note this snippet loops forever if legal -- it is a compile-only probe.)"
+    },
+    {
+      "id": "both-branches-colon-joined-module",
+      "scope": "module",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Main()",
+        "    Dim x As Boolean",
+        "    x = False",
+        "    If x Then Debug.Print \"T1\" : Debug.Print \"T2\" Else Debug.Print \"E1\" : Debug.Print \"E2\"",
+        "    Debug.Print \"END\"",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "The full form of the membership question: colon-joined lists on BOTH sides of Else on one line. Prediction: legal; with x = False the output is E1, E2, END, and with x = True it would be T1, T2, END. The four plausible mis-implementations (tail unconditional on either side, Else capturing only one statement, Then list ended by the first colon) each produce a different output, so this one line discriminates all of them."
+    }
+  ],
+  "notes": "Clean-room. Authored from the VB6/VBA language reference in the local VBA-Docs corpus (Language/Reference/User-Interface-Help/ifthenelse-statement.md and statements-or-labels-invalid-between-select-case-and-first-case.md; CC BY 4.0, facts only, no prose copied) plus the ANTLR grammar at IDE/HexIDE.Runtime/Interpreter/Grammar/VB6.g4. No GPL-licensed VB6 test suite or grammar was consulted. The organising fact, taken from the reference: with the single-line If form, colon-separated statements after Then are ALL executed as a result of the decision -- so the tail belongs to the branch, not to the enclosing block. Two documented corollaries drive most cases: (a) block-vs-single-line is decided by whether anything other than a comment follows Then on the same line; (b) only a line number or line label may precede Else, ElseIf or End If on their line. The observable cases are built so the Debug.Print output alone names which parse happened; where a wrong membership decision changes legality rather than output (Next or Loop swallowed into a Then branch) a control case with the terminator moved to its own line sits next to it. Known divergence flagged for HexIDE: VB6.g4 lexes a separator colon as NEWLINE only in the form colon-space, and its inlineIfThenElse rule allows exactly ONE blockStmt per branch. That grammar therefore both rejects the tight-colon form real VB6 accepts and mis-assigns every colon-joined single-line If tail. Five cases are marked unsure; those are the ones nobody can settle without running vb6.exe."
+}

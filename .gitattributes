@@ -22,3 +22,10 @@
 *.frx binary
 *.ctx binary
 *.pgx binary
+
+# The VB6 conformance corpus under /corpus is measured data, not source. Whitespace in it is
+# load-bearing — trailing spaces and tabs after a line-continuation underscore ARE several of the
+# cases — so keep git's hands off the bytes. Anchored with a leading slash: an unanchored `corpus/**`
+# would match a directory of that name at any depth, which is the kind of over-broad rule that breaks
+# things far away from where it was written.
+/corpus/** -text

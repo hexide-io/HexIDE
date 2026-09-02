@@ -1,0 +1,396 @@
+{
+  "area": "continuation-and-separator/separator-vs-label",
+  "cases": [
+    {
+      "id": "label-alone-on-line",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "GoTo Skip",
+        "Debug.Print \"SKIPPED\"",
+        "Skip:",
+        "Debug.Print \"AFTER\""
+      ],
+      "why": "Baseline. Label alone on its line, colon immediately before end-of-line, so the colon cannot be read as a separator because nothing follows it. Establishes the control result the ambiguous cases are compared against; expected output is AFTER only."
+    },
+    {
+      "id": "label-then-stmt-same-line",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "GoTo Skip",
+        "Debug.Print \"SKIPPED\"",
+        "Skip: Debug.Print \"AFTER\""
+      ],
+      "why": "The canonical ambiguity: one colon doing label-termination duty with a statement after it on the same line. VB6 must read Skip: as a label AND run the trailing statement, not treat Skip as a call. Output AFTER proves the trailing statement is reachable."
+    },
+    {
+      "id": "label-colon-no-space-before-stmt",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "GoTo Skip",
+        "Debug.Print \"SKIPPED\"",
+        "Skip:Debug.Print \"AFTER\""
+      ],
+      "why": "As above with no whitespace after the label colon. Nothing in the language requires a space, but the repo grammar's NEWLINE token is COLON followed by a literal space while lineLabel is identifier COLON, so the two productions compete differently here than when a space is present."
+    },
+    {
+      "id": "space-before-label-colon",
+      "scope": "statement",
+      "expect": "unsure",
+      "code": [
+        "GoTo Later",
+        "Debug.Print \"SKIPPED\"",
+        "Later : Debug.Print \"AFTER\""
+      ],
+      "why": "The Foo: versus Foo : Bar question stated directly. If VB6 requires the colon to be lexically adjacent to the label name, Later becomes a call to an undefined Sub and the GoTo fails with Label not defined; if whitespace is tolerated it is a label. No documentation settles it, and the answer decides whether a tokenizer may glue name+colon or must reconstruct the label at parse time."
+    },
+    {
+      "id": "second-name-colon-is-not-a-label",
+      "scope": "module",
+      "expect": "illegal",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Test()",
+        "    GoTo Second",
+        "    First: Second: Debug.Print \"AFTER\"",
+        "End Sub"
+      ],
+      "why": "Two identifier-colon pairs on one line. Predicting only the FIRST is a label, labels being a line-start construct, so Second is a call to a nonexistent Sub and GoTo Second fails with Label not defined. If VB6 instead allows several labels per line this compiles, which is the more interesting outcome and the reason for the case."
+    },
+    {
+      "id": "second-name-colon-runs-as-call",
+      "scope": "module",
+      "expect": "legal",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Second()",
+        "    Debug.Print \"CALLED\"",
+        "End Sub",
+        "",
+        "Sub Test()",
+        "    First: Second: Debug.Print \"TAIL\"",
+        "End Sub"
+      ],
+      "why": "The observable half of the previous case: Second now exists as a Sub, so this compiles either way and the OUTPUT discriminates. CALLED then TAIL means the second name was a call, i.e. one label per line; TAIL alone means VB6 accepted it as a second label."
+    },
+    {
+      "id": "separator-colon-no-surrounding-space",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "Debug.Print \"A\":Debug.Print \"B\""
+      ],
+      "why": "Plain statement separator with no whitespace anywhere around the colon. Certainly legal VB6, and the sharpest probe at the repo grammar, whose NEWLINE token is a colon followed by a space, so a colon not followed by a space is not a separator there at all."
+    },
+    {
+      "id": "double-colon-empty-statement",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "Debug.Print \"A\" :: Debug.Print \"B\"",
+        "Debug.Print \"C\""
+      ],
+      "why": "Two adjacent separators, i.e. an empty statement between them. Tests whether the grammar admits a null statement or demands a statement between every pair of colons. Expected output A, B, C."
+    },
+    {
+      "id": "leading-colon-on-line",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        ": Debug.Print \"A\"",
+        "Debug.Print \"B\""
+      ],
+      "why": "A colon in the one position where it cannot be terminating a label, because no identifier precedes it. If empty statements are allowed this is fine; if the parser only accepts a colon after a completed statement it is a syntax error. Also probes whether a line-start colon is mistaken for a nameless label."
+    },
+    {
+      "id": "trailing-colon-end-of-line",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "Debug.Print \"A\":",
+        "Debug.Print \"B\""
+      ],
+      "why": "Mirror image of the leading colon: a separator with nothing after it. Note the visual collision with a label, since the line ends in text plus a colon and only the preceding statement structure distinguishes it from Skip:."
+    },
+    {
+      "id": "label-before-end-if",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "If True Then",
+        "    Debug.Print \"T\"",
+        "Fin: End If",
+        "Debug.Print \"AFTER\""
+      ],
+      "why": "The VBA reference states that Else, ElseIf and End If may have a line number or line label preceding them, the one documented place where a label shares a line with a keyword that otherwise must stand alone. Prediction is from that documented rule rather than from parser reasoning."
+    },
+    {
+      "id": "label-before-else",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "If False Then",
+        "    Debug.Print \"T\"",
+        "Alt: Else",
+        "    Debug.Print \"E\"",
+        "End If"
+      ],
+      "why": "The same documented allowance applied to Else. Harder than the End If form because the parser must accept the label, then still recognise Else as continuing the open block If rather than starting a new statement. Expected output E."
+    },
+    {
+      "id": "block-if-after-colon",
+      "scope": "statement",
+      "expect": "illegal",
+      "code": [
+        "Debug.Print \"A\": If True Then",
+        "    Debug.Print \"B\"",
+        "End If"
+      ],
+      "why": "The reference says a block form If must be the first statement on a line. Here a colon separator puts one before it, so the block If should be rejected. A case where the colon is legal punctuation but illegal because of what follows it."
+    },
+    {
+      "id": "label-then-block-if",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "Chk: If True Then",
+        "    Debug.Print \"B\"",
+        "End If"
+      ],
+      "why": "Direct contrast with the previous case. A label also precedes the block If, but a label is not a statement, so first statement on a line should still hold. Pins whether that restriction is about statements or about column position."
+    },
+    {
+      "id": "single-line-if-colon-branch-membership",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "If False Then Debug.Print \"T1\": Debug.Print \"T2\"",
+        "Debug.Print \"AFTER\""
+      ],
+      "why": "Branch membership is only answerable by observing output. The condition is False, so if the colon-joined T2 belongs to the Then branch the output is AFTER alone; if the colon ends the If, the output is T2 then AFTER. The reference describes multiple colon-separated statements as the result of the decision, so AFTER alone is predicted."
+    },
+    {
+      "id": "single-line-if-else-colon-membership",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "If False Then Debug.Print \"T\" Else Debug.Print \"E1\": Debug.Print \"E2\"",
+        "Debug.Print \"AFTER\""
+      ],
+      "why": "The Else-side version, where the trailing colon-joined statement could plausibly fall outside the If entirely. Expected E1, E2, AFTER either way, so the value here is that E2 must not be swallowed by the never-taken Then branch, which would print AFTER alone."
+    },
+    {
+      "id": "label-after-then-not-a-label",
+      "scope": "statement",
+      "expect": "illegal",
+      "code": [
+        "GoTo Foo",
+        "Debug.Print \"SKIPPED\"",
+        "If True Then Foo: Debug.Print \"AFTER\""
+      ],
+      "why": "Puts an identifier-colon where a label cannot live, inside the body of a single-line If. Predicting Foo is parsed as a call, giving both Label not defined for the GoTo and Sub or Function not defined for Foo. Legal here would mean label recognition is purely lexical rather than positional."
+    },
+    {
+      "id": "numeric-label-no-colon",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "GoTo 10",
+        "Debug.Print \"SKIPPED\"",
+        "10 Debug.Print \"AFTER\""
+      ],
+      "why": "Baseline numeric line label, which takes no colon at all and is a same-line prefix rather than a statement of its own. Establishes that a bare integer at line start is not an expression statement."
+    },
+    {
+      "id": "numeric-label-with-colon",
+      "scope": "statement",
+      "expect": "unsure",
+      "code": [
+        "GoTo 10",
+        "Debug.Print \"SKIPPED\"",
+        "10: Debug.Print \"AFTER\""
+      ],
+      "why": "A numeric line label written with a colon it does not require. Older BASIC dialects accepted this; VB6 may treat the colon as a separator after a bare integer expression statement, or reject the integer as a statement, or accept the whole line. No documentation addresses it, so genuinely unsure."
+    },
+    {
+      "id": "numeric-label-then-colon-joined",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "GoTo 20",
+        "Debug.Print \"SKIPPED\"",
+        "20 Debug.Print \"A\": Debug.Print \"B\""
+      ],
+      "why": "A colon-free numeric label followed by colon-joined statements, so one line exercises label-prefix parsing and separator parsing with different punctuation for each. Expected output A then B."
+    },
+    {
+      "id": "numeric-label-alone-on-line",
+      "scope": "statement",
+      "expect": "unsure",
+      "code": [
+        "GoTo 30",
+        "Debug.Print \"SKIPPED\"",
+        "30",
+        "Debug.Print \"AFTER\""
+      ],
+      "why": "A numeric label with nothing after it. The numeric form carries no colon, so there is no punctuation marking it as a label and the line is indistinguishable from a bare integer literal used as a statement. Whether VB6 requires a statement after a line number is unknown to me."
+    },
+    {
+      "id": "label-named-reserved-word",
+      "scope": "statement",
+      "expect": "illegal",
+      "code": [
+        "GoTo Error",
+        "Debug.Print \"SKIPPED\"",
+        "Error: Debug.Print \"AFTER\""
+      ],
+      "why": "Error is a reserved statement keyword, so Error: should fail as a label name even though the shape is exactly that of a valid label. Also probes whether the label position relaxes reserved-word rules the way some line-start constructs do."
+    },
+    {
+      "id": "label-named-soft-keyword",
+      "scope": "statement",
+      "expect": "unsure",
+      "code": [
+        "GoTo Name",
+        "Debug.Print \"SKIPPED\"",
+        "Name: Debug.Print \"AFTER\""
+      ],
+      "why": "Name heads a statement (Name old As new) but is also an ordinary member name throughout the object model, so whether it is fully reserved as a bare identifier is unclear. A label position is the most forgiving place to find out, and the answer tells us whether labels use the full reserved-word list."
+    },
+    {
+      "id": "label-name-collides-with-variable",
+      "scope": "statement",
+      "expect": "unsure",
+      "code": [
+        "Dim Foo As Long",
+        "GoTo Foo",
+        "Debug.Print \"SKIPPED\"",
+        "Foo: Debug.Print \"AFTER\""
+      ],
+      "why": "A label and a local variable sharing a name. If labels occupy a separate namespace this compiles and GoTo Foo is unambiguous; if not it is a duplicate declaration, or GoTo Foo resolves to the variable. Decides whether a label table can be kept apart from the scope table."
+    },
+    {
+      "id": "rem-after-colon",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "Debug.Print \"A\": Rem trailing remark",
+        "Debug.Print \"B\""
+      ],
+      "why": "The reference states Rem following other statements must be separated from them by a colon. So this colon is mandatory punctuation that is neither a label terminator nor really a statement separator, and the comment lexer has to consume it."
+    },
+    {
+      "id": "rem-without-colon",
+      "scope": "statement",
+      "expect": "illegal",
+      "code": [
+        "Debug.Print \"A\" Rem trailing remark",
+        "Debug.Print \"B\""
+      ],
+      "why": "The negative half of the documented Rem rule: same line, colon removed. Predicted illegal from the reference. Pairs with the previous case to show the colon is required by Rem specifically, not by statement juxtaposition generally."
+    },
+    {
+      "id": "colon-inside-string-literal",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "Debug.Print \"Skip: this is not a label\"",
+        "Debug.Print \"AFTER\""
+      ],
+      "why": "Pure lexer trap: the string content is byte-for-byte a label followed by text. A separator split performed before string tokenization would produce a broken literal. Expected output is the full sentence then AFTER."
+    },
+    {
+      "id": "label-split-by-continuation",
+      "scope": "statement",
+      "expect": "unsure",
+      "code": [
+        "GoTo Skip",
+        "Debug.Print \"SKIPPED\"",
+        "Skip _",
+        ": Debug.Print \"AFTER\""
+      ],
+      "why": "Line continuation between the label name and its colon. If labels are recognised after physical lines are joined this is a label; if recognition happens during lexing on the raw line it is not. Neither behaviour is documented and both are implementable, so unsure."
+    },
+    {
+      "id": "label-after-continuation-midline",
+      "scope": "statement",
+      "expect": "unsure",
+      "code": [
+        "GoTo Skip",
+        "Debug.Print \"A\": _",
+        "Skip: Debug.Print \"AFTER\""
+      ],
+      "why": "The inverse: Skip: begins a physical line but sits mid logical line after a continued separator. Tests whether label position means physical column one or logical statement-sequence start, the two definitions disagreeing only here."
+    },
+    {
+      "id": "deeply-indented-label",
+      "scope": "module",
+      "expect": "legal",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Test()",
+        "    GoTo Skip",
+        "    Debug.Print \"SKIPPED\"",
+        "                    Skip: Debug.Print \"AFTER\"",
+        "End Sub"
+      ],
+      "why": "The glossary says a line label must begin in the first column, which I expect the real compiler to contradict, since indented labels are ordinary in real VB6 source and the VBE does not move them. Included precisely because documentation and compiler are likely to disagree here."
+    },
+    {
+      "id": "case-clause-colon",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "Select Case 1",
+        "Case 1: Debug.Print \"ONE\"",
+        "Case Else: Debug.Print \"OTHER\"",
+        "End Select"
+      ],
+      "why": "A third meaning for the colon: it terminates a Case clause and joins a statement onto it, resembling a label but attached to a keyword clause rather than an identifier. The Case Else form additionally has two keywords before the colon. Expected output ONE."
+    },
+    {
+      "id": "on-error-goto-trailing-colon",
+      "scope": "statement",
+      "expect": "legal",
+      "code": [
+        "On Error GoTo Handler:",
+        "Err.Raise 5",
+        "Handler: Debug.Print \"HANDLED\""
+      ],
+      "why": "A colon written after the label REFERENCE in On Error GoTo, where it can only be a separator plus an empty statement. Included because the repo grammar explicitly permits an optional COLON there, implying real code does it, while the reference gives no such syntax."
+    },
+    {
+      "id": "label-immediately-before-end-sub",
+      "scope": "module",
+      "expect": "legal",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Test()",
+        "    Debug.Print \"A\"",
+        "    GoTo Fin",
+        "    Debug.Print \"SKIPPED\"",
+        "Fin:",
+        "End Sub"
+      ],
+      "why": "A label with no statement after it anywhere in the procedure, so the branch target is the implicit end. Tests whether a label needs a statement to label, which is the natural reading of used to identify a single line of code."
+    },
+    {
+      "id": "end-sub-after-colon",
+      "scope": "module",
+      "expect": "unsure",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Test()",
+        "    Debug.Print \"A\": End Sub"
+      ],
+      "why": "End Sub joined onto a statement by a separator. It is a statement by shape but also the procedure terminator the parser scans for, and a line-oriented scan for End Sub would miss it here. I have no evidence either way."
+    }
+  ]
+}

@@ -1,0 +1,211 @@
+{
+  "area": "underscore inside literals and comments",
+  "file": "corpus/continuation-and-separator/continuation-in-strings-comments.json",
+  "count": 19,
+  "notes": "Authored from first principles against the VB6.g4 lexer rules in this repo (LINE_CONTINUATION : ' ' '_' '\\r'? '\\n'; COMMENT : WS? ('\\'' | COLON? REM ' ') (LINE_CONTINUATION | ~('\\n'|'\\r'))*; STRINGLITERAL : '\"' (~[\"\\r\\n] | '\"\"')* '\"'; NEWLINE : WS? ('\\r'? '\\n' | COLON ' ') WS?) plus documented facts from the local VBA-Docs corpus: the continuation character is a space followed by an underscore, it may not be used inside a string expression, Rem must be separated from a preceding statement by a colon and needs a space after the keyword, and up to 25 physical lines may be joined. Two design points for whoever runs these. (1) The grammar in this repo explicitly permits LINE_CONTINUATION inside COMMENT, i.e. it believes a comment ending in space-underscore continues onto the next physical line. The VBA docs say only that lines 'except comments' may be continued, which is ambiguous between 'comments need no continuation' and 'comments cannot be continued'. That disagreement is the most valuable measurement in this file, so cases 7, 9 and 16 are built so the compiler verdict itself answers it: a continued comment would swallow End Sub and fail to compile, so legal means comments do not continue and illegal means they do. They are marked unsure deliberately. (2) Cases 8, 10, 17 and 18 compile under either reading, so their discriminator is the Debug.Print output rather than the verdict - record what printed, not just that it built.",
+  "cases": [
+    {
+      "id": "string-underscore-at-eol-unterminated",
+      "scope": "statement",
+      "expect": "illegal",
+      "why": "The baseline claim of the whole area: a space-underscore that falls inside an open string literal is data, not a continuation, so the line ends with an unterminated string. STRINGLITERAL excludes CR and LF, so the literal cannot reach the closing quote on the next line. VBA-Docs states outright that a continuation cannot be used within a string expression.",
+      "code": [
+        "Debug.Print \"abc _",
+        "\""
+      ]
+    },
+    {
+      "id": "underscores-inside-string-are-data",
+      "scope": "statement",
+      "expect": "legal",
+      "why": "The legal-but-ugly mirror of case 1. Underscores in the interior of a closed literal are ordinary characters, and a genuine continuation follows on the same line. A lexer that scans for space-underscore before tokenising strings would mis-join here. Expected output: a_bc_d.",
+      "code": [
+        "Debug.Print \"a_b\" & _",
+        "    \"c_d\""
+      ]
+    },
+    {
+      "id": "continuation-right-after-closing-quote",
+      "scope": "statement",
+      "expect": "legal",
+      "why": "Continuation whose required preceding space is the one immediately after a closing quote, with the operator moved to the start of the continued line. Tests that the joiner works at a string boundary and that a logical line may resume with a binary operator. Expected output: xy.",
+      "code": [
+        "Debug.Print \"x\" _",
+        "    & \"y\""
+      ]
+    },
+    {
+      "id": "string-ends-with-space-underscore-then-real-continuation",
+      "scope": "statement",
+      "expect": "legal",
+      "why": "Two space-underscore sequences on one physical line: the first is the last two characters inside the literal, the second is the real continuation. Only correct string-first tokenisation gets this right; a regex pre-pass would cut at the first one. Expected output: end _tail.",
+      "code": [
+        "Debug.Print \"end _\" & _",
+        "    \"tail\""
+      ]
+    },
+    {
+      "id": "string-holds-colon-space-and-underscore",
+      "scope": "statement",
+      "expect": "legal",
+      "why": "Colon and underscore together inside one literal, on a line that also carries a genuine colon statement separator outside it. The grammar's NEWLINE alternative is literally COLON followed by a space, so a naive separator scan would split inside the string. Expected output: two lines, 'a: _b' then 'z'.",
+      "code": [
+        "Debug.Print \"a: _b\" : Debug.Print \"z\""
+      ]
+    },
+    {
+      "id": "string-doubled-quotes-then-underscore",
+      "scope": "statement",
+      "expect": "legal",
+      "why": "Escaped-quote pairs followed by a trailing space-underscore just before the real closing quote. The doubled-quote alternative in STRINGLITERAL must be consumed before the scanner can know where the literal ends, and only then is the underscore known to be data.",
+      "code": [
+        "Debug.Print \"he said \"\"hi\"\" _\""
+      ]
+    },
+    {
+      "id": "comment-trailing-underscore-swallows-end-sub",
+      "scope": "module",
+      "expect": "unsure",
+      "why": "The crux case, built so the verdict itself decides the rule. If an apostrophe comment ending in space-underscore continues onto the next physical line, End Sub is consumed by the comment and the module fails to compile; if it does not continue, this compiles and prints RAN. This repo's grammar allows LINE_CONTINUATION inside COMMENT, which predicts illegal; the VBA docs' 'except comments' aside reads more like comments cannot be continued, which predicts legal. I would not bet either way, so measure it.",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Main()",
+        "    Debug.Print \"RAN\"",
+        "    ' tail _",
+        "End Sub"
+      ]
+    },
+    {
+      "id": "comment-trailing-underscore-swallows-next-statement",
+      "scope": "statement",
+      "expect": "legal",
+      "why": "Same rule as case 7, arranged so both readings compile and only the output differs - the cleanest way to observe the rule without a compile error muddying the signal. ONE then TWO means the comment ended at the line break; ONE alone means the comment swallowed the next statement.",
+      "code": [
+        "Debug.Print \"ONE\"",
+        "' note _",
+        "Debug.Print \"TWO\""
+      ]
+    },
+    {
+      "id": "rem-trailing-underscore-swallows-end-sub",
+      "scope": "module",
+      "expect": "unsure",
+      "why": "The Rem form of case 7, kept separate because Rem is lexed as a keyword-introduced comment while the apostrophe form is punctuation - the two need not share continuation behaviour, and assuming they do is exactly the guess worth measuring. Illegal here means Rem comments continue and ate End Sub.",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Main()",
+        "    Debug.Print \"RAN\"",
+        "    Rem tail _",
+        "End Sub"
+      ]
+    },
+    {
+      "id": "comment-underscore-without-preceding-space",
+      "scope": "statement",
+      "expect": "legal",
+      "why": "Control for cases 7 and 8: the underscore is glued to the preceding word, so even under the comment-continues reading it cannot be a continuation, because both the documented and the grammatical form require a leading space. Both lines must print. If TWO fails to print, the implementation is treating a bare trailing underscore as a joiner.",
+      "code": [
+        "Debug.Print \"ONE\"",
+        "' note_",
+        "Debug.Print \"TWO\""
+      ]
+    },
+    {
+      "id": "continuation-then-comment-only-line",
+      "scope": "statement",
+      "expect": "illegal",
+      "why": "A continuation whose continued line is nothing but a comment, leaving the joined logical line as 'x = 1 +' with no right operand however the comment is stripped. Distinct from case 12 because the comment is on the next line rather than after the underscore. Expect a missing-expression error.",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _",
+        "' comment"
+      ]
+    },
+    {
+      "id": "comment-after-continuation-on-same-line",
+      "scope": "statement",
+      "expect": "illegal",
+      "why": "An apostrophe comment placed after the continuation character, so the underscore is no longer the final character of the physical line. LINE_CONTINUATION requires the newline to follow the underscore immediately, so the underscore should instead read as a stray identifier start. Prediction is illegal, but this is the classic 'is a comment allowed after the joiner' question that later BASIC dialects answered differently, so a legal result here is a genuinely interesting finding.",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _ ' comment",
+        "    2"
+      ]
+    },
+    {
+      "id": "continuation-splitting-a-token",
+      "scope": "statement",
+      "expect": "illegal",
+      "why": "Tests that the continuation joins lines but never joins tokens: because a space is mandatory before the underscore, the joined line is 'Debug.Pri nt' and not 'Debug.Print'. An implementation that deletes the underscore and newline without preserving the space would wrongly accept this.",
+      "code": [
+        "Debug.Pri _",
+        "nt \"x\""
+      ]
+    },
+    {
+      "id": "operator-then-underscore-with-no-space",
+      "scope": "statement",
+      "expect": "illegal",
+      "why": "An ampersand immediately followed by the underscore: the mandatory preceding space is absent, so this is not a continuation. The underscore then has to start an identifier, which VB6 does not allow as a leading character, and the next line begins with a bare string expression. Two independent reasons to reject.",
+      "code": [
+        "Debug.Print \"a\" &_",
+        "    \"b\""
+      ]
+    },
+    {
+      "id": "consecutive-continuation-only-lines",
+      "scope": "statement",
+      "expect": "legal",
+      "why": "A physical line consisting of nothing but a space and an underscore, sitting between the two halves of an expression. VBA-Docs speaks of up to 24 consecutive line-continuation characters, which implies a chain is fine, but a line with no content other than the joiner is the degenerate end of that allowance. Expected output: ab.",
+      "code": [
+        "Debug.Print \"a\" & _",
+        " _",
+        "\"b\""
+      ]
+    },
+    {
+      "id": "continuation-then-blank-line",
+      "scope": "statement",
+      "expect": "unsure",
+      "why": "A trailing continuation on an already-complete statement, followed by an empty line. If the joiner is resolved before parsing, the logical line is just Debug.Print \"A\" and this compiles and prints A then B; if VB6 requires the continued line to carry something, it is an invalid-continuation error. I can argue either, so it is marked unsure rather than guessed.",
+      "code": [
+        "Debug.Print \"A\" _",
+        "",
+        "Debug.Print \"B\""
+      ]
+    },
+    {
+      "id": "single-line-if-else-branch-continued",
+      "scope": "statement",
+      "expect": "legal",
+      "why": "Continuation immediately after Else in a single-line If, so the Else body sits on the next physical line. Branch membership is observable only from output: ELSE alone proves the continued line stayed inside the Else arm of one logical line. If both print, or neither does, the joiner broke the single-line If.",
+      "code": [
+        "If False Then Debug.Print \"THEN\" Else _",
+        "    Debug.Print \"ELSE\""
+      ]
+    },
+    {
+      "id": "single-line-if-trailing-comment-underscore",
+      "scope": "statement",
+      "expect": "legal",
+      "why": "Combines the comment-continuation question with single-line If membership, and compiles under either reading so the output carries the whole signal. Nothing printing at all means the comment continued and swallowed the AFTER line; AFTER alone means the comment ended at the break and AFTER is an ordinary following statement rather than part of the untaken Then branch.",
+      "code": [
+        "If False Then Debug.Print \"THEN\" ' c _",
+        "Debug.Print \"AFTER\""
+      ]
+    },
+    {
+      "id": "rem-after-statement-without-colon",
+      "scope": "statement",
+      "expect": "illegal",
+      "why": "VBA-Docs states that when Rem follows other statements on a line it must be separated by a colon, unlike the apostrophe form which needs none. Here the colon is missing and the pseudo-comment also ends in space-underscore, so a lexer that wrongly accepted the bare Rem would additionally swallow the AFTER line. Expect rejection at Rem.",
+      "code": [
+        "Dim x As Long",
+        "x = 1 Rem note _",
+        "Debug.Print \"AFTER\""
+      ]
+    }
+  ]
+}

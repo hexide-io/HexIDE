@@ -1,0 +1,430 @@
+{
+  "area": "colon as a statement separator",
+  "cases": [
+    {
+      "id": "sep-two-statements-one-line",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\": Debug.Print \"B\""
+      ],
+      "expect": "legal",
+      "why": "Baseline anchor for the whole area: the plainest colon join, one space either side. If a parser fails this, nothing else in the file is meaningful. The VB6 Language Reference documents statements 'separated by colons' as the single-line composition mechanism."
+    },
+    {
+      "id": "sep-no-space-around-colon",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1:x = x + 1",
+        "Debug.Print x"
+      ],
+      "expect": "legal",
+      "why": "The colon needs no surrounding whitespace. Direct trap for this repo's grammar: VB6.g4 defines NEWLINE as WS? ('\\r'? '\\n' | COLON ' ') WS? -- the COLON alternative REQUIRES a following space, so 'x = 1:x = x + 1' cannot lex as a separator there. Real VB6 tokenises the colon independently of adjacent whitespace."
+    },
+    {
+      "id": "sep-wide-whitespace-around-colon",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1   \t :  \t  x = 2",
+        "Debug.Print x"
+      ],
+      "expect": "legal",
+      "why": "Mirror of the previous case: arbitrary runs of spaces and hard tabs on both sides. Tests that whitespace is skipped rather than being part of the separator token. Tabs specifically, because a lexer that hardcodes a literal ' ' (as VB6.g4's NEWLINE does) handles spaces and not tabs."
+    },
+    {
+      "id": "sep-trailing-colon-end-of-line",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\":",
+        "Debug.Print \"B\""
+      ],
+      "expect": "legal",
+      "why": "A separator with nothing after it -- an empty statement terminated by the physical line end. Harder than it looks: the colon is followed by a newline, not a space, so any lexer modelling the separator as 'colon plus space' rejects a construct real VB6 accepts silently (the VBE does not even reformat it away)."
+    },
+    {
+      "id": "sep-leading-colon-start-of-line",
+      "scope": "statement",
+      "code": [
+        ": Debug.Print \"A\""
+      ],
+      "expect": "legal",
+      "why": "A colon as the first non-space character of a line: an empty statement preceding a real one. The ambiguity is with the line-label rule (lineLabel: ambiguousIdentifier COLON) -- here there is no identifier, so the colon can only be a separator. Predicted legal because BASIC dialects uniformly permit empty statements between separators."
+    },
+    {
+      "id": "sep-double-colon-tight",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\"::Debug.Print \"B\""
+      ],
+      "expect": "legal",
+      "why": "The a::b form named in the area brief, with no whitespace at all. Two separators with an empty statement between them. Combines the empty-statement question with the no-whitespace question, so a parser can fail it for either of two independent reasons."
+    },
+    {
+      "id": "sep-line-of-only-colons",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\"",
+        "::::",
+        "Debug.Print \"B\""
+      ],
+      "expect": "legal",
+      "why": "A physical line containing nothing but separators -- four empty statements. Isolates 'is an empty statement a statement?' from any adjacent real statement, so a parser that special-cases 'a colon must be preceded by a statement' fails here and nowhere else."
+    },
+    {
+      "id": "sep-spaced-empty-statements",
+      "scope": "statement",
+      "code": [
+        ":  :  : Debug.Print \"A\""
+      ],
+      "expect": "legal",
+      "why": "Repeated colons separated by whitespace, then a real statement. Differs from sep-double-colon-tight by putting space BETWEEN the colons, which defeats any lexer that recognises '::' as a single token rather than treating each colon independently."
+    },
+    {
+      "id": "sep-dim-then-assign",
+      "scope": "statement",
+      "code": [
+        "Dim x As Integer: x = 5: Debug.Print x"
+      ],
+      "expect": "legal",
+      "why": "Joining a declaration to executable statements on one line. Some languages segregate declarations from statements at the grammar level; VB6 does not -- Dim is just another blockStmt. Names the specific mix the area brief calls out."
+    },
+    {
+      "id": "sep-two-dims-joined",
+      "scope": "statement",
+      "code": [
+        "Dim a As Integer: Dim b As Integer",
+        "a = 1: b = 2",
+        "Debug.Print a + b"
+      ],
+      "expect": "legal",
+      "why": "Two declarations joined to each other, rather than a declaration joined to executable code. Tests that the separator is not swallowed by the Dim statement's own comma-separated variable list -- a parser that parses Dim greedily to end-of-line rather than to the next separator mis-handles this."
+    },
+    {
+      "id": "sep-const-then-use",
+      "scope": "statement",
+      "code": [
+        "Const K As Integer = 3: Debug.Print K"
+      ],
+      "expect": "legal",
+      "why": "Const rather than Dim, because Const ends in an expression. The parser must stop the initialiser expression at the colon; an expression grammar that does not treat the colon as a terminator will try to fold ': Debug' into the constant's value."
+    },
+    {
+      "id": "sep-redim-after-colon",
+      "scope": "statement",
+      "code": [
+        "Dim a() As Long: ReDim a(2)",
+        "a(0) = 7: Debug.Print a(0)"
+      ],
+      "expect": "legal",
+      "why": "ReDim after a separator, and an indexed assignment before one. Chosen because both sides involve parenthesised subscripts, which is where VB6's call-vs-array ambiguity lives -- a parser resolving that ambiguity by lookahead must not run past the colon while doing so."
+    },
+    {
+      "id": "sep-single-line-if-branch-membership",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 0",
+        "If x = 1 Then Debug.Print \"THEN\": Debug.Print \"AFTER\"",
+        "Debug.Print \"END\""
+      ],
+      "expect": "legal",
+      "why": "The central semantic trap of the area, and answerable only by observing output. In a single-line If, EVERY colon-separated statement after Then belongs to the Then branch (Language Reference: 'multiple statements executed as the result of an If...Then decision ... separated by colons'). With x = 0 the branch is not taken, so correct VB6 prints only END; a parser that treats the colon as ending the If prints AFTER and END. Legal either way -- the divergence is behavioural, not syntactic."
+    },
+    {
+      "id": "sep-block-if-not-first-on-line",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\": If True Then",
+        "Debug.Print \"B\"",
+        "End If"
+      ],
+      "expect": "illegal",
+      "why": "Nothing follows Then, so this wants to be a BLOCK If -- but the Language Reference states flatly that 'a block form If statement must be the first statement on a line'. Predicted illegal on that documented rule. This is the one construct VB6 explicitly forbids a colon in front of, which makes it the discriminator for whether an implementation knows the rule or just separates statements uniformly."
+    },
+    {
+      "id": "sep-end-if-after-statement",
+      "scope": "statement",
+      "code": [
+        "If True Then",
+        "Debug.Print \"A\": End If"
+      ],
+      "expect": "illegal",
+      "why": "The companion restriction: the Language Reference says the Else, ElseIf and End If parts 'can have only a line number or line label preceding them'. A Debug.Print is neither, so predicted illegal. Deliberately contrasted with sep-for-next-one-line and sep-with-block-one-line below, where a closing keyword after a colon IS fine -- the restriction is specific to If, not general to block terminators."
+    },
+    {
+      "id": "sep-colon-immediately-after-then",
+      "scope": "statement",
+      "code": [
+        "If True Then:",
+        "Debug.Print \"A\"",
+        "End If"
+      ],
+      "expect": "unsure",
+      "why": "Genuinely unknown and high-value. The documented test is 'if anything other than a comment appears after Then on the same line, the statement is treated as a single-line If' -- a colon is something, so by the letter of the rule this is a single-line If and the later End If is 'End If without block If' (illegal). Against that, this exact 'Then:' form is widely believed to compile as a block If. Documentation and folklore disagree; only the compiler settles it."
+    },
+    {
+      "id": "sep-colon-before-else-single-line",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 0",
+        "If x = 1 Then Debug.Print \"T\": Else Debug.Print \"F\"",
+        "Debug.Print \"END\""
+      ],
+      "expect": "unsure",
+      "why": "A colon immediately before Else in a single-line If. Without the colon this is certainly legal. With it, Else is preceded by an empty statement -- so either the colon simply terminates the Then statement list (legal), or Else must follow a statement directly and this is 'Else without If' (illegal). Unsure. If legal, the output also settles branch membership: F then END."
+    },
+    {
+      "id": "sep-label-then-statement-same-line",
+      "scope": "statement",
+      "code": [
+        "GoTo Skip",
+        "Debug.Print \"SKIPPED\"",
+        "Skip: Debug.Print \"A\""
+      ],
+      "expect": "legal",
+      "why": "The colon that is NOT a separator. 'Skip:' is a line label (grammar rule lineLabel: ambiguousIdentifier COLON) with its statement on the same line. A parser must disambiguate identifier-colon-at-line-start from statement-colon-statement using position, not the colon itself. Correct output is A only."
+    },
+    {
+      "id": "sep-label-double-colon",
+      "scope": "statement",
+      "code": [
+        "GoTo Skip",
+        "Skip:: Debug.Print \"A\""
+      ],
+      "expect": "legal",
+      "why": "Stacks the two meanings of the colon adjacently: the first ends the label, the second is a separator introducing an empty statement. A parser that consumes both colons as part of the label, or that sees '::' as one token, breaks here. Predicted legal because each colon has an independently valid reading."
+    },
+    {
+      "id": "sep-numeric-line-number-with-colon",
+      "scope": "statement",
+      "code": [
+        "GoTo 10",
+        "Debug.Print \"SKIPPED\"",
+        "10: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Numeric line numbers take no colon in VB6 (this repo's grammar: lineNumber: INTEGERLITERAL, deliberately distinct from lineLabel, which requires the colon). So '10:' is either a line number followed by an empty statement (legal by composition) or a malformed label (illegal). Unsure -- both readings are defensible and archived documentation does not state which holds."
+    },
+    {
+      "id": "sep-rem-after-colon",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\": Rem trailing remark",
+        "Debug.Print \"B\""
+      ],
+      "expect": "legal",
+      "why": "Documented explicitly in the Rem statement reference: 'if the Rem keyword follows other statements on a line, it must be separated from the statements by a colon'. The colon here is load-bearing punctuation rather than an optional join -- the only place in VB6 where a colon is REQUIRED."
+    },
+    {
+      "id": "sep-rem-without-colon",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\" Rem oops",
+        "Debug.Print \"B\""
+      ],
+      "expect": "illegal",
+      "why": "The negative half of the Rem rule and the reason the previous case matters. Predicted illegal on the documented requirement that Rem following other statements be colon-separated. Note this repo's lexer models the comment as COLON? REM ' ' -- the optional colon means it would ACCEPT this line, so an implementation matching the grammar diverges from the documented rule here."
+    },
+    {
+      "id": "sep-comment-after-colon",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\": ' comment after a colon",
+        "Debug.Print \"B\" ' comment with no colon"
+      ],
+      "expect": "legal",
+      "why": "Contrast with Rem: the apostrophe form needs no colon and tolerates one. Both spellings on adjacent lines so a single result covers the pair. Also checks that a separator followed only by a comment does not leave a dangling-separator error."
+    },
+    {
+      "id": "sep-colon-inside-string-literal",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"a:b\": Debug.Print \"c::d\""
+      ],
+      "expect": "legal",
+      "why": "Pure lexer test: colons inside string literals must not separate, including a doubled one. A separator implemented by naive splitting on ':' produces four broken fragments here. Correct output is a:b then c::d."
+    },
+    {
+      "id": "sep-for-next-one-line",
+      "scope": "statement",
+      "code": [
+        "Dim i As Long",
+        "For i = 1 To 2: Debug.Print i: Next i"
+      ],
+      "expect": "legal",
+      "why": "An entire loop -- header, body and Next -- on one line. This is the canonical VB idiom, so it is certainly legal, and it exists here as the control case proving that block terminators after a colon are fine in general. It is the evidence that the End If restriction is a rule about If, not about block closers."
+    },
+    {
+      "id": "sep-do-loop-one-line",
+      "scope": "statement",
+      "code": [
+        "Do: Debug.Print \"A\": Loop While False"
+      ],
+      "expect": "legal",
+      "why": "Harder than the For case because bare 'Do' carries no clause, so the colon immediately follows a lone keyword, and the loop's condition rides on the closing keyword. Predicted legal by the same reasoning as For...Next -- but a parser that requires a Do body to start on a new line fails only here."
+    },
+    {
+      "id": "sep-with-block-one-line",
+      "scope": "statement",
+      "code": [
+        "With Err: Debug.Print .Number: End With"
+      ],
+      "expect": "legal",
+      "why": "A third block form on one line, chosen because the body begins with a leading dot. The parser must know it is still inside the With after crossing a separator -- With context is scoped by block, not by physical line. Err is intrinsic so no declarations are needed; correct output is 0."
+    },
+    {
+      "id": "sep-case-colon-then-statement",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1",
+        "Select Case x",
+        "Case 1: Debug.Print \"ONE\"",
+        "End Select"
+      ],
+      "expect": "legal",
+      "why": "A colon after a Case clause with its statement on the same line -- extremely common in real VB6 source. Notable because the colon is ambiguous with a line label: 'Case 1:' reads as a clause terminator, and this repo's grammar encodes it as an optional COLON in the case rule rather than as a separator."
+    },
+    {
+      "id": "sep-whole-select-one-line",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1",
+        "Select Case x: Case 1: Debug.Print \"ONE\": End Select"
+      ],
+      "expect": "unsure",
+      "why": "The whole Select folded onto one line. The unknown is the FIRST colon: is anything permitted between 'Select Case x' and its first Case clause? For...Next and Do...Loop suggest yes, but Select Case is the one block whose header is followed by clauses rather than statements, so a colon there may have no valid reading at all. Unsure."
+    },
+    {
+      "id": "sep-colon-then-line-continuation",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\": _",
+        "Debug.Print \"B\""
+      ],
+      "expect": "legal",
+      "why": "The separator interacting with the other line-joining mechanism. The continuation erases the physical break, so the compiler should see one logical line with an ordinary colon join. Hard because implementations commonly handle continuation and separator in different passes; if continuation is applied after statement splitting, the trailing colon looks like it separates nothing."
+    },
+    {
+      "id": "sep-label-mid-line-after-colon",
+      "scope": "statement",
+      "code": [
+        "Dim z As Long",
+        "z = 1: Here: z = 2",
+        "Debug.Print z"
+      ],
+      "expect": "illegal",
+      "why": "A label appearing after a separator rather than at the start of a line. If labels are position-sensitive (first thing on a physical line) this is illegal; if the colon is purely a logical line break, 'Here:' is an ordinary label. Predicted illegal because a label is a branch target and VB6 resolves targets to line positions -- but this is the closest call among the illegal predictions."
+    },
+    {
+      "id": "sep-mixed-chain-with-empty-statement",
+      "scope": "statement",
+      "code": [
+        "Dim a As Long, b As Long",
+        "a = 1:b = 2 :a = a + b:  :Debug.Print a"
+      ],
+      "expect": "legal",
+      "why": "The 'legal but ugly' stress case: five statements, an empty one in the middle, and every whitespace variation (none, before only, after only, both) in one line. No individual element is novel; the point is that a parser handling each in isolation must also handle them interleaved, and that VB6 accepts source this ill-formatted. Correct output is 3."
+    },
+    {
+      "id": "sep-label-name-shadows-variable",
+      "scope": "statement",
+      "code": [
+        "Dim Foo As Long",
+        "Foo = 1",
+        "GoTo Foo",
+        "Foo: Debug.Print Foo"
+      ],
+      "expect": "unsure",
+      "why": "Forces the label-versus-separator disambiguation to be decided by syntax alone, since the identifier is already bound as a variable. Either VB6 keeps labels in a separate namespace (legal, prints 1) or it reports a duplicate/ambiguous name (illegal). Unsure -- and the answer determines whether a label can be recognised lexically or needs the symbol table."
+    },
+    {
+      "id": "sep-exit-sub-then-dead-code",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\": Exit Sub: Debug.Print \"DEAD\"",
+        "Debug.Print \"NOTREACHED\""
+      ],
+      "expect": "legal",
+      "why": "Unreachable code after a separator. Syntactically ordinary, but it checks that Exit Sub does not terminate parsing of the line, and the output distinguishes correct behaviour (A only) from an implementation that mis-scopes the exit. Chosen because Exit Sub is the one statement an implementer might treat as end-of-anything."
+    },
+    {
+      "id": "sep-end-sub-after-statement",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "Debug.Print \"A\": End Sub"
+      ],
+      "expect": "unsure",
+      "why": "The colon-before-End-Sub case from the area brief. For and With accept a closing keyword after a colon, which argues legal; but a procedure boundary is not an ordinary block -- the VBE itself splits source into procedures before compiling, and it may require End Sub to own its line the way the If reference requires it of End If. Unsure."
+    },
+    {
+      "id": "sep-sub-header-then-body-same-line",
+      "scope": "module",
+      "code": [
+        "Sub Main(): Debug.Print \"A\"",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "The other half of the procedure-boundary question: body on the header's line rather than End Sub on the body's line. Kept separate from the previous case deliberately -- the two ends of a procedure may well have different rules, and a snippet that folds them together cannot tell which one failed."
+    },
+    {
+      "id": "sep-module-level-declarations-joined",
+      "scope": "module",
+      "code": [
+        "Private a As Long: Private b As Long",
+        "",
+        "Sub Main()",
+        "a = 1: b = 2",
+        "Debug.Print a + b",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "Colon joining in the module declarations section rather than inside a procedure. Worth testing separately because that section admits a different statement set (no executable statements at all), so an implementation may parse it with a distinct, more restrictive path that never learned about separators. Predicted legal."
+    },
+    {
+      "id": "sep-option-explicit-joined",
+      "scope": "module",
+      "code": [
+        "Option Explicit: Dim x As Long",
+        "",
+        "Sub Main()",
+        "Debug.Print x",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "Option statements carry a positional requirement -- they must precede all other declarations and procedures -- so joining one to a declaration by a colon tests whether that requirement is expressed in physical lines or in logical statements. Unsure, leaning illegal: Option is a compiler directive rather than a statement and may be required to stand alone."
+    },
+    {
+      "id": "sep-udt-one-line",
+      "scope": "module",
+      "code": [
+        "Private Type TPoint: X As Long: Y As Long: End Type",
+        "",
+        "Sub Main()",
+        "Dim p As TPoint",
+        "p.X = 1",
+        "Debug.Print p.X",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "A user-defined type folded onto one line. Type members are not statements -- they are a fixed field list with their own grammar -- so the colon may have no meaning inside a Type block at all. Unsure. Enum would ask the same question; Type is chosen because its members carry an As clause, so the parser must also stop the type name at the colon."
+    },
+    {
+      "id": "sep-label-alone-before-end-sub",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "On Error GoTo Done",
+        "Debug.Print \"A\"",
+        "Done:",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "A label with nothing after it and nothing but End Sub following -- the standard error-handler tail. Predicted legal and included as the boundary control for sep-end-sub-after-statement: it isolates 'a bare colon-terminated label immediately before End Sub' from 'a real statement immediately before End Sub', so a failure there cannot be blamed on the label."
+    }
+  ]
+}

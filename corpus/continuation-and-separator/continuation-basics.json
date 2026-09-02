@@ -1,0 +1,424 @@
+{
+  "area": "line continuation in ordinary positions",
+  "file": "C:\\Repos\\GitHub\\HexIDE\\HexIDE\\corpus\\continuation-and-separator\\continuation-basics.json",
+  "count": 34,
+  "cases": [
+    {
+      "id": "cont-after-binary-operator",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _",
+        "    2",
+        "Debug.Print x"
+      ],
+      "expect": "legal",
+      "why": "The baseline: continuation immediately after a binary operator, so the logical line is complete only after joining. Everything else in this area is measured against this. Expect 3."
+    },
+    {
+      "id": "cont-before-binary-operator",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 _",
+        "    + 2",
+        "Debug.Print x"
+      ],
+      "expect": "legal",
+      "why": "Mirror image: the break sits before the operator, so the first physical line (x = 1) is itself a complete, valid statement. A lexer that re-synchronises on newline would silently accept the first line and then choke on a leading +. Expect 3."
+    },
+    {
+      "id": "cont-before-equals",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x _",
+        "    = 7",
+        "Debug.Print x"
+      ],
+      "expect": "legal",
+      "why": "Break between the assignment target and the =. The first physical line is a bare identifier, which alone would parse as a call statement, so this distinguishes joining-then-parsing from parsing-per-line. Expect 7."
+    },
+    {
+      "id": "cont-after-equals",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = _",
+        "    7",
+        "Debug.Print x"
+      ],
+      "expect": "legal",
+      "why": "Break immediately after the =. Left-hand side plus operator with the right-hand side on the next line; the dangling = cannot be a statement on its own. Expect 7."
+    },
+    {
+      "id": "cont-arglist-after-comma",
+      "scope": "statement",
+      "code": [
+        "Debug.Print Mid$(\"abcdef\", _",
+        "    2, _",
+        "    3)"
+      ],
+      "expect": "legal",
+      "why": "The idiomatic wrapped call: a continuation after each argument separator. Expect bcd."
+    },
+    {
+      "id": "cont-arglist-before-comma",
+      "scope": "statement",
+      "code": [
+        "Debug.Print Mid$(\"abcdef\" _",
+        "    , 2 _",
+        "    , 3)"
+      ],
+      "expect": "legal",
+      "why": "Leading-comma style: the break falls before the separator instead of after it. Same token stream after joining, but a parser that special-cases comma-then-continuation would only handle the previous case. Expect bcd."
+    },
+    {
+      "id": "cont-after-open-paren",
+      "scope": "statement",
+      "code": [
+        "Debug.Print Left$( _",
+        "    \"abcdef\", 3)"
+      ],
+      "expect": "legal",
+      "why": "Continuation immediately after the opening parenthesis, before any argument exists. Tests that the joiner does not require a token between ( and the break. Expect abc."
+    },
+    {
+      "id": "cont-string-concat",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"AB\" & _",
+        "    \"CD\""
+      ],
+      "expect": "legal",
+      "why": "Concatenation split at the &. Kept separate from the arithmetic case because & is also the type-declaration character for Long, so the sequence space-&-space-underscore is a place a lexer can mis-tokenise. Expect ABCD."
+    },
+    {
+      "id": "cont-print-semicolon-separator",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\"; _",
+        "    \"B\""
+      ],
+      "expect": "legal",
+      "why": "Continuation after a Print output-list separator rather than inside an expression. Debug.Print's list syntax is parsed by its own rule, so continuation support there is not implied by the expression cases. Expect AB on one line."
+    },
+    {
+      "id": "cont-inside-string-literal",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A _",
+        "B\""
+      ],
+      "expect": "illegal",
+      "why": "The space-underscore sequence sits inside a string literal, where it must NOT be treated as a continuation, so line 1 is an unterminated string. Predicting illegal asserts that string scanning wins over continuation scanning. Any tool that joins lines textually before lexing would wrongly accept this."
+    },
+    {
+      "id": "cont-three-consecutive",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _",
+        "    2 + _",
+        "    3 + _",
+        "    4",
+        "Debug.Print x"
+      ],
+      "expect": "legal",
+      "why": "Four physical lines in one logical line, checking that continuation handling is a loop and not a one-shot lookahead. Expect 10."
+    },
+    {
+      "id": "cont-empty-continuation-line",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _",
+        " _",
+        "    2",
+        "Debug.Print x"
+      ],
+      "expect": "unsure",
+      "why": "A continuation line whose entire content is the continuation (one space, one underscore). Nothing is contributed to the logical line, but nothing is malformed either. I lean legal, since the joiner should just concatenate empty content, but a vacuous continuation is exactly the kind of thing a hand-written scanner rejects, and nobody can answer it without running the compiler."
+    },
+    {
+      "id": "cont-blank-line-inside",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _",
+        "",
+        "    2",
+        "Debug.Print x"
+      ],
+      "expect": "illegal",
+      "why": "A truly empty physical line (no underscore) in the middle of a continued statement. The continuation extends to the next physical line only, and that line is empty, so the statement ends as x = 1 plus nothing. Predict a syntax error. Contrast with the previous case, where the near-blank line carries its own underscore."
+    },
+    {
+      "id": "cont-trailing-space-after-underscore",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _  ",
+        "    2",
+        "Debug.Print x"
+      ],
+      "expect": "unsure",
+      "why": "Two spaces AFTER the underscore, before the newline. This repo's grammar requires the newline to follow the underscore immediately, and the language reference says the underscore must be the last character on the line, which both suggest rejection. But editors leave trailing whitespace constantly and VB6 is widely believed to tolerate it, so I lean legal. The answer decides whether a trailing-whitespace-tolerant lexer is a bug or a requirement."
+    },
+    {
+      "id": "cont-no-space-before-underscore",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 +_",
+        "    2",
+        "Debug.Print x"
+      ],
+      "expect": "illegal",
+      "why": "No whitespace before the underscore: the source reads plus-underscore. An identifier may contain but not begin with an underscore, so there is no valid token here. Predicting illegal asserts that the whitespace before the underscore is mandatory rather than cosmetic."
+    },
+    {
+      "id": "cont-tab-before-underscore",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 +\t_",
+        "    2",
+        "Debug.Print x"
+      ],
+      "expect": "legal",
+      "why": "A TAB, not a space, before the underscore. The reference wording (a space followed by an underscore) read literally excludes tabs, and this repo's grammar excludes them too, but a lexer that treats tab as whitespace generally would accept. I predict legal: if tabs were illegal here, every tab-indented wrapped line in the wild would be a compile error, which seems unlikely to have gone unnoticed."
+    },
+    {
+      "id": "cont-comment-after-underscore",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _ ' add two",
+        "    2",
+        "Debug.Print x"
+      ],
+      "expect": "illegal",
+      "why": "A comment after the continuation character. The underscore must be the last thing on the line and a comment is content, not whitespace, so predict rejection. This is the case people most often expect to work."
+    },
+    {
+      "id": "cont-comment-line-then-continued",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _",
+        "' a comment",
+        "    2",
+        "Debug.Print x"
+      ],
+      "expect": "illegal",
+      "why": "The continued-to line is a full-line comment. If continuation is a purely lexical join, the comment swallows the remainder of the logical line and the statement ends as x = 1 plus nothing. Predict rejection; a joiner that skips comment lines while gathering a logical line would wrongly accept."
+    },
+    {
+      "id": "cont-in-dim-before-type",
+      "scope": "statement",
+      "code": [
+        "Dim x As _",
+        "    Long",
+        "x = 3",
+        "Debug.Print x"
+      ],
+      "expect": "legal",
+      "why": "Continuation between As and the type name in a Dim. Declarations are parsed by a separate rule from expressions, so support here is not implied by the expression cases. Expect 3."
+    },
+    {
+      "id": "cont-in-dim-after-comma",
+      "scope": "statement",
+      "code": [
+        "Dim a As Long, _",
+        "    b As Long",
+        "a = 1: b = 2",
+        "Debug.Print a + b"
+      ],
+      "expect": "legal",
+      "why": "Multi-variable Dim wrapped at the declarator comma, the declaration-list analogue of the argument-list case. Expect 3."
+    },
+    {
+      "id": "cont-signature-between-params",
+      "scope": "module",
+      "code": [
+        "Private Sub Add2(ByVal a As Long, _",
+        "                 ByVal b As Long)",
+        "    Debug.Print a + b",
+        "End Sub",
+        "",
+        "Public Sub Main()",
+        "    Add2 1, 2",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "Wrapped parameter list in a procedure signature: the most common real-world use of continuation, and a different grammar rule from a call site. Expect 3."
+    },
+    {
+      "id": "cont-after-sub-keyword",
+      "scope": "module",
+      "code": [
+        "Private Sub _",
+        "    Helper()",
+        "    Debug.Print \"H\"",
+        "End Sub",
+        "",
+        "Public Sub Main()",
+        "    Helper",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "The break falls between the Sub keyword and the procedure name, inside the declaration header before any parseable unit exists. Predict legal, but this is the position a hand-written declaration scanner is most likely to get wrong because it reads the rest of the physical line to find the name. Expect H."
+    },
+    {
+      "id": "cont-splitting-end-sub",
+      "scope": "module",
+      "code": [
+        "Public Sub Main()",
+        "    Debug.Print \"K\"",
+        "End _",
+        "Sub"
+      ],
+      "expect": "legal",
+      "why": "End Sub split across the continuation. Many implementations (this repo's grammar included) lex End Sub as a single token requiring literal whitespace between the words, which a hidden-channel continuation breaks. Note also that End alone is a valid statement, so a per-line parser would terminate the program instead of ending the procedure. Predict legal for the real compiler; expect K."
+    },
+    {
+      "id": "cont-dangling-before-end-sub",
+      "scope": "module",
+      "code": [
+        "Public Sub Main()",
+        "    Debug.Print \"A\" _",
+        "End Sub"
+      ],
+      "expect": "illegal",
+      "why": "A continuation on the last statement of a procedure, joining the Debug.Print to End Sub as one logical line. Predict a syntax error. The interesting failure mode is the other direction: an implementation that silently drops a dangling continuation consumes the End Sub and swallows the rest of the module."
+    },
+    {
+      "id": "cont-dangling-at-eof",
+      "scope": "module",
+      "code": [
+        "Public Sub Main()",
+        "    Debug.Print \"A\"",
+        "End Sub",
+        " _"
+      ],
+      "expect": "unsure",
+      "why": "A continuation as the very last line of the file, with nothing after it to continue onto. There is no malformed token, only a promise that is never kept. VB6 may ignore a whitespace-only trailing line entirely, or report an expected-identifier error. Worth measuring because it decides whether a joiner needs an end-of-file guard."
+    },
+    {
+      "id": "cont-single-line-if-body",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 0",
+        "If x = 1 Then _",
+        "    Debug.Print \"THEN\"",
+        "Debug.Print \"AFTER\""
+      ],
+      "expect": "legal",
+      "why": "The body of a single-line If lives on the continued line, so branch membership is observable only from output: with x = 0 a correct join prints AFTER and nothing else. If the continuation is dropped, the Debug.Print becomes a free-standing statement and THEN prints too, and the If becomes a block If with no End If."
+    },
+    {
+      "id": "cont-single-line-if-else-branch",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 0",
+        "If x = 1 Then Debug.Print \"THEN\" Else _",
+        "    Debug.Print \"ELSE\"",
+        "Debug.Print \"AFTER\""
+      ],
+      "expect": "legal",
+      "why": "Continuation after Else in a single-line If-Then-Else. Correct output for x = 0 is ELSE then AFTER. A dropped continuation yields either an Else with no statement or ELSE printed unconditionally alongside THEN, so the printed literals distinguish every plausible mis-parse."
+    },
+    {
+      "id": "cont-before-then",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1",
+        "If x = 1 _",
+        "   Then Debug.Print \"T\"",
+        "Debug.Print \"AFTER\""
+      ],
+      "expect": "legal",
+      "why": "The break falls between the condition and Then, so the first physical line looks like a block-If header missing its Then. Expect T then AFTER; a per-line parser reports a missing Then instead."
+    },
+    {
+      "id": "cont-after-colon-separator",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\": _",
+        "Debug.Print \"B\""
+      ],
+      "expect": "legal",
+      "why": "Continuation immediately after a colon statement separator: the two line-structuring mechanisms meeting on one line. In this repo's grammar a colon followed by a space is itself part of the NEWLINE token, which makes colon-space-underscore ambiguous to the lexer. Expect A then B, in that order, which also confirms neither statement was dropped."
+    },
+    {
+      "id": "cont-then-colon-joined",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _",
+        "    2: Debug.Print x"
+      ],
+      "expect": "legal",
+      "why": "The continued-to line carries a colon separator, so one logical line ends up containing two statements formed across a physical line break. Expect 3."
+    },
+    {
+      "id": "cont-after-member-dot",
+      "scope": "statement",
+      "code": [
+        "Debug. _",
+        "    Print \"D\""
+      ],
+      "expect": "unsure",
+      "why": "The break falls immediately after the dot of a member access, splitting Debug.Print. Lexically this is unremarkable (dot and Print are separate tokens), but member access is resolved by machinery that often works on physical lines, and a trailing Debug-dot is exactly what triggers the member-list popup in the IDE. I would not bet either way."
+    },
+    {
+      "id": "cont-named-arg-after-assign",
+      "scope": "module",
+      "code": [
+        "Private Sub P(ByVal N As Long)",
+        "    Debug.Print N",
+        "End Sub",
+        "",
+        "Public Sub Main()",
+        "    P N:= _",
+        "        5",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "Continuation after the := of a named argument. The := token contains the statement-separator character, so a lexer that splits on colon before recognising := can mis-handle the continuation that follows. Expect 5."
+    },
+    {
+      "id": "cont-option-explicit",
+      "scope": "module",
+      "code": [
+        "Option _",
+        "Explicit",
+        "",
+        "Public Sub Main()",
+        "    Debug.Print \"OK\"",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "Continuation inside a module-level Option directive. Option lines are commonly handled by a pre-scan over physical lines rather than by the main parser, so support here is not implied by anything else in this area. Expect OK; a rejection would prove Option lines take a separate path."
+    },
+    {
+      "id": "cont-declare-header-wrapped",
+      "scope": "module",
+      "code": [
+        "Private Declare Function GetTickCount Lib \"kernel32\" _",
+        "    () As Long",
+        "",
+        "Public Sub Main()",
+        "    If GetTickCount() > 0 Then Debug.Print \"TICK\"",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "A Declare wrapped between the Lib clause and the parameter list: a declaration form with its own grammar rule and its own keywords, and the one place a wrapped header is near-universal in real VB6 source. Expect TICK."
+    }
+  ],
+  "notes": "Clean-room: authored from the VB6/VBA language reference at C:\\Repos\\GitHub\\VBA-Docs (facts only, no prose reuse), from this repo's ANTLR grammar VB6.g4, and from reasoning about lexer/parser failure modes. No GPL-licensed grammar or test suite was consulted. Every legal case prints a distinctive literal so a runner can tell acceptance from correct execution, and the single-line-If cases are built so branch membership is decidable from output alone. WHITESPACE IS LOAD-BEARING in four cases and must not be reformatted or trimmed: cont-tab-before-underscore contains a literal TAB before the underscore; cont-trailing-space-after-underscore has two trailing spaces AFTER it; cont-empty-continuation-line has a line that is exactly one space plus an underscore; cont-blank-line-inside has a genuinely empty line. This repo's grammar defines LINE_CONTINUATION as exactly space, underscore, optional CR, LF, with nothing permitted after the underscore, so it is predicted to reject cont-tab-before-underscore and cont-trailing-space-after-underscore; if vb6.exe accepts either, that lexer rule is a bug that takes down whole modules, which makes those two the highest-value measurements here."
+}

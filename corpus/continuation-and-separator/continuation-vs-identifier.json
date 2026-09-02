@@ -1,0 +1,287 @@
+{
+  "area": "underscore as identifier character",
+  "notes": "Clean-room. Authored from the VB6/VBA language facts in the local VBA-Docs corpus (C:\\Repos\\GitHub\\VBA-Docs: 'line-continuation character = a space followed by an underscore'; 'procedure name ... doesn't begin with a letter' => Invalid procedure name; 'Visual Basic supports the use of the underscore character (_) in Visual Basic identifiers' but cannot Implements an interface whose members contain one; 'You used an underscore as part of the event name' => Invalid event name), plus the ANTLR grammar at IDE/HexIDE.Runtime/Interpreter/Grammar/VB6.g4. No GPL-licensed grammar or test suite was consulted. Two grammar divergences are deliberately probed: (a) VB6.g4's `fragment LETTER : [a-zA-Z_...]` makes '_' a legal FIRST character, so `_ab` and a lone `_` parse there but should be rejected by vb6.exe; (b) VB6.g4's `LINE_CONTINUATION : ' ' '_' '\\r'? '\\n'` demands exactly one literal space and nothing after the underscore, so a TAB before '_', trailing spaces after '_', and a comment after '_' are all hard-rejected by the repo grammar and are the cases most worth measuring.",
+  "cases": [
+    {
+      "id": "interior-underscore-name",
+      "scope": "statement",
+      "code": [
+        "Dim my_var As Long",
+        "my_var = 41",
+        "Debug.Print my_var"
+      ],
+      "expect": "legal",
+      "why": "Baseline anchor: an underscore strictly inside a name, never adjacent to a line end. Every other case here is a perturbation of this one, so if this fails nothing else is interpretable. Docs state VB explicitly supports the underscore in identifiers."
+    },
+    {
+      "id": "trailing-underscore-name-midline",
+      "scope": "statement",
+      "code": [
+        "Dim ab_ As Long",
+        "ab_ = 12",
+        "Debug.Print ab_"
+      ],
+      "expect": "legal",
+      "why": "Trailing underscore, but on the Dim it is followed by ' As', so no continuation reading is available there. The documented naming constraint governs only the FIRST character ('must begin with a letter'), so a name should be free to end in '_'."
+    },
+    {
+      "id": "leading-underscore-name",
+      "scope": "statement",
+      "code": [
+        "Dim _ab As Long",
+        "_ab = 1",
+        "Debug.Print \"REACHED\""
+      ],
+      "expect": "illegal",
+      "why": "The documented rule is that a name must BEGIN with a letter, and '_' is not a letter. Direct divergence from VB6.g4, whose LETTER fragment includes '_' and so lexes `_ab` as IDENTIFIER. If vb6.exe rejects, HexIDE silently accepts a whole class of invalid names."
+    },
+    {
+      "id": "lone-underscore-name",
+      "scope": "statement",
+      "code": [
+        "Dim _ As Long",
+        "Debug.Print \"REACHED\""
+      ],
+      "expect": "illegal",
+      "why": "The pathological identifier: a name that is nothing but an underscore. Deliberately placed where it CANNOT be a continuation - the '_' is preceded by a space but followed by ' As Long', not by end of line, so the ' _'+newline shape does not apply. Only two readings remain: identifier (no leading letter, rejected) or lexer confusion. VB6.g4 accepts it as IDENTIFIER."
+    },
+    {
+      "id": "continuation-baseline",
+      "scope": "statement",
+      "code": [
+        "Dim c As Long",
+        "c = 1 + _",
+        "    2",
+        "Debug.Print c"
+      ],
+      "expect": "legal",
+      "why": "The canonical continuation, present so that failures in the perturbed variants below (tab, trailing space, comment, missing space) can be attributed to the perturbation rather than to continuations generally. Prints 3 if the two physical lines joined."
+    },
+    {
+      "id": "trailing-underscore-at-eol-no-space",
+      "scope": "statement",
+      "code": [
+        "Dim ab_ As Long",
+        "ab_ = 3",
+        "Debug.Print ab_",
+        "Debug.Print \"AFTER\""
+      ],
+      "expect": "legal",
+      "why": "The headline collision, made observable. Line 3 ends in `ab_` with NO space before the underscore, so it must lex as the identifier and not as a continuation. Output discriminates: identifier => '3' then 'AFTER'; continuation => the logical line becomes `Debug.Print ab Debug.Print \"AFTER\"`, a syntax error, and 'AFTER' never appears on its own."
+    },
+    {
+      "id": "space-underscore-eol-swallows-next-line",
+      "scope": "statement",
+      "code": [
+        "Dim ab As Long",
+        "ab = 5",
+        "Debug.Print ab _",
+        "Debug.Print \"AFTER\""
+      ],
+      "expect": "illegal",
+      "why": "Deliberate mirror of the previous case, identical except for one space before the '_'. That space is exactly what the docs define as the continuation trigger, so line 3 must join line 4 into `Debug.Print ab Debug.Print \"AFTER\"` - two expressions with no separator. Measured together, the pair pins down that the space, not the position, is the discriminator."
+    },
+    {
+      "id": "continuation-without-preceding-space",
+      "scope": "statement",
+      "code": [
+        "Dim c As Long",
+        "c = 1 +_",
+        "    2",
+        "Debug.Print c"
+      ],
+      "expect": "illegal",
+      "why": "Underscore at end of line but glued to the '+' with no whitespace. The documented continuation is 'a space followed by an underscore', so with no space the '_' can only be an attempt at an identifier - one starting with an underscore, itself invalid. VB6.g4 also rejects. A lenient real lexer that simply skips any '_'-at-EOL would overturn this."
+    },
+    {
+      "id": "tab-before-continuation",
+      "scope": "statement",
+      "code": [
+        "Dim c As Long",
+        "c = 1 +\t_",
+        "    2",
+        "Debug.Print c"
+      ],
+      "expect": "unsure",
+      "why": "A TAB, not a space, precedes the continuation underscore. The docs say 'a space'; real lexers usually treat tab as generic whitespace. VB6.g4 hard-rejects (LINE_CONTINUATION is literally ' ' '_'), so the repo grammar and a plausible real implementation disagree and nobody can know without measuring. Prints 3 if the tab counts."
+    },
+    {
+      "id": "trailing-space-after-continuation",
+      "scope": "statement",
+      "code": [
+        "Dim c As Long",
+        "c = 1 + _  ",
+        "    2",
+        "Debug.Print c"
+      ],
+      "expect": "unsure",
+      "why": "Two trailing spaces AFTER the continuation underscore - invisible in an editor and common in source that has been pasted or reformatted. VB6.g4 requires '_' to be immediately followed by the newline, so it rejects. The VB6 IDE is believed to trim trailing whitespace on entry, which would make files it wrote clean but says nothing about a hand-edited file. Genuinely unknown."
+    },
+    {
+      "id": "comment-after-continuation",
+      "scope": "statement",
+      "code": [
+        "Dim c As Long",
+        "c = 1 + _ ' plus two",
+        "    2",
+        "Debug.Print c"
+      ],
+      "expect": "illegal",
+      "why": "A comment following the continuation underscore. If continuations were a pure pre-tokenisation pass this might survive, but the underscore is no longer the last character on the physical line, so the shape is broken and the residue is a dangling '+'. Contrast with the trailing-whitespace case, where the residue is only invisible characters."
+    },
+    {
+      "id": "underscore-inside-string-literal",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"TRAIL _\"",
+        "Debug.Print \"AFTER\""
+      ],
+      "expect": "legal",
+      "why": "A space-then-underscore sequence inside a string literal, positioned as close to end of line as it can get (only the closing quote follows). The docs are explicit that a continuation cannot be used inside a string expression, so this must be data. Output discriminates: legal prints 'TRAIL _' then 'AFTER'; a lexer scanning for ' _' before handling quotes corrupts both lines."
+    },
+    {
+      "id": "continuation-splits-identifier",
+      "scope": "statement",
+      "code": [
+        "Dim total As Long",
+        "tot _",
+        "al = 5",
+        "Debug.Print total"
+      ],
+      "expect": "illegal",
+      "why": "Tests whether a continuation is a token-level splice or a whitespace-equivalent. On the whitespace reading the result is `tot al = 5` - two adjacent identifiers, a syntax error. Only naive character-level concatenation reconstitutes 'total'. A pass would mean continuations happen before tokenisation, which changes how every other case here is reasoned about."
+    },
+    {
+      "id": "continuation-splits-end-sub",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "    Debug.Print \"SPLIT_END\"",
+        "End _",
+        "Sub"
+      ],
+      "expect": "legal",
+      "why": "A continuation between the two keywords of `End Sub`. They are separate tokens, so on a whitespace-equivalent reading this is fine - but procedure terminators are exactly the construct a line-oriented editor parser is most likely to special-case as a whole-line pattern. Prints SPLIT_END if the module compiled at all."
+    },
+    {
+      "id": "double-underscore-name",
+      "scope": "statement",
+      "code": [
+        "Dim a__b As Long",
+        "a__b = 7",
+        "Debug.Print a__b"
+      ],
+      "expect": "legal",
+      "why": "Consecutive underscores inside a name. Nothing in the documented rules limits repetition - only the first character is constrained - but doubled underscores are the shape most likely to trip a hand-written scanner that treats '_' as a special character rather than an ordinary name character."
+    },
+    {
+      "id": "underscore-in-line-label",
+      "scope": "statement",
+      "code": [
+        "GoTo my_label",
+        "Debug.Print \"SKIPPED\"",
+        "my_label:",
+        "Debug.Print \"JUMPED\""
+      ],
+      "expect": "legal",
+      "why": "Underscore in a line label rather than a variable - a different identifier position reached through a different grammar rule (VB6.g4 `lineLabel : ambiguousIdentifier COLON`). Output discriminates a broken label from a working one: legal prints only 'JUMPED', never 'SKIPPED'."
+    },
+    {
+      "id": "trailing-underscore-then-type-hint",
+      "scope": "statement",
+      "code": [
+        "Dim s_$",
+        "s_ = \"SUFFIX\"",
+        "Debug.Print s_"
+      ],
+      "expect": "legal",
+      "why": "A trailing underscore immediately followed by a type-declaration character. Isolates whether '_' is accepted as the LAST character of the name proper, with the '$' proving the name boundary was found there. Distinct from the plain trailing-underscore case because the suffix forces the lexer to close the identifier at the underscore rather than at whitespace."
+    },
+    {
+      "id": "identifier-underscore-then-continuation-underscore",
+      "scope": "statement",
+      "code": [
+        "Dim n_ As Long",
+        "n_ = 1",
+        "Debug.Print n_ _",
+        "    + 1"
+      ],
+      "expect": "legal",
+      "why": "Two underscores on one line separated by a space, playing different roles: the first ends the identifier `n_`, the second is the continuation. The hardest lexing shape in this area. Prints 2 if both roles resolved; a scanner that greedily took the first '_' as the continuation would produce `Debug.Print n + 1` and fail on an undeclared `n`."
+    },
+    {
+      "id": "form-load-conventional-handler-name",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "    Form_Load",
+        "End Sub",
+        "",
+        "Private Sub Form_Load()",
+        "    Debug.Print \"HANDLER\"",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "The Object_Event naming convention that makes underscores unavoidable in every real VB6 project, tested as an ordinary procedure name outside any form so no event wiring is involved. If underscores in procedure names were restricted at all this is where it would show, and essentially all VB6 source would be affected."
+    },
+    {
+      "id": "event-declaration-with-underscore",
+      "scope": "module",
+      "code": [
+        "Public Event Data_Ready()",
+        "",
+        "Public Sub Fire()",
+        "    RaiseEvent Data_Ready",
+        "End Sub"
+      ],
+      "expect": "illegal",
+      "why": "The documented exception to 'underscores are fine in identifiers': because an event procedure name is formed by joining object and event with an underscore, an underscore inside the EVENT name itself is rejected ('Invalid event name'). The prediction is robust to how the harness compiles this - as a class module it should hit that rule, and as a standard module `Event` is not permitted at all."
+    },
+    {
+      "id": "public-class-member-with-underscore",
+      "scope": "module",
+      "code": [
+        "Public Sub Do_It()",
+        "    Debug.Print \"MEMBER\"",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "A Public member name containing an underscore. The docs draw the line precisely here: VB supports underscores in identifiers and only refuses to IMPLEMENT an interface whose members carry them. So declaring one must be legal even though it renders the class unusable as an Implements target. Best compiled as a class module; as a standard module it degrades to a weaker but still valid check."
+    },
+    {
+      "id": "bracketed-leading-underscore",
+      "scope": "statement",
+      "code": [
+        "Dim [_a] As Long",
+        "[_a] = 9",
+        "Debug.Print [_a]"
+      ],
+      "expect": "unsure",
+      "why": "Square-bracket escaped identifier carrying the otherwise-illegal leading underscore. VB6.g4 permits it (`ambiguousIdentifier : L_SQUARE_BRACKET (IDENTIFIER|ambiguousKeyword)+ R_SQUARE_BRACKET`), and bracket-quoting hidden COM members like [_NewEnum] is idiomatic - but that idiom may belong to VBA hosts rather than to vb6.exe itself, and the local docs do not settle it. Unsure covers the bracket syntax as much as the underscore."
+    },
+    {
+      "id": "lone-continuation-line-between-statements",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"BEFORE\"",
+        " _",
+        "Debug.Print \"AFTER\"",
+        "Debug.Print \"THIRD\""
+      ],
+      "expect": "unsure",
+      "why": "A physical line whose entire content is a space and an underscore. Joining it to the following line yields a valid statement, so a pure whitespace-equivalent implementation accepts; one that requires a continuation to have something before it rejects. Output discriminates: legal prints all three literals in order. VB6.g4 accepts, since the leading space satisfies LINE_CONTINUATION."
+    },
+    {
+      "id": "continuation-onto-blank-line",
+      "scope": "statement",
+      "code": [
+        "Dim c As Long",
+        "c = 1 + _",
+        "",
+        "Debug.Print c"
+      ],
+      "expect": "illegal",
+      "why": "The complement of the previous case: a well-formed continuation whose continued line is empty. The joined logical line is `c = 1 +`, a dangling operator. If it passes, the continuation must be chaining through blank lines to reach `Debug.Print c` - a materially different rule and worth knowing."
+    }
+  ]
+}

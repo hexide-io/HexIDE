@@ -1,0 +1,348 @@
+{
+  "area": "continuation-and-separator",
+  "cases": [
+    {
+      "id": "baseline-well-formed-continuation",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\" & _",
+        "  \"B\""
+      ],
+      "expect": "legal",
+      "why": "Control case. Exactly one space before the underscore, nothing after it, next line indented. If this fails the harness is broken, not vb6.exe -- every other prediction in this file is only meaningful relative to this one. Expected output: AB."
+    },
+    {
+      "id": "trailing-space-after-underscore",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\" & _ ",
+        "  \"B\""
+      ],
+      "expect": "legal",
+      "why": "One trailing space after the underscore. Unobservable in the VBE (it strips trailing whitespace on line commit) so it is only reachable by compiling a file from disk -- which is exactly what a third-party lexer sees. The repo grammar's LINE_CONTINUATION is ' ' '_' '\\r'? '\\n', i.e. it REJECTS this; my prediction is that vb6.exe accepts it, which would make the grammar rule wrong. Weak corroboration: the VBA docs' own MsgBox continuation sample carries a trailing space after each underscore. Predicting legal rather than unsure so a wrong answer is informative. NB: a harness that right-trims source lines destroys this case -- the trailing space must survive to disk."
+    },
+    {
+      "id": "trailing-tab-after-underscore",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\" & _\t",
+        "  \"B\""
+      ],
+      "expect": "unsure",
+      "why": "A tab, not a space, after the underscore. Paired with the previous case to find out whether the tolerated trailing run (if any) is 'spaces' or 'whitespace'. Genuinely unknown: VB6's lexer treats tab and space alike almost everywhere, but the continuation scan is hand-written and may test only for 0x20."
+    },
+    {
+      "id": "comment-after-underscore",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _ 'plus",
+        "2",
+        "Debug.Print x"
+      ],
+      "expect": "illegal",
+      "why": "The most commonly hit real-world instance of this area: annotating a continued line. Since the underscore is not the last character, it should not be a continuation at all -- the apostrophe then starts a comment, leaving the statement as 'x = 1 +' and a stray '2' line. Predicting illegal. If vb6.exe accepts it, that means the continuation scan skips a trailing comment, which would be a genuinely surprising and important fact."
+    },
+    {
+      "id": "letter-after-underscore",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _z",
+        "Debug.Print x"
+      ],
+      "expect": "illegal",
+      "why": "Underscore immediately followed by a letter with no line break. VB6 identifiers must start with a letter, so '_z' cannot lex as an identifier and there is no continuation either. Should be an invalid-character error. Distinct from the comment case because here the following character could plausibly have been absorbed into an identifier."
+    },
+    {
+      "id": "no-space-before-underscore-after-operator",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 +_",
+        "2",
+        "Debug.Print x"
+      ],
+      "expect": "illegal",
+      "why": "The documented form is 'a space followed by an underscore'. Here the preceding character is '+', so the space is missing. A lexer that merely looks for '_' at end-of-line accepts this and computes 3; vb6.exe should reject. This is the cheapest way to find out whether the leading space is really required or is just how the documentation describes it."
+    },
+    {
+      "id": "no-space-before-underscore-after-identifier",
+      "scope": "statement",
+      "code": [
+        "Dim ab As Long",
+        "ab = 7",
+        "Debug.Print ab_",
+        "Debug.Print \"SECOND\""
+      ],
+      "expect": "unsure",
+      "why": "The same missing space, but now the preceding character can absorb the underscore: 'ab_' is a plausible identifier. Three outcomes are distinguishable. (a) Rejected: either trailing-underscore identifiers are illegal, or the underscore was taken as a continuation, making the logical line 'Debug.Print ab Debug.Print \"SECOND\"'. (b) Prints a blank line then SECOND: 'ab_' lexed as a fresh undeclared Variant, i.e. identifiers win over continuation and may end in underscore. (c) Prints 7 then SECOND: impossible under any reading, and would be the interesting result."
+    },
+    {
+      "id": "identifier-ending-in-underscore",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "  Dim ab_ As Long",
+        "  ab_ = 3",
+        "  Debug.Print ab_",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "Isolates the sub-question the previous case confounds: may a VB6 identifier end in an underscore at all? Underscore is legal inside an identifier ('foo_bar'), but a trailing one collides with the continuation character, and later Basics forbade it for that reason. Declaring, assigning and reading it keeps the test purely about the name. Should print 3 if legal."
+    },
+    {
+      "id": "split-identifier",
+      "scope": "statement",
+      "code": [
+        "Dim value As Long",
+        "val _",
+        "ue = 5",
+        "Debug.Print value"
+      ],
+      "expect": "illegal",
+      "why": "Continuation is a line-joining device, not a token-joining one: 'val _ / ue' should yield two tokens 'val' and 'ue', never the identifier 'value'. Result should be a syntax error on 'val ue = 5'. If vb6.exe instead prints 5, continuation happens before tokenisation and every lexer built on the token stream is wrong."
+    },
+    {
+      "id": "split-keyword",
+      "scope": "statement",
+      "code": [
+        "I _",
+        "f True Then Debug.Print \"K\""
+      ],
+      "expect": "illegal",
+      "why": "Same question as splitting an identifier, but for a reserved word, where a naive implementation that reassembles the physical lines into one buffer before scanning would silently succeed. 'I' and 'f True Then ...' cannot parse. Printing K would prove the join is textual."
+    },
+    {
+      "id": "split-string-literal",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"AB _",
+        "CD\""
+      ],
+      "expect": "illegal",
+      "why": "Inside a string literal the underscore is ordinary text, so no continuation occurs and the literal is unterminated at end of line. Expect 'Unterminated string constant'. This is the counterpart to the split-identifier case: it proves continuation is recognised by the lexer in a string-aware state, not by a pre-pass over raw text."
+    },
+    {
+      "id": "underscore-inside-string-then-real-continuation",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"a_\" & _",
+        "\"b\""
+      ],
+      "expect": "legal",
+      "why": "Legal but adversarial: a literal underscore as the last character inside a string, on a line that also ends with a genuine continuation. A lexer that scans backwards from the newline for '_' finds the right one; a lexer that scans forwards without string state may terminate at the wrong one. Should print a_b."
+    },
+    {
+      "id": "split-number",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 12 _",
+        "34",
+        "Debug.Print x"
+      ],
+      "expect": "illegal",
+      "why": "Numeric literals are tokens too. The logical line becomes 'x = 12 34', which has no valid parse. Predicting illegal; a result of 1234 would mean physical lines are concatenated without a separator, which the split-identifier case would then also have to show."
+    },
+    {
+      "id": "continuation-at-end-of-apostrophe-comment",
+      "scope": "statement",
+      "code": [
+        "' note _",
+        "Debug.Print \"RAN\"",
+        "Debug.Print \"AFTER\""
+      ],
+      "expect": "legal",
+      "why": "A comment consumes the rest of the physical line -- the question is whether it also consumes the continuation. Both readings compile, so only the output separates them: RAN then AFTER means the comment did NOT continue (my prediction); AFTER alone means the Debug.Print was swallowed into the comment. This matters here because the repo's own grammar allows LINE_CONTINUATION inside its COMMENT rule, so the two implementations may already disagree."
+    },
+    {
+      "id": "continuation-at-end-of-rem-comment",
+      "scope": "statement",
+      "code": [
+        "Rem note _",
+        "Debug.Print \"RAN2\"",
+        "Debug.Print \"AFTER2\""
+      ],
+      "expect": "legal",
+      "why": "Same question for the Rem form, which is a statement rather than a lexical trailer and so might be handled by different code. Prediction: RAN2 then AFTER2. Kept separate from the apostrophe case precisely because a divergence between the two is plausible and would be invisible if only one were tested."
+    },
+    {
+      "id": "comment-on-the-continued-line",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _",
+        "' two",
+        "2",
+        "Debug.Print x"
+      ],
+      "expect": "illegal",
+      "why": "The mirror image of comment-after-underscore: the continuation is well formed, but the line being pulled in is a comment. The logical line becomes 'x = 1 + ' followed by a comment, an incomplete expression. Expect a syntax error. This is the case people most often assume works, because it reads like an annotated multi-line expression."
+    },
+    {
+      "id": "underscore-only-line-at-column-one",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _",
+        "_",
+        "2",
+        "Debug.Print x"
+      ],
+      "expect": "unsure",
+      "why": "A line whose entire content is a bare underscore in column 1. There is no space before it, but there is also no preceding token -- so the answer turns on whether the required space is really 'a space' or 'not part of an identifier'. Genuinely unknown to me. Legal implies x = 3; illegal implies the leading-space rule is literal."
+    },
+    {
+      "id": "underscore-only-line-indented",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _",
+        "  _",
+        "2",
+        "Debug.Print x"
+      ],
+      "expect": "legal",
+      "why": "The same empty continuation line, but indented so the underscore genuinely has a space before it. This should satisfy the rule as documented and yield x = 3. Paired with the previous case, the two together say whether column 1 counts as 'preceded by a space'. Also exercises consecutive continuations, which VB6 caps (24 consecutive, 25 joined physical lines) -- two is far under the cap."
+    },
+    {
+      "id": "blank-line-after-continuation",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _",
+        "",
+        "2",
+        "Debug.Print x"
+      ],
+      "expect": "illegal",
+      "why": "The continued line is empty, so the logical line ends as 'x = 1 +' and '2' is left dangling. Predicting illegal. A tolerant implementation that skips blank lines while looking for the continuation would compute 3 -- which is the failure mode this case exists to catch."
+    },
+    {
+      "id": "whitespace-only-line-after-continuation",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _",
+        "   ",
+        "2",
+        "Debug.Print x"
+      ],
+      "expect": "illegal",
+      "why": "Same as the blank-line case except the intervening line holds spaces. Separate case because the two are handled by different code in most lexers (empty-line short-circuit vs whitespace skipping), and because a right-trimming pipeline silently turns this case into the previous one -- if they disagree, the harness is normalising the source."
+    },
+    {
+      "id": "double-underscore-at-line-end",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + __",
+        "2",
+        "Debug.Print x"
+      ],
+      "expect": "illegal",
+      "why": "Two adjacent underscores at end of line. Scanning back from the newline finds an underscore, and the character before it is not a space, so this should not continue; '__' cannot lex as an identifier either. Expect an error. If it computes 3, the implementation looks only at the last character of the line."
+    },
+    {
+      "id": "space-separated-double-underscore",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 1 + _ _",
+        "2",
+        "Debug.Print x"
+      ],
+      "expect": "illegal",
+      "why": "Distinct from the adjacent pair: here the FINAL underscore is a valid continuation (space before it, newline after), so the join should succeed and leave the earlier stray underscore inside the logical line -- 'x = 1 + _ 2' -- which is an invalid character. The predicted error is therefore about the surviving token, not about the continuation, and the diagnostic text should say so."
+    },
+    {
+      "id": "continuation-joins-into-end-sub",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "  Debug.Print \"A\" _",
+        "End Sub"
+      ],
+      "expect": "illegal",
+      "why": "A dangling continuation on the last statement of a procedure. The logical line becomes 'Debug.Print \"A\" End Sub', so the procedure is both malformed and unterminated. Expect an error naming either the statement or the missing End Sub. This is the shape a stray trailing underscore actually takes in real code, and it is worth knowing which of the two errors vb6.exe reports."
+    },
+    {
+      "id": "continuation-splitting-end-sub",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "  Debug.Print \"A\"",
+        "End _",
+        "Sub"
+      ],
+      "expect": "legal",
+      "why": "Legal but ugly: 'End Sub' is two tokens on one logical line, so a continuation between them should be fine. Worth pinning because 'End Sub' is often matched as a line pattern rather than parsed, and because 'End' alone is itself a valid statement -- a lexer that gives up on the continuation gets a program that terminates instead of a compile error, which is far worse than a rejection."
+    },
+    {
+      "id": "continuation-after-colon-separator",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\" : _",
+        "Debug.Print \"B\""
+      ],
+      "expect": "legal",
+      "why": "Continuation immediately after a statement separator, so the logical line holds two statements split across two physical lines. Should print A then B. Interacts with the repo grammar, where NEWLINE is defined as including a colon followed by a space -- a colon that is simultaneously a separator and adjacent to a continuation is exactly where that definition could misfire."
+    },
+    {
+      "id": "single-line-if-branch-membership",
+      "scope": "statement",
+      "code": [
+        "If False Then Debug.Print \"THEN1\" : _",
+        "Debug.Print \"THEN2\"",
+        "Debug.Print \"AFTER\""
+      ],
+      "expect": "legal",
+      "why": "The branch-membership question, answerable only by observing output. A single-line If owns everything to the end of the LOGICAL line, so with a False condition the correct output is AFTER alone. If THEN2 also prints, the continuation was not applied and the second statement escaped the Then branch -- a silent wrong-execution bug rather than a compile error, which is why the condition is False and the literals are distinct."
+    },
+    {
+      "id": "continuation-after-member-dot",
+      "scope": "statement",
+      "code": [
+        "Debug. _",
+        "Print \"DOT\""
+      ],
+      "expect": "legal",
+      "why": "Break after the member-access dot, which leaves whitespace between the dot and 'Print' on the logical line. I believe VB6 tolerates whitespace around the dot, so predicting legal (prints DOT); the VBE would normally reformat this away, so a file compile is the only way to see it."
+    },
+    {
+      "id": "continuation-before-member-dot",
+      "scope": "statement",
+      "code": [
+        "Debug _",
+        ".Print \"LEADDOT\""
+      ],
+      "expect": "unsure",
+      "why": "Break before the dot. Genuinely uncertain, because a leading dot is also how a With-block member reference starts, and there is no enclosing With here -- so the lexer/parser may resolve the leading dot before the continuation is applied and report 'Invalid or unqualified reference' rather than printing LEADDOT. Distinct from the break-after-dot case for exactly that reason."
+    },
+    {
+      "id": "continuation-after-line-number-label",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "10 _",
+        "x = 4",
+        "Debug.Print x"
+      ],
+      "expect": "legal",
+      "why": "A line number followed by a continuation, so the label and the statement it labels sit on different physical lines. Line numbers are legal in VB6 and a labelled statement is one logical line, so this should compile and print 4. Ugly-legal, and it stresses the point where a lexer special-cases the start of a line -- the same place the column-1 underscore case probes from the other side."
+    },
+    {
+      "id": "continuation-inside-argument-list",
+      "scope": "statement",
+      "code": [
+        "Debug.Print Mid$( _",
+        "\"HELLO\", _",
+        "2, _",
+        "3)"
+      ],
+      "expect": "legal",
+      "why": "Legal but ugly: four physical lines, three consecutive continuations, breaking immediately after an open paren and after each comma. Well under the documented cap (24 consecutive continuations, 25 joined physical lines). Should print ELL. Included so the file is not entirely negative -- rejecting this shape would take down a whole module."
+    }
+  ]
+}
