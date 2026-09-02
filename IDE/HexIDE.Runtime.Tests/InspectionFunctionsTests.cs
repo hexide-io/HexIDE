@@ -39,7 +39,8 @@ public class InspectionFunctionsTests : BaseVBTestFixture
             "Debug.Print VarType(#1/2/2020#)\n" + // vbDate
             "Debug.Print VarType(CByte(5))\n" + // vbByte
             "Debug.Print VarType(Null)\n");     // vbNull
-        AssertDebugLog([2, 3, 5, 4, 6, 8, 11, 7, 17, 1]);
+        // VarType is LONG, despite every vbXxx code fitting an Integer — measured (#193).
+        AssertDebugLog([new Vb6Value(2L), new Vb6Value(3L), new Vb6Value(5L), new Vb6Value(4L), new Vb6Value(6L), new Vb6Value(8L), new Vb6Value(11L), new Vb6Value(7L), new Vb6Value(17L), new Vb6Value(1L)]);
     }
 
     [Fact]
@@ -52,7 +53,7 @@ public class InspectionFunctionsTests : BaseVBTestFixture
             "Debug.Print VarType(v)\n" +
             "Debug.Print TypeName(a)\n" +
             "Debug.Print VarType(a)\n");
-        AssertDebugLog(["Empty", 0, "Integer()", 8194]);   // vbArray(8192) + vbInteger(2)
+        AssertDebugLog(["Empty", new Vb6Value(0L), "Integer()", new Vb6Value(8194L)]);   // vbArray(8192) + vbInteger(2); VarType is Long (#193)
     }
 
     [Fact]

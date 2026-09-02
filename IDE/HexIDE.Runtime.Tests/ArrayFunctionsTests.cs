@@ -20,7 +20,8 @@ public class ArrayFunctionsTests : BaseVBTestFixture
             "Debug.Print a(1)\n" +
             "Debug.Print VarType(a)\n" +   // vbArray(8192) + vbVariant(12)
             "Debug.Print TypeName(a)\n");
-        AssertDebugLog([0, 2, 20, 8204, "Variant()"]);
+        // LBound/UBound/VarType are Long (#193); the element value keeps its own subtype.
+        AssertDebugLog([new Vb6Value(0L), new Vb6Value(2L), new Vb6Value(20), new Vb6Value(8204L), "Variant()"]);
     }
 
     [Fact]
@@ -34,7 +35,7 @@ public class ArrayFunctionsTests : BaseVBTestFixture
             "Debug.Print p(0)\n" +
             "Debug.Print p(2)\n" +
             "Debug.Print TypeName(p)\n");
-        AssertDebugLog([0, 2, "a", "c", "String()"]);
+        AssertDebugLog([new Vb6Value(0L), new Vb6Value(2L), "a", "c", "String()"]);   // bounds are Long (#193)
     }
 
     [Fact]
@@ -52,7 +53,7 @@ public class ArrayFunctionsTests : BaseVBTestFixture
             "Debug.Print p(1)\n" +        // "two" (default delimiter is a space)
             "p = Split(\"a-b-c-d\", \"-\", 2)\n" +
             "Debug.Print p(1)\n");        // "b-c-d" (limit puts the remainder in the last element)
-        AssertDebugLog([2, "", 0, -1, "two", "b-c-d"]);
+        AssertDebugLog([new Vb6Value(2L), "", new Vb6Value(0L), new Vb6Value(-1L), "two", "b-c-d"]);   // the three bounds are Long (#193)
     }
 
     [Fact]
@@ -78,7 +79,7 @@ public class ArrayFunctionsTests : BaseVBTestFixture
             "Debug.Print r(1)\n" +        // "cherry"
             "r = Filter(Array(\"apple\", \"pear\"), \"xyz\")\n" +
             "Debug.Print UBound(r)\n");   // -1 (no matches)
-        AssertDebugLog([0, "banana", 1, "apple", "cherry", -1]);
+        AssertDebugLog([new Vb6Value(0L), "banana", new Vb6Value(1L), "apple", "cherry", new Vb6Value(-1L)]);   // UBound is Long (#193)
     }
 
     [Fact]
@@ -89,6 +90,6 @@ public class ArrayFunctionsTests : BaseVBTestFixture
             "r = Filter(Array(\"apple\", \"BANANA\"), \"an\", True, vbTextCompare)\n" +
             "Debug.Print UBound(r)\n" +   // 0 (BANANA matches "an" case-insensitively)
             "Debug.Print r(0)\n");
-        AssertDebugLog([0, "BANANA"]);
+        AssertDebugLog([new Vb6Value(0L), "BANANA"]);   // UBound is Long (#193)
     }
 }

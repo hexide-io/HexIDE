@@ -57,7 +57,7 @@ Dim Arr(20) As String
 Debug.Print LBound(Arr)
 Debug.Print UBound(Arr)
 ");
-        AssertDebugLog([@base, 20]);
+        AssertDebugLog([new Vb6Value((long)@base), new Vb6Value(20L)]);   // LBound/UBound are Long (#193)
     }
 
     [Fact]

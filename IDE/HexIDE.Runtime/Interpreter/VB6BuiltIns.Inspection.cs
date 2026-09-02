@@ -16,7 +16,9 @@ public partial class VB6BuiltIns
     private static void RegisterInspection(Dictionary<string, BuiltinFn> d)
     {
         d["TypeName"]  = (_, a, _) => new Vb6Value(TypeNameOf(a[0]));
-        d["VarType"]   = (_, a, _) => new Vb6Value(TypeInfo(a[0]).code);      // vbXxx code, an Integer
+        // Measured: VarType is LONG, despite every vbXxx code fitting an Integer — the comment here used to
+        // say Integer and was wrong. Fixed declared return type, so not the magnitude rule. (#193)
+        d["VarType"]   = (_, a, _) => new Vb6Value((long)TypeInfo(a[0]).code);
         d["IsNumeric"] = (_, a, _) => new Vb6Value(IsNumericValue(a[0]));
         d["IsDate"]    = (_, a, _) => new Vb6Value(IsDateValue(a[0]));
         d["IsEmpty"]   = (_, a, _) => new Vb6Value(a[0].Type == VT.EmptyVariant);
