@@ -605,7 +605,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             if (value.Value is not VbObject vobj)
                 throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
-            if (!vobj.ClassDef.PrePass.Procedures.TryGetValue(identifier, out var method))
+            if (VbInterface.ResolveMember(value, vobj, identifier) is not { } callName
+                || !vobj.ClassDef.PrePass.Procedures.TryGetValue(callName, out var method))
                 throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, identifier);
             var objCallArgs = await expressionExecutor.ResolveCallArgs(context.argsCall());
             await interpreter.RunProcedure(vobj.ClassDef, method, objCallArgs, vobj.InstanceEnv, value, stmtFrames);
@@ -790,10 +791,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
     }
 
-    public override async Task<ControlFlow> VisitImplementsStmt(VB6Parser.ImplementsStmtContext context)
-    {
-        throw new NotImplementedException("Implements not implemented");
-    }
+    public override Task<ControlFlow> VisitImplementsStmt(VB6Parser.ImplementsStmtContext context)
+        // A declaration, not an executable statement: the PrePass recorded the claim, and the conformance
+        // check runs at first instantiation. Reaching it again while re-running a class's top-level blocks
+        // per instance must therefore do nothing at all.
+        => Task.FromResult(ControlFlow.Nothing);
 
     public override async Task<ControlFlow> VisitInputStmt(VB6Parser.InputStmtContext context)
     {
@@ -887,7 +889,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     throw new NotImplementedException("Object member chains are single-dot only");
                 if (MemberHasArgs(membersCall.iCS_S_MemberCall()[0]))
                     throw new NotImplementedException("Parameterized/indexed object member assignment is not supported");
-                var fieldName = UdtFieldName(membersCall.iCS_S_MemberCall()[0]);
+                var fieldName = VbInterface.ResolveMember(variable, vobj, UdtFieldName(membersCall.iCS_S_MemberCall()[0]))
+                    ?? throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound,
+                        UdtFieldName(membersCall.iCS_S_MemberCall()[0]));
                 if (vobj.ClassDef.PrePass.Properties.TryGetValue(fieldName, out var prop) && prop.Let is { } letter)
                 {
                     await interpreter.RunProcedure(vobj.ClassDef, letter, [new CallArg(value, null)], vobj.InstanceEnv, variable, stmtFrames);
@@ -1354,7 +1358,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new NotImplementedException("Object member chains are single-dot only");
             if (MemberHasArgs(membersCall.iCS_S_MemberCall()[0]))
                 throw new NotImplementedException("Parameterized/indexed object member assignment is not supported");
-            var fieldName = UdtFieldName(membersCall.iCS_S_MemberCall()[0]);
+            var fieldName = VbInterface.ResolveMember(target, targetObj, UdtFieldName(membersCall.iCS_S_MemberCall()[0]))
+                ?? throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound,
+                    UdtFieldName(membersCall.iCS_S_MemberCall()[0]));
             if (targetObj.ClassDef.PrePass.Properties.TryGetValue(fieldName, out var prop) && prop.Set is { } setter)
             {
                 // The reference flows through the setter's ByVal param (counted on bind, released at its scope-exit)
@@ -1518,15 +1524,25 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
                 var asType = subStmt.asTypeClause();
                 Vb6Value value;
+                // The class or interface name a class-typed Dim was declared with, kept because an object slot
+                // has nothing to coerce and the NAME is the whole of its declared type (see ExecutionState).
+                string? declaredClass = null;
                 if (!isArray && asType?.type()?.complexType() is { } ct && asType.NEW() == null && asType.fieldLength() == null)
                 {
                     // `Dim e As Employee` — a fresh UDT instance; `Dim x As MyEnum` — a Long; `Dim c As Clock`
                     // (a class) — Nothing (a null object reference, so `c Is Nothing` is True until Set).
                     var typeName = ct.GetText();
-                    value = interpreter.Types.ContainsKey(typeName) ? Vb6Value.NewUdt(interpreter.NewUdt(typeName))
-                        : interpreter.Enums.ContainsKey(typeName) ? new Vb6Value(0L)
-                        : (interpreter.Modules.TryGet(typeName, out var classMod) && classMod.Kind == InterpreterModuleKind.Class) ? Vb6Value.Nothing
-                        : throw new VBCompileErrorException("User-defined type not defined: " + typeName);
+                    if (interpreter.Types.ContainsKey(typeName))
+                        value = Vb6Value.NewUdt(interpreter.NewUdt(typeName));
+                    else if (interpreter.Enums.ContainsKey(typeName))
+                        value = new Vb6Value(0L);
+                    else if (interpreter.Modules.TryGet(typeName, out var classMod) && classMod.Kind == InterpreterModuleKind.Class)
+                    {
+                        value = Vb6Value.Nothing;
+                        declaredClass = classMod.Name;   // the module's own casing, not the Dim's
+                    }
+                    else
+                        throw new VBCompileErrorException("User-defined type not defined: " + typeName);
                 }
                 else
                 {
@@ -1540,7 +1556,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // for a coercible scalar: an array, an object, a UDT and a Variant all take their value
                 // wholesale, and `Dim v` / `Dim v As Variant` must stay exactly as untyped as they read.
                 var declared = VbNumeric.IsDeclarableScalar(value.Type) ? value.Type : null;
-                interpreter.ExecutionContext.AllocVariable(currentEnv, localName, value, declared);
+                interpreter.ExecutionContext.AllocVariable(currentEnv, localName, value, declared, declaredClass);
                 // Track this local so RunProcedure releases its reference (fires Class_Terminate) at scope-exit,
                 // in declaration order. Every Dim slot is tracked (a Variant can later hold an object via Set);
                 // ReleaseRef no-ops non-objects. Only proc-body executors have ownedSlots (module/field-init = null).
@@ -1717,7 +1733,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             if (value.Value is not VbObject vobj)
                 throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
-            if (!vobj.ClassDef.PrePass.Procedures.TryGetValue(identifier, out var method))
+            if (VbInterface.ResolveMember(value, vobj, identifier) is not { } callName
+                || !vobj.ClassDef.PrePass.Procedures.TryGetValue(callName, out var method))
                 throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, identifier);
             var objCallArgs = await expressionExecutor.ResolveCallArgs(context.argsCall());
             await interpreter.RunProcedure(vobj.ClassDef, method, objCallArgs, vobj.InstanceEnv, value, stmtFrames);

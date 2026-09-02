@@ -94,16 +94,38 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     public readonly bool HasFixedType;
 
     /// <summary>This value with a fixed type — a declared variable's value, or a literal.</summary>
-    public Vb6Value AsFixedType() => new Vb6Value(Type, Value, true);
+    public Vb6Value AsFixedType() => new Vb6Value(Type, Value, true, DeclaredAs);
 
     /// <summary>This value as a Variant subtype — no ceiling, so arithmetic widens rather than overflowing.</summary>
-    public Vb6Value AsVariantSubtype() => new Vb6Value(Type, Value, false);
+    public Vb6Value AsVariantSubtype() => new Vb6Value(Type, Value, false, DeclaredAs);
 
-    private Vb6Value(ValueType type, object? value, bool hasFixedType = false)
+    /// <summary>
+    /// The class or interface name this reference was READ THROUGH, for an object read out of a slot
+    /// declared <c>As SomeClass</c>. Null for a Variant slot, a literal, and every non-object value.
+    ///
+    /// This is what makes <c>Implements</c> dispatch work. An object knows its own class, but not the
+    /// static type the caller is holding it by, and that is precisely what decides which members are
+    /// reachable: through <c>Dim x As IFoo</c> a <c>Bar</c> exposes <c>IFoo_Draw</c> as <c>Draw</c> and
+    /// exposes nothing else — <c>x.Own</c> is "Method or data member not found", measured.
+    ///
+    /// Rides on the value for the same reason <see cref="HasFixedType"/> does, and follows the same rule:
+    /// set AND cleared on every slot read, so it describes the name it came through rather than being
+    /// inherited from whatever was stored. The slot decides, not the history.
+    ///
+    /// Deliberately NOT part of Equals or GetHashCode: two references to the same object are the same
+    /// reference however they were reached.
+    /// </summary>
+    public readonly string? DeclaredAs;
+
+    /// <summary>This reference as read through <paramref name="declaredClass"/> (null = through a Variant).</summary>
+    public Vb6Value ViewedAs(string? declaredClass) => new Vb6Value(Type, Value, HasFixedType, declaredClass);
+
+    private Vb6Value(ValueType type, object? value, bool hasFixedType = false, string? declaredAs = null)
     {
         Type = type;
         Value = value;
         HasFixedType = hasFixedType;
+        DeclaredAs = declaredAs;
     }
 
     public Vb6Value(int value)
