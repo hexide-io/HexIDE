@@ -460,7 +460,12 @@ IDENTIFIER: LETTER LETTERORDIGIT*;
 
 // whitespace, line breaks, comments, ...
 
-LINE_CONTINUATION: ' ' '_' '\r'? '\n' -> skip;
+// A whitespace RUN before the underscore, and any whitespace after it — mirrored from the interpreter's
+// grammar, where the conformance corpus showed the one-space form rejects a tab before the underscore and
+// the multi-space alignment real VB6 is full of. Kept identical on purpose: GrammarParityTests exists
+// because the two halves disagreeing about what VB6 is reaches users as an editor that accepts what the
+// interpreter refuses, or the reverse.
+LINE_CONTINUATION: [ \t]+ '_' [ \t]* '\r'? '\n' -> skip;
 
 NEWLINE: WS? ('\r'? '\n' | COLON ' ') WS?;
 

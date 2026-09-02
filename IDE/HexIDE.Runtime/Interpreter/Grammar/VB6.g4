@@ -2094,8 +2094,14 @@ IDENTIFIER
 
 // whitespace, line breaks, comments, ...
 
+// A whitespace RUN before the underscore, and any whitespace after it. This used to demand exactly one
+// space and nothing trailing, which rejected shapes that are everywhere in real VB6 — a tab before the
+// underscore, and the multi-space alignment people use to line their continuations up. A rejected
+// continuation is not a lost statement, it is a lost MODULE, which made this among the most damaging gaps
+// the conformance corpus found. At least one space is still required: an underscore with none before it
+// is a syntax error in VB6 too. Measured against vb6.exe; see corpus/continuation-and-separator.
 LINE_CONTINUATION
-   : ' ' '_' '\r'? '\n' -> channel(HIDDEN)
+   : [ \t]+ '_' [ \t]* '\r'? '\n' -> channel(HIDDEN)
    ;
 
 
