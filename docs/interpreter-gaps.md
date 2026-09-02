@@ -143,9 +143,13 @@ translation: raise VB6's error number at run time instead of before it.
   declaration in another module without running either. The clearest true wall here.
 - **`Property Let`/`Set` agreeing with `Property Get`** — VB6 checks the accessors' parameter lists match.
   Relates two declarations to each other; needs neither to execute.
-- **Interface conformance** (`Implements IFoo`) — does the class supply every member of the interface?
-  Whole-type comparison, statically. The `Implements` *construct* is a deferral (see below); only this check
-  is walled.
+- **Interface conformance** (`Implements IFoo`), **as a compile-time diagnostic only** — deciding it
+  *before the program runs* needs binding. **Checking it at all does not.** Both member tables are already
+  collected by `PrePass`, so comparing them when a class is first instantiated is ordinary execution, and
+  memoising per (class, interface) pair makes it once-per-class. VB6's own COM substrate asks this question
+  at runtime via `QueryInterface`; the compile-time check is a convenience over it. So what is walled is the
+  *timing*, and `interpreter-core:40-42` already prescribes the translation. The `Implements` construct is a
+  deferral, not a wall.
 - **`LSet` between UDTs containing strings, objects or Variants** — VB6 refuses at compile time. The
   layout-compatibility judgement is static; `LSet` itself is a deferral.
 - **Default members of third-party COM types** — see Platform limits; the marker lives in a type library, not
@@ -174,8 +178,7 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   example has eight members and every one is `&H…&`, so every one throws today. Colour and bit-flag enums
   are ordinary VB6. `ClassifyRadixLiteral` (`ExpressionExecutor.cs:389`) already parses `&H`/`&O`,
   oracle-pinned.
-- **Multi-level qualified member access** (`Module1.Something.Field`) — one arity guard
-  (`ExpressionExecutor.cs:631-632`); the same fold already runs for local roots. Sibling of #173.
+- ~~**Multi-level qualified member access**~~ — **READS FIXED 2026-09-02 (#173)**. A module qualifier is simply the first step of an ordinary chain; measured to four levels (`Module1.p.In1.Z`). Folded through the same `ResolveMemberChain` as unqualified chains — they were only ever different in the KIND of the first step. **Chained assignment (`a.b.c = 5`) is still refused**: the prefix may resolve to a UDT, which is a value type, so whether the write reaches its owner is an aliasing question with its own tests to write.
 - **Parameterized `Property Get`/`Let`/`Set`** — the method branch resolves arguments at
   `ExpressionExecutor.cs:503`; the property branch detects them and throws eight lines later at `:510-511`,
   then passes `[]`. Same receiver, same `RunProcedure`. The carve-out "Collection.Item the only exception"
