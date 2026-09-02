@@ -14,7 +14,7 @@ public partial class VB6BuiltIns
     {
         d["Left"]       = (_, a, _) => NullOrStr(a[0], s => Left(s, AsInt(a[1])));
         d["Right"]      = (_, a, _) => NullOrStr(a[0], s => Right(s, AsInt(a[1])));
-        d["Mid"]        = (_, a, _) => NullOrStr(a[0], s => Mid(s, AsInt(a[1]), a.Count >= 3 ? AsInt(a[2]) : (int?)null));
+        d["Mid"]        = (_, a, _) => NullOrStr(a[0], s => Mid(s, AsInt(a[1]), Supplied(a, 2) ? AsInt(a[2]) : (int?)null));
         d["Len"]        = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(AsStr(a[0]).Length);
         d["InStr"]      = (_, a, _) => InStr(a);
         d["InStrRev"]   = (_, a, _) => InStrRev(a);
@@ -84,7 +84,7 @@ public partial class VB6BuiltIns
         // InStr([start,] string1, string2[, compare]). A leading numeric start is present only with 3+ args.
         int start = 1, i = 0, compare = 0;
         if (a.Count >= 3) { start = AsInt(a[0]); i = 1; }
-        if (a.Count >= 4) compare = AsInt(a[3]);
+        if (Supplied(a, 3)) compare = AsInt(a[3]);
         if (a[i].IsNull || a[i + 1].IsNull) return Vb6Value.Null;
         if (start < 1) throw InvalidCall();
         string s1 = AsStr(a[i]), s2 = AsStr(a[i + 1]);
@@ -98,8 +98,8 @@ public partial class VB6BuiltIns
         // InStrRev(string1, string2[, start[, compare]]) — start defaults to -1 (from the end).
         if (a[0].IsNull || a[1].IsNull) return Vb6Value.Null;
         string s1 = AsStr(a[0]), s2 = AsStr(a[1]);
-        int start = a.Count >= 3 ? AsInt(a[2]) : -1;
-        int compare = a.Count >= 4 ? AsInt(a[3]) : 0;
+        int start = Supplied(a, 2) ? AsInt(a[2]) : -1;
+        int compare = Supplied(a, 3) ? AsInt(a[3]) : 0;
         var cmp = compare == 1 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
         int from = start < 0 ? s1.Length - 1 : Math.Min(start - 1, s1.Length - 1);
         if (from < 0 || s1.Length == 0) return new Vb6Value(s2.Length == 0 ? 0 : 0);
@@ -110,9 +110,9 @@ public partial class VB6BuiltIns
     {
         // Replace(expression, find, replace[, start[, count[, compare]]]) — returns from `start` onward.
         string s = AsStr(a[0]), find = AsStr(a[1]), repl = AsStr(a[2]);
-        int start = a.Count >= 4 ? AsInt(a[3]) : 1;
-        int count = a.Count >= 5 ? AsInt(a[4]) : -1;
-        int compare = a.Count >= 6 ? AsInt(a[5]) : 0;
+        int start = Supplied(a, 3) ? AsInt(a[3]) : 1;
+        int count = Supplied(a, 4) ? AsInt(a[4]) : -1;
+        int compare = Supplied(a, 5) ? AsInt(a[5]) : 0;
         if (start < 1) throw InvalidCall();
         string sub = start <= s.Length ? s.Substring(start - 1) : "";
         if (find.Length == 0 || count == 0) return sub;

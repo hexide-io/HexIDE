@@ -1379,6 +1379,30 @@ which is only visible once the boundary is stated correctly.
 This is the second time a plausible-sounding defect report would have moved HexIDE *away* from VB6 if
 implemented as written. Measure the claim, not just the behaviour it complains about.
 
+### Return widths of the integer-returning intrinsics (2026-09-02)
+
+Found while fixing #190, when a test asserted the wrong type and the oracle disagreed with both of us.
+
+| intrinsic | `TypeName` in VB6 |
+|---|---|
+| `InStr`, `InStrRev` | **Long** |
+| `Len` | **Long** |
+| `LBound`, `UBound` | **Long** |
+| `Asc` | **Integer** |
+| `Sgn` | **Integer** |
+| `Int(3)` | Integer — `Int` preserves its operand's subtype |
+
+So it is not one rule. The string- and array-position family returns Long regardless of how small the
+answer is, while `Asc` and `Sgn` return Integer.
+
+HexIDE gets the first five wrong for small values, and not through any of those functions: they build
+their result with `new Vb6Value(int)`, whose magnitude rule reports anything fitting Int16 as an Integer.
+That rule is right for arithmetic literals and wrong here, because these functions have a *fixed declared
+return type* in VB6 rather than a magnitude-dependent one.
+
+Reachable with entirely ordinary arguments — `TypeName(InStr("hello", "l"))` is `Integer` in HexIDE and
+`Long` in VB6 — so it is not an edge case, merely an invisible one until something asks for the type.
+
 ## Extending the oracle (future phases)
 
 Phase 3 (intrinsics) and beyond should verify, at minimum:

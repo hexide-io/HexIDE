@@ -42,8 +42,8 @@ public partial class VB6BuiltIns
         d["DatePart"] = (_, a, _) => new Vb6Value(DatePart(Interval(a[0]), AsDate(a[1]), Fdow(a, 2)));
 
         // Names -> String (current culture).
-        d["MonthName"]   = (_, a, _) => MonthName(AsInt(a[0]), a.Count >= 2 && AsDouble(a[1]) != 0);
-        d["WeekdayName"] = (_, a, _) => WeekdayName(AsInt(a[0]), a.Count >= 2 && AsDouble(a[1]) != 0, Fdow(a, 2));
+        d["MonthName"]   = (_, a, _) => MonthName(AsInt(a[0]), Supplied(a, 1) && AsDouble(a[1]) != 0);
+        d["WeekdayName"] = (_, a, _) => WeekdayName(AsInt(a[0]), Supplied(a, 1) && AsDouble(a[1]) != 0, Fdow(a, 2));
     }
 
     private static string Interval(Vb6Value v) => AsStr(v).Trim().ToLowerInvariant();
@@ -51,7 +51,7 @@ public partial class VB6BuiltIns
     // firstDayOfWeek arg at index i, defaulting to vbSunday(1); vbUseSystemDayOfWeek(0) is treated as vbSunday.
     private static int Fdow(IReadOnlyList<Vb6Value> a, int i)
     {
-        int f = a.Count > i ? AsInt(a[i]) : 1;
+        int f = Supplied(a, i) ? AsInt(a[i]) : 1;
         return f == 0 ? 1 : f;
     }
 

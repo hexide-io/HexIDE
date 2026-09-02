@@ -27,8 +27,8 @@ public partial class VB6BuiltIns
         // their range, and Tan's asymptote is unreachable in binary floating point.
         d["Exp"]   = (_, a, _) => Finite(Math.Exp(AsDouble(a[0])));
         d["Log"]   = (_, a, _) => { var x = AsDouble(a[0]); if (x <= 0) throw InvalidCall(); return new Vb6Value(Math.Log(x)); };
-        d["Round"] = (_, a, _) => new Vb6Value(Math.Round(AsDouble(a[0]), a.Count >= 2 ? AsInt(a[1]) : 0, MidpointRounding.ToEven));
-        d["Rnd"]   = (self, a, _) => new Vb6Value(self.Rnd(a.Count >= 1 ? (float)AsDouble(a[0]) : 1f));
+        d["Round"] = (_, a, _) => new Vb6Value(Math.Round(AsDouble(a[0]), Supplied(a, 1) ? AsInt(a[1]) : 0, MidpointRounding.ToEven));
+        d["Rnd"]   = (self, a, _) => new Vb6Value(self.Rnd(Supplied(a, 0) ? (float)AsDouble(a[0]) : 1f));
     }
 
     private static Vb6Value Abs(Vb6Value v) => v.Value switch

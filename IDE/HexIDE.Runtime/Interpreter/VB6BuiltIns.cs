@@ -785,12 +785,31 @@ public partial class VB6BuiltIns
     // ---- shared coercion helpers (the VB6Visitor.TryUnpack ones aren't reachable here) ----
     private static string AsStr(Vb6Value v) => v.Value?.ToString() ?? "";
 
+    /// <summary>
+    /// Was argument <paramref name="i"/> actually supplied at the call site?
+    ///
+    /// A SKIPPED argument (`Split(s, , 2)`) arrives as <see cref="Vb6Value.Missing"/>, not as Empty — that
+    /// is what <c>ExpressionExecutor</c> puts in a blank slot. Testing for Empty instead, as this used to,
+    /// meant the default was never selected and `AsInt(Missing)` then threw Err 13 on a perfectly ordinary
+    /// call. (#190)
+    ///
+    /// An EXPLICITLY passed Empty is supplied, and the two are genuinely different in VB6 — measured:
+    /// `Split("a b c", , 2)` splits on the default space and gives two elements, while `Dim e : Split("a b
+    /// c", e, 2)` uses "" as the delimiter and gives the whole string back. So this tests Missing only.
+    ///
+    /// Only a MIDDLE argument can be skipped: VB6 rejects a trailing `f(x, )` as a syntax error (measured),
+    /// so a short list really does mean "the rest were omitted".
+    /// </summary>
+    private static bool Supplied(IReadOnlyList<Vb6Value> a, int i) =>
+        a.Count > i && a[i].Type != Vb6Value.ValueType.Missing;
+
     private static int AsInt(Vb6Value v)
     {
         if (v.Value is int i) return i;
         if (v.Value is long l) return (int)l;
         if (v.Value is byte b) return b;
         if (Vb6Value.TryNumericToDouble(v, out var d)) return (int)Math.Round(d, MidpointRounding.ToEven);
+        if (v.Type == Vb6Value.ValueType.String) return (int)Math.Round(ToNum(v), MidpointRounding.ToEven);
         throw new VBRunTimeException(VBStandardError.TypeMismatch);
     }
 
@@ -798,6 +817,13 @@ public partial class VB6BuiltIns
     {
         if (v.Value is bool bo) return bo ? -1 : 0;
         if (Vb6Value.TryNumericToDouble(v, out var d)) return d;
+        // A NUMERIC string is a valid operand in VB6 and a non-numeric one is Err 13 — measured: `Abs("5")`
+        // is 5 (as a Double), `Abs(" 5 ")` is 5, `Abs("&H10")` is 16, `Abs("5abc")` and `Abs("")` are both
+        // Err 13. Rejecting every string, as this used to, was wrong in one direction only, and the defect
+        // report that found it described it as the opposite. ToNum is the interpreter's already-pinned
+        // string→number rule, so this shares one parser with CDbl and coercion-on-store rather than
+        // growing a second one that can drift. (#190)
+        if (v.Type == Vb6Value.ValueType.String) return ToNum(v);
         throw new VBRunTimeException(VBStandardError.TypeMismatch);
     }
 

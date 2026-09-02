@@ -25,7 +25,7 @@ public partial class VB6BuiltIns
             throw InvalidCall();
         if (a[0].Value is not VBArray array)
             throw new VBRunTimeException(VBStandardError.TypeMismatch);
-        int dimension = a.Count >= 2 ? AsInt(a[1]) : 1;
+        int dimension = Supplied(a, 1) ? AsInt(a[1]) : 1;
         // A dimension < 1 or > the array's rank is a trappable Subscript-out-of-range (Err 9, oracle-verified);
         // indexing bounds[dimension-1] directly would throw an ArgumentOutOfRangeException that On Error can't trap.
         if (dimension < 1 || dimension > array.Rank)
@@ -49,9 +49,9 @@ public partial class VB6BuiltIns
     {
         if (a.Count < 1) throw InvalidCall();
         string s = AsStr(a[0]);
-        string delim = HasArg(a, 1) ? AsStr(a[1]) : " ";
-        int limit = a.Count >= 3 ? AsInt(a[2]) : -1;
-        var cmp = a.Count >= 4 && AsInt(a[3]) == 1 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        string delim = Supplied(a, 1) ? AsStr(a[1]) : " ";
+        int limit = Supplied(a, 2) ? AsInt(a[2]) : -1;
+        var cmp = Supplied(a, 3) && AsInt(a[3]) == 1 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
         var parts = SplitVb(s, delim, limit, cmp);
         var items = new List<Vb6Value>(parts.Count);
@@ -80,7 +80,7 @@ public partial class VB6BuiltIns
     private static Vb6Value Join(IReadOnlyList<Vb6Value> a)
     {
         if (a.Count < 1 || a[0].Value is not VBArray arr) throw InvalidCall();
-        string delim = HasArg(a, 1) ? AsStr(a[1]) : " ";
+        string delim = Supplied(a, 1) ? AsStr(a[1]) : " ";
         var sb = new StringBuilder();
         int lo = arr.LowerBound(1), hi = arr.UpperBound(1);
         for (int i = lo; i <= hi; i++)
@@ -96,8 +96,8 @@ public partial class VB6BuiltIns
     {
         if (a.Count < 2 || a[0].Value is not VBArray arr) throw InvalidCall();
         string match = AsStr(a[1]);
-        bool include = a.Count < 3 || AsDouble(a[2]) != 0;
-        var cmp = a.Count >= 4 && AsInt(a[3]) == 1 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        bool include = !Supplied(a, 2) || AsDouble(a[2]) != 0;
+        var cmp = Supplied(a, 3) && AsInt(a[3]) == 1 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
         var items = new List<Vb6Value>();
         int lo = arr.LowerBound(1), hi = arr.UpperBound(1);
@@ -110,7 +110,4 @@ public partial class VB6BuiltIns
         return MakeArray(Vb6Value.ValueType.EmptyVariant, items);
     }
 
-    // A trailing/skipped optional argument arrives as Empty; treat it (and an absent arg) as "use the default".
-    private static bool HasArg(IReadOnlyList<Vb6Value> a, int i) =>
-        a.Count > i && a[i].Type != Vb6Value.ValueType.EmptyVariant;
 }
