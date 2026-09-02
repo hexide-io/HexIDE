@@ -1427,6 +1427,22 @@ omitted", and an interior blank is the only case an implementation has to model.
 That is what makes the fix for #190 safe: `Supplied(a, i)` can test `a.Count > i` for the trailing case
 and `Missing` for the interior one, without a third possibility to worry about.
 
+### Numeric line labels (2026-09-02)
+
+| probe | measured |
+|---|---|
+| `GoTo 20` … `20 s = …` … `GoTo 10` … `10 s = …` … `GoTo 99` | **`a-twenty-ten`** — labels are jump targets, not BASIC line numbers, so they need not ascend |
+| handler at `50` doing `Resume 60` | **`resumed to 60`** — a numeric label is a valid Resume target |
+| a numeric label and a named label in one procedure | **both work** — one label table, nothing distinguishes them at the jump |
+
+Measured before implementing, because the alternative was assuming these behave like identifier labels.
+They do — which is the useful result, since it means the whole downstream machinery (the label table, the
+pc-driver, `GoTo`/`On Error GoTo`/`Resume`) is shared and only the declaration form differs.
+
+Worth recording separately: this gap existed **only in the interpreter's grammar**. The LSP server's
+already had a `lineNumber` rule, so the editor reported no syntax error on a file the interpreter could
+not load. Grammar divergence between the two halves is now guarded by `GrammarParityTests`.
+
 ## Extending the oracle (future phases)
 
 Phase 3 (intrinsics) and beyond should verify, at minimum:

@@ -1164,6 +1164,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw new ResumeSignal(ResumeKind.Next, null, context);
         if (context.ambiguousIdentifier() is { } label)
             throw new ResumeSignal(ResumeKind.Label, label.GetText(), context);
+        // A NUMERIC label target (`Resume 10`) is the same thing spelled differently. Without this the
+        // statement still parses and falls through to ResumeKind.Same — silently retrying the faulting
+        // statement instead of jumping, which is a wrong answer with no error, the failure mode #191 was
+        // about. Bare `Resume` has no target at all, hence the token check rather than an else.
+        if (context.INTEGERLITERAL() is { } lineNo)
+            throw new ResumeSignal(ResumeKind.Label, lineNo.GetText(), context);
         throw new ResumeSignal(ResumeKind.Same, null, context);
     }
 
@@ -1837,6 +1843,42 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     //   Documented limitation: for a fault nested inside a top-level construct, faultPc is that construct's
     //   index, so `Resume Next` resumes after the whole construct — nested-granular resume needs a CFG rewrite
     //   (a real language engine's job). The Resume Next *mode* (5a, via VisitBlock) remains per-statement precise.
+    /// <summary>
+    /// Add this body's NUMERIC line labels (`10 Debug.Print 1`) to the label table.
+    ///
+    /// They cannot be read off the statements the way `lineLabel` is, because a numeric label takes no
+    /// colon and prefixes a statement on the same line — so the grammar carries it as an optional prefix on
+    /// the block rather than as part of the statement. That means <c>block.lineNumber()</c> and
+    /// <c>block.blockStmt()</c> are two arrays that do NOT line up: only some statements have a number.
+    ///
+    /// Walking the children in source order is what pairs them. A number applies to the next statement that
+    /// follows it, which is exactly what a reader assumes and what VB6 does.
+    /// </summary>
+    private static void CollectLineNumbers(VB6Parser.BlockContext block, VB6Parser.BlockStmtContext[] stmts,
+        Dictionary<string, int> labels)
+    {
+        string? pending = null;
+        var index = 0;
+        for (var c = 0; c < block.ChildCount; c++)
+        {
+            switch (block.GetChild(c))
+            {
+                case VB6Parser.LineNumberContext ln:
+                    pending = ln.GetText();
+                    break;
+                case VB6Parser.BlockStmtContext stmt:
+                    // Defensive: only map while the walk and the statement array agree on position. They
+                    // should always agree, but a label pointing at the wrong statement would be a silent
+                    // mis-jump, which is worse than no label at all.
+                    if (pending != null && index < stmts.Length && ReferenceEquals(stmts[index], stmt))
+                        labels[pending] = index;
+                    pending = null;
+                    index++;
+                    break;
+            }
+        }
+    }
+
     private async Task ExecuteProcedureBody(VB6Parser.BlockContext block)
     {
         var stmts = block.blockStmt();
@@ -1845,6 +1887,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         for (int i = 0; i < stmts.Length; i++)
             if (stmts[i].lineLabel() is { } lbl)
                 labels[lbl.ambiguousIdentifier().GetText()] = i;
+        CollectLineNumbers(block, stmts, labels);
 
         int pc = 0;
         int faultPc = -1;       // index of the statement that faulted (for Resume); -1 = no active error

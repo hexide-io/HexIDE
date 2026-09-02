@@ -98,21 +98,24 @@ on the write path (`obj.a.b = x`, `Set obj.a.b = o`).
 | Operators | 0 | 0 | 3 | 18 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 71 | 37 | 1 | 44 | 153 |
 | Keywords and modifiers | 0 | 0 | 11 | 22 | 1 | 17 | 51 |
-| Literals, types and suffixes | 0 | 3 | 7 | 17 | 0 | 23 | 50 |
+| Literals, types and suffixes | 0 | 1 | 7 | 17 | 0 | 25 | 50 |
 | Compiler directives and options | 0 | 1 | 16 | 9 | 13 | 8 | 47 |
 | In-box objects | 0 | 0 | 98 | 8 | 0 | 17 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **0** | **4** | **261** | **407** | **15** | **495** | **1182** |
+| **Total** | **0** | **2** | **261** | **407** | **15** | **497** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
 
 
-### The single most useful number here is 5
+### The single most useful number here is 3
 
-**Only five constructs in the whole VB6 language fail to parse** — the 4 in the table above, plus one
-the enumeration missed (below). Every other gap parses cleanly and fails at run time. The grammar
-comprehends essentially the whole of VB6; what is missing is execution.
+**Only three constructs in the whole VB6 language fail to parse**: `#Const`, the `D` exponent marker
+(`1.5D2`), and two `#`-prefixed file numbers on one physical line. Every other gap parses cleanly and
+fails at run time. The grammar comprehends essentially the whole of VB6; what is missing is execution.
+
+It was four until numeric line labels were ported in from the LSP server's grammar, which already had
+the rule — see below.
 
 That matters for three reasons. It is the empirical form of the claim in `CLAUDE.md` that no VB6
 construct is incomprehensible to the CST, which until now was an architectural assertion rather than a
@@ -150,20 +153,23 @@ anything that fails without saying so belongs here rather than under Dies, and t
 to recognise the next one. The check keys off a list of VB6's *surface* rather than of our gaps, so
 implementing a function does not require maintaining it.
 
-## Won't load — 4 names
+## Won't load — 2 names
 
 The whole list. A parse failure takes the entire module down — nothing in the file runs and the editor
 cannot open it usefully — so despite how obscure these look, each one has a blast radius of a file rather
-than a statement.
+than a statement. That is why they are worth fixing ahead of far more commonly used constructs that merely
+throw.
 
-Two of the four rows are the same construct counted twice (a numeric line label, `10 Debug.Print 1`,
-recorded by the enumeration under two names). So the table below is really three: numeric line labels,
-the `D` exponent marker (`1.5D2`), and `#Const`.
-
-**A fifth, found by verification and not in the table.** Any single physical source line containing two
+**A third, found by verification and not in the table.** Any single physical source line containing two
 `#`-prefixed file numbers — `Print #1, #2` and the like — fails to parse, taking the whole module with
-it. This has the widest blast radius of the five and no row of its own, because the enumeration listed
+it. This has the widest blast radius of the three and no row of its own, because the enumeration listed
 `#n` once as a literal rather than as a sequence that can repeat on a line.
+
+**Numeric line labels used to be here**, and how they were found is the useful part: the LSP server's
+grammar already had a working `lineNumber` rule that the interpreter's lacked, so the *editor* accepted
+`10 Debug.Print 1` with no syntax error and the module then refused to load. HexIDE's two halves
+disagreed about what VB6 is. `GrammarParityTests` now compares the two rule inventories so the next such
+gap is a build failure rather than a bug report.
 
 Worth noting what is *not* here: `#If` parses fine and throws, and so does the named-argument operator
 `:=` — both are execution gaps rather than grammar gaps, which is the cheaper kind to close.
@@ -172,8 +178,8 @@ Worth noting what is *not* here: `#If` parses fine and throws, and so does the n
 |---|---|---|---|
 | `#Const` | **Won't load** | VB6.g4 has no #Const lexer token and no parser rule; the only HASH-prefixed directive tokens are MACRO_IF/MACRO_ELSEIF/MACRO_ELSE/MACRO_END_IF (VB6.g4). '#Const' instead lexes as FILENUMBER… | VB6.g4 |
 | `DExponentLiteral` | **Won't load** | `DOUBLELITERAL` and `INTEGERLITERAL` accept only an `e`/`E` exponent marker, never `D`. Measured: `Debug.Print 1.5D2` -> "Compile error: mismatched input 'D2' expecting <EOF>". | VB6.g4 |
-| `Line number` | **Won't load** | Grammar-level gap - does not parse. lineLabel requires an ambiguousIdentifier (IDENTIFIER \| ambiguousKeyword), and INTEGERLITERAL is neither, so a numeric label has no production… | VB6.g4 |
-| `LineNumber` | **Won't load** | at all — a grammar-level gap. `lineLabel : ambiguousIdentifier COLON` and `ambiguousIdentifier : (IDENTIFIER \| ambiguousKeyword) +` with `IDENTIFIER : LETTER LETTERORDIGIT*`, so a bare… | VB6.g4 |
+| `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
+| `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 
 ## Dies mid-run — 253 names
 
@@ -847,8 +853,8 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | Name | Status | Detail | Source |
 |---|---|---|---|
 | `DExponentLiteral` | **Won't load** | `DOUBLELITERAL` and `INTEGERLITERAL` accept only an `e`/`E` exponent marker, never `D`. Measured: `Debug.Print 1.5D2` -> "Compile error: mismatched input 'D2' expecting <EOF>". | VB6.g4 |
-| `Line number` | **Won't load** | Grammar-level gap - does not parse. lineLabel requires an ambiguousIdentifier (IDENTIFIER \| ambiguousKeyword), and INTEGERLITERAL is neither, so a numeric label has no production… | VB6.g4 |
-| `LineNumber` | **Won't load** | at all — a grammar-level gap. `lineLabel : ambiguousIdentifier COLON` and `ambiguousIdentifier : (IDENTIFIER \| ambiguousKeyword) +` with `IDENTIFIER : LETTER LETTERORDIGIT*`, so a bare… | VB6.g4 |
+| `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
+| `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `#` | **Dies** | and it is the one piece of this batch that fails even outside a file statement. `#1` lexes as its own token, `FILENUMBER : HASH LETTERORDIGIT+` (Grammar/VB6.g4), and FILENUMBER is an… | ExpressionExecutor.cs |
 | `#n` | **Dies** | `FILENUMBER : HASH LETTERORDIGIT +` is a lexer token listed in the `literal` rule — then throws at run time, because `VisitVsLiteralCore` has no FILENUMBER branch and falls into `throw new… | ExpressionExecutor.cs |
 | `$` | **Dies** | There is NO literal form for `$` at all (a String literal carries no suffix), so every occurrence is an identifier or function type hint and every one throws. Measured: `Debug.Print s$` ->… | VB6BuiltIns.Strings.cs |

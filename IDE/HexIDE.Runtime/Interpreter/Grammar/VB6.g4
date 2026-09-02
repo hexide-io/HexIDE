@@ -139,7 +139,7 @@ attributeStmt
    ;
 
 block
-   : blockStmt (NEWLINE + WS? blockStmt)*
+   : (lineNumber WS?)? blockStmt (NEWLINE + WS? (lineNumber WS?)? blockStmt)*
    ;
 
 blockStmt
@@ -477,7 +477,7 @@ resetStmt
    ;
 
 resumeStmt
-   : RESUME (WS (NEXT | ambiguousIdentifier))?
+   : RESUME (WS (NEXT | ambiguousIdentifier | INTEGERLITERAL))?
    ;
 
 returnStmt
@@ -788,6 +788,15 @@ letterrange
 
 lineLabel
    : ambiguousIdentifier COLON
+   ;
+
+// A NUMERIC line label — `10 Debug.Print 1`. Distinct from lineLabel because it takes no colon and is a
+// prefix on the same line rather than a statement of its own. VB6 Language Reference: line numbers are
+// 0-2147483647. Ported from the LSP server's grammar, which already had it; the interpreter's lacking it
+// made every module using numeric labels fail to PARSE, taking the whole file down rather than one
+// statement.
+lineNumber
+   : INTEGERLITERAL
    ;
 
 literal
