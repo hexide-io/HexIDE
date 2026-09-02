@@ -39,56 +39,42 @@ public class CorpusConformanceTests
     /// so the list can only shrink deliberately.</summary>
     private static readonly Dictionary<string, string> KnownDivergences = new()
     {
-        // Grouped by CAUSE, because they are five defects rather than 49. The tag is the cause; the
-        // reasons are below. This list may only shrink, and never silently: KnownDivergencesAreStillReal
-        // fails if an entry is left behind after its case starts passing.
+        // Grouped by CAUSE: these are seven defects, not thirty-eight. The list may only shrink, and never
+        // silently - KnownDivergencesAreStillReal fails if an entry outlives the bug it describes.
         //
-        //  COLON-SEPARATOR     The lexer treats a colon as a statement separator only when a SPACE follows
-        //                      (NEWLINE : ... | COLON ' '), so every tight or trailing colon is refused.
-        //                      By far the largest cluster. Not a one-line fix: deleting COLON from NEWLINE
-        //                      removes the very token lineLabel needs, so it wants a parser-level change.
-        //  SPLIT-KEYWORD       VB6 lets a continuation split a MULTI-WORD keyword (End _ Sub, End _ If,
-        //                      Select _ Case). Those are single lexer tokens here, so the split breaks them.
-        //  STRING-CONTINUATION A trailing underscore INSIDE a string literal. VB6's behaviour is measured
-        //                      but NOT understood - it continues the line in a Debug.Print output list and
-        //                      does not in an assignment (see the oracle doc). Not worth implementing to a
-        //                      rule nobody can state.
+        //  SINGLE-LINE-IF      The inline If takes ONE blockStmt after Then, so a colon-joined tail is
+        //                      refused. Needs the inline form to accept a statement LIST, which also
+        //                      settles the branch-membership question the corpus was built to ask.
+        //  LABEL               Label forms: a label sharing a line with a statement, a numeric label with a
+        //                      colon, a label named after a keyword. lineLabel is a blockStmt, so it
+        //                      competes with the statement it prefixes rather than introducing it.
+        //  SPLIT-KEYWORD       VB6 lets a continuation split a MULTI-WORD keyword (End _ Sub, End _ If).
+        //                      Those are single lexer tokens here.
+        //  REM-FORM            COMMENT requires REM to be followed by a space, so a bare Rem, a Rem after a
+        //                      tab, and Rem followed by a colon are all refused.
         //  FRX-OFFSET          FRX_OFFSET (COLON [0-9A-F]+) is a DESIGNER-FILE token live in ordinary code,
-        //                      so a colon followed by hex digits lexes as ONE token and swallows the
-        //                      separator. Predicted by reading the lexer before it was ever compiled.
-        //  REM-FORM            COMMENT requires REM to be followed by a space, so a bare Rem, a Rem
-        //                      separated by a tab, and Rem immediately followed by a colon are all refused.
+        //                      so a colon followed by hex digits lexes as one token and eats the separator.
+        //  STRING-CONTINUATION A trailing underscore INSIDE a string. Measured but NOT understood - it
+        //                      continues the line in a Debug.Print output list and not in an assignment.
         //  OTHER               Individually caused; see each case's own why in the corpus.
-        ["gap-fill/two-file-numbers-across-a-colon"] = "COLON-SEPARATOR",
-        ["gap-fill/with-block-colon-tight-against-dot-and-end"] = "COLON-SEPARATOR",
-        ["separator-and-continuation-together/continuation-drags-a-label-onto-a-statement"] = "COLON-SEPARATOR",
-        ["separator-and-continuation-together/continuation-line-is-a-bare-colon"] = "COLON-SEPARATOR",
-        ["separator-and-continuation-together/single-line-if-colon-then-continuation-then-else"] = "COLON-SEPARATOR",
-        ["separator-basics/sep-colon-before-else-single-line"] = "COLON-SEPARATOR",
-        ["separator-basics/sep-double-colon-tight"] = "COLON-SEPARATOR",
-        ["separator-basics/sep-line-of-only-colons"] = "COLON-SEPARATOR",
-        ["separator-basics/sep-mixed-chain-with-empty-statement"] = "COLON-SEPARATOR",
-        ["separator-basics/sep-no-space-around-colon"] = "COLON-SEPARATOR",
-        ["separator-basics/sep-numeric-line-number-with-colon"] = "COLON-SEPARATOR",
-        ["separator-basics/sep-trailing-colon-end-of-line"] = "COLON-SEPARATOR",
-        ["separator-in-control-flow/both-branches-colon-joined-module"] = "COLON-SEPARATOR",
-        ["separator-in-control-flow/colon-immediately-after-then"] = "COLON-SEPARATOR",
-        ["separator-in-control-flow/colon-immediately-before-else"] = "COLON-SEPARATOR",
-        ["separator-in-control-flow/double-colon-empty-statement-in-then"] = "COLON-SEPARATOR",
-        ["separator-in-control-flow/multi-then-statements-before-else"] = "COLON-SEPARATOR",
-        ["separator-in-control-flow/then-tail-colon-no-spaces"] = "COLON-SEPARATOR",
-        ["separator-in-control-flow/trailing-colon-at-end-of-then-branch"] = "COLON-SEPARATOR",
-        ["separator-vs-label/double-colon-empty-statement"] = "COLON-SEPARATOR",
-        ["separator-vs-label/label-colon-no-space-before-stmt"] = "COLON-SEPARATOR",
-        ["separator-vs-label/label-named-reserved-word"] = "COLON-SEPARATOR",
-        ["separator-vs-label/label-named-soft-keyword"] = "COLON-SEPARATOR",
-        ["separator-vs-label/numeric-label-alone-on-line"] = "COLON-SEPARATOR",
-        ["separator-vs-label/numeric-label-with-colon"] = "COLON-SEPARATOR",
-        ["separator-vs-label/separator-colon-no-surrounding-space"] = "COLON-SEPARATOR",
-        ["separator-vs-label/trailing-colon-end-of-line"] = "COLON-SEPARATOR",
-        ["whitespace-and-eol-edges/colon-only-line-at-module-level"] = "COLON-SEPARATOR",
-        ["whitespace-and-eol-edges/empty-proc-body-colon-only"] = "COLON-SEPARATOR",
-        ["whitespace-and-eol-edges/tab-around-colon-separator"] = "COLON-SEPARATOR",
+        ["separator-and-continuation-together/single-line-if-colon-then-continuation-then-else"] = "SINGLE-LINE-IF",
+        ["separator-basics/sep-colon-before-else-single-line"] = "SINGLE-LINE-IF",
+        ["separator-basics/sep-double-colon-tight"] = "SINGLE-LINE-IF",
+        ["separator-basics/sep-mixed-chain-with-empty-statement"] = "SINGLE-LINE-IF",
+        ["separator-in-control-flow/both-branches-colon-joined-module"] = "SINGLE-LINE-IF",
+        ["separator-in-control-flow/colon-immediately-after-then"] = "SINGLE-LINE-IF",
+        ["separator-in-control-flow/colon-immediately-before-else"] = "SINGLE-LINE-IF",
+        ["separator-in-control-flow/multi-then-statements-before-else"] = "SINGLE-LINE-IF",
+        ["separator-in-control-flow/then-tail-colon-no-spaces"] = "SINGLE-LINE-IF",
+
+        ["separator-and-continuation-together/continuation-drags-a-label-onto-a-statement"] = "LABEL",
+        ["separator-basics/sep-numeric-line-number-with-colon"] = "LABEL",
+        ["separator-vs-label/label-colon-no-space-before-stmt"] = "LABEL",
+        ["separator-vs-label/label-named-reserved-word"] = "LABEL",
+        ["separator-vs-label/label-named-soft-keyword"] = "LABEL",
+        ["separator-vs-label/numeric-label-alone-on-line"] = "LABEL",
+        ["separator-vs-label/numeric-label-with-colon"] = "LABEL",
+        ["separator-vs-label/separator-colon-no-surrounding-space"] = "LABEL",
 
         ["continuation-basics/cont-splitting-end-sub"] = "SPLIT-KEYWORD",
         ["continuation-illegal/continuation-splitting-end-sub"] = "SPLIT-KEYWORD",
@@ -97,18 +83,20 @@ public class CorpusConformanceTests
         ["gap-fill/select-case-and-end-select-split-by-continuation"] = "SPLIT-KEYWORD",
         ["separator-with-declarations/end-type-split-by-continuation"] = "SPLIT-KEYWORD",
 
-        ["continuation-basics/cont-inside-string-literal"] = "STRING-CONTINUATION",
-        ["continuation-illegal/split-string-literal"] = "STRING-CONTINUATION",
-        ["continuation-in-strings-comments/string-underscore-at-eol-unterminated"] = "STRING-CONTINUATION",
-
-        ["gap-fill/colon-tight-before-hex-digit-name"] = "FRX-OFFSET",
-        ["gap-fill/colon-tight-before-uppercase-hex-identifier"] = "FRX-OFFSET",
-        ["gap-fill/hex-literal-then-tight-colon-then-hex-name"] = "FRX-OFFSET",
-
         ["gap-fill/bare-rem-with-no-text"] = "REM-FORM",
         ["gap-fill/line-number-then-rem-without-a-colon"] = "REM-FORM",
         ["gap-fill/rem-immediately-followed-by-colon"] = "REM-FORM",
         ["gap-fill/rem-separated-by-a-tab"] = "REM-FORM",
+
+        ["gap-fill/colon-tight-before-hex-digit-name"] = "FRX-OFFSET",
+        ["gap-fill/colon-tight-before-uppercase-hex-identifier"] = "FRX-OFFSET",
+        ["gap-fill/hex-literal-then-tight-colon-then-hex-name"] = "FRX-OFFSET",
+        ["gap-fill/two-file-numbers-across-a-colon"] = "FRX-OFFSET",
+        ["gap-fill/with-block-colon-tight-against-dot-and-end"] = "FRX-OFFSET",
+
+        ["continuation-basics/cont-inside-string-literal"] = "STRING-CONTINUATION",
+        ["continuation-illegal/split-string-literal"] = "STRING-CONTINUATION",
+        ["continuation-in-strings-comments/string-underscore-at-eol-unterminated"] = "STRING-CONTINUATION",
 
         ["continuation-basics/cont-after-member-dot"] = "OTHER",
         ["separator-with-declarations/hashconst-value-continued"] = "OTHER",
