@@ -862,31 +862,37 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     public override async Task<object?> VisitVsAnd(VB6Parser.VsAndContext context)
     {
-        var (leftValue, rightValue) = await GetTwoValuesSameTypes(context.valueStmt());
-        if (TryUnpack(leftValue, rightValue, out int leftInt, out int rightInt))
-            return (Vb6Value)(leftInt & rightInt);
-        if (TryUnpack(leftValue, rightValue, out bool leftBool, out bool rightBool))
-            return (Vb6Value)(leftBool && rightBool);
+        // The RAW pair, not the coerced one. GetTwoValuesSameTypes promotes both operands to a common
+        // numeric type and throws on any mix it cannot unify — which loses the per-operand width the
+        // result ladder is defined over (Byte with Integer is Integer; Byte with Byte stays Byte) and
+        // rejects the ordinary `True And 2` and `"12" And 10` outright. Bitwise operators do not coerce
+        // to a common type; they reduce each operand to bits independently. (#166)
+        var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
+        if (TryBitwise(leftValue, rightValue, static (a, b) => a & b, out var and)) return and;
         throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
     }
 
     public override async Task<object?> VisitVsOr(VB6Parser.VsOrContext context)
     {
-        var (leftValue, rightValue) = await GetTwoValuesSameTypes(context.valueStmt());
-        if (TryUnpack(leftValue, rightValue, out int leftInt, out int rightInt))
-            return (Vb6Value)(leftInt | rightInt);
-        if (TryUnpack(leftValue, rightValue, out bool leftBool, out bool rightBool))
-            return (Vb6Value)(leftBool || rightBool);
+        // The RAW pair, not the coerced one. GetTwoValuesSameTypes promotes both operands to a common
+        // numeric type and throws on any mix it cannot unify — which loses the per-operand width the
+        // result ladder is defined over (Byte with Integer is Integer; Byte with Byte stays Byte) and
+        // rejects the ordinary `True And 2` and `"12" And 10` outright. Bitwise operators do not coerce
+        // to a common type; they reduce each operand to bits independently. (#166)
+        var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
+        if (TryBitwise(leftValue, rightValue, static (a, b) => a | b, out var or)) return or;
         throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
     }
 
     public override async Task<object?> VisitVsXor(VB6Parser.VsXorContext context)
     {
-        var (leftValue, rightValue) = await GetTwoValuesSameTypes(context.valueStmt());
-        if (TryUnpack(leftValue, rightValue, out int leftInt, out int rightInt))
-            return (Vb6Value)(leftInt ^ rightInt);
-        if (TryUnpack(leftValue, rightValue, out bool leftBool, out bool rightBool))
-            return (Vb6Value)(leftBool ^ rightBool);
+        // The RAW pair, not the coerced one. GetTwoValuesSameTypes promotes both operands to a common
+        // numeric type and throws on any mix it cannot unify — which loses the per-operand width the
+        // result ladder is defined over (Byte with Integer is Integer; Byte with Byte stays Byte) and
+        // rejects the ordinary `True And 2` and `"12" And 10` outright. Bitwise operators do not coerce
+        // to a common type; they reduce each operand to bits independently. (#166)
+        var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
+        if (TryBitwise(leftValue, rightValue, static (a, b) => a ^ b, out var xor)) return xor;
         throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
     }
 
@@ -903,28 +909,25 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var value = await EvaluateValue(context.valueStmt());
         if (value.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
-        if (TryUnpack(value, out int leftInt))
-            return (Vb6Value)(~leftInt);
-        if (TryUnpack(value, out bool leftBool))
-            return (Vb6Value)(!leftBool);
+        // Not keeps its operand's OWN width rather than promoting: Not CByte(5) is 250, an eight-bit
+        // complement, not -6. (#166)
+        if (VbBitwise.TryUnpack(value, out var bits, out var width))
+            return VbBitwise.Not(bits, width);
         throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
     }
 
     public override async Task<object?> VisitVsEqv(VB6Parser.VsEqvContext context)
     {
-        var (leftValue, rightValue) = await GetTwoValuesSameTypesOrNull(context.valueStmt());
+        var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());   // raw — see VisitVsAnd
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
-        if (TryUnpack(leftValue, rightValue, out int leftInt, out int rightInt))
-            return (Vb6Value)(Eqv(leftInt, rightInt));
-        if (TryUnpack(leftValue, rightValue, out bool leftBool, out bool rightBool))
-            return (Vb6Value)(leftBool == rightBool);
+        if (TryBitwise(leftValue, rightValue, static (a, b) => ~(a ^ b), out var eqv)) return eqv;
         throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
     }
 
     public override async Task<object?> VisitVsImp(VB6Parser.VsImpContext context)
     {
-        var (leftValue, rightValue) = await GetTwoValuesSameTypesOrNull(context.valueStmt());
+        var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());   // raw — see VisitVsAnd
         if (leftValue.Type == Vb6Value.ValueType.Null &&
             rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
@@ -932,10 +935,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return rbool ? (Vb6Value)true : Vb6Value.Null;
         if (rightValue.Type == Vb6Value.ValueType.Null && TryUnpack(leftValue, out bool lbool))
             return lbool ? Vb6Value.Null : (Vb6Value)true;
-        if (TryUnpack(leftValue, rightValue, out bool leftBool, out bool rightBool))
-            return (Vb6Value)(!leftBool || rightBool);
-        if (TryUnpack(leftValue, rightValue, out int leftint, out int rightint))
-            return (Vb6Value)(Imp(leftint, rightint));
+        if (TryBitwise(leftValue, rightValue, static (a, b) => ~a | b, out var imp)) return imp;
         throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
     }
 
@@ -1012,8 +1012,24 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return await interpreter.BuiltIns.EvaluateBuiltInFunction("Mid", args);
     }
 
-    private static int Eqv(int expression1, int expression2) => ~(expression1 ^ expression2);
-    private static int Imp(int expression1, int expression2) => ~expression1 | expression2;
+    /// <summary>
+    /// Apply a bitwise operator under VB6's rules: each operand reduced to 32 bits on its own terms,
+    /// the result reported at the width the ladder gives. False when either operand is not something
+    /// VB6 accepts, which the caller turns into a type mismatch.
+    ///
+    /// This replaced a pair of rungs that unpacked to <c>int</c> or to <c>bool</c> and rejected
+    /// everything else — so a Long or floating operand, which is to say any <c>&amp;H…&amp;</c> mask and
+    /// therefore most code that touches the Windows API, was a spurious type mismatch. The ladder is
+    /// measured against vb6.exe, not assumed; see <see cref="VbBitwise"/>. (#166)
+    /// </summary>
+    private static bool TryBitwise(Vb6Value left, Vb6Value right, Func<long, long, long> op, out Vb6Value result)
+    {
+        result = default;
+        if (!VbBitwise.TryUnpack(left, out var leftBits, out var leftWidth)) return false;
+        if (!VbBitwise.TryUnpack(right, out var rightBits, out var rightWidth)) return false;
+        result = VbBitwise.Pack(op(leftBits, rightBits), VbBitwise.Combine(leftWidth, rightWidth));
+        return true;
+    }
 
 
     public override async Task<object?> VisitBlockStmt(VB6Parser.BlockStmtContext context)
