@@ -33,6 +33,14 @@ public class ModuleExecutionContext
         if (env.TryGetVariableLocation(name, out var loc))
         {
             value = state[loc];
+            // A slot with a declared type is a ceiling: overflowing it is Err 6, where a Variant would widen.
+            // Marked on the VALUE because fixedness propagates through sub-expressions — `(a + 0) * 3` with a
+            // declared `a` still raises Err 6, measured. (#122)
+            //
+            // Set AND cleared, because the flag rides on the value and would otherwise be inherited from
+            // whatever was stored: `a = 30000` puts a LITERAL (fixed) into an undeclared slot, and reading it
+            // back as fixed would make `a * b` overflow where VB6 widens. The slot decides, not the history.
+            value = state.DeclaredTypeOf(loc) != null ? value.AsFixedType() : value.AsVariantSubtype();
             return true;
         }
         value = default;
