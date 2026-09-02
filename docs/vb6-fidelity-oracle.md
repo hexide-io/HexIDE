@@ -1601,6 +1601,105 @@ and was widened with the keywords.
 Corpus false rejections: 21 → 14, clearing this group entirely. What remains is four causes —
 `REM-FORM`, `STRING-CONTINUATION`, `LABEL`, `OTHER`.
 
+### `Rem` takes no separator, and the documentation is wrong about it (2026-09-02)
+
+The reference says "Rem followed by a space". It is not true. 21 new corpus cases
+(`corpus/continuation-and-separator/rem-forms.json`), compiled by `vb6.exe`, plus a behavioural round
+through the value oracle for the cases where compiling proves nothing.
+
+**The rule, as measured:** *`Rem`, standing as a whole word, begins a comment that runs to the end of the
+physical line. No separator is required. A trailing `_` extends it onto the next line. It is reserved, and
+is never an identifier anywhere.*
+
+| probe | verdict |
+|---|---|
+| `Rem` alone on a line | legal |
+| `Rem:` alone on a line | legal |
+| `Rem=1` | legal |
+| `Rem'not really nested` | legal |
+| `Rem"text"` | legal |
+| `Rem` + tab + EOL | legal |
+| `Dim RemX As Long` / `RemX = 5` | legal — an ordinary identifier |
+| `Dim Rem1 As Long` | legal |
+| `Dim Rem As Long` | **illegal** — Syntax error |
+| `Sub Rem()` | **illegal** — Expected: identifier |
+| `Private Type TRec` / `Rem As Long` / `End Type` | **illegal** — *User-defined type without members* |
+| `Private Enum EKind` / `Rem` / `End Enum` | **illegal** — *Enum without members* |
+| `Private Sub Take(ByVal Rem As Long)` | **illegal** — Expected: identifier |
+| `If True Then Rem a remark` | **illegal** — Syntax error |
+| `If True Then s = "then" Else Rem nothing` | legal |
+| `If True Then s = "then" Else` — bare trailing Else | legal |
+| `Rem a remark _` above `End Sub` | **illegal** — *Expected End Sub* |
+
+**The two error messages are the interesting rows.** *"User-defined type without members"* and *"Enum
+without members"* do not say "Rem is reserved" — they say the `Rem As Long` line **was not there**. That is
+the proof that `Rem` is a comment even in a declaration position, and it is stronger than the plain
+syntax errors, which could have meant several things.
+
+**It also caught a wrong reading of my own, immediately.** The first version of the enum probe listed `Rem`
+*alongside* a second member and compiled — which I took as "Rem may name an enum member". Exactly
+backwards: it compiled because the `Rem` line vanished and the *other* member carried the enum. Rewriting
+it with `Rem` as the only member turned a false "legal" into a decisive "illegal". A case that appears to
+prove something can prove its opposite, and the way to tell is to remove everything else from the probe.
+
+**Behaviour, from the value oracle** — a legality verdict cannot answer these, because the line compiles
+either way and the two readings differ in what runs. Each probe builds a string from the statements that
+actually executed:
+
+| probe | measured | meaning |
+|---|---|---|
+| `Rem: s = s & "B"` | `A` | B does **not** run — the colon is comment text |
+| `s = "A": Rem a remark: s = s & "B"` | `A` | the remark eats the rest of the line, colons included |
+| `Rem a remark _` ⏎ `s = s & "B"` ⏎ `s = s & "C"` | `AC` | the continuation **swallows the next line** |
+| `GoTo 10` … `10 Rem arrived` ⏎ `s = s & "B"` | `AB` | a line number carrying only a remark is still a target |
+| `If False Then s = s & "T" Else Rem nothing` | `AB` | an Else branch may be nothing but a comment |
+| `Rem=1`, `Rem'q`, bare `Rem`, `Rem:` | all skipped | comments, every one |
+
+`Rem: s = s & "B"` is the one with teeth. HexIDE lexed it as `REM`, `COLON`, and a live statement, so a
+parser that accepted the line would have **executed a statement VB6 treats as a remark** — no error and
+nothing to debug from. Same harm shape as the single-line-If tail, reached from a different direction.
+
+**`Then Rem` is illegal and `Else Rem` is legal.** Measured, and I have no rule I would defend for it. A
+comment is invisible to the parser in both positions, so whatever distinguishes them is not syntactic. A
+bare trailing `Else` with nothing after it is also legal, which at least makes the Else half consistent
+with itself. Recorded as measured-but-unexplained rather than tidied into a story.
+
+**What this cost, and what it bought.** Fixing it needed three things in the lexer, each of which is a way
+to get it wrong:
+
+1. A guard on what follows `Rem`. Without it `RemX = 5` becomes a comment and the assignment is **deleted** —
+   a wrong value, which the guardrail refuses outright.
+2. **No leading `WS?`.** With one, the rule starts a character early, at the space in `Dim RemX`, and
+   matches `" Rem"` — four characters, which beats the one-character `WS` token and produces the same
+   deleted assignment from the other side. The guard cannot help: it governs how far a match runs, not
+   where it begins.
+3. **Position ahead of every keyword.** ANTLR settles an equal-length match by declaration order, and a
+   bare `Rem` is matched at exactly three characters by the comment rule, the `REM` keyword and
+   `IDENTIFIER` alike.
+
+Two of those were found by the corpus rather than by reasoning, and both would have shipped silently.
+
+### The other direction was never gated (2026-09-02)
+
+Not a VB6 fact but a process one, recorded because it is the second time this corpus has revealed a gate
+that was quietly guarding less than it appeared to.
+
+`CorpusConformanceTests.Compare()` has always returned **both** lists — code VB6 accepts that HexIDE
+rejects, and code VB6 rejects that HexIDE accepts. Only the first was ever asserted. The second was
+computed, returned, and consumed by nothing.
+
+That is tolerable while every change narrows the grammar, and dangerous the moment one widens it — which
+the `Rem` work does, and whose central hazard is precisely over-reach. Gated now: **43 false acceptances**,
+grouped by cause into six defects. `UNDERSCORE-IDENTIFIER` is 16 of them, all one lexer character:
+`LETTER` includes `_`, so a lone `_` is an identifier here and never is in VB6, and `x = 1 +_` completes as
+arithmetic against a variable named `_` instead of failing.
+
+That fix was tried in this change and **reverted**. `_` alone on a line is legal VB6, and `NEWLINE`
+(`WS? '\r'? '\n' WS?`) has already eaten the space that `LINE_CONTINUATION` (`[ \t]+ '_' …`) needs to
+recognise it — so removing the underscore from the identifier start refuses two legal cases to fix one
+illegal. One false acceptance bought for two false rejections is the wrong direction, and the honest
+record of it is worth more than a fix that traded badly.
+
 ## Extending the oracle (future phases)
 
 Phase 3 (intrinsics) and beyond should verify, at minimum:
