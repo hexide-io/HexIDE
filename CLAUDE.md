@@ -225,6 +225,35 @@ What it still refuses, for the same reason rather than a different one: the line
 `Return` / `On expr GoTo` and nested-granular `Resume` are deferred pending. A control-flow graph relates
 statements to each other; it is a map of the program, not a lookup for the walk.
 
+**Three limits, not one — do not conflate them.** The CST/AST line is only one of the things that bounds
+this interpreter, and filing everything under it is how `interpreter-gaps.md` came to have nine deferrals
+sitting in its "Walled off (by design)" section, `GoSub` and `Implements` justified identically when
+neither shares the other's limit.
+
+**No VB6 construct is incomprehensible to the CST.** The grammar parses everything VB6 accepts; the tree
+holds it. What is out of reach is:
+
+1. **Binding — permanent.** Questions answerable only by relating two symbols *without executing either*:
+   does this `Public` signature expose a `Private Type`, does `Property Let` agree with `Property Get`, does
+   this class satisfy `Implements IFoo`. These cost **diagnostics, not constructs** — the construct is
+   always buildable, and `interpreter-core:40-42` prescribes the in-bounds translation: raise VB6's error
+   number at run time rather than before it. A second-order consequence worth stating: VB6 compiles the
+   whole program and HexIDE only sees executed statements, so an error on a never-taken path is invisible
+   here and fatal there.
+2. **Tree-walking — an execution-strategy limit, NOT the AST limit.** `GoSub`/`Return`, `On expr
+   GoTo`/`GoSub`, and nested-granular `Resume` need "jump to label L, then resume where I was" — a position
+   in a linear statement sequence. A tree-walk's position is a stack of visitor frames, not an index, so
+   there is nothing to save and return to. The CST has the labels and the statements; a linearized CFG or
+   bytecode would lift this without touching the binding question. **This is the only limit that costs
+   actual constructs.**
+3. **Missing input — platform.** Type libraries: an OCX's default member, `New Excel.Application`, COM
+   instancing. Not a comprehension failure at all. COM/OLE is *in scope and Windows-gated* per
+   OUT_OF_SCOPE.md, so filing it as a language-boundary limit both misdescribes it and makes it look
+   permanent.
+
+Before recording anything as walled, say which of the three it is. If the answer is "the diagnostic is
+walled but the construct is not", record exactly that — the distinction is what nine mis-filings turned on.
+
 ## Currency & Best Practice
 
 **This project always aims for current best practice.** If you spot anything that looks even slightly
