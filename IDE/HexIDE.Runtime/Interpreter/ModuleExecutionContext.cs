@@ -21,6 +21,14 @@ public class ModuleExecutionContext
         {
             if (state.DeclaredTypeOf(loc) is { } declared)
                 value = VbNumeric.CoerceOnStore(value, declared, ctx);
+            // A class-typed slot enforces its name: the object must BE that class or implement it as an
+            // interface. Anything else is Err 13 "Type mismatch" at the Set — measured, both for two unrelated
+            // classes and for an interface-typed slot given a non-implementer. Nothing always stores (its Value
+            // is null); a control or proxy is outside this model.
+            if (state.DeclaredClassOf(loc) is { } declaredClass
+                && value.Value is VbObject incoming
+                && !VbInterface.IsAssignableTo(incoming, declaredClass))
+                throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
             state[loc] = value;
             return true;
         }
@@ -41,6 +49,9 @@ public class ModuleExecutionContext
             // whatever was stored: `a = 30000` puts a LITERAL (fixed) into an undeclared slot, and reading it
             // back as fixed would make `a * b` overflow where VB6 widens. The slot decides, not the history.
             value = state.DeclaredTypeOf(loc) != null ? value.AsFixedType() : value.AsVariantSubtype();
+            // And the NAME the slot was declared with, for a class-typed slot — set and cleared by the same
+            // rule and for the same reason. This is what an `As IFoo` read carries into member dispatch.
+            value = value.ViewedAs(state.DeclaredClassOf(loc));
             return true;
         }
         value = default;
@@ -51,9 +62,9 @@ public class ModuleExecutionContext
     /// variable declared <c>As T</c> with a coercible scalar T; leave it null for a Variant, an array, an
     /// object or a UDT, whose slots are replaced wholesale rather than coerced.</summary>
     public void AllocVariable(ExecutionEnvironment env, string name, Vb6Value value,
-        Vb6Value.ValueType? declaredType = null)
+        Vb6Value.ValueType? declaredType = null, string? declaredClass = null)
     {
-        var loc = state.Alloc(value, declaredType);
+        var loc = state.Alloc(value, declaredType, declaredClass);
         env.DefineVariable(name, loc);
     }
 }

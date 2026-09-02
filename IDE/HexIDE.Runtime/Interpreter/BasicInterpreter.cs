@@ -26,6 +26,10 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     private readonly string code;
     private PrePass prepass;
 
+    /// <summary>Classes whose <c>Implements</c> conformance has already been verified — the check is per class,
+    /// not per instance.</summary>
+    private readonly HashSet<string> verifiedImplementers = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>The primary/startup module's prepass. Per-executing-module data (Option Base, procedures) lives
     /// on <see cref="ModuleInfo.PrePass"/>; resolve against the executing module via <c>CurrentModule</c> at the
     /// call site, not this property.</summary>
@@ -125,6 +129,14 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             throw new Debugging.ImmediateEvalException("Creating objects is not available in the Immediate window.");
         if (!Modules.TryGet(className, out var classDef) || classDef.Kind != InterpreterModuleKind.Class)
             throw new VBCompileErrorException("User-defined type not defined: " + className);
+        // A class that claims an interface must supply all of it. VB6 refuses to BUILD such a program; with no
+        // compile step to refuse at, the check runs here — once per class, before the first instance exists, so
+        // no half-built object escapes. Recorded only on success, so a failing class raises on every attempt.
+        if (classDef.PrePass.Implemented.Count > 0 && !verifiedImplementers.Contains(classDef.Name))
+        {
+            VbInterface.VerifyConformance(classDef, Modules);
+            verifiedImplementers.Add(classDef.Name);
+        }
         var instanceEnv = classDef.ModuleEnv.Clone();
         foreach (var block in classDef.PrePass.topLevelBlocks)
             await new StatementExecutor(this, instanceEnv, classDef).Execute(block);

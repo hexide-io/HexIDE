@@ -605,7 +605,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         {
             if (variable.Value is not VbObject vobj)
                 throw new VBRunTimeException(ctx, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
-            var memberName = MemberName(member);
+            // Through an interface-typed name, `Draw` means `IFoo_Draw`, and nothing else the class declares
+            // is reachable at all — so resolve what to look up before any of the three lookups below. (#186)
+            //
+            // Folding a chain gives the right scope for free: only the FIRST hop's value came from a slot
+            // read, so only it carries a declared class. `x.A.B` views `A` through the interface and then
+            // resolves `B` against whatever A returned, which is what VB6 does.
+            var memberName = VbInterface.ResolveMember(variable, vobj, MemberName(member))
+                ?? throw new VBMethodOrDataMemberNotFoundException(MemberName(member), variable.Type);
             if (vobj.ClassDef.PrePass.Procedures.TryGetValue(memberName, out var method))
             {
                 var callArgs = MemberArgs(member) is { } ac ? await ResolveCallArgs(ac) : new List<CallArg>();
@@ -1033,7 +1040,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         // (VB6 raises an error for TypeOf on a non-object — a documented simplification here.)
         if (operand.Value is VbObject vo)
             return new Vb6Value(string.Equals(vo.ClassName, targetName, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase));
+                || string.Equals(targetName, "Object", StringComparison.OrdinalIgnoreCase)
+                // …or an interface the class implements. A class that does NOT implement it is False, not an
+                // error — measured, and the reason this stays a plain widening of the same expression.
+                || VbInterface.Implements(vo.ClassDef, targetName));
         return new Vb6Value(false);
     }
 

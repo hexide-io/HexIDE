@@ -16,6 +16,11 @@ public class PrePass : VB6BaseVisitor<object?>
     // Module-level `WithEvents` variable names (event sinks) — a `Set` of one of these registers/unregisters an
     // event connection on the source object (Phase 5). `WithEvents` is class/form-only (oracle-verified).
     public HashSet<string> WithEventsNames = new(StringComparer.OrdinalIgnoreCase);
+    // Interfaces this (class) module claims via `Implements IFoo`, in source order. Collecting the NAME is
+    // a pre-pass lookup, not analysis: nothing here compares this module against the interface's members.
+    // That comparison is the conformance check, and it runs at first instantiation, against two tables that
+    // by then are both already built.
+    public List<string> Implemented = new();
     public List<VB6Parser.BlockContext> topLevelBlocks = new();
     // User-defined Type definitions and Enum member tables declared in this module (aggregated program-wide by
     // the interpreter). Public by default — MVP does no Private-Type module-scoping.
@@ -57,6 +62,12 @@ public class PrePass : VB6BaseVisitor<object?>
     public override object? VisitOptionExplicitStmt(VB6Parser.OptionExplicitStmtContext context)
     {
         RequireVariableDefinitions = true;
+        return default;
+    }
+
+    public override object? VisitImplementsStmt(VB6Parser.ImplementsStmtContext context)
+    {
+        Implemented.Add(context.ambiguousIdentifier().GetText());
         return default;
     }
 
