@@ -1212,6 +1212,45 @@ Two consequences for any implementation:
 `CStr(6000000000#)` is **`6000000000`**, not `6E+09`. VB6 does not switch a Double of that magnitude to
 scientific notation. Recorded because a test was briefly written against the invented form.
 
+## Implements, and interface-typed variables (2026-09-02, #186)
+
+Measured with `scripts/vb6-oracle.ps1 -Classes`, added for this: the harness could only ever compile one
+`.bas`, so **the entire object model was unmeasurable**. Implements, `As New`, `Set` type-enforcement,
+default members and parameterized properties all need at least one class module and several need two.
+
+| probe | measured |
+|---|---|
+| `Dim x As IFoo : Set x = New Bar : x.Area()` | **7** — dispatched to `IFoo_Area` |
+| `TypeName(x)` where `x As IFoo` holds a `Bar` | **`Bar`** — the concrete class, not the interface |
+| `TypeName(New Bar)` | `Bar` |
+| `TypeOf b Is IFoo`, `b` implements it | **True** |
+| `TypeOf b Is IFoo`, `b` does **not** | **False** — not an error |
+| `IFoo_Draw` declared **Public** rather than Private | **accepted** — the Private convention is not enforced |
+| `x.Own` where `x As IFoo` and `Own` is `Bar`'s own member | **compile error**, *"Method or data member not found"* |
+| a class declaring `Implements IFoo` but omitting a member | **compile error**, see below |
+
+### The two compile errors, verbatim
+
+An interface-typed variable exposes **only the interface's members**. Reaching for the concrete class's own
+member fails, in the module that does it:
+
+```
+Compile Error in File 'Module1.bas', Line 19 : Method or data member not found
+```
+
+And a class that claims an interface must supply all of it — reported against the *class*, naming both the
+missing member and the interface:
+
+```
+Compile Error in File 'Partial.cls', Line 0 : Object module needs to implement 'Erase2' for interface 'IFoo'
+```
+
+That second message is the one HexIDE should reproduce. Per the approximation rule in `CLAUDE.md` and
+`interpreter-core:40-42`, it is raised **when the class is first instantiated** rather than before the
+program runs — the conformance data (both member tables) is already collected by `PrePass`, so the check
+itself needs no binding. A class never instantiated is never checked, which is the accepted
+error-on-a-path-never-taken divergence.
+
 ## Extending the oracle (future phases)
 
 Phase 3 (intrinsics) and beyond should verify, at minimum:
