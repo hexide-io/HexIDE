@@ -141,7 +141,20 @@ attributeStmt
    ;
 
 block
-   : (lineNumber WS? COLON? WS?)? blockStmt (blockSep (lineNumber WS? COLON? WS?)? blockStmt)* blockSep?
+   : emptyLineNumber* (lineNumber WS? COLON? WS?)? blockStmt
+     (blockSep emptyLineNumber* (lineNumber WS? COLON? WS?)? blockStmt)*
+     blockSep?
+   ;
+
+// A line number with NO statement after it on the line. `10` alone is a legal jump target, and so is
+// `10 Rem a remark` once the remark is a comment — both leave a number with an empty line behind it.
+// Without this the number is an "extraneous input" and the whole procedure fails to parse.
+//
+// It labels the NEXT executable statement. That needs no runtime change: CollectLineNumbers already
+// carries an unclaimed number forward to the following blockStmt, which is exactly the semantics — and
+// `GoTo 10` over `10 Rem x` was measured landing on the statement after the remark.
+emptyLineNumber
+   : lineNumber WS? COLON? WS? blockSep
    ;
 
 // A statement separator: a newline, a colon, or any run of them.
@@ -362,8 +375,18 @@ inlineIfBody
    : (WS? COLON WS?)* blockStmt (WS? COLON (WS? blockStmt)?)*
    ;
 
+// The else body is OPTIONAL, and the Then body is not. That asymmetry is measured, not an oversight:
+// `If c Then x = 1 Else Rem nothing` is legal and `If c Then Rem nothing` is a syntax error. A comment is
+// invisible to the parser either way, so the only way to accept the first is to allow an empty else — and
+// a bare trailing `Else` with nothing at all after it turns out to be legal too, which is what makes this
+// faithful rather than a widening. `Else Rem …` is a real idiom for a deliberately empty alternative.
+// `WS?` after THEN, not `WS`. `If True Then: Debug.Print "A"` is legal and was refused, because the
+// mandatory whitespace had nothing to match — inlineIfBody's own leading `(WS? COLON WS?)*` already
+// admits the colon, so the space was being demanded twice and supplied once. Optional is safe by the
+// adjacency argument used for the multi-word keywords: `ThenX` lexes as one IDENTIFIER, so THEN can only
+// be adjacent to the next token if something separated them.
 ifThenElseStmt
-   : IF WS ifConditionStmt WS THEN WS inlineIfBody (WS? ELSE WS inlineIfBody)? # inlineIfThenElse
+   : IF WS ifConditionStmt WS THEN WS? inlineIfBody (WS? ELSE (WS inlineIfBody)?)? # inlineIfThenElse
    | ifBlockStmt ifElseIfBlockStmt* ifElseBlockStmt? END_IF # blockIfThenElse
    ;
 
@@ -1047,6 +1070,47 @@ ambiguousKeyword
    ;
 
 // lexer rules --------------------------------------------------------------------------------
+
+// A comment, in both of VB6's spellings.
+//
+// **This rule's POSITION is load-bearing.** It sits ahead of every keyword because ANTLR breaks an
+// equal-length match by declaration order, and a bare `Rem` on its own line is matched at exactly three
+// characters by three rules: COMMENT, the REM keyword, and IDENTIFIER. Whichever is declared first wins,
+// and it has to be this one. Moving it back down among the other whitespace rules silently un-fixes the
+// bare-Rem case — the corpus catches it, but the grammar should say so out loud.
+//
+// The `Rem` form takes NO separator. It used to require one (`REM ' '`, later `REM KWSEP`), on the
+// documentation's wording "Rem followed by a space", and vb6.exe disagrees with the documentation:
+// `Rem`, `Rem:`, `Rem=1`, `Rem'x` and `Rem"x"` are all comments. Rem is reserved, and it begins a comment
+// the moment it stands as a whole word.
+//
+// Hence REMTAIL, which is the entire subtlety. What follows `Rem` must be something that cannot continue
+// an identifier, or `RemX = 5` would lex as a comment and the assignment would VANISH — a wrong value,
+// not a late error, which is the one outcome this project never accepts. With the guard, `RemX` matches
+// COMMENT at three characters and IDENTIFIER at four, and the longer match wins.
+//
+// A trailing `_` genuinely extends a Rem comment onto the next line; that is measured, not assumed. It is
+// how `Rem a remark _` followed by `End Sub` produces "Expected End Sub" from the real compiler.
+//
+// The rule no longer begins `WS?`, and it cannot. With a leading `WS?` the comment may start one
+// character EARLY, at the space in `Dim RemX`, and match " Rem" — four characters, which beats the WS
+// token's one and re-creates the exact vanishing-assignment this rule exists to prevent. The REMTAIL
+// guard cannot save it, because the guard only decides how far the match runs, not where it starts.
+// Nothing is lost: NEWLINE already ends `WS? '\r'? '\n' WS?`, so a comment's indentation has been eaten
+// before this rule is ever reached, and a space before a trailing comment is a WS token that blockSep
+// and the `WS?` in every statement rule already tolerate.
+COMMENT
+   : ( '\'' (LINE_CONTINUATION | ~ ('\n' | '\r'))*
+     | COLON? REM (REMTAIL (LINE_CONTINUATION | ~ ('\n' | '\r'))*)?
+     ) -> channel(HIDDEN)
+   ;
+
+// The first character of a Rem comment's text: anything that cannot continue an identifier. Kept in step
+// with LETTERORDIGIT by hand — ANTLR cannot negate a fragment reference, so the set has to be repeated.
+fragment REMTAIL
+   : LINE_CONTINUATION
+   | ~ [a-zA-Z0-9_äöüÄÖÜáéíóúÁÉÍÓÚâêîôûÂÊÎÔÛàèìòùÀÈÌÒÙãẽĩõũÃẼĨÕŨçÇ\r\n]
+   ;
 
 // keywords
 
@@ -2151,6 +2215,19 @@ GUID
 
 // identifier
 
+// NOTE — a known divergence lives here, deliberately unfixed. A VB6 identifier may CONTAIN an underscore
+// but may not BEGIN with one: `_ab`, a lone `_`, and even the bracketed `[_a]` are all rejected by
+// vb6.exe. LETTER includes the underscore because it is a legal continuation character, which quietly
+// made it a legal first character too, and a lone `_` matching IDENTIFIER is what lets `x = 1 +_` parse
+// here — the malformed continuation becomes an addition against a variable named `_`.
+//
+// Excluding it was tried and REVERTED, because it is not a self-contained fix. `_` on its own line, as
+// ` _` between two statements, is legal VB6, and NEWLINE (`WS? '\r'? '\n' WS?`) has already eaten the
+// space by the time LINE_CONTINUATION (`[ \t]+ '_' …`) would need it — so with `_` no longer an
+// identifier those lines stop parsing. The trade was one false acceptance bought for two false
+// rejections, which is the wrong direction. Fixing it properly means settling how NEWLINE and
+// LINE_CONTINUATION share the whitespace between them, and that belongs to the continuation-vs-identifier
+// group, not here.
 IDENTIFIER
    : LETTER LETTERORDIGIT*
    ;
@@ -2186,11 +2263,6 @@ fragment KWSEP
 // would consume the token `lineLabel` needs to be a label at all.
 NEWLINE
    : WS? '\r'? '\n' WS?
-   ;
-
-
-COMMENT
-   : WS? ('\'' | COLON? REM KWSEP) (LINE_CONTINUATION | ~ ('\n' | '\r'))* -> channel(HIDDEN)
    ;
 
 

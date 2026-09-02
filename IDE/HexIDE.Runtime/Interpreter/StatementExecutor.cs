@@ -1864,22 +1864,35 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private static void CollectLineNumbers(VB6Parser.BlockContext block, VB6Parser.BlockStmtContext[] stmts,
         Dictionary<string, int> labels)
     {
-        string? pending = null;
+        // Numbers awaiting a statement to label. A list rather than a single slot because a number may
+        // stand alone on its line, so several can queue up before the next executable statement:
+        //
+        //     10
+        //     20 Rem still nothing here
+        //     30 x = 1        <- 10, 20 and 30 all name this statement
+        //
+        // VB6 lets every one of those be a GoTo target, and they all land on the same place.
+        var pending = new List<string>();
         var index = 0;
         for (var c = 0; c < block.ChildCount; c++)
         {
             switch (block.GetChild(c))
             {
                 case VB6Parser.LineNumberContext ln:
-                    pending = ln.GetText();
+                    pending.Add(ln.GetText());
+                    break;
+                case VB6Parser.EmptyLineNumberContext eln:
+                    // A number whose line carried no statement. It keeps its claim on the next one.
+                    pending.Add(eln.lineNumber().GetText());
                     break;
                 case VB6Parser.BlockStmtContext stmt:
                     // Defensive: only map while the walk and the statement array agree on position. They
                     // should always agree, but a label pointing at the wrong statement would be a silent
                     // mis-jump, which is worse than no label at all.
-                    if (pending != null && index < stmts.Length && ReferenceEquals(stmts[index], stmt))
-                        labels[pending] = index;
-                    pending = null;
+                    if (pending.Count > 0 && index < stmts.Length && ReferenceEquals(stmts[index], stmt))
+                        foreach (var number in pending)
+                            labels[number] = index;
+                    pending.Clear();
                     index++;
                     break;
             }

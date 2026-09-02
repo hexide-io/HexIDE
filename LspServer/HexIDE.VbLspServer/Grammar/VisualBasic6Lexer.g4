@@ -8,6 +8,28 @@ options {
     caseInsensitive = true;
 }
 
+// A comment, in both of VB6's spellings. Mirrored from the interpreter's grammar; the fuller note is
+// there. Two things about it are load-bearing and easy to undo by tidying:
+//
+//   * Its POSITION, ahead of every keyword. ANTLR breaks an equal-length match by declaration order, and
+//     a bare `Rem` is matched at exactly three characters by COMMENT, by REM and by IDENTIFIER. This one
+//     has to be declared first or a bare `Rem` line stops being a comment.
+//   * The absence of a leading `WS?`. With it, the rule can start one character EARLY — at the space in
+//     `Dim RemX` — and match " Rem", which beats the WS token and makes the assignment vanish.
+//
+// The `Rem` form takes no separator: `Rem`, `Rem:`, `Rem=1`, `Rem'x` and `Rem"x"` are all comments,
+// measured against vb6.exe. REMTAIL is what stops it eating `RemX`.
+COMMENT:
+    (
+        '\'' ( LINE_CONTINUATION | ~ ('\n' | '\r'))*
+        | COLON? REM (REMTAIL ( LINE_CONTINUATION | ~ ('\n' | '\r'))*)?
+    ) -> skip
+;
+
+// The first character of a Rem comment's text: anything that cannot continue an identifier. Kept in step
+// with LETTERORDIGIT by hand — ANTLR cannot negate a fragment reference.
+fragment REMTAIL: LINE_CONTINUATION | ~ [A-Z0-9_ÄÖÜÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃẼĨÕŨÇ\r\n];
+
 // keywords
 
 ACCESS: 'ACCESS';
@@ -481,8 +503,6 @@ fragment KWSEP: ([ \t] | LINE_CONTINUATION)+;
 // could not stay here: `COLON ' '` demanded a space after the colon, and widening it to a bare colon
 // consumes the token lineLabel needs to be a label at all.
 NEWLINE: WS? '\r'? '\n' WS?;
-
-COMMENT: WS? ('\'' | COLON? REM KWSEP) ( LINE_CONTINUATION | ~ ('\n' | '\r'))* -> skip;
 
 WS: [ \t]+;
 

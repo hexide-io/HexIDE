@@ -77,6 +77,16 @@ public class SingleLineIfTests : BaseVBTestFixture
     }
 
     [Fact]
+    public async Task AColonMayFollowThenWithNoSpaceAtAll()
+    {
+        // `Then:` rather than `Then :`. The grammar demanded whitespace after THEN while inlineIfBody's
+        // own leading `(WS? COLON WS?)*` already admitted the colon — so the space was required twice and
+        // supplied once, and an ordinary line was refused. Measured legal.
+        await Run("Dim s\ns = \"\"\nIf True Then: s = \"ran\"\nDebug.Print s\n");
+        AssertDebugLog([new Vb6Value("ran")]);
+    }
+
+    [Fact]
     public async Task TheBlockFormIsUnaffected()
     {
         // The single-line and block forms are distinguished by the newline, so widening the inline body
