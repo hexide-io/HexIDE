@@ -1447,8 +1447,9 @@ not load. Grammar divergence between the two halves is now guarded by `GrammarPa
 
 319 clean-room cases compiled against real vb6.exe by `scripts/vb6-legality.ps1`. **243 legal, 76
 illegal; 16 predictions wrong and 60 genuine unknowns resolved.** Every case was authored from the VB6
-Language Reference and the grammar; Rubberduck's GPLv3 suite was never consulted, which matters because
-relicensing it is permanently out (no CLA, and tracing every contributor was established as impractical).
+Language Reference and the grammar, under the clean-room rule in `vb6-grammar-fixes.md` — no GPLv3 VB6
+grammar or test suite was consulted. That constraint is permanent, and the provenance record lives in
+that document rather than here.
 
 ### An unterminated string literal auto-closes at end of line
 
