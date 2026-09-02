@@ -1382,26 +1382,35 @@ implemented as written. Measure the claim, not just the behaviour it complains a
 ### Return widths of the integer-returning intrinsics (2026-09-02)
 
 Found while fixing #190, when a test asserted the wrong type and the oracle disagreed with both of us.
+Then measured across the whole family before fixing (#193), which turned up two the original finding had
+missed.
 
-| intrinsic | `TypeName` in VB6 |
+| `TypeName` in VB6 | intrinsics |
 |---|---|
-| `InStr`, `InStrRev` | **Long** |
-| `Len` | **Long** |
-| `LBound`, `UBound` | **Long** |
-| `Asc` | **Integer** |
-| `Sgn` | **Integer** |
-| `Int(3)` | Integer — `Int` preserves its operand's subtype |
+| **Long** | `Len`, `InStr`, `InStrRev`, `LBound`, `UBound`, `DateDiff`, **`VarType`** |
+| **Integer** | `Asc`, `Sgn`, `Year`, `Month`, `Day`, `Hour`, `Minute`, `Second`, `Weekday`, **`DatePart`** |
+| operand-dependent | `Int`, `Fix` — these preserve the operand's subtype, so `Int(3)` is Integer and `Int(3.5)` is Double |
 
-So it is not one rule. The string- and array-position family returns Long regardless of how small the
-answer is, while `Asc` and `Sgn` return Integer.
+**It is not one rule**, which is the whole point: a blanket "widen the integer-returning intrinsics" would
+have been just as wrong as leaving them. Two pairs are worth remembering because they look like
+inconsistencies somebody will later try to tidy away:
 
-HexIDE gets the first five wrong for small values, and not through any of those functions: they build
-their result with `new Vb6Value(int)`, whose magnitude rule reports anything fitting Int16 as an Integer.
-That rule is right for arithmetic literals and wrong here, because these functions have a *fixed declared
-return type* in VB6 rather than a magnitude-dependent one.
+- **`DateDiff` is Long, `DatePart` is Integer.** Same family, same argument shapes, different widths.
+- **`VarType` is Long**, even though every `vbXxx` code it can return fits comfortably in an Integer.
 
-Reachable with entirely ordinary arguments — `TypeName(InStr("hello", "l"))` is `Integer` in HexIDE and
-`Long` in VB6 — so it is not an edge case, merely an invisible one until something asks for the type.
+### What HexIDE had wrong, and why
+
+None of these functions chose a type. They built their result from a C# `int`, and `Vb6Value(int)` applies
+a **magnitude rule** — anything fitting Int16 is reported as an Integer. That rule is correct for an
+arithmetic literal, whose type genuinely does follow its magnitude; it is wrong for a function with a
+**fixed declared return type**, which is what these seven have.
+
+Reachable with entirely ordinary arguments — `TypeName(InStr("hello", "l"))` was `Integer` — so not an
+edge case, merely an invisible one until something asks for the type. It does not stay invisible: the
+subtype feeds the arithmetic result-type ladder, so `Len("hi") + 1` was an Integer where VB6 gives a Long.
+
+`Int` and `Fix` are the control. They must keep going through the magnitude rule, because for them the
+operand really does decide.
 
 ### `Join(a, )` is a syntax error — only a MIDDLE argument can be omitted (2026-09-02)
 
