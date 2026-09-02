@@ -474,6 +474,14 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 // what it observed. The write path allocates; a read only reports.
                 if (currentModule.PrePass.RequireVariableDefinitions || interpreter.SuppressImplicitDeclaration)
                     throw new VBVariableNotDefinedException(identifier);
+                // A name VB6 defines as an intrinsic is NOT an undeclared variable, and must not quietly
+                // become one. `s = CurDir` used to reach here and evaluate to Empty, so the program carried
+                // on with a wrong value and nothing said why — the worst failure this interpreter can
+                // produce. The registry was consulted above, so arriving here means VB6 has it and we do
+                // not. (#191)
+                if (VbIntrinsicNames.IsIntrinsic(identifier))
+                    throw new NotImplementedException(
+                        identifier + " is a VB6 intrinsic that HexIDE does not implement yet");
                 return Vb6Value.Variant;
             }
 
