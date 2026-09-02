@@ -143,9 +143,13 @@ translation: raise VB6's error number at run time instead of before it.
   declaration in another module without running either. The clearest true wall here.
 - **`Property Let`/`Set` agreeing with `Property Get`** — VB6 checks the accessors' parameter lists match.
   Relates two declarations to each other; needs neither to execute.
-- **Interface conformance** (`Implements IFoo`) — does the class supply every member of the interface?
-  Whole-type comparison, statically. The `Implements` *construct* is a deferral (see below); only this check
-  is walled.
+- **Interface conformance** (`Implements IFoo`), **as a compile-time diagnostic only** — deciding it
+  *before the program runs* needs binding. **Checking it at all does not.** Both member tables are already
+  collected by `PrePass`, so comparing them when a class is first instantiated is ordinary execution, and
+  memoising per (class, interface) pair makes it once-per-class. VB6's own COM substrate asks this question
+  at runtime via `QueryInterface`; the compile-time check is a convenience over it. So what is walled is the
+  *timing*, and `interpreter-core:40-42` already prescribes the translation. The `Implements` construct is a
+  deferral, not a wall.
 - **`LSet` between UDTs containing strings, objects or Variants** — VB6 refuses at compile time. The
   layout-compatibility judgement is static; `LSet` itself is a deferral.
 - **Default members of third-party COM types** — see Platform limits; the marker lives in a type library, not
