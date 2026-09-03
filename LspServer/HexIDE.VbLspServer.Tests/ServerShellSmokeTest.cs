@@ -31,14 +31,45 @@ public class ServerShellSmokeTest
         using var rpc = new JsonRpc(handler);
         rpc.StartListening();
 
-        // initialize — the framework aggregates capabilities from handlers and fills in ServerInfo.
+        // initialize — VbServerCapabilities declares the payload; the framework fills in ServerInfo.
         var initParams = new { processId = (int?)null, rootUri = (string?)null, capabilities = new { } };
         var init = await rpc.InvokeWithParameterObjectAsync<JsonElement>("initialize", initParams)
                             .WaitAsync(Timeout);
 
-        init.TryGetProperty("capabilities", out _).Should().BeTrue("initialize must return a capabilities object");
         init.GetProperty("serverInfo").GetProperty("name").GetString()
             .Should().Be("HexIDE VB6 Language Server");
+
+        // This used to assert only that a "capabilities" key existed — which an empty object satisfies,
+        // under a comment claiming the framework aggregated them (it does not; RegisterCapability is
+        // abstract on every handler base). A test that passes for `{}` while its comment says otherwise is
+        // how the server shipped advertising nothing at all. Assert the payload, by name and by value.
+        var caps = init.GetProperty("capabilities");
+
+        caps.GetProperty("textDocumentSync").GetProperty("openClose").GetBoolean().Should().BeTrue();
+        caps.GetProperty("textDocumentSync").GetProperty("change").GetInt32()
+            .Should().Be(1, "Full sync — the client spec requires whole-document synchronization");
+        caps.GetProperty("hoverProvider").GetBoolean().Should().BeTrue();
+        caps.GetProperty("documentSymbolProvider").GetBoolean().Should().BeTrue();
+        caps.GetProperty("foldingRangeProvider").GetBoolean().Should().BeTrue();
+        caps.GetProperty("definitionProvider").GetBoolean().Should().BeTrue();
+        caps.GetProperty("documentHighlightProvider").GetBoolean().Should().BeTrue();
+        caps.GetProperty("renameProvider").GetBoolean().Should().BeTrue();
+        caps.GetProperty("documentFormattingProvider").GetBoolean().Should().BeTrue();
+        caps.GetProperty("completionProvider").GetProperty("resolveProvider").GetBoolean()
+            .Should().BeFalse("there is no completionItem/resolve handler");
+        caps.GetProperty("signatureHelpProvider").GetProperty("triggerCharacters")
+            .EnumerateArray().Select(t => t.GetString()).Should().BeEquivalentTo(["(", ","]);
+        caps.GetProperty("experimental").GetProperty("vbBuiltinSymbols").GetBoolean().Should().BeTrue();
+
+        // The negative half, which is the half that guards against advertising what we do not implement.
+        // Overstating invites requests nothing answers, which is the same defect pointed the other way.
+        caps.TryGetProperty("referencesProvider", out _).Should().BeFalse();
+        caps.TryGetProperty("codeActionProvider", out _).Should().BeFalse();
+        caps.TryGetProperty("documentRangeFormattingProvider", out _).Should().BeFalse();
+        caps.TryGetProperty("semanticTokensProvider", out _).Should().BeFalse();
+        caps.TryGetProperty("diagnosticProvider", out _)
+            .Should().BeFalse("this server PUSHES diagnostics; advertising pull would invite "
+                            + "textDocument/diagnostic requests nothing answers");
 
         await rpc.NotifyWithParameterObjectAsync("initialized", new { });
 
