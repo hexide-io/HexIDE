@@ -473,6 +473,101 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         }
     }
 
+    /// <summary>
+    /// Run the project's <c>Sub Main</c> — the startup object a code-only Standard EXE begins at, which is
+    /// what <c>Startup="Sub Main"</c> in the .vbp selects.
+    /// </summary>
+    ///
+    /// <remarks>
+    /// <para>
+    /// The startup lookup is NOT ordinary procedure resolution, and reusing <see cref="CallProcedure"/>
+    /// would have been wrong. Every rule here is measured
+    /// (<c>corpus/conformance/sub-main-startup.json</c>):
+    /// </para>
+    /// <list type="bullet">
+    /// <item><b>Project-wide.</b> A <c>Sub Main</c> in any standard module is found, not only the startup
+    ///   module's own — measured with Main in Module2 and nothing in Module1.</item>
+    /// <item><b>Visibility is ignored.</b> A <c>Private Sub Main</c> is a valid startup, including one in
+    ///   a module other than the primary. That is the rule that makes this different from ordinary
+    ///   resolution, which sees a foreign module's <c>Public</c> only — so a <c>Private</c> Main
+    ///   elsewhere would have been invisible and the project wrongly refused.</item>
+    /// <item><b>Exactly one.</b> Two modules declaring <c>Main</c> is "Ambiguous name detected: Main",
+    ///   even when one is <c>Private</c> and the other <c>Public</c> — which ordinary resolution would
+    ///   not treat as a clash at all.</item>
+    /// <item><b>A parameterless Sub, not a Function.</b> A <c>Function Main</c> does not qualify, and
+    ///   neither does a <c>Sub Main</c> with any parameter list — <i>including</i> one whose only
+    ///   parameter is <c>Optional</c>. Both give "Must have startup form or Sub Main()".</item>
+    /// </list>
+    /// <para>
+    /// Both errors are VB6 compile errors; here they arrive as the run begins, which is the translation
+    /// <c>interpreter-core:40-42</c> prescribes. Class modules are excluded: a class member is not a
+    /// project startup, and searching every module indiscriminately would find one.
+    /// </para>
+    /// </remarks>
+    public async Task RunStartupSubMain()
+    {
+        var declared = new List<(ModuleInfo Module, ProcedureInfo Proc)>();
+        foreach (var m in Modules.All)
+        {
+            if (m.Kind != InterpreterModuleKind.Standard) continue;
+            if (m.PrePass.Procedures.TryGetValue("Main", out var proc))
+                declared.Add((m, proc));
+        }
+
+        // Ambiguity is checked before suitability: VB6 reports two Mains as ambiguous rather than looking
+        // past an unsuitable one to find a usable partner.
+        if (declared.Count > 1)
+            throw new VBCompileErrorException("Ambiguous name detected: Main");
+
+        var startup = declared.Count == 1 && !declared[0].Proc.IsFunction
+                      && declared[0].Proc.Parameters.Count == 0
+            ? declared[0]
+            : default;
+
+        if (startup.Proc is null)
+            throw new VBCompileErrorException("Must have startup form or Sub Main()");
+
+        try
+        {
+            // Hoist EVERY standard module's module-level declarations first, the primary's included.
+            // Execute() does this for the non-primary modules and then runs the primary's top-level
+            // blocks, which doubles as its own hoist; entering through Main skips that, so without this
+            // the startup module's own `Const`/`Dim` are never initialised. Measured symptom: a module
+            // with `Private Const vbCancel = 7` printed Empty instead of 7 — a wrong value introduced by
+            // the new entry point rather than found by it.
+            //
+            // These are declarations, not statements: VB6 refuses an executable statement outside a
+            // procedure ("Invalid outside procedure", measured), so nothing here can have an effect
+            // beyond seeding values.
+            foreach (var m in Modules.All)
+                if (m.Kind == InterpreterModuleKind.Standard)
+                    foreach (var block in m.PrePass.topLevelBlocks)
+                        await new StatementExecutor(this, m.ModuleEnv, m).Execute(block);
+
+            await RunProcedure(startup.Module, startup.Proc, Array.Empty<CallArg>());
+        }
+        catch (Debugging.StopExecutionSignal)
+        {
+            // A debugger reset (Stop) unwound the walk cleanly — swallowed exactly as Execute() does.
+        }
+    }
+
+    /// <summary>True if this project has a usable <c>Sub Main</c> startup object — the same rules as
+    /// <see cref="RunStartupSubMain"/>, without running or throwing. For the IDE, which must offer
+    /// <c>Sub Main</c> in the Startup Object list only when one is actually available.</summary>
+    public bool HasStartupSubMain()
+    {
+        ProcedureInfo? only = null;
+        foreach (var m in Modules.All)
+        {
+            if (m.Kind != InterpreterModuleKind.Standard) continue;
+            if (!m.PrePass.Procedures.TryGetValue("Main", out var proc)) continue;
+            if (only is not null) return false;   // ambiguous is not usable
+            only = proc;
+        }
+        return only is { IsFunction: false } && only.Parameters.Count == 0;
+    }
+
     // Preserved entry point for event handlers / VBTimer / VBWindowContext (they pass positional by-value
     // args or none). Enters at the primary (form) module's scope. Delegates to CallProcedure; return discarded.
     public async Task ExecuteSub(string name, List<Vb6Value>? args = null, bool ignoreMissing = false)
