@@ -15,6 +15,11 @@ public sealed class VBLspClient : ILspClient
     private readonly object _reconnectGate = new();
     private JsonRpc? _rpc;
     private volatile bool _initialized;
+
+    // What the connected server said it supports, or null when nothing is connected or the reply could not
+    // be read. Cleared alongside _initialized: a capability set surviving a reconnect would describe the
+    // previous server, and the whole point of the seam is that the next one may be a different product.
+    private volatile ServerCapabilities? _capabilities;
     private volatile bool _stopping;
     private Task _reconnectTask = Task.CompletedTask;   // the running reconnect loop (or completed)
     private CancellationTokenSource? _reconnectCts;
@@ -90,6 +95,7 @@ public sealed class VBLspClient : ILspClient
     private void OnRpcDisconnected(object? sender, JsonRpcDisconnectedEventArgs e)
     {
         _initialized = false;
+        _capabilities = null;
         if (_stopping) return;
         _logger.LogWarning("VB LSP connection lost: {Reason} ({Description})", e.Reason, e.Description);
         if (!_transport.CanReconnect) return;
@@ -167,17 +173,54 @@ public sealed class VBLspClient : ILspClient
                     PublishDiagnostics: new PublishDiagnosticsClientCapabilities(),
                     Hover: new HoverClientCapabilities(ContentFormat: ["plaintext"]))));
 
+        // Deliberately received as a raw JsonElement, and interpreted separately below.
+        //
+        // These are two different failures and they must not share a catch. "The server did not complete
+        // the handshake" is fatal — there is nothing to talk to. "We could not model the reply it sent" is
+        // not: the server answered, the connection is good, and the worst honest outcome is that we know
+        // less than we might about what it supports. Sharing one catch is what made a single unexpected
+        // capability shape disable every language feature including diagnostics (#238).
+        System.Text.Json.JsonElement raw;
         try
         {
-            await _rpc.InvokeWithParameterObjectAsync<InitializeResult>(
+            raw = await _rpc.InvokeWithParameterObjectAsync<System.Text.Json.JsonElement>(
                 "initialize", initParams, cancellationToken);
             await _rpc.NotifyWithParameterObjectAsync("initialized", EmptyParams.Instance);
-            _initialized = true;
-            _logger.LogInformation("VB6 LSP server initialized");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to initialize VB6 LSP server");
+            return;
+        }
+
+        _capabilities = ReadCapabilities(raw);
+        _initialized = true;
+        _logger.LogInformation("VB6 LSP server initialized");
+    }
+
+    /// <summary>
+    /// Reads the advertised capabilities out of an initialize reply, or null if they cannot be read.
+    /// Never throws: an uninterpretable reply costs knowledge, not the connection.
+    /// </summary>
+    private ServerCapabilities? ReadCapabilities(System.Text.Json.JsonElement raw)
+    {
+        try
+        {
+            if (raw.ValueKind != System.Text.Json.JsonValueKind.Object
+                || !raw.TryGetProperty("capabilities", out var caps))
+            {
+                _logger.LogWarning("Initialize reply carried no capabilities object.");
+                return null;
+            }
+
+            return caps.Deserialize(LspJsonContext.Default.ServerCapabilities);
+        }
+        catch (Exception ex)
+        {
+            // Worth a warning rather than silence: it means a server is advertising something in a shape
+            // this client cannot read, which is a gap in the model rather than a fault of the server's.
+            _logger.LogWarning(ex, "Could not read the server's advertised capabilities; continuing without them.");
+            return null;
         }
     }
 
@@ -398,11 +441,16 @@ public sealed class VBLspClient : ILspClient
         _transport.Closed -= OnTransportClosed;
         await _transport.DisposeAsync();
         _initialized = false;
+        _capabilities = null;
     }
 
     public async ValueTask DisposeAsync() => await StopAsync();
 
-    private void OnTransportClosed(object? sender, EventArgs e) => _initialized = false;
+    private void OnTransportClosed(object? sender, EventArgs e)
+    {
+        _initialized = false;
+        _capabilities = null;
+    }
 
     internal void RaisePublishDiagnostics(PublishDiagnosticsParams p) =>
         DiagnosticsPublished?.Invoke(this, p);
