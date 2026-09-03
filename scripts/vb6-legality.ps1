@@ -175,7 +175,34 @@ $guestDir = 'C:\hexide-legality'
 $notCapturable = [System.Collections.Generic.List[object]]::new()
 
 if ($CaptureOutput) {
+    # One JSON object per line, NOT tab-separated. This is not fastidiousness: the values under
+    # measurement include vbTab, vbCr, vbLf and vbNullChar, and a TSV record cannot carry them —
+    # a tab in the value is indistinguishable from the separator and a CrLf splits one record into
+    # two lines. That defect has already invalidated a batch once (vbTab came back as an empty
+    # string, and because the ROW COUNT was unchanged nothing looked wrong). Escaping every
+    # control character and every non-ASCII code point also keeps out.txt pure ASCII, which is what
+    # the rest of this harness assumes.
     $helper = @"
+
+Private Function HXJ(ByVal hxT As String) As String
+    Dim hxI As Long, hxC As String, hxN As Long, hxO As String
+    hxO = """"
+    For hxI = 1 To Len(hxT)
+        hxC = Mid`$(hxT, hxI, 1)
+        hxN = AscW(hxC)
+        If hxN < 0 Then hxN = hxN + 65536
+        If hxC = """" Then
+            hxO = hxO & "\" & """"
+        ElseIf hxC = "\" Then
+            hxO = hxO & "\\"
+        ElseIf hxN < 32 Or hxN > 126 Then
+            hxO = hxO & "\u" & Right`$("000" & Hex`$(hxN), 4)
+        Else
+            hxO = hxO & hxC
+        End If
+    Next hxI
+    HXJ = hxO & """"
+End Function
 
 Public Sub HXP(ByVal hxV As Variant)
     Dim hxF As Integer
@@ -191,7 +218,7 @@ Public Sub HXP(ByVal hxV As Variant)
     End If
     hxF = FreeFile
     Open "$guestDir\out.txt" For Append As #hxF
-    Print #hxF, TypeName(hxV) & Chr`$(9) & hxS
+    Print #hxF, "{""type"":" & HXJ(TypeName(hxV)) & ",""value"":" & HXJ(hxS) & "}"
     Close #hxF
 End Sub
 "@

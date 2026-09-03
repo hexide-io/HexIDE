@@ -158,6 +158,14 @@ Ladder (widest wins): **Byte < Integer < Long < Single < Double < Currency < Dec
 behave as Integer. `Byte` and `Boolean` promote to Integer *only when the other operand forces it* — `Byte+Byte`
 stays `Byte`. A result outside the result-type's range is `Err 6` — there is no overflow auto-promotion.
 
+> **⚠️ The "ladder" framing is OVERTURNED — see *Numeric type pairs* (2026-09-03) at the end of this file.**
+> The individual rows below are all correct and were re-confirmed by the full 49-pair sweep. The
+> generalisation drawn from them is not: `+` and `-` share this table, but **`*` differs from it in four
+> cells, `/` is a third table, `\`/`Mod` a fourth, and `^` a fifth.** `Long + Single` is also `Double`, not
+> Single, which no row here happened to cover. Two exceptions to the "no auto-promotion" sentence were also
+> found: `Byte * Byte` wraps mod 256 silently, and unary minus of a type's minimum returns the minimum.
+> Read that section before implementing from this one.
+
 > **That last sentence is about DECLARED types only.** Every row below was measured through declared
 > variables, and the qualifier turns out to be load-bearing: with **Variant** operands the same expressions
 > do not raise at all, they widen (Integer → Long → Double). See *Variant arithmetic promotes on overflow*
@@ -2601,6 +2609,226 @@ The lesson is not "check the harness" but something narrower: **a harness that m
 program can only be trusted for questions that do not touch the synthesised part.** Every one of these
 three questions was about `Sub Main`, which is precisely what the harness was inventing.
 
+## What a `.vbp` tolerates, and the one key for a non-code file (2026-09-04)
+
+54 compiles against real `vb6.exe`, asking what a project file may contain beyond the keys HexIDE writes.
+The question came from wanting a VB6 project to be able to carry a Markdown, HTML or CSS file so the IDE
+can offer language services for it.
+
+### `RelatedDoc=` — VB6 already has a blessed key for exactly this
+
+This is the finding. VB6 has a first-class **Related Documents** concept, and `VB6.EXE` carries both
+`RelatedDoc` and `Related Documents` as string literals alongside `ExeName32` — and the IDE exposes it
+directly as an **"Add As Related Document"** checkbox on the Add File dialog (see below).
+
+| written | VB6 |
+|---|---|
+| `RelatedDoc=notes.md` | **legal** |
+| three `RelatedDoc=` lines — `.md`, `.html`, `.css` | **legal** — extension-agnostic and repeatable |
+| `RelatedDoc=docs\README.md` | **legal** — subfolders fine |
+| `RelatedDoc=my notes.md` | **legal** — spaces fine, unquoted |
+| `RelatedDoc="notes.md"` | **illegal** — `Path/File access error: '…\notes.md"'`; the quote is taken literally |
+| `RelatedDoc=nosuch.md` | **illegal** — `File not found`. The compiler opens it at build time |
+| `RelatedDoc=docs` (a directory) | **illegal** — `Path/File access error` |
+| `RelatedDoc=` (empty) | **illegal** — `The project file '…' is corrupt, and can't be loaded.` |
+
+The value is a **bare relative path**. It is a real build-time dependency, not an inert annotation.
+
+### Everything else in the item block is rejected
+
+An unknown key before the first section header is refused outright — `The project file '…' contains
+invalid key 'Markdown'.` — and refused *before* any path lookup, so a missing target reports the same
+error as a present one. `Document=`, an invented key with a VB6-ish shape, is rejected identically.
+
+### The real parsing rule, and what it overturned
+
+Two custom `[Section]`s at the end are legal while a custom section *before* the standard keys is not,
+which reads like "sections at the end are fine". It is not the rule, and the cases that establish it also
+differed in blank-line placement — a confound that nearly recorded the wrong one.
+
+> **Key parsing ends at the first line beginning with `[`. Everything from there to EOF is ignored** —
+> including *standard* keys.
+
+A second `ExeName32="tail.exe"` after a header still produces `verify.exe`; a `Module=` after a header is
+dropped, and the build then fails with `Must have startup form or Sub Main()`. Three further rules fell
+out of the same sweep:
+
+- **Blank and whitespace-only lines are skipped, not terminators** — including between standard keys. An
+  unknown key after a blank line with no section header is still `invalid key`.
+- **There is no comment syntax.** `; a comment` among the keys gives
+  `contains invalid key '; a comment⏎Startup'` — the key-name scan runs on to the next `=`, swallowing the
+  following line whole.
+- **The ignored tail is still shape-checked.** A line with no `=`, or an empty key (`=orphan`), inside a
+  trailing section gives `The project file '…' is corrupt, and can't be loaded.` Tail *values* are not
+  path-resolved, so a nonexistent file named there builds fine.
+
+### An unterminated item line crashes the compiler
+
+> **An item line — `Module=`, `RelatedDoc=` — as the file's last line with no trailing CRLF kills
+> `vb6.exe` with `0xC0000005` and writes nothing to the `/out` log.** Adding the terminator makes the
+> byte-identical file legal.
+
+It is specific to item lines: a final unterminated `Reference=` or `Name=` is fine. **Always end a written
+`.vbp` with CRLF.** A missing one is not a diagnosable failure — it is a silent process kill with an empty
+error log, which is the worst shape a serializer bug can take.
+
+This also overturned a first reading of the same evidence. Three cases exiting `0xC0000005` looked like a
+key-**ordering** rule (`Module=` must precede `Startup=`); further cases showed ordering is irrelevant and
+the terminator is everything.
+
+`ProjectSerializer` is not exposed today — every known line goes through `WriteLine`, and the last is
+always `Name=`, which is safe unterminated regardless. But that is ordering luck rather than intent: move
+an item line last, or append after `ExtensionTail`, and the crash arrives silently.
+
+### The IDE offers both, on a checkbox — and the wrong one does not build
+
+`RelatedDoc=` is not an obscure key recoverable only by probing: VB6's **Add File** dialog carries a
+checkbox, **"Add As Related Document"**, and it is the switch between the two representations. Observed in
+the shipped IDE.
+
+**Unchecked**, the file is added as a *standard module with a synthetic positional name*:
+
+```
+Module=Module1; Module1.bas
+Module=Module2; Test.md
+```
+
+`Module2` is not derived from `Test.md` — it is the next free `ModuleN`, so the IDE is running its
+ordinary add-a-module path pointed at a different file. The extension buys nothing: that line naming a
+`.md` whose content is prose fails with
+`Compile Error in File '…\notes.md', Line 0 : Expected: If or Else or ElseIf or End or EndIf or Const`,
+while the same line naming a `.md` that happens to hold a valid `.bas` body **builds**. VB6 never looks at
+the extension; it compiles whatever the line points to.
+
+So VB6 does have the right answer, and hands the user a project that cannot be compiled if they miss one
+checkbox. **Corrects an earlier reading of the same evidence in this file**, which said the shipped
+gesture simply produced a broken project — true only of the unchecked path.
+
+Consequences for HexIDE: **read both forms**, since a user can produce either today; **write
+`RelatedDoc=`**, because the other propagates the broken one; and if an equivalent affordance is offered,
+do not repeat a default that silently produces an unbuildable project.
+
+**The checkbox defaults OFF and is not sticky** — so the default path, every time, is the one that
+produces a project that will not build, and a user has to know to tick a box they have no reason to notice.
+That makes the case against reproducing the choice: HexIDE should always write `RelatedDoc=`.
+
+### What the IDE does with one
+
+Observed in the shipped IDE, and the two facts that decide how HexIDE should present these:
+
+- **A `RelatedDoc=` entry appears under its own "Related Documents" node** in the Project Explorer — a
+  grouping distinct from Forms and Modules rather than a file mixed in among them.
+- **Double-clicking one launches it externally**, through the shell — or raises Windows' *Open With* for
+  an extension the machine does not recognise.
+
+The second is the more consequential. **VB6's own answer to a related document is "not mine to edit"**; it
+hands the file to the OS. So an IDE that opened a `.md` in its own editor and offered language services
+for it would be *exceeding* VB6, not reproducing it — worth stating plainly, because the fidelity
+principle distinguishes reproducing intended behaviour from reproducing defects, and this is neither. It
+is a deliberate VB6 limitation, and going past it is a product decision rather than a fidelity question.
+
+The first is a happy convergence: a dedicated grouping node is simultaneously what VB6 did and what a
+modern IDE does for files that belong to a project without being code.
+
+### Absolute paths are legal, and the IDE normalises away the ones it can
+
+Observed in the shipped IDE, which is the only place this is visible — the compiler's tolerance says
+nothing about what gets written. The rule is a single sentence:
+
+> **VB6 writes a relative path whenever one is expressible, and an absolute path only when it is not.**
+
+| file added | written as |
+|---|---|
+| on a **different drive** — `D:\setup.tdf` | **absolute**, and it survives save |
+| **same drive, outside the project cone** — `C:\Windows\WindowsUpdate.log` from a project in `C:\…\Temp` | **relative** — `..\Windows\WindowsUpdate.log` |
+
+```
+RelatedDoc=Test.md
+RelatedDoc=D:\setup.tdf
+RelatedDoc=..\Windows\WindowsUpdate.log
+```
+
+`RelatedDoc=` follows the same rule as the item lines; there is not a second policy for it.
+
+**The compiler accepts far more than the IDE writes**, and normalises none of it — 21 further compiles:
+
+| written | vb6.exe |
+|---|---|
+| absolute `Module=`, `Form=`, `RelatedDoc=` | **legal**, all three |
+| forward slashes — `C:/dir/Mod.bas` | **legal** |
+| embedded spaces — `C:\some dir\Mod.bas` | **legal**, unquoted |
+| UNC — `\\localhost\C$\dir\Mod.bas` | **legal** (loopback admin share; a syntax pass, not a remote test) |
+| one relative member and one absolute in the same project | **legal** |
+| **any path in quotes** | **illegal** — see below |
+
+The load-bearing case put the **only** `Sub Main` in an absolute-path module with no other member, so the
+build succeeding proves VB6 followed the path rather than falling back to the project directory.
+
+**Never quote a path, in any key.** All three keys fail, by two different mechanisms — which is why this
+reads as one rule rather than a quirk of one key. `Module=` **keeps** the leading quote, so the value stops
+looking rooted and VB6 prepends the project directory
+(`Path/File access error: 'C:\proj\"C:\dir\Mod.bas"'`); `Form=` **drops** the leading quote, stays
+absolute, and keeps the trailing one. `RelatedDoc=` was already measured to fail the same way.
+
+The error vocabulary is consistent across item lines and `RelatedDoc=`, and distinguishes three failures:
+**`File not found`** — the file is absent but its directory exists; **`Path not found`** — the directory or
+the drive letter is absent; **`Path/File access error`** — the target exists as text but cannot be opened
+(a directory, or a name mangled by quotes).
+
+**Nothing is normalised by the compiler.** Across all 76 cases in this investigation, `/make` left the
+`.vbp` byte-identical. So the relativisation above belongs to `File → Save Project`, not to the format —
+and both shapes therefore occur in real-world `.vbp` files regardless of which one VB6's IDE prefers.
+
+**And the IDE actively re-normalises.** A `.vbp` hand-edited to make a same-drive path absolute **opens
+fine** — so absolute is accepted on load — but the IDE **writes it back as relative on save**. The path is
+treated as derived, not as user content.
+
+That is a direct conflict with HexIDE's own serialization contract, and worth deciding rather than
+falling into. `serialization-outcomes.md` says give back what came in; here VB6 itself does not. Preserving
+a hand-authored absolute same-drive path verbatim is faithful to the *file* and divergent from *VB6*;
+normalising it matches VB6 and means HexIDE modified a file it was asked to round-trip. Recorded here
+without settling it, because the argument runs both ways and the measurement does not decide it.
+
+Two consequences elsewhere. The `project-explorer` spec requires an out-of-cone member to show "its
+**relative** location" in its caption — but a different-drive member has no relative location, which is
+exactly why VB6 wrote it absolute, so that requirement assumes something untrue for one of the two shapes.
+And the path-leak defect recorded as #149 is wider than "traversal depth": a cross-volume reference
+publishes a **full absolute path**, not merely how far up the tree a developer's project sat.
+
+### The harness has now invalidated itself three times, and that is the finding
+
+Worth stating as a rule, because it has cost more wrong answers today than the compiler has produced
+surprises:
+
+1. **`needsMain` scanned only the primary module**, so a case whose `Sub Main` lived in Module2 got a
+   second one appended and came back "illegal — ambiguous". Then the fix appeared not to work because the
+   same decision was derived twice, once more inside the behaviour-capture path.
+2. **A tab-separated transport** ate the values of `VBA.Constants`, whose members *are* tabs and newlines,
+   and reported `vbTab` as the empty string — with identical row counts and every numeric constant intact.
+3. **A lost backslash in a cleanup line** — `Get-ChildItem 'C:'` lists the runspace's current directory on
+   drive C:, not the root — so `verify.exe` survived between cases and every case inherited the previous
+   one's build. All sixteen reported legal.
+
+Each was silent, each produced a plausible-looking result, and none would have been caught by reading the
+output. The mitigation that worked is cheap and should be standard: **put a known-illegal case second in
+every batch and require it to fail.** A run where the guard passes is a run that measured nothing. The
+general form: a harness that must synthesise or clean up part of the experiment can only be trusted for
+questions that do not touch the synthesised part — and the way to find out is to ask it a question whose
+answer you already know.
+
+### What this could not determine
+
+The harness compiles; it never opens the VB6 IDE. So nothing here says whether the IDE **preserves** a
+trailing custom section or a `RelatedDoc=` line **on save**, or whether it reorders them. `/make` left all
+54 `.vbp` files byte-identical, but that is the compiler's load path and not `File → Save Project`. Also
+unmeasured: whether `RelatedDoc=` behaves the same outside `Type=Exe`, and whether such files are locked
+or copied rather than merely opened.
+
+On paths specifically: the UNC pass used the loopback admin share, so a genuinely remote server — redirector
+round-trip, credential prompt, slow I/O — is untested, as are a mapped network drive letter, paths beyond
+`MAX_PATH`, 8.3 short names, and drive-letter case. And whether the IDE displays or round-trips a UNC path,
+or rewrites it to a mapped letter, is unknown.
+
 ## Extending the oracle (future phases)
 
 Phase 3 (intrinsics) and beyond should verify, at minimum:
@@ -2875,3 +3103,356 @@ essentially every real menu. Recorded against #22.
 the scope, because a fixture only exercises what its author thought to include. The corpus gate found the
 second cause on its first run. Prefer running the corpus over reasoning from a minimal repro when the
 question is *how much* rather than *why*.
+
+## Unsuffixed float literals, and comparing Double with Single (2026-09-03)
+
+Two measurements, recorded together because the second was found while confirming the first. Harness:
+`scripts/vb6-legality.ps1 -CaptureOutput`, four batches (33/19/13/9 cases), **two** known-illegal guard cases
+per batch — one placed second, one last — with all four batches reporting exactly `illegal 2`.
+
+### An unsuffixed floating-point literal is a Double. Unconditionally.
+
+The oracle had **no row for this at all**: every float-typed row above uses a *suffixed* literal (`1.5#`,
+`42!`), so the unsuffixed case had never been measured. HexIDE assumed Double on the strength of a source
+comment (`ExpressionExecutor.cs:333`). The assumption is correct — this row makes it a measurement.
+
+| probe | type |
+|---|---|
+| `TypeName(1.5)` / `TypeName(0.1)` / `TypeName(100.0)` | Double |
+| `TypeName(.5)` — leading-dot form | Double |
+| `TypeName(1E10)` — exponent, no decimal point | Double |
+| `TypeName(1.5E10)` / `TypeName(1E-5)` | Double |
+| `TypeName(3.402823E38)` — exactly Single's maximum | Double |
+| `TypeName(1.7E308)` / `TypeName(1E39)` | Double — and both **compile**, which they could not if the literal were Single |
+| `TypeName(-1.5)` | Double |
+| `TypeName(1.5 + 1.5)` / `TypeName(1.5 / 2)` | Double |
+| `Dim v: v = 1.5: TypeName(v)` | Double |
+| `TypeName(1.5!)` / `TypeName(1.5#)` — positive controls | Single / Double |
+
+It does not depend on magnitude, on the presence of a decimal point, on significant-digit count (18 digits is
+still Double, silently truncated to Double precision), on unary minus, or on assignment into a Variant.
+
+**Why the type name alone was not trusted.** `TypeName` cannot distinguish *parsed as Double* from *parsed as
+Single, then widened*, so three independent probes ran alongside it:
+
+| probe | result | what it proves |
+|---|---|---|
+| `Debug.Print 1.2345678901234 * 1` | `1.2345678901234` | 14 significant digits survive; a Single would have collapsed to ~7 |
+| `Debug.Print 0.1 + 0.2 = 0.3` | **False** | the Double answer — Single rounding would have hidden the discrepancy |
+| bare `Debug.Print 1.5` through a `ByVal Variant` helper | type `Double` | agrees without the program ever naming `TypeName`, and correctly reports `Single` for `1.5!` |
+
+The legality row is the cleanest of the four, because it does not depend on `TypeName` at all: `1.7E308` and
+`1E39` are compile-time overflows if the literal is a Single, and they compile.
+
+### Comparing a Double with a Single happens at SINGLE precision
+
+Found while confirming the above: `0.1 = CSng(0.1)` returns **True**, where a Double reading demands False.
+That is not a defect in literal typing, and it is not a tolerance — it is a separate rule.
+
+> **A `Double`-vs-`Single` comparison rounds the Double operand to Single first, then compares exactly.**
+> `d = s` behaves as `CSng(d) = s`.
+
+Exact rounding, not a tolerance, and one row settles which:
+
+| probe | result |
+|---|---|
+| `Dim d As Double, s As Single: d = 0.1: s = 0.1: (d = s)` | True |
+| `d = 0.100000006: s = 0.1: (d = s)` | **False** — the operands are only `4.5E-09` apart, inside a Single ulp at that magnitude |
+| `CDbl(CSng(0.1))` | `0.100000001490116` |
+| `CDbl(CSng(0.100000006))` | `0.100000008940697` — a *different* Single, which is exactly why the row above is False |
+| `(0.1 = 0.1!)` — no conversion function anywhere in the expression | True |
+| `(d = CDbl(s))` — an explicit `CDbl` on the Single operand | **False** — widening it by hand defeats the rule |
+
+Measured scope rather than assumed: it holds for `=`, `<`, `>`, `>=` and `<>`, in both operand orders, for
+literals and for declared variables alike, and on the **Variant** path — which is the shape HexIDE's
+interpreter actually evaluates. It is *not* a general "compare at the narrower type" rule: `Double` vs
+`Integer` and `Double` vs `Long` compare as expected (`1.4 = 1` is False).
+
+**The asymmetry is the part worth remembering.** Arithmetic does the opposite:
+`TypeName(0.1 - CSng(0.1))` is **Double** and retains the full `-1.49011611383365E-09` — folded and at run
+time identically. **VB6 widens for arithmetic and narrows for comparison.**
+
+**Recorded as resisting explanation.** No mechanism is offered here for that asymmetry, only a model that fits
+all 20 relevant rows. Per this file's standing rule it is written down as measured rather than tidied into a
+plausible rule — an honest "measured, no rule I would defend" beats a laundered generalisation, which has
+already cost this project one silent bug.
+
+Constant folding is **exonerated rather than implicated**: the folded and run-time forms agree to the digit,
+and the effect reproduces with no conversion function present in the expression at all.
+
+### Double vs Currency is the ladder, not a second anomaly
+
+`TypeName(0.100001 - CCur(0.1))` is **Currency**, and `Double`-vs-`Currency` comparison likewise happens at
+Currency's 4-decimal scale (`0.10001 = CCur(0.1)` True, `0.1001 = CCur(0.1)` False). This is **not** a second
+anomaly — it is precisely the ladder already recorded under *Arithmetic result types* above, in which Currency
+and Decimal sit **above** Double. Comparison simply follows the coercion.
+
+It is recorded next to the Single case only to keep the two apart: with Currency, arithmetic and comparison
+agree with each other. With Single, they do not.
+
+### Consequences for the interpreter
+
+`ExpressionExecutor.GetTwoValuesSameTypesOrNull` uses **one** widening ladder for both arithmetic and
+comparison, and its `NumericRank` ladder is `Byte < Integer < Long < Single < Currency < Decimal < Double`.
+Two divergences follow, both in the wrong-value class:
+
+- **Comparison never narrows.** `0.1 = CSng(0.1)` is True in VB6 and False in HexIDE.
+- **`NumericRank` contradicts the ladder recorded in this very file.** The measured ladder puts Currency and
+  Decimal *above* Double; the code puts Double at the top. So `Double + Currency` yields Currency in VB6 and
+  Double in HexIDE, and likewise for Decimal.
+
+The second is the more uncomfortable of the two: it was never an unmeasured assumption. The correct ladder has
+been sitting in *Arithmetic result types* since the first oracle pass, and the code simply does not implement
+it. A measured fact that no test asserts is only marginally better than an unmeasured one.
+
+## Numeric type pairs — five arithmetic tables, and comparison is a sixth (2026-09-03)
+
+The single largest measurement in this file, and it **overturns the premise every earlier numeric entry was
+written under.** *Arithmetic result types* above records "Ladder (widest wins)", and that framing is wrong:
+there is no one ladder. `+` and `-` share a table, `*` differs from it in four cells, `/` is a third table,
+`\`/`Mod` a fourth, `^` a fifth — and comparison is a sixth that is not a ladder at all. The rows above are
+individually correct; the generalisation drawn from them was not.
+
+**Method.** `scripts/vb6-legality.ps1 -CaptureOutput` against real `vb6.exe`. Ten batches, **2066 records**,
+all seven operators × all 49 ordered pairs over `{Byte, Integer, Long, Single, Double, Currency, Decimal}`,
+using real typed variables (`By=6 In=7 Lo=8 Sg=9 Db=10 Cu=11 De=CDec(12)`) so no literal-typing rule
+interferes. Every batch carried a known-illegal guard in **position 2** and another **last**; all twenty
+guards failed to compile, every case's output was distinct by hash, and record counts matched emitted probe
+counts exactly. Six batches also carried a positive control (`CSng`/`CDbl`/`CInt`/`CLng`/`CCur`/`CDec`/`CByte`
+→ their own type), correct in all six.
+
+*Transport note:* this was the first run on the JSON-per-line capture format. All 2066 records parsed, **0
+failures**, with tab, embedded quote, backslash, CR, LF and NUL all surviving intact and each still one line.
+
+### `+` and `-` — identical tables
+
+| L\R | Byte | Integer | Long | Single | Double | Currency | Decimal |
+|---|---|---|---|---|---|---|---|
+| **Byte** | Byte | Integer | Long | Single | Double | Currency | Decimal |
+| **Integer** | Integer | Integer | Long | Single | Double | Currency | Decimal |
+| **Long** | Long | Long | Long | **Double** | Double | Currency | Decimal |
+| **Single** | Single | Single | **Double** | Single | Double | Currency | Decimal |
+| **Double** | Double | Double | Double | Double | Double | **Currency** | Decimal |
+| **Currency** | Currency | Currency | Currency | **Currency** | **Currency** | Currency | Decimal |
+| **Decimal** | Decimal | Decimal | Decimal | Decimal | Decimal | Decimal | Decimal |
+
+**`Long` + `Single` is `Double`.** Long's 31 bits exceed Single's 24-bit mantissa, and VB6 refuses to lose
+them. This is a *result*, not a coercion nicety: `Lo 16777217 + Sg 0` → `Double 16777217`, where a Single
+result would give 16777216.
+
+### `*` — **not** the same table as `+`
+
+| L\R | Byte | Integer | Long | Single | Double | Currency | Decimal |
+|---|---|---|---|---|---|---|---|
+| **Byte** | Byte | Integer | Long | Single | Double | Currency | Decimal |
+| **Integer** | Integer | Integer | Long | Single | Double | Currency | Decimal |
+| **Long** | Long | Long | Long | **Double** | Double | Currency | Decimal |
+| **Single** | Single | Single | **Double** | Single | Double | **Double** | Decimal |
+| **Double** | Double | Double | Double | Double | Double | **Double** | Decimal |
+| **Currency** | Currency | Currency | Currency | **Double** | **Double** | Currency | Decimal |
+| **Decimal** | Decimal | Decimal | Decimal | Decimal | Decimal | Decimal | Decimal |
+
+Four cells differ from `+`: **`Currency × Single` and `Currency × Double` are `Double`**, where
+`Currency + Single` and `Currency + Double` are `Currency`. Re-measured at magnitudes 2 and 3 to rule out
+overflow avoidance — it reproduces at any size. Proof the types really are what they say:
+
+```
+Cu 1@ + Db 1E30   ->  Err 6          (overflows, because the result type IS Currency)
+Cu 1@ * Db 1E30   ->  Double 1E+30   (does not, because it IS Double)
+```
+
+So **Currency's rank is operator-dependent**: above Double for `+`/`-`, below Single and Double for `*`.
+
+### `/` — a third table
+
+| L\R | Byte | Integer | Long | Single | Double | Currency | Decimal |
+|---|---|---|---|---|---|---|---|
+| **Byte** | Double | Double | Double | **Single** | Double | Double | Decimal |
+| **Integer** | Double | Double | Double | **Single** | Double | Double | Decimal |
+| **Long** | Double | Double | Double | Double | Double | Double | Decimal |
+| **Single** | **Single** | **Single** | Double | **Single** | Double | Double | Decimal |
+| **Double** | Double | Double | Double | Double | Double | Double | Decimal |
+| **Currency** | Double | Double | Double | Double | Double | Double | Decimal |
+| **Decimal** | Decimal | Decimal | Decimal | Decimal | Decimal | Decimal | Decimal |
+
+`/` **never yields Currency** — even `Currency / Currency` is Double. It yields Decimal whenever either
+operand is Decimal; Single only when every operand is Byte/Integer/Single and at least one is Single;
+Double otherwise. Note the shape is the *opposite* of the obvious guess: `Single / Single` is **Single**
+while `Byte / Byte` is **Double**.
+
+### `\` and `Mod` — identical tables
+
+`Byte \ Byte` → **Byte**. Any pair drawn from `{Byte, Integer}` → **Integer**. **Everything else → Long**,
+including `Decimal \ Decimal`, `Currency Mod Currency` and `Single \ Single`.
+
+Operands are banker's-rounded first: `2.5 \ 1 = 2`, `3.5 \ 1 = 4`, `-2.5 \ 1 = -2`, `10.6 Mod 3 = 2`.
+
+### `^` — Double in all 49 cells
+
+Including `Decimal ^ Decimal`. `0# ^ -1` → **Err 5** (not 6, not 11); `1E308 ^ 2` → Err 6.
+
+### Unary minus
+
+`Byte` → **Integer**. Every other type preserves itself. (`Boolean` → Integer.)
+
+### Comparison is a per-pair table, and it NARROWS
+
+Constructed pairs equal at one candidate precision and different at the other, both operand orders, `=`,
+`<`, `>`, `<>`.
+
+| pair | probe | `=` | compared at |
+|---|---|---|---|
+| Single / Double | `16777216!` vs `16777217#` | **True** | **Single** |
+| Single / Long | `16777216!` vs `16777217&` | False | **Double** |
+| Double / Long, / Integer, / Byte | `100.5#` vs `100` | False | Double |
+| Currency / Double | `1@` vs `1.00001#` | **True** | **Currency (4 dp)** |
+| Currency / Single | `1@` vs `1.00001!` | **True** | **Currency (4 dp)** |
+| Currency / Long, / Integer, / Byte | `100.0001@` vs `100` | False | Currency |
+| Decimal / Double | `CDec("1.0000000000000000001")` vs `1#` | False | **Decimal** |
+| Decimal / Currency, / Single | — | False | Decimal |
+
+So the rule is *compare in the narrower or exact domain*, with **one escalation**: `Single`/`Long` goes to
+Double, because neither type contains the other. `Double` loses to everything except that pair.
+
+**It is exact rounding, not a tolerance.** `d = 0.100000006` and `s = 0.1` compare **False** despite being
+`4.5E-09` apart, because they round to *different* Singles (`0.100000008940697` vs `0.100000001490116`).
+
+**It is round-half-to-even, agreeing with the explicit conversion.** Using the only two values a Double holds
+exactly on a 4-dp tie:
+
+```
+Cu 0.0312 = Db 0.03125  -> True     CCur(0.03125) -> 0.0312   (312.5 -> 312)
+Cu 0.0313 = Db 0.03125  -> False
+Cu 0.0937 = Db 0.09375  -> False    CCur(0.09375) -> 0.0938   (937.5 -> 938)
+Cu 0.0938 = Db 0.09375  -> True
+```
+
+**The Single narrowing applies the exponent range too:** `sg 0 = db 1E-300` is **True** (the Double flushes to
+zero); `sg 1E-30 = db 1E-300` is False; `sg 0 < db 1E-300` is **False**.
+
+**A comparison NEVER raises.** Twenty-two out-of-range comparisons (`Byte` vs `Integer 300`, `Currency` vs
+`1E30`, `Decimal` vs `1E30`, `Single` vs `1E300`) all returned a Boolean with `Err.Number = 0`, and still
+ordered correctly. Contrast `CCur(1E30)` and `CSng(1E300)`, which both raise **Err 6**. So whatever performs
+this narrowing is not a checked conversion.
+
+`<`, `>` and `<>` agree with `=` on every pair, in both operand orders. `<=` and `>=` were **not probed**.
+
+### Overflow — typed raises, with two silent exceptions
+
+| probe | result | Err |
+|---|---|---|
+| `Integer 30000 + 30000`, `Integer 300 * 300` | — | 6 |
+| `Byte 200 + 200`, `Byte 1 - 2` | — | 6 |
+| **`Byte 20 * 20`** | **`Byte 144`** | **0** |
+| `Byte` `16*16` / `100*3` / `255*2` / `255*255` / `13*23` | `0` / `44` / `254` / `1` / `43` | 0 |
+| `Long 2e9 + 2e9`, `Long 1e5 * 1e5` | — | 6 |
+| `Single 1E30 * 1E30`, `Double 1E300 * 1E300` | — | 6 |
+| `Currency 9e14 + 9e14`, `Decimal 7.9E28 * 10` | — | 6 |
+| **`-n` where `n As Integer = -32768`** | **`Integer -32768`** | **0** |
+| **`-m` where `m As Long = LongMin`** | **`Long -2147483648`** | **0** |
+| `CInt(0) - n`, `CLng(0) - m` | — | 6 |
+| `IntMin \ -1`, `LongMin \ -1` | — | 6 |
+| `x / 0`, `x \ 0`, `x Mod 0` (Integer/Double/Currency/Decimal) | — | **11** |
+| **`0# / 0#`** | — | **6**, not 11 |
+| `1E30 \ 1`, `1E30 Mod 3` | — | 6 |
+
+**`Byte * Byte` silently wraps mod 256** while `Byte + Byte` and `Byte - Byte` raise. Every value above is the
+true product mod 256. **Unary minus of a type's minimum silently returns the minimum**, while subtracting it
+from zero raises. Both were disbelieved on first measurement and re-run in independent cases.
+
+### The Variant path is the typed path plus promotion
+
+A full 49-pair × 3-operator diff of Variant-built against typed-built tables: **0 differences in 147 cells.**
+All 12 comparison pairs agree too, in both orders and mixed Variant/typed. Overflow is the **only** divergence:
+
+| Variant probe | result | typed equivalent |
+|---|---|---|
+| `CInt(30000) + CInt(30000)` | `Long 60000` | Err 6 |
+| `CByte(200) + CByte(200)` | `Integer 400` | Err 6 |
+| **`CByte(20) * CByte(20)`** | **`Integer 400`** | **`Byte 144`** |
+| `CLng(2e9) + CLng(2e9)` | `Double 4000000000` | Err 6 |
+| `CSng(3E38) + CSng(3E38)` | `Double 6.00000001099551E+38` | Err 6 |
+| `-CInt(-32768)` | `Long 32768` | `Integer -32768` |
+| `CCur(1e9) * CCur(1e9)`, `CDec("7.9E28") * CDec(10)` | — | Err 6 — **neither promotes** |
+
+Promotion ladder: `Byte → Integer → Long → Double`, plus `Single → Double`. Currency and Decimal are terminal.
+
+### Why a wrong result type is a wrong answer
+
+```
+Cu 1@ + Db 0.00005        -> Currency 1.0001    (a Double result would be 1.00005)
+Cu 0@ + Db 0.12345        -> Currency 0.1235    (Db 0.12345 alone is Double 0.12345)
+(Cu 0@ + Db 0.12345) * 2  -> Currency 0.247     (a Double result would be 0.2469)
+Lo 16777217 + Sg 0        -> Double 16777217    (a Single result would be 16777216)
+```
+
+### Boolean and Date participate, and are not type errors
+
+`Bool+Int → Integer(6)`, `Bool+Bool → Integer(-2)`, `Bool*Int → Integer(-7)`, `Bool+Lng → Long`,
+`Bool+Dbl → Double`, `Bool+Cur → Currency`, and `bo = CInt(-1)` → **True**.
+`Date±Int → Date`, `Date+Dbl → Date`, `Date+Cur → Date`, `Date+Date → Date`, but
+**`Date-Date → Double`** and **`Date*Int → Double`**. `dt = CDbl(dt)` → True.
+
+### What resisted explanation — recorded, not tidied
+
+**(a) The Currency-vs-Double comparison narrows to 4 dp but never overflows, and no mechanism is offered.**
+A specific hypothesis was formed and **tested and falsified**: that the narrowing is a masked x87 store
+(`FMUL 10000; FISTP qword`), whose overflow would yield the "integer indefinite" pattern
+`0x8000000000000000` — which *is* Currency's minimum. That predicts `cuMin = 1E30` → True and
+`cu1 < 1E30` → False. Measured: **False and True respectively.** The prediction fails. "Round the Double to
+4 dp in the Double domain, then compare as Double" fits every measurement, but it fits without evidence and
+is *not* stated as a rule. The falsified hypothesis is kept because the next reader will form it too.
+
+**(b) Single and Currency narrow by visibly different mechanisms.** The Single side behaves exactly like an
+*unchecked* C `(float)` cast — `1E-300` flushes to zero, `1E300` neither raises nor saturates. The Currency
+side cannot be an unchecked scaled-int64 cast, because (a) rules that out. Two narrowings, two mechanisms,
+one describable and unexplained.
+
+**(c) `Byte * Byte` wraps while `Byte + Byte` and `Byte - Byte` raise.** No rule explains why multiply is the
+exception. Confirmed across seven value pairs in two independent cases. **This is the most dangerous single
+fact here**, because HexIDE raises where VB6 runs — a false rejection, the top severity class.
+
+**(d) The comparison domain for `Single` vs `Integer`/`Byte` is UNDETERMINED.** The probe separates "integer
+domain" from "float domain" but not Single from Double, and no Byte- or Integer-valued pair can distinguish
+them, because every Integer value is exact in Single. Recorded as unmeasured rather than assumed — do not
+guess it when implementing.
+
+**(e) The comparison tie rule is only resolved for dyadic values.** `0.03125` and `0.09375` are the only 4-dp
+tie values a Double holds exactly, and both show half-to-even. A non-dyadic "tie" like `1.00005` is not a tie
+in binary at all, so `Cu 1@ = Db 1.00005` → False is not evidence about the rule. Worth keeping as an oddity:
+`Cu 1@ + Sg 0.00005!` → `Currency 1` while `Cu 1@ + Db 0.00005#` → `Currency 1.0001` — the Single and Double
+representations of `0.00005` fall on opposite sides of the midpoint.
+
+### Expectations overturned, including our own
+
+Recorded because the wrong guess is what the next reader will also make:
+
+- **`*` was expected to share `+`'s table.** It does not. The measurement was re-run at a different magnitude
+  on the assumption it must be overflow avoidance. It is not.
+- **`Single / Single` was expected to be Double**, since `/` is "the floating divide". It is Single — and
+  `Byte / Byte` is Double. The rule is the opposite shape to the guess.
+- **`Decimal / anything` was expected to be Double**, on the same reasoning. It is Decimal.
+- **`Byte * Byte` was expected to raise like `Byte + Byte`.** It wraps.
+- **`-n` at `n = -32768` was expected to raise.** It returns `-32768`.
+- **The Single/Long comparison was expected to narrow to Single**, matching the Single/Double case. It
+  escalates to Double instead — so the comparison defect in the interpreter is wrong in *both* directions and
+  cannot be fixed by inverting a ladder.
+
+### Consequences for the interpreter
+
+HexIDE has **two** ladders, not one — a fact worth stating because reading only `ExpressionExecutor` suggests
+otherwise, and that misreading has already produced one incorrect issue.
+
+- **Arithmetic** uses `VbNumeric.CoreRank` (`VbNumeric.cs:26`) — `By<In<Lo<Sg<Db<Cu<De`. Its comment is
+  correct that Currency dominates Double, and correct **only for `+` and `-`**. **27 cells diverge**: `Lo±Sg`
+  and `Lo*Sg` (should be Double), `Cu*Sg` and `Cu*Db` (should be Double), all 13 Decimal cells of `/` (should
+  be Decimal), `Lo/Sg`, and `By\By` / `By Mod By` (should be Byte). Filed as #230.
+- **Comparison** uses `ExpressionExecutor.NumericRank` (`:100`) — `By<In<Lo<Sg<Cu<De<Db` — and widens where
+  VB6 narrows. **4 of 21 pairs diverge**, in both directions. Filed as #229.
+- **`Byte * Byte`** and **unary minus at a type minimum** raise where VB6 succeeds. Filed as #233, #234.
+- **`0#/0#`** reports 11 where VB6 reports 6, and **Variant Single overflow** raises where VB6 promotes. #234.
+
+The shape of the fix these measurements point to: **per-operator arithmetic tables and a separate per-pair
+comparison table, both generated from the rows above rather than from a rank function.** All 49 pairs × 7
+operators are recorded, so the tables can be written directly from measurement instead of inferred from a
+rule — which is what produced the wrong generalisation this section had to overturn.
