@@ -297,9 +297,18 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     {
         if (literalContext.literal().STRINGLITERAL() is { } stringliteral)
         {
-            var str = stringliteral.GetText().Substring(1, stringliteral.GetText().Length - 2);
-            Vb6Value val = new Vb6Value(str);
-            return val;
+            // `""` inside a literal is VB6's escape for ONE quote, and it is the only escape the language
+            // has. Stripping the delimiters without unescaping meant `"he said ""hi"""` evaluated to
+            // `he said ""hi""` — a wrong value on ordinary code, everywhere a quoted quotation appears,
+            // and there is exactly one place in the interpreter that reads a string literal so exactly one
+            // place it was wrong.
+            //
+            // Order matters: strip the delimiters FIRST, then unescape. Unescaping the raw token text
+            // would turn the empty literal `""` into a single quote — measured, `Len("")` is 0 while
+            // `Len("""")` is 1, and those two are only distinguishable once the outer pair is gone.
+            var text = stringliteral.GetText();
+            var str = text.Substring(1, text.Length - 2).Replace("\"\"", "\"");
+            return new Vb6Value(str);
         }
         if (literalContext.literal().INTEGERLITERAL() is { } integerliteral)
             return ClassifyIntegerLiteral(integerliteral.GetText());
