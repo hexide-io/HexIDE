@@ -65,8 +65,14 @@ public partial class DISetup
             .Bind<IComponentRegistry>().As(Singleton).To<ComponentRegistry>()
             // LSP
             .Bind<ILspServerLocator>().As(Singleton).To<LspServerLocator>()
-            // Transport selection: WebSocket if HEXIDE_LSP_WS_URL (env, takes precedence) or the
-            // LspWebSocketUrl setting is set; otherwise the stdio subprocess transport.
+            // Transport selection, in precedence order:
+            //   1. WebSocket, if HEXIDE_LSP_WS_URL (env, wins) or the LspWebSocketUrl setting is set
+            //   2. Named pipe, if HEXIDE_LSP_PIPE is set (with HEXIDE_LSP_PIPE_ROLE = listen|connect,
+            //      default connect — i.e. a server that is already running and owns the pipe)
+            //   3. The stdio subprocess transport
+            // The pipe transport is env-only and deliberately has no setting or Options field: it
+            // exists to point HexIDE at a foreign LSP server, which is a development activity, not a
+            // shipped feature. Give it a setting when there is a backend worth selecting in the UI.
             .Bind<ILspTransport>().As(Singleton).To(ctx =>
             {
                 ctx.Inject<ILspServerLocator>(out var locator);
@@ -74,9 +80,23 @@ public partial class DISetup
                 ctx.Inject<ISettingsService>(out var settings);
                 var wsUrl = Environment.GetEnvironmentVariable("HEXIDE_LSP_WS_URL");
                 if (string.IsNullOrWhiteSpace(wsUrl)) wsUrl = settings.LspWebSocketUrl;
-                return string.IsNullOrWhiteSpace(wsUrl)
-                    ? new StdioProcessLspTransport(locator, loggerFactory.CreateLogger<StdioProcessLspTransport>())
-                    : (ILspTransport)new WebSocketLspTransport(wsUrl, loggerFactory.CreateLogger<WebSocketLspTransport>());
+                if (!string.IsNullOrWhiteSpace(wsUrl))
+                    return new WebSocketLspTransport(wsUrl, loggerFactory.CreateLogger<WebSocketLspTransport>());
+
+                var pipeName = Environment.GetEnvironmentVariable("HEXIDE_LSP_PIPE");
+                if (!string.IsNullOrWhiteSpace(pipeName))
+                {
+                    var role = string.Equals(
+                        Environment.GetEnvironmentVariable("HEXIDE_LSP_PIPE_ROLE"), "listen",
+                        StringComparison.OrdinalIgnoreCase)
+                        ? NamedPipeRole.Listen
+                        : NamedPipeRole.Connect;
+                    return new NamedPipeLspTransport(
+                        pipeName, role, loggerFactory.CreateLogger<NamedPipeLspTransport>());
+                }
+
+                return (ILspTransport)new StdioProcessLspTransport(
+                    locator, loggerFactory.CreateLogger<StdioProcessLspTransport>());
             })
             .Bind<ILspClient>().As(Singleton).To<VBLspClient>()
             .Bind<ILoggerFactory>().As(Singleton).To(_ => LoggingSetup.LoggerFactory)
