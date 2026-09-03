@@ -52,7 +52,7 @@ public class CorpusConformanceTests
     /// <para>
     /// Grouped by CAUSE, because this corpus has already taught that lesson the expensive way — a bucket
     /// labelled LABEL turned out to be mostly one over-broad lexer token, and nine cases across three
-    /// areas collapsed into a single fix once that was seen. These sixty-two rows are twenty defects.
+    /// areas collapsed into a single fix once that was seen. These sixty-one rows are nineteen defects.
     /// The largest of them WAS one character in one character class, and it is now gone.
     /// </para>
     /// </remarks>
@@ -93,7 +93,7 @@ public class CorpusConformanceTests
         ["separator-with-declarations/hashconst-value-continued"] = "OTHER-REJECTION",
         ["whitespace-and-eol-edges/eof-mid-continuation-no-trailing-newline"] = "OTHER-REJECTION",
 
-        // ===== FALSE ACCEPTANCES (53) — the mild direction. =====
+        // ===== FALSE ACCEPTANCES (52) — the mild direction. =====
 
         // BRACKETED-IDENTIFIER-NOT-VB6 (2)
         //   `ambiguousIdentifier` has a `[name]` alternative. **VB6 has no such syntax.** Measured:
@@ -323,14 +323,6 @@ public class CorpusConformanceTests
         //   end-of-line requirement. One-token parser fix, and the sibling `macroIfBlockStmt` already
         //   models the constraint at the other end of the same construct.
         ["separator-with-declarations/hashendif-trailing-colon"] = "DIRECTIVE-NOT-LINE-SCOPED",
-
-        // ZERO-MEMBER-AGGREGATE-ACCEPTED (1) — NOT a Rem defect.
-        //   vb6.exe agrees with HexIDE that a bare `Rem` inside an Enum body is a comment and vanishes.
-        //   Its complaint is "Enum without members not allowed", which is arity, not syntax.
-        //   `enumerationStmt` uses a Kleene STAR for the member list, so an empty body is accepted. A
-        //   one-character fix, `*` -> `+`, and `typeStmt` carries the identical hole. The Rem is only the
-        //   vehicle that empties the body; any empty body reaches the same acceptance.
-        ["rem-forms/enum-member-named-rem"] = "ZERO-MEMBER-AGGREGATE-ACCEPTED",
 
         // FILENUMBER-IS-A-GENERAL-LITERAL (1) — NOT a continuation defect.
         //   A continuation can never occur inside a token, so `#1/1/ _` leaves an unterminated date

@@ -337,7 +337,7 @@ endStmt
     ;
 
 enumerationStmt
-    : (publicPrivateVisibility WS)? ENUM WS ambiguousIdentifier blockSep (enumerationStmt_Constant)* END_ENUM
+    : (publicPrivateVisibility WS)? ENUM WS ambiguousIdentifier blockSep (enumerationStmt_Constant)+ END_ENUM
     ;
 
 enumerationStmt_Constant
@@ -663,7 +663,7 @@ timeStmt
     ;
 
 typeStmt
-    : (visibility WS)? TYPE WS ambiguousIdentifier blockSep (typeStmt_Element)* END_TYPE
+    : (visibility WS)? TYPE WS ambiguousIdentifier blockSep (typeStmt_Element)+ END_TYPE
     ;
 
 typeStmt_Element
