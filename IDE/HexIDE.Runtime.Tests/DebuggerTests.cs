@@ -1,4 +1,4 @@
-using HexIDE.Runtime.Debugging;
+﻿using HexIDE.Runtime.Debugging;
 
 namespace HexIDE.Runtime.Tests;
 
@@ -301,5 +301,27 @@ public class DebuggerTests : BaseVBTestFixture
 
         dbg.Stop();
         dbg.IsSessionActive.Should().BeFalse();    // the run ended
+    }
+
+    // Regression (CI, intermittent): SuspendAtBreakAsync created the per-break TCS, invoked `Stopped`
+    // SYNCHRONOUSLY on the walk's thread, and then awaited `_breakTcs` — reading the FIELD a second time.
+    // Every resume path (Continue/Step/Stop/Reset) captures that TCS into a local and then nulls the field,
+    // so a handler that resumes from inside the event left the await dereferencing null.
+    //
+    // In the wild it needs the resume to land between the invoke and the await, which is why it surfaced on
+    // a busy multi-core CI runner and not locally. Resuming INLINE from the handler makes it deterministic:
+    // Continue() nulls the field before SuspendAtBreakAsync ever reaches the await.
+    [Fact]
+    public async Task AStoppedHandlerMayResumeInlineWithoutNullingTheBreakGate()
+    {
+        var (vb, dbg) = NewDebuggable("Debug.Print 1\nDebug.Print 2\n", "M");
+        dbg.SetBreakpoints("M", new[] { 1 });
+        dbg.Stopped += _ => dbg.Continue();
+
+        await vb.Execute();
+
+        // The point is that this completes at all rather than throwing NullReferenceException; the values
+        // confirm the walk actually resumed instead of being abandoned mid-break.
+        AssertDebugLog([1, 2]);
     }
 }
