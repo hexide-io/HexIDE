@@ -220,8 +220,19 @@ public class InBoxConstantTests : BaseVBTestFixture
         containers.Count(c => !c.IsEnum).Should().Be(2, "and 2 constant modules");
         containers.Sum(c => c.Members.Count).Should().Be(728, "for 728 constants in total");
 
-        VB6InBoxLibraries.LibraryOrder.Should().Equal(["VBA", "VBRUN", "stdole", "VB"],
-            "bare resolution is first-wins in this order, which is what makes vbCancel answer VBA's 2");
+        // VB6's own reference order. VBA, VBRUN and VB are implicit, irremovable and fixed in that
+        // sequence — they never appear as Reference= lines in a .vbp — while stdole is an ordinary listed
+        // reference that may be removed or reordered but never placed ahead of the fixed three, so it is
+        // always last of the four.
+        //
+        // This was WRONG on the first pass: the generator hand-wrote VBA, VBRUN, stdole, VB and this test
+        // then asserted it as though it had been measured. Nothing observable changed — VB declares no
+        // constants and stdole shares no name with the others, so only the VBA-before-VBRUN step has a
+        // consequence today. Asserted correctly anyway: the day a fifth library or a project reference
+        // joins the table, an order that was merely plausible would start deciding values.
+        VB6InBoxLibraries.LibraryOrder.Should().Equal(["VBA", "VBRUN", "VB", "stdole"],
+            "bare resolution is first-wins in VB6's reference order, which is what makes vbCancel answer "
+          + "VBA's 2 rather than VBRUN's 0");
     }
 
     [Fact]

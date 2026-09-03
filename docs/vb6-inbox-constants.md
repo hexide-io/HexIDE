@@ -85,8 +85,12 @@ The rules it implements, each measured (`corpus/.../inbox-constant-addressing.js
 - **The project wins.** A user `Enum` or `Const` of the same name shadows the library — a
   `Private Enum VbMsgBoxResult` with `vbCancel = 42` makes a bare `vbCancel` answer 42. So the user's
   tables are consulted before the libraries, never after.
-- **A bare name resolves in library order** — VBA, VBRUN, stdole, VB — first match wins. That order is
-  exercised by exactly one name, `vbCancel`, and a test asserts it stays the only ambiguous one.
+- **A bare name resolves in VB6's reference order** — **VBA, VBRUN, VB, stdole** — first match wins. The
+  first three are implicit, irremovable and fixed in that sequence: they never appear as `Reference=`
+  lines in a `.vbp`. `stdole` is an ordinary listed reference, which may be removed or reordered but
+  never moved ahead of the fixed three, so it is always last of the four. Only the VBA-before-VBRUN step
+  is observable today — from `vbCancel` — and a test asserts that stays the only ambiguous name, so the
+  order cannot quietly begin deciding a value nobody has measured.
 - **Both qualifier levels are real scopes**, checked rather than stepped over. A container under a
   library that does not declare it, or a member under the wrong container, is refused with "Method or
   data member not found". The old code skipped an unrecognised middle segment, on the sound reasoning

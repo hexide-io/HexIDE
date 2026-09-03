@@ -194,10 +194,10 @@ public partial class VB6BuiltIns
 
     // Mid / UCase / LCase moved to VB6BuiltIns.Strings.cs; LBound / UBound to VB6BuiltIns.Array.cs.
 
-    /// <summary>An unqualified in-box constant. Resolved in library precedence order — VBA, then VBRUN,
-    /// then stdole, then VB — first match wins, which is what makes a bare <c>vbCancel</c> answer VBA's 2
-    /// rather than VBRUN's 0 (measured). The caller must check the project's own declarations first: a
-    /// user <c>Enum</c> or <c>Const</c> of the same name wins over any library.</summary>
+    /// <summary>An unqualified in-box constant. Resolved in VB6's reference order — VBA, VBRUN, VB,
+    /// stdole — first match wins, which is what makes a bare <c>vbCancel</c> answer VBA's 2 rather than
+    /// VBRUN's 0 (measured). The caller must check the project's own declarations first: a user
+    /// <c>Enum</c> or <c>Const</c> of the same name wins over any library.</summary>
     public bool TryGetBuiltInConstant(string name, out Vb6Value constant)
         => VB6InBoxLibraries.TryBare(name, out constant);
 }

@@ -2343,6 +2343,27 @@ to its own library's:
 `vbCancel` is `2` in `VBA.VbMsgBoxResult` and `0` in `VBRUN.DragConstants`; the bare form takes VBA's, so
 default reference order gives VBA precedence over VBRUN.
 
+### The reference order, and what of it is actually measured
+
+VB6 lists the four in Project → References as **VBA, VBRUN, VB, stdole**, and an unqualified name resolves
+through them in that order, first match winning. `VBA`, `VBRUN` and `VB` are implicit, irremovable and
+fixed in that sequence — they never appear as `Reference=` lines in a `.vbp`, which is corroborated by the
+shipped VB6 template projects, where the only `Reference=` entries are removable ones such as stdole.
+`stdole` is an ordinary listed reference: it can be removed or reordered, but not moved ahead of the fixed
+three, so it is always last of the four.
+
+**Only the VBA-before-VBRUN step is observable.** It comes from `vbCancel`, the one ambiguous name. `VB`
+declares no constants at all and `stdole` shares no name with the other three, so the tail of the order
+has no measurable consequence today.
+
+Recorded as a limit rather than tidied away, because the first version of this got it wrong in a way the
+oracle's own rules warn about: the order was hand-written into the generator as *VBA, VBRUN, stdole, VB*
+and then asserted in a test and stated here as though it had been measured — an invented rule laundered
+into a fact. No behaviour changed when it was corrected, which is exactly why nothing caught it. **Supplied
+by the user from the References dialog**; the implementation now reads the order from an explicit
+`referenceOrder` field in the inventory instead of inferring it from key order, so it is data that can be
+checked rather than a sequence someone typed.
+
 **This is what makes a flat name→value table wrong rather than merely incomplete**, and it is why the flat
 table was replaced by `VB6InBoxLibraries`. Before that, HexIDE treated both the library and the enum
 qualifier as *transparent* — looked past them and resolved the bare name — so it answered `2` for all four

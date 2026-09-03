@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -32,7 +32,12 @@ namespace HexIDE.Runtime.Interpreter;
 ///
 /// <para><b>The measured rules</b> (every row a probe in <c>corpus/.../inbox-constant-addressing.json</c>):
 /// <list type="bullet">
-/// <item>Bare <c>vbCancel</c> → 2. Library precedence is VBA before VBRUN.</item>
+/// <item>Bare <c>vbCancel</c> → 2, because an unqualified name resolves in VB6's reference order —
+///   <b>VBA, VBRUN, VB, stdole</b> — first match wins. The first three are implicit, irremovable and
+///   fixed in that order (they never appear as <c>Reference=</c> lines in a .vbp); stdole is an ordinary
+///   listed reference that may be removed or reordered but never moved ahead of them, so it is always
+///   last. Only the VBA-before-VBRUN step is observable today, from <c>vbCancel</c>; VB declares nothing
+///   and no name is shared with stdole, so the tail of the order has no measurable consequence yet.</item>
 /// <item><c>VBA.vbCancel</c> → 2, <c>VBRUN.vbCancel</c> → 0. The library selects, skipping the enum.</item>
 /// <item><c>VbMsgBoxResult.vbCancel</c> → 2, <c>DragConstants.vbCancel</c> → 0. The container selects on
 ///   its own; all 79 container names happen to be unique across the four libraries.</item>
@@ -74,18 +79,26 @@ internal static class VB6InBoxLibraries
         using var stream = asm.GetManifestResourceStream(name)!;
         using var doc = JsonDocument.Parse(stream);
 
-        var order = new List<string>();
+        // Read the precedence from an EXPLICIT field rather than inferring it from the order the
+        // libraries happen to appear in. The order is a semantic fact — it decides which value an
+        // unqualified name gets — and leaving it implicit in JSON key order is how it came to be wrong
+        // in the first place: it was hand-written into a generator as VBA, VBRUN, stdole, VB and then
+        // asserted in a test as though measured. VB6 lists them VBA, VBRUN, VB, stdole.
+        var order = doc.RootElement.GetProperty("referenceOrder").EnumerateArray()
+            .Select(e => e.GetString()!).ToList();
+
         var byLibrary = new Dictionary<string, IReadOnlyList<Container>>(StringComparer.OrdinalIgnoreCase);
         var byContainer = new Dictionary<string, Container>(StringComparer.OrdinalIgnoreCase);
-        // Bare resolution is first-wins in library order, which is what makes VBA beat VBRUN for
+        // Bare resolution is first-wins in that order, which is what makes VBA beat VBRUN for
         // `vbCancel`. Insertion order therefore encodes the precedence and must not become a sort.
         var bare = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (var lib in doc.RootElement.GetProperty("libraries").EnumerateObject())
+        var libraries = doc.RootElement.GetProperty("libraries");
+        foreach (var libName in order)
         {
-            order.Add(lib.Name);
+            var lib = libraries.GetProperty(libName);
             var containers = new List<Container>();
-            foreach (var cont in lib.Value.GetProperty("containers").EnumerateObject())
+            foreach (var cont in lib.GetProperty("containers").EnumerateObject())
             {
                 var isEnum = cont.Value.GetProperty("kind").GetString() == "enum";
                 var members = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
@@ -101,13 +114,13 @@ internal static class VB6InBoxLibraries
                     if (!bare.ContainsKey(m.Name)) bare[m.Name] = v;
                 }
 
-                var c = new Container(lib.Name, cont.Name, isEnum, members);
+                var c = new Container(libName, cont.Name, isEnum, members);
                 containers.Add(c);
                 // All 79 container names are unique across the four libraries (asserted by a test), so a
                 // single flat index serves the unqualified `Enum.Member` form.
                 byContainer[cont.Name] = c;
             }
-            byLibrary[lib.Name] = containers;
+            byLibrary[libName] = containers;
         }
 
         return new Model(order, byLibrary, byContainer, bare);
