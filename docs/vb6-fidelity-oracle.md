@@ -2702,13 +2702,31 @@ do not repeat a default that silently produces an unbuildable project.
 
 Unmeasured: whether the checkbox defaults on, defaults off, or is sticky across invocations.
 
+### What the IDE does with one
+
+Observed in the shipped IDE, and the two facts that decide how HexIDE should present these:
+
+- **A `RelatedDoc=` entry appears under its own "Related Documents" node** in the Project Explorer — a
+  grouping distinct from Forms and Modules rather than a file mixed in among them.
+- **Double-clicking one launches it externally**, through the shell — or raises Windows' *Open With* for
+  an extension the machine does not recognise.
+
+The second is the more consequential. **VB6's own answer to a related document is "not mine to edit"**; it
+hands the file to the OS. So an IDE that opened a `.md` in its own editor and offered language services
+for it would be *exceeding* VB6, not reproducing it — worth stating plainly, because the fidelity
+principle distinguishes reproducing intended behaviour from reproducing defects, and this is neither. It
+is a deliberate VB6 limitation, and going past it is a product decision rather than a fidelity question.
+
+The first is a happy convergence: a dedicated grouping node is simultaneously what VB6 did and what a
+modern IDE does for files that belong to a project without being code.
+
 ### What this could not determine
 
 The harness compiles; it never opens the VB6 IDE. So nothing here says whether the IDE **preserves** a
-trailing custom section or a `RelatedDoc=` line **on save**, whether it reorders them, what the Project
-Explorer shows for one, or what double-clicking it does. `/make` left all 54 `.vbp` files byte-identical,
-but that is the compiler's load path and not `File → Save Project`. Also unmeasured: whether
-`RelatedDoc=` behaves the same outside `Type=Exe`, and whether such files are locked or copied rather than
+trailing custom section or a `RelatedDoc=` line **on save**, or whether it reorders them. `/make` left all
+54 `.vbp` files byte-identical, but that is the compiler's load path and not `File → Save Project`. Also
+unmeasured: whether the *Add As Related Document* checkbox defaults on, off, or is sticky; whether
+`RelatedDoc=` behaves the same outside `Type=Exe`; and whether such files are locked or copied rather than
 merely opened.
 
 ## Extending the oracle (future phases)
