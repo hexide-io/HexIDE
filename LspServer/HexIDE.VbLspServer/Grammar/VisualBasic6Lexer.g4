@@ -509,9 +509,10 @@ fragment KWSEP: ([ \t] | LINE_CONTINUATION)+;
 // assumed a newline swallows indentation, the newline absorbs the continuation-only line itself: joining
 // an empty line to the next yields the next line, so this is one boundary and nothing else. The leading
 // `WS` in the group is mandatory, which is what keeps a column-one `_` unmatched and refused. The inner
-// terminator is optional so a dangling ` _` at end of file is absorbed too. Mirrored from the
-// interpreter's grammar.
-NEWLINE: WS? '\r'? '\n' (WS '_' [ \t]* ('\r'? '\n')?)* WS?;
+// terminator is a line break OR end-of-file so a dangling ` _` as the last line is absorbed too — it must
+// not be merely optional, or ` _ _` and ` _ x` get absorbed as far as the underscore and the rest is read
+// as a statement, and both are syntax errors in VB6. Mirrored from the interpreter's grammar.
+NEWLINE: WS? '\r'? '\n' (WS '_' [ \t]* ('\r'? '\n' | EOF))* WS?;
 
 WS: [ \t]+;
 

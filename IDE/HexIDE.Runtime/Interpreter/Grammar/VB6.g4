@@ -2342,10 +2342,13 @@ fragment KWSEP
 // a line MEANS: a continuation joins its line to the next, and joining an empty line to the next yields
 // the next line, so `\n _\n` is one line boundary and nothing else. The leading `WS` in that group is
 // mandatory, which is what keeps a column-one `_` unmatched and therefore refused, as VB6 refuses it.
-// The inner line terminator is optional so that a dangling ` _` as the very last line of a file, with no
-// newline after it, is still absorbed — measured legal, and it is what a text editor leaves behind.
+// The inner terminator is a line break OR end-of-file, so that a dangling ` _` as the very last line of a
+// file is still absorbed — measured legal, and it is what a text editor leaves behind. It must not be
+// merely OPTIONAL: with nothing required after the underscore, ` _ _` and ` _ x` are absorbed as far as
+// the underscore and the rest is read as an ordinary statement. Both are syntax errors in VB6 — nothing
+// may follow a continuation on its line — so the alternative has to name EOF rather than shrug.
 NEWLINE
-   : WS? '\r'? '\n' (WS '_' [ \t]* ('\r'? '\n')?)* WS?
+   : WS? '\r'? '\n' (WS '_' [ \t]* ('\r'? '\n' | EOF))* WS?
    ;
 
 

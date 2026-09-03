@@ -1,0 +1,54 @@
+{
+  "area": "continuation-and-separator/continuation-only-lines",
+  "cases": [
+    {
+      "id": "two-continuation-markers-on-one-line",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\"",
+        " _ _",
+        "Debug.Print \"B\""
+      ],
+      "expect": "illegal",
+      "why": "A continuation-only line carrying TWO underscores. A continuation must be the last thing on its line - the corpus already has `_ 'comment` and `_z` after one, both illegal - so a second underscore should be no different. Raised because the grammar's new continuation-absorbing NEWLINE accepts it and nothing had asked. Predicting illegal."
+    },
+    {
+      "id": "tab-indented-continuation-only-line",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\"",
+        "\t_",
+        "Debug.Print \"B\""
+      ],
+      "expect": "legal",
+      "why": "The indented continuation-only line is measured legal with SPACES; this asks whether the required whitespace is spaces specifically or a whitespace run. Every other separator in this grammar turned out to be a run, and each time the narrow reading was the bug - so the prediction is legal, and getting it wrong either way is worth knowing."
+    },
+    {
+      "id": "continuation-only-line-then-text",
+      "scope": "statement",
+      "code": [
+        "Debug.Print \"A\"",
+        " _ x",
+        "Debug.Print \"B\""
+      ],
+      "expect": "illegal",
+      "why": "Text after the underscore on an otherwise-empty continuation line. The control for the two-underscore case: if both are illegal the rule is simply 'nothing may follow', and if they differ the underscore is being treated as something other than trailing junk."
+    },
+    {
+      "id": "continuation-only-line-inside-a-procedure-header",
+      "scope": "module",
+      "code": [
+        "Private Sub S( _",
+        "  )",
+        "    Debug.Print \"A\"",
+        "End Sub",
+        "",
+        "Sub Main()",
+        "    S",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "A continuation inside an empty argument list. Included because the new NEWLINE only absorbs a continuation line that follows a NEWLINE, and this one follows an open parenthesis - a position where the old hidden LINE_CONTINUATION is still the only thing that can match. If the two mechanisms have a seam, this is where it shows."
+    }
+  ]
+}

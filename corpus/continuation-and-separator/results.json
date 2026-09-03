@@ -4093,5 +4093,41 @@
     "Verdict": "agrees",
     "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 0 : Expected: identifier Build of 'verify.exe' failed.",
     "Why": "The control for the previous case. `Nothing` is a literal rather than an operator, so if the two disagree the rule is about operators specifically and not about reserved words generally - which is the sort of distinction this corpus keeps discovering."
+  },
+  {
+    "Key": "continuation-only-lines/two-continuation-markers-on-one-line",
+    "Area": "continuation-only-lines",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 2 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "A continuation-only line carrying TWO underscores. A continuation must be the last thing on its line - the corpus already has `_ 'comment` and `_z` after one, both illegal - so a second underscore should be no different. Raised because the grammar's new continuation-absorbing NEWLINE accepts it and nothing had asked. Predicting illegal."
+  },
+  {
+    "Key": "continuation-only-lines/tab-indented-continuation-only-line",
+    "Area": "continuation-only-lines",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The indented continuation-only line is measured legal with SPACES; this asks whether the required whitespace is spaces specifically or a whitespace run. Every other separator in this grammar turned out to be a run, and each time the narrow reading was the bug - so the prediction is legal, and getting it wrong either way is worth knowing."
+  },
+  {
+    "Key": "continuation-only-lines/continuation-only-line-then-text",
+    "Area": "continuation-only-lines",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 2 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Text after the underscore on an otherwise-empty continuation line. The control for the two-underscore case: if both are illegal the rule is simply 'nothing may follow', and if they differ the underscore is being treated as something other than trailing junk."
+  },
+  {
+    "Key": "continuation-only-lines/continuation-only-line-inside-a-procedure-header",
+    "Area": "continuation-only-lines",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "A continuation inside an empty argument list. Included because the new NEWLINE only absorbs a continuation line that follows a NEWLINE, and this one follows an open parenthesis - a position where the old hidden LINE_CONTINUATION is still the only thing that can match. If the two mechanisms have a seam, this is where it shows."
   }
 ]
