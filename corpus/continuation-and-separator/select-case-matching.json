@@ -1,0 +1,438 @@
+{
+  "area": "select-case-matching",
+  "why": "The layout cluster turned out not to be about layout at all: Select Case compares the selector to each arm with type-IDENTICAL equality, so a Long selector never matches a bare Integer literal. Before widening that comparison, the coercion rule itself has to be measured — in particular what VB6 does with a pair that cannot be reconciled numerically, because the choice there is between 'silently does not match' (what HexIDE does today) and 'error 13, Type mismatch', and guessing would be exactly the kind of invented rule the oracle exists to prevent. Every case prints, and several print a sentinel AFTER the End Select so that 'no arm matched' is distinguishable from 'the statement raised'.",
+  "cases": [
+    {
+      "id": "long-selector-integer-literal",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "The base case of the whole cluster, isolated to one arm: a Long selector against a bare decimal literal, which is an Integer. If this matches, Select Case coerces across numeric subtypes and type-identical equality is simply wrong.",
+      "code": [
+        "Dim n As Long",
+        "n = 1",
+        "Select Case n",
+        "Case 1: Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "integer-selector-long-literal",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "The same question in the opposite direction — an Integer selector against an explicitly Long literal. A rule that only widens one way would show up here and nowhere else.",
+      "code": [
+        "Dim n As Integer",
+        "n = 1",
+        "Select Case n",
+        "Case 1&: Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "double-selector-integer-literal",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "A Double selector holding a whole number against an Integer literal. Says whether the coercion is numeric-general or only within the integer family.",
+      "code": [
+        "Dim d As Double",
+        "d = 1",
+        "Select Case d",
+        "Case 1: Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "currency-selector-integer-literal",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "Currency is stored as a scaled integer rather than a float, so it is the subtype most likely to be excluded from a coercion rule written around floating point.",
+      "code": [
+        "Dim c As Currency",
+        "c = 1",
+        "Select Case c",
+        "Case 1: Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "string-selector-numeric-case",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "THE decisive case for the fix. A String selector against a numeric Case is not reconcilable by widening. Three outcomes are possible and they demand different code: it matches by coercing the string, it silently does not match (what HexIDE does today), or it raises Type mismatch. The trailing AFTER separates 'did not match' from 'raised'.",
+      "code": [
+        "Dim s As String",
+        "s = \"1\"",
+        "Select Case s",
+        "Case 1: Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select",
+        "Debug.Print \"AFTER\""
+      ]
+    },
+    {
+      "id": "numeric-selector-string-case",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "The mirror of the previous case. VB6's comparison rules are not always symmetric — which operand drives the coercion can matter — so the reverse must be measured rather than inferred.",
+      "code": [
+        "Dim n As Long",
+        "n = 1",
+        "Select Case n",
+        "Case \"1\": Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select",
+        "Debug.Print \"AFTER\""
+      ]
+    },
+    {
+      "id": "string-selector-nonnumeric-string-case",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "A String selector against a String Case that cannot be read as a number. Establishes the ordinary string path as a control, so that a surprise in the two cases above is attributable to the coercion and not to string handling generally.",
+      "code": [
+        "Dim s As String",
+        "s = \"abc\"",
+        "Select Case s",
+        "Case \"abc\": Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "boolean-selector-numeric-case",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "True is -1 numerically in VB6. Whether Case -1 matches a True selector says if Boolean participates in the numeric coercion or is compared as its own type.",
+      "code": [
+        "Dim b As Boolean",
+        "b = True",
+        "Select Case b",
+        "Case -1: Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "empty-variant-selector-zero-case",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "An unassigned Variant is Empty, which compares equal to both 0 and \"\" in VB6's ordinary operators. Empty is the corner where a widening rule most often disagrees with the = operator, and TryCompareTo returns null for Empty against Empty today.",
+      "code": [
+        "Dim v",
+        "Select Case v",
+        "Case 0: Debug.Print \"ZERO\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "case-is-equals-across-subtypes",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "`Case Is = <literal>` takes a different code path from a plain `Case <literal>` and uses equality rather than comparison, so it can diverge independently. It must be measured, not assumed to follow the plain form.",
+      "code": [
+        "Dim n As Long",
+        "n = 1",
+        "Select Case n",
+        "Case Is = 1: Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "case-is-not-equals-across-subtypes",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "The negated form. A type-strict equality makes `Is <>` a false POSITIVE rather than a false negative — it fires when it should not — so this arm fails in the opposite direction to every other case here and would survive a fix aimed only at non-matching.",
+      "code": [
+        "Dim n As Long",
+        "n = 1",
+        "Select Case n",
+        "Case Is <> 1: Debug.Print \"NOT EQUAL\"",
+        "Case Else: Debug.Print \"EQUAL\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "selector-expression-changes-type",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "A selector that is an expression rather than a variable. Arithmetic promotes in VB6, so the selector's runtime type need not be its declared one, and a fix keyed to declared types rather than runtime values would pass every other case here and fail this one.",
+      "code": [
+        "Dim n As Long",
+        "n = 1",
+        "Select Case n * 1",
+        "Case 1: Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "matching-arm-with-empty-body",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "A matching arm whose body is EMPTY, with a later arm that would print. VB6 does not fall through, so the correct output is AFTER alone. This is the case that a fix widening the equality will newly reach — today no arm matches, so the empty body is never entered — which makes it the trap for a fix that widens matching without also handling an absent body.",
+      "code": [
+        "Dim n As Long",
+        "n = 1",
+        "Select Case n",
+        "Case 1",
+        "Case 2: Debug.Print \"TWO\"",
+        "End Select",
+        "Debug.Print \"AFTER\""
+      ]
+    },
+    {
+      "id": "matching-arm-with-empty-body-then-else",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "The same trap with a Case Else present. An implementation that treats an empty body as 'no match' rather than 'matched, nothing to do' would fall through to Else here and print, which the previous case alone cannot detect.",
+      "code": [
+        "Dim n As Long",
+        "n = 1",
+        "Select Case n",
+        "Case 1",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select",
+        "Debug.Print \"AFTER\""
+      ]
+    },
+    {
+      "id": "first-of-several-matching-arms-wins",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "Two arms that both match. VB6 takes the first and stops; a fix that collected matches rather than returning on the first would print both. Cheap to measure and it pins the evaluation order the fix must preserve.",
+      "code": [
+        "Dim n As Long",
+        "n = 1",
+        "Select Case n",
+        "Case 1: Debug.Print \"FIRST\"",
+        "Case 1: Debug.Print \"SECOND\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "case-list-mixed-subtypes",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "A comma list whose members are of different subtypes, only the last matching. Confirms the coercion is applied per list member rather than once for the clause.",
+      "code": [
+        "Dim n As Long",
+        "n = 3",
+        "Select Case n",
+        "Case 1, 2, 3: Debug.Print \"IN LIST\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "date-selector-numeric-case",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "A Date is a Double underneath, so whether Case 2 matches a Date of day 2 says if Date is inside the numeric coercion or held apart. An odd result here is worth keeping rather than tidying away — TryCompareTo already treats Date only within its own type.",
+      "code": [
+        "Dim d As Date",
+        "d = CDate(2)",
+        "Select Case d",
+        "Case 2: Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "string-selector-numerically-equal-but-textually-different",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "THE discriminating case. `\"1\"` matching `Case 1` has two explanations that agree on that input and disagree here: comparing NUMERICALLY (1.0 = 1, so MATCH) or coercing the case expression to the selector's String type (CStr(1) is \"1\", which is not \"1.0\", so ELSE). Without this the rule cannot be told apart, and implementing the wrong one produces a wrong VALUE on ordinary code.",
+      "code": [
+        "Dim s As String",
+        "s = \"1.0\"",
+        "Select Case s",
+        "Case 1: Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "string-selector-leading-zero",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "The same discriminator by a different route: \"01\" is numerically 1 but textually not \"1\". Two independent probes of one rule, because a single surprising result is worth less than two agreeing ones.",
+      "code": [
+        "Dim s As String",
+        "s = \"01\"",
+        "Select Case s",
+        "Case 1: Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "numeric-selector-textually-different-string-case",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "The mirror: a Long selector against `Case \"1.0\"`. If coercion runs toward the selector's type this is a numeric parse and matches; if toward the case expression it is a string compare and does not.",
+      "code": [
+        "Dim n As Long",
+        "n = 1",
+        "Select Case n",
+        "Case \"1.0\": Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "string-selector-non-numeric-against-numeric-case",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "A String selector that cannot be read as a number at all, against a numeric Case. Under a numeric rule this is unreconcilable and could raise Type mismatch; under a string-coercion rule it simply does not match. The trailing AFTER distinguishes the two.",
+      "code": [
+        "Dim s As String",
+        "s = \"abc\"",
+        "Select Case s",
+        "Case 1: Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select",
+        "Debug.Print \"AFTER\""
+      ]
+    },
+    {
+      "id": "equality-operator-string-against-numeric",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "Not a Select Case at all, but the `=` OPERATOR on the same pair. HexIDE raises Type mismatch here (GetTwoValuesSameTypesOrNull has no String/numeric path), so if VB6 matches, the operator is wrong in the same way as Select Case and the fix is shared rather than local. Measuring it separates 'Select Case is special' from 'comparison is broken generally'.",
+      "code": [
+        "If \"1\" = 1 Then",
+        "    Debug.Print \"EQUAL\"",
+        "Else",
+        "    Debug.Print \"NOT EQUAL\"",
+        "End If",
+        "Debug.Print \"AFTER\""
+      ]
+    },
+    {
+      "id": "equality-operator-string-numerically-equal-textually-different",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "The `=` operator against the discriminating pair. Together with the Select Case form it says whether the two share one comparison rule, which decides whether the fix belongs in a shared helper or only in the Select Case visitor.",
+      "code": [
+        "If \"1.0\" = 1 Then",
+        "    Debug.Print \"EQUAL\"",
+        "Else",
+        "    Debug.Print \"NOT EQUAL\"",
+        "End If",
+        "Debug.Print \"AFTER\""
+      ]
+    },
+    {
+      "id": "long-selector-out-of-integer-range-literal",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "A literal too large to be an Integer is already a Long, so this arm matches today and must keep matching. It is the control that proves a fix widened the comparison without disturbing the pairs that already agreed.",
+      "code": [
+        "Dim n As Long",
+        "n = 40000",
+        "Select Case n",
+        "Case 40000: Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "long-selector-fractional-case",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "THE discriminator inside the numeric family. Selector is Long 2; the case is 1.7. Coercing the case to the selector's type gives CLng(1.7) = 2 (banker's rounding to even is irrelevant here) and MATCHES; comparing numerically gives 2 vs 1.7 and does NOT. Every numeric case measured so far agrees under both rules, so without this one the numeric half of the rule is unpinned.",
+      "code": [
+        "Dim n As Long",
+        "n = 2",
+        "Select Case n",
+        "Case 1.7: Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "integer-selector-out-of-range-case",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "Coercing the case expression to the selector's type can OVERFLOW: CInt(40000) is error 6. If VB6 raises here the implementation needs a guarded conversion rather than a plain one; if it simply does not match, the conversion must be attempted and its failure swallowed. The trailing AFTER separates the two.",
+      "code": [
+        "Dim n As Integer",
+        "n = 1",
+        "Select Case n",
+        "Case 40000: Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select",
+        "Debug.Print \"AFTER\""
+      ]
+    },
+    {
+      "id": "numeric-selector-unparseable-string-case",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "The other way a coercion to the selector's type can fail: CLng(\"abc\") is error 13. Same question as the overflow case, on the string path, and together they say whether a failed coercion is an error or a non-match.",
+      "code": [
+        "Dim n As Long",
+        "n = 1",
+        "Select Case n",
+        "Case \"abc\": Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select",
+        "Debug.Print \"AFTER\""
+      ]
+    },
+    {
+      "id": "integer-selector-out-of-range-case-error-number",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "The bare form of this case HANGS the harness, which for a program that cannot loop means VB6 raised and put up a modal. That establishes THAT it errors but not WHICH error, and the interpreter has to raise a number. On Error Resume Next converts the modal into an observable value.",
+      "code": [
+        "On Error Resume Next",
+        "Dim n As Integer",
+        "n = 1",
+        "Select Case n",
+        "Case 40000: Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select",
+        "Debug.Print Err.Number"
+      ]
+    },
+    {
+      "id": "numeric-selector-unparseable-string-case-error-number",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "The same for the unparseable-string path. Overflow and Type mismatch are different numbers and the two failure modes need not share one, so both are measured rather than one inferred from the other.",
+      "code": [
+        "On Error Resume Next",
+        "Dim n As Long",
+        "n = 1",
+        "Select Case n",
+        "Case \"abc\": Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select",
+        "Debug.Print Err.Number"
+      ]
+    },
+    {
+      "id": "string-selector-numeric-case-that-cannot-be-a-string",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "Coercion toward a String selector uses CStr, which cannot fail for a number — so this path should never raise where the numeric direction does. Measured to confirm the asymmetry rather than assumed, since it is what lets the implementation skip a guard on that side.",
+      "code": [
+        "On Error Resume Next",
+        "Dim s As String",
+        "s = \"x\"",
+        "Select Case s",
+        "Case 40000: Debug.Print \"MATCH\"",
+        "Case Else: Debug.Print \"ELSE\"",
+        "End Select",
+        "Debug.Print Err.Number"
+      ]
+    }
+  ]
+}

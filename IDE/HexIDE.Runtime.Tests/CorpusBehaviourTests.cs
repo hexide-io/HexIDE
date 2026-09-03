@@ -66,17 +66,27 @@ public class CorpusBehaviourTests
         // ---- WRONG VALUE, SILENTLY. The most serious thing this gate can find, and the reason it -----
         // ---- exists: every one of these parses, runs, raises nothing, and answers differently. -------
 
-        // SELECT-CASE-NOT-ON-ITS-OWN-LINES. A Select Case whose parts are colon-joined, continued, or
-        // separated by a blank line evaluates the WRONG branch, or none. Seven cases, one cause, and the
-        // largest single defect this corpus has ever surfaced — the parse gate saw all seven as clean
-        // because a mis-selected branch is a perfectly well-formed tree.
-        ["separator-in-control-flow/select-case-entirely-on-one-line"] = "SELECT-CASE-LAYOUT: prints B, VB6 prints A",
-        ["separator-in-control-flow/case-body-colon-joined"] = "SELECT-CASE-LAYOUT: prints C, VB6 prints A then B",
-        ["separator-basics/sep-whole-select-one-line"] = "SELECT-CASE-LAYOUT: prints nothing, VB6 prints ONE",
-        ["separator-basics/sep-case-colon-then-statement"] = "SELECT-CASE-LAYOUT: prints nothing, VB6 prints ONE",
-        ["keyword-splitting/select-case-split-by-continuation"] = "SELECT-CASE-LAYOUT: prints nothing, VB6 prints two",
-        ["whitespace-and-eol-edges/blank-line-before-first-case"] = "SELECT-CASE-LAYOUT: prints nothing, VB6 prints two",
-        ["gap-fill/select-case-and-end-select-split-by-continuation"] = "SELECT-CASE-LAYOUT: drops TWO, keeps AFTER",
+        // EQUALITY-OPERATOR-STRING-VS-NUMERIC. `"1" = 1` and `"1.0" = 1` are both True in VB6; HexIDE
+        // raises Type mismatch, because GetTwoValuesSameTypesOrNull has no String/numeric path and falls
+        // through to its throw. Found while measuring Select Case, and deliberately NOT fixed with it: the
+        // two are different rules. Select Case coerces the case value to the SELECTOR's type, so
+        // `Select Case "1.0" / Case 1` does NOT match — while `"1.0" = 1` does. Sharing one helper between
+        // them, which is the obvious move, would break whichever one it was not written for.
+        ["select-case-matching/equality-operator-string-against-numeric"] =
+            "EQ-OPERATOR-COERCION: raises Type mismatch, VB6 says True",
+        ["select-case-matching/equality-operator-string-numerically-equal-textually-different"] =
+            "EQ-OPERATOR-COERCION: raises Type mismatch, VB6 says True",
+
+        // RESUME-NEXT-LANDS-PAST-THE-ARM. Both of these now raise the RIGHT error (6 for the overflowing
+        // coercion, 13 for the unparseable one) and print it. They differ only in where On Error Resume
+        // Next resumes to: VB6 continues INTO the matched arm's body and prints MATCH first, HexIDE
+        // resumes past the whole statement. A resume-point question, not a Select Case one — and the
+        // unhandled form of both cases (recorded `hung`, i.e. VB6 put up a modal) is the semantics that
+        // actually matters, which HexIDE now reproduces.
+        ["select-case-matching/integer-selector-out-of-range-case-error-number"] =
+            "RESUME-POINT: right error (6), but Resume Next skips the arm body VB6 enters",
+        ["select-case-matching/numeric-selector-unparseable-string-case-error-number"] =
+            "RESUME-POINT: right error (13), but Resume Next skips the arm body VB6 enters",
 
         // SPLIT-IDENTIFIER-IS-TWO-NAMES. VB6 does not join an identifier across a line continuation — the
         // halves are separate names, so the read is of an undeclared Variant and yields 0. HexIDE joins
