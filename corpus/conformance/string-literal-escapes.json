@@ -1,0 +1,93 @@
+{
+  "area": "string-literal-escapes",
+  "why": "The behavioural gate recorded one case where HexIDE keeps the doubled quotes VB6 collapses to one, filed as STRING-ESCAPE and read at the time as a continuation-related quirk. It is not: ExpressionExecutor strips the outer quotes with Substring(1, len-2) and does nothing else, so `\"\"` is never unescaped in ANY string literal anywhere. `MsgBox \"He said \"\"hello\"\"\"` shows the doubles. That is a wrong value on ordinary code, so the rule needs pinning across the whole shape of the construct rather than at the single point that happened to be measured - especially the degenerate forms, where an off-by-one in the unescape is invisible for a two-character literal and wrong for a one-character one.",
+  "cases": [
+    {
+      "id": "doubled-quote-in-the-middle",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "The ordinary case, and the one real code hits: an escaped quote inside a longer literal. Len as well as the text, because a length is unambiguous where a printed quote is easy to misread.",
+      "code": [
+        "Debug.Print \"he said \"\"hi\"\"\"",
+        "Debug.Print Len(\"he said \"\"hi\"\"\")"
+      ]
+    },
+    {
+      "id": "literal-that-is-only-an-escaped-quote",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "`\"\"\"\"` - four quote characters denoting one. The minimal escaped literal, and the case an off-by-one unescape gets wrong while still handling longer ones correctly.",
+      "code": [
+        "Debug.Print Len(\"\"\"\")",
+        "Debug.Print Asc(\"\"\"\")"
+      ]
+    },
+    {
+      "id": "empty-literal",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "`\"\"` is the EMPTY string, not an escaped quote. The pair that distinguishes 'two quotes mean one quote' from 'two quotes mean nothing' depends entirely on whether they are inside a literal or are the whole of it, and an unescape applied to the raw text before stripping the delimiters would get this backwards.",
+      "code": [
+        "Debug.Print Len(\"\")"
+      ]
+    },
+    {
+      "id": "two-escaped-quotes-and-nothing-else",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "Six quote characters denoting two. Confirms the unescape is a repeated replacement rather than a single one, which a literal containing exactly one escape cannot show.",
+      "code": [
+        "Debug.Print Len(\"\"\"\"\"\")"
+      ]
+    },
+    {
+      "id": "escaped-quote-at-each-end",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "An escape adjacent to the delimiters on both sides - `\"\"\"a\"\"\"` is a quote, an a, a quote. The position where confusing a delimiter for an escape is most likely.",
+      "code": [
+        "Debug.Print Len(\"\"\"a\"\"\")",
+        "Debug.Print \"\"\"a\"\"\""
+      ]
+    },
+    {
+      "id": "escaped-quote-adjacent-to-text",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "`a\"\"b` - an escape with no whitespace either side, so nothing but the quote count decides where the literal ends.",
+      "code": [
+        "Debug.Print \"a\"\"b\"",
+        "Debug.Print Len(\"a\"\"b\")"
+      ]
+    },
+    {
+      "id": "escaped-quotes-in-a-concatenation",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "Two literals each carrying an escape, joined. Confirms the unescape happens per literal during evaluation rather than once over the statement text - a whole-line replacement would also 'work' here, so this is paired with the operator case below to tell them apart.",
+      "code": [
+        "Debug.Print \"a\"\"\" & \"\"\"b\"",
+        "Debug.Print Len(\"a\"\"\" & \"\"\"b\")"
+      ]
+    },
+    {
+      "id": "escaped-quote-compared-to-chr34",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "An escaped quote against Chr(34), which is the same character by another route. If these compare equal the unescape is correct in kind and not merely in length.",
+      "code": [
+        "Debug.Print (\"\"\"\" = Chr(34))"
+      ]
+    },
+    {
+      "id": "escaped-quote-in-a-string-that-is-printed-with-a-continuation",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "The original failing case's shape - an escaped quote in a literal on a continued line - kept so the fix is checked against the case that first exposed it, and so a regression there is attributed to escaping rather than to continuations.",
+      "code": [
+        "Debug.Print \"he said \"\"hi\"\" _\"",
+        "Debug.Print Len(\"he said \"\"hi\"\" _\")"
+      ]
+    }
+  ]
+}

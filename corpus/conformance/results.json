@@ -6455,5 +6455,104 @@
     "Why": "The control: the three members the type library does declare, so a refusal above cannot be blamed on VbCompareMethod being unreachable generally.",
     "Ran": "ok",
     "Output": "Long\t0\nLong\t1\nLong\t2"
+  },
+  {
+    "Key": "string-literal-escapes/doubled-quote-in-the-middle",
+    "Area": "string-literal-escapes",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The ordinary case, and the one real code hits: an escaped quote inside a longer literal. Len as well as the text, because a length is unambiguous where a printed quote is easy to misread.",
+    "Ran": "ok",
+    "Output": "String\the said \"hi\"\nLong\t12"
+  },
+  {
+    "Key": "string-literal-escapes/literal-that-is-only-an-escaped-quote",
+    "Area": "string-literal-escapes",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "`\"\"\"\"` - four quote characters denoting one. The minimal escaped literal, and the case an off-by-one unescape gets wrong while still handling longer ones correctly.",
+    "Ran": "ok",
+    "Output": "Long\t1\nInteger\t34"
+  },
+  {
+    "Key": "string-literal-escapes/empty-literal",
+    "Area": "string-literal-escapes",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "`\"\"` is the EMPTY string, not an escaped quote. The pair that distinguishes 'two quotes mean one quote' from 'two quotes mean nothing' depends entirely on whether they are inside a literal or are the whole of it, and an unescape applied to the raw text before stripping the delimiters would get this backwards.",
+    "Ran": "ok",
+    "Output": "Long\t0"
+  },
+  {
+    "Key": "string-literal-escapes/two-escaped-quotes-and-nothing-else",
+    "Area": "string-literal-escapes",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Six quote characters denoting two. Confirms the unescape is a repeated replacement rather than a single one, which a literal containing exactly one escape cannot show.",
+    "Ran": "ok",
+    "Output": "Long\t2"
+  },
+  {
+    "Key": "string-literal-escapes/escaped-quote-at-each-end",
+    "Area": "string-literal-escapes",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "An escape adjacent to the delimiters on both sides - `\"\"\"a\"\"\"` is a quote, an a, a quote. The position where confusing a delimiter for an escape is most likely.",
+    "Ran": "ok",
+    "Output": "Long\t3\nString\t\"a\""
+  },
+  {
+    "Key": "string-literal-escapes/escaped-quote-adjacent-to-text",
+    "Area": "string-literal-escapes",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "`a\"\"b` - an escape with no whitespace either side, so nothing but the quote count decides where the literal ends.",
+    "Ran": "ok",
+    "Output": "String\ta\"b\nLong\t3"
+  },
+  {
+    "Key": "string-literal-escapes/escaped-quotes-in-a-concatenation",
+    "Area": "string-literal-escapes",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Two literals each carrying an escape, joined. Confirms the unescape happens per literal during evaluation rather than once over the statement text - a whole-line replacement would also 'work' here, so this is paired with the operator case below to tell them apart.",
+    "Ran": "ok",
+    "Output": "String\ta\"\"b\nLong\t4"
+  },
+  {
+    "Key": "string-literal-escapes/escaped-quote-compared-to-chr34",
+    "Area": "string-literal-escapes",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "An escaped quote against Chr(34), which is the same character by another route. If these compare equal the unescape is correct in kind and not merely in length.",
+    "Ran": "ok",
+    "Output": "Boolean\tTrue"
+  },
+  {
+    "Key": "string-literal-escapes/escaped-quote-in-a-string-that-is-printed-with-a-continuation",
+    "Area": "string-literal-escapes",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The original failing case's shape - an escaped quote in a literal on a continued line - kept so the fix is checked against the case that first exposed it, and so a regression there is attributed to escaping rather than to continuations.",
+    "Ran": "ok",
+    "Output": "String\the said \"hi\" _\nLong\t14"
   }
 ]

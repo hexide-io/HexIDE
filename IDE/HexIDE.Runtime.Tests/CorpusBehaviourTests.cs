@@ -94,11 +94,6 @@ public class CorpusBehaviourTests
         // returns a DIFFERENT NUMBER, which is not.
         ["continuation-illegal/split-identifier"] = "SPLIT-IDENTIFIER: prints Long 5, VB6 prints Long 0",
 
-        // DOUBLED-QUOTES-NOT-UNESCAPED. `""` inside a string literal is VB6's escape for one quote; the
-        // literal is being carried through with both characters intact.
-        ["continuation-in-strings-comments/string-doubled-quotes-then-underscore"] =
-            "STRING-ESCAPE: keeps the doubled quotes VB6 collapses to one",
-
         // ---- REFUSES CODE VB6 RAN. A false rejection at run time rather than parse time — the parse ---
         // ---- gate is blind to these too, because the module parses and then dies executing. ----------
 
