@@ -8,17 +8,28 @@ namespace HexIDE.Runtime.Interpreter;
 /// instantiation). Array fields and fixed-length strings are deferred (spec walls).</summary>
 public sealed record UdtField(string Name, Vb6Value.ValueType? ScalarType, string? UdtTypeName);
 
-/// <summary>A user-defined <c>Type … End Type</c> definition. Registered program-wide (Public by default) so a
-/// <c>Dim e As Employee</c> anywhere in the project resolves it.</summary>
+/// <summary>A user-defined <c>Type … End Type</c> definition, owned by the module that declares it.
+///
+/// <para>
+/// A UDT's type identity is MODULE-scoped — measured. Two modules may each declare a <c>Public Type Point</c>
+/// and they are two unrelated types; <c>Module2.Point</c> names one of them specifically, and a Private one is
+/// invisible from anywhere else. (An Enum is different: its identity is PROJECT-scoped, so two modules may not
+/// both export one and <c>Module2.MyEnum</c> is not a type name at all. See docs/vb6-fidelity-oracle.md.)
+/// </para>
+/// </summary>
 public sealed class UdtTypeDef
 {
     public string Name { get; }
     public IReadOnlyList<UdtField> Fields { get; }
 
-    public UdtTypeDef(string name, IReadOnlyList<UdtField> fields)
+    /// <summary>Declared <c>Private</c>, so invisible outside its declaring module — even when qualified.</summary>
+    public bool IsPrivate { get; }
+
+    public UdtTypeDef(string name, IReadOnlyList<UdtField> fields, bool isPrivate = false)
     {
         Name = name;
         Fields = fields;
+        IsPrivate = isPrivate;
     }
 }
 

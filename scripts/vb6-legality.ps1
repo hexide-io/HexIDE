@@ -86,6 +86,13 @@ foreach ($f in $files) {
             Scope  = if ($c.scope)  { $c.scope }  else { 'statement' }
             Why    = $c.why
             Source = @($c.code) -join "`r`n"
+            # FURTHER standard modules, for the questions one module cannot ask: cross-module visibility,
+            # a name declared twice, Private scoping. Written as Module2.bas, Module3.bas … beside
+            # Module1 and named in the .vbp. Without them "what does VB6 do when two modules declare the
+            # same Type" is simply unmeasurable, and the only alternative is to guess — which is the one
+            # thing this corpus exists to avoid. A list rather than a single extra, because the decisive
+            # case needs THREE: a user and two exporters, so that nothing local can disambiguate.
+            Extra  = $(if ($c.modules) { @($c.modules | ForEach-Object { @($_) -join "`r`n" }) } else { @() })
         })
     }
 }
@@ -116,7 +123,7 @@ foreach ($c in $cases) {
         } else { "Sub Main()`r`n" + $c.Source + "`r`nEnd Sub`r`n" })
 }
 
-$payload = $cases | ForEach-Object { @{ Key = $_.Key; Module = $_.Module } }
+$payload = $cases | ForEach-Object { @{ Key = $_.Key; Module = $_.Module; Extra = $_.Extra } }
 
 # ---- Compile each case, in one session ---------------------------------------------------------
 
@@ -126,21 +133,40 @@ $work = {
     if (-not (Test-Path $exePath)) { return @{ Stage = 'vb6-missing'; Detail = $exePath } }
     $null = New-Item -ItemType Directory -Force -Path $dir
 
-    $vbp = @"
+    # The .vbp is written PER CASE, not once, because a case may bring further modules and the project
+    # file has to name every one. Cheap — it is a few lines of text next to a compiler invocation.
+    $vbpFor = {
+        param($extraCount)
+        $lines = @("Module=Module1; Module1.bas")
+        for ($i = 2; $i -le $extraCount + 1; $i++) { $lines += "Module=Module$i; Module$i.bas" }
+        $mods = $lines -join "`r`n"
+        @"
 Type=Exe
-Module=Module1; Module1.bas
+$mods
 Reference=*\G{00020430-0000-0000-C000-000000000046}#2.0#0#..\..\Windows\SysWOW64\stdole2.tlb#OLE Automation
 Startup="Sub Main"
 ExeName32="verify.exe"
 Name="verify"
 "@
+    }
 
     $toCrLf = { param($t) ($t -replace "`r`n", "`n") -replace "`n", "`r`n" }
-    [System.IO.File]::WriteAllText("$dir\verify.vbp", (& $toCrLf $vbp), [System.Text.Encoding]::ASCII)
 
     $results = @()
     foreach ($item in $items) {
         Remove-Item "$dir\verify.exe", "$dir\err.log" -ErrorAction SilentlyContinue
+        # Stale extra modules from a PREVIOUS case would be compiled into this one and the result would
+        # be about the wrong program, so they are removed rather than overwritten.
+        Get-ChildItem "$dir\Module*.bas" -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -ne 'Module1.bas' } | Remove-Item -ErrorAction SilentlyContinue
+
+        $extra = @($item.Extra)
+        [System.IO.File]::WriteAllText("$dir\verify.vbp",
+            (& $toCrLf (& $vbpFor $extra.Count)), [System.Text.Encoding]::ASCII)
+        for ($i = 0; $i -lt $extra.Count; $i++) {
+            [System.IO.File]::WriteAllText("$dir\Module$($i + 2).bas",
+                (& $toCrLf $extra[$i]), [System.Text.Encoding]::ASCII)
+        }
         [System.IO.File]::WriteAllText("$dir\Module1.bas", (& $toCrLf $item.Module), [System.Text.Encoding]::ASCII)
 
         $psi = New-Object System.Diagnostics.ProcessStartInfo

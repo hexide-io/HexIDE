@@ -1544,10 +1544,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 {
                     // `Dim e As Employee` — a fresh UDT instance; `Dim x As MyEnum` — a Long; `Dim c As Clock`
                     // (a class) — Nothing (a null object reference, so `c Is Nothing` is True until Set).
-                    var typeName = ct.GetText();
-                    if (interpreter.Types.ContainsKey(typeName))
-                        value = Vb6Value.NewUdt(interpreter.NewUdt(typeName));
-                    else if (interpreter.Enums.ContainsKey(typeName))
+                    // A type name may be QUALIFIED, and the two kinds differ — measured. `Module2.Point`
+                    // names a UDT in that module and overrides any local one; `Module2.MyEnum` is not a
+                    // type name at all, because an Enum's identity is project-scoped rather than
+                    // module-scoped. The project name qualifies both.
+                    var (qualifier, typeName) = SplitTypeName(ct.GetText());
+                    if (interpreter.TryResolveType(typeName, currentModule, qualifier, out _))
+                        value = Vb6Value.NewUdt(interpreter.NewUdt(typeName, qualifier: qualifier, from: currentModule));
+                    else if (qualifier is null && interpreter.TryResolveEnum(typeName, currentModule, out _))
                         value = new Vb6Value(0L);
                     else if (interpreter.Modules.TryGet(typeName, out var classMod) && classMod.Kind == InterpreterModuleKind.Class)
                     {
@@ -1862,6 +1866,30 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// Walking the children in source order is what pairs them. A head applies to the next statement that
     /// follows it, which is what a reader assumes and what VB6 does.
     /// </summary>
+    /// <summary>
+    /// Split a possibly-qualified type name into (module qualifier, bare name).
+    ///
+    /// <para>
+    /// A type name may carry the PROJECT and/or the declaring MODULE — `Project1.Module1.Point`. The
+    /// project level is stripped and discarded: there is one project here, so naming it changes nothing,
+    /// and refusing it would refuse legal VB6 for no gain. Whatever remains in front of the last segment
+    /// is the module.
+    /// </para>
+    /// </summary>
+    private (string? Qualifier, string Name) SplitTypeName(string text)
+    {
+        var parts = text.Split('.');
+        if (parts.Length == 1) return (null, parts[0]);
+
+        // Drop a leading project name if that is what it is.
+        var i = 0;
+        if (parts.Length > 1 && string.Equals(parts[0], interpreter.ProjectName, StringComparison.OrdinalIgnoreCase))
+            i = 1;
+
+        var name = parts[^1];
+        return i < parts.Length - 1 ? (parts[^2], name) : (null, name);
+    }
+
     private static void CollectLineHeads(VB6Parser.BlockContext block, VB6Parser.BlockStmtContext[] stmts,
         Dictionary<string, int> labels)
     {

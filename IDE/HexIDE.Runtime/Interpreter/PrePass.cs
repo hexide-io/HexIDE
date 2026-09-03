@@ -26,6 +26,19 @@ public class PrePass : VB6BaseVisitor<object?>
     // the interpreter). Public by default — MVP does no Private-Type module-scoping.
     public Dictionary<string, UdtTypeDef> Types = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, Dictionary<string, long>> Enums = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Enum names this module declared <c>Private</c> — invisible outside it, members included.
+    /// Measured: a bare member of a foreign Private enum is "Variable not defined".</summary>
+    public HashSet<string> PrivateEnums = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Bare member names this module's enums declare AMBIGUOUSLY — the same name from two different
+    /// enums. VB6 accepts the declarations and refuses the bare USE with "Ambiguous name detected", so the
+    /// name is recorded here and the complaint is made when something reads it.</summary>
+    public HashSet<string> AmbiguousEnumMembers = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Is this declaration <c>Private</c>? Absent visibility means Public for a Type and an Enum.</summary>
+    internal static bool IsPrivateVisibility(string? text)
+        => text is not null && text.Trim().Equals("Private", StringComparison.OrdinalIgnoreCase);
     public bool RequireVariableDefinitions { get; private set; }
     public int ArrayBase { get; private set; } = 0;
 
@@ -214,6 +227,17 @@ public class PrePass : VB6BaseVisitor<object?>
             }
             members[constName] = value;
 
+            // A member name already hoisted by a DIFFERENT enum in this module is AMBIGUOUS. VB6 accepts
+            // both declarations and refuses the bare use — "Ambiguous name detected" — so the name is
+            // recorded and the complaint made when something reads it. Silently overwriting, which is what
+            // happened before, hands back the other enum's value with nothing to show for it.
+            if (rootEnv.TryGetVariableLocation(constName, out _) && !members.ContainsKey(constName))
+                AmbiguousEnumMembers.Add(constName);
+            foreach (var (otherName, otherMembers) in Enums)
+                if (!string.Equals(otherName, enumName, StringComparison.OrdinalIgnoreCase)
+                    && otherMembers.ContainsKey(constName))
+                    AmbiguousEnumMembers.Add(constName);
+
             // Hoisted READ-ONLY. VB6 answers `pTwo = 5` with "Assignment to constant not permitted", and a
             // plain variable slot silently accepted it — so a program could overwrite vbRed and nothing
             // would say so.
@@ -222,6 +246,8 @@ public class PrePass : VB6BaseVisitor<object?>
             rootEnv.DefineVariable(constName, location);
         }
         Enums[enumName] = members;
+        if (IsPrivateVisibility(context.publicPrivateVisibility()?.GetText()))
+            PrivateEnums.Add(enumName);
         return default;
     }
 
@@ -493,7 +519,10 @@ public class PrePass : VB6BaseVisitor<object?>
                         ?? throw new NotImplementedException($"Unsupported field type for '{fieldName}' in Type '{name}'"),
                     null));
         }
-        Types[name] = new UdtTypeDef(name, fields);
+        // Visibility is RECORDED rather than ignored. `Private` means invisible outside this module, and
+        // measured means it: a foreign Private Type is "User-defined type not defined" whether the
+        // reference is bare or qualified. Reading it here is what lets two modules each own a Point.
+        Types[name] = new UdtTypeDef(name, fields, IsPrivateVisibility(context.visibility()?.GetText()));
         return default;
     }
 
