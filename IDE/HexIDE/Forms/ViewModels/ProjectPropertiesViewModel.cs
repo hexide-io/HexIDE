@@ -38,8 +38,14 @@ public partial class ProjectPropertiesViewModel : ObservableObject, IDialog
     {
         Title = $"{projectDefinition.Name} - Project Properties";
         selectedProjectType = projectDefinition.ProjectType;
-        StartupObjects = projectDefinition.Forms.Select(x => new ProjectStartupObjectViewModel(x)).ToList();
-        selectedStartupObject = StartupObjects.FirstOrDefault(x => x.Form == projectDefinition.StartupForm);
+        // Sub Main first, then the forms — VB6's own order, and the order that puts the one entry a
+        // code-only project can use where it is reachable without scrolling past forms it has none of.
+        StartupObjects = new List<ProjectStartupObjectViewModel> { ProjectStartupObjectViewModel.SubMain };
+        StartupObjects.AddRange(projectDefinition.Forms.Select(x => new ProjectStartupObjectViewModel(x)));
+
+        selectedStartupObject = projectDefinition.StartsAtSubMain
+            ? ProjectStartupObjectViewModel.SubMain
+            : StartupObjects.FirstOrDefault(x => x.Form == projectDefinition.StartupForm);
         projectName = projectDefinition.Name;
         projectDescription = projectDefinition.Description;
 
@@ -52,7 +58,13 @@ public partial class ProjectPropertiesViewModel : ObservableObject, IDialog
         projectDefinition.Name = projectName;
         projectDefinition.Description = projectDescription;
         projectDefinition.ProjectType = SelectedProjectType;
-        projectDefinition.StartupForm = selectedStartupObject?.Form;
+        // Assign through exactly one of the two: they are mutually exclusive on the model, and setting
+        // StartupForm to null while leaving StartsAtSubMain true would silently keep Sub Main selected
+        // after the user picked (nothing).
+        if (selectedStartupObject?.IsSubMain == true)
+            projectDefinition.StartsAtSubMain = true;
+        else
+            projectDefinition.StartupForm = selectedStartupObject?.Form;
     }
 
     private void OnProjectNameChanged()

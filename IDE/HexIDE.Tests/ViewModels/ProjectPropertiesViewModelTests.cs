@@ -63,9 +63,13 @@ public class ProjectPropertiesViewModelTests
 
         var vm = new ProjectPropertiesViewModel(project);
 
-        vm.StartupObjects.Should().HaveCount(2);
-        vm.StartupObjects[0].Form.Should().Be(form1);
-        vm.StartupObjects[1].Form.Should().Be(form2);
+        // Sub Main leads the list and every form follows in project order — VB6's own arrangement (#210).
+        // This asserted exactly two entries before Sub Main became selectable; the forms are still all
+        // there and still in order, they are simply no longer first.
+        vm.StartupObjects.Should().HaveCount(3);
+        vm.StartupObjects[0].IsSubMain.Should().BeTrue();
+        vm.StartupObjects[1].Form.Should().Be(form1);
+        vm.StartupObjects[2].Form.Should().Be(form2);
     }
 
     [Fact]

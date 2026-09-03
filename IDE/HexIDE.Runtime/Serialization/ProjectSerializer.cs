@@ -108,7 +108,11 @@ public class ProjectSerializer
         // is the canonical form and dropping the quotes made an untouched project differ from itself.
         // VB6 accepts the unquoted form too (verified with /make), so this was cosmetic — but cosmetic is
         // the whole of what a round-trip is about.
-        var startupName = project.StartupForm?.Name ?? project.StartupFormName;
+        // `Sub Main` is a startup object like any form, and outranks the retained name: choosing it in
+        // Project Properties must replace whatever the .vbp previously said, not lose to the fallback.
+        var startupName = project.StartsAtSubMain
+            ? SerializedProject.SubMainStartup
+            : project.StartupForm?.Name ?? project.StartupFormName;
         if (!string.IsNullOrEmpty(startupName))
             WriteKnownLine($"{SerializedProject.StartupKey}=\"{startupName.Replace("\"", "\"\"")}\"");
 
