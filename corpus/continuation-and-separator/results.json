@@ -4291,5 +4291,77 @@
     "Verdict": "agrees",
     "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 6 : Method or data member not found Build of 'verify.exe' failed.",
     "Why": "A user enum reached through a library qualifier - deliberate nonsense, to bound how general the chain is. Predicting illegal. Its value is entirely in showing the first slot is not a free-form namespace."
+  },
+  {
+    "Key": "aggregate-visibility/two-private-types-same-name",
+    "Area": "aggregate-visibility",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "THE case #180 is written about. Two modules each declaring a PRIVATE Type of the same name, with different members. The issue asserts VB6 treats them as two unrelated types; if that is right then detecting the clash WITHOUT honouring visibility would refuse a legal program, which is the damaging direction and means #180 cannot be fixed without visibility. If instead VB6 refuses this, the fix is far simpler. Nothing in the corpus establishes it, and one module cannot ask.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately. Without it an unresolvable name is simply an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable - which silently turned the first run of this case into a confident wrong fact. Option Explicit is what makes the probe able to fail."
+  },
+  {
+    "Key": "aggregate-visibility/two-public-types-same-name",
+    "Area": "aggregate-visibility",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The same collision with both PUBLIC. If two Publics clash and two Privates do not, visibility is exactly the discriminator and the procedure algorithm transfers unchanged. Measured separately because the two need not behave alike.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately. Without it an unresolvable name is simply an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable - which silently turned the first run of this case into a confident wrong fact. Option Explicit is what makes the probe able to fail."
+  },
+  {
+    "Key": "aggregate-visibility/public-and-private-type-same-name",
+    "Area": "aggregate-visibility",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The mixed case, and the one that decides precedence: a module declaring its own Private Type while another exports a Public one of the same name. The procedure rule is 'own module first at any visibility, then other modules' Public only'. If Types follow it, the local Private wins and this compiles.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately. Without it an unresolvable name is simply an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable - which silently turned the first run of this case into a confident wrong fact. Option Explicit is what makes the probe able to fail."
+  },
+  {
+    "Key": "aggregate-visibility/two-private-enums-same-name",
+    "Area": "aggregate-visibility",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The Enum twin of the first case. Enums and Types are aggregated by the same code here, so if they diverge in VB6 the single program-wide table is wrong for a second reason.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately. Without it an unresolvable name is simply an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable - which silently turned the first run of this case into a confident wrong fact. Option Explicit is what makes the probe able to fail."
+  },
+  {
+    "Key": "aggregate-visibility/cross-module-enum-member-collision",
+    "Area": "aggregate-visibility",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "A member name declared by enums in DIFFERENT modules, used bare. Within one module this is measured 'Ambiguous name detected' at the use. Across modules it may be the same, or the local one may win. Decides whether the ambiguity set is per-module or program-wide.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately. Without it an unresolvable name is simply an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable - which silently turned the first run of this case into a confident wrong fact. Option Explicit is what makes the probe able to fail."
+  },
+  {
+    "Key": "aggregate-visibility/private-enum-member-not-visible-across-modules",
+    "Area": "aggregate-visibility",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 3 : Variable not defined Build of 'verify.exe' failed.",
+    "Why": "A bare member of a PRIVATE enum in another module. Predicting illegal - that is what Private means - and it is the control that shows visibility is actually enforced on members rather than only on the enum name.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately. Without it an unresolvable name is simply an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable - which silently turned the first run of this case into a confident wrong fact. Option Explicit is what makes the probe able to fail."
+  },
+  {
+    "Key": "aggregate-visibility/two-foreign-public-types-and-no-local-one",
+    "Area": "aggregate-visibility",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The case the first round could not reach: the using module declares NO Point of its own, so there is nothing local to win and the name must come from elsewhere. With one exporter this should simply resolve. Its value is as the control for the next case, which adds a second exporter.\n\nA first version used TypeName(p) and failed on an unrelated rule - a UDT cannot be passed to a late-bound function - which is a probe measuring its own mistake. Reading a field instead keeps the case about scoping.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
+  },
+  {
+    "Key": "aggregate-visibility/two-foreign-modules-exporting-the-same-public-type",
+    "Area": "aggregate-visibility",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 3 : Ambiguous name detected: Point Build of 'verify.exe' failed.",
+    "Why": "THE case that decides whether an ambiguity rule applies to Types at all. Two OTHER modules each export a Public Type of the same name and the using module declares none, so nothing local can disambiguate. If VB6 refuses this, Types follow the procedure rule ('own module first, then other modules Public only, 2+ is ambiguous') and HexIDE can reuse that algorithm outright. If VB6 accepts it, Types are resolved by some other rule and the procedure algorithm does NOT transfer.\n\nA first version used TypeName(p) and failed on an unrelated rule - a UDT cannot be passed to a late-bound function - which is a probe measuring its own mistake. Reading a field instead keeps the case about scoping.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
   }
 ]
