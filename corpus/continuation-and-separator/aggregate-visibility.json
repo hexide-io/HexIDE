@@ -207,6 +207,105 @@
           "End Type"
         ]
       ]
+    },
+    {
+      "id": "ambiguous-type-disambiguated-by-module-name",
+      "scope": "module",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Main()",
+        "    Dim p As Module2.Point",
+        "    p.X = 1",
+        "    Debug.Print p.X",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Public Type Point",
+          "    X As Long",
+          "End Type"
+        ],
+        [
+          "Public Type Point",
+          "    Latitude As Double",
+          "End Type"
+        ]
+      ],
+      "expect": "unsure",
+      "why": "Two modules export the same Public Type, which is measured 'Ambiguous name detected' for the BARE name - so is the module-qualified form the escape hatch? If it is, the ambiguity is a property of the reference rather than of the declarations, and a resolver must accept a dotted type name in a Dim ... As position (the grammar's complexType already allows one). If it is not, then two exporters make the name unusable from that module at all, which is a much stronger statement.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
+    },
+    {
+      "id": "unambiguous-type-still-reachable-by-module-name",
+      "scope": "module",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Main()",
+        "    Dim p As Module2.Point",
+        "    p.X = 1",
+        "    Debug.Print p.X",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Public Type Point",
+          "    X As Long",
+          "End Type"
+        ]
+      ],
+      "expect": "unsure",
+      "why": "The control: only ONE module exports Point, so nothing needs disambiguating. This separates 'the qualified form resolves an ambiguity' from 'the qualified form is accepted at all' - if this one fails too, the previous case says nothing about ambiguity.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
+    },
+    {
+      "id": "ambiguous-enum-disambiguated-by-module-name",
+      "scope": "module",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Main()",
+        "    Debug.Print Module2.EKind.kA",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Public Enum EKind",
+          "    kA = 1",
+          "End Enum"
+        ],
+        [
+          "Public Enum EKind",
+          "    kA = 2",
+          "End Enum"
+        ]
+      ],
+      "expect": "unsure",
+      "why": "The enum twin. Two modules export the same Public Enum and the reference names the module. The three-part form is already measured legal for a single declaring module; this asks whether it also RESOLVES an ambiguity, which is the property that matters for a design that has to decide when to raise.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
+    },
+    {
+      "id": "ambiguous-enum-member-disambiguated-by-module-name",
+      "scope": "module",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Main()",
+        "    Debug.Print Module2.kA",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Public Enum EOne",
+          "    kA = 1",
+          "End Enum"
+        ],
+        [
+          "Public Enum ETwo",
+          "    kA = 2",
+          "End Enum"
+        ]
+      ],
+      "expect": "unsure",
+      "why": "A bare MEMBER name declared by enums in two different modules, qualified with one of those modules. Distinct from the previous case because here the enums have different names and only the member collides - so the module prefix is the only thing that can disambiguate, and there is no enum name to fall back on.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
     }
   ]
 }
