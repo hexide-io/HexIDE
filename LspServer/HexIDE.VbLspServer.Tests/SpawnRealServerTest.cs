@@ -48,8 +48,19 @@ public class SpawnRealServerTest
 
         try
         {
-            await rpc.InvokeWithParameterObjectAsync<JsonElement>("initialize",
+            var init = await rpc.InvokeWithParameterObjectAsync<JsonElement>("initialize",
                 new { processId = (int?)null, rootUri = (string?)null, capabilities = new { } }).WaitAsync(Timeout);
+
+            // The only check that the SHIPPED binary advertises anything. The in-process smoke test asserts
+            // the payload in detail; this one exists because the client resolves its server by probing the
+            // output directory and four parents, so a stale exe left in one of them would be found and
+            // would answer `capabilities: {}` — after which a capability-gating client goes silently dark.
+            // A spot-check of the load-bearing entries is enough to tell a current binary from an old one.
+            var caps = init.GetProperty("capabilities");
+            caps.GetProperty("textDocumentSync").GetProperty("change").GetInt32().Should().Be(1);
+            caps.GetProperty("hoverProvider").GetBoolean().Should().BeTrue();
+            caps.GetProperty("experimental").GetProperty("vbBuiltinSymbols").GetBoolean().Should().BeTrue();
+
             await rpc.NotifyWithParameterObjectAsync("initialized", new { });
 
             // A module with a syntax error (the undeclared-var check is default-off in the live path);

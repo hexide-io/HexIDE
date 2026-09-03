@@ -32,9 +32,11 @@ public static class LspServerHost
         var store = new DocumentStore();
 
         // ── Lifecycle ───────────────────────────────────────────────────────────────────────────
-        // NOTE: server capabilities are not advertised (HexIDE's client ignores them and calls every
-        // method unconditionally — see the parity matrix). Advertising them for other clients is a
-        // deferred nicety (needs the framework's ServerCapabilities surface).
+        // Capabilities are declared by VbServerCapabilities, which the framework calls during initialize.
+        // It handles no messages; it exists only to declare, which keeps the whole payload in one readable
+        // block and leaves the dispatch path below untouched.
+        ls.AddHandler(new VbServerCapabilities());
+
         ls.OnInitialize((_, serverInfo) =>
         {
             serverInfo.Name = "HexIDE VB6 Language Server";
@@ -60,9 +62,31 @@ public static class LspServerHost
         {
             var p = m.Params!.RootElement;
             var uri = ReadUri(p);
-            var text = ReadLastChangeText(p); // full-text sync: last contentChange wins
-            if (uri is not null && text is not null)
-                await PublishAsync(ls, store, uri, text);
+            if (uri is null) return;
+
+            switch (ReadContentChange(p, out var text))
+            {
+                case ContentChange.Full when text is not null:
+                    await PublishAsync(ls, store, uri, text);
+                    break;
+
+                case ContentChange.Ranged:
+                    // We advertise Full sync, so a ranged change means the client ignored us or something
+                    // is confused about who it is talking to. Applying it would take the replacement text
+                    // for a few characters as the WHOLE document — after which whole-document formatting
+                    // returns an edit spanning the real file, and the user's source is replaced by the
+                    // fragment. That is a destructive write, not a degraded feature.
+                    //
+                    // So refuse, and evict. Eviction is what closes the path structurally: with no source
+                    // entry, formatting physically cannot emit a whole-document edit. Logging and ignoring
+                    // would leave the stale buffer in place and the hazard live.
+                    Log.Error("Ranged contentChange for {Uri}; Full sync was advertised. Document evicted "
+                            + "rather than mis-applied.", uri);
+                    store.RemoveDocument(uri);
+                    await ls.SendNotification(new NotificationMessage("textDocument/publishDiagnostics",
+                        LspRequestHandlers.BuildPublishParams(uri, [])));
+                    break;
+            }
         });
 
         ls.AddNotificationHandler("textDocument/didClose", async (NotificationMessage m, CancellationToken _) =>
@@ -119,13 +143,43 @@ public static class LspServerHost
         return true;
     }
 
-    private static string? ReadLastChangeText(JsonElement p)
+    /// <summary>What a didChange payload turned out to be.</summary>
+    private enum ContentChange
     {
+        /// <summary>Nothing usable — no contentChanges array, or no text in it.</summary>
+        None,
+
+        /// <summary>Whole-document replacement, which is what this server advertises and accepts.</summary>
+        Full,
+
+        /// <summary>At least one change scoped to a range. Refused — see the didChange handler.</summary>
+        Ranged,
+    }
+
+    /// <summary>
+    /// Reads a didChange payload. A change carrying a <c>range</c> is reported as
+    /// <see cref="ContentChange.Ranged"/> rather than guessed at: under incremental sync a change's
+    /// <c>text</c> is the replacement for its range only — often a single keystroke — and treating that as
+    /// the document silently destroys it.
+    /// </summary>
+    private static ContentChange ReadContentChange(JsonElement p, out string? text)
+    {
+        text = null;
         if (!p.TryGetProperty("contentChanges", out var changes) || changes.ValueKind != JsonValueKind.Array)
-            return null;
-        string? text = null;
+            return ContentChange.None;
+
         foreach (var change in changes.EnumerateArray())
+        {
+            // Checked for every element, not just the last: a batch mixing a full replacement with a ranged
+            // edit cannot be applied by taking the final text, whichever order they arrive in.
+            if (change.TryGetProperty("range", out var range) && range.ValueKind != JsonValueKind.Null)
+            {
+                text = null;
+                return ContentChange.Ranged;
+            }
             if (change.TryGetProperty("text", out var t)) text = t.GetString();
-        return text;
+        }
+
+        return text is null ? ContentChange.None : ContentChange.Full;
     }
 }
