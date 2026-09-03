@@ -2330,8 +2330,22 @@ fragment KWSEP
 // A newline only. The colon alternative moved to the parser rule `blockSep` — see the note there for
 // why it could not stay: `COLON ' '` required a space after the colon, and widening it to a bare colon
 // would consume the token `lineLabel` needs to be a label at all.
+// A newline — and any CONTINUATION-ONLY lines that follow it.
+//
+// The trailing `WS?` eats the next line's indentation, which is what stopped LINE_CONTINUATION
+// (`[ \t]+ '_' …`) from ever seeing the space it needs at the start of a line. That mattered because
+// ` _` alone on an indented line is legal VB6 while `_` in column one is not — two files differing by two
+// space characters, measured — and once the indentation is gone the lexer cannot tell them apart.
+//
+// Rather than give the whitespace back, which reaches every rule that assumed a newline swallows
+// indentation, the newline now absorbs the whole continuation-only line itself. That is exactly what such
+// a line MEANS: a continuation joins its line to the next, and joining an empty line to the next yields
+// the next line, so `\n _\n` is one line boundary and nothing else. The leading `WS` in that group is
+// mandatory, which is what keeps a column-one `_` unmatched and therefore refused, as VB6 refuses it.
+// The inner line terminator is optional so that a dangling ` _` as the very last line of a file, with no
+// newline after it, is still absorbed — measured legal, and it is what a text editor leaves behind.
 NEWLINE
-   : WS? '\r'? '\n' WS?
+   : WS? '\r'? '\n' (WS '_' [ \t]* ('\r'? '\n')?)* WS?
    ;
 
 
@@ -2341,8 +2355,15 @@ WS
 
 // letters
 
+// What may START an identifier. NOT the underscore: a VB6 name may CONTAIN one but may never begin with
+// one, and `_` alone is not a name at all. It used to be here, and the cost was not cosmetic — a lone `_`
+// matching IDENTIFIER is what let `x = 1 +_` parse, the malformed continuation completing as arithmetic
+// against a variable named `_` instead of failing. Twelve corpus cases turned on this one character.
+//
+// Removing it only works alongside NEWLINE giving up its trailing whitespace; see the note there. On its
+// own it converts two legal cases into false rejections, which is why an earlier attempt was reverted.
 fragment LETTER
-   : [a-zA-Z_äöüÄÖÜáéíóúÁÉÍÓÚâêîôûÂÊÎÔÛàèìòùÀÈÌÒÙãẽĩõũÃẼĨÕŨçÇ]
+   : [a-zA-ZäöüÄÖÜáéíóúÁÉÍÓÚâêîôûÂÊÎÔÛàèìòùÀÈÌÒÙãẽĩõũÃẼĨÕŨçÇ]
    ;
 
 

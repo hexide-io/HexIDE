@@ -502,12 +502,25 @@ fragment KWSEP: ([ \t] | LINE_CONTINUATION)+;
 // A newline only. The colon alternative moved to the parser rule `blockSep` — see the note there. It
 // could not stay here: `COLON ' '` demanded a space after the colon, and widening it to a bare colon
 // consumes the token lineLabel needs to be a label at all.
-NEWLINE: WS? '\r'? '\n' WS?;
+// A newline, and any CONTINUATION-ONLY lines that follow it. The trailing `WS?` eats the next line's
+// indentation, which is what stopped LINE_CONTINUATION from ever seeing the space it needs at the start of
+// a line — and ` _` alone on an INDENTED line is legal VB6 while `_` in column one is not, two files
+// differing by two space characters. Rather than give the whitespace back, which reaches every rule that
+// assumed a newline swallows indentation, the newline absorbs the continuation-only line itself: joining
+// an empty line to the next yields the next line, so this is one boundary and nothing else. The leading
+// `WS` in the group is mandatory, which is what keeps a column-one `_` unmatched and refused. The inner
+// terminator is optional so a dangling ` _` at end of file is absorbed too. Mirrored from the
+// interpreter's grammar.
+NEWLINE: WS? '\r'? '\n' (WS '_' [ \t]* ('\r'? '\n')?)* WS?;
 
 WS: [ \t]+;
 
 // letters
 
-fragment LETTER: [A-Z_ÄÖÜÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃẼĨÕŨÇ];
+// What may START an identifier — NOT the underscore. A VB6 name may contain one but may never begin with
+// one, and `_` alone is not a name at all. Keeping it here is what let `x = 1 +_` parse: the malformed
+// continuation completed as arithmetic against a variable named `_` instead of failing. Only safe
+// alongside the NEWLINE change above; see the note there. Mirrored from the interpreter's grammar.
+fragment LETTER: [A-ZÄÖÜÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃẼĨÕŨÇ];
 
 fragment LETTERORDIGIT: [A-Z0-9_ÄÖÜÁÉÍÓÚÂÊÎÔÛÀÈÌÒÙÃẼĨÕŨÇ];

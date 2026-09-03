@@ -46,8 +46,8 @@ public class CorpusConformanceTests
     /// <para>
     /// Grouped by CAUSE, because this corpus has already taught that lesson the expensive way — a bucket
     /// labelled LABEL turned out to be mostly one over-broad lexer token, and nine cases across three
-    /// areas collapsed into a single fix once that was seen. These sixty-three rows are nineteen defects,
-    /// and the largest of them is one character in one character class.
+    /// areas collapsed into a single fix once that was seen. These fifty rows are eighteen defects.
+    /// The largest of them WAS one character in one character class, and it is now gone.
     /// </para>
     /// </remarks>
     private static readonly Dictionary<string, string> KnownDivergences = new()
@@ -87,38 +87,9 @@ public class CorpusConformanceTests
         ["separator-with-declarations/hashconst-value-continued"] = "OTHER-REJECTION",
         ["whitespace-and-eol-edges/eof-mid-continuation-no-trailing-newline"] = "OTHER-REJECTION",
 
-        // ===== FALSE ACCEPTANCES (54) — the mild direction. =====
+        // ===== FALSE ACCEPTANCES (41) — the mild direction. =====
 
-        // UNDERSCORE-STARTS-AN-IDENTIFIER (12) — the largest lever in the corpus, and one character.
-        //   A VB6 name may CONTAIN an underscore but may not BEGIN with one. `fragment LETTER` includes
-        //   `_` and its only consumer is `IDENTIFIER : LETTER LETTERORDIGIT*`, so `_`, `__`, `_z` and `_ab`
-        //   are all well-formed identifiers here — every malformed continuation quietly becomes an operand
-        //   instead of a syntax error, and `x = 1 +_` is read as an addition against a variable named `_`.
-        //   `LETTERORDIGIT` keeps its `_`; that is what makes `my_var` and `ab_` legal, all measured.
-        //
-        //   Note what is NOT at fault: in all twelve, LINE_CONTINUATION and COMMENT refuse correctly
-        //   every time. Three of these look like comment-handling bugs and three like continuation bugs.
-        //
-        //   The lexer fix is COUPLED and was tried and reverted here. Dropping `_` from LETTER alone turns
-        //   two legal cases into false rejections, because `_` alone on an INDENTED line is legal VB6
-        //   (measured: indented is legal, column-one is not) and NEWLINE has already eaten the space that
-        //   LINE_CONTINUATION needs to see it. It only becomes safe alongside the whitespace-ownership
-        //   change described under HIDDEN-CONTINUATION-FAKES-ADJACENCY — one work item, three edits, none
-        //   of them safe alone.
-        ["continuation-basics/cont-comment-after-underscore"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-basics/cont-no-space-before-underscore"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-illegal/comment-after-underscore"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-illegal/double-underscore-at-line-end"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-illegal/letter-after-underscore"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-illegal/no-space-before-underscore-after-operator"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-illegal/underscore-only-line-at-column-one"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-vs-identifier/comment-after-continuation"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-vs-identifier/continuation-without-preceding-space"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-vs-identifier/leading-underscore-name"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-vs-identifier/lone-underscore-name"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["separator-and-continuation-together/colon-immediately-before-underscore-no-space"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-
-        // BRACKETED-IDENTIFIER-NOT-VB6 (3)
+        // BRACKETED-IDENTIFIER-NOT-VB6 (2)
         //   `ambiguousIdentifier` has a `[name]` alternative. **VB6 has no such syntax.** Measured:
         //   `Dim [q] As Long`, `Dim [Print] As Long` and `Dim [Rem] As Long` are ALL a syntax error at the
         //   Dim. Bracket-escaping a reserved name is a VBA / VB.NET feature that VB6 predates, and the
@@ -132,7 +103,6 @@ public class CorpusConformanceTests
         //   accidentally moved one case TOWARDS VB6. The right fix is to drop the alternative, which
         //   retires all three; not done here because it is unrelated to Rem and wants its own check that
         //   nothing in the designer-file rules depends on it.
-        ["continuation-vs-identifier/bracketed-leading-underscore"] = "BRACKETED-IDENTIFIER-NOT-VB6",
         ["rem-forms/bracketed-plain-identifier"] = "BRACKETED-IDENTIFIER-NOT-VB6",
         ["rem-forms/bracketed-reserved-word"] = "BRACKETED-IDENTIFIER-NOT-VB6",
 
