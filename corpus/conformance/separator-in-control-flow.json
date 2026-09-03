@@ -1,6 +1,5 @@
 {
   "area": "colon inside single-line control flow",
-  "file": "corpus/continuation-and-separator/separator-in-control-flow.json",
   "count": 31,
   "cases": [
     {

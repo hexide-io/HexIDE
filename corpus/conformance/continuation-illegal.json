@@ -1,5 +1,5 @@
 {
-  "area": "continuation-and-separator",
+  "area": "conformance",
   "cases": [
     {
       "id": "baseline-well-formed-continuation",

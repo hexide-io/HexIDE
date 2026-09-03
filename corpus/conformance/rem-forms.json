@@ -1,5 +1,5 @@
 {
-  "area": "continuation-and-separator/rem-forms",
+  "area": "rem-forms",
   "cases": [
     {
       "id": "rem-bare-then-colon-alone-on-a-line",

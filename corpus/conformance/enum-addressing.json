@@ -1,5 +1,5 @@
 {
-  "area": "continuation-and-separator/enum-addressing",
+  "area": "enum-addressing",
   "cases": [
     {
       "id": "module-qualified-enum-member",

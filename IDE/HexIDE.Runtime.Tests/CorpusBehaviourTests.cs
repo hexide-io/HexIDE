@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using HexIDE.Runtime.Interpreter;
@@ -180,7 +180,7 @@ public class CorpusBehaviourTests
 
     private static async Task<(List<string> Divergences, int Gated, int Captured, int Ungated)> Compare()
     {
-        var dir = Path.Combine(RepoRoot(), "corpus", "continuation-and-separator");
+        var dir = Path.Combine(RepoRoot(), "corpus", "conformance");
         var resultsPath = Path.Combine(dir, "results.json");
         File.Exists(resultsPath).Should().BeTrue(
             "the recorded verdicts should be at {0} — regenerate with scripts/vb6-legality.ps1", resultsPath);

@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Ask a real vb6.exe whether each snippet in a corpus is LEGAL VB6. A compile-only oracle.
 
@@ -30,7 +30,7 @@
     Where to write the results as JSON. Defaults beside the corpus as `results.json`.
 
 .EXAMPLE
-    ./scripts/vb6-legality.ps1 -CorpusPath corpus/continuation-and-separator
+    ./scripts/vb6-legality.ps1 -CorpusPath corpus/conformance
 
 .NOTES
     Source is written CRLF + ASCII, for the reason vb6-oracle.ps1 documents: VB6 will not load an
