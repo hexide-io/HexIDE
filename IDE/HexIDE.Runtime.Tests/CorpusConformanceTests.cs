@@ -112,12 +112,16 @@ public class CorpusConformanceTests
         ["rem-forms/bracketed-plain-identifier"] = "BRACKETED-IDENTIFIER-NOT-VB6",
         ["rem-forms/bracketed-reserved-word"] = "BRACKETED-IDENTIFIER-NOT-VB6",
 
-        // MODULE-SCOPE-IGNORED-FOR-TYPES-AND-ENUMS (7) — issue #180, now measured.
-        //   Every module's Types and Enums are copied into ONE program-wide table
-        //   (BasicInterpreter.BuildProgram), so a second declaration of a name silently replaces the
-        //   first and `Private` is never read. Two consequences, both here: a Private enum's members are
-        //   visible from another module, and two modules exporting the same Public Type resolve to
-        //   whichever loaded last instead of being refused.
+        // MODULE-SCOPE-IGNORED-FOR-TYPES-AND-ENUMS (7) — issue #180. FIXED, and these rows stay.
+        //   The defect is gone: Types and Enums are resolved per-module, `Private` is honoured, a genuine
+        //   clash raises "Ambiguous name detected", and `Module2.Point` / `Project1.MyEnum.Foo` resolve.
+        //   ModuleScopeTests covers all of it.
+        //
+        //   These rows remain because every one of them PARSES and is refused later — at module load for
+        //   the enum-name clash, at the use for the rest — and this gate can only see the parse. They are
+        //   not pending work; deleting them would make the gate fail. The behaviour they describe is the
+        //   one thing the corpus is structurally unable to check, which is why the fix is covered by
+        //   runtime tests instead.
         //
         //   The rule is now measured, and the base of it is EXACTLY the one TryResolveProcedure already
         //   implements: own module first at any visibility (so a local Private beats a foreign Public),
@@ -149,9 +153,9 @@ public class CorpusConformanceTests
         //   and a bare `Project.Member` both compile. (The mechanism is inferred; the eight verdicts it
         //   accounts for are not.)
         //
-        //   So this is not a missing feature but an algorithm that exists and is not used by two
-        //   declaration kinds, plus a scoping difference between them. Being fixed next; these rows go
-        //   then. NOTE the project-name qualifier is a level HexIDE has no concept of at all.
+        //   The base rule turned out to be the one TryResolveProcedure already implemented, so the fix was
+        //   mostly an existing algorithm reaching two more declaration kinds. The project-name qualifier
+        //   was a level HexIDE had no concept of in either position, and is now accepted and stepped over.
         ["aggregate-visibility/ambiguous-enum-disambiguated-by-module-name"] = "MODULE-SCOPE-IGNORED-FOR-TYPES-AND-ENUMS",
         ["aggregate-visibility/foreign-private-type-is-not-visible"] = "MODULE-SCOPE-IGNORED-FOR-TYPES-AND-ENUMS",
         // An Enum has no module level in TYPE position at all — the two rows that show it.
