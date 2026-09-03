@@ -19,6 +19,13 @@ public class ModuleExecutionContext
     {
         if (env.TryGetVariableLocation(name, out var loc))
         {
+            // An Enum member is a constant. VB6 refuses `pTwo = 5` at compile time with "Assignment to
+            // constant not permitted"; the walk can only refuse it here, as the statement runs, which is
+            // the translation interpreter-core:40-42 prescribes. Checked before the coercion, because the
+            // write is not going to happen and a coercion error would name the wrong problem.
+            if (state.IsReadOnly(loc))
+                throw new VBCompileErrorException($"Assignment to constant not permitted ({name})");
+
             if (state.DeclaredTypeOf(loc) is { } declared)
                 value = VbNumeric.CoerceOnStore(value, declared, ctx);
             // A class-typed slot enforces its name: the object must BE that class or implement it as an

@@ -4129,5 +4129,167 @@
     "Verdict": "agrees",
     "Error": "Build of 'verify.exe' succeeded.",
     "Why": "A continuation inside an empty argument list. Included because the new NEWLINE only absorbs a continuation line that follows a NEWLINE, and this one follows an open parenthesis - a position where the old hidden LINE_CONTINUATION is still the only thing that can match. If the two mechanisms have a seam, this is where it shows."
+  },
+  {
+    "Key": "enum-addressing/module-qualified-enum-member",
+    "Area": "enum-addressing",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The THREE-part form `Qualifier.Enum.Member`, with the qualifier being the declaring standard module. This is the form the task is really about - a member is supposed to be reachable as [[Lib.]Enum.]Value - and nothing in the corpus or the docs establishes whether the module name may occupy that first slot. If this is legal the resolver needs a third level; if not, the first slot is for type libraries only and the design is simpler."
+  },
+  {
+    "Key": "enum-addressing/module-qualified-bare-member",
+    "Area": "enum-addressing",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The two-part form with the MODULE rather than the enum as qualifier. VB6 lets a module qualify its Public members generally, and an enum member is hoisted into the module's namespace - so this asks whether the hoisting is real membership or something weaker. Distinguishes 'the member is a module-level constant' from 'the member is only reachable through its enum'."
+  },
+  {
+    "Key": "enum-addressing/enum-qualified-by-its-own-enum-twice",
+    "Area": "enum-addressing",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 6 : Method or data member not found Build of 'verify.exe' failed.",
+    "Why": "A deliberate nonsense control for the previous two. If the qualifier chain is a general dotted lookup this might resolve; if the levels are fixed it cannot. Predicting illegal, and its value is entirely in bounding how general the real rule is."
+  },
+  {
+    "Key": "enum-addressing/assigning-to-an-enum-member",
+    "Area": "enum-addressing",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 6 : Assignment to constant not permitted Build of 'verify.exe' failed.",
+    "Why": "Is an enum member a CONSTANT or merely a pre-set variable? HexIDE hoists each member with DefineVariable, so today it is assignable and a program can silently overwrite vbRed. Predicting illegal - VB6 should refuse the assignment - and if so the hoist is using the wrong mechanism."
+  },
+  {
+    "Key": "enum-addressing/enum-typed-variable-out-of-range",
+    "Area": "enum-addressing",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Assigning a value no member declares. VB6 enums are Longs with names, not closed sets, so this should be accepted and print 999 - but if it is REFUSED then a typed variable carries real range enforcement and the interpreter would have to model it. Predicting legal."
+  },
+  {
+    "Key": "enum-addressing/enum-typed-variable-typename",
+    "Area": "enum-addressing",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "What a variable DECLARED as the enum type reports. A member's own TypeName is measured `Long`; this asks whether a declared variable keeps the enum name or collapses to Long as well. The answer decides whether the interpreter needs a distinct enum-typed slot or can treat the declaration as a Long alias."
+  },
+  {
+    "Key": "enum-addressing/two-enums-sharing-a-member-name",
+    "Area": "enum-addressing",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Two enums declaring the same member name. Members are hoisted into the module namespace, so this is a collision - VB6 may refuse the duplicate outright, or allow it and make only the qualified form usable. HexIDE currently lets the second silently overwrite the first in a program-wide table, which is the same shape as issue #180 for Types, so the answer decides whether that is one defect or two."
+  },
+  {
+    "Key": "enum-addressing/enum-declared-inside-a-procedure",
+    "Area": "enum-addressing",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Invalid inside procedure Build of 'verify.exe' failed.",
+    "Why": "Where an Enum may be DECLARED. The grammar reaches enumerationStmt from moduleBodyElement, so a procedure-local Enum should already be refused - but the grammar also reaches `block` from the module body, and this confirms the boundary rather than assuming it. Predicting illegal."
+  },
+  {
+    "Key": "enum-expressions/member-forward-reference",
+    "Area": "enum-expressions",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Constant expression required Build of 'verify.exe' failed.",
+    "Why": "A member whose value references a member declared LATER in the same enum. VB6 compiles the whole module before running it, so order need not matter to it - but it decides everything for a pre-pass that walks in source order. If forward references are legal the evaluation must be lazy or two-pass; if illegal, a single forward walk is sufficient and much simpler."
+  },
+  {
+    "Key": "enum-expressions/member-references-another-enum",
+    "Area": "enum-expressions",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "A member value reaching into a DIFFERENT enum by qualified name. Decides whether enum resolution is per-enum or program-wide, and whether the pre-pass can finish one enum before starting the next."
+  },
+  {
+    "Key": "enum-expressions/member-references-own-enum-qualified",
+    "Area": "enum-expressions",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The same-enum reference written in QUALIFIED form, while the enum is still being declared. The bare form is measured legal; this asks whether the enum's own name is in scope inside its own body, which a naive implementation would get wrong in either direction."
+  },
+  {
+    "Key": "enum-expressions/member-references-a-later-const",
+    "Area": "enum-expressions",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Constant expression required Build of 'verify.exe' failed.",
+    "Why": "A member referencing a Const declared AFTER the enum. The forward-Const case is what separates 'evaluate during a source-order walk' from 'evaluate lazily'; CLAUDE.md names order-independent Const evaluation as the reason the lazy-memoised pattern exists at all, so this is the case that says whether enums need it too."
+  },
+  {
+    "Key": "enum-library-addressing/library-enum-member-vbrun",
+    "Area": "enum-library-addressing",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The three-part form with a TYPE LIBRARY in the first slot, which is the form the addressability task is really about - `[[Lib.]Enum.]Value`. Measured separately from the module-qualified form because they are different mechanisms: a module is a project member, a library is a referenced type library, and HexIDE models them as different QualifierKinds. Raised by a maintainer citing this exact expression."
+  },
+  {
+    "Key": "enum-library-addressing/library-enum-member-vba",
+    "Area": "enum-library-addressing",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The same shape against the VBA library rather than VBRUN. Included because the two libraries are referenced differently by a Standard EXE and need not behave alike, and because a rule that holds for only one of them is not a rule."
+  },
+  {
+    "Key": "enum-library-addressing/enum-member-two-part",
+    "Area": "enum-library-addressing",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The two-part form for a LIBRARY enum - enum name without the library. If this works and the three-part does too, the library slot is optional in exactly the way the [[Lib.]Enum.] notation suggests."
+  },
+  {
+    "Key": "enum-library-addressing/enum-member-bare",
+    "Area": "enum-library-addressing",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The bare form for a library enum member. Predicting legal - these constants are used bare in every VB6 program ever written - and included as the control that proves the other three are about qualification rather than about the name existing."
+  },
+  {
+    "Key": "enum-library-addressing/library-member-skipping-enum",
+    "Area": "enum-library-addressing",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Library-qualified but skipping the enum level. Decides whether the middle slot is optional in the three-part chain, which a resolver has to know: `Lib.Member` and `Lib.Enum.Member` are different lookups."
+  },
+  {
+    "Key": "enum-library-addressing/library-qualified-user-enum",
+    "Area": "enum-library-addressing",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 6 : Method or data member not found Build of 'verify.exe' failed.",
+    "Why": "A user enum reached through a library qualifier - deliberate nonsense, to bound how general the chain is. Predicting illegal. Its value is entirely in showing the first slot is not a free-form namespace."
   }
 ]

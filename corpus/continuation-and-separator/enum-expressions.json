@@ -1,0 +1,73 @@
+{
+  "area": "continuation-and-separator/enum-expressions",
+  "cases": [
+    {
+      "id": "member-forward-reference",
+      "scope": "module",
+      "code": [
+        "Public Enum EFwd",
+        "    a = b + 1",
+        "    b = 5",
+        "End Enum",
+        "",
+        "Sub Main()",
+        "    Debug.Print EFwd.a",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "A member whose value references a member declared LATER in the same enum. VB6 compiles the whole module before running it, so order need not matter to it - but it decides everything for a pre-pass that walks in source order. If forward references are legal the evaluation must be lazy or two-pass; if illegal, a single forward walk is sufficient and much simpler."
+    },
+    {
+      "id": "member-references-another-enum",
+      "scope": "module",
+      "code": [
+        "Public Enum EBase",
+        "    bTen = 10",
+        "End Enum",
+        "",
+        "Public Enum EDeriv",
+        "    dEleven = EBase.bTen + 1",
+        "End Enum",
+        "",
+        "Sub Main()",
+        "    Debug.Print EDeriv.dEleven",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "A member value reaching into a DIFFERENT enum by qualified name. Decides whether enum resolution is per-enum or program-wide, and whether the pre-pass can finish one enum before starting the next."
+    },
+    {
+      "id": "member-references-own-enum-qualified",
+      "scope": "module",
+      "code": [
+        "Public Enum ESelf",
+        "    sOne = 1",
+        "    sTwo = ESelf.sOne + 1",
+        "End Enum",
+        "",
+        "Sub Main()",
+        "    Debug.Print ESelf.sTwo",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "The same-enum reference written in QUALIFIED form, while the enum is still being declared. The bare form is measured legal; this asks whether the enum's own name is in scope inside its own body, which a naive implementation would get wrong in either direction."
+    },
+    {
+      "id": "member-references-a-later-const",
+      "scope": "module",
+      "code": [
+        "Public Enum ELate",
+        "    lVal = KLater",
+        "End Enum",
+        "",
+        "Public Const KLater As Long = 77",
+        "",
+        "Sub Main()",
+        "    Debug.Print ELate.lVal",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "A member referencing a Const declared AFTER the enum. The forward-Const case is what separates 'evaluate during a source-order walk' from 'evaluate lazily'; CLAUDE.md names order-independent Const evaluation as the reason the lazy-memoised pattern exists at all, so this is the case that says whether enums need it too."
+    }
+  ]
+}

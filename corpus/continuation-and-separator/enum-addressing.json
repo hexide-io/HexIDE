@@ -1,0 +1,139 @@
+{
+  "area": "continuation-and-separator/enum-addressing",
+  "cases": [
+    {
+      "id": "module-qualified-enum-member",
+      "scope": "module",
+      "code": [
+        "Public Enum EPlain",
+        "    pOne",
+        "    pTwo",
+        "End Enum",
+        "",
+        "Sub Main()",
+        "    Debug.Print Module1.EPlain.pTwo",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "The THREE-part form `Qualifier.Enum.Member`, with the qualifier being the declaring standard module. This is the form the task is really about - a member is supposed to be reachable as [[Lib.]Enum.]Value - and nothing in the corpus or the docs establishes whether the module name may occupy that first slot. If this is legal the resolver needs a third level; if not, the first slot is for type libraries only and the design is simpler."
+    },
+    {
+      "id": "module-qualified-bare-member",
+      "scope": "module",
+      "code": [
+        "Public Enum EPlain",
+        "    pOne",
+        "    pTwo",
+        "End Enum",
+        "",
+        "Sub Main()",
+        "    Debug.Print Module1.pTwo",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "The two-part form with the MODULE rather than the enum as qualifier. VB6 lets a module qualify its Public members generally, and an enum member is hoisted into the module's namespace - so this asks whether the hoisting is real membership or something weaker. Distinguishes 'the member is a module-level constant' from 'the member is only reachable through its enum'."
+    },
+    {
+      "id": "enum-qualified-by-its-own-enum-twice",
+      "scope": "module",
+      "code": [
+        "Public Enum EPlain",
+        "    pOne",
+        "    pTwo",
+        "End Enum",
+        "",
+        "Sub Main()",
+        "    Debug.Print EPlain.EPlain.pTwo",
+        "End Sub"
+      ],
+      "expect": "illegal",
+      "why": "A deliberate nonsense control for the previous two. If the qualifier chain is a general dotted lookup this might resolve; if the levels are fixed it cannot. Predicting illegal, and its value is entirely in bounding how general the real rule is."
+    },
+    {
+      "id": "assigning-to-an-enum-member",
+      "scope": "module",
+      "code": [
+        "Public Enum EPlain",
+        "    pOne",
+        "    pTwo",
+        "End Enum",
+        "",
+        "Sub Main()",
+        "    pTwo = 5",
+        "    Debug.Print pTwo",
+        "End Sub"
+      ],
+      "expect": "illegal",
+      "why": "Is an enum member a CONSTANT or merely a pre-set variable? HexIDE hoists each member with DefineVariable, so today it is assignable and a program can silently overwrite vbRed. Predicting illegal - VB6 should refuse the assignment - and if so the hoist is using the wrong mechanism."
+    },
+    {
+      "id": "enum-typed-variable-out-of-range",
+      "scope": "module",
+      "code": [
+        "Public Enum EPlain",
+        "    pOne",
+        "    pTwo",
+        "End Enum",
+        "",
+        "Sub Main()",
+        "    Dim x As EPlain",
+        "    x = 999",
+        "    Debug.Print x",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "Assigning a value no member declares. VB6 enums are Longs with names, not closed sets, so this should be accepted and print 999 - but if it is REFUSED then a typed variable carries real range enforcement and the interpreter would have to model it. Predicting legal."
+    },
+    {
+      "id": "enum-typed-variable-typename",
+      "scope": "module",
+      "code": [
+        "Public Enum EPlain",
+        "    pOne",
+        "    pTwo",
+        "End Enum",
+        "",
+        "Sub Main()",
+        "    Dim x As EPlain",
+        "    x = pTwo",
+        "    Debug.Print TypeName(x)",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "What a variable DECLARED as the enum type reports. A member's own TypeName is measured `Long`; this asks whether a declared variable keeps the enum name or collapses to Long as well. The answer decides whether the interpreter needs a distinct enum-typed slot or can treat the declaration as a Long alias."
+    },
+    {
+      "id": "two-enums-sharing-a-member-name",
+      "scope": "module",
+      "code": [
+        "Public Enum EOne",
+        "    shared_ = 1",
+        "End Enum",
+        "",
+        "Public Enum ETwo",
+        "    shared_ = 2",
+        "End Enum",
+        "",
+        "Sub Main()",
+        "    Debug.Print EOne.shared_",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "Two enums declaring the same member name. Members are hoisted into the module namespace, so this is a collision - VB6 may refuse the duplicate outright, or allow it and make only the qualified form usable. HexIDE currently lets the second silently overwrite the first in a program-wide table, which is the same shape as issue #180 for Types, so the answer decides whether that is one defect or two."
+    },
+    {
+      "id": "enum-declared-inside-a-procedure",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "    Enum ELocal",
+        "        eA = 1",
+        "    End Enum",
+        "    Debug.Print eA",
+        "End Sub"
+      ],
+      "expect": "illegal",
+      "why": "Where an Enum may be DECLARED. The grammar reaches enumerationStmt from moduleBodyElement, so a procedure-local Enum should already be refused - but the grammar also reaches `block` from the module body, and this confirms the boundary rather than assuming it. Predicting illegal."
+    }
+  ]
+}
