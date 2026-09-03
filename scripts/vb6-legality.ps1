@@ -46,7 +46,12 @@ param(
     [string] $VMName = 'Win10',
     [string] $CredentialPath = (Join-Path $env:USERPROFILE '.hexide\win10.cred'),
     [string] $Vb6Exe,
-    [int]    $TimeoutSec = 60
+    [int]    $TimeoutSec = 60,
+
+    # Also RUN each legal case and record what it printed. Off by default, because running is a
+    # strictly weaker guarantee than compiling: a compile cannot hang, and an unhandled VB6 runtime
+    # error in a compiled exe puts up a modal and waits forever. See the capture notes below.
+    [switch] $CaptureOutput
 )
 
 $ErrorActionPreference = 'Stop'
@@ -123,7 +128,89 @@ foreach ($c in $cases) {
         } else { "Sub Main()`r`n" + $c.Source + "`r`nEnd Sub`r`n" })
 }
 
-$payload = $cases | ForEach-Object { @{ Key = $_.Key; Module = $_.Module; Extra = $_.Extra } }
+# ---- Behaviour capture (optional) --------------------------------------------------------------
+#
+# `Debug.Print` is INERT in a compiled exe — there is no Immediate window to receive it — so a case
+# that prints tells us nothing unless the print is redirected somewhere observable. vb6-oracle.ps1
+# already proves the mechanism: a compiled exe can `Print #` to a file.
+#
+# So each capturable case gets a SECOND module, built from the same source with `Debug.Print`
+# rewritten to a helper that appends to a file, and that module is compiled and run. Open/append/
+# close per call rather than a module-level handle, so no startup or shutdown hook is needed and a
+# case defining its own `Sub Main` needs no special handling.
+#
+# Three honesty constraints, all load-bearing:
+#
+#   * The rewrite CHANGES THE PROGRAM, and some cases are *about* the construct being rewritten. So
+#     the probe's legality is checked against the original's; if they disagree the rewrite broke the
+#     case and NO behaviour is recorded. A divergence the harness introduced must never be reported
+#     as a divergence in VB6 — that is the mistake this whole corpus exists to avoid.
+#   * A print carrying `;` or `,` is not deliverable by a single-argument helper. Those are excluded
+#     BY NAME, so the captured count never overstates what was measured.
+#   * The helper records TypeName alongside the value. A gate that compares only rendered text would
+#     miss every Integer-for-Long and Single-for-Double, which is precisely where a wrong value hides.
+$guestDir = 'C:\hexide-legality'
+$notCapturable = [System.Collections.Generic.List[object]]::new()
+
+if ($CaptureOutput) {
+    $helper = @"
+
+Public Sub HXP(ByVal hxV As Variant)
+    Dim hxF As Integer
+    Dim hxS As String
+    If IsObject(hxV) Then
+        hxS = "<object>"
+    ElseIf IsArray(hxV) Then
+        hxS = "<array>"
+    ElseIf IsNull(hxV) Then
+        hxS = "Null"
+    Else
+        hxS = CStr(hxV)
+    End If
+    hxF = FreeFile
+    Open "$guestDir\out.txt" For Append As #hxF
+    Print #hxF, TypeName(hxV) & Chr`$(9) & hxS
+    Close #hxF
+End Sub
+"@
+
+    foreach ($c in $cases) {
+        $all = @($c.Source) + @($c.Extra)
+        $reason = $null
+        if (($all -join "`r`n") -notmatch 'Debug\.Print') {
+            $reason = 'nothing printed, so nothing to observe'
+        } elseif (($all -join "`r`n") -match 'Debug\.Print[^\r\n]*[;,]') {
+            $reason = 'print uses a ; or , separator; the single-argument helper cannot carry it'
+        } elseif (($all -join "`r`n") -match '(?m)^\s*(Public\s+)?Sub\s+HXP\b') {
+            $reason = 'case already defines HXP'
+        }
+
+        if ($reason) {
+            $notCapturable.Add([pscustomobject]@{ Key = $c.Key; Reason = $reason })
+            $c | Add-Member -NotePropertyName Probe      -NotePropertyValue $null
+            $c | Add-Member -NotePropertyName ProbeExtra -NotePropertyValue @()
+            continue
+        }
+
+        $rewritten = $c.Source -replace 'Debug\.Print', 'HXP'
+        $c | Add-Member -NotePropertyName ProbeExtra -NotePropertyValue @(
+            @($c.Extra) | ForEach-Object { $_ -replace 'Debug\.Print', 'HXP' })
+        $c | Add-Member -NotePropertyName Probe -NotePropertyValue $(
+            if ($c.Scope -eq 'module') {
+                $needsMain = $true
+                foreach ($srcLine in ($rewritten -split "`r`n")) {
+                    if ($srcLine.Trim() -match '^(Public |Private |Friend )?Sub +Main') { $needsMain = $false; break }
+                }
+                if ($needsMain) { $rewritten + "`r`n`r`nSub Main()`r`nEnd Sub`r`n" + $helper }
+                else { $rewritten + "`r`n" + $helper }
+            } else { "Sub Main()`r`n" + $rewritten + "`r`nEnd Sub`r`n" + $helper })
+    }
+    Write-Verbose "Capture: $($cases.Count - $notCapturable.Count) capturable, $($notCapturable.Count) not"
+}
+
+$payload = $cases | ForEach-Object {
+    @{ Key = $_.Key; Module = $_.Module; Extra = $_.Extra; Probe = $_.Probe; ProbeExtra = $_.ProbeExtra }
+}
 
 # ---- Compile each case, in one session ---------------------------------------------------------
 
@@ -185,11 +272,60 @@ Name="verify"
 
         $err = if (Test-Path "$dir\err.log") { (Get-Content "$dir\err.log" -Raw) } else { '' }
         $built = Test-Path "$dir\verify.exe"
+        $actual = if ($timedOut) { 'timeout' } elseif ($built) { 'legal' } else { 'illegal' }
+
+        # Behaviour: only for a case that compiled, and only where a probe was built for it. The .vbp
+        # and the extra modules are already on disk from the compile above and are rewritten in place,
+        # so the probe is the same PROJECT, differing only in how its prints are delivered.
+        $ran = $null; $output = $null
+        if ($actual -eq 'legal' -and $item.Probe) {
+            Remove-Item "$dir\verify.exe", "$dir\err.log", "$dir\out.txt" -ErrorAction SilentlyContinue
+            $pe = @($item.ProbeExtra)
+            for ($i = 0; $i -lt $pe.Count; $i++) {
+                [System.IO.File]::WriteAllText("$dir\Module$($i + 2).bas",
+                    (& $toCrLf $pe[$i]), [System.Text.Encoding]::ASCII)
+            }
+            [System.IO.File]::WriteAllText("$dir\Module1.bas", (& $toCrLf $item.Probe), [System.Text.Encoding]::ASCII)
+
+            $pp = [System.Diagnostics.Process]::Start($psi)   # identical /make invocation
+            if (-not $pp.WaitForExit($timeoutSec * 1000)) { try { $pp.Kill() } catch { } }
+
+            if (-not (Test-Path "$dir\verify.exe")) {
+                # The rewrite changed the program's legality. Report the artefact, never a behaviour.
+                $ran = 'rewrite-broke-case'
+                $ren = if (Test-Path "$dir\err.log") { (Get-Content "$dir\err.log" -Raw) } else { '' }
+                $output = ($ren -replace "`r?`n", ' ').Trim()
+            } else {
+                $rpsi = New-Object System.Diagnostics.ProcessStartInfo
+                $rpsi.FileName = "$dir\verify.exe"
+                $rpsi.UseShellExecute = $false
+                $rpsi.CreateNoWindow = $true
+                $rpsi.WorkingDirectory = $dir
+
+                $r = [System.Diagnostics.Process]::Start($rpsi)
+                if (-not $r.WaitForExit($timeoutSec * 1000)) {
+                    # An unhandled VB6 runtime error raises a modal and waits. Killing it is the only
+                    # way out; whatever reached the file first is still a real observation, recorded
+                    # as such but never as a clean run.
+                    try { $r.Kill() } catch { }
+                    $ran = 'hung'
+                } else {
+                    $ran = if ($r.ExitCode -eq 0) { 'ok' } else { "exit:$($r.ExitCode)" }
+                }
+                # ONE newline-joined string, never an array: ConvertTo-Json silently collapses a
+                # single-element array to a scalar, so a one-print case and a two-print case would
+                # deserialise to different SHAPES and a reader that indexes it would walk a string
+                # character by character. Joining makes the shape uniform and the split explicit.
+                $output = if (Test-Path "$dir\out.txt") { ((Get-Content "$dir\out.txt") -join "`n") } else { '' }
+            }
+        }
 
         $results += @{
             Key     = $item.Key
-            Actual  = if ($timedOut) { 'timeout' } elseif ($built) { 'legal' } else { 'illegal' }
+            Actual  = $actual
             Error   = ($err -replace "`r?`n", ' ').Trim()
+            Ran     = $ran
+            Output  = $output
         }
     }
 
@@ -197,7 +333,6 @@ Name="verify"
     return @{ Stage = 'ok'; Results = $results }
 }
 
-$guestDir = 'C:\hexide-legality'
 if ($Local) {
     Write-Verbose "Compiling locally against $Vb6Exe"
     $outcome = & $work $guestDir $payload $Vb6Exe $TimeoutSec
@@ -238,6 +373,8 @@ $rows = foreach ($c in $cases) {
                   else { 'DISAGREES' }
         Error   = if ($r) { $r.Error } else { '' }
         Why     = $c.Why
+        Ran     = if ($r) { $r.Ran } else { $null }
+        Output  = if ($r -and $null -ne $r.Output) { [string]$r.Output } else { $null }
     }
 }
 
@@ -259,6 +396,14 @@ Write-Host "  agrees     $agree"
 Write-Host "  DISAGREES  $disagree   <- the interesting ones"
 Write-Host "  resolved   $resolved   (predicted 'unsure')"
 if ($skipped.Count) { Write-Host "  skipped    $($skipped.Count)   (undeliverable by this harness)" }
+if ($CaptureOutput) {
+    Write-Host ""
+    Write-Host "  captured   $(@($rows | Where-Object { $_.Ran -eq 'ok' }).Count)   (ran cleanly; output recorded)"
+    Write-Host "  hung       $(@($rows | Where-Object { $_.Ran -eq 'hung' }).Count)   (killed; partial output kept)"
+    Write-Host "  nonzero    $(@($rows | Where-Object { $_.Ran -like 'exit:*' }).Count)"
+    Write-Host "  rewrite    $(@($rows | Where-Object { $_.Ran -eq 'rewrite-broke-case' }).Count)   <- harness artefact, NOT a VB6 result"
+    Write-Host "  no probe   $($notCapturable.Count)"
+}
 Write-Host "  written to $OutFile"
 Write-Host ""
 
