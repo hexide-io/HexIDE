@@ -111,7 +111,7 @@ cp_Properties
     ;
 
 cp_SingleProperty
-    : WS? implicitCallStmt_InStmt WS? EQ WS? '$'? cp_PropertyValue FRX_OFFSET? NEWLINE+
+    : WS? (DESIGNER_KEY | implicitCallStmt_InStmt) WS? EQ WS? '$'? cp_PropertyValue FRX_OFFSET? NEWLINE+
     ;
 
 cp_PropertyName

@@ -405,6 +405,12 @@ FodyWeavers.xsd
 .idea
 /.claude/settings.local.json*
 
+# Agent worktrees. Tooling that runs work in an isolated copy of the repo checks it out here, so these
+# are nested git repositories that appear and vanish mid-session. Committing one stores a bare gitlink
+# that no clone can resolve — and because they contain a full copy of the tree, they also surface their
+# own copies of anything the repo scans for, which is confusing at best.
+/.claude/worktrees/
+
 # Private signing keys — never commit.
 # (The dev IDE/HexIDE.AddinPacker/firstparty/firstparty.key is still tracked pending
 #  trust-chain rotation + migration to a CI secret; see TRUST.md.)

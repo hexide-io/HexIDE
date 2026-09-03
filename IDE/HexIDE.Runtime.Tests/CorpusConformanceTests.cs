@@ -46,8 +46,8 @@ public class CorpusConformanceTests
     /// <para>
     /// Grouped by CAUSE, because this corpus has already taught that lesson the expensive way — a bucket
     /// labelled LABEL turned out to be mostly one over-broad lexer token, and nine cases across three
-    /// areas collapsed into a single fix once that was seen. These sixty-three rows are nineteen defects,
-    /// and the largest of them is one character in one character class.
+    /// areas collapsed into a single fix once that was seen. These fifty rows are eighteen defects.
+    /// The largest of them WAS one character in one character class, and it is now gone.
     /// </para>
     /// </remarks>
     private static readonly Dictionary<string, string> KnownDivergences = new()
@@ -87,38 +87,9 @@ public class CorpusConformanceTests
         ["separator-with-declarations/hashconst-value-continued"] = "OTHER-REJECTION",
         ["whitespace-and-eol-edges/eof-mid-continuation-no-trailing-newline"] = "OTHER-REJECTION",
 
-        // ===== FALSE ACCEPTANCES (54) — the mild direction. =====
+        // ===== FALSE ACCEPTANCES (41) — the mild direction. =====
 
-        // UNDERSCORE-STARTS-AN-IDENTIFIER (12) — the largest lever in the corpus, and one character.
-        //   A VB6 name may CONTAIN an underscore but may not BEGIN with one. `fragment LETTER` includes
-        //   `_` and its only consumer is `IDENTIFIER : LETTER LETTERORDIGIT*`, so `_`, `__`, `_z` and `_ab`
-        //   are all well-formed identifiers here — every malformed continuation quietly becomes an operand
-        //   instead of a syntax error, and `x = 1 +_` is read as an addition against a variable named `_`.
-        //   `LETTERORDIGIT` keeps its `_`; that is what makes `my_var` and `ab_` legal, all measured.
-        //
-        //   Note what is NOT at fault: in all twelve, LINE_CONTINUATION and COMMENT refuse correctly
-        //   every time. Three of these look like comment-handling bugs and three like continuation bugs.
-        //
-        //   The lexer fix is COUPLED and was tried and reverted here. Dropping `_` from LETTER alone turns
-        //   two legal cases into false rejections, because `_` alone on an INDENTED line is legal VB6
-        //   (measured: indented is legal, column-one is not) and NEWLINE has already eaten the space that
-        //   LINE_CONTINUATION needs to see it. It only becomes safe alongside the whitespace-ownership
-        //   change described under HIDDEN-CONTINUATION-FAKES-ADJACENCY — one work item, three edits, none
-        //   of them safe alone.
-        ["continuation-basics/cont-comment-after-underscore"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-basics/cont-no-space-before-underscore"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-illegal/comment-after-underscore"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-illegal/double-underscore-at-line-end"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-illegal/letter-after-underscore"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-illegal/no-space-before-underscore-after-operator"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-illegal/underscore-only-line-at-column-one"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-vs-identifier/comment-after-continuation"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-vs-identifier/continuation-without-preceding-space"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-vs-identifier/leading-underscore-name"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["continuation-vs-identifier/lone-underscore-name"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-        ["separator-and-continuation-together/colon-immediately-before-underscore-no-space"] = "UNDERSCORE-STARTS-AN-IDENTIFIER",
-
-        // BRACKETED-IDENTIFIER-NOT-VB6 (3)
+        // BRACKETED-IDENTIFIER-NOT-VB6 (2)
         //   `ambiguousIdentifier` has a `[name]` alternative. **VB6 has no such syntax.** Measured:
         //   `Dim [q] As Long`, `Dim [Print] As Long` and `Dim [Rem] As Long` are ALL a syntax error at the
         //   Dim. Bracket-escaping a reserved name is a VBA / VB.NET feature that VB6 predates, and the
@@ -132,7 +103,6 @@ public class CorpusConformanceTests
         //   accidentally moved one case TOWARDS VB6. The right fix is to drop the alternative, which
         //   retires all three; not done here because it is unrelated to Rem and wants its own check that
         //   nothing in the designer-file rules depends on it.
-        ["continuation-vs-identifier/bracketed-leading-underscore"] = "BRACKETED-IDENTIFIER-NOT-VB6",
         ["rem-forms/bracketed-plain-identifier"] = "BRACKETED-IDENTIFIER-NOT-VB6",
         ["rem-forms/bracketed-reserved-word"] = "BRACKETED-IDENTIFIER-NOT-VB6",
 
@@ -322,7 +292,7 @@ public class CorpusConformanceTests
     [Fact]
     public void HexIDE_DoesNotRejectCodeThatVB6Accepts()
     {
-        var (raw, _, total) = Compare();
+        var (raw, _, total, _) = Compare();
         var falseRejections = raw
             .Where(f => !KnownDivergences.ContainsKey(f.Split(' ')[0]))
             .ToList();
@@ -346,7 +316,7 @@ public class CorpusConformanceTests
         // It is the milder direction in general: a permissive grammar that defers a check to run time is
         // often deliberate here, and several entries below are exactly that. Hence a gate with an
         // exemption list rather than a prohibition.
-        var (_, raw, total) = Compare();
+        var (_, raw, total, _) = Compare();
         var falseAcceptances = raw
             .Where(f => !KnownDivergences.ContainsKey(f.Split(' ')[0]))
             .ToList();
@@ -359,11 +329,26 @@ public class CorpusConformanceTests
     }
 
     [Fact]
+    public void EveryCorpusCaseCarriesARecordedVerdict()
+    {
+        // A case with no verdict in results.json was silently skipped, which is the quietest way a gate
+        // can stop guarding: the count goes up, the gate stays green, and nothing was ever asked of the
+        // compiler. Cases that declare `skip` are exempt — those are deliberately undeliverable.
+        var (_, _, _, unmeasured) = Compare();
+
+        unmeasured.Should().BeEmpty(
+            "a corpus case is a question for vb6.exe, and one with no recorded answer is not evidence of "
+          + "anything — run scripts/vb6-legality.ps1 and merge the result, or mark the case `skip` with a "
+          + "reason:\n{0}",
+            string.Join("\n", unmeasured.Select(k => "    " + k)));
+    }
+
+    [Fact]
     public void KnownDivergencesAreStillReal()
     {
         // A stale exemption is as bad as an undocumented one: it permits a future regression under a
         // reason that no longer applies. If a case has been fixed, delete its entry.
-        var (falseRejections, falseAcceptances, _) = Compare();
+        var (falseRejections, falseAcceptances, _, _) = Compare();
         var stillWrong = falseRejections.Concat(falseAcceptances)
             .Select(f => f.Split(' ')[0]).ToHashSet(StringComparer.Ordinal);
 
@@ -378,14 +363,15 @@ public class CorpusConformanceTests
     {
         // Without this the two tests above pass vacuously, which is the failure mode a corpus gate dies
         // of: it goes quiet and everyone assumes it is still guarding something.
-        var (_, _, total) = Compare();
+        var (_, _, total, _) = Compare();
         total.Should().BeGreaterThan(250,
             "the corpus should carry its full set of compiled verdicts; found {0}", total);
     }
 
     // ------------------------------------------------------------------------------------------------
 
-    private static (List<string> FalseRejections, List<string> FalseAcceptances, int Total) Compare()
+    private static (List<string> FalseRejections, List<string> FalseAcceptances, int Total,
+        List<string> Unmeasured) Compare()
     {
         var root = RepoRoot();
         var dir = Path.Combine(root, "corpus", "continuation-and-separator");
@@ -402,6 +388,7 @@ public class CorpusConformanceTests
             .ToDictionary(r => r.Key, r => r.Actual, StringComparer.Ordinal);
 
         var falseRejections = new List<string>();
+        var unmeasured = new List<string>();
         var falseAcceptances = new List<string>();
         var total = 0;
 
@@ -416,8 +403,13 @@ public class CorpusConformanceTests
                 var id = el.GetProperty("id").GetString()!;
                 var key = $"{name}/{id}";
                 // A case may declare itself undeliverable by the compile harness (the line-ending cases).
-                // With no compiler verdict there is nothing to compare against.
-                if (el.TryGetProperty("skip", out _) || !verdicts.TryGetValue(key, out var vb6)) continue;
+                // That is deliberate and stays silent.
+                if (el.TryGetProperty("skip", out _)) continue;
+
+                // A case with no recorded verdict is NOT deliberate. It contributes nothing while looking
+                // exactly like coverage, so someone can add cases, watch the gate stay green, and believe
+                // they measured something. Collected rather than skipped.
+                if (!verdicts.TryGetValue(key, out var vb6)) { unmeasured.Add(key); continue; }
                 if (vb6 is not ("legal" or "illegal")) continue;   // timeouts prove nothing either way
 
                 var scope = el.TryGetProperty("scope", out var s) ? s.GetString() : "statement";
@@ -436,7 +428,7 @@ public class CorpusConformanceTests
         // Returned UNFILTERED. Subtracting the known divergences here would make them invisible to the
         // staleness check as well, so it could never see one that had started passing — the check would
         // report every entry stale, which is exactly what it did until this was separated.
-        return (falseRejections, falseAcceptances, total);
+        return (falseRejections, falseAcceptances, total, unmeasured);
     }
 
     /// <summary>Parse with the interpreter's own grammar, reporting only whether it succeeded.</summary>

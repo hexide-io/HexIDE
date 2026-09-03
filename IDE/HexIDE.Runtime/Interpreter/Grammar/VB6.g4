@@ -106,8 +106,14 @@ cp_Properties
 	| cp_NestedProperty
 	| controlProperties;
 
+// A designer property line. The name may be a DESIGNER_KEY, which an ordinary VB6 expression cannot be:
+// VB6 writes `_ExtentX`, `_ExtentY` and `_Version` into the Begin block of every ActiveX control, and a
+// VB6 identifier may not begin with an underscore. One lexer serves both halves of a .frm, so when the
+// underscore stopped being an identifier character these keys stopped lexing — a false rejection of
+// Microsoft-authored files, found by an adversarial review running the real template corpus rather than
+// by the conformance corpus, which contains no designer blocks at all.
 cp_SingleProperty
-	: WS? implicitCallStmt_InStmt WS? EQ WS? '$'? cp_PropertyValue FRX_OFFSET? NEWLINE+
+	: WS? (DESIGNER_KEY | implicitCallStmt_InStmt) WS? EQ WS? '$'? cp_PropertyValue FRX_OFFSET? NEWLINE+
 	;
 
 cp_PropertyName
@@ -2270,6 +2276,19 @@ OCTALLITERAL
 // same for `:b`, `:a`, `:F` and `Skip:Debug`. That single token was responsible for most of what the
 // conformance corpus reported as label and separator failures.
 //
+// A DESIGNER property-bag key — `_ExtentX`, `_ExtentY`, `_Version`. VB6 writes these into the Begin block
+// of every ActiveX control, and they are deliberately NOT VB6 identifiers: a name may not begin with an
+// underscore, which is exactly what makes them safe as property-bag keys that cannot collide with user
+// code. One lexer serves both halves of a .frm, so they need a token of their own.
+//
+// It is reachable only from cp_SingleProperty, so a leading underscore in ORDINARY code still fails — just
+// at the parser rather than the lexer, which is the better error anyway. `_z`, `__` and `_ab` are all
+// refused as before; a lone `_` does not match this at all, because the key needs a name after it.
+DESIGNER_KEY
+   : '_' LETTERORDIGIT +
+   ;
+
+
 // Narrowed to the shape VB6 actually writes: a leading DIGIT and at least four hex digits in total, which
 // is what zero-padding guarantees. `:Debug`, `:b` and `:1a` no longer match; `:0000` and `:1A2B` still do.
 // The residual risk is an offset into a .frx large enough to start with A-F (0xA0000 bytes and up); the
@@ -2330,8 +2349,25 @@ fragment KWSEP
 // A newline only. The colon alternative moved to the parser rule `blockSep` — see the note there for
 // why it could not stay: `COLON ' '` required a space after the colon, and widening it to a bare colon
 // would consume the token `lineLabel` needs to be a label at all.
+// A newline — and any CONTINUATION-ONLY lines that follow it.
+//
+// The trailing `WS?` eats the next line's indentation, which is what stopped LINE_CONTINUATION
+// (`[ \t]+ '_' …`) from ever seeing the space it needs at the start of a line. That mattered because
+// ` _` alone on an indented line is legal VB6 while `_` in column one is not — two files differing by two
+// space characters, measured — and once the indentation is gone the lexer cannot tell them apart.
+//
+// Rather than give the whitespace back, which reaches every rule that assumed a newline swallows
+// indentation, the newline now absorbs the whole continuation-only line itself. That is exactly what such
+// a line MEANS: a continuation joins its line to the next, and joining an empty line to the next yields
+// the next line, so `\n _\n` is one line boundary and nothing else. The leading `WS` in that group is
+// mandatory, which is what keeps a column-one `_` unmatched and therefore refused, as VB6 refuses it.
+// The inner terminator is a line break OR end-of-file, so that a dangling ` _` as the very last line of a
+// file is still absorbed — measured legal, and it is what a text editor leaves behind. It must not be
+// merely OPTIONAL: with nothing required after the underscore, ` _ _` and ` _ x` are absorbed as far as
+// the underscore and the rest is read as an ordinary statement. Both are syntax errors in VB6 — nothing
+// may follow a continuation on its line — so the alternative has to name EOF rather than shrug.
 NEWLINE
-   : WS? '\r'? '\n' WS?
+   : WS? '\r'? '\n' (WS '_' [ \t]* ('\r'? '\n' | EOF))* WS?
    ;
 
 
@@ -2341,8 +2377,15 @@ WS
 
 // letters
 
+// What may START an identifier. NOT the underscore: a VB6 name may CONTAIN one but may never begin with
+// one, and `_` alone is not a name at all. It used to be here, and the cost was not cosmetic — a lone `_`
+// matching IDENTIFIER is what let `x = 1 +_` parse, the malformed continuation completing as arithmetic
+// against a variable named `_` instead of failing. Twelve corpus cases turned on this one character.
+//
+// Removing it only works alongside NEWLINE giving up its trailing whitespace; see the note there. On its
+// own it converts two legal cases into false rejections, which is why an earlier attempt was reverted.
 fragment LETTER
-   : [a-zA-Z_äöüÄÖÜáéíóúÁÉÍÓÚâêîôûÂÊÎÔÛàèìòùÀÈÌÒÙãẽĩõũÃẼĨÕŨçÇ]
+   : [a-zA-ZäöüÄÖÜáéíóúÁÉÍÓÚâêîôûÂÊÎÔÛàèìòùÀÈÌÒÙãẽĩõũÃẼĨÕŨçÇ]
    ;
 
 
