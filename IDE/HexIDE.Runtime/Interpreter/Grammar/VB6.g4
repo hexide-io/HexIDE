@@ -899,7 +899,38 @@ letterrange
 // blockStmt because there is no separator after it, and a label alone on its line cannot be a lineHead
 // because no statement follows it.
 lineLabel
-   : ambiguousIdentifier WS? COLON (WS? COLON)*
+   : labelName WS? COLON (WS? COLON)*
+   ;
+
+// WHICH NAMES MAY BE A LABEL. This list is measured, one probe per word, and it is not derivable from
+// anything — which is why it is a list and not a rule.
+//
+// `Reset:` is a label; `Randomize:` is the Randomize statement. `Beep:` is a label; `Stop:` is a syntax
+// error. Both pairs are keywords whose statement form is complete with the keyword alone, so no structural
+// property separates them. VB6's reserved-word list is simply not what anyone remembers it to be, and this
+// is the second time in this corpus that guessing it cost a defect.
+//
+// It has to be narrow, because a label rule taking any `ambiguousIdentifier` is a WRONG-VALUE defect and
+// not merely an over-acceptance. `ELSE` is an ambiguousKeyword, so such a rule eats the `Else:` of a block
+// If as a label and swallows the entire else-branch into the Then-block — measured: `Else : B : C` ran
+// NOTHING when the condition was false and ran the else-branch unconditionally when it was true, with no
+// error either way. The same mechanism silently deleted `Stop:`, `Close:`, `Return:` and every other
+// keyword that alone forms a statement.
+//
+// The residual risk is the reverse and much smaller: a label named for a keyword NOT on this list is
+// refused. That is a false rejection, so it is the direction that matters — but it costs a construct
+// nobody writes by accident, and the words are addable one measurement at a time.
+labelName
+   : IDENTIFIER
+   | BEEP
+   | ERROR
+   | KILL
+   | LOAD
+   | MID
+   | NAME
+   | RESET
+   | TIME
+   | WIDTH
    ;
 
 // A NUMERIC line label — `10 Debug.Print 1`. Distinct from lineLabel because it takes no colon and is a

@@ -150,6 +150,43 @@ public class LineLabelTests : BaseVBTestFixture
         await act.Should().ThrowAsync<Exception>();
     }
 
+    [Theory]
+    [InlineData(false, "B|C")]
+    [InlineData(true, "A")]
+    public async Task AnElseWithATrailingColonIsStillAnElse(bool condition, string expected)
+    {
+        // The hazard that makes `labelName` a measured LIST rather than `ambiguousIdentifier`. ELSE is an
+        // ambiguousKeyword, so a label rule that accepts any keyword matches `Else:` — and then the block
+        // loop swallows the whole else-branch into the Then-block. Measured wrong in BOTH directions with
+        // no error at all: the branch never ran when the condition was false, and ran unconditionally when
+        // it was true. A wrong value, which the fidelity guardrail refuses outright.
+        await Run($"Dim x\nx = {(condition ? "True" : "False")}\nIf x Then\n    Debug.Print \"A\"\n" +
+                  "Else : Debug.Print \"B\" : Debug.Print \"C\"\nEnd If\n");
+        AssertDebugLog([.. expected.Split('|').Select(v => new Vb6Value(v))]);
+    }
+
+    [Fact]
+    public async Task AKeywordStatementSharingItsLineIsStillAStatement()
+    {
+        // `Stop:` is a syntax error in VB6, not a label — so `Stop` here is the Stop statement, and
+        // headless that halts the run before the following print. The halt IS the assertion: a label rule
+        // wide enough to take `Stop:` deletes the statement silently, and then BOTH lines print. The same
+        // mechanism reached Close, Return, Randomize and every other keyword whose statement form is
+        // complete on its own.
+        await Run("Debug.Print \"before\"\nStop: Debug.Print \"after\"\n");
+        AssertDebugLog([new Vb6Value("before")]);
+    }
+
+    [Fact]
+    public async Task AKeywordThatIsMeasuredLegalAsALabelStillWorks()
+    {
+        // The other side of the same list. `Beep:` IS a label in VB6 — `GoTo Beep` compiles — even though
+        // `Beep` alone is a complete statement. Nothing structural separates it from `Stop:`; only a
+        // measurement does.
+        await Run("GoTo Beep\nDebug.Print \"missed\"\nBeep: Debug.Print \"x\"\n");
+        AssertDebugLog([new Vb6Value("x")]);
+    }
+
     [Fact]
     public async Task ANameAfterAColonIsACallAndNotALabel()
     {

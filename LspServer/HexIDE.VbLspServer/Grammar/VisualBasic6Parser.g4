@@ -902,7 +902,25 @@ letterrange
 // lineHead (sharing its line with a statement) and as a blockStmt (standing alone on its line); the two
 // never compete. Mirrored from the interpreter's grammar.
 lineLabel
-    : ambiguousIdentifier WS? COLON (WS? COLON)*
+    : labelName WS? COLON (WS? COLON)*
+    ;
+
+// WHICH NAMES MAY BE A LABEL - measured one probe per word, and not derivable from anything. `Reset:` is
+// a label; `Randomize:` is the Randomize statement. `Beep:` is a label; `Stop:` is a syntax error. No
+// structural property separates those pairs. It must be narrow: a label rule taking any
+// ambiguousIdentifier eats the `Else:` of a block If (ELSE is an ambiguousKeyword) and swallows the whole
+// else-branch into the Then-block - a wrong value, silently. Mirrored from the interpreter's grammar.
+labelName
+    : IDENTIFIER
+    | BEEP
+    | ERROR
+    | KILL
+    | LOAD
+    | MID
+    | NAME
+    | RESET
+    | TIME
+    | WIDTH
     ;
 
 literal

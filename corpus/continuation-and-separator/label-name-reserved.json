@@ -1,0 +1,376 @@
+{
+  "area": "continuation-and-separator/label-name-reserved",
+  "cases": [
+    {
+      "id": "keyword-as-a-label-end",
+      "scope": "statement",
+      "code": [
+        "GoTo End",
+        "Debug.Print \"skipped\"",
+        "End: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `End` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-close",
+      "scope": "statement",
+      "code": [
+        "GoTo Close",
+        "Debug.Print \"skipped\"",
+        "Close: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Close` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-reset",
+      "scope": "statement",
+      "code": [
+        "GoTo Reset",
+        "Debug.Print \"skipped\"",
+        "Reset: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Reset` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-randomize",
+      "scope": "statement",
+      "code": [
+        "GoTo Randomize",
+        "Debug.Print \"skipped\"",
+        "Randomize: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Randomize` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-resume",
+      "scope": "statement",
+      "code": [
+        "GoTo Resume",
+        "Debug.Print \"skipped\"",
+        "Resume: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Resume` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-loop",
+      "scope": "statement",
+      "code": [
+        "GoTo Loop",
+        "Debug.Print \"skipped\"",
+        "Loop: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Loop` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-next",
+      "scope": "statement",
+      "code": [
+        "GoTo Next",
+        "Debug.Print \"skipped\"",
+        "Next: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Next` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-wend",
+      "scope": "statement",
+      "code": [
+        "GoTo Wend",
+        "Debug.Print \"skipped\"",
+        "Wend: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Wend` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-case",
+      "scope": "statement",
+      "code": [
+        "GoTo Case",
+        "Debug.Print \"skipped\"",
+        "Case: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Case` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-error",
+      "scope": "statement",
+      "code": [
+        "GoTo Error",
+        "Debug.Print \"skipped\"",
+        "Error: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Error` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-name",
+      "scope": "statement",
+      "code": [
+        "GoTo Name",
+        "Debug.Print \"skipped\"",
+        "Name: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Name` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-print",
+      "scope": "statement",
+      "code": [
+        "GoTo Print",
+        "Debug.Print \"skipped\"",
+        "Print: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Print` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-get",
+      "scope": "statement",
+      "code": [
+        "GoTo Get",
+        "Debug.Print \"skipped\"",
+        "Get: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Get` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-put",
+      "scope": "statement",
+      "code": [
+        "GoTo Put",
+        "Debug.Print \"skipped\"",
+        "Put: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Put` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-write",
+      "scope": "statement",
+      "code": [
+        "GoTo Write",
+        "Debug.Print \"skipped\"",
+        "Write: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Write` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-input",
+      "scope": "statement",
+      "code": [
+        "GoTo Input",
+        "Debug.Print \"skipped\"",
+        "Input: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Input` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-open",
+      "scope": "statement",
+      "code": [
+        "GoTo Open",
+        "Debug.Print \"skipped\"",
+        "Open: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Open` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-seek",
+      "scope": "statement",
+      "code": [
+        "GoTo Seek",
+        "Debug.Print \"skipped\"",
+        "Seek: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Seek` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-width",
+      "scope": "statement",
+      "code": [
+        "GoTo Width",
+        "Debug.Print \"skipped\"",
+        "Width: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Width` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-lock",
+      "scope": "statement",
+      "code": [
+        "GoTo Lock",
+        "Debug.Print \"skipped\"",
+        "Lock: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Lock` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-unlock",
+      "scope": "statement",
+      "code": [
+        "GoTo Unlock",
+        "Debug.Print \"skipped\"",
+        "Unlock: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Unlock` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-load",
+      "scope": "statement",
+      "code": [
+        "GoTo Load",
+        "Debug.Print \"skipped\"",
+        "Load: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Load` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-kill",
+      "scope": "statement",
+      "code": [
+        "GoTo Kill",
+        "Debug.Print \"skipped\"",
+        "Kill: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Kill` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-set",
+      "scope": "statement",
+      "code": [
+        "GoTo Set",
+        "Debug.Print \"skipped\"",
+        "Set: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Set` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-let",
+      "scope": "statement",
+      "code": [
+        "GoTo Let",
+        "Debug.Print \"skipped\"",
+        "Let: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Let` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-call",
+      "scope": "statement",
+      "code": [
+        "GoTo Call",
+        "Debug.Print \"skipped\"",
+        "Call: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Call` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-date",
+      "scope": "statement",
+      "code": [
+        "GoTo Date",
+        "Debug.Print \"skipped\"",
+        "Date: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Date` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-time",
+      "scope": "statement",
+      "code": [
+        "GoTo Time",
+        "Debug.Print \"skipped\"",
+        "Time: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Time` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-mid",
+      "scope": "statement",
+      "code": [
+        "GoTo Mid",
+        "Debug.Print \"skipped\"",
+        "Mid: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Mid` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-stop",
+      "scope": "statement",
+      "code": [
+        "GoTo Stop",
+        "Debug.Print \"skipped\"",
+        "Stop: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Is `Stop` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+    },
+    {
+      "id": "keyword-as-a-label-new",
+      "scope": "statement",
+      "code": [
+        "GoTo New",
+        "Debug.Print \"skipped\"",
+        "New: Debug.Print \"A\""
+      ],
+      "expect": "illegal",
+      "why": "Prompted by a maintainer's recollection that `New` is illegal as a Sub name. Recorded as a hypothesis rather than a fact, because that is what this file is for - the same kind of remembered rule has already been wrong twice here (the docs on Rem's separator, a reviewer on bracket-escaping). Predicting illegal, and measuring it either way."
+    },
+    {
+      "id": "new-as-a-procedure-name",
+      "scope": "module",
+      "code": [
+        "Private Sub New()",
+        "    Debug.Print \"A\"",
+        "End Sub",
+        "",
+        "Sub Main()",
+        "    New",
+        "End Sub"
+      ],
+      "expect": "illegal",
+      "why": "`New` as a Sub NAME - a different position from a label, and one that need not agree with it. Measured illegal: \"Expected: identifier\", refused at the declaration rather than at any call site.\n\nWorth pinning rather than filing as incidental, because the illegality is LOAD-BEARING for anyone extending this language: a dialect that wants `New` to name a constructor can only slot it in cleanly because VB6 leaves the name unavailable. A fact that other work depends on is exactly the kind that should be measured and recorded rather than remembered.\n\nRaised from a maintainer's recollection, and recorded as a hypothesis first - the same shape of remembered rule has already been wrong twice in this corpus. This one held."
+    },
+    {
+      "id": "nothing-as-a-procedure-name",
+      "scope": "module",
+      "code": [
+        "Private Sub Nothing()",
+        "    Debug.Print \"A\"",
+        "End Sub",
+        "",
+        "Sub Main()",
+        "    Nothing",
+        "End Sub"
+      ],
+      "expect": "illegal",
+      "why": "The control for the New case. `Nothing` is a literal rather than an operator, so if the two disagreed the rule would be about operators specifically. They do not disagree - both are refused with the same \"Expected: identifier\" - so it is simple reservation, not an ambiguity VB6 is avoiding at the call site."
+    }
+  ]
+}

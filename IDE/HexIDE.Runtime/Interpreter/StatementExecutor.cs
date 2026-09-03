@@ -1885,7 +1885,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     if (head.lineNumber() is { } number)
                         pending.Add(number.GetText());
                     if (head.lineLabel() is { } named)
-                        pending.Add(named.ambiguousIdentifier().GetText());
+                        pending.Add(named.labelName().GetText());
                     break;
                 case VB6Parser.EmptyLineNumberContext eln:
                     // A number whose line carried no statement. It keeps its claim on the next one.
@@ -1912,7 +1912,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var labels = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < stmts.Length; i++)
             if (stmts[i].lineLabel() is { } lbl)
-                labels[lbl.ambiguousIdentifier().GetText()] = i;
+                labels[lbl.labelName().GetText()] = i;
         CollectLineHeads(block, stmts, labels);
 
         int pc = 0;

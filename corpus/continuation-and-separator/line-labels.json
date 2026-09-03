@@ -130,6 +130,67 @@
       ],
       "expect": "legal",
       "why": "The space-before-colon form is measured legal; this asks whether the whitespace admitted there is a space specifically or a whitespace run generally. Every other separator in this grammar turned out to be a run, and each time the one-character reading was the bug."
+    },
+    {
+      "id": "beep-as-a-label",
+      "scope": "statement",
+      "code": [
+        "GoTo Beep",
+        "Debug.Print \"skipped\"",
+        "Beep: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "`Beep` alone is a complete VB6 statement AND a plausible label name, so `Beep: stmt` at a line head is genuinely ambiguous and VB6 must resolve it somehow. The GoTo is what makes the probe decisive: if Beep is a LABEL this compiles, and if Beep is a STATEMENT the GoTo has no target and the compile fails. Nothing in the reference says which way this goes, and the answer governs an entire class - Stop, End, Close, Reset, Randomize, Resume, Return all have the same shape."
+    },
+    {
+      "id": "stop-as-a-label",
+      "scope": "statement",
+      "code": [
+        "GoTo Stop",
+        "Debug.Print \"skipped\"",
+        "Stop: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "The same question for a keyword with teeth. If `Stop:` is a label then a debugger breakpoint silently is not one; if it is a statement then a label may not be called Stop. Measured separately from Beep because Stop is a reserved word in more contexts and the two need not agree."
+    },
+    {
+      "id": "return-as-a-label",
+      "scope": "statement",
+      "code": [
+        "GoTo Return",
+        "Debug.Print \"skipped\"",
+        "Return: Debug.Print \"A\""
+      ],
+      "expect": "unsure",
+      "why": "Return is control flow, which makes it the worst member of the class to get wrong in either direction, and it is also the one most likely to be genuinely reserved. Included to find the boundary of the rule rather than to assume the class is uniform."
+    },
+    {
+      "id": "else-colon-inside-a-block-if",
+      "scope": "statement",
+      "code": [
+        "Dim x As Boolean",
+        "x = False",
+        "If x Then",
+        "    Debug.Print \"A\"",
+        "Else : Debug.Print \"B\" : Debug.Print \"C\"",
+        "End If"
+      ],
+      "expect": "legal",
+      "why": "`Else` followed by a colon and a colon-joined body. This is NOT a label question - Else is block structure, not a name - but it has the same token shape as one, and a grammar that lets a line label match a bare keyword will swallow the whole Else branch into the Then block. Recorded here as the executable control for that hazard. Predicting legal; the corpus already has the parse-level twin."
+    },
+    {
+      "id": "elseif-colon-inside-a-block-if",
+      "scope": "statement",
+      "code": [
+        "Dim x As Long",
+        "x = 2",
+        "If x = 1 Then",
+        "    Debug.Print \"A\"",
+        "ElseIf x = 2 Then: Debug.Print \"B\"",
+        "End If"
+      ],
+      "expect": "unsure",
+      "why": "The ElseIf arm of the same hazard. It cannot be mistaken for a label - ElseIf needs a condition before the colon - so if this is legal and the Else form is too, the two differ only in how a grammar might mis-handle them, which is worth knowing before writing the exclusion."
     }
   ]
 }
