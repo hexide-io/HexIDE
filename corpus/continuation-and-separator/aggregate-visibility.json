@@ -306,6 +306,100 @@
       ],
       "expect": "unsure",
       "why": "A bare MEMBER name declared by enums in two different modules, qualified with one of those modules. Distinct from the previous case because here the enums have different names and only the member collides - so the module prefix is the only thing that can disambiguate, and there is no enum name to fall back on.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
+    },
+    {
+      "id": "foreign-private-type-is-not-visible",
+      "scope": "module",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Main()",
+        "    Dim p As Point",
+        "    p.X = 1",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Private Type Point",
+          "    X As Long",
+          "End Type"
+        ]
+      ],
+      "expect": "illegal",
+      "why": "Gap one: a PRIVATE Type in another module, referenced bare. The enum half of this is measured - a foreign Private enum's members give 'Variable not defined' - but Types were only ever measured in the two-declarations arrangement, where a local declaration could have been doing the work. This asks whether Private is enforced for Types at all. Predicting illegal; if it is LEGAL then Types have no module scope and the whole shared-base-rule reading is wrong.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
+    },
+    {
+      "id": "foreign-private-type-not-reachable-even-qualified",
+      "scope": "module",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Main()",
+        "    Dim p As Module2.Point",
+        "    p.X = 1",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Private Type Point",
+          "    X As Long",
+          "End Type"
+        ]
+      ],
+      "expect": "illegal",
+      "why": "The same Type named through its declaring module. The module prefix is measured to resolve an AMBIGUITY; this asks whether it also defeats PRIVACY, which would make it a back door rather than a disambiguator. Predicting illegal - naming the module should not grant access it does not have.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
+    },
+    {
+      "id": "module-prefix-overrides-a-local-declaration",
+      "scope": "module",
+      "code": [
+        "Option Explicit",
+        "",
+        "Private Type Point",
+        "    X As Long",
+        "End Type",
+        "",
+        "Sub Main()",
+        "    Dim p As Module2.Point",
+        "    p.Latitude = 1",
+        "    Debug.Print p.Latitude",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Public Type Point",
+          "    Latitude As Double",
+          "End Type"
+        ]
+      ],
+      "expect": "unsure",
+      "why": "Gap two, and it is decisive by construction: the local Private Point has an X and the foreign Public Point has a Latitude, so reading `.Latitude` says WHICH one the qualified reference picked. If it compiles, the module prefix overrides a local declaration outright; if it fails, the prefix only breaks a tie among foreign candidates and the local one still wins. A resolver has to know which, and the two designs differ.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
+    },
+    {
+      "id": "local-type-still-wins-when-unqualified",
+      "scope": "module",
+      "code": [
+        "Option Explicit",
+        "",
+        "Private Type Point",
+        "    X As Long",
+        "End Type",
+        "",
+        "Sub Main()",
+        "    Dim p As Point",
+        "    p.X = 1",
+        "    Debug.Print p.X",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Public Type Point",
+          "    Latitude As Double",
+          "End Type"
+        ]
+      ],
+      "expect": "legal",
+      "why": "The control for the previous case, same two declarations but an UNQUALIFIED reference reading the LOCAL member. Together the pair pins the rule from both sides rather than leaving 'local wins' inferred from a compile that might have succeeded for another reason.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
     }
   ]
 }
