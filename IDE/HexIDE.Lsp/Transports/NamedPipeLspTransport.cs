@@ -64,7 +64,10 @@ public sealed record NamedPipeLaunch(string FileName, string Arguments, string? 
 /// </remarks>
 public sealed class NamedPipeLspTransport : ILspTransport
 {
-    private const int DefaultConnectTimeoutSeconds = 15;
+    // Measured against a real third-party server: its pipe came up 9.6s after launch on one run, and
+    // its initialize round trip is 6.35s of which ~5.0s is a hardcoded sleep. 15s left no headroom on
+    // a slow machine for something that was working correctly.
+    private const int DefaultConnectTimeoutSeconds = 30;
 
     private readonly string _pipeName;
     private readonly NamedPipeRole _role;
@@ -152,12 +155,22 @@ public sealed class NamedPipeLspTransport : ILspTransport
         return new HeaderDelimitedMessageHandler(_pipe!, _pipe!, formatter);
     }
 
+    /// <summary>
+    /// <c>Asynchronous</c> is load-bearing, not a style choice: both ends wrap the one duplex handle
+    /// as reader <em>and</em> writer, and on a non-overlapped handle the OS serialises I/O on the file
+    /// object, so the read loop blocks every write and the handshake never completes.
+    /// <c>CurrentUserOnly</c> is the defence against pipe-squatting — a pipe name is a machine-global
+    /// string, so without it any local process can claim the name and impersonate a language server,
+    /// or read what we send one.
+    /// </summary>
+    private const PipeOptions Options = PipeOptions.Asynchronous | PipeOptions.CurrentUserOnly;
+
     private NamedPipeServerStream CreateListener() =>
         new(_pipeName, PipeDirection.InOut, maxNumberOfServerInstances: 1,
-            PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+            PipeTransmissionMode.Byte, Options);
 
     private NamedPipeClientStream CreateDialler() =>
-        new(serverName: ".", _pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+        new(serverName: ".", _pipeName, PipeDirection.InOut, Options);
 
     private void StartServerIfConfigured()
     {
@@ -210,8 +223,13 @@ public sealed class NamedPipeLspTransport : ILspTransport
         if (process is null)
             return;
 
-        // Unsubscribe first: killing the child would otherwise raise Closed during teardown and
-        // invite the client to reconnect to a transport that is being disposed.
+        // Killing the child is required, not tidy-up. A real third-party server was measured taking a
+        // client PID on its command line, silently ignoring it, logging that it "will not be able to
+        // automatically exit", and then outliving every client — leaving orphaned server processes on
+        // each run. A transport that owns a child has to assume nothing else will reap it.
+        //
+        // Unsubscribe first: the kill would otherwise raise Closed during teardown and invite the
+        // client to reconnect to a transport that is being disposed.
         process.Exited -= OnServerExited;
         try
         {
