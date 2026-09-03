@@ -23,6 +23,12 @@
 
 ## The wire contract (all methods; every one is client-consumed)
 
+> **Note added 2026-09-04.** The "Server today" column below describes the **pre-swap** server and is kept
+> as the historical record it is — `LspServer.cs` no longer exists. One row has since become actively
+> misleading and is corrected here rather than rewritten in place: `initialize` **does** now advertise a
+> real capability set (`VbServerCapabilities`), and the client no longer discards the result. Between the
+> swap and that change it advertised `{}`, which is neither what this table says nor what it does now.
+
 | Method | Server today (evidence: `LspServer.cs`) | Client dependency / quirk | Port cost |
 |---|---|---|---|
 | `initialize` | Ignores client capabilities; returns fixed 10-capability set (`:761-779`) | Response deserialized, **never consulted** — client calls everything unconditionally | Trivial (EmmyLua initialize handler) |

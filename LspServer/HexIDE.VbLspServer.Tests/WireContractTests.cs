@@ -60,6 +60,74 @@ public class WireContractTests
     }
 
     [Fact]
+    public async Task DidChange_carrying_a_range_is_refused_and_the_document_is_evicted()
+    {
+        // The server advertises Full sync, so a ranged change means the client ignored that. Applying it
+        // would take the replacement text for a few characters as the WHOLE document.
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, Doc);
+        await h.NextDiagnosticsAsync();
+
+        await h.Rpc.NotifyWithParameterObjectAsync("textDocument/didChange", new
+        {
+            textDocument = new { uri = Uri, version = 2 },
+            contentChanges = new[]
+            {
+                new
+                {
+                    range = new { start = new { line = 0, character = 4 }, end = new { line = 0, character = 6 } },
+                    rangeLength = 2,
+                    text = "X = 1",
+                },
+            },
+        });
+
+        // Evicted, not replaced: the refusal publishes an empty diagnostics array, and the document is gone
+        // from the store rather than holding "X = 1" as its entire contents.
+        var pub = await h.NextDiagnosticsAsync();
+        pub.GetProperty("uri").GetString().Should().Be(Uri);
+        pub.GetProperty("diagnostics").GetArrayLength().Should().Be(0);
+
+        var symbols = await RequestAsync(h, "textDocument/documentSymbol", DocParams(Uri));
+        symbols.GetArrayLength().Should().Be(0, "the document was evicted, not mis-applied");
+    }
+
+    [Fact]
+    public async Task A_refused_ranged_change_cannot_produce_a_whole_document_formatting_edit()
+    {
+        // This is why refusal evicts rather than logs-and-ignores. Formatting returns a single TextEdit
+        // spanning (0,0) to end-of-buffer, so a stale buffer left in the store after a mis-applied ranged
+        // change would let a client replace the user's real file with the fragment. With no source entry
+        // the path is closed structurally rather than by remembering not to take it.
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, Doc);
+        await h.NextDiagnosticsAsync();
+
+        await h.Rpc.NotifyWithParameterObjectAsync("textDocument/didChange", new
+        {
+            textDocument = new { uri = Uri, version = 2 },
+            contentChanges = new[]
+            {
+                new
+                {
+                    range = new { start = new { line = 0, character = 0 }, end = new { line = 0, character = 1 } },
+                    rangeLength = 1,
+                    text = "x",
+                },
+            },
+        });
+        await h.NextDiagnosticsAsync();
+
+        var edits = await RequestAsync(h, "textDocument/formatting", new
+        {
+            textDocument = new { uri = Uri },
+            options = new { tabSize = 4, insertSpaces = true },
+        });
+
+        edits.GetArrayLength().Should().Be(0, "no source, so no whole-document edit can be emitted");
+    }
+
+    [Fact]
     public async Task DidClose_publishes_an_empty_diagnostics_array()
     {
         await using var h = await StartAsync();
