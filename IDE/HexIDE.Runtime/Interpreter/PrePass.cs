@@ -184,10 +184,16 @@ public class PrePass : VB6BaseVisitor<object?>
 
     public override object? VisitEnumerationStmt(VB6Parser.EnumerationStmtContext context)
     {
-        // Enum members are Long compile-time constants: an explicit integer literal, else the previous value + 1
-        // (auto-increment from 0). Each member name is hoisted as a bare Long (unqualified access, like a Const),
-        // and the whole set is registered for qualified `MyEnum.Member` access. Non-literal member values
-        // (hex, references to other members) are deferred.
+        // Enum members are Long compile-time CONSTANTS whose values are constant EXPRESSIONS, not merely
+        // literals: `&H80000005` (measured -2147483643, the high bit making it negative), `&O17`, `-3`,
+        // `xFirst + 1`, `2 ^ 3` and bit-ors of earlier members are all ordinary VB6. A member with no value
+        // takes the previous member's value + 1, from any of those.
+        //
+        // Evaluation is a SINGLE FORWARD WALK, and that is measured rather than convenient: VB6 refuses a
+        // member that references a later member, and one that references a later Const, both with
+        // "Constant expression required". So source order is the rule, and the lazy-memoised treatment
+        // CLAUDE.md prescribes for Const — which exists precisely because Const is order-independent — is
+        // not wanted here. Collecting values as the walk reaches them stays pure collection.
         var enumName = context.ambiguousIdentifier().GetText();
         var members = new Dictionary<string, long>(StringComparer.OrdinalIgnoreCase);
         long next = 0;
@@ -197,8 +203,9 @@ public class PrePass : VB6BaseVisitor<object?>
             long value;
             if (c.valueStmt() is { } vs)
             {
-                if (!long.TryParse(vs.GetText().Trim(), out value))
-                    throw new NotImplementedException($"Enum member '{constName}' must be an integer literal (got '{vs.GetText()}')");
+                if (!TryFoldEnumValue(vs, enumName, members, out value))
+                    throw new VBCompileErrorException(
+                        $"Constant expression required (Enum {enumName}, member '{constName}': '{vs.GetText().Trim()}')");
                 next = value + 1;
             }
             else
@@ -206,10 +213,138 @@ public class PrePass : VB6BaseVisitor<object?>
                 value = next++;
             }
             members[constName] = value;
-            rootEnv.DefineVariable(constName, state.Alloc(new Vb6Value(value)));
+
+            // Hoisted READ-ONLY. VB6 answers `pTwo = 5` with "Assignment to constant not permitted", and a
+            // plain variable slot silently accepted it — so a program could overwrite vbRed and nothing
+            // would say so.
+            var location = state.Alloc(new Vb6Value(value));
+            state.MarkReadOnly(location);
+            rootEnv.DefineVariable(constName, location);
         }
         Enums[enumName] = members;
         return default;
+    }
+
+    /// <summary>
+    /// Fold one Enum member's value expression to the Long it denotes, or fail.
+    ///
+    /// <para>
+    /// This is a CONSTANT folder, deliberately separate from <see cref="ExpressionExecutor"/>: an Enum body
+    /// is evaluated before anything runs, so there is no environment to evaluate against and nothing here
+    /// may have a side effect. VB6 draws the same line and reports crossing it as "Constant expression
+    /// required". Anything this cannot fold is refused rather than guessed — a member is a value the whole
+    /// program reads, so a wrong one would be wrong everywhere and silently.
+    /// </para>
+    ///
+    /// <para>
+    /// Names resolve against members already folded, which is the whole of the scoping rule: earlier
+    /// members of this enum (bare or qualified with this enum's own name — both measured legal), and
+    /// members of enums declared earlier. A forward reference simply is not found, which is the right
+    /// answer for the right reason.
+    /// </para>
+    /// </summary>
+    private bool TryFoldEnumValue(VB6Parser.ValueStmtContext ctx, string enumName,
+        Dictionary<string, long> soFar, out long result)
+    {
+        result = 0;
+        switch (ctx)
+        {
+            case VB6Parser.VsLiteralContext lit:
+            {
+                var l = lit.literal();
+                Vb6Value v;
+                if (l.HEXLITERAL() is { } hex) v = ExpressionExecutor.ClassifyRadixLiteral(hex.GetText(), 16);
+                else if (l.OCTALLITERAL() is { } oct) v = ExpressionExecutor.ClassifyRadixLiteral(oct.GetText(), 8);
+                else if (l.INTEGERLITERAL() is { } i) v = ExpressionExecutor.ClassifyIntegerLiteral(i.GetText());
+                else if (l.TRUE() != null) { result = -1; return true; }     // VB6 True is -1
+                else if (l.FALSE() != null) { result = 0; return true; }
+                else return false;                                          // strings, dates, Nothing, Null
+                return TryAsLong(v, out result);
+            }
+
+            // A parenthesised value. `vsStruct` also covers a comma list, which is not a constant.
+            case VB6Parser.VsStructContext s when s.valueStmt().Length == 1:
+                return TryFoldEnumValue(s.valueStmt(0), enumName, soFar, out result);
+
+            case VB6Parser.VsNegationContext n when TryFoldEnumValue(n.valueStmt(), enumName, soFar, out var neg):
+                result = -neg; return true;
+            case VB6Parser.VsPlusContext p:
+                return TryFoldEnumValue(p.valueStmt(), enumName, soFar, out result);
+
+            // A NAME: an earlier member, bare or qualified.
+            case VB6Parser.VsICSContext ics:
+                return TryResolveFoldedName(ics.GetText().Trim(), enumName, soFar, out result);
+        }
+
+        // The binary operators, all of which need both sides folded first.
+        var (left, right, op) = ctx switch
+        {
+            VB6Parser.VsAddContext a => (a.valueStmt(0), a.valueStmt(1), "+"),
+            VB6Parser.VsMinusContext m => (m.valueStmt(0), m.valueStmt(1), "-"),
+            VB6Parser.VsMultContext m => (m.valueStmt(0), m.valueStmt(1), "*"),
+            VB6Parser.VsDivContext d => (d.valueStmt(0), d.valueStmt(1), "/"),
+            VB6Parser.VsModContext m => (m.valueStmt(0), m.valueStmt(1), "Mod"),
+            VB6Parser.VsPowContext p => (p.valueStmt(0), p.valueStmt(1), "^"),
+            VB6Parser.VsAndContext a => (a.valueStmt(0), a.valueStmt(1), "And"),
+            VB6Parser.VsOrContext o => (o.valueStmt(0), o.valueStmt(1), "Or"),
+            VB6Parser.VsXorContext x => (x.valueStmt(0), x.valueStmt(1), "Xor"),
+            _ => (null, null, null),
+        };
+        if (op is null) return false;
+        if (!TryFoldEnumValue(left!, enumName, soFar, out var lv)) return false;
+        if (!TryFoldEnumValue(right!, enumName, soFar, out var rv)) return false;
+
+        switch (op)
+        {
+            case "+": result = lv + rv; return true;
+            case "-": result = lv - rv; return true;
+            case "*": result = lv * rv; return true;
+            case "/": if (rv == 0) return false; result = lv / rv; return true;
+            case "Mod": if (rv == 0) return false; result = lv % rv; return true;
+            case "^": result = (long)Math.Pow(lv, rv); return true;
+            // Bitwise, not logical: `flagA Or flagB` is how every flag enum in VB6 is written.
+            case "And": result = lv & rv; return true;
+            case "Or": result = lv | rv; return true;
+            case "Xor": result = lv ^ rv; return true;
+            default: return false;
+        }
+    }
+
+    /// <summary>Resolve a name inside an Enum member value: `Earlier`, `ThisEnum.Earlier`, `OtherEnum.Member`.</summary>
+    private bool TryResolveFoldedName(string text, string enumName, Dictionary<string, long> soFar, out long result)
+    {
+        result = 0;
+        var dot = text.LastIndexOf('.');
+        if (dot < 0)
+        {
+            // Bare: this enum's earlier members first, then any earlier enum's members. Both are measured
+            // legal; a name declared by two enums is ambiguous in VB6 and is left for the collision work.
+            if (soFar.TryGetValue(text, out result)) return true;
+            foreach (var (_, members) in Enums)
+                if (members.TryGetValue(text, out result)) return true;
+            return false;
+        }
+
+        var qualifier = text[..dot].Trim();
+        var member = text[(dot + 1)..].Trim();
+        // An enum's own name is in scope inside its own body — measured.
+        var table = string.Equals(qualifier, enumName, StringComparison.OrdinalIgnoreCase)
+            ? soFar
+            : Enums.TryGetValue(qualifier, out var t) ? t : null;
+        return table is not null && table.TryGetValue(member, out result);
+    }
+
+    /// <summary>An Enum member is always a Long — measured, whatever the literal's own type.</summary>
+    private static bool TryAsLong(Vb6Value v, out long result)
+    {
+        switch (v.Value)
+        {
+            case long l: result = l; return true;
+            case int i: result = i; return true;
+            case short s: result = s; return true;
+            case byte b: result = b; return true;
+            default: result = 0; return false;
+        }
     }
 
     public override object? VisitEventStmt(VB6Parser.EventStmtContext context)

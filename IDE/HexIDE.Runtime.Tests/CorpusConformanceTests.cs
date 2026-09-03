@@ -8,10 +8,16 @@ namespace HexIDE.Runtime.Tests;
 /// Does HexIDE's grammar agree with real VB6 about what is legal?
 ///
 /// <para>
-/// The corpus under <c>/corpus</c> is 403 clean-room cases on line continuations and statement
-/// separators, each already compiled by <c>vb6.exe</c> and its verdict recorded in <c>results.json</c>.
-/// This turns those recorded facts into a gate: parse every case with the interpreter's own grammar and
-/// compare.
+/// The corpus under <c>/corpus</c> is 425 clean-room cases, each already compiled by <c>vb6.exe</c> with
+/// its verdict recorded in <c>results.json</c>. This turns those recorded facts into a gate: parse every
+/// case with the interpreter's own grammar and compare.
+/// </para>
+///
+/// <para>
+/// It began as line continuations and statement separators, and has outgrown that name — the directory
+/// still carries it while holding Rem forms, line labels, reserved words and Enums. The gate reads that
+/// one directory by path, so a new subject has nowhere else to go. Worth splitting the next time this
+/// changes.
 /// </para>
 ///
 /// <para>
@@ -46,7 +52,7 @@ public class CorpusConformanceTests
     /// <para>
     /// Grouped by CAUSE, because this corpus has already taught that lesson the expensive way — a bucket
     /// labelled LABEL turned out to be mostly one over-broad lexer token, and nine cases across three
-    /// areas collapsed into a single fix once that was seen. These fifty rows are eighteen defects.
+    /// areas collapsed into a single fix once that was seen. These fifty-five rows are nineteen defects.
     /// The largest of them WAS one character in one character class, and it is now gone.
     /// </para>
     /// </remarks>
@@ -87,7 +93,7 @@ public class CorpusConformanceTests
         ["separator-with-declarations/hashconst-value-continued"] = "OTHER-REJECTION",
         ["whitespace-and-eol-edges/eof-mid-continuation-no-trailing-newline"] = "OTHER-REJECTION",
 
-        // ===== FALSE ACCEPTANCES (41) — the mild direction. =====
+        // ===== FALSE ACCEPTANCES (46) — the mild direction. =====
 
         // BRACKETED-IDENTIFIER-NOT-VB6 (2)
         //   `ambiguousIdentifier` has a `[name]` alternative. **VB6 has no such syntax.** Measured:
@@ -105,6 +111,22 @@ public class CorpusConformanceTests
         //   nothing in the designer-file rules depends on it.
         ["rem-forms/bracketed-plain-identifier"] = "BRACKETED-IDENTIFIER-NOT-VB6",
         ["rem-forms/bracketed-reserved-word"] = "BRACKETED-IDENTIFIER-NOT-VB6",
+
+        // COMPILE-CHECK-DEFERRED-TO-RUN-TIME (5) — every one of these IS refused; just not by the parser.
+        //   VB6 compiles a whole module before running it, so it can refuse these at compile time. HexIDE
+        //   walks, so the same complaint arrives later — at module load for the two constant-expression
+        //   cases (the pre-pass folds Enum members and throws "Constant expression required"), and at the
+        //   statement for the other three. That is the translation interpreter-core:40-42 prescribes and it
+        //   is the sanctioned answer, not a gap.
+        //
+        //   They sit here because this gate is a PARSE check and these all parse. Worth keeping visible
+        //   rather than filtering out: the day one of them stops being refused at all, nothing else would
+        //   notice. EnumTests covers the behaviour these rows cannot.
+        ["enum-addressing/assigning-to-an-enum-member"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
+        ["enum-addressing/enum-qualified-by-its-own-enum-twice"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
+        ["enum-expressions/member-forward-reference"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
+        ["enum-expressions/member-references-a-later-const"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
+        ["enum-library-addressing/library-qualified-user-enum"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
 
         // RESERVED-WORD-USED-AS-A-NAME (7)
         //   `GoTo End`, `GoTo Stop`, `GoTo Close`, `GoTo Return`, `GoTo Randomize`, `GoTo Resume` — every

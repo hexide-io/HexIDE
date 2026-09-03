@@ -372,7 +372,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     // VB6 whole-number literal typing: a type-char suffix wins (& Long, @ Currency, ! Single, # Double);
     // an exponent makes it Double; otherwise Integer if it fits Int16, else Long if it fits Int32, else Double.
-    private static Vb6Value ClassifyIntegerLiteral(string text)
+    internal static Vb6Value ClassifyIntegerLiteral(string text)
     {
         char suffix = text[^1];
         if (suffix is '&' or '@' or '!' or '#' or '%')
@@ -398,7 +398,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     // a value that fits 16 bits is an Integer via 16-bit two's-complement (&HFFFF -> -1, &H8000 -> -32768),
     // else it fits 32 bits as a Long via 32-bit two's-complement (&HFFFFFFFF -> -1). A trailing & forces the
     // 32-bit/Long reading (&HFFFF& -> 65535); a trailing % forces the 16-bit/Integer reading (&HFFFF% -> -1).
-    private static Vb6Value ClassifyRadixLiteral(string text, int radix)
+    internal static Vb6Value ClassifyRadixLiteral(string text, int radix)
     {
         bool neg = text[0] == '-';
         if (neg || text[0] == '+') text = text[1..];
