@@ -211,5 +211,9 @@ public class SerializedProject
     public const string PropertyPageKey = "PropertyPage";
     public const string UserDocumentKey = "UserDocument";
     public const string StartupKey = "Startup";
+
+    /// <summary>The <c>Startup=</c> value naming <c>Sub Main</c> rather than a form. VB6's own spelling,
+    /// with the space and that casing; matched case-insensitively on read since the value is a name.</summary>
+    public const string SubMainStartup = "Sub Main";
     public const string ReferenceKey = "Reference";
 }

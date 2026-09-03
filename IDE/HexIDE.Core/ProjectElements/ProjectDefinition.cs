@@ -10,6 +10,7 @@ namespace HexIDE.Runtime.ProjectElements;
 public partial class ProjectDefinition : INotifyPropertyChanged
 {
     private FormDefinition? startupForm;
+    private bool startsAtSubMain;
     private string? absolutePath;
     private string name;
     private string description = "";
@@ -28,7 +29,38 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     public FormDefinition? StartupForm
     {
         get => startupForm;
-        set => SetField(ref startupForm, value);
+        set
+        {
+            // The two are mutually exclusive: a project starts at a form OR at Sub Main, never both.
+            if (value is not null) startsAtSubMain = false;
+            SetField(ref startupForm, value);
+        }
+    }
+
+    /// <summary>
+    /// True when the project's startup object is <c>Sub Main</c> rather than a form —
+    /// <c>Startup="Sub Main"</c> in the .vbp, and the ordinary shape of a code-only Standard EXE.
+    /// </summary>
+    ///
+    /// <remarks>
+    /// The startup object is a user choice, not a property of the project type: VB6's Project Properties
+    /// dialog lists <c>Sub Main</c> alongside every form. Modelling it as a nullable
+    /// <see cref="StartupForm"/> alone left <c>Sub Main</c> with nowhere to live, so a project with no
+    /// forms could not run at all (#210).
+    ///
+    /// <para>
+    /// The third state VB6 allows — <c>Startup="(None)"</c> — needs no flag of its own: it is simply
+    /// neither, which is what a project with no matching form and this false already means.
+    /// </para>
+    /// </remarks>
+    public bool StartsAtSubMain
+    {
+        get => startsAtSubMain;
+        set
+        {
+            if (value) startupForm = null;
+            SetField(ref startsAtSubMain, value);
+        }
     }
 
     public string? AbsolutePath
@@ -100,7 +132,12 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     {
         forms.Add(form);
         FormAdded?.Invoke(this, form);
-        StartupForm ??= form;
+        // The first form added becomes the startup — but only if the project does not already start
+        // somewhere. Without the second condition, adding a form to a code-only project would silently
+        // move its startup object off Sub Main, which is a change the user did not ask for and would only
+        // discover on the next F5.
+        if (startupForm is null && !startsAtSubMain)
+            StartupForm = form;
     }
 
     public void DeleteForm(FormDefinition form)

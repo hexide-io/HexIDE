@@ -131,6 +131,12 @@ public partial class ProjectRunnerService : IProjectRunnerService
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
+        if (projectDefinition.StartsAtSubMain)
+        {
+            RunSubMain(projectDefinition, stepInto);
+            return;
+        }
+
         if (projectDefinition.StartupForm is { } form)
         {
             async Task WindowTask()
@@ -195,6 +201,102 @@ public partial class ProjectRunnerService : IProjectRunnerService
         {
             windowManager.MessageBox(localization.GetString("Str.ProjectRunner.MustHaveStartupForm"), icon: MessageBoxIcon.Error);
         }
+    }
+
+    /// <summary>
+    /// Run a project whose startup object is <c>Sub Main</c> — a code-only Standard EXE, which has no
+    /// window to open and no form whose code could serve as the entry point.
+    /// </summary>
+    ///
+    /// <remarks>
+    /// <para>
+    /// Every standard module is loaded, because the startup lookup is project-wide: a <c>Sub Main</c> in
+    /// any of them is the entry point, including a <c>Private</c> one in a module other than the first
+    /// (measured — see <c>corpus/conformance/sub-main-startup.json</c>). The first module is nominated as
+    /// primary only so the debug gate has a name to report; which module holds <c>Main</c> is
+    /// <see cref="BasicInterpreter.RunStartupSubMain"/>'s business, not this method's.
+    /// </para>
+    /// <para>
+    /// The run has no window, so unlike the form path there is nothing whose closing ends it: it finishes
+    /// when <c>Main</c> returns. `Debug.Print` reaches the Immediate window through the same standard
+    /// library the MDI runtime uses.
+    /// </para>
+    /// </remarks>
+    private void RunSubMain(ProjectDefinition projectDefinition, bool stepInto)
+    {
+        var modules = projectDefinition.Modules
+            .Where(m => m.Kind == ModuleKind.StandardModule)
+            .Select(m => (m.Name, m.Code))
+            .ToList();
+
+        if (modules.Count == 0)
+        {
+            windowManager.MessageBox(localization.GetString("Str.ProjectRunner.MustHaveStartupForm"),
+                icon: MessageBoxIcon.Error);
+            return;
+        }
+
+        async Task MainTask()
+        {
+            var syntaxChecker = new SyntaxChecker();
+            foreach (var (_, code) in modules)
+            {
+                try
+                {
+                    syntaxChecker.Run(code);
+                }
+                catch (VBCompileErrorException error)
+                {
+                    await windowManager.MessageBox(error.Message, icon: MessageBoxIcon.Warning);
+                    return;
+                }
+            }
+
+            debugController.Reset();
+            ApplyBreakpoints(projectDefinition);
+            ApplyWatchBreaks();
+            if (_pendingRunTo is { } rt)
+            {
+                debugController.RunToCursor(rt.Module, rt.Line);
+                _pendingRunTo = null;
+            }
+            if (stepInto)
+                debugController.StepInto();
+
+            var context = new VBWindowContext(new MDIStandaloneStandardLib(windowManager));
+            var interpreter = new BasicInterpreter(
+                new MDIStandaloneStandardLib(windowManager), context.ExecutionContext, context.RootEnv,
+                modules[0].Code, modules[0].Name,
+                modules.Count > 1 ? modules.Skip(1).ToList() : null)
+            {
+                DebugController = debugController,
+            };
+            interpreter.SetAppInfo(AppInfo.FromProject(projectDefinition));
+
+            RunningProject = new ActionDisposable(() => debugController.Stop());
+            try
+            {
+                await interpreter.RunStartupSubMain();
+            }
+            catch (VBCompileErrorException error)
+            {
+                // "Must have startup form or Sub Main()" and "Ambiguous name detected: Main" arrive here.
+                // VB6 reports both while building; a tree-walker can only raise them as the run begins,
+                // which is the translation interpreter-core:40-42 prescribes.
+                await windowManager.MessageBox(error.Message, icon: MessageBoxIcon.Error);
+            }
+            catch (VBRunTimeException error)
+            {
+                await windowManager.MessageBox(error.Message, icon: MessageBoxIcon.Error);
+            }
+            finally
+            {
+                debugController.Stop();
+                RunningProject = null;
+            }
+        }
+
+        MainTask().ListenErrors();
     }
 
     public void RunStartupProject(bool stepInto = false)

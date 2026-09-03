@@ -387,7 +387,13 @@ public class ProjectService : IProjectService
         // Always retain the startup form NAME so Startup= survives round-trip even when its .frm was
         // missing and no FormDefinition was created (the live StartupForm, if found, takes precedence).
         project.StartupFormName = serializedProject.StartupFormName;
-        if (serializedProject.StartupFormName != null)
+        // `Startup="Sub Main"` names a procedure, not a form — the ordinary shape of a code-only Standard
+        // EXE. Read before the form lookup, which would otherwise find nothing and leave the project with
+        // no startup at all: the .vbp round-tripped, and F5 refused.
+        if (string.Equals(serializedProject.StartupFormName, SerializedProject.SubMainStartup,
+                StringComparison.OrdinalIgnoreCase))
+            project.StartsAtSubMain = true;
+        else if (serializedProject.StartupFormName != null)
             project.StartupForm = project.Forms.FirstOrDefault(x => x.Name == serializedProject.StartupFormName);
 
         foreach (var reference in serializedProject.References)

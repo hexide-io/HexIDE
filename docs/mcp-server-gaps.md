@@ -517,3 +517,38 @@ placeholders — confirm with `take_snapshot`, or assert the bound view-model pr
 `isEffectivelyVisible`, since an ancestor may be the one collapsed). `isOffscreen` is a UIA concept about
 scroll position and clipping, and it does not answer this question. Without it the tree cannot be used to
 assert the absence of a warning, which is exactly the assertion a fidelity gate needs.
+
+## A collapsed ComboBox reports only its selected item, which reads as "the item is missing"
+
+**Symptom.** `inspect_element` on a closed dropdown returns a `selectionItems` array containing just the
+current selection:
+
+```
+"selectionItems": ["Form1"],
+"value": "Form1"
+```
+
+The control had two items. `expand` then `dump_visual_tree` shows both:
+
+```
+ComboBoxItem[Sub Main]
+ComboBoxItem[Form1]
+```
+
+**How it bit.** Verifying that `Sub Main` had been added to the Project Properties → Startup Object list
+(#210). The inspection said the list held only `Form1`, which is exactly what a change that had failed to
+take effect would look like — and the build had just been rebuilt and relaunched, so "the binary is stale"
+was the obvious next hypothesis. The feature was working the whole time.
+
+`interact(action: "select")` is honest about this — it fails with *"has no selectable items realized — if
+it's a dropdown, 'expand' it first"* — and `dump_visual_tree`'s own description warns that virtualized
+dropdown items are not addressable until realized. `inspect_element` carries no such warning and reports a
+plausible-looking array instead of an empty one, which is the part that misleads.
+
+**Workaround.** Never read `selectionItems` from a collapsed dropdown as the item list. `expand` first,
+then `dump_visual_tree(root=<combo>)` and read the `ComboBoxItem` children. Note the popup closes between
+calls, so expand again immediately before `select`.
+
+**Suggested fix.** Either omit `selectionItems` when the items are unrealized, or mark it — an
+`itemsRealized: false` alongside it would be enough. A partial list that looks complete is worse than no
+list, because it supports a confident wrong conclusion; an empty array with a flag supports none.

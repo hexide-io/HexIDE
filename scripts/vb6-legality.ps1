@@ -98,6 +98,10 @@ foreach ($f in $files) {
             # thing this corpus exists to avoid. A list rather than a single extra, because the decisive
             # case needs THREE: a user and two exporters, so that nothing local can disambiguate.
             Extra  = $(if ($c.modules) { @($c.modules | ForEach-Object { @($_) -join "`r`n" }) } else { @() })
+            # Suppress the harness's automatic `Sub Main`. Only for the case that asks what VB6 does when
+            # the startup procedure is absent — everything else wants the .vbp's Startup="Sub Main" to be
+            # satisfiable.
+            NoAutoMain = [bool]$c.noAutoMain
         })
     }
 }
@@ -117,11 +121,29 @@ foreach ($c in $cases) {
     # and getting it wrong is expensive but SILENT: VB6 answers "Ambiguous name detected: Main" and the
     # case is recorded illegal for a reason unrelated to what it tested, which quietly turned a whole
     # family of declaration cases into confident wrong facts about VB6.
+    #
+    # EVERY module is scanned, not just Module1. Scanning only the primary source cost this exact class of
+    # result a second time: a case whose Sub Main lives in an EXTRA module got one appended to Module1 as
+    # well, and "Sub Main in a later module" was recorded illegal-because-ambiguous when the question was
+    # whether the startup is found project-wide at all.
+    #
+    # The name is matched without requiring `Sub`, because a `Function Main` collides with an appended
+    # `Sub Main` just as painfully — the point is whether the module already declares something called
+    # Main, not what kind of thing it is.
     $needsMain = $true
-    foreach ($srcLine in ($c.Source -split "`r`n")) {
-        if ($srcLine.Trim() -match '^(Public |Private |Friend )?Sub +Main') { $needsMain = $false; break }
+    foreach ($srcLine in ((@($c.Source) + @($c.Extra)) -split "`r`n")) {
+        if ($srcLine.Trim() -match '^(Public |Private |Friend )?(Sub|Function) +Main\b') { $needsMain = $false; break }
     }
+    # A case may need NO Sub Main supplied at all — the only way to ask what VB6 does when
+    # Startup="Sub Main" names a procedure that does not exist. Without this the harness guarantees one
+    # exists and the question is unaskable rather than merely unanswered.
+    if ($c.NoAutoMain) { $needsMain = $false }
     Write-Verbose "[$($c.Key)] scope=$($c.Scope) needsMain=$needsMain"
+    # Recorded on the case so the behaviour-capture assembly below reuses this ONE decision. It used to
+    # re-derive it from the rewritten primary source alone, which is how the same defect existed in two
+    # places at once and why fixing it here first appeared not to work: the legality verdict came out
+    # right while the probe still failed as "Ambiguous name detected: Main".
+    $c | Add-Member -NotePropertyName NeedsAutoMain -NotePropertyValue $needsMain
     $c | Add-Member -NotePropertyName Module -NotePropertyValue $(
         if ($c.Scope -eq 'module') {
             if ($needsMain) { $c.Source + "`r`n`r`nSub Main()`r`nEnd Sub`r`n" } else { $c.Source + "`r`n" }
@@ -197,11 +219,10 @@ End Sub
             @($c.Extra) | ForEach-Object { $_ -replace 'Debug\.Print', 'HXP' })
         $c | Add-Member -NotePropertyName Probe -NotePropertyValue $(
             if ($c.Scope -eq 'module') {
-                $needsMain = $true
-                foreach ($srcLine in ($rewritten -split "`r`n")) {
-                    if ($srcLine.Trim() -match '^(Public |Private |Friend )?Sub +Main') { $needsMain = $false; break }
-                }
-                if ($needsMain) { $rewritten + "`r`n`r`nSub Main()`r`nEnd Sub`r`n" + $helper }
+                # Reuses the decision made once above, over EVERY module. Re-deriving it here from the
+                # primary source alone is what made a case whose Sub Main lives in Module2 compile
+                # legally and then fail its behaviour probe as ambiguous.
+                if ($c.NeedsAutoMain) { $rewritten + "`r`n`r`nSub Main()`r`nEnd Sub`r`n" + $helper }
                 else { $rewritten + "`r`n" + $helper }
             } else { "Sub Main()`r`n" + $rewritten + "`r`nEnd Sub`r`n" + $helper })
     }

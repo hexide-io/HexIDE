@@ -6554,5 +6554,137 @@
     "Why": "The original failing case's shape - an escaped quote in a literal on a continued line - kept so the fix is checked against the case that first exposed it, and so a regression there is attributed to escaping rather than to continuations.",
     "Ran": "ok",
     "Output": "String\the said \"hi\" _\nLong\t14"
+  },
+  {
+    "Key": "sub-main-startup/sub-main-in-the-only-module",
+    "Area": "sub-main-startup",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The baseline: a single standard module declaring Sub Main, which the .vbp names as the startup. Establishes that the harness's own arrangement is the ordinary one before anything is varied.",
+    "Ran": "ok",
+    "Output": "String\tRAN"
+  },
+  {
+    "Key": "sub-main-startup/sub-main-in-a-later-module",
+    "Area": "sub-main-startup",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Sub Main declared in Module2 while Module1 holds none. If the startup is found project-wide then the choice is not tied to a particular module, which decides whether the interpreter looks in the startup module only or searches. First measured wrongly: the harness scanned only Module1 for an existing Main, appended one, and the case failed as ambiguous.",
+    "Ran": "ok",
+    "Output": "String\tFROM MODULE2"
+  },
+  {
+    "Key": "sub-main-startup/two-modules-both-declaring-sub-main",
+    "Area": "sub-main-startup",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Ambiguous name detected: Main Build of 'verify.exe' failed.",
+    "Why": "THE ambiguity case. Two standard modules each declaring Sub Main. The enum aggregation in #208 raised 'Ambiguous name detected' for two foreign Publics of one name, so the same rule may apply here - but a startup object is chosen by the project rather than resolved by a reference, so it need not. If VB6 refuses, the interpreter must refuse identically rather than silently picking one.",
+    "Ran": null,
+    "Output": null
+  },
+  {
+    "Key": "sub-main-startup/private-sub-main",
+    "Area": "sub-main-startup",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Whether the startup procedure must be Public. A Private Sub Main is invisible to other modules but the startup is not another module - it is the host. Decides whether the lookup honours visibility.",
+    "Ran": "ok",
+    "Output": "String\tPRIVATE RAN"
+  },
+  {
+    "Key": "sub-main-startup/sub-main-with-a-required-argument",
+    "Area": "sub-main-startup",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Must have startup form or Sub Main() Build of 'verify.exe' failed.",
+    "Why": "A Sub Main taking a parameter the host cannot supply. Either the compiler refuses to use it as a startup or it is called with a missing argument; both are behaviours an implementation has to choose between, and guessing would produce either a false rejection or a wrong call.",
+    "Ran": null,
+    "Output": null
+  },
+  {
+    "Key": "sub-main-startup/sub-main-with-an-optional-argument",
+    "Area": "sub-main-startup",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Must have startup form or Sub Main() Build of 'verify.exe' failed.",
+    "Why": "The same question where the argument may legitimately be omitted. Separates 'a startup must take no parameters' from 'a startup must be callable with none'.",
+    "Ran": null,
+    "Output": null
+  },
+  {
+    "Key": "sub-main-startup/function-main-instead-of-sub-main",
+    "Area": "sub-main-startup",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Must have startup form or Sub Main() Build of 'verify.exe' failed.",
+    "Why": "A Function named Main where the .vbp asks for Sub Main. If accepted, the startup lookup is by NAME and not by kind. First measured wrongly: the harness's needsMain regex required `Sub` so it appended a second Main and the case failed as ambiguous. The regex now matches Function too.",
+    "Ran": null,
+    "Output": null
+  },
+  {
+    "Key": "sub-main-startup/no-sub-main-at-all",
+    "Area": "sub-main-startup",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Must have startup form or Sub Main() Build of 'verify.exe' failed.",
+    "Why": "Startup=\"Sub Main\" with no Main declared anywhere. Needs noAutoMain, because the harness otherwise supplies one and the question becomes unaskable rather than unanswered - which is how it was first recorded as legal-with-no-output. The error and its timing both matter: a compile-time refusal is a different implementation from a run-time one, and HexIDE can only ever give the latter.",
+    "Ran": null,
+    "Output": null
+  },
+  {
+    "Key": "sub-main-startup/sub-main-calls-a-procedure-in-another-module",
+    "Area": "sub-main-startup",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The ordinary shape of a code-only project: Main coordinating work held elsewhere. Confirms that entering through Main leaves cross-module resolution working normally, which is what the 12 multi-module corpus cases need.",
+    "Ran": "ok",
+    "Output": "String\tWORKED\nString\tDONE"
+  },
+  {
+    "Key": "sub-main-startup/module-level-statement-outside-any-procedure",
+    "Area": "sub-main-startup",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 0 : Invalid outside procedure Build of 'verify.exe' failed.",
+    "Why": "An executable statement at module level, outside any procedure. HexIDE's interpreter runs top-level statements as its entry point - that is how every statement-scope corpus case works - so whether VB6 permits them at all decides if that is a faithful extension or a divergence worth recording. Expected illegal, which would make HexIDE's top-level execution a harness convenience rather than a VB6 feature.",
+    "Ran": null,
+    "Output": null
+  },
+  {
+    "Key": "sub-main-startup/private-sub-main-in-a-later-module",
+    "Area": "sub-main-startup",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "THE case that decides the lookup rule. `private-sub-main` proves visibility is irrelevant for the startup module's OWN Main, which ordinary own-module resolution would explain anyway. A Private Sub Main in Module2 with none in Module1 is the only shape that separates 'the startup search ignores visibility' from 'it follows the normal rule of own module at any visibility, other modules Public only'. Getting this wrong means either refusing a project VB6 runs, or running one it refuses.",
+    "Ran": "ok",
+    "Output": "String\tPRIVATE ELSEWHERE"
+  },
+  {
+    "Key": "sub-main-startup/private-and-public-sub-main-in-two-modules",
+    "Area": "sub-main-startup",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Ambiguous name detected: Main Build of 'verify.exe' failed.",
+    "Why": "One Private Main and one Public Main, in different modules. If the startup search ignores visibility then this is ambiguous like the two-Public case; if it honours it, the Public one wins unambiguously. Distinguishes the two readings of the previous case's result whichever way it lands.",
+    "Ran": null,
+    "Output": null
   }
 ]
