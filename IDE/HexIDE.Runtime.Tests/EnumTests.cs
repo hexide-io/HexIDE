@@ -47,6 +47,16 @@ public class EnumTests : BaseVBTestFixture
     [InlineData("7 Mod 4", 3L)]
     [InlineData("&H0F Or &HF0", 255L)]
     [InlineData("&HFF And &H0F", 15L)]
+    // Division is the one that bites: `/` is REAL division and the result is then coerced to Long by
+    // rounding half to EVEN. Measured 7/2 = 4, 5/2 = 2, -7/2 = -4. Folding in integers gives 3 and -3,
+    // which look entirely reasonable and are wrong.
+    [InlineData("10 / 5", 2L)]
+    [InlineData("7 / 2", 4L)]
+    [InlineData("5 / 2", 2L)]
+    [InlineData("-7 / 2", -4L)]
+    [InlineData("10 / 3", 3L)]
+    [InlineData(@"10 \ 4", 2L)]
+    [InlineData(@"-7 \ 2", -3L)]
     public async Task AMemberValueIsAConstantExpression(string expr, long expected)
     {
         await Run($"Public Enum EX\n    m = {expr}\nEnd Enum\nDebug.Print EX.m\n");

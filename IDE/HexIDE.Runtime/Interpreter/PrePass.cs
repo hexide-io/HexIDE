@@ -247,6 +247,24 @@ public class PrePass : VB6BaseVisitor<object?>
         Dictionary<string, long> soFar, out long result)
     {
         result = 0;
+        if (!TryFoldToDouble(ctx, enumName, soFar, out var d)) return false;
+        if (double.IsNaN(d) || double.IsInfinity(d) || d < long.MinValue || d > long.MaxValue) return false;
+        // A member is a Long, so the constant expression is COERCED to one — and VB6 coerces by rounding
+        // half to EVEN, not by truncating. Measured: `7 / 2` is 4, `5 / 2` is 2, `-7 / 2` is -4. Getting
+        // this wrong is silent, because every one of those still produces a plausible number.
+        result = (long)Math.Round(d, MidpointRounding.ToEven);
+        return true;
+    }
+
+    /// <summary>
+    /// The fold itself, in double — because VB6 evaluates the member's expression and only then coerces to
+    /// Long. Folding in integers instead makes `7 / 2` come out 3 rather than 4, which is a wrong value and
+    /// looks entirely reasonable.
+    /// </summary>
+    private bool TryFoldToDouble(VB6Parser.ValueStmtContext ctx, string enumName,
+        Dictionary<string, long> soFar, out double result)
+    {
+        result = 0;
         switch (ctx)
         {
             case VB6Parser.VsLiteralContext lit:
@@ -256,24 +274,32 @@ public class PrePass : VB6BaseVisitor<object?>
                 if (l.HEXLITERAL() is { } hex) v = ExpressionExecutor.ClassifyRadixLiteral(hex.GetText(), 16);
                 else if (l.OCTALLITERAL() is { } oct) v = ExpressionExecutor.ClassifyRadixLiteral(oct.GetText(), 8);
                 else if (l.INTEGERLITERAL() is { } i) v = ExpressionExecutor.ClassifyIntegerLiteral(i.GetText());
+                else if (l.DOUBLELITERAL() is { } dbl)
+                    return double.TryParse(dbl.GetText().TrimEnd('#', '!', '&', '@', '%'),
+                        System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture, out result);
                 else if (l.TRUE() != null) { result = -1; return true; }     // VB6 True is -1
                 else if (l.FALSE() != null) { result = 0; return true; }
                 else return false;                                          // strings, dates, Nothing, Null
-                return TryAsLong(v, out result);
+                return TryAsDouble(v, out result);
             }
 
             // A parenthesised value. `vsStruct` also covers a comma list, which is not a constant.
             case VB6Parser.VsStructContext s when s.valueStmt().Length == 1:
-                return TryFoldEnumValue(s.valueStmt(0), enumName, soFar, out result);
+                return TryFoldToDouble(s.valueStmt(0), enumName, soFar, out result);
 
-            case VB6Parser.VsNegationContext n when TryFoldEnumValue(n.valueStmt(), enumName, soFar, out var neg):
+            case VB6Parser.VsNegationContext n when TryFoldToDouble(n.valueStmt(), enumName, soFar, out var neg):
                 result = -neg; return true;
             case VB6Parser.VsPlusContext p:
-                return TryFoldEnumValue(p.valueStmt(), enumName, soFar, out result);
+                return TryFoldToDouble(p.valueStmt(), enumName, soFar, out result);
 
             // A NAME: an earlier member, bare or qualified.
             case VB6Parser.VsICSContext ics:
-                return TryResolveFoldedName(ics.GetText().Trim(), enumName, soFar, out result);
+            {
+                if (!TryResolveFoldedName(ics.GetText().Trim(), enumName, soFar, out var named)) return false;
+                result = named;
+                return true;
+            }
         }
 
         // The binary operators, all of which need both sides folded first.
@@ -282,7 +308,9 @@ public class PrePass : VB6BaseVisitor<object?>
             VB6Parser.VsAddContext a => (a.valueStmt(0), a.valueStmt(1), "+"),
             VB6Parser.VsMinusContext m => (m.valueStmt(0), m.valueStmt(1), "-"),
             VB6Parser.VsMultContext m => (m.valueStmt(0), m.valueStmt(1), "*"),
-            VB6Parser.VsDivContext d => (d.valueStmt(0), d.valueStmt(1), "/"),
+            // ONE token covers both `/` and `\`; the runtime tells them apart by its text and so must this.
+            // Folding them alike makes `7 / 2` come out 3 where VB6 says 4.
+            VB6Parser.VsDivContext d => (d.valueStmt(0), d.valueStmt(1), d.DIV().GetText() == "/" ? "/" : "\\"),
             VB6Parser.VsModContext m => (m.valueStmt(0), m.valueStmt(1), "Mod"),
             VB6Parser.VsPowContext p => (p.valueStmt(0), p.valueStmt(1), "^"),
             VB6Parser.VsAndContext a => (a.valueStmt(0), a.valueStmt(1), "And"),
@@ -291,24 +319,42 @@ public class PrePass : VB6BaseVisitor<object?>
             _ => (null, null, null),
         };
         if (op is null) return false;
-        if (!TryFoldEnumValue(left!, enumName, soFar, out var lv)) return false;
-        if (!TryFoldEnumValue(right!, enumName, soFar, out var rv)) return false;
+        if (!TryFoldToDouble(left!, enumName, soFar, out var lv)) return false;
+        if (!TryFoldToDouble(right!, enumName, soFar, out var rv)) return false;
 
         switch (op)
         {
             case "+": result = lv + rv; return true;
             case "-": result = lv - rv; return true;
             case "*": result = lv * rv; return true;
-            case "/": if (rv == 0) return false; result = lv / rv; return true;
-            case "Mod": if (rv == 0) return false; result = lv % rv; return true;
-            case "^": result = (long)Math.Pow(lv, rv); return true;
+            case "/": if (rv == 0) return false; result = lv / rv; return true;      // REAL division
+            case "^": result = Math.Pow(lv, rv); return true;
+            // `\` and `Mod` are integer operators: VB6 rounds each operand to a whole number first, then
+            // works on those. `-7 \ 2` is -3, truncating toward zero after that rounding.
+            case "\\":
+            {
+                var (li, ri) = (ToWhole(lv), ToWhole(rv));
+                if (ri == 0) return false;
+                result = li / ri;
+                return true;
+            }
+            case "Mod":
+            {
+                var (li, ri) = (ToWhole(lv), ToWhole(rv));
+                if (ri == 0) return false;
+                result = li % ri;
+                return true;
+            }
             // Bitwise, not logical: `flagA Or flagB` is how every flag enum in VB6 is written.
-            case "And": result = lv & rv; return true;
-            case "Or": result = lv | rv; return true;
-            case "Xor": result = lv ^ rv; return true;
+            case "And": result = ToWhole(lv) & ToWhole(rv); return true;
+            case "Or": result = ToWhole(lv) | ToWhole(rv); return true;
+            case "Xor": result = ToWhole(lv) ^ ToWhole(rv); return true;
             default: return false;
         }
     }
+
+    /// <summary>Round to a whole number the way VB6 does — half to EVEN, not away from zero.</summary>
+    private static long ToWhole(double d) => (long)Math.Round(d, MidpointRounding.ToEven);
 
     /// <summary>Resolve a name inside an Enum member value: `Earlier`, `ThisEnum.Earlier`, `OtherEnum.Member`.</summary>
     private bool TryResolveFoldedName(string text, string enumName, Dictionary<string, long> soFar, out long result)
@@ -334,8 +380,8 @@ public class PrePass : VB6BaseVisitor<object?>
         return table is not null && table.TryGetValue(member, out result);
     }
 
-    /// <summary>An Enum member is always a Long — measured, whatever the literal's own type.</summary>
-    private static bool TryAsLong(Vb6Value v, out long result)
+    /// <summary>A numeric literal's value, whatever width the classifier gave it.</summary>
+    private static bool TryAsDouble(Vb6Value v, out double result)
     {
         switch (v.Value)
         {
@@ -343,6 +389,9 @@ public class PrePass : VB6BaseVisitor<object?>
             case int i: result = i; return true;
             case short s: result = s; return true;
             case byte b: result = b; return true;
+            case double d: result = d; return true;
+            case float f: result = f; return true;
+            case decimal m: result = (double)m; return true;
             default: result = 0; return false;
         }
     }
