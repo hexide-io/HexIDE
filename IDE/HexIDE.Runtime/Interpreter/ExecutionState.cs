@@ -30,6 +30,18 @@ public class ExecutionState
     /// </summary>
     private readonly Dictionary<int, string> declaredClasses = new();
 
+    /// <summary>
+    /// Slots that may be read but never written — Enum members, today.
+    ///
+    /// Keyed by SLOT for the same reason the tables above are: it is the slot, not the name, that is the
+    /// thing being protected, so an alias reaches the same answer. VB6 refuses `pTwo = 5` at compile time
+    /// with "Assignment to constant not permitted"; a tree-walking interpreter can only refuse it as the
+    /// statement executes, which is the translation interpreter-core:40-42 prescribes — same complaint,
+    /// later. What matters is that it complains at all: a writable enum member means a program can
+    /// overwrite `vbRed` and nothing anywhere says so.
+    /// </summary>
+    private readonly HashSet<int> readOnlyLocations = new();
+
     private int nextFreeLocation = 0;
 
     public int Alloc(Vb6Value value) => Alloc(value, null);
@@ -52,6 +64,12 @@ public class ExecutionState
     /// <summary>The declared class/interface name of a slot, or null when the slot isn't class-typed.</summary>
     public string? DeclaredClassOf(int location) =>
         declaredClasses.TryGetValue(location, out var c) ? c : null;
+
+    /// <summary>Mark a slot as never-writable. Used for Enum members, which VB6 treats as constants.</summary>
+    public void MarkReadOnly(int location) => readOnlyLocations.Add(location);
+
+    /// <summary>Whether a slot refuses assignment.</summary>
+    public bool IsReadOnly(int location) => readOnlyLocations.Contains(location);
 
     public Vb6Value this[int location]
     {

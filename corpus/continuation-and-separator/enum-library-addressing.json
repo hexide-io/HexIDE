@@ -1,0 +1,76 @@
+{
+  "area": "continuation-and-separator/enum-library-addressing",
+  "cases": [
+    {
+      "id": "library-enum-member-vbrun",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "    Debug.Print VBRUN.AlignConstants.vbAlignBottom",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "The three-part form with a TYPE LIBRARY in the first slot, which is the form the addressability task is really about - `[[Lib.]Enum.]Value`. Measured separately from the module-qualified form because they are different mechanisms: a module is a project member, a library is a referenced type library, and HexIDE models them as different QualifierKinds. Raised by a maintainer citing this exact expression."
+    },
+    {
+      "id": "library-enum-member-vba",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "    Debug.Print VBA.VbMsgBoxStyle.vbOKOnly",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "The same shape against the VBA library rather than VBRUN. Included because the two libraries are referenced differently by a Standard EXE and need not behave alike, and because a rule that holds for only one of them is not a rule."
+    },
+    {
+      "id": "enum-member-two-part",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "    Debug.Print AlignConstants.vbAlignBottom",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "The two-part form for a LIBRARY enum - enum name without the library. If this works and the three-part does too, the library slot is optional in exactly the way the [[Lib.]Enum.] notation suggests."
+    },
+    {
+      "id": "enum-member-bare",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "    Debug.Print vbAlignBottom",
+        "End Sub"
+      ],
+      "expect": "legal",
+      "why": "The bare form for a library enum member. Predicting legal - these constants are used bare in every VB6 program ever written - and included as the control that proves the other three are about qualification rather than about the name existing."
+    },
+    {
+      "id": "library-member-skipping-enum",
+      "scope": "module",
+      "code": [
+        "Sub Main()",
+        "    Debug.Print VBRUN.vbAlignBottom",
+        "End Sub"
+      ],
+      "expect": "unsure",
+      "why": "Library-qualified but skipping the enum level. Decides whether the middle slot is optional in the three-part chain, which a resolver has to know: `Lib.Member` and `Lib.Enum.Member` are different lookups."
+    },
+    {
+      "id": "library-qualified-user-enum",
+      "scope": "module",
+      "code": [
+        "Public Enum EPlain",
+        "    pOne",
+        "    pTwo",
+        "End Enum",
+        "",
+        "Sub Main()",
+        "    Debug.Print VBRUN.EPlain.pTwo",
+        "End Sub"
+      ],
+      "expect": "illegal",
+      "why": "A user enum reached through a library qualifier - deliberate nonsense, to bound how general the chain is. Predicting illegal. Its value is entirely in showing the first slot is not a free-form namespace."
+    }
+  ]
+}
