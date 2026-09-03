@@ -3661,5 +3661,437 @@
     "Verdict": "resolved",
     "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
     "Why": "Rem specifically, because Rem is not an ordinary reserved word - it starts a comment lexically, and a comment rule keyed on the keyword will eat the closing bracket and the rest of the line whatever the brackets were meant to do. This is the case that decides whether a comment rule may be allowed to fire inside brackets. Genuinely unsure: `Dim Rem` is illegal, and whether the escape hatch reaches a lexical construct rather than merely a reserved name is exactly the sort of thing only the compiler knows."
+  },
+  {
+    "Key": "line-labels/line-number-then-named-label-same-line",
+    "Area": "line-labels",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "A numeric line number AND a named label heading the same line. The corpus establishes that each works alone and that two NAMED labels on one line are illegal, but never asks whether the two kinds can stack. It matters for the grammar shape: if this is legal the line head is a sequence, and if it is illegal the head is a choice of one."
+  },
+  {
+    "Key": "line-labels/named-label-then-line-number-same-line",
+    "Area": "line-labels",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 3 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "The same stack in the other order. Worth measuring separately because a line number is documented as a property of the line rather than a statement prefix, so the two orders are not obviously equivalent, and a grammar written for one would quietly accept the other."
+  },
+  {
+    "Key": "line-labels/label-after-a-double-colon",
+    "Area": "line-labels",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 2 : Sub or Function not defined Build of 'verify.exe' failed.",
+    "Why": "A label after a statement and an EMPTY statement. The corpus has the single-colon form (illegal), and the empty statement between is the plausible loophole - if a run of colons somehow re-opened the head position, this would be the shape that revealed it. Predicting illegal: a colon is a colon however many there are."
+  },
+  {
+    "Key": "line-labels/label-at-module-level-between-procedures",
+    "Area": "line-labels",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 4 : Only comments may appear after End Sub, End Function, or End Property Build of 'verify.exe' failed.",
+    "Why": "A label outside any procedure. Labels are procedure-scoped jump targets, so module level should have nowhere to jump from - but HexIDE's moduleBody reaches `block` and would accept it, and the grammar cannot tell the difference without being asked. Predicting illegal."
+  },
+  {
+    "Key": "line-labels/label-named-after-its-own-procedure",
+    "Area": "line-labels",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "A label sharing its name with the procedure that contains it. Labels and variables are already known to live in separate namespaces here (a label may shadow a variable, measured legal); whether that extends to procedure names is a different question, and the answer decides whether label collection may ignore the procedure table entirely."
+  },
+  {
+    "Key": "line-labels/two-labels-on-consecutive-lines",
+    "Area": "line-labels",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Two labels, each alone on its own line, both naming the same following statement. The illegal case is two labels on ONE line; this is the legal arrangement of the same intent, and it is what a line-head design must keep working when it stops allowing the other. Predicting legal."
+  },
+  {
+    "Key": "line-labels/goto-the-first-of-two-stacked-labels",
+    "Area": "line-labels",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The companion to the previous case, jumping to the FIRST of the pair rather than the second. Both must resolve to the same statement, which is the behaviour a head-collection routine has to implement - an unclaimed head carries forward rather than being overwritten."
+  },
+  {
+    "Key": "line-labels/label-then-a-block-if-opener-on-one-line",
+    "Area": "line-labels",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Already recorded legal in a parse-only case, but repeated here as an executable one because it is the arrangement most likely to break under a line-head restructure: the head is followed by a construct that spans lines rather than by a simple statement, so the head must attach to the multi-line statement and not to its first inner line."
+  },
+  {
+    "Key": "line-labels/label-immediately-before-a-loop-terminator",
+    "Area": "line-labels",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "A label sharing its line with `Next` - the loop-continue idiom, and the reason a label before a TERMINATOR matters as much as one before an opener. The corpus has label-before-End-If and label-before-End-Sub (both legal); `Next` is the one that also carries an expression after it, so it is not obviously the same."
+  },
+  {
+    "Key": "line-labels/label-with-a-tab-before-its-colon",
+    "Area": "line-labels",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The space-before-colon form is measured legal; this asks whether the whitespace admitted there is a space specifically or a whitespace run generally. Every other separator in this grammar turned out to be a run, and each time the one-character reading was the bug."
+  },
+  {
+    "Key": "line-labels/beep-as-a-label",
+    "Area": "line-labels",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "`Beep` alone is a complete VB6 statement AND a plausible label name, so `Beep: stmt` at a line head is genuinely ambiguous and VB6 must resolve it somehow. The GoTo is what makes the probe decisive: if Beep is a LABEL this compiles, and if Beep is a STATEMENT the GoTo has no target and the compile fails. Nothing in the reference says which way this goes, and the answer governs an entire class - Stop, End, Close, Reset, Randomize, Resume, Return all have the same shape."
+  },
+  {
+    "Key": "line-labels/stop-as-a-label",
+    "Area": "line-labels",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "The same question for a keyword with teeth. If `Stop:` is a label then a debugger breakpoint silently is not one; if it is a statement then a label may not be called Stop. Measured separately from Beep because Stop is a reserved word in more contexts and the two need not agree."
+  },
+  {
+    "Key": "line-labels/return-as-a-label",
+    "Area": "line-labels",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Return is control flow, which makes it the worst member of the class to get wrong in either direction, and it is also the one most likely to be genuinely reserved. Included to find the boundary of the rule rather than to assume the class is uniform."
+  },
+  {
+    "Key": "line-labels/else-colon-inside-a-block-if",
+    "Area": "line-labels",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "`Else` followed by a colon and a colon-joined body. This is NOT a label question - Else is block structure, not a name - but it has the same token shape as one, and a grammar that lets a line label match a bare keyword will swallow the whole Else branch into the Then block. Recorded here as the executable control for that hazard. Predicting legal; the corpus already has the parse-level twin."
+  },
+  {
+    "Key": "line-labels/elseif-colon-inside-a-block-if",
+    "Area": "line-labels",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The ElseIf arm of the same hazard. It cannot be mistaken for a label - ElseIf needs a condition before the colon - so if this is legal and the Else form is too, the two differ only in how a grammar might mis-handle them, which is worth knowing before writing the exclusion."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-end",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `End` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-close",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `Close` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-reset",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Is `Reset` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-randomize",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Label not defined Build of 'verify.exe' failed.",
+    "Why": "Is `Randomize` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-resume",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `Resume` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-loop",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `Loop` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-next",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `Next` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-wend",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `Wend` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-case",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `Case` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-error",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Is `Error` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-name",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Is `Name` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-print",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `Print` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-get",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `Get` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-put",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `Put` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-write",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `Write` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-input",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `Input` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-open",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `Open` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-seek",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `Seek` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-width",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Is `Width` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-lock",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `Lock` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-unlock",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `Unlock` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-load",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Is `Load` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-kill",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Is `Kill` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-set",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `Set` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-let",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `Let` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-call",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `Call` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-date",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `Date` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-time",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Is `Time` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-mid",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Is `Mid` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-stop",
+    "Area": "label-name-reserved",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Is `Stop` usable as a line-label name? Measured `Beep` yes, `Stop` and `Return` no, so the class is NOT uniform and the boundary has to be found rather than guessed. The GoTo makes it decisive: a name that cannot be a label cannot be a GoTo target either, so a clean compile means label and a syntax error means reserved. This set is exactly the keywords that could collide with a statement or a block element at a line head, which is where a line-head grammar has to make a choice."
+  },
+  {
+    "Key": "label-name-reserved/keyword-as-a-label-new",
+    "Area": "label-name-reserved",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 1 : Syntax error Build of 'verify.exe' failed.",
+    "Why": "Prompted by a maintainer's recollection that `New` is illegal as a Sub name. Recorded as a hypothesis rather than a fact, because that is what this file is for - the same kind of remembered rule has already been wrong twice here (the docs on Rem's separator, a reviewer on bracket-escaping). Predicting illegal, and measuring it either way."
+  },
+  {
+    "Key": "label-name-reserved/new-as-a-procedure-name",
+    "Area": "label-name-reserved",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 0 : Expected: identifier Build of 'verify.exe' failed.",
+    "Why": "The recollection as stated: `New` as a Sub NAME, which is a different position from a label and need not agree with it. `New` is the instantiation operator, so a procedure of that name would be ambiguous with `New ClassName` at every call site. Predicting illegal."
+  },
+  {
+    "Key": "label-name-reserved/nothing-as-a-procedure-name",
+    "Area": "label-name-reserved",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 0 : Expected: identifier Build of 'verify.exe' failed.",
+    "Why": "The control for the previous case. `Nothing` is a literal rather than an operator, so if the two disagree the rule is about operators specifically and not about reserved words generally - which is the sort of distinction this corpus keeps discovering."
   }
 ]

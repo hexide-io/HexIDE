@@ -1851,35 +1851,41 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     //   index, so `Resume Next` resumes after the whole construct — nested-granular resume needs a CFG rewrite
     //   (a real language engine's job). The Resume Next *mode* (5a, via VisitBlock) remains per-statement precise.
     /// <summary>
-    /// Add this body's NUMERIC line labels (`10 Debug.Print 1`) to the label table.
+    /// Add this body's LINE-HEAD jump targets to the label table — numeric line numbers (`10 x = 1`) and
+    /// named labels that share their line with a statement (`Skip: x = 1`).
     ///
-    /// They cannot be read off the statements the way `lineLabel` is, because a numeric label takes no
-    /// colon and prefixes a statement on the same line — so the grammar carries it as an optional prefix on
-    /// the block rather than as part of the statement. That means <c>block.lineNumber()</c> and
-    /// <c>block.blockStmt()</c> are two arrays that do NOT line up: only some statements have a number.
+    /// Neither can be read off the statement list the way a label standing alone on its line can, because
+    /// the grammar carries them as a prefix on the block rather than as statements of their own. So
+    /// <c>block.lineHead()</c> and <c>block.blockStmt()</c> are two arrays that do NOT line up: only some
+    /// statements have a head.
     ///
-    /// Walking the children in source order is what pairs them. A number applies to the next statement that
-    /// follows it, which is exactly what a reader assumes and what VB6 does.
+    /// Walking the children in source order is what pairs them. A head applies to the next statement that
+    /// follows it, which is what a reader assumes and what VB6 does.
     /// </summary>
-    private static void CollectLineNumbers(VB6Parser.BlockContext block, VB6Parser.BlockStmtContext[] stmts,
+    private static void CollectLineHeads(VB6Parser.BlockContext block, VB6Parser.BlockStmtContext[] stmts,
         Dictionary<string, int> labels)
     {
-        // Numbers awaiting a statement to label. A list rather than a single slot because a number may
-        // stand alone on its line, so several can queue up before the next executable statement:
+        // Names awaiting a statement to label. A list rather than a single slot for two reasons: a head may
+        // stand alone on its line, so several queue up before the next executable statement —
         //
         //     10
         //     20 Rem still nothing here
         //     30 x = 1        <- 10, 20 and 30 all name this statement
         //
-        // VB6 lets every one of those be a GoTo target, and they all land on the same place.
+        // — and one head may carry BOTH a number and a name, which is legal in that order only
+        // (`10 Skip: x = 1`; `Skip: 10 x = 1` is a syntax error in VB6). Every one of them is a live GoTo
+        // target landing on the same place, measured.
         var pending = new List<string>();
         var index = 0;
         for (var c = 0; c < block.ChildCount; c++)
         {
             switch (block.GetChild(c))
             {
-                case VB6Parser.LineNumberContext ln:
-                    pending.Add(ln.GetText());
+                case VB6Parser.LineHeadContext head:
+                    if (head.lineNumber() is { } number)
+                        pending.Add(number.GetText());
+                    if (head.lineLabel() is { } named)
+                        pending.Add(named.labelName().GetText());
                     break;
                 case VB6Parser.EmptyLineNumberContext eln:
                     // A number whose line carried no statement. It keeps its claim on the next one.
@@ -1890,8 +1896,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     // should always agree, but a label pointing at the wrong statement would be a silent
                     // mis-jump, which is worse than no label at all.
                     if (pending.Count > 0 && index < stmts.Length && ReferenceEquals(stmts[index], stmt))
-                        foreach (var number in pending)
-                            labels[number] = index;
+                        foreach (var name in pending)
+                            labels[name] = index;
                     pending.Clear();
                     index++;
                     break;
@@ -1906,8 +1912,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var labels = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         for (int i = 0; i < stmts.Length; i++)
             if (stmts[i].lineLabel() is { } lbl)
-                labels[lbl.ambiguousIdentifier().GetText()] = i;
-        CollectLineNumbers(block, stmts, labels);
+                labels[lbl.labelName().GetText()] = i;
+        CollectLineHeads(block, stmts, labels);
 
         int pc = 0;
         int faultPc = -1;       // index of the statement that faulted (for Resume); -1 = no active error
