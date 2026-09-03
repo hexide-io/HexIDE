@@ -1,7 +1,8 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Antlr4.Runtime;
 using Antlr4.Runtime.Tree;
 using Avalonia.Controls;
 using HexIDE.Runtime.AvaloniaInterop;
@@ -1218,7 +1219,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             var cond = @case.sC_Cond();
             if (cond is VB6Parser.CaseCondElseContext)
             {
-                return await Visit(@case.block());
+                return await RunCaseBody(@case);
             }
             else if (cond is VB6Parser.CaseCondExprContext condExpr)
             {
@@ -1230,32 +1231,32 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         if (caseIs.comparisonOperator().LT() != null)
                         {
                             if (value.TryCompareTo(val) is < 0)
-                                return await Visit(@case.block());
+                                return await RunCaseBody(@case);
                         }
                         else if (caseIs.comparisonOperator().LEQ() != null)
                         {
                             if (value.TryCompareTo(val) is <= 0)
-                                return await Visit(@case.block());
+                                return await RunCaseBody(@case);
                         }
                         else if (caseIs.comparisonOperator().GT() != null)
                         {
                             if (value.TryCompareTo(val) is > 0)
-                                return await Visit(@case.block());
+                                return await RunCaseBody(@case);
                         }
                         else if (caseIs.comparisonOperator().GEQ() != null)
                         {
                             if (value.TryCompareTo(val) is >= 0)
-                                return await Visit(@case.block());
+                                return await RunCaseBody(@case);
                         }
                         else if (caseIs.comparisonOperator().EQ() != null)
                         {
-                            if (value.Equals(val))
-                                return await Visit(@case.block());
+                            if (CaseMatches(value, val, caseIs))
+                                return await RunCaseBody(@case);
                         }
                         else if (caseIs.comparisonOperator().NEQ() != null)
                         {
-                            if (!value.Equals(val))
-                                return await Visit(@case.block());
+                            if (!CaseMatches(value, val, caseIs))
+                                return await RunCaseBody(@case);
                         }
                         else if (caseIs.comparisonOperator().IS() != null)
                         {
@@ -1271,8 +1272,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     else if (subCond is VB6Parser.CaseCondExprValueContext caseCondExpr)
                     {
                         var val = await expressionExecutor.EvaluateValue(caseCondExpr.valueStmt());
-                        if (val.Equals(value))
-                            return await Visit(@case.block());
+                        if (CaseMatches(value, val, caseCondExpr))
+                            return await RunCaseBody(@case);
                     }
                     else if (subCond is VB6Parser.CaseCondExprToContext caseTo)
                     {
@@ -1280,7 +1281,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         var to = await expressionExecutor.EvaluateValue(caseTo.valueStmt(1));
                         if (value.TryCompareTo(from) is >= 0 && value.TryCompareTo(to) is <= 0)
                         {
-                            return await Visit(@case.block());
+                            return await RunCaseBody(@case);
                         }
                     }
                     else
@@ -1294,6 +1295,56 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
 
         return ControlFlow.Nothing;
+    }
+
+    /// <summary>Run a case arm's body, which the grammar makes OPTIONAL.
+    ///
+    /// <para>
+    /// `Case 1` with nothing underneath is legal VB6: the arm matches, does nothing, and — measured — does
+    /// NOT fall through to a later arm or to <c>Case Else</c>. So <c>block()</c> is null there and visiting
+    /// it throws. This was unreachable while the comparison below never matched anything; widening the
+    /// comparison is what exposes it, which is why the two changes belong in one commit.
+    /// </para></summary>
+    private async Task<ControlFlow> RunCaseBody(VB6Parser.SC_CaseContext @case)
+        => @case.block() is { } body ? await Visit(body) : ControlFlow.Nothing;
+
+    /// <summary>Does a case expression match the selector?
+    ///
+    /// <para>
+    /// VB6 coerces the CASE VALUE to the SELECTOR's runtime type and then compares — it does not compare
+    /// numerically, and it is not symmetric. Both halves are measured (see <i>Select Case matching</i> in
+    /// docs/vb6-fidelity-oracle.md): a <c>String</c> selector holding <c>"1.0"</c> does NOT match
+    /// <c>Case 1</c>, because <c>CStr(1)</c> is <c>"1"</c>; a <c>Long</c> selector holding 2 DOES match
+    /// <c>Case 1.7</c>, because <c>CLng(1.7)</c> is 2. Comparing numerically would get both backwards.
+    /// </para>
+    ///
+    /// <para>
+    /// That rule is <see cref="VbNumeric.CoerceOnStore"/> exactly — VB6's coercion-on-store and its
+    /// Select Case comparison are one rule — so this reuses it rather than restating it, and inherits its
+    /// already-pinned edges: a failed coercion RAISES rather than failing to match (<c>Case 40000</c>
+    /// against an <c>Integer</c> selector is Err 6, <c>Case "abc"</c> against a <c>Long</c> one is Err 13),
+    /// while coercion toward a <c>String</c> selector cannot fail and so never raises.
+    /// </para>
+    ///
+    /// <para>
+    /// NB the <c>=</c> operator is a DIFFERENT rule: <c>"1.0" = 1</c> is True in VB6 while the
+    /// corresponding Select Case is not. Sharing a comparison helper between the two would be wrong, and
+    /// was the obvious thing to do.
+    /// </para></summary>
+    private static bool CaseMatches(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx)
+    {
+        // Empty has not decided what it is yet, so it takes its partner's zero — the same rule
+        // GetTwoValuesSameTypesOrNull applies for `=`. Measured: an unassigned Variant matches `Case 0`.
+        if (selector.Type == Vb6Value.ValueType.EmptyVariant)
+            return VbNumeric.IsDeclarableScalar(caseValue.Type)
+                && new Vb6Value(caseValue.Type).Equals(caseValue);
+
+        // Object, UDT, Null, arrays: nothing to coerce toward, so compare as before rather than invent a
+        // rule for a case the oracle has not been asked about.
+        if (!VbNumeric.IsDeclarableScalar(selector.Type))
+            return selector.Equals(caseValue);
+
+        return VbNumeric.CoerceOnStore(caseValue, selector.Type, ctx).Equals(selector);
     }
 
     public override async Task<ControlFlow> VisitSendkeysStmt(VB6Parser.SendkeysStmtContext context)
