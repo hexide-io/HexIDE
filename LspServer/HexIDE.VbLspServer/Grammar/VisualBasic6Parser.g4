@@ -149,9 +149,32 @@ attributeStmt
     ;
 
 block
-    : emptyLineNumber* (lineNumber WS? COLON? WS?)? blockStmt
-      (blockSep emptyLineNumber* (lineNumber WS? COLON? WS?)? blockStmt)*
+    : emptyLineNumber* lineHead? blockStmt
+      ( colonSep blockStmt
+      | lineSep emptyLineNumber* lineHead? blockStmt
+      )*
       blockSep?
+    ;
+
+// What may stand at the head of a LINE, before the first statement on it. Reachable only after a
+// `lineSep` - a separator containing a real line break - and never after a `colonSep`, because VB6 allows
+// a label only at a line head: `Skip: x = 1` is legal and `z = 1: Here: z = 2` is READ AS A CALL
+// ("Sub or Function not defined"). A head reachable after a colon would invent a jump target the program
+// does not have. Order is measured: `10 Skip: stmt` is legal, `Skip: 10 stmt` is a syntax error.
+// Mirrored from the interpreter's grammar.
+lineHead
+    : lineNumber WS? COLON? WS? (lineLabel WS?)?
+    | lineLabel WS?
+    ;
+
+// A separator made only of colons: still the same line.
+colonSep
+    : (WS? COLON WS?)+
+    ;
+
+// A separator containing at least one real line break. The only place a lineHead may follow.
+lineSep
+    : (WS? COLON WS?)* WS? NEWLINE WS? (WS? (NEWLINE | COLON) WS?)*
     ;
 
 // A line number with NO statement after it on the line. `10` alone is a legal jump target, and so is
@@ -873,8 +896,31 @@ letterrange
     : certainIdentifier (WS? MINUS WS? certainIdentifier)?
     ;
 
+// `Name:` at a line head. The whitespace before the colon is a RUN: `Later : stmt` and `Skip<tab>: stmt`
+// are both legal VB6, and demanding adjacency meant those lines parsed as a bare call plus a separator,
+// losing the label silently. Trailing colons are absorbed (`Skip:: stmt` is legal). Reachable both as a
+// lineHead (sharing its line with a statement) and as a blockStmt (standing alone on its line); the two
+// never compete. Mirrored from the interpreter's grammar.
 lineLabel
-    : ambiguousIdentifier COLON
+    : labelName WS? COLON (WS? COLON)*
+    ;
+
+// WHICH NAMES MAY BE A LABEL - measured one probe per word, and not derivable from anything. `Reset:` is
+// a label; `Randomize:` is the Randomize statement. `Beep:` is a label; `Stop:` is a syntax error. No
+// structural property separates those pairs. It must be narrow: a label rule taking any
+// ambiguousIdentifier eats the `Else:` of a block If (ELSE is an ambiguousKeyword) and swallows the whole
+// else-branch into the Then-block - a wrong value, silently. Mirrored from the interpreter's grammar.
+labelName
+    : IDENTIFIER
+    | BEEP
+    | ERROR
+    | KILL
+    | LOAD
+    | MID
+    | NAME
+    | RESET
+    | TIME
+    | WIDTH
     ;
 
 literal

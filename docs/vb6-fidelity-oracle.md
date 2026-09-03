@@ -1773,6 +1773,66 @@ happened with the VBA documentation (`Rem` requires a space — it does not), wi
 (`[…]` escapes keywords — not in VB6), and, in this same change, with my own reading of an enum probe.
 The defence is not better reviewers. It is that nothing counts until `vb6.exe` has been asked.
 
+### Line labels: a property of the line, not a statement (2026-09-03)
+
+Ten new corpus cases, and the answer to two of them decided the grammar's shape.
+
+| probe | verdict |
+|---|---|
+| `10 Skip: Debug.Print "A"` — a line number AND a named label | **legal** |
+| `Skip: 10 Debug.Print "A"` — the same pair, other order | **illegal** — Syntax error |
+| `Skip<tab>: Debug.Print "A"` | legal |
+| `First:` ⏎ `Second:` ⏎ `stmt` — two labels on consecutive lines | legal, and BOTH reach `stmt` |
+| `Cont: Next i` — a label before a loop terminator | legal |
+| `Main:` inside `Sub Main` — a label named for its own procedure | legal |
+| `Chk: If True Then` … `End If` | legal |
+| `z = 1:: Here: z = 2` | **illegal** — *Sub or Function not defined* |
+| `Orphan:` at module level between two procedures | **illegal** — *Only comments may appear after End Sub…* |
+
+So the head of a line is an **ordered sequence**, number then name, not a set. And a label is
+procedure-scoped: outside one there is nowhere to jump from and VB6 says so.
+
+**The most useful row is the illegal one that is not a syntax error.** `z = 1:: Here: z = 2` comes back
+*"Sub or Function not defined"* — VB6 is not refusing the shape, it is **reading `Here` as a call**, which
+is exactly what HexIDE's grammar does with it. The two parses agree and only the timing of the complaint
+differs. That single message settled a design question that reasoning had not: a line head reachable after
+a colon would not merely over-accept, it would invent a jump target the program does not have. Six corpus
+rows previously filed as a label defect are really this, and they are permanent — the residue is name
+binding.
+
+**What HexIDE was getting wrong, and why no gate saw it.** `lineLabel` was an alternative of `blockStmt`
+while the numeric line number was already a prefix on the block. Because the block's separator admits a
+colon, taking the label alternative would have consumed the colon the block needed next — so ANTLR never
+took it, and `Skip: Debug.Print "x"` parsed as a bare call to `Skip` followed by a separator.
+
+**Ten of fourteen measured-legal label forms were dead.** Only a label standing ALONE on its line worked,
+because only that one has nothing to compete with:
+
+| form | before |
+|---|---|
+| `Skip: Debug.Print "x"` | label lost |
+| `Later : stmt` (space before the colon) | label lost |
+| `Skip:: stmt` | label lost |
+| `Skip:Debug.Print` (no space after) | label lost |
+| an indented label sharing its line | label lost |
+| `Retry: i = i + 1 : If i < 2 Then GoTo Retry` | label lost |
+| `Handler: Debug.Print "handled"` on an On Error target | label lost |
+| a label whose name collides with a variable | label lost |
+| `Skip _` ⏎ `: stmt` | label lost |
+| `Skip: _` ⏎ `stmt` | label lost |
+| `Skip:` alone on its line | worked |
+| `Fin:` alone before `End Sub` | worked |
+
+**None of this was visible to the conformance corpus**, and that is the lesson worth keeping. A lost label
+PARSES — the name simply becomes a call — so a gate that asks "does this module load" reports green on
+every row above. The failure surfaces later, somewhere else in the procedure, as `Label not defined` from
+a `GoTo` that looks correct. An entire class of defect sat under a passing gate because the gate was
+asking the only question the corpus could answer.
+
+The fix is a line head reachable only after a separator containing a real line break. Two false rejections
+fell out of it for free: `Error:` and `Name:` as label names, which the statement rules for `Error` and
+`Name` had been shadowing.
+
 ## Extending the oracle (future phases)
 
 Phase 3 (intrinsics) and beyond should verify, at minimum:

@@ -141,9 +141,36 @@ attributeStmt
    ;
 
 block
-   : emptyLineNumber* (lineNumber WS? COLON? WS?)? blockStmt
-     (blockSep emptyLineNumber* (lineNumber WS? COLON? WS?)? blockStmt)*
+   : emptyLineNumber* lineHead? blockStmt
+     ( colonSep blockStmt
+     | lineSep emptyLineNumber* lineHead? blockStmt
+     )*
      blockSep?
+   ;
+
+// What may stand at the head of a LINE, before the first statement on it.
+//
+// The whole point is that this is reachable only after a `lineSep` — a separator containing a real line
+// break — and never after a `colonSep`. VB6 allows a label only at the head of a line: `Skip: x = 1` is
+// legal and `z = 1: Here: z = 2` is not, and the second is not merely refused, it is READ AS A CALL
+// ("Sub or Function not defined"). So a head reachable after a colon would not just over-accept, it would
+// invent a jump target the program does not have. That is why `block` distinguishes its two separators.
+//
+// The order is measured, not assumed: `10 Skip: stmt` is legal and `Skip: 10 stmt` is a syntax error.
+lineHead
+   : lineNumber WS? COLON? WS? (lineLabel WS?)?
+   | lineLabel WS?
+   ;
+
+// A separator made only of colons: still the same line.
+colonSep
+   : (WS? COLON WS?) +
+   ;
+
+// A separator containing at least one real line break, with any colons either side of it. This is the
+// only place a lineHead may follow.
+lineSep
+   : (WS? COLON WS?)* WS? NEWLINE WS? (WS? (NEWLINE | COLON) WS?)*
    ;
 
 // A line number with NO statement after it on the line. `10` alone is a legal jump target, and so is
@@ -860,8 +887,50 @@ letterrange
    : certainIdentifier (WS? MINUS WS? certainIdentifier)?
    ;
 
+// `Name:` at the head of a line. The whitespace before the colon is a RUN, not nothing: `Later : stmt`
+// and `Skip<tab>: stmt` are both legal VB6, and demanding the colon be adjacent to the name meant those
+// lines parsed as a bare call followed by a separator — the label silently gone, and the failure surfacing
+// somewhere else entirely as "Label not defined". Trailing colons are absorbed for the same reason
+// (`Skip:: stmt` is legal).
+//
+// This rule is reachable two ways, deliberately. As a `lineHead` it takes a label that SHARES its line
+// with a statement; as a `blockStmt` it takes one that stands alone on its line, including as the last
+// thing in a procedure before `End Sub`. The two never compete: a label sharing its line cannot be a
+// blockStmt because there is no separator after it, and a label alone on its line cannot be a lineHead
+// because no statement follows it.
 lineLabel
-   : ambiguousIdentifier COLON
+   : labelName WS? COLON (WS? COLON)*
+   ;
+
+// WHICH NAMES MAY BE A LABEL. This list is measured, one probe per word, and it is not derivable from
+// anything — which is why it is a list and not a rule.
+//
+// `Reset:` is a label; `Randomize:` is the Randomize statement. `Beep:` is a label; `Stop:` is a syntax
+// error. Both pairs are keywords whose statement form is complete with the keyword alone, so no structural
+// property separates them. VB6's reserved-word list is simply not what anyone remembers it to be, and this
+// is the second time in this corpus that guessing it cost a defect.
+//
+// It has to be narrow, because a label rule taking any `ambiguousIdentifier` is a WRONG-VALUE defect and
+// not merely an over-acceptance. `ELSE` is an ambiguousKeyword, so such a rule eats the `Else:` of a block
+// If as a label and swallows the entire else-branch into the Then-block — measured: `Else : B : C` ran
+// NOTHING when the condition was false and ran the else-branch unconditionally when it was true, with no
+// error either way. The same mechanism silently deleted `Stop:`, `Close:`, `Return:` and every other
+// keyword that alone forms a statement.
+//
+// The residual risk is the reverse and much smaller: a label named for a keyword NOT on this list is
+// refused. That is a false rejection, so it is the direction that matters — but it costs a construct
+// nobody writes by accident, and the words are addable one measurement at a time.
+labelName
+   : IDENTIFIER
+   | BEEP
+   | ERROR
+   | KILL
+   | LOAD
+   | MID
+   | NAME
+   | RESET
+   | TIME
+   | WIDTH
    ;
 
 // A NUMERIC line label — `10 Debug.Print 1`. Distinct from lineLabel because it takes no colon and is a
