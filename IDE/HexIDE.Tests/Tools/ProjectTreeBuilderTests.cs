@@ -13,6 +13,7 @@ public class ProjectTreeBuilderTests
     {
         public string Name { get; } = name;
         public string? AbsolutePath { get; } = absolutePath;
+        public string? LocationCaption { get; set; }
         public bool IsExpanded { get; set; }
         public event PropertyChangedEventHandler? PropertyChanged { add { } remove { } }
     }
@@ -216,5 +217,90 @@ public class ProjectTreeBuilderTests
                 foreach (var child in Flatten(dir.Children))
                     yield return child;
         }
+    }
+
+    // ── Out-of-cone location captions (#228) ──────────────────────
+    //
+    // The tree places an out-of-cone member at the root because rendering its `..` as ascending
+    // folder nodes would put the tree's root somewhere above the project. That placement is only
+    // honest if the member also says where it really is — otherwise a shared module two directories
+    // up is indistinguishable from one sitting beside the .vbp, which is exactly what the caption
+    // exists to prevent.
+
+    [Fact]
+    public void AMemberBelowTheAnchor_HasNoCaption_BecauseTheTreeAlreadyShowsWhereItIs()
+    {
+        var node = new FakeFileNode("F", Path.Combine(Anchor, "Forms", "F.frm"));
+
+        ProjectTreeBuilder.BuildChildren([node], Anchor);
+
+        node.LocationCaption.Should().BeNull();
+    }
+
+    [Fact]
+    public void AMemberBesideTheProjectFile_HasNoCaption()
+    {
+        var node = new FakeFileNode("M", Path.Combine(Anchor, "Module1.bas"));
+
+        ProjectTreeBuilder.BuildChildren([node], Anchor);
+
+        node.LocationCaption.Should().BeNull();
+    }
+
+    [Fact]
+    public void AMemberReachedByTraversingOutOfTheProject_CaptionsItsRelativeLocation()
+    {
+        // The ordinary shared-module case: several projects referencing one directory of .bas files.
+        var node = new FakeFileNode("Common", Path.Combine(Root, "Shared", "Common.bas"));
+
+        ProjectTreeBuilder.BuildChildren([node], Anchor);
+
+        node.LocationCaption.Should().Be(Path.Combine("..", "Shared"),
+            "a relative form exists, so that is what the .vbp carries and what the caption shows");
+    }
+
+    [Fact]
+    public void AMemberWithNoRelativeForm_CaptionsItsAbsoluteLocation()
+    {
+        // Measured against vb6.exe: where no relative form exists the .vbp carries an absolute path,
+        // so the caption does too. Windows-only because a second drive root is the only shape that
+        // makes GetRelativePath return the input unchanged.
+        if (!OperatingSystem.IsWindows()) return;
+
+        var node = new FakeFileNode("Lib", @"D:\Shared\Lib.bas");
+
+        ProjectTreeBuilder.BuildChildren([node], Anchor);
+
+        node.LocationCaption.Should().Be(@"D:\Shared");
+    }
+
+    [Fact]
+    public void AnUnsavedMemberHasNoCaption_BecauseThereIsNoLocationToReportYet()
+    {
+        var unsavedMember = new FakeFileNode("New", null);
+        var memberOfUnsavedProject = new FakeFileNode("F", Path.Combine(Anchor, "F.frm"));
+
+        ProjectTreeBuilder.BuildChildren([unsavedMember], Anchor);
+        ProjectTreeBuilder.BuildChildren([memberOfUnsavedProject], anchorDir: null);
+
+        unsavedMember.LocationCaption.Should().BeNull();
+        memberOfUnsavedProject.LocationCaption.Should().BeNull("inventing one would be worse than silence");
+    }
+
+    [Fact]
+    public void ACaptionIsClearedWhenAMemberComesBackIntoTheCone()
+    {
+        // The builder must ASSIGN the caption on every pass, not only set it when there is one.
+        // The tree is rebuilt whenever a path changes, and a node object survives that rebuild — so a
+        // conditional assignment would leave a caption claiming the member is elsewhere long after it
+        // had been moved beside the project.
+        var node = new FakeFileNode("Common", Path.Combine(Anchor, "Common.bas"))
+        {
+            LocationCaption = Path.Combine("..", "Shared"),   // left over from an earlier location
+        };
+
+        ProjectTreeBuilder.BuildChildren([node], Anchor);
+
+        node.LocationCaption.Should().BeNull();
     }
 }

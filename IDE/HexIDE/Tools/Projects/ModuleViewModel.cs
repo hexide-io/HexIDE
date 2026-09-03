@@ -19,6 +19,7 @@ public partial class ModuleViewModel : ObservableObject, IDisposable, IProjectFi
     [Notify] private bool isExpanded;
     [Notify] private string name;
     [Notify] private string file;
+    [Notify] private string? locationCaption;
 
     public ModuleViewModel(ProjectViewModel project, ModuleDefinition module)
     {

@@ -19,6 +19,7 @@ public partial class FormViewModel : ObservableObject, IDisposable, IProjectFile
     [Notify] private bool isExpanded;
     [Notify] private string name;
     [Notify] private string file;
+    [Notify] private string? locationCaption;
 
     public FormViewModel(ProjectViewModel project, FormDefinition form)
     {

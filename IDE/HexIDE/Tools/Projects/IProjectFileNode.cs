@@ -8,4 +8,11 @@ public interface IProjectFileNode : IProjectTreeElement
 {
     string Name { get; }
     string? AbsolutePath { get; }
+
+    /// <summary>
+    /// Where this member actually lives, when that is not what its position in the tree implies —
+    /// null otherwise. Set by <see cref="ProjectTreeBuilder"/> as the tree is built, because the
+    /// anchor a member is measured against belongs to the project, not to the member.
+    /// </summary>
+    string? LocationCaption { get; set; }
 }
