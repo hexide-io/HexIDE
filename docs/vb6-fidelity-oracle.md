@@ -2700,7 +2700,9 @@ Consequences for HexIDE: **read both forms**, since a user can produce either to
 `RelatedDoc=`**, because the other propagates the broken one; and if an equivalent affordance is offered,
 do not repeat a default that silently produces an unbuildable project.
 
-Unmeasured: whether the checkbox defaults on, defaults off, or is sticky across invocations.
+**The checkbox defaults OFF and is not sticky** — so the default path, every time, is the one that
+produces a project that will not build, and a user has to know to tick a box they have no reason to notice.
+That makes the case against reproducing the choice: HexIDE should always write `RelatedDoc=`.
 
 ### What the IDE does with one
 
@@ -2725,9 +2727,8 @@ modern IDE does for files that belong to a project without being code.
 The harness compiles; it never opens the VB6 IDE. So nothing here says whether the IDE **preserves** a
 trailing custom section or a `RelatedDoc=` line **on save**, or whether it reorders them. `/make` left all
 54 `.vbp` files byte-identical, but that is the compiler's load path and not `File → Save Project`. Also
-unmeasured: whether the *Add As Related Document* checkbox defaults on, off, or is sticky; whether
-`RelatedDoc=` behaves the same outside `Type=Exe`; and whether such files are locked or copied rather than
-merely opened.
+unmeasured: whether `RelatedDoc=` behaves the same outside `Type=Exe`, and whether such files are locked
+or copied rather than merely opened.
 
 ## Extending the oracle (future phases)
 
