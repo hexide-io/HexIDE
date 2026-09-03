@@ -1,5 +1,5 @@
 {
-  "area": "continuation-and-separator/aggregate-visibility",
+  "area": "aggregate-visibility",
   "cases": [
     {
       "id": "two-private-types-same-name",

@@ -1,6 +1,5 @@
 {
   "area": "line continuation in ordinary positions",
-  "file": "C:\\Repos\\GitHub\\HexIDE\\HexIDE\\corpus\\continuation-and-separator\\continuation-basics.json",
   "count": 34,
   "cases": [
     {

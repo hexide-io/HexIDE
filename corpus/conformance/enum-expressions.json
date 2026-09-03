@@ -1,5 +1,5 @@
 {
-  "area": "continuation-and-separator/enum-expressions",
+  "area": "enum-expressions",
   "cases": [
     {
       "id": "member-forward-reference",

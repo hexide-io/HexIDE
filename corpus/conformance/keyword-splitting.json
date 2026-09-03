@@ -1,5 +1,5 @@
 {
-  "area": "continuation-and-separator/keyword-splitting",
+  "area": "keyword-splitting",
   "cases": [
     {
       "id": "for-each-split-by-continuation",

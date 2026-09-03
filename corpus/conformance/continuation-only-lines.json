@@ -1,5 +1,5 @@
 {
-  "area": "continuation-and-separator/continuation-only-lines",
+  "area": "continuation-only-lines",
   "cases": [
     {
       "id": "two-continuation-markers-on-one-line",

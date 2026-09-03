@@ -1,5 +1,5 @@
 {
-  "area": "continuation-and-separator/enum-library-addressing",
+  "area": "enum-library-addressing",
   "cases": [
     {
       "id": "library-enum-member-vbrun",

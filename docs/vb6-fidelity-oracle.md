@@ -1,4 +1,4 @@
-# VB6 fidelity oracle — behaviour verified against `vb6.exe`
+﻿# VB6 fidelity oracle — behaviour verified against `vb6.exe`
 
 HexIDE's in-box interpreter aims for **runtime-execution fidelity**: it reproduces VB6's *observable* behaviour
 without depending on `MSVBVM60.DLL` (see the CST-not-AST boundary in `CLAUDE.md`). The only trustworthy source
@@ -1559,7 +1559,7 @@ after the colon and so missed it. It then wrote the cases that caught it.
 ### A continuation may fall inside a multi-word keyword (2026-09-02)
 
 `End _ Sub` is legal, and so is every other multi-word keyword split the same way. Ten new corpus cases
-(`corpus/continuation-and-separator/keyword-splitting.json`), all compiled by `vb6.exe`:
+(`corpus/conformance/keyword-splitting.json`), all compiled by `vb6.exe`:
 
 | probe | verdict |
 |---|---|
@@ -1604,7 +1604,7 @@ Corpus false rejections: 21 → 14, clearing this group entirely. What remains i
 ### `Rem` takes no separator, and the documentation is wrong about it (2026-09-02)
 
 The reference says "Rem followed by a space". It is not true. 21 new corpus cases
-(`corpus/continuation-and-separator/rem-forms.json`), compiled by `vb6.exe`, plus a behavioural round
+(`corpus/conformance/rem-forms.json`), compiled by `vb6.exe`, plus a behavioural round
 through the value oracle for the cases where compiling proves nothing.
 
 **The rule, as measured:** *`Rem`, standing as a whole word, begins a comment that runs to the end of the
