@@ -73,6 +73,13 @@ xmlns:HexIDE="clr-namespace:HexIDE"
                                 </MultiBinding>
                             </TextBlock.Text>
                         </TextBlock>
+                        <!-- Where the member actually lives, shown only when its position in the tree
+                             does not already say so. Carries whatever the .vbp will contain: relative
+                             where a relative form exists, absolute where none does (a different drive
+                             or a UNC share). -->
+                        <TextBlock Text="{CompiledBinding LocationCaption}"
+                                   IsVisible="{CompiledBinding !!LocationCaption}"
+                                   Opacity="0.6" Margin="6,0,0,0" />
                     </StackPanel>
                 </TreeDataTemplate>
                 <TreeDataTemplate x:DataType="tools:ModuleViewModel">
@@ -86,6 +93,13 @@ xmlns:HexIDE="clr-namespace:HexIDE"
                                 </MultiBinding>
                             </TextBlock.Text>
                         </TextBlock>
+                        <!-- Where the member actually lives, shown only when its position in the tree
+                             does not already say so. Carries whatever the .vbp will contain: relative
+                             where a relative form exists, absolute where none does (a different drive
+                             or a UNC share). -->
+                        <TextBlock Text="{CompiledBinding LocationCaption}"
+                                   IsVisible="{CompiledBinding !!LocationCaption}"
+                                   Opacity="0.6" Margin="6,0,0,0" />
                     </StackPanel>
                 </TreeDataTemplate>
             </TreeView.DataTemplates>
