@@ -4291,5 +4291,230 @@
     "Verdict": "agrees",
     "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 6 : Method or data member not found Build of 'verify.exe' failed.",
     "Why": "A user enum reached through a library qualifier - deliberate nonsense, to bound how general the chain is. Predicting illegal. Its value is entirely in showing the first slot is not a free-form namespace."
+  },
+  {
+    "Key": "aggregate-visibility/two-private-types-same-name",
+    "Area": "aggregate-visibility",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "THE case #180 is written about. Two modules each declaring a PRIVATE Type of the same name, with different members. The issue asserts VB6 treats them as two unrelated types; if that is right then detecting the clash WITHOUT honouring visibility would refuse a legal program, which is the damaging direction and means #180 cannot be fixed without visibility. If instead VB6 refuses this, the fix is far simpler. Nothing in the corpus establishes it, and one module cannot ask.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately. Without it an unresolvable name is simply an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable - which silently turned the first run of this case into a confident wrong fact. Option Explicit is what makes the probe able to fail."
+  },
+  {
+    "Key": "aggregate-visibility/two-public-types-same-name",
+    "Area": "aggregate-visibility",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The same collision with both PUBLIC. If two Publics clash and two Privates do not, visibility is exactly the discriminator and the procedure algorithm transfers unchanged. Measured separately because the two need not behave alike.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately. Without it an unresolvable name is simply an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable - which silently turned the first run of this case into a confident wrong fact. Option Explicit is what makes the probe able to fail."
+  },
+  {
+    "Key": "aggregate-visibility/public-and-private-type-same-name",
+    "Area": "aggregate-visibility",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The mixed case, and the one that decides precedence: a module declaring its own Private Type while another exports a Public one of the same name. The procedure rule is 'own module first at any visibility, then other modules' Public only'. If Types follow it, the local Private wins and this compiles.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately. Without it an unresolvable name is simply an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable - which silently turned the first run of this case into a confident wrong fact. Option Explicit is what makes the probe able to fail."
+  },
+  {
+    "Key": "aggregate-visibility/two-private-enums-same-name",
+    "Area": "aggregate-visibility",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The Enum twin of the first case. Enums and Types are aggregated by the same code here, so if they diverge in VB6 the single program-wide table is wrong for a second reason.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately. Without it an unresolvable name is simply an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable - which silently turned the first run of this case into a confident wrong fact. Option Explicit is what makes the probe able to fail."
+  },
+  {
+    "Key": "aggregate-visibility/cross-module-enum-member-collision",
+    "Area": "aggregate-visibility",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "A member name declared by enums in DIFFERENT modules, used bare. Within one module this is measured 'Ambiguous name detected' at the use. Across modules it may be the same, or the local one may win. Decides whether the ambiguity set is per-module or program-wide.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately. Without it an unresolvable name is simply an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable - which silently turned the first run of this case into a confident wrong fact. Option Explicit is what makes the probe able to fail."
+  },
+  {
+    "Key": "aggregate-visibility/private-enum-member-not-visible-across-modules",
+    "Area": "aggregate-visibility",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 3 : Variable not defined Build of 'verify.exe' failed.",
+    "Why": "A bare member of a PRIVATE enum in another module. Predicting illegal - that is what Private means - and it is the control that shows visibility is actually enforced on members rather than only on the enum name.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately. Without it an unresolvable name is simply an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable - which silently turned the first run of this case into a confident wrong fact. Option Explicit is what makes the probe able to fail."
+  },
+  {
+    "Key": "aggregate-visibility/two-foreign-public-types-and-no-local-one",
+    "Area": "aggregate-visibility",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The case the first round could not reach: the using module declares NO Point of its own, so there is nothing local to win and the name must come from elsewhere. With one exporter this should simply resolve. Its value is as the control for the next case, which adds a second exporter.\n\nA first version used TypeName(p) and failed on an unrelated rule - a UDT cannot be passed to a late-bound function - which is a probe measuring its own mistake. Reading a field instead keeps the case about scoping.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
+  },
+  {
+    "Key": "aggregate-visibility/two-foreign-modules-exporting-the-same-public-type",
+    "Area": "aggregate-visibility",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 3 : Ambiguous name detected: Point Build of 'verify.exe' failed.",
+    "Why": "THE case that decides whether an ambiguity rule applies to Types at all. Two OTHER modules each export a Public Type of the same name and the using module declares none, so nothing local can disambiguate. If VB6 refuses this, Types follow the procedure rule ('own module first, then other modules Public only, 2+ is ambiguous') and HexIDE can reuse that algorithm outright. If VB6 accepts it, Types are resolved by some other rule and the procedure algorithm does NOT transfer.\n\nA first version used TypeName(p) and failed on an unrelated rule - a UDT cannot be passed to a late-bound function - which is a probe measuring its own mistake. Reading a field instead keeps the case about scoping.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
+  },
+  {
+    "Key": "aggregate-visibility/ambiguous-type-disambiguated-by-module-name",
+    "Area": "aggregate-visibility",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Two modules export the same Public Type, which is measured 'Ambiguous name detected' for the BARE name - so is the module-qualified form the escape hatch? If it is, the ambiguity is a property of the reference rather than of the declarations, and a resolver must accept a dotted type name in a Dim ... As position (the grammar's complexType already allows one). If it is not, then two exporters make the name unusable from that module at all, which is a much stronger statement.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
+  },
+  {
+    "Key": "aggregate-visibility/unambiguous-type-still-reachable-by-module-name",
+    "Area": "aggregate-visibility",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The control: only ONE module exports Point, so nothing needs disambiguating. This separates 'the qualified form resolves an ambiguity' from 'the qualified form is accepted at all' - if this one fails too, the previous case says nothing about ambiguity.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
+  },
+  {
+    "Key": "aggregate-visibility/ambiguous-enum-disambiguated-by-module-name",
+    "Area": "aggregate-visibility",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module3.bas', Line 0 : Ambiguous name detected: EKind Build of 'verify.exe' failed.",
+    "Why": "The enum twin. Two modules export the same Public Enum and the reference names the module. The three-part form is already measured legal for a single declaring module; this asks whether it also RESOLVES an ambiguity, which is the property that matters for a design that has to decide when to raise.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
+  },
+  {
+    "Key": "aggregate-visibility/ambiguous-enum-member-disambiguated-by-module-name",
+    "Area": "aggregate-visibility",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "A bare MEMBER name declared by enums in two different modules, qualified with one of those modules. Distinct from the previous case because here the enums have different names and only the member collides - so the module prefix is the only thing that can disambiguate, and there is no enum name to fall back on.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
+  },
+  {
+    "Key": "aggregate-visibility/foreign-private-type-is-not-visible",
+    "Area": "aggregate-visibility",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 3 : User-defined type not defined Build of 'verify.exe' failed.",
+    "Why": "Gap one: a PRIVATE Type in another module, referenced bare. The enum half of this is measured - a foreign Private enum's members give 'Variable not defined' - but Types were only ever measured in the two-declarations arrangement, where a local declaration could have been doing the work. This asks whether Private is enforced for Types at all. Predicting illegal; if it is LEGAL then Types have no module scope and the whole shared-base-rule reading is wrong.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
+  },
+  {
+    "Key": "aggregate-visibility/foreign-private-type-not-reachable-even-qualified",
+    "Area": "aggregate-visibility",
+    "Expect": "illegal",
+    "Actual": "illegal",
+    "Verdict": "agrees",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 3 : User-defined type not defined Build of 'verify.exe' failed.",
+    "Why": "The same Type named through its declaring module. The module prefix is measured to resolve an AMBIGUITY; this asks whether it also defeats PRIVACY, which would make it a back door rather than a disambiguator. Predicting illegal - naming the module should not grant access it does not have.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
+  },
+  {
+    "Key": "aggregate-visibility/module-prefix-overrides-a-local-declaration",
+    "Area": "aggregate-visibility",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Gap two, and it is decisive by construction: the local Private Point has an X and the foreign Public Point has a Latitude, so reading `.Latitude` says WHICH one the qualified reference picked. If it compiles, the module prefix overrides a local declaration outright; if it fails, the prefix only breaks a tie among foreign candidates and the local one still wins. A resolver has to know which, and the two designs differ.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
+  },
+  {
+    "Key": "aggregate-visibility/local-type-still-wins-when-unqualified",
+    "Area": "aggregate-visibility",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The control for the previous case, same two declarations but an UNQUALIFIED reference reading the LOCAL member. Together the pair pins the rule from both sides rather than leaving 'local wins' inferred from a compile that might have succeeded for another reason.\n\nNOTE ON THE HARNESS: Module1 declares Option Explicit deliberately - without it an unresolvable name is an implicitly-declared Variant and the module compiles, so 'not found' and 'found unambiguously' are indistinguishable."
+  },
+  {
+    "Key": "qualifier-depth/type-position-enum-bare",
+    "Area": "qualifier-depth",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The control. An Enum used as a DECLARED TYPE, unqualified.\n\nNOTE: the harness .vbp sets Name=\"verify\", so `verify` is the PROJECT qualifier and Module2 is the declaring module. Module1 holds the reference. Option Explicit is on, so an unresolved name fails."
+  },
+  {
+    "Key": "qualifier-depth/type-position-enum-module-qualified",
+    "Area": "qualifier-depth",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 3 : User-defined type not defined Build of 'verify.exe' failed.",
+    "Why": "Reported by a maintainer as failing with 'User defined type not found' - an Enum qualified by its declaring MODULE in type position. If that is right it contradicts what I measured for a UDT, where `Module2.Point` in the same position is legal, and means Types and Enums differ in type position as well as in how they disambiguate.\n\nNOTE: the harness .vbp sets Name=\"verify\", so `verify` is the PROJECT qualifier and Module2 is the declaring module. Module1 holds the reference. Option Explicit is on, so an unresolved name fails."
+  },
+  {
+    "Key": "qualifier-depth/type-position-enum-project-qualified",
+    "Area": "qualifier-depth",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The same Enum qualified by the PROJECT rather than the module, which the maintainer reports as WORKING. A project-level qualifier is a level I had not measured at all, and if it is accepted where the module level is refused then the qualifier chain in type position is not simply a prefix of the one in value position.\n\nNOTE: the harness .vbp sets Name=\"verify\", so `verify` is the PROJECT qualifier and Module2 is the declaring module. Module1 holds the reference. Option Explicit is on, so an unresolved name fails."
+  },
+  {
+    "Key": "qualifier-depth/type-position-enum-project-and-module",
+    "Area": "qualifier-depth",
+    "Expect": "unsure",
+    "Actual": "illegal",
+    "Verdict": "resolved",
+    "Error": "Compile Error in File 'C:\\hexide-legality\\Module1.bas', Line 3 : User-defined type not defined Build of 'verify.exe' failed.",
+    "Why": "Both qualifiers together in type position, reported as failing. Pins whether the module level is refused ANYWHERE in type position or only when it is the outermost qualifier.\n\nNOTE: the harness .vbp sets Name=\"verify\", so `verify` is the PROJECT qualifier and Module2 is the declaring module. Module1 holds the reference. Option Explicit is on, so an unresolved name fails."
+  },
+  {
+    "Key": "qualifier-depth/type-position-udt-module-qualified",
+    "Area": "qualifier-depth",
+    "Expect": "legal",
+    "Actual": "legal",
+    "Verdict": "agrees",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The UDT twin, measured legal earlier and repeated here beside the Enum cases so the comparison is in one run rather than across two. If this passes while the Enum form fails, the difference is the declaration kind and nothing else.\n\nNOTE: the harness .vbp sets Name=\"verify\", so `verify` is the PROJECT qualifier and Module2 is the declaring module. Module1 holds the reference. Option Explicit is on, so an unresolved name fails."
+  },
+  {
+    "Key": "qualifier-depth/type-position-udt-project-qualified",
+    "Area": "qualifier-depth",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "A UDT qualified by the project. Completes the two-by-two - UDT and Enum, module and project qualifier - so the rule can be stated rather than inferred from three corners.\n\nNOTE: the harness .vbp sets Name=\"verify\", so `verify` is the PROJECT qualifier and Module2 is the declaring module. Module1 holds the reference. Option Explicit is on, so an unresolved name fails."
+  },
+  {
+    "Key": "qualifier-depth/type-position-udt-project-and-module",
+    "Area": "qualifier-depth",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "A UDT with both qualifiers. The Enum form of this is reported to fail; if the UDT form succeeds the divergence is confirmed at every depth.\n\nNOTE: the harness .vbp sets Name=\"verify\", so `verify` is the PROJECT qualifier and Module2 is the declaring module. Module1 holds the reference. Option Explicit is on, so an unresolved name fails."
+  },
+  {
+    "Key": "qualifier-depth/value-position-project-module-enum-member",
+    "Area": "qualifier-depth",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "The deepest VALUE-position form: project, module, enum, member. Reported as working. Four levels is one more than anything measured so far, and it is what makes the value chain provably longer than the type chain.\n\nNOTE: the harness .vbp sets Name=\"verify\", so `verify` is the PROJECT qualifier and Module2 is the declaring module. Module1 holds the reference. Option Explicit is on, so an unresolved name fails."
+  },
+  {
+    "Key": "qualifier-depth/value-position-project-member",
+    "Area": "qualifier-depth",
+    "Expect": "unsure",
+    "Actual": "legal",
+    "Verdict": "resolved",
+    "Error": "Build of 'verify.exe' succeeded.",
+    "Why": "Project-qualified bare MEMBER, skipping both the module and the enum. Reported as working, and it is the strongest form of 'every level is independently optional' in value position.\n\nNOTE: the harness .vbp sets Name=\"verify\", so `verify` is the PROJECT qualifier and Module2 is the declaring module. Module1 holds the reference. Option Explicit is on, so an unresolved name fails."
   }
 ]

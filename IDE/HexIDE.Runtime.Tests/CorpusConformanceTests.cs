@@ -8,7 +8,7 @@ namespace HexIDE.Runtime.Tests;
 /// Does HexIDE's grammar agree with real VB6 about what is legal?
 ///
 /// <para>
-/// The corpus under <c>/corpus</c> is 425 clean-room cases, each already compiled by <c>vb6.exe</c> with
+/// The corpus under <c>/corpus</c> is 450 clean-room cases, each already compiled by <c>vb6.exe</c> with
 /// its verdict recorded in <c>results.json</c>. This turns those recorded facts into a gate: parse every
 /// case with the interpreter's own grammar and compare.
 /// </para>
@@ -52,7 +52,7 @@ public class CorpusConformanceTests
     /// <para>
     /// Grouped by CAUSE, because this corpus has already taught that lesson the expensive way — a bucket
     /// labelled LABEL turned out to be mostly one over-broad lexer token, and nine cases across three
-    /// areas collapsed into a single fix once that was seen. These fifty-five rows are nineteen defects.
+    /// areas collapsed into a single fix once that was seen. These sixty-one rows are nineteen defects.
     /// The largest of them WAS one character in one character class, and it is now gone.
     /// </para>
     /// </remarks>
@@ -93,7 +93,7 @@ public class CorpusConformanceTests
         ["separator-with-declarations/hashconst-value-continued"] = "OTHER-REJECTION",
         ["whitespace-and-eol-edges/eof-mid-continuation-no-trailing-newline"] = "OTHER-REJECTION",
 
-        // ===== FALSE ACCEPTANCES (46) — the mild direction. =====
+        // ===== FALSE ACCEPTANCES (52) — the mild direction. =====
 
         // BRACKETED-IDENTIFIER-NOT-VB6 (2)
         //   `ambiguousIdentifier` has a `[name]` alternative. **VB6 has no such syntax.** Measured:
@@ -111,6 +111,59 @@ public class CorpusConformanceTests
         //   nothing in the designer-file rules depends on it.
         ["rem-forms/bracketed-plain-identifier"] = "BRACKETED-IDENTIFIER-NOT-VB6",
         ["rem-forms/bracketed-reserved-word"] = "BRACKETED-IDENTIFIER-NOT-VB6",
+
+        // MODULE-SCOPE-IGNORED-FOR-TYPES-AND-ENUMS (7) — issue #180. FIXED, and these rows stay.
+        //   The defect is gone: Types and Enums are resolved per-module, `Private` is honoured, a genuine
+        //   clash raises "Ambiguous name detected", and `Module2.Point` / `Project1.MyEnum.Foo` resolve.
+        //   ModuleScopeTests covers all of it.
+        //
+        //   These rows remain because every one of them PARSES and is refused later — at module load for
+        //   the enum-name clash, at the use for the rest — and this gate can only see the parse. They are
+        //   not pending work; deleting them would make the gate fail. The behaviour they describe is the
+        //   one thing the corpus is structurally unable to check, which is why the fix is covered by
+        //   runtime tests instead.
+        //
+        //   The rule is now measured, and the base of it is EXACTLY the one TryResolveProcedure already
+        //   implements: own module first at any visibility (so a local Private beats a foreign Public),
+        //   then other modules' Public only, and 2+ foreign Publics is "Ambiguous name detected". Two
+        //   Privates in different modules do NOT clash — they are unrelated, which is why detecting a
+        //   collision without honouring visibility would refuse a legal program.
+        //
+        //   But Types and Enums then DIVERGE, and the difference would have been guessed wrong:
+        //
+        //     * A TYPE's ambiguity belongs to the REFERENCE. Two Public Types of the same name coexist;
+        //       a bare reference from a module with neither is refused AT THE USE, and `Module2.Point`
+        //       resolves it. So a Dim ... As must accept a dotted type name (complexType already does).
+        //     * An ENUM's ambiguity belongs to the DECLARATION. Two modules exporting the same Public
+        //       Enum NAME is refused outright — reported at line 0, with no use involved — and qualifying
+        //       does not help. A colliding MEMBER name across differently-named enums is disambiguable by
+        //       module, and that one behaves like the Type case.
+        //
+        //   WHY they differ, and this reading fits every measurement rather than only the two above:
+        //   a UDT's type identity is MODULE-scoped, an Enum's is PROJECT-scoped. So `Module.Point` names
+        //   a real thing and `Module.MyEnum` does not — measured, `Dim x As Module2.MyPublicEnum` is
+        //   "User-defined type not defined" while `Dim p As Module2.Point` is fine, and the PROJECT
+        //   qualifier works for both. That also explains the collision asymmetry: two modules may each
+        //   own a Public Type because each belongs to its module, and may NOT both export a Public Enum
+        //   because they would collide in the one project namespace.
+        //
+        //   An enum's MEMBERS are still hoisted into their module's namespace, which is why the module
+        //   qualifies them as VALUES (`Module2.MyEnum.Foo`, `Module2.Foo`) though not as a type. In value
+        //   position every level is independently optional, to four deep — `Project.Module.Enum.Member`
+        //   and a bare `Project.Member` both compile. (The mechanism is inferred; the eight verdicts it
+        //   accounts for are not.)
+        //
+        //   The base rule turned out to be the one TryResolveProcedure already implemented, so the fix was
+        //   mostly an existing algorithm reaching two more declaration kinds. The project-name qualifier
+        //   was a level HexIDE had no concept of in either position, and is now accepted and stepped over.
+        ["aggregate-visibility/ambiguous-enum-disambiguated-by-module-name"] = "MODULE-SCOPE-IGNORED-FOR-TYPES-AND-ENUMS",
+        ["aggregate-visibility/foreign-private-type-is-not-visible"] = "MODULE-SCOPE-IGNORED-FOR-TYPES-AND-ENUMS",
+        // An Enum has no module level in TYPE position at all — the two rows that show it.
+        ["qualifier-depth/type-position-enum-module-qualified"] = "MODULE-SCOPE-IGNORED-FOR-TYPES-AND-ENUMS",
+        ["qualifier-depth/type-position-enum-project-and-module"] = "MODULE-SCOPE-IGNORED-FOR-TYPES-AND-ENUMS",
+        ["aggregate-visibility/foreign-private-type-not-reachable-even-qualified"] = "MODULE-SCOPE-IGNORED-FOR-TYPES-AND-ENUMS",
+        ["aggregate-visibility/private-enum-member-not-visible-across-modules"] = "MODULE-SCOPE-IGNORED-FOR-TYPES-AND-ENUMS",
+        ["aggregate-visibility/two-foreign-modules-exporting-the-same-public-type"] = "MODULE-SCOPE-IGNORED-FOR-TYPES-AND-ENUMS",
 
         // COMPILE-CHECK-DEFERRED-TO-RUN-TIME (5) — every one of these IS refused; just not by the parser.
         //   VB6 compiles a whole module before running it, so it can refuse these at compile time. HexIDE
@@ -274,14 +327,6 @@ public class CorpusConformanceTests
         //   end-of-line requirement. One-token parser fix, and the sibling `macroIfBlockStmt` already
         //   models the constraint at the other end of the same construct.
         ["separator-with-declarations/hashendif-trailing-colon"] = "DIRECTIVE-NOT-LINE-SCOPED",
-
-        // ZERO-MEMBER-AGGREGATE-ACCEPTED (1) — NOT a Rem defect.
-        //   vb6.exe agrees with HexIDE that a bare `Rem` inside an Enum body is a comment and vanishes.
-        //   Its complaint is "Enum without members not allowed", which is arity, not syntax.
-        //   `enumerationStmt` uses a Kleene STAR for the member list, so an empty body is accepted. A
-        //   one-character fix, `*` -> `+`, and `typeStmt` carries the identical hole. The Rem is only the
-        //   vehicle that empties the body; any empty body reaches the same acceptance.
-        ["rem-forms/enum-member-named-rem"] = "ZERO-MEMBER-AGGREGATE-ACCEPTED",
 
         // FILENUMBER-IS-A-GENERAL-LITERAL (1) — NOT a continuation defect.
         //   A continuation can never occur inside a token, so `#1/1/ _` leaves an unterminated date

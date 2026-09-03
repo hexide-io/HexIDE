@@ -1,0 +1,221 @@
+{
+  "area": "continuation-and-separator/qualifier-depth",
+  "cases": [
+    {
+      "id": "type-position-enum-bare",
+      "scope": "module",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Main()",
+        "    Dim x As MyPublicEnum",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Public Type Point",
+          "    X As Long",
+          "End Type",
+          "",
+          "Public Enum MyPublicEnum",
+          "    Foo = 7",
+          "End Enum"
+        ]
+      ],
+      "expect": "legal",
+      "why": "The control. An Enum used as a DECLARED TYPE, unqualified.\n\nNOTE: the harness .vbp sets Name=\"verify\", so `verify` is the PROJECT qualifier and Module2 is the declaring module. Module1 holds the reference. Option Explicit is on, so an unresolved name fails."
+    },
+    {
+      "id": "type-position-enum-module-qualified",
+      "scope": "module",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Main()",
+        "    Dim x As Module2.MyPublicEnum",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Public Type Point",
+          "    X As Long",
+          "End Type",
+          "",
+          "Public Enum MyPublicEnum",
+          "    Foo = 7",
+          "End Enum"
+        ]
+      ],
+      "expect": "unsure",
+      "why": "Reported by a maintainer as failing with 'User defined type not found' - an Enum qualified by its declaring MODULE in type position. If that is right it contradicts what I measured for a UDT, where `Module2.Point` in the same position is legal, and means Types and Enums differ in type position as well as in how they disambiguate.\n\nNOTE: the harness .vbp sets Name=\"verify\", so `verify` is the PROJECT qualifier and Module2 is the declaring module. Module1 holds the reference. Option Explicit is on, so an unresolved name fails."
+    },
+    {
+      "id": "type-position-enum-project-qualified",
+      "scope": "module",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Main()",
+        "    Dim x As verify.MyPublicEnum",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Public Type Point",
+          "    X As Long",
+          "End Type",
+          "",
+          "Public Enum MyPublicEnum",
+          "    Foo = 7",
+          "End Enum"
+        ]
+      ],
+      "expect": "unsure",
+      "why": "The same Enum qualified by the PROJECT rather than the module, which the maintainer reports as WORKING. A project-level qualifier is a level I had not measured at all, and if it is accepted where the module level is refused then the qualifier chain in type position is not simply a prefix of the one in value position.\n\nNOTE: the harness .vbp sets Name=\"verify\", so `verify` is the PROJECT qualifier and Module2 is the declaring module. Module1 holds the reference. Option Explicit is on, so an unresolved name fails."
+    },
+    {
+      "id": "type-position-enum-project-and-module",
+      "scope": "module",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Main()",
+        "    Dim x As verify.Module2.MyPublicEnum",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Public Type Point",
+          "    X As Long",
+          "End Type",
+          "",
+          "Public Enum MyPublicEnum",
+          "    Foo = 7",
+          "End Enum"
+        ]
+      ],
+      "expect": "unsure",
+      "why": "Both qualifiers together in type position, reported as failing. Pins whether the module level is refused ANYWHERE in type position or only when it is the outermost qualifier.\n\nNOTE: the harness .vbp sets Name=\"verify\", so `verify` is the PROJECT qualifier and Module2 is the declaring module. Module1 holds the reference. Option Explicit is on, so an unresolved name fails."
+    },
+    {
+      "id": "type-position-udt-module-qualified",
+      "scope": "module",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Main()",
+        "    Dim p As Module2.Point",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Public Type Point",
+          "    X As Long",
+          "End Type",
+          "",
+          "Public Enum MyPublicEnum",
+          "    Foo = 7",
+          "End Enum"
+        ]
+      ],
+      "expect": "legal",
+      "why": "The UDT twin, measured legal earlier and repeated here beside the Enum cases so the comparison is in one run rather than across two. If this passes while the Enum form fails, the difference is the declaration kind and nothing else.\n\nNOTE: the harness .vbp sets Name=\"verify\", so `verify` is the PROJECT qualifier and Module2 is the declaring module. Module1 holds the reference. Option Explicit is on, so an unresolved name fails."
+    },
+    {
+      "id": "type-position-udt-project-qualified",
+      "scope": "module",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Main()",
+        "    Dim p As verify.Point",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Public Type Point",
+          "    X As Long",
+          "End Type",
+          "",
+          "Public Enum MyPublicEnum",
+          "    Foo = 7",
+          "End Enum"
+        ]
+      ],
+      "expect": "unsure",
+      "why": "A UDT qualified by the project. Completes the two-by-two - UDT and Enum, module and project qualifier - so the rule can be stated rather than inferred from three corners.\n\nNOTE: the harness .vbp sets Name=\"verify\", so `verify` is the PROJECT qualifier and Module2 is the declaring module. Module1 holds the reference. Option Explicit is on, so an unresolved name fails."
+    },
+    {
+      "id": "type-position-udt-project-and-module",
+      "scope": "module",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Main()",
+        "    Dim p As verify.Module2.Point",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Public Type Point",
+          "    X As Long",
+          "End Type",
+          "",
+          "Public Enum MyPublicEnum",
+          "    Foo = 7",
+          "End Enum"
+        ]
+      ],
+      "expect": "unsure",
+      "why": "A UDT with both qualifiers. The Enum form of this is reported to fail; if the UDT form succeeds the divergence is confirmed at every depth.\n\nNOTE: the harness .vbp sets Name=\"verify\", so `verify` is the PROJECT qualifier and Module2 is the declaring module. Module1 holds the reference. Option Explicit is on, so an unresolved name fails."
+    },
+    {
+      "id": "value-position-project-module-enum-member",
+      "scope": "module",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Main()",
+        "    Debug.Print verify.Module2.MyPublicEnum.Foo",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Public Type Point",
+          "    X As Long",
+          "End Type",
+          "",
+          "Public Enum MyPublicEnum",
+          "    Foo = 7",
+          "End Enum"
+        ]
+      ],
+      "expect": "unsure",
+      "why": "The deepest VALUE-position form: project, module, enum, member. Reported as working. Four levels is one more than anything measured so far, and it is what makes the value chain provably longer than the type chain.\n\nNOTE: the harness .vbp sets Name=\"verify\", so `verify` is the PROJECT qualifier and Module2 is the declaring module. Module1 holds the reference. Option Explicit is on, so an unresolved name fails."
+    },
+    {
+      "id": "value-position-project-member",
+      "scope": "module",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Main()",
+        "    Debug.Print verify.Foo",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Public Type Point",
+          "    X As Long",
+          "End Type",
+          "",
+          "Public Enum MyPublicEnum",
+          "    Foo = 7",
+          "End Enum"
+        ]
+      ],
+      "expect": "unsure",
+      "why": "Project-qualified bare MEMBER, skipping both the module and the enum. Reported as working, and it is the strongest form of 'every level is independently optional' in value position.\n\nNOTE: the harness .vbp sets Name=\"verify\", so `verify` is the PROJECT qualifier and Module2 is the declaring module. Module1 holds the reference. Option Explicit is on, so an unresolved name fails."
+    }
+  ]
+}

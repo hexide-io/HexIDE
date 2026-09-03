@@ -334,8 +334,10 @@ endStmt
    : END
    ;
 
+// At least ONE member. VB6 refuses an empty Enum outright — "Enum without members not allowed" — and the
+// Kleene star accepted it silently. `typeStmt` carries the identical rule for the identical reason.
 enumerationStmt
-   : (publicPrivateVisibility WS)? ENUM WS ambiguousIdentifier blockSep (enumerationStmt_Constant)* END_ENUM
+   : (publicPrivateVisibility WS)? ENUM WS ambiguousIdentifier blockSep (enumerationStmt_Constant)+ END_ENUM
    ;
 
 enumerationStmt_Constant
@@ -655,8 +657,9 @@ timeStmt
    : TIME WS? EQ WS? valueStmt
    ;
 
+// At least ONE member — see enumerationStmt. VB6: "User-defined type without members not allowed".
 typeStmt
-   : (visibility WS)? TYPE WS ambiguousIdentifier blockSep (typeStmt_Element)* END_TYPE
+   : (visibility WS)? TYPE WS ambiguousIdentifier blockSep (typeStmt_Element)+ END_TYPE
    ;
 
 typeStmt_Element
