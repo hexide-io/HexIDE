@@ -2601,6 +2601,116 @@ The lesson is not "check the harness" but something narrower: **a harness that m
 program can only be trusted for questions that do not touch the synthesised part.** Every one of these
 three questions was about `Sub Main`, which is precisely what the harness was inventing.
 
+## What a `.vbp` tolerates, and the one key for a non-code file (2026-09-04)
+
+54 compiles against real `vb6.exe`, asking what a project file may contain beyond the keys HexIDE writes.
+The question came from wanting a VB6 project to be able to carry a Markdown, HTML or CSS file so the IDE
+can offer language services for it.
+
+### `RelatedDoc=` — VB6 already has a blessed key for exactly this
+
+This is the finding. VB6 has a first-class **Related Documents** concept, and `VB6.EXE` carries both
+`RelatedDoc` and `Related Documents` as string literals alongside `ExeName32` — and the IDE exposes it
+directly as an **"Add As Related Document"** checkbox on the Add File dialog (see below).
+
+| written | VB6 |
+|---|---|
+| `RelatedDoc=notes.md` | **legal** |
+| three `RelatedDoc=` lines — `.md`, `.html`, `.css` | **legal** — extension-agnostic and repeatable |
+| `RelatedDoc=docs\README.md` | **legal** — subfolders fine |
+| `RelatedDoc=my notes.md` | **legal** — spaces fine, unquoted |
+| `RelatedDoc="notes.md"` | **illegal** — `Path/File access error: '…\notes.md"'`; the quote is taken literally |
+| `RelatedDoc=nosuch.md` | **illegal** — `File not found`. The compiler opens it at build time |
+| `RelatedDoc=docs` (a directory) | **illegal** — `Path/File access error` |
+| `RelatedDoc=` (empty) | **illegal** — `The project file '…' is corrupt, and can't be loaded.` |
+
+The value is a **bare relative path**. It is a real build-time dependency, not an inert annotation.
+
+### Everything else in the item block is rejected
+
+An unknown key before the first section header is refused outright — `The project file '…' contains
+invalid key 'Markdown'.` — and refused *before* any path lookup, so a missing target reports the same
+error as a present one. `Document=`, an invented key with a VB6-ish shape, is rejected identically.
+
+### The real parsing rule, and what it overturned
+
+Two custom `[Section]`s at the end are legal while a custom section *before* the standard keys is not,
+which reads like "sections at the end are fine". It is not the rule, and the cases that establish it also
+differed in blank-line placement — a confound that nearly recorded the wrong one.
+
+> **Key parsing ends at the first line beginning with `[`. Everything from there to EOF is ignored** —
+> including *standard* keys.
+
+A second `ExeName32="tail.exe"` after a header still produces `verify.exe`; a `Module=` after a header is
+dropped, and the build then fails with `Must have startup form or Sub Main()`. Three further rules fell
+out of the same sweep:
+
+- **Blank and whitespace-only lines are skipped, not terminators** — including between standard keys. An
+  unknown key after a blank line with no section header is still `invalid key`.
+- **There is no comment syntax.** `; a comment` among the keys gives
+  `contains invalid key '; a comment⏎Startup'` — the key-name scan runs on to the next `=`, swallowing the
+  following line whole.
+- **The ignored tail is still shape-checked.** A line with no `=`, or an empty key (`=orphan`), inside a
+  trailing section gives `The project file '…' is corrupt, and can't be loaded.` Tail *values* are not
+  path-resolved, so a nonexistent file named there builds fine.
+
+### An unterminated item line crashes the compiler
+
+> **An item line — `Module=`, `RelatedDoc=` — as the file's last line with no trailing CRLF kills
+> `vb6.exe` with `0xC0000005` and writes nothing to the `/out` log.** Adding the terminator makes the
+> byte-identical file legal.
+
+It is specific to item lines: a final unterminated `Reference=` or `Name=` is fine. **Always end a written
+`.vbp` with CRLF.** A missing one is not a diagnosable failure — it is a silent process kill with an empty
+error log, which is the worst shape a serializer bug can take.
+
+This also overturned a first reading of the same evidence. Three cases exiting `0xC0000005` looked like a
+key-**ordering** rule (`Module=` must precede `Startup=`); further cases showed ordering is irrelevant and
+the terminator is everything.
+
+`ProjectSerializer` is not exposed today — every known line goes through `WriteLine`, and the last is
+always `Name=`, which is safe unterminated regardless. But that is ordering luck rather than intent: move
+an item line last, or append after `ExtensionTail`, and the crash arrives silently.
+
+### The IDE offers both, on a checkbox — and the wrong one does not build
+
+`RelatedDoc=` is not an obscure key recoverable only by probing: VB6's **Add File** dialog carries a
+checkbox, **"Add As Related Document"**, and it is the switch between the two representations. Observed in
+the shipped IDE.
+
+**Unchecked**, the file is added as a *standard module with a synthetic positional name*:
+
+```
+Module=Module1; Module1.bas
+Module=Module2; Test.md
+```
+
+`Module2` is not derived from `Test.md` — it is the next free `ModuleN`, so the IDE is running its
+ordinary add-a-module path pointed at a different file. The extension buys nothing: that line naming a
+`.md` whose content is prose fails with
+`Compile Error in File '…\notes.md', Line 0 : Expected: If or Else or ElseIf or End or EndIf or Const`,
+while the same line naming a `.md` that happens to hold a valid `.bas` body **builds**. VB6 never looks at
+the extension; it compiles whatever the line points to.
+
+So VB6 does have the right answer, and hands the user a project that cannot be compiled if they miss one
+checkbox. **Corrects an earlier reading of the same evidence in this file**, which said the shipped
+gesture simply produced a broken project — true only of the unchecked path.
+
+Consequences for HexIDE: **read both forms**, since a user can produce either today; **write
+`RelatedDoc=`**, because the other propagates the broken one; and if an equivalent affordance is offered,
+do not repeat a default that silently produces an unbuildable project.
+
+Unmeasured: whether the checkbox defaults on, defaults off, or is sticky across invocations.
+
+### What this could not determine
+
+The harness compiles; it never opens the VB6 IDE. So nothing here says whether the IDE **preserves** a
+trailing custom section or a `RelatedDoc=` line **on save**, whether it reorders them, what the Project
+Explorer shows for one, or what double-clicking it does. `/make` left all 54 `.vbp` files byte-identical,
+but that is the compiler's load path and not `File → Save Project`. Also unmeasured: whether
+`RelatedDoc=` behaves the same outside `Type=Exe`, and whether such files are locked or copied rather than
+merely opened.
+
 ## Extending the oracle (future phases)
 
 Phase 3 (intrinsics) and beyond should verify, at minimum:
