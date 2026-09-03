@@ -143,6 +143,28 @@ public class EnumTests : BaseVBTestFixture
     }
 
     [Fact]
+    public async Task AMemberIsReachableThroughItsDeclaringModule()
+    {
+        // `Module1.MyEnum.Member` — the three-part form. The enum level is transparent, exactly as the
+        // intrinsic-module level already was for `VBA.Math.Abs`. Measured legal, and it used to raise
+        // "Method or data member not found".
+        await RunModules("Debug.Print Module2.EPlain.pTwo\nDebug.Print Module2.pTwo\n",
+            ("Module2", "Public Enum EPlain\n    pOne\n    pTwo\nEnd Enum\n"));
+        AssertDebugLog([new Vb6Value(1L), new Vb6Value(1L)]);
+    }
+
+    [Fact]
+    public async Task AMemberReachedThroughTheWrongEnumIsRefused()
+    {
+        // The module form is validated exactly — the middle segment must name an enum the module declares
+        // and the last must be one of its members. Only the library form skips an unrecognised segment,
+        // and only because there is no table of the libraries' enum names to check against.
+        var act = async () => await RunModules("Debug.Print Module2.EPlain.nope\n",
+            ("Module2", "Public Enum EPlain\n    pOne\nEnd Enum\n"));
+        await act.Should().ThrowAsync<VBMethodOrDataMemberNotFoundException>();
+    }
+
+    [Fact]
     public async Task AutoIncrementContinuesFromANegativeValue()
     {
         await Run("Public Enum ENeg\n    nMinus = -3\n    nAfter\nEnd Enum\nDebug.Print ENeg.nAfter\n");

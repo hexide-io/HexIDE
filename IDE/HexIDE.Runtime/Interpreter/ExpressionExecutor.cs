@@ -707,13 +707,30 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
         if (qualifier.Kind == BasicInterpreter.QualifierKind.Library)
         {
-            // A library-qualified name resolves against the intrinsic registry (function) or a builtin constant.
-            var args = argsCtx != null ? await EvaluateCallArgs(argsCtx) : new List<Vb6Value>();
-            if (await EvaluateFunction(memberName, args) is { } fn)
-                return await ThenTheRest(fn);
-            if (args.Count == 0 && interpreter.BuiltIns.TryGetBuiltInConstant(memberName, out var c))
-                return await ThenTheRest(c);
-            throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
+            // A library-qualified name resolves against the intrinsic registry (function) or a builtin
+            // constant. If neither matches and there are more segments, this one is an ENUM level and is
+            // transparent — `VBRUN.AlignConstants.vbAlignBottom` and `VBRUN.vbAlignBottom` are both
+            // measured legal, so the middle segment is genuinely optional, exactly as the intrinsic-module
+            // level already was (`VBA.Math.Abs` is `VBA.Abs`).
+            //
+            // Membership is not validated, for the same reason IsIntrinsicModuleSegment does not validate
+            // its own: there is no table of the libraries' enum names here, and inventing one would be
+            // pre-execution analysis. An unrecognised middle segment is therefore skipped rather than
+            // checked, which costs a missing error and never a wrong value.
+            while (true)
+            {
+                var args = argsCtx != null ? await EvaluateCallArgs(argsCtx) : new List<Vb6Value>();
+                if (await EvaluateFunction(memberName, args) is { } fn)
+                    return await ThenTheRest(fn);
+                if (args.Count == 0 && interpreter.BuiltIns.TryGetBuiltInConstant(memberName, out var c))
+                    return await ThenTheRest(c);
+                if (idx + 1 >= members.Length)
+                    throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
+
+                idx++;
+                memberName = MemberName(members[idx]);
+                argsCtx = MemberArgs(members[idx]);
+            }
         }
 
         if (qualifier.Kind == BasicInterpreter.QualifierKind.Enum)
@@ -737,6 +754,22 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         }
         if (interpreter.ExecutionContext.TryGetVariable(module.ModuleEnv, memberName, out var v))
             return await ThenTheRest(v);
+
+        // `Module1.MyEnum.Member` — the three-part form, measured legal. Unlike the library case this one
+        // CAN be validated exactly, because the module's own enums are collected in its pre-pass: the
+        // middle segment must name an enum this module declares, and the last must be one of its members.
+        // `Module1.Member` already worked, because a member is hoisted as a module-level name.
+        if (idx + 1 < members.Length && module.PrePass.Enums.TryGetValue(memberName, out var enumTable))
+        {
+            var innerName = MemberName(members[idx + 1]);
+            if (!enumTable.TryGetValue(innerName, out var innerValue))
+                throw new VBMethodOrDataMemberNotFoundException(innerName, Vb6Value.ValueType.EmptyVariant);
+            var innerResult = new Vb6Value(innerValue);
+            return idx + 2 < members.Length
+                ? await ResolveMemberChain(innerResult, members, idx + 2, ctx)
+                : innerResult;
+        }
+
         throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
     }
 
