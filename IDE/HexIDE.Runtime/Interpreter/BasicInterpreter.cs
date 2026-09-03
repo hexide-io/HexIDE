@@ -741,9 +741,13 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     // ---- namespace qualifiers: Module.Member, VBA.X, VBA.Math.X ----
 
-    public enum QualifierKind { Module, Library, Enum, Project }
+    public enum QualifierKind { Module, Library, Enum, Project, InBoxContainer }
 
-    public readonly record struct QualifierTarget(QualifierKind Kind, ModuleInfo? Module, Dictionary<string, long>? EnumMembers);
+    /// <param name="Name">For <see cref="QualifierKind.InBoxLibrary"/> and
+    /// <see cref="QualifierKind.InBoxContainer"/>, the library or enum/module name as VB6 declares it —
+    /// these levels SELECT rather than being stepped over, so the name has to survive classification.</param>
+    public readonly record struct QualifierTarget(QualifierKind Kind, ModuleInfo? Module,
+        Dictionary<string, long>? EnumMembers, string? Name = null);
 
     /// <summary>Resolve a leading identifier as a namespace qualifier — a user module, an <c>Enum</c> type, or
     /// the <c>VBA</c>/<c>VB</c> libraries. The caller MUST check for a same-named variable first (it shadows the
@@ -754,7 +758,17 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // (`ClassName.Method` needs an instance), so class modules are excluded here.
         if (Modules.TryGet(name, out var m) && m.Kind == InterpreterModuleKind.Standard) { target = new QualifierTarget(QualifierKind.Module, m, null); return true; }
         if (Enums.TryGetValue(name, out var members)) { target = new QualifierTarget(QualifierKind.Enum, null, members); return true; }
-        if (IsLibraryName(name)) { target = new QualifierTarget(QualifierKind.Library, null, null); return true; }
+        // The project's own declarations are checked FIRST, above: measured, a user Enum or Const named
+        // after an in-box one wins (a `Private Enum VbMsgBoxResult` with `vbCancel = 42` makes a bare
+        // `vbCancel` answer 42). So the in-box levels come after the user's, never before.
+        //
+        // The library level now carries its NAME, because it selects: VBRUN.vbCancel is 0 and
+        // VBA.vbCancel is 2. It used to be nameless, which is exactly why it could only be transparent.
+        if (IsLibraryName(name)) { target = new QualifierTarget(QualifierKind.Library, null, null, name); return true; }
+        // An in-box enum or constant module used as the leading qualifier: `DragConstants.vbCancel`.
+        // Measured: the container selects on its own, and `DragConstants.vbYes` is refused.
+        if (VB6InBoxLibraries.IsContainer(name))
+        { target = new QualifierTarget(QualifierKind.InBoxContainer, null, null, name); return true; }
         // The PROJECT name is an outermost qualifier level — `Project1.Module1.MyEnum.Foo`, and a bare
         // `Project1.Foo`. Measured legal, to four segments. It is checked LAST so a module or enum of the
         // same name still wins, and it resolves to nothing in particular: there is one project in scope,
@@ -765,8 +779,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         return false;
     }
 
-    private static bool IsLibraryName(string n)
-        => n.Equals("VBA", StringComparison.OrdinalIgnoreCase) || n.Equals("VB", StringComparison.OrdinalIgnoreCase);
+    /// <summary>The four libraries a Standard EXE references by default, from the measured inventory.
+    /// This used to be a hand-written pair — VBA and VB — which recognised the one library that declares
+    /// NO constants at all and missed VBRUN, which declares 590 of the 728. So `VBRUN.vbAlignBottom`
+    /// raised "variable not defined" rather than answering 2.</summary>
+    private static bool IsLibraryName(string n) => VB6InBoxLibraries.IsLibrary(n);
 
     // The intrinsic "modules" (Math/Strings/…) inside the VBA library are transparent scoping — members promote
     // to the library level, so `VBA.Math.Abs` ≡ `VBA.Abs`. We recognise them only to skip past them; membership

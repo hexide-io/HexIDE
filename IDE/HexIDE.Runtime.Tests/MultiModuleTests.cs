@@ -124,8 +124,16 @@ public class MultiModuleTests : BaseVBTestFixture
     [Fact]
     public async Task LibraryQualifier_Constant()
     {
-        await Run("Debug.Print VBA.vbKeyA\n");
-        AssertDebugLog([65]);
+        // VBRUN, not VBA. `vbKeyA` is declared by VBRUN.KeyCodeConstants and by nothing else, and
+        // measured, `VBA.vbKeyA` is ILLEGAL in VB6 — "Method or data member not found". This test used
+        // to assert `VBA.vbKeyA` = 65 and passed only because the library qualifier was resolved
+        // transparently: it was pinning a false acceptance, not a fact about VB6.
+        await Run("Debug.Print VBRUN.vbKeyA\n");
+        // Long, not Integer and not Double. The type libraries declare these I4 and VB6 reports TypeName
+        // "Long" even for small values; the old flat table built them through Vb6Value(int) and its
+        // magnitude rule, so they came back Integer. Spelled out rather than written `65L`, because a
+        // long literal in a collection expression widens to double and would assert Double instead.
+        AssertDebugLog([new Vb6Value(65L)]);
     }
 
     [Fact]
