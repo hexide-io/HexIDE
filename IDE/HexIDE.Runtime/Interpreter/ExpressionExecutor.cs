@@ -429,9 +429,28 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     public override async Task<object?> VisitICS_S_VariableOrProcedureCall(VB6Parser.ICS_S_VariableOrProcedureCallContext context)
     {
         var identifier = await ExtractIdentifier(context);
+        RefuseAmbiguousEnumMember(identifier);
         if (interpreter.ExecutionContext.TryGetVariable(env, identifier, out var var))
             return var;
         throw new VBVariableNotDefinedException(identifier);
+    }
+
+    /// <summary>
+    /// A bare name that two of this module's Enums both declare is AMBIGUOUS, and VB6 says so at the USE:
+    /// the declarations are accepted and reading the name is "Ambiguous name detected". Measured.
+    ///
+    /// <para>
+    /// Checked here rather than at the hoist because both members really are declared — refusing the
+    /// declaration would reject a legal module. Before this, the second member silently overwrote the
+    /// first and a read handed back the wrong enum's value with nothing to show for it. The qualified
+    /// forms (<c>EOne.shared_</c>, <c>Module2.shared_</c>) stay usable, which is why this only guards the
+    /// bare path.
+    /// </para>
+    /// </summary>
+    private void RefuseAmbiguousEnumMember(string identifier)
+    {
+        if (currentModule?.PrePass.AmbiguousEnumMembers.Contains(identifier) == true)
+            throw new VBCompileErrorException("Ambiguous name detected: " + identifier);
     }
 
     public override async Task<object?> VisitVsICS(VB6Parser.VsICSContext icsContext)
@@ -449,6 +468,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             if (varOrProcCall.dictionaryCallStmt() != null)
                 throw new NotImplementedException("dictionaryCallStmt is not supported");
             var identifier = varOrProcCall.ambiguousIdentifier().GetText();
+            RefuseAmbiguousEnumMember(identifier);
 
             if (!interpreter.ExecutionContext.TryGetVariable(env, identifier, out var variable))
             {
@@ -704,6 +724,30 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var member = members[idx];
         var memberName = MemberName(member);
         var argsCtx = MemberArgs(member);
+
+        // The PROJECT level is transparent: it names the one project in scope, so it changes nothing about
+        // what is found and is simply stepped over. `Project1.Module1.MyEnum.Foo` is then resolved exactly
+        // as `Module1.MyEnum.Foo` would be, and a bare `Project1.Foo` as `Foo`.
+        if (qualifier.Kind == BasicInterpreter.QualifierKind.Project)
+        {
+            // The next segment may itself be a qualifier (a module, or an enum) — `Project1.Module1.…` and
+            // `Project1.MyEnum.Foo` — so re-enter with it and the rest of the chain.
+            if (idx + 1 < members.Length && interpreter.TryResolveQualifier(memberName, out var inner))
+                return await ResolveQualifiedMemberValue(inner, members[(idx + 1)..], ctx);
+            // Otherwise it is an ordinary project-level name: `Project1.Foo`, a hoisted enum member or a
+            // module-level Public. It is PROJECT-wide, so the search is too — the current module first,
+            // then every other standard module. A member hoisted by Module2's enum is not in Module1's
+            // env, and looking only there is what made this fail on the first run.
+            if (interpreter.ExecutionContext.TryGetVariable(env, memberName, out var projectMember))
+                return await ThenTheRest(projectMember);
+            foreach (var m in interpreter.Modules.All)
+            {
+                if (m.Kind != InterpreterModuleKind.Standard) continue;
+                if (interpreter.ExecutionContext.TryGetVariable(m.ModuleEnv, memberName, out var fromModule))
+                    return await ThenTheRest(fromModule);
+            }
+            throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
+        }
 
         if (qualifier.Kind == BasicInterpreter.QualifierKind.Library)
         {

@@ -87,14 +87,43 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     /// <summary>Construct a zero-initialised instance of user-defined type <paramref name="typeName"/> — each
     /// scalar field to its type's default, each nested-UDT field recursively, each Enum-typed field to Long 0.</summary>
+    /// <summary>
+    /// The project's own name, which is a QUALIFIER level in VB6 — `Project1.Module1.MyEnum.Foo` and
+    /// `Project1.MyPublicEnum` are both legal, and the project level is valid in type position even where
+    /// the module level is not.
+    ///
+    /// <para>
+    /// Defaulted to VB6's own default project name so the common case works without wiring; a host that
+    /// knows better (the IDE, reading the .vbp) should set it. There is only one project in scope here, so
+    /// naming it changes nothing about which declaration is found — the level exists to be ACCEPTED, since
+    /// refusing it would refuse legal VB6 for no gain.
+    /// </para>
+    /// </summary>
+    public string ProjectName { get; set; } = "Project1";
+
     public VbUdt NewUdt(string typeName) => NewUdt(typeName, 0);
+
+    /// <summary>Instantiate a UDT resolved from a specific module's point of view — so `Module2.Point`
+    /// gets Module2's Point rather than whichever one loaded last into the program-wide table.</summary>
+    public VbUdt NewUdt(string typeName, string? qualifier, ModuleInfo? from)
+    {
+        if (!TryResolveType(typeName, from, qualifier, out var def))
+            throw new VBCompileErrorException("User-defined type not defined: " + typeName);
+        return NewUdt(def, 0);
+    }
 
     private VbUdt NewUdt(string typeName, int depth)
     {
-        if (depth > 64)
-            throw new VBCompileErrorException("Recursive Type definition: " + typeName);
         if (!Types.TryGetValue(typeName, out var def))
             throw new VBCompileErrorException("User-defined type not defined: " + typeName);
+        return NewUdt(def, depth);
+    }
+
+    private VbUdt NewUdt(UdtTypeDef def, int depth)
+    {
+        var typeName = def.Name;
+        if (depth > 64)
+            throw new VBCompileErrorException("Recursive Type definition: " + typeName);
         var fields = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in def.Fields)
         {
@@ -285,12 +314,29 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             foreach (var (name, modCode) in classModules)
                 Modules.Add(BuildModule(name, InterpreterModuleKind.Class, modCode, new ExecutionEnvironment()));
 
-        // Aggregate every module's UDT/Enum definitions into one program-wide table — Types are Public and
-        // cross-module (a `Dim e As Employee` anywhere resolves a `Type Employee` declared in any module).
+        // Aggregate every module's UDT/Enum definitions into one program-wide table.
+        //
+        // This table is now a FALLBACK, not the authority. It is what a lookup with no module context can
+        // still use — a nested UDT field resolved at instantiation, a Function's declared return type —
+        // and last-writer-wins is tolerable there only because the module-aware path is tried first.
+        // TryResolveType and TryResolveEnum are the authority, and they honour Private and report a
+        // genuine clash instead of quietly keeping one of the two (#180).
+        //
+        // An Enum's identity is PROJECT-scoped, so two modules exporting the same Public Enum NAME is an
+        // error in VB6 at the declaration — no use required. That one is raised here, at load, because
+        // that is where VB6 raises it and there is nothing later to attach it to.
         foreach (var m in Modules.All)
         {
             foreach (var (tn, def) in m.PrePass.Types) Types[tn] = def;
-            foreach (var (en, members) in m.PrePass.Enums) Enums[en] = members;
+            foreach (var (en, members) in m.PrePass.Enums)
+            {
+                if (Enums.ContainsKey(en) && !m.PrePass.PrivateEnums.Contains(en)
+                    && Modules.All.Any(o => !ReferenceEquals(o, m)
+                                            && o.PrePass.Enums.ContainsKey(en)
+                                            && !o.PrePass.PrivateEnums.Contains(en)))
+                    throw new VBCompileErrorException("Ambiguous name detected: " + en);
+                Enums[en] = members;
+            }
         }
 
         // Seed the program-global Debug and Err objects into EVERY module env, each at a SINGLE shared slot
@@ -630,9 +676,72 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         return false;
     }
 
+    /// <summary>
+    /// Resolve a UDT name as seen from <paramref name="from"/>, honouring module scope.
+    ///
+    /// <para>
+    /// The rule is the one <see cref="TryResolveProcedure"/> already implements, and it is measured: the
+    /// declaring module's own types win at any visibility, then other modules' Public ones, and two foreign
+    /// Publics are "Ambiguous name detected". Two modules may each declare a Private Type of one name —
+    /// they are unrelated, which is why a clash cannot be reported without reading visibility first.
+    /// </para>
+    ///
+    /// <para><paramref name="qualifier"/> names a module explicitly (<c>Module2.Point</c>) and OVERRIDES the
+    /// local declaration — measured — but never defeats Private.</para>
+    /// </summary>
+    public bool TryResolveType(string name, ModuleInfo? from, string? qualifier, out UdtTypeDef def)
+    {
+        def = null!;
+        if (qualifier is not null)
+        {
+            // Named its module. Private stays invisible unless that module IS the asking one.
+            if (!Modules.TryGet(qualifier, out var owner) || !owner.PrePass.Types.TryGetValue(name, out var q))
+                return false;
+            if (q.IsPrivate && !ReferenceEquals(owner, from)) return false;
+            def = q;
+            return true;
+        }
+
+        if (from is not null && from.PrePass.Types.TryGetValue(name, out var mine)) { def = mine; return true; }
+
+        UdtTypeDef? found = null;
+        foreach (var m in Modules.All)
+        {
+            if (ReferenceEquals(m, from)) continue;
+            if (m.PrePass.Types.TryGetValue(name, out var t) && !t.IsPrivate)
+            {
+                if (found != null) throw new VBCompileErrorException("Ambiguous name detected: " + name);
+                found = t;
+            }
+        }
+        if (found != null) { def = found; return true; }
+
+        // The program-wide table is a fallback for lookups with NO module context — a nested UDT field
+        // resolved at instantiation, a Function's declared return type. It must not be reached when a
+        // module WAS supplied, or it hands back a Private type from somewhere else and undoes the whole
+        // check above. That is exactly what it did on the first run of these tests.
+        return from is null && Types.TryGetValue(name, out def!);
+    }
+
+    /// <summary>Resolve an Enum name as seen from <paramref name="from"/>. Same rule as
+    /// <see cref="TryResolveType"/> minus the ambiguity arm — two modules cannot both export a Public Enum
+    /// of one name, so that is refused at load and there is never a pair to choose between here.</summary>
+    public bool TryResolveEnum(string name, ModuleInfo? from, out Dictionary<string, long> members)
+    {
+        members = null!;
+        if (from is not null && from.PrePass.Enums.TryGetValue(name, out members!)) return true;
+        foreach (var m in Modules.All)
+        {
+            if (ReferenceEquals(m, from)) continue;
+            if (m.PrePass.Enums.TryGetValue(name, out members!) && !m.PrePass.PrivateEnums.Contains(name))
+                return true;
+        }
+        return from is null && Enums.TryGetValue(name, out members!);
+    }
+
     // ---- namespace qualifiers: Module.Member, VBA.X, VBA.Math.X ----
 
-    public enum QualifierKind { Module, Library, Enum }
+    public enum QualifierKind { Module, Library, Enum, Project }
 
     public readonly record struct QualifierTarget(QualifierKind Kind, ModuleInfo? Module, Dictionary<string, long>? EnumMembers);
 
@@ -646,6 +755,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (Modules.TryGet(name, out var m) && m.Kind == InterpreterModuleKind.Standard) { target = new QualifierTarget(QualifierKind.Module, m, null); return true; }
         if (Enums.TryGetValue(name, out var members)) { target = new QualifierTarget(QualifierKind.Enum, null, members); return true; }
         if (IsLibraryName(name)) { target = new QualifierTarget(QualifierKind.Library, null, null); return true; }
+        // The PROJECT name is an outermost qualifier level — `Project1.Module1.MyEnum.Foo`, and a bare
+        // `Project1.Foo`. Measured legal, to four segments. It is checked LAST so a module or enum of the
+        // same name still wins, and it resolves to nothing in particular: there is one project in scope,
+        // so the level exists to be accepted and stepped over.
+        if (name.Equals(ProjectName, StringComparison.OrdinalIgnoreCase))
+        { target = new QualifierTarget(QualifierKind.Project, null, null); return true; }
         target = default;
         return false;
     }
