@@ -309,7 +309,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
     private void OnDiagnosticsPublished(object? sender, PublishDiagnosticsParams p)
     {
         if (formDefinition is null && moduleDefinition is null) return;
-        if (p.Uri != GetDocumentUri())
+        // NOT `!=`: a server may normalise the URI it echoes back (Windows drive-letter case,
+        // percent-encoding), and an exact match drops its diagnostics silently. See #236.
+        if (!LspDocumentUri.AreSame(p.Uri, GetDocumentUri()))
             return;
 
         // TextDocument requires UI-thread access; post the whole conversion there.

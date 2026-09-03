@@ -7,7 +7,9 @@ namespace HexIDE.Addins;
 public sealed class AddinDiagnosticsService : IDiagnosticsAccess, IDisposable
 {
     private readonly ILspClient _lspClient;
-    private readonly ConcurrentDictionary<string, Diagnostic[]> _latest = new();
+    // Keyed with the URI comparer, not by raw string: a server that normalises the URI it echoes
+    // back would otherwise accumulate two entries for one document, and report its diagnostics twice.
+    private readonly ConcurrentDictionary<string, Diagnostic[]> _latest = new(LspDocumentUri.Comparer);
 
     public AddinDiagnosticsService(ILspClient lspClient)
     {
