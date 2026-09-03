@@ -1,0 +1,267 @@
+{
+  "area": "select-case-layout",
+  "why": "The behavioural gate found a seven-case cluster where a Select Case that is colon-joined, split by a line continuation, or preceded by a blank line selects the WRONG branch or none at all — silently, with nothing raised. Those seven were the cases that happened to exist. This file measures the layout space AROUND them, so the fix is designed against what VB6 actually accepts rather than against the handful of points that were already written down. Every case prints, so every one of them becomes a behavioural expectation and not merely a legality verdict.",
+  "cases": [
+    {
+      "id": "case-colon-then-nothing",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "A colon after the case condition with the body on the FOLLOWING line. If the colon is being consumed as part of the case-clause terminator this is legal and prints; if the colon requires a statement after it, it is a syntax error. Separates 'colon is an alternative line break' from 'colon introduces an inline statement'.",
+      "code": [
+        "Dim x As Long",
+        "x = 1",
+        "Select Case x",
+        "Case 1:",
+        "    Debug.Print \"ONE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "case-else-colon-then-statement",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "The Case Else arm with a colon-joined body. Case Else is a different grammar alternative from Case <expr>, so it can fail independently — and the wrong-branch symptom showed HexIDE reaching Case Else when it should not have, which makes this arm's own layout handling worth pinning separately.",
+      "code": [
+        "Dim x As Long",
+        "x = 9",
+        "Select Case x",
+        "Case 1: Debug.Print \"ONE\"",
+        "Case Else: Debug.Print \"OTHER\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "case-list-colon-then-statement",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "A comma-separated condition list followed by a colon. The list is parsed by a repetition of sC_CondExpr, and a colon terminating it could plausibly be absorbed into the last expression instead of ending the clause.",
+      "code": [
+        "Dim x As Long",
+        "x = 2",
+        "Select Case x",
+        "Case 1, 2, 3: Debug.Print \"IN LIST\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "case-is-colon-then-statement",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "`Case Is > 1:` — the Is form followed by a colon. Is takes a comparison operator and then a value, so the colon lands directly after an expression in a different alternative to the plain value form.",
+      "code": [
+        "Dim x As Long",
+        "x = 5",
+        "Select Case x",
+        "Case Is > 1: Debug.Print \"BIG\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "case-to-colon-then-statement",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "`Case 1 To 5:` — the range form followed by a colon. To is a keyword between two value expressions, and the range alternative is declared LAST of the three, so a maximal-munch tie could resolve differently here than for the plain value form.",
+      "code": [
+        "Dim x As Long",
+        "x = 3",
+        "Select Case x",
+        "Case 1 To 5: Debug.Print \"IN RANGE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "colon-after-selector-then-newline",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "A colon directly after the Select Case selector, with the first Case on the next line. selectCaseStmt requires blockSep after the selector; whether a bare colon satisfies that is exactly the question, and it is the minimal form of the whole-select-on-one-line case.",
+      "code": [
+        "Dim x As Long",
+        "x = 1",
+        "Select Case x:",
+        "Case 1",
+        "    Debug.Print \"ONE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "statement-between-selector-and-first-case",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "An executable statement between the selector and the first Case. VB6 is documented to disallow it, but the corpus method exists because documentation is repeatedly wrong here. If it is legal, whether the statement RUNS is the interesting half — and this is the shape a Case body would take if a case clause were wrongly absorbing what follows it.",
+      "code": [
+        "Dim x As Long",
+        "x = 1",
+        "Select Case x",
+        "Debug.Print \"BEFORE\"",
+        "Case 1",
+        "    Debug.Print \"ONE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "comment-between-selector-and-first-case",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "A comment line where a statement is not allowed. Comments are on the hidden channel, so this should be invisible to the parser — but the blank-line case already proved that what sits between the selector and the first Case is mishandled, and a comment line carries a NEWLINE with it.",
+      "code": [
+        "Dim x As Long",
+        "x = 2",
+        "Select Case x",
+        "    ' choosing a branch",
+        "Case 2",
+        "    Debug.Print \"TWO\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "several-blank-lines-before-first-case",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "The blank-line defect with MORE than one blank line. If one blank line is mishandled by a rule that accepts NEWLINE but not NEWLINE+, several will fail where one might accidentally pass — and the difference says whether the fix is a repetition operator or a missing alternative.",
+      "code": [
+        "Dim x As Long",
+        "x = 2",
+        "Select Case x",
+        "",
+        "",
+        "Case 2",
+        "    Debug.Print \"TWO\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "blank-line-between-two-cases",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "A blank line BETWEEN case clauses rather than before the first. The first position is governed by selectCaseStmt's blockSep and the second by sC_Case's own terminator, so the two can fail independently and a fix to one need not fix the other.",
+      "code": [
+        "Dim x As Long",
+        "x = 2",
+        "Select Case x",
+        "Case 1",
+        "    Debug.Print \"ONE\"",
+        "",
+        "Case 2",
+        "    Debug.Print \"TWO\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "empty-case-body-falls-through-to-nothing",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "A matching Case with an EMPTY body followed by another Case. VB6 does not fall through, so the correct output is nothing at all from the Select — which makes this the case that catches a fix that repairs the wrong-branch bug by making bodies greedy: a greedy body would swallow the next clause and print TWO.",
+      "code": [
+        "Dim x As Long",
+        "x = 1",
+        "Select Case x",
+        "Case 1",
+        "Case 2",
+        "    Debug.Print \"TWO\"",
+        "End Select",
+        "Debug.Print \"AFTER\""
+      ]
+    },
+    {
+      "id": "end-select-colon-joined-to-last-statement",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "End Select colon-joined to the final body statement. The block opener/closer pair is where a colon separator most often fails, and a statement colon-joined to its own block terminator is the mirror of the Case-colon form.",
+      "code": [
+        "Dim x As Long",
+        "x = 1",
+        "Select Case x",
+        "Case 1",
+        "    Debug.Print \"ONE\": End Select"
+      ]
+    },
+    {
+      "id": "nested-select-case-one-line-inner",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "A one-line Select Case nested inside an ordinary one. If a case body absorbs more than it should, nesting is where that becomes unambiguous — the inner End Select gives the outer clause an obvious wrong place to stop.",
+      "code": [
+        "Dim x As Long",
+        "Dim y As Long",
+        "x = 1",
+        "y = 2",
+        "Select Case x",
+        "Case 1",
+        "    Select Case y: Case 2: Debug.Print \"INNER\": End Select",
+        "    Debug.Print \"OUTER\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "case-with-label-before-body",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "A line label as the first thing in a case body. Labels and colons are the same character to the lexer and the label rules were narrowed recently, so a label at the head of a case body is exactly where the two features collide.",
+      "code": [
+        "Dim x As Long",
+        "x = 1",
+        "Select Case x",
+        "Case 1",
+        "Skip: Debug.Print \"ONE\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "select-case-split-with-end-select-intact",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "Select and Case split by a continuation while End Select stays whole. The two existing continuation cases vary BOTH ends at once, which cannot say which end is responsible; this isolates the opener.",
+      "code": [
+        "Dim n As Long",
+        "n = 2",
+        "Select _",
+        "Case n",
+        "Case 2",
+        "    Debug.Print \"TWO\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "end-select-split-with-opener-intact",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "The mirror of the previous case: End and Select split by a continuation while the opener stays whole. Together the two isolate which half of the keyword-pair handling is at fault.",
+      "code": [
+        "Dim n As Long",
+        "n = 2",
+        "Select Case n",
+        "Case 2",
+        "    Debug.Print \"TWO\"",
+        "End _",
+        "Select",
+        "Debug.Print \"AFTER\""
+      ]
+    },
+    {
+      "id": "case-colon-multiple-statements-then-next-case",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "Several colon-joined statements in a matching arm, with a following non-matching arm. This is the wrong-branch case with the arms reversed, so a fix that merely reorders evaluation rather than fixing the body boundary will still be caught.",
+      "code": [
+        "Dim n As Long",
+        "n = 2",
+        "Select Case n",
+        "Case 1: Debug.Print \"A\" : Debug.Print \"B\"",
+        "Case 2: Debug.Print \"C\" : Debug.Print \"D\"",
+        "End Select"
+      ]
+    },
+    {
+      "id": "select-case-on-one-line-no-match",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "A one-line Select where NOTHING matches and there is no Case Else. The correct output is nothing, which distinguishes 'the whole construct was skipped' from 'the construct ran and selected correctly' — the two are indistinguishable in a one-line case that does match.",
+      "code": [
+        "Dim n As Long",
+        "n = 9",
+        "Select Case n : Case 1 : Debug.Print \"ONE\" : End Select",
+        "Debug.Print \"AFTER\""
+      ]
+    }
+  ]
+}
