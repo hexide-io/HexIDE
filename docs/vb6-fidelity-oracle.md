@@ -2321,6 +2321,69 @@ This also exposed a **separate defect**: HexIDE raises Type mismatch for `"1" = 
 `ExpressionExecutor.GetTwoValuesSameTypesOrNull` has no String/numeric path and falls through to its throw.
 VB6 says True. Filed separately — it is not a `Select Case` bug and must not be fixed by the same code.
 
+## In-box constants: the library qualifier selects (2026-09-03)
+
+The full inventory of VB6's in-box constants — 728 across 77 enums and 2 constant modules in the four
+libraries a Standard EXE references by default — is in
+[`vb6-inbox-constants.md`](vb6-inbox-constants.md), read out of the real type libraries by
+`scripts/dump-typelib-constants.ps1`. The behavioural facts that inventory established are here.
+
+### `VBRUN.vbCancel` is 0 and `VBA.vbCancel` is 2
+
+Exactly one name of the 728 is declared twice with two different values, and each qualified form resolves
+to its own library's:
+
+| written | VB6 |
+|---|---|
+| `vbCancel` | **2** |
+| `VBA.vbCancel` | **2** |
+| `VBRUN.vbCancel` | **0** |
+| `VBRUN.DragConstants.vbCancel` | **0** |
+
+`vbCancel` is `2` in `VBA.VbMsgBoxResult` and `0` in `VBRUN.DragConstants`; the bare form takes VBA's, so
+default reference order gives VBA precedence over VBRUN.
+
+**This is what makes a flat name→value table wrong rather than merely incomplete.** HexIDE treats both the
+library and the enum qualifier as *transparent* — it looks past them and resolves the bare name — so it
+answers `2` for all four rows and is wrong on two of them. That is a wrong value, which CLAUDE.md ranks as
+never acceptable; it has been invisible because nothing exercises `VBRUN.vbCancel`.
+
+The control: `vbNormal` is the only other duplicated name, and it is `0` in both `VBA.VbFileAttribute` and
+`VBRUN.FormWindowStateConstants`. A *consistent* duplicate is harmless, which is what attributes the
+`vbCancel` result to the disagreement rather than to duplication as such.
+
+### An in-box enum is a type
+
+`Dim x As VbMsgBoxResult` compiles and runs (measured: assigning `vbCancel` to it and printing gives `2`).
+So all 77 enum names must resolve in **type** position as well as as qualifiers — something a constant
+table cannot do. HexIDE knows none of them as types today.
+
+### Where the constants actually live, which the obvious guess gets wrong
+
+- **`VB` — "Visual Basic objects and procedures" — declares NO constants at all.** The control constants
+  (`AlignConstants`, `BorderStyleConstants`, `ScaleModeConstants`, `MousePointerConstants`) are **not**
+  there. All 590 of them are in **`VBRUN`**, which holds 81% of the total. I asserted the opposite before
+  measuring, against a correct comment already in `ExpressionExecutor.cs`.
+- **`VBRUN` is not a file.** It shares `MSVBVM60.DLL` with `VBA` and is reachable only as typelib resource
+  `MSVBVM60.DLL\3` (`VBA` is index 1). A tool that enumerates library *files* finds `VBA` and silently
+  misses VBRUN entirely.
+
+### `VBA.Constants` — the string-valued constants
+
+`vbTab` = `Chr(9)`, `vbCr` = `Chr(13)`, `vbLf` = `Chr(10)`, `vbCrLf` = `vbNewLine` = CRLF, `vbBack` =
+`Chr(8)`, `vbVerticalTab` = `Chr(11)`, `vbFormFeed` = `Chr(12)`, `vbNullChar` = `Chr(0)`, `vbNullString`
+= zero-length, `vbObjectError` = `-2147221504`.
+
+Confirmed twice by independent means: read from the type library, and separately from a compiled program
+reporting `Asc`/`Len` of each. The cross-check earned its keep — the first generator run passed these
+through a tab-separated file and reported `vbTab` as the **empty string**, with identical row counts and
+every numeric constant unaffected. A measurement that has been through a lossy transport looks exactly
+like a correct one.
+
+Seven of these — `vbTab`, `vbBack`, `vbFormFeed`, `vbNewLine`, `vbNullChar`, `vbNullString`,
+`vbVerticalTab` — are absent from HexIDE altogether; `vbTab` and `vbNullString` are already recorded as
+**Dies** in `MISSING_LANGUAGE.md`.
+
 ## Extending the oracle (future phases)
 
 Phase 3 (intrinsics) and beyond should verify, at minimum:
