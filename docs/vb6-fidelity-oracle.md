@@ -2722,6 +2722,92 @@ is a deliberate VB6 limitation, and going past it is a product decision rather t
 The first is a happy convergence: a dedicated grouping node is simultaneously what VB6 did and what a
 modern IDE does for files that belong to a project without being code.
 
+### Absolute paths are legal, and the IDE normalises away the ones it can
+
+Observed in the shipped IDE, which is the only place this is visible — the compiler's tolerance says
+nothing about what gets written. The rule is a single sentence:
+
+> **VB6 writes a relative path whenever one is expressible, and an absolute path only when it is not.**
+
+| file added | written as |
+|---|---|
+| on a **different drive** — `D:\setup.tdf` | **absolute**, and it survives save |
+| **same drive, outside the project cone** — `C:\Windows\WindowsUpdate.log` from a project in `C:\…\Temp` | **relative** — `..\Windows\WindowsUpdate.log` |
+
+```
+RelatedDoc=Test.md
+RelatedDoc=D:\setup.tdf
+RelatedDoc=..\Windows\WindowsUpdate.log
+```
+
+`RelatedDoc=` follows the same rule as the item lines; there is not a second policy for it.
+
+**The compiler accepts far more than the IDE writes**, and normalises none of it — 21 further compiles:
+
+| written | vb6.exe |
+|---|---|
+| absolute `Module=`, `Form=`, `RelatedDoc=` | **legal**, all three |
+| forward slashes — `C:/dir/Mod.bas` | **legal** |
+| embedded spaces — `C:\some dir\Mod.bas` | **legal**, unquoted |
+| UNC — `\\localhost\C$\dir\Mod.bas` | **legal** (loopback admin share; a syntax pass, not a remote test) |
+| one relative member and one absolute in the same project | **legal** |
+| **any path in quotes** | **illegal** — see below |
+
+The load-bearing case put the **only** `Sub Main` in an absolute-path module with no other member, so the
+build succeeding proves VB6 followed the path rather than falling back to the project directory.
+
+**Never quote a path, in any key.** All three keys fail, by two different mechanisms — which is why this
+reads as one rule rather than a quirk of one key. `Module=` **keeps** the leading quote, so the value stops
+looking rooted and VB6 prepends the project directory
+(`Path/File access error: 'C:\proj\"C:\dir\Mod.bas"'`); `Form=` **drops** the leading quote, stays
+absolute, and keeps the trailing one. `RelatedDoc=` was already measured to fail the same way.
+
+The error vocabulary is consistent across item lines and `RelatedDoc=`, and distinguishes three failures:
+**`File not found`** — the file is absent but its directory exists; **`Path not found`** — the directory or
+the drive letter is absent; **`Path/File access error`** — the target exists as text but cannot be opened
+(a directory, or a name mangled by quotes).
+
+**Nothing is normalised by the compiler.** Across all 76 cases in this investigation, `/make` left the
+`.vbp` byte-identical. So the relativisation above belongs to `File → Save Project`, not to the format —
+and both shapes therefore occur in real-world `.vbp` files regardless of which one VB6's IDE prefers.
+
+**And the IDE actively re-normalises.** A `.vbp` hand-edited to make a same-drive path absolute **opens
+fine** — so absolute is accepted on load — but the IDE **writes it back as relative on save**. The path is
+treated as derived, not as user content.
+
+That is a direct conflict with HexIDE's own serialization contract, and worth deciding rather than
+falling into. `serialization-outcomes.md` says give back what came in; here VB6 itself does not. Preserving
+a hand-authored absolute same-drive path verbatim is faithful to the *file* and divergent from *VB6*;
+normalising it matches VB6 and means HexIDE modified a file it was asked to round-trip. Recorded here
+without settling it, because the argument runs both ways and the measurement does not decide it.
+
+Two consequences elsewhere. The `project-explorer` spec requires an out-of-cone member to show "its
+**relative** location" in its caption — but a different-drive member has no relative location, which is
+exactly why VB6 wrote it absolute, so that requirement assumes something untrue for one of the two shapes.
+And the path-leak defect recorded as #149 is wider than "traversal depth": a cross-volume reference
+publishes a **full absolute path**, not merely how far up the tree a developer's project sat.
+
+### The harness has now invalidated itself three times, and that is the finding
+
+Worth stating as a rule, because it has cost more wrong answers today than the compiler has produced
+surprises:
+
+1. **`needsMain` scanned only the primary module**, so a case whose `Sub Main` lived in Module2 got a
+   second one appended and came back "illegal — ambiguous". Then the fix appeared not to work because the
+   same decision was derived twice, once more inside the behaviour-capture path.
+2. **A tab-separated transport** ate the values of `VBA.Constants`, whose members *are* tabs and newlines,
+   and reported `vbTab` as the empty string — with identical row counts and every numeric constant intact.
+3. **A lost backslash in a cleanup line** — `Get-ChildItem 'C:'` lists the runspace's current directory on
+   drive C:, not the root — so `verify.exe` survived between cases and every case inherited the previous
+   one's build. All sixteen reported legal.
+
+Each was silent, each produced a plausible-looking result, and none would have been caught by reading the
+output. The mitigation that worked is cheap and should be standard: **put a known-illegal case second in
+every batch and require it to fail.** A run where the guard passes is a run that measured nothing. The
+general form: a harness that must synthesise or clean up part of the experiment can only be trusted for
+questions that do not touch the synthesised part — and the way to find out is to ask it a question whose
+answer you already know.
+
 ### What this could not determine
 
 The harness compiles; it never opens the VB6 IDE. So nothing here says whether the IDE **preserves** a
@@ -2729,6 +2815,11 @@ trailing custom section or a `RelatedDoc=` line **on save**, or whether it reord
 54 `.vbp` files byte-identical, but that is the compiler's load path and not `File → Save Project`. Also
 unmeasured: whether `RelatedDoc=` behaves the same outside `Type=Exe`, and whether such files are locked
 or copied rather than merely opened.
+
+On paths specifically: the UNC pass used the loopback admin share, so a genuinely remote server — redirector
+round-trip, credential prompt, slow I/O — is untested, as are a mapped network drive letter, paths beyond
+`MAX_PATH`, 8.3 short names, and drive-letter case. And whether the IDE displays or round-trips a UNC path,
+or rewrites it to a mapped letter, is unknown.
 
 ## Extending the oracle (future phases)
 
