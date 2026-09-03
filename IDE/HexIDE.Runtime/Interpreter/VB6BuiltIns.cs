@@ -97,7 +97,19 @@ public partial class VB6BuiltIns
         ["vbCFPalette"] = 9,
         ["vbCFRTF"] = -16639,
         ["vbCFText"] = 1,
-        ["vbCancel"] = 0,
+        // `vbCancel` is DECLARED TWICE by VB6 itself, and this table can only hold one of them:
+        // VBRUN.DragConstants.vbCancel = 0 and VBA.VbMsgBoxResult.vbCancel = 2. It is the only one of
+        // the 728 in-box constants that is ambiguous by library (see docs/vb6-inbox-constants.md).
+        //
+        // Measured: a BARE `vbCancel` is 2 — default reference order gives VBA precedence — so the
+        // VbMsgBoxResult entry below is the right one to keep, and the DragConstants 0 that used to sit
+        // here is removed. It was not overriding anything: C# indexer-style collection initialization
+        // does not throw on a duplicate key, the later assignment simply wins, so the value was being
+        // decided by declaration order and happened to land on the correct one.
+        //
+        // `VBRUN.vbCancel` and `VBRUN.DragConstants.vbCancel` are 0 in VB6 and this table still answers
+        // 2 for them, because the library and enum qualifiers are resolved transparently. That is a
+        // known wrong value and needs the structured, library-aware model, not another table entry.
         ["vbCascade"] = 0,
         ["vbCenter"] = 2,
         ["vbCentimeters"] = 7,
@@ -697,7 +709,10 @@ public partial class VB6BuiltIns
         ["vbMsgBoxSetForeground"] = 65536,
         ["vbNarrow"] = 8,
         ["vbNo"] = 7,
-        ["vbNormal"] = 0,
+        // `vbNormal` is the other name VB6 declares twice — VBA.VbFileAttribute and
+        // VBRUN.FormWindowStateConstants — but both are 0, so unlike `vbCancel` there is nothing to
+        // choose. The duplicate key is dropped anyway: a repeated key in this initializer is silently
+        // order-dependent, and one that is harmless today is a trap the next edit springs.
         ["vbNormalFocus"] = 1,
         ["vbNormalNoFocus"] = 4,
         ["vbNull"] = 1,
