@@ -1833,6 +1833,51 @@ The fix is a line head reachable only after a separator containing a real line b
 fell out of it for free: `Error:` and `Name:` as label names, which the statement rules for `Error` and
 `Name` had been shadowing.
 
+### The underscore, and two rules arguing over one space (2026-09-03)
+
+Not a new measurement — the facts were already recorded. This is the entry for what it took to *act* on
+them, because the obvious repair was wrong and the reason is worth keeping.
+
+The two facts, from earlier rounds:
+
+| probe | verdict |
+|---|---|
+| `x = 1 + _` ⏎ `_` ⏎ `2` — a lone underscore in column one | **illegal** |
+| `x = 1 + _` ⏎ `  _` ⏎ `2` — the same file, indented two spaces | **legal** |
+
+So the whitespace before a continuation's underscore is *literally* required, and `_` is never a name.
+HexIDE's `fragment LETTER` contained the underscore, making a lone `_` an identifier — which is what let
+`x = 1 +_` complete as an addition against a variable named `_` instead of failing. Thirteen corpus rows.
+
+**Why the one-character fix could not be taken alone.** `NEWLINE` was `WS? '\r'? '\n' WS?`, and that
+trailing `WS?` eats the *next* line's indentation. So by the time the lexer reaches a line whose whole
+content is ` _`, the space is already gone and `LINE_CONTINUATION` (`[ \t]+ '_' …`) cannot match. With the
+underscore still an identifier that line lexed anyway, wrongly but harmlessly; take the underscore away
+and it stops lexing at all. Two rules arguing over the same space, and each fix regressing the other.
+
+**The obvious repair is wrong, and expensively so.** Giving `NEWLINE` its trailing whitespace back —
+recommended by the analysis, and the first thing anyone would try — produced **151 test failures in one
+run**. Every rule written since assumes a newline swallows the following indentation, so the whitespace
+reappears as a token in a hundred places that never expected one. Worth recording as a measurement of the
+grammar rather than of VB6: a lexer rule this old has a blast radius, and *"just make it stop doing that"*
+is not available.
+
+**What works is to ask what the line means.** A continuation joins its line to the next; joining an *empty*
+line to the next yields the next line. So a line whose entire content is ` _` is not a line at all — it is
+part of the boundary. Absorbing it into `NEWLINE` costs nothing elsewhere, because the token that comes out
+is the one every existing rule already expects:
+
+```
+NEWLINE : WS? '\r'? '\n' (WS '_' [ \t]* ('\r'? '\n')?)* WS? ;
+```
+
+The mandatory `WS` inside the group is the whole discriminator — it is what keeps a column-one `_`
+unmatched, and therefore refused, exactly as VB6 refuses it. Two space characters, load-bearing.
+
+Thirteen false acceptances retired, no regressions. The general lesson is the one this file keeps
+recording from a new direction: the fix that follows from the diagnosis is not always the fix that fits the
+code, and the cheapest way to find out is to try it and count.
+
 ## Extending the oracle (future phases)
 
 Phase 3 (intrinsics) and beyond should verify, at minimum:
