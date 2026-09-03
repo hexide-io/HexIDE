@@ -42,7 +42,12 @@ public class ProjectPropertiesViewIntegrationTests
         view.Arrange(new Rect(0, 0, 800, 600));
 
         vm.ProjectName.Should().Be("TestProject");
-        vm.StartupObjects.Should().HaveCount(2);
+        // Sub Main plus the two forms. The list gained a non-form entry when Sub Main became a
+        // selectable startup object (#210); this test is about the view rendering, so what matters here
+        // is that every entry is present — ProjectPropertiesViewModelTests and SubMainStartupObjectTests
+        // own the ordering and selection rules.
+        vm.StartupObjects.Should().HaveCount(3);
+        vm.StartupObjects.Select(o => o.Header).Should().Equal("Sub Main", "Form1", "Form2");
     }
 
     [AvaloniaFact]

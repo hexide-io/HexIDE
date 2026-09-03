@@ -195,6 +195,28 @@ public class CorpusConformanceTests
         ["inbox-constant-addressing/assigning-to-an-inbox-constant"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
         ["inbox-constant-addressing/documented-but-undeclared-constant-qualified"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
 
+        //   The Sub Main startup rules are the same translation. VB6 decides all of these while building
+        //   the exe; RunStartupSubMain raises the same messages ("Ambiguous name detected: Main", "Must
+        //   have startup form or Sub Main()") as the run begins, which is as early as a tree-walker can.
+        ["sub-main-startup/two-modules-both-declaring-sub-main"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
+        ["sub-main-startup/private-and-public-sub-main-in-two-modules"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
+        ["sub-main-startup/sub-main-with-a-required-argument"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
+        ["sub-main-startup/sub-main-with-an-optional-argument"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
+        ["sub-main-startup/function-main-instead-of-sub-main"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
+        ["sub-main-startup/no-sub-main-at-all"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
+
+        // TOP-LEVEL-STATEMENTS-ARE-AN-EXTENSION (1) — and this one is NOT a deferred check.
+        //
+        //   Measured: VB6 refuses an executable statement outside a procedure outright — "Invalid outside
+        //   procedure". HexIDE not only accepts it, it RUNS it: top-level execution is the entry point
+        //   every statement-scope corpus case relies on, and the fixture's Run() is built on it.
+        //
+        //   So this is a deliberate extension rather than a missing diagnostic, and worth stating plainly
+        //   because it is easy to mistake for a VB6 feature after reading a few hundred corpus cases that
+        //   depend on it. It costs nothing on real VB6 source, which cannot contain such a statement — no
+        //   valid program is affected by accepting one.
+        ["sub-main-startup/module-level-statement-outside-any-procedure"] = "TOP-LEVEL-STATEMENTS-ARE-AN-EXTENSION",
+
         // RESERVED-WORD-USED-AS-A-NAME (7)
         //   `GoTo End`, `GoTo Stop`, `GoTo Close`, `GoTo Return`, `GoTo Randomize`, `GoTo Resume` — every
         //   one is a syntax error in VB6, because those words are reserved and cannot name anything.

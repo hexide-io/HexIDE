@@ -1,0 +1,187 @@
+{
+  "area": "sub-main-startup",
+  "why": "A Standard EXE's startup object is a user choice - Project Properties > General > Startup Object lists Sub Main alongside every form, and the .vbp records it as Startup=\"Sub Main\" or Startup=\"Form1\". HexIDE models it as a nullable FORM reference, so a code-only project cannot run at all (#210), and 85 corpus cases that are measured against vb6.exe cannot be gated because their entry point is never called. Before implementing it, the rules need pinning: which module's Sub Main wins, what visibility it may have, what shape it may have, and what happens when it is absent. Every one of these is a compile-or-run question the harness can answer, and every one of them is a place an implementation would otherwise guess.",
+  "cases": [
+    {
+      "id": "sub-main-in-the-only-module",
+      "expect": "legal",
+      "scope": "module",
+      "why": "The baseline: a single standard module declaring Sub Main, which the .vbp names as the startup. Establishes that the harness's own arrangement is the ordinary one before anything is varied.",
+      "code": [
+        "Sub Main()",
+        "    Debug.Print \"RAN\"",
+        "End Sub"
+      ]
+    },
+    {
+      "id": "sub-main-in-a-later-module",
+      "expect": "unsure",
+      "scope": "module",
+      "why": "Sub Main declared in Module2 while Module1 holds none. If the startup is found project-wide then the choice is not tied to a particular module, which decides whether the interpreter looks in the startup module only or searches. First measured wrongly: the harness scanned only Module1 for an existing Main, appended one, and the case failed as ambiguous.",
+      "code": [
+        "Public Sub Helper()",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Sub Main()",
+          "    Debug.Print \"FROM MODULE2\"",
+          "End Sub"
+        ]
+      ]
+    },
+    {
+      "id": "two-modules-both-declaring-sub-main",
+      "expect": "unsure",
+      "scope": "module",
+      "why": "THE ambiguity case. Two standard modules each declaring Sub Main. The enum aggregation in #208 raised 'Ambiguous name detected' for two foreign Publics of one name, so the same rule may apply here - but a startup object is chosen by the project rather than resolved by a reference, so it need not. If VB6 refuses, the interpreter must refuse identically rather than silently picking one.",
+      "code": [
+        "Sub Main()",
+        "    Debug.Print \"FROM MODULE1\"",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Sub Main()",
+          "    Debug.Print \"FROM MODULE2\"",
+          "End Sub"
+        ]
+      ]
+    },
+    {
+      "id": "private-sub-main",
+      "expect": "unsure",
+      "scope": "module",
+      "why": "Whether the startup procedure must be Public. A Private Sub Main is invisible to other modules but the startup is not another module - it is the host. Decides whether the lookup honours visibility.",
+      "code": [
+        "Private Sub Main()",
+        "    Debug.Print \"PRIVATE RAN\"",
+        "End Sub"
+      ]
+    },
+    {
+      "id": "sub-main-with-a-required-argument",
+      "expect": "unsure",
+      "scope": "module",
+      "why": "A Sub Main taking a parameter the host cannot supply. Either the compiler refuses to use it as a startup or it is called with a missing argument; both are behaviours an implementation has to choose between, and guessing would produce either a false rejection or a wrong call.",
+      "code": [
+        "Sub Main(ByVal n As Long)",
+        "    Debug.Print n",
+        "End Sub"
+      ]
+    },
+    {
+      "id": "sub-main-with-an-optional-argument",
+      "expect": "unsure",
+      "scope": "module",
+      "why": "The same question where the argument may legitimately be omitted. Separates 'a startup must take no parameters' from 'a startup must be callable with none'.",
+      "code": [
+        "Sub Main(Optional ByVal n As Long = 7)",
+        "    Debug.Print n",
+        "End Sub"
+      ]
+    },
+    {
+      "id": "function-main-instead-of-sub-main",
+      "expect": "unsure",
+      "scope": "module",
+      "why": "A Function named Main where the .vbp asks for Sub Main. If accepted, the startup lookup is by NAME and not by kind. First measured wrongly: the harness's needsMain regex required `Sub` so it appended a second Main and the case failed as ambiguous. The regex now matches Function too.",
+      "code": [
+        "Function Main() As Long",
+        "    Debug.Print \"FUNCTION RAN\"",
+        "    Main = 1",
+        "End Function"
+      ]
+    },
+    {
+      "id": "no-sub-main-at-all",
+      "expect": "unsure",
+      "scope": "module",
+      "why": "Startup=\"Sub Main\" with no Main declared anywhere. Needs noAutoMain, because the harness otherwise supplies one and the question becomes unaskable rather than unanswered - which is how it was first recorded as legal-with-no-output. The error and its timing both matter: a compile-time refusal is a different implementation from a run-time one, and HexIDE can only ever give the latter.",
+      "code": [
+        "Public Sub Helper()",
+        "    Debug.Print \"NEVER\"",
+        "End Sub"
+      ],
+      "noAutoMain": true
+    },
+    {
+      "id": "sub-main-calls-a-procedure-in-another-module",
+      "expect": "legal",
+      "scope": "module",
+      "why": "The ordinary shape of a code-only project: Main coordinating work held elsewhere. Confirms that entering through Main leaves cross-module resolution working normally, which is what the 12 multi-module corpus cases need.",
+      "code": [
+        "Sub Main()",
+        "    Module2.Work",
+        "    Debug.Print \"DONE\"",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Public Sub Work()",
+          "    Debug.Print \"WORKED\"",
+          "End Sub"
+        ]
+      ]
+    },
+    {
+      "id": "module-level-statement-outside-any-procedure",
+      "expect": "unsure",
+      "scope": "module",
+      "why": "An executable statement at module level, outside any procedure. HexIDE's interpreter runs top-level statements as its entry point - that is how every statement-scope corpus case works - so whether VB6 permits them at all decides if that is a faithful extension or a divergence worth recording. Expected illegal, which would make HexIDE's top-level execution a harness convenience rather than a VB6 feature.",
+      "code": [
+        "Debug.Print \"TOP LEVEL\"",
+        "",
+        "Sub Main()",
+        "    Debug.Print \"MAIN\"",
+        "End Sub"
+      ]
+    },
+    {
+      "id": "sub-main-declared-in-a-class-module",
+      "expect": "unsure",
+      "scope": "module",
+      "why": "Not directly deliverable by this harness, which writes standard modules only - recorded so the gap is visible rather than assumed away. A class module's Sub Main is not a project startup in VB6 (the dropdown lists forms and Sub Main, not class members), and the interpreter must not find one by searching every module indiscriminately.",
+      "skip": "the harness writes standard modules only; a class module needs a .cls in the .vbp",
+      "code": [
+        "Sub Main()",
+        "End Sub"
+      ]
+    },
+    {
+      "id": "private-sub-main-in-a-later-module",
+      "expect": "unsure",
+      "scope": "module",
+      "why": "THE case that decides the lookup rule. `private-sub-main` proves visibility is irrelevant for the startup module's OWN Main, which ordinary own-module resolution would explain anyway. A Private Sub Main in Module2 with none in Module1 is the only shape that separates 'the startup search ignores visibility' from 'it follows the normal rule of own module at any visibility, other modules Public only'. Getting this wrong means either refusing a project VB6 runs, or running one it refuses.",
+      "code": [
+        "Public Sub Helper()",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Private Sub Main()",
+          "    Debug.Print \"PRIVATE ELSEWHERE\"",
+          "End Sub"
+        ]
+      ]
+    },
+    {
+      "id": "private-and-public-sub-main-in-two-modules",
+      "expect": "unsure",
+      "scope": "module",
+      "why": "One Private Main and one Public Main, in different modules. If the startup search ignores visibility then this is ambiguous like the two-Public case; if it honours it, the Public one wins unambiguously. Distinguishes the two readings of the previous case's result whichever way it lands.",
+      "code": [
+        "Private Sub Main()",
+        "    Debug.Print \"PRIVATE IN MODULE1\"",
+        "End Sub"
+      ],
+      "modules": [
+        [
+          "Public Sub Main()",
+          "    Debug.Print \"PUBLIC IN MODULE2\"",
+          "End Sub"
+        ]
+      ]
+    }
+  ]
+}

@@ -66,6 +66,58 @@ public class CorpusBehaviourTests
         // ---- WRONG VALUE, SILENTLY. The most serious thing this gate can find, and the reason it -----
         // ---- exists: every one of these parses, runs, raises nothing, and answers differently. -------
 
+        // DECLARED-TYPE-ON-STORE. A UDT field declared `As Long` (or `As Double`) does not coerce the
+        // stored value to its declared width, so reading it back gives an Integer. Eleven cases, one
+        // cause, and now the largest wrong-value cluster in the corpus.
+        //
+        // It was already known: ModuleScopeTests pins one instance in an assertion with a comment saying
+        // it is wrong ("NB Integer, not Long … asserted as it behaves so this test measures the one thing
+        // it is for"). What changed is that it is now GATED rather than noted — every one of these cases
+        // was measured against vb6.exe long ago and sat unchecked because its entry point is Sub Main.
+        // The fix belongs with VbNumeric.CoerceOnStore, which already implements exactly this rule for a
+        // declared scalar; a UDT field is simply not routed through it.
+        ["aggregate-visibility/two-private-types-same-name"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Long",
+        ["aggregate-visibility/public-and-private-type-same-name"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Long",
+        ["aggregate-visibility/two-foreign-public-types-and-no-local-one"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Long",
+        ["aggregate-visibility/ambiguous-type-disambiguated-by-module-name"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Long",
+        ["aggregate-visibility/unambiguous-type-still-reachable-by-module-name"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Long",
+        ["aggregate-visibility/local-type-still-wins-when-unqualified"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Long",
+        ["aggregate-visibility/module-prefix-overrides-a-local-declaration"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Double",
+        ["gap-fill/with-block-colon-tight-against-dot-and-end"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Long",
+        ["separator-basics/sep-udt-one-line"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Long",
+        ["separator-with-declarations/type-member-continued-before-as"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Long",
+        ["separator-with-declarations/type-members-colon-joined"] = "DECLARED-TYPE-ON-STORE: Integer, VB6 says Long",
+
+        // DECLARE-NOT-CALLABLE. A `Declare` naming an external DLL entry point is parsed but the call
+        // does nothing, so a probe that reports whether the API succeeded prints False where VB6 prints
+        // True. Platform, not language — these need a real P/Invoke and are Windows-gated, which
+        // OUT_OF_SCOPE.md puts in scope but not here.
+        ["keyword-splitting/lib-then-continuation-before-the-string"] = "DECLARE-NOT-CALLABLE: prints False, VB6 True",
+        ["keyword-splitting/lib-with-no-space-before-the-string"] = "DECLARE-NOT-CALLABLE: prints False, VB6 True",
+        ["keyword-splitting/alias-then-continuation-before-the-string"] = "DECLARE-NOT-CALLABLE: prints False, VB6 True",
+        ["separator-with-declarations/declare-continued-across-lines"] = "DECLARE-NOT-CALLABLE: prints False, VB6 True",
+        ["separator-with-declarations/declare-continued-after-alias-keyword"] = "DECLARE-NOT-CALLABLE: prints False, VB6 True",
+
+        // ---- REFUSES CODE VB6 RAN, newly visible now that module-scope cases are gated. --------------
+
+        // NAMED-ARGUMENT-CONTINUATION. A line continuation inside a `name := value` argument.
+        ["continuation-basics/cont-named-arg-after-assign"] = "NAMED-ARG-CONTINUATION: NotImplementedException",
+        ["gap-fill/named-argument-continuation-before-colon-equals"] = "NAMED-ARG-CONTINUATION: NotImplementedException",
+
+        // CONDITIONAL-COMPILATION-CONTINUATION. `#If` and `#Const` with a continued expression or value.
+        ["separator-with-declarations/hashif-expression-continued"] = "COMPILER-DIRECTIVE-CONTINUATION: NotImplementedException",
+        ["separator-with-declarations/hashconst-value-continued"] = "COMPILER-DIRECTIVE-CONTINUATION: VBCompileErrorException",
+
+        // PROJECT-QUALIFIED-VALUE. `Project1.Module1.MyEnum.Foo` and `Project1.Foo` resolve at parse
+        // level but not at run time when entered through Sub Main.
+        ["qualifier-depth/value-position-project-module-enum-member"] = "PROJECT-QUALIFIER: VBVariableNotDefinedException",
+        ["qualifier-depth/value-position-project-member"] = "PROJECT-QUALIFIER: VBVariableNotDefinedException",
+
+        // Two singletons, each its own cause.
+        ["rem-forms/then-colon-with-the-body-on-the-next-line"] = "THEN-COLON-BODY-NEXT-LINE: VBCompileErrorException",
+        ["aggregate-visibility/two-private-enums-same-name"] = "PRIVATE-ENUM-AGGREGATION: member not found",
+        ["continuation-basics/cont-declare-header-wrapped"] = "DECLARE-NOT-CALLABLE: header wrapped, Sub not defined",
+
         // EQUALITY-OPERATOR-STRING-VS-NUMERIC. `"1" = 1` and `"1.0" = 1` are both True in VB6; HexIDE
         // raises Type mismatch, because GetTwoValuesSameTypesOrNull has no String/numeric path and falls
         // through to its throw. Found while measuring Select Case, and deliberately NOT fixed with it: the
@@ -202,16 +254,21 @@ public class CorpusBehaviourTests
                 if (!rows.TryGetValue(key, out var row)) continue;
                 if (row.Ran != "ok" || row.Output is null) continue;
 
-                // Statement scope only, and no extra modules: both of the others need a Sub Main entry
-                // point the interpreter does not have yet. Counted as ungated rather than passed.
                 var scope = el.TryGetProperty("scope", out var s) ? s.GetString() : "statement";
-                if (scope != "statement" || el.TryGetProperty("modules", out _)) continue;
-
                 var code = string.Join("\n",
                     el.GetProperty("code").EnumerateArray().Select(c => c.GetString()));
 
+                // Extra standard modules, exactly as the harness wrote them: Module2, Module3, …
+                var extras = new List<(string Name, string Code)>();
+                if (el.TryGetProperty("modules", out var mods))
+                    foreach (var m in mods.EnumerateArray())
+                        extras.Add(("Module" + (extras.Count + 2),
+                            string.Join("\n", m.EnumerateArray().Select(l => l.GetString()))));
+
                 gated++;
-                var actual = await RunAndRender(code);
+                var actual = scope == "module"
+                    ? await RunModuleScopeAndRender(code, extras)
+                    : await RunAndRender(code);
                 var expected = Normalise(row.Output);
 
                 if (actual == expected) continue;
@@ -228,6 +285,48 @@ public class CorpusBehaviourTests
 
     /// <summary>Run one case and render its Debug output the way the VB6 helper rendered it: one
     /// <c>TypeName TAB value</c> line per print.</summary>
+    /// <summary>Run a MODULE-scope case: the source is a whole standard module, entered through its
+    /// <c>Sub Main</c> startup object, with any further modules loaded alongside.</summary>
+    ///
+    /// <remarks>
+    /// The harness appends `Sub Main() / End Sub` when no module declares a `Main`, because the .vbp names
+    /// it as the startup and will not build without one — so a case that declares none was measured as a
+    /// program that runs and prints nothing. This mirrors that rule, INCLUDING scanning every module
+    /// rather than only the primary: getting that wrong on the harness side produced two confident wrong
+    /// facts about VB6 before it was caught, and building a different program here than the one vb6.exe
+    /// was asked about would reintroduce the same class of error from the other end.
+    /// </remarks>
+    private static async Task<string> RunModuleScopeAndRender(
+        string code, List<(string Name, string Code)> extras)
+    {
+        var declaresMain = new[] { code }.Concat(extras.Select(e => e.Code))
+            .SelectMany(m => m.Split('\n'))
+            .Any(l => System.Text.RegularExpressions.Regex.IsMatch(
+                l.Trim(), @"^(Public |Private |Friend )?(Sub|Function) +Main\b",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+
+        var primary = declaresMain ? code : code + "\n\nSub Main()\nEnd Sub\n";
+
+        var debug = new List<Vb6Value>();
+        try
+        {
+            var vb = new BasicInterpreter(new CaptureStdLib(debug), new ModuleExecutionContext(),
+                new ExecutionEnvironment(), primary, "Module1",
+                extras.Count == 0 ? null : extras.ToArray());
+
+            var run = vb.RunStartupSubMain();
+            if (await Task.WhenAny(run, Task.Delay(TimeSpan.FromSeconds(10))) != run)
+                return "<did not terminate>";
+            await run;
+        }
+        catch (Exception ex)
+        {
+            return Render(debug) + (debug.Count > 0 ? "\n" : "") + "<error: " + ex.GetType().Name + ">";
+        }
+
+        return Render(debug);
+    }
+
     private static async Task<string> RunAndRender(string code)
     {
         var debug = new List<Vb6Value>();
