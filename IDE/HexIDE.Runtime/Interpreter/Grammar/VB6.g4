@@ -106,8 +106,14 @@ cp_Properties
 	| cp_NestedProperty
 	| controlProperties;
 
+// A designer property line. The name may be a DESIGNER_KEY, which an ordinary VB6 expression cannot be:
+// VB6 writes `_ExtentX`, `_ExtentY` and `_Version` into the Begin block of every ActiveX control, and a
+// VB6 identifier may not begin with an underscore. One lexer serves both halves of a .frm, so when the
+// underscore stopped being an identifier character these keys stopped lexing — a false rejection of
+// Microsoft-authored files, found by an adversarial review running the real template corpus rather than
+// by the conformance corpus, which contains no designer blocks at all.
 cp_SingleProperty
-	: WS? implicitCallStmt_InStmt WS? EQ WS? '$'? cp_PropertyValue FRX_OFFSET? NEWLINE+
+	: WS? (DESIGNER_KEY | implicitCallStmt_InStmt) WS? EQ WS? '$'? cp_PropertyValue FRX_OFFSET? NEWLINE+
 	;
 
 cp_PropertyName
@@ -2270,6 +2276,19 @@ OCTALLITERAL
 // same for `:b`, `:a`, `:F` and `Skip:Debug`. That single token was responsible for most of what the
 // conformance corpus reported as label and separator failures.
 //
+// A DESIGNER property-bag key — `_ExtentX`, `_ExtentY`, `_Version`. VB6 writes these into the Begin block
+// of every ActiveX control, and they are deliberately NOT VB6 identifiers: a name may not begin with an
+// underscore, which is exactly what makes them safe as property-bag keys that cannot collide with user
+// code. One lexer serves both halves of a .frm, so they need a token of their own.
+//
+// It is reachable only from cp_SingleProperty, so a leading underscore in ORDINARY code still fails — just
+// at the parser rather than the lexer, which is the better error anyway. `_z`, `__` and `_ab` are all
+// refused as before; a lone `_` does not match this at all, because the key needs a name after it.
+DESIGNER_KEY
+   : '_' LETTERORDIGIT +
+   ;
+
+
 // Narrowed to the shape VB6 actually writes: a leading DIGIT and at least four hex digits in total, which
 // is what zero-padding guarantees. `:Debug`, `:b` and `:1a` no longer match; `:0000` and `:1A2B` still do.
 // The residual risk is an offset into a .frx large enough to start with A-F (0xA0000 bytes and up); the

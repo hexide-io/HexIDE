@@ -292,7 +292,7 @@ public class CorpusConformanceTests
     [Fact]
     public void HexIDE_DoesNotRejectCodeThatVB6Accepts()
     {
-        var (raw, _, total) = Compare();
+        var (raw, _, total, _) = Compare();
         var falseRejections = raw
             .Where(f => !KnownDivergences.ContainsKey(f.Split(' ')[0]))
             .ToList();
@@ -316,7 +316,7 @@ public class CorpusConformanceTests
         // It is the milder direction in general: a permissive grammar that defers a check to run time is
         // often deliberate here, and several entries below are exactly that. Hence a gate with an
         // exemption list rather than a prohibition.
-        var (_, raw, total) = Compare();
+        var (_, raw, total, _) = Compare();
         var falseAcceptances = raw
             .Where(f => !KnownDivergences.ContainsKey(f.Split(' ')[0]))
             .ToList();
@@ -329,11 +329,26 @@ public class CorpusConformanceTests
     }
 
     [Fact]
+    public void EveryCorpusCaseCarriesARecordedVerdict()
+    {
+        // A case with no verdict in results.json was silently skipped, which is the quietest way a gate
+        // can stop guarding: the count goes up, the gate stays green, and nothing was ever asked of the
+        // compiler. Cases that declare `skip` are exempt — those are deliberately undeliverable.
+        var (_, _, _, unmeasured) = Compare();
+
+        unmeasured.Should().BeEmpty(
+            "a corpus case is a question for vb6.exe, and one with no recorded answer is not evidence of "
+          + "anything — run scripts/vb6-legality.ps1 and merge the result, or mark the case `skip` with a "
+          + "reason:\n{0}",
+            string.Join("\n", unmeasured.Select(k => "    " + k)));
+    }
+
+    [Fact]
     public void KnownDivergencesAreStillReal()
     {
         // A stale exemption is as bad as an undocumented one: it permits a future regression under a
         // reason that no longer applies. If a case has been fixed, delete its entry.
-        var (falseRejections, falseAcceptances, _) = Compare();
+        var (falseRejections, falseAcceptances, _, _) = Compare();
         var stillWrong = falseRejections.Concat(falseAcceptances)
             .Select(f => f.Split(' ')[0]).ToHashSet(StringComparer.Ordinal);
 
@@ -348,14 +363,15 @@ public class CorpusConformanceTests
     {
         // Without this the two tests above pass vacuously, which is the failure mode a corpus gate dies
         // of: it goes quiet and everyone assumes it is still guarding something.
-        var (_, _, total) = Compare();
+        var (_, _, total, _) = Compare();
         total.Should().BeGreaterThan(250,
             "the corpus should carry its full set of compiled verdicts; found {0}", total);
     }
 
     // ------------------------------------------------------------------------------------------------
 
-    private static (List<string> FalseRejections, List<string> FalseAcceptances, int Total) Compare()
+    private static (List<string> FalseRejections, List<string> FalseAcceptances, int Total,
+        List<string> Unmeasured) Compare()
     {
         var root = RepoRoot();
         var dir = Path.Combine(root, "corpus", "continuation-and-separator");
@@ -372,6 +388,7 @@ public class CorpusConformanceTests
             .ToDictionary(r => r.Key, r => r.Actual, StringComparer.Ordinal);
 
         var falseRejections = new List<string>();
+        var unmeasured = new List<string>();
         var falseAcceptances = new List<string>();
         var total = 0;
 
@@ -386,8 +403,13 @@ public class CorpusConformanceTests
                 var id = el.GetProperty("id").GetString()!;
                 var key = $"{name}/{id}";
                 // A case may declare itself undeliverable by the compile harness (the line-ending cases).
-                // With no compiler verdict there is nothing to compare against.
-                if (el.TryGetProperty("skip", out _) || !verdicts.TryGetValue(key, out var vb6)) continue;
+                // That is deliberate and stays silent.
+                if (el.TryGetProperty("skip", out _)) continue;
+
+                // A case with no recorded verdict is NOT deliberate. It contributes nothing while looking
+                // exactly like coverage, so someone can add cases, watch the gate stay green, and believe
+                // they measured something. Collected rather than skipped.
+                if (!verdicts.TryGetValue(key, out var vb6)) { unmeasured.Add(key); continue; }
                 if (vb6 is not ("legal" or "illegal")) continue;   // timeouts prove nothing either way
 
                 var scope = el.TryGetProperty("scope", out var s) ? s.GetString() : "statement";
@@ -406,7 +428,7 @@ public class CorpusConformanceTests
         // Returned UNFILTERED. Subtracting the known divergences here would make them invisible to the
         // staleness check as well, so it could never see one that had started passing — the check would
         // report every entry stale, which is exactly what it did until this was separated.
-        return (falseRejections, falseAcceptances, total);
+        return (falseRejections, falseAcceptances, total, unmeasured);
     }
 
     /// <summary>Parse with the interpreter's own grammar, reporting only whether it succeeded.</summary>

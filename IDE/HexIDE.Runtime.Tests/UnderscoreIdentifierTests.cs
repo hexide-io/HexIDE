@@ -1,3 +1,5 @@
+using System.IO;
+using Antlr4.Runtime;
 using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime.Tests;
@@ -90,5 +92,42 @@ public class UnderscoreIdentifierTests : BaseVBTestFixture
     {
         await Run("Dim x\nx = 1 + _\n    2\nDebug.Print x\n");
         AssertDebugLog([new Vb6Value(3)]);
+    }
+
+    [Fact]
+    public void ADesignerPropertyKeyMayBeginWithAnUnderscore()
+    {
+        // The half of the language that is NOT code. VB6 writes `_ExtentX`, `_ExtentY` and `_Version` into
+        // the Begin block of every ActiveX control, and they are deliberately not VB6 identifiers — that
+        // is precisely what makes them safe as property-bag keys, since user code can never collide with
+        // them. One lexer serves both halves of a .frm, so taking the underscore out of the identifier
+        // alphabet took these down too: three token-recognition errors on Microsoft-authored files, and
+        // `_Version` landing on the VERSION keyword.
+        //
+        // Caught by an adversarial review running the real .frm template corpus. The conformance corpus
+        // could not have found it — it is 400 cases of code, and contains no designer block at all.
+        const string frm =
+            "VERSION 5.00\r\nBegin VB.Form Form1\r\n   Begin MSComctlLib.Toolbar Toolbar1\r\n" +
+            "      _ExtentX        =   10186\r\n      _ExtentY        =   1058\r\n" +
+            "      _Version        =   393216\r\n   End\r\nEnd\r\n";
+
+        var lexer = new VB6Lexer(new AntlrInputStream(new StringReader(frm)));
+        var errors = new List<string>();
+        lexer.RemoveErrorListeners();
+        lexer.AddErrorListener(new CollectingLexerListener(errors));
+        var stream = new CommonTokenStream(lexer);
+        stream.Fill();
+
+        errors.Should().BeEmpty("a designer property key is legal VB6 and must lex");
+        stream.GetTokens().Should().Contain(t => t.Text == "_ExtentX",
+            "the key must survive whole, not be split into an underscore and a name");
+        stream.GetTokens().Should().Contain(t => t.Text == "_Version",
+            "and must not be read as the VERSION keyword");
+    }
+
+    private sealed class CollectingLexerListener(List<string> sink) : IAntlrErrorListener<int>
+    {
+        public void SyntaxError(TextWriter output, IRecognizer recognizer, int offendingSymbol,
+            int line, int col, string msg, RecognitionException e) => sink.Add($"{line}:{col} {msg}");
     }
 }

@@ -471,6 +471,14 @@ FILENUMBER: HASH LETTERORDIGIT+;
 
 OCTALLITERAL: '&O' [0-7]+ ( AMPERSAND | PERCENT )?;
 
+// A DESIGNER property-bag key - `_ExtentX`, `_ExtentY`, `_Version`. VB6 writes these into the Begin block
+// of every ActiveX control, and they are deliberately NOT VB6 identifiers: a name may not begin with an
+// underscore, which is what makes them safe as keys user code cannot collide with. One lexer serves both
+// halves of a .frm, so they need a token of their own. Reachable only from cp_SingleProperty, so a leading
+// underscore in ordinary code still fails - at the parser rather than the lexer. Mirrored from the
+// interpreter's grammar.
+DESIGNER_KEY: '_' LETTERORDIGIT+;
+
 // misc
 // A companion-binary offset in a DESIGNER file (`"Form1.frx":0000`). Narrowed from `COLON [0-9A-F]+`,
 // which was live in ordinary code and — because A-F are hex digits — lexed the `:D` of
