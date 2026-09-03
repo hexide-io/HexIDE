@@ -1,5 +1,5 @@
 {
-  "area": "continuation-and-separator/label-name-reserved",
+  "area": "label-name-reserved",
   "cases": [
     {
       "id": "keyword-as-a-label-end",

@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using System.Text.Json;
 using Antlr4.Runtime;
 
@@ -455,7 +455,7 @@ public class CorpusConformanceTests
         List<string> Unmeasured) Compare()
     {
         var root = RepoRoot();
-        var dir = Path.Combine(root, "corpus", "continuation-and-separator");
+        var dir = Path.Combine(root, "corpus", "conformance");
         Directory.Exists(dir).Should().BeTrue("the corpus should be at {0}", dir);
 
         var resultsPath = Path.Combine(dir, "results.json");

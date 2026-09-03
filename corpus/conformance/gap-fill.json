@@ -1,5 +1,5 @@
 {
-  "area": "continuation-and-separator/gap-fill",
+  "area": "gap-fill",
   "cases": [
     {
       "id": "cont-multiple-spaces-before-underscore",

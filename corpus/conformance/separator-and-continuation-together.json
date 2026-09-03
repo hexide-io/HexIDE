@@ -1,5 +1,5 @@
 {
-  "area": "continuation-and-separator/separator-and-continuation-together",
+  "area": "separator-and-continuation-together",
   "cases": [
     {
       "id": "continuation-then-colon-opens-next-line",

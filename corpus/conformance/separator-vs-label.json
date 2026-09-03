@@ -1,5 +1,5 @@
 {
-  "area": "continuation-and-separator/separator-vs-label",
+  "area": "separator-vs-label",
   "cases": [
     {
       "id": "label-alone-on-line",
