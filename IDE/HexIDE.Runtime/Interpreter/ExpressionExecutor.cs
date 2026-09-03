@@ -751,30 +751,64 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
         if (qualifier.Kind == BasicInterpreter.QualifierKind.Library)
         {
-            // A library-qualified name resolves against the intrinsic registry (function) or a builtin
-            // constant. If neither matches and there are more segments, this one is an ENUM level and is
-            // transparent — `VBRUN.AlignConstants.vbAlignBottom` and `VBRUN.vbAlignBottom` are both
-            // measured legal, so the middle segment is genuinely optional, exactly as the intrinsic-module
-            // level already was (`VBA.Math.Abs` is `VBA.Abs`).
+            // A library-qualified name is an intrinsic function, or a constant IN THAT LIBRARY.
             //
-            // Membership is not validated, for the same reason IsIntrinsicModuleSegment does not validate
-            // its own: there is no table of the libraries' enum names here, and inventing one would be
-            // pre-execution analysis. An unrecognised middle segment is therefore skipped rather than
-            // checked, which costs a missing error and never a wrong value.
+            // The library level SELECTS — it is not transparent. `VBRUN.vbCancel` is 0 and `VBA.vbCancel`
+            // is 2, because vbCancel is declared by both VBRUN.DragConstants and VBA.VbMsgBoxResult with
+            // different values. This branch used to resolve the bare name and step over the library, so
+            // it answered 2 for both: a wrong value. The reason given at the time was that no table of
+            // the libraries' enum names existed and inventing one would be pre-execution analysis —
+            // correct, and the operative word was inventing. VB6InBoxLibraries is measured from the real
+            // type libraries, so the level can now be honoured instead of skipped.
+            var library = qualifier.Name!;
             while (true)
             {
                 var args = argsCtx != null ? await EvaluateCallArgs(argsCtx) : new List<Vb6Value>();
                 if (await EvaluateFunction(memberName, args) is { } fn)
                     return await ThenTheRest(fn);
-                if (args.Count == 0 && interpreter.BuiltIns.TryGetBuiltInConstant(memberName, out var c))
+                if (args.Count == 0 && VB6InBoxLibraries.TryInLibrary(library, memberName, out var c))
                     return await ThenTheRest(c);
-                if (idx + 1 >= members.Length)
+
+                // A middle segment is stepped over only if it genuinely belongs here: an intrinsic module
+                // of the VBA library (`VBA.Math.Abs` is `VBA.Abs`), or a container this library declares
+                // (`VBRUN.AlignConstants.vbAlignBottom`). Anything else is refused rather than skipped —
+                // `VBRUN.VbMsgBoxResult.vbCancel` and `stdole.vbCancel` are both measured ILLEGAL, and
+                // skipping is what used to make them quietly succeed.
+                var isStepOver = idx + 1 < members.Length
+                    && (BasicInterpreter.IsIntrinsicModuleSegment(memberName)
+                        || VB6InBoxLibraries.ContainerBelongsTo(library, memberName));
+                if (!isStepOver)
                     throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
+
+                // Inside a named container the lookup is strict on both levels, so a member of a DIFFERENT
+                // container of the same library is not found through this one.
+                if (VB6InBoxLibraries.TryContainer(memberName, out var container))
+                {
+                    var inner = MemberName(members[idx + 1]);
+                    if (MemberArgs(members[idx + 1]) == null
+                        && VB6InBoxLibraries.TryInLibraryContainer(library, container.Name, inner, out var cv))
+                    {
+                        idx++;
+                        return await ThenTheRest(cv);
+                    }
+                    throw new VBMethodOrDataMemberNotFoundException(inner, Vb6Value.ValueType.EmptyVariant);
+                }
 
                 idx++;
                 memberName = MemberName(members[idx]);
                 argsCtx = MemberArgs(members[idx]);
             }
+        }
+
+        if (qualifier.Kind == BasicInterpreter.QualifierKind.InBoxContainer)
+        {
+            // `DragConstants.vbCancel` -> 0, `VbMsgBoxResult.vbCancel` -> 2. The container selects on its
+            // own; all 79 container names are unique across the four libraries. Strict: `DragConstants
+            // .vbYes` is measured illegal, so a member of another container is refused here.
+            if (argsCtx == null
+                && VB6InBoxLibraries.TryInContainer(qualifier.Name!, memberName, out var cv))
+                return await ThenTheRest(cv);
+            throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
         }
 
         if (qualifier.Kind == BasicInterpreter.QualifierKind.Enum)

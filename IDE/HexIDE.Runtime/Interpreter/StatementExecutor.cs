@@ -1604,6 +1604,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                         value = Vb6Value.NewUdt(interpreter.NewUdt(typeName, qualifier: qualifier, from: currentModule));
                     else if (qualifier is null && interpreter.TryResolveEnum(typeName, currentModule, out _))
                         value = new Vb6Value(0L);
+                    // An IN-BOX enum is a type too: `Dim x As VbMsgBoxResult`, and — unlike a user enum,
+                    // where a module-qualified type name is illegal — the LIBRARY may qualify it:
+                    // `Dim x As VBA.VbMsgBoxResult` is measured legal. A constant MODULE is not a type,
+                    // which is why this asks for an enum specifically: `Dim x As Constants` is illegal in
+                    // VB6 ("Automation type not supported"), and falls through to the throw below.
+                    else if (qualifier is null
+                             ? VB6InBoxLibraries.TryEnumType(typeName, out _)
+                             : VB6InBoxLibraries.TryEnumType(qualifier, typeName, out _))
+                        value = new Vb6Value(0L);
                     else if (interpreter.Modules.TryGet(typeName, out var classMod) && classMod.Kind == InterpreterModuleKind.Class)
                     {
                         value = Vb6Value.Nothing;

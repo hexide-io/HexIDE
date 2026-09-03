@@ -181,6 +181,20 @@ public class CorpusConformanceTests
         ["enum-expressions/member-references-a-later-const"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
         ["enum-library-addressing/library-qualified-user-enum"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
 
+        //   The in-box addressing rows below are the same translation. Every one of them IS now refused —
+        //   the structured library model raises "Method or data member not found" for a qualifier that
+        //   does not declare the name, where the old transparent lookup answered a value — but it is
+        //   raised as the statement executes rather than before the program runs, which is exactly what
+        //   interpreter-core:40-42 prescribes and what this gate cannot see.
+        ["inbox-constant-addressing/enum-under-the-wrong-library"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
+        ["inbox-constant-addressing/member-under-the-wrong-library"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
+        ["inbox-constant-addressing/member-under-the-wrong-enum"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
+        ["inbox-constant-addressing/wrong-library-for-an-unambiguous-member"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
+        ["inbox-constant-addressing/vb-library-for-an-unambiguous-member"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
+        ["inbox-constant-addressing/inbox-module-in-type-position"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
+        ["inbox-constant-addressing/assigning-to-an-inbox-constant"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
+        ["inbox-constant-addressing/documented-but-undeclared-constant-qualified"] = "COMPILE-CHECK-DEFERRED-TO-RUN-TIME",
+
         // RESERVED-WORD-USED-AS-A-NAME (7)
         //   `GoTo End`, `GoTo Stop`, `GoTo Close`, `GoTo Return`, `GoTo Randomize`, `GoTo Resume` — every
         //   one is a syntax error in VB6, because those words are reserved and cannot name anything.

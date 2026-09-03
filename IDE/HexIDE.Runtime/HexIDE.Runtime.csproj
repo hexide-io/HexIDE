@@ -32,6 +32,15 @@
     </ItemGroup>
 
     <ItemGroup>
+        <!-- VB6's in-box constants, read out of the real type libraries by
+             scripts/dump-typelib-constants.ps1 and catalogued in docs/vb6-inbox-constants.md.
+             Embedded rather than code-generated so the measured data stays the single source of
+             truth with no generated file to drift from it, and rather than read from disk so it
+             cannot go missing from a published build. -->
+        <EmbeddedResource Include="Interpreter\Data\vb6-inbox-constants.json" />
+    </ItemGroup>
+
+    <ItemGroup>
         <Antlr4 Include="Interpreter\Grammar\VB6.g4">
             <CustomToolNamespace>HexIDE.Runtime.Interpreter.Grammar</CustomToolNamespace>
             <Listener>True</Listener>

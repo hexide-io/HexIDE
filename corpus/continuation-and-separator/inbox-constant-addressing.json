@@ -1,0 +1,308 @@
+{
+  "area": "inbox-constant-addressing",
+  "why": "The inventory (#214) established that VB6's in-box constants live in 77 enums and 2 modules across four libraries, and that the LIBRARY QUALIFIER SELECTS: VBRUN.vbCancel is 0 while VBA.vbCancel is 2. HexIDE resolves both qualifier levels transparently and so answers 2 for both, which is a wrong value. Before replacing that with a structured model, the whole addressing space has to be measured rather than inferred from the one case that exposed the problem — including the forms that must be REFUSED, because a model that accepts everything is no more faithful than one that accepts nothing. vbCancel is used throughout as the probe, since it is the only name of the 728 whose value depends on which library you meant, and vbNormal as the control that is duplicated but consistent.",
+  "cases": [
+    {
+      "id": "bare-ambiguous-name",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "The bare form of the only genuinely ambiguous name. Establishes the precedence between VBA and VBRUN for an unqualified reference, which is the rule a flat table implicitly picks and must be made explicit.",
+      "code": [
+        "Debug.Print vbCancel"
+      ]
+    },
+    {
+      "id": "library-qualified-vba",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "The member reached through the library that declares it as 2, skipping the enum level. Two-part Lib.Value addressing.",
+      "code": [
+        "Debug.Print VBA.vbCancel"
+      ]
+    },
+    {
+      "id": "library-qualified-vbrun",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "The same name through the library that declares it as 0. If this differs from the VBA form then the library level is load-bearing and a library-blind table cannot be correct — this is the case the whole change exists for.",
+      "code": [
+        "Debug.Print VBRUN.vbCancel"
+      ]
+    },
+    {
+      "id": "enum-qualified-msgbox",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "Enum.Value with no library. The enum name alone should be enough to disambiguate, which would make it a second, independent way to reach the value 2.",
+      "code": [
+        "Debug.Print VbMsgBoxResult.vbCancel"
+      ]
+    },
+    {
+      "id": "enum-qualified-drag",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "The mirror: the same member name through the OTHER enum that declares it. If this gives 0 while the previous case gives 2, the enum qualifier selects on its own and the model needs enum-level lookup, not just library-level.",
+      "code": [
+        "Debug.Print DragConstants.vbCancel"
+      ]
+    },
+    {
+      "id": "library-and-enum-qualified-vba",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "The full three-part form Lib.Enum.Value, which is the shape the interpreter claims to support by making both levels transparent.",
+      "code": [
+        "Debug.Print VBA.VbMsgBoxResult.vbCancel"
+      ]
+    },
+    {
+      "id": "library-and-enum-qualified-vbrun",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "The three-part form through the other library. Together with the previous case it pins the full form for both values.",
+      "code": [
+        "Debug.Print VBRUN.DragConstants.vbCancel"
+      ]
+    },
+    {
+      "id": "enum-under-the-wrong-library",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "VbMsgBoxResult is declared by VBA, not VBRUN. Whether VB6 refuses this or resolves it anyway decides whether the library level is a genuine scope or merely a hint — and a model that accepts it would silently permit nonsense that VB6 rejects.",
+      "code": [
+        "Debug.Print VBRUN.VbMsgBoxResult.vbCancel"
+      ]
+    },
+    {
+      "id": "member-under-the-wrong-library",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "vbCancel is in neither stdole enum. The two-part form against a library that does not declare the name at all is the minimal refusal case.",
+      "code": [
+        "Debug.Print stdole.vbCancel"
+      ]
+    },
+    {
+      "id": "member-under-the-wrong-enum",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "vbYes is in VbMsgBoxResult, not DragConstants. Refusal here is what stops the enum qualifier from degenerating into a comment.",
+      "code": [
+        "Debug.Print DragConstants.vbYes"
+      ]
+    },
+    {
+      "id": "module-qualified-constant",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "vbCrLf lives in the MODULE VBA.Constants, not in an enum. Whether the module name may qualify it says if the model needs modules as qualifiers as well as enums — the inventory found two such modules.",
+      "code": [
+        "Debug.Print Len(Constants.vbCrLf)"
+      ]
+    },
+    {
+      "id": "library-and-module-qualified-constant",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "The three-part form through a module rather than an enum. If enums and modules behave alike as qualifiers, one lookup path serves both; if not, they need separating.",
+      "code": [
+        "Debug.Print Len(VBA.Constants.vbCrLf)"
+      ]
+    },
+    {
+      "id": "inbox-enum-in-type-position",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "Already measured legal in the inventory probe, repeated here so it is gated. All 77 enum names must resolve in type position, which a constant table cannot do.",
+      "code": [
+        "Dim x As VbMsgBoxResult",
+        "x = vbCancel",
+        "Debug.Print x"
+      ]
+    },
+    {
+      "id": "inbox-enum-library-qualified-in-type-position",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "Whether the library may qualify the enum in TYPE position. For user enums this was measured illegal for the MODULE qualifier (#208), so the in-box library case cannot be assumed to follow either way.",
+      "code": [
+        "Dim x As VBA.VbMsgBoxResult",
+        "x = vbCancel",
+        "Debug.Print x"
+      ]
+    },
+    {
+      "id": "inbox-module-in-type-position",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "A constant MODULE used as a type. An enum name is both a type and a qualifier; a module name should be only a qualifier, and this is the case that proves the asymmetry rather than assuming it.",
+      "code": [
+        "Dim x As Constants",
+        "Debug.Print 1"
+      ]
+    },
+    {
+      "id": "inbox-enum-typed-variable-typename",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "What an in-box-enum-typed variable reports as its type. A user enum's variable is a Long; if these agree, one representation serves both and the in-box enums need no new value kind.",
+      "code": [
+        "Dim x As VbMsgBoxResult",
+        "x = vbCancel",
+        "Debug.Print TypeName(x)"
+      ]
+    },
+    {
+      "id": "inbox-enum-typed-variable-out-of-range",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "Assigning a value that is not one of the enum's members. A user enum permits it (measured, #207); if the in-box enums differ, they are not the same construct and cannot share the implementation.",
+      "code": [
+        "Dim x As VbMsgBoxResult",
+        "x = 999",
+        "Debug.Print x"
+      ]
+    },
+    {
+      "id": "user-enum-shadowing-an-inbox-enum-name",
+      "expect": "unsure",
+      "scope": "module",
+      "why": "A user enum declared with the SAME NAME as an in-box one. Decides whether the project's own declarations win over the libraries, or collide. Nothing in the interpreter currently could resolve this, since it does not know in-box enum names at all.",
+      "code": [
+        "Private Enum VbMsgBoxResult",
+        "    vbCancel = 42",
+        "End Enum",
+        "",
+        "Sub Main()",
+        "    Debug.Print vbCancel",
+        "End Sub"
+      ]
+    },
+    {
+      "id": "user-const-shadowing-an-inbox-constant",
+      "expect": "unsure",
+      "scope": "module",
+      "why": "The same question one level down: a module-level Const taking the name of an in-box constant. The precedence between a project declaration and a library is the rule that decides which table is consulted first.",
+      "code": [
+        "Private Const vbCancel = 7",
+        "",
+        "Sub Main()",
+        "    Debug.Print vbCancel",
+        "End Sub"
+      ]
+    },
+    {
+      "id": "assigning-to-an-inbox-constant",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "An in-box constant is read-only, like a user enum member (#207 made those raise on assignment). Confirms the same constness applies so the two can share one rule.",
+      "code": [
+        "vbCancel = 5",
+        "Debug.Print vbCancel"
+      ]
+    },
+    {
+      "id": "control-consistent-duplicate-bare",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "vbNormal is the only other name declared twice, and both declarations say 0. The control: it must keep working identically under a library-aware model, which is what shows the model discriminates by VALUE disagreement rather than by duplication.",
+      "code": [
+        "Debug.Print vbNormal"
+      ]
+    },
+    {
+      "id": "control-consistent-duplicate-both-libraries",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "The same consistent duplicate reached through each of its two libraries. Both should give 0, which distinguishes 'the qualifier selects' from 'the qualifier is checked for existence'.",
+      "code": [
+        "Debug.Print VBA.vbNormal",
+        "Debug.Print VBRUN.vbNormal"
+      ]
+    },
+    {
+      "id": "vbrun-control-constant-bare",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "A representative VBRUN control constant, unambiguous, addressed bare. 590 of the 728 constants are in VBRUN and none of the ambiguity cases touch them; this is the ordinary path that must not regress.",
+      "code": [
+        "Debug.Print vbAlignBottom"
+      ]
+    },
+    {
+      "id": "vbrun-control-constant-fully-qualified",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "The same VBRUN constant in the full three-part form — the example that started this line of work: VBRun.AlignConstants.vbAlignBottom.",
+      "code": [
+        "Debug.Print VBRUN.AlignConstants.vbAlignBottom"
+      ]
+    },
+    {
+      "id": "wrong-library-for-an-unambiguous-member",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "vbKeyA is declared by VBRUN.KeyCodeConstants and by nothing else. Qualifying it with VBA - a library that does not declare it - is the same shape as stdole.vbCancel, which is illegal. But an EXISTING interpreter test asserts VBA.vbKeyA = 65, so either that test encodes the old transparent behaviour or the rule is narrower than the stdole case suggested. Measured rather than argued, because the answer decides whether a strict library level breaks a passing test or fixes a wrong one.",
+      "code": [
+        "Debug.Print VBA.vbKeyA"
+      ]
+    },
+    {
+      "id": "right-library-for-an-unambiguous-member",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "The same member through the library that does declare it. The control for the previous case.",
+      "code": [
+        "Debug.Print VBRUN.vbKeyA"
+      ]
+    },
+    {
+      "id": "vb-library-for-an-unambiguous-member",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "And through VB, which declares nothing at all. If this is legal then a library qualifier is not a scope in any sense and the whole strict model is wrong; if illegal, VB is simply an empty namespace.",
+      "code": [
+        "Debug.Print VB.vbKeyA"
+      ]
+    },
+    {
+      "id": "bare-unambiguous-member",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "The bare form, as the baseline that must keep working.",
+      "code": [
+        "Debug.Print vbKeyA"
+      ]
+    },
+    {
+      "id": "documented-but-undeclared-constant",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "vbUseCompareOption is DOCUMENTED as a member of VbCompareMethod (value -1) but the type library declares only three members: vbBinaryCompare, vbTextCompare and vbDatabaseCompare. Either the dump missed a member or the documentation is wrong, and the compiler is the only thing that can say which. If VB6 refuses the name then HexIDE refusing it is correct behaviour rather than a gap, and MISSING_LANGUAGE.md is wrong to carry it as one.",
+      "code": [
+        "Debug.Print vbUseCompareOption"
+      ]
+    },
+    {
+      "id": "documented-but-undeclared-constant-qualified",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "The same name through the enum that supposedly declares it. Distinguishes 'present but not hoisted to the bare namespace' from 'not present at all'.",
+      "code": [
+        "Debug.Print VbCompareMethod.vbUseCompareOption"
+      ]
+    },
+    {
+      "id": "the-three-members-vbcomparemethod-does-declare",
+      "expect": "legal",
+      "scope": "statement",
+      "why": "The control: the three members the type library does declare, so a refusal above cannot be blamed on VbCompareMethod being unreachable generally.",
+      "code": [
+        "Debug.Print VbCompareMethod.vbBinaryCompare",
+        "Debug.Print VbCompareMethod.vbTextCompare",
+        "Debug.Print VbCompareMethod.vbDatabaseCompare"
+      ]
+    }
+  ]
+}

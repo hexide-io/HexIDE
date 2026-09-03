@@ -1,0 +1,64 @@
+{
+  "area": "stdole-bare-names",
+  "why": "Completing the in-box inventory adds seven stdole members whose names are not vb-prefixed (Default, Color, Gray, Checked, Unchecked, Monochrome, VgaColor). Whether they belong in the BARE namespace is the difference between finishing the model and breaking user code that uses those words as identifiers.",
+  "cases": [
+    {
+      "id": "bare-stdole-default",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "stdole.LoadPictureConstants declares a member literally named `Default`. If that is resolvable BARE then adding the stdole enums to the bare namespace changes what an undeclared `Default` means, which under Option Explicit is the difference between an error and the value 0. Generic un-prefixed names are the one place where completing the inventory could regress ordinary user code.",
+      "code": [
+        "Debug.Print Default"
+      ]
+    },
+    {
+      "id": "bare-stdole-color",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "The same question for `Color`, which is likelier still to appear as a user variable name. Two independent probes because the answer decides whether seven names join the bare namespace or stay reachable only when qualified.",
+      "code": [
+        "Debug.Print Color"
+      ]
+    },
+    {
+      "id": "bare-stdole-checked",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "`Checked` from OLE_TRISTATE - a third sample, and the one most likely to collide with a control-related identifier in real code.",
+      "code": [
+        "Debug.Print Checked"
+      ]
+    },
+    {
+      "id": "qualified-stdole-default",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "The same member fully qualified. If the bare form is refused but this is accepted, the stdole constants are library-private in the bare namespace and the model must not hoist them.",
+      "code": [
+        "Debug.Print stdole.LoadPictureConstants.Default"
+      ]
+    },
+    {
+      "id": "enum-qualified-stdole-default",
+      "expect": "unsure",
+      "scope": "statement",
+      "why": "Enum-qualified without the library. Locates precisely which level makes these names reachable.",
+      "code": [
+        "Debug.Print LoadPictureConstants.Default"
+      ]
+    },
+    {
+      "id": "bare-stdole-in-option-explicit",
+      "expect": "unsure",
+      "scope": "module",
+      "why": "The same bare probe under Option Explicit, which is what a real project uses. Without it an unresolvable name is a silent implicit Variant and 'not found' is indistinguishable from 'found' - the harness artefact that produced a confident wrong fact about Private enum visibility earlier in this work.",
+      "code": [
+        "Option Explicit",
+        "",
+        "Sub Main()",
+        "    Debug.Print Default",
+        "End Sub"
+      ]
+    }
+  ]
+}
