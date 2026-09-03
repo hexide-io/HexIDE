@@ -224,14 +224,22 @@ public sealed class DebugController : IDebugController
         // Capture the DECIDING activation's frame for Locals. Only this activation reaches here (newcomers freeze on
         // the resume gate above), so there is never a clobber; cleared when the break ends (Continue/Step/Stop/Reset).
         _currentFrame = frame;
-        _breakTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        // Held in a LOCAL as well as the field, and awaited through the local below. `Stopped` is invoked
+        // synchronously on this thread, and a handler that resumes — Continue, Step, Stop, Reset — nulls
+        // `_breakTcs` on its way through. Awaiting the field after that is a NullReferenceException, which
+        // is what CI was intermittently seeing: it needs the resume to land between the invoke and the
+        // await, so it reproduces on a busy multi-core runner and almost never on a developer box.
+        //
+        // This is the same capture-then-clear idiom the four resume paths already use (`var bt = _breakTcs`
+        // before `_breakTcs = null`); only this side was reading the field twice.
+        var breakTcs = _breakTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         // Create the resume gate only once per paused session (NOT per break): a Step Into re-breaks without
         // completing it, so an event frozen while paused must stay parked on the SAME gate across the step —
         // otherwise recreating it here would orphan that frozen newcomer. Continue/Stop/Reset complete + null it.
         _resumeGate ??= new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var session = _session;
         Stopped?.Invoke(_currentStop.Value);   // synchronous, on the walk's thread
-        await _breakTcs.Task;
+        await breakTcs.Task;
         // Abort if Stop() aborted us OR a Reset() started a new session while we were parked. The session check —
         // not _isAborting — is what defeats the Restart-while-paused race: RestartProject calls Stop() then
         // Reset() in one UI turn, and Reset clears _isAborting BEFORE this posted continuation runs, so without
