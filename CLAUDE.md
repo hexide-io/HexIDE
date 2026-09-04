@@ -38,6 +38,30 @@ cd LspServer && dotnet build HexIDE.VbLspServer/
 
 CI runs two parallel jobs in `.github/workflows/build.yml`: `build-ide` (working dir `IDE/`) and `build-lsp-server` (working dir `LspServer/`).
 
+### Verify on Linux before pushing — `build-ide` runs on `ubuntu-latest`
+
+The IDE parses and writes Windows-native formats (`.vbp`, `.vbg`, `.frm`), so a whole class of defect is
+**unreachable on a Windows dev box and only fails on CI** (see the two `System.IO.Path` entries under
+Gotchas). Run the suites under WSL rather than discovering it a push later:
+
+```sh
+# Ubuntu + dotnet-sdk-10.0 from Ubuntu's own repos (no Microsoft feed needed on 26.04+)
+wsl -e bash -lc 'sudo apt-get install -y dotnet-sdk-10.0'
+
+# Run against the SAME working tree — no second clone. .NET on Linux uses '/' regardless of the mount.
+wsl -e bash -lc 'cd /mnt/c/Repos/GitHub/HexIDE/HexIDE/IDE && \
+  dotnet test HexIDE.Runtime.Tests/ --artifacts-path /mnt/c/Repos/GitHub/HexIDE/HexIDE/artifacts/linux'
+```
+
+**`--artifacts-path` is required, and it must point INSIDE the repo.** Without it the Linux build stomps
+the Windows `obj/`/`bin/`; pointed outside the repo (e.g. `/tmp`), `GrammarParityTests.RepoRoot()` fails —
+it walks up from `AppContext.BaseDirectory` looking for the directory holding both `IDE/` and `LspServer/`,
+and finds no such ancestor. `artifacts/` is already gitignored.
+
+Expect the run to be slower than Windows (the `/mnt/c` 9p mount), and identical in result — 1423/1423 as of
+this writing. To confirm the setup still has teeth, run a `git worktree` at a commit predating a known
+cross-platform fix and check it fails there.
+
 ## MCP Dev Loop
 
 ## Visual Verification — MANDATORY
