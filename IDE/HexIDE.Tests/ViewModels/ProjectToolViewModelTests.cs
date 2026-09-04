@@ -423,4 +423,48 @@ public class ProjectToolViewModelTests
         proj.Forms.Should().HaveCount(1);
         eventBus.DidNotReceive().Publish(Arg.Any<FormUnloadedEvent>());
     }
+
+    [Fact]
+    public void OpenSelected_ARelatedDocument_GoesToThePlainTextEditor()
+    {
+        // The double-click gesture. A related document must NOT reach EditCode: that door leads to the
+        // VB6 code editor, which assumes a FormDefinition or ModuleDefinition, a VB6 language server and
+        // a faithfulness gate — none of which describe a README.
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var document = new RelatedDocumentDefinition(project, "README.md", @"C:\proj\docs\README.md");
+        project.AddRelatedDocument(document);
+
+        var vm = CreateVmWithLoadedProject(project, out var projectVm);
+        vm.SelectedItem = FindRelatedDoc(projectVm);
+
+        vm.OpenSelected();
+
+        editorService.Received(1).EditRelatedDocument(document);
+        editorService.DidNotReceive().EditCode(Arg.Any<ModuleDefinition>());
+        editorService.DidNotReceive().EditCode(Arg.Any<FormDefinition>());
+    }
+
+    [Fact]
+    public void ARelatedDocumentAppearsInTheTree()
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        project.AddRelatedDocument(new RelatedDocumentDefinition(project, "notes.md", @"C:\proj
+otes.md"));
+
+        CreateVmWithLoadedProject(project, out var projectVm);
+
+        FindRelatedDoc(projectVm).Should().NotBeNull("a carried file the developer can see is the point");
+    }
+
+    private static RelatedDocViewModel? FindRelatedDoc(ProjectViewModel projectVm)
+    {
+        foreach (var element in projectVm.Elements)
+        {
+            if (element is RelatedDocViewModel found) return found;
+            if (element is DirectoryViewModel directory)
+                foreach (var child in directory.Children)
+                    if (child is RelatedDocViewModel nested) return nested;
+        }
+        return null;
+    }
 }

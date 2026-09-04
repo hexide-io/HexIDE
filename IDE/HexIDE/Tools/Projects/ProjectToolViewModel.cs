@@ -193,6 +193,10 @@ public partial class ProjectToolViewModel : Tool
             else
                 editorService.EditCode(SelectedModule.ModuleDefinition);
         }
+        else if (selectedItem is RelatedDocViewModel relatedDoc)
+        {
+            editorService.EditRelatedDocument(relatedDoc.Definition);
+        }
         else if (selectedItem is IProjectTreeElement projectTreeElement)
         {
             projectTreeElement.IsExpanded = !projectTreeElement.IsExpanded;

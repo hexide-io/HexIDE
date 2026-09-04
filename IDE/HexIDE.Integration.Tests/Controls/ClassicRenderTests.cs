@@ -9,6 +9,7 @@ using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using AvaloniaEdit.Highlighting;
 using Avalonia.VisualTree;
 using Classic.Avalonia.Theme;
 using HexIDE.Runtime.BuiltinControls;
@@ -219,6 +220,97 @@ public class ClassicRenderTests
                     ContrastRatio(solid.Color, background).Should().BeGreaterThanOrEqualTo(4.5,
                         $"'{name}' must be legible on {background}");
                 }
+            }
+        }
+        finally
+        {
+            app.RequestedThemeVariant = original;
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AnAdoptedBundledDefinitionIsLegibleOnADarkBackground()
+    {
+        // The VB6 definition gets a hand-tuned dark palette. A definition resolved by file extension from
+        // AvaloniaEdit's bundle cannot: the set is open-ended, so its dark colours are DERIVED. This is the
+        // parallel guarantee — a derived palette must clear the same bar the hand-tuned one was built to.
+        var app = Application.Current!;
+        var original = app.RequestedThemeVariant;
+        var background = Color.Parse("#252526");
+
+        var definition = HighlightingManager.Instance.GetDefinitionByExtension(".md");
+        definition.Should().NotBeNull("AvaloniaEdit is expected to bundle a Markdown definition");
+
+        // THE CONTROL, and it has to come first. Every assertion below is "contrast is sufficient", which
+        // would pass trivially against a definition that happened to be light already — proving nothing
+        // about the derivation. So: establish that the STOCK palette genuinely fails on a dark background
+        // before adopting it. If this ever stops failing, the test below has stopped testing anything.
+        app.RequestedThemeVariant = ThemeVariant.Light;
+        Dispatcher.UIThread.RunJobs();
+        var stockFailures = definition!.NamedHighlightingColors
+            .Select(c => c.Foreground?.GetBrush(null!) as ISolidColorBrush)
+            .Where(b => b is not null)
+            .Count(b => ContrastRatio(b!.Color, background) < 4.5);
+        stockFailures.Should().BeGreaterThan(0,
+            "the stock bundled palette is authored for a light background — if it were already legible "
+          + "on dark, this test would prove nothing about the derived palette");
+
+        try
+        {
+            SyntaxHighlightingTheme.Adopt(definition);
+            app.RequestedThemeVariant = ThemeVariant.Dark;
+            Dispatcher.UIThread.RunJobs();
+
+            foreach (var color in definition.NamedHighlightingColors)
+            {
+                if (color.Foreground?.GetBrush(null!) is not ISolidColorBrush solid)
+                    continue;
+
+                ContrastRatio(solid.Color, background).Should().BeGreaterThanOrEqualTo(4.5,
+                    $"'{color.Name}' must be legible on {background} after adoption");
+            }
+        }
+        finally
+        {
+            app.RequestedThemeVariant = original;
+            Dispatcher.UIThread.RunJobs();
+        }
+    }
+
+    [AvaloniaFact]
+    public void AdoptionPreservesHueSoColoursStillMeanWhatTheyMeant()
+    {
+        // Lightness is lifted; hue is not touched. That matters because hue carries the meaning a reader
+        // has learned — blue is a link, green is a comment — and a re-tint that scrambles it would trade
+        // one legibility problem for a worse one.
+        var app = Application.Current!;
+        var original = app.RequestedThemeVariant;
+        var definition = HighlightingManager.Instance.GetDefinitionByExtension(".md")!;
+
+        try
+        {
+            app.RequestedThemeVariant = ThemeVariant.Light;
+            Dispatcher.UIThread.RunJobs();
+            var lightHues = definition.NamedHighlightingColors
+                .Where(c => c.Name is not null && c.Foreground?.GetBrush(null!) is ISolidColorBrush)
+                .ToDictionary(
+                    c => c.Name!,
+                    c => ((ISolidColorBrush)c.Foreground!.GetBrush(null!)!).Color.ToHsl());
+
+            SyntaxHighlightingTheme.Adopt(definition);
+            app.RequestedThemeVariant = ThemeVariant.Dark;
+            Dispatcher.UIThread.RunJobs();
+
+            foreach (var color in definition.NamedHighlightingColors)
+            {
+                if (color.Name is null || !lightHues.TryGetValue(color.Name, out var light)) continue;
+                if (color.Foreground?.GetBrush(null!) is not ISolidColorBrush solid) continue;
+                // Greys have no meaningful hue, so exclude them rather than assert nonsense about them.
+                if (light.S < 0.05) continue;
+
+                solid.Color.ToHsl().H.Should().BeApproximately(light.H, 1.0,
+                    $"'{color.Name}' should keep its hue — only its lightness is lifted");
             }
         }
         finally
