@@ -95,7 +95,7 @@ public class ProjectDeserializer
                 if (semi >= 0)
                     project.RelativeModulePaths.Add((value[..semi].Trim(), value[(semi + 1)..].Trim(), ModuleKind.UserControl));
                 else
-                    project.RelativeModulePaths.Add((Path.GetFileNameWithoutExtension(value.Trim()), value.Trim(), ModuleKind.UserControl));
+                    project.RelativeModulePaths.Add((SerializedProject.FileNameWithoutExtensionOf(value.Trim()), value.Trim(), ModuleKind.UserControl));
                 knownKeyCount++;
             }
             else if (key.Equals(SerializedProject.PropertyPageKey, StringComparison.OrdinalIgnoreCase))
@@ -104,7 +104,7 @@ public class ProjectDeserializer
                 if (semi >= 0)
                     project.RelativeModulePaths.Add((value[..semi].Trim(), value[(semi + 1)..].Trim(), ModuleKind.PropertyPage));
                 else
-                    project.RelativeModulePaths.Add((Path.GetFileNameWithoutExtension(value.Trim()), value.Trim(), ModuleKind.PropertyPage));
+                    project.RelativeModulePaths.Add((SerializedProject.FileNameWithoutExtensionOf(value.Trim()), value.Trim(), ModuleKind.PropertyPage));
                 knownKeyCount++;
             }
             else if (key.Equals(SerializedProject.UserDocumentKey, StringComparison.OrdinalIgnoreCase))
@@ -243,7 +243,9 @@ public class SerializedProject
     /// <summary>True when an item path names a file VB6 would compile.</summary>
     public static bool IsVb6CodeFile(string path)
     {
-        var extension = System.IO.Path.GetExtension(path);
+        // FileNameOf first: on a host where backslash is not a separator, GetExtension("my.dir\README")
+        // returns ".dir\README" — a directory's dot decides the answer for a file that has no extension.
+        var extension = System.IO.Path.GetExtension(FileNameOf(path));
         // No extension at all is left alone: reclassifying something we cannot classify would be a guess on
         // top of a guess, and the conservative reading keeps it a module.
         return extension.Length == 0 || Vb6CodeExtensions.Contains(extension);
@@ -297,6 +299,18 @@ public class SerializedProject
     {
         var cut = projectFilePath.LastIndexOfAny(PathSeparators);
         return cut < 0 ? projectFilePath : projectFilePath[(cut + 1)..];
+    }
+
+    /// <summary>
+    /// The last segment of a path inside a project file, with its extension removed. Matches
+    /// <c>Path.GetFileNameWithoutExtension</c>'s treatment of a leading dot — <c>.gitignore</c> is a name,
+    /// not an extension.
+    /// </summary>
+    public static string FileNameWithoutExtensionOf(string projectFilePath)
+    {
+        var name = FileNameOf(projectFilePath);
+        var dot = name.LastIndexOf('.');
+        return dot <= 0 ? name : name[..dot];
     }
 
     /// <summary>

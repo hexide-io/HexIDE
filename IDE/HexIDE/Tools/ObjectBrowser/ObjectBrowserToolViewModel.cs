@@ -9,6 +9,7 @@ using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Serialization;
 using HexIDE.Lsp.Messages;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
@@ -218,7 +219,7 @@ public partial class ObjectBrowserToolViewModel : Document
             if (string.IsNullOrEmpty(reference.LibPath) && string.IsNullOrEmpty(reference.Name)) continue;
             var refName = !string.IsNullOrEmpty(reference.Name)
                 ? reference.Name!
-                : Path.GetFileNameWithoutExtension(reference.LibPath!);
+                : SerializedProject.FileNameWithoutExtensionOf(reference.LibPath!);
             Libraries.Add(new OBLibraryViewModel(refName, reference));
         }
 

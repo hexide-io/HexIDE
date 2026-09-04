@@ -13,10 +13,10 @@ public class GroupSerializer
         var w = new StringWriter { NewLine = "\r\n" };
         w.WriteLine("VBGROUP 5.00");
         if (startupProject?.AbsolutePath != null)
-            w.WriteLine($"StartupProject={Path.GetRelativePath(dir, startupProject.AbsolutePath)}");
+            w.WriteLine($"StartupProject={SerializedProject.ToProjectFilePath(Path.GetRelativePath(dir, startupProject.AbsolutePath))}");
         foreach (var p in projects)
             if (p.AbsolutePath != null)
-                w.WriteLine($"Project={Path.GetRelativePath(dir, p.AbsolutePath)}");
+                w.WriteLine($"Project={SerializedProject.ToProjectFilePath(Path.GetRelativePath(dir, p.AbsolutePath))}");
         if (unknownLines != null)
             foreach (var line in unknownLines)
                 w.WriteLine(line);

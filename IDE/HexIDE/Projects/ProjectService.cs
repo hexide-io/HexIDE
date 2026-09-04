@@ -218,14 +218,14 @@ public class ProjectService : IProjectService
 
         foreach (var relPath in serializedGroup.ProjectRelativePaths)
         {
-            var absPath = Path.GetFullPath(Path.Combine(groupDir, relPath));
+            var absPath = Path.GetFullPath(Path.Combine(groupDir, ToLocalRelativePath(relPath)));
             await LoadProjectFromDisk(absPath);
         }
 
         if (serializedGroup.StartupProjectRelativePath != null)
         {
             var startupAbs = Path.GetFullPath(
-                Path.Combine(groupDir, serializedGroup.StartupProjectRelativePath));
+                Path.Combine(groupDir, ToLocalRelativePath(serializedGroup.StartupProjectRelativePath)));
             projectManager.StartupProject = projectManager.LoadedProjects
                 .FirstOrDefault(p => string.Equals(
                     p.AbsolutePath, startupAbs, StringComparison.OrdinalIgnoreCase));
