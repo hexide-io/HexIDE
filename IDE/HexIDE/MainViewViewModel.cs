@@ -751,8 +751,19 @@ public partial class MainViewViewModel : ObservableObject
 
         VBWindowContext.RunTimeError += (form, e) =>
         {
-            var at = e.Context is { } ctx
-                ? "\n\nat " + form.Code.Substring(ctx.Start.StartIndex, ctx.Stop.StopIndex - ctx.Start.StartIndex)
+            // Sliced from the context's OWN input stream, not from form.Code.
+            //
+            // Two bugs in one line, both reachable the moment a form can call into a .bas (#220). The
+            // offsets belong to whichever module raised, so indexing the FORM's source threw
+            // ArgumentOutOfRangeException inside this handler — which meant no dialog at all: a runtime
+            // error inside a module vanished silently and the program appeared to carry on. And the length
+            // was `Stop - Start`, but ANTLR's StopIndex is INCLUSIVE, so every message lost its last
+            // character ("NoSuchSub" rendered as "NoSuchSu").
+            //
+            // GetText takes an inclusive interval, so it fixes the truncation as well as the source.
+            var at = e.Context is { Start: { InputStream: { } input } start, Stop: { } stop }
+                  && stop.StopIndex >= start.StartIndex
+                ? "\n\nat " + input.GetText(new Antlr4.Runtime.Misc.Interval(start.StartIndex, stop.StopIndex))
                 : "";   // built-in errors carry no parse context
             var vm = new RuntimeErrorViewModel(e.Message + at);
             windowManager.ShowDialog(vm);
