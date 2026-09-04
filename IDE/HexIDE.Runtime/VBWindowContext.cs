@@ -33,11 +33,23 @@ public class VBWindowContext : IModuleExecutionRoot
     /// by), so it must be the form/module's real name, not the "Module1" default. <paramref name="debugController"/>
     /// is the per-session controller (null ⇒ no debugging, zero gate overhead).
     /// </summary>
+    /// <param name="additionalModules">
+    /// The project's other standard modules. Omitting these is not a missing nicety: without them a form
+    /// cannot call <c>Module1.DoThing</c>, cannot read a <c>Public Const</c> declared in a <c>.bas</c>, and
+    /// cannot reach a <c>Public</c> variable there — which is most non-trivial VB6, the moment F5 is
+    /// pressed (hexide-io/HexIDE#220).
+    /// </param>
+    /// <param name="classModules">
+    /// The project's class modules, so <c>New SomeClass</c> resolves from a form.
+    /// </param>
     public void SetCode(string code, string moduleName = "Module1", Debugging.IDebugController? debugController = null,
-        Interpreter.AppInfo? appInfo = null)
+        Interpreter.AppInfo? appInfo = null,
+        IReadOnlyList<(string Name, string Code)>? additionalModules = null,
+        IReadOnlyList<(string Name, string Code)>? classModules = null)
     {
         Code = code;
-        interpreter = new BasicInterpreter(standardLibrary, ExecutionContext, RootEnv, code, moduleName)
+        interpreter = new BasicInterpreter(standardLibrary, ExecutionContext, RootEnv, code, moduleName,
+            additionalModules, classModules)
         {
             DebugController = debugController
         };
@@ -46,6 +58,13 @@ public class VBWindowContext : IModuleExecutionRoot
         if (appInfo is not null)
             interpreter.SetAppInfo(appInfo);
     }
+
+    /// <summary>
+    /// The interpreter this context built, so a test can assert what it was handed. Internal on purpose:
+    /// which modules reach the interpreter is exactly what #220 got wrong, and it was observable from no
+    /// public member — the failure showed up only as a form unable to call its own project's code.
+    /// </summary>
+    internal BasicInterpreter? Interpreter => interpreter;
 
     public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
     {

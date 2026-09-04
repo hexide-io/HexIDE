@@ -364,6 +364,37 @@ public class VBLoader
         return canvas;
     }
 
+    /// <summary>
+    /// The project's code modules, in the shape <see cref="BasicInterpreter"/> takes them.
+    ///
+    /// <para>
+    /// One place, because there are three run paths — a form, a form in the browser host, and <c>Sub
+    /// Main</c> — and they answered this question differently. <c>Sub Main</c> loaded the modules and the
+    /// form paths loaded none, so the same project behaved differently depending on its startup object
+    /// (hexide-io/HexIDE#220). A shared helper is what stops that recurring the next time a fourth path
+    /// appears.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>UserControls and PropertyPages are deliberately excluded.</b> They are component-backed: each is
+    /// instantiated through the component model with its own execution context, and its code runs there.
+    /// Loading one here as a free-standing module would run its declarations a second time, in the wrong
+    /// scope.
+    /// </para>
+    /// </summary>
+    public static (IReadOnlyList<(string Name, string Code)> Standard,
+                   IReadOnlyList<(string Name, string Code)> Classes)
+        InterpreterModules(ProjectDefinition? project)
+    {
+        if (project is null)
+            return ([], []);
+
+        static IReadOnlyList<(string, string)> Of(ProjectDefinition p, ModuleKind kind) =>
+            p.Modules.Where(m => m.Kind == kind).Select(m => (m.Name, m.Code)).ToList();
+
+        return (Of(project, ModuleKind.StandardModule), Of(project, ModuleKind.ClassModule));
+    }
+
     public static Task RunForm(FormDefinition element, CancellationToken token, out VBFormRuntime window,
         Debugging.IDebugController? debugController = null)
     {
@@ -382,8 +413,10 @@ public class VBLoader
         window.Content = SpawnComponents(element, window.Context.ExecutionContext, window.Context.RootEnv);
         // The form's own code runs as the primary module named after the form, so the debug gate reports — and
         // breakpoints are keyed by — the form's real name (matching the editor's vb6://form/{name} document).
+        var (standardModules, classModules) = InterpreterModules(element.Owner);
         window.Context.SetCode(code: element.Code, moduleName: formName ?? "Module1", debugController: debugController,
-            appInfo: Interpreter.AppInfo.FromProject(element.Owner));
+            appInfo: Interpreter.AppInfo.FromProject(element.Owner),
+            additionalModules: standardModules, classModules: classModules);
         window.Show();
 #if DEBUG
         window.AttachDevTools();
