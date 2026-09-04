@@ -119,14 +119,63 @@ public record ServerCapabilities(
     /// field whose two shapes mean different things rather than the same thing said twice — a bare number
     /// is the sync kind, an object carries it under <c>change</c> — and kind 0 means "send me nothing".
     /// </summary>
-    public bool AcceptsDocumentSync()
+    public bool AcceptsDocumentSync() => ChangeKindIsNotNone(TextDocumentSync);
+
+    // ── Reading a raw capabilities object ───────────────────────────────────────────────────────
+    // The client keeps what the server sent verbatim rather than a typed view, so these work on that.
+    // They live here, beside the record, because the two must not drift: a capability read one way for
+    // display and another way for gating is how a feature ends up shown as available and refused.
+
+    /// <summary>
+    /// True when the server advertised support for a named capability, in either legal shape.
+    /// </summary>
+    public static bool Supports(System.Text.Json.JsonElement? capabilities, string capabilityName) =>
+        capabilities is { } caps
+        && caps.ValueKind == System.Text.Json.JsonValueKind.Object
+        && caps.TryGetProperty(capabilityName, out var value)
+        && IsEnabled(value);
+
+    /// <summary>
+    /// True for a capability under <c>experimental</c>, which is where the protocol says to put a method
+    /// it does not define — and therefore the only thing a client can gate a custom method on.
+    /// </summary>
+    public static bool SupportsExperimental(System.Text.Json.JsonElement? capabilities, string name) =>
+        capabilities is { } caps
+        && caps.ValueKind == System.Text.Json.JsonValueKind.Object
+        && caps.TryGetProperty("experimental", out var experimental)
+        && experimental.ValueKind == System.Text.Json.JsonValueKind.Object
+        && experimental.TryGetProperty(name, out var value)
+        && IsEnabled(value);
+
+    /// <summary>True when the server wants <c>didOpen</c> / <c>didClose</c>.</summary>
+    public static bool AcceptsOpenClose(System.Text.Json.JsonElement? capabilities) =>
+        ReadSync(capabilities) is { } sync
+        && (sync.ValueKind == System.Text.Json.JsonValueKind.Number   // a bare kind implies open/close
+            || !sync.TryGetProperty("openClose", out var openClose)   // absent defaults to supported
+            || openClose.ValueKind != System.Text.Json.JsonValueKind.False);
+
+    /// <summary>True when the server wants <c>didChange</c>. Sync kind 0 means "send me nothing".</summary>
+    public static bool AcceptsChanges(System.Text.Json.JsonElement? capabilities) =>
+        ChangeKindIsNotNone(ReadSync(capabilities));
+
+    private static System.Text.Json.JsonElement? ReadSync(System.Text.Json.JsonElement? capabilities) =>
+        capabilities is { } caps
+        && caps.ValueKind == System.Text.Json.JsonValueKind.Object
+        && caps.TryGetProperty("textDocumentSync", out var sync)
+            ? sync
+            : null;
+
+    // textDocumentSync is the one capability whose two shapes say DIFFERENT things rather than the same
+    // thing twice — a bare number is the sync kind, an object carries it under `change` — so it cannot go
+    // through IsEnabled, where an object always means yes.
+    private static bool ChangeKindIsNotNone(System.Text.Json.JsonElement? sync)
     {
-        if (TextDocumentSync is not { } sync) return false;
-        return sync.ValueKind switch
+        if (sync is not { } value) return false;
+        return value.ValueKind switch
         {
-            System.Text.Json.JsonValueKind.Number => sync.TryGetInt32(out var kind) && kind != 0,
+            System.Text.Json.JsonValueKind.Number => value.TryGetInt32(out var kind) && kind != 0,
             System.Text.Json.JsonValueKind.Object =>
-                !sync.TryGetProperty("change", out var change)
+                !value.TryGetProperty("change", out var change)
                 || !change.TryGetInt32(out var objectKind)
                 || objectKind != 0,
             _ => false,

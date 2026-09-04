@@ -13,7 +13,16 @@ public class LspClientRegistryTests
 {
     private const string Vb6Doc = "vb6://module/Module1";
 
-    private static ILspClient FakeServer(bool running = true, string? capabilitiesJson = null)
+    // A server advertising the full standard set. Since capability gating landed, a fake advertising
+    // NOTHING serves nothing — which is correct, and means these fakes must say what they support.
+    private const string FullCapabilities = """
+        {"textDocumentSync":{"openClose":true,"change":1},"hoverProvider":true,
+         "documentSymbolProvider":true,"foldingRangeProvider":true,"completionProvider":{},
+         "signatureHelpProvider":{},"definitionProvider":true,"documentHighlightProvider":true,
+         "renameProvider":true,"documentFormattingProvider":true}
+        """;
+
+    private static ILspClient FakeServer(bool running = true, string? capabilitiesJson = FullCapabilities)
     {
         var c = Substitute.For<ILspClient>();
         c.IsRunning.Returns(running);
@@ -99,6 +108,28 @@ public class LspClientRegistryTests
 
         edits.Should().HaveCount(1);
         await low.DidNotReceive().RequestFormattingAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FormattingGoesToTheServerThatOFFERSIt_NotTheTopPriorityOne()
+    {
+        // Selection for a pick-one feature is among servers that advertise it. Otherwise a higher-priority
+        // server with no formatter silently blocks a lower one that has it — and the user sees formatting
+        // do nothing, with a perfectly healthy formatter installed.
+        var cannotFormat = FakeServer(capabilitiesJson: """{"hoverProvider":true}""");
+        var canFormat = FakeServer(capabilitiesJson: """{"documentFormattingProvider":true}""");
+        canFormat.RequestFormattingAsync(Vb6Doc, Arg.Any<CancellationToken>())
+            .Returns([new TextEdit(Span(0), "formatted")]);
+
+        var sut = Registry(
+            Registration("cannot", cannotFormat, priority: 10),
+            Registration("can", canFormat));
+        await sut.OpenDocumentAsync(Vb6Doc, "code");
+
+        var edits = await sut.RequestFormattingAsync(Vb6Doc);
+
+        edits.Should().ContainSingle().Which.NewText.Should().Be("formatted");
+        await cannotFormat.DidNotReceive().RequestFormattingAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
     [Fact]
