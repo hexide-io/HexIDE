@@ -9,6 +9,18 @@ public interface ILspClient : IAsyncDisposable
 
     bool IsRunning { get; }
 
+    /// <summary>
+    /// What the server advertised during initialize, exactly as it sent it — or null if nothing is
+    /// connected, or the reply could not be read.
+    ///
+    /// <para>
+    /// Raw rather than reduced to a summary, deliberately. Any summary invented now will be wrong for a
+    /// server not yet met, and the unedited answer is the only honest response to "why is this feature
+    /// unavailable here". It is also what a connections view should show.
+    /// </para>
+    /// </summary>
+    System.Text.Json.JsonElement? AdvertisedCapabilities { get; }
+
     Task StartAsync(CancellationToken cancellationToken = default);
     Task StopAsync();
     Task OpenDocumentAsync(string uri, string text, CancellationToken cancellationToken = default);

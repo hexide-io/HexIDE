@@ -65,40 +65,28 @@ public partial class DISetup
             .Bind<IComponentRegistry>().As(Singleton).To<ComponentRegistry>()
             // LSP
             .Bind<ILspServerLocator>().As(Singleton).To<LspServerLocator>()
-            // Transport selection, in precedence order:
-            //   1. WebSocket, if HEXIDE_LSP_WS_URL (env, wins) or the LspWebSocketUrl setting is set
-            //   2. Named pipe, if HEXIDE_LSP_PIPE is set (with HEXIDE_LSP_PIPE_ROLE = listen|connect,
-            //      default connect — i.e. a server that is already running and owns the pipe)
-            //   3. The stdio subprocess transport
-            // The pipe transport is env-only and deliberately has no setting or Options field: it
-            // exists to point HexIDE at a foreign LSP server, which is a development activity, not a
-            // shipped feature. Give it a setting when there is a backend worth selecting in the UI.
-            .Bind<ILspTransport>().As(Singleton).To(ctx =>
+            // ILspClient is the ROUTER, not one connection. It implements the same interface a single
+            // server does — that interface already takes a URI and hides which server answered — so the
+            // editor and view-models gained plurality without changing a line. ILanguageConnectionRegistry
+            // is the same object seen from the other side: what is attached, and is it working.
+            .Bind<ILspClient>().Bind<ILanguageConnectionRegistry>().As(Singleton).To(ctx =>
             {
                 ctx.Inject<ILspServerLocator>(out var locator);
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
                 ctx.Inject<ISettingsService>(out var settings);
-                var wsUrl = Environment.GetEnvironmentVariable("HEXIDE_LSP_WS_URL");
-                if (string.IsNullOrWhiteSpace(wsUrl)) wsUrl = settings.LspWebSocketUrl;
-                if (!string.IsNullOrWhiteSpace(wsUrl))
-                    return new WebSocketLspTransport(wsUrl, loggerFactory.CreateLogger<WebSocketLspTransport>());
 
-                var pipeName = Environment.GetEnvironmentVariable("HEXIDE_LSP_PIPE");
-                if (!string.IsNullOrWhiteSpace(pipeName))
-                {
-                    var role = string.Equals(
-                        Environment.GetEnvironmentVariable("HEXIDE_LSP_PIPE_ROLE"), "listen",
-                        StringComparison.OrdinalIgnoreCase)
-                        ? NamedPipeRole.Listen
-                        : NamedPipeRole.Connect;
-                    return new NamedPipeLspTransport(
-                        pipeName, role, loggerFactory.CreateLogger<NamedPipeLspTransport>());
-                }
+                // The one registration HexIDE ships with. A second language means a second entry here —
+                // and, before that is worth doing, a way to discover servers on disk.
+                var bundled = new LanguageServerRegistration(
+                    Id: "hexide.vb6",
+                    DisplayName: "HexIDE VB6 Language Server",
+                    LanguageIds: [DocumentLanguage.Vb6],
+                    CreateClient: () => new VBLspClient(
+                        CreateBundledTransport(locator, loggerFactory, settings),
+                        loggerFactory.CreateLogger<VBLspClient>()));
 
-                return (ILspTransport)new StdioProcessLspTransport(
-                    locator, loggerFactory.CreateLogger<StdioProcessLspTransport>());
+                return new LspClientRegistry([bundled], loggerFactory.CreateLogger<LspClientRegistry>());
             })
-            .Bind<ILspClient>().As(Singleton).To<VBLspClient>()
             .Bind<ILoggerFactory>().As(Singleton).To(_ => LoggingSetup.LoggerFactory)
             .Bind<ILogger<TT>>().As(Singleton).To<Logger<TT>>()
             // Personality
@@ -151,6 +139,51 @@ public partial class DISetup
             .Root<TranslationEditorViewModel>("TranslationEditorViewModel")
             .Root<IPersonalityService>("PersonalityService")
             .Root<AddinProjectTemplateService>("AddinProjectTemplateService");
+
+    /// <summary>
+    /// Builds the transport for the bundled VB6 server, in precedence order:
+    /// <list type="number">
+    ///   <item>WebSocket, if <c>HEXIDE_LSP_WS_URL</c> (env, wins) or the <c>LspWebSocketUrl</c> setting is set</item>
+    ///   <item>Named pipe, if <c>HEXIDE_LSP_PIPE</c> is set (<c>HEXIDE_LSP_PIPE_ROLE</c> = listen|connect,
+    ///         default connect — a server already running that owns the pipe)</item>
+    ///   <item>The stdio subprocess transport</item>
+    /// </list>
+    ///
+    /// <para>
+    /// This is a factory rather than a registered service because transport is a property of a <em>server</em>,
+    /// not of the IDE: one server may speak stdio while another accepts only a named pipe, and a single
+    /// global choice cannot describe both. These environment variables therefore configure the bundled
+    /// server specifically, and are not a setting for "the" transport.
+    /// </para>
+    ///
+    /// <para>
+    /// The pipe option stays env-only and deliberately has no Options field: pointing HexIDE at a foreign
+    /// server is a development activity today, and a UI field would mean a new localized label in every
+    /// shipped language pack for a backend nobody can yet select.
+    /// </para>
+    /// </summary>
+    private static ILspTransport CreateBundledTransport(
+        ILspServerLocator locator, ILoggerFactory loggerFactory, ISettingsService settings)
+    {
+        var wsUrl = Environment.GetEnvironmentVariable("HEXIDE_LSP_WS_URL");
+        if (string.IsNullOrWhiteSpace(wsUrl)) wsUrl = settings.LspWebSocketUrl;
+        if (!string.IsNullOrWhiteSpace(wsUrl))
+            return new WebSocketLspTransport(wsUrl, loggerFactory.CreateLogger<WebSocketLspTransport>());
+
+        var pipeName = Environment.GetEnvironmentVariable("HEXIDE_LSP_PIPE");
+        if (!string.IsNullOrWhiteSpace(pipeName))
+        {
+            var role = string.Equals(
+                Environment.GetEnvironmentVariable("HEXIDE_LSP_PIPE_ROLE"), "listen",
+                StringComparison.OrdinalIgnoreCase)
+                ? NamedPipeRole.Listen
+                : NamedPipeRole.Connect;
+            return new NamedPipeLspTransport(
+                pipeName, role, loggerFactory.CreateLogger<NamedPipeLspTransport>());
+        }
+
+        return new StdioProcessLspTransport(locator, loggerFactory.CreateLogger<StdioProcessLspTransport>());
+    }
 
     public static MainViewViewModel DesignTimeRootViewModel => new DISetup().Root;
 }
