@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using System.IO;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using HexIDE.Controls;
 using HexIDE.Events;
@@ -116,6 +118,8 @@ public partial class MainViewViewModel : ObservableObject
     public DelegateCommand AddUserControlCommand { get; }
 
     public DelegateCommand AddPropertyPageCommand { get; }
+
+    public DelegateCommand AddFileCommand { get; }
 
     public ObservableCollection<RecentProjectItemViewModel> RecentProjects { get; } = new();
     public bool HasRecentProjects => RecentProjects.Count > 0;
@@ -818,6 +822,9 @@ public partial class MainViewViewModel : ObservableObject
         AddPropertyPageCommand = new DelegateCommand(
             () => AddPropertyPageAsync().ListenErrors(),
             () => projectManager.StartupProject != null);
+        AddFileCommand = new DelegateCommand(
+            () => AddFileAsync().ListenErrors(),
+            () => projectManager.StartupProject != null);
 
         FocusedProjectUtil.ObservePropertyChanged(x => x.FocusedOrStartupProject)
             .Subscribe(_ =>
@@ -834,6 +841,7 @@ public partial class MainViewViewModel : ObservableObject
                 AddClassModuleCommand.RaiseCanExecutedChanged();
                 AddUserControlCommand.RaiseCanExecutedChanged();
                 AddPropertyPageCommand.RaiseCanExecutedChanged();
+                AddFileCommand.RaiseCanExecutedChanged();
                 OnPropertyChanged(nameof(Title));
                 OnPropertyChanged(nameof(WindowTitle));
                 RaiseDynamicMenuHeaders();
@@ -1155,6 +1163,121 @@ public partial class MainViewViewModel : ObservableObject
         var module = await projectService.AddNewPropertyPage(p, name);
         editorService.EditForm(module.FormPart);
     }
+
+    /// <summary>
+    /// Add File — adopts files that already exist on disk, rather than authoring new ones like the rest of
+    /// the Add family.
+    ///
+    /// <para>
+    /// Multi-select is on because VB6's own Add File dialog allowed it, and because the common shape of
+    /// this gesture is "pull in the three files I already wrote", not one at a time.
+    /// </para>
+    /// </summary>
+    private async Task AddFileAsync()
+    {
+        var p = projectManager.StartupProject!;
+        var files = await windowManager.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = localization.GetString("Str.AddItem.AddFile"),
+            AllowMultiple = true,
+            FileTypeFilter =
+            [
+                new FilePickerFileType("VB6 Files")
+                {
+                    Patterns = ["*.bas", "*.cls", "*.frm", "*.ctl", "*.pag"],
+                },
+                new FilePickerFileType("All Files") { Patterns = ["*.*"] },
+            ],
+        });
+
+        if (files == null) return;
+
+        foreach (var path in files)
+            await AddOneExistingFileAsync(p, path);
+    }
+
+    /// <summary>
+    /// Adds one picked file and opens it in whichever editor suits what it turned out to be.
+    ///
+    /// <para>
+    /// Classification is by extension, and everything unrecognised joins as a related document. That is the
+    /// conservative direction on purpose: a related document is read and written verbatim, so mis-filing a
+    /// VB6 file as one costs the developer a designer they have to add again — while mis-filing prose as
+    /// source hands it to the header writer, which is the corruption in hexide-io/HexIDE#245.
+    /// </para>
+    /// </summary>
+    private async Task AddOneExistingFileAsync(ProjectDefinition project, string path)
+    {
+        // Already carried? Open it instead of adding a second node for the same file. VB6 refused the add
+        // outright; opening reads the gesture as what the developer evidently wants, and cannot produce two
+        // tabs writing to one path.
+        if (TryOpenAlreadyCarried(project, path)) return;
+
+        var kind = ProjectFileClassifier.Classify(path);
+
+        if (kind == ProjectFileKind.Form)
+        {
+            // A .frm that will not parse adds nothing at all, rather than a tree node with no form behind it.
+            if (await projectService.AddExistingForm(project, path) is { } form)
+                editorService.EditForm(form);
+            else
+                Log.Warning("Add File: {Path} could not be parsed as a form; not added", path);
+            return;
+        }
+
+        if (kind.AsModuleKind() is { } moduleKind)
+        {
+            var module = await projectService.AddExistingModule(project, path, moduleKind);
+            // A UserControl or PropertyPage opens in its designer, matching Add User Control; a .bas or
+            // .cls has no designer half, so it opens as code.
+            if (module.FormPart is { } formPart)
+                editorService.EditForm(formPart);
+            else
+                editorService.EditCode(module);
+            return;
+        }
+
+        editorService.EditRelatedDocument(await projectService.AddExistingRelatedDocument(project, path));
+    }
+
+    private bool TryOpenAlreadyCarried(ProjectDefinition project, string path)
+    {
+        foreach (var form in project.Forms)
+            if (SamePath(form.AbsolutePath, path))
+            {
+                editorService.EditForm(form);
+                return true;
+            }
+
+        foreach (var module in project.Modules)
+            if (SamePath(module.AbsolutePath, path))
+            {
+                if (module.FormPart is { } formPart) editorService.EditForm(formPart);
+                else editorService.EditCode(module);
+                return true;
+            }
+
+        foreach (var document in project.RelatedDocuments)
+            if (SamePath(document.AbsolutePath, path))
+            {
+                editorService.EditRelatedDocument(document);
+                return true;
+            }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Whether two paths name the same file. Case-folded on Windows only, matching the rule
+    /// <c>LspDocumentUri</c> applies to <c>file:</c> URIs — the filesystem decides this, not the IDE, and
+    /// assuming either answer everywhere is how a file gets carried twice or refused wrongly.
+    /// </summary>
+    private static bool SamePath(string? carried, string picked) =>
+        carried != null
+     && string.Equals(
+            Path.GetFullPath(carried),
+            Path.GetFullPath(picked),
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
 
     private static string NextName(IEnumerable<string> existing, string prefix)
     {

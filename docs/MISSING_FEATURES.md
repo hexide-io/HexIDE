@@ -94,7 +94,7 @@
 | Add Class Module | — | Done | Creates Class1, Class2… with defaults; opens code editor; saves to project dir |
 | Add User Control | — | Done | Creates UserControl1, UserControl2… with empty designer surface; opens designer; saves .ctl to project dir |
 | Add Property Page | — | Done | Creates PropertyPage1, PropertyPage2… with empty designer surface; opens designer; saves .pag to project dir |
-| Add File… | — | Stub | MenuItem present, no Command binding |
+| Add File… | — | Done | Adopts an existing file: classified by extension, VB6 source joins as a form/module, anything else as a related document. Multi-select; re-picking a carried file re-opens it instead of duplicating |
 | Remove *{file}* | — | Stub | MenuItem present, no Command binding; use project tree context menu |
 | References… | — | Done | Registry enumeration on Windows; Browse button; persisted to .vbp |
 | Components… | — | Stub | Dialog opens; Apply command is a no-op; only lists hardcoded built-in controls |
@@ -193,7 +193,7 @@
 | Button | Status | Notes |
 |---|---|---|
 | Add Project (with flyout: Standard EXE / ActiveX EXE / DLL / Control) | Done | All template types create a project; implicit group created when >1 project loaded |
-| Add Form (with flyout) | Done | Flyout wired: Form, MDI Form (missing — not yet implemented), Module, Class Module, User Control, Property Page, Add File… (disabled) |
+| Add Form (with flyout) | Done | Flyout wired: Form, MDI Form (missing — not yet implemented), Module, Class Module, User Control, Property Page, Add File… |
 | Menu Editor | Done | |
 | Open Project | Done | |
 | Save Project | Done | |

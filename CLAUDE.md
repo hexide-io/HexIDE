@@ -38,6 +38,30 @@ cd LspServer && dotnet build HexIDE.VbLspServer/
 
 CI runs two parallel jobs in `.github/workflows/build.yml`: `build-ide` (working dir `IDE/`) and `build-lsp-server` (working dir `LspServer/`).
 
+### Verify on Linux before pushing — `build-ide` runs on `ubuntu-latest`
+
+The IDE parses and writes Windows-native formats (`.vbp`, `.vbg`, `.frm`), so a whole class of defect is
+**unreachable on a Windows dev box and only fails on CI** (see the two `System.IO.Path` entries under
+Gotchas). Run the suites under WSL rather than discovering it a push later:
+
+```sh
+# Ubuntu + dotnet-sdk-10.0 from Ubuntu's own repos (no Microsoft feed needed on 26.04+)
+wsl -e bash -lc 'sudo apt-get install -y dotnet-sdk-10.0'
+
+# Run against the SAME working tree — no second clone. .NET on Linux uses '/' regardless of the mount.
+wsl -e bash -lc 'cd /mnt/c/Repos/GitHub/HexIDE/HexIDE/IDE && \
+  dotnet test HexIDE.Runtime.Tests/ --artifacts-path /mnt/c/Repos/GitHub/HexIDE/HexIDE/artifacts/linux'
+```
+
+**`--artifacts-path` is required, and it must point INSIDE the repo.** Without it the Linux build stomps
+the Windows `obj/`/`bin/`; pointed outside the repo (e.g. `/tmp`), `GrammarParityTests.RepoRoot()` fails —
+it walks up from `AppContext.BaseDirectory` looking for the directory holding both `IDE/` and `LspServer/`,
+and finds no such ancestor. `artifacts/` is already gitignored.
+
+Expect the run to be slower than Windows (the `/mnt/c` 9p mount), and identical in result — 1423/1423 as of
+this writing. To confirm the setup still has teeth, run a `git worktree` at a commit predating a known
+cross-platform fix and check it fails there.
+
 ## MCP Dev Loop
 
 ## Visual Verification — MANDATORY
@@ -428,6 +452,8 @@ widening visibility to `public` just for a test. When a new test project needs r
 - **ANTLR generated-code naming**: `Antlr4BuildTasks` generates into the **global namespace** (no `namespace` in generated files; no `using` alias needed) and does **not** escape C# keywords the way other ANTLR targets do — e.g. the grammar rule `type` generates a C# method `type()`, not `type_()`. Check the generated code under `obj/` if unsure of a method name.
 - **Two-stage parse**: `VbDiagnosticsProvider` parses SLL-first with `BailErrorStrategy`, then falls back to LL on `ParseCanceledException` (ANTLR's official perf pattern). SLL-only mispredicts VB6's call-vs-array ambiguity (`Foo(1)`) on valid code — never ship SLL-only. A wall-clock backstop (`TryGetDiagnosticsAndTreeWithin`, `ParseBudget` = 2s) abandons pathological parses and keeps prior diagnostics.
 - **`IReadOnlyList<T>`** has no `.Find()`. Use `Array.Find(array, predicate)` or a `foreach` loop.
+- **Never use `System.IO.Path` on a path that came out of, or is going into, a VB6 file.** `.vbp`/`.vbg`/`.frm` are Windows-native formats: their paths are backslash-separated on every host, while `System.IO.Path` answers about the *host* filesystem. **`build-ide` runs on `ubuntu-latest`**, where a backslash is an ordinary filename character — so `Path.GetFileName(@"docs\README.md")` returns the whole string, and `Path.GetRelativePath` emits `docs/README.md` into a file that must say `docs\README.md`. Both are silent (each yields something that still looks like a path) and **both are invisible on a Windows dev box**. Use `SerializedProject.FileNameOf` / `.ToHostPath` / `.ToProjectFilePath`; convert to host separators only where a path is resolved against the filesystem, never for what gets written back.
+- **A test expectation about VB6-file *content* must be a literal backslashed string, never composed with `Path.Combine`.** An expectation built from a host path API follows whichever machine runs it, so it passes on Windows by accident and on Linux *certifies the bug*. Three `SerializationRoundTripTests` cases did exactly this — one of them named `..._PreservedVerbatim` — and read as cover for years. Test **inputs** are different: those are real filesystem paths and are rightly built with `Path.Combine`. That distinction is the whole rule.
 - **MVVM**: use `[Notify]` (PropertyChanged.SourceGenerator) for `INotifyPropertyChanged` properties.
 - **`DrawingContext.DrawImage(image, destRect)` samples the source's *device-independent* extent, not its pixels.** Composing a `RenderTargetBitmap` rendered at `96 * scaling` dpi into another therefore reads only the top-left `1/scaling` of it and stretches that to fill — on a 150% display, correctly placed and sized output with magnified, clipped contents inside. Use the three-argument overload with an explicit **pixel** source rect. Related: render a visual with `RenderTargetBitmap.Render`, which handles scaling correctly, rather than routing it through a drawing context. Both traps are invisible at 100% scaling and invisible headlessly. See `SnapshotComposer`.
 - **Avalonia 12 breaking changes** (already migrated, for reference): `GotFocusEventArgs` → `FocusChangedEventArgs`; `CaptionButtons` (chrome control) removed — replaced with custom `MDICaptionButtons : TemplatedControl`; `GetVisualRoot()` → `TopLevel.GetTopLevel(this)`; `RenderOptions.SetTextRenderingMode` → `TextOptions.SetTextRenderingMode`; `RenderOptions.TextRenderingMode="Alias"` in AXAML → `TextOptions.TextRenderingMode="Alias"`; `<CompiledBinding Path="X" />` inside `MultiBinding` → `<Binding Path="X" />`.
