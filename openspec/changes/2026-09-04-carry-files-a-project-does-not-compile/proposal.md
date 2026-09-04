@@ -70,6 +70,15 @@ asserted that HexIDE writes forward slashes into a VB6 project file. A test that
 is worse than no test, because it reads as cover. One of the three is named `..._PreservedVerbatim`, and
 `Path.Combine` is the opposite of verbatim.
 
+Fixing it where CI was looking was not the end of it. A sweep of the layer found **seven further sites**, and
+the shape of the set is the point: group files carried the entire defect in both directions and had never
+been touched, two member keys derive a name from a raw path when the line carries none, the extension test
+misreads a directory that contains a dot, the object browser labels every library with a whole absolute
+path, the standalone runner cannot find a member in a subdirectory, and a corpus helper normalises the path
+on one line while taking the name unnormalised on the line above. Not one was covered by a test that ran a
+subdirectory through it, which is exactly why all seven were green. The rule is therefore specified here
+rather than left as a fixed bug: what made this expensive was that it was invisible, not that it was subtle.
+
 ## What This Does Not Do
 
 - **No preview pane, and no rendered view of any carried format.** Text in, text out. A preview re-opens the

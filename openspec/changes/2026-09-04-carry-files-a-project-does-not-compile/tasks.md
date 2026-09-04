@@ -50,6 +50,10 @@
 - [x] 4.4 Fix the three round-trip tests whose expectations were composed with a host path API, and which
       therefore certified the defect on the platform where it mattered
 - [x] 4.5 Tests stating the rule directly, not only through a round-trip
+- [x] 4.6 Sweep the rest of the layer for the same shape, and fix the seven further sites it had reached —
+      group-file write and read, the two member keys that derive a name when the line carries none, the
+      extension test, the object browser's library label, the standalone runner, and a corpus test helper.
+      None was covered by a test that ran a subdirectory through it, which is why all seven were green
 
 ## 5. Verification
 
