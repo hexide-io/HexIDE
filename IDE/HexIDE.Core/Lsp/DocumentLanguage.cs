@@ -21,6 +21,14 @@ public static class DocumentLanguage
 {
     public const string Vb6 = "vb6";
 
+    /// <summary>
+    /// The protocol's identifier for Markdown. Present because a VB6 project can carry non-code files
+    /// beside its source, and a README is the commonest of them — not because HexIDE ships a Markdown
+    /// server. Which servers claim a language is a registration concern, kept separate from what a
+    /// document IS.
+    /// </summary>
+    public const string Markdown = "markdown";
+
     // Extensions are the fallback path, for documents that arrive as file:// URIs. Deliberately small: this
     // is not a registry of every language HexIDE might one day open, only the mapping needed to route what
     // it can open today. A server contributing its own languages is what grows this later.
@@ -33,6 +41,9 @@ public static class DocumentLanguage
         [".pag"] = Vb6,
         [".dob"] = Vb6,
         [".dsr"] = Vb6,
+
+        [".md"] = Markdown,
+        [".markdown"] = Markdown,
     };
 
     /// <summary>

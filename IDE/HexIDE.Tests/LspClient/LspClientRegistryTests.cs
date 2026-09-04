@@ -275,7 +275,8 @@ public class LspClientRegistryTests
     [InlineData("VB6://module/M", DocumentLanguage.Vb6)]         // scheme is case-insensitive
     [InlineData("file:///c:/p/Mod.bas", DocumentLanguage.Vb6)]   // extension fallback
     [InlineData("file:///c:/p/Form.FRM", DocumentLanguage.Vb6)]
-    [InlineData("file:///c:/p/README.md", null)]                 // recognised file, no server for it yet
+    [InlineData("file:///c:/p/README.md", DocumentLanguage.Markdown)]
+    [InlineData("file:///c:/p/NOTES.MARKDOWN", DocumentLanguage.Markdown)]  // extension case-insensitive
     [InlineData("file:///c:/p/no-extension", null)]
     [InlineData("custom://thing/x", null)]                       // unknown scheme names no language
     [InlineData("", null)]
