@@ -691,7 +691,11 @@ public class SerializationRoundTripTests
 
         var (vbp, _) = RoundTripProject(p);
 
-        vbp.Should().Contain($"Form={System.IO.Path.Combine("Forms", "Main.frm")}");
+        // Literal backslash, NOT Path.Combine. The input above is a host path and is rightly built with
+        // Path.Combine; this is a .vbp's CONTENT, and a .vbp carries backslashes on every host. Building the
+        // expectation with Path.Combine makes it follow whatever machine runs it — which is how this test
+        // spent its life on Linux CI certifying that HexIDE writes "Forms/Main.frm" into a VB6 project file.
+        vbp.Should().Contain(@"Form=Forms\Main.frm");
     }
 
     [Fact]
@@ -705,7 +709,7 @@ public class SerializationRoundTripTests
 
         var (vbp, _) = RoundTripProject(p);
 
-        vbp.Should().Contain($"Module=Helpers; {System.IO.Path.Combine("Modules", "ui", "Helpers.bas")}");
+        vbp.Should().Contain(@"Module=Helpers; Modules\ui\Helpers.bas");
     }
 
     [Fact]
@@ -722,10 +726,12 @@ public class SerializationRoundTripTests
 
         var (_, deserialized) = RoundTripProject(p);
 
+        // "Verbatim" is the claim this test's name makes, and Path.Combine is the opposite of verbatim:
+        // these collections hold the RAW value as it sits in the .vbp, which is backslashed everywhere.
         deserialized.RelativeFormPaths.Should().ContainSingle()
-            .Which.Should().Be(System.IO.Path.Combine("Forms", "Main.frm"));
+            .Which.Should().Be(@"Forms\Main.frm");
         deserialized.RelativeModulePaths.Should().ContainSingle()
-            .Which.Path.Should().Be(System.IO.Path.Combine("src", "Util.cls"));
+            .Which.Path.Should().Be(@"src\Util.cls");
     }
 
     [Fact]
