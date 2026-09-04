@@ -1,0 +1,51 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
+             xmlns:input="clr-namespace:Avalonia.Labs.Input"
+             xmlns:vb="clr-namespace:HexIDE"
+             xmlns:viewModels="clr-namespace:HexIDE.Forms.ViewModels"
+             xmlns:avaloniaEdit="https://github.com/avaloniaui/avaloniaedit"
+             xmlns:classic="clr-namespace:Classic.Avalonia.Theme;assembly=Classic.Avalonia.Theme"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="400"
+             x:DataType="viewModels:RelatedDocumentEditorViewModel"
+             x:Class="HexIDE.Forms.Views.RelatedDocumentEditorView">
+    <input:CommandManager.CommandBindings>
+        <!-- Bound to this editor's OWN save. The VB6 code editor binds Save to the form path for every
+             document it hosts, which is why Ctrl+S does nothing in a .bas today (#244). -->
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.SaveCommand}"
+                              ExecutingCommand="{CompiledBinding Save}" />
+    </input:CommandManager.CommandBindings>
+
+    <DockPanel>
+        <!-- Shown only when the file could not be read. An editor that silently opens empty on a failed
+             read invites the developer to type into it and save over whatever was actually there. -->
+        <Border DockPanel.Dock="Top"
+                IsVisible="{CompiledBinding !!LoadError}"
+                Background="{DynamicResource WarningBannerBackgroundBrush}"
+                BorderBrush="{DynamicResource WarningBannerBorderBrush}"
+                BorderThickness="0,0,0,1"
+                Padding="8,4">
+            <TextBlock Text="{CompiledBinding LoadError}"
+                       Foreground="{DynamicResource WarningBannerForegroundBrush}"
+                       TextWrapping="Wrap" />
+        </Border>
+
+        <!-- Foreground is set explicitly: unhighlighted text otherwise falls back to a default that is
+             dark-on-dark under a dark theme, which left the body of a Markdown file barely legible. -->
+        <classic:ClassicBorderDecorator BorderStyle="Sunken" BorderThickness="2">
+            <avaloniaEdit:TextEditor Name="TextEditor"
+                                     IsReadOnly="{CompiledBinding !!LoadError}"
+                                     FontFamily="Consolas,Courier New,Monospace"
+                                     FontSize="13"
+                                     ShowLineNumbers="True"
+                                     Background="{DynamicResource {x:Static commonControls:SystemColors.WindowBrushKey}}"
+                                     Foreground="{DynamicResource {x:Static commonControls:SystemColors.WindowTextBrushKey}}"
+                                     Document="{CompiledBinding Document}"
+                                     HorizontalScrollBarVisibility="Auto"
+                                     VerticalScrollBarVisibility="Visible"
+                                     Padding="10,2,0,2" />
+        </classic:ClassicBorderDecorator>
+    </DockPanel>
+</UserControl>

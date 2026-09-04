@@ -82,6 +82,25 @@ xmlns:HexIDE="clr-namespace:HexIDE"
                                    Opacity="0.6" Margin="6,0,0,0" />
                     </StackPanel>
                 </TreeDataTemplate>
+                <!-- A file the project carries but does not compile. A generic icon rather than a code
+                     one, because presenting a README as source is the confusion this whole shape exists
+                     to prevent. -->
+                <TreeDataTemplate x:DataType="tools:RelatedDocViewModel">
+                    <StackPanel Orientation="Horizontal">
+                        <Path Data="{StaticResource Geo.Generic}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="16" Height="16" />
+                        <TextBlock>
+                            <TextBlock.Text>
+                                <MultiBinding Converter="{StaticResource StringFormatConverter}">
+                                    <Binding Path="Name" />
+                                    <Binding Path="File" />
+                                </MultiBinding>
+                            </TextBlock.Text>
+                        </TextBlock>
+                        <TextBlock Text="{CompiledBinding LocationCaption}"
+                                   IsVisible="{CompiledBinding !!LocationCaption}"
+                                   Opacity="0.6" Margin="6,0,0,0" />
+                    </StackPanel>
+                </TreeDataTemplate>
                 <TreeDataTemplate x:DataType="tools:ModuleViewModel">
                     <StackPanel Orientation="Horizontal">
                         <Path Data="{StaticResource Geo.Code}" Fill="{DynamicResource IconInk}" Stretch="Uniform" Width="16" Height="16" />

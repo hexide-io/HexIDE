@@ -10,14 +10,17 @@ public class EditorService : IEditorService
 {
     private readonly IDocumentDockService documentDockService;
     private readonly Func<CodeEditorViewModel> codeEditorViewModelFactory;
+    private readonly Func<RelatedDocumentEditorViewModel> relatedDocumentEditorViewModelFactory;
     private readonly Func<FormEditViewModel> formEditViewModelFactory;
 
     public EditorService(IDocumentDockService documentDockService,
         Func<CodeEditorViewModel> codeEditorViewModelFactory,
+        Func<RelatedDocumentEditorViewModel> relatedDocumentEditorViewModelFactory,
         Func<FormEditViewModel> formEditViewModelFactory)
     {
         this.documentDockService = documentDockService;
         this.codeEditorViewModelFactory = codeEditorViewModelFactory;
+        this.relatedDocumentEditorViewModelFactory = relatedDocumentEditorViewModelFactory;
         this.formEditViewModelFactory = formEditViewModelFactory;
     }
 
@@ -32,6 +35,26 @@ public class EditorService : IEditorService
         }
         Log.Debug("EditorService: EditForm — opening new form editor");
         documentDockService.OpenDocument(formEditViewModelFactory().Initialize(form));
+    }
+
+    /// <summary>
+    /// Opens a file the project carries but does not compile, in the plain-text editor.
+    ///
+    /// <para>
+    /// A separate door from <see cref="EditCode(ModuleDefinition)"/> on purpose: routing a README through
+    /// the VB6 code editor would hand it to machinery that assumes a FormDefinition or ModuleDefinition,
+    /// a VB6 language server and a faithfulness gate. None of those describe a text file.
+    /// </para>
+    /// </summary>
+    public void EditRelatedDocument(RelatedDocumentDefinition? relatedDocument)
+    {
+        if (relatedDocument == null) return;
+
+        Log.Debug("EditorService: EditRelatedDocument({Name})", relatedDocument.Name);
+        if (documentDockService.TryActivate<RelatedDocumentEditorViewModel>(vm => vm.RelatedDocument == relatedDocument))
+            return;
+
+        documentDockService.OpenDocument(relatedDocumentEditorViewModelFactory().Initialize(relatedDocument));
     }
 
     public void EditCode(FormDefinition? form)
