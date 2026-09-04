@@ -128,6 +128,58 @@ public class ServerCapabilityHandshakeTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task AFeatureTheServerDidNotAdvertiseIsNotEvenRequested()
+    {
+        // The stub WOULD answer hover. Advertising nothing must stop us asking — so a null here proves the
+        // request was gated, not that the server had nothing to say.
+        var sut = ClientTalkingToServerAdvertising("{}");
+        await sut.StartAsync();
+
+        var hover = await sut.RequestHoverAsync("vb6://module/M", new Position(0, 0));
+
+        hover.Should().BeNull("the server advertised no hoverProvider, so it must not be asked");
+    }
+
+    [Fact]
+    public async Task AFeatureTheServerDidAdvertiseIsRequestedNormally()
+    {
+        // The control for the test above. Without it, "returns null" would pass even if gating had broken
+        // into refusing everything.
+        var sut = ClientTalkingToServerAdvertising("""{"hoverProvider":true}""");
+        await sut.StartAsync();
+
+        var hover = await sut.RequestHoverAsync("vb6://module/M", new Position(0, 0));
+
+        hover.Should().NotBeNull();
+        hover!.Contents.Value.Should().Be("stub hover");
+    }
+
+    [Fact]
+    public async Task AnAdvertisedCapabilityInItsOptionsFormStillPermitsTheRequest()
+    {
+        // Gating reads a capability in either legal shape, or #238 would come back as "supported feature
+        // silently refused" instead of "handshake fails".
+        var sut = ClientTalkingToServerAdvertising("""{"hoverProvider":{"workDoneProgress":false}}""");
+        await sut.StartAsync();
+
+        (await sut.RequestHoverAsync("vb6://module/M", new Position(0, 0))).Should().NotBeNull();
+    }
+
+    [Theory]
+    // A bare sync kind, and the object form, both mean "send me changes".
+    [InlineData("""{"textDocumentSync":1}""", true)]
+    [InlineData("""{"textDocumentSync":{"openClose":true,"change":1}}""", true)]
+    // Kind 0 means "send me nothing" — the one place an object must NOT be read as yes.
+    [InlineData("""{"textDocumentSync":{"openClose":true,"change":0}}""", false)]
+    [InlineData("{}", false)]
+    public void DocumentSyncIsGatedOnTheSyncKindRatherThanOnPresence(string capsJson, bool expected)
+    {
+        var caps = JsonDocument.Parse(capsJson).RootElement;
+
+        ServerCapabilities.AcceptsChanges(caps).Should().Be(expected);
+    }
+
+    [Fact]
     public async Task AServerThatFailsTheHandshakeLeavesTheClientDisabled()
     {
         // THE control, and it has to be this shape. Every assertion above is "still running", which keeps
@@ -160,6 +212,10 @@ public class ServerCapabilityHandshakeTests : IAsyncDisposable
 
         [JsonRpcMethod("initialized")]
         public void Initialized(JsonElement _) { }
+
+        [JsonRpcMethod("textDocument/hover", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement Hover(JsonElement _) =>
+            JsonDocument.Parse("""{"contents":{"kind":"plaintext","value":"stub hover"}}""").RootElement.Clone();
     }
 
     /// <summary>A server that refuses to initialize — the negative case for the control above.</summary>

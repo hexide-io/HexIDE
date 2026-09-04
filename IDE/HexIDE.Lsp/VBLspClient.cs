@@ -107,6 +107,7 @@ public sealed class VBLspClient : ILspClient
     {
         _initialized = false;
         _capabilities = null;
+        _warnedCapabilities.Clear();
         if (_stopping) return;
         _logger.LogWarning("VB LSP connection lost: {Reason} ({Description})", e.Reason, e.Description);
         if (!_transport.CanReconnect) return;
@@ -241,7 +242,7 @@ public sealed class VBLspClient : ILspClient
     {
         _openDocuments[uri] = new TrackedDocument(1, text);
         var rpc = _rpc;
-        if (rpc is null || !_initialized) return;
+        if (rpc is null || !_initialized || !ServerCapabilities.AcceptsOpenClose(_capabilities?.Value)) return;
         var p = new DidOpenTextDocumentParams(
             new TextDocumentItem(uri, DocumentLanguage.Of(uri) ?? "plaintext", 1, text));
         try { await rpc.NotifyWithParameterObjectAsync("textDocument/didOpen", p); }
@@ -252,7 +253,7 @@ public sealed class VBLspClient : ILspClient
     {
         _openDocuments[uri] = new TrackedDocument(version, text);
         var rpc = _rpc;
-        if (rpc is null || !_initialized) return;
+        if (rpc is null || !_initialized || !ServerCapabilities.AcceptsChanges(_capabilities?.Value)) return;
         var p = new DidChangeTextDocumentParams(
             new VersionedTextDocumentIdentifier(uri, version),
             [new TextDocumentContentChangeEvent(text)]);
@@ -264,7 +265,7 @@ public sealed class VBLspClient : ILspClient
     {
         _openDocuments.TryRemove(uri, out _);
         var rpc = _rpc;
-        if (rpc is null || !_initialized) return;
+        if (rpc is null || !_initialized || !ServerCapabilities.AcceptsOpenClose(_capabilities?.Value)) return;
         var p = new DidCloseTextDocumentParams(new TextDocumentIdentifier(uri));
         try { await rpc.NotifyWithParameterObjectAsync("textDocument/didClose", p); }
         catch (Exception ex) { _logger.LogDebug(ex, "textDocument/didClose failed"); }
@@ -272,7 +273,7 @@ public sealed class VBLspClient : ILspClient
 
     public async Task<HoverResult?> RequestHoverAsync(string uri, Position position, CancellationToken cancellationToken = default)
     {
-        if (_rpc is null || !_initialized) return null;
+        if (_rpc is null || !_initialized || !CanServe("hoverProvider")) return null;
         var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
         try
         {
@@ -288,7 +289,7 @@ public sealed class VBLspClient : ILspClient
 
     public async Task<DocumentSymbol[]> RequestDocumentSymbolsAsync(string uri, CancellationToken cancellationToken = default)
     {
-        if (_rpc is null || !_initialized) return [];
+        if (_rpc is null || !_initialized || !CanServe("documentSymbolProvider")) return [];
         var p = new DocumentSymbolParams(new TextDocumentIdentifier(uri));
         try
         {
@@ -304,7 +305,7 @@ public sealed class VBLspClient : ILspClient
 
     public async Task<FoldingRange[]> RequestFoldingRangesAsync(string uri, CancellationToken cancellationToken = default)
     {
-        if (_rpc is null || !_initialized) return [];
+        if (_rpc is null || !_initialized || !CanServe("foldingRangeProvider")) return [];
         var p = new FoldingRangeParams(new TextDocumentIdentifier(uri));
         try
         {
@@ -320,7 +321,7 @@ public sealed class VBLspClient : ILspClient
 
     public async Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position, CancellationToken cancellationToken = default)
     {
-        if (_rpc is null || !_initialized) return [];
+        if (_rpc is null || !_initialized || !CanServe("completionProvider")) return [];
         var p = new CompletionParams(new TextDocumentIdentifier(uri), position);
         try
         {
@@ -337,7 +338,7 @@ public sealed class VBLspClient : ILspClient
 
     public async Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default)
     {
-        if (_rpc is null || !_initialized) return null;
+        if (_rpc is null || !_initialized || !CanServe("signatureHelpProvider")) return null;
         var p = new SignatureHelpParams(new TextDocumentIdentifier(uri), position);
         try
         {
@@ -353,7 +354,7 @@ public sealed class VBLspClient : ILspClient
 
     public async Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken cancellationToken = default)
     {
-        if (_rpc is null || !_initialized) return null;
+        if (_rpc is null || !_initialized || !CanServe("definitionProvider")) return null;
         var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
         try
         {
@@ -369,7 +370,7 @@ public sealed class VBLspClient : ILspClient
 
     public async Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(string uri, Position position, CancellationToken cancellationToken = default)
     {
-        if (_rpc is null || !_initialized) return null;
+        if (_rpc is null || !_initialized || !CanServe("documentHighlightProvider")) return null;
         var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
         try
         {
@@ -385,7 +386,7 @@ public sealed class VBLspClient : ILspClient
 
     public async Task<WorkspaceEdit?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken cancellationToken = default)
     {
-        if (_rpc is null || !_initialized) return null;
+        if (_rpc is null || !_initialized || !CanServe("renameProvider")) return null;
         var p = new RenameParams(new TextDocumentIdentifier(uri), position, newName);
         try
         {
@@ -401,7 +402,7 @@ public sealed class VBLspClient : ILspClient
 
     public async Task<TextEdit[]> RequestFormattingAsync(string uri, CancellationToken cancellationToken = default)
     {
-        if (_rpc is null || !_initialized) return [];
+        if (_rpc is null || !_initialized || !CanServe("documentFormattingProvider")) return [];
         var p = new DocumentFormattingParams(
             new TextDocumentIdentifier(uri),
             new FormattingOptions(4, true));
@@ -419,7 +420,7 @@ public sealed class VBLspClient : ILspClient
 
     public async Task<VbaBuiltinSymbol[]> RequestBuiltinSymbolsAsync(CancellationToken cancellationToken = default)
     {
-        if (_rpc is null || !_initialized) return [];
+        if (_rpc is null || !_initialized || !CanServeExperimental("vbBuiltinSymbols")) return [];
         try
         {
             return await _rpc.InvokeWithParameterObjectAsync<VbaBuiltinSymbol[]>(
@@ -456,6 +457,7 @@ public sealed class VBLspClient : ILspClient
         await _transport.DisposeAsync();
         _initialized = false;
         _capabilities = null;
+        _warnedCapabilities.Clear();
     }
 
     public async ValueTask DisposeAsync() => await StopAsync();
@@ -464,6 +466,7 @@ public sealed class VBLspClient : ILspClient
     {
         _initialized = false;
         _capabilities = null;
+        _warnedCapabilities.Clear();
     }
 
     internal void RaisePublishDiagnostics(PublishDiagnosticsParams p) =>
@@ -488,4 +491,55 @@ public sealed class VBLspClient : ILspClient
             _client.RaisePublishDiagnostics(p);
         }
     }
+
+    /// <summary>
+    /// True when the connected server advertised this capability. Warns once when it did not.
+    ///
+    /// <para>
+    /// A gated-out feature returns exactly what an absent server returns, which is why gating needed no
+    /// change in any caller: <c>lsp-client</c> already requires that language features "degrade rather than
+    /// fail", and that degradation path was already built and tested.
+    /// </para>
+    /// </summary>
+    private bool CanServe(string capabilityName)
+    {
+        if (ServerCapabilities.Supports(_capabilities?.Value, capabilityName)) return true;
+        WarnUnavailableOnce(capabilityName);
+        return false;
+    }
+
+    private bool CanServeExperimental(string capabilityName)
+    {
+        if (ServerCapabilities.SupportsExperimental(_capabilities?.Value, capabilityName)) return true;
+        WarnUnavailableOnce("experimental." + capabilityName);
+        return false;
+    }
+
+    /// <summary>
+    /// Says once, at warning, that a wanted capability was not advertised.
+    ///
+    /// <para>
+    /// This is the difference between an honest refusal and a silent blackout, and it earns its keep on one
+    /// specific failure: the server is resolved by probing the output directory and several parents, so an
+    /// older binary sitting in one of them is found, advertises little or nothing, and every feature quietly
+    /// stops. Without a line naming what was missing, that is indistinguishable from "the IDE is broken".
+    /// </para>
+    ///
+    /// <para>
+    /// Once per capability per connection, because these are asked on every keystroke — a per-request log
+    /// would bury the thing it is trying to surface. The set clears with the connection, so a reconnect to a
+    /// different server reports afresh.
+    /// </para>
+    /// </summary>
+    private void WarnUnavailableOnce(string capabilityName)
+    {
+        if (!_warnedCapabilities.TryAdd(capabilityName, 0)) return;
+        _logger.LogWarning(
+            "The connected language server did not advertise '{Capability}'; that feature is unavailable. "
+          + "If it should be supported, check which server binary was resolved — a stale one advertises "
+          + "little and disables features silently.",
+            capabilityName);
+    }
+
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _warnedCapabilities = new();
 }
