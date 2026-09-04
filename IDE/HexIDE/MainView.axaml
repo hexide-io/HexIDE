@@ -243,7 +243,7 @@
                             <MenuItem Header="{DynamicResource Str.Menu.Project.AddClassModule}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addclassmodule}" Command="{CompiledBinding AddClassModuleCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Project.AddUserControl}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addusercontrol}" Command="{CompiledBinding AddUserControlCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.Project.AddPropertyPage}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addpropertypage}" Command="{CompiledBinding AddPropertyPageCommand}" />
-                            <MenuItem Header="{DynamicResource Str.Menu.Project.AddFile}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Project.AddFile}" Command="{CompiledBinding AddFileCommand}" />
                             <Separator />
                             <MenuItem Header="{CompiledBinding RemoveFormMenuHeader}" />
                             <Separator />
@@ -404,7 +404,7 @@
                                     <MenuItem Header="{DynamicResource Str.AddItem.UserControl}"       Command="{CompiledBinding AddUserControlCommand}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addusercontrol}" />
                                     <MenuItem Header="{DynamicResource Str.AddItem.PropertyPage}"      Command="{CompiledBinding AddPropertyPageCommand}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Addpropertypage}" />
                                     <Separator />
-                                    <MenuItem Header="{DynamicResource Str.AddItem.AddFile}"        Command="{x:Static vb:ApplicationCommands.DisabledCommand}" />
+                                    <MenuItem Header="{DynamicResource Str.AddItem.AddFile}"        Command="{CompiledBinding AddFileCommand}" />
                                 </MenuFlyout>
                             </Button.Flyout>
                             <Path Data="{StaticResource Geo.Addform}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
