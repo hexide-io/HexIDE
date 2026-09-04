@@ -146,10 +146,10 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     // Only the top-priority claimant is asked; a second server's edits are not a fallback, they are a
     // different opinion about the same text.
     public Task<WorkspaceEdit?> RequestRenameAsync(string uri, Position position, string newName, CancellationToken ct = default) =>
-        SoleClaimantFor(uri) is { } c ? c.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<WorkspaceEdit?>(null);
+        SoleClaimantFor(uri, "renameProvider") is { } c ? c.RequestRenameAsync(uri, position, newName, ct) : Task.FromResult<WorkspaceEdit?>(null);
 
     public Task<TextEdit[]> RequestFormattingAsync(string uri, CancellationToken ct = default) =>
-        SoleClaimantFor(uri) is { } c ? c.RequestFormattingAsync(uri, ct) : Task.FromResult<TextEdit[]>([]);
+        SoleClaimantFor(uri, "documentFormattingProvider") is { } c ? c.RequestFormattingAsync(uri, ct) : Task.FromResult<TextEdit[]>([]);
 
     /// <summary>
     /// Routed by advertised capability rather than by language, because it has no document to route by.
@@ -199,7 +199,15 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     private IEnumerable<ILspClient> StartedClaimantsFor(string? uri) =>
         ClaimantsFor(uri).Select(e => e.Client).Where(c => c is not null).Select(c => c!);
 
-    private ILspClient? SoleClaimantFor(string? uri) => StartedClaimantsFor(uri).FirstOrDefault();
+    /// <summary>
+    /// The one server chosen for a feature that cannot merge two answers. Selection is among claimants that
+    /// actually ADVERTISE the feature, not simply the top-priority claimant: otherwise a higher-priority
+    /// server with no formatter would silently block a lower one that has it. That is also how the
+    /// established editor ecosystem behaves — its formatter conflict prompt lists only formatters.
+    /// </summary>
+    private ILspClient? SoleClaimantFor(string? uri, string capability) =>
+        StartedClaimantsFor(uri)
+            .FirstOrDefault(c => ServerCapabilities.Supports(c.AdvertisedCapabilities, capability));
 
     private async Task<T[]> GatherAsync<T>(string uri, Func<ILspClient, Task<T[]>> call)
     {
