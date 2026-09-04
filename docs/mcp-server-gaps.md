@@ -582,3 +582,68 @@ returns). The second is probably better: paths are already the addressing scheme
 server, and it would work for every current and future node kind rather than needing a provider per
 control. A narrower `open_file` that accepts any project member would help too, but would not fix
 selection, which is what several context-menu commands key on.
+
+## A MenuFlyout attached to a toolbar Button cannot be opened, and its items are invisible
+
+**Symptom.** The Add Item toolbar button (`Standard.AddForm`) carries a `MenuFlyout` holding eight
+Add commands. None of it is reachable:
+
+- `interact invoke` on the button reports success and does nothing visible — it fires the button's own
+  invoke, which is not what opens a flyout.
+- `interact expand` fails: the button advertises only an `invoke` provider, no `expandCollapse`.
+- `press_key Space` on the button reports success and does not open it either.
+- `dump_visual_tree(root=<button>)` returns the button with `children: []`, both with
+  `interactiveOnly: false` and at full depth — the flyout's items are simply not in that subtree.
+- A synthetic Win32 click at the button's rect (DPI-corrected, see below) did not open it either.
+
+**Consequence.** Eight toolbar commands cannot be verified through MCP at all — not driven, and not even
+*observed* to be enabled or disabled. Note the contrast that makes this easy to misdiagnose: menu-bar
+dropdowns work fine (`interact expand` on `MenuItem[Project]` opens it, and its items appear in the tree and
+in `take_snapshot`), so the obvious inference is that "menus work" — they do, but only the menu bar's.
+
+**Workaround.** Verify the command, not the menu item. `inspect_element` on the button lists the
+DataContext's members, so the presence of the bound command (e.g. `AddFileCommand`) is confirmable there,
+and the same command can be driven end-to-end through its menu-bar twin where one exists. Say explicitly
+that the toolbar entry was verified structurally rather than driven.
+
+**Suggested fix.** Give a control that owns a `FlyoutBase` an `expandCollapse` provider, so `interact
+expand` opens it and the popup's contents then become dumpable; failing that, an `open_flyout(target)`
+action. Whichever route, the flyout's items need to reach `dump_visual_tree` — a popup that opens but
+cannot be walked only moves the problem.
+
+## take_snapshot renders DIPs while Win32 coordinates are physical pixels
+
+**Symptom.** Driving a synthetic mouse click from a `boundingRect` needs a scale conversion that nothing in
+the tool output mentions. On the machine this was hit on, `GetClientRect` reported 987 × 560 physical pixels
+while `take_snapshot` returned a 1481 × 840 image and `inspect_element` reported bounds in that same 1481-wide
+space — a factor of 0.666. Clicking at the raw `boundingRect` coordinates lands roughly 50% off, far enough
+to hit a different control and look like "the click did nothing".
+
+**Consequence.** Any fallback that leaves the MCP surface for real input — the only route left when a
+control has no usable provider — silently targets the wrong place, and the resulting no-op is easy to
+misread as the feature being broken.
+
+**Workaround.** Derive the factor before clicking: `GetClientRect` width ÷ snapshot image width, then
+multiply the DIP coordinate by it and pass through `ClientToScreen`. Do not assume 1.0, and do not assume
+the usual Windows 1.25/1.5 either — measure it.
+
+**Suggested fix.** Report the scale explicitly. `take_snapshot` returning the render scale alongside the
+path (and `inspect_element` naming the space its `boundingRect` is in) would remove the guesswork; the
+values are already known to the server.
+
+## get_project_info omits every project member that is not a form or module
+
+**Symptom.** `get_project_info` returns `forms` and `modules` only. A project carrying a related document (a
+file it does not compile) reports it nowhere, so after adding one the tool's output is byte-identical to
+before.
+
+**Consequence.** The obvious check after an add — call `get_project_info` and see the new member — silently
+answers "nothing happened" for a whole member kind. It reads as a failed feature rather than a blind tool.
+
+**Workaround.** Confirm through the Project Explorer instead: `take_snapshot` shows the node and its icon,
+and `dump_visual_tree` reports the node's `dataContextType`, which distinguishes a related document from a
+module.
+
+**Suggested fix.** Add a `relatedDocuments` array, and prefer a shape that will not need this edit again the
+next time a member kind is added — a single `members` array of `{name, kind, path}` would cover forms,
+modules, related documents and whatever follows.

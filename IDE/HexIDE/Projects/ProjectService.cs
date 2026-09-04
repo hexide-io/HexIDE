@@ -965,6 +965,100 @@ public class ProjectService : IProjectService
         return Task.FromResult(module);
     }
 
+    public async Task<FormDefinition?> AddExistingForm(ProjectDefinition project, string absolutePath)
+    {
+        var (source, bytes) = await Vb6TextFile.ReadWithBytesAsync(absolutePath);
+
+        // Form text before companion: the .frm's cited offsets partition the .frx.
+        var blobs = await LoadCompanionBlobs(absolutePath, source);
+        var form = new FormDeserializer().Deserialize(
+            project, source, new DeserializeErrorSink(), blobs, BuildUserControlRegistry(project));
+        if (form == null)
+            return null;
+
+        // Recorded only once the parse succeeded. A baseline for a form that was never added would leave
+        // the dirty check answering about a file the project does not carry.
+        baselineStore.Record(absolutePath, bytes);
+        form.AbsolutePath = absolutePath;
+        project.AddForm(form);
+        return form;
+    }
+
+    public async Task<ModuleDefinition> AddExistingModule(
+        ProjectDefinition project, string absolutePath, ModuleKind kind)
+    {
+        var (source, bytes) = await Vb6TextFile.ReadWithBytesAsync(absolutePath);
+        baselineStore.Record(absolutePath, bytes);
+
+        // .bas/.cls: strip the VB6 header so Code is the body only (a no-op for .ctl/.pag).
+        var (preservedHeader, body) = ModuleFileFormat.SplitHeader(source, kind);
+        var module = new ModuleDefinition(project, ModuleNameFor(absolutePath, preservedHeader), kind)
+        {
+            AbsolutePath = absolutePath,
+        };
+        module.RecordOriginalHeader(preservedHeader);
+        module.UpdateCode(body);
+
+        // .ctl and .pag carry a designer half, and this is the same call the load path makes — which is
+        // what stops an adopted UserControl being text-only while a loaded one opens in the designer.
+        if (kind is ModuleKind.UserControl or ModuleKind.PropertyPage)
+        {
+            var blobs = await LoadCompanionBlobs(absolutePath, source);
+            var formPart = new FormDeserializer().Deserialize(project, source, new DeserializeErrorSink(), blobs);
+            if (formPart != null)
+            {
+                formPart.AbsolutePath = absolutePath;
+                module.UpdateFormPart(formPart);
+                // SplitHeader is a no-op for .ctl/.pag, so Code still holds the whole file — replace it
+                // with the body only, or the next save emits the Begin..End header twice.
+                module.UpdateCode(formPart.Code);
+            }
+        }
+
+        project.AddModule(module);
+        return module;
+    }
+
+    public Task<RelatedDocumentDefinition> AddExistingRelatedDocument(
+        ProjectDefinition project, string absolutePath)
+    {
+        // No OriginalItemLine. This document is joining the project now, so there is no line to preserve
+        // and RelatedDoc= is exactly what should be written. The preserved-line case belongs to entries
+        // RECLASSIFIED on read, where rewriting would edit the .vbp on the strength of an inference.
+        var document = new RelatedDocumentDefinition(project, Path.GetFileName(absolutePath), absolutePath);
+        project.AddRelatedDocument(document);
+        return Task.FromResult(document);
+    }
+
+    /// <summary>
+    /// The module's own name, read out of its VB6 header, falling back to the filename.
+    ///
+    /// <para>
+    /// A .vbp's <c>Module=Name; path</c> field and the file's <c>Attribute VB_Name</c> can disagree, and
+    /// VB_Name is the one that decides the module's identity to code that qualifies a call through it.
+    /// Taking the filename would silently rename an adopted module, and the rename would only surface
+    /// later, as something failing to resolve.
+    /// </para>
+    /// </summary>
+    private static string ModuleNameFor(string absolutePath, string? header)
+    {
+        if (header is not null)
+        {
+            foreach (var line in header.Split('\n'))
+            {
+                var trimmed = line.TrimStart();
+                if (!trimmed.StartsWith("Attribute VB_Name", StringComparison.OrdinalIgnoreCase))
+                    continue;
+                var open = trimmed.IndexOf('"');
+                var close = open >= 0 ? trimmed.IndexOf('"', open + 1) : -1;
+                if (close > open)
+                    return trimmed[(open + 1)..close];
+            }
+        }
+
+        return Path.GetFileNameWithoutExtension(absolutePath);
+    }
+
     private static string ProjectFilesDirectory(ProjectDefinition project) =>
         project.AbsolutePath is { } p
             ? Path.GetDirectoryName(p)!

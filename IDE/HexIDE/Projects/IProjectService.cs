@@ -18,6 +18,30 @@ public interface IProjectService
     Task<ModuleDefinition> AddNewModule(ProjectDefinition project, string name, ModuleKind kind);
     Task<ModuleDefinition> AddNewUserControl(ProjectDefinition project, string name);
     Task<ModuleDefinition> AddNewPropertyPage(ProjectDefinition project, string name);
+
+    /// <summary>
+    /// Adds a <c>.frm</c> that already exists on disk. Returns null if it could not be parsed, in which
+    /// case nothing was added — a form HexIDE cannot read is not one it should pretend to carry.
+    /// </summary>
+    Task<FormDefinition?> AddExistingForm(ProjectDefinition project, string absolutePath);
+
+    /// <summary>
+    /// Adds a module file that already exists on disk, as <paramref name="kind"/>.
+    ///
+    /// <para>
+    /// The counterpart to <see cref="AddNewModule"/>: that one authors a file and then adds it, this one
+    /// adopts a file the developer already has. It reads through the very same path project load uses, so
+    /// an adopted module is indistinguishable from one that arrived in the <c>.vbp</c> — same preserved
+    /// header, same on-disk baseline, same companion blob handling.
+    /// </para>
+    /// </summary>
+    Task<ModuleDefinition> AddExistingModule(ProjectDefinition project, string absolutePath, ModuleKind kind);
+
+    /// <summary>
+    /// Adds a file the project will carry but never compile. Nothing is read or written — a related
+    /// document is a path and a name, and the editor reads it on demand.
+    /// </summary>
+    Task<RelatedDocumentDefinition> AddExistingRelatedDocument(ProjectDefinition project, string absolutePath);
     Task<bool> SaveForm(FormDefinition form, bool saveAs);
     Task<bool> SaveModule(ModuleDefinition module, bool saveAs);
 
