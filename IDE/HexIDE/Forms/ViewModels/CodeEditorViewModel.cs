@@ -207,8 +207,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
 
         PopulateObjectNames();
 
-        if (lspClient.IsRunning)
-            lspClient.OpenDocumentAsync(GetDocumentUri(), Document.Text).ListenErrors();
+        // NOT gated on IsRunning, and that is a fix rather than an omission. OpenDocumentAsync tracks the
+        // document before it checks whether a server is up, and the client replays every tracked document
+        // after a (re)connect — so gating here meant a file opened while the server was down was never
+        // tracked and never replayed. It is also what makes lazy start possible: opening a document is the
+        // trigger that starts the server claiming its language, so a gate would leave nothing to start it.
+        lspClient.OpenDocumentAsync(GetDocumentUri(), Document.Text).ListenErrors();
 
         Document.TextChanged += OnTextChanged;
         Title = ComputeTitle();
@@ -240,8 +244,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
         // back to "(General)" alone, which is what this used to hardcode.
         PopulateObjectNames();
 
-        if (lspClient.IsRunning)
-            lspClient.OpenDocumentAsync(GetDocumentUri(), Document.Text).ListenErrors();
+        // NOT gated on IsRunning, and that is a fix rather than an omission. OpenDocumentAsync tracks the
+        // document before it checks whether a server is up, and the client replays every tracked document
+        // after a (re)connect — so gating here meant a file opened while the server was down was never
+        // tracked and never replayed. It is also what makes lazy start possible: opening a document is the
+        // trigger that starts the server claiming its language, so a gate would leave nothing to start it.
+        lspClient.OpenDocumentAsync(GetDocumentUri(), Document.Text).ListenErrors();
 
         Document.TextChanged += OnTextChanged;
         Title = ComputeTitle();

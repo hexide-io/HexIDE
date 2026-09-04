@@ -16,10 +16,21 @@ public sealed class VBLspClient : ILspClient
     private JsonRpc? _rpc;
     private volatile bool _initialized;
 
-    // What the connected server said it supports, or null when nothing is connected or the reply could not
-    // be read. Cleared alongside _initialized: a capability set surviving a reconnect would describe the
-    // previous server, and the whole point of the seam is that the next one may be a different product.
-    private volatile ServerCapabilities? _capabilities;
+    // What the connected server said it supports, kept exactly as it arrived. Raw is the single source of
+    // truth: a typed view is one Deserialize away, whereas a summary cannot be turned back into the answer.
+    // Cleared alongside _initialized — a capability set surviving a reconnect would describe the previous
+    // server, and the whole point of the seam is that the next one may be a different product.
+    private volatile CapabilitySnapshot? _capabilities;
+
+    public JsonElement? AdvertisedCapabilities => _capabilities?.Value;
+
+    /// <summary>
+    /// Wraps the advertised capabilities so the field can be a reference. <c>JsonElement?</c> is a
+    /// multi-word struct, so a bare field could be read half-updated by another thread — and it cannot be
+    /// marked volatile for exactly that reason. Swapping an immutable reference is atomic, which is what
+    /// this needs: written once during initialize, read from wherever a feature is requested.
+    /// </summary>
+    private sealed record CapabilitySnapshot(JsonElement Value);
     private volatile bool _stopping;
     private Task _reconnectTask = Task.CompletedTask;   // the running reconnect loop (or completed)
     private CancellationTokenSource? _reconnectCts;
@@ -180,10 +191,10 @@ public sealed class VBLspClient : ILspClient
         // not: the server answered, the connection is good, and the worst honest outcome is that we know
         // less than we might about what it supports. Sharing one catch is what made a single unexpected
         // capability shape disable every language feature including diagnostics (#238).
-        System.Text.Json.JsonElement raw;
+        JsonElement raw;
         try
         {
-            raw = await _rpc.InvokeWithParameterObjectAsync<System.Text.Json.JsonElement>(
+            raw = await _rpc.InvokeWithParameterObjectAsync<JsonElement>(
                 "initialize", initParams, cancellationToken);
             await _rpc.NotifyWithParameterObjectAsync("initialized", EmptyParams.Instance);
         }
@@ -193,27 +204,29 @@ public sealed class VBLspClient : ILspClient
             return;
         }
 
-        _capabilities = ReadCapabilities(raw);
+        _capabilities = ReadCapabilities(raw) is { } caps ? new CapabilitySnapshot(caps) : null;
         _initialized = true;
         _logger.LogInformation("VB6 LSP server initialized");
     }
 
     /// <summary>
-    /// Reads the advertised capabilities out of an initialize reply, or null if they cannot be read.
+    /// Lifts the capabilities object out of an initialize reply, or null if there is not one.
     /// Never throws: an uninterpretable reply costs knowledge, not the connection.
     /// </summary>
-    private ServerCapabilities? ReadCapabilities(System.Text.Json.JsonElement raw)
+    private JsonElement? ReadCapabilities(JsonElement raw)
     {
         try
         {
-            if (raw.ValueKind != System.Text.Json.JsonValueKind.Object
+            if (raw.ValueKind != JsonValueKind.Object
                 || !raw.TryGetProperty("capabilities", out var caps))
             {
                 _logger.LogWarning("Initialize reply carried no capabilities object.");
                 return null;
             }
 
-            return caps.Deserialize(LspJsonContext.Default.ServerCapabilities);
+            // Cloned: the JsonDocument backing `raw` is disposed when this call returns, after which any
+            // element reaching into it throws — at some arbitrary later read, far from here.
+            return caps.Clone();
         }
         catch (Exception ex)
         {
@@ -229,7 +242,8 @@ public sealed class VBLspClient : ILspClient
         _openDocuments[uri] = new TrackedDocument(1, text);
         var rpc = _rpc;
         if (rpc is null || !_initialized) return;
-        var p = new DidOpenTextDocumentParams(new TextDocumentItem(uri, "vb6", 1, text));
+        var p = new DidOpenTextDocumentParams(
+            new TextDocumentItem(uri, DocumentLanguage.Of(uri) ?? "plaintext", 1, text));
         try { await rpc.NotifyWithParameterObjectAsync("textDocument/didOpen", p); }
         catch (Exception ex) { _logger.LogDebug(ex, "textDocument/didOpen failed"); }
     }

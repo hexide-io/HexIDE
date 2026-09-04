@@ -201,17 +201,20 @@ public class CodeEditorViewModelTests : IDisposable
     }
 
     [Fact]
-    public void Initialize_Form_WhenLspNotRunning_DoesNotCallOpenDocument()
+    public void Initialize_Form_TellsTheClientEvenWhenNoServerIsRunning()
     {
+        // This used to assert the opposite, mirroring a gate in the view-model rather than a requirement.
+        // The gate was a defect: the client tracks a document BEFORE checking whether a server is up, and
+        // replays every tracked document after a (re)connect — so skipping the call meant a file opened
+        // while the server was down was never tracked and never replayed once it came back. It also has to
+        // go for lazy start to work at all: opening a document is what starts the server claiming its
+        // language, so a gate on "is one running" leaves nothing to do the starting.
         _lspClient.IsRunning.Returns(false);
         var form = TestHelpers.CreateForm(name: "Form1");
 
         CreateSut().Initialize(form);
 
-        _lspClient.DidNotReceive().OpenDocumentAsync(
-            Arg.Any<string>(),
-            Arg.Any<string>(),
-            Arg.Any<CancellationToken>());
+        _lspClient.Received(1).OpenDocumentAsync("vb6://form/Form1", form.Code, Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -229,17 +232,20 @@ public class CodeEditorViewModelTests : IDisposable
     }
 
     [Fact]
-    public void Initialize_Module_WhenLspNotRunning_DoesNotCallOpenDocument()
+    public void Initialize_Module_TellsTheClientEvenWhenNoServerIsRunning()
     {
+        // This used to assert the opposite, mirroring a gate in the view-model rather than a requirement.
+        // The gate was a defect: the client tracks a document BEFORE checking whether a server is up, and
+        // replays every tracked document after a (re)connect — so skipping the call meant a file opened
+        // while the server was down was never tracked and never replayed once it came back. It also has to
+        // go for lazy start to work at all: opening a document is what starts the server claiming its
+        // language, so a gate on "is one running" leaves nothing to do the starting.
         _lspClient.IsRunning.Returns(false);
         var module = TestHelpers.CreateModule(name: "Module1");
 
         CreateSut().Initialize(module);
 
-        _lspClient.DidNotReceive().OpenDocumentAsync(
-            Arg.Any<string>(),
-            Arg.Any<string>(),
-            Arg.Any<CancellationToken>());
+        _lspClient.Received(1).OpenDocumentAsync("vb6://module/Module1", module.Code, Arg.Any<CancellationToken>());
     }
 
     // ── LSP delegation ───────────────────────────────────────────────
