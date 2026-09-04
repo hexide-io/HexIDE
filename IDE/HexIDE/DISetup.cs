@@ -75,17 +75,25 @@ public partial class DISetup
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
                 ctx.Inject<ISettingsService>(out var settings);
 
-                // The one registration HexIDE ships with. A second language means a second entry here —
-                // and, before that is worth doing, a way to discover servers on disk.
-                var bundled = new LanguageServerRegistration(
-                    Id: "hexide.vb6",
-                    DisplayName: "HexIDE VB6 Language Server",
-                    LanguageIds: [DocumentLanguage.Vb6],
-                    CreateClient: () => new VBLspClient(
-                        CreateBundledTransport(locator, loggerFactory, settings),
-                        loggerFactory.CreateLogger<VBLspClient>()));
+                // Resolved here rather than inside CreateClient, because whether this server can be reached
+                // at all decides whether it is REGISTERED — and that has to be known before the list is
+                // built. Constructing a transport is cheap; nothing is launched until ConnectAsync, so the
+                // server still starts lazily on the first document that claims it.
+                var transport = CreateBundledTransport(locator, loggerFactory, settings);
 
-                return new LspClientRegistry([bundled], loggerFactory.CreateLogger<LspClientRegistry>());
+                // Still the only registration HexIDE ships with. Making this list configuration — so a user
+                // can attach a server, and so this row stops being a special case — is
+                // hexide-io/HexIDE#255, whose first step is the explicit-command transport above.
+                var registrations = new List<LanguageServerRegistration>();
+                if (transport is not null)
+                    registrations.Add(new LanguageServerRegistration(
+                        Id: "hexide.vb6",
+                        DisplayName: "HexIDE VB6 Language Server",
+                        LanguageIds: [DocumentLanguage.Vb6],
+                        CreateClient: () => new VBLspClient(
+                            transport, loggerFactory.CreateLogger<VBLspClient>())));
+
+                return new LspClientRegistry(registrations, loggerFactory.CreateLogger<LspClientRegistry>());
             })
             .Bind<ILoggerFactory>().As(Singleton).To(_ => LoggingSetup.LoggerFactory)
             .Bind<ILogger<TT>>().As(Singleton).To<Logger<TT>>()
@@ -162,7 +170,14 @@ public partial class DISetup
     /// shipped language pack for a backend nobody can yet select.
     /// </para>
     /// </summary>
-    private static ILspTransport CreateBundledTransport(
+    ///
+    /// <para>
+    /// Returns null when the bundled server cannot be located at all. The caller then contributes no
+    /// registration for it, rather than one whose transport is known in advance to fail — a server that is
+    /// not there should not appear as attached-but-broken, and a registration that can never connect is a
+    /// row in a list that lies.
+    /// </para>
+    private static ILspTransport? CreateBundledTransport(
         ILspServerLocator locator, ILoggerFactory loggerFactory, ISettingsService settings)
     {
         var wsUrl = Environment.GetEnvironmentVariable("HEXIDE_LSP_WS_URL");
@@ -182,7 +197,19 @@ public partial class DISetup
                 pipeName, role, loggerFactory.CreateLogger<NamedPipeLspTransport>());
         }
 
-        return new StdioProcessLspTransport(locator, loggerFactory.CreateLogger<StdioProcessLspTransport>());
+        // The locator's job, now that the transport takes an explicit command: work out where the bundled
+        // server actually is. It walks up from the base directory because that path differs between a dev
+        // build and a publish, which is a real problem that does not go away just because the transport
+        // stopped asking the question itself.
+        var serverInfo = locator.FindLspServer();
+        if (serverInfo is null)
+        {
+            loggerFactory.CreateLogger<DISetup>()
+                .LogWarning("Bundled VB6 language server not found — it contributes no registration.");
+            return null;
+        }
+
+        return new StdioProcessLspTransport(serverInfo, loggerFactory.CreateLogger<StdioProcessLspTransport>());
     }
 
     public static MainViewViewModel DesignTimeRootViewModel => new DISetup().Root;

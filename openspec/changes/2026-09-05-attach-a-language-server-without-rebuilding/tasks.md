@@ -2,13 +2,13 @@
 
 ## 1. Widen the transport seam
 
-- [ ] 1.1 Give the stdio transport an explicit command, arguments and working directory, instead of asking
+- [x] 1.1 Give the stdio transport an explicit command, arguments and working directory, instead of asking
       `ILspServerLocator` for the one bundled server
-- [ ] 1.2 Keep `ILspServerLocator` as how the **bundled default entry** computes its command — it walks up
+- [x] 1.2 Keep `ILspServerLocator` as how the **bundled default entry** computes its command — it walks up
       from the base directory because that path differs between a dev build and a publish, and that problem
       does not go away
-- [ ] 1.3 A default entry whose command cannot be located is omitted, not contributed broken
-- [ ] 1.4 Confirm the named-pipe and WebSocket transports need no change — both already take their
+- [x] 1.3 A default entry whose command cannot be located is omitted, not contributed broken
+- [x] 1.4 Confirm the named-pipe and WebSocket transports need no change — both already take their
       parameters explicitly
 
 ## 2. The configuration itself

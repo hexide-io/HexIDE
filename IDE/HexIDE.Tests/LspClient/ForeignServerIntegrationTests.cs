@@ -36,9 +36,11 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
     /// </summary>
     private LspClientRegistry ForeignMarkdownRegistry()
     {
-        var exe = ForeignServer.Find()!;
-        var locator = Substitute.For<ILspServerLocator>();
-        locator.FindLspServer().Returns(new LspServerInfo(exe, ForeignServer.ServerArguments, Path.GetTempPath()));
+        // No locator, mocked or otherwise. The transport is told what to launch, which is the whole point:
+        // a locator that answers "where is THE server" cannot describe a second one, so faking it was the
+        // test admitting the shipping path could not express what the test was proving.
+        var serverInfo = new LspServerInfo(
+            ForeignServer.Find()!, ForeignServer.ServerArguments, Path.GetTempPath());
 
         var loggerFactory = LoggerFactory.Create(b => { });
         var registration = new LanguageServerRegistration(
@@ -46,7 +48,7 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
             DisplayName: "Foreign Markdown server",
             LanguageIds: [DocumentLanguage.Markdown],
             CreateClient: () => new VBLspClient(
-                new StdioProcessLspTransport(locator, loggerFactory.CreateLogger<StdioProcessLspTransport>()),
+                new StdioProcessLspTransport(serverInfo, loggerFactory.CreateLogger<StdioProcessLspTransport>()),
                 loggerFactory.CreateLogger<VBLspClient>()));
 
         _registry = new LspClientRegistry([registration], loggerFactory.CreateLogger<LspClientRegistry>());
