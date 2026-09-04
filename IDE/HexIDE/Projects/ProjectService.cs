@@ -241,8 +241,13 @@ public class ProjectService : IProjectService
     // a backslash is a literal filename char, so a multi-folder project would resolve to a bogus path and
     // silently drop the file. Normalize to the platform separator for FILESYSTEM resolution only — the raw
     // value is still preserved verbatim on save (VB6 .vbp fidelity) and in the missing-file line.
+    //
+    // Delegates rather than repeating the rule. This used to be its own copy, and the serialization layer
+    // grew a second, narrower answer to the same question — which is how ProjectDeserializer came to call
+    // System.IO.Path.GetFileName on a raw RelatedDoc= value and name a document after its directory on
+    // Linux. One rule, one place.
     internal static string ToLocalRelativePath(string relativePath) =>
-        relativePath.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
+        SerializedProject.ToHostPath(relativePath);
 
     private async Task LoadProjectFromDisk(string projectPath)
     {

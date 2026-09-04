@@ -70,7 +70,8 @@ public class ProjectSerializer
         {
             if (form.AbsolutePath == null)
                 continue;
-            var relativePath = Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, form.AbsolutePath);
+            var relativePath = SerializedProject.ToProjectFilePath(
+                Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, form.AbsolutePath));
             WriteKnownLine($"{SerializedProject.FormKey}={relativePath}");
         }
 
@@ -78,7 +79,8 @@ public class ProjectSerializer
         {
             if (module.AbsolutePath == null)
                 continue;
-            var relativePath = Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, module.AbsolutePath);
+            var relativePath = SerializedProject.ToProjectFilePath(
+                Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, module.AbsolutePath));
             var key = module.Kind switch
             {
                 ModuleKind.ClassModule  => SerializedProject.ClassKey,
@@ -112,7 +114,8 @@ public class ProjectSerializer
             }
             if (document.AbsolutePath == null)
                 continue;
-            var relativePath = Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, document.AbsolutePath);
+            var relativePath = SerializedProject.ToProjectFilePath(
+                Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, document.AbsolutePath));
             WriteKnownLine($"{SerializedProject.RelatedDocKey}={relativePath}");
         }
 

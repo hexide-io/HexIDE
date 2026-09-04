@@ -173,7 +173,7 @@ public class ProjectDeserializer
                 // Format: "RelatedDoc=relative\path.md" — no "Name; " prefix, unlike every other item key.
                 var path = value.Trim();
                 project.RelativeRelatedDocPaths.Add(
-                    (System.IO.Path.GetFileName(path), path, null));
+                    (SerializedProject.FileNameOf(path), path, null));
                 knownKeyCount++;
             }
             else if (key.Equals(SerializedProject.StartupKey, StringComparison.OrdinalIgnoreCase))
@@ -274,6 +274,47 @@ public class SerializedProject
     public const string PropertyPageKey = "PropertyPage";
     public const string UserDocumentKey = "UserDocument";
     public const string RelatedDocKey = "RelatedDoc";
+
+    // ── A VB6 path is a Windows path, on every host ───────────────────────────────────────────────────
+    //
+    // A .vbp is a Windows-native format: every path inside one is backslash-separated, whatever machine
+    // reads it. System.IO.Path is therefore the WRONG tool for these strings — it answers about the HOST
+    // filesystem. On Linux a backslash is an ordinary filename character, so
+    // Path.GetFileName("docs\README.md") hands back the whole string and a related document ends up named
+    // after its own directory. The mirror image bites on write: Path.GetRelativePath yields
+    // "docs/README.md" there, which then goes into a file that has to say "docs\README.md".
+    //
+    // Both directions are silent — a wrong value that still looks like a path — and both are invisible on
+    // a Windows dev machine. Only the Linux CI job catches them, which is exactly how this arrived.
+
+    private static readonly char[] PathSeparators = ['\\', '/'];
+
+    /// <summary>
+    /// The last segment of a path as it appears inside a project file. Forward slashes count as separators
+    /// too: a hand-edited or tool-generated .vbp can carry them, and VB6 itself accepts them.
+    /// </summary>
+    public static string FileNameOf(string projectFilePath)
+    {
+        var cut = projectFilePath.LastIndexOfAny(PathSeparators);
+        return cut < 0 ? projectFilePath : projectFilePath[(cut + 1)..];
+    }
+
+    /// <summary>
+    /// Rewrites a path read out of a project file into the host's separator, for FILESYSTEM RESOLUTION
+    /// only. The raw value is still what gets written back, so .vbp fidelity is unaffected.
+    /// </summary>
+    public static string ToHostPath(string projectFilePath) =>
+        projectFilePath.Replace('\\', System.IO.Path.DirectorySeparatorChar)
+                       .Replace('/', System.IO.Path.DirectorySeparatorChar);
+
+    /// <summary>
+    /// Rewrites a host-computed relative path into the separator a .vbp must carry. Applied to everything
+    /// emitted into a project file, so a project saved on a non-Windows host is still a valid VB6 project
+    /// rather than one only HexIDE can read back.
+    /// </summary>
+    public static string ToProjectFilePath(string hostRelativePath) =>
+        hostRelativePath.Replace(System.IO.Path.DirectorySeparatorChar, '\\')
+                        .Replace(System.IO.Path.AltDirectorySeparatorChar, '\\');
     public const string StartupKey = "Startup";
 
     /// <summary>The <c>Startup=</c> value naming <c>Sub Main</c> rather than a form. VB6's own spelling,
