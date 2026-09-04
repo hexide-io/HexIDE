@@ -27,6 +27,7 @@ public partial class ProjectViewModel : ObservableObject, IDisposable, IProjectT
 
     private readonly Dictionary<FormDefinition, FormViewModel> formViewModels = new();
     private readonly Dictionary<ModuleDefinition, ModuleViewModel> moduleViewModels = new();
+    private readonly Dictionary<RelatedDocumentDefinition, RelatedDocViewModel> relatedDocViewModels = new();
 
     // Session-only memory of directory-node expansion, keyed by project-relative directory path.
     private readonly Dictionary<string, bool> directoryExpansion = new(StringComparer.OrdinalIgnoreCase);
@@ -43,12 +44,16 @@ public partial class ProjectViewModel : ObservableObject, IDisposable, IProjectT
         projectDefinition.FormDeleted += OnFormDeleted;
         projectDefinition.ModuleAdded += OnModuleAdded;
         projectDefinition.ModuleDeleted += OnModuleDeleted;
+        projectDefinition.RelatedDocumentAdded += OnRelatedDocumentAdded;
+        projectDefinition.RelatedDocumentDeleted += OnRelatedDocumentDeleted;
         projectDefinition.PropertyChanged += OnChanged;
 
         foreach (var form in this.projectDefinition.Forms)
             AddFormViewModel(form);
         foreach (var module in this.projectDefinition.Modules)
             AddModuleViewModel(module);
+        foreach (var document in projectDefinition.RelatedDocuments)
+            AddRelatedDocViewModel(document);
         Rebuild();
     }
 
@@ -65,6 +70,24 @@ public partial class ProjectViewModel : ObservableObject, IDisposable, IProjectT
     {
         formViewModels[form] = new FormViewModel(this, form);
         form.PropertyChanged += OnMemberDefinitionChanged;
+    }
+
+    private void AddRelatedDocViewModel(RelatedDocumentDefinition document)
+    {
+        relatedDocViewModels[document] = new RelatedDocViewModel(this, document);
+    }
+
+    private void OnRelatedDocumentAdded(ProjectDefinition _, RelatedDocumentDefinition document)
+    {
+        AddRelatedDocViewModel(document);
+        Rebuild();
+    }
+
+    private void OnRelatedDocumentDeleted(ProjectDefinition _, RelatedDocumentDefinition document)
+    {
+        if (relatedDocViewModels.Remove(document, out var vm))
+            vm.Dispose();
+        Rebuild();
     }
 
     private void AddModuleViewModel(ModuleDefinition module)
@@ -118,7 +141,9 @@ public partial class ProjectViewModel : ObservableObject, IDisposable, IProjectT
         var selected = parentVm.SelectedItem;
 
         var children = ProjectTreeBuilder.BuildChildren(
-            formViewModels.Values.Cast<IProjectFileNode>().Concat(moduleViewModels.Values),
+            formViewModels.Values.Cast<IProjectFileNode>()
+                .Concat(moduleViewModels.Values)
+                .Concat(relatedDocViewModels.Values),
             projectDefinition.AbsolutePath is { } vbpPath ? Path.GetDirectoryName(vbpPath) : null,
             directoryExpansion,
             this);

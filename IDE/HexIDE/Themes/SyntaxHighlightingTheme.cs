@@ -66,6 +66,23 @@ public static class SyntaxHighlightingTheme
 
     private static readonly Dictionary<string, HighlightingBrush?> LightPalette = new(StringComparer.Ordinal);
 
+    /// <summary>
+    /// Definitions HexIDE did not author — AvaloniaEdit's bundled set, resolved by file extension for
+    /// non-VB6 documents — together with their original light palettes.
+    ///
+    /// <para>
+    /// These cannot get the hand-tuned treatment above, because the point of resolving by extension is
+    /// that the set is open-ended: we do not know in advance which definitions exist, nor what their
+    /// colours are named. So their dark palette is DERIVED (see <see cref="DeriveForDarkBackground"/>)
+    /// rather than authored, targeting the same 4.5:1 contrast bar the VB6 palette was tuned to.
+    /// </para>
+    /// </summary>
+    private static readonly List<(IHighlightingDefinition Definition, Dictionary<string, HighlightingBrush?> Light)>
+        AdoptedDefinitions = [];
+
+    /// <summary>The darker of the two dark editor backgrounds, and therefore the binding constraint.</summary>
+    private static readonly Color DarkEditorBackground = Color.Parse("#252526");
+
     private static IHighlightingDefinition? _definition;
     private static bool? _appliedDark;
 
@@ -152,6 +169,103 @@ public static class SyntaxHighlightingTheme
         ApplyPalette(app);
     }
 
+    /// <summary>
+    /// Brings a definition HexIDE does not own under theme control, so its colours are legible on a dark
+    /// background. Idempotent; safe to call every time an editor resolves a definition.
+    /// </summary>
+    public static void Adopt(IHighlightingDefinition? definition)
+    {
+        if (definition is null) return;
+
+        // Guarantees the theme-change subscription exists. Without it, a session whose only open editor
+        // is a non-VB6 document would never wire ActualThemeVariantChanged, and adopted definitions would
+        // stay on whichever palette they were given first.
+        EnsureRegistered();
+
+        lock (Gate)
+        {
+            foreach (var (existing, _) in AdoptedDefinitions)
+                if (ReferenceEquals(existing, definition)) return;
+
+            var light = new Dictionary<string, HighlightingBrush?>(StringComparer.Ordinal);
+            foreach (var color in definition.NamedHighlightingColors)
+                if (color.Name is not null)
+                    light[color.Name] = color.Foreground;
+
+            AdoptedDefinitions.Add((definition, light));
+        }
+
+        // Adoption can happen long after the theme was last applied, so bring the newcomer up to date
+        // rather than leaving it light until the next theme change.
+        if (Application.Current is { } app && Dispatcher.UIThread.CheckAccess())
+            ApplyToAdopted(app.ActualThemeVariant == ThemeVariant.Dark);
+    }
+
+    private static void ApplyToAdopted(bool dark)
+    {
+        lock (Gate)
+        {
+            foreach (var (definition, light) in AdoptedDefinitions)
+            {
+                foreach (var color in definition.NamedHighlightingColors)
+                {
+                    if (color.Name is null || !light.TryGetValue(color.Name, out var original)) continue;
+                    color.Foreground = dark ? DeriveForDarkBackground(original) : original;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Lifts a light-theme foreground until it is legible on a dark editor background, keeping its hue.
+    ///
+    /// <para>
+    /// Hue is preserved because it carries meaning — a reader learns that blue is a link and green is a
+    /// comment, and a re-tint that scrambles those teaches them nothing. Only lightness moves, and only
+    /// upward, until the colour clears 4.5:1 against the darker of the two dark editor backgrounds. That
+    /// is the same bar the hand-tuned VB6 palette was built to, so both halves of the editor agree.
+    /// </para>
+    /// </summary>
+    private static HighlightingBrush? DeriveForDarkBackground(HighlightingBrush? original)
+    {
+        if (original is null) return null;
+        if (original.GetColor(null!) is not { } color) return original;
+
+        var hsl = color.ToHsl();
+        var lightness = hsl.L;
+
+        // Walk lightness up in small steps rather than solving directly: contrast is non-linear in HSL
+        // lightness, and stepping keeps the colour as close to its original as the bar allows instead of
+        // washing everything out to near-white.
+        for (var i = 0; i < 100 && ContrastRatio(color, DarkEditorBackground) < 4.5; i++)
+        {
+            lightness = Math.Min(1.0, lightness + 0.01);
+            color = new HslColor(hsl.A, hsl.H, hsl.S, lightness).ToRgb();
+            if (lightness >= 1.0) break;
+        }
+
+        return new SimpleHighlightingBrush(color);
+    }
+
+    /// <summary>WCAG relative-luminance contrast ratio between two opaque colours.</summary>
+    private static double ContrastRatio(Color a, Color b)
+    {
+        var la = RelativeLuminance(a);
+        var lb = RelativeLuminance(b);
+        var (lighter, darker) = la > lb ? (la, lb) : (lb, la);
+        return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    private static double RelativeLuminance(Color c)
+    {
+        static double Channel(byte v)
+        {
+            var s = v / 255.0;
+            return s <= 0.03928 ? s / 12.92 : Math.Pow((s + 0.055) / 1.055, 2.4);
+        }
+        return 0.2126 * Channel(c.R) + 0.7152 * Channel(c.G) + 0.0722 * Channel(c.B);
+    }
+
     private static void ApplyPalette(Application app)
     {
         if (_definition is null)
@@ -181,6 +295,7 @@ public static class SyntaxHighlightingTheme
             }
         }
 
+        ApplyToAdopted(dark);
         PaletteChanged?.Invoke();
     }
 }

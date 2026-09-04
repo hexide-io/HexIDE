@@ -30,6 +30,7 @@ public class ViewLocator : IDataTemplate
     {
         Register<AddinToolWindowViewModel, AddinToolWindowView>();
         Register<CodeEditorViewModel, CodeEditorView>();
+        Register<RelatedDocumentEditorViewModel, RelatedDocumentEditorView>();
         Register<FormEditViewModel, FormEditView>();
         Register<MenuEditorViewModel, MenuEditorView>();
         Register<ToolBoxToolViewModel, ToolBoxToolView>();

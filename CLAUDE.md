@@ -162,7 +162,10 @@ Package versions are centralized in `IDE/Directory.Build.props` (Avalonia, Dock,
 - **DI**: `Pure.DI` (source-generated, zero reflection — required for `PublishAot=true`). All singletons registered in `DISetup.cs`. Roots: `MainViewViewModel`, `ILspClient`.
 - **Services** in `IDE/HexIDE/IDE/`: `ProjectManager`, `EditorService`, `WindowManager`, `EventBus`, `FindReplaceService`, `SettingsService`.
 - **Visual designer**: `VisualDesigner/` — works with `ComponentInstance` objects (not live controls).
-- **MVVM**: `ViewLocator` resolves View from ViewModel by convention (strips `ViewModel` suffix).
+- **MVVM**: `ViewLocator` resolves View from ViewModel through an **explicit registration table** in its
+  static constructor — `Register<TViewModel, TView>()` — not by naming convention. A new editor or tool
+  window whose view is not registered there resolves to nothing and renders as a **blank pane with no
+  error**, which is a slow thing to diagnose because the tab, its title and its docking all work.
 
 ## Platform Scope
 
