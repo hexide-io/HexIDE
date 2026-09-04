@@ -647,3 +647,50 @@ module.
 **Suggested fix.** Add a `relatedDocuments` array, and prefer a shape that will not need this edit again the
 next time a member kind is added — a single `members` array of `{name, kind, path}` would cover forms,
 modules, related documents and whatever follows.
+
+## A runtime error dialog can be missed entirely, and its text cannot be read
+
+**Symptom.** Running a project that raises a runtime error opens a modal dialog over the running form.
+`take_snapshot` does report it (`"activeDialog": "HexIDE"`) and captures it — but only while it is still up.
+`stop_project` and `shutdown_ide` both close open dialogs, so the ordinary automation rhythm of run → stop →
+snapshot destroys the evidence before it is ever seen. A run whose form silently did nothing looks identical
+to a run whose error dialog was dismissed a moment earlier.
+
+Separately, once the dialog IS captured, its text is only readable as pixels. `inspect_element` on the
+`RuntimeErrorView` lists `ErrorText` among the DataContext members but returns no value for it, so the
+message has to be read off a PNG.
+
+**Consequence.** This is how a real defect stayed hidden: a runtime error raised inside a `.bas` module was
+being swallowed (the handler threw before it could show the dialog), and the automated symptom — a form that
+runs and does nothing — was indistinguishable from success. It was found only because a human happened to
+see a dialog flash on screen.
+
+**Workaround.** `take_snapshot` BEFORE `stop_project`, always, on any run that might raise. Treat
+`activeDialog` in the snapshot result as the signal — it names the dialog even when the image is hard to
+read. To confirm a swallowed error, check the IDE log at
+`%LOCALAPPDATA%\HexIDE\logs\ide\ide-*.log`; an exception thrown inside the error handler lands there.
+
+**Suggested fix.** Expose string property values in `inspect_element`'s `dataContextMembers` (at least for
+simple scalars), so a dialog's message is assertable rather than only legible. And consider a
+`get_last_runtime_error` that survives the dialog being dismissed — the interesting state currently exists
+only for as long as a modal is on screen.
+
+## inspect_element lists a property but never its value
+
+**Symptom.** `dataContextMembers` gives each member's name, type and `canWrite`, but no current value. Two
+cases hit in one session: `ImmediateToolViewModel.Document` (the Immediate window's contents) and
+`RuntimeErrorViewModel.ErrorText` (a runtime error message). Both had to be read by screenshotting and
+squinting, and the Immediate window's buffer scrolls, so output beyond the visible ~4 lines is unreachable
+without resizing the pane.
+
+**Consequence.** Any assertion about text the IDE produced — program output, an error message, a status
+line — degrades from a structured check to reading a PNG. That is slower, and it silently caps at whatever
+the pane happens to show.
+
+**Workaround.** Keep program output to one line per run so it fits the visible strip, and restart the IDE
+between runs when the buffer needs clearing (there is no clear-Immediate action). Note that setting the
+containing `ToolDock`'s `Proportion` via `interact set_property` reports success but does not re-run the
+layout, so it does not actually enlarge the pane.
+
+**Suggested fix.** Return scalar property values (string/number/bool) alongside the member list. A
+`get_immediate_output` returning the Immediate buffer as text would remove the whole class of workaround.

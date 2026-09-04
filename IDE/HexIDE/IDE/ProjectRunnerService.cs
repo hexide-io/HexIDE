@@ -224,10 +224,9 @@ public partial class ProjectRunnerService : IProjectRunnerService
     /// </remarks>
     private void RunSubMain(ProjectDefinition projectDefinition, bool stepInto)
     {
-        var modules = projectDefinition.Modules
-            .Where(m => m.Kind == ModuleKind.StandardModule)
-            .Select(m => (m.Name, m.Code))
-            .ToList();
+        // Shared with the form paths, so the same project sees the same modules whichever startup object it
+        // has. Sub Main previously answered this question here and the form paths not at all (#220).
+        var (modules, classModules) = VBLoader.InterpreterModules(projectDefinition);
 
         if (modules.Count == 0)
         {
@@ -267,7 +266,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
             var interpreter = new BasicInterpreter(
                 new MDIStandaloneStandardLib(windowManager), context.ExecutionContext, context.RootEnv,
                 modules[0].Code, modules[0].Name,
-                modules.Count > 1 ? modules.Skip(1).ToList() : null)
+                modules.Count > 1 ? modules.Skip(1).ToList() : null,
+                classModules)
             {
                 DebugController = debugController,
             };
@@ -435,8 +435,10 @@ public partial class ProjectRunnerService : IProjectRunnerService
         var task = windowManager.ShowManagedWindow(window);
         window.Content = VBLoader.SpawnComponents(element, window.Context.ExecutionContext, window.Context.RootEnv);
 
+        var (standardModules, classModules) = VBLoader.InterpreterModules(element.Owner);
         window.Context.SetCode(code: element.Code, moduleName: formName ?? "Module1", debugController: debugController,
-            appInfo: HexIDE.Runtime.Interpreter.AppInfo.FromProject(element.Owner));
+            appInfo: HexIDE.Runtime.Interpreter.AppInfo.FromProject(element.Owner),
+            additionalModules: standardModules, classModules: classModules);
         token.Register((state, _) =>
         {
             (state as MDIWindow)!.CloseCommand.Execute(null);
