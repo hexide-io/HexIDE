@@ -218,14 +218,14 @@ public class ProjectService : IProjectService
 
         foreach (var relPath in serializedGroup.ProjectRelativePaths)
         {
-            var absPath = Path.GetFullPath(Path.Combine(groupDir, relPath));
+            var absPath = Path.GetFullPath(Path.Combine(groupDir, ToLocalRelativePath(relPath)));
             await LoadProjectFromDisk(absPath);
         }
 
         if (serializedGroup.StartupProjectRelativePath != null)
         {
             var startupAbs = Path.GetFullPath(
-                Path.Combine(groupDir, serializedGroup.StartupProjectRelativePath));
+                Path.Combine(groupDir, ToLocalRelativePath(serializedGroup.StartupProjectRelativePath)));
             projectManager.StartupProject = projectManager.LoadedProjects
                 .FirstOrDefault(p => string.Equals(
                     p.AbsolutePath, startupAbs, StringComparison.OrdinalIgnoreCase));
@@ -241,8 +241,13 @@ public class ProjectService : IProjectService
     // a backslash is a literal filename char, so a multi-folder project would resolve to a bogus path and
     // silently drop the file. Normalize to the platform separator for FILESYSTEM resolution only — the raw
     // value is still preserved verbatim on save (VB6 .vbp fidelity) and in the missing-file line.
+    //
+    // Delegates rather than repeating the rule. This used to be its own copy, and the serialization layer
+    // grew a second, narrower answer to the same question — which is how ProjectDeserializer came to call
+    // System.IO.Path.GetFileName on a raw RelatedDoc= value and name a document after its directory on
+    // Linux. One rule, one place.
     internal static string ToLocalRelativePath(string relativePath) =>
-        relativePath.Replace('\\', Path.DirectorySeparatorChar).Replace('/', Path.DirectorySeparatorChar);
+        SerializedProject.ToHostPath(relativePath);
 
     private async Task LoadProjectFromDisk(string projectPath)
     {
@@ -337,6 +342,27 @@ public class ProjectService : IProjectService
             {
                 Log.Error(ex, "Failed to load form {FormPath}", formPath);
                 errorSink.LogError($"Failed to load form {formPath}: {ex.Message}");
+            }
+        }
+
+        // Pass 4: related documents — files the project carries but does not compile.
+        //
+        // Note what this pass does NOT do: read the file. A related document's content belongs to the
+        // editor that opens it, not to project load. Reading here would mean loading every README and
+        // spec in a project on open, and — worse — would hand a text buffer to machinery built for VB6
+        // source, which is precisely how a non-code file ends up with an Attribute header written into it.
+        foreach (var (docName, docPath, originalItemLine) in serializedProject.RelativeRelatedDocPaths)
+        {
+            try
+            {
+                var absolute = Path.Join(Path.GetDirectoryName(projectPath)!, ToLocalRelativePath(docPath));
+                project.AddRelatedDocument(
+                    new RelatedDocumentDefinition(project, docName, absolute, originalItemLine));
+            }
+            catch (Exception ex)
+            {
+                // A malformed path costs one entry, never the project load.
+                Log.Error(ex, "Failed to load related document {DocPath}", docPath);
             }
         }
 

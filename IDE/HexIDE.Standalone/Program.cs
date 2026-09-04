@@ -70,8 +70,8 @@ public class Program
 
         foreach (var relativePath in serializedProject.RelativeFormPaths)
         {
-            var absolutePath = Path.Join(projectDir, relativePath);
-            var fileName = Path.GetFileName(relativePath);
+            var absolutePath = Path.Join(projectDir, SerializedProject.ToHostPath(relativePath));
+            var fileName = SerializedProject.FileNameOf(relativePath);
 
             if (!File.Exists(absolutePath))
             {
@@ -200,7 +200,7 @@ public class Program
 
             foreach (var relativeFormPath in serializedProject.RelativeFormPaths)
             {
-                var absolutePath = Path.Join(Path.GetDirectoryName(projectPath)!, relativeFormPath);
+                var absolutePath = Path.Join(Path.GetDirectoryName(projectPath)!, SerializedProject.ToHostPath(relativeFormPath));
                 var form = formDeserializer.Deserialize(projectDefinition, File.ReadAllText(absolutePath), new NullErrorSink());
                 if (form != null)
                     forms.Add(form);

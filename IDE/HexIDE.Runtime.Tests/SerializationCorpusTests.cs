@@ -737,7 +737,7 @@ public class SerializationCorpusTests
         var dir = Path.GetDirectoryName(path)!;
 
         foreach (var relative in serialized.RelativeFormPaths)
-            project.AddForm(new FormDefinition(project, FormComponentClass.Instance, Path.GetFileNameWithoutExtension(relative))
+            project.AddForm(new FormDefinition(project, FormComponentClass.Instance, SerializedProject.FileNameWithoutExtensionOf(relative))
             {
                 AbsolutePath = Path.GetFullPath(Path.Join(dir, relative.Replace('\\', Path.DirectorySeparatorChar)))
             });

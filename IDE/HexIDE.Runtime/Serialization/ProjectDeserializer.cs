@@ -95,7 +95,7 @@ public class ProjectDeserializer
                 if (semi >= 0)
                     project.RelativeModulePaths.Add((value[..semi].Trim(), value[(semi + 1)..].Trim(), ModuleKind.UserControl));
                 else
-                    project.RelativeModulePaths.Add((Path.GetFileNameWithoutExtension(value.Trim()), value.Trim(), ModuleKind.UserControl));
+                    project.RelativeModulePaths.Add((SerializedProject.FileNameWithoutExtensionOf(value.Trim()), value.Trim(), ModuleKind.UserControl));
                 knownKeyCount++;
             }
             else if (key.Equals(SerializedProject.PropertyPageKey, StringComparison.OrdinalIgnoreCase))
@@ -104,7 +104,7 @@ public class ProjectDeserializer
                 if (semi >= 0)
                     project.RelativeModulePaths.Add((value[..semi].Trim(), value[(semi + 1)..].Trim(), ModuleKind.PropertyPage));
                 else
-                    project.RelativeModulePaths.Add((Path.GetFileNameWithoutExtension(value.Trim()), value.Trim(), ModuleKind.PropertyPage));
+                    project.RelativeModulePaths.Add((SerializedProject.FileNameWithoutExtensionOf(value.Trim()), value.Trim(), ModuleKind.PropertyPage));
                 knownKeyCount++;
             }
             else if (key.Equals(SerializedProject.UserDocumentKey, StringComparison.OrdinalIgnoreCase))
@@ -120,21 +120,60 @@ public class ProjectDeserializer
             }
             else if (key.Equals(SerializedProject.ModuleKey, StringComparison.OrdinalIgnoreCase))
             {
-                // Format: "Name; relative\path.bas"
+                // Format: "Name; relative\path.ext"
                 var semi = value.IndexOf(';');
-                if (semi >= 0)
-                    project.RelativeModulePaths.Add((value[..semi].Trim(), value[(semi + 1)..].Trim(), ModuleKind.StandardModule));
+                var itemName = semi >= 0 ? value[..semi].Trim() : value.Trim();
+                var itemPath = semi >= 0 ? value[(semi + 1)..].Trim() : value.Trim();
+
+                if (SerializedProject.IsVb6CodeFile(itemPath))
+                {
+                    project.RelativeModulePaths.Add((itemName, itemPath, ModuleKind.StandardModule));
+                }
                 else
-                    project.RelativeModulePaths.Add((value.Trim(), value.Trim(), ModuleKind.StandardModule));
+                {
+                    // A non-code file on a code line. VB6 writes this whenever "Add As Related Document" is
+                    // left unticked, which is its default. Treating it as source is not harmless: the save
+                    // path prepends an Attribute VB_Name header to it and the Save-As path renames it by
+                    // extension. Reclassify — but keep the ORIGINAL LINE, because reclassifying is an
+                    // inference about intent and rewriting the project file on an inference is not.
+                    Log.Information(
+                        "Item '{Path}' on a ModuleKey line is not a VB6 source file; treating it as a related "
+                      + "document. Its line is preserved as-is.", itemPath);
+                    project.RelativeRelatedDocPaths.Add((itemName, itemPath, trimmed));
+                }
                 knownKeyCount++;
             }
             else if (key.Equals(SerializedProject.ClassKey, StringComparison.OrdinalIgnoreCase))
             {
+                // Format: "Name; relative\path.ext"
                 var semi = value.IndexOf(';');
-                if (semi >= 0)
-                    project.RelativeModulePaths.Add((value[..semi].Trim(), value[(semi + 1)..].Trim(), ModuleKind.ClassModule));
+                var itemName = semi >= 0 ? value[..semi].Trim() : value.Trim();
+                var itemPath = semi >= 0 ? value[(semi + 1)..].Trim() : value.Trim();
+
+                if (SerializedProject.IsVb6CodeFile(itemPath))
+                {
+                    project.RelativeModulePaths.Add((itemName, itemPath, ModuleKind.ClassModule));
+                }
                 else
-                    project.RelativeModulePaths.Add((value.Trim(), value.Trim(), ModuleKind.ClassModule));
+                {
+                    // A non-code file on a code line. VB6 writes this whenever "Add As Related Document" is
+                    // left unticked, which is its default. Treating it as source is not harmless: the save
+                    // path prepends an Attribute VB_Name header to it and the Save-As path renames it by
+                    // extension. Reclassify — but keep the ORIGINAL LINE, because reclassifying is an
+                    // inference about intent and rewriting the project file on an inference is not.
+                    Log.Information(
+                        "Item '{Path}' on a ClassKey line is not a VB6 source file; treating it as a related "
+                      + "document. Its line is preserved as-is.", itemPath);
+                    project.RelativeRelatedDocPaths.Add((itemName, itemPath, trimmed));
+                }
+                knownKeyCount++;
+            }
+            else if (key.Equals(SerializedProject.RelatedDocKey, StringComparison.OrdinalIgnoreCase))
+            {
+                // Format: "RelatedDoc=relative\path.md" — no "Name; " prefix, unlike every other item key.
+                var path = value.Trim();
+                project.RelativeRelatedDocPaths.Add(
+                    (SerializedProject.FileNameOf(path), path, null));
                 knownKeyCount++;
             }
             else if (key.Equals(SerializedProject.StartupKey, StringComparison.OrdinalIgnoreCase))
@@ -185,6 +224,32 @@ public class SerializedProject
     public string? Name { get; set; }
     public List<string> RelativeFormPaths { get; } = new();
     public List<(string Name, string Path, ModuleKind Kind)> RelativeModulePaths { get; } = new();
+
+    /// <summary>
+    /// Files the project carries but does not compile. <c>OriginalItemLine</c> is non-null only where the
+    /// entry was reclassified from a <c>Module=</c>/<c>Class=</c> line, so the writer can put that line back
+    /// exactly as it found it rather than rewriting a project file on the strength of a guess.
+    /// </summary>
+    public List<(string Name, string Path, string? OriginalItemLine)> RelativeRelatedDocPaths { get; } = new();
+
+    /// <summary>
+    /// Extensions a <c>Module=</c> or <c>Class=</c> line may legitimately point at. Anything else on one of
+    /// those lines is a non-code file VB6 added with its "Add As Related Document" tickbox left off — the
+    /// tickbox is not sticky and defaults off, so this is the common case rather than the odd one.
+    /// </summary>
+    private static readonly HashSet<string> Vb6CodeExtensions =
+        new(StringComparer.OrdinalIgnoreCase) { ".bas", ".cls", ".ctl", ".pag", ".frm", ".dob", ".dsr" };
+
+    /// <summary>True when an item path names a file VB6 would compile.</summary>
+    public static bool IsVb6CodeFile(string path)
+    {
+        // FileNameOf first: on a host where backslash is not a separator, GetExtension("my.dir\README")
+        // returns ".dir\README" — a directory's dot decides the answer for a file that has no extension.
+        var extension = System.IO.Path.GetExtension(FileNameOf(path));
+        // No extension at all is left alone: reclassifying something we cannot classify would be a guess on
+        // top of a guess, and the conservative reading keeps it a module.
+        return extension.Length == 0 || Vb6CodeExtensions.Contains(extension);
+    }
     public List<VbReference> References { get; } = new();
     public List<string> SkippedUserDocumentPaths { get; } = new();
 
@@ -210,6 +275,60 @@ public class SerializedProject
     public const string UserControlKey = "UserControl";
     public const string PropertyPageKey = "PropertyPage";
     public const string UserDocumentKey = "UserDocument";
+    public const string RelatedDocKey = "RelatedDoc";
+
+    // ── A VB6 path is a Windows path, on every host ───────────────────────────────────────────────────
+    //
+    // A .vbp is a Windows-native format: every path inside one is backslash-separated, whatever machine
+    // reads it. System.IO.Path is therefore the WRONG tool for these strings — it answers about the HOST
+    // filesystem. On Linux a backslash is an ordinary filename character, so
+    // Path.GetFileName("docs\README.md") hands back the whole string and a related document ends up named
+    // after its own directory. The mirror image bites on write: Path.GetRelativePath yields
+    // "docs/README.md" there, which then goes into a file that has to say "docs\README.md".
+    //
+    // Both directions are silent — a wrong value that still looks like a path — and both are invisible on
+    // a Windows dev machine. Only the Linux CI job catches them, which is exactly how this arrived.
+
+    private static readonly char[] PathSeparators = ['\\', '/'];
+
+    /// <summary>
+    /// The last segment of a path as it appears inside a project file. Forward slashes count as separators
+    /// too: a hand-edited or tool-generated .vbp can carry them, and VB6 itself accepts them.
+    /// </summary>
+    public static string FileNameOf(string projectFilePath)
+    {
+        var cut = projectFilePath.LastIndexOfAny(PathSeparators);
+        return cut < 0 ? projectFilePath : projectFilePath[(cut + 1)..];
+    }
+
+    /// <summary>
+    /// The last segment of a path inside a project file, with its extension removed. Matches
+    /// <c>Path.GetFileNameWithoutExtension</c>'s treatment of a leading dot — <c>.gitignore</c> is a name,
+    /// not an extension.
+    /// </summary>
+    public static string FileNameWithoutExtensionOf(string projectFilePath)
+    {
+        var name = FileNameOf(projectFilePath);
+        var dot = name.LastIndexOf('.');
+        return dot <= 0 ? name : name[..dot];
+    }
+
+    /// <summary>
+    /// Rewrites a path read out of a project file into the host's separator, for FILESYSTEM RESOLUTION
+    /// only. The raw value is still what gets written back, so .vbp fidelity is unaffected.
+    /// </summary>
+    public static string ToHostPath(string projectFilePath) =>
+        projectFilePath.Replace('\\', System.IO.Path.DirectorySeparatorChar)
+                       .Replace('/', System.IO.Path.DirectorySeparatorChar);
+
+    /// <summary>
+    /// Rewrites a host-computed relative path into the separator a .vbp must carry. Applied to everything
+    /// emitted into a project file, so a project saved on a non-Windows host is still a valid VB6 project
+    /// rather than one only HexIDE can read back.
+    /// </summary>
+    public static string ToProjectFilePath(string hostRelativePath) =>
+        hostRelativePath.Replace(System.IO.Path.DirectorySeparatorChar, '\\')
+                        .Replace(System.IO.Path.AltDirectorySeparatorChar, '\\');
     public const string StartupKey = "Startup";
 
     /// <summary>The <c>Startup=</c> value naming <c>Sub Main</c> rather than a form. VB6's own spelling,
