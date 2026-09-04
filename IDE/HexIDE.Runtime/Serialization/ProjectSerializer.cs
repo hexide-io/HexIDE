@@ -89,6 +89,33 @@ public class ProjectSerializer
             WriteKnownLine($"{key}={module.Name}; {relativePath}");
         }
 
+        // Related documents — files the project carries but does not compile.
+        //
+        // Two shapes, and the difference matters. One HexIDE read from a `RelatedDoc=` line, or one the
+        // developer added, is written as `RelatedDoc=`. One RECLASSIFIED from a `Module=`/`Class=` line is
+        // written back as the line it arrived on, byte for byte: reclassifying is an inference about what
+        // the developer meant, and rewriting their project file on an inference is a bigger liberty than
+        // declining to. The line changes only when membership actually changes.
+        //
+        // Known trade, and it is deliberate: a reclassified line originally interleaved between two
+        // `Module=` lines re-emits after them, so such a file round-trips semantically rather than
+        // byte-for-byte. Preserving its exact slot needs a per-item ordinal the project model does not
+        // carry. Worth naming rather than hiding — but note the file this affects is corrupted outright
+        // today (an `Attribute VB_Name` header prepended to it on any Save Project), so a reordered line is
+        // a long way up from where it starts.
+        foreach (var document in project.RelatedDocuments)
+        {
+            if (document.OriginalItemLine is { } original)
+            {
+                WriteKnownLine(original);
+                continue;
+            }
+            if (document.AbsolutePath == null)
+                continue;
+            var relativePath = Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, document.AbsolutePath);
+            WriteKnownLine($"{SerializedProject.RelatedDocKey}={relativePath}");
+        }
+
         // Preserved item lines (unsupported UserDocuments, missing-file forms): emit verbatim so the
         // round-trip never drops a node.
         //

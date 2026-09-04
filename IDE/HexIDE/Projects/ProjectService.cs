@@ -340,6 +340,27 @@ public class ProjectService : IProjectService
             }
         }
 
+        // Pass 4: related documents — files the project carries but does not compile.
+        //
+        // Note what this pass does NOT do: read the file. A related document's content belongs to the
+        // editor that opens it, not to project load. Reading here would mean loading every README and
+        // spec in a project on open, and — worse — would hand a text buffer to machinery built for VB6
+        // source, which is precisely how a non-code file ends up with an Attribute header written into it.
+        foreach (var (docName, docPath, originalItemLine) in serializedProject.RelativeRelatedDocPaths)
+        {
+            try
+            {
+                var absolute = Path.Join(Path.GetDirectoryName(projectPath)!, ToLocalRelativePath(docPath));
+                project.AddRelatedDocument(
+                    new RelatedDocumentDefinition(project, docName, absolute, originalItemLine));
+            }
+            catch (Exception ex)
+            {
+                // A malformed path costs one entry, never the project load.
+                Log.Error(ex, "Failed to load related document {DocPath}", docPath);
+            }
+        }
+
         // Pass 3: remaining modules (.bas, .cls, .pag) — UserControls already loaded in pass 1
         foreach (var (moduleName, modulePath, moduleKind) in serializedProject.RelativeModulePaths)
         {

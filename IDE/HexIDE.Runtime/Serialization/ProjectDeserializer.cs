@@ -120,21 +120,60 @@ public class ProjectDeserializer
             }
             else if (key.Equals(SerializedProject.ModuleKey, StringComparison.OrdinalIgnoreCase))
             {
-                // Format: "Name; relative\path.bas"
+                // Format: "Name; relative\path.ext"
                 var semi = value.IndexOf(';');
-                if (semi >= 0)
-                    project.RelativeModulePaths.Add((value[..semi].Trim(), value[(semi + 1)..].Trim(), ModuleKind.StandardModule));
+                var itemName = semi >= 0 ? value[..semi].Trim() : value.Trim();
+                var itemPath = semi >= 0 ? value[(semi + 1)..].Trim() : value.Trim();
+
+                if (SerializedProject.IsVb6CodeFile(itemPath))
+                {
+                    project.RelativeModulePaths.Add((itemName, itemPath, ModuleKind.StandardModule));
+                }
                 else
-                    project.RelativeModulePaths.Add((value.Trim(), value.Trim(), ModuleKind.StandardModule));
+                {
+                    // A non-code file on a code line. VB6 writes this whenever "Add As Related Document" is
+                    // left unticked, which is its default. Treating it as source is not harmless: the save
+                    // path prepends an Attribute VB_Name header to it and the Save-As path renames it by
+                    // extension. Reclassify — but keep the ORIGINAL LINE, because reclassifying is an
+                    // inference about intent and rewriting the project file on an inference is not.
+                    Log.Information(
+                        "Item '{Path}' on a ModuleKey line is not a VB6 source file; treating it as a related "
+                      + "document. Its line is preserved as-is.", itemPath);
+                    project.RelativeRelatedDocPaths.Add((itemName, itemPath, trimmed));
+                }
                 knownKeyCount++;
             }
             else if (key.Equals(SerializedProject.ClassKey, StringComparison.OrdinalIgnoreCase))
             {
+                // Format: "Name; relative\path.ext"
                 var semi = value.IndexOf(';');
-                if (semi >= 0)
-                    project.RelativeModulePaths.Add((value[..semi].Trim(), value[(semi + 1)..].Trim(), ModuleKind.ClassModule));
+                var itemName = semi >= 0 ? value[..semi].Trim() : value.Trim();
+                var itemPath = semi >= 0 ? value[(semi + 1)..].Trim() : value.Trim();
+
+                if (SerializedProject.IsVb6CodeFile(itemPath))
+                {
+                    project.RelativeModulePaths.Add((itemName, itemPath, ModuleKind.ClassModule));
+                }
                 else
-                    project.RelativeModulePaths.Add((value.Trim(), value.Trim(), ModuleKind.ClassModule));
+                {
+                    // A non-code file on a code line. VB6 writes this whenever "Add As Related Document" is
+                    // left unticked, which is its default. Treating it as source is not harmless: the save
+                    // path prepends an Attribute VB_Name header to it and the Save-As path renames it by
+                    // extension. Reclassify — but keep the ORIGINAL LINE, because reclassifying is an
+                    // inference about intent and rewriting the project file on an inference is not.
+                    Log.Information(
+                        "Item '{Path}' on a ClassKey line is not a VB6 source file; treating it as a related "
+                      + "document. Its line is preserved as-is.", itemPath);
+                    project.RelativeRelatedDocPaths.Add((itemName, itemPath, trimmed));
+                }
+                knownKeyCount++;
+            }
+            else if (key.Equals(SerializedProject.RelatedDocKey, StringComparison.OrdinalIgnoreCase))
+            {
+                // Format: "RelatedDoc=relative\path.md" — no "Name; " prefix, unlike every other item key.
+                var path = value.Trim();
+                project.RelativeRelatedDocPaths.Add(
+                    (System.IO.Path.GetFileName(path), path, null));
                 knownKeyCount++;
             }
             else if (key.Equals(SerializedProject.StartupKey, StringComparison.OrdinalIgnoreCase))
@@ -185,6 +224,30 @@ public class SerializedProject
     public string? Name { get; set; }
     public List<string> RelativeFormPaths { get; } = new();
     public List<(string Name, string Path, ModuleKind Kind)> RelativeModulePaths { get; } = new();
+
+    /// <summary>
+    /// Files the project carries but does not compile. <c>OriginalItemLine</c> is non-null only where the
+    /// entry was reclassified from a <c>Module=</c>/<c>Class=</c> line, so the writer can put that line back
+    /// exactly as it found it rather than rewriting a project file on the strength of a guess.
+    /// </summary>
+    public List<(string Name, string Path, string? OriginalItemLine)> RelativeRelatedDocPaths { get; } = new();
+
+    /// <summary>
+    /// Extensions a <c>Module=</c> or <c>Class=</c> line may legitimately point at. Anything else on one of
+    /// those lines is a non-code file VB6 added with its "Add As Related Document" tickbox left off — the
+    /// tickbox is not sticky and defaults off, so this is the common case rather than the odd one.
+    /// </summary>
+    private static readonly HashSet<string> Vb6CodeExtensions =
+        new(StringComparer.OrdinalIgnoreCase) { ".bas", ".cls", ".ctl", ".pag", ".frm", ".dob", ".dsr" };
+
+    /// <summary>True when an item path names a file VB6 would compile.</summary>
+    public static bool IsVb6CodeFile(string path)
+    {
+        var extension = System.IO.Path.GetExtension(path);
+        // No extension at all is left alone: reclassifying something we cannot classify would be a guess on
+        // top of a guess, and the conservative reading keeps it a module.
+        return extension.Length == 0 || Vb6CodeExtensions.Contains(extension);
+    }
     public List<VbReference> References { get; } = new();
     public List<string> SkippedUserDocumentPaths { get; } = new();
 
@@ -210,6 +273,7 @@ public class SerializedProject
     public const string UserControlKey = "UserControl";
     public const string PropertyPageKey = "PropertyPage";
     public const string UserDocumentKey = "UserDocument";
+    public const string RelatedDocKey = "RelatedDoc";
     public const string StartupKey = "Startup";
 
     /// <summary>The <c>Startup=</c> value naming <c>Sub Main</c> rather than a form. VB6's own spelling,

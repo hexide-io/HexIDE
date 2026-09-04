@@ -18,6 +18,7 @@ public partial class ProjectDefinition : INotifyPropertyChanged
 
     private List<FormDefinition> forms = new();
     private List<ModuleDefinition> modules = new();
+    private List<RelatedDocumentDefinition> relatedDocuments = new();
     private List<VbReference> references = new();
 
     public ProjectDefinition(VBProjectType projectType, string name)
@@ -89,6 +90,13 @@ public partial class ProjectDefinition : INotifyPropertyChanged
 
     public IReadOnlyList<FormDefinition> Forms => forms;
     public IReadOnlyList<ModuleDefinition> Modules => modules;
+
+    /// <summary>
+    /// Files the project carries but does not compile. Separate from <see cref="Modules"/> on purpose —
+    /// see <see cref="RelatedDocumentDefinition"/>: everything that iterates Modules would otherwise need a
+    /// guard, and a missed guard damages a file the developer never edited.
+    /// </summary>
+    public IReadOnlyList<RelatedDocumentDefinition> RelatedDocuments => relatedDocuments;
     public IReadOnlyList<VbReference> References => references;
 
     // Unknown key=value lines from the .vbp file (before any [Section] header), preserved verbatim.
@@ -127,6 +135,8 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     public event Action<ProjectDefinition, FormDefinition>? FormDeleted;
     public event Action<ProjectDefinition, ModuleDefinition>? ModuleAdded;
     public event Action<ProjectDefinition, ModuleDefinition>? ModuleDeleted;
+    public event Action<ProjectDefinition, RelatedDocumentDefinition>? RelatedDocumentAdded;
+    public event Action<ProjectDefinition, RelatedDocumentDefinition>? RelatedDocumentDeleted;
 
     public void AddForm(FormDefinition form)
     {
@@ -160,6 +170,20 @@ public partial class ProjectDefinition : INotifyPropertyChanged
     {
         modules.Remove(module);
         ModuleDeleted?.Invoke(this, module);
+    }
+
+    public void AddRelatedDocument(RelatedDocumentDefinition document)
+    {
+        // Note what is deliberately absent, compared with AddForm: no startup-object side effect. A related
+        // document is never a startup object, so adding one must not touch how the project runs.
+        relatedDocuments.Add(document);
+        RelatedDocumentAdded?.Invoke(this, document);
+    }
+
+    public void DeleteRelatedDocument(RelatedDocumentDefinition document)
+    {
+        relatedDocuments.Remove(document);
+        RelatedDocumentDeleted?.Invoke(this, document);
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
