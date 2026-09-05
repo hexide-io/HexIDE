@@ -48,7 +48,12 @@ public enum LanguageConnectionState
 /// <param name="DisplayName">For humans.</param>
 /// <param name="Kind">Which protocol this connection speaks.</param>
 /// <param name="State">Where it is now.</param>
-/// <param name="LanguageIds">The languages it claims.</param>
+/// <param name="Extensions">The file extensions it claims.</param>
+/// <param name="LanguageId">
+/// What documents are called when they are sent to THIS server. Worth surfacing rather than assuming: two
+/// servers may claim one extension and call it different things, and "which of you thought this was
+/// Python?" is otherwise unanswerable.
+/// </param>
 /// <param name="Capabilities">
 /// What it advertised, <b>as received</b>. Deliberately not reduced to a summary: any summary invented now
 /// will be wrong for a server not yet met, and the raw answer is the only honest response to "why is hover
@@ -59,7 +64,8 @@ public sealed record LanguageServerConnection(
     string DisplayName,
     LanguageConnectionKind Kind,
     LanguageConnectionState State,
-    IReadOnlyList<string> LanguageIds,
+    IReadOnlyList<string> Extensions,
+    string LanguageId,
     JsonElement? Capabilities);
 
 /// <summary>
@@ -75,6 +81,22 @@ public interface ILanguageConnectionRegistry
 {
     /// <summary>Every registered connection, including those deliberately not started.</summary>
     IReadOnlyList<LanguageServerConnection> Connections { get; }
+
+    /// <summary>
+    /// Everything wrong with the configuration these connections came from — a rejected entry, a
+    /// misspelled field, a command being run for the first time.
+    ///
+    /// <para>
+    /// Here rather than only in a log because a rejected entry is precisely something that is <b>not</b>
+    /// attached, and the reason why. Without it, an entry that failed to parse and an entry that was never
+    /// written are the same observable state: nothing in the list, and no explanation.
+    /// </para>
+    ///
+    /// <para>
+    /// Empty is the normal case.
+    /// </para>
+    /// </summary>
+    IReadOnlyList<LanguageServerConfigProblem> ConfigurationProblems { get; }
 
     /// <summary>Raised when any connection's state or advertised capabilities change.</summary>
     event EventHandler? ConnectionsChanged;

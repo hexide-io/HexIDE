@@ -5,21 +5,43 @@ using StreamJsonRpc;
 namespace HexIDE.Lsp;
 
 /// <summary>
-/// Desktop transport: launches the VB LSP server as a child process and speaks LSP over its
-/// stdio using Content-Length framing. This is the only place in the LSP client that depends on
+/// Desktop transport: launches a language server as a child process and speaks LSP over its stdio using
+/// Content-Length framing. This is the only place in the LSP client that depends on
 /// <see cref="System.Diagnostics.Process"/>; keeping it here lets <see cref="VBLspClient"/> stay
 /// transport-agnostic (and platform-agnostic for future WebSocket / in-process transports).
+///
+/// <para>
+/// <b>The command is given, not looked up.</b> This used to take <see cref="ILspServerLocator"/> and ask it
+/// where "the" server was — which described a world with exactly one, bundled, server. A transport that
+/// finds its own server can only ever launch that one, so every server the IDE could speak to had to be the
+/// same server. The locator still exists and still solves a real problem (the bundled server's path differs
+/// between a dev build and a publish), but it now computes the <em>default entry's</em> command rather than
+/// being a dependency of the transport.
+/// </para>
 /// </summary>
 public sealed class StdioProcessLspTransport : ILspTransport
 {
-    private readonly ILspServerLocator _locator;
+    private readonly LspServerInfo _serverInfo;
     private readonly ILogger<StdioProcessLspTransport> _logger;
+    private readonly ILspWorkspace? _workspace;
     private Process? _process;
 
-    public StdioProcessLspTransport(ILspServerLocator locator, ILogger<StdioProcessLspTransport> logger)
+    /// <param name="serverInfo">
+    /// What to launch. Resolving this — and deciding what to do when it cannot be resolved — belongs to
+    /// whoever built the registration, because an entry naming a server that is not there should not be
+    /// offered at all rather than fail at connect time.
+    /// </param>
+    /// <param name="workspace">
+    /// Consulted at connect time when <paramref name="serverInfo"/> names no working directory of its own,
+    /// so a server launched lazily runs in whichever project is open by then. An explicit working directory
+    /// always wins: a user who named one meant it.
+    /// </param>
+    public StdioProcessLspTransport(
+        LspServerInfo serverInfo, ILogger<StdioProcessLspTransport> logger, ILspWorkspace? workspace = null)
     {
-        _locator = locator;
+        _serverInfo = serverInfo;
         _logger = logger;
+        _workspace = workspace;
     }
 
     public bool IsAlive => _process is { HasExited: false };
@@ -31,14 +53,8 @@ public sealed class StdioProcessLspTransport : ILspTransport
 
     public Task<IJsonRpcMessageHandler?> ConnectAsync(IJsonRpcMessageFormatter formatter, CancellationToken cancellationToken = default)
     {
-        var serverInfo = _locator.FindLspServer();
-        if (serverInfo is null)
-        {
-            _logger.LogWarning("VB LSP server not found — LSP diagnostics disabled.");
-            return Task.FromResult<IJsonRpcMessageHandler?>(null);
-        }
-
-        _logger.LogInformation("Starting VB LSP server: {Exe}", serverInfo.FileName);
+        var serverInfo = _serverInfo;
+        _logger.LogInformation("Starting language server: {Exe}", serverInfo.FileName);
 
         // Debug proxy: if VB6_LSP_DEBUG_PROXY=1 is set, route traffic through
         // LspProxy.exe which logs all LSP frames to its stderr (visible in the
@@ -74,6 +90,11 @@ public sealed class StdioProcessLspTransport : ILspTransport
             // So: prefer the apphost whenever it is genuinely executable, and fall back to `dotnet <dll>`
             // only when it is not. The release pipeline chmod +x's the server apphost, so a published
             // tarball takes the first path and works with or without a machine-wide .NET install.
+            //
+            // This is not VB6-specific machinery even though a .NET apphost is what motivated it: the whole
+            // branch is skipped for anything already executable, so an ordinary third-party server binary
+            // never reaches it. When one DOES land here it is because the user named something they cannot
+            // execute, and saying so is the right answer.
             var apphostIsExecutable = false;
             try
             {
@@ -106,7 +127,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
             {
                 FileName = fileName,
                 Arguments = arguments,
-                WorkingDirectory = serverInfo.WorkingDirectory,
+                WorkingDirectory = WorkingDirectory(),
                 UseShellExecute = false,
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
@@ -148,6 +169,24 @@ public sealed class StdioProcessLspTransport : ILspTransport
             formatter);
 
         return Task.FromResult<IJsonRpcMessageHandler?>(handler);
+    }
+
+    /// <summary>
+    /// Where to run the server. An explicit setting wins; otherwise the workspace, resolved now rather than
+    /// when this transport was built, because the server starts on first use.
+    ///
+    /// <para>
+    /// Empty when there is neither — which hands the child the IDE's own working directory. That is not a
+    /// good root, but it is the one .NET uses when none is given, and inventing a temp path instead would
+    /// silently point a server's configuration lookup somewhere the user has never heard of.
+    /// </para>
+    /// </summary>
+    private string WorkingDirectory()
+    {
+        if (!string.IsNullOrWhiteSpace(_serverInfo.WorkingDirectory))
+            return _serverInfo.WorkingDirectory;
+
+        return _workspace?.Directory is { } d && !string.IsNullOrWhiteSpace(d) ? d : "";
     }
 
     private void OnProcessExited(object? sender, EventArgs e)

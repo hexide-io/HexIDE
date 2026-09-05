@@ -65,6 +65,7 @@ public partial class DISetup
             .Bind<IComponentRegistry>().As(Singleton).To<ComponentRegistry>()
             // LSP
             .Bind<ILspServerLocator>().As(Singleton).To<LspServerLocator>()
+            .Bind<ILspWorkspace>().As(Singleton).To<ProjectLspWorkspace>()
             // ILspClient is the ROUTER, not one connection. It implements the same interface a single
             // server does — that interface already takes a URI and hides which server answered — so the
             // editor and view-models gained plurality without changing a line. ILanguageConnectionRegistry
@@ -73,19 +74,44 @@ public partial class DISetup
             {
                 ctx.Inject<ILspServerLocator>(out var locator);
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
-                ctx.Inject<ISettingsService>(out var settings);
+                ctx.Inject<ILspWorkspace>(out var workspace);
 
-                // The one registration HexIDE ships with. A second language means a second entry here —
-                // and, before that is worth doing, a way to discover servers on disk.
-                var bundled = new LanguageServerRegistration(
-                    Id: "hexide.vb6",
-                    DisplayName: "HexIDE VB6 Language Server",
-                    LanguageIds: [DocumentLanguage.Vb6],
-                    CreateClient: () => new VBLspClient(
-                        CreateBundledTransport(locator, loggerFactory, settings),
-                        loggerFactory.CreateLogger<VBLspClient>()));
+                // The whole of #255 meets here. Defaults are contributed in code, the user's file is
+                // layered over them by id, and the result becomes registrations — so the bundled server is
+                // an ordinary row a user can replace or switch off, not a special case beside the file.
+                //
+                // Read once, here. Changes take effect on restart, so resolving later would only make
+                // "when did this take effect" ambiguous.
+                var log = loggerFactory.CreateLogger<DISetup>();
+                var defaults = LanguageServerDefaults.For(locator, log);
+                var configuration = new LanguageServerConfigLoader(
+                        loggerFactory.CreateLogger<LanguageServerConfigLoader>())
+                    .Load(defaults, new LanguageServerCommandStore());
 
-                return new LspClientRegistry([bundled], loggerFactory.CreateLogger<LspClientRegistry>());
+                foreach (var problem in configuration.Problems)
+                    log.LogWarning("Language server configuration: {Message}", problem.Message);
+
+                var registrations = new LanguageServerRegistrationFactory(loggerFactory, workspace)
+                    .Create(configuration.Entries);
+
+                // Distinguishable from "servers fine, nothing to say" — the confusion #231 documents, and
+                // which a user has no way to tell apart from inside the editor.
+                var problems = configuration.Problems;
+                if (registrations.Count == 0)
+                {
+                    log.LogWarning("No language servers are configured; language features are unavailable.");
+                    problems =
+                    [
+                        .. problems,
+                        new LanguageServerConfigProblem(
+                            null,
+                            "No language servers are configured, so language features are unavailable.",
+                            false),
+                    ];
+                }
+
+                return new LspClientRegistry(
+                    registrations, loggerFactory.CreateLogger<LspClientRegistry>(), workspace, problems);
             })
             .Bind<ILoggerFactory>().As(Singleton).To(_ => LoggingSetup.LoggerFactory)
             .Bind<ILogger<TT>>().As(Singleton).To<Logger<TT>>()
@@ -123,6 +149,10 @@ public partial class DISetup
             .Root<ILanguageSwitchService>("LanguageSwitchService")
             .Root<ISettingsService>("SettingsService")
             .Root<IProjectManager>("ProjectManager")
+            // A root only so a test can ask it the one question it exists to answer, without first
+            // building the language client. It closes a dependency cycle, and a cycle's back edge is
+            // exactly what Pure.DI leaves unguarded — see ProjectLspWorkspace.
+            .Root<ILspWorkspace>("LspWorkspace")
             .Root<IEditorService>("EditorService")
             .Root<IDocumentDockService>("DocumentDockService")
             .Root<IProjectRunnerService>("ProjectRunnerService")
@@ -139,51 +169,6 @@ public partial class DISetup
             .Root<TranslationEditorViewModel>("TranslationEditorViewModel")
             .Root<IPersonalityService>("PersonalityService")
             .Root<AddinProjectTemplateService>("AddinProjectTemplateService");
-
-    /// <summary>
-    /// Builds the transport for the bundled VB6 server, in precedence order:
-    /// <list type="number">
-    ///   <item>WebSocket, if <c>HEXIDE_LSP_WS_URL</c> (env, wins) or the <c>LspWebSocketUrl</c> setting is set</item>
-    ///   <item>Named pipe, if <c>HEXIDE_LSP_PIPE</c> is set (<c>HEXIDE_LSP_PIPE_ROLE</c> = listen|connect,
-    ///         default connect — a server already running that owns the pipe)</item>
-    ///   <item>The stdio subprocess transport</item>
-    /// </list>
-    ///
-    /// <para>
-    /// This is a factory rather than a registered service because transport is a property of a <em>server</em>,
-    /// not of the IDE: one server may speak stdio while another accepts only a named pipe, and a single
-    /// global choice cannot describe both. These environment variables therefore configure the bundled
-    /// server specifically, and are not a setting for "the" transport.
-    /// </para>
-    ///
-    /// <para>
-    /// The pipe option stays env-only and deliberately has no Options field: pointing HexIDE at a foreign
-    /// server is a development activity today, and a UI field would mean a new localized label in every
-    /// shipped language pack for a backend nobody can yet select.
-    /// </para>
-    /// </summary>
-    private static ILspTransport CreateBundledTransport(
-        ILspServerLocator locator, ILoggerFactory loggerFactory, ISettingsService settings)
-    {
-        var wsUrl = Environment.GetEnvironmentVariable("HEXIDE_LSP_WS_URL");
-        if (string.IsNullOrWhiteSpace(wsUrl)) wsUrl = settings.LspWebSocketUrl;
-        if (!string.IsNullOrWhiteSpace(wsUrl))
-            return new WebSocketLspTransport(wsUrl, loggerFactory.CreateLogger<WebSocketLspTransport>());
-
-        var pipeName = Environment.GetEnvironmentVariable("HEXIDE_LSP_PIPE");
-        if (!string.IsNullOrWhiteSpace(pipeName))
-        {
-            var role = string.Equals(
-                Environment.GetEnvironmentVariable("HEXIDE_LSP_PIPE_ROLE"), "listen",
-                StringComparison.OrdinalIgnoreCase)
-                ? NamedPipeRole.Listen
-                : NamedPipeRole.Connect;
-            return new NamedPipeLspTransport(
-                pipeName, role, loggerFactory.CreateLogger<NamedPipeLspTransport>());
-        }
-
-        return new StdioProcessLspTransport(locator, loggerFactory.CreateLogger<StdioProcessLspTransport>());
-    }
 
     public static MainViewViewModel DesignTimeRootViewModel => new DISetup().Root;
 }

@@ -47,8 +47,5 @@ public static class SettingsDefaults
     public const bool IsEditToolbarVisible = false;
     public const bool IsDebugToolbarVisible = false;
     public const bool IsFormEditorToolbarVisible = false;
-
-    // ── Advanced ────────────────────────────────────────────────
-    public const string? LspWebSocketUrl = null;
     public const string? RevocationListUrl = null;
 }

@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "그리드 너비:",
     "Str.Options.Grid.Height": "그리드 높이:",
     "Str.Options.Grid.AlignControls": "컨트롤을 그리드에 맞춤",
-    "Str.Options.Advanced.Header": "언어 서버",
-    "Str.Options.Advanced.WebSocketUrlLabel": "WebSocket URL (선택 사항):",
-    "Str.Options.Advanced.WebSocketUrlHint": "비워 두면 언어 서버를 로컬 하위 프로세스로 시작합니다(기본값). 다음 연결 시 적용됩니다.",
     "Str.Options.Developer.Warning.Title": "위험 구역",
     "Str.Options.Developer.Warning.Body": "개발자 모드가 켜져 있습니다. 아래 옵션은 서명되지 않고 검증되지 않은 코드를 로드하고 HexIDE의 안전 검사를 약화시킬 수 있습니다. 직접 설정했고 위험을 이해하는 경우에만 켜십시오.",
     "Str.Options.Developer.Warning.SocialEngineering": "누군가가 이 옵션을 켜라고 요청했다면 중단하고 HexIDE를 닫으십시오.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "환경",
     "Str.Options.Node.Editor": "편집기",
     "Str.Options.Node.FormDesigner": "폼 디자이너",
-    "Str.Options.Node.Advanced": "고급",
     "Str.Options.Node.AddIns": "추가 기능",
     "Str.Options.Node.General": "일반",
     "Str.Options.Node.Theme": "테마",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "도구 모음",
     "Str.Options.Node.Formatting": "서식",
     "Str.Options.Node.Grid": "그리드",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "개발자"
   }
 }

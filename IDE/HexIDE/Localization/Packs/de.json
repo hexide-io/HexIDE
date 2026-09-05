@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "Rasterbreite:",
     "Str.Options.Grid.Height": "Rasterhöhe:",
     "Str.Options.Grid.AlignControls": "Steuerelemente am Raster ausrichten",
-    "Str.Options.Advanced.Header": "Sprachserver",
-    "Str.Options.Advanced.WebSocketUrlLabel": "WebSocket-URL (optional):",
-    "Str.Options.Advanced.WebSocketUrlHint": "Leer lassen, um den Sprachserver als lokalen Unterprozess zu starten (Standard). Gilt bei der nächsten Verbindung.",
     "Str.Options.Developer.Warning.Title": "HIER LAUERN DRACHEN",
     "Str.Options.Developer.Warning.Body": "Der Entwicklermodus ist EINGESCHALTET. Die folgenden Optionen können UNSIGNIERTEN, UNGEPRÜFTEN Code laden und die Sicherheitsprüfungen von HexIDE schwächen. Schalten Sie sie nur ein, wenn Sie sie selbst festgelegt haben und das Risiko verstehen.",
     "Str.Options.Developer.Warning.SocialEngineering": "Falls Sie jemand gebeten hat, diese zu aktivieren: Halten Sie inne und schließen Sie HexIDE.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "Umgebung",
     "Str.Options.Node.Editor": "Editor",
     "Str.Options.Node.FormDesigner": "Formular-Designer",
-    "Str.Options.Node.Advanced": "Erweitert",
     "Str.Options.Node.AddIns": "Add-Ins",
     "Str.Options.Node.General": "Allgemein",
     "Str.Options.Node.Theme": "Design",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "Symbolleisten",
     "Str.Options.Node.Formatting": "Formatierung",
     "Str.Options.Node.Grid": "Raster",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Entwickler"
   }
 }

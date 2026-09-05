@@ -694,3 +694,34 @@ layout, so it does not actually enlarge the pane.
 
 **Suggested fix.** Return scalar property values (string/number/bool) alongside the member list. A
 `get_immediate_output` returning the Immediate buffer as text would remove the whole class of workaround.
+
+## A carried file cannot be opened at all
+
+**Symptom.** A project's related documents (a `RelatedDoc=` in the `.vbp` — a README, a changelog, a
+`.sql`) appear in the Project Explorer as `RelatedDocViewModel` nodes, and there is no MCP route to open
+one. Every door is shut:
+
+- The tree opens an item on **double-tap** (`ProjectToolView.axaml` → `TreeView_OnDoubleTapped` →
+  `ProjectToolViewModel.OpenSelected()`), and `interact` has no double-click action.
+- `interact select` on the `TreeViewItem` fails with *element does not support 'select'* — it reports only
+  a `scroll` provider, so the row cannot even be **selected**, which `OpenSelected` reads.
+- `OpenSelected()` is a plain method, not an `ICommand`, so `interact invoke_command` cannot reach it. The
+  context menu's `ViewCodeCommand` handles forms and modules only.
+- `open_file` and `add_file` are documented as forms and modules only, and reject a related document.
+- `Project > Add File...` on an already-carried file does open it, but goes through
+  `IStorageProvider.OpenFilePickerAsync` — a native Win32 dialog no MCP tool can drive.
+
+**Consequence.** A whole editor type is unverifiable. This blocked the live check for #255: the point of
+that change is attaching a language server for a file type HexIDE has no other support for, and a carried
+`.md` is exactly that file. The configuration, the registry and the bundled server were all confirmable;
+the foreign server's diagnostics rendering in an editor were not, and needed a human to double-click.
+
+**Workaround.** None that stays inside the tool surface. Ask the user for the one gesture. (Declaring the
+foreign server for `vb6://` documents instead reaches the routing, but proves it with a configuration no
+user would write, and the file still cannot be opened.)
+
+**Suggested fix.** Either a `double_click` action on `interact` (general, and the smaller change), or
+teach `open_file` to accept a related document by name, since it is already the "open this project item"
+tool and its current refusal is the surprising part. Note that selection is broken independently: the
+`TreeViewItem` exposing no `selectionItem` provider is worth fixing on its own, because it blocks every
+context-menu path in the Project Explorer, not just this one.

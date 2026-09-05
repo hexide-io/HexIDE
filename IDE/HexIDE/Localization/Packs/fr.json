@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "Largeur de la grille :",
     "Str.Options.Grid.Height": "Hauteur de la grille :",
     "Str.Options.Grid.AlignControls": "Aligner les contrôles sur la grille",
-    "Str.Options.Advanced.Header": "Serveur de langage",
-    "Str.Options.Advanced.WebSocketUrlLabel": "URL WebSocket (facultatif) :",
-    "Str.Options.Advanced.WebSocketUrlHint": "Laissez vide pour lancer le serveur de langage en tant que sous-processus local (par défaut). Pris en compte à la prochaine connexion.",
     "Str.Options.Developer.Warning.Title": "ICI SONT LES DRAGONS",
     "Str.Options.Developer.Warning.Body": "Le mode développeur est ACTIVÉ. Les options ci-dessous peuvent charger du code NON SIGNÉ et NON VÉRIFIÉ et affaiblir les contrôles de sécurité de HexIDE. Ne les activez que si vous les avez définies vous-même et que vous comprenez le risque.",
     "Str.Options.Developer.Warning.SocialEngineering": "Si quelqu'un vous a demandé de les activer : arrêtez et fermez HexIDE.",
@@ -623,7 +620,6 @@
     "Str.Options.Node.Environment": "Environnement",
     "Str.Options.Node.Editor": "Éditeur",
     "Str.Options.Node.FormDesigner": "Concepteur de feuilles",
-    "Str.Options.Node.Advanced": "Avancé",
     "Str.Options.Node.AddIns": "Modules complémentaires",
     "Str.Options.Node.General": "Général",
     "Str.Options.Node.Theme": "Thème",
@@ -632,7 +628,6 @@
     "Str.Options.Node.Toolbars": "Barres d'outils",
     "Str.Options.Node.Formatting": "Mise en forme",
     "Str.Options.Node.Grid": "Grille",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Développeur"
   }
 }

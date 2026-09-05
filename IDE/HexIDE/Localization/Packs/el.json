@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "Πλάτος πλέγματος:",
     "Str.Options.Grid.Height": "Ύψος πλέγματος:",
     "Str.Options.Grid.AlignControls": "Στοίχιση στοιχείων ελέγχου στο πλέγμα",
-    "Str.Options.Advanced.Header": "Διακομιστής γλώσσας",
-    "Str.Options.Advanced.WebSocketUrlLabel": "WebSocket URL (προαιρετικό):",
-    "Str.Options.Advanced.WebSocketUrlHint": "Αφήστε το κενό για να εκκινήσετε τον διακομιστή γλώσσας ως τοπική υποδιεργασία (προεπιλογή). Εφαρμόζεται στην επόμενη σύνδεση.",
     "Str.Options.Developer.Warning.Title": "ΕΔΩ ΥΠΑΡΧΟΥΝ ΔΡΑΚΟΙ",
     "Str.Options.Developer.Warning.Body": "Η λειτουργία προγραμματιστή είναι ΕΝΕΡΓΗ. Οι παρακάτω επιλογές μπορούν να φορτώσουν ΜΗ ΥΠΟΓΕΓΡΑΜΜΕΝΟ, ΜΗ ΕΠΑΛΗΘΕΥΜΕΝΟ κώδικα και να αποδυναμώσουν τους ελέγχους ασφαλείας του HexIDE. Ενεργοποιήστε τες μόνο αν τις ορίσατε εσείς οι ίδιοι και κατανοείτε τον κίνδυνο.",
     "Str.Options.Developer.Warning.SocialEngineering": "Αν κάποιος σας ζήτησε να τις ενεργοποιήσετε: σταματήστε και κλείστε το HexIDE.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "Περιβάλλον",
     "Str.Options.Node.Editor": "Επεξεργαστής",
     "Str.Options.Node.FormDesigner": "Σχεδίαση φόρμας",
-    "Str.Options.Node.Advanced": "Για προχωρημένους",
     "Str.Options.Node.AddIns": "Πρόσθετα",
     "Str.Options.Node.General": "Γενικά",
     "Str.Options.Node.Theme": "Θέμα",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "Γραμμές εργαλείων",
     "Str.Options.Node.Formatting": "Μορφοποίηση",
     "Str.Options.Node.Grid": "Πλέγμα",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Προγραμματιστής"
   }
 }

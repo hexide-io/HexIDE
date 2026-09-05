@@ -156,7 +156,6 @@ public class OptionsViewIntegrationTests
             new EditorGeneralPageView { DataContext = new EditorGeneralPageViewModel(settings) },
             new EditorFormattingPageView { DataContext = new EditorFormattingPageViewModel(settings) },
             new FormDesignerGridPageView { DataContext = new FormDesignerGridPageViewModel(settings) },
-            new AdvancedLspPageView { DataContext = new AdvancedLspPageViewModel(settings) },
             new AddinOptionsPageView { DataContext = new AddinOptionsPageViewModel(registry, SampleAddin) },
         };
 

@@ -24,10 +24,26 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      # The foreign-server tests drive a real third-party language server, and are the only check that
+      # HexIDE speaks LSP to something it did not write — a client and server by one hand agree with each
+      # other rather than with the specification. The binary is fetched on demand (pinned version, the
+      # publisher's checksum verified) rather than committed: it is ~6.5 MB per platform against a
+      # repository under 6 MB. Cached so the usual run does not go to the network at all.
+      - name: Cache the foreign language server
+        uses: actions/cache@v4
+        with:
+          path: IDE/HexIDE.Tests/tools/foreign-lsp
+          key: foreign-lsp-${{ runner.os }}-${{ hashFiles('IDE/HexIDE.Tests/LspClient/ForeignServerAcquisition.cs') }}
+
       - name: Run Runtime Tests
         run: dotnet test HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj
 
+      # HEXIDE_REQUIRE_FOREIGN_LSP turns "no server available" from a skip into a failure. Without it a
+      # broken download would quietly return the suite to the state this change exists to leave: green,
+      # with the foreign-backend proof silently not running.
       - name: Run ViewModel Tests
+        env:
+          HEXIDE_REQUIRE_FOREIGN_LSP: '1'
         run: dotnet test HexIDE.Tests/HexIDE.Tests.csproj
 
       - name: Run Integration Tests (headless Avalonia UI)

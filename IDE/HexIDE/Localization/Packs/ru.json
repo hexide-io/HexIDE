@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "Ширина сетки:",
     "Str.Options.Grid.Height": "Высота сетки:",
     "Str.Options.Grid.AlignControls": "Выравнивать элементы управления по сетке",
-    "Str.Options.Advanced.Header": "Языковой сервер",
-    "Str.Options.Advanced.WebSocketUrlLabel": "URL WebSocket (необязательно):",
-    "Str.Options.Advanced.WebSocketUrlHint": "Оставьте пустым, чтобы запускать языковой сервер как локальный подпроцесс (по умолчанию). Применяется при следующем подключении.",
     "Str.Options.Developer.Warning.Title": "ЗДЕСЬ ВОДЯТСЯ ДРАКОНЫ",
     "Str.Options.Developer.Warning.Body": "Режим разработчика ВКЛЮЧЁН. Параметры ниже могут загружать НЕПОДПИСАННЫЙ, НЕПРОВЕРЕННЫЙ код и ослаблять проверки безопасности HexIDE. Включайте их только если вы настроили их сами и понимаете риск.",
     "Str.Options.Developer.Warning.SocialEngineering": "Если кто-то попросил вас включить эти параметры: остановитесь и закройте HexIDE.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "Среда",
     "Str.Options.Node.Editor": "Редактор",
     "Str.Options.Node.FormDesigner": "Конструктор форм",
-    "Str.Options.Node.Advanced": "Дополнительно",
     "Str.Options.Node.AddIns": "Надстройки",
     "Str.Options.Node.General": "Общие",
     "Str.Options.Node.Theme": "Тема",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "Панели инструментов",
     "Str.Options.Node.Formatting": "Форматирование",
     "Str.Options.Node.Grid": "Сетка",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Разработчик"
   }
 }

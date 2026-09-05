@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "Lebar Kisi:",
     "Str.Options.Grid.Height": "Tinggi Kisi:",
     "Str.Options.Grid.AlignControls": "Sejajarkan Kontrol ke Kisi",
-    "Str.Options.Advanced.Header": "Server Bahasa",
-    "Str.Options.Advanced.WebSocketUrlLabel": "URL WebSocket (opsional):",
-    "Str.Options.Advanced.WebSocketUrlHint": "Biarkan kosong untuk menjalankan server bahasa sebagai subproses lokal (bawaan). Berlaku pada koneksi berikutnya.",
     "Str.Options.Developer.Warning.Title": "WASPADA, BAHAYA",
     "Str.Options.Developer.Warning.Body": "Mode pengembang AKTIF. Opsi di bawah ini dapat memuat kode yang TIDAK BERTANDA TANGAN dan TIDAK TERVERIFIKASI serta melemahkan pemeriksaan keamanan HexIDE. Aktifkan hanya jika Anda mengaturnya sendiri dan memahami risikonya.",
     "Str.Options.Developer.Warning.SocialEngineering": "Jika seseorang meminta Anda mengaktifkan ini: berhenti dan tutup HexIDE.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "Lingkungan",
     "Str.Options.Node.Editor": "Editor",
     "Str.Options.Node.FormDesigner": "Perancang Form",
-    "Str.Options.Node.Advanced": "Lanjutan",
     "Str.Options.Node.AddIns": "Add-In",
     "Str.Options.Node.General": "Umum",
     "Str.Options.Node.Theme": "Tema",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "Bilah Alat",
     "Str.Options.Node.Formatting": "Pemformatan",
     "Str.Options.Node.Grid": "Kisi",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Pengembang"
   }
 }

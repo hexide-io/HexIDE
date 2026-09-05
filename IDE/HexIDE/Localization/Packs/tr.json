@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "Izgara Genişliği:",
     "Str.Options.Grid.Height": "Izgara Yüksekliği:",
     "Str.Options.Grid.AlignControls": "Denetimleri Izgaraya Hizala",
-    "Str.Options.Advanced.Header": "Dil Sunucusu",
-    "Str.Options.Advanced.WebSocketUrlLabel": "WebSocket URL (isteğe bağlı):",
-    "Str.Options.Advanced.WebSocketUrlHint": "Dil sunucusunu yerel bir alt işlem olarak başlatmak için boş bırakın (varsayılan). Bir sonraki bağlantıda uygulanır.",
     "Str.Options.Developer.Warning.Title": "BURADA EJDERHALAR VAR",
     "Str.Options.Developer.Warning.Body": "Geliştirici modu AÇIK. Aşağıdaki seçenekler İMZASIZ, DOĞRULANMAMIŞ kod yükleyebilir ve HexIDE'nin güvenlik denetimlerini zayıflatabilir. Bunları yalnızca kendiniz ayarladıysanız ve riski anlıyorsanız açın.",
     "Str.Options.Developer.Warning.SocialEngineering": "Bunları etkinleştirmenizi biri istediyse: durun ve HexIDE'yi kapatın.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "Ortam",
     "Str.Options.Node.Editor": "Düzenleyici",
     "Str.Options.Node.FormDesigner": "Form Tasarımcısı",
-    "Str.Options.Node.Advanced": "Gelişmiş",
     "Str.Options.Node.AddIns": "Eklentiler",
     "Str.Options.Node.General": "Genel",
     "Str.Options.Node.Theme": "Tema",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "Araç Çubukları",
     "Str.Options.Node.Formatting": "Biçimlendirme",
     "Str.Options.Node.Grid": "Izgara",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Geliştirici"
   }
 }

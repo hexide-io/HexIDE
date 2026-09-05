@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "Rasterbreedte:",
     "Str.Options.Grid.Height": "Rasterhoogte:",
     "Str.Options.Grid.AlignControls": "Besturingselementen uitlijnen op raster",
-    "Str.Options.Advanced.Header": "Taalserver",
-    "Str.Options.Advanced.WebSocketUrlLabel": "WebSocket URL (optioneel):",
-    "Str.Options.Advanced.WebSocketUrlHint": "Laat leeg om de taalserver als een lokaal subproces te starten (standaard). Wordt toegepast bij de volgende verbinding.",
     "Str.Options.Developer.Warning.Title": "HIER ZIJN DRAKEN",
     "Str.Options.Developer.Warning.Body": "Ontwikkelaarsmodus staat AAN. De onderstaande opties kunnen NIET-ONDERTEKENDE, NIET-GEVERIFIEERDE code laden en verzwakken de veiligheidscontroles van HexIDE. Schakel ze alleen in als u ze zelf hebt ingesteld en het risico begrijpt.",
     "Str.Options.Developer.Warning.SocialEngineering": "Als iemand u heeft gevraagd deze in te schakelen: stop en sluit HexIDE.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "Omgeving",
     "Str.Options.Node.Editor": "Editor",
     "Str.Options.Node.FormDesigner": "Formulierontwerper",
-    "Str.Options.Node.Advanced": "Geavanceerd",
     "Str.Options.Node.AddIns": "Invoegtoepassingen",
     "Str.Options.Node.General": "Algemeen",
     "Str.Options.Node.Theme": "Thema",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "Werkbalken",
     "Str.Options.Node.Formatting": "Opmaak",
     "Str.Options.Node.Grid": "Raster",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Ontwikkelaar"
   }
 }

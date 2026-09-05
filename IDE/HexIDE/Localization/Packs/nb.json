@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "Rutenettbredde:",
     "Str.Options.Grid.Height": "Rutenetthøyde:",
     "Str.Options.Grid.AlignControls": "Juster kontroller etter rutenett",
-    "Str.Options.Advanced.Header": "Språkserver",
-    "Str.Options.Advanced.WebSocketUrlLabel": "WebSocket-URL (valgfritt):",
-    "Str.Options.Advanced.WebSocketUrlHint": "La stå tomt for å starte språkserveren som en lokal underprosess (standard). Gjelder fra neste tilkobling.",
     "Str.Options.Developer.Warning.Title": "HER ER DET DRAGER",
     "Str.Options.Developer.Warning.Body": "Utviklermodus er PÅ. Alternativene nedenfor kan laste inn USIGNERT, UVERIFISERT kode og svekke HexIDEs sikkerhetskontroller. Slå dem bare på hvis du har satt dem selv og forstår risikoen.",
     "Str.Options.Developer.Warning.SocialEngineering": "Hvis noen ba deg om å aktivere disse: stopp og lukk HexIDE.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "Miljø",
     "Str.Options.Node.Editor": "Redigeringsprogram",
     "Str.Options.Node.FormDesigner": "Skjemautforming",
-    "Str.Options.Node.Advanced": "Avansert",
     "Str.Options.Node.AddIns": "Tillegg",
     "Str.Options.Node.General": "Generelt",
     "Str.Options.Node.Theme": "Tema",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "Verktøylinjer",
     "Str.Options.Node.Formatting": "Formatering",
     "Str.Options.Node.Grid": "Rutenett",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Utvikler"
   }
 }

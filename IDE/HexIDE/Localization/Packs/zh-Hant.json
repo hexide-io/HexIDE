@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "格線寬度:",
     "Str.Options.Grid.Height": "格線高度:",
     "Str.Options.Grid.AlignControls": "將控制項對齊格線",
-    "Str.Options.Advanced.Header": "語言伺服器",
-    "Str.Options.Advanced.WebSocketUrlLabel": "WebSocket URL (選填):",
-    "Str.Options.Advanced.WebSocketUrlHint": "留空則將語言伺服器啟動為本機子處理程序 (預設)。於下次連線時生效。",
     "Str.Options.Developer.Warning.Title": "此處有惡龍出沒",
     "Str.Options.Developer.Warning.Body": "開發人員模式已開啟。以下選項可能載入未簽署、未驗證的程式碼,並削弱 HexIDE 的安全檢查。請僅在您親自設定且了解風險時才開啟。",
     "Str.Options.Developer.Warning.SocialEngineering": "如果有人要求您啟用這些選項:請停止並關閉 HexIDE。",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "環境",
     "Str.Options.Node.Editor": "編輯器",
     "Str.Options.Node.FormDesigner": "表單設計工具",
-    "Str.Options.Node.Advanced": "進階",
     "Str.Options.Node.AddIns": "增益集",
     "Str.Options.Node.General": "一般",
     "Str.Options.Node.Theme": "佈景主題",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "工具列",
     "Str.Options.Node.Formatting": "格式化",
     "Str.Options.Node.Grid": "格線",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "開發人員"
   }
 }

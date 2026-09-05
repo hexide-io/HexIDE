@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "Ширина сітки:",
     "Str.Options.Grid.Height": "Висота сітки:",
     "Str.Options.Grid.AlignControls": "Вирівнювати елементи керування за сіткою",
-    "Str.Options.Advanced.Header": "Мовний сервер",
-    "Str.Options.Advanced.WebSocketUrlLabel": "URL-адреса WebSocket (необов'язково):",
-    "Str.Options.Advanced.WebSocketUrlHint": "Залиште порожнім, щоб запустити мовний сервер як локальний підпроцес (типово). Застосовується під час наступного підключення.",
     "Str.Options.Developer.Warning.Title": "ТУТ ВОДЯТЬСЯ ДРАКОНИ",
     "Str.Options.Developer.Warning.Body": "Режим розробника УВІМКНЕНО. Наведені нижче параметри можуть завантажувати НЕПІДПИСАНИЙ, НЕПЕРЕВІРЕНИЙ код і послаблювати перевірки безпеки HexIDE. Вмикайте їх лише тоді, коли ви налаштували їх самі та усвідомлюєте ризик.",
     "Str.Options.Developer.Warning.SocialEngineering": "Якщо хтось попросив вас увімкнути ці параметри: зупиніться та закрийте HexIDE.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "Середовище",
     "Str.Options.Node.Editor": "Редактор",
     "Str.Options.Node.FormDesigner": "Конструктор форм",
-    "Str.Options.Node.Advanced": "Додатково",
     "Str.Options.Node.AddIns": "Надбудови",
     "Str.Options.Node.General": "Загальні",
     "Str.Options.Node.Theme": "Тема",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "Панелі інструментів",
     "Str.Options.Node.Formatting": "Форматування",
     "Str.Options.Node.Grid": "Сітка",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Розробник"
   }
 }

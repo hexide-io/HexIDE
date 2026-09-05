@@ -40,8 +40,6 @@ public partial class SettingsService : ObservableObject, ISettingsService
     private bool _loadUnsignedAddins = SettingsDefaults.LoadUnsignedAddins;
     private bool _reloadFilesChangedOutsideIde = SettingsDefaults.ReloadFilesChangedOutsideIde;
 
-    // ── Language server default ─────────────────────────────────
-    private string? _lspWebSocketUrl = SettingsDefaults.LspWebSocketUrl;
     private string? _revocationListUrl = SettingsDefaults.RevocationListUrl;
 
     // ── Window state default ────────────────────────────────────
@@ -158,14 +156,6 @@ public partial class SettingsService : ObservableObject, ISettingsService
         set => SetProperty(ref _reloadFilesChangedOutsideIde, value);
     }
 
-    // ── Language server property ────────────────────────────────
-
-    public string? LspWebSocketUrl
-    {
-        get => _lspWebSocketUrl;
-        set => SetProperty(ref _lspWebSocketUrl, value);
-    }
-
     public string? RevocationListUrl
     {
         get => _revocationListUrl;
@@ -256,7 +246,6 @@ public partial class SettingsService : ObservableObject, ISettingsService
                 ActiveLanguage = _activeLanguage,
                 LoadUnsignedAddins = _loadUnsignedAddins,
                 ReloadFilesChangedOutsideIde = _reloadFilesChangedOutsideIde,
-                LspWebSocketUrl = _lspWebSocketUrl,
                 RevocationListUrl = _revocationListUrl,
                 IsStandardToolbarVisible = _isStandardToolbarVisible,
                 IsEditToolbarVisible = _isEditToolbarVisible,
@@ -316,7 +305,6 @@ public partial class SettingsService : ObservableObject, ISettingsService
             ActiveLanguage = data.ActiveLanguage;
             LoadUnsignedAddins = data.LoadUnsignedAddins;
             ReloadFilesChangedOutsideIde = data.ReloadFilesChangedOutsideIde;
-            LspWebSocketUrl = data.LspWebSocketUrl;
             RevocationListUrl = data.RevocationListUrl;
             _isStandardToolbarVisible = data.IsStandardToolbarVisible;
             _isEditToolbarVisible = data.IsEditToolbarVisible;
@@ -385,9 +373,6 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
         [JsonPropertyName("reloadFilesChangedOutsideIde")]
         public bool ReloadFilesChangedOutsideIde { get; set; } = SettingsDefaults.ReloadFilesChangedOutsideIde;
-
-        [JsonPropertyName("lspWebSocketUrl")]
-        public string? LspWebSocketUrl { get; set; } = SettingsDefaults.LspWebSocketUrl;
 
         [JsonPropertyName("revocationListUrl")]
         public string? RevocationListUrl { get; set; } = SettingsDefaults.RevocationListUrl;

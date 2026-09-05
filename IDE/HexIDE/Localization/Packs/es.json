@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "Ancho de la cuadrícula:",
     "Str.Options.Grid.Height": "Alto de la cuadrícula:",
     "Str.Options.Grid.AlignControls": "Alinear controles a la cuadrícula",
-    "Str.Options.Advanced.Header": "Servidor de lenguaje",
-    "Str.Options.Advanced.WebSocketUrlLabel": "URL de WebSocket (opcional):",
-    "Str.Options.Advanced.WebSocketUrlHint": "Déjelo en blanco para iniciar el servidor de lenguaje como un subproceso local (predeterminado). Se aplica en la siguiente conexión.",
     "Str.Options.Developer.Warning.Title": "AQUÍ HAY DRAGONES",
     "Str.Options.Developer.Warning.Body": "El modo de desarrollador está ACTIVADO. Las opciones siguientes pueden cargar código SIN FIRMAR y SIN VERIFICAR y debilitar las comprobaciones de seguridad de HexIDE. Actívelas solo si las configuró usted mismo y comprende el riesgo.",
     "Str.Options.Developer.Warning.SocialEngineering": "Si alguien le pidió que las activara: deténgase y cierre HexIDE.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "Entorno",
     "Str.Options.Node.Editor": "Editor",
     "Str.Options.Node.FormDesigner": "Diseñador de formularios",
-    "Str.Options.Node.Advanced": "Avanzado",
     "Str.Options.Node.AddIns": "Complementos",
     "Str.Options.Node.General": "General",
     "Str.Options.Node.Theme": "Tema",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "Barras de herramientas",
     "Str.Options.Node.Formatting": "Formato",
     "Str.Options.Node.Grid": "Cuadrícula",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Desarrollador"
   }
 }

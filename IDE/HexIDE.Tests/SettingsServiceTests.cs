@@ -49,7 +49,6 @@ public class SettingsServiceTests : IDisposable
         sut.ActiveTheme.Should().Be(SettingsDefaults.ActiveTheme);
         sut.ActiveKeymap.Should().Be(SettingsDefaults.ActiveKeymap);
         sut.ActiveLanguage.Should().Be(SettingsDefaults.ActiveLanguage);
-        sut.LspWebSocketUrl.Should().Be(SettingsDefaults.LspWebSocketUrl);
         sut.IsStandardToolbarVisible.Should().Be(SettingsDefaults.IsStandardToolbarVisible);
         sut.IsEditToolbarVisible.Should().Be(SettingsDefaults.IsEditToolbarVisible);
         sut.IsDebugToolbarVisible.Should().Be(SettingsDefaults.IsDebugToolbarVisible);

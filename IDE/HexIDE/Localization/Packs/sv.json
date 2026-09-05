@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "Rutnätsbredd:",
     "Str.Options.Grid.Height": "Rutnätshöjd:",
     "Str.Options.Grid.AlignControls": "Justera kontroller mot rutnät",
-    "Str.Options.Advanced.Header": "Språkserver",
-    "Str.Options.Advanced.WebSocketUrlLabel": "WebSocket-URL (valfri):",
-    "Str.Options.Advanced.WebSocketUrlHint": "Lämna tomt för att starta språkservern som en lokal underprocess (standard). Tillämpas vid nästa anslutning.",
     "Str.Options.Developer.Warning.Title": "HÄR FINNS DRAKAR",
     "Str.Options.Developer.Warning.Body": "Utvecklarläget är PÅ. Alternativen nedan kan läsa in OSIGNERAD, OVERIFIERAD kod och försvaga HexIDE:s säkerhetskontroller. Aktivera dem endast om du själv har ställt in dem och förstår risken.",
     "Str.Options.Developer.Warning.SocialEngineering": "Om någon har bett dig aktivera dessa: stoppa och stäng HexIDE.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "Miljö",
     "Str.Options.Node.Editor": "Redigerare",
     "Str.Options.Node.FormDesigner": "Formulärdesigner",
-    "Str.Options.Node.Advanced": "Avancerat",
     "Str.Options.Node.AddIns": "Tillägg",
     "Str.Options.Node.General": "Allmänt",
     "Str.Options.Node.Theme": "Tema",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "Verktygsfält",
     "Str.Options.Node.Formatting": "Formatering",
     "Str.Options.Node.Grid": "Rutnät",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Utvecklare"
   }
 }

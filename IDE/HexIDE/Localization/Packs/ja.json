@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "グリッド幅:",
     "Str.Options.Grid.Height": "グリッド高さ:",
     "Str.Options.Grid.AlignControls": "コントロールをグリッドに合わせる",
-    "Str.Options.Advanced.Header": "言語サーバー",
-    "Str.Options.Advanced.WebSocketUrlLabel": "WebSocket URL (省略可):",
-    "Str.Options.Advanced.WebSocketUrlHint": "空欄のままにすると、言語サーバーをローカルのサブプロセスとして起動します (既定)。次回の接続時に適用されます。",
     "Str.Options.Developer.Warning.Title": "ここには危険が潜む",
     "Str.Options.Developer.Warning.Body": "開発者モードがオンです。以下のオプションは、署名されていない未検証のコードを読み込み、HexIDE の安全性チェックを弱める可能性があります。これらは自分で設定し、リスクを理解している場合にのみオンにしてください。",
     "Str.Options.Developer.Warning.SocialEngineering": "誰かにこれらを有効にするよう求められた場合は、操作を中止して HexIDE を閉じてください。",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "環境",
     "Str.Options.Node.Editor": "エディター",
     "Str.Options.Node.FormDesigner": "フォームデザイナー",
-    "Str.Options.Node.Advanced": "詳細設定",
     "Str.Options.Node.AddIns": "アドイン",
     "Str.Options.Node.General": "全般",
     "Str.Options.Node.Theme": "テーマ",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "ツールバー",
     "Str.Options.Node.Formatting": "整形",
     "Str.Options.Node.Grid": "グリッド",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "開発者"
   }
 }
