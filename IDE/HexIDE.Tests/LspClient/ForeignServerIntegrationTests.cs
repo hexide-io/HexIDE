@@ -138,8 +138,15 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
             .Should().BeTrue("it accepted didOpen, so it must have advertised document sync");
 
         // Observed rather than assumed, because the entire save gate depends on this one field and nothing
-        // else in the suite looks at what a real server puts in it. This server asks for saves without the
-        // text, which is the common choice — it intends to read the file itself.
+        // else in the suite looks at what a real server puts in it.
+        //
+        // This server asks for saves without the text. An earlier version of this comment added "which is
+        // the common choice — it intends to read the file itself", and that was an inference written as an
+        // observation. It is FALSE for this very server: probed directly over stdio with a clean file on
+        // disk and a sloppy buffer sent to it, a text-less didSave still reported the buffer's problems.
+        // For this server `includeText: false` means "I still hold your text, run it again", not "I will
+        // go and read the file". Servers that do read from disk exist; this is not one of them, and the
+        // suite should not be quoted as evidence that it is.
         ServerCapabilities.ReadSave(connection.Capabilities)
             .Should().Be(SaveNotification.WithoutText);
     }
