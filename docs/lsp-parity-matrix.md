@@ -8,7 +8,8 @@
 > server (proleap grammar + EmmyLua.LanguageServer.Framework shell) before public launch.
 > Produced from a verified multi-agent inventory of server surface, client consumption, the analysis
 > engine, proleap readiness, and docs; every claim was adversarially re-checked against code.
-> Companion doc: [`LSP_FEATURES.md`](./LSP_FEATURES.md). The transport analysis behind the client seam is a
+> Companion docs: [`lsp-client.md`](./lsp-client.md) and
+> [`lsp-server-features.md`](./lsp-server-features.md) (which together replaced `LSP_FEATURES.md`). The transport analysis behind the client seam is a
 > maintainers' document; its outcome is the [`lsp-client`](../openspec/specs/lsp-client/spec.md) spec.
 
 ## Headline
@@ -83,7 +84,7 @@ ours; verify before copying anything.** Known exceptions that must NOT carry ove
 
 Docs/notices to update at swap time (verified list): `THIRD-PARTY-NOTICES.md` (drop Rubberduck-grammar
 rationale, add/confirm proleap + EmmyLua MIT notices), delete `LspServer/COPYING`, README GPL sections
-(≥2 locations), `LSP_FEATURES.md` architecture note, the transport analysis (its four upstream "asks" are mooted), `MISSING_FEATURES.md` overstated rows, ROADMAP's GPL §6 pre-launch gate (obsolete),
+(≥2 locations), the LSP feature docs' architecture note, the transport analysis (its four upstream "asks" are mooted), `MISSING_FEATURES.md` overstated rows, ROADMAP's GPL §6 pre-launch gate (obsolete),
 CLAUDE.md server sections + test counts.
 
 ## Launch-risk checklist (integration seams — the part no code inventory shows)
