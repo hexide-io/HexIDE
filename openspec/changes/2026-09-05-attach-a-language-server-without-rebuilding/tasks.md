@@ -106,22 +106,54 @@ language packs.
 
 ## 8. Tests
 
-- [ ] 8.1 Defaults alone, no user file — language features work exactly as shipped
-- [ ] 8.2 A user entry overrides the bundled server by id
-- [ ] 8.3 An entry marked not enabled creates no client
-- [ ] 8.4 Two entries claiming one extension under different identifiers: both receive the document, each
+Mostly reconciliation: sections 2-7 wrote these as they went, so each row cites the test that covers it
+rather than duplicating it. The two gaps this section actually found are noted where they were closed.
+
+- [x] 8.1 Defaults alone, no user file — language features work exactly as shipped
+      (`ConfiguredServerTests.WithNoFileTheBundledServerIsRegisteredExactlyAsShipped`, and
+      `.AnUnreadableFileLeavesTheBundledServerRegistered` for the file that exists but does not parse)
+- [x] 8.2 A user entry overrides the bundled server by id
+      (`LanguageServerConfigLoaderTests.AUserEntryWithADefaultsIdReplacesItWholesale`, and
+      `ConfiguredServerTests.AUserEntryReplacingTheBundledServerAlsoReplacesItsPriority` through to the
+      registration)
+- [x] 8.3 An entry marked not enabled creates no client
+      (`ConfiguredServerTests.ADisabledEntryProducesNoRegistrationAtAll`)
+- [x] 8.4 Two entries claiming one extension under different identifiers: both receive the document, each
       told its own identifier
-- [ ] 8.5 A malformed entry beside a good one: the good one still applies
-- [ ] 8.6 A missing required field rejects that entry; an unrecognised field keeps it and reports
-- [ ] 8.7 A user entry outranks a default for a pick-one feature
-- [ ] 8.8 Deleting the user file restores defaults
-- [ ] 8.9 **Each of the above verified to fail without its fix**, not merely to pass with it — the
-      foreign-server work found three defects that every green test had missed
+      (`PerServerLanguageIdTests.TwoServersClaimingOneExtensionUnderDifferentNamesBothReceiveTheDocument`
+      for the routing, `.AServerIsToldTheLanguageIdItDeclaredRatherThanOneChosenForIt` for the wire, and
+      `ConfiguredServerTests.AConfiguredServerIsToldTheLanguageIdItsOwnEntryDeclared` for the factory
+      wiring between them — **added here**, because the first two build their clients by hand and the
+      factory could have handed every client one hardcoded identifier with both still green)
+- [x] 8.5 A malformed entry beside a good one: the good one still applies
+      (`ConfiguredServerTests.AMalformedEntryLeavesTheBundledServerRegistered`)
+- [x] 8.6 A missing required field rejects that entry; an unrecognised field keeps it and reports
+      (`LanguageServerConfigLoaderTests.AMisspelledFieldIsReportedAndTheEntryIsStillRejectedForWhatIsMissing`
+      and the per-transport required-field cases beside it)
+- [x] 8.7 A user entry outranks a default for a pick-one feature
+      (`WorkspaceAndPriorityTests.AUserEntryStatingNoPriorityStillOutranksABundledOne`)
+- [x] 8.8 Deleting the user file restores defaults
+      (`LanguageServerConfigLoaderTests.DeletingTheFileRestoresTheDefaults`)
+- [x] 8.9 **Each of the above verified to fail without its fix**, not merely to pass with it — the
+      foreign-server work found three defects that every green test had missed.
+      Done by mutation, one production edit at a time, each reverted after:
+      dropping the `pipe` arm from the transport factory failed
+      `EveryTransportTheLoaderAcceptsCanActuallyBeBuilt` **and nothing else**;
+      setting `BundledPriority` to `0` failed `AUserEntryStatingNoPriorityStillOutranksABundledOne` and
+      nothing else. The third **survived** — hardcoding `"vb6"` as every client's language identifier
+      broke no test at all, which is the gap 8.4 records closing.
+- [x] 8.10 The bundled defaults themselves — `ConfiguredServerTests.TheBundledEntryTakesItsCommandFromTheLocator`,
+      `.AnInstallationMissingTheBundledServerContributesNoEntry`, and
+      `.AMissingBundledServerLeavesAUsersOwnEntriesWorking`. Not in the original list, and the second gap:
+      `LanguageServerDefaults` had no test, so an installation that cannot find our own server was
+      unexercised — the case where a user's own entries must keep working
 
 ## 9. Verification
 
-- [ ] 9.1 Suites green on Windows and under WSL — this touches path handling and file discovery, which is
-      the bug class only the Linux job catches
+- [x] 9.1 Suites green on Windows and under WSL — this touches path handling and file discovery, which is
+      the bug class only the Linux job catches. Windows: 852 IDE / 1432 runtime / 240 integration, no
+      skips. WSL: the same totals, with the five rumdl cases skipped for the reason in 9.2. The named-pipe
+      test added in 8.4 passes on both, which is the one new file-system-adjacent surface here
 - [x] 9.2 Driven against a real foreign server attached **through the configuration file**, not through a
       test-constructed registration. Done: rumdl 0.2.64, named only in a `lsp-servers.json` on disk,
       produces real diagnostics for a real document. Skips under WSL — the binary is a Windows executable —

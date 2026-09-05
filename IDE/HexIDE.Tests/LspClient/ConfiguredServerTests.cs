@@ -1,6 +1,9 @@
+using System.IO.Pipes;
+using System.Text.Json;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using Microsoft.Extensions.Logging;
+using StreamJsonRpc;
 
 // NB: namespace deliberately avoids a `Lsp` segment — see VBLspClientTests.
 namespace HexIDE.Tests.LspClient;
@@ -183,6 +186,114 @@ public class ConfiguredServerTests : IDisposable
 
         routed.Connections.Should().ContainSingle()
             .Which.Extensions.Should().Contain(".md");
+    }
+
+
+    // ── The defaults themselves ───────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void TheBundledEntryTakesItsCommandFromTheLocator()
+    {
+        // Not written down anywhere, because the path differs between a dev build and a publish. This is
+        // the one entry whose command HexIDE computes rather than reads.
+        var locator = Substitute.For<ILspServerLocator>();
+        locator.FindLspServer().Returns(new LspServerInfo("/somewhere/HexIDE.VbLspServer", "--flag", "/ignored"));
+
+        var entry = LanguageServerDefaults.For(locator, _loggerFactory.CreateLogger("t"))
+            .Should().ContainSingle().Subject;
+
+        entry.Command.Should().Be("/somewhere/HexIDE.VbLspServer");
+        entry.Arguments.Should().Be("--flag");
+        entry.WorkingDirectory.Should().BeEmpty(
+            "left empty so the transport asks the workspace, and the server runs in whichever project is open");
+    }
+
+    [Fact]
+    public void AnInstallationMissingTheBundledServerContributesNoEntry()
+    {
+        // Absent rather than listed-and-permanently-failing. A registration that can never connect is a row
+        // in a list that lies, and #259 would render it as though something were attached.
+        var locator = Substitute.For<ILspServerLocator>();
+        locator.FindLspServer().Returns((LspServerInfo?)null);
+
+        LanguageServerDefaults.For(locator, _loggerFactory.CreateLogger("t")).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AMissingBundledServerLeavesAUsersOwnEntriesWorking()
+    {
+        // The combination that matters: a broken install of OUR server must not take a user's server with
+        // it. Before the bundled row was an ordinary entry, these two shared a fate.
+        var locator = Substitute.For<ILspServerLocator>();
+        locator.FindLspServer().Returns((LspServerInfo?)null);
+        var defaults = LanguageServerDefaults.For(locator, _loggerFactory.CreateLogger("t"));
+
+        var registrations = RegistrationsFrom("""
+            {"version":1,"servers":[{"id":"rumdl","extensions":[".md"],"languageId":"markdown",
+             "transport":"stdio","command":"rumdl"}]}
+            """, [.. defaults]);
+
+        registrations.Should().ContainSingle().Which.Id.Should().Be("rumdl");
+    }
+
+
+    // ── The factory's own wiring, over a real channel ─────────────────────────────────────────────────
+
+    /// <summary>Records the <c>languageId</c> of the first didOpen it is sent.</summary>
+    private sealed class DidOpenRecorder
+    {
+        private readonly TaskCompletionSource<string> _languageId =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task<string> LanguageId => _languageId.Task;
+
+        [JsonRpcMethod("initialize", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement Initialize(JsonElement _) => JsonDocument.Parse(
+            """{"capabilities":{"textDocumentSync":{"openClose":true,"change":1}}}""").RootElement.Clone();
+
+        [JsonRpcMethod("initialized")]
+        public void Initialized(JsonElement _) { }
+
+        [JsonRpcMethod("textDocument/didOpen", UseSingleObjectParameterDeserialization = true)]
+        public void DidOpen(JsonElement p) =>
+            _languageId.TrySetResult(p.GetProperty("textDocument").GetProperty("languageId").GetString()!);
+    }
+
+    [Fact]
+    public async Task AConfiguredServerIsToldTheLanguageIdItsOwnEntryDeclared()
+    {
+        // The factory's wiring, not the client's honouring of it — PerServerLanguageIdTests constructs a
+        // VBLspClient by hand, so the factory could hand every client one hardcoded identifier and that
+        // whole file would stay green. Verified: replacing `languageId` with "vb6" in the factory fails
+        // this test and nothing else.
+        //
+        // Over a real pipe rather than a substitute, because the value under test is what goes ON THE WIRE
+        // and the whole point of a foreign server is that nothing between here and it is ours.
+        var pipeName = "hexide-cfg-" + Guid.NewGuid().ToString("N");
+        var recorder = new DidOpenRecorder();
+
+        using var pipe = new NamedPipeServerStream(
+            pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        var serving = pipe.WaitForConnectionAsync().ContinueWith(_ =>
+        {
+            var rpc = new JsonRpc(
+                new HeaderDelimitedMessageHandler(pipe, pipe, new SystemTextJsonFormatter()), recorder);
+            rpc.StartListening();
+            return rpc;
+        }, TaskScheduler.Default);
+
+        var registrations = RegistrationsFrom($$"""
+            {"version":1,"servers":[{"id":"md","extensions":[".md"],"languageId":"markdown",
+             "transport":"pipe","pipeName":"{{pipeName}}"}]}
+            """);
+
+        await using var client = registrations.Should().ContainSingle().Subject.CreateClient();
+        await client.StartAsync();
+        await client.OpenDocumentAsync("file:///c:/p/README.md", "# hi");
+
+        (await recorder.LanguageId.WaitAsync(TimeSpan.FromSeconds(30))).Should().Be("markdown");
+
+        (await serving).Dispose();
     }
 
     private static Func<ILspClient> FakeClientFactory() => () =>
