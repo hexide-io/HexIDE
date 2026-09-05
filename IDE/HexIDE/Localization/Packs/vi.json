@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "Độ rộng lưới:",
     "Str.Options.Grid.Height": "Độ cao lưới:",
     "Str.Options.Grid.AlignControls": "Căn điều khiển theo lưới",
-    "Str.Options.Advanced.Header": "Máy chủ ngôn ngữ",
-    "Str.Options.Advanced.WebSocketUrlLabel": "WebSocket URL (tùy chọn):",
-    "Str.Options.Advanced.WebSocketUrlHint": "Để trống để khởi chạy máy chủ ngôn ngữ dưới dạng tiến trình con cục bộ (mặc định). Áp dụng cho lần kết nối tiếp theo.",
     "Str.Options.Developer.Warning.Title": "VÙNG NGUY HIỂM",
     "Str.Options.Developer.Warning.Body": "Chế độ nhà phát triển đang BẬT. Các tùy chọn bên dưới có thể nạp mã CHƯA KÝ, CHƯA XÁC MINH và làm suy yếu các bước kiểm tra an toàn của HexIDE. Chỉ bật chúng nếu bạn tự thiết lập và hiểu rõ rủi ro.",
     "Str.Options.Developer.Warning.SocialEngineering": "Nếu có người yêu cầu bạn bật những tùy chọn này: hãy dừng lại và đóng HexIDE.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "Môi trường",
     "Str.Options.Node.Editor": "Trình soạn thảo",
     "Str.Options.Node.FormDesigner": "Trình thiết kế biểu mẫu",
-    "Str.Options.Node.Advanced": "Nâng cao",
     "Str.Options.Node.AddIns": "Phần bổ trợ",
     "Str.Options.Node.General": "Chung",
     "Str.Options.Node.Theme": "Chủ đề",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "Thanh công cụ",
     "Str.Options.Node.Formatting": "Định dạng",
     "Str.Options.Node.Grid": "Lưới",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Nhà phát triển"
   }
 }

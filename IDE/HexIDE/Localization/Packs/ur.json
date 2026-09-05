@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "گرڈ چوڑائی:",
     "Str.Options.Grid.Height": "گرڈ اونچائی:",
     "Str.Options.Grid.AlignControls": "کنٹرولز کو گرڈ سے ہم آہنگ کریں",
-    "Str.Options.Advanced.Header": "لینگویج سرور",
-    "Str.Options.Advanced.WebSocketUrlLabel": "WebSocket URL (اختیاری):",
-    "Str.Options.Advanced.WebSocketUrlHint": "لینگویج سرور کو مقامی ذیلی عمل کے طور پر چلانے کے لیے خالی چھوڑ دیں (طے شدہ)۔ اگلے کنکشن پر لاگو ہوگا۔",
     "Str.Options.Developer.Warning.Title": "یہاں خطرہ ہے",
     "Str.Options.Developer.Warning.Body": "ڈیولپر موڈ آن ہے۔ نیچے دیے گئے اختیارات غیر دستخط شدہ، غیر تصدیق شدہ کوڈ لوڈ کر سکتے ہیں اور HexIDE کے حفاظتی جائزوں کو کمزور کر سکتے ہیں۔ انہیں صرف اسی صورت میں آن کریں جب آپ نے انہیں خود ترتیب دیا ہو اور خطرے کو سمجھتے ہوں۔",
     "Str.Options.Developer.Warning.SocialEngineering": "اگر کسی نے آپ سے ان کو فعال کرنے کو کہا ہے: رک جائیں اور HexIDE بند کر دیں۔",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "ماحول",
     "Str.Options.Node.Editor": "ایڈیٹر",
     "Str.Options.Node.FormDesigner": "فارم ڈیزائنر",
-    "Str.Options.Node.Advanced": "ایڈوانسڈ",
     "Str.Options.Node.AddIns": "ایڈ اِنز",
     "Str.Options.Node.General": "عمومی",
     "Str.Options.Node.Theme": "تھیم",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "ٹول بارز",
     "Str.Options.Node.Formatting": "فارمیٹنگ",
     "Str.Options.Node.Grid": "گرڈ",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "ڈویلپر"
   }
 }

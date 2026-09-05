@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "Ruudukon leveys:",
     "Str.Options.Grid.Height": "Ruudukon korkeus:",
     "Str.Options.Grid.AlignControls": "Kohdista ohjausobjektit ruudukkoon",
-    "Str.Options.Advanced.Header": "Kielipalvelin",
-    "Str.Options.Advanced.WebSocketUrlLabel": "WebSocket-URL (valinnainen):",
-    "Str.Options.Advanced.WebSocketUrlHint": "Jätä tyhjäksi, jos haluat käynnistää kielipalvelimen paikallisena aliprosessina (oletus). Tulee voimaan seuraavalla yhteydellä.",
     "Str.Options.Developer.Warning.Title": "TÄSSÄ ON LOHIKÄÄRMEITÄ",
     "Str.Options.Developer.Warning.Body": "Kehittäjätila on käytössä. Alla olevat asetukset voivat ladata ALLEKIRJOITTAMATONTA, VAHVISTAMATONTA koodia ja heikentää HexIDE:n turvatarkistuksia. Ota ne käyttöön vain, jos asetit ne itse ja ymmärrät riskin.",
     "Str.Options.Developer.Warning.SocialEngineering": "Jos joku pyysi sinua ottamaan nämä käyttöön: lopeta ja sulje HexIDE.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "Ympäristö",
     "Str.Options.Node.Editor": "Editori",
     "Str.Options.Node.FormDesigner": "Lomakesuunnittelu",
-    "Str.Options.Node.Advanced": "Lisäasetukset",
     "Str.Options.Node.AddIns": "Apuohjelmat",
     "Str.Options.Node.General": "Yleiset",
     "Str.Options.Node.Theme": "Teema",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "Työkalurivit",
     "Str.Options.Node.Formatting": "Muotoilu",
     "Str.Options.Node.Grid": "Ruudukko",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Kehittäjä"
   }
 }

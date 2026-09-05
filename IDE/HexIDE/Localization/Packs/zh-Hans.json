@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "网格宽度：",
     "Str.Options.Grid.Height": "网格高度：",
     "Str.Options.Grid.AlignControls": "将控件对齐到网格",
-    "Str.Options.Advanced.Header": "语言服务器",
-    "Str.Options.Advanced.WebSocketUrlLabel": "WebSocket URL（可选）：",
-    "Str.Options.Advanced.WebSocketUrlHint": "留空则将语言服务器作为本地子进程启动（默认）。在下次连接时生效。",
     "Str.Options.Developer.Warning.Title": "此处有危险",
     "Str.Options.Developer.Warning.Body": "开发者模式已开启。以下选项可能加载未签名、未验证的代码，并削弱 HexIDE 的安全检查。仅在你自行设置并了解风险时才开启它们。",
     "Str.Options.Developer.Warning.SocialEngineering": "如果有人要求你启用这些选项：请停止操作并关闭 HexIDE。",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "环境",
     "Str.Options.Node.Editor": "编辑器",
     "Str.Options.Node.FormDesigner": "窗体设计器",
-    "Str.Options.Node.Advanced": "高级",
     "Str.Options.Node.AddIns": "加载项",
     "Str.Options.Node.General": "常规",
     "Str.Options.Node.Theme": "主题",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "工具栏",
     "Str.Options.Node.Formatting": "格式化",
     "Str.Options.Node.Grid": "网格",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "开发者"
   }
 }

@@ -17,7 +17,20 @@ namespace HexIDE.Lsp;
 /// at least one widely-deployed editor until an identity was retrofitted.
 /// </param>
 /// <param name="DisplayName">For humans, in a connections view or a log line.</param>
-/// <param name="LanguageIds">The languages this server claims. A document is offered to every claimant.</param>
+/// <param name="Extensions">
+/// The file extensions this server claims, leading dot included. Routing keys on these rather than on a
+/// language name, so two servers may claim one extension without having to agree about what it is called.
+/// A document is offered to EVERY claimant.
+/// </param>
+/// <param name="LanguageId">
+/// What this server should be told a document is. Per-server rather than global: each server has its own
+/// connection, and nothing in the protocol requires two connections be told the same thing — so one
+/// server's <c>python</c> and another's <c>python3</c> can both be right about the same file.
+///
+/// <para>
+/// It doubles as the claim for HexIDE's own <c>vb6://</c> documents, which carry no extension to match on.
+/// </para>
+/// </param>
 /// <param name="CreateClient">Builds the single-server client, transport and all. Called at most once.</param>
 /// <param name="Priority">
 /// Higher wins where exactly one server must be chosen — formatting and rename, which cannot merge two
@@ -27,6 +40,26 @@ namespace HexIDE.Lsp;
 public sealed record LanguageServerRegistration(
     string Id,
     string DisplayName,
-    IReadOnlyList<string> LanguageIds,
+    IReadOnlyList<string> Extensions,
+    string LanguageId,
     Func<ILspClient> CreateClient,
-    int Priority = 0);
+    int Priority = 0)
+{
+    /// <summary>
+    /// The priority the entries HexIDE contributes itself are given — deliberately below the value an
+    /// entry takes when it states none.
+    ///
+    /// <para>
+    /// So a user who attaches a server for a language the IDE already serves wins the features that cannot
+    /// merge two answers, without having to discover that a priority field exists. That is the point of
+    /// making the bundled server an ordinary entry rather than a special case: being replaceable is only
+    /// real if replacing it is the default outcome of attaching a replacement.
+    /// </para>
+    ///
+    /// <para>
+    /// Not <c>int.MinValue</c>. A user wanting their own server to rank <em>below</em> a bundled one must
+    /// still be able to say so, and no value can be written below the floor.
+    /// </para>
+    /// </summary>
+    public const int BundledPriority = -1000;
+}

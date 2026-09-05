@@ -21,15 +21,29 @@ internal static class ForeignServer
     public const string PathVariable = "HEXIDE_MARKDOWN_LSP";
 
     /// <summary>
-    /// The executable, or null when none is available. Checked in order: the environment variable, then the
-    /// name on PATH.
+    /// Demands that these tests actually run. Set in CI, where a skip would mean the foreign-server proof
+    /// quietly stopped happening and nobody noticed.
+    /// </summary>
+    public const string RequiredVariable = "HEXIDE_REQUIRE_FOREIGN_LSP";
+
+    public static bool IsRequired =>
+        Environment.GetEnvironmentVariable(RequiredVariable) is "1" or "true" or "yes";
+
+    /// <summary>
+    /// The executable, or null when none is available. Checked in order: an explicitly configured path,
+    /// the name on PATH, then the pinned download.
+    ///
+    /// <para>
+    /// The download comes last on purpose. A developer who has pointed at their own build, or has one
+    /// installed, means it — this should not silently prefer a different version to the one they chose.
+    /// </para>
     /// </summary>
     public static string? Find()
     {
         if (Environment.GetEnvironmentVariable(PathVariable) is { Length: > 0 } configured)
             return File.Exists(configured) ? configured : null;
 
-        return OnPath("rumdl");
+        return OnPath("rumdl") ?? ForeignServerAcquisition.EnsureAvailable();
     }
 
     private static string? OnPath(string command)
@@ -53,6 +67,15 @@ internal static class ForeignServer
 
     /// <summary>The launch arguments that put the server into language-server mode over stdio.</summary>
     public const string ServerArguments = "server";
+
+    /// <summary>
+    /// What this server calls its language, and which files it claims. Declared here rather than taken from
+    /// a HexIDE constant precisely because these are the SERVER's claims — the point of the routing change
+    /// is that HexIDE holds no global opinion about what a .md is.
+    /// </summary>
+    public const string LanguageId = "markdown";
+
+    public static readonly string[] Extensions = [".md", ".markdown"];
 }
 
 /// <summary>
@@ -68,8 +91,20 @@ public sealed class ForeignServerFactAttribute : FactAttribute
 {
     public ForeignServerFactAttribute()
     {
-        if (ForeignServer.Find() is null)
-            Skip = $"No Markdown language server found. Set {ForeignServer.PathVariable} to one, "
-                 + "or put `rumdl` on PATH, to run the foreign-backend tests.";
+        if (ForeignServer.Find() is not null) return;
+
+        // Where the proof is mandated, absence is a failure rather than a skip. Everywhere else it is a
+        // skip: an offline machine should not fail a suite over a test fixture it could not fetch.
+        if (ForeignServer.IsRequired)
+        {
+            throw new InvalidOperationException(
+                $"{ForeignServer.RequiredVariable} is set, but no Markdown language server could be "
+              + "obtained. The foreign-backend tests are the only check that HexIDE speaks LSP to something "
+              + "it did not write, so they are not allowed to skip here.");
+        }
+
+        Skip = $"No Markdown language server available. It is normally downloaded on demand; set "
+             + $"{ForeignServer.PathVariable} to a `rumdl` executable, or put one on PATH, to choose your "
+             + "own. Offline machines skip these.";
     }
 }

@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "Largura da Grelha:",
     "Str.Options.Grid.Height": "Altura da Grelha:",
     "Str.Options.Grid.AlignControls": "Alinhar Controlos à Grelha",
-    "Str.Options.Advanced.Header": "Servidor de Linguagem",
-    "Str.Options.Advanced.WebSocketUrlLabel": "URL de WebSocket (opcional):",
-    "Str.Options.Advanced.WebSocketUrlHint": "Deixe em branco para iniciar o servidor de linguagem como um subprocesso local (predefinição). Aplica-se na próxima ligação.",
     "Str.Options.Developer.Warning.Title": "AQUI HÁ DRAGÕES",
     "Str.Options.Developer.Warning.Body": "O modo de programador está ATIVADO. As opções abaixo podem carregar código NÃO ASSINADO, NÃO VERIFICADO e enfraquecer as verificações de segurança do HexIDE. Ative-as apenas se as tiver definido você mesmo e compreender o risco.",
     "Str.Options.Developer.Warning.SocialEngineering": "Se alguém lhe pediu para ativar isto: pare e feche o HexIDE.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "Ambiente",
     "Str.Options.Node.Editor": "Editor",
     "Str.Options.Node.FormDesigner": "Estruturador de Formulários",
-    "Str.Options.Node.Advanced": "Avançado",
     "Str.Options.Node.AddIns": "Suplementos",
     "Str.Options.Node.General": "Geral",
     "Str.Options.Node.Theme": "Tema",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "Barras de Ferramentas",
     "Str.Options.Node.Formatting": "Formatação",
     "Str.Options.Node.Grid": "Grelha",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Programador"
   }
 }

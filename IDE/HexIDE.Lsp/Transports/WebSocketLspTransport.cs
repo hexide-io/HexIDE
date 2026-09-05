@@ -8,7 +8,7 @@ namespace HexIDE.Lsp;
 /// Network transport: speaks LSP as JSON-RPC over a WebSocket (WebSocket framing — one JSON-RPC
 /// message per WebSocket message, no Content-Length headers). Used for the browser-online topology
 /// and for remote desktop/mobile; on the only currently-runnable head (desktop) it is opt-in via the
-/// <c>HEXIDE_LSP_WS_URL</c> env var or the <c>LspWebSocketUrl</c> setting.
+/// a configuration entry declaring <c>"transport": "websocket"</c> and an endpoint.
 /// </summary>
 /// <remarks>
 /// The WebSocket can drop without this transport observing it directly — StreamJsonRpc owns the

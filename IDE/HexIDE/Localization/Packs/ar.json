@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "عرض الشبكة:",
     "Str.Options.Grid.Height": "ارتفاع الشبكة:",
     "Str.Options.Grid.AlignControls": "محاذاة عناصر التحكم إلى الشبكة",
-    "Str.Options.Advanced.Header": "خادم اللغة",
-    "Str.Options.Advanced.WebSocketUrlLabel": "عنوان WebSocket (اختياري):",
-    "Str.Options.Advanced.WebSocketUrlHint": "اتركه فارغاً لتشغيل خادم اللغة كعملية فرعية محلية (الإعداد الافتراضي). يُطبَّق عند الاتصال التالي.",
     "Str.Options.Developer.Warning.Title": "احذر، هنا تنانين",
     "Str.Options.Developer.Warning.Body": "وضع المطوّر مفعّل. يمكن للخيارات أدناه تحميل تعليمات برمجية غير موقّعة وغير موثَّقة وإضعاف فحوصات الأمان في HexIDE. لا تفعّلها إلا إذا ضبطتها بنفسك وفهمت المخاطر.",
     "Str.Options.Developer.Warning.SocialEngineering": "إذا طلب منك أحدهم تفعيل هذه الخيارات: توقّف وأغلق HexIDE.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "البيئة",
     "Str.Options.Node.Editor": "المحرّر",
     "Str.Options.Node.FormDesigner": "مصمّم النماذج",
-    "Str.Options.Node.Advanced": "متقدّم",
     "Str.Options.Node.AddIns": "الإضافات",
     "Str.Options.Node.General": "عام",
     "Str.Options.Node.Theme": "السمة",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "أشرطة الأدوات",
     "Str.Options.Node.Formatting": "التنسيق",
     "Str.Options.Node.Grid": "الشبكة",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "المطوّر"
   }
 }

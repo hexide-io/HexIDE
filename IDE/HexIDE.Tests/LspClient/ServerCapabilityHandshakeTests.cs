@@ -41,7 +41,7 @@ public class ServerCapabilityHandshakeTests : IAsyncDisposable
             .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
                 new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
 
-        var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>());
+        var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), DocumentLanguage.Vb6);
         _disposables.Add(client);
         return client;
     }

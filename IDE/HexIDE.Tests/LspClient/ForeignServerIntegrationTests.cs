@@ -36,18 +36,22 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
     /// </summary>
     private LspClientRegistry ForeignMarkdownRegistry()
     {
-        var exe = ForeignServer.Find()!;
-        var locator = Substitute.For<ILspServerLocator>();
-        locator.FindLspServer().Returns(new LspServerInfo(exe, ForeignServer.ServerArguments, Path.GetTempPath()));
+        // No locator, mocked or otherwise. The transport is told what to launch, which is the whole point:
+        // a locator that answers "where is THE server" cannot describe a second one, so faking it was the
+        // test admitting the shipping path could not express what the test was proving.
+        var serverInfo = new LspServerInfo(
+            ForeignServer.Find()!, ForeignServer.ServerArguments, Path.GetTempPath());
 
         var loggerFactory = LoggerFactory.Create(b => { });
         var registration = new LanguageServerRegistration(
             Id: "foreign.markdown",
             DisplayName: "Foreign Markdown server",
-            LanguageIds: [DocumentLanguage.Markdown],
+            Extensions: ForeignServer.Extensions,
+            LanguageId: ForeignServer.LanguageId,
             CreateClient: () => new VBLspClient(
-                new StdioProcessLspTransport(locator, loggerFactory.CreateLogger<StdioProcessLspTransport>()),
-                loggerFactory.CreateLogger<VBLspClient>()));
+                new StdioProcessLspTransport(serverInfo, loggerFactory.CreateLogger<StdioProcessLspTransport>()),
+                loggerFactory.CreateLogger<VBLspClient>(),
+                ForeignServer.LanguageId));
 
         _registry = new LspClientRegistry([registration], loggerFactory.CreateLogger<LspClientRegistry>());
         return _registry;
@@ -89,7 +93,8 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
         var connection = sut.Connections.Single();
 
         connection.State.Should().Be(LanguageConnectionState.Running);
-        connection.LanguageIds.Should().ContainSingle().Which.Should().Be(DocumentLanguage.Markdown);
+        connection.LanguageId.Should().Be(ForeignServer.LanguageId);
+        connection.Extensions.Should().Contain(".md");
         connection.Capabilities.Should().NotBeNull("a conformant server advertises what it can do");
         ServerCapabilities.AcceptsOpenClose(connection.Capabilities)
             .Should().BeTrue("it accepted didOpen, so it must have advertised document sync");
@@ -121,6 +126,60 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
 
         (await act.Should().NotThrowAsync()).Which.Should().NotBeNull(
             "an unadvertised feature degrades to empty, exactly as an absent server does");
+    }
+
+    [ForeignServerFact]
+    public async Task AServerAttachedOnlyByAConfigurationFileAnswersForReal()
+    {
+        // THE proof of #255, and the one path nothing had ever exercised. Every other foreign-server test
+        // constructs its registration in test code — which is the test asserting that a shape HexIDE can
+        // build works, not that the shape a USER can produce does. Here the only input is a file on disk.
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-cfg-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var configPath = Path.Combine(directory, "lsp-servers.json");
+            File.WriteAllText(configPath, $$"""
+                // Attaching a server HexIDE has never heard of, with no rebuild.
+                {
+                  "version": 1,
+                  "servers": [
+                    {
+                      "id": "rumdl",
+                      "displayName": "rumdl",
+                      "extensions": [".md", ".markdown"],
+                      "languageId": "{{ForeignServer.LanguageId}}",
+                      "transport": "stdio",
+                      "command": {{System.Text.Json.JsonSerializer.Serialize(ForeignServer.Find()!)}},
+                      "arguments": "{{ForeignServer.ServerArguments}}"
+                    },
+                  ]
+                }
+                """);
+
+            var loggerFactory = LoggerFactory.Create(b => { });
+            var configuration =
+                new LanguageServerConfigLoader(configPath, loggerFactory.CreateLogger<LanguageServerConfigLoader>())
+                    .Load([]);
+            configuration.Problems.Should().BeEmpty("the file is well-formed");
+
+            var registrations = new LanguageServerRegistrationFactory(loggerFactory).Create(configuration.Entries);
+            _registry = new LspClientRegistry(registrations, loggerFactory.CreateLogger<LspClientRegistry>());
+
+            var received = new TaskCompletionSource<PublishDiagnosticsParams>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            _registry.DiagnosticsPublished += (_, p) => received.TrySetResult(p);
+
+            await _registry.OpenDocumentAsync(MarkdownUri, SloppyMarkdown);
+
+            var published = await received.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            published.Diagnostics.Should().NotBeEmpty(
+                "a server named only in a configuration file produced real diagnostics for a real document");
+        }
+        finally
+        {
+            try { Directory.Delete(directory, recursive: true); } catch { /* best effort */ }
+        }
     }
 
     public async ValueTask DisposeAsync()

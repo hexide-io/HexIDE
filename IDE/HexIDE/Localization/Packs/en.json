@@ -377,9 +377,6 @@
     "Str.Options.Grid.Height": "Grid Height:",
     "Str.Options.Grid.AlignControls": "Align Controls to Grid",
 
-    "Str.Options.Advanced.Header": "Language Server",
-    "Str.Options.Advanced.WebSocketUrlLabel": "WebSocket URL (optional):",
-    "Str.Options.Advanced.WebSocketUrlHint": "Leave blank to launch the language server as a local subprocess (default). Applies on the next connection.",
 
     "Str.Options.Developer.Warning.Title": "HERE BE DRAGONS",
     "Str.Options.Developer.Warning.Body": "Developer mode is ON. The options below can load UNSIGNED, UNVERIFIED code and weaken HexIDE's safety checks. Turn them on only if you set them yourself and understand the risk.",
@@ -688,7 +685,6 @@
     "Str.Options.Node.Environment": "Environment",
     "Str.Options.Node.Editor": "Editor",
     "Str.Options.Node.FormDesigner": "Form Designer",
-    "Str.Options.Node.Advanced": "Advanced",
     "Str.Options.Node.AddIns": "Add-Ins",
     "Str.Options.Node.General": "General",
     "Str.Options.Node.Theme": "Theme",
@@ -697,7 +693,6 @@
     "Str.Options.Node.Toolbars": "Toolbars",
     "Str.Options.Node.Formatting": "Formatting",
     "Str.Options.Node.Grid": "Grid",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Developer"
   }
 }

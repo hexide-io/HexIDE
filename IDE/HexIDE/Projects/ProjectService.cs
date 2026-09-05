@@ -1059,7 +1059,7 @@ public class ProjectService : IProjectService
         return Path.GetFileNameWithoutExtension(absolutePath);
     }
 
-    private static string ProjectFilesDirectory(ProjectDefinition project) =>
+    internal static string ProjectFilesDirectory(ProjectDefinition project) =>
         project.AbsolutePath is { } p
             ? Path.GetDirectoryName(p)!
             : Path.Combine(Path.GetTempPath(), "hexide_" + project.Name);
