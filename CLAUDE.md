@@ -36,7 +36,13 @@ cd IDE && dotnet publish HexIDE.Desktop -f net10.0 -o bin/
 cd LspServer && dotnet build HexIDE.VbLspServer/
 ```
 
-CI runs two parallel jobs in `.github/workflows/build.yml`: `build-ide` (working dir `IDE/`) and `build-lsp-server` (working dir `LspServer/`).
+CI runs two parallel jobs in `.github/workflows/build.yml`: `build-ide` (working dir `IDE/`) and `build-lsp-server` (working dir `LspServer/`), alongside two guard jobs.
+
+**Run `bash scripts/check-tree-hygiene.sh` before pushing anything that touches docs or config.** It takes
+seconds locally and a full CI cycle otherwise, and it fails on things that look entirely innocuous while
+you are writing them: an illustrative Windows user path in a troubleshooting example is, to a scanner,
+indistinguishable from a real one — and that scanner is what stops a machine-specific path reaching a
+public repository. Do not reason about whether yours is "obviously" generic; just run it.
 
 ### The foreign-server tests fetch a real third-party language server
 
