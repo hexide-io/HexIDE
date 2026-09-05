@@ -40,11 +40,15 @@
 
 ## 4. Ordering and workspace
 
-- [ ] 4.1 Default entries rank below an entry that states no priority, so a user's server wins the
+- [x] 4.1 Default entries rank below an entry that states no priority, so a user's server wins the
       pick-one features without them discovering the field
-- [ ] 4.2 Start each server in the project's working directory and send that as the workspace root
-- [ ] 4.3 Restart running servers when the project's working directory changes — which is what first save
-      does today (#260)
+- [x] 4.2 Start each server in the project's working directory and send that as the workspace root
+- [ ] 4.3 Restart running servers when the project's working directory changes. **Deliberately not done,
+      and possibly never needed.** The only thing that changes a project's working directory today is first
+      save — which is exactly what #260 proposes to eliminate by giving a project a real location at
+      creation. Building a restart trigger now means inventing a project-path-changed event (none exists)
+      for a transition we are trying to remove. Revisit after #260 lands: if a project's directory becomes
+      stable for its lifetime, this task disappears rather than being completed
 
 ## 5. Not silent on first sight
 

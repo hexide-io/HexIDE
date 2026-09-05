@@ -65,6 +65,7 @@ public partial class DISetup
             .Bind<IComponentRegistry>().As(Singleton).To<ComponentRegistry>()
             // LSP
             .Bind<ILspServerLocator>().As(Singleton).To<LspServerLocator>()
+            .Bind<ILspWorkspace>().As(Singleton).To<ProjectLspWorkspace>()
             // ILspClient is the ROUTER, not one connection. It implements the same interface a single
             // server does — that interface already takes a URI and hides which server answered — so the
             // editor and view-models gained plurality without changing a line. ILanguageConnectionRegistry
@@ -74,12 +75,13 @@ public partial class DISetup
                 ctx.Inject<ILspServerLocator>(out var locator);
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
                 ctx.Inject<ISettingsService>(out var settings);
+                ctx.Inject<ILspWorkspace>(out var workspace);
 
                 // Resolved here rather than inside CreateClient, because whether this server can be reached
                 // at all decides whether it is REGISTERED — and that has to be known before the list is
                 // built. Constructing a transport is cheap; nothing is launched until ConnectAsync, so the
                 // server still starts lazily on the first document that claims it.
-                var transport = CreateBundledTransport(locator, loggerFactory, settings);
+                var transport = CreateBundledTransport(locator, loggerFactory, settings, workspace);
 
                 // Still the only registration HexIDE ships with. Making this list configuration — so a user
                 // can attach a server, and so this row stops being a special case — is
@@ -92,7 +94,11 @@ public partial class DISetup
                         Extensions: DocumentLanguage.Vb6Extensions,
                         LanguageId: DocumentLanguage.Vb6,
                         CreateClient: () => new VBLspClient(
-                            transport, loggerFactory.CreateLogger<VBLspClient>(), DocumentLanguage.Vb6)));
+                            transport, loggerFactory.CreateLogger<VBLspClient>(), DocumentLanguage.Vb6,
+                            workspace),
+                        // Below the value an entry takes when it states none, so a user attaching their own
+                        // VB6 server wins formatting and rename without discovering the field exists.
+                        Priority: LanguageServerRegistration.BundledPriority));
 
                 return new LspClientRegistry(registrations, loggerFactory.CreateLogger<LspClientRegistry>());
             })
@@ -179,7 +185,8 @@ public partial class DISetup
     /// row in a list that lies.
     /// </para>
     private static ILspTransport? CreateBundledTransport(
-        ILspServerLocator locator, ILoggerFactory loggerFactory, ISettingsService settings)
+        ILspServerLocator locator, ILoggerFactory loggerFactory, ISettingsService settings,
+        ILspWorkspace workspace)
     {
         var wsUrl = Environment.GetEnvironmentVariable("HEXIDE_LSP_WS_URL");
         if (string.IsNullOrWhiteSpace(wsUrl)) wsUrl = settings.LspWebSocketUrl;
@@ -210,7 +217,12 @@ public partial class DISetup
             return null;
         }
 
-        return new StdioProcessLspTransport(serverInfo, loggerFactory.CreateLogger<StdioProcessLspTransport>());
+        // No explicit working directory on the bundled entry, so it runs in whatever project is open when
+        // it first starts.
+        return new StdioProcessLspTransport(
+            serverInfo with { WorkingDirectory = "" },
+            loggerFactory.CreateLogger<StdioProcessLspTransport>(),
+            workspace);
     }
 
     public static MainViewViewModel DesignTimeRootViewModel => new DISetup().Root;

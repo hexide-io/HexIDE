@@ -47,14 +47,23 @@ public sealed class VBLspClient : ILspClient
     /// table would force two servers claiming one extension to agree about what it is called, and each has
     /// its own connection, so neither has to be wrong.
     /// </param>
-    public VBLspClient(ILspTransport transport, ILogger<VBLspClient> logger, string languageId)
+    /// <param name="workspace">
+    /// Where this server should think it is working. Consulted at initialize rather than held as a value,
+    /// because the server starts lazily and which project is open by then is not knowable here. Null when
+    /// the caller has no workspace to offer, in which case no root is sent — which is honest, and what the
+    /// protocol says to do.
+    /// </param>
+    public VBLspClient(
+        ILspTransport transport, ILogger<VBLspClient> logger, string languageId, ILspWorkspace? workspace = null)
     {
         _transport = transport;
         _logger = logger;
         _languageId = languageId;
+        _workspace = workspace;
     }
 
     private readonly string _languageId;
+    private readonly ILspWorkspace? _workspace;
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
@@ -185,9 +194,11 @@ public sealed class VBLspClient : ILspClient
     {
         if (_rpc is null) return;
 
+        // Asked for now, not when this client was built: the server starts on first use, and the project
+        // open at that moment is what it should be rooted at.
         var initParams = new InitializeParams(
             ProcessId: Environment.ProcessId,
-            RootUri: null,
+            RootUri: WorkspaceRootUri(),
             Capabilities: new ClientCapabilities(
                 new TextDocumentClientCapabilities(
                     PublishDiagnostics: new PublishDiagnosticsClientCapabilities(),
@@ -216,6 +227,32 @@ public sealed class VBLspClient : ILspClient
         _capabilities = ReadCapabilities(raw) is { } caps ? new CapabilitySnapshot(caps) : null;
         _initialized = true;
         _logger.LogInformation("VB6 LSP server initialized");
+    }
+
+    /// <summary>
+    /// The workspace directory as a <c>file://</c> URI, or null when there is no project open.
+    ///
+    /// <para>
+    /// Null rather than a guess. The protocol allows a root-less session, and inventing one — the current
+    /// directory, a temp path — would point every workspace-relative lookup a server makes at somewhere
+    /// the user has never heard of.
+    /// </para>
+    /// </summary>
+    private string? WorkspaceRootUri()
+    {
+        var directory = _workspace?.Directory;
+        if (string.IsNullOrWhiteSpace(directory)) return null;
+
+        try
+        {
+            return new Uri(Path.GetFullPath(directory)).AbsoluteUri;
+        }
+        catch (Exception ex)
+        {
+            // A path that cannot be made into a URI costs the root, not the connection.
+            _logger.LogWarning(ex, "Could not express the workspace directory {Directory} as a URI", directory);
+            return null;
+        }
     }
 
     /// <summary>

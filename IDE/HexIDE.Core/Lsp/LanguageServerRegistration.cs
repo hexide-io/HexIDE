@@ -43,4 +43,23 @@ public sealed record LanguageServerRegistration(
     IReadOnlyList<string> Extensions,
     string LanguageId,
     Func<ILspClient> CreateClient,
-    int Priority = 0);
+    int Priority = 0)
+{
+    /// <summary>
+    /// The priority the entries HexIDE contributes itself are given — deliberately below the value an
+    /// entry takes when it states none.
+    ///
+    /// <para>
+    /// So a user who attaches a server for a language the IDE already serves wins the features that cannot
+    /// merge two answers, without having to discover that a priority field exists. That is the point of
+    /// making the bundled server an ordinary entry rather than a special case: being replaceable is only
+    /// real if replacing it is the default outcome of attaching a replacement.
+    /// </para>
+    ///
+    /// <para>
+    /// Not <c>int.MinValue</c>. A user wanting their own server to rank <em>below</em> a bundled one must
+    /// still be able to say so, and no value can be written below the floor.
+    /// </para>
+    /// </summary>
+    public const int BundledPriority = -1000;
+}

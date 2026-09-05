@@ -23,6 +23,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
 {
     private readonly LspServerInfo _serverInfo;
     private readonly ILogger<StdioProcessLspTransport> _logger;
+    private readonly ILspWorkspace? _workspace;
     private Process? _process;
 
     /// <param name="serverInfo">
@@ -30,10 +31,17 @@ public sealed class StdioProcessLspTransport : ILspTransport
     /// whoever built the registration, because an entry naming a server that is not there should not be
     /// offered at all rather than fail at connect time.
     /// </param>
-    public StdioProcessLspTransport(LspServerInfo serverInfo, ILogger<StdioProcessLspTransport> logger)
+    /// <param name="workspace">
+    /// Consulted at connect time when <paramref name="serverInfo"/> names no working directory of its own,
+    /// so a server launched lazily runs in whichever project is open by then. An explicit working directory
+    /// always wins: a user who named one meant it.
+    /// </param>
+    public StdioProcessLspTransport(
+        LspServerInfo serverInfo, ILogger<StdioProcessLspTransport> logger, ILspWorkspace? workspace = null)
     {
         _serverInfo = serverInfo;
         _logger = logger;
+        _workspace = workspace;
     }
 
     public bool IsAlive => _process is { HasExited: false };
@@ -119,7 +127,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
             {
                 FileName = fileName,
                 Arguments = arguments,
-                WorkingDirectory = serverInfo.WorkingDirectory,
+                WorkingDirectory = WorkingDirectory(),
                 UseShellExecute = false,
                 RedirectStandardInput = true,
                 RedirectStandardOutput = true,
@@ -161,6 +169,24 @@ public sealed class StdioProcessLspTransport : ILspTransport
             formatter);
 
         return Task.FromResult<IJsonRpcMessageHandler?>(handler);
+    }
+
+    /// <summary>
+    /// Where to run the server. An explicit setting wins; otherwise the workspace, resolved now rather than
+    /// when this transport was built, because the server starts on first use.
+    ///
+    /// <para>
+    /// Empty when there is neither — which hands the child the IDE's own working directory. That is not a
+    /// good root, but it is the one .NET uses when none is given, and inventing a temp path instead would
+    /// silently point a server's configuration lookup somewhere the user has never heard of.
+    /// </para>
+    /// </summary>
+    private string WorkingDirectory()
+    {
+        if (!string.IsNullOrWhiteSpace(_serverInfo.WorkingDirectory))
+            return _serverInfo.WorkingDirectory;
+
+        return _workspace?.Directory is { } d && !string.IsNullOrWhiteSpace(d) ? d : "";
     }
 
     private void OnProcessExited(object? sender, EventArgs e)
