@@ -39,6 +39,18 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient) : Base
     /// <summary>Diagnostics for this document, as offsets into the buffer. The view draws these.</summary>
     public event Action<IReadOnlyList<LspMarker>>? MarkersChanged;
 
+    /// <summary>
+    /// The most recent diagnostics, kept so a view attaching later can catch up.
+    ///
+    /// <para>
+    /// Needed because <see cref="MarkersChanged"/> is a notification, not a state: a view that subscribes
+    /// after the last publish sees nothing until the next one. That is not hypothetical — moving this
+    /// document to another dock re-materialises the view, and the server has no reason to re-publish for a
+    /// document that has not changed, so the squiggles would simply not come back.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<LspMarker> Markers { get; private set; } = [];
+
     /// <summary>The buffer the editor binds to.</summary>
     public TextDocument Document { get; } = new();
 
@@ -115,7 +127,11 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient) : Base
         if (LoadError is not null) return;
 
         var session = AutoDispose(new LspDocumentSession(lspClient, Document, LspDocumentUri.ForFile(path)));
-        session.MarkersChanged += markers => MarkersChanged?.Invoke(markers);
+        session.MarkersChanged += markers =>
+        {
+            Markers = markers;
+            MarkersChanged?.Invoke(markers);
+        };
         session.Start();
     }
 

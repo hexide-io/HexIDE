@@ -56,22 +56,32 @@
 
 ## 4. The view renders it
 
-- [ ] 4.1 `RelatedDocumentEditorView` attaches `LspTextMarkerService` to its editor and subscribes to the
-      view model's markers — the same control the code editor uses, so it attaches unchanged
-- [ ] 4.2 Unsubscribed and detached on unload, symmetrically. A marker service outliving its editor holds
-      the document alive
+- [x] 4.1 `RelatedDocumentEditorView` attaches `LspTextMarkerService` to its editor and subscribes to the
+      view model's markers — the same control the code editor uses, so it attaches unchanged. The
+      diagnostics colorizer comes with it, so a diagnostic looks the same wherever it appears; it limits
+      its red text to errors, so a linter's warnings on prose stay squiggles rather than reddening a
+      paragraph
+- [x] 4.2 Unsubscribed and detached on unload, symmetrically, and the renderers are **removed from their
+      lists** rather than merely dropped — this view is re-attachable, so a second attach would otherwise
+      stack another pair on the first and draw every diagnostic twice
+- [x] 4.3 The view catches up on attach, from a `Markers` property the view model now keeps. Not in the
+      original plan: `MarkersChanged` is a notification, not a state, and moving this document to another
+      dock re-materialises the view while the server has no reason to re-publish for an unchanged
+      document — so the squiggles would vanish on a dock move and stay gone until the next edit. The VB6
+      editor has the same gap and is unchanged here (#270)
 
 ## 5. Tests
 
 - [x] 5.1 A carried file is opened to the client, with a `file:` URI carrying its extension
-- [ ] 5.2 Its diagnostics become markers; a diagnostic for a different document does not.
-      **Not tested at the view-model level, deliberately.** Converting a diagnostic into markers is the
-      session's job and has its own tests including the clamping; what this editor adds is one forwarding
-      lambda. Driving it from a test means pumping the Avalonia dispatcher, which only the thread that
-      initialised it may do — and the negative case would then "pass" because the posted work never ran,
-      which is worse than no test. Proved end to end by 6.2 instead
+- [x] 5.2 Its diagnostics become markers; a diagnostic for a different document does not. Closed at the
+      **integration** level rather than the view-model one, which is where it belongs: under
+      `[AvaloniaFact]` the test body runs on the thread that owns the dispatcher, so the UI-thread hop can
+      be pumped and the whole path driven for real — publication through conversion to a renderer holding
+      the markers. A view-model test could only have asserted the negative case, and would have passed
+      because the posted work never ran
 - [ ] 5.3 A URI the server has normalised differently still matches — the #236 case, now in a second editor
-- [ ] 5.4 Editing sends a change; closing the editor closes the document
+- [x] 5.4 Editing sends a change; closing the editor closes the document. The change half is the session's
+      (it owns the debounce and is tested for it); the close half is here
 - [x] 5.5 A document with no path, and one that failed to load, are never opened — both verified by
       mutation to fail without their guard
 - [x] 5.6 A range past the end of the buffer is clamped rather than throwing. Three shapes, because
