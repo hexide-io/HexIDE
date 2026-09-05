@@ -71,6 +71,17 @@ public class ServerShellSmokeTest
             .Should().BeFalse("this server PUSHES diagnostics; advertising pull would invite "
                             + "textDocument/diagnostic requests nothing answers");
 
+        // No `save` under textDocumentSync, and that is a decision rather than an omission. This server
+        // defers nothing to save: it reparses on every open and change and publishes each time, so a save
+        // handler would either do nothing or become a fourth publish trigger the spec does not describe.
+        //
+        // Pinned so the absence cannot be lost silently, and so it reads as intentional to whoever adds
+        // the handler — at which point this flips to a positive assertion rather than being deleted. It is
+        // also what makes this server a CONTROL for the client's save gate: proof that the gate refuses.
+        caps.GetProperty("textDocumentSync").TryGetProperty("save", out _)
+            .Should().BeFalse("nothing here is advertised that is not implemented, and no analysis is "
+                            + "deferred to save");
+
         await rpc.NotifyWithParameterObjectAsync("initialized", new { });
 
         // vb/builtinSymbols returns the built-in signature table: [{name, signature, documentation}, ...].

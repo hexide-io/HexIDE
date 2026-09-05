@@ -165,6 +165,50 @@ public class LspDocumentSessionTests : IDisposable
             Arg.Any<string>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
+    [Fact]
+    public async Task ASaveSendsThePendingEditFirst()
+    {
+        // The ordering the whole announcement depends on. Editing is debounced, so at the moment a save
+        // happens the server may still hold the text from before the last few keystrokes — which is the
+        // very text that was just written to disk. Announcing a save against that describes a file the
+        // server cannot see, and it does so in the worst way: it looks like it worked.
+        var session = Session("before");
+        session.Start();
+        _document.Text = "after";   // arms the debounce; nothing has been sent yet
+
+        await session.NotifySavedAsync();
+
+        Received.InOrder(() =>
+        {
+            _client.ChangeDocumentAsync(Uri, Arg.Any<int>(), "after", Arg.Any<CancellationToken>());
+            _client.SaveDocumentAsync(Uri, Arg.Any<CancellationToken>());
+        });
+    }
+
+    [Fact]
+    public async Task ASessionThatNeverStartedAnnouncesNothing()
+    {
+        // A carried file that failed to read, or a document with no path: there is no open document to
+        // announce a save of, and telling a server about one invites it to hold state for a URI it was
+        // never given.
+        await Session("x").NotifySavedAsync();
+
+        await _client.DidNotReceive().SaveDocumentAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ADisposedSessionAnnouncesNothing()
+    {
+        var session = Session("x");
+        session.Start();
+        session.Dispose();
+        _client.ClearReceivedCalls();
+
+        await session.NotifySavedAsync();
+
+        await _client.DidNotReceive().SaveDocumentAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
     // ── Diagnostics ───────────────────────────────────────────────────────────────────────────────────
 
     [Fact]

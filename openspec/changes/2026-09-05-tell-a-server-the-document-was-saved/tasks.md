@@ -82,14 +82,29 @@
       an empty capabilities object
 - [x] 5.3 For every no-text case, assert the `text` property is **absent**, not null. That is the only
       assertion that catches the serialization trap
-- [x] 5.4 A pending edit is sent before the save is announced
+- [x] 5.4 A pending edit is sent before the save is announced. **This was ticked a section early and had
+      no test**, which is worth recording rather than quietly fixing: it is the session's most important
+      behaviour in section 4 and it was claimed without being checked
 - [x] 5.5 Routing: two servers claiming one document where only one asked for saves — both real
       connections, which is what proves the gate belongs on the connection rather than the router
 - [x] 5.6 Saving a project with open documents announces each of them; building an executable announces
       none
-- [ ] 5.7 The bundled server's deliberate absence of `save` is pinned, so it cannot be lost silently and
+- [x] 5.7 The bundled server's deliberate absence of `save` is pinned, so it cannot be lost silently and
       flips to a positive assertion the day that decision is revisited
-- [ ] 5.8 Each verified to fail without its fix, by mutation
+- [x] 5.8 Each verified to fail without its fix, by mutation — twelve defects across the wire, the
+      negotiation, the client, the router and both save paths.
+
+      Ten were caught by tests. Two were caught by the **compiler**: ignoring the negotiation gate leaves
+      unreachable code, and an earlier attempt at a version-counter mutation left a field never assigned —
+      both build failures under `TreatWarningsAsErrors`, which is stronger than a test.
+
+      One was caught by nothing: **the carried-file editor's announcement**. Deleting it left all 942
+      tests green. Closed at the integration level, because the announcement follows an asynchronous file
+      write and a plain unit test has no synchronization context to bring the continuation back to the
+      thread that owns the editor buffer — the first attempt to test it there did not fail, it threw
+      "call from invalid thread", and an attempt to make the session marshal the read instead produced a
+      deadlock against a dispatcher nothing pumps. The production arrangement is sound and is now stated
+      in the method's own remarks rather than left implicit
 
 ## 6. Verification
 

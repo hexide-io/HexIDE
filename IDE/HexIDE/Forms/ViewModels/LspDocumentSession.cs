@@ -130,6 +130,13 @@ internal sealed class LspDocumentSession : IDisposable
     /// current, so a server that asked for the content receives exactly what went to disk.
     /// </para>
     /// </summary>
+    /// <remarks>
+    /// <b>Call this on the UI thread.</b> The flush reads the editor buffer, which verifies its owning
+    /// thread on every read. Both production callers satisfy that by continuation rather than by
+    /// construction — the announcement follows an asynchronous file write, and Avalonia's synchronization
+    /// context brings the continuation back — so a caller with no such context, a plain unit test being
+    /// the case that found this, will see "call from invalid thread" here rather than a wrong answer.
+    /// </remarks>
     public async Task NotifySavedAsync(CancellationToken cancellationToken = default)
     {
         if (disposed || !started) return;

@@ -87,11 +87,22 @@ cross-platform fix and check it fails there.
 **Distrust a suspiciously fast WSL run.** A run that skips the build — roughly 5-10s where a real one takes
 30s or more — has twice reported a large batch of failures (279 of 915) with **no error message against any
 of them**, and passed on the very next attempt. It has not reproduced since, in six consecutive runs, with
-or without the change under test, and it happened both immediately after a Windows `dotnet test` and after
-another WSL run. The best available explanation is a build/test race on the 9p mount, where MSBuild's
-up-to-date check is satisfied by timestamps it should not trust and the test host then loads a mismatched
-assembly set — but that is a hypothesis, not a diagnosis, and it is recorded here as an unexplained
-observation rather than tidied into a rule.
+or without the change under test. It has now been seen three times, and each was immediately after a
+Windows `dotnet test` of the same projects.
+
+The likeliest mechanism, with one piece of real evidence behind it: files written through `/mnt/c` carry
+**whole-second** timestamps, where the Windows side carries sub-second ones —
+
+```
+2026-09-05 18:49:24.906594900  IDE/HexIDE.Tests/bin/Debug/net10.0/HexIDE.Tests.dll     (Windows)
+2026-09-05 18:51:22.000000000  artifacts/linux/bin/.../HexIDE.Tests.dll                (WSL, via 9p)
+```
+
+so MSBuild's up-to-date check compares timestamps of different precision across the two builds and can
+conclude an output is current when it is not, leaving the test host to load a stale assembly against fresh
+ones. `--artifacts-path` does correctly separate `obj/` as well as `bin/`, so that is not the cause. This
+remains a hypothesis — it has not been proven by forcing the race — and is recorded as such rather than
+tidied into a rule.
 
 What to do: **check the duration before believing a red**. If a WSL run reports failures without rebuilding,
 run it again; if the second run rebuilds and passes, the first was noise. A genuine cross-platform failure
