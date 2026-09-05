@@ -108,13 +108,21 @@
 
 ## 6. Verification
 
-- [ ] 6.1 Suites green on Windows and under WSL
-- [ ] 6.2 **Against a server we did not write.** The foreign Markdown server advertises
-      `save: {includeText: false}` and re-publishes when told of a save — measured, not assumed. Assert
-      the **increment** in publications, never an absolute count: it publishes more than once on open
-- [ ] 6.3 Assert that server advertises `save` at all. The capability the entire gate depends on is
-      currently assumed rather than observed by any test
-- [ ] 6.4 Driven against the running IDE, saving a carried Markdown file and seeing the server respond
+- [x] 6.1 Suites green on Windows and under WSL — 943 IDE, 252 integration, 153 LSP server
+- [x] 6.2 **Against a server we did not write.** Done, and it is the only proof available: our own server
+      does not ask for saves, so a test against it can show the gate refusing and nothing more. The
+      foreign Markdown server asks, and re-publishes when told — verified to fail when the send is
+      disabled, which is what makes it proof rather than decoration. Asserts the **increment**, never an
+      absolute count, because that server publishes more than once for a single open
+- [x] 6.3 Assert that server advertises `save` at all — `WithoutText`, observed rather than assumed. The
+      one field the entire gate depends on had no test looking at what a real server puts in it
+- [x] 6.4 Driven against the running IDE: Ctrl+S on a carried Markdown file wrote it to disk, the server
+      stayed up, the log recorded no errors, and diagnostics matched the saved content.
+      **What this does and does not show.** It confirms the wiring — a real save gesture reaching the
+      session in the real application without throwing. It cannot show the notification crossing the
+      wire, because the IDE surfaces no protocol frames and this server publishes on change as well as on
+      save, so nothing visible distinguishes the two. That proof is 6.2, which is stronger evidence than
+      anything the interface could display
 
 ## 7. Deliberately not here
 

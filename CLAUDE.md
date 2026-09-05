@@ -84,29 +84,23 @@ Expect the run to be slower than Windows (the `/mnt/c` 9p mount), and identical 
 this writing. To confirm the setup still has teeth, run a `git worktree` at a commit predating a known
 cross-platform fix and check it fails there.
 
-**Distrust a suspiciously fast WSL run.** A run that skips the build — roughly 5-10s where a real one takes
-30s or more — has twice reported a large batch of failures (279 of 915) with **no error message against any
-of them**, and passed on the very next attempt. It has not reproduced since, in six consecutive runs, with
-or without the change under test. It has now been seen three times, and each was immediately after a
-Windows `dotnet test` of the same projects.
+**Distrust a suspiciously fast test run, on either platform.** A run that skips the build — roughly
+5-18s where a real one takes 28-37s — has several times reported a large batch of failures (282 of ~940)
+with **no error message against any of them**, and passed on the very next attempt. It was first seen
+under WSL and assumed to be a 9p artifact; it then reproduced on **Windows**, so that framing was wrong.
 
-The likeliest mechanism, with one piece of real evidence behind it: files written through `/mnt/c` carry
-**whole-second** timestamps, where the Windows side carries sub-second ones —
+What correlates, across every occurrence: the run followed a build or execution of another configuration
+of the same projects — a Windows `dotnet test` before a WSL one, or a `HexIDE.Desktop` build and launch
+before a test run. The likeliest mechanism is that MSBuild's up-to-date check is satisfied for the test
+project while a project it references has been rebuilt underneath it, so the test host loads a mismatched
+assembly set. Two things are ruled out: `--artifacts-path` does correctly separate `obj/` as well as
+`bin/`, and it is not specific to the 9p mount. This is still a hypothesis; it has not been proven by
+forcing the race, and is recorded as an observation rather than tidied into a rule.
 
-```
-2026-09-05 18:49:24.906594900  IDE/HexIDE.Tests/bin/Debug/net10.0/HexIDE.Tests.dll     (Windows)
-2026-09-05 18:51:22.000000000  artifacts/linux/bin/.../HexIDE.Tests.dll                (WSL, via 9p)
-```
-
-so MSBuild's up-to-date check compares timestamps of different precision across the two builds and can
-conclude an output is current when it is not, leaving the test host to load a stale assembly against fresh
-ones. `--artifacts-path` does correctly separate `obj/` as well as `bin/`, so that is not the cause. This
-remains a hypothesis — it has not been proven by forcing the race — and is recorded as such rather than
-tidied into a rule.
-
-What to do: **check the duration before believing a red**. If a WSL run reports failures without rebuilding,
-run it again; if the second run rebuilds and passes, the first was noise. A genuine cross-platform failure
-reproduces, and names the tests it broke.
+What to do: **check the duration before believing a red**. If a run reports failures without rebuilding,
+run it again; if the second run rebuilds and passes, the first was noise. A genuine failure reproduces and
+names the tests it broke. Shutting down a running `HexIDE.Desktop` before a test run also appears to help,
+and is worth doing anyway to avoid file locks.
 
 ## MCP Dev Loop
 
