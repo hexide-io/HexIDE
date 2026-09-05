@@ -18,15 +18,41 @@ would prove nothing.
 
 ## Which ones, and why each earns its place
 
-| Server | Language | Licence | What it exercises that nothing else does |
-|---|---|---|---|
-| rumdl | Markdown | MIT | The baseline foreign path; publishes on open, change **and save**, which is what proves save notifications reach a server that acts on them. |
-| texlab | LaTeX | **GPL-3.0** | A different author, a different release convention, a different licence — and it claims `.cls`, which is a LaTeX class file *and* a VB6 class module. |
+| Server | Language | Licence | Framework | What it exercises that nothing else does |
+|---|---|---|---|---|
+| rumdl | Markdown | MIT | `tower-lsp` | The baseline foreign path; publishes on open, change **and save**, which is what proves save notifications reach a server that acts on them. |
+| texlab | LaTeX | **GPL-3.0** | `lsp-server` | A different author, licence and release convention — and it claims `.cls`, which is a LaTeX class file *and* a VB6 class module. Declares **incremental** sync, where everything else declares full (#282). |
+| vscode-json-language-server | JSON | MIT | **`vscode-languageserver-node`** | The **reference implementation**. See below. |
 
-**A third should earn its place by exercising a protocol shape neither of these does**, not by being
-another server. The shapes nothing real currently exercises are the `pipe` and `websocket` transports —
-both supported, both tested only against fakes — and a server that genuinely defers its analysis to save.
-Count is not the goal; independence and shape are.
+**Framework diversity matters more than language diversity.** Interop bugs come from the server's LSP
+library, not from the language being analysed — five servers on the same crate mostly re-test the same
+wire behaviour. The framework column is the one to look at when considering a fourth.
+
+**A fourth should earn its place by exercising a shape none of these does** — a different LSP framework,
+or a protocol path nothing here reaches. Count is not the goal.
+
+Currently unexercised by anything real: the `pipe` and `websocket` transports (both supported, both tested
+only against fakes), a server that genuinely defers its analysis to save, and **pull-model diagnostics**,
+which HexIDE does not support at all (#284) and which a server such as `ruff server` would demonstrate.
+
+## The reference implementation, and why it costs a runtime dependency
+
+`vscode-languageserver-node` is the library the specification is written around. Where the prose is
+ambiguous, what that library does is what server authors treat as correct — so disagreeing with it is a
+defect here regardless of what a permissive reading allows. No number of servers built on other frameworks
+substitutes for it.
+
+It is the only server here that is **not** a self-contained binary, and the only one that needed arguing
+for. Its published package will not run from its own tarball — verified: it fails on a missing dependency
+— so the tree is reproduced with `npm ci` against `tools/node-lsp/package-lock.json`, which pins all
+thirty-odd packages by a registry-attested integrity hash. The lockfile is a text manifest and lives in
+the repository; the installed tree does not, and is put under `artifacts/` rather than beside the
+lockfile so `node_modules` can never appear in the tree even briefly.
+
+**Node is a harness dependency, not a shipped one.** Nothing in HexIDE requires it. A machine without Node
+skips these three tests, visibly — except where `HEXIDE_REQUIRE_FOREIGN_LSP=1` is set, which is CI, and
+where the whole point is that coverage cannot quietly disappear. CI installs Node explicitly rather than
+relying on the runner image happening to have it.
 
 ## The GPL question
 

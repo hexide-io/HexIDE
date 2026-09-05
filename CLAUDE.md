@@ -44,27 +44,54 @@ you are writing them: an illustrative Windows user path in a troubleshooting exa
 indistinguishable from a real one — and that scanner is what stops a machine-specific path reaching a
 public repository. Do not reason about whether yours is "obviously" generic; just run it.
 
-### The foreign-server tests fetch a real third-party language server
+### The foreign-server tests fetch real third-party language servers
 
-`HexIDE.Tests` includes five tests that drive a language server **HexIDE did not write** — the only check
-that the client speaks LSP to something that does not accommodate it. A client and server by one hand agree
-with each other rather than with the specification, which is how three defects hid until a foreign server
-was pointed at (`ForeignServerFixture.cs` has the history).
+`HexIDE.Tests` includes fourteen tests that drive language servers **HexIDE did not write** — the only
+check that the client speaks LSP to something that does not accommodate it. A client and server by one hand
+agree with each other rather than with the specification, which is how three defects hid until a foreign
+server was pointed at (`ForeignServerFixture.cs` has the history).
 
-The server is **downloaded on demand**, once, at a pinned version with the publisher's SHA-256 verified,
-into the gitignored `IDE/HexIDE.Tests/tools/foreign-lsp/`. Not committed: ~6.5 MB per platform against a
-repository whose whole history is under 6 MB, and the same again on every version bump. Linux uses the
-static musl build, so one file runs on any distribution.
+Three servers, chosen for **framework** diversity rather than language diversity — interop bugs come from
+the server's LSP library, not from the language being analysed:
 
-- **Use your own build instead**: set `HEXIDE_MARKDOWN_LSP` to an executable, or put `rumdl` on `PATH`.
-  Both are checked before the download, so an explicit choice is never silently overridden.
-- **Stay off the network**: `HEXIDE_FOREIGN_LSP_DOWNLOAD=0`. The five tests then skip, visibly.
+| Server | Tests | Framework | Obtained as |
+|---|---|---|---|
+| rumdl (Markdown) | 6 | `tower-lsp` | pinned binary download |
+| texlab (LaTeX) | 5 | `lsp-server` | pinned binary download |
+| vscode-json-language-server | 3 | `vscode-languageserver-node` | `npm ci` against a committed lockfile |
+
+**Read [`docs/foreign-language-servers.md`](docs/foreign-language-servers.md) before adding a fourth** — it
+carries the full reasoning, including why a GPL-licensed server is consistent with a 100%-MIT tree, and the
+bar for a new one (a protocol *shape* nothing else exercises, not simply another server).
+
+Everything is fetched **on demand**, once, at a pinned version with a SHA-256 verified before anything
+executes, into the gitignored **`artifacts/foreign-lsp/`**. Not committed: several megabytes per platform
+against a repository whose whole history is a fraction of that, and the same again on every version bump.
+Linux uses musl builds where offered, so one binary runs on any distribution.
+
+**The cache path matters and is not arbitrary.** It used to sit under `IDE/HexIDE.Tests/tools/`, which
+collides with the tracked `Tools/` directory holding real source — a collision invisible on Windows purely
+because its filesystem is case-insensitive. Downloaded binaries live under `artifacts/`; nothing fetched
+ever lands beside tracked files.
+
+- **Use your own build instead**: set `HEXIDE_MARKDOWN_LSP`, `HEXIDE_LATEX_LSP` or `HEXIDE_JSON_LSP` to an
+  executable, or put `rumdl` / `texlab` on `PATH`. All are checked before the download, so an explicit
+  choice is never silently overridden.
+- **Stay off the network**: `HEXIDE_FOREIGN_LSP_DOWNLOAD=0`. The affected tests then skip, visibly.
 - **Forbid skipping**: `HEXIDE_REQUIRE_FOREIGN_LSP=1` turns "no server available" into a failure. CI sets
   this, because a silently skipped proof is the failure mode this whole fixture exists to avoid.
 
-Bumping the version means editing `Version` and the digests in `ForeignServerAcquisition.cs`. Take each
-digest from the publisher's own `.sha256` beside the asset — never from a file you downloaded yourself,
-which verifies nothing.
+**The three JSON tests need Node on `PATH`** — it is a harness dependency only, and nothing in HexIDE
+requires it. A machine without Node skips them, except under `HEXIDE_REQUIRE_FOREIGN_LSP=1`, where they
+fail. **WSL has no Node by default, so a WSL run fails those three under that variable** until
+`sudo apt-get install -y nodejs npm` is run there; CI installs it explicitly.
+
+Bumping a version means editing the version and digests in `ForeignServerAcquisition.cs`. **Digest
+provenance differs per server and the code records which** — take a digest from the publisher's own
+checksum file where one exists (that attests the bytes are the ones the publisher intended); where the
+publisher offers none, compute it and mark the provenance as computed here, which pins what was tested
+against but attests nothing about origin. Never take a digest from a file you downloaded and call it
+publisher-attested — that verifies only that the download completed.
 
 ### Verify on Linux before pushing — `build-ide` runs on `ubuntu-latest`
 

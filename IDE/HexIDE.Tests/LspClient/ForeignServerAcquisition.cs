@@ -34,6 +34,19 @@ internal enum DigestProvenance
     /// </para>
     /// </summary>
     ComputedHere,
+
+    /// <summary>
+    /// Pinned by an npm lockfile rather than by a single digest, because the server is a package with
+    /// dependencies rather than one self-contained file.
+    ///
+    /// <para>
+    /// Stronger than either of the others in one respect and weaker in none: the lockfile carries a
+    /// publisher-attested integrity hash for <em>every</em> package in the tree, and <c>npm ci</c> refuses
+    /// to install anything that does not match. It is the registry's own mechanism rather than one
+    /// invented here.
+    /// </para>
+    /// </summary>
+    Lockfile,
 }
 
 /// <summary>One published archive for one platform.</summary>
@@ -145,6 +158,126 @@ internal static class ForeignServerAcquisition
             new("osx-arm64", "texlab-aarch64-macos.tar.gz",
                 "af7972ffd230711ba04ada9b69cc32ce9111d9196ba69538062872faefdbee56"),
         ]);
+
+    /// <summary>
+    /// The reference implementation's servers, hosted on Node.
+    ///
+    /// <para>
+    /// <b>Worth a runtime dependency, which the others are not.</b> <c>vscode-languageserver-node</c> is
+    /// the library the specification is written around, and where the prose is ambiguous its behaviour is
+    /// what server authors treat as correct. Testing against it is testing against the de facto normative
+    /// reading, which no amount of Rust servers substitutes for.
+    /// </para>
+    ///
+    /// <para>
+    /// It cannot be fetched the way the others are: the published package will not run from its own
+    /// tarball — verified, it fails on a missing dependency — so the tree is reproduced with
+    /// <c>npm ci</c> against a committed lockfile. That lockfile is a text manifest, not a binary, so it
+    /// lives in the repository while the installed tree does not.
+    /// </para>
+    /// </summary>
+    public static readonly ForeignServerSource Json = new(
+        Key: "node",
+        Version: "4.10.0",
+        ExecutableName: "vscode-json-language-server",
+        ReleaseUrlFormat: "",          // installed by npm, not downloaded
+        Provenance: DigestProvenance.Lockfile,
+        Assets: []);
+
+    /// <summary>Where the lockfile that pins the Node tree lives, relative to the repository root.</summary>
+    public const string NodeManifestDirectory = "tools/node-lsp";
+
+    /// <summary>
+    /// Installs the Node servers, if Node is present, and answers with the entry-point script.
+    ///
+    /// <para>
+    /// The manifests are copied into <c>artifacts/</c> and installed there rather than beside the
+    /// lockfile, so <c>node_modules</c> can never appear in the tree even briefly.
+    /// </para>
+    /// </summary>
+    public static string? EnsureNodeServerAvailable()
+    {
+        lock (Gate)
+        {
+            if (Attempted.TryGetValue("node-script", out var already)) return already;
+            var path = AcquireNodeServer();
+            Attempted["node-script"] = path;
+            return path;
+        }
+    }
+
+    private static string? AcquireNodeServer()
+    {
+        if (RepositoryRoot() is not { } root) return null;
+
+        var install = Path.Combine(CacheRoot(), "node", Json.Version);
+        var entryPoint = Path.Combine(
+            install, "node_modules", "vscode-langservers-extracted", "bin", Json.ExecutableName);
+
+        if (File.Exists(entryPoint)) return entryPoint;
+        if (Environment.GetEnvironmentVariable(OptOutVariable) is "0" or "false" or "off") return null;
+        if (FindNode() is null) return null;
+
+        try
+        {
+            Directory.CreateDirectory(install);
+            foreach (var manifest in new[] { "package.json", "package-lock.json" })
+            {
+                var source = Path.Combine(root, NodeManifestDirectory.Replace('/', Path.DirectorySeparatorChar), manifest);
+                if (!File.Exists(source)) return null;
+                File.Copy(source, Path.Combine(install, manifest), overwrite: true);
+            }
+
+            // `ci`, never `install`: it installs exactly the locked tree and refuses if the lockfile and
+            // the manifest disagree, which is the whole reason the lockfile is committed.
+            var npm = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = OperatingSystem.IsWindows() ? "cmd.exe" : "npm",
+                Arguments = OperatingSystem.IsWindows() ? "/c npm ci --no-audit --no-fund" : "ci --no-audit --no-fund",
+                WorkingDirectory = install,
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+
+            using var process = System.Diagnostics.Process.Start(npm);
+            if (process is null) return null;
+            process.WaitForExit(milliseconds: 300_000);
+
+            return File.Exists(entryPoint) ? entryPoint : null;
+        }
+        catch (Exception e) when (e is IOException or System.ComponentModel.Win32Exception
+                                    or UnauthorizedAccessException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The Node executable, or null when it is not installed.</summary>
+    public static string? FindNode()
+    {
+        var exeName = OperatingSystem.IsWindows() ? "node.exe" : "node";
+        foreach (var dir in (Environment.GetEnvironmentVariable("PATH") ?? "")
+                     .Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries))
+        {
+            try
+            {
+                var candidate = Path.Combine(dir.Trim('"'), exeName);
+                if (File.Exists(candidate)) return candidate;
+            }
+            catch (ArgumentException) { /* a malformed PATH entry is not this helper's problem */ }
+        }
+        return null;
+    }
+
+    private static string? RepositoryRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !(Directory.Exists(Path.Combine(dir.FullName, "IDE"))
+                             && Directory.Exists(Path.Combine(dir.FullName, "LspServer"))))
+            dir = dir.Parent;
+        return dir?.FullName;
+    }
 
     private static readonly Lock Gate = new();
     private static readonly Dictionary<string, string?> Attempted = [];

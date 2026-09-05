@@ -24,16 +24,30 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      # The foreign-server tests drive a real third-party language server, and are the only check that
+      # Node is needed by ONE of the foreign servers — the reference implementation, which is a package
+      # rather than a binary. Declared rather than assumed: the runner image happens to ship Node, and a
+      # dependency that works by luck is one that breaks on an image change for reasons nobody can see.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # The foreign-server tests drive real third-party language servers, and are the only check that
       # HexIDE speaks LSP to something it did not write — a client and server by one hand agree with each
-      # other rather than with the specification. The binary is fetched on demand (pinned version, the
-      # publisher's checksum verified) rather than committed: it is ~6.5 MB per platform against a
-      # repository under 6 MB. Cached so the usual run does not go to the network at all.
-      - name: Cache the foreign language server
+      # other rather than with the specification. They are fetched on demand rather than committed, each
+      # pinned: the self-contained ones by a SHA-256 per asset, the Node one by an npm lockfile that
+      # carries a registry-attested hash for every package in its tree. Cached, so the usual run does not
+      # go to the network at all. See docs/foreign-language-servers.md.
+      - name: Cache the foreign language servers
         uses: actions/cache@v4
         with:
           path: artifacts/foreign-lsp
-          key: foreign-lsp-${{ runner.os }}-${{ hashFiles('IDE/HexIDE.Tests/LspClient/ForeignServerAcquisition.cs') }}
+          # The lockfile is part of the key: it pins the Node server's whole dependency tree, so a change
+          # there must invalidate the cache exactly as a version bump in the acquisition file does.
+          key: >-
+            foreign-lsp-${{ runner.os }}-${{ hashFiles(
+              'IDE/HexIDE.Tests/LspClient/ForeignServerAcquisition.cs',
+              'tools/node-lsp/package-lock.json') }}
 
       - name: Run Runtime Tests
         run: dotnet test HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj
