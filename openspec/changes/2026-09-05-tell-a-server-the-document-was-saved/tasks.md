@@ -52,17 +52,23 @@
 
 ## 4. Saving
 
-- [ ] 4.1 `NotifySavedAsync` on the document session: flush, then announce. The flush is not padding — it
+- [x] 4.1 `NotifySavedAsync` on the document session: flush, then announce. The flush is not padding — it
       cancels the pending debounce, so without it a save is announced against text the server has never
       been given
-- [ ] 4.2 A `DocumentSavedEvent` published from the project service's form and module save paths, on the
+- [x] 4.2 A `DocumentSavedEvent` published from the project service's form and module save paths, on the
       success return only — a refused save is the opposite of a save
-- [ ] 4.3 Suppressed when writing a copy elsewhere: building an executable writes every document to a
-      temporary location through the same code and then restores the model
-- [ ] 4.4 Both editors subscribe and announce their own document. The code editor must de-duplicate: a
-      UserControl or PropertyPage sets both its definition fields, so a naive match fires twice for one
-      document
-- [ ] 4.5 The carried-file editor announces from its own save path directly — nothing else writes a
+- [x] 4.3 Suppressed when writing a copy elsewhere: building an executable writes every document to a
+      temporary location through the same code and then restores the model. The save core is `internal`
+      so a test can reach the flag — Make EXE itself refuses without a published standalone runtime, so
+      without that the one exclusion in "which writes count" would have had no test at all, which
+      mutation testing confirmed
+- [x] 4.4 Both editors subscribe and announce their own document. **The de-duplication turned out to be
+      unnecessary, and mutation testing is what established that.** A UserControl does set both definition
+      fields, but one save publishes one event, the handler runs once, and the session's URI is fixed — so
+      matching either half and preferring the module give identical results for every reachable input.
+      The handler now matches either half and says plainly that it guards nothing, rather than carrying a
+      comment claiming a protection it does not provide
+- [x] 4.5 The carried-file editor announces from its own save path directly — nothing else writes a
       carried file
 
 ## 5. Tests
@@ -76,10 +82,10 @@
       an empty capabilities object
 - [x] 5.3 For every no-text case, assert the `text` property is **absent**, not null. That is the only
       assertion that catches the serialization trap
-- [ ] 5.4 A pending edit is sent before the save is announced
+- [x] 5.4 A pending edit is sent before the save is announced
 - [x] 5.5 Routing: two servers claiming one document where only one asked for saves — both real
       connections, which is what proves the gate belongs on the connection rather than the router
-- [ ] 5.6 Saving a project with open documents announces each of them; building an executable announces
+- [x] 5.6 Saving a project with open documents announces each of them; building an executable announces
       none
 - [ ] 5.7 The bundled server's deliberate absence of `save` is pinned, so it cannot be lost silently and
       flips to a positive assertion the day that decision is revisited

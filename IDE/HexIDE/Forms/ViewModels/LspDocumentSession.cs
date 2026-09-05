@@ -119,6 +119,25 @@ internal sealed class LspDocumentSession : IDisposable
         await client.ChangeDocumentAsync(Uri, ++version, document.Text, cancellationToken);
     }
 
+    /// <summary>
+    /// Tells the servers this document was written to disk.
+    ///
+    /// <para>
+    /// <b>Flushes first, and that is not padding.</b> Editing is debounced, so at the moment a save
+    /// happens the server may still be holding text from before the last few keystrokes — the very text
+    /// that was just written. Announcing a save against that describes a file the server cannot see, which
+    /// is worse than not announcing it: it looks like it worked. The flush also makes the tracked text
+    /// current, so a server that asked for the content receives exactly what went to disk.
+    /// </para>
+    /// </summary>
+    public async Task NotifySavedAsync(CancellationToken cancellationToken = default)
+    {
+        if (disposed || !started) return;
+
+        await FlushAsync(cancellationToken);
+        await client.SaveDocumentAsync(Uri, cancellationToken);
+    }
+
     public void Dispose()
     {
         if (disposed) return;

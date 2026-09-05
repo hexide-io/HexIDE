@@ -526,7 +526,26 @@ public class ProjectService : IProjectService
     }
 
     /// <summary>Returns false when the form was refused and nothing was written.</summary>
-    private async Task<bool> SaveFormCore(FormDefinition form, bool saveAs)
+    /// <summary>
+    /// Writes a form and, if it was written, says so.
+    ///
+    /// <para>
+    /// One announcement point rather than one per success return, and a wrapper rather than a flag
+    /// threaded through the body: whether a save happened is exactly what this method already returns, so
+    /// there is nothing to decide here that the inner method has not decided.
+    /// </para>
+    /// </summary>
+    private async Task<bool> SaveFormCore(FormDefinition form, bool saveAs, bool announceSave = true)
+    {
+        var written = await WriteFormToDisk(form, saveAs);
+
+        // On success only. A refusal is the opposite of a save, and telling a server a document was
+        // written when it was not would have it re-read a file that still holds the previous content.
+        if (written && announceSave) eventBus.Publish(new DocumentSavedEvent(form, null));
+        return written;
+    }
+
+    private async Task<bool> WriteFormToDisk(FormDefinition form, bool saveAs)
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
@@ -798,7 +817,12 @@ public class ProjectService : IProjectService
             foreach (var module in projectDefinition.Modules)
             {
                 module.AbsolutePath = Path.Join(tempPath, module.Name + "." + ModuleExtension(module.Kind));
-                if (!await SaveModuleCore(module, saveAs: false))
+                // announceSave: false — this writes a COPY into a temporary directory and restores every
+                // AbsolutePath in the finally below. The developer's files are untouched, so announcing a
+                // save here would report one that never happened, and point a server at a path that is
+                // about to be deleted. (Forms take SerializeFormToFile directly and never reach the save
+                // core, so only this half needs saying.)
+                if (!await SaveModuleCore(module, saveAs: false, announceSave: false))
                     refused.Add(module.Name);
             }
 
@@ -1380,7 +1404,23 @@ public class ProjectService : IProjectService
     /// The batch-safe half: refusals are banked, not reported, so N of them produce one dialog rather
     /// than N. Callers that are not part of a batch use <see cref="SaveModule"/>.
     /// </summary>
-    private async Task<bool> SaveModuleCore(ModuleDefinition module, bool saveAs)
+    /// <summary>
+    /// Writes a module and, if it was written, says so. See <see cref="SaveFormCore"/> for the shape.
+    /// </summary>
+    /// <remarks>
+    /// <c>internal</c> rather than private so a test can reach the <paramref name="announceSave"/> flag.
+    /// Its only production caller that passes <see langword="false"/> is Make EXE, which cannot be driven
+    /// without a published standalone runtime — so without this the one exclusion in "which writes count
+    /// as a save" would have no test at all, which mutation testing confirmed.
+    /// </remarks>
+    internal async Task<bool> SaveModuleCore(ModuleDefinition module, bool saveAs, bool announceSave = true)
+    {
+        var written = await WriteModuleToDisk(module, saveAs);
+        if (written && announceSave) eventBus.Publish(new DocumentSavedEvent(module.FormPart, module));
+        return written;
+    }
+
+    private async Task<bool> WriteModuleToDisk(ModuleDefinition module, bool saveAs)
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
