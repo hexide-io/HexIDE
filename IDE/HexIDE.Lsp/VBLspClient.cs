@@ -106,18 +106,44 @@ public sealed class VBLspClient : ILspClient
             await ReopenTrackedDocumentsAsync();
     }
 
-    /// <summary>After a (re)connect, replay textDocument/didOpen for every tracked document so the
-    /// freshly-initialised server regains its document set and republishes diagnostics.</summary>
+    /// <summary>
+    /// After a (re)connect, replay <c>textDocument/didOpen</c> for every tracked document so the
+    /// freshly-initialised server regains its document set and republishes diagnostics.
+    ///
+    /// <para>
+    /// The version each document is replayed with is the one this connection has been tracking, not 1.
+    /// The server has no memory of it either way, and resetting would put the client's count behind the
+    /// session's, so the next change would arrive with a version the server had already seen.
+    /// </para>
+    /// </summary>
     private async Task ReopenTrackedDocumentsAsync()
     {
+        if (_rpc is null || !_initialized) return;
+        foreach (var (uri, document) in _openDocuments)
+            await SendDidOpenAsync(uri, document.Version, document.Text);
+    }
+
+    /// <summary>
+    /// Tells the server about a document, whether for the first time or again after a reconnect.
+    ///
+    /// <para>
+    /// <b>One method because there were two, and they drifted.</b> The replay used to build its own
+    /// notification with the language identifier hardcoded to <c>"vb6"</c> and no capability gate, so
+    /// after any reconnect a configured foreign server was told every one of its documents was Visual
+    /// Basic — the exact global answer that the per-server identifier exists to prevent, reintroduced in
+    /// the one path nobody looked at (hexide-io/HexIDE#272). A server keying its state on the identifier
+    /// then held a document set it could not analyse, and the symptom was language features that worked,
+    /// silently stopped, and never came back.
+    /// </para>
+    /// </summary>
+    private async Task SendDidOpenAsync(string uri, int version, string text)
+    {
         var rpc = _rpc;
-        if (rpc is null || !_initialized) return;
-        foreach (var (uri, doc) in _openDocuments)
-        {
-            var p = new DidOpenTextDocumentParams(new TextDocumentItem(uri, "vb6", doc.Version, doc.Text));
-            try { await rpc.NotifyWithParameterObjectAsync("textDocument/didOpen", p); }
-            catch (Exception ex) { _logger.LogDebug(ex, "re-open didOpen failed for {Uri}", uri); }
-        }
+        if (rpc is null || !_initialized || !ServerCapabilities.AcceptsOpenClose(_capabilities?.Value)) return;
+
+        var p = new DidOpenTextDocumentParams(new TextDocumentItem(uri, _languageId, version, text));
+        try { await rpc.NotifyWithParameterObjectAsync("textDocument/didOpen", p); }
+        catch (Exception ex) { _logger.LogDebug(ex, "textDocument/didOpen failed for {Uri}", uri); }
     }
 
     private void OnRpcDisconnected(object? sender, JsonRpcDisconnectedEventArgs e)
@@ -290,13 +316,10 @@ public sealed class VBLspClient : ILspClient
 
     public async Task OpenDocumentAsync(string uri, string text, CancellationToken cancellationToken = default)
     {
+        // Tracked BEFORE the gate, deliberately: a document opened while no server is up must still be
+        // replayed when one arrives, which is what makes lazy start and reconnect work at all.
         _openDocuments[uri] = new TrackedDocument(1, text);
-        var rpc = _rpc;
-        if (rpc is null || !_initialized || !ServerCapabilities.AcceptsOpenClose(_capabilities?.Value)) return;
-        var p = new DidOpenTextDocumentParams(
-            new TextDocumentItem(uri, _languageId, 1, text));
-        try { await rpc.NotifyWithParameterObjectAsync("textDocument/didOpen", p); }
-        catch (Exception ex) { _logger.LogDebug(ex, "textDocument/didOpen failed"); }
+        await SendDidOpenAsync(uri, 1, text);
     }
 
     public async Task ChangeDocumentAsync(string uri, int version, string text, CancellationToken cancellationToken = default)
