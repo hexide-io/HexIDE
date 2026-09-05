@@ -100,8 +100,9 @@ In order of likelihood:
 
 1. **Check the log** — `%LocalAppData%/HexIDE/logs/ide/`. A malformed entry is reported there with the
    reason, the field, and the line and column. A rejected entry does not stop the others from working.
-2. **Windows paths need doubled backslashes in JSON**, or forward slashes. `"C:\Users\..."` is not valid
-   JSON, and the error names `$.servers[0].command`.
+2. **Windows paths need doubled backslashes in JSON**, or forward slashes. A path written with single
+   backslashes is not valid JSON at all — the log names the offending field, such as
+   `$.servers[0].command`, with the line and column.
 3. **Have you opened a file it claims?** Servers start lazily, so a server for a language you have not
    opened is *expected* to be absent.
 4. **Does it defer its analysis to save?** HexIDE tells a server about a save only if the server asked to
