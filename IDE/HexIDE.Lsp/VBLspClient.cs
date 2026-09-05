@@ -321,6 +321,28 @@ public sealed class VBLspClient : ILspClient
         catch (Exception ex) { _logger.LogDebug(ex, "textDocument/didClose failed"); }
     }
 
+    public async Task SaveDocumentAsync(string uri, CancellationToken cancellationToken = default)
+    {
+        // No _openDocuments write, unlike its three siblings: a save changes neither the text nor the
+        // version, so there is nothing here to record. It is an announcement about state the server
+        // already has.
+        var rpc = _rpc;
+        if (rpc is null || !_initialized) return;
+
+        var mode = ServerCapabilities.ReadSave(_capabilities?.Value);
+        if (mode == SaveNotification.None) return;
+
+        // Only when negotiated. Sending it unasked would be harmless on the wire and wrong in principle —
+        // the server told us how it wants this, and overriding that makes us unpredictable to its author.
+        var text = mode == SaveNotification.WithText && _openDocuments.TryGetValue(uri, out var document)
+            ? document.Text
+            : null;
+
+        var p = new DidSaveTextDocumentParams(new TextDocumentIdentifier(uri), text);
+        try { await rpc.NotifyWithParameterObjectAsync("textDocument/didSave", p); }
+        catch (Exception ex) { _logger.LogDebug(ex, "textDocument/didSave failed"); }
+    }
+
     public async Task<HoverResult?> RequestHoverAsync(string uri, Position position, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("hoverProvider")) return null;

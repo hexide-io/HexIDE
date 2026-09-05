@@ -39,13 +39,14 @@
 
 ## 3. The client
 
-- [ ] 3.1 `SaveDocumentAsync(uri, ct)` on `ILspClient` — no text parameter, because the connection owns
+- [x] 3.1 `SaveDocumentAsync(uri, ct)` on `ILspClient` — no text parameter, because the connection owns
       the negotiation and already tracks the text
-- [ ] 3.2 Implemented on the connection, copying the shape of the existing close notification: the same
-      guards, the same notify method, the same swallowing catch
-- [ ] 3.3 Implemented on the router by fanning out to started claimants, exactly as a change does — and
+- [x] 3.2 Implemented on the connection, copying the shape of the existing close notification: the same
+      guards, the same notify method, the same swallowing catch — minus its tracked-document write, since
+      a save changes neither text nor version and so has nothing to record
+- [x] 3.3 Implemented on the router by fanning out to started claimants, exactly as a change does — and
       **not** starting a server, since saving a document nothing has opened is no reason to launch one
-- [ ] 3.4 No state filter beyond what the siblings use. Failed connections are already dispatched to and
+- [x] 3.4 No state filter beyond what the siblings use. Failed connections are already dispatched to and
       no-op internally; making this one notification behave differently would be an inconsistency with no
       reason behind it
 
@@ -66,17 +67,18 @@
 
 ## 5. Tests
 
-- [ ] 5.1 **Over a real JSON-RPC pair, not a substitute.** A mocked client synthesises the method and
+- [x] 5.1 **Over a real JSON-RPC pair, not a substitute.** A mocked client synthesises the method and
       returns a completed task, so an assertion that it was called is green with the notification never
       leaving the process and the serializer entry missing. The existing recording-server harness is the
       pattern
-- [ ] 5.2 The whole gating table, driven by a stub server's advertised capabilities: a bare number, an
+- [x] 5.2 The whole gating table, driven by a stub server's advertised capabilities: a bare number, an
       object without `save`, `save: false`, `save: true`, an empty save object, `includeText: true`, and
       an empty capabilities object
-- [ ] 5.3 For every no-text case, assert the `text` property is **absent**, not null. That is the only
+- [x] 5.3 For every no-text case, assert the `text` property is **absent**, not null. That is the only
       assertion that catches the serialization trap
 - [ ] 5.4 A pending edit is sent before the save is announced
-- [ ] 5.5 Routing: two servers claiming one document where only one asked for saves
+- [x] 5.5 Routing: two servers claiming one document where only one asked for saves — both real
+      connections, which is what proves the gate belongs on the connection rather than the router
 - [ ] 5.6 Saving a project with open documents announces each of them; building an executable announces
       none
 - [ ] 5.7 The bundled server's deliberate absence of `save` is pinned, so it cannot be lost silently and
