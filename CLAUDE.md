@@ -18,7 +18,7 @@ cd IDE && dotnet run --project HexIDE.Desktop/
 # Tests
 cd IDE && dotnet test HexIDE.Runtime.Tests/              # ~1000 VB6 interpreter tests
 cd LspServer && dotnet test HexIDE.VbLspServer.Tests/    # ~115 LSP server tests
-cd IDE && dotnet test HexIDE.Tests/                      # IDE ViewModel tests
+cd IDE && dotnet test HexIDE.Tests/                      # IDE ViewModel tests (fetches a foreign LSP server once — see below)
 cd IDE && dotnet test HexIDE.Integration.Tests/          # Headless Avalonia UI tests (xunit v3/MTP)
 
 # Run a single test
@@ -37,6 +37,28 @@ cd LspServer && dotnet build HexIDE.VbLspServer/
 ```
 
 CI runs two parallel jobs in `.github/workflows/build.yml`: `build-ide` (working dir `IDE/`) and `build-lsp-server` (working dir `LspServer/`).
+
+### The foreign-server tests fetch a real third-party language server
+
+`HexIDE.Tests` includes five tests that drive a language server **HexIDE did not write** — the only check
+that the client speaks LSP to something that does not accommodate it. A client and server by one hand agree
+with each other rather than with the specification, which is how three defects hid until a foreign server
+was pointed at (`ForeignServerFixture.cs` has the history).
+
+The server is **downloaded on demand**, once, at a pinned version with the publisher's SHA-256 verified,
+into the gitignored `IDE/HexIDE.Tests/tools/foreign-lsp/`. Not committed: ~6.5 MB per platform against a
+repository whose whole history is under 6 MB, and the same again on every version bump. Linux uses the
+static musl build, so one file runs on any distribution.
+
+- **Use your own build instead**: set `HEXIDE_MARKDOWN_LSP` to an executable, or put `rumdl` on `PATH`.
+  Both are checked before the download, so an explicit choice is never silently overridden.
+- **Stay off the network**: `HEXIDE_FOREIGN_LSP_DOWNLOAD=0`. The five tests then skip, visibly.
+- **Forbid skipping**: `HEXIDE_REQUIRE_FOREIGN_LSP=1` turns "no server available" into a failure. CI sets
+  this, because a silently skipped proof is the failure mode this whole fixture exists to avoid.
+
+Bumping the version means editing `Version` and the digests in `ForeignServerAcquisition.cs`. Take each
+digest from the publisher's own `.sha256` beside the asset — never from a file you downloaded yourself,
+which verifies nothing.
 
 ### Verify on Linux before pushing — `build-ide` runs on `ubuntu-latest`
 

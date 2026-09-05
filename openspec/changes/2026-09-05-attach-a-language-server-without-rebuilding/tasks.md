@@ -152,12 +152,16 @@ rather than duplicating it. The two gaps this section actually found are noted w
 
 - [x] 9.1 Suites green on Windows and under WSL — this touches path handling and file discovery, which is
       the bug class only the Linux job catches. Windows: 852 IDE / 1432 runtime / 240 integration, no
-      skips. WSL: the same totals, with the five rumdl cases skipped for the reason in 9.2. The named-pipe
-      test added in 8.4 passes on both, which is the one new file-system-adjacent surface here
+      skips. WSL: the same totals and, since 9.2, also with no skips. The named-pipe test added in 8.4
+      passes on both, which is the one new file-system-adjacent surface here
 - [x] 9.2 Driven against a real foreign server attached **through the configuration file**, not through a
       test-constructed registration. Done: rumdl 0.2.64, named only in a `lsp-servers.json` on disk,
-      produces real diagnostics for a real document. Skips under WSL — the binary is a Windows executable —
-      so this is a Windows-only proof today
+      produces real diagnostics for a real document. **No longer Windows-only, and no longer skipped**:
+      the server is fetched on demand at a pinned version with the publisher's checksum verified, from
+      the static musl build on Linux, so the five foreign-backend tests now run on both platforms and in
+      CI. Not committed — ~6.5 MB per platform against a repository under 6 MB, permanently and again on
+      every version bump. `HEXIDE_REQUIRE_FOREIGN_LSP=1` is set in CI so a failed fetch fails the build
+      rather than quietly returning these tests to skipping
 - [x] 9.3 Confirm the bundled server still works when the user file is absent, present-but-empty, and
       malformed
 - [x] 9.4 Driven against the running IDE, which is where the tests could not reach. Found a defect the
