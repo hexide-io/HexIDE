@@ -133,12 +133,30 @@
 
 ## 6. Verification
 
-- [ ] 6.1 Suites green on Windows and under WSL
-- [ ] 6.2 **Driven against the running IDE**: a real `lsp-servers.json` naming a real foreign server, a
+- [x] 6.1 Suites green on Windows and under WSL — 890 IDE, 1432 runtime, 249 integration; under WSL the
+      same, with the one Windows-only URI case visibly skipped
+- [x] 6.2 **Driven against the running IDE**: a real `lsp-servers.json` naming a real foreign server, a
       carried Markdown file opened from the Project Explorer, and its diagnostics visible in the editor.
       This is the check the whole change exists to pass, and the previous change shipped without being
-      able to make it
-- [ ] 6.3 A carried file no server claims opens with nothing started and nothing reported
+      able to make it.
+
+      Done, and confirmed by screenshot. Opening `README.md` **started rumdl** — a server named nowhere
+      but in a JSON file — and its four diagnostics rendered as squiggles: trailing whitespace, a bare
+      URL, a missing space after a `#`, and a missing top-level heading. Typing a heading in then removed
+      that last one, shifted the rest down a line, and produced two new ones, so `didChange` and
+      re-analysis are proven live and not only by test. One of the new ones is `Error` severity, and the
+      line went from grey to **red** between the two screenshots, which is the diagnostics colorizer —
+      the renderer nothing had noticed was missing until the mutation sweep
+
+      Getting there needed the MCP gap closed first: a carried file was undrivable by any route (the tree
+      opens one on a double-click, its row exposes no selection provider, `OpenSelected` is not a command,
+      and Add File uses a native dialog). `open_file` now accepts one, and `get_project_info` lists them.
+      Chosen over adding a double-click action because it changes **no tool's parameters**, so it needed
+      no schema change and no session restart — the fix was usable in the session that needed it
+- [x] 6.3 A carried file no server claims opens with nothing started and nothing reported. Opening
+      `notes.txt` beside the README started no second server — the same rumdl process, unchanged — logged
+      nothing, and rendered as an ordinary text editor. The bundled VB6 server also stayed unstarted
+      throughout, since no VB6 document was opened, which is lazy start behaving as specified
 
 ## 7. Deliberately not here
 

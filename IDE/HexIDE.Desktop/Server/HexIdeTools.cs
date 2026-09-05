@@ -16,20 +16,21 @@ namespace HexIDE.Desktop.Server;
 internal sealed class HexIdeTools(IdeContext ctx)
 {
     [McpServerTool(Name = "get_project_info")]
-    [Description("Returns the currently loaded VB6 project name, path, and list of forms and modules.")]
+    [Description("Returns the currently loaded VB6 project name, path, and lists of forms, modules and carried files (RelatedDoc entries).")]
     public async Task<ProjectInfoResult> GetProjectInfoAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var project = ctx.ProjectManager.StartupProject;
             if (project is null)
-                return new ProjectInfoResult(null, null, [], []);
+                return new ProjectInfoResult(null, null, [], [], []);
 
             return new ProjectInfoResult(
                 project.Name,
                 project.AbsolutePath,
                 project.Forms.Select(f => f.Name).ToArray(),
-                project.Modules.Select(m => m.Name).ToArray());
+                project.Modules.Select(m => m.Name).ToArray(),
+                project.RelatedDocuments.Select(d => d.Name).ToArray());
         });
     }
 
@@ -349,7 +350,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "open_file")]
-    [Description("Opens a form or module by name in the IDE code editor. Use get_project_info to list available names.")]
+    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names.")]
     public async Task<MutateResult> OpenFileAsync(string name, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -374,7 +375,22 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return new MutateResult(true, null);
             }
 
-            return new MutateResult(false, $"No form or module named '{name}' found in the project");
+            // Carried files last, and by name OR filename. They are the only project members with no
+            // other route in: the Project Explorer opens one on a DOUBLE-CLICK, which no interaction tool
+            // can produce, the row exposes no selection provider to select first, OpenSelected is a plain
+            // method rather than a command, and Add File goes through a native dialog. Without this branch
+            // a whole editor type is undrivable, which is what blocked verifying #255 against the running
+            // IDE. See docs/mcp-server-gaps.md.
+            var document = project.RelatedDocuments.FirstOrDefault(d =>
+                string.Equals(d.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (document is not null)
+            {
+                ctx.EditorService.EditRelatedDocument(document);
+                return new MutateResult(true, null);
+            }
+
+            return new MutateResult(
+                false, $"No form, module or carried file named '{name}' found in the project");
         });
     }
 
@@ -1424,7 +1440,11 @@ internal record ProjectInfoResult(
     string? ProjectName,
     string? ProjectPath,
     string[] Forms,
-    string[] Modules);
+    string[] Modules,
+    // Carried files — a `RelatedDoc=` in the .vbp. Listed because they are openable and, since they are
+    // the file types a configured language server exists to serve, they are exactly what needs driving
+    // when verifying one.
+    string[] RelatedDocuments);
 
 internal record OpenEditorsResult(
     string[] OpenWindows,
