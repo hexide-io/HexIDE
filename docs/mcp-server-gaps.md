@@ -695,7 +695,7 @@ layout, so it does not actually enlarge the pane.
 **Suggested fix.** Return scalar property values (string/number/bool) alongside the member list. A
 `get_immediate_output` returning the Immediate buffer as text would remove the whole class of workaround.
 
-## A carried file cannot be opened at all
+## A carried file cannot be opened at all — FIXED
 
 **Symptom.** A project's related documents (a `RelatedDoc=` in the `.vbp` — a README, a changelog, a
 `.sql`) appear in the Project Explorer as `RelatedDocViewModel` nodes, and there is no MCP route to open
@@ -716,12 +716,14 @@ that change is attaching a language server for a file type HexIDE has no other s
 `.md` is exactly that file. The configuration, the registry and the bundled server were all confirmable;
 the foreign server's diagnostics rendering in an editor were not, and needed a human to double-click.
 
-**Workaround.** None that stays inside the tool surface. Ask the user for the one gesture. (Declaring the
-foreign server for `vb6://` documents instead reaches the routing, but proves it with a configuration no
-user would write, and the file still cannot be opened.)
+**Fixed** in the change that needed it. `open_file` now accepts a carried file by name, and
+`get_project_info` lists them, so the whole editor type is drivable. That route was chosen over a
+`double_click` action on `interact` for a reason worth recording: **it changes no tool's parameters**, so
+it needed no schema change and therefore no session restart — the fix was usable in the session that
+found the gap. `open_file` was already the "open this project item" tool; its refusing one kind of item
+was the surprising part.
 
-**Suggested fix.** Either a `double_click` action on `interact` (general, and the smaller change), or
-teach `open_file` to accept a related document by name, since it is already the "open this project item"
-tool and its current refusal is the surprising part. Note that selection is broken independently: the
-`TreeViewItem` exposing no `selectionItem` provider is worth fixing on its own, because it blocks every
-context-menu path in the Project Explorer, not just this one.
+**Still open, and independent:** the `TreeViewItem` in the Project Explorer exposes no `selectionItem`
+provider, so a row cannot be selected through `interact` at all. That blocks every context-menu path in
+that tree, not just this one, and `open_file` does not help there. `interact` also still has no
+double-click action, which is the general form of the problem.

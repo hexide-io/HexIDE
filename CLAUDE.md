@@ -111,13 +111,13 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 
 | Tool | Description |
 |------|-------------|
-| `get_project_info` | Current project name, path, forms, modules |
+| `get_project_info` | Current project name, path, forms, modules, carried files |
 | `get_open_editors` | Open editor windows and active window |
 | `get_document_tabs` | List all open editor/designer tabs with title, type (`code`/`designer`), and active flag |
 | `activate_document_tab(title)` | Make a tab active by title |
 | `close_document_tab(title)` | Close a tab by title |
 | `get_diagnostics` | LSP errors and warnings |
-| `open_file(name)` | Open a form or module in the code editor (creates or activates tab) |
+| `open_file(name)` | Open a form, module or carried file in the code editor (creates or activates tab) |
 | `view_designer(name)` | Open a form or UserControl in the visual designer (creates or activates tab; use before `take_snapshot`) |
 | `run_project` | Start the VB6 runtime |
 | `stop_project` | Stop the running project |

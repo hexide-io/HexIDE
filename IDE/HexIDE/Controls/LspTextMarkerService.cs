@@ -17,6 +17,13 @@ public sealed class LspTextMarkerService : IBackgroundRenderer
 
     public KnownLayer Layer => KnownLayer.Selection;
 
+    /// <summary>
+    /// What is currently drawn. Exposed for tests, because "the renderer is attached" and "the renderer
+    /// holds the diagnostics" are different claims, and a view that attaches after a publish satisfies only
+    /// the first unless it catches up.
+    /// </summary>
+    internal IReadOnlyList<LspMarker> Markers => _markers;
+
     public LspTextMarkerService(TextEditor editor)
     {
         _editor = editor;

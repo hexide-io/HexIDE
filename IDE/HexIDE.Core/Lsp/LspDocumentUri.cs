@@ -19,6 +19,31 @@ namespace HexIDE.Lsp;
 /// </summary>
 public static class LspDocumentUri
 {
+    /// <summary>
+    /// The <c>file:</c> URI naming a document that exists on disk.
+    ///
+    /// <para>
+    /// Here rather than at the call site because it is the counterpart to <see cref="AreSame"/>: this
+    /// class already owns what makes two URIs the same document, and construction is where that starts.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>The extension has to survive.</b> Servers are matched to documents by it, so a URI that mangles
+    /// or drops the extension is not merely ugly — it routes nowhere, and the failure is a document that
+    /// opens with no language features and no error. Percent-encoding is what <see cref="Uri"/> does to a
+    /// space or a <c>#</c> in a path, and the comparison unescapes before matching, so an encoded path and
+    /// a literal one still name the same document.
+    /// </para>
+    ///
+    /// <para>
+    /// <paramref name="hostPath"/> must be a path in the <em>host</em> filesystem's own separators. A path
+    /// that came out of a <c>.vbp</c> is backslash-separated on every platform and must be converted
+    /// first, or on Linux the backslashes become part of the filename — the trap the project files have
+    /// their own helpers for.
+    /// </para>
+    /// </summary>
+    public static string ForFile(string hostPath) => new Uri(Path.GetFullPath(hostPath)).AbsoluteUri;
+
     /// <summary>True when both URIs identify the same document.</summary>
     public static bool AreSame(string? a, string? b)
     {
