@@ -16,8 +16,11 @@ namespace HexIDE.Tests.LspClient;
 /// </para>
 ///
 /// <para>
-/// There are two, by different authors, because one server establishes that HexIDE can talk to something
-/// foreign and a second establishes that it was not accidentally shaped around that one server's habits.
+/// There are three, by different authors on three different LSP frameworks, because one server
+/// establishes that HexIDE can talk to something foreign, a second establishes that it was not
+/// accidentally shaped around that one server's habits, and the third is the reference implementation
+/// itself — the library the specification is written around, whose reading of an ambiguous passage is the
+/// one server authors treat as correct.
 /// </para>
 /// </summary>
 internal sealed class ForeignServer
@@ -48,15 +51,41 @@ internal sealed class ForeignServer
         languageId: "latex",
         extensions: [".tex", ".cls", ".sty", ".bib"]);
 
+    /// <summary>
+    /// The reference implementation's JSON server, hosted on Node.
+    ///
+    /// <para>
+    /// The one server here worth a runtime dependency. <c>vscode-languageserver-node</c> is the library
+    /// the specification is written around, so where the prose is ambiguous its behaviour is what server
+    /// authors treat as correct — testing against it is testing against the de facto normative reading,
+    /// which no number of servers built on other frameworks substitutes for.
+    /// </para>
+    ///
+    /// <para>
+    /// Unlike the others it is not a self-contained binary: it is launched as <c>node &lt;script&gt;
+    /// --stdio</c>, so where they answer <c>Find()</c> with themselves, this one answers with Node.
+    /// </para>
+    /// </summary>
+    public static readonly ForeignServer Json = new(
+        ForeignServerAcquisition.Json,
+        pathVariable: "HEXIDE_JSON_LSP",
+        onPath: "vscode-json-language-server",
+        serverArguments: "--stdio",
+        languageId: "json",
+        extensions: [".json", ".jsonc"],
+        hostedOnNode: true);
+
     private ForeignServer(
         ForeignServerSource source,
         string pathVariable,
         string onPath,
         string serverArguments,
         string languageId,
-        string[] extensions)
+        string[] extensions,
+        bool hostedOnNode = false)
     {
         Source = source;
+        HostedOnNode = hostedOnNode;
         PathVariable = pathVariable;
         OnPath = onPath;
         ServerArguments = serverArguments;
@@ -84,6 +113,23 @@ internal sealed class ForeignServer
 
     public string[] Extensions { get; }
 
+    /// <summary>True when this server is a script Node runs rather than an executable of its own.</summary>
+    public bool HostedOnNode { get; }
+
+    /// <summary>
+    /// What to pass the executable <see cref="Find"/> returned.
+    ///
+    /// <para>
+    /// For a Node-hosted server that is the script followed by its own arguments, because the executable
+    /// is Node itself. Quoted, since the installed path runs through <c>artifacts/</c> and a developer's
+    /// checkout may well sit under a directory with a space in it.
+    /// </para>
+    /// </summary>
+    public string LaunchArguments =>
+        HostedOnNode && ForeignServerAcquisition.EnsureNodeServerAvailable() is { } script
+            ? $"\"{script}\" {ServerArguments}".Trim()
+            : ServerArguments;
+
     /// <summary>
     /// The executable, or null when none is available. Checked in order: an explicitly configured path,
     /// the name on PATH, then the pinned download.
@@ -97,6 +143,16 @@ internal sealed class ForeignServer
     {
         if (Environment.GetEnvironmentVariable(PathVariable) is { Length: > 0 } configured)
             return File.Exists(configured) ? configured : null;
+
+        if (HostedOnNode)
+        {
+            // Node itself is the executable; the script is an argument. Both must be present, and a
+            // machine without Node skips rather than failing — the runtime dependency is accepted for
+            // this one server and must not become a prerequisite for the whole suite.
+            return ForeignServerAcquisition.EnsureNodeServerAvailable() is null
+                ? null
+                : ForeignServerAcquisition.FindNode();
+        }
 
         return FindOnPath(OnPath) ?? ForeignServerAcquisition.EnsureAvailable(Source);
     }
@@ -142,14 +198,15 @@ internal sealed class ForeignServer
 public sealed class ForeignServerFactAttribute : FactAttribute
 {
     /// <param name="server">
-    /// Which server this test needs — <c>markdown</c> or <c>latex</c>. A string rather than the type
-    /// itself because attribute arguments must be compile-time constants.
+    /// Which server this test needs — <c>markdown</c>, <c>latex</c> or <c>json</c>. A string rather than
+    /// the type itself because attribute arguments must be compile-time constants.
     /// </param>
     public ForeignServerFactAttribute(string server = "markdown")
     {
         var needed = server switch
         {
             "latex" => ForeignServer.Latex,
+            "json" => ForeignServer.Json,
             _ => ForeignServer.Markdown,
         };
 
