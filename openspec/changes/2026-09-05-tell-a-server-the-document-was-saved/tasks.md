@@ -2,19 +2,23 @@
 
 ## 1. The wire
 
-- [ ] 1.1 `DidSaveTextDocumentParams` in `HexIDE.Core/Lsp/Messages/LspMessages.cs`, taking the
+- [x] 1.1 `DidSaveTextDocumentParams` in `HexIDE.Core/Lsp/Messages/LspMessages.cs`, taking the
       **unversioned** `TextDocumentIdentifier` — a save changes no version
-- [ ] 1.2 `text` omitted with a **per-property** `JsonIgnoreCondition.WhenWritingNull`, never a global
+- [x] 1.2 `text` omitted with a **per-property** `JsonIgnoreCondition.WhenWritingNull`, never a global
       default. The options ignore nothing today, so an absent text would serialize as `"text":null`, and a
       server testing for the field's presence takes the has-text branch with a null body. A global setting
       would change the wire shape of every existing outbound type, including a root URI that is
       legitimately nullable and that nothing pins
-- [ ] 1.3 `[JsonSerializable(typeof(DidSaveTextDocumentParams))]` in `LspJsonContext`, with a comment
+- [x] 1.3 `[JsonSerializable(typeof(DidSaveTextDocumentParams))]` in `LspJsonContext`, with a comment
       saying it is load-bearing. The client's serializer options come from that generated context and its
       resolver ends in `return null`, so an unregistered type throws — **under plain JIT, not only under
       AOT as the recipe in CLAUDE.md says**. The throw lands in a debug-level catch, reproducing this
-      issue's exact symptom: a server that connects, initializes and answers nothing
-- [ ] 1.4 Correct that AOT wording in CLAUDE.md, and the file path in the same recipe step, which names a
+      issue's exact symptom: a server that connects, initializes and answers nothing.
+      Verified by deleting it: four of the five wire-shape tests fail. The fifth — the one asserting the
+      registration *directly* — passed, because `LspJsonContext.Default.GetTypeInfo` answers for an
+      unregistered type too. Rewritten to serialize through the options `VBLspClient` actually builds,
+      which does fail
+- [x] 1.4 Correct that AOT wording in CLAUDE.md, and the file path in the same recipe step, which names a
       directory that holds no message records
 
 ## 2. Negotiation

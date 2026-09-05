@@ -50,6 +50,28 @@ public record DidChangeTextDocumentParams(
 public record DidCloseTextDocumentParams(
     [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument);
 
+/// <summary>
+/// A document was written to disk.
+///
+/// <para>
+/// The identifier is the <b>unversioned</b> one: a save changes no version, because it changes no
+/// content — it is an announcement about the text the server already has.
+/// </para>
+///
+/// <para>
+/// <b><c>text</c> must be ABSENT when the server did not ask for it, not null.</b> A server tests
+/// whether the field is present to choose between reading the file from disk and using what it was
+/// handed, so a null in place of an absent field selects the wrong branch — and silently. The ignore
+/// condition is per-property rather than a serializer-wide default deliberately: a global setting would
+/// change the wire shape of every outbound type, including a root URI that is legitimately nullable and
+/// that no test pins.
+/// </para>
+/// </summary>
+public record DidSaveTextDocumentParams(
+    [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
+    [property: JsonPropertyName("text")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Text = null);
+
 public record PublishDiagnosticsParams(
     [property: JsonPropertyName("uri")] string Uri,
     [property: JsonPropertyName("diagnostics")] Diagnostic[] Diagnostics);
