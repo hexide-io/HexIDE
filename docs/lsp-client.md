@@ -40,9 +40,12 @@ library the specification is written around.
 
 **Consumed from the server:** `textDocument/publishDiagnostics`.
 
-**Server-initiated requests are answered, not ignored.** A request the client does not implement receives a
-JSON-RPC error response. That matters more than it looks: a server awaiting a reply it never gets hangs
-rather than degrading, and the difference is invisible until you drive a server that asks.
+**Server-initiated requests.** The client registers no handlers for any of them, so what a server gets back
+is whatever StreamJsonRpc answers an unknown method with — an error response rather than silence, on the
+library's own account. **This has no test here**, and it matters: a server awaiting a reply it never gets
+hangs rather than degrading, and the difference is invisible until you drive a server that asks. Treat the
+table below as describing the library's documented behaviour on those rows, not a measurement taken in this
+repository.
 
 ---
 
@@ -132,6 +135,215 @@ exercised against a real foreign server; the other two are covered against fakes
 `vb/builtinSymbols` is HexIDE's own method, not an LSP one. It is gated on the server advertising it under
 `experimental` — where the protocol says to put a method it does not define, and therefore the only thing a
 client may legitimately gate a custom method on. A server that does not advertise it is never asked.
+
+---
+
+## Coverage against the specification
+
+LSP 3.17 defines **93 messages** — 67 requests and 26 notifications. The table below is generated from the
+specification's own [`metaModel.json`](https://raw.githubusercontent.com/microsoft/language-server-protocol/gh-pages/_specifications/lsp/3.17/metaModel/metaModel.json),
+the canonical machine-readable list, so the method names and directions are the specification's rather than
+this document's recollection of them.
+
+**HexIDE implements 18 of the 93.** That is not a deficiency in itself — no client implements them all, and
+most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
+than inferred.
+
+**Legend** — ✅ implemented · ◐ partial · ○ not wired. Direction is → client-to-server, ← server-to-client,
+↔ either.
+
+> **○ on a ← row is not neutral.** Those are messages a server may *initiate*, and the client handles none of
+> them. A server that registers its capabilities dynamically, asks for its configuration, or reports its own
+> problems through `window/showMessage` is refused or ignored — which looks, from the far side, like a client
+> that does not work.
+
+### `Lifecycle` — 4 of 4
+
+| | Method | Dir | Notes |
+|---|---|---|---|
+| ✅ | `exit` | → |  |
+| ✅ | `initialize` | → |  |
+| ✅ | `initialized` | → |  |
+| ✅ | `shutdown` | → |  |
+
+### `textDocument/*` — 14 of 41
+
+| | Method | Dir | Notes |
+|---|---|---|---|
+| ○ | `textDocument/codeAction` | → | Needs a bound AST — a backend's job, see below |
+| ○ | `textDocument/codeLens` | → |  |
+| ○ | `textDocument/colorPresentation` | → |  |
+| ✅ | `textDocument/completion` | → |  |
+| ○ | `textDocument/declaration` | → |  |
+| ◐ | `textDocument/definition` | → | Same-file, procedure-level symbols only — not variables, not cross-file |
+| ○ | `textDocument/diagnostic` | → | The pull model. A server publishing only this way connects and reports nothing ([#284](https://github.com/hexide-io/HexIDE/issues/284)) |
+| ◐ | `textDocument/didChange` | → | Full text only; a declared incremental kind is ignored ([#282](https://github.com/hexide-io/HexIDE/issues/282)) |
+| ✅ | `textDocument/didClose` | → |  |
+| ✅ | `textDocument/didOpen` | → |  |
+| ✅ | `textDocument/didSave` | → |  |
+| ○ | `textDocument/documentColor` | → |  |
+| ✅ | `textDocument/documentHighlight` | → |  |
+| ○ | `textDocument/documentLink` | → |  |
+| ✅ | `textDocument/documentSymbol` | → |  |
+| ✅ | `textDocument/foldingRange` | → |  |
+| ✅ | `textDocument/formatting` | → |  |
+| ✅ | `textDocument/hover` | → |  |
+| ○ | `textDocument/implementation` | → |  |
+| ○ | `textDocument/inlayHint` | → | Needs a bound AST — a backend's job, see below |
+| ○ | `textDocument/inlineCompletion` | → |  |
+| ○ | `textDocument/inlineValue` | → |  |
+| ○ | `textDocument/linkedEditingRange` | → |  |
+| ○ | `textDocument/moniker` | → |  |
+| ○ | `textDocument/onTypeFormatting` | → |  |
+| ○ | `textDocument/prepareCallHierarchy` | → | Needs a bound AST — a backend's job, see below |
+| ○ | `textDocument/prepareRename` | → | Why the rename dialog never pre-validates the caret position |
+| ○ | `textDocument/prepareTypeHierarchy` | → |  |
+| ✅ | `textDocument/publishDiagnostics` | ← |  |
+| ○ | `textDocument/rangeFormatting` | → |  |
+| ○ | `textDocument/rangesFormatting` | → |  |
+| ○ | `textDocument/references` | → | Needs a bound AST — a backend's job, see below |
+| ✅ | `textDocument/rename` | → |  |
+| ○ | `textDocument/selectionRange` | → |  |
+| ○ | `textDocument/semanticTokens/full` | → | Needs a bound AST — a backend's job, see below |
+| ○ | `textDocument/semanticTokens/full/delta` | → |  |
+| ○ | `textDocument/semanticTokens/range` | → |  |
+| ✅ | `textDocument/signatureHelp` | → |  |
+| ○ | `textDocument/typeDefinition` | → |  |
+| ○ | `textDocument/willSave` | → |  |
+| ○ | `textDocument/willSaveWaitUntil` | → |  |
+
+### `workspace/*` — 0 of 21
+
+| | Method | Dir | Notes |
+|---|---|---|---|
+| ○ | `workspace/applyEdit` | ← | A server cannot ask the IDE to edit a document |
+| ○ | `workspace/codeLens/refresh` | ← |  |
+| ○ | `workspace/configuration` | ← | A server asking for its configuration is refused |
+| ○ | `workspace/diagnostic` | → | The pull model, workspace-wide ([#284](https://github.com/hexide-io/HexIDE/issues/284)) |
+| ○ | `workspace/diagnostic/refresh` | ← |  |
+| ○ | `workspace/didChangeConfiguration` | → |  |
+| ○ | `workspace/didChangeWatchedFiles` | → |  |
+| ○ | `workspace/didChangeWorkspaceFolders` | → |  |
+| ○ | `workspace/didCreateFiles` | → |  |
+| ○ | `workspace/didDeleteFiles` | → |  |
+| ○ | `workspace/didRenameFiles` | → |  |
+| ○ | `workspace/executeCommand` | → |  |
+| ○ | `workspace/foldingRange/refresh` | ← |  |
+| ○ | `workspace/inlayHint/refresh` | ← |  |
+| ○ | `workspace/inlineValue/refresh` | ← |  |
+| ○ | `workspace/semanticTokens/refresh` | ← |  |
+| ○ | `workspace/symbol` | → | Needs a bound AST — a backend's job, see below |
+| ○ | `workspace/willCreateFiles` | → |  |
+| ○ | `workspace/willDeleteFiles` | → |  |
+| ○ | `workspace/willRenameFiles` | → |  |
+| ○ | `workspace/workspaceFolders` | ← |  |
+
+### `window/*` — 0 of 6
+
+| | Method | Dir | Notes |
+|---|---|---|---|
+| ○ | `window/logMessage` | ← | A server's own log output is dropped |
+| ○ | `window/showDocument` | ← |  |
+| ○ | `window/showMessage` | ← | A server's own messages to the user are dropped |
+| ○ | `window/showMessageRequest` | ← |  |
+| ○ | `window/workDoneProgress/cancel` | → |  |
+| ○ | `window/workDoneProgress/create` | ← |  |
+
+### `client/*` — 0 of 2
+
+| | Method | Dir | Notes |
+|---|---|---|---|
+| ○ | `client/registerCapability` | ← | **Dynamic registration** — a server registering capabilities this way rather than in `initialize` is refused |
+| ○ | `client/unregisterCapability` | ← | Counterpart to the above |
+
+### `$/*` — 0 of 4
+
+| | Method | Dir | Notes |
+|---|---|---|---|
+| ○ | `$/cancelRequest` | ↔ | Tokens reach StreamJsonRpc, which owns whether this reaches the wire — untested here |
+| ○ | `$/logTrace` | ← |  |
+| ○ | `$/progress` | ↔ |  |
+| ○ | `$/setTrace` | → |  |
+
+### `notebookDocument/*` — 0 of 4
+
+| | Method | Dir | Notes |
+|---|---|---|---|
+| ○ | `notebookDocument/didChange` | → |  |
+| ○ | `notebookDocument/didClose` | → |  |
+| ○ | `notebookDocument/didOpen` | → |  |
+| ○ | `notebookDocument/didSave` | → |  |
+
+### `completionItem/*` — 0 of 1
+
+| | Method | Dir | Notes |
+|---|---|---|---|
+| ○ | `completionItem/resolve` | → |  |
+
+### `codeAction/*` — 0 of 1
+
+| | Method | Dir | Notes |
+|---|---|---|---|
+| ○ | `codeAction/resolve` | → |  |
+
+### `codeLens/*` — 0 of 1
+
+| | Method | Dir | Notes |
+|---|---|---|---|
+| ○ | `codeLens/resolve` | → |  |
+
+### `documentLink/*` — 0 of 1
+
+| | Method | Dir | Notes |
+|---|---|---|---|
+| ○ | `documentLink/resolve` | → |  |
+
+### `inlayHint/*` — 0 of 1
+
+| | Method | Dir | Notes |
+|---|---|---|---|
+| ○ | `inlayHint/resolve` | → |  |
+
+### `callHierarchy/*` — 0 of 2
+
+| | Method | Dir | Notes |
+|---|---|---|---|
+| ○ | `callHierarchy/incomingCalls` | → |  |
+| ○ | `callHierarchy/outgoingCalls` | → |  |
+
+### `typeHierarchy/*` — 0 of 2
+
+| | Method | Dir | Notes |
+|---|---|---|---|
+| ○ | `typeHierarchy/subtypes` | → |  |
+| ○ | `typeHierarchy/supertypes` | → |  |
+
+### `workspaceSymbol/*` — 0 of 1
+
+| | Method | Dir | Notes |
+|---|---|---|---|
+| ○ | `workspaceSymbol/resolve` | → |  |
+
+### `telemetry/*` — 0 of 1
+
+| | Method | Dir | Notes |
+|---|---|---|---|
+| ○ | `telemetry/event` | ← |  |
+
+### What the shape of that table says
+
+Three clusters account for nearly all of the gap:
+
+- **Features needing a bound AST** — references, code actions, semantic tokens, inlay hints, call hierarchy,
+  workspace symbols and their `*/resolve` companions. Not wired because nothing here would answer them; see
+  *What the client would consume* below.
+- **Workspace-level protocol** — `workspace/*` is 0 of 21. HexIDE has no workspace model, which also rules
+  out file-operation notifications, watched files and configuration round-trips.
+- **Server-to-client courtesy** — `window/*` and `client/*` are 0 of 8 between them. This is the cluster
+  worth revisiting first, because it costs no analysis depth at all: it is the difference between a
+  misconfigured server explaining itself and a misconfigured server appearing broken.
+
+`notebookDocument/*` is 0 of 4 and will stay there — notebooks are not a VB6 concept.
 
 ---
 
