@@ -126,11 +126,19 @@
 
 ## 7. Deliberately not here
 
-- [ ] 7.1 `save` on the bundled VB6 server. It defers nothing to save, and advertising what is not
+- [x] 7.1 `save` on the bundled VB6 server. It defers nothing to save, and advertising what is not
       implemented is the defect its capability file exists to prevent. Its absence is what makes it a
-      control for the gate
-- [ ] 7.2 `willSave` / `willSaveWaitUntil` — same rule, nothing implements them
-- [ ] 7.3 Naming a saved project's documents by their files rather than by a scheme URI, which is what
-      would make a save notification useful to a server that reads from disk. A spec-level question
-- [ ] 7.4 The reconnect replay announcing every document as VB6 (#272) — a live defect found while
-      mapping this one, unrelated to it, and folding it in would make this diff unreviewable
+      control for the gate. **Held**: no `Save` is set anywhere in its capabilities, and its smoke test
+      now pins the omission so it cannot be lost silently
+- [x] 7.2 `willSave` / `willSaveWaitUntil` — same rule, nothing implements them. **Held**: the only
+      mention of either in the message types is the comment explaining their absence, and a test asserts
+      the client claims neither on the wire. Worth knowing the foreign Markdown server advertises
+      `willSaveWaitUntil`, so a server willing to be asked already exists — claiming it would mean a
+      server blocking on a response that never comes
+- [x] 7.3 Naming a saved project's documents by their files rather than by a scheme URI, which is what
+      would make a save notification useful to a server that reads from disk. A spec-level question, filed
+      as #273 — this change is where its cost stops being theoretical, since a server that asks for saves
+      without text now learns only that *something* happened
+- [x] 7.4 The reconnect replay announcing every document as VB6 (#272) — a live defect found while
+      mapping this one, unrelated to it, and folding it in would make this diff unreviewable. Filed with
+      the fix described; it also skips the open/close capability gate that the ordinary path applies
