@@ -93,6 +93,22 @@ publisher offers none, compute it and mark the provenance as computed here, whic
 against but attests nothing about origin. Never take a digest from a file you downloaded and call it
 publisher-attested — that verifies only that the download completed.
 
+### The LSP coverage table is guarded against the specification
+
+`docs/lsp-client.md` carries a table of all 93 messages LSP 3.17 defines and which of them HexIDE
+implements. It is **generated from the specification's own `metaModel.json`**, and
+`ProtocolCoverageDocTests` fails the build if it drifts — a missing message, an invented method name, a
+duplicated row, a wrong direction, or a stale headline count.
+
+The model is fetched once into the gitignored `artifacts/lsp-metamodel/`, pinned to a **commit** rather than
+a branch and verified by SHA-256. `HEXIDE_LSP_METAMODEL` points at a local copy; without it and offline the
+tests skip visibly, unless `HEXIDE_REQUIRE_FOREIGN_LSP=1` is set, which is CI.
+
+**Regenerate the table, do not hand-edit it.** That guard exists because the document these replaced drifted
+into fiction unnoticed for months — six architecturally-forbidden features listed as planned, a compiled-out
+check described as working, three wrong counts. A ninety-row table is the most drift-prone thing in the
+repository, and it is the one artefact here that cannot rot silently.
+
 ### Verify on Linux before pushing — `build-ide` runs on `ubuntu-latest`
 
 The IDE parses and writes Windows-native formats (`.vbp`, `.vbg`, `.frm`), so a whole class of defect is

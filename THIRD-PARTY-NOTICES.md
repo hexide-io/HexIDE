@@ -57,6 +57,13 @@ NSubstitute, AwesomeAssertions, coverlet, Microsoft.NET.Test.Sdk, Avalonia.Headl
 The MCP automation server (`ModelContextProtocol.AspNetCore`) is compiled in for **Debug only** and is
 excluded from Release binaries.
 
+*Fetched at test time, never committed and never redistributed:* the third-party language servers the suite
+drives (see [docs/foreign-language-servers.md](docs/foreign-language-servers.md)), and the Language Server
+Protocol's `metaModel.json` — **© Microsoft Corporation, [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)**,
+from <https://github.com/microsoft/language-server-protocol>. These are downloaded into the gitignored
+`artifacts/` directory when the tests run; a clone contains none of them and no release artefact does
+either. The attribution above is given because CC BY asks for it, not because the file is conveyed.
+
 ## Icons
 
 - **Fluent UI System Icons** — Copyright (c) Microsoft Corporation. MIT License.

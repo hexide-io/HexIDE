@@ -330,6 +330,22 @@ than inferred.
 |---|---|---|---|
 | ○ | `telemetry/event` | ← |  |
 
+### This table is checked, not merely written
+
+`ProtocolCoverageDocTests` fails the build when the table drifts from the model: a message missing, a method
+name that no version of the protocol defines, a row listed twice, a direction that disagrees with the
+specification, or a headline count that no longer matches the rows beneath it. All five were confirmed to
+fail by mutating this file, which is the only way to know a guard has teeth.
+
+The model is fetched once at test time into the gitignored `artifacts/lsp-metamodel/`, pinned to the commit
+that last touched it — not a branch, so its bytes cannot change underneath the digest — and verified by
+SHA-256 before it is read. It is never committed and never shipped. Set `HEXIDE_LSP_METAMODEL` to a local
+copy to work offline; the tests otherwise skip visibly, except where `HEXIDE_REQUIRE_FOREIGN_LSP=1` forbids
+that, which is CI.
+
+**Regenerate rather than hand-edit.** Adding a row by hand is how the counts and the directions drift apart
+in the first place; the guard will catch it, but the guard is a backstop, not a workflow.
+
 ### What the shape of that table says
 
 Three clusters account for nearly all of the gap:
