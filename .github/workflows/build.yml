@@ -49,6 +49,18 @@ jobs:
               'IDE/HexIDE.Tests/LspClient/ForeignServerAcquisition.cs',
               'tools/node-lsp/package-lock.json') }}
 
+      # The protocol's own model of itself, which the coverage table in docs/lsp-client.md is checked
+      # against. Pinned to a commit, so the key needs nothing but the file that names it. Platform-neutral
+      # — it is a JSON document, not a binary — but keyed by OS anyway to match its neighbour rather than
+      # invent a second convention.
+      - name: Cache the LSP specification model
+        uses: actions/cache@v4
+        with:
+          path: artifacts/lsp-metamodel
+          key: >-
+            lsp-metamodel-${{ runner.os }}-${{ hashFiles(
+              'IDE/HexIDE.Tests/LspClient/LspSpecificationModel.cs') }}
+
       - name: Run Runtime Tests
         run: dotnet test HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj
 

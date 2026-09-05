@@ -93,6 +93,22 @@ publisher offers none, compute it and mark the provenance as computed here, whic
 against but attests nothing about origin. Never take a digest from a file you downloaded and call it
 publisher-attested — that verifies only that the download completed.
 
+### The LSP coverage table is guarded against the specification
+
+`docs/lsp-client.md` carries a table of all 93 messages LSP 3.17 defines and which of them HexIDE
+implements. It is **generated from the specification's own `metaModel.json`**, and
+`ProtocolCoverageDocTests` fails the build if it drifts — a missing message, an invented method name, a
+duplicated row, a wrong direction, or a stale headline count.
+
+The model is fetched once into the gitignored `artifacts/lsp-metamodel/`, pinned to a **commit** rather than
+a branch and verified by SHA-256. `HEXIDE_LSP_METAMODEL` points at a local copy; without it and offline the
+tests skip visibly, unless `HEXIDE_REQUIRE_FOREIGN_LSP=1` is set, which is CI.
+
+**Regenerate the table, do not hand-edit it.** That guard exists because the document these replaced drifted
+into fiction unnoticed for months — six architecturally-forbidden features listed as planned, a compiled-out
+check described as working, three wrong counts. A ninety-row table is the most drift-prone thing in the
+repository, and it is the one artefact here that cannot rot silently.
+
 ### Verify on Linux before pushing — `build-ide` runs on `ubuntu-latest`
 
 The IDE parses and writes Windows-native formats (`.vbp`, `.vbg`, `.frm`), so a whole class of defect is
@@ -216,7 +232,7 @@ If `shutdown_ide` is unavailable (MCP disconnected), use PowerShell: `Stop-Proce
 | `LspServer/` | MIT | Out-of-process VB6/VBA LSP server (EmmyLua shell + proleap grammar) |
 | `HexIDE.slnx` | — | Master solution (Visual Studio 2022+) |
 | `.github/` | — | CI workflows |
-| `docs/` | — | Engineering docs — MISSING_FEATURES.md, LSP_FEATURES.md, the fidelity oracle, the gap catalogues. **Ships publicly.** |
+| `docs/` | — | Engineering docs — MISSING_FEATURES.md, the LSP pair, the fidelity oracle, the gap catalogues. **Ships publicly.** |
 | `docs/private/` | — | Strategy and ops — ROADMAP.md, EVOLUTION.md, the neighbour assessments, launch readiness, the signing runbook. **The only pruned part of `docs/`** — absent from a public clone by design; never link to it from a shipping file |
 
 ### Key IDE projects (`IDE/`)
@@ -541,7 +557,13 @@ widening visibility to `public` just for a test. When a new test project needs r
 
 - **`docs/private/ROADMAP.md`** *(maintainers)* — completed phases, design decisions, accepted/rejected ideas. Keep updated when phases complete or architectural decisions are made.
 - **`docs/private/EVOLUTION.md`** *(maintainers)* — Evolution-tier modernisation catalog: Remove/Keep/Change/Add tables with effort + persona-value ratings, the muscle-memory keep-list, and suggested waves. New Evolution work starts from this catalog; update rows as modernisation work lands.
-- **`docs/LSP_FEATURES.md`** — LSP capability mapping.
+- **`docs/lsp-client.md`** and **`docs/lsp-server-features.md`** — the LSP pair, split along the seam
+  because the two halves have different bounds. The **client** doc is what HexIDE speaks to *any*
+  server: wire contract, capability gating, sync model, routing, and the client's own gaps (#282,
+  #284). The **server** doc is what the bundled VB6 server analyses, with every limitation marked ◐
+  *depth* (real outstanding work) or ■ *boundary* (the CST-not-AST limit). **Keep that mark honest** —
+  the single doc these replaced listed six binding-dependent features as Planned/Future, which the
+  hard limit had already ruled out, and it shipped publicly that way for months.
 - **`docs/foreign-language-servers.md`** — the third-party servers the suite drives, why each earns its
   place, how they are obtained, and why a GPL-licensed one is consistent with a 100%-MIT tree. Read it
   before adding a third: the bar is a protocol *shape* nothing else exercises, not another server.

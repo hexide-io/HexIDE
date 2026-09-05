@@ -21,7 +21,8 @@
     <File Path=".gitignore" />
     <File Path="LICENSE" />
     <File Path="README.md" />
-    <File Path="docs/LSP_FEATURES.md" />
+    <File Path="docs/lsp-client.md" />
+    <File Path="docs/lsp-server-features.md" />
     <File Path="docs/ROADMAP.md" />
   </Folder>
 </Solution>
