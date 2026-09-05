@@ -133,6 +133,54 @@ Expect the run to be slower than Windows (the `/mnt/c` 9p mount), and identical 
 this writing. To confirm the setup still has teeth, run a `git worktree` at a commit predating a known
 cross-platform fix and check it fails there.
 
+### And for the version gap WSL leaves — Podman, matching CI's distro
+
+WSL closes the Windows-path class, but it is **not** the same Linux CI runs, and the difference is measured
+rather than assumed:
+
+| | Ubuntu | ICU | glibc |
+|---|---|---|---|
+| CI (`build-ide`) and the container below | **24.04** | **libicu74** | 2.39 |
+| WSL | **26.04 LTS** | **libicu78** | 2.43 |
+
+Four ICU major versions apart. .NET takes string comparison, casing and culture-sensitive formatting from
+the platform's ICU, and this project compares VB6 identifiers case-insensitively everywhere, ships 27
+language packs, and round-trips culture-sensitive values into Windows-native files. So a divergence there
+would present exactly as the original bug class did: green locally, red on CI.
+
+```sh
+# One-time. Podman, not Docker Desktop — the latter needs a paid subscription at 250+ employees or
+# $10M+ revenue, and this file is instructions a contributor follows. See hexide-io/HexIDE#253.
+podman machine init && podman machine start
+
+# Any suite, in a container on CI's own Ubuntu version.
+podman run --rm \
+  -v "C:\Repos\GitHub\HexIDE\HexIDE:/repo" \
+  -v hexide-nuget:/root/.nuget \
+  -w /repo/IDE \
+  mcr.microsoft.com/dotnet/sdk:10.0-noble \
+  dotnet test HexIDE.Tests/ --artifacts-path /repo/artifacts/container
+```
+
+- **Run it from PowerShell.** In Git Bash the same command fails with `workdir "C:/Program Files/Git/repo/IDE"
+  does not exist` — MSYS rewrites the container-side `/repo/IDE` into a Windows path before podman sees it.
+  `MSYS_NO_PATHCONV=1` fixes it if you want Git Bash; nothing is wrong with the command itself.
+- **`--artifacts-path` is required and must point inside the repo**, for the same reason as under WSL: the
+  mount is shared, so without it the container's build stomps the Windows `obj/`/`bin/`. Use a *different*
+  path from the WSL one so the two Linux runs do not stomp each other either.
+- **Mount the NuGet volume.** `--rm` discards the container's filesystem, so without it every run
+  re-restores from scratch.
+- **Expect 4 skips in `HexIDE.Tests`, not 1.** The SDK image has no Node, so the three
+  reference-implementation tests skip on top of the usual `[WindowsOnlyFact]`. CI installs Node explicitly
+  and runs them; do not set `HEXIDE_REQUIRE_FOREIGN_LSP=1` here unless you have added Node to the image.
+
+**Measured on first setup (2026-09-06): no divergence.** `HexIDE.Tests` 961/965 and
+`HexIDE.Runtime.Tests` 1432/1432 in the container, matching CI exactly, against 965 and 1432 under WSL. So
+the ICU gap is real but **not currently live** — which is a statement about the tests that exist, not a
+guarantee. Nothing here probes collation or culture-sensitive formatting directly, so absence of a
+divergence is weak evidence of absence. Reach for the container when a CI failure will not reproduce under
+WSL; that is the case it was set up for.
+
 **Distrust a suspiciously fast test run, on either platform.** A run that skips the build — roughly
 5-18s where a real one takes 28-37s — has several times reported a large batch of failures (282 of ~940)
 with **no error message against any of them**, and passed on the very next attempt. It was first seen
