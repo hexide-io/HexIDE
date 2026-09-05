@@ -4,6 +4,7 @@
 **Status legend:** `Done` · `Partial` · `Stub` · `Missing` · `Windows-only`  
 **This file contains only in-scope features.** Menu items and toolbar buttons that belong to out-of-scope features are not listed here — they are catalogued by UI surface in [OUT_OF_SCOPE.md](OUT_OF_SCOPE.md).  
 **`Windows-only` means the feature is in scope but gated on `OperatingSystem.IsWindows()`.** See the Windows-only section at the bottom of this file.
+**`Partial` does not always mean *yet*.** A few rows are partial **by design** and will not advance here — the language-intelligence ones, where going further needs a bound AST that HexIDE's own tooling does not build (see the CST-not-AST limit in CLAUDE.md). Those say so in their Notes, and the missing depth belongs to a language engine attached over the LSP seam rather than to a backlog. Read the Notes before treating a `Partial` as available work.
 **Modern-shell disposition:** whether a fidelity row is kept, changed, or removed in the modernised (Evolution-tier) IDE is catalogued in the maintainers' Evolution catalog — check it before implementing a row verbatim.
 
 ---
@@ -224,10 +225,10 @@
 | Syntax highlighting | Done | Provided by LSP server |
 | Error/warning squiggles | Done | Full LSP diagnostic pipeline; inline markers |
 | Object/Procedure dropboxes | Done | Two combos at top; navigate to handler on select |
-| Auto-complete (IntelliSense) | Done | LSP completion |
-| Signature help | Done | LSP signature help |
-| Go to Definition | Partial | Works within same file; cross-file navigation noted as future work in code |
-| Rename symbol | Done | LSP rename with inline input dialog |
+| Auto-complete (IntelliSense) | Partial | LSP completion: 88 keywords, 42 built-ins, and every name declared in the current file. **No position awareness** — the same list comes back wherever the caret is — and no member access (`obj.`) or cross-file symbols. Position awareness is ordinary work; the other two need name binding, which belongs to a real language engine over the replaceable LSP seam, not to HexIDE's own server (see the CST-not-AST limit in CLAUDE.md and [`lsp-server-features.md`](lsp-server-features.md)) |
+| Signature help | Partial | LSP signature help across 89 VB6 built-ins, with active-parameter tracking through nested parentheses. **User-defined procedures show nothing** — matching a call site to its declaration is name binding, which belongs to a real language engine over the replaceable LSP seam, not to HexIDE's own server (see the CST-not-AST limit in CLAUDE.md and [`lsp-server-features.md`](lsp-server-features.md)) |
+| Go to Definition | Partial | Works within the same file, for procedure-level symbols (`Sub`, `Function`, `Property`, `Enum`, `Type`) but not variables. **Cross-file navigation is not future work** — it needs a workspace model and name binding, which belongs to a real language engine over the replaceable LSP seam, not to HexIDE's own server (see the CST-not-AST limit in CLAUDE.md and [`lsp-server-features.md`](lsp-server-features.md)). Resolving *variable* declarations within the file is ordinary work and stays on this side of the line |
+| Rename symbol | Partial | LSP rename with an inline input dialog, applied as one atomic edit (a single Ctrl+Z undoes it). **Lexical, not semantic, and single-file: it renames every whole-word case-insensitive match, including unrelated symbols that happen to share the name.** That is a correctness hazard rather than a missing nicety, and it is the reason this is not `Done` — semantic rename is named explicitly in the CST-not-AST limit, so it belongs to a real language engine over the replaceable LSP seam, not to HexIDE's own server (see the CST-not-AST limit in CLAUDE.md and [`lsp-server-features.md`](lsp-server-features.md)). No `prepareRename`, so the dialog never pre-validates the position |
 | Format document | Done | LSP formatting; configurable format-on-save |
 | Find / Replace | Done | See Dialogs section |
 | Undo / Redo | Done | AvaloniaEdit native |
