@@ -188,6 +188,23 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
             if (moduleDefinition is not null)
                 moduleDefinition.UpdateCode(Document.Text);
         }));
+        AutoDispose(this.eventBus.Subscribe<DocumentSavedEvent>(e =>
+        {
+            // Matched by reference against this editor's own document, as every other event here is.
+            //
+            // EITHER half matches, and that is safe rather than a duplication risk. A UserControl or
+            // PropertyPage is one file whose two halves are both set by Initialize(ModuleDefinition)
+            // (#152), so the event names both — but a save publishes ONE event, this handler runs once,
+            // and the session's URI is fixed, so both halves matching produces exactly one announcement
+            // under exactly one URI. Ordering the checks to prefer the module would read as though it
+            // prevented something; it prevents nothing, and mutation testing says so.
+
+            var mine = (e.Module is not null && ReferenceEquals(e.Module, moduleDefinition))
+                    || (e.Form is not null && ReferenceEquals(e.Form, formDefinition));
+
+            if (mine && session is { } open) open.NotifySavedAsync().ListenErrors();
+        }));
+
         AutoDispose(this.eventBus.Subscribe<FormUnloadedEvent>(e =>
         {
             if (e.Form == formDefinition)

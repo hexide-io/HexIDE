@@ -27,6 +27,22 @@ public interface ILspClient : IAsyncDisposable
     Task ChangeDocumentAsync(string uri, int version, string text, CancellationToken cancellationToken = default);
     Task CloseDocumentAsync(string uri, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Tells the servers holding this document that it has been written to disk.
+    ///
+    /// <para>
+    /// No text parameter: whether the text accompanies the notification is negotiated per connection, and
+    /// the connection already holds what it last sent. A caller supplying text would either duplicate that
+    /// state or override a negotiation it cannot see the result of.
+    /// </para>
+    ///
+    /// <para>
+    /// A server that did not ask for save notifications is not sent one, and that is not an error. Most
+    /// servers do not ask, because most re-analyse on every change and have nothing left to do at save.
+    /// </para>
+    /// </summary>
+    Task SaveDocumentAsync(string uri, CancellationToken cancellationToken = default);
+
     /// <summary>Sends textDocument/hover and returns the result, or null if there is nothing to show.</summary>
     Task<HoverResult?> RequestHoverAsync(string uri, Position position, CancellationToken cancellationToken = default);
 

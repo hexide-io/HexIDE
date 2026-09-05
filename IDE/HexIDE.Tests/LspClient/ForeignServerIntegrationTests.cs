@@ -82,6 +82,44 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
     }
 
     [ForeignServerFact]
+    public async Task TellingAForeignServerADocumentWasSavedMakesItLookAgain()
+    {
+        // The honest end-to-end proof, and the one our own server cannot give: it does not ask for saves,
+        // so a test against it can only show the gate refusing. This server asks, and demonstrably
+        // re-analyses when told.
+        //
+        // Asserts the INCREMENT, never an absolute count. This server publishes more than once for a
+        // single open — measured, not assumed — so a test pinned to "one publication becomes two" would
+        // fail for a reason that has nothing to do with saves.
+        var sut = ForeignMarkdownRegistry();
+        var publications = 0;
+        var settled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        sut.DiagnosticsPublished += (_, _) =>
+        {
+            Interlocked.Increment(ref publications);
+            settled.TrySetResult();
+        };
+
+        await sut.OpenDocumentAsync(MarkdownUri, SloppyMarkdown);
+        await settled.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        await Task.Delay(1500);                       // let the opening burst finish
+        var afterOpen = Volatile.Read(ref publications);
+
+        await sut.SaveDocumentAsync(MarkdownUri);
+
+        // Polled rather than awaited on a completion source: what is being measured is that MORE arrive,
+        // so there is no single event to wait for.
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
+        while (Volatile.Read(ref publications) <= afterOpen && DateTime.UtcNow < deadline)
+            await Task.Delay(100);
+
+        Volatile.Read(ref publications).Should().BeGreaterThan(
+            afterOpen,
+            "this server re-lints on save, so being told of one must produce a further publication — and "
+          + "that is the behaviour a server which defers its analysis to save depends on entirely");
+    }
+
+    [ForeignServerFact]
     public async Task ItAdvertisesCapabilitiesAndTheyAreVisibleOnTheConnection()
     {
         // The mirror of #242. Ours advertised `{}` for months and nothing noticed, because our own client
@@ -98,6 +136,12 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
         connection.Capabilities.Should().NotBeNull("a conformant server advertises what it can do");
         ServerCapabilities.AcceptsOpenClose(connection.Capabilities)
             .Should().BeTrue("it accepted didOpen, so it must have advertised document sync");
+
+        // Observed rather than assumed, because the entire save gate depends on this one field and nothing
+        // else in the suite looks at what a real server puts in it. This server asks for saves without the
+        // text, which is the common choice — it intends to read the file itself.
+        ServerCapabilities.ReadSave(connection.Capabilities)
+            .Should().Be(SaveNotification.WithoutText);
     }
 
     [ForeignServerFact]

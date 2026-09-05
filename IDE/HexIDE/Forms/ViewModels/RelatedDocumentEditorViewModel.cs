@@ -36,6 +36,16 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient) : Base
     private bool hadByteOrderMark;
     private string savedText = string.Empty;
 
+    /// <summary>
+    /// This document's conversation with the language layer, once it has one.
+    ///
+    /// <para>
+    /// A field rather than a local because the save path needs it. No event is involved, unlike the VB6
+    /// documents: nothing but this editor's own Save ever writes a carried file.
+    /// </para>
+    /// </summary>
+    private LspDocumentSession? session;
+
     /// <summary>Diagnostics for this document, as offsets into the buffer. The view draws these.</summary>
     public event Action<IReadOnlyList<LspMarker>>? MarkersChanged;
 
@@ -126,7 +136,7 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient) : Base
         // drawn over a banner that says the file could not be read.
         if (LoadError is not null) return;
 
-        var session = AutoDispose(new LspDocumentSession(lspClient, Document, LspDocumentUri.ForFile(path)));
+        session = AutoDispose(new LspDocumentSession(lspClient, Document, LspDocumentUri.ForFile(path)));
         session.MarkersChanged += markers =>
         {
             Markers = markers;
@@ -160,5 +170,9 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient) : Base
         savedText = text;
         IsDirty = false;
         Log.Debug("Saved related document {Path}", path);
+
+        // After the bytes are on disk, not before: a server that re-reads the file on being told must find
+        // what was written, and one that is handed the text should be handed what was written too.
+        if (session is { } open) await open.NotifySavedAsync();
     }
 }

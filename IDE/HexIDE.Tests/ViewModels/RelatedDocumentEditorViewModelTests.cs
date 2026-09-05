@@ -141,6 +141,14 @@ public class RelatedDocumentEditorViewModelTests : IDisposable
         vm.Title.Should().Contain("notes.txt");
     }
 
+    // ── Saving ────────────────────────────────────────────────────────────────────────────────────────
+    //
+    // Announcing a save is covered at the INTEGRATION level, not here. The announcement follows an
+    // asynchronous file write, so the continuation lands wherever the synchronization context sends it —
+    // the UI thread in the running IDE, an arbitrary pool thread in a plain unit test. Reading the editor
+    // buffer from there throws "call from invalid thread", which is a fact about the test host rather
+    // than about the code. See CarriedFileDiagnosticsIntegrationTests.
+
     // ── Diagnostics ───────────────────────────────────────────────────────────────────────────────────
     //
     // Deliberately not tested here. Converting a published diagnostic into markers is the session's job

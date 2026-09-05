@@ -202,7 +202,12 @@ public sealed class VBLspClient : ILspClient
             Capabilities: new ClientCapabilities(
                 new TextDocumentClientCapabilities(
                     PublishDiagnostics: new PublishDiagnosticsClientCapabilities(),
-                    Hover: new HoverClientCapabilities(ContentFormat: ["plaintext"]))));
+                    Hover: new HoverClientCapabilities(ContentFormat: ["plaintext"]),
+                    // Claimed here so the server has something to answer. Declaring and gating are two
+                    // halves of one negotiation: gate without declare and a conformant server withholds
+                    // `save` because nothing asked for it, while we decline to send because it did not
+                    // offer — both correct, nothing happening, and no error anywhere.
+                    Synchronization: new TextDocumentSyncClientCapabilities(DidSave: true))));
 
         // Deliberately received as a raw JsonElement, and interpreted separately below.
         //
@@ -314,6 +319,28 @@ public sealed class VBLspClient : ILspClient
         var p = new DidCloseTextDocumentParams(new TextDocumentIdentifier(uri));
         try { await rpc.NotifyWithParameterObjectAsync("textDocument/didClose", p); }
         catch (Exception ex) { _logger.LogDebug(ex, "textDocument/didClose failed"); }
+    }
+
+    public async Task SaveDocumentAsync(string uri, CancellationToken cancellationToken = default)
+    {
+        // No _openDocuments write, unlike its three siblings: a save changes neither the text nor the
+        // version, so there is nothing here to record. It is an announcement about state the server
+        // already has.
+        var rpc = _rpc;
+        if (rpc is null || !_initialized) return;
+
+        var mode = ServerCapabilities.ReadSave(_capabilities?.Value);
+        if (mode == SaveNotification.None) return;
+
+        // Only when negotiated. Sending it unasked would be harmless on the wire and wrong in principle —
+        // the server told us how it wants this, and overriding that makes us unpredictable to its author.
+        var text = mode == SaveNotification.WithText && _openDocuments.TryGetValue(uri, out var document)
+            ? document.Text
+            : null;
+
+        var p = new DidSaveTextDocumentParams(new TextDocumentIdentifier(uri), text);
+        try { await rpc.NotifyWithParameterObjectAsync("textDocument/didSave", p); }
+        catch (Exception ex) { _logger.LogDebug(ex, "textDocument/didSave failed"); }
     }
 
     public async Task<HoverResult?> RequestHoverAsync(string uri, Position position, CancellationToken cancellationToken = default)
