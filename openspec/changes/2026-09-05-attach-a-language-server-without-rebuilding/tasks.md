@@ -29,13 +29,14 @@
 
 ## 3. Routing by extension
 
-- [ ] 3.1 Key routing on extension rather than a global extension-to-language table
-- [ ] 3.2 Tell each server the language identifier **it** declared, on `didOpen` and everywhere else the
+- [x] 3.1 Key routing on extension rather than a global extension-to-language table
+- [x] 3.2 Tell each server the language identifier **it** declared, on `didOpen` and everywhere else the
       identifier travels
-- [ ] 3.3 Keep scheme-first precedence — the IDE's own documents carry no extension
-- [ ] 3.4 Move the VB6 extensions into the bundled entry's declaration
-- [ ] 3.5 Drop the Markdown extensions from the built-in table: nothing shipped claims them, and an
-      extension should map to a language because an attached server says so
+- [x] 3.3 Keep scheme-first precedence — the IDE's own documents carry no extension
+- [x] 3.4 Move the VB6 extensions into the bundled entry's declaration
+- [x] 3.5 Drop the Markdown extensions from the built-in table: nothing shipped claims them, and an
+      extension should map to a language because an attached server says so. **The whole table went**, not
+      just Markdown — once extensions are a server's claim there is nothing left for a global one to say
 
 ## 4. Ordering and workspace
 

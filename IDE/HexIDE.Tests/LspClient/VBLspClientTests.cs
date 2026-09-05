@@ -17,7 +17,7 @@ public class VBLspClientTests
     private readonly ILspTransport _transport = Substitute.For<ILspTransport>();
     private readonly ILogger<VBLspClient> _logger = Substitute.For<ILogger<VBLspClient>>();
 
-    private VBLspClient CreateSut() => new(_transport, _logger);
+    private VBLspClient CreateSut() => new(_transport, _logger, DocumentLanguage.Vb6);
 
     private void GivenTransportHasNoServer() =>
         _transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())

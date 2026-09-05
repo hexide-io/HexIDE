@@ -34,9 +34,14 @@ public class LspClientRegistryTests
         return c;
     }
 
+    // Extensions and language id are now separate claims: a server says which files it wants, and
+    // separately what it wants them called. These tests route through the vb6:// scheme, which matches on
+    // the language id, so the extensions are only here to make each registration well-formed.
     private static LanguageServerRegistration Registration(
         string id, ILspClient client, string language = DocumentLanguage.Vb6, int priority = 0) =>
-        new(id, id, [language], () => client, priority);
+        new(id, id,
+            language == DocumentLanguage.Vb6 ? DocumentLanguage.Vb6Extensions : [".md", ".markdown"],
+            language, () => client, priority);
 
     private static LspClientRegistry Registry(params LanguageServerRegistration[] registrations) =>
         new(registrations, Substitute.For<ILogger<LspClientRegistry>>());
@@ -273,19 +278,33 @@ public class LspClientRegistryTests
     [InlineData("vb6://module/Module1", DocumentLanguage.Vb6)]   // scheme, no extension at all
     [InlineData("vb6://form/Form1", DocumentLanguage.Vb6)]
     [InlineData("VB6://module/M", DocumentLanguage.Vb6)]         // scheme is case-insensitive
-    [InlineData("file:///c:/p/Mod.bas", DocumentLanguage.Vb6)]   // extension fallback
-    [InlineData("file:///c:/p/Form.FRM", DocumentLanguage.Vb6)]
-    [InlineData("file:///c:/p/README.md", DocumentLanguage.Markdown)]
-    [InlineData("file:///c:/p/NOTES.MARKDOWN", DocumentLanguage.Markdown)]  // extension case-insensitive
-    [InlineData("file:///c:/p/no-extension", null)]
-    [InlineData("custom://thing/x", null)]                       // unknown scheme names no language
+    [InlineData("file:///c:/p/Mod.bas", null)]                   // `file` names a transport, not a language
+    [InlineData("custom://thing/x", null)]                       // an unknown scheme claims nothing
     [InlineData("", null)]
     [InlineData(null, null)]
-    public void DocumentLanguage_ClassifiesSchemeFirstThenExtension(string? uri, string? expected)
+    public void OnlyHexIdesOwnSchemeNamesALanguage(string? uri, string? expected)
     {
         // Scheme first is load-bearing rather than tidy: HexIDE's own documents are vb6://module/Module1,
-        // which carry no extension, so an extension-only rule would fail to classify the only language
-        // currently served.
-        DocumentLanguage.Of(uri).Should().Be(expected);
+        // which carry no extension, so an extension-only rule would fail to classify the only documents the
+        // IDE opens today. It stays in code because the scheme is HexIDE's invention, not a server's claim.
+        DocumentLanguage.SchemeLanguageOf(uri).Should().Be(expected);
+    }
+
+    [Theory]
+    [InlineData("file:///c:/p/Mod.bas", ".bas")]
+    [InlineData("file:///c:/p/Form.FRM", ".frm")]               // normalised, so claims compare case-blind
+    [InlineData("file:///c:/p/README.md", ".md")]
+    [InlineData("file:///c:/p/a.bas?v=2", ".bas")]              // a URI may carry a query
+    [InlineData("file:///c:/p/a.bas#frag", ".bas")]
+    [InlineData("file:///c:/p/no-extension", null)]
+    [InlineData("file:///c:/p.d/no-extension", null)]           // the dot is in a DIRECTORY, not the name
+    [InlineData("vb6://module/Module1", null)]                  // nothing to extract, hence scheme-first
+    [InlineData("", null)]
+    [InlineData(null, null)]
+    public void AnExtensionIsExtractedWithoutBeingInterpreted(string? uri, string? expected)
+    {
+        // Deliberately no mapping to a language. Which server wants a .md is a claim servers make; this only
+        // supplies the key they are compared against.
+        DocumentLanguage.ExtensionOf(uri).Should().Be(expected);
     }
 }

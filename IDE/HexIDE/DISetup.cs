@@ -89,9 +89,10 @@ public partial class DISetup
                     registrations.Add(new LanguageServerRegistration(
                         Id: "hexide.vb6",
                         DisplayName: "HexIDE VB6 Language Server",
-                        LanguageIds: [DocumentLanguage.Vb6],
+                        Extensions: DocumentLanguage.Vb6Extensions,
+                        LanguageId: DocumentLanguage.Vb6,
                         CreateClient: () => new VBLspClient(
-                            transport, loggerFactory.CreateLogger<VBLspClient>())));
+                            transport, loggerFactory.CreateLogger<VBLspClient>(), DocumentLanguage.Vb6)));
 
                 return new LspClientRegistry(registrations, loggerFactory.CreateLogger<LspClientRegistry>());
             })

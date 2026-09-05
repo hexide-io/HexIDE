@@ -1,68 +1,70 @@
 namespace HexIDE.Lsp;
 
 /// <summary>
-/// Works out which language a document URI names, so a request can be routed to the servers that claim it.
+/// Works out what a document URI claims to be, so a request can be routed to the servers that want it.
+///
+/// <para>
+/// <b>This no longer decides what language a document is.</b> It used to own a global
+/// extension-to-language table, which quietly assumed every server would agree about what an extension
+/// means. Two servers can legitimately disagree — one calls a file <c>python</c>, another <c>python3</c> —
+/// and a single table forces a winner, leaving the loser wrong about every file it sees. So the mapping
+/// moved to the servers: each declares the extensions it claims and what it wants those documents called,
+/// and this class only extracts the two things routing needs to compare against.
+/// </para>
 ///
 /// <para>
 /// <b>Scheme first, extension second.</b> HexIDE's own documents are <c>vb6://module/Module1</c> and
 /// <c>vb6://form/Form1</c> — they carry no extension at all, so an extension-only rule would fail to
-/// classify the only language currently served. A scheme that names a language is also more reliable than a
-/// filename when both are present.
-/// </para>
-///
-/// <para>
-/// The language identifier is the protocol's own concept — it travels in <c>didOpen</c> and is what servers
-/// key on — rather than anything drawn from the project file. A member's kind in a <c>.vbp</c> is a
-/// project-file concept, and the documents most likely to need a second server are exactly the ones carried
-/// alongside a project rather than compiled by it, which have no kind at all.
+/// classify the only documents the IDE opens today. That rule stays here rather than moving to a server's
+/// declaration, because the scheme is HexIDE's own invention and not a server's claim to make.
 /// </para>
 /// </summary>
 public static class DocumentLanguage
 {
+    /// <summary>
+    /// HexIDE's own scheme, and the language identifier a server must declare to be offered the documents
+    /// carrying it.
+    /// </summary>
     public const string Vb6 = "vb6";
 
     /// <summary>
-    /// The protocol's identifier for Markdown. Present because a VB6 project can carry non-code files
-    /// beside its source, and a README is the commonest of them — not because HexIDE ships a Markdown
-    /// server. Which servers claim a language is a registration concern, kept separate from what a
-    /// document IS.
+    /// The language a URI's scheme names, or null when the scheme names a transport rather than a language.
+    ///
+    /// <para>
+    /// Only <c>vb6</c> qualifies today, because it is the only scheme HexIDE mints. <c>file</c> deliberately
+    /// does not: it says where a document is, not what it is.
+    /// </para>
+    ///
+    /// <para>
+    /// A server is offered these documents by declaring this as its language identifier. That is a real
+    /// coupling worth naming: a replacement VB6 server that calls the language something else would not be
+    /// offered the IDE's own documents. It is the correct trade while the scheme is HexIDE's own — the
+    /// alternative is letting configuration claim a scheme, which invites two servers to disagree about
+    /// what <c>vb6://</c> means, and unlike a file extension there is no outside authority to appeal to.
+    /// </para>
     /// </summary>
-    public const string Markdown = "markdown";
-
-    // Extensions are the fallback path, for documents that arrive as file:// URIs. Deliberately small: this
-    // is not a registry of every language HexIDE might one day open, only the mapping needed to route what
-    // it can open today. A server contributing its own languages is what grows this later.
-    private static readonly Dictionary<string, string> ByExtension = new(StringComparer.OrdinalIgnoreCase)
-    {
-        [".bas"] = Vb6,
-        [".cls"] = Vb6,
-        [".frm"] = Vb6,
-        [".ctl"] = Vb6,
-        [".pag"] = Vb6,
-        [".dob"] = Vb6,
-        [".dsr"] = Vb6,
-
-        [".md"] = Markdown,
-        [".markdown"] = Markdown,
-    };
-
-    /// <summary>
-    /// The language identifier for a document URI, or null when nothing claims to recognise it. Null is a
-    /// normal answer, not a failure: an unrecognised document opens with language features absent.
-    /// </summary>
-    public static string? Of(string? uri)
+    public static string? SchemeLanguageOf(string? uri)
     {
         if (string.IsNullOrWhiteSpace(uri)) return null;
 
-        // A scheme that names a language wins. `vb6://module/Module1` has no extension to fall back to.
         var schemeEnd = uri.IndexOf("://", StringComparison.Ordinal);
-        if (schemeEnd > 0)
-        {
-            var scheme = uri[..schemeEnd];
-            if (scheme.Equals(Vb6, StringComparison.OrdinalIgnoreCase)) return Vb6;
-            // `file` names a transport, not a language — fall through to the extension.
-            if (!scheme.Equals("file", StringComparison.OrdinalIgnoreCase)) return null;
-        }
+        if (schemeEnd <= 0) return null;
+
+        var scheme = uri[..schemeEnd];
+        return scheme.Equals(Vb6, StringComparison.OrdinalIgnoreCase) ? Vb6 : null;
+    }
+
+    /// <summary>
+    /// The document's extension including its leading dot, lower-cased, or null when it has none.
+    ///
+    /// <para>
+    /// Null is an ordinary answer. A document nothing claims opens with language features absent, which is
+    /// correct rather than a failure.
+    /// </para>
+    /// </summary>
+    public static string? ExtensionOf(string? uri)
+    {
+        if (string.IsNullOrWhiteSpace(uri)) return null;
 
         var lastDot = uri.LastIndexOf('.');
         var lastSlash = uri.LastIndexOf('/');
@@ -73,6 +75,17 @@ public static class DocumentLanguage
         var cut = tail.IndexOfAny(['?', '#']);
         if (cut >= 0) tail = tail[..cut];
 
-        return ByExtension.GetValueOrDefault(tail);
+        return tail.Length > 1 ? tail.ToLowerInvariant() : null;
     }
+
+    /// <summary>
+    /// The VB6 source extensions, as the bundled server declares them.
+    ///
+    /// <para>
+    /// Here rather than in configuration only because the bundled entry is built in code; it is an ordinary
+    /// claim by an ordinary server, and a user's entry may claim the same extensions or none of them.
+    /// </para>
+    /// </summary>
+    public static readonly string[] Vb6Extensions =
+        [".bas", ".cls", ".frm", ".ctl", ".pag", ".dob", ".dsr"];
 }

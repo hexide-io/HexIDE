@@ -46,10 +46,12 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
         var registration = new LanguageServerRegistration(
             Id: "foreign.markdown",
             DisplayName: "Foreign Markdown server",
-            LanguageIds: [DocumentLanguage.Markdown],
+            Extensions: ForeignServer.Extensions,
+            LanguageId: ForeignServer.LanguageId,
             CreateClient: () => new VBLspClient(
                 new StdioProcessLspTransport(serverInfo, loggerFactory.CreateLogger<StdioProcessLspTransport>()),
-                loggerFactory.CreateLogger<VBLspClient>()));
+                loggerFactory.CreateLogger<VBLspClient>(),
+                ForeignServer.LanguageId));
 
         _registry = new LspClientRegistry([registration], loggerFactory.CreateLogger<LspClientRegistry>());
         return _registry;
@@ -91,7 +93,8 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
         var connection = sut.Connections.Single();
 
         connection.State.Should().Be(LanguageConnectionState.Running);
-        connection.LanguageIds.Should().ContainSingle().Which.Should().Be(DocumentLanguage.Markdown);
+        connection.LanguageId.Should().Be(ForeignServer.LanguageId);
+        connection.Extensions.Should().Contain(".md");
         connection.Capabilities.Should().NotBeNull("a conformant server advertises what it can do");
         ServerCapabilities.AcceptsOpenClose(connection.Capabilities)
             .Should().BeTrue("it accepted didOpen, so it must have advertised document sync");

@@ -42,11 +42,19 @@ public sealed class VBLspClient : ILspClient
     // Running only when the underlying transport is connected AND the initialize handshake completed.
     public bool IsRunning => _transport.IsAlive && _initialized;
 
-    public VBLspClient(ILspTransport transport, ILogger<VBLspClient> logger)
+    /// <param name="languageId">
+    /// What THIS server is told its documents are, in <c>didOpen</c>. Given rather than looked up: a global
+    /// table would force two servers claiming one extension to agree about what it is called, and each has
+    /// its own connection, so neither has to be wrong.
+    /// </param>
+    public VBLspClient(ILspTransport transport, ILogger<VBLspClient> logger, string languageId)
     {
         _transport = transport;
         _logger = logger;
+        _languageId = languageId;
     }
+
+    private readonly string _languageId;
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
@@ -244,7 +252,7 @@ public sealed class VBLspClient : ILspClient
         var rpc = _rpc;
         if (rpc is null || !_initialized || !ServerCapabilities.AcceptsOpenClose(_capabilities?.Value)) return;
         var p = new DidOpenTextDocumentParams(
-            new TextDocumentItem(uri, DocumentLanguage.Of(uri) ?? "plaintext", 1, text));
+            new TextDocumentItem(uri, _languageId, 1, text));
         try { await rpc.NotifyWithParameterObjectAsync("textDocument/didOpen", p); }
         catch (Exception ex) { _logger.LogDebug(ex, "textDocument/didOpen failed"); }
     }

@@ -69,7 +69,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             e.Registration.DisplayName,
             LanguageConnectionKind.LanguageServer,
             e.State,
-            e.Registration.LanguageIds,
+            e.Registration.Extensions,
+            e.Registration.LanguageId,
             e.Client?.AdvertisedCapabilities)).ToList();
 
     /// <summary>
@@ -187,12 +188,23 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     // ── Routing ─────────────────────────────────────────────────────────────────────────────────────
 
+    /// <summary>
+    /// Every server that claims this document. Keyed on the EXTENSION, not on a language name, so two
+    /// servers claiming one extension are both offered it even when they disagree about what to call it.
+    /// </summary>
     private List<Entry> ClaimantsFor(string? uri)
     {
-        var language = DocumentLanguage.Of(uri);
-        if (language is null) return [];
+        // A scheme that names a language wins: HexIDE's own documents carry no extension to match on, and
+        // a server claims them by declaring that language identifier.
+        if (DocumentLanguage.SchemeLanguageOf(uri) is { } schemeLanguage)
+            return _entries
+                .Where(e => e.Registration.LanguageId.Equals(schemeLanguage, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+        if (DocumentLanguage.ExtensionOf(uri) is not { } extension) return [];
+
         return _entries
-            .Where(e => e.Registration.LanguageIds.Contains(language, StringComparer.OrdinalIgnoreCase))
+            .Where(e => e.Registration.Extensions.Contains(extension, StringComparer.OrdinalIgnoreCase))
             .ToList();
     }
 

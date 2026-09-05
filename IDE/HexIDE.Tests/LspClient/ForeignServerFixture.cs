@@ -53,6 +53,15 @@ internal static class ForeignServer
 
     /// <summary>The launch arguments that put the server into language-server mode over stdio.</summary>
     public const string ServerArguments = "server";
+
+    /// <summary>
+    /// What this server calls its language, and which files it claims. Declared here rather than taken from
+    /// a HexIDE constant precisely because these are the SERVER's claims — the point of the routing change
+    /// is that HexIDE holds no global opinion about what a .md is.
+    /// </summary>
+    public const string LanguageId = "markdown";
+
+    public static readonly string[] Extensions = [".md", ".markdown"];
 }
 
 /// <summary>
