@@ -88,4 +88,19 @@ public static class DocumentLanguage
     /// </summary>
     public static readonly string[] Vb6Extensions =
         [".bas", ".cls", ".frm", ".ctl", ".pag", ".dob", ".dsr"];
+
+    /// <summary>
+    /// The VB6 extensions that mean VB6 and nothing else — used to recognise an entry as a claim on the
+    /// IDE's own documents, which carry no extension of their own.
+    ///
+    /// <para>
+    /// <c>.cls</c> is deliberately absent. It is a VB6 class module and it is equally a LaTeX class file
+    /// (hexide-io/HexIDE#279), so reading a lone <c>.cls</c> claim as "serves VB6" would hand a LaTeX
+    /// server every module in the developer's project — a worse failure than the one this exists to fix.
+    /// Nothing is lost by requiring more: a real VB6 server claims <c>.bas</c> and <c>.frm</c> too, and
+    /// one that somehow serves only class modules can still say so with its language identifier.
+    /// </para>
+    /// </summary>
+    public static readonly string[] UnambiguousVb6Extensions =
+        [".bas", ".frm", ".ctl", ".pag", ".dob", ".dsr"];
 }

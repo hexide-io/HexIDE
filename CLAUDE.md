@@ -36,7 +36,13 @@ cd IDE && dotnet publish HexIDE.Desktop -f net10.0 -o bin/
 cd LspServer && dotnet build HexIDE.VbLspServer/
 ```
 
-CI runs two parallel jobs in `.github/workflows/build.yml`: `build-ide` (working dir `IDE/`) and `build-lsp-server` (working dir `LspServer/`).
+CI runs two parallel jobs in `.github/workflows/build.yml`: `build-ide` (working dir `IDE/`) and `build-lsp-server` (working dir `LspServer/`), alongside two guard jobs.
+
+**Run `bash scripts/check-tree-hygiene.sh` before pushing anything that touches docs or config.** It takes
+seconds locally and a full CI cycle otherwise, and it fails on things that look entirely innocuous while
+you are writing them: an illustrative Windows user path in a troubleshooting example is, to a scanner,
+indistinguishable from a real one — and that scanner is what stops a machine-specific path reaching a
+public repository. Do not reason about whether yours is "obviously" generic; just run it.
 
 ### The foreign-server tests fetch a real third-party language server
 
@@ -509,6 +515,10 @@ widening visibility to `public` just for a test. When a new test project needs r
 - **`docs/private/ROADMAP.md`** *(maintainers)* — completed phases, design decisions, accepted/rejected ideas. Keep updated when phases complete or architectural decisions are made.
 - **`docs/private/EVOLUTION.md`** *(maintainers)* — Evolution-tier modernisation catalog: Remove/Keep/Change/Add tables with effort + persona-value ratings, the muscle-memory keep-list, and suggested waves. New Evolution work starts from this catalog; update rows as modernisation work lands.
 - **`docs/LSP_FEATURES.md`** — LSP capability mapping.
+- **`docs/language-servers.md`** — how a user attaches a language server: where `lsp-servers.json` lives,
+  what its fields mean, and why `extensions` and `languageId` are not the same question. The only
+  user-facing account of that file — the openspec specs describe the behaviour as contracts, which is not
+  the same thing and is not where someone configuring the IDE will look.
 - **The backlog lives in [GitHub Issues](https://github.com/hexide-io/HexIDE/issues)**, not in a file. `docs/TODO.md` was retired on 2026-08-17 and its actionable items opened as issues, so a contributor can find work without reading the repository. Note it down as an issue, not as a checklist entry.
 - **`openspec/`** — design records in [OpenSpec](https://github.com/Fission-AI/OpenSpec) format (CLI: `openspec`). **There is no status field anywhere — position in the tree *is* the status.**
   - `specs/{capability}/spec.md` — how the system behaves **today**, as present-tense `### Requirement:` / `#### Scenario:` pairs. RFC 2119 keywords (SHALL/MUST) must appear in the requirement **body**, not only its heading, or `--strict` warns.
