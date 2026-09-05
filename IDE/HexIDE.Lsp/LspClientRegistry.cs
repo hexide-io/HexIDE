@@ -32,11 +32,17 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 {
     private readonly List<Entry> _entries;
     private readonly ILogger<LspClientRegistry> _logger;
+    private readonly ILspWorkspace? _workspace;
+
+    /// <summary>The workspace the running servers were told about, so a move can be noticed.</summary>
+    private string? _rootedAt;
 
     public LspClientRegistry(
-        IEnumerable<LanguageServerRegistration> registrations, ILogger<LspClientRegistry> logger)
+        IEnumerable<LanguageServerRegistration> registrations, ILogger<LspClientRegistry> logger,
+        ILspWorkspace? workspace = null)
     {
         _logger = logger;
+        _workspace = workspace;
         // Ordered once. OrderByDescending is stable, so equal priorities keep registration order — which is
         // the documented fallback rather than an accident of how the sort happened to behave.
         _entries = registrations
@@ -101,6 +107,9 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     public async Task OpenDocumentAsync(string uri, string text, CancellationToken cancellationToken = default)
     {
+        // Before anything starts or is used: a server told about one project must not go on serving another.
+        await RestartIfWorkspaceMovedAsync();
+
         // The one place a server starts. Opening a document is the first moment its language is known to be
         // present, which is exactly the trigger lazy start is defined against.
         var claimants = ClaimantsFor(uri);
@@ -240,6 +249,80 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     }
 
     // ── Lifecycle ───────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Tears down running servers when the workspace has moved, so the next document starts them afresh at
+    /// the new root.
+    ///
+    /// <para>
+    /// <b>A root is sent once, at initialize, and never revised.</b> So closing one project and opening
+    /// another leaves every running server rooted at the project that is gone — reading its configuration
+    /// from the wrong workspace and reporting results with nothing to indicate why. That has nothing to do
+    /// with saving a project for the first time: switching projects is ordinary and permanent.
+    /// </para>
+    ///
+    /// <para>
+    /// Checked when a document opens rather than driven by a project event, because that is the moment the
+    /// answer matters and it keeps this layer free of the project model. A workspace nobody has asked
+    /// anything of costs nothing by being stale.
+    /// </para>
+    ///
+    /// <para>
+    /// A server that FAILED stays failed. The workspace changing is not a reason to believe a command that
+    /// would not launch will launch now, and retrying on every project switch turns one broken entry into a
+    /// cost paid repeatedly.
+    /// </para>
+    /// </summary>
+    private async Task RestartIfWorkspaceMovedAsync()
+    {
+        if (_workspace is null) return;
+
+        var current = _workspace.Directory;
+
+        // Nothing is running, so whatever the workspace is now is what the first server will be told.
+        if (!_entries.Any(e => e.Client is not null))
+        {
+            _rootedAt = current;
+            return;
+        }
+
+        if (SameDirectory(current, _rootedAt)) return;
+
+        _logger.LogInformation(
+            "The workspace moved; restarting language servers so none keeps serving a project that is gone.");
+
+        foreach (var e in _entries)
+        {
+            if (e.Client is not { } client) continue;
+
+            // A failed entry keeps its client and its state. It is not restarted, so it must not be reset to
+            // NotStarted — that would make it eligible to start again, which is the retry this is avoiding.
+            if (e.State == LanguageConnectionState.Failed) continue;
+
+            client.DiagnosticsPublished -= OnInnerDiagnostics;
+            try { await client.StopAsync(); }
+            catch (Exception ex) { _logger.LogDebug(ex, "Stop failed for {Id}", e.Registration.Id); }
+            e.Client = null;
+            // NotStarted rather than Stopped: this one is eligible to run again, at the new root.
+            e.State = LanguageConnectionState.NotStarted;
+        }
+
+        _rootedAt = current;
+        ConnectionsChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// Whether two workspace directories are the same place. Case-folded on Windows only — the filesystem
+    /// decides this, and assuming either answer everywhere either restarts servers that did not move or
+    /// fails to restart ones that did.
+    /// </summary>
+    private static bool SameDirectory(string? a, string? b)
+    {
+        if (a is null || b is null) return a is null && b is null;
+        return string.Equals(
+            a.TrimEnd('/', '\\'), b.TrimEnd('/', '\\'),
+            OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+    }
 
     private async Task EnsureStartedAsync(Entry e, CancellationToken cancellationToken)
     {

@@ -229,4 +229,96 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
         }
         GC.SuppressFinalize(this);
     }
+
+    // ── A server must not keep serving a project that is gone ─────────────────────────────────────────
+
+    private static ILspClient RunningServer()
+    {
+        var c = Substitute.For<ILspClient>();
+        c.IsRunning.Returns(true);
+        c.AdvertisedCapabilities.Returns(
+            JsonDocument.Parse("""{"textDocumentSync":{"openClose":true,"change":1}}""").RootElement.Clone());
+        return c;
+    }
+
+    [Fact]
+    public async Task ClosingOneProjectAndOpeningAnotherRestartsTheServers()
+    {
+        // rootUri is sent once, at initialize, and never revised — so without this a server started for
+        // project A goes on serving project B, reading A's configuration and reporting results with nothing
+        // to indicate why. This is NOT the first-save transition: switching projects is ordinary, permanent,
+        // and unrelated to a project acquiring a location.
+        var workspace = new FixedWorkspace("/projects/a");
+        var created = new List<ILspClient>();
+        var sut = new LspClientRegistry(
+            [new LanguageServerRegistration("s", "s", [".bas"], "vb6", () =>
+            {
+                var c = RunningServer();
+                created.Add(c);
+                return c;
+            })],
+            Substitute.For<ILogger<LspClientRegistry>>(),
+            workspace);
+        _disposables.Add(sut);
+
+        await sut.OpenDocumentAsync("file:///projects/a/M.bas", "code");
+        created.Should().HaveCount(1);
+
+        workspace.Directory = "/projects/b";
+        await sut.OpenDocumentAsync("file:///projects/b/M.bas", "code");
+
+        created.Should().HaveCount(2, "the server was rebuilt so it could be told the new root");
+        await created[0].Received(1).StopAsync();
+    }
+
+    [Fact]
+    public async Task AWorkspaceThatHasNotMovedDoesNotRestartAnything()
+    {
+        // The control. Without it a bug that restarted on every document open would pass the test above,
+        // while throwing away every server's state on each file the user touches.
+        var workspace = new FixedWorkspace("/projects/a");
+        var created = new List<ILspClient>();
+        var sut = new LspClientRegistry(
+            [new LanguageServerRegistration("s", "s", [".bas"], "vb6", () =>
+            {
+                var c = RunningServer();
+                created.Add(c);
+                return c;
+            })],
+            Substitute.For<ILogger<LspClientRegistry>>(),
+            workspace);
+        _disposables.Add(sut);
+
+        await sut.OpenDocumentAsync("file:///projects/a/One.bas", "code");
+        await sut.OpenDocumentAsync("file:///projects/a/Two.bas", "code");
+
+        created.Should().HaveCount(1);
+        await created[0].DidNotReceive().StopAsync();
+    }
+
+    [Fact]
+    public async Task AServerThatFailedToStartIsNotRetriedJustBecauseTheProjectChanged()
+    {
+        // A workspace changing is not a reason to believe a command that would not launch will launch now.
+        // Retrying on every project switch turns one broken entry into a cost paid over and over.
+        var workspace = new FixedWorkspace("/projects/a");
+        var attempts = 0;
+        var sut = new LspClientRegistry(
+            [new LanguageServerRegistration("s", "s", [".bas"], "vb6", () =>
+            {
+                attempts++;
+                var c = Substitute.For<ILspClient>();
+                c.IsRunning.Returns(false);   // started, but never came up
+                return c;
+            })],
+            Substitute.For<ILogger<LspClientRegistry>>(),
+            workspace);
+        _disposables.Add(sut);
+
+        await sut.OpenDocumentAsync("file:///projects/a/M.bas", "code");
+        workspace.Directory = "/projects/b";
+        await sut.OpenDocumentAsync("file:///projects/b/M.bas", "code");
+
+        attempts.Should().Be(1);
+    }
 }

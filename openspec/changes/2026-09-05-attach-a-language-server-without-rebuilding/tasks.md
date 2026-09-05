@@ -43,12 +43,15 @@
 - [x] 4.1 Default entries rank below an entry that states no priority, so a user's server wins the
       pick-one features without them discovering the field
 - [x] 4.2 Start each server in the project's working directory and send that as the workspace root
-- [ ] 4.3 Restart running servers when the project's working directory changes. **Deliberately not done,
-      and possibly never needed.** The only thing that changes a project's working directory today is first
-      save — which is exactly what #260 proposes to eliminate by giving a project a real location at
-      creation. Building a restart trigger now means inventing a project-path-changed event (none exists)
-      for a transition we are trying to remove. Revisit after #260 lands: if a project's directory becomes
-      stable for its lifetime, this task disappears rather than being completed
+- [x] 4.3 Restart running servers when the workspace moves. **The earlier reasoning for deferring this was
+      wrong** and is recorded here rather than quietly corrected: it claimed first save was the only thing
+      that changes a project's working directory, so #260 would remove the need. Closing one project and
+      opening another changes it too — ordinary, permanent, and nothing to do with #260. Checked when a
+      document opens rather than driven by a project event, since that is the moment the answer matters and
+      it keeps this layer free of the project model
+- [ ] 4.4 A project GROUP has several workspaces at once and gets only one. Filed as #261 — it needs
+      `workspaceFolders`, a capability handshake and a "which project owns this document" answer that
+      routing does not currently have. Out of scope here; #255 ships correct for the single-project case
 
 ## 5. Not silent on first sight
 

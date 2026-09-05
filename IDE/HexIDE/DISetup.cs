@@ -77,11 +77,10 @@ public partial class DISetup
                 ctx.Inject<ISettingsService>(out var settings);
                 ctx.Inject<ILspWorkspace>(out var workspace);
 
-                // Resolved here rather than inside CreateClient, because whether this server can be reached
-                // at all decides whether it is REGISTERED — and that has to be known before the list is
-                // built. Constructing a transport is cheap; nothing is launched until ConnectAsync, so the
-                // server still starts lazily on the first document that claims it.
-                var transport = CreateBundledTransport(locator, loggerFactory, settings, workspace);
+                // A FACTORY, not one transport. Whether this server can be reached at all decides whether
+                // it is registered, so that much is resolved now — but a transport is single-use, and a
+                // client is rebuilt whenever the workspace moves, so each start needs its own.
+                var transport = CreateBundledTransportFactory(locator, loggerFactory, settings, workspace);
 
                 // Still the only registration HexIDE ships with. Making this list configuration — so a user
                 // can attach a server, and so this row stops being a special case — is
@@ -94,13 +93,14 @@ public partial class DISetup
                         Extensions: DocumentLanguage.Vb6Extensions,
                         LanguageId: DocumentLanguage.Vb6,
                         CreateClient: () => new VBLspClient(
-                            transport, loggerFactory.CreateLogger<VBLspClient>(), DocumentLanguage.Vb6,
+                            transport(), loggerFactory.CreateLogger<VBLspClient>(), DocumentLanguage.Vb6,
                             workspace),
                         // Below the value an entry takes when it states none, so a user attaching their own
                         // VB6 server wins formatting and rename without discovering the field exists.
                         Priority: LanguageServerRegistration.BundledPriority));
 
-                return new LspClientRegistry(registrations, loggerFactory.CreateLogger<LspClientRegistry>());
+                return new LspClientRegistry(
+                    registrations, loggerFactory.CreateLogger<LspClientRegistry>(), workspace);
             })
             .Bind<ILoggerFactory>().As(Singleton).To(_ => LoggingSetup.LoggerFactory)
             .Bind<ILogger<TT>>().As(Singleton).To<Logger<TT>>()
@@ -184,14 +184,14 @@ public partial class DISetup
     /// not there should not appear as attached-but-broken, and a registration that can never connect is a
     /// row in a list that lies.
     /// </para>
-    private static ILspTransport? CreateBundledTransport(
+    private static Func<ILspTransport>? CreateBundledTransportFactory(
         ILspServerLocator locator, ILoggerFactory loggerFactory, ISettingsService settings,
         ILspWorkspace workspace)
     {
         var wsUrl = Environment.GetEnvironmentVariable("HEXIDE_LSP_WS_URL");
         if (string.IsNullOrWhiteSpace(wsUrl)) wsUrl = settings.LspWebSocketUrl;
         if (!string.IsNullOrWhiteSpace(wsUrl))
-            return new WebSocketLspTransport(wsUrl, loggerFactory.CreateLogger<WebSocketLspTransport>());
+            return () => new WebSocketLspTransport(wsUrl, loggerFactory.CreateLogger<WebSocketLspTransport>());
 
         var pipeName = Environment.GetEnvironmentVariable("HEXIDE_LSP_PIPE");
         if (!string.IsNullOrWhiteSpace(pipeName))
@@ -201,7 +201,7 @@ public partial class DISetup
                 StringComparison.OrdinalIgnoreCase)
                 ? NamedPipeRole.Listen
                 : NamedPipeRole.Connect;
-            return new NamedPipeLspTransport(
+            return () => new NamedPipeLspTransport(
                 pipeName, role, loggerFactory.CreateLogger<NamedPipeLspTransport>());
         }
 
@@ -219,7 +219,7 @@ public partial class DISetup
 
         // No explicit working directory on the bundled entry, so it runs in whatever project is open when
         // it first starts.
-        return new StdioProcessLspTransport(
+        return () => new StdioProcessLspTransport(
             serverInfo with { WorkingDirectory = "" },
             loggerFactory.CreateLogger<StdioProcessLspTransport>(),
             workspace);
