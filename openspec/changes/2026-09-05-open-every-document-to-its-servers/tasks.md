@@ -2,18 +2,21 @@
 
 ## 1. The shared document session
 
-- [ ] 1.1 `LspDocumentSession` in `HexIDE` — owns a document URI, an `ILspClient` and an AvaloniaEdit
+- [x] 1.1 `LspDocumentSession` in `HexIDE` — owns a document URI, an `ILspClient` and an AvaloniaEdit
       `TextDocument`; opens on start, closes on dispose, sends debounced changes, and raises markers
-- [ ] 1.2 Diagnostics matched with `LspDocumentUri.AreSame`, never `!=` — a server that normalises the URI
+- [x] 1.2 Diagnostics matched with `LspDocumentUri.AreSame`, never `!=` — a server that normalises the URI
       it echoes back drops every diagnostic silently, which is what #236 was
-- [ ] 1.3 The range-to-offset conversion moves across whole, including all three clamps. The server's copy
+- [x] 1.3 The range-to-offset conversion moves across whole, including all three clamps. The server's copy
       of a document is always slightly stale, so a range past the end of the buffer is normal traffic, not
-      a fault
-- [ ] 1.4 Conversion posted to the UI thread — `TextDocument` refuses access from anywhere else, and the
-      failure is an exception on a background thread rather than a wrong answer
-- [ ] 1.5 A hook for what the owner wants to do on each diagnostics arrival, so the code editor keeps
+      a fault. Each clamp is covered by a test that fails without it — the end-of-buffer one needed a case
+      the obvious "past the end" test does not reach (see 5.6)
+- [x] 1.4 Conversion posted to the UI thread — `TextDocument` refuses access from anywhere else, and the
+      failure is an exception on a background thread rather than a wrong answer. The hop is a constructor
+      parameter defaulting to the dispatcher, not a static call: only the thread that initialised Avalonia
+      may pump it, so a hidden static is untestable in a suite where another class got there first
+- [x] 1.5 A hook for what the owner wants to do on each diagnostics arrival, so the code editor keeps
       piggybacking its symbol refresh without the session knowing what a symbol is
-- [ ] 1.6 Flush — cancel the debounce and send immediately, for requests that need the server current
+- [x] 1.6 Flush — cancel the debounce and send immediately, for requests that need the server current
 
 ## 2. The VB6 code editor moves onto it
 
@@ -48,7 +51,11 @@
 - [ ] 5.3 A URI the server has normalised differently still matches — the #236 case, now in a second editor
 - [ ] 5.4 Editing sends a change; closing the editor closes the document
 - [ ] 5.5 A document with no path, and one that failed to load, are never opened
-- [ ] 5.6 A range past the end of the buffer is clamped rather than throwing
+- [x] 5.6 A range past the end of the buffer is clamped rather than throwing. Three shapes, because
+      mutation testing showed the first two were not enough: a line past the document, a column past the
+      line, and — the one that survived deleting the clamp — a diagnostic whose START is the last valid
+      offset while its END line is past the document, which takes the fallback branch and lands outside
+      the text. AvaloniaEdit already clamps a column within a line that exists, so only that path needs it
 - [ ] 5.7 The code editor's existing behaviour is unchanged — by its existing tests, unedited
 - [ ] 5.8 Each verified to fail without its fix, by mutation. The last change found a mechanism no test
       covered by exactly this method, and found it only because the method was applied
