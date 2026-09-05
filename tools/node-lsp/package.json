@@ -1,0 +1,10 @@
+{
+  "name": "hexide-foreign-node-lsp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Not shipped, and not part of HexIDE. This pins the reference-implementation language servers the foreign-backend tests drive, so that `npm ci` reproduces exactly the tree those tests were written against. Installed into artifacts/, never beside this file.",
+  "license": "MIT",
+  "dependencies": {
+    "vscode-langservers-extracted": "4.10.0"
+  }
+}
