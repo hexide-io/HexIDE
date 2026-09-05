@@ -113,8 +113,17 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
     private const string DeclarationsProc = "(Declarations)";
 
     private DocumentSymbol[]? _symbols;
-    private int _documentVersion;
-    private CancellationTokenSource? _debounce;
+
+    /// <summary>
+    /// This document's conversation with the language layer, shared with the carried-file editor.
+    ///
+    /// <para>
+    /// Created in <see cref="Initialize(FormDefinition)"/> rather than the constructor, because the URI it
+    /// is named by is not knowable until a definition has been supplied — a constructor-time session would
+    /// name every editor <c>vb6://form/untitled</c>.
+    /// </para>
+    /// </summary>
+    private LspDocumentSession? session;
 
     public CodeEditorViewModel(IWindowManager windowManager,
         IEditorService editorService,
@@ -146,8 +155,6 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
         Action onLanguageChanged = () => Title = ComputeTitle();
         localization.LanguageChanged += onLanguageChanged;
         AutoDispose(new ActionDisposable(() => localization.LanguageChanged -= onLanguageChanged));
-
-        lspClient.DiagnosticsPublished += OnDiagnosticsPublished;
 
         AutoDispose(this.eventBus.Subscribe<CreateOrNavigateToSubEvent>(e =>
         {
@@ -191,8 +198,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
             formDefinition?.UpdateCode(Document.Text);
             if (moduleDefinition is not null)
                 moduleDefinition.UpdateCode(Document.Text);
-            lspClient.CloseDocumentAsync(GetDocumentUri()).ListenErrors();
-            lspClient.DiagnosticsPublished -= OnDiagnosticsPublished;
+            // Disposed from HERE rather than AutoDispose'd from Initialize. Dispose walks its
+            // disposables in REVERSE registration order, so a session registered later would close the
+            // document BEFORE the buffer above was written back to the definition.
+            session?.Dispose();
         }));
     }
 
@@ -207,14 +216,8 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
 
         PopulateObjectNames();
 
-        // NOT gated on IsRunning, and that is a fix rather than an omission. OpenDocumentAsync tracks the
-        // document before it checks whether a server is up, and the client replays every tracked document
-        // after a (re)connect — so gating here meant a file opened while the server was down was never
-        // tracked and never replayed. It is also what makes lazy start possible: opening a document is the
-        // trigger that starts the server claiming its language, so a gate would leave nothing to start it.
-        lspClient.OpenDocumentAsync(GetDocumentUri(), Document.Text).ListenErrors();
+        OpenToLanguageLayer();
 
-        Document.TextChanged += OnTextChanged;
         Title = ComputeTitle();
         return this;
     }
@@ -244,16 +247,39 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
         // back to "(General)" alone, which is what this used to hardcode.
         PopulateObjectNames();
 
-        // NOT gated on IsRunning, and that is a fix rather than an omission. OpenDocumentAsync tracks the
-        // document before it checks whether a server is up, and the client replays every tracked document
-        // after a (re)connect — so gating here meant a file opened while the server was down was never
-        // tracked and never replayed. It is also what makes lazy start possible: opening a document is the
-        // trigger that starts the server claiming its language, so a gate would leave nothing to start it.
-        lspClient.OpenDocumentAsync(GetDocumentUri(), Document.Text).ListenErrors();
+        OpenToLanguageLayer();
 
-        Document.TextChanged += OnTextChanged;
         Title = ComputeTitle();
         return this;
+    }
+
+    /// <summary>
+    /// Hands this document to the language layer.
+    ///
+    /// <para>
+    /// Called from <c>Initialize</c>, after the definition is assigned and after <c>Document.Text</c> is
+    /// loaded, and from nowhere else. Both are load-bearing: the URI is not knowable before the first, and
+    /// starting before the second would open the document with an empty buffer <em>and</em> turn the load
+    /// assignment itself into a spurious change notification, because the session hooks
+    /// <c>TextChanged</c> as it starts.
+    /// </para>
+    /// </summary>
+    private void OpenToLanguageLayer()
+    {
+        // GetDocumentUri(), not a form-or-module expression written out again: a UserControl or
+        // PropertyPage sets BOTH definition fields (#152) and the module must win. One rule, one place.
+        session = new LspDocumentSession(lspClient, Document, GetDocumentUri());
+
+        // Forwarded into this class's own event rather than re-exposed as a pass-through. The view
+        // subscribes once when it attaches and never replays, so a subscription that landed on the session
+        // object instead would die with it — silently, and permanently blank.
+        session.MarkersChanged += markers => MarkersChanged?.Invoke(markers);
+
+        // The same piggyback as before: a fresh diagnostic set means the server has evidently just re-read
+        // the document, which is the cheapest signal that its symbols are worth asking for again.
+        session.DiagnosticsApplied += () => _ = RefreshSymbolsAsync();
+
+        session.Start();
     }
 
     /// <summary>
@@ -287,73 +313,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
         }
     }
 
-    private void OnTextChanged(object? sender, EventArgs e)
-    {
-        _debounce?.Cancel();
-        _debounce = new CancellationTokenSource();
-        var token = _debounce.Token;
-        var version = ++_documentVersion;
-        var text = Document.Text;
-        var uri = GetDocumentUri();
-        Task.Delay(300, token).ContinueWith(_ =>
-        {
-            if (!token.IsCancellationRequested && lspClient.IsRunning)
-                lspClient.ChangeDocumentAsync(uri, version, text).ListenErrors();
-        }, token, TaskContinuationOptions.OnlyOnRanToCompletion, TaskScheduler.Default);
-    }
-
     /// <summary>
     /// Cancels any pending debounce and immediately syncs the current document text to the LSP server.
     /// Call this before requests that depend on the server having up-to-date source (e.g. signatureHelp).
     /// </summary>
-    internal async Task FlushDocumentAsync(CancellationToken ct = default)
-    {
-        _debounce?.Cancel();
-        if (!lspClient.IsRunning) return;
-        var version = ++_documentVersion;
-        await lspClient.ChangeDocumentAsync(GetDocumentUri(), version, Document.Text, ct);
-    }
-
-    private void OnDiagnosticsPublished(object? sender, PublishDiagnosticsParams p)
-    {
-        if (formDefinition is null && moduleDefinition is null) return;
-        // NOT `!=`: a server may normalise the URI it echoes back (Windows drive-letter case,
-        // percent-encoding), and an exact match drops its diagnostics silently. See #236.
-        if (!LspDocumentUri.AreSame(p.Uri, GetDocumentUri()))
-            return;
-
-        // TextDocument requires UI-thread access; post the whole conversion there.
-        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
-        {
-            var doc = Document;
-            var markers = new List<LspMarker>(p.Diagnostics.Length);
-            foreach (var diag in p.Diagnostics)
-            {
-                var startLine = diag.Range.Start.Line + 1;  // AvaloniaEdit is 1-based
-                var startCol = diag.Range.Start.Character;
-                var endLine = diag.Range.End.Line + 1;
-                var endCol = diag.Range.End.Character;
-
-                if (startLine < 1 || startLine > doc.LineCount) continue;
-
-                var startOffset = doc.GetOffset(startLine, startCol + 1);
-                var endOffset = endLine <= doc.LineCount
-                    ? doc.GetOffset(endLine, Math.Max(endCol + 1, startCol + 2))
-                    : startOffset + 1;
-
-                endOffset = Math.Min(endOffset, doc.TextLength);
-                if (startOffset >= endOffset) endOffset = Math.Min(startOffset + 1, doc.TextLength);
-
-                bool isError = diag.Severity is null || diag.Severity == DiagnosticSeverity.Error;
-                markers.Add(new LspMarker(startOffset, endOffset, isError, diag.Message));
-            }
-
-            MarkersChanged?.Invoke(markers);
-
-            // Refresh procedure list after each diagnostics update (option 1: piggyback)
-            _ = RefreshSymbolsAsync();
-        });
-    }
+    internal Task FlushDocumentAsync(CancellationToken ct = default)
+        => session?.FlushAsync(ct) ?? Task.CompletedTask;
 
     private async Task RefreshSymbolsAsync()
     {

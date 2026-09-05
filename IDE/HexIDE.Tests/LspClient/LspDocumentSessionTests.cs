@@ -198,11 +198,52 @@ public class LspDocumentSessionTests : IDisposable
     }
 
     [Fact]
-    public void AUriTheServerNormalisedDifferentlyStillMatches()
+    public void AUriTheServerPercentEncodedDifferentlyStillMatches()
     {
-        // #236, and the reason this comparison is not `!=`. A server may echo back a drive letter in the
-        // other case, or percent-encode differently; an exact match then drops every diagnostic it
-        // publishes and reports nothing at all — which reads exactly like a server with no opinions.
+        // #236, and the reason this comparison is not `!=`. A server is under no obligation to echo a URI
+        // back byte-for-byte and conformant ones routinely do not; an exact match then drops every
+        // diagnostic it publishes and reports nothing at all — which reads exactly like a server with no
+        // opinions.
+        //
+        // Percent-encoding rather than drive-letter case, because this one holds on every platform: the
+        // path is unescaped before comparison regardless of the host filesystem.
+        var session = Session("hello world", "file:///c:/proj/read me.md");
+        IReadOnlyList<LspMarker>? seen = null;
+        session.MarkersChanged += m => seen = m;
+        session.Start();
+
+        Publish(OneDiagnostic("file:///c:/proj/read%20me.md", 0, 0, 5));
+
+        seen.Should().ContainSingle();
+    }
+
+    [Fact]
+    public void AVb6UriDifferingOnlyInCaseStillMatches()
+    {
+        // The IDE's own scheme, and the case that matters most for the VB6 editor: a `vb6://` path segment
+        // is a VB6 identifier, and VB6 identifiers are case-insensitive on every platform. A server that
+        // echoes `module1` for our `Module1` is not disagreeing with us about anything.
+        var session = Session("Sub Main()", "vb6://module/Module1");
+        IReadOnlyList<LspMarker>? seen = null;
+        session.MarkersChanged += m => seen = m;
+        session.Start();
+
+        Publish(OneDiagnostic("vb6://module/module1", 0, 0, 3));
+
+        seen.Should().ContainSingle();
+    }
+
+    [WindowsOnlyFact]
+    public void AWindowsDriveLetterInTheOtherCaseStillMatches()
+    {
+        // The literal #236 measurement: a real third-party server answered `file:///c:/…` to our
+        // `file:///C:/…`.
+        //
+        // Windows-only, and that is the PRODUCT's rule rather than a limitation of the test. On a
+        // case-sensitive filesystem `/C:/proj` and `/c:/proj` are different paths, and matching them would
+        // trade a silently dropped diagnostic for a silently MIS-ATTRIBUTED one — the worse of the two.
+        // LspDocumentUri says so explicitly and asks OperatingSystem.IsWindows(). Asserting it everywhere
+        // is how this test failed on Linux while the code was right.
         var session = Session("hello world", "file:///c:/proj/README.md");
         IReadOnlyList<LspMarker>? seen = null;
         session.MarkersChanged += m => seen = m;

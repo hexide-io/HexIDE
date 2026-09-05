@@ -400,6 +400,33 @@ public class CodeEditorViewModelTests : IDisposable
     }
 
     [Fact]
+    public void Dispose_WritesTheBufferBackBeforeClosingTheDocument()
+    {
+        // Order, not just outcome. Both halves happen in one disposal block, and nothing pinned their
+        // sequence until now — Dispose_CallsCloseDocumentAsync and Dispose_UpdatesFormCodeFromDocument each
+        // assert only their own effect, so an inversion was invisible to the suite.
+        //
+        // It became inversion-prone when the language lifecycle moved into a collaborator: registering that
+        // collaborator with AutoDispose from Initialize is the obvious thing to write, and it would put the
+        // close FIRST, because disposables run in reverse registration order. The server would then be told
+        // the document closed while the buffer it belongs to had not yet been written back.
+        var form = TestHelpers.CreateForm(name: "Form1");
+        var vm = CreateSut().Initialize(form);
+        vm.Document.Text = "Dim x As Integer";
+
+        string? codeWhenClosed = null;
+        _lspClient.When(c => c.CloseDocumentAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()))
+            .Do(_ => codeWhenClosed = form.Code);
+
+        vm.Dispose();
+        _sut = null;
+
+        codeWhenClosed.Should().Be(
+            "Dim x As Integer",
+            "the buffer must reach the definition before the language layer is told the document is gone");
+    }
+
+    [Fact]
     public void Dispose_UpdatesModuleCodeFromDocument()
     {
         var module = TestHelpers.CreateModule(name: "Module1");
@@ -421,7 +448,9 @@ public class CodeEditorViewModelTests : IDisposable
         vm.Dispose();
         _sut = null;
 
-        _lspClient.DiagnosticsPublished -= Arg.Any<EventHandler<PublishDiagnosticsParams>>();
+        // `Received()` before the `-=`, not a bare `-=`. Without it this line merely unsubscribes on the
+        // substitute and asserts nothing, so the test could not fail — which it could not, until now.
+        _lspClient.Received().DiagnosticsPublished -= Arg.Any<EventHandler<PublishDiagnosticsParams>>();
     }
 
     // ── LSP delegation with Module URI ───────────────────────────────

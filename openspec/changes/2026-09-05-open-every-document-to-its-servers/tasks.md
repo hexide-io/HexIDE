@@ -20,11 +20,25 @@
 
 ## 2. The VB6 code editor moves onto it
 
-- [ ] 2.1 `CodeEditorViewModel` constructs a session and delegates open, change, close and diagnostics
-- [ ] 2.2 The per-request methods keep calling the client directly, with the session's URI. Only the
-      lifecycle moves — this is not a refactor of everything that touches LSP
-- [ ] 2.3 No behaviour change. The existing editor tests are the check, and they SHALL not be edited to
-      accommodate this; if one needs changing, the migration is wrong
+- [x] 2.1 `CodeEditorViewModel` constructs a session and delegates open, change, close and diagnostics
+- [x] 2.2 The per-request methods keep calling the client directly — with the **live** `GetDocumentUri()`,
+      not the session's URI as this task first said. The view pairs each response against
+      `GetDocumentUriPublic()`: go-to-definition compares `loc.Uri` to it to decide same-file versus
+      cross-file, and rename looks up its `WorkspaceEdit` by it. Freezing one side of those comparisons
+      and not the other turns a same-file definition into the cross-file no-op and drops a rename edit
+      silently. The two identities can only diverge if a form is renamed with its editor open — recorded
+      on #269, which wants one fix for that whole path rather than a patch per call site
+- [x] 2.3 No behaviour change. No existing test was edited to accommodate the migration. Two test
+      changes were made, both *before* it and both to make the net real rather than to fit the change:
+      `Dispose_UnsubscribesFromDiagnosticsPublished` had **no assertion at all** — a bare `-=` on the
+      substitute with no `Received()`, so it could not fail — and `Dispose_WritesTheBufferBackBefore
+      ClosingTheDocument` is new, pinning an order nothing pinned. Both were confirmed to fail against a
+      deliberately broken version before being relied on
+- [x] 2.4 Six behaviour differences accepted deliberately, all fixes, none test-visible: a never-initialized
+      view model no longer sends a `didClose` for `vb6://form/untitled`; dispose now cancels the pending
+      debounce, so closing a tab within the debounce window no longer sends a change *after* the close;
+      `TextChanged` is now unsubscribed; a flush racing a close no-ops; and diagnostics arriving after
+      dispose no longer fire a symbol request for a closed document
 
 ## 3. The carried-file editor gains it
 
