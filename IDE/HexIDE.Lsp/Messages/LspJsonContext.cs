@@ -11,6 +11,12 @@ namespace HexIDE.Lsp;
 [JsonSerializable(typeof(DidOpenTextDocumentParams))]
 [JsonSerializable(typeof(DidChangeTextDocumentParams))]
 [JsonSerializable(typeof(DidCloseTextDocumentParams))]
+// Load-bearing, and not only under AOT: VBLspClient builds its serializer options FROM this context,
+// whose generated resolver ends in `return null` with nothing chained behind it. An unregistered type
+// therefore throws under plain JIT too — into a debug-level catch, which turns the omission into a
+// server that connects, initializes and then answers nothing. That is the exact symptom #267 exists to
+// fix, so leaving this line out would reproduce the bug while appearing to fix it.
+[JsonSerializable(typeof(DidSaveTextDocumentParams))]
 [JsonSerializable(typeof(PublishDiagnosticsParams))]
 [JsonSerializable(typeof(Diagnostic[]))]
 [JsonSerializable(typeof(TextDocumentPositionParams))]

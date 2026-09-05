@@ -50,6 +50,28 @@ public record DidChangeTextDocumentParams(
 public record DidCloseTextDocumentParams(
     [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument);
 
+/// <summary>
+/// A document was written to disk.
+///
+/// <para>
+/// The identifier is the <b>unversioned</b> one: a save changes no version, because it changes no
+/// content — it is an announcement about the text the server already has.
+/// </para>
+///
+/// <para>
+/// <b><c>text</c> must be ABSENT when the server did not ask for it, not null.</b> A server tests
+/// whether the field is present to choose between reading the file from disk and using what it was
+/// handed, so a null in place of an absent field selects the wrong branch — and silently. The ignore
+/// condition is per-property rather than a serializer-wide default deliberately: a global setting would
+/// change the wire shape of every outbound type, including a root URI that is legitimately nullable and
+/// that no test pins.
+/// </para>
+/// </summary>
+public record DidSaveTextDocumentParams(
+    [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
+    [property: JsonPropertyName("text")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Text = null);
+
 public record PublishDiagnosticsParams(
     [property: JsonPropertyName("uri")] string Uri,
     [property: JsonPropertyName("diagnostics")] Diagnostic[] Diagnostics);
@@ -64,13 +86,54 @@ public record ClientCapabilities(
 
 public record TextDocumentClientCapabilities(
     [property: JsonPropertyName("publishDiagnostics")] PublishDiagnosticsClientCapabilities? PublishDiagnostics = null,
-    [property: JsonPropertyName("hover")] HoverClientCapabilities? Hover = null);
+    [property: JsonPropertyName("hover")] HoverClientCapabilities? Hover = null,
+    [property: JsonPropertyName("synchronization")] TextDocumentSyncClientCapabilities? Synchronization = null);
+
+/// <summary>
+/// What the client can do about document synchronization.
+///
+/// <para>
+/// <b>Declaring this is half of a negotiation, and the halves must ship together.</b> A client that gates
+/// on the server's <c>save</c> without first claiming <c>didSave</c> creates a state in which both parties
+/// are correct and nothing happens: the server withholds the capability because the client never asked for
+/// it, and the client declines to send because the server did not offer. Our own server hides that — it
+/// answers the same to everyone regardless of what the client claims — so the deadlock would appear only
+/// against a server we did not write, which is exactly where it is hardest to diagnose.
+/// </para>
+///
+/// <para>
+/// <c>willSave</c> and <c>willSaveWaitUntil</c> are deliberately absent. Claiming a capability nothing
+/// implements is the same defect as failing to claim one, pointed the other way.
+/// </para>
+/// </summary>
+public record TextDocumentSyncClientCapabilities(
+    [property: JsonPropertyName("didSave")] bool DidSave = false);
 
 public record PublishDiagnosticsClientCapabilities(
     [property: JsonPropertyName("relatedInformation")] bool RelatedInformation = false);
 
 public record InitializeResult(
     [property: JsonPropertyName("capabilities")] ServerCapabilities Capabilities);
+
+/// <summary>
+/// Whether a server wants to be told about saves, and whether it wants the text.
+///
+/// <para>
+/// Three states rather than two booleans because they are not independent: there is no such thing as
+/// wanting the text but not the notification, and a pair of flags invites a caller to consult one.
+/// </para>
+/// </summary>
+public enum SaveNotification
+{
+    /// <summary>The server did not ask. Send nothing.</summary>
+    None,
+
+    /// <summary>Tell it a save happened; it will read the file itself if it wants the content.</summary>
+    WithoutText,
+
+    /// <summary>Tell it, and include what was saved.</summary>
+    WithText,
+}
 
 /// <summary>
 /// What a language server says it can do.
@@ -153,6 +216,67 @@ public record ServerCapabilities(
         && (sync.ValueKind == System.Text.Json.JsonValueKind.Number   // a bare kind implies open/close
             || !sync.TryGetProperty("openClose", out var openClose)   // absent defaults to supported
             || openClose.ValueKind != System.Text.Json.JsonValueKind.False);
+
+    /// <summary>
+    /// Whether the server wants <c>didSave</c>, and whether it wants the text with it.
+    ///
+    /// <para>
+    /// One reader with three answers rather than two predicates a caller can check one of. The same
+    /// argument as the note above: a capability read one way in one place and another way in another is
+    /// how a feature ends up half-applied, and here the halves are "send it" and "send it with the text",
+    /// which are not independent.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>A bare non-zero number counts as asking</b>, which is a deliberate divergence from a strict
+    /// reading: literally, a number carries no options object, so no <c>save</c>, so nothing should be
+    /// sent. The reference implementation resolves a non-zero kind to
+    /// <c>{openClose, change, save: {includeText: false}}</c>, and that is what server authors test
+    /// against — so the strict reading leaves a server silent for a reason its author cannot see.
+    /// <see cref="AcceptsOpenClose"/> immediately above already takes the same ecosystem reading of the
+    /// same number form; taking the strict one here and the loose one there is the combination with no
+    /// defence.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>The object form is default-DENY, which is the opposite polarity to both its neighbours</b> — an
+    /// object with no <c>openClose</c> still gets opens, and one with no <c>change</c> still gets changes,
+    /// but one with no <c>save</c> gets no saves. That is deliberate rather than an oversight: open and
+    /// change describe a default the server may narrow, while <c>save</c> is an opt-in it has to state.
+    /// Please do not harmonise the three.
+    /// </para>
+    /// </summary>
+    public static SaveNotification ReadSave(System.Text.Json.JsonElement? capabilities)
+    {
+        if (ReadSync(capabilities) is not { } sync) return SaveNotification.None;
+
+        switch (sync.ValueKind)
+        {
+            // Kind 0 is "send me nothing", and a save is something.
+            case System.Text.Json.JsonValueKind.Number:
+                return sync.TryGetInt32(out var kind) && kind != 0
+                    ? SaveNotification.WithoutText
+                    : SaveNotification.None;
+
+            case System.Text.Json.JsonValueKind.Object:
+                if (!sync.TryGetProperty("save", out var save)) return SaveNotification.None;
+                return save.ValueKind switch
+                {
+                    System.Text.Json.JsonValueKind.True => SaveNotification.WithoutText,
+                    // An options object means yes, and then says how — the same rule as IsEnabled, except
+                    // that here "how" is a question we actually have to answer.
+                    System.Text.Json.JsonValueKind.Object =>
+                        save.TryGetProperty("includeText", out var includeText)
+                        && includeText.ValueKind == System.Text.Json.JsonValueKind.True
+                            ? SaveNotification.WithText
+                            : SaveNotification.WithoutText,
+                    _ => SaveNotification.None,
+                };
+
+            default:
+                return SaveNotification.None;
+        }
+    }
 
     /// <summary>True when the server wants <c>didChange</c>. Sync kind 0 means "send me nothing".</summary>
     public static bool AcceptsChanges(System.Text.Json.JsonElement? capabilities) =>

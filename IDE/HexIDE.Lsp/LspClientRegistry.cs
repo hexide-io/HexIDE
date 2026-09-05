@@ -130,6 +130,13 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public Task CloseDocumentAsync(string uri, CancellationToken cancellationToken = default) =>
         Task.WhenAll(StartedClaimantsFor(uri).Select(c => c.CloseDocumentAsync(uri, cancellationToken)));
 
+    public Task SaveDocumentAsync(string uri, CancellationToken cancellationToken = default) =>
+        // No start here either, for the same reason as a change: saving a document nothing has opened is
+        // not a reason to launch a server. Each claimant decides for itself whether it was asked for
+        // saves, so of two servers holding one document only the one that asked hears about it — which is
+        // why the gate belongs on the connection and not here.
+        Task.WhenAll(StartedClaimantsFor(uri).Select(c => c.SaveDocumentAsync(uri, cancellationToken)));
+
     // ── Merged features ─────────────────────────────────────────────────────────────────────────────
     public Task<DocumentSymbol[]> RequestDocumentSymbolsAsync(string uri, CancellationToken ct = default) =>
         GatherAsync(uri, c => c.RequestDocumentSymbolsAsync(uri, ct));

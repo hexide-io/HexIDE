@@ -84,6 +84,24 @@ Expect the run to be slower than Windows (the `/mnt/c` 9p mount), and identical 
 this writing. To confirm the setup still has teeth, run a `git worktree` at a commit predating a known
 cross-platform fix and check it fails there.
 
+**Distrust a suspiciously fast test run, on either platform.** A run that skips the build — roughly
+5-18s where a real one takes 28-37s — has several times reported a large batch of failures (282 of ~940)
+with **no error message against any of them**, and passed on the very next attempt. It was first seen
+under WSL and assumed to be a 9p artifact; it then reproduced on **Windows**, so that framing was wrong.
+
+What correlates, across every occurrence: the run followed a build or execution of another configuration
+of the same projects — a Windows `dotnet test` before a WSL one, or a `HexIDE.Desktop` build and launch
+before a test run. The likeliest mechanism is that MSBuild's up-to-date check is satisfied for the test
+project while a project it references has been rebuilt underneath it, so the test host loads a mismatched
+assembly set. Two things are ruled out: `--artifacts-path` does correctly separate `obj/` as well as
+`bin/`, and it is not specific to the 9p mount. This is still a hypothesis; it has not been proven by
+forcing the race, and is recorded as an observation rather than tidied into a rule.
+
+What to do: **check the duration before believing a red**. If a run reports failures without rebuilding,
+run it again; if the second run rebuilds and passes, the first was noise. A genuine failure reproduces and
+names the tests it broke. Shutting down a running `HexIDE.Desktop` before a test run also appears to help,
+and is worth doing anyway to avoid file locks.
+
 ## MCP Dev Loop
 
 ## Visual Verification — MANDATORY
@@ -393,8 +411,8 @@ When a new `HexIDE.*` namespace becomes widely used in a project, add it to that
 
 1. **Server handler** in `LspServer/HexIDE.VbLspServer/LspServer.cs` — add `case "textDocument/yourMethod":` and `HandleYourMethod(idNode, paramsNode)`.
 2. **Server capability** in `BuildInitializeResult()` in the same file.
-3. **Message types** in `IDE/HexIDE.Lsp/Messages/LspMessages.cs` — `record` types with `[JsonPropertyName]` on every property.
-4. **AOT registration** in `IDE/HexIDE.Lsp/Messages/LspJsonContext.cs` — `[JsonSerializable(typeof(YourResponseType))]`. Forgetting this causes silent failures under AOT.
+3. **Message types** in `IDE/HexIDE.Core/Lsp/Messages/LspMessages.cs` — `record` types with `[JsonPropertyName]` on every property. (`HexIDE.Lsp/Messages/` holds only the serializer context; the records are in Core.)
+4. **Serializer registration** in `IDE/HexIDE.Lsp/Messages/LspJsonContext.cs` — `[JsonSerializable(typeof(YourResponseType))]`. **Not optional, and not only an AOT concern** — `VBLspClient` builds its `JsonSerializerOptions` *from* this context, whose generated resolver ends in `return null` with nothing chained behind it, so an unregistered type throws under plain JIT too. The throw lands in a debug-level catch, which turns the omission into a server that connects, initializes and then answers nothing — indistinguishable from a broken server, and it has cost real time twice.
 5. **Client** in `IDE/HexIDE.Lsp/ILspClient.cs` + `VBLspClient.cs` — add interface method, implement with `_rpc.InvokeWithParameterObjectAsync<T>(...)`.
 
 ### Adding a new VB6 control

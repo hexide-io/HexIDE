@@ -86,8 +86,14 @@ public class ServerCapabilityHandshakeTests : IAsyncDisposable
     [Fact]
     public async Task AServerAdvertisingNothingStillInitializes()
     {
-        // Our own server does exactly this today. Gating is a later change and is blocked on fixing it;
-        // until then an empty payload must remain harmless.
+        // Both halves of what this comment used to say are now false, which is why it has been rewritten
+        // rather than left: our own server advertises honestly, and gating is implemented and in use — for
+        // open/close, for every request-based feature, and for saves.
+        //
+        // The test is worth MORE than it was, not less. An empty payload is still legal, a foreign server
+        // may still send one, and every gate now reads that payload — so "advertises nothing" has gone
+        // from a state we tolerated to a state we act on, and it must still initialize rather than being
+        // treated as a failed handshake.
         var sut = ClientTalkingToServerAdvertising("{}");
 
         await sut.StartAsync();

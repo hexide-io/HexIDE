@@ -426,6 +426,71 @@ public class CodeEditorViewModelTests : IDisposable
             "the buffer must reach the definition before the language layer is told the document is gone");
     }
 
+    // ── Announcing a save to the language layer ──────────────────────────────
+
+    [Fact]
+    public async Task ASavedModuleIsAnnouncedToItsServers()
+    {
+        Action<DocumentSavedEvent>? saved = null;
+        _eventBus.Subscribe(Arg.Do<Action<DocumentSavedEvent>>(h => saved = h))
+            .Returns(Substitute.For<IDisposable>());
+        var module = TestHelpers.CreateModule(name: "Module1");
+        var vm = CreateSut().Initialize(module);
+        _lspClient.ClearReceivedCalls();
+
+        saved!(new DocumentSavedEvent(null, module));
+
+        await _lspClient.Received(1).SaveDocumentAsync("vb6://module/Module1", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ASaveOfSomeOtherDocumentIsIgnored()
+    {
+        // Every editor hears every save. Without the match, saving one module would announce a save of
+        // every open document to every server holding one.
+        Action<DocumentSavedEvent>? saved = null;
+        _eventBus.Subscribe(Arg.Do<Action<DocumentSavedEvent>>(h => saved = h))
+            .Returns(Substitute.For<IDisposable>());
+        var vm = CreateSut().Initialize(TestHelpers.CreateModule(name: "Module1"));
+        _lspClient.ClearReceivedCalls();
+
+        saved!(new DocumentSavedEvent(null, TestHelpers.CreateModule(name: "SomethingElse")));
+
+        await _lspClient.DidNotReceive().SaveDocumentAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task AUserControlIsAnnouncedOnceUnderItsModuleUri()
+    {
+        // A UserControl or PropertyPage is ONE file with two halves, and Initialize(ModuleDefinition) sets
+        // both definition fields for that reason (#152), so the event names both. It is announced once,
+        // under the module's URI — the same precedence GetDocumentUri applies.
+        //
+        // Worth saying what this does NOT prove, since an earlier version of this test claimed it did: it
+        // is not a de-duplication test. One save publishes one event and this handler runs once, so
+        // matching either half or preferring the module give the same answer. Mutation testing found the
+        // difference unobservable, which is why the handler no longer pretends to guard against it.
+        Action<DocumentSavedEvent>? saved = null;
+        _eventBus.Subscribe(Arg.Do<Action<DocumentSavedEvent>>(h => saved = h))
+            .Returns(Substitute.For<IDisposable>());
+
+        var project = TestHelpers.CreateProject("P");
+        var control = new ModuleDefinition(project, "UserControl1", ModuleKind.UserControl);
+        var designerHalf = new HexIDE.Runtime.ProjectElements.FormDefinition(
+            project,
+            [new HexIDE.Runtime.Components.ComponentInstance(
+                HexIDE.Runtime.Components.FormComponentClass.Instance, "UserControl1")],
+            "");
+        control.UpdateFormPart(designerHalf);
+        CreateSut().Initialize(control);
+        _lspClient.ClearReceivedCalls();
+
+        saved!(new DocumentSavedEvent(designerHalf, control));
+
+        await _lspClient.Received(1).SaveDocumentAsync(
+            "vb6://module/UserControl1", Arg.Any<CancellationToken>());
+    }
+
     [Fact]
     public void Dispose_UpdatesModuleCodeFromDocument()
     {

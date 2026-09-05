@@ -158,6 +158,63 @@ public class CarriedFileDiagnosticsIntegrationTests : IDisposable
         vm.Markers.Should().ContainSingle().Which.Message.Should().Be("spelling");
     }
 
+    // ── Announcing a save ─────────────────────────────────────────────────────────────────────────────
+
+    [AvaloniaFact]
+    public async Task SavingACarriedFileAnnouncesItToItsServers()
+    {
+        // Here rather than in the view-model tests because the announcement follows an asynchronous file
+        // write: the continuation lands on the UI thread in the running IDE, via Avalonia's
+        // synchronization context, and on an arbitrary pool thread without one. Reading the editor buffer
+        // from there throws, which is a fact about the test host and not about the code. Under
+        // [AvaloniaFact] there is a real context, so this exercises the production arrangement.
+        var vm = OpenCarried("README.md", "# hello");
+        Show(vm);
+        vm.Document.Text = "# edited";
+
+        await vm.SaveAsync();
+
+        await _lspClient.Received(1).SaveDocumentAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [AvaloniaFact]
+    public async Task TheAnnouncementFollowsTheBytesRatherThanPrecedingThem()
+    {
+        // A server told of a save either re-reads the file or uses the text it is handed, and both have to
+        // find what was written. Announcing first would race the write on the one and contradict it on the
+        // other.
+        var path = Path.Combine(_dir, "README.md");
+        File.WriteAllText(path, "# hello");
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var vm = new RelatedDocumentEditorViewModel(_lspClient)
+            .Initialize(new RelatedDocumentDefinition(project, "README.md", path));
+        Show(vm);
+        vm.Document.Text = "# edited";
+
+        string? onDiskWhenAnnounced = null;
+        _lspClient.When(c => c.SaveDocumentAsync(Arg.Any<string>(), Arg.Any<CancellationToken>()))
+            .Do(_ => onDiskWhenAnnounced = File.ReadAllText(path));
+
+        await vm.SaveAsync();
+
+        onDiskWhenAnnounced.Should().Be("# edited");
+    }
+
+    [AvaloniaFact]
+    public async Task ADocumentNeverOfferedToTheLanguageLayerAnnouncesNothingWhenSaved()
+    {
+        // Still a working text editor; it simply has no session to announce through.
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var vm = new RelatedDocumentEditorViewModel(_lspClient)
+            .Initialize(new RelatedDocumentDefinition(project, "gone.md", Path.Combine(_dir, "gone.md")));
+        Show(vm);
+
+        var save = async () => await vm.SaveAsync();
+
+        await save.Should().NotThrowAsync();
+        await _lspClient.DidNotReceive().SaveDocumentAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
     // ── Attaching and detaching ───────────────────────────────────────────────────────────────────────
 
     [AvaloniaFact]
