@@ -58,7 +58,8 @@ public sealed class LanguageServerConfigLoader
     /// effective configuration something the user cannot read off their own file.
     /// </para>
     /// </summary>
-    public LanguageServerConfigResult Load(IReadOnlyList<LanguageServerEntry> defaults)
+    public LanguageServerConfigResult Load(
+        IReadOnlyList<LanguageServerEntry> defaults, LanguageServerCommandStore? seen = null)
     {
         var problems = new List<LanguageServerConfigProblem>();
         var user = ReadUserEntries(problems);
@@ -77,7 +78,86 @@ public sealed class LanguageServerConfigLoader
             byId[id] = entry;
         }
 
-        return new LanguageServerConfigResult(order.Select(id => byId[id]).ToList(), problems);
+        var entries = order.Select(id => byId[id]).ToList();
+        AnnounceUnseenCommands(entries, seen, problems);   // instance: it logs
+        return new LanguageServerConfigResult(entries, problems);
+    }
+
+    /// <summary>
+    /// Reports any entry naming a command the IDE has not launched before, and records it as seen.
+    ///
+    /// <para>
+    /// The entry is <b>not</b> rejected. The overwhelmingly common case is a user who just wrote it, and
+    /// refusing to run what someone typed into their own file would be theatre. What this prevents is the
+    /// launch being <em>silent</em>: <c>lsp-servers.json</c> is an ordinary file any process running as the
+    /// user may write, and an entry naming an executable is launched on every start thereafter.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Recorded as seen at the same moment it is announced</b>, so a command is reported once rather than
+    /// on every start. That is only sound because announcing costs a notice: were this a gate, recording
+    /// before the user had actually answered would defeat it.
+    /// </para>
+    ///
+    /// <para>
+    /// A disabled entry is skipped — nothing will be launched, so there is nothing to announce, and warning
+    /// about a command that will not run trains people to ignore the warning.
+    /// </para>
+    /// </summary>
+    private void AnnounceUnseenCommands(
+        IReadOnlyList<LanguageServerEntry> entries,
+        LanguageServerCommandStore? seen,
+        List<LanguageServerConfigProblem> problems)
+    {
+        if (seen is null) return;
+
+        foreach (var entry in entries)
+        {
+            if (entry.Enabled == false || entry.Id is not { } id) continue;
+            if (LaunchedCommandOf(entry) is not { } command) continue;
+
+            if (!seen.IsNewOrChanged(id, command)) continue;
+
+            problems.Add(new LanguageServerConfigProblem(
+                id,
+                $"'{id}' will run a command HexIDE has not run before: {command}",
+                false,
+                LanguageServerConfigProblemKind.UnseenCommand));
+
+            // Warning, not debug, and deliberately not only carried in the problem list. Until something
+            // renders these (#259), the log is the ONLY place this reaches a person — and a notice nobody
+            // can see is the failure this requirement exists to prevent.
+            _logger.LogWarning(
+                "Language server '{Id}' will run a command HexIDE has not run before: {Command}", id, command);
+
+            seen.Record(id, command);
+        }
+    }
+
+    /// <summary>
+    /// What this entry will actually launch, or null when it launches nothing.
+    ///
+    /// <para>
+    /// Only the stdio transport starts a process. A WebSocket endpoint or a pipe HexIDE merely connects to
+    /// is someone else's decision to have run something, and announcing it would be reporting a fact about
+    /// a program the IDE did not start.
+    /// </para>
+    ///
+    /// <para>
+    /// Arguments are part of the identity. <c>node</c> is harmless; <c>node /tmp/x.js</c> is whatever
+    /// <c>x.js</c> says, so changing the arguments changes what runs just as surely as changing the
+    /// executable.
+    /// </para>
+    /// </summary>
+    private static string? LaunchedCommandOf(LanguageServerEntry entry)
+    {
+        if (!string.Equals(entry.Transport?.Trim(), "stdio", StringComparison.OrdinalIgnoreCase))
+            return null;
+        if (string.IsNullOrWhiteSpace(entry.Command)) return null;
+
+        return string.IsNullOrWhiteSpace(entry.Arguments)
+            ? entry.Command.Trim()
+            : $"{entry.Command.Trim()} {entry.Arguments.Trim()}";
     }
 
     private IReadOnlyList<LanguageServerEntry> ReadUserEntries(List<LanguageServerConfigProblem> problems)
@@ -162,7 +242,8 @@ public sealed class LanguageServerConfigLoader
                 $"Unrecognised {(entry.Unrecognized.Count == 1 ? "field" : "fields")}: "
               + $"{string.Join(", ", entry.Unrecognized.Keys.Order(StringComparer.Ordinal))}. "
               + "Ignored — check the spelling.",
-                false));
+                false,
+                LanguageServerConfigProblemKind.UnrecognisedField));
 
         if (entry.Enabled == false)
             return true;

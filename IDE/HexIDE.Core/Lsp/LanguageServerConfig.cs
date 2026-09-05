@@ -125,7 +125,32 @@ public sealed class LanguageServerEntry
 /// True when the entry cannot be used at all. False for a problem worth reporting that still leaves a
 /// usable entry — an unrecognised field being the case that matters.
 /// </param>
-public sealed record LanguageServerConfigProblem(string? EntryId, string Message, bool EntryRejected);
+/// <param name="Kind">
+/// What sort of problem it is. Present because these do not deserve equal presentation: a misspelled field
+/// is a nuisance, and "this entry will launch a program you have not seen before" is not. Retrofitting the
+/// distinction once something renders these would mean guessing it back out of the message text.
+/// </param>
+public sealed record LanguageServerConfigProblem(
+    string? EntryId,
+    string Message,
+    bool EntryRejected,
+    LanguageServerConfigProblemKind Kind = LanguageServerConfigProblemKind.Configuration);
+
+public enum LanguageServerConfigProblemKind
+{
+    /// <summary>The file or an entry is malformed — a missing field, an unknown transport, bad JSON.</summary>
+    Configuration,
+
+    /// <summary>A field the IDE did not recognise. Usually a typo; the entry is otherwise usable.</summary>
+    UnrecognisedField,
+
+    /// <summary>
+    /// This entry names a command the IDE has not launched before, or has changed since it last did.
+    /// Not an error — the ordinary case is a user who just wrote it — but the one problem here that is
+    /// about trust rather than syntax.
+    /// </summary>
+    UnseenCommand,
+}
 
 // Names are pinned per property rather than left to the naming policy. This is a file people have
 // written and keep; a C# rename must not quietly change what their file has to say.

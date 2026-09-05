@@ -55,9 +55,14 @@
 
 ## 5. Not silent on first sight
 
-- [ ] 5.1 Record the command last seen for each entry
-- [ ] 5.2 Surface a command not previously seen for that entry before starting it
-- [ ] 5.3 No signing, no consent store, no revocation — see the proposal for why those are disproportionate
+- [x] 5.1 Record the command last seen for each entry
+- [x] 5.2 Surface a command not previously seen for that entry before starting it — **announced, not
+      gated, and the difference matters.** The entry is reported and still runs. Refusing to run what
+      someone typed into their own file would be theatre, and a gate needs somewhere to acknowledge it,
+      which is UI that #255 deliberately does not ship (Q9). Today the notice reaches a person only through
+      the log; the problem is carried on the result for #259 to render. **#255 is not complete on the trust
+      requirement until #259 lands** — recorded here rather than left to be discovered from a green tick
+- [x] 5.3 No signing, no consent store, no revocation — see the proposal for why those are disproportionate
 
 ## 6. Tests
 
