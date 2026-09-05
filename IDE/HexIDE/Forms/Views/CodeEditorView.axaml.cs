@@ -177,6 +177,13 @@ public partial class CodeEditorView : UserControl
             TextEditor.TextArea.TextView.LineTransformers.Add(_colorizer);
             vm.MarkersChanged += OnMarkersChanged;
 
+            // Caught up rather than waiting for the next publication. A dock move detaches this view and
+            // re-materialises it around fresh renderers holding nothing, and neither the language server
+            // nor the VB6 toolchain has any reason to publish again for a document that has not changed —
+            // so without this the squiggles vanish on a dock move and stay gone until the next edit or
+            // rebuild. (#270)
+            OnMarkersChanged(vm.Markers);
+
             // Document highlights (background renderer, behind squiggles)
             _highlightRenderer = new DocumentHighlightRenderer(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Insert(0, _highlightRenderer);
