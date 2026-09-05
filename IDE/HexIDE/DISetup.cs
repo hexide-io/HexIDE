@@ -74,33 +74,44 @@ public partial class DISetup
             {
                 ctx.Inject<ILspServerLocator>(out var locator);
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
-                ctx.Inject<ISettingsService>(out var settings);
                 ctx.Inject<ILspWorkspace>(out var workspace);
 
-                // A FACTORY, not one transport. Whether this server can be reached at all decides whether
-                // it is registered, so that much is resolved now — but a transport is single-use, and a
-                // client is rebuilt whenever the workspace moves, so each start needs its own.
-                var transport = CreateBundledTransportFactory(locator, loggerFactory, settings, workspace);
+                // The whole of #255 meets here. Defaults are contributed in code, the user's file is
+                // layered over them by id, and the result becomes registrations — so the bundled server is
+                // an ordinary row a user can replace or switch off, not a special case beside the file.
+                //
+                // Read once, here. Changes take effect on restart, so resolving later would only make
+                // "when did this take effect" ambiguous.
+                var log = loggerFactory.CreateLogger<DISetup>();
+                var defaults = LanguageServerDefaults.For(locator, log);
+                var configuration = new LanguageServerConfigLoader(
+                        loggerFactory.CreateLogger<LanguageServerConfigLoader>())
+                    .Load(defaults, new LanguageServerCommandStore());
 
-                // Still the only registration HexIDE ships with. Making this list configuration — so a user
-                // can attach a server, and so this row stops being a special case — is
-                // hexide-io/HexIDE#255, whose first step is the explicit-command transport above.
-                var registrations = new List<LanguageServerRegistration>();
-                if (transport is not null)
-                    registrations.Add(new LanguageServerRegistration(
-                        Id: "hexide.vb6",
-                        DisplayName: "HexIDE VB6 Language Server",
-                        Extensions: DocumentLanguage.Vb6Extensions,
-                        LanguageId: DocumentLanguage.Vb6,
-                        CreateClient: () => new VBLspClient(
-                            transport(), loggerFactory.CreateLogger<VBLspClient>(), DocumentLanguage.Vb6,
-                            workspace),
-                        // Below the value an entry takes when it states none, so a user attaching their own
-                        // VB6 server wins formatting and rename without discovering the field exists.
-                        Priority: LanguageServerRegistration.BundledPriority));
+                foreach (var problem in configuration.Problems)
+                    log.LogWarning("Language server configuration: {Message}", problem.Message);
+
+                var registrations = new LanguageServerRegistrationFactory(loggerFactory, workspace)
+                    .Create(configuration.Entries);
+
+                // Distinguishable from "servers fine, nothing to say" — the confusion #231 documents, and
+                // which a user has no way to tell apart from inside the editor.
+                var problems = configuration.Problems;
+                if (registrations.Count == 0)
+                {
+                    log.LogWarning("No language servers are configured; language features are unavailable.");
+                    problems =
+                    [
+                        .. problems,
+                        new LanguageServerConfigProblem(
+                            null,
+                            "No language servers are configured, so language features are unavailable.",
+                            false),
+                    ];
+                }
 
                 return new LspClientRegistry(
-                    registrations, loggerFactory.CreateLogger<LspClientRegistry>(), workspace);
+                    registrations, loggerFactory.CreateLogger<LspClientRegistry>(), workspace, problems);
             })
             .Bind<ILoggerFactory>().As(Singleton).To(_ => LoggingSetup.LoggerFactory)
             .Bind<ILogger<TT>>().As(Singleton).To<Logger<TT>>()
@@ -154,76 +165,6 @@ public partial class DISetup
             .Root<TranslationEditorViewModel>("TranslationEditorViewModel")
             .Root<IPersonalityService>("PersonalityService")
             .Root<AddinProjectTemplateService>("AddinProjectTemplateService");
-
-    /// <summary>
-    /// Builds the transport for the bundled VB6 server, in precedence order:
-    /// <list type="number">
-    ///   <item>WebSocket, if <c>HEXIDE_LSP_WS_URL</c> (env, wins) or the <c>LspWebSocketUrl</c> setting is set</item>
-    ///   <item>Named pipe, if <c>HEXIDE_LSP_PIPE</c> is set (<c>HEXIDE_LSP_PIPE_ROLE</c> = listen|connect,
-    ///         default connect — a server already running that owns the pipe)</item>
-    ///   <item>The stdio subprocess transport</item>
-    /// </list>
-    ///
-    /// <para>
-    /// This is a factory rather than a registered service because transport is a property of a <em>server</em>,
-    /// not of the IDE: one server may speak stdio while another accepts only a named pipe, and a single
-    /// global choice cannot describe both. These environment variables therefore configure the bundled
-    /// server specifically, and are not a setting for "the" transport.
-    /// </para>
-    ///
-    /// <para>
-    /// The pipe option stays env-only and deliberately has no Options field: pointing HexIDE at a foreign
-    /// server is a development activity today, and a UI field would mean a new localized label in every
-    /// shipped language pack for a backend nobody can yet select.
-    /// </para>
-    /// </summary>
-    ///
-    /// <para>
-    /// Returns null when the bundled server cannot be located at all. The caller then contributes no
-    /// registration for it, rather than one whose transport is known in advance to fail — a server that is
-    /// not there should not appear as attached-but-broken, and a registration that can never connect is a
-    /// row in a list that lies.
-    /// </para>
-    private static Func<ILspTransport>? CreateBundledTransportFactory(
-        ILspServerLocator locator, ILoggerFactory loggerFactory, ISettingsService settings,
-        ILspWorkspace workspace)
-    {
-        var wsUrl = Environment.GetEnvironmentVariable("HEXIDE_LSP_WS_URL");
-        if (string.IsNullOrWhiteSpace(wsUrl)) wsUrl = settings.LspWebSocketUrl;
-        if (!string.IsNullOrWhiteSpace(wsUrl))
-            return () => new WebSocketLspTransport(wsUrl, loggerFactory.CreateLogger<WebSocketLspTransport>());
-
-        var pipeName = Environment.GetEnvironmentVariable("HEXIDE_LSP_PIPE");
-        if (!string.IsNullOrWhiteSpace(pipeName))
-        {
-            var role = string.Equals(
-                Environment.GetEnvironmentVariable("HEXIDE_LSP_PIPE_ROLE"), "listen",
-                StringComparison.OrdinalIgnoreCase)
-                ? NamedPipeRole.Listen
-                : NamedPipeRole.Connect;
-            return () => new NamedPipeLspTransport(
-                pipeName, role, loggerFactory.CreateLogger<NamedPipeLspTransport>());
-        }
-
-        // The locator's job, now that the transport takes an explicit command: work out where the bundled
-        // server actually is. It walks up from the base directory because that path differs between a dev
-        // build and a publish, which is a real problem that does not go away just because the transport
-        // stopped asking the question itself.
-        var serverInfo = locator.FindLspServer();
-        if (serverInfo is null)
-        {
-            loggerFactory.CreateLogger<DISetup>()
-                .LogWarning("Bundled VB6 language server not found — it contributes no registration.");
-            return null;
-        }
-
-        // No explicit working directory on the bundled entry, so it runs in whatever project is open when
-        // it first starts.
-        return () => new StdioProcessLspTransport(
-            serverInfo with { WorkingDirectory = "" },
-            loggerFactory.CreateLogger<StdioProcessLspTransport>(),
-            workspace);
-    }
 
     public static MainViewViewModel DesignTimeRootViewModel => new DISetup().Root;
 }

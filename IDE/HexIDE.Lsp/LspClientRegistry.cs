@@ -39,10 +39,12 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     public LspClientRegistry(
         IEnumerable<LanguageServerRegistration> registrations, ILogger<LspClientRegistry> logger,
-        ILspWorkspace? workspace = null)
+        ILspWorkspace? workspace = null,
+        IReadOnlyList<LanguageServerConfigProblem>? configurationProblems = null)
     {
         _logger = logger;
         _workspace = workspace;
+        ConfigurationProblems = configurationProblems ?? [];
         // Ordered once. OrderByDescending is stable, so equal priorities keep registration order — which is
         // the documented fallback rather than an accident of how the sort happened to behave.
         _entries = registrations
@@ -68,6 +70,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// particular server advertised should read <see cref="Connections"/>, where the answer is attributed.
     /// </summary>
     public JsonElement? AdvertisedCapabilities => null;
+
+    public IReadOnlyList<LanguageServerConfigProblem> ConfigurationProblems { get; }
 
     public IReadOnlyList<LanguageServerConnection> Connections =>
         _entries.Select(e => new LanguageServerConnection(

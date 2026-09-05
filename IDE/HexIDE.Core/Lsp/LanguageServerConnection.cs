@@ -82,6 +82,22 @@ public interface ILanguageConnectionRegistry
     /// <summary>Every registered connection, including those deliberately not started.</summary>
     IReadOnlyList<LanguageServerConnection> Connections { get; }
 
+    /// <summary>
+    /// Everything wrong with the configuration these connections came from — a rejected entry, a
+    /// misspelled field, a command being run for the first time.
+    ///
+    /// <para>
+    /// Here rather than only in a log because a rejected entry is precisely something that is <b>not</b>
+    /// attached, and the reason why. Without it, an entry that failed to parse and an entry that was never
+    /// written are the same observable state: nothing in the list, and no explanation.
+    /// </para>
+    ///
+    /// <para>
+    /// Empty is the normal case.
+    /// </para>
+    /// </summary>
+    IReadOnlyList<LanguageServerConfigProblem> ConfigurationProblems { get; }
+
     /// <summary>Raised when any connection's state or advertised capabilities change.</summary>
     event EventHandler? ConnectionsChanged;
 }

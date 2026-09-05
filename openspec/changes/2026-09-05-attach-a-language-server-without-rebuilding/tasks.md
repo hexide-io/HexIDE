@@ -64,34 +64,75 @@
       requirement until #259 lands** — recorded here rather than left to be discovered from a green tick
 - [x] 5.3 No signing, no consent store, no revocation — see the proposal for why those are disproportionate
 
-## 6. Tests
+## 6. Wire it up — the step the plan was missing
 
-- [ ] 6.1 Defaults alone, no user file — language features work exactly as shipped
-- [ ] 6.2 A user entry overrides the bundled server by id
-- [ ] 6.3 An entry marked not enabled creates no client
-- [ ] 6.4 Two entries claiming one extension under different identifiers: both receive the document, each
+Sections 1-5 built the record, the loader, routing, ordering and the trust store, and connected none of
+them: `DISetup` still hand-builds the bundled registration, and dropping a `lsp-servers.json` on disk does
+nothing at all. Sections 7 and 8 below both silently assumed this existed — 7.2 cannot be written without
+it. Recorded as its own section rather than smuggled into "tests", because that is how a step nobody owns
+ends up half-done.
+
+- [x] 6.1 A factory turning entries into registrations, with the transport each one names. Its own class in
+      `HexIDE.Lsp`, not inline in `DISetup` — it needs tests, and a wiring table is a poor place for logic
+- [x] 6.2 The bundled VB6 server becomes a default ENTRY rather than a hand-built registration. Its command
+      comes from the locator, and an entry whose command cannot be resolved is not contributed
+- [x] 6.3 `DISetup` builds defaults, loads the user file over them, and hands the result to the factory
+- [x] 6.4 Read once, at DI construction. Changes take effect on restart (section 5), so resolving later
+      buys nothing and makes "when did this take effect" ambiguous
+- [x] 6.5 Problems reach `ILanguageConnectionRegistry` alongside `Connections` — that interface is already
+      "what is attached and is it working", and a rejected entry is precisely something that is not
+      attached and the reason why. Logged at warning too, since that is the only channel a person has until
+      #259
+- [x] 6.6 A configuration leaving zero usable servers starts normally with language features absent, and
+      says so as a problem. "Zero servers" and "servers fine, nothing to say" are otherwise
+      indistinguishable — the confusion #231 documents
+- [x] 6.7 **Remove the env-var transport selection** (`HEXIDE_LSP_WS_URL`, `HEXIDE_LSP_PIPE`,
+      `HEXIDE_LSP_PIPE_ROLE`). They are a second mechanism doing the config file's job, and the method that
+      reads them is the one being replaced. Decided deliberately over keeping them: approximately nobody
+      is using this project yet, so there is no compatibility to protect, and carrying two answers forever
+      to spare users who do not exist is the worse trade. `VB6_LSP_DEBUG_PROXY` stays — it wraps whatever
+      command is chosen rather than choosing one
+
+## 7. Delete what the config file supersedes
+
+Separable from 6, and only safe once 6 works. Kept apart because this is the part that touches shipped
+language packs.
+
+- [ ] 7.1 Remove the `LspWebSocketUrl` setting, its Options page and view, its `ViewLocator` registration
+      and its node in the options tree
+- [ ] 7.2 Remove its localized key from the canonical pack and every shipped pack — an unused canonical key
+      fails the build, so this is not optional
+- [ ] 7.3 Remove the tests that covered it
+
+## 8. Tests
+
+- [ ] 8.1 Defaults alone, no user file — language features work exactly as shipped
+- [ ] 8.2 A user entry overrides the bundled server by id
+- [ ] 8.3 An entry marked not enabled creates no client
+- [ ] 8.4 Two entries claiming one extension under different identifiers: both receive the document, each
       told its own identifier
-- [ ] 6.5 A malformed entry beside a good one: the good one still applies
-- [ ] 6.6 A missing required field rejects that entry; an unrecognised field keeps it and reports
-- [ ] 6.7 A user entry outranks a default for a pick-one feature
-- [ ] 6.8 Deleting the user file restores defaults
-- [ ] 6.9 **Each of the above verified to fail without its fix**, not merely to pass with it — the
+- [ ] 8.5 A malformed entry beside a good one: the good one still applies
+- [ ] 8.6 A missing required field rejects that entry; an unrecognised field keeps it and reports
+- [ ] 8.7 A user entry outranks a default for a pick-one feature
+- [ ] 8.8 Deleting the user file restores defaults
+- [ ] 8.9 **Each of the above verified to fail without its fix**, not merely to pass with it — the
       foreign-server work found three defects that every green test had missed
 
-## 7. Verification
+## 9. Verification
 
-- [ ] 7.1 Suites green on Windows and under WSL — this touches path handling and file discovery, which is
+- [ ] 9.1 Suites green on Windows and under WSL — this touches path handling and file discovery, which is
       the bug class only the Linux job catches
-- [ ] 7.2 Driven against a real foreign server attached **through the configuration file**, not through a
-      test-constructed registration. This is the point of the change: the shipping path is the one that has
-      never been exercised
-- [ ] 7.3 Confirm the bundled server still works when the user file is absent, present-but-empty, and
+- [x] 9.2 Driven against a real foreign server attached **through the configuration file**, not through a
+      test-constructed registration. Done: rumdl 0.2.64, named only in a `lsp-servers.json` on disk,
+      produces real diagnostics for a real document. Skips under WSL — the binary is a Windows executable —
+      so this is a Windows-only proof today
+- [x] 9.3 Confirm the bundled server still works when the user file is absent, present-but-empty, and
       malformed
 
-## 8. Deliberately not here
+## 10. Deliberately not here
 
-- [ ] 8.1 Project-level configuration — needs its own consent design (see the proposal)
-- [ ] 8.2 Any UI, including surfacing failures and attached servers (#259) — that is where the
+- [ ] 10.1 Project-level configuration — needs its own consent design (see the proposal)
+- [ ] 10.2 Any UI, including surfacing failures and attached servers (#259) — that is where the
       localization budget should be spent, once, on the whole surface
-- [ ] 8.3 Discovering servers already installed on the machine
-- [ ] 8.4 An initialize timeout (#231) — independent, and made far more reachable by this change
+- [ ] 10.3 Discovering servers already installed on the machine
+- [ ] 10.4 An initialize timeout (#231) — independent, and made far more reachable by this change

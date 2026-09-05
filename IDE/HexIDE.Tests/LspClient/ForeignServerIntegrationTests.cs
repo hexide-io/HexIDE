@@ -128,6 +128,60 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
             "an unadvertised feature degrades to empty, exactly as an absent server does");
     }
 
+    [ForeignServerFact]
+    public async Task AServerAttachedOnlyByAConfigurationFileAnswersForReal()
+    {
+        // THE proof of #255, and the one path nothing had ever exercised. Every other foreign-server test
+        // constructs its registration in test code — which is the test asserting that a shape HexIDE can
+        // build works, not that the shape a USER can produce does. Here the only input is a file on disk.
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-cfg-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            var configPath = Path.Combine(directory, "lsp-servers.json");
+            File.WriteAllText(configPath, $$"""
+                // Attaching a server HexIDE has never heard of, with no rebuild.
+                {
+                  "version": 1,
+                  "servers": [
+                    {
+                      "id": "rumdl",
+                      "displayName": "rumdl",
+                      "extensions": [".md", ".markdown"],
+                      "languageId": "{{ForeignServer.LanguageId}}",
+                      "transport": "stdio",
+                      "command": {{System.Text.Json.JsonSerializer.Serialize(ForeignServer.Find()!)}},
+                      "arguments": "{{ForeignServer.ServerArguments}}"
+                    },
+                  ]
+                }
+                """);
+
+            var loggerFactory = LoggerFactory.Create(b => { });
+            var configuration =
+                new LanguageServerConfigLoader(configPath, loggerFactory.CreateLogger<LanguageServerConfigLoader>())
+                    .Load([]);
+            configuration.Problems.Should().BeEmpty("the file is well-formed");
+
+            var registrations = new LanguageServerRegistrationFactory(loggerFactory).Create(configuration.Entries);
+            _registry = new LspClientRegistry(registrations, loggerFactory.CreateLogger<LspClientRegistry>());
+
+            var received = new TaskCompletionSource<PublishDiagnosticsParams>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            _registry.DiagnosticsPublished += (_, p) => received.TrySetResult(p);
+
+            await _registry.OpenDocumentAsync(MarkdownUri, SloppyMarkdown);
+
+            var published = await received.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            published.Diagnostics.Should().NotBeEmpty(
+                "a server named only in a configuration file produced real diagnostics for a real document");
+        }
+        finally
+        {
+            try { Directory.Delete(directory, recursive: true); } catch { /* best effort */ }
+        }
+    }
+
     public async ValueTask DisposeAsync()
     {
         if (_registry is not null)
