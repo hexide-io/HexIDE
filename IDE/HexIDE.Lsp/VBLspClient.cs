@@ -202,7 +202,12 @@ public sealed class VBLspClient : ILspClient
             Capabilities: new ClientCapabilities(
                 new TextDocumentClientCapabilities(
                     PublishDiagnostics: new PublishDiagnosticsClientCapabilities(),
-                    Hover: new HoverClientCapabilities(ContentFormat: ["plaintext"]))));
+                    Hover: new HoverClientCapabilities(ContentFormat: ["plaintext"]),
+                    // Claimed here so the server has something to answer. Declaring and gating are two
+                    // halves of one negotiation: gate without declare and a conformant server withholds
+                    // `save` because nothing asked for it, while we decline to send because it did not
+                    // offer — both correct, nothing happening, and no error anywhere.
+                    Synchronization: new TextDocumentSyncClientCapabilities(DidSave: true))));
 
         // Deliberately received as a raw JsonElement, and interpreted separately below.
         //

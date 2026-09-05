@@ -84,6 +84,19 @@ Expect the run to be slower than Windows (the `/mnt/c` 9p mount), and identical 
 this writing. To confirm the setup still has teeth, run a `git worktree` at a commit predating a known
 cross-platform fix and check it fails there.
 
+**Distrust a suspiciously fast WSL run.** A run that skips the build — roughly 5-10s where a real one takes
+30s or more — has twice reported a large batch of failures (279 of 915) with **no error message against any
+of them**, and passed on the very next attempt. It has not reproduced since, in six consecutive runs, with
+or without the change under test, and it happened both immediately after a Windows `dotnet test` and after
+another WSL run. The best available explanation is a build/test race on the 9p mount, where MSBuild's
+up-to-date check is satisfied by timestamps it should not trust and the test host then loads a mismatched
+assembly set — but that is a hypothesis, not a diagnosis, and it is recorded here as an unexplained
+observation rather than tidied into a rule.
+
+What to do: **check the duration before believing a red**. If a WSL run reports failures without rebuilding,
+run it again; if the second run rebuilds and passes, the first was noise. A genuine cross-platform failure
+reproduces, and names the tests it broke.
+
 ## MCP Dev Loop
 
 ## Visual Verification — MANDATORY

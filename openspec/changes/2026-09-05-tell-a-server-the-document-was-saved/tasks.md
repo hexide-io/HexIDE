@@ -23,14 +23,17 @@
 
 ## 2. Negotiation
 
-- [ ] 2.1 `TextDocumentSyncClientCapabilities` with `didSave`, declared in the client's `initialize`
-- [ ] 2.2 One reader returning three states — none, without text, with text — rather than two independent
+- [x] 2.1 `TextDocumentSyncClientCapabilities` with `didSave`, declared in the client's `initialize` —
+      and asserted **from the far end of a real connection**, not by serializing the record. Building the
+      capabilities in a test and checking they serialize proves the record works, which was never in
+      doubt, and stays green if the client never sends them
+- [x] 2.2 One reader returning three states — none, without text, with text — rather than two independent
       predicates a caller can check one of. The neighbouring comment already says why: a capability read
       one way for display and another for gating is how a feature ends up shown as available and refused
-- [ ] 2.3 A bare non-zero `textDocumentSync` number counts as asking for saves without text, matching the
+- [x] 2.3 A bare non-zero `textDocumentSync` number counts as asking for saves without text, matching the
       reference implementation and the neighbouring `AcceptsOpenClose`. Commented as a deliberate
       divergence from a strict reading of the specification
-- [ ] 2.4 An object form with no `save` means no save notifications — **the opposite polarity to its two
+- [x] 2.4 An object form with no `save` means no save notifications — **the opposite polarity to its two
       neighbours**, and commented as deliberate, or the three will be harmonised later by someone reading
       them as a mistake
 
