@@ -300,6 +300,36 @@ public class LspDocumentSessionTests : IDisposable
         applied.Should().Be(1);
     }
 
+    [Fact]
+    public void WorkAlreadyPostedWhenTheEditorClosesIsAbandoned()
+    {
+        // The race the inner disposal guard exists for, and the one the rest of this fixture cannot see.
+        // Everywhere else the UI hop runs inline, so the guard before the post and the guard inside it are
+        // evaluated in one call frame with the same answer. In production the hop is a real dispatcher
+        // post: the handler can pass the outer check on a background thread, the editor can close, and the
+        // posted work then runs against a buffer whose editor is gone.
+        //
+        // Reproduced by queuing the posted work instead of running it, closing, and only then draining.
+        var queued = new List<Action>();
+        _document.Text = "hello world";
+        var session = new LspDocumentSession(_client, _document, Uri, queued.Add);
+        _sessions.Add(session);
+        IReadOnlyList<LspMarker>? seen = null;
+        session.MarkersChanged += m => seen = m;
+        session.Start();
+
+        _client.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(
+            _client, OneDiagnostic(Uri, 0, 0, 5));
+        queued.Should().ContainSingle("the conversion is posted, not run where the notification arrived");
+
+        session.Dispose();
+        foreach (var work in queued) work();
+
+        seen.Should().BeNull(
+            "converting offsets against a buffer whose editor has gone is at best pointless, and the "
+          + "markers would be handed to a renderer that is no longer attached");
+    }
+
     // ── Ranges the buffer has moved past ──────────────────────────────────────────────────────────────
 
     [Fact]
@@ -369,6 +399,29 @@ public class LspDocumentSessionTests : IDisposable
         var marker = seen.Should().ContainSingle().Subject;
         marker.EndOffset.Should().BeLessThanOrEqualTo(3, "the buffer is three characters long");
         marker.StartOffset.Should().BeLessThanOrEqualTo(marker.EndOffset);
+    }
+
+    [Fact]
+    public void ARangeThatEndsBeforeItStartsIsStillAUsableMarker()
+    {
+        // A malformed range from a server — end before start. Found by mutation: deleting the
+        // start-past-end clamp broke nothing, because the two obvious cases cannot reach it. A zero-width
+        // diagnostic on a line that exists is already widened by the Math.Max on the end column, and one
+        // at the very last offset stays zero-width either way, since there is no character after it to
+        // mark. Only a reversed range gets here.
+        //
+        // It matters because the result is not merely empty, it is INVERTED: a marker whose end precedes
+        // its start, handed to a renderer as an offset range to draw.
+        var session = Session("line one\r\nline two");
+        IReadOnlyList<LspMarker>? seen = null;
+        session.MarkersChanged += m => seen = m;
+        session.Start();
+
+        Publish(new PublishDiagnosticsParams(Uri, [new Diagnostic(
+            new LspRange(new Position(1, 0), new Position(0, 0)), "backwards")]));
+
+        var marker = seen.Should().ContainSingle().Subject;
+        marker.EndOffset.Should().BeGreaterThan(marker.StartOffset);
     }
 
     // ── Severity ──────────────────────────────────────────────────────────────────────────────────────

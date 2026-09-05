@@ -79,7 +79,11 @@
       be pumped and the whole path driven for real — publication through conversion to a renderer holding
       the markers. A view-model test could only have asserted the negative case, and would have passed
       because the posted work never ran
-- [ ] 5.3 A URI the server has normalised differently still matches — the #236 case, now in a second editor
+- [x] 5.3 A URI the server has normalised differently still matches — the #236 case, now in a second
+      editor, and this is where it bites hardest: a carried file is named by a `file:` URI built from a
+      real path, so every character needing an escape is a spelling the two sides can disagree about. The
+      test opens `read me.md`, checks we send the `%20` form, and has the server answer with the literal
+      space
 - [x] 5.4 Editing sends a change; closing the editor closes the document. The change half is the session's
       (it owns the debounce and is tested for it); the close half is here
 - [x] 5.5 A document with no path, and one that failed to load, are never opened — both verified by
@@ -89,9 +93,43 @@
       line, and — the one that survived deleting the clamp — a diagnostic whose START is the last valid
       offset while its END line is past the document, which takes the fallback branch and lands outside
       the text. AvaloniaEdit already clamps a column within a line that exists, so only that path needs it
-- [ ] 5.7 The code editor's existing behaviour is unchanged — by its existing tests, unedited
-- [ ] 5.8 Each verified to fail without its fix, by mutation. The last change found a mechanism no test
-      covered by exactly this method, and found it only because the method was applied
+- [x] 5.7 The code editor's existing behaviour is unchanged — by its existing tests, unedited. The whole
+      branch touches `CodeEditorViewModelTests` in exactly two places, neither of them an accommodation:
+      one deleted line, the bare `-=` that made `Dispose_UnsubscribesFromDiagnosticsPublished` unable to
+      fail, replaced with the `Received()` form; and one added test for an order nothing pinned. All 44
+      pre-existing assertions are untouched. Both were confirmed to fail against a deliberately broken
+      version before the migration relied on them
+- [x] 5.8 Each verified to fail without its fix, by mutation — nineteen defects, one at a time. Three
+      classes of result, and the third is why this is worth doing:
+
+      **Caught by a test**, as intended: the disposal and start guards, flush after dispose, the marker
+      state the view catches up from, the URI comparison, the two guards on offering a document, the
+      `file:` naming, the end-of-buffer clamp, the catch-up on attach, the renderer removal on detach,
+      and the disposal ordering in the code editor.
+
+      **Caught by the compiler**, which is stronger: deleting either marker-forwarding line leaves an
+      event that is never raised (`CS0067`), and freezing the version counter leaves a field never
+      assigned (`CS0649`). `TreatWarningsAsErrors` makes all three build failures. Worth knowing these
+      are structurally impossible rather than merely tested.
+
+      **Caught by nothing** — three, all now closed:
+      - The start-past-end clamp. Neither obvious case can reach it: a zero-width range on a line that
+        exists is already widened by the `Math.Max` on the end column, and one at the very last offset
+        stays zero-width either way, since there is no character after it to mark. The only reachable
+        case is a **reversed range** from a server, where the marker is not merely empty but *inverted* —
+        an end offset preceding its start, handed to a renderer to draw.
+      - The disposal guard *inside* the UI-thread callback. Invisible to every other test here, because
+        they run the hop inline, so the guard before the post and the one inside it are evaluated in one
+        frame with the same answer. Reproduced by queuing the posted work, closing, then draining.
+      - The code editor's symbol-refresh piggyback: 890 tests passed with it deleted and the procedure
+        dropdown frozen after its initial load. A gap that predates this change — the piggyback was
+        equally untested inline — but moving an untested mechanism and leaving it untested is how the
+        vacuous assertion in this editor's own dispose test survived as long as it did.
+
+      Run as a fan-out of isolated worktrees. Five agents built from a stale base where the code under
+      test did not exist, and reported "nothing caught it" for mechanisms they had never compiled; those
+      six were re-run by hand. A mutation result from a tree that does not contain the mechanism is not a
+      null result, it is a false one
 
 ## 6. Verification
 

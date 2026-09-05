@@ -108,6 +108,11 @@ public class CarriedFileDiagnosticsIntegrationTests : IDisposable
         TextViewOf(view).BackgroundRenderers.OfType<LspTextMarkerService>()
             .Should().ContainSingle("the renderer must be attached, or the diagnostic is computed and never drawn")
             .Which.Markers.Should().ContainSingle();
+
+        // Both renderers, because a mutation sweep found nothing noticed the colorizer being absent: the
+        // detach test asserts the transformer list is empty afterwards, which is equally true of one that
+        // was never added. A diagnostic should look the same in a carried file as in VB6 source.
+        TextViewOf(view).LineTransformers.OfType<LspDiagnosticsColorizer>().Should().ContainSingle();
     }
 
     [AvaloniaFact]
@@ -133,6 +138,24 @@ public class CarriedFileDiagnosticsIntegrationTests : IDisposable
         Publish(OpenedUri());
 
         vm.Markers.Should().BeEmpty("an empty set is how a server says the problems are resolved");
+    }
+
+    [AvaloniaFact]
+    public void ADiagnosticEchoedUnderADifferentlySpelledUriIsStillDrawn()
+    {
+        // #236 in its natural habitat. A server is under no obligation to echo a URI back byte for byte,
+        // and this is where that bites hardest: a carried file is named by a `file:` URI built from a real
+        // path, so any character needing an escape is a spelling the two sides can disagree about. A
+        // literal space for our %20 is the commonest, and comparing with `==` would drop every diagnostic
+        // the server publishes — silently, looking exactly like a server with nothing to say.
+        var vm = OpenCarried("read me.md", "hello world");
+        Show(vm);
+        var asWeNamedIt = OpenedUri();
+        asWeNamedIt.Should().Contain("%20", "the URI we send is the escaped spelling");
+
+        Publish(asWeNamedIt.Replace("%20", " "), (0, 0, 5, "spelling"));
+
+        vm.Markers.Should().ContainSingle().Which.Message.Should().Be("spelling");
     }
 
     // ── Attaching and detaching ───────────────────────────────────────────────────────────────────────
