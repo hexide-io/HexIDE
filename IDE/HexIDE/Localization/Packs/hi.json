@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "ग्रिड चौड़ाई:",
     "Str.Options.Grid.Height": "ग्रिड ऊँचाई:",
     "Str.Options.Grid.AlignControls": "नियंत्रणों को ग्रिड से संरेखित करें",
-    "Str.Options.Advanced.Header": "लैंग्वेज सर्वर",
-    "Str.Options.Advanced.WebSocketUrlLabel": "WebSocket URL (वैकल्पिक):",
-    "Str.Options.Advanced.WebSocketUrlHint": "लैंग्वेज सर्वर को स्थानीय सबप्रोसेस के रूप में लॉन्च करने के लिए खाली छोड़ें (डिफ़ॉल्ट)। अगले कनेक्शन पर लागू होता है।",
     "Str.Options.Developer.Warning.Title": "यहाँ खतरा है",
     "Str.Options.Developer.Warning.Body": "डेवलपर मोड चालू है। नीचे दिए गए विकल्प अहस्ताक्षरित, असत्यापित कोड लोड कर सकते हैं और HexIDE की सुरक्षा जाँच को कमज़ोर कर सकते हैं। इन्हें केवल तभी चालू करें जब आपने स्वयं सेट किया हो और जोखिम को समझते हों।",
     "Str.Options.Developer.Warning.SocialEngineering": "यदि किसी ने आपसे इन्हें सक्षम करने को कहा है: रुकें और HexIDE बंद करें।",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "परिवेश",
     "Str.Options.Node.Editor": "संपादक",
     "Str.Options.Node.FormDesigner": "फ़ॉर्म डिज़ाइनर",
-    "Str.Options.Node.Advanced": "उन्नत",
     "Str.Options.Node.AddIns": "ऐड-इन",
     "Str.Options.Node.General": "सामान्य",
     "Str.Options.Node.Theme": "थीम",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "टूलबार",
     "Str.Options.Node.Formatting": "स्वरूपण",
     "Str.Options.Node.Grid": "ग्रिड",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "डेवलपर"
   }
 }

@@ -135,19 +135,6 @@ public interface ISettingsService : INotifyPropertyChanged
 
     // ── Language server ─────────────────────────────────────────
 
-    /// <summary>
-    /// Optional WebSocket endpoint (e.g. <c>ws://localhost:8123/</c>) for the VB6 LSP server.
-    /// When set, the IDE connects to the language server over WebSocket instead of spawning it as a
-    /// stdio subprocess.
-    ///
-    /// <para>
-    /// <b>Superseded and no longer read.</b> A language server's transport is now a property of its entry
-    /// in the configuration file, because one global choice cannot describe two servers that communicate
-    /// differently. Scheduled for removal along with its Options field (hexide-io/HexIDE#255).
-    /// </para>
-    /// Null/empty = default stdio subprocess transport.
-    /// </summary>
-    string? LspWebSocketUrl { get; set; }
 
     /// <summary>
     /// Optional URL of a HexIDE-root-signed add-in revocation list. When set, it is fetched at startup

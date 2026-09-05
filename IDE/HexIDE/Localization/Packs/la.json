@@ -376,9 +376,6 @@
     "Str.Options.Grid.Height": "Altitudo Reticuli:",
     "Str.Options.Grid.AlignControls": "Ordina Moderamina ad Reticulum",
 
-    "Str.Options.Advanced.Header": "Servitor Linguae",
-    "Str.Options.Advanced.WebSocketUrlLabel": "WebSocket URL (ad libitum):",
-    "Str.Options.Advanced.WebSocketUrlHint": "Relinque vacuum ut servitor linguae quasi subprocessus localis incipiatur (praedefinitum). Valet in proxima conexione.",
 
     "Str.Options.Developer.Warning.Title": "HIC SUNT DRACONES",
     "Str.Options.Developer.Warning.Body": "Modus programmatoris ACTIVUS est. Optiones infra codicem NON SUBSCRIPTUM, NON VERIFICATUM onerare possunt et cautiones securitatis HexIDE infirmant. Eas activa tantum si ipse eas posuisti et periculum intellegis.",
@@ -687,7 +684,6 @@
     "Str.Options.Node.Environment": "Ambiens",
     "Str.Options.Node.Editor": "Recensor",
     "Str.Options.Node.FormDesigner": "Designator Formae",
-    "Str.Options.Node.Advanced": "Provecta",
     "Str.Options.Node.AddIns": "Additamenta",
     "Str.Options.Node.General": "Generalia",
     "Str.Options.Node.Theme": "Thema",
@@ -696,7 +692,6 @@
     "Str.Options.Node.Toolbars": "Tabulae Instrumentorum",
     "Str.Options.Node.Formatting": "Formatio",
     "Str.Options.Node.Grid": "Reticulum",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Programmator"
   }
 }

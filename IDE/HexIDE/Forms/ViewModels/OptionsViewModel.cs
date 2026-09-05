@@ -106,13 +106,9 @@ public partial class OptionsViewModel : ObservableObject, IDialog
         var designer = Group("Str.Options.Node.FormDesigner")
             .Add(Leaf(new FormDesignerGridPageViewModel(_settings), "Str.Options.Node.Grid"));
 
-        var advanced = Group("Str.Options.Node.Advanced")
-            .Add(Leaf(new AdvancedLspPageViewModel(_settings), "Str.Options.Node.Lsp"));
-
         RootNodes.Add(environment);
         RootNodes.Add(editor);
         RootNodes.Add(designer);
-        RootNodes.Add(advanced);
 
         BuildAddinsGroup();
 

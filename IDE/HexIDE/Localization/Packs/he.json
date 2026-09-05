@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "רוחב הרשת:",
     "Str.Options.Grid.Height": "גובה הרשת:",
     "Str.Options.Grid.AlignControls": "יישר פקדים לרשת",
-    "Str.Options.Advanced.Header": "שרת שפה",
-    "Str.Options.Advanced.WebSocketUrlLabel": "כתובת WebSocket (אופציונלי):",
-    "Str.Options.Advanced.WebSocketUrlHint": "השאר ריק כדי להפעיל את שרת השפה כתת-תהליך מקומי (ברירת מחדל). חל בעת ההתחברות הבאה.",
     "Str.Options.Developer.Warning.Title": "כאן שוכנים דרקונים",
     "Str.Options.Developer.Warning.Body": "מצב מפתח פעיל. האפשרויות שלהלן יכולות לטעון קוד לא חתום ולא מאומת ולהחליש את בדיקות הבטיחות של HexIDE. הפעל אותן רק אם הגדרת אותן בעצמך ואתה מבין את הסיכון.",
     "Str.Options.Developer.Warning.SocialEngineering": "אם מישהו ביקש ממך להפעיל את אלה: עצור וסגור את HexIDE.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "סביבה",
     "Str.Options.Node.Editor": "עורך",
     "Str.Options.Node.FormDesigner": "מעצב טפסים",
-    "Str.Options.Node.Advanced": "מתקדם",
     "Str.Options.Node.AddIns": "תוספים",
     "Str.Options.Node.General": "כללי",
     "Str.Options.Node.Theme": "ערכת נושא",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "סרגלי כלים",
     "Str.Options.Node.Formatting": "עיצוב",
     "Str.Options.Node.Grid": "רשת",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "מפתח"
   }
 }

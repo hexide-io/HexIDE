@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "عرض شبکه:",
     "Str.Options.Grid.Height": "ارتفاع شبکه:",
     "Str.Options.Grid.AlignControls": "تراز کنترل‌ها با شبکه",
-    "Str.Options.Advanced.Header": "سرور زبان",
-    "Str.Options.Advanced.WebSocketUrlLabel": "نشانی WebSocket (اختیاری):",
-    "Str.Options.Advanced.WebSocketUrlHint": "برای راه‌اندازی سرور زبان به‌صورت یک زیرفرآیند محلی (پیش‌فرض) این فیلد را خالی بگذارید. در اتصال بعدی اعمال می‌شود.",
     "Str.Options.Developer.Warning.Title": "اینجا اژدها هست",
     "Str.Options.Developer.Warning.Body": "حالت توسعه‌دهنده روشن است. گزینه‌های زیر می‌توانند کدِ امضانشده و تأییدنشده را بارگذاری کنند و بررسی‌های ایمنی HexIDE را تضعیف کنند. تنها در صورتی آن‌ها را روشن کنید که خودتان تنظیمشان کرده‌اید و از خطر آن آگاه هستید.",
     "Str.Options.Developer.Warning.SocialEngineering": "اگر کسی از شما خواست این‌ها را فعال کنید: متوقف شوید و HexIDE را ببندید.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "محیط",
     "Str.Options.Node.Editor": "ویرایشگر",
     "Str.Options.Node.FormDesigner": "طراح فرم",
-    "Str.Options.Node.Advanced": "پیشرفته",
     "Str.Options.Node.AddIns": "افزونه‌ها",
     "Str.Options.Node.General": "عمومی",
     "Str.Options.Node.Theme": "زمینه",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "نوارهای ابزار",
     "Str.Options.Node.Formatting": "قالب‌بندی",
     "Str.Options.Node.Grid": "شبکه",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "توسعه‌دهنده"
   }
 }

@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "Szerokość siatki:",
     "Str.Options.Grid.Height": "Wysokość siatki:",
     "Str.Options.Grid.AlignControls": "Wyrównaj formanty do siatki",
-    "Str.Options.Advanced.Header": "Serwer językowy",
-    "Str.Options.Advanced.WebSocketUrlLabel": "Adres URL WebSocket (opcjonalnie):",
-    "Str.Options.Advanced.WebSocketUrlHint": "Pozostaw puste, aby uruchomić serwer językowy jako lokalny podproces (domyślnie). Obowiązuje przy następnym połączeniu.",
     "Str.Options.Developer.Warning.Title": "TU CZYHAJĄ SMOKI",
     "Str.Options.Developer.Warning.Body": "Tryb dewelopera jest WŁĄCZONY. Poniższe opcje mogą ładować NIEPODPISANY, NIEZWERYFIKOWANY kod i osłabiać kontrole bezpieczeństwa HexIDE. Włącz je tylko wtedy, gdy sam je ustawiasz i rozumiesz ryzyko.",
     "Str.Options.Developer.Warning.SocialEngineering": "Jeśli ktoś poprosił Cię o ich włączenie: zatrzymaj się i zamknij HexIDE.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "Środowisko",
     "Str.Options.Node.Editor": "Edytor",
     "Str.Options.Node.FormDesigner": "Projektant formularzy",
-    "Str.Options.Node.Advanced": "Zaawansowane",
     "Str.Options.Node.AddIns": "Dodatki",
     "Str.Options.Node.General": "Ogólne",
     "Str.Options.Node.Theme": "Motyw",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "Paski narzędzi",
     "Str.Options.Node.Formatting": "Formatowanie",
     "Str.Options.Node.Grid": "Siatka",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Deweloper"
   }
 }

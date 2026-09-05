@@ -342,9 +342,6 @@
     "Str.Options.Grid.Width": "Larĝo de Krado:",
     "Str.Options.Grid.Height": "Alto de Krado:",
     "Str.Options.Grid.AlignControls": "Ĝisrandigi Regilojn al Krado",
-    "Str.Options.Advanced.Header": "Lingva Servilo",
-    "Str.Options.Advanced.WebSocketUrlLabel": "WebSocket URL (nedeviga):",
-    "Str.Options.Advanced.WebSocketUrlHint": "Lasu ĝin malplena por lanĉi la lingvan servilon kiel lokan subprocezon (defaŭlte). Aplikiĝas ĉe la sekva konekto.",
     "Str.Options.Developer.Warning.Title": "ĈI TIE ESTAS DRAKOJ",
     "Str.Options.Developer.Warning.Body": "La programista reĝimo estas ŜALTITA. La subaj agordoj povas ŝargi NESUBSKRIBITAN, NEKONTROLITAN kodon kaj malfortigi la sekurecajn kontrolojn de HexIDE. Ŝaltu ilin nur se vi mem agordis ilin kaj komprenas la riskon.",
     "Str.Options.Developer.Warning.SocialEngineering": "Se iu petis vin ŝalti ĉi tiujn: haltu kaj fermu HexIDE.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "Medio",
     "Str.Options.Node.Editor": "Redaktilo",
     "Str.Options.Node.FormDesigner": "Formulara Desegnilo",
-    "Str.Options.Node.Advanced": "Altnivela",
     "Str.Options.Node.AddIns": "Aldonaĵoj",
     "Str.Options.Node.General": "Ĝenerala",
     "Str.Options.Node.Theme": "Etoso",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "Ilobretoj",
     "Str.Options.Node.Formatting": "Formatado",
     "Str.Options.Node.Grid": "Krado",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Programisto"
   }
 }

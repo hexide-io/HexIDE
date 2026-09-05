@@ -47,7 +47,6 @@ public class OptionsViewModelTests
         _settings.ActiveKeymap.Returns("Default");
         _settings.IsMinimapVisible.Returns(true);
         _settings.IsStandardToolbarVisible.Returns(true);
-        _settings.LspWebSocketUrl.Returns((string?)null);
         _themeService.ActiveTheme.Returns("Classic");
         _themeService.AvailableThemes.Returns(["Classic", "Dark"]);
         _keymapService.ActiveKeymap.Returns("Default");
@@ -85,8 +84,11 @@ public class OptionsViewModelTests
     {
         var sut = CreateSut();
 
+        // "Advanced" held exactly one page — the LSP WebSocket URL — and went with it when a language
+        // server's transport became a property of its entry in the configuration file (#255). An empty
+        // group is worse than no group.
         sut.RootNodes.Select(n => n.Title)
-            .Should().Equal("Environment", "Editor", "Form Designer", "Advanced", "Add-Ins");
+            .Should().Equal("Environment", "Editor", "Form Designer", "Add-Ins");
     }
 
     [Fact]
@@ -290,7 +292,6 @@ public class OptionsViewModelTests
 
         Flatten(sut.RootNodes).Select(n => n.Page).OfType<KeymapPageViewModel>().Should().ContainSingle();
         Flatten(sut.RootNodes).Select(n => n.Page).OfType<ToolbarsPageViewModel>().Should().ContainSingle();
-        Flatten(sut.RootNodes).Select(n => n.Page).OfType<AdvancedLspPageViewModel>().Should().ContainSingle();
     }
 
     [Fact]
@@ -337,28 +338,6 @@ public class OptionsViewModelTests
         sut.OkCommand.Execute(null);
 
         _settings.Received().IsMinimapVisible = false;
-    }
-
-    [Fact]
-    public void OkCommand_PersistsLspUrl_TrimmedOrNull()
-    {
-        var sut = CreateSut();
-        Page<AdvancedLspPageViewModel>(sut).LspWebSocketUrl = "  ws://localhost:9000/  ";
-
-        sut.OkCommand.Execute(null);
-
-        _settings.Received().LspWebSocketUrl = "ws://localhost:9000/";
-    }
-
-    [Fact]
-    public void OkCommand_BlankLspUrl_PersistsNull()
-    {
-        var sut = CreateSut();
-        Page<AdvancedLspPageViewModel>(sut).LspWebSocketUrl = "   ";
-
-        sut.OkCommand.Execute(null);
-
-        _settings.Received().LspWebSocketUrl = null;
     }
 
     // ── Reset to defaults (Phase 3) ─────────────────────────────

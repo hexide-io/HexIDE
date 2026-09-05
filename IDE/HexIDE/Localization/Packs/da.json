@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "Gitterbredde:",
     "Str.Options.Grid.Height": "Gitterhøjde:",
     "Str.Options.Grid.AlignControls": "Justér objekter efter gitter",
-    "Str.Options.Advanced.Header": "Sprogserver",
-    "Str.Options.Advanced.WebSocketUrlLabel": "WebSocket-URL (valgfri):",
-    "Str.Options.Advanced.WebSocketUrlHint": "Lad feltet stå tomt for at starte sprogserveren som en lokal underproces (standard). Træder i kraft ved næste forbindelse.",
     "Str.Options.Developer.Warning.Title": "HER ER DRAGER",
     "Str.Options.Developer.Warning.Body": "Udviklertilstand er slået TIL. Indstillingerne nedenfor kan indlæse USIGNERET, IKKE-VERIFICERET kode og svække HexIDEs sikkerhedstjek. Slå dem kun til, hvis du selv har sat dem, og du forstår risikoen.",
     "Str.Options.Developer.Warning.SocialEngineering": "Hvis nogen har bedt dig om at slå disse til: stop, og luk HexIDE.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "Miljø",
     "Str.Options.Node.Editor": "Editor",
     "Str.Options.Node.FormDesigner": "Formulardesigner",
-    "Str.Options.Node.Advanced": "Avanceret",
     "Str.Options.Node.AddIns": "Tilføjelsesprogrammer",
     "Str.Options.Node.General": "Generelt",
     "Str.Options.Node.Theme": "Tema",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "Værktøjslinjer",
     "Str.Options.Node.Formatting": "Formatering",
     "Str.Options.Node.Grid": "Gitter",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Udvikler"
   }
 }

@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "Larghezza griglia:",
     "Str.Options.Grid.Height": "Altezza griglia:",
     "Str.Options.Grid.AlignControls": "Allinea controlli alla griglia",
-    "Str.Options.Advanced.Header": "Language Server",
-    "Str.Options.Advanced.WebSocketUrlLabel": "URL WebSocket (facoltativo):",
-    "Str.Options.Advanced.WebSocketUrlHint": "Lascia vuoto per avviare il language server come sottoprocesso locale (predefinito). Si applica alla connessione successiva.",
     "Str.Options.Developer.Warning.Title": "QUI CI SONO I DRAGHI",
     "Str.Options.Developer.Warning.Body": "La modalità sviluppatore è ATTIVA. Le opzioni seguenti possono caricare codice NON FIRMATO, NON VERIFICATO e indebolire i controlli di sicurezza di HexIDE. Attivale solo se le hai impostate tu stesso e ne comprendi il rischio.",
     "Str.Options.Developer.Warning.SocialEngineering": "Se qualcuno ti ha chiesto di abilitarle: fermati e chiudi HexIDE.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "Ambiente",
     "Str.Options.Node.Editor": "Editor",
     "Str.Options.Node.FormDesigner": "Progettazione maschere",
-    "Str.Options.Node.Advanced": "Avanzate",
     "Str.Options.Node.AddIns": "Componenti aggiuntivi",
     "Str.Options.Node.General": "Generale",
     "Str.Options.Node.Theme": "Tema",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "Barre degli strumenti",
     "Str.Options.Node.Formatting": "Formattazione",
     "Str.Options.Node.Grid": "Griglia",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Sviluppatore"
   }
 }

@@ -340,9 +340,6 @@
     "Str.Options.Grid.Width": "Šířka mřížky:",
     "Str.Options.Grid.Height": "Výška mřížky:",
     "Str.Options.Grid.AlignControls": "Zarovnat ovládací prvky k mřížce",
-    "Str.Options.Advanced.Header": "Jazykový server",
-    "Str.Options.Advanced.WebSocketUrlLabel": "Adresa URL WebSocket (volitelné):",
-    "Str.Options.Advanced.WebSocketUrlHint": "Ponechte prázdné pro spuštění jazykového serveru jako místního podprocesu (výchozí). Použije se při příštím připojení.",
     "Str.Options.Developer.Warning.Title": "ZDE ŽIJÍ DRACI",
     "Str.Options.Developer.Warning.Body": "Vývojářský režim je ZAPNUTÝ. Níže uvedené možnosti mohou načíst NEPODEPSANÝ, NEOVĚŘENÝ kód a oslabit bezpečnostní kontroly HexIDE. Zapněte je pouze tehdy, pokud jste je nastavili sami a rozumíte riziku.",
     "Str.Options.Developer.Warning.SocialEngineering": "Pokud vás někdo požádal o jejich zapnutí: zastavte se a zavřete HexIDE.",
@@ -622,7 +619,6 @@
     "Str.Options.Node.Environment": "Prostředí",
     "Str.Options.Node.Editor": "Editor",
     "Str.Options.Node.FormDesigner": "Návrhář formulářů",
-    "Str.Options.Node.Advanced": "Pokročilé",
     "Str.Options.Node.AddIns": "Doplňky",
     "Str.Options.Node.General": "Obecné",
     "Str.Options.Node.Theme": "Motiv",
@@ -631,7 +627,6 @@
     "Str.Options.Node.Toolbars": "Panely nástrojů",
     "Str.Options.Node.Formatting": "Formátování",
     "Str.Options.Node.Grid": "Mřížka",
-    "Str.Options.Node.Lsp": "LSP",
     "Str.Options.Node.Developer": "Vývojář"
   }
 }

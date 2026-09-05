@@ -98,11 +98,11 @@ ends up half-done.
 Separable from 6, and only safe once 6 works. Kept apart because this is the part that touches shipped
 language packs.
 
-- [ ] 7.1 Remove the `LspWebSocketUrl` setting, its Options page and view, its `ViewLocator` registration
+- [x] 7.1 Remove the `LspWebSocketUrl` setting, its Options page and view, its `ViewLocator` registration
       and its node in the options tree
-- [ ] 7.2 Remove its localized key from the canonical pack and every shipped pack — an unused canonical key
+- [x] 7.2 Remove its localized key from the canonical pack and every shipped pack — an unused canonical key
       fails the build, so this is not optional
-- [ ] 7.3 Remove the tests that covered it
+- [x] 7.3 Remove the tests that covered it
 
 ## 8. Tests
 
