@@ -42,14 +42,17 @@
 
 ## 3. The carried-file editor gains it
 
-- [ ] 3.1 `RelatedDocumentEditorViewModel` takes an `ILspClient` and constructs a session
-- [ ] 3.2 Identified by a `file:` URI built from the absolute path
-- [ ] 3.3 A document with no path on disk is not offered — there is nothing to identify it by, and a
+- [x] 3.1 `RelatedDocumentEditorViewModel` takes an `ILspClient` and constructs a session
+- [x] 3.2 Identified by a `file:` URI built from the absolute path, via a new `LspDocumentUri.ForFile` —
+      beside `AreSame`, because the class that owns what makes two URIs the same document is where
+      construction belongs. The path is normalised first, so two spellings of one file are one document;
+      the extension survives, because it is the whole basis on which a server claims the file
+- [x] 3.3 A document with no path on disk is not offered — there is nothing to identify it by, and a
       project that has never been saved is the case (#260)
-- [ ] 3.4 A file that could not be read is not offered either. The editor already opens empty and read-only
+- [x] 3.4 A file that could not be read is not offered either. The editor already opens empty and read-only
       rather than lying about content; sending that empty buffer would have a server publish diagnostics
       about a document nobody has
-- [ ] 3.5 Closed when the editor closes, like any other document
+- [x] 3.5 Closed when the editor closes, like any other document
 
 ## 4. The view renders it
 
@@ -60,11 +63,17 @@
 
 ## 5. Tests
 
-- [ ] 5.1 A carried file is opened to the client, with a `file:` URI carrying its extension
-- [ ] 5.2 Its diagnostics become markers; a diagnostic for a different document does not
+- [x] 5.1 A carried file is opened to the client, with a `file:` URI carrying its extension
+- [ ] 5.2 Its diagnostics become markers; a diagnostic for a different document does not.
+      **Not tested at the view-model level, deliberately.** Converting a diagnostic into markers is the
+      session's job and has its own tests including the clamping; what this editor adds is one forwarding
+      lambda. Driving it from a test means pumping the Avalonia dispatcher, which only the thread that
+      initialised it may do — and the negative case would then "pass" because the posted work never ran,
+      which is worse than no test. Proved end to end by 6.2 instead
 - [ ] 5.3 A URI the server has normalised differently still matches — the #236 case, now in a second editor
 - [ ] 5.4 Editing sends a change; closing the editor closes the document
-- [ ] 5.5 A document with no path, and one that failed to load, are never opened
+- [x] 5.5 A document with no path, and one that failed to load, are never opened — both verified by
+      mutation to fail without their guard
 - [x] 5.6 A range past the end of the buffer is clamped rather than throwing. Three shapes, because
       mutation testing showed the first two were not enough: a line past the document, a column past the
       line, and — the one that survived deleting the clamp — a diagnostic whose START is the last valid

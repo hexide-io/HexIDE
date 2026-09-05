@@ -2,7 +2,10 @@ using System;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using System.Collections.Generic;
 using AvaloniaEdit.Document;
+using HexIDE.Controls;
+using HexIDE.Lsp;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Utils;
 using PropertyChanged.SourceGenerator;
@@ -27,11 +30,14 @@ namespace HexIDE.Forms.ViewModels;
 /// that honest keeps the polyglot direction a small class rather than a growing conditional.
 /// </para>
 /// </summary>
-public partial class RelatedDocumentEditorViewModel : BaseEditorWindowViewModel
+public partial class RelatedDocumentEditorViewModel(ILspClient lspClient) : BaseEditorWindowViewModel
 {
     private RelatedDocumentDefinition? document;
     private bool hadByteOrderMark;
     private string savedText = string.Empty;
+
+    /// <summary>Diagnostics for this document, as offsets into the buffer. The view draws these.</summary>
+    public event Action<IReadOnlyList<LspMarker>>? MarkersChanged;
 
     /// <summary>The buffer the editor binds to.</summary>
     public TextDocument Document { get; } = new();
@@ -76,8 +82,41 @@ public partial class RelatedDocumentEditorViewModel : BaseEditorWindowViewModel
 
         Document.Text = savedText;
         Document.TextChanged += (_, _) => IsDirty = !string.Equals(Document.Text, savedText, StringComparison.Ordinal);
+        OpenToLanguageLayer();
         Title = ComputeTitle();
         return this;
+    }
+
+    /// <summary>
+    /// Hands this document to the language layer, if there is a document to hand over.
+    ///
+    /// <para>
+    /// This is the point of the whole change. A carried file is the one thing HexIDE opens that it has no
+    /// opinion about — no grammar, no interpreter, no designer — so it is exactly the file a server
+    /// attached by configuration exists to serve, and until now it was the one editor that never spoke to
+    /// the language layer at all.
+    /// </para>
+    ///
+    /// <para>
+    /// Identified by a <c>file:</c> URI, not by the <c>vb6://</c> scheme the IDE's own documents use.
+    /// Routing keys on the extension, and that is the entire basis on which a server claims this file;
+    /// a scheme URI carries none. It is also a real file on disk, which a server may want to read itself.
+    /// </para>
+    /// </summary>
+    private void OpenToLanguageLayer()
+    {
+        // Nothing to name it by. An unsaved project's documents have no path yet (#260), and inventing one
+        // would have a server index a file that is not there.
+        if (document?.AbsolutePath is not { Length: > 0 } path) return;
+
+        // A file that could not be read opens empty and read-only rather than lying about its content.
+        // Offering that empty buffer would have a server publish diagnostics about a document nobody has,
+        // drawn over a banner that says the file could not be read.
+        if (LoadError is not null) return;
+
+        var session = AutoDispose(new LspDocumentSession(lspClient, Document, LspDocumentUri.ForFile(path)));
+        session.MarkersChanged += markers => MarkersChanged?.Invoke(markers);
+        session.Start();
     }
 
     /// <summary>
