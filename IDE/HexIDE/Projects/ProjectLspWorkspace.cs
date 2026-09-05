@@ -22,11 +22,35 @@ namespace HexIDE.Projects;
 /// because it is at least the directory the project's own files are in — and it stops being a special case
 /// entirely once a new project gets a real location.
 /// </para>
+///
+/// <para>
+/// <b>The project manager arrives as a factory, and it has to.</b> This type closes a dependency cycle —
+/// <c>ProjectManager</c> needs an editor service, which builds code editors, which need the language
+/// client, which needs this. Pure.DI cannot order a cycle, and it does not refuse one either: it emits the
+/// singleton field <em>unguarded</em>, so whichever participant is constructed first receives
+/// <see langword="null"/> for the back edge. Taking it as a factory defers the resolution past
+/// construction, which is the same way <c>EditorService</c> holds its view-model factories.
+/// </para>
+///
+/// <para>
+/// This was not a hypothetical. The direct dependency compiled, passed every test, and made
+/// <c>Directory</c> throw a <see cref="NullReferenceException"/> on the first document opened — which
+/// <c>CodeEditorViewModel.Initialize</c> logged and swallowed, so no language server ever started and the
+/// IDE simply had no language features. Only running it found that.
+/// </para>
+///
+/// <para>
+/// The manager is matched rather than dereferenced for the same reason. The factory defers the back edge
+/// past construction, but the generated code still reads an unguarded field in some paths, so a null is
+/// reachable in principle. This type already has a defined answer for "there is no workspace yet" —
+/// <see langword="null"/> — and giving that answer costs a lazily started server nothing, where throwing
+/// costs every language feature in the IDE.
+/// </para>
 /// </summary>
-public sealed class ProjectLspWorkspace(IProjectManager projectManager) : ILspWorkspace
+public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : ILspWorkspace
 {
     public string? Directory =>
-        projectManager.StartupProject is { } project
+        projectManager() is { StartupProject: { } project }
             ? ProjectService.ProjectFilesDirectory(project)
             : null;
 }

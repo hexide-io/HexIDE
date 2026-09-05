@@ -160,6 +160,21 @@ rather than duplicating it. The two gaps this section actually found are noted w
       so this is a Windows-only proof today
 - [x] 9.3 Confirm the bundled server still works when the user file is absent, present-but-empty, and
       malformed
+- [x] 9.4 Driven against the running IDE, which is where the tests could not reach. Found a defect the
+      whole suite missed: `ProjectLspWorkspace` closes a dependency cycle, Pure.DI emits an unguarded
+      field for a cycle's back edge, and `Directory` therefore threw on the first document opened —
+      inside a handler that logs and swallows, so **no language server started at all** and the IDE ran
+      with no language features and no symptom but a log line. Fixed, and covered by
+      `LspWorkspaceWiringTests`, which has to build the composition the way the application does
+      (`Root` first) because every narrower resolution is guarded and stays green.
+      Confirmed after the fix: the bundled server starts on the first module opened and returns real
+      diagnostics for a real syntax error.
+- [x] 9.5 A configured foreign server, opened through the IDE's own UI. **The machinery works and the
+      document never arrives**: with rumdl declared for `.md`, double-clicking a carried `README.md`
+      starts no server, because `RelatedDocumentEditorViewModel` contains no LSP code at all — it is the
+      one editor that opens the file types a foreign server exists to serve. Filed as #264. Nothing in
+      this change is wrong; the missing piece is in the editor, which is why every test passed and only
+      running it found this
 
 ## 10. Deliberately not here
 
@@ -167,4 +182,8 @@ rather than duplicating it. The two gaps this section actually found are noted w
 - [ ] 10.2 Any UI, including surfacing failures and attached servers (#259) — that is where the
       localization budget should be spent, once, on the whole surface
 - [ ] 10.3 Discovering servers already installed on the machine
-- [ ] 10.4 An initialize timeout (#231) — independent, and made far more reachable by this change
+- [ ] 10.4 Teaching the carried-file editor to speak LSP (#264) — discovered by verifying this change,
+      and the reason a configured foreign server has nothing to serve today. Not folded in here: it is
+      editor work, not language-layer work, and it needs a decision about whether the two editors share
+      that machinery or copy it
+- [ ] 10.5 An initialize timeout (#231) — independent, and made far more reachable by this change

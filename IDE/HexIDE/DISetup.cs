@@ -149,6 +149,10 @@ public partial class DISetup
             .Root<ILanguageSwitchService>("LanguageSwitchService")
             .Root<ISettingsService>("SettingsService")
             .Root<IProjectManager>("ProjectManager")
+            // A root only so a test can ask it the one question it exists to answer, without first
+            // building the language client. It closes a dependency cycle, and a cycle's back edge is
+            // exactly what Pure.DI leaves unguarded — see ProjectLspWorkspace.
+            .Root<ILspWorkspace>("LspWorkspace")
             .Root<IEditorService>("EditorService")
             .Root<IDocumentDockService>("DocumentDockService")
             .Root<IProjectRunnerService>("ProjectRunnerService")
