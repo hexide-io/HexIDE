@@ -515,6 +515,9 @@ widening visibility to `public` just for a test. When a new test project needs r
 - **`docs/private/ROADMAP.md`** *(maintainers)* — completed phases, design decisions, accepted/rejected ideas. Keep updated when phases complete or architectural decisions are made.
 - **`docs/private/EVOLUTION.md`** *(maintainers)* — Evolution-tier modernisation catalog: Remove/Keep/Change/Add tables with effort + persona-value ratings, the muscle-memory keep-list, and suggested waves. New Evolution work starts from this catalog; update rows as modernisation work lands.
 - **`docs/LSP_FEATURES.md`** — LSP capability mapping.
+- **`docs/foreign-language-servers.md`** — the third-party servers the suite drives, why each earns its
+  place, how they are obtained, and why a GPL-licensed one is consistent with a 100%-MIT tree. Read it
+  before adding a third: the bar is a protocol *shape* nothing else exercises, not another server.
 - **`docs/language-servers.md`** — how a user attaches a language server: where `lsp-servers.json` lives,
   what its fields mean, and why `extensions` and `languageId` are not the same question. The only
   user-facing account of that file — the openspec specs describe the behaviour as contracts, which is not

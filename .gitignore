@@ -420,4 +420,3 @@ FodyWeavers.xsd
 # HexIDE.Desktop.csproj place them under bin/.../addins/ (already ignored by [Bb]in/).
 # This stale project-source addins/ folder must never be committed.
 IDE/HexIDE.Desktop/addins/
-IDE/HexIDE.Tests/tools/

@@ -40,18 +40,18 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
         // a locator that answers "where is THE server" cannot describe a second one, so faking it was the
         // test admitting the shipping path could not express what the test was proving.
         var serverInfo = new LspServerInfo(
-            ForeignServer.Find()!, ForeignServer.ServerArguments, Path.GetTempPath());
+            ForeignServer.Markdown.Find()!, ForeignServer.Markdown.ServerArguments, Path.GetTempPath());
 
         var loggerFactory = LoggerFactory.Create(b => { });
         var registration = new LanguageServerRegistration(
             Id: "foreign.markdown",
             DisplayName: "Foreign Markdown server",
-            Extensions: ForeignServer.Extensions,
-            LanguageId: ForeignServer.LanguageId,
+            Extensions: ForeignServer.Markdown.Extensions,
+            LanguageId: ForeignServer.Markdown.LanguageId,
             CreateClient: () => new VBLspClient(
                 new StdioProcessLspTransport(serverInfo, loggerFactory.CreateLogger<StdioProcessLspTransport>()),
                 loggerFactory.CreateLogger<VBLspClient>(),
-                ForeignServer.LanguageId));
+                ForeignServer.Markdown.LanguageId));
 
         _registry = new LspClientRegistry([registration], loggerFactory.CreateLogger<LspClientRegistry>());
         return _registry;
@@ -131,7 +131,7 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
         var connection = sut.Connections.Single();
 
         connection.State.Should().Be(LanguageConnectionState.Running);
-        connection.LanguageId.Should().Be(ForeignServer.LanguageId);
+        connection.LanguageId.Should().Be(ForeignServer.Markdown.LanguageId);
         connection.Extensions.Should().Contain(".md");
         connection.Capabilities.Should().NotBeNull("a conformant server advertises what it can do");
         ServerCapabilities.AcceptsOpenClose(connection.Capabilities)
@@ -199,10 +199,10 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
                       "id": "rumdl",
                       "displayName": "rumdl",
                       "extensions": [".md", ".markdown"],
-                      "languageId": "{{ForeignServer.LanguageId}}",
+                      "languageId": "{{ForeignServer.Markdown.LanguageId}}",
                       "transport": "stdio",
-                      "command": {{System.Text.Json.JsonSerializer.Serialize(ForeignServer.Find()!)}},
-                      "arguments": "{{ForeignServer.ServerArguments}}"
+                      "command": {{System.Text.Json.JsonSerializer.Serialize(ForeignServer.Markdown.Find()!)}},
+                      "arguments": "{{ForeignServer.Markdown.ServerArguments}}"
                     },
                   ]
                 }
