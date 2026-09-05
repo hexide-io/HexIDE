@@ -60,6 +60,25 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
     public event Action? FocusWindowRequest;
     public event Action<IReadOnlyList<LspMarker>>? MarkersChanged;
 
+    /// <summary>
+    /// The most recent diagnostics, kept so a view attaching later can catch up.
+    ///
+    /// <para>
+    /// <see cref="MarkersChanged"/> is a notification, not a state: a view that subscribes after the last
+    /// publication sees nothing until the next one. That is not hypothetical — moving this document to
+    /// another dock re-materialises the view, and neither source of diagnostics has any reason to publish
+    /// again for a document that has not changed, so the squiggles would simply not come back
+    /// (hexide-io/HexIDE#270).
+    /// </para>
+    ///
+    /// <para>
+    /// It matters more here than in the carried-file editor, because a second source feeds this channel:
+    /// compiling with the real VB6 toolchain injects its errors through it, and a build is a much rarer
+    /// event to have to wait for again than a keystroke.
+    /// </para>
+    /// </summary>
+    public IReadOnlyList<LspMarker> Markers { get; private set; } = [];
+
     public IEventBus EventBus => eventBus;
     public ISettingsService Settings => settingsService;
     public IStatusBarService StatusBar => statusBarService;
@@ -290,7 +309,11 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
         // Forwarded into this class's own event rather than re-exposed as a pass-through. The view
         // subscribes once when it attaches and never replays, so a subscription that landed on the session
         // object instead would die with it — silently, and permanently blank.
-        session.MarkersChanged += markers => MarkersChanged?.Invoke(markers);
+        session.MarkersChanged += markers =>
+        {
+            Markers = markers;
+            MarkersChanged?.Invoke(markers);
+        };
 
         // The same piggyback as before: a fresh diagnostic set means the server has evidently just re-read
         // the document, which is the cheapest signal that its symbols are worth asking for again.
