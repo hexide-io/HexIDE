@@ -13,17 +13,19 @@
 
 ## 2. The configuration itself
 
-- [ ] 2.1 A record for one entry: id, display name, extensions, language id, transport + its parameters,
+- [x] 2.1 A record for one entry: id, display name, extensions, language id, transport + its parameters,
       priority, enabled
-- [ ] 2.2 Source-generated `JsonSerializerContext`, camel-case, explicit property names — this is a
+- [x] 2.2 Source-generated `JsonSerializerContext`, camel-case, explicit property names — this is a
       persisted contract
-- [ ] 2.3 Read from the per-user directory alongside the existing settings and consent files
-- [ ] 2.4 Allow comments in this one file, and ship a header block saying that deleting the file restores
-      defaults. A file a user hand-edits and can lock themselves out of should say so in itself
-- [ ] 2.5 Merge over compiled-in defaults by id; absent file means defaults
-- [ ] 2.6 Reject an entry missing what is required to reach a server; keep and report an entry carrying an
+- [x] 2.3 Read from the per-user directory alongside the existing settings and consent files
+- [x] 2.4 Allow comments in this one file — done, so a hand-written file that explains itself parses.
+      **The header block is NOT shipped and cannot be yet:** nothing creates this file, and auto-creating
+      one would defeat "absent means defaults" and make deleting it pointless. The template belongs to
+      whatever first offers to create the file, which is the connections view (#259)
+- [x] 2.5 Merge over compiled-in defaults by id; absent file means defaults
+- [x] 2.6 Reject an entry missing what is required to reach a server; keep and report an entry carrying an
       unrecognised field
-- [ ] 2.7 One bad entry never affects another, and never prevents startup
+- [x] 2.7 One bad entry never affects another, and never prevents startup
 
 ## 3. Routing by extension
 
