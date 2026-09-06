@@ -15,8 +15,7 @@ public sealed class WindowStateService : IWindowStateService
     public WindowStateService(ISettingsService settings)
     {
         _settings = settings;
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        _dockLayoutPath = Path.Combine(appData, "HexIDE", "dock-layout.json");
+        _dockLayoutPath = UserDataPath.For("dock-layout.json");
     }
 
     public void SaveWindowState(Window mainWindow)

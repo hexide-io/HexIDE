@@ -1,3 +1,4 @@
+using HexIDE.IDE;
 using HexIDE.Addins;
 using HexIDE.AIChat.Views;
 
@@ -15,9 +16,7 @@ public sealed class AIChatAddin : IAddin
 
     public void Initialize(IHexIdeHost host)
     {
-        var settingsDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-            "HexIDE");
+        var settingsDir = UserDataPath.Directory;
         Directory.CreateDirectory(settingsDir);
 
         _toolWindow = host.ToolWindows.Register(

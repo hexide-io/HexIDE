@@ -35,8 +35,7 @@ public class RecentProjectsService : IRecentProjectsService
 
     public RecentProjectsService()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var hexIdeDir = Path.Combine(appData, "HexIDE");
+        var hexIdeDir = UserDataPath.Directory;
         Directory.CreateDirectory(hexIdeDir);
         _filePath = Path.Combine(hexIdeDir, "recent-projects.json");
         Load();

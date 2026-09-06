@@ -216,8 +216,7 @@ public partial class SettingsService : ObservableObject, ISettingsService
 
     private static string DefaultFilePath()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var hexIdeDir = Path.Combine(appData, "HexIDE");
+        var hexIdeDir = UserDataPath.Directory;
         Directory.CreateDirectory(hexIdeDir);
         return Path.Combine(hexIdeDir, "settings.json");
     }

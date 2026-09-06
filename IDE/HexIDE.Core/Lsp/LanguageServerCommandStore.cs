@@ -1,3 +1,4 @@
+using HexIDE.IDE;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -70,8 +71,7 @@ public sealed class LanguageServerCommandStore
 
     public static string DefaultFilePath()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(appData, "HexIDE", "lsp-servers-seen.json");
+        return UserDataPath.For("lsp-servers-seen.json");
     }
 
     /// <summary>

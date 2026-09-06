@@ -1,3 +1,4 @@
+using HexIDE.IDE;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 
@@ -45,8 +46,7 @@ public sealed class LanguageServerConfigLoader
 
     public static string DefaultFilePath()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(appData, "HexIDE", "lsp-servers.json");
+        return UserDataPath.For("lsp-servers.json");
     }
 
     /// <summary>

@@ -8,13 +8,15 @@ that file's defaults rather than a special case beside it — so you can replace
 
 ```text
 %AppData%/HexIDE/lsp-servers.json          Windows
+$XDG_CONFIG_HOME/HexIDE/lsp-servers.json   Linux and macOS, when XDG_CONFIG_HOME is set
+~/.config/HexIDE/lsp-servers.json          Linux and macOS otherwise
 ```
 
-> **Linux and macOS**: this location is currently unreliable — HexIDE resolves it through a folder API
-> that returns nothing on Unix unless `XDG_CONFIG_HOME` is set, so the file is looked for relative to
-> wherever the IDE was started from. Setting `XDG_CONFIG_HOME` gives a stable answer until
-> [#280](https://github.com/hexide-io/HexIDE/issues/280) is fixed. This is not a documentation gap; it is
-> a defect, and it is being reported here rather than papered over with a path that only sometimes works.
+> Earlier revisions of this page warned that the Unix location was unreliable, because HexIDE resolved it
+> through a folder API that returns an empty string when `XDG_CONFIG_HOME` is unset — which it is on most
+> distributions. The file then landed relative to wherever the IDE was started from.
+> [#280](https://github.com/hexide-io/HexIDE/issues/280) fixed that: the paths above are now what HexIDE
+> actually uses, and setting `XDG_CONFIG_HOME` is a preference rather than a workaround.
 
 It does not exist until you create it. **Deleting it restores the defaults**, which is the intended way
 to undo an experiment that went wrong: the bundled server is compiled in, so no edit to this file can
