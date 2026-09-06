@@ -3,6 +3,7 @@
     <PropertyGroup>
         <TargetFrameworks>$(DotNetVersion)</TargetFrameworks>
         <Nullable>enable</Nullable>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <IsPackable>false</IsPackable>
         <OutputType>Exe</OutputType>
         <IsTestProject>true</IsTestProject>
