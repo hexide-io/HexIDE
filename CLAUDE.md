@@ -613,8 +613,15 @@ widening visibility to `public` just for a test. When a new test project needs r
 - **`DrawingContext.DrawImage(image, destRect)` samples the source's *device-independent* extent, not its pixels.** Composing a `RenderTargetBitmap` rendered at `96 * scaling` dpi into another therefore reads only the top-left `1/scaling` of it and stretches that to fill — on a 150% display, correctly placed and sized output with magnified, clipped contents inside. Use the three-argument overload with an explicit **pixel** source rect. Related: render a visual with `RenderTargetBitmap.Render`, which handles scaling correctly, rather than routing it through a drawing context. Both traps are invisible at 100% scaling and invisible headlessly. See `SnapshotComposer`.
 - **Avalonia 12 breaking changes** (already migrated, for reference): `GotFocusEventArgs` → `FocusChangedEventArgs`; `CaptionButtons` (chrome control) removed — replaced with custom `MDICaptionButtons : TemplatedControl`; `GetVisualRoot()` → `TopLevel.GetTopLevel(this)`; `RenderOptions.SetTextRenderingMode` → `TextOptions.SetTextRenderingMode`; `RenderOptions.TextRenderingMode="Alias"` in AXAML → `TextOptions.TextRenderingMode="Alias"`; `<CompiledBinding Path="X" />` inside `MultiBinding` → `<Binding Path="X" />`.
 - **Test frameworks are mid-migration** ([#297](https://github.com/hexide-io/HexIDE/issues/297)).
-  `HexIDE.Integration.Tests` (xunit v3, **MTP** runner), `HexIDE.VbLspServer.Tests` and
-  `HexIDE.Runtime.Tests` (xunit v3, VSTest runner) are on v3; only `HexIDE.Tests` is still on xunit v2. A v3 project needs no
+  All four test projects are on **xunit v3**. `HexIDE.Integration.Tests` uses the **MTP** runner; the
+  other three stay on **VSTest** until the whole solution moves together (mixing the two in one
+  solution is unsupported, so the split is closed in one step, not widened per project).
+- **A custom `FactAttribute` must never throw from its constructor.** xunit v2 reported that as a test
+  failure; **v3 discards the test at discovery**, so a guard written that way fails *open*. This bit
+  `HEXIDE_REQUIRE_FOREIGN_LSP`, whose entire purpose is to stop the foreign-server proof disappearing:
+  with servers absent the suite went green at 978 instead of red, fourteen tests simply not there.
+  Enforcement now lives in `RequiredServersTests` as ordinary `[Fact]`s, which are discovered whatever
+  the environment. Put availability checks in a test, not in an attribute. A v3 project needs no
   `OutputType` change — `xunit.v3.core` makes it an executable itself.
 - **`xunit.v3` is capped at `[3.2.2,4.0.0)` and that is deliberate.** 4.0.0 (still "Core Framework v3" — the
   package version and the framework generation are decoupled) breaks `Avalonia.Headless.XUnit` with a

@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 
 // NB: namespace deliberately avoids a `Lsp` segment — see VBLspClientTests.
@@ -162,18 +163,15 @@ public class ProtocolCoverageDocTests
 /// </summary>
 public sealed class LspModelFactAttribute : FactAttribute
 {
-    public LspModelFactAttribute()
+    public LspModelFactAttribute(
+        [CallerFilePath] string? sourceFilePath = null,
+        [CallerLineNumber] int sourceLineNumber = -1)
+            : base(sourceFilePath, sourceLineNumber)
     {
         if (LspSpecificationModel.All() is not null) return;
 
-        if (ForeignServer.IsRequired)
-        {
-            throw new InvalidOperationException(
-                $"{ForeignServer.RequiredVariable} is set, but the LSP {LspSpecificationModel.Version} "
-              + "metaModel could not be obtained. These tests are what stops the protocol coverage table "
-              + "drifting from the specification, so they are not allowed to skip here.");
-        }
-
+        // Enforcement lives in RequiredServersTests; see the note there and in
+        // ForeignServerFactAttribute about why an attribute constructor must not throw under v3.
         Skip = "The LSP metaModel is unavailable. It is normally downloaded on demand; set "
              + $"{LspSpecificationModel.PathVariable} to a local copy to work offline.";
     }
