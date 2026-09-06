@@ -60,6 +60,11 @@ public partial class App : Application
             // BindingPlugins.DataValidators no longer applies to compiled bindings (Avalonia 12+).
             // This project uses AvaloniaUseCompiledBindingsByDefault=true so no removal is needed.
 
+            // Before the client starts, not after: a server can report a problem with its own setup
+            // during the handshake, and a subscriber attached afterwards would miss exactly the message
+            // that explains why nothing works.
+            _ = _diSetup.LanguageServerMessages;
+
             // Start the VB6 LSP server in the background (Desktop only).
             _ = _diSetup.LspClient.StartAsync();
 
