@@ -260,7 +260,7 @@ than inferred.
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `$/cancelRequest` | ↔ | Tokens reach StreamJsonRpc, which owns whether this reaches the wire — untested here |
+| ○ | `$/cancelRequest` | ↔ | Tokens are passed to StreamJsonRpc, but **cancelling one does not unblock the client's await**: it notifies and then waits for the server to acknowledge. Measured while fixing [#231](https://github.com/hexide-io/HexIDE/issues/231) |
 | ○ | `$/logTrace` | ← |  |
 | ○ | `$/progress` | ↔ |  |
 | ○ | `$/setTrace` | → |  |
