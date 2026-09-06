@@ -1083,10 +1083,63 @@ public class ProjectService : IProjectService
         return Path.GetFileNameWithoutExtension(absolutePath);
     }
 
-    internal static string ProjectFilesDirectory(ProjectDefinition project) =>
-        project.AbsolutePath is { } p
-            ? Path.GetDirectoryName(p)!
-            : Path.Combine(Path.GetTempPath(), "hexide_" + project.Name);
+    /// <summary>
+    /// Where this project's files live right now — its own directory once saved, and a private scratch
+    /// directory before that.
+    ///
+    /// <para>
+    /// <b>The scratch directory is unique per project instance, and that is the whole point.</b> It used
+    /// to be <c>%TEMP%/hexide_{Name}</c>, and every new Standard EXE is named <c>Project1</c>, so every
+    /// first project of every session shared one folder. That was not a theoretical collision: a
+    /// development machine held eleven files from four days of unrelated sessions in a single directory.
+    /// Adding a <c>Module1</c> where a previous session had left one destroyed it silently; Save As
+    /// copied whatever else happened to be lying there; two IDE instances wrote to the same place at
+    /// once. None of it announced itself (hexide-io/HexIDE#260).
+    /// </para>
+    ///
+    /// <para>
+    /// Assigned once per project and remembered, because callers ask repeatedly and every answer has to
+    /// name the same place — a freshly-generated directory per call would scatter one project's files
+    /// across many.
+    /// </para>
+    /// </summary>
+    public static string ProjectFilesDirectory(ProjectDefinition project)
+    {
+        if (project.AbsolutePath is { } p)
+            return Path.GetDirectoryName(p)!;
+
+        if (project.WorkingDirectory is { Length: > 0 } existing)
+            return existing;
+
+        // The suffix is what makes it private. The name is kept in front of it so a user who goes looking
+        // in TEMP can still tell which directory belongs to what.
+        var scratch = Path.Combine(
+            Path.GetTempPath(),
+            $"hexide_{SanitiseForPath(project.Name)}_{Guid.NewGuid():N}");
+
+        project.WorkingDirectory = scratch;
+        return scratch;
+    }
+
+    /// <summary>
+    /// Makes a project name safe to embed in a directory name.
+    ///
+    /// <para>
+    /// A project name is user text and reaches here unfiltered; a name containing a separator would
+    /// otherwise place the scratch directory somewhere other than TEMP, which is the failure this method
+    /// exists to prevent rather than a theoretical one.
+    /// </para>
+    /// </summary>
+    private static string SanitiseForPath(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var cleaned = new string([.. name.Select(c => invalid.Contains(c) ? '_' : c)]).Trim();
+        if (cleaned.Length == 0) return "project";
+
+        // Truncated because the name is user text and the whole path still has to fit: the GUID that
+        // follows it is what guarantees uniqueness, so losing the tail of a long name costs nothing.
+        return cleaned.Length <= 48 ? cleaned : cleaned[..48];
+    }
 
     /// <summary>Saves everything the user left ticked in the save-changes prompt.</summary>
     private async Task SaveSelected(SaveChangesViewModel changedFilesVm)
