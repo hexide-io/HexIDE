@@ -70,6 +70,33 @@ public partial class ProjectDefinition : INotifyPropertyChanged
         set => SetField(ref absolutePath, value);
     }
 
+    /// <summary>
+    /// Where a never-saved project's files actually live, unique to this project instance.
+    ///
+    /// <para>
+    /// A project that has not been saved still writes real files the moment the user adds a form or a
+    /// module — HexIDE diverges from VB6 there deliberately, so a crash does not take the work with it.
+    /// The directory used to be keyed on the project NAME, and every new Standard EXE is called
+    /// <c>Project1</c>, so every first project of every session shared one directory. Observed on a
+    /// development machine: eleven files from four days of unrelated sessions in a single folder, with
+    /// adding a <c>Module1</c> silently destroying a previous session's <c>Module1.bas</c>
+    /// (hexide-io/HexIDE#260).
+    /// </para>
+    ///
+    /// <para>
+    /// Assigned once, lazily, and never reused. It is deliberately NOT the same question as
+    /// <see cref="AbsolutePath"/>: having somewhere to put files and having been saved are different
+    /// states, and conflating them is what produced a shared directory nobody chose.
+    /// </para>
+    /// </summary>
+    public string? WorkingDirectory
+    {
+        get => workingDirectory;
+        set => SetField(ref workingDirectory, value);
+    }
+
+    private string? workingDirectory;
+
     public string Name
     {
         get => name;
