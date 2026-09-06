@@ -13,9 +13,8 @@ namespace HexIDE.Tests;
 /// </summary>
 public class ControlPropertyCoercionTests
 {
-    public ControlPropertyCoercionTests() => AvaloniaTestSetup.EnsureInitialized();
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(100)]        // the ubiquitous Integer literal case
     [InlineData(30000)]      // still Integer
     [InlineData(40000)]      // a Long (magnitude > Int16)
@@ -29,7 +28,7 @@ public class ControlPropertyCoercionTests
         read.Should().Match<Vb6Value>(v => System.Convert.ToDouble(v.Value) == value);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SetWidth_WithSingleValue_CoercesToDouble()
     {
         var control = new Control();

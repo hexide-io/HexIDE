@@ -14,7 +14,6 @@ public class DataTipTests
 {
     // Touching CodeEditorView (even a static method) runs its static ctor, which loads Avalonia assets — needs the
     // headless app initialised.
-    public DataTipTests() => AvaloniaTestSetup.EnsureInitialized();
 
     private static DebugEvalResult Ok(string display)
         => new(true, display, "Integer", true, new DebugNode("x", display, "Integer"));
@@ -22,19 +21,19 @@ public class DataTipTests
     private static DebugEvalResult Err(string message)
         => new(false, message, string.Empty, false, new DebugNode("x", message, string.Empty));
 
-    [Fact]
+    [AvaloniaFact]
     public void ResolvedValue_ShowsIdentifierEqualsValue()
         => CodeEditorView.DataTipText("x", Ok("42")).Should().Be("x = 42");
 
-    [Fact]
+    [AvaloniaFact]
     public void EvaluationError_ShowsNoTip()
         => CodeEditorView.DataTipText("Foo", Err("Sub or Function not defined")).Should().BeNull();
 
-    [Fact]
+    [AvaloniaFact]
     public void NoResult_ShowsNoTip()   // not paused / eval unavailable → null result
         => CodeEditorView.DataTipText("x", null).Should().BeNull();
 
-    [Fact]
+    [AvaloniaFact]
     public void EmptyWord_ShowsNoTip()   // pointer not over an identifier
         => CodeEditorView.DataTipText(string.Empty, Ok("42")).Should().BeNull();
 }

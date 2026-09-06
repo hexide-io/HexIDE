@@ -28,7 +28,6 @@ public class OptionsViewModelTests
     public OptionsViewModelTests()
     {
         // Use a real LocalizationService (canonical en) so node labels resolve to real English.
-        AvaloniaTestSetup.EnsureInitialized();
         _localization = new LocalizationService();
 
         // Default snapshot returned by the mock settings service.
@@ -79,7 +78,7 @@ public class OptionsViewModelTests
 
     // ── Tree / navigation ───────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void Constructor_BuildsExpectedGroups()
     {
         var sut = CreateSut();
@@ -91,7 +90,7 @@ public class OptionsViewModelTests
             .Should().Equal("Environment", "Editor", "Form Designer", "Add-Ins");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void TreeNodes_Relocalize_WhenLanguageChangesMidDialog()
     {
         var sut = CreateSut();
@@ -102,7 +101,7 @@ public class OptionsViewModelTests
         sut.RootNodes[0].Title.Should().Be("Environnement");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void DeveloperNode_Hidden_WhenNotInDeveloperMode()
     {
         _devMode.IsEnabled.Returns(false);
@@ -112,7 +111,7 @@ public class OptionsViewModelTests
         sut.RootNodes.Select(n => n.Title).Should().NotContain("Developer");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void DeveloperNode_ShownLast_WhenInDeveloperMode()
     {
         _devMode.IsEnabled.Returns(true);
@@ -123,7 +122,7 @@ public class OptionsViewModelTests
         sut.RootNodes.Last().Page.Should().BeOfType<DeveloperPageViewModel>();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Constructor_SelectsFirstLeafPage()
     {
         var sut = CreateSut();
@@ -133,7 +132,7 @@ public class OptionsViewModelTests
         sut.CurrentPage.Should().BeSameAs(sut.SelectedNode.Page);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SelectedNode_DrivesCurrentPage()
     {
         var sut = CreateSut();
@@ -144,13 +143,13 @@ public class OptionsViewModelTests
         sut.CurrentPage.Should().BeOfType<FormDesignerGridPageViewModel>();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Title_IsOptions()
     {
         CreateSut().Title.Should().Be("Options");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CanResize_IsTrue()
     {
         CreateSut().CanResize.Should().BeTrue();
@@ -158,7 +157,7 @@ public class OptionsViewModelTests
 
     // ── Page load ───────────────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void Pages_LoadFromSettings()
     {
         _settings.TabWidth.Returns(8);
@@ -174,7 +173,7 @@ public class OptionsViewModelTests
 
     // ── OK commits ──────────────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void OkCommand_WritesAllPagesBackToSettings()
     {
         var sut = CreateSut();
@@ -191,7 +190,7 @@ public class OptionsViewModelTests
         _settings.Received().PromptForProjectOnStartup = false;
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OkCommand_CallsSaveOnce()
     {
         var sut = CreateSut();
@@ -201,7 +200,7 @@ public class OptionsViewModelTests
         _settings.Received(1).Save();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OkCommand_RaisesCloseRequested_WithTrue()
     {
         var sut = CreateSut();
@@ -215,7 +214,7 @@ public class OptionsViewModelTests
 
     // ── Cancel discards ─────────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void CancelCommand_DoesNotCallSave()
     {
         var sut = CreateSut();
@@ -226,7 +225,7 @@ public class OptionsViewModelTests
         _settings.DidNotReceive().Save();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CancelCommand_DoesNotWriteBackToSettings()
     {
         var sut = CreateSut();
@@ -237,7 +236,7 @@ public class OptionsViewModelTests
         _settings.DidNotReceive().TabWidth = 16;
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CancelCommand_RaisesCloseRequested_WithFalse()
     {
         var sut = CreateSut();
@@ -251,7 +250,7 @@ public class OptionsViewModelTests
 
     // ── Theme live preview ──────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void ThemePage_AppliesThemeLiveOnChange()
     {
         var sut = CreateSut();
@@ -261,7 +260,7 @@ public class OptionsViewModelTests
         _themeService.Received().Apply("Dark");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CancelCommand_RevertsThemeToOriginal()
     {
         var sut = CreateSut();
@@ -272,7 +271,7 @@ public class OptionsViewModelTests
         _themeService.Received().Apply("Classic");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OkCommand_PersistsSelectedTheme()
     {
         var sut = CreateSut();
@@ -285,7 +284,7 @@ public class OptionsViewModelTests
 
     // ── New first-party pages (Phase 2) ─────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void Environment_HasKeymapAndToolbarsPages()
     {
         var sut = CreateSut();
@@ -294,7 +293,7 @@ public class OptionsViewModelTests
         Flatten(sut.RootNodes).Select(n => n.Page).OfType<ToolbarsPageViewModel>().Should().ContainSingle();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void KeymapPage_DoesNotApplyDuringEdit()
     {
         var sut = CreateSut();
@@ -304,7 +303,7 @@ public class OptionsViewModelTests
         _keymapService.DidNotReceive().Apply(Arg.Any<string>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OkCommand_PersistsAndAppliesKeymap()
     {
         var sut = CreateSut();
@@ -316,7 +315,7 @@ public class OptionsViewModelTests
         _keymapService.Received().Apply("VB6");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OkCommand_PersistsToolbarVisibility()
     {
         var sut = CreateSut();
@@ -329,7 +328,7 @@ public class OptionsViewModelTests
         _settings.Received().IsDebugToolbarVisible = true;
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OkCommand_PersistsMinimapVisibility()
     {
         var sut = CreateSut();
@@ -342,7 +341,7 @@ public class OptionsViewModelTests
 
     // ── Reset to defaults (Phase 3) ─────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void CanRestorePageDefaults_TrueForSettingsPage_FalseForGroup()
     {
         var sut = CreateSut();
@@ -353,7 +352,7 @@ public class OptionsViewModelTests
         sut.CurrentPage.Should().BeNull();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void RestorePageDefaultsCommand_ResetsOnlyCurrentPage()
     {
         var sut = CreateSut();
@@ -369,7 +368,7 @@ public class OptionsViewModelTests
         grid.GridWidth.Should().Be(99);                               // untouched
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ResetAllCommand_ResetsEveryPage()
     {
         var sut = CreateSut();
@@ -384,7 +383,7 @@ public class OptionsViewModelTests
         Page<EditorGeneralPageViewModel>(sut).AutoListMembers.Should().Be(SettingsDefaults.AutoListMembers);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ResetAll_RestoresThemeToDefaultLive()
     {
         var sut = CreateSut();
@@ -396,7 +395,7 @@ public class OptionsViewModelTests
         _themeService.Received().Apply(SettingsDefaults.ActiveTheme);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ResetAll_IsPreviewOnly_CommitsOnOk()
     {
         var sut = CreateSut();
@@ -411,7 +410,7 @@ public class OptionsViewModelTests
         _settings.Received(1).Save();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ResetAll_ThenCancel_DoesNotPersist()
     {
         var sut = CreateSut();
@@ -426,7 +425,7 @@ public class OptionsViewModelTests
 
     // ── Add-Ins section (Phase 4) ───────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void AddInsGroup_HasNodePerDiscoveredAddin_IncludingDisabled()
     {
         var sut = CreateSut();
@@ -434,7 +433,7 @@ public class OptionsViewModelTests
         group.Children.Select(c => c.Title).Should().Equal("Add-in A", "Add-in B");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void NoAddins_OmitsAddInsGroup()
     {
         _addinRegistry.GetAll().Returns([]);
@@ -442,7 +441,7 @@ public class OptionsViewModelTests
         sut.RootNodes.Select(n => n.Title).Should().NotContain("Add-Ins");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SelectingAddinNode_ShowsAddinPage()
     {
         var sut = CreateSut();
@@ -454,7 +453,7 @@ public class OptionsViewModelTests
         sut.CanRestorePageDefaults.Should().BeFalse();   // add-ins aren't resettable settings pages
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AddinPage_Deactivate_PersistsViaRegistry()
     {
         var sut = CreateSut();
@@ -467,7 +466,7 @@ public class OptionsViewModelTests
         a.RestartNoteVisible.Should().BeTrue();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AddinPage_DisabledAddin_ShowsActivate_AndReactivates()
     {
         var sut = CreateSut();
@@ -480,7 +479,7 @@ public class OptionsViewModelTests
         _addinRegistry.Received().SetEnabled(_addinB.AssemblyPath, true);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ResetAll_DoesNotToggleAddins()
     {
         var sut = CreateSut();
@@ -490,7 +489,7 @@ public class OptionsViewModelTests
 
     // ── Add-in contributed options pages (Phase 5) ──────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void AddinPage_ShowsContributedContent_WhenRegisteredForThatAddin()
     {
         var path = typeof(OptionsViewModelTests).Assembly.Location;   // capture key
@@ -504,7 +503,7 @@ public class OptionsViewModelTests
         page.HasContributedContent.Should().BeTrue();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AddinPage_NoContributedContent_WhenNoneRegistered()
     {
         // default add-ins A and B have no contributed pages registered

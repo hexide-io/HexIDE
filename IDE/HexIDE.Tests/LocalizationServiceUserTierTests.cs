@@ -13,7 +13,6 @@ namespace HexIDE.Tests;
 /// </summary>
 public class LocalizationServiceUserTierTests
 {
-    public LocalizationServiceUserTierTests() => AvaloniaTestSetup.EnsureInitialized();
 
     /// <summary>Builds a stub <see cref="IUserTranslationsService"/> backed by an in-memory per-id map.
     /// Only <see cref="IUserTranslationsService.GetOverrides"/> is consulted by the resolution path.</summary>
@@ -34,7 +33,7 @@ public class LocalizationServiceUserTierTests
     private static LocalizationService CreateSut(Dictionary<string, Dictionary<string, string>> overridesById) =>
         new(FakeUserTranslations(overridesById));
 
-    [Fact]
+    [AvaloniaFact]
     public void UserOverrideOnNeutral_ShowsThrough_WhenNeutralApplied()
     {
         var sut = CreateSut(new()
@@ -47,7 +46,7 @@ public class LocalizationServiceUserTierTests
         sut.GetString("Str.Menu.File").Should().Be("MeineDatei");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void UserOverrideOnNeutral_ShowsThrough_WhenRegionApplied()
     {
         // An override on neutral `de` must bleed through to a region under it (de-AT) — it beats the
@@ -63,7 +62,7 @@ public class LocalizationServiceUserTierTests
         sut.GetString("Str.Menu.File").Should().Be("MeineDatei");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void UserOverrideOnRegion_AppliesToThatRegion()
     {
         var sut = CreateSut(new()
@@ -76,7 +75,7 @@ public class LocalizationServiceUserTierTests
         sut.GetString("Str.Menu.File").Should().Be("ÖsterreichDatei");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void UserOverrideOnRegion_DoesNotApplyToBareNeutral()
     {
         // A region-keyed override (de-AT) must NOT leak up into the bare neutral (de): applying `de`
@@ -98,7 +97,7 @@ public class LocalizationServiceUserTierTests
         sut.GetString("Str.Menu.File").Should().NotBe("ÖsterreichDatei");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void UserOverride_BeatsShippedPackValue_ForAKeyTheShippedPackDefines()
     {
         // `fr` ships a real translation of Str.Menu.File (≠ "_File"). A user override on `fr` must win
@@ -118,7 +117,7 @@ public class LocalizationServiceUserTierTests
         sut.GetString("Str.Menu.File").Should().NotBe(shippedFrFile);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void UserOverrideOnEn_ShowsThrough_ViaTheEnglishFastPath()
     {
         // `en` is the canonical fast-path; a user override on `en` (authoring the canonical) is honored.
@@ -132,7 +131,7 @@ public class LocalizationServiceUserTierTests
         sut.GetString("Str.Menu.File").Should().Be("CustomFile");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void GetStringFrom_UnshippedCultureWithOnlyUserOverrides_ReturnsTheOverride()
     {
         // ca-ES (Catalan) ships no pack. With only a user override present, the found path must resolve it
@@ -145,7 +144,7 @@ public class LocalizationServiceUserTierTests
         sut.GetStringFrom("ca-ES", "Str.Menu.File").Should().Be("Fitxer");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_UnshippedCultureWithOnlyUserOverrides_ResolvesToTheOverride_NotEnglish()
     {
         var sut = CreateSut(new()
@@ -161,7 +160,7 @@ public class LocalizationServiceUserTierTests
         sut.GetString("Str.Menu.File").Should().Be("Fitxer");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ShippedOwnChainKeys_ForEn_IsEmpty()
     {
         // `en` is the canonical itself — nothing is an "en-only" fallback above it.
@@ -170,7 +169,7 @@ public class LocalizationServiceUserTierTests
         sut.ShippedOwnChainKeys("en").Should().BeEmpty();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ShippedOwnChainKeys_ForEnGb_IsNonEmpty_AndASubsetOfCanonicalEn()
     {
         // en-GB ships a real pack (~18 overrides like "Customise..."). Its own-chain keys must be a subset

@@ -15,7 +15,6 @@ public class NewProjectViewModelTests
 
     public NewProjectViewModelTests()
     {
-        AvaloniaTestSetup.EnsureInitialized();
         _recentProjects.GetRecent().Returns(new List<string>());
         _settingsService.PromptForProjectOnStartup.Returns(true);
         _personality.AvailableProjectTypes.Returns(new List<IProjectTemplate>(IProjectTemplate.Templates));
@@ -26,7 +25,7 @@ public class NewProjectViewModelTests
 
     private NewProjectViewModel CreateSut() => new(_windowManager, _recentProjects, _settingsService, _personality, _localization);
 
-    [Fact]
+    [AvaloniaFact]
     public void Title_ShouldBeNewProject()
     {
         var sut = CreateSut();
@@ -34,7 +33,7 @@ public class NewProjectViewModelTests
         sut.Title.Should().Be("New Project");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CanResize_ShouldBeFalse()
     {
         var sut = CreateSut();
@@ -42,7 +41,7 @@ public class NewProjectViewModelTests
         sut.CanResize.Should().BeFalse();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Templates_ShouldBePopulatedFromProjectTemplates()
     {
         var sut = CreateSut();
@@ -51,7 +50,7 @@ public class NewProjectViewModelTests
         sut.Templates[0].Name.Should().Be(IProjectTemplate.Templates[0].Name);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SelectedTemplate_ShouldDefaultToFirstTemplate()
     {
         var sut = CreateSut();
@@ -60,7 +59,7 @@ public class NewProjectViewModelTests
         sut.SelectedTemplate!.Name.Should().Be(sut.Templates[0].Name);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OkNewCanExecute_ShouldBeTrue_WhenSelectedTemplateIsNotNull()
     {
         var sut = CreateSut();
@@ -68,7 +67,7 @@ public class NewProjectViewModelTests
         sut.OkNew.CanExecute(null).Should().BeTrue();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OkNewCanExecute_ShouldBeFalse_WhenSelectedTemplateIsNull()
     {
         var sut = CreateSut();
@@ -78,7 +77,7 @@ public class NewProjectViewModelTests
         sut.OkNew.CanExecute(null).Should().BeFalse();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OkNewExecute_ShouldFireCloseRequestedTrue_ForSupportedTemplate()
     {
         var sut = CreateSut();
@@ -92,7 +91,7 @@ public class NewProjectViewModelTests
         sut.ResultFilePath.Should().BeNull();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OkNewExecute_ShouldCallMessageBox_ForUnsupportedTemplate()
     {
         var sut = CreateSut();
@@ -111,7 +110,7 @@ public class NewProjectViewModelTests
             MessageBoxIcon.Information);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void CancelExecute_ShouldFireCloseRequestedFalse()
     {
         var sut = CreateSut();
@@ -123,7 +122,7 @@ public class NewProjectViewModelTests
         received.Should().BeFalse();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OkNewCanExecuteChanged_ShouldFire_WhenSelectedTemplateChanges()
     {
         var sut = CreateSut();
@@ -135,7 +134,7 @@ public class NewProjectViewModelTests
         fired.Should().BeTrue();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void RecentProjects_ShouldBePopulatedFromService()
     {
         // Build with Path.Combine, not a literal "C:\...". On Linux CI a backslash is an ordinary
@@ -155,7 +154,7 @@ public class NewProjectViewModelTests
         sut.RecentProjects[1].FileName.Should().Be("Project2.vbp");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OkRecentCanExecute_ShouldBeFalse_WhenNoRecentSelected()
     {
         var sut = CreateSut();
@@ -163,7 +162,7 @@ public class NewProjectViewModelTests
         sut.OkRecent.CanExecute(null).Should().BeFalse();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void FileBrowser_ShouldExist()
     {
         var sut = CreateSut();
@@ -172,7 +171,7 @@ public class NewProjectViewModelTests
         sut.FileBrowser.Entries.Should().NotBeNull();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void DontShowOnStartup_InitializesFromService()
     {
         _settingsService.PromptForProjectOnStartup.Returns(false);
@@ -182,7 +181,7 @@ public class NewProjectViewModelTests
         sut.DontShowOnStartup.Should().BeTrue();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void DontShowOnStartup_PersistsToService_WhenChanged()
     {
         var sut = CreateSut();

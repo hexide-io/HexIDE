@@ -18,7 +18,6 @@ public class WatchesToolViewModelTests
 
     public WatchesToolViewModelTests()
     {
-        AvaloniaTestSetup.EnsureInitialized();
         _localization.GetString(Arg.Any<string>()).Returns(ci => ci.Arg<string>());   // echo the key
     }
 
@@ -27,7 +26,7 @@ public class WatchesToolViewModelTests
     private static DebugEvalResult OkResult(string display, string type)
         => new(true, display, type, false, new DebugNode("x", display, type));
 
-    [Fact]
+    [AvaloniaFact]
     public void AddingWatchToService_CreatesRow()
     {
         var sut = CreateSut();
@@ -35,7 +34,7 @@ public class WatchesToolViewModelTests
         sut.Rows.Select(r => r.Expression).Should().Equal("count");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task Stopped_EvaluatesEachWatch()
     {
         _debug.State.Returns(DebugState.Paused);
@@ -50,7 +49,7 @@ public class WatchesToolViewModelTests
         sut.Rows[0].TypeName.Should().Be("Integer");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task Continued_BlanksValue()
     {
         _debug.State.Returns(DebugState.Paused);
@@ -67,7 +66,7 @@ public class WatchesToolViewModelTests
         sut.Rows[0].TypeName.Should().BeEmpty();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void DeleteSelected_RemovesWatch()
     {
         _watchService.Add(new WatchExpression("count", WatchType.Expression, "Module1.Go"));

@@ -13,12 +13,11 @@ public class CallStackToolViewModelTests
 
     public CallStackToolViewModelTests()
     {
-        AvaloniaTestSetup.EnsureInitialized();
     }
 
     private CallStackToolViewModel CreateSut() => new(_localization, _debugController);
 
-    [Fact]
+    [AvaloniaFact]
     public void Stopped_PopulatesFramesFromGetCallStack_CurrentFirstWithArrow()
     {
         _debugController.GetCallStack().Returns(new[]
@@ -35,7 +34,7 @@ public class CallStackToolViewModelTests
         sut.Frames.Select(f => f.Line).Should().Equal(12, 7, 3);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Continued_ClearsFrames()
     {
         _debugController.GetCallStack().Returns(new[] { new CallStackFrame("A", "Module1", 3) });
