@@ -53,17 +53,32 @@ public sealed class VBLspClient : ILspClient
     /// the caller has no workspace to offer, in which case no root is sent — which is honest, and what the
     /// protocol says to do.
     /// </param>
+    /// <param name="initializeTimeout">
+    /// How long to wait for the server's <c>initialize</c> reply before abandoning the handshake. Injected
+    /// so tests need not wait out the real one; leave it unset everywhere else.
+    /// </param>
     public VBLspClient(
-        ILspTransport transport, ILogger<VBLspClient> logger, string languageId, ILspWorkspace? workspace = null)
+        ILspTransport transport, ILogger<VBLspClient> logger, string languageId,
+        ILspWorkspace? workspace = null, TimeSpan? initializeTimeout = null)
     {
         _transport = transport;
         _logger = logger;
         _languageId = languageId;
         _workspace = workspace;
+        _initializeTimeout = initializeTimeout ?? DefaultInitializeTimeout;
     }
 
     private readonly string _languageId;
     private readonly ILspWorkspace? _workspace;
+    private readonly TimeSpan _initializeTimeout;
+
+    /// <summary>
+    /// Deliberately generous. The cost of waiting too long is a late log line; the cost of waiting too
+    /// little is tearing down a server that was merely slow to start — which would be a worse bug than the
+    /// one this bounds, because it would strike healthy setups on cold or loaded machines. Nothing here is
+    /// on a user-visible path: the handshake runs fire-and-forget from startup.
+    /// </summary>
+    private static readonly TimeSpan DefaultInitializeTimeout = TimeSpan.FromSeconds(30);
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
@@ -144,6 +159,44 @@ public sealed class VBLspClient : ILspClient
         var p = new DidOpenTextDocumentParams(new TextDocumentItem(uri, _languageId, version, text));
         try { await rpc.NotifyWithParameterObjectAsync("textDocument/didOpen", p); }
         catch (Exception ex) { _logger.LogDebug(ex, "textDocument/didOpen failed for {Uri}", uri); }
+    }
+
+    /// <summary>
+    /// Gives up on a server that accepted the connection and then said nothing.
+    ///
+    /// <para>
+    /// The connection is torn down rather than left alone, because leaving it means a request pending on a
+    /// live channel forever — and because <see cref="DisposeRpc"/> detaches the handler before disposing,
+    /// so nothing else here will notice. The reconnect loop is therefore started explicitly rather than
+    /// waited for.
+    /// </para>
+    ///
+    /// <para>
+    /// For <c>stdio</c> that loop does not exist — <c>CanReconnect</c> is false, because the server is a
+    /// child process this client launched and re-dialling it is not a thing the transport can do. In that
+    /// case this is as far as recovery goes, and the point is the log line: the failure stops being
+    /// invisible, which is the whole of the bug.
+    /// </para>
+    /// </summary>
+    private void AbandonUnansweredHandshake()
+    {
+        _logger.LogWarning(
+            "The language server accepted a connection but did not answer initialize within {Timeout}. "
+          + "Abandoning the handshake and tearing the connection down. Language features will be "
+          + "unavailable for this server{Recovery}.",
+            _initializeTimeout,
+            _transport.CanReconnect ? " until a reconnect succeeds" : ", and this transport cannot reconnect");
+
+        DisposeRpc();
+
+        if (_stopping || !_transport.CanReconnect) return;
+        lock (_reconnectGate)
+        {
+            // Same single-loop invariant as OnRpcDisconnected. When this fires from inside the loop the
+            // task is still running, so no second one starts and the existing backoff simply continues.
+            if (!_stopping && _reconnectTask.IsCompleted)
+                _reconnectTask = ReconnectLoopAsync();
+        }
     }
 
     private void OnRpcDisconnected(object? sender, JsonRpcDisconnectedEventArgs e)
@@ -242,12 +295,34 @@ public sealed class VBLspClient : ILspClient
         // not: the server answered, the connection is good, and the worst honest outcome is that we know
         // less than we might about what it supports. Sharing one catch is what made a single unexpected
         // capability shape disable every language feature including diagnostics (#238).
+        // Bounded, because the unbounded version had no failure mode — it had a disappearance. A server
+        // that connects and then never answers left this await pending for the life of the process: no
+        // diagnostics, no exception, nothing logged, and `IsRunning` false forever. The catch below cannot
+        // help, because a hang never throws (hexide-io/HexIDE#231).
+        //
+        // `WaitAsync` rather than a linked CancellationTokenSource, and the difference is not stylistic.
+        // Handing StreamJsonRpc a token does not bound the wait: on cancellation it notifies the server and
+        // then keeps waiting for that cancellation to be acknowledged — which a server ignoring `initialize`
+        // will also ignore. Measured, after the first attempt at this fix used a linked token and hung
+        // exactly as before. The token is still passed, so the server is told; the bound is here.
         JsonElement raw;
         try
         {
-            raw = await _rpc.InvokeWithParameterObjectAsync<JsonElement>(
-                "initialize", initParams, cancellationToken);
+            raw = await _rpc
+                .InvokeWithParameterObjectAsync<JsonElement>("initialize", initParams, cancellationToken)
+                .WaitAsync(_initializeTimeout, cancellationToken);
             await _rpc.NotifyWithParameterObjectAsync("initialized", EmptyParams.Instance);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Someone called Stop while we were waiting. Ordinary shutdown, not a fault.
+            _logger.LogDebug("Initialize abandoned: the client was stopped during the handshake.");
+            return;
+        }
+        catch (TimeoutException)
+        {
+            AbandonUnansweredHandshake();
+            return;
         }
         catch (Exception ex)
         {
