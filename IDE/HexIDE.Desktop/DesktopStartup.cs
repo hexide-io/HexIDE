@@ -33,7 +33,13 @@ internal static class DesktopStartup
                 await ps.CreateNewProject(IProjectTemplate.StandardEXE);
                 if (pm.StartupProject is { } project)
                 {
-                    var dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide_" + project.Name);
+                    // Through the shared helper, NOT a second copy of the same path rule. This line
+                    // used to build "%TEMP%/hexide_{Name}" itself, and since --newproject always names
+                    // the project Project1, every automation run in every session saved into one
+                    // directory — the larger half of what hexide-io/HexIDE#260 observed, because the MCP
+                    // dev loop uses this flag constantly. Two implementations of one rule is the same
+                    // shape as the didOpen replay that drifted in #272.
+                    var dir = ProjectService.ProjectFilesDirectory(project);
                     await ps.SaveProjectToDirectory(project, dir);
                 }
             };
