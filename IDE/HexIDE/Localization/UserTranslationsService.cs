@@ -1,3 +1,4 @@
+using HexIDE.IDE;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -56,8 +57,7 @@ public sealed partial class UserTranslationsService : IUserTranslationsService
 
     private static string DefaultDir()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        return Path.Combine(appData, "HexIDE", "translations");
+        return UserDataPath.For("translations");
     }
 
     public void LoadAll()

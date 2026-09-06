@@ -1,3 +1,4 @@
+using HexIDE.IDE;
 using System;
 using System.Globalization;
 using System.IO;
@@ -164,8 +165,7 @@ internal sealed class RevocationStore
 
     private static string DefaultCacheDir()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var dir = Path.Combine(appData, "HexIDE");
+        var dir = UserDataPath.Directory;
         Directory.CreateDirectory(dir);
         return dir;
     }

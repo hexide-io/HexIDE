@@ -1,3 +1,4 @@
+using HexIDE.IDE;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -53,8 +54,7 @@ internal sealed class ConsentStore
 
     private static string DefaultFilePath()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var dir = Path.Combine(appData, "HexIDE");
+        var dir = UserDataPath.Directory;
         Directory.CreateDirectory(dir);
         return Path.Combine(dir, "addin-consent.json");
     }
