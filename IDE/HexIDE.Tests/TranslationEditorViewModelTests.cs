@@ -17,7 +17,6 @@ namespace HexIDE.Tests;
 /// </summary>
 public class TranslationEditorViewModelTests
 {
-    public TranslationEditorViewModelTests() => AvaloniaTestSetup.EnsureInitialized();
 
     // ── Test doubles ───────────────────────────────────────────────────────
 
@@ -132,7 +131,7 @@ public class TranslationEditorViewModelTests
 
     // ── From == en ⇒ no row is red ─────────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void FromEnglish_NoRowIsRedFallback()
     {
         var (vm, _, _) = CreateSut();
@@ -145,7 +144,7 @@ public class TranslationEditorViewModelTests
 
     // ── From == en-GB ⇒ red rows == exactly the keys not in GB's own chain ──
 
-    [Fact]
+    [AvaloniaFact]
     public void FromEnGb_RedRows_AreExactlyTheKeysNotInItsOwnShippedChain()
     {
         var (vm, _, loc) = CreateSut();
@@ -171,7 +170,7 @@ public class TranslationEditorViewModelTests
 
     // ── Commit a valid edit ⇒ IsOverridden + SetOverride called ─────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void CommittingValidEdit_SetsOverridden_AndCallsSetOverride()
     {
         var (vm, user, _) = CreateSut();
@@ -194,7 +193,7 @@ public class TranslationEditorViewModelTests
 
     // ── Clearing a To cell ⇒ revert (not overridden) + ClearOverride ────────
 
-    [Fact]
+    [AvaloniaFact]
     public void ClearingToValue_RevertsToInherited_AndCallsClearOverride()
     {
         var (vm, user, loc) = CreateSut();
@@ -222,7 +221,7 @@ public class TranslationEditorViewModelTests
 
     // ── Placeholder-breaking edit ⇒ validation error, NOT overridden ────────
 
-    [Fact]
+    [AvaloniaFact]
     public void PlaceholderBreakingEdit_SetsValidationError_AndDoesNotOverride()
     {
         var (vm, user, _) = CreateSut();
@@ -246,7 +245,7 @@ public class TranslationEditorViewModelTests
 
     // ── Pickers come from CultureInfo, never from pack ids ──────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void LanguageLists_DoNotContainPseudoPackIds()
     {
         var (vm, _, _) = CreateSut();

@@ -3,88 +3,106 @@ using Avalonia.Threading;
 namespace HexIDE.Tests;
 
 /// <summary>
-/// Pins what is actually true about Avalonia's thread affinity in this suite, so the next attempt at
-/// hexide-io/HexIDE#292 starts from measurements rather than from the guesses that have twice looked
-/// obvious and been wrong.
+/// Guards the invariant that closed the suite's longest-standing flake.
 ///
 /// <para>
-/// The flake: <c>SetupWithoutStarting</c> binds Avalonia's dispatcher to the calling thread, every later
-/// access must come from that thread, and when the binding lands somewhere the tests are not, all 282
-/// Avalonia-dependent tests fail together with <c>VerifyAccess</c> — at random, roughly one CI run in
-/// twelve.
+/// Avalonia binds its dispatcher to the thread that sets it up, and every later access must come from
+/// that thread. This project used to call <c>SetupWithoutStarting</c> from whichever test class asked
+/// first, and xunit gives each test class its own thread — so when that first call landed on a drifted
+/// async continuation, Avalonia bound somewhere the rest of the suite was not, and all 282
+/// Avalonia-dependent tests failed together with <c>VerifyAccess</c>. At random, roughly one CI run in
+/// twelve (hexide-io/HexIDE#286, #292).
 /// </para>
 ///
 /// <para>
-/// These tests do not fix it. They make its cause observable, which the 282-failure cascade never was.
+/// <c>[AvaloniaFact]</c> removes the invariant instead of trying to satisfy it: Avalonia caches one
+/// session per assembly and runs every such test on the single thread that session owns. These tests
+/// assert that directly, because "the flake stopped happening" is not evidence about a race that fired
+/// one run in twelve — the previous two attempted fixes both looked fine by that standard and were
+/// measurably wrong.
 /// </para>
 /// </summary>
 public class AvaloniaThreadAffinityTests
 {
-    [Fact]
-    public void SetupRecordsWhichThreadItBoundTo()
-    {
-        // Without this there is no way to tell a thread-affinity failure from any other Avalonia error,
-        // which is why the cascade went misdiagnosed for months.
-        AvaloniaTestSetup.EnsureInitialized();
+    /// <summary>
+    /// Every thread an <c>[AvaloniaFact]</c> in this file has been seen on.
+    ///
+    /// <para>
+    /// A set rather than a "first one wins" field, deliberately: each test adds its own thread and then
+    /// asserts the set still holds exactly one. That holds whichever class or test runs first, so the
+    /// assertion cannot pass or fail for reasons of ordering — which matters, because ordering is
+    /// precisely what the old bug turned on.
+    /// </para>
+    /// </summary>
+    internal static readonly HashSet<int> ObservedThreads = [];
 
-        AvaloniaTestSetup.BoundThreadId.Should().NotBeNull(
-            "a binding nobody can see is one nobody can debug");
+    internal static void RecordAndAssertSingleThread()
+    {
+        lock (ObservedThreads) ObservedThreads.Add(Environment.CurrentManagedThreadId);
+
+        int[] seen;
+        lock (ObservedThreads) seen = [.. ObservedThreads];
+
+        seen.Should().ContainSingle(
+            "every [AvaloniaFact] in this assembly must run on the one thread Avalonia's session owns; "
+          + "more than one here is the 282-failure cascade about to happen, and naming the threads is the "
+          + $"whole point: saw [{string.Join(", ", seen)}]");
     }
 
-    [Fact]
-    public void TheLatchSurvivesEvenIfSetupThrows()
+    [AvaloniaFact]
+    public void AnAvaloniaTestCanTouchTheDispatcher()
     {
-        // The one thing #292 lists that is fixable on its own. Avalonia sets its own internal flag partway
-        // through SetupWithoutStarting, so a throw used to leave this latch false: every later caller
-        // re-entered and reported "Setup was already called", burying the real first failure under
-        // hundreds of copies of a secondary one. The latch is now set before the call.
-        AvaloniaTestSetup.EnsureInitialized();
-        var bound = AvaloniaTestSetup.BoundThreadId;
+        // What the 282 failing tests could not do.
+        RecordAndAssertSingleThread();
 
-        AvaloniaTestSetup.EnsureInitialized();
+        var touch = () => Dispatcher.UIThread.VerifyAccess();
 
-        AvaloniaTestSetup.BoundThreadId.Should().Be(bound,
-            "a second call must be a no-op, whatever happened during the first");
+        touch.Should().NotThrow("an [AvaloniaFact] runs on the thread Avalonia is bound to, by construction");
     }
 
-    [Fact]
-    public void EachTestClassGetsItsOwnThread_WhichIsWhyNoSingleBindingCanWork()
+    [AvaloniaFact]
+    public void AnotherTestInTheSameClassIsOnTheSameThread()
     {
-        // The measurement that killed two plausible fixes, kept so the third attempt does not repeat them.
-        //
-        // Binding at module load put Avalonia on the assembly-load thread (14) while tests ran on another
-        // (22) — turning one failure in twelve into every run. Binding from a BeforeAfterTest hook put it
-        // on 9 against a body on 22, and deadlocked inside xunit's SynchronizationContext besides.
-        //
-        // Both failed for the same reason this records: xunit runs each test CLASS on its own thread, so
-        // there is no single thread that satisfies the assembly. The remaining option is the one that
-        // removes the invariant instead of trying to satisfy it — Avalonia.Headless.XUnit's [AvaloniaFact],
-        // which marshals each test onto a UI thread, and which the Integration.Tests project already uses.
-        AvaloniaTestSetup.EnsureInitialized();
-
-        var bound = AvaloniaTestSetup.BoundThreadId;
-        var here = Environment.CurrentManagedThreadId;
-
-        // Deliberately not asserted equal. It is equal only for the class that happened to bind, and
-        // asserting it would make this test a coin flip on ordering — the very thing being fixed.
-        (bound is not null).Should().BeTrue(
-            $"recorded so a reader can compare: bound={bound}, this class={here}");
+        RecordAndAssertSingleThread();
     }
 
-    [Fact]
-    public void ADriftedContinuationIsWhatMovesTheBinding()
+    [AvaloniaFact]
+    public async Task ThreadIdentitySurvivesAnAwait()
     {
-        // The mechanism, demonstrated rather than described. After an await the continuation may resume on
-        // a different thread; had THAT been the first caller, this is where Avalonia would have bound, and
-        // every class afterwards would have been on the wrong side of VerifyAccess.
-        AvaloniaTestSetup.EnsureInitialized();
+        // The specific drift that used to move the binding. Under [AvaloniaFact] the continuation comes
+        // back to the session's thread rather than a pool thread, so an async test is no longer a hazard
+        // to every test that follows it.
+        RecordAndAssertSingleThread();
+        var before = Environment.CurrentManagedThreadId;
 
-        var beforeAwait = Environment.CurrentManagedThreadId;
-        Thread.Sleep(1);
+        await Task.Yield();
 
-        var touch = () => Dispatcher.UIThread.CheckAccess();
-        touch.Should().NotThrow("CheckAccess reports rather than throws, unlike VerifyAccess");
+        Environment.CurrentManagedThreadId.Should().Be(before,
+            "a continuation that resumed elsewhere is exactly what used to rebind Avalonia");
+        Dispatcher.UIThread.CheckAccess().Should().BeTrue("and it must still be the UI thread afterwards");
+    }
+}
 
-        beforeAwait.Should().BePositive("recorded for the reader; the drift itself is timing-dependent");
+/// <summary>
+/// A second class, deliberately. Per-class threads were the fault — measured at 10 and 13 with a
+/// continuation on 18 — so an invariant asserted only within one class would prove nothing about the
+/// thing that broke.
+/// </summary>
+public class AvaloniaThreadAffinityAcrossClassesTests
+{
+    [AvaloniaFact]
+    public void ADifferentClassRunsOnTheSameUiThread()
+    {
+        AvaloniaThreadAffinityTests.RecordAndAssertSingleThread();
+    }
+
+    [AvaloniaFact]
+    public void AndCanTouchTheDispatcherFromIt()
+    {
+        AvaloniaThreadAffinityTests.RecordAndAssertSingleThread();
+
+        var touch = () => Dispatcher.UIThread.VerifyAccess();
+
+        touch.Should().NotThrow();
     }
 }

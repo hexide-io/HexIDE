@@ -17,9 +17,8 @@ public class VBCheckBoxTests
         public void Poke() => OnClick();
     }
 
-    public VBCheckBoxTests() => AvaloniaTestSetup.EnsureInitialized();
 
-    [Fact]
+    [AvaloniaFact]
     public void UserClick_TogglesIsChecked_AndSyncsValue_OnCheckAndUncheck()
     {
         var cb = new PokableCheckBox();

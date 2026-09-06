@@ -12,9 +12,8 @@ namespace HexIDE.Tests.Debugging;
 /// </summary>
 public class ControlLocalsTests
 {
-    public ControlLocalsTests() => AvaloniaTestSetup.EnsureInitialized();
 
-    [Fact]
+    [AvaloniaFact]
     public void ControlValue_ExpandsToReadableProperties()
     {
         var button = new VBCommandButton();
@@ -27,7 +26,7 @@ public class ControlLocalsTests
         props.Select(p => p.Name).Should().Contain(new[] { "Left", "Top", "Width", "Height" });
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ReadProperties_AreNameSorted()
     {
         var props = AvaloniaInteroperability.ReadProperties(new VBTextBox());

@@ -30,8 +30,26 @@ public static class IconFactory
         // thread-affine (they VerifyAccess against the UI thread). Off that thread — e.g. a parallel
         // xUnit worker building an icon — leave the default ink and skip wiring rather than throw a
         // cross-thread exception. At runtime IconFactory is only ever called on the UI thread.
-        if (Application.Current is not { } app || !Dispatcher.UIThread.CheckAccess())
+        // Ask the OBJECTS, not the ambient dispatcher. `Dispatcher.UIThread.CheckAccess()` alone is
+        // necessary and not sufficient, which cost a long hunt to establish: an AvaloniaObject captures
+        // the dispatcher it was constructed under —
+        //
+        //     public Dispatcher Dispatcher { get; } = Dispatcher.CurrentDispatcher;
+        //     public void VerifyAccess() => Dispatcher.VerifyAccess();
+        //
+        // — while UIThread is whichever one is current. `Ink` is static, so it outlives any single
+        // dispatcher; where a process sets Avalonia up more than once (a test run with per-test
+        // isolation, or any future multi-window or restart-in-process case) the two disagree, the
+        // ambient guard passes, and the assignment below throws.
+        //
+        // Degrade to the default ink rather than take down whatever asked for an icon — which is what
+        // the guard was always meant to do.
+        if (Application.Current is not { } app
+            || !Ink.Dispatcher.CheckAccess()
+            || !app.Dispatcher.CheckAccess())
+        {
             return;
+        }
 
         Ink.Color = ResolveInk(app);
         if (_wired)
@@ -59,8 +77,11 @@ public static class IconFactory
     {
         // The resource lookup reads ActualThemeVariant (thread-affine); guard it the same way so an
         // off-UI-thread caller gets an un-themed (null-geometry) icon instead of a VerifyAccess throw.
+        // Same incomplete guard as EnsureWired had, fixed the same way and for the same reason: `app`
+        // remembers the dispatcher it was built under, so asking the ambient one is not enough. Without
+        // this the throw simply moves two lines down from the one EnsureWired used to take.
         Geometry? geometry = null;
-        if (Application.Current is { } app && Dispatcher.UIThread.CheckAccess() &&
+        if (Application.Current is { } app && app.Dispatcher.CheckAccess() &&
             app.Resources.TryGetResource(geometryKey, app.ActualThemeVariant, out var resource))
         {
             geometry = resource as Geometry;
