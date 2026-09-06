@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Diagnostics;
 
 // NB: namespace deliberately avoids a `Lsp` segment — see VBLspClientTests.
@@ -201,7 +202,13 @@ public sealed class ForeignServerFactAttribute : FactAttribute
     /// Which server this test needs — <c>markdown</c>, <c>latex</c> or <c>json</c>. A string rather than
     /// the type itself because attribute arguments must be compile-time constants.
     /// </param>
-    public ForeignServerFactAttribute(string server = "markdown")
+    /// <param name="sourceFilePath">Supplied by the compiler; see the note on the source-information pair below.</param>
+    /// <param name="sourceLineNumber">Supplied by the compiler; see the note on the source-information pair below.</param>
+    public ForeignServerFactAttribute(
+        string server = "markdown",
+        [CallerFilePath] string? sourceFilePath = null,
+        [CallerLineNumber] int sourceLineNumber = -1)
+            : base(sourceFilePath, sourceLineNumber)
     {
         var needed = server switch
         {
@@ -212,16 +219,13 @@ public sealed class ForeignServerFactAttribute : FactAttribute
 
         if (needed.Find() is not null) return;
 
-        // Where the proof is mandated, absence is a failure rather than a skip. Everywhere else it is a
-        // skip: an offline machine should not fail a suite over a test fixture it could not fetch.
-        if (ForeignServer.IsRequired)
-        {
-            throw new InvalidOperationException(
-                $"{ForeignServer.RequiredVariable} is set, but the '{server}' language server could not be "
-              + "obtained. The foreign-backend tests are the only check that HexIDE speaks LSP to something "
-              + "it did not write, so they are not allowed to skip here.");
-        }
-
+        // Always a skip, never a throw — and that is a correctness requirement under xunit v3, not a
+        // preference. This used to throw when HEXIDE_REQUIRE_FOREIGN_LSP was set, which xunit v2 surfaced
+        // as a loud test failure. v3 discards a test whose attribute constructor throws, so the same
+        // configuration produced a GREEN run with fourteen tests silently absent — measured during the v3
+        // migration: 978 passed, 0 failed, 0 skipped, against a normal 992. That is precisely the
+        // fail-open this variable exists to prevent, so the enforcement moved somewhere discovery cannot
+        // swallow it: see RequiredServersTests.
         Skip = $"No '{server}' language server available. It is normally downloaded on demand; set "
              + $"{needed.PathVariable} to an executable, or put `{needed.OnPath}` on PATH, to choose your "
              + "own. Offline machines skip these.";
