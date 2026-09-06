@@ -14,14 +14,16 @@ public class DebuggerSignalGuardTests
     {
         var neverArrives = new TaskCompletionSource<int>().Task;
 
-        var ex = await Assert.ThrowsAsync<TimeoutException>(
-            () => neverArrives.Guarded(TimeSpan.FromMilliseconds(50)));
+        var thrown = await FluentActions
+            .Awaiting(() => neverArrives.Guarded(TimeSpan.FromMilliseconds(50)))
+            .Should().ThrowAsync<TimeoutException>();
 
         // The expression text is the point: a debugger test awaits three or four signals, and a bare
         // TimeoutException leaves you guessing which one expired.
-        ex.Message.Should().Contain("neverArrives");
-        ex.Message.Should().Contain(nameof(ASignalThatNeverArrives_NamesItselfAndItsTest));
-        ex.Message.Should().Contain("#102", "the message routes the next occurrence to the open issue");
+        var message = thrown.Which.Message;
+        message.Should().Contain("neverArrives");
+        message.Should().Contain(nameof(ASignalThatNeverArrives_NamesItselfAndItsTest));
+        message.Should().Contain("#102", "the message routes the next occurrence to the open issue");
     }
 
     [Fact]
