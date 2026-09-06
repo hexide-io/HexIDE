@@ -84,7 +84,12 @@
     <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.analyzers" Version="2.0.0-pre.40" />
     <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0-pre.4" />
-    <PackageVersion Include="xunit.v3" Version="3.2.2" />
+    <!-- CEILING, not a stale pin. xunit.v3 4.0.0 (still "Core Framework v3" — the package version and the
+         framework generation are decoupled) breaks Avalonia.Headless.XUnit: MissingMethodException in
+         AvaloniaFactDiscoverer.CreateTestCase, AvaloniaUI/Avalonia#22072, open and confirmed upstream.
+         The package's own dependency is an open ">= 3.2.2", so NuGet resolves 4.0.0 happily and it fails
+         only at test DISCOVERY — no build error, no restore warning. Raise this when #22072 closes. -->
+    <PackageVersion Include="xunit.v3" Version="[3.2.2,4.0.0)" />
   </ItemGroup>
   <!-- MCP server -->
   <ItemGroup>
