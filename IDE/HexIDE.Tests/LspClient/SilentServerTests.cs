@@ -132,8 +132,14 @@ public class SilentServerTests : IAsyncDisposable
         // unreachable — the test would have hung rather than failed, which is its own kind of useless.
         var sut = ClientTalkingTo(new MuteServer(), TimeSpan.FromMilliseconds(300), canReconnect: false);
 
-        var start = sut.StartAsync();
+        var start = sut.StartAsync(TestContext.Current.CancellationToken);
+        // xUnit1051 suppressed deliberately: this Task.Delay is the TIMEOUT ARM of the race, not
+        // work the test is waiting on. Giving it the test's cancellation token would make the
+        // timeout itself cancellable — the guard would vanish exactly when a cancelled run most
+        // needs it to fire, and WhenAny would settle on a faulted task rather than a timeout.
+#pragma warning disable xUnit1051
         var finished = await Task.WhenAny(start, Task.Delay(TimeSpan.FromSeconds(20)));
+#pragma warning restore xUnit1051
 
         finished.Should().BeSameAs(start,
             "a server that never answers initialize must not hold the handshake open indefinitely");
@@ -145,7 +151,7 @@ public class SilentServerTests : IAsyncDisposable
     {
         var sut = ClientTalkingTo(new MuteServer(), TimeSpan.FromMilliseconds(300), canReconnect: false);
 
-        await sut.StartAsync().WaitAsync(TimeSpan.FromSeconds(20));
+        await sut.StartAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
 
         sut.IsRunning.Should().BeFalse("the handshake never completed, so there is nothing to talk to");
         sut.AdvertisedCapabilities.Should().BeNull("nothing was ever advertised");
@@ -159,7 +165,7 @@ public class SilentServerTests : IAsyncDisposable
         var server = new MuteServer();
         var sut = ClientTalkingTo(server, TimeSpan.FromMilliseconds(300), canReconnect: false);
 
-        await sut.StartAsync().WaitAsync(TimeSpan.FromSeconds(20));
+        await sut.StartAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
 
         server.InitializeCalls.Should().Be(1, "the client must have actually sent initialize and waited");
     }
@@ -173,7 +179,7 @@ public class SilentServerTests : IAsyncDisposable
         var sut = ClientTalkingTo(new MuteServer(), TimeSpan.FromMilliseconds(300), canReconnect: false,
             logger: logger);
 
-        await sut.StartAsync().WaitAsync(TimeSpan.FromSeconds(20));
+        await sut.StartAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
 
         logger.Entries.Should().ContainSingle(e =>
                 e.Level == LogLevel.Warning && e.Message.Contains("did not answer initialize"),
@@ -189,10 +195,10 @@ public class SilentServerTests : IAsyncDisposable
         var server = new MuteServer();
         var sut = ClientTalkingTo(server, TimeSpan.FromMilliseconds(200), canReconnect: true);
 
-        await sut.StartAsync().WaitAsync(TimeSpan.FromSeconds(20));
+        await sut.StartAsync(TestContext.Current.CancellationToken).WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
 
         // The loop's first delay is a second, so allow for one further attempt beyond the initial one.
-        await Task.Delay(TimeSpan.FromSeconds(3));
+        await Task.Delay(TimeSpan.FromSeconds(3), TestContext.Current.CancellationToken);
 
         server.InitializeCalls.Should().BeGreaterThan(1,
             "a transport that can reconnect should retry the handshake rather than stay silently dead");
@@ -209,10 +215,10 @@ public class SilentServerTests : IAsyncDisposable
 
         using var stopping = new CancellationTokenSource();
         var start = sut.StartAsync(stopping.Token);
-        await Task.Delay(200);
+        await Task.Delay(200, TestContext.Current.CancellationToken);
         await stopping.CancelAsync();
 
-        await start.WaitAsync(TimeSpan.FromSeconds(20));
+        await start.WaitAsync(TimeSpan.FromSeconds(20), TestContext.Current.CancellationToken);
 
         logger.Entries.Should().NotContain(e => e.Level >= LogLevel.Warning,
             "a shutdown that races the handshake is routine, and a timeout that cries wolf on every exit "

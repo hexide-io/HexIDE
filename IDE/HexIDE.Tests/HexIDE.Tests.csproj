@@ -7,14 +7,6 @@
         <OutputType>Exe</OutputType>
         <IsTestProject>true</IsTestProject>
         <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
-        <!-- xUnit1051 asks that every call taking a CancellationToken be given
-             TestContext.Current.CancellationToken, so a test reacts to the runner cancelling it. It fires
-             366 times here, all of it pre-existing code that xunit v3 can see and v2 could not.
-             Suppressed rather than swept through in the migration commit: passing a live token where
-             `default` was passed CHANGES BEHAVIOUR under cancellation, so 366 of them is a change to make
-             deliberately and verify, not a mechanical find-and-replace ridden along with a package bump.
-             Tracked in hexide-io/HexIDE#300. Remove this line when that is done. -->
-        <NoWarn>$(NoWarn);xUnit1051</NoWarn>
     </PropertyGroup>
 
     <ItemGroup>

@@ -119,11 +119,11 @@ public class UnfaithfulSaveGateTests : IDisposable
         var svc = MakeService();
         await svc.OpenProject(Stage(NestedContainerForm));
         var formPath = Path.Join(dir, "Form1.frm");
-        var before = await File.ReadAllTextAsync(formPath);
+        var before = await File.ReadAllTextAsync(formPath, TestContext.Current.CancellationToken);
 
         await svc.SaveProject(loaded.Single(), saveAs: false);
 
-        (await File.ReadAllTextAsync(formPath)).Should().Be(before,
+        (await File.ReadAllTextAsync(formPath, TestContext.Current.CancellationToken)).Should().Be(before,
             "a form HexIDE cannot reproduce must not be rewritten");
     }
 
@@ -151,7 +151,7 @@ public class UnfaithfulSaveGateTests : IDisposable
         await svc.SaveProject(loaded.Single(), saveAs: false);
 
         warningsShown.Should().Be(0);
-        (await File.ReadAllTextAsync(Path.Join(dir, "Form1.frm"))).Should().Contain("Begin VB.TextBox Text1");
+        (await File.ReadAllTextAsync(Path.Join(dir, "Form1.frm"), TestContext.Current.CancellationToken)).Should().Contain("Begin VB.TextBox Text1");
     }
 
     [Fact]
@@ -246,11 +246,11 @@ public class UnfaithfulSaveGateTests : IDisposable
         var svc = MakeService();
         await svc.OpenProject(Stage(NestedContainerForm));
         var formPath = Path.Join(dir, "Form1.frm");
-        var before = await File.ReadAllTextAsync(formPath);
+        var before = await File.ReadAllTextAsync(formPath, TestContext.Current.CancellationToken);
 
         await svc.SaveForm(loaded.Single().Forms.Single(), saveAs: true);
 
-        (await File.ReadAllTextAsync(formPath)).Should().Be(before);
+        (await File.ReadAllTextAsync(formPath, TestContext.Current.CancellationToken)).Should().Be(before);
     }
 
     [Fact]
@@ -329,11 +329,11 @@ public class UnfaithfulSaveGateTests : IDisposable
         var svc = MakeService();
         await svc.OpenProject(StageUserControl(NestedContainerUserControl));
         var ctlPath = Path.Join(dir, "UserControl1.ctl");
-        var before = await File.ReadAllTextAsync(ctlPath);
+        var before = await File.ReadAllTextAsync(ctlPath, TestContext.Current.CancellationToken);
 
         await svc.SaveProject(loaded.Single(), saveAs: false);
 
-        (await File.ReadAllTextAsync(ctlPath)).Should().Be(before,
+        (await File.ReadAllTextAsync(ctlPath, TestContext.Current.CancellationToken)).Should().Be(before,
             "a .ctl HexIDE cannot reproduce is left alone, exactly as a .frm is");
     }
 
@@ -436,7 +436,7 @@ public class UnfaithfulSaveGateTests : IDisposable
 
         await svc.SaveProjectToDirectory(loaded.Single(), target);
 
-        var vbp = await File.ReadAllTextAsync(Path.Join(target, "Test.vbp"));
+        var vbp = await File.ReadAllTextAsync(Path.Join(target, "Test.vbp"), TestContext.Current.CancellationToken);
         vbp.Should().Contain("Module1.bas");
         vbp.Should().NotContain("..",
             "every item must be named relative to the project file beside it — a path that climbs out of "

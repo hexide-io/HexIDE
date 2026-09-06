@@ -48,8 +48,7 @@ public class SpawnRealServerTest
 
         try
         {
-            var init = await rpc.InvokeWithParameterObjectAsync<JsonElement>("initialize",
-                new { processId = (int?)null, rootUri = (string?)null, capabilities = new { } }).WaitAsync(Timeout);
+            var init = await rpc.InvokeWithParameterObjectAsync<JsonElement>("initialize", new { processId = (int?)null, rootUri = (string?)null, capabilities = new { } }, TestContext.Current.CancellationToken).WaitAsync(Timeout, TestContext.Current.CancellationToken);
 
             // The only check that the SHIPPED binary advertises anything. The in-process smoke test asserts
             // the payload in detail; this one exists because the client resolves its server by probing the
@@ -76,12 +75,12 @@ public class SpawnRealServerTest
                 }
             });
 
-            var pub = await diagTarget.Channel.Reader.ReadAsync().AsTask().WaitAsync(Timeout);
+            var pub = await diagTarget.Channel.Reader.ReadAsync(TestContext.Current.CancellationToken).AsTask().WaitAsync(Timeout, TestContext.Current.CancellationToken);
             pub.GetProperty("uri").GetString().Should().Be("vb6://module/Spawned");
             pub.GetProperty("diagnostics").EnumerateArray().Should()
                 .Contain(d => d.GetProperty("severity").GetInt32() == 1, "a syntax error is published");
 
-            await rpc.InvokeAsync<object?>("shutdown").WaitAsync(Timeout);
+            await rpc.InvokeAsync<object?>("shutdown").WaitAsync(Timeout, TestContext.Current.CancellationToken);
             await rpc.NotifyAsync("exit");
         }
         finally
