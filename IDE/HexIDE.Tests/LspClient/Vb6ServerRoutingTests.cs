@@ -50,7 +50,7 @@ public class Vb6ServerRoutingTests
         var sut = RegistryOf(new LanguageServerRegistration(
             "my-vb", "My VB server", [".bas", ".cls", ".frm"], "vba", () => server));
 
-        await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\r\nEnd Sub\r\n");
+        await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\r\nEnd Sub\r\n", TestContext.Current.CancellationToken);
 
         await server.Received(1).OpenDocumentAsync(Vb6Doc, Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
@@ -65,7 +65,7 @@ public class Vb6ServerRoutingTests
             "my-vb", "My VB server", [".bas", ".cls", ".frm"], "vba", () => server);
         var sut = RegistryOf(registration);
 
-        await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\r\n");
+        await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\r\n", TestContext.Current.CancellationToken);
 
         sut.Connections.Single().LanguageId.Should().Be("vba");
     }
@@ -79,7 +79,7 @@ public class Vb6ServerRoutingTests
         var sut = RegistryOf(new LanguageServerRegistration(
             "hexide.vb6", "Bundled", [".nothing-familiar"], "vb6", () => server));
 
-        await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\r\n");
+        await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\r\n", TestContext.Current.CancellationToken);
 
         await server.Received(1).OpenDocumentAsync(Vb6Doc, Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
@@ -93,7 +93,7 @@ public class Vb6ServerRoutingTests
         var sut = RegistryOf(new LanguageServerRegistration(
             "md", "Markdown", [".md", ".markdown"], "markdown", () => markdown));
 
-        await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\r\n");
+        await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\r\n", TestContext.Current.CancellationToken);
 
         await markdown.DidNotReceive().OpenDocumentAsync(
             Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
@@ -113,7 +113,7 @@ public class Vb6ServerRoutingTests
         var sut = RegistryOf(new LanguageServerRegistration(
             "latex", "LaTeX", [".cls", ".sty", ".tex"], "latex", () => latex));
 
-        await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\r\n");
+        await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\r\n", TestContext.Current.CancellationToken);
 
         await latex.DidNotReceive().OpenDocumentAsync(
             Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
@@ -130,7 +130,7 @@ public class Vb6ServerRoutingTests
             new LanguageServerRegistration("hexide.vb6", "Bundled", [".bas", ".frm"], "vb6", () => ours),
             new LanguageServerRegistration("theirs", "Theirs", [".bas", ".frm"], "vba", () => theirs));
 
-        await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\r\n");
+        await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\r\n", TestContext.Current.CancellationToken);
 
         await ours.Received(1).OpenDocumentAsync(Vb6Doc, Arg.Any<string>(), Arg.Any<CancellationToken>());
         await theirs.Received(1).OpenDocumentAsync(Vb6Doc, Arg.Any<string>(), Arg.Any<CancellationToken>());

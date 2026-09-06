@@ -101,7 +101,7 @@ public class ModuleCloseSaveTests : IDisposable
         loaded.Single().Modules.Single().UpdateCode("Public Sub Edited()\r\nEnd Sub\r\n");
         await svc.UnloadAllProjects();
 
-        var onDisk = await File.ReadAllTextAsync(basPath);
+        var onDisk = await File.ReadAllTextAsync(basPath, TestContext.Current.CancellationToken);
         onDisk.Should().Contain("Public Sub Edited()");
         onDisk.Should().NotContain("Public Sub Original()");
     }
@@ -117,7 +117,7 @@ public class ModuleCloseSaveTests : IDisposable
         project.Modules.Single().UpdateCode("Public Sub ViaRemove()\r\nEnd Sub\r\n");
         await svc.UnloadProject(project);
 
-        (await File.ReadAllTextAsync(basPath)).Should().Contain("Public Sub ViaRemove()");
+        (await File.ReadAllTextAsync(basPath, TestContext.Current.CancellationToken)).Should().Contain("Public Sub ViaRemove()");
     }
 
     [Fact]
@@ -130,7 +130,7 @@ public class ModuleCloseSaveTests : IDisposable
         loaded.Single().Modules.Single().UpdateCode("Public Sub Discarded()\r\nEnd Sub\r\n");
         await svc.UnloadAllProjects();
 
-        var onDisk = await File.ReadAllTextAsync(basPath);
+        var onDisk = await File.ReadAllTextAsync(basPath, TestContext.Current.CancellationToken);
         onDisk.Should().Contain("Public Sub Original()");
         onDisk.Should().NotContain("Public Sub Discarded()");
     }

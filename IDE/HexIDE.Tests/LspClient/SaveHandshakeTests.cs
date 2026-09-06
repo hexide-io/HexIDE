@@ -67,8 +67,8 @@ public class SaveHandshakeTests : IAsyncDisposable
         var server = new HandshakeRecorder();
         var client = ClientTalkingTo(server);
 
-        await client.StartAsync();
-        var initialize = await server.InitializeParams.WaitAsync(TimeSpan.FromSeconds(10));
+        await client.StartAsync(TestContext.Current.CancellationToken);
+        var initialize = await server.InitializeParams.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         initialize.GetProperty("capabilities")
             .GetProperty("textDocument")
@@ -87,8 +87,8 @@ public class SaveHandshakeTests : IAsyncDisposable
         var server = new HandshakeRecorder();
         var client = ClientTalkingTo(server);
 
-        await client.StartAsync();
-        var initialize = await server.InitializeParams.WaitAsync(TimeSpan.FromSeconds(10));
+        await client.StartAsync(TestContext.Current.CancellationToken);
+        var initialize = await server.InitializeParams.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         var synchronization = initialize.GetProperty("capabilities")
             .GetProperty("textDocument").GetProperty("synchronization");

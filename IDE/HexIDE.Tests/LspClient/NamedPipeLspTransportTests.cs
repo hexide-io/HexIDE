@@ -38,7 +38,7 @@ public class NamedPipeLspTransportTests
         var pipeName = UniquePipeName();
         await using var sut = CreateSut(pipeName, NamedPipeRole.Listen);
 
-        var connecting = sut.ConnectAsync(Formatter());
+        var connecting = sut.ConnectAsync(Formatter(), TestContext.Current.CancellationToken);
 
         await using var server = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
         await server.ConnectAsync(Timeout());
@@ -58,7 +58,7 @@ public class NamedPipeLspTransportTests
         var accepting = server.WaitForConnectionAsync(Timeout());
 
         await using var sut = CreateSut(pipeName, NamedPipeRole.Connect);
-        var handler = await sut.ConnectAsync(Formatter());
+        var handler = await sut.ConnectAsync(Formatter(), TestContext.Current.CancellationToken);
         await accepting;
 
         handler.Should().NotBeNull();
@@ -73,7 +73,7 @@ public class NamedPipeLspTransportTests
         var pipeName = UniquePipeName();
         await using var sut = CreateSut(pipeName, NamedPipeRole.Listen);
 
-        var connecting = sut.ConnectAsync(Formatter());
+        var connecting = sut.ConnectAsync(Formatter(), TestContext.Current.CancellationToken);
 
         await using var serverPipe = new NamedPipeClientStream(".", pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
         await serverPipe.ConnectAsync(Timeout());

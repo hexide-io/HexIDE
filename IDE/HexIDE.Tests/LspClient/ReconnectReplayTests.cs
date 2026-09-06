@@ -124,8 +124,8 @@ public class ReconnectReplayTests : IAsyncDisposable
         // and permanent: features that worked, stopped, and never came back until the tab was reopened.
         var (client, server, transport) = Connected(
             "markdown", """{"textDocumentSync":{"openClose":true,"change":1}}""");
-        await client.StartAsync();
-        await client.OpenDocumentAsync("file:///c:/p/README.md", "# hello");
+        await client.StartAsync(TestContext.Current.CancellationToken);
+        await client.OpenDocumentAsync("file:///c:/p/README.md", "# hello", TestContext.Current.CancellationToken);
         (await WaitForOpensAsync(server, 1)).Should().BeTrue("the first open must arrive before we drop");
 
         transport.Drop();
@@ -143,11 +143,11 @@ public class ReconnectReplayTests : IAsyncDisposable
         // reconnect, which is the hardest circumstance in which to notice.
         var (client, server, transport) = Connected(
             "markdown", """{"textDocumentSync":{"openClose":false,"change":1}}""");
-        await client.StartAsync();
-        await client.OpenDocumentAsync("file:///c:/p/README.md", "# hello");
+        await client.StartAsync(TestContext.Current.CancellationToken);
+        await client.OpenDocumentAsync("file:///c:/p/README.md", "# hello", TestContext.Current.CancellationToken);
 
         transport.Drop();
-        await Task.Delay(3000);   // long enough for the backoff to reconnect and replay
+        await Task.Delay(3000, TestContext.Current.CancellationToken);   // long enough for the backoff to reconnect and replay
 
         server.Opens.Should().BeEmpty("it declined open/close, and a reconnect does not change its mind");
     }
@@ -159,10 +159,10 @@ public class ReconnectReplayTests : IAsyncDisposable
         // open, rather than as it is now, would hand it a stale copy to publish diagnostics from.
         var (client, server, transport) = Connected(
             "markdown", """{"textDocumentSync":{"openClose":true,"change":1}}""");
-        await client.StartAsync();
-        await client.OpenDocumentAsync("file:///c:/p/README.md", "# first");
+        await client.StartAsync(TestContext.Current.CancellationToken);
+        await client.OpenDocumentAsync("file:///c:/p/README.md", "# first", TestContext.Current.CancellationToken);
         (await WaitForOpensAsync(server, 1)).Should().BeTrue();
-        await client.ChangeDocumentAsync("file:///c:/p/README.md", 2, "# second");
+        await client.ChangeDocumentAsync("file:///c:/p/README.md", 2, "# second", TestContext.Current.CancellationToken);
 
         transport.Drop();
 

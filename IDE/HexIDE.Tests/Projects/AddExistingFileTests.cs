@@ -108,14 +108,14 @@ public class AddExistingFileTests : IDisposable
         // The prize. Adoption reads through the same path project load uses precisely so that the preserved
         // header survives — get that wrong and a file the developer merely ADDED comes back rewritten.
         var path = Stage("Utils.bas", ModuleFile);
-        var before = await File.ReadAllTextAsync(path);
+        var before = await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken);
         var project = NewProject();
         var service = MakeService();
 
         var module = await service.AddExistingModule(project, path, ModuleKind.StandardModule);
         await service.SaveModule(module, saveAs: false);
 
-        (await File.ReadAllTextAsync(path)).Should().Be(before);
+        (await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken)).Should().Be(before);
     }
 
     [Fact]
@@ -155,12 +155,12 @@ public class AddExistingFileTests : IDisposable
         // Adding is not saving. VB6 marks the project dirty and writes nothing until the developer says so,
         // and a related document is never rewritten by HexIDE at all.
         var path = Stage("README.md", "# Notes\r\n");
-        var before = await File.ReadAllTextAsync(path);
+        var before = await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken);
         var project = NewProject();
 
         await MakeService().AddExistingRelatedDocument(project, path);
 
-        (await File.ReadAllTextAsync(path)).Should().Be(before);
+        (await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken)).Should().Be(before);
         File.Exists(project.AbsolutePath).Should().BeFalse(
             "the .vbp is written when the developer saves, not as a side effect of adding");
     }
@@ -180,7 +180,7 @@ public class AddExistingFileTests : IDisposable
           + "Attribute VB_Exposed = False\r\n"
           + "Option Explicit\r\n";
         var path = Stage("Widget.cls", cls);
-        var before = await File.ReadAllTextAsync(path);
+        var before = await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken);
         var project = NewProject();
         var service = MakeService();
 
@@ -188,7 +188,7 @@ public class AddExistingFileTests : IDisposable
         await service.SaveModule(module, saveAs: false);
 
         module.Kind.Should().Be(ModuleKind.ClassModule);
-        (await File.ReadAllTextAsync(path)).Should().Be(before,
+        (await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken)).Should().Be(before,
             "VB_Creatable and VB_PredeclaredId are not reconstructible from the model, so they must survive "
           + "adoption verbatim");
     }
