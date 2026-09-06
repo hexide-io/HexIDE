@@ -8,6 +8,10 @@
         <OutputType>Exe</OutputType>
         <IsTestProject>true</IsTestProject>
         <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+        <!-- Without this a failing run prints a COUNT and a path to a .log nobody has: CI cannot
+             say which test failed, which cost a hunt the first time it happened. With it, the name,
+             the assertion message, the file and line, and the stack all reach the console. -->
+        <TestingPlatformShowTestsFailure>true</TestingPlatformShowTestsFailure>
     </PropertyGroup>
 
     <ItemGroup>
