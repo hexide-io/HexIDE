@@ -19,10 +19,14 @@ cd IDE && dotnet run --project HexIDE.Desktop/
 cd IDE && dotnet test HexIDE.Runtime.Tests/              # ~1000 VB6 interpreter tests
 cd LspServer && dotnet test HexIDE.VbLspServer.Tests/    # ~115 LSP server tests
 cd IDE && dotnet test HexIDE.Tests/                      # IDE ViewModel tests (fetches a foreign LSP server once — see below)
-cd IDE && dotnet test HexIDE.Integration.Tests/          # Headless Avalonia UI tests (xunit v3/MTP)
+cd IDE && dotnet test HexIDE.Integration.Tests/          # Headless Avalonia UI tests
 
-# Run a single test
-cd IDE && dotnet test HexIDE.Runtime.Tests/ --filter "FullyQualifiedName~MiscTests.DebugPrint_WithStringLiteral_ShouldOutputCorrectString"
+# Run a single test — NOTE the `--`, and that this is NOT VSTest's --filter (see below)
+cd IDE && dotnet test HexIDE.Runtime.Tests/ -- --filter-method "*DebugPrint_WithStringLiteral_ShouldOutputCorrectString"
+
+# One class, or an arbitrary slice
+cd IDE && dotnet test HexIDE.Tests/ -- --filter-class "*CodeEditorViewModelTests"
+cd IDE && dotnet test HexIDE.Tests/ -- --filter-query "/*/*/CodeEditorViewModelTests/*"
 cd LspServer && dotnet test HexIDE.VbLspServer.Tests/ --filter "FullyQualifiedName~WireContractTests"
 
 # Publish (both needed for the "Make EXE" IDE feature)
@@ -613,9 +617,12 @@ widening visibility to `public` just for a test. When a new test project needs r
 - **`DrawingContext.DrawImage(image, destRect)` samples the source's *device-independent* extent, not its pixels.** Composing a `RenderTargetBitmap` rendered at `96 * scaling` dpi into another therefore reads only the top-left `1/scaling` of it and stretches that to fill — on a 150% display, correctly placed and sized output with magnified, clipped contents inside. Use the three-argument overload with an explicit **pixel** source rect. Related: render a visual with `RenderTargetBitmap.Render`, which handles scaling correctly, rather than routing it through a drawing context. Both traps are invisible at 100% scaling and invisible headlessly. See `SnapshotComposer`.
 - **Avalonia 12 breaking changes** (already migrated, for reference): `GotFocusEventArgs` → `FocusChangedEventArgs`; `CaptionButtons` (chrome control) removed — replaced with custom `MDICaptionButtons : TemplatedControl`; `GetVisualRoot()` → `TopLevel.GetTopLevel(this)`; `RenderOptions.SetTextRenderingMode` → `TextOptions.SetTextRenderingMode`; `RenderOptions.TextRenderingMode="Alias"` in AXAML → `TextOptions.TextRenderingMode="Alias"`; `<CompiledBinding Path="X" />` inside `MultiBinding` → `<Binding Path="X" />`.
 - **Test frameworks are mid-migration** ([#297](https://github.com/hexide-io/HexIDE/issues/297)).
-  All four test projects are on **xunit v3**. `HexIDE.Integration.Tests` uses the **MTP** runner; the
-  other three stay on **VSTest** until the whole solution moves together (mixing the two in one
-  solution is unsupported, so the split is closed in one step, not widened per project).
+  All four test projects are on **xunit v3** and the **MTP** runner — the VSTest/MTP split is closed.
+  `Microsoft.NET.Test.Sdk`, `xunit.runner.visualstudio` and `coverlet.collector` are gone from all of
+  them; a v3 project under MTP needs `<OutputType>Exe</OutputType>` and
+  `<TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>` and nothing else. (While
+  `Microsoft.NET.Test.Sdk` was still present it supplied the executable output itself, so the explicit
+  `OutputType` only became necessary when that package was removed.)
 - **A custom `FactAttribute` must never throw from its constructor.** xunit v2 reported that as a test
   failure; **v3 discards the test at discovery**, so a guard written that way fails *open*. This bit
   `HEXIDE_REQUIRE_FOREIGN_LSP`, whose entire purpose is to stop the foreign-server proof disappearing:
@@ -628,10 +635,13 @@ widening visibility to `public` just for a test. When a new test project needs r
   `MissingMethodException` at test **discovery**: no build error, no restore warning. The package's own
   dependency is an open `>= 3.2.2`, so a routine bump resolves it happily. See the comment in
   `Directory.Packages.props`.
-- **`--filter` works under VSTest, not under MTP.** `HexIDE.Integration.Tests` is MTP, so
-  `dotnet test HexIDE.Integration.Tests/ --filter "FullyQualifiedName~Foo"` silently runs **every** test
-  rather than failing. Use `--filter-class` / `--filter-method` / `--filter-query` there. The other three
-  projects are still VSTest and take `--filter` normally.
+- **`--filter` is silently ignored. All four projects are on MTP.** Passing VSTest's
+  `--filter "FullyQualifiedName~Foo"` does not error — it runs **every** test in the project, so a run you
+  believe was scoped to one class was actually the whole suite. Measured: 153 tests instead of 27.
+  — Use `-- --filter-class "*Name"`, `-- --filter-method "*Name"`, or `-- --filter-query "/*/*/Class/*"`.
+  The `--` matters: everything after it goes to the test executable rather than to `dotnet test`.
+  — A filter matching **nothing** fails the run rather than passing vacuously, which is an improvement
+  on VSTest and worth relying on: "0 tests, green" cannot happen by typo.
 
 ## Living Documents
 

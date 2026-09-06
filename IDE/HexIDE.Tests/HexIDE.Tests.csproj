@@ -4,7 +4,9 @@
         <TargetFrameworks>$(DotNetVersion)</TargetFrameworks>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
+        <OutputType>Exe</OutputType>
         <IsTestProject>true</IsTestProject>
+        <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
         <!-- xUnit1051 asks that every call taking a CancellationToken be given
              TestContext.Current.CancellationToken, so a test reacts to the runner cancelling it. It fires
              366 times here, all of it pre-existing code that xunit v3 can see and v2 could not.
@@ -19,12 +21,9 @@
         <PackageReference Include="Avalonia.Headless" />
         <PackageReference Include="Avalonia.Headless.XUnit" />
         <PackageReference Include="AwesomeAssertions" />
-        <PackageReference Include="coverlet.collector" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
-        <PackageReference Include="Microsoft.NET.Test.Sdk" />
         <PackageReference Include="NSubstitute" />
         <PackageReference Include="xunit.v3" />
         <PackageReference Include="xunit.analyzers" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
-        <PackageReference Include="xunit.runner.visualstudio" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
     </ItemGroup>
 
     <ItemGroup>
