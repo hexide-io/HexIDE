@@ -690,6 +690,84 @@ public sealed class VBLspClient : ILspClient
         }
 
         /// <summary>
+        /// Refuses dynamic capability registration, out loud.
+        ///
+        /// <para>
+        /// <b>Refusing is correct, and is not the part worth changing.</b> <c>dynamicRegistration</c> is a
+        /// <em>client</em> capability — the specification's own wording is "whether hover supports dynamic
+        /// registration" — and this client declares it nowhere. A conformant server therefore may not
+        /// register dynamically, and must put everything in its <c>initialize</c> reply.
+        /// </para>
+        ///
+        /// <para>
+        /// Servers that ask anyway exist, and the wire answer they already got was the right one: a
+        /// <c>MethodNotFound</c> error, which lets them fall back instead of waiting. That behaviour is
+        /// preserved exactly — the error code is set deliberately rather than inherited from having no
+        /// handler at all. What was missing was on this side: nothing was written down, so a server that
+        /// asked, was refused, and quietly served less left the user with fewer features and no trace of
+        /// why (hexide-io/HexIDE#288).
+        /// </para>
+        /// </summary>
+        [JsonRpcMethod("client/registerCapability", UseSingleObjectParameterDeserialization = true)]
+        public void OnRegisterCapability(JsonElement p)
+        {
+            _client._logger.LogWarning(
+                "The {Language} server asked to register capabilities dynamically, which this client does "
+              + "not support and does not advertise support for; refused. Anything it withheld from its "
+              + "initialize reply expecting to register later will be unavailable. Registrations: {What}",
+                _client._languageId, Describe(p));
+
+            throw new LocalRpcException("This client does not support dynamic capability registration.")
+            {
+                ErrorCode = (int)StreamJsonRpc.Protocol.JsonRpcErrorCode.MethodNotFound,
+            };
+        }
+
+        /// <summary>The counterpart, refused the same way and for the same reason.</summary>
+        [JsonRpcMethod("client/unregisterCapability", UseSingleObjectParameterDeserialization = true)]
+        public void OnUnregisterCapability(JsonElement p)
+        {
+            _client._logger.LogWarning(
+                "The {Language} server asked to unregister capabilities dynamically; refused, as nothing "
+              + "was ever registered that way. Registrations: {What}",
+                _client._languageId, Describe(p));
+
+            throw new LocalRpcException("This client does not support dynamic capability registration.")
+            {
+                ErrorCode = (int)StreamJsonRpc.Protocol.JsonRpcErrorCode.MethodNotFound,
+            };
+        }
+
+        /// <summary>
+        /// The methods named in a registration payload, for the log. Best effort by design: this is a
+        /// message from a server we did not write, and failing to summarise it must not turn a refusal
+        /// into an exception of a different kind.
+        /// </summary>
+        private static string Describe(JsonElement p)
+        {
+            try
+            {
+                if (p.ValueKind != JsonValueKind.Object ||
+                    !p.TryGetProperty("registrations", out var registrations) ||
+                    registrations.ValueKind != JsonValueKind.Array)
+                {
+                    return "(unreadable)";
+                }
+
+                var methods = registrations.EnumerateArray()
+                    .Select(r => r.TryGetProperty("method", out var m) ? m.GetString() : null)
+                    .Where(m => !string.IsNullOrEmpty(m))
+                    .ToArray();
+
+                return methods.Length == 0 ? "(none named)" : string.Join(", ", methods);
+            }
+            catch (Exception)
+            {
+                return "(unreadable)";
+            }
+        }
+
+        /// <summary>
         /// Maps the protocol's four levels onto the logger's.
         ///
         /// <para>

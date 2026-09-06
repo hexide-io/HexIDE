@@ -158,8 +158,9 @@ than inferred.
 
 > **○ on a ← row is not neutral.** Those are messages a server may *initiate*, and an unhandled one is
 > refused or ignored — which looks, from the far side, like a client that does not work. A server that
-> registers its capabilities dynamically ([#288](https://github.com/hexide-io/HexIDE/issues/288)) still hits that. A server reporting its own
-> problems no longer does ([#289](https://github.com/hexide-io/HexIDE/issues/289)).
+> registers its capabilities dynamically is still refused — correctly, since this client never claims to
+> support it — but now audibly ([#288](https://github.com/hexide-io/HexIDE/issues/288)). A server reporting its own problems is heard
+> ([#289](https://github.com/hexide-io/HexIDE/issues/289)).
 
 ### `Lifecycle` — 4 of 4
 
@@ -257,8 +258,8 @@ than inferred.
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `client/registerCapability` | ← | **Dynamic registration** — a server registering capabilities this way rather than in `initialize` is refused |
-| ○ | `client/unregisterCapability` | ← | Counterpart to the above |
+| ○ | `client/registerCapability` | ← | **Refused deliberately, and logged.** `dynamicRegistration` is a *client* capability and this client declares none, so a conformant server must declare everything at `initialize`. One that asks anyway gets `MethodNotFound` and a local warning naming the method ([#288](https://github.com/hexide-io/HexIDE/issues/288)) |
+| ○ | `client/unregisterCapability` | ← | Counterpart to the above, refused the same way |
 
 ### `$/*` — 0 of 4
 
@@ -361,9 +362,10 @@ Three clusters account for nearly all of the gap:
   out file-operation notifications, watched files and configuration round-trips.
 - **Server-to-client courtesy** — `window/*` and `client/*` are 2 of 8 between them. The two that landed
   are the ones that cost no analysis depth and buy diagnosability: a server can now explain its own
-  problems instead of appearing broken ([#289](https://github.com/hexide-io/HexIDE/issues/289)). Dynamic capability registration is the
-  remaining one that bites ([#288](https://github.com/hexide-io/HexIDE/issues/288)); `showMessageRequest` and `showDocument` need UI
-  decisions and are lower value.
+  problems instead of appearing broken ([#289](https://github.com/hexide-io/HexIDE/issues/289)). Dynamic registration stays refused on
+  purpose and is now logged rather than silent ([#288](https://github.com/hexide-io/HexIDE/issues/288)) — supporting it would mean
+  declaring `dynamicRegistration` and honouring what arrives, which is real work with no server yet asking
+  for it. `showMessageRequest` and `showDocument` need UI decisions and are lower value.
 
 `notebookDocument/*` is 0 of 4 and will stay there — notebooks are not a VB6 concept.
 
