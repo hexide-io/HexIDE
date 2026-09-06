@@ -355,8 +355,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
     private static string DefaultStateFilePath()
     {
-        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-        var dir = Path.Combine(appData, "HexIDE");
+        var dir = UserDataPath.Directory;
         Directory.CreateDirectory(dir);
         return Path.Combine(dir, "addins.json");
     }
