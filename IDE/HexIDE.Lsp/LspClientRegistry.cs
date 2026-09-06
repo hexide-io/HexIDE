@@ -54,6 +54,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     }
 
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
+    public event EventHandler<ShowMessageParams>? MessageShown;
     public event EventHandler? ConnectionsChanged;
 
     /// <summary>True when any connection is up — "is language intelligence available at all".</summary>
@@ -102,6 +103,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         {
             if (e.Client is not { } client) continue;
             client.DiagnosticsPublished -= OnInnerDiagnostics;
+            client.MessageShown -= OnInnerMessage;
             try { await client.StopAsync(); } catch (Exception ex) { _logger.LogDebug(ex, "Stop failed for {Id}", e.Registration.Id); }
             e.Client = null;
             e.State = LanguageConnectionState.Stopped;
@@ -333,6 +335,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             if (e.State == LanguageConnectionState.Failed) continue;
 
             client.DiagnosticsPublished -= OnInnerDiagnostics;
+            client.MessageShown -= OnInnerMessage;
             try { await client.StopAsync(); }
             catch (Exception ex) { _logger.LogDebug(ex, "Stop failed for {Id}", e.Registration.Id); }
             e.Client = null;
@@ -374,6 +377,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
             var client = e.Registration.CreateClient();
             client.DiagnosticsPublished += OnInnerDiagnostics;
+            client.MessageShown += OnInnerMessage;
             e.Client = client;
 
             await client.StartAsync(cancellationToken);
@@ -396,6 +400,12 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             ConnectionsChanged?.Invoke(this, EventArgs.Empty);
         }
     }
+
+    /// <summary>
+    /// Forwarded as-is. Which server spoke is already in the message the client logged; a subscriber's job
+    /// is to put it in front of someone, not to work out who it came from.
+    /// </summary>
+    private void OnInnerMessage(object? sender, ShowMessageParams p) => MessageShown?.Invoke(this, p);
 
     private void OnInnerDiagnostics(object? sender, PublishDiagnosticsParams p) =>
         // Forwarded with this registry as the sender: subscribers key on the URI, and which server produced

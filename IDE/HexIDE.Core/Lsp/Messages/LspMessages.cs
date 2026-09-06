@@ -76,6 +76,38 @@ public record PublishDiagnosticsParams(
     [property: JsonPropertyName("uri")] string Uri,
     [property: JsonPropertyName("diagnostics")] Diagnostic[] Diagnostics);
 
+/// <summary>
+/// How serious a server says its own message is. The protocol's numbering, which is <b>not</b> the same as
+/// <c>DiagnosticSeverity</c>'s despite looking like it — this one has a fourth level, <c>Log</c>, and no
+/// value means "hint".
+/// </summary>
+public enum LspMessageType
+{
+    Error = 1,
+    Warning = 2,
+    Info = 3,
+    Log = 4,
+}
+
+/// <summary>
+/// A server talking about <em>itself</em> rather than about a document — "I cannot find your toolchain",
+/// "I am falling back to a degraded mode". Nothing else on the wire carries this, and until these were
+/// handled HexIDE discarded them, so a misconfigured server looked identical to a broken IDE
+/// (hexide-io/HexIDE#289).
+/// </summary>
+public record LogMessageParams(
+    [property: JsonPropertyName("type")] LspMessageType Type,
+    [property: JsonPropertyName("message")] string Message);
+
+/// <summary>
+/// The same, but the server is asking for the user's attention rather than the log's. Identical shape;
+/// separate type because the two mean different things and a shared record would invite treating them
+/// alike.
+/// </summary>
+public record ShowMessageParams(
+    [property: JsonPropertyName("type")] LspMessageType Type,
+    [property: JsonPropertyName("message")] string Message);
+
 public record InitializeParams(
     [property: JsonPropertyName("processId")] int? ProcessId,
     [property: JsonPropertyName("rootUri")] string? RootUri,

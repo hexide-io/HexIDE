@@ -38,6 +38,7 @@ public sealed class VBLspClient : ILspClient
     private sealed record TrackedDocument(int Version, string Text);
 
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
+    public event EventHandler<ShowMessageParams>? MessageShown;
 
     // Running only when the underlying transport is connected AND the initialize handshake completed.
     public bool IsRunning => _transport.IsAlive && _initialized;
@@ -642,6 +643,8 @@ public sealed class VBLspClient : ILspClient
     internal void RaisePublishDiagnostics(PublishDiagnosticsParams p) =>
         DiagnosticsPublished?.Invoke(this, p);
 
+    internal void RaiseMessageShown(ShowMessageParams p) => MessageShown?.Invoke(this, p);
+
     public Task InjectDiagnosticsAsync(string uri, Diagnostic[] diagnostics)
     {
         RaisePublishDiagnostics(new PublishDiagnosticsParams(uri, diagnostics));
@@ -660,6 +663,50 @@ public sealed class VBLspClient : ILspClient
             _client._logger.LogDebug("publishDiagnostics: uri={Uri}, count={Count}", p.Uri, p.Diagnostics.Length);
             _client.RaisePublishDiagnostics(p);
         }
+
+        /// <summary>
+        /// The server's own log output, written through at the severity it declared.
+        ///
+        /// <para>
+        /// Logged and not surfaced: this channel is where servers put detail, and a server in a bad state
+        /// can be voluble on it. Putting that in front of a user would trade one bad experience for
+        /// another. The log is where someone goes when features are missing, which is exactly the moment
+        /// this matters.
+        /// </para>
+        /// </summary>
+        [JsonRpcMethod("window/logMessage", UseSingleObjectParameterDeserialization = true)]
+        public void OnLogMessage(LogMessageParams p) =>
+            _client._logger.Log(LevelOf(p.Type), "[{Language} server] {Message}", _client._languageId, p.Message);
+
+        /// <summary>
+        /// The server asking for the user's attention. Logged <b>and</b> raised, because a message the user
+        /// never sees is the bug, and a message with no trace afterwards is the next one.
+        /// </summary>
+        [JsonRpcMethod("window/showMessage", UseSingleObjectParameterDeserialization = true)]
+        public void OnShowMessage(ShowMessageParams p)
+        {
+            _client._logger.Log(LevelOf(p.Type), "[{Language} server] {Message}", _client._languageId, p.Message);
+            _client.RaiseMessageShown(p);
+        }
+
+        /// <summary>
+        /// Maps the protocol's four levels onto the logger's.
+        ///
+        /// <para>
+        /// <c>Log</c> becomes Debug rather than Information: it is the level a server uses for running
+        /// commentary, and promoting it would bury the two levels that mean something. An unrecognised
+        /// value becomes Information — a server saying something we cannot rank is still a server saying
+        /// something, and dropping it would recreate the bug in miniature.
+        /// </para>
+        /// </summary>
+        private static LogLevel LevelOf(LspMessageType type) => type switch
+        {
+            LspMessageType.Error => LogLevel.Error,
+            LspMessageType.Warning => LogLevel.Warning,
+            LspMessageType.Info => LogLevel.Information,
+            LspMessageType.Log => LogLevel.Debug,
+            _ => LogLevel.Information,
+        };
     }
 
     /// <summary>

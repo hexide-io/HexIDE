@@ -38,7 +38,11 @@ library the specification is written around.
 | Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `documentHighlight`, `rename`, `formatting` |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
-**Consumed from the server:** `textDocument/publishDiagnostics`.
+**Consumed from the server:** `textDocument/publishDiagnostics`, plus `window/logMessage` and
+`window/showMessage` — the channel a server uses to talk about *itself* rather than about a document.
+The first goes to the log at the severity the server declared; the second goes there **and** to the
+status bar, because a message the user never sees was the bug and a message with no trace afterwards
+is the next one.
 
 **Server-initiated requests.** The client registers no handlers for any of them, so what a server gets back
 is whatever StreamJsonRpc answers an unknown method with — an error response rather than silence, on the
@@ -145,17 +149,17 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 18 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 20 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
 **Legend** — ✅ implemented · ◐ partial · ○ not wired. Direction is → client-to-server, ← server-to-client,
 ↔ either.
 
-> **○ on a ← row is not neutral.** Those are messages a server may *initiate*, and the client handles none of
-> them. A server that registers its capabilities dynamically, asks for its configuration, or reports its own
-> problems through `window/showMessage` is refused or ignored — which looks, from the far side, like a client
-> that does not work.
+> **○ on a ← row is not neutral.** Those are messages a server may *initiate*, and an unhandled one is
+> refused or ignored — which looks, from the far side, like a client that does not work. A server that
+> registers its capabilities dynamically ([#288](https://github.com/hexide-io/HexIDE/issues/288)) still hits that. A server reporting its own
+> problems no longer does ([#289](https://github.com/hexide-io/HexIDE/issues/289)).
 
 ### `Lifecycle` — 4 of 4
 
@@ -238,13 +242,13 @@ than inferred.
 | ○ | `workspace/willRenameFiles` | → |  |
 | ○ | `workspace/workspaceFolders` | ← |  |
 
-### `window/*` — 0 of 6
+### `window/*` — 2 of 6
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `window/logMessage` | ← | A server's own log output is dropped |
+| ✅ | `window/logMessage` | ← | Written to the log at the severity the server declared |
 | ○ | `window/showDocument` | ← |  |
-| ○ | `window/showMessage` | ← | A server's own messages to the user are dropped |
+| ✅ | `window/showMessage` | ← | Shown in the status bar, and logged |
 | ○ | `window/showMessageRequest` | ← |  |
 | ○ | `window/workDoneProgress/cancel` | → |  |
 | ○ | `window/workDoneProgress/create` | ← |  |
@@ -355,9 +359,11 @@ Three clusters account for nearly all of the gap:
   *What the client would consume* below.
 - **Workspace-level protocol** — `workspace/*` is 0 of 21. HexIDE has no workspace model, which also rules
   out file-operation notifications, watched files and configuration round-trips.
-- **Server-to-client courtesy** — `window/*` and `client/*` are 0 of 8 between them. This is the cluster
-  worth revisiting first, because it costs no analysis depth at all: it is the difference between a
-  misconfigured server explaining itself and a misconfigured server appearing broken.
+- **Server-to-client courtesy** — `window/*` and `client/*` are 2 of 8 between them. The two that landed
+  are the ones that cost no analysis depth and buy diagnosability: a server can now explain its own
+  problems instead of appearing broken ([#289](https://github.com/hexide-io/HexIDE/issues/289)). Dynamic capability registration is the
+  remaining one that bites ([#288](https://github.com/hexide-io/HexIDE/issues/288)); `showMessageRequest` and `showDocument` need UI
+  decisions and are lower value.
 
 `notebookDocument/*` is 0 of 4 and will stay there — notebooks are not a VB6 concept.
 
