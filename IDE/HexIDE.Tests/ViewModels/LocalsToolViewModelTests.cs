@@ -12,13 +12,12 @@ public class LocalsToolViewModelTests
 
     public LocalsToolViewModelTests()
     {
-        AvaloniaTestSetup.EnsureInitialized();
         _localization.GetString("Str.Tool.Locals.ContextReady").Returns("<Ready>");
     }
 
     private LocalsToolViewModel CreateSut() => new(_localization, _debugController);
 
-    [Fact]
+    [AvaloniaFact]
     public void Stopped_PopulatesRootsAndContextFromGetLocals()
     {
         _debugController.GetLocals().Returns(new DebugScope("Module1.Go", new[]
@@ -34,7 +33,7 @@ public class LocalsToolViewModelTests
         sut.Roots.Select(r => r.Expression).Should().Equal("i", "s");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Stopped_PreservesExpandedNodes_AcrossRebuild()
     {
         // A fresh scope each break (as the interpreter produces), with one expandable node.
@@ -58,7 +57,7 @@ public class LocalsToolViewModelTests
         sut.Roots.First(r => r.Expression == "i").IsExpanded.Should().BeFalse();     // a collapsed node stays collapsed
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Continued_ClearsRootsAndResetsContext()
     {
         _debugController.GetLocals().Returns(new DebugScope("Module1.Go", new[] { new DebugNode("i", "3", "Integer") }));

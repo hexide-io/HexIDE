@@ -32,7 +32,6 @@ public class MainViewViewModelTests
 
     public MainViewViewModelTests()
     {
-        AvaloniaTestSetup.EnsureInitialized();
         _projectManager.LoadedProjects.Returns(new List<ProjectDefinition>());
         _settingsService.IsStandardToolbarVisible.Returns(true);
 
@@ -106,7 +105,7 @@ public class MainViewViewModelTests
 
     // --- Title ---
 
-    [Fact]
+    [AvaloniaFact]
     public void Title_NoFocusedProject_ReturnsDesignDefault()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns((ProjectDefinition?)null);
@@ -114,7 +113,7 @@ public class MainViewViewModelTests
         _sut.Title.Should().Be("HexIDE [design]");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Title_WithFocusedProject_DesignMode()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns(TestHelpers.CreateProject("MyApp"));
@@ -123,7 +122,7 @@ public class MainViewViewModelTests
         _sut.Title.Should().Be("MyApp - HexIDE [design]");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Title_WithFocusedProject_RunMode()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns(TestHelpers.CreateProject("MyApp"));
@@ -134,7 +133,7 @@ public class MainViewViewModelTests
 
     // --- StartDefaultProjectCommand ---
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(true)]
     [InlineData(false)]
     public void StartDefaultProjectCommand_CanExecute_DelegatesToRunner(bool allowed)
@@ -146,7 +145,7 @@ public class MainViewViewModelTests
 
     // --- StartDefaultProjectWithFullCompileCommand ---
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(true)]
     [InlineData(false)]
     public void StartDefaultProjectWithFullCompileCommand_CanExecute_DelegatesToRunner(bool allowed)
@@ -158,7 +157,7 @@ public class MainViewViewModelTests
 
     // --- BreakProjectCommand ---
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(true)]
     [InlineData(false)]
     public void BreakProjectCommand_CanExecute_DelegatesToRunner(bool allowed)
@@ -170,7 +169,7 @@ public class MainViewViewModelTests
 
     // --- EndProjectCommand ---
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(true)]
     [InlineData(false)]
     public void EndProjectCommand_CanExecute_DelegatesToRunner(bool allowed)
@@ -182,7 +181,7 @@ public class MainViewViewModelTests
 
     // --- RestartProjectCommand ---
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData(true)]
     [InlineData(false)]
     public void RestartProjectCommand_CanExecute_DelegatesToRunner(bool allowed)
@@ -194,7 +193,7 @@ public class MainViewViewModelTests
 
     // --- ProjectReferencesCommand ---
 
-    [Fact]
+    [AvaloniaFact]
     public void ProjectReferencesCommand_CanExecute_WhenFocusedProjectExists()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns(TestHelpers.CreateProject());
@@ -202,7 +201,7 @@ public class MainViewViewModelTests
         _sut.ProjectReferencesCommand.CanExecute(null).Should().BeTrue();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ProjectReferencesCommand_CannotExecute_WhenNoFocusedProject()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns((ProjectDefinition?)null);
@@ -212,7 +211,7 @@ public class MainViewViewModelTests
 
     // --- ProjectComponentsCommand ---
 
-    [Fact]
+    [AvaloniaFact]
     public void ProjectComponentsCommand_CanExecute_WhenFocusedProjectExists()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns(TestHelpers.CreateProject());
@@ -220,7 +219,7 @@ public class MainViewViewModelTests
         _sut.ProjectComponentsCommand.CanExecute(null).Should().BeTrue();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ProjectComponentsCommand_CannotExecute_WhenNoFocusedProject()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns((ProjectDefinition?)null);
@@ -230,7 +229,7 @@ public class MainViewViewModelTests
 
     // --- ProjectPropertiesCommand ---
 
-    [Fact]
+    [AvaloniaFact]
     public void ProjectPropertiesCommand_CanExecute_WhenFocusedProjectExists()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns(TestHelpers.CreateProject());
@@ -238,7 +237,7 @@ public class MainViewViewModelTests
         _sut.ProjectPropertiesCommand.CanExecute(null).Should().BeTrue();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ProjectPropertiesCommand_CannotExecute_WhenNoFocusedProject()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns((ProjectDefinition?)null);
@@ -248,7 +247,7 @@ public class MainViewViewModelTests
 
     // --- MakeProjectCommand ---
 
-    [Fact]
+    [AvaloniaFact]
     public void MakeProjectCommand_CanExecute_WhenFocusedProjectExists()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns(TestHelpers.CreateProject());
@@ -256,7 +255,7 @@ public class MainViewViewModelTests
         _sut.MakeProjectCommand.CanExecute(null).Should().BeTrue();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void MakeProjectCommand_CannotExecute_WhenNoFocusedProject()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns((ProjectDefinition?)null);
@@ -266,7 +265,7 @@ public class MainViewViewModelTests
 
     // --- RemoveProjectCommand ---
 
-    [Fact]
+    [AvaloniaFact]
     public void RemoveProjectCommand_CanExecute_WhenFocusedProjectExists()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns(TestHelpers.CreateProject());
@@ -274,7 +273,7 @@ public class MainViewViewModelTests
         _sut.RemoveProjectCommand.CanExecute(null).Should().BeTrue();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void RemoveProjectCommand_CannotExecute_WhenNoFocusedProject()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns((ProjectDefinition?)null);
@@ -284,7 +283,7 @@ public class MainViewViewModelTests
 
     // --- RunWithVb6Command ---
 
-    [Fact]
+    [AvaloniaFact]
     public void RunWithVb6Command_CanExecute_WhenProjectAndToolchainAvailable()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns(TestHelpers.CreateProject());
@@ -293,7 +292,7 @@ public class MainViewViewModelTests
         _sut.RunWithVb6Command.CanExecute(null).Should().BeTrue();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void RunWithVb6Command_CannotExecute_WhenToolchainUnavailable()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns(TestHelpers.CreateProject());
@@ -302,7 +301,7 @@ public class MainViewViewModelTests
         _sut.RunWithVb6Command.CanExecute(null).Should().BeFalse();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void RunWithVb6Command_CannotExecute_WhenNoProject()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns((ProjectDefinition?)null);
@@ -313,7 +312,7 @@ public class MainViewViewModelTests
 
     // --- MakeWithVb6Command ---
 
-    [Fact]
+    [AvaloniaFact]
     public void MakeWithVb6Command_CanExecute_WhenProjectAndToolchainAvailable()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns(TestHelpers.CreateProject());
@@ -322,7 +321,7 @@ public class MainViewViewModelTests
         _sut.MakeWithVb6Command.CanExecute(null).Should().BeTrue();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void MakeWithVb6Command_CannotExecute_WhenToolchainUnavailable()
     {
         _focusedProjectUtil.FocusedOrStartupProject.Returns(TestHelpers.CreateProject());
@@ -333,7 +332,7 @@ public class MainViewViewModelTests
 
     // --- Method delegation ---
 
-    [Fact]
+    [AvaloniaFact]
     public void SaveProject_DelegatesToProjectServiceSaveAll()
     {
         _projectService.SaveAllProjects(false).Returns(Task.CompletedTask);
@@ -343,7 +342,7 @@ public class MainViewViewModelTests
         _projectService.Received(1).SaveAllProjects(false);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SaveProjectAs_DelegatesToProjectServiceSaveAllWithSaveAs()
     {
         _projectService.SaveAllProjects(true).Returns(Task.CompletedTask);
@@ -353,7 +352,7 @@ public class MainViewViewModelTests
         _projectService.Received(1).SaveAllProjects(true);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OpenProject_DelegatesToProjectService()
     {
         _projectService.OpenProject().Returns(Task.CompletedTask);
@@ -363,7 +362,7 @@ public class MainViewViewModelTests
         _projectService.Received(1).OpenProject();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void MakeProject_DelegatesToProjectService()
     {
         _projectService.MakeProject().Returns(Task.CompletedTask);
@@ -375,19 +374,19 @@ public class MainViewViewModelTests
 
     // --- Layout / defaults ---
 
-    [Fact]
+    [AvaloniaFact]
     public void Layout_IsNotNull()
     {
         _sut.Layout.Should().NotBeNull();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void IsStandardToolbarVisible_DefaultsToTrue()
     {
         _sut.Settings.IsStandardToolbarVisible.Should().BeTrue();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void FocusedProjectUtil_IsExposed()
     {
         _sut.FocusedProjectUtil.Should().BeSameAs(_focusedProjectUtil);
@@ -395,7 +394,7 @@ public class MainViewViewModelTests
 
     // --- OnInitialized ---
 
-    [Fact]
+    [AvaloniaFact]
     public void OnInitialized_ShowsNewProjectDialog_WhenNotSuppressed()
     {
         _settingsService.PromptForProjectOnStartup.Returns(true);
@@ -406,7 +405,7 @@ public class MainViewViewModelTests
         _projectService.Received(1).CreateNewProject();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OnInitialized_SkipsNewProjectDialog_WhenSuppressed()
     {
         _settingsService.PromptForProjectOnStartup.Returns(false);

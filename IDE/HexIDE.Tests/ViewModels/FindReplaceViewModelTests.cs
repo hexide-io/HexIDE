@@ -37,7 +37,6 @@ public class FindReplaceViewModelTests
 
     private CodeEditorViewModel CreateMockEditor(string text)
     {
-        AvaloniaTestSetup.EnsureInitialized();
         var wm = Substitute.For<IWindowManager>();
         var es = Substitute.For<IEditorService>();
         var ps = Substitute.For<IProjectService>();
@@ -62,7 +61,7 @@ public class FindReplaceViewModelTests
 
     // --- Title ---
 
-    [Fact]
+    [AvaloniaFact]
     public void Title_DefaultsToFind()
     {
         var sut = CreateSut();
@@ -70,7 +69,7 @@ public class FindReplaceViewModelTests
         sut.Title.Should().Be("Find");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Title_WhenShowReplace_IsReplace()
     {
         var sut = CreateSut();
@@ -81,7 +80,7 @@ public class FindReplaceViewModelTests
 
     // --- FindNext ---
 
-    [Fact]
+    [AvaloniaFact]
     public void FindNextCommand_CannotExecute_WhenSearchTextEmpty()
     {
         var sut = CreateSut();
@@ -89,7 +88,7 @@ public class FindReplaceViewModelTests
         sut.FindNextCommand.CanExecute(null).Should().BeFalse();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void FindNextCommand_CanExecute_WhenSearchTextSet()
     {
         var sut = CreateSut();
@@ -98,7 +97,7 @@ public class FindReplaceViewModelTests
         sut.FindNextCommand.CanExecute(null).Should().BeTrue();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void FindNext_SelectsMatchInEditor()
     {
         var editor = CreateMockEditor("Hello World Hello");
@@ -112,7 +111,7 @@ public class FindReplaceViewModelTests
         editor.SelectionLength.Should().Be(5);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void FindNext_AdvancesToSecondMatch()
     {
         var editor = CreateMockEditor("Hello World Hello");
@@ -128,7 +127,7 @@ public class FindReplaceViewModelTests
         editor.SelectionLength.Should().Be(5);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void FindNext_WrapsAround()
     {
         var editor = CreateMockEditor("Hello World");
@@ -146,7 +145,7 @@ public class FindReplaceViewModelTests
 
     // --- Case sensitivity ---
 
-    [Fact]
+    [AvaloniaFact]
     public void FindNext_IsCaseInsensitive_ByDefault()
     {
         var editor = CreateMockEditor("HELLO world");
@@ -160,7 +159,7 @@ public class FindReplaceViewModelTests
         editor.SelectionLength.Should().Be(5);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void FindNext_IsCaseSensitive_WhenMatchCaseEnabled()
     {
         var editor = CreateMockEditor("HELLO hello");
@@ -177,7 +176,7 @@ public class FindReplaceViewModelTests
 
     // --- Whole word ---
 
-    [Fact]
+    [AvaloniaFact]
     public void FindNext_WholeWord_SkipsPartialMatches()
     {
         var editor = CreateMockEditor("helloworld hello");
@@ -194,7 +193,7 @@ public class FindReplaceViewModelTests
 
     // --- Direction ---
 
-    [Fact]
+    [AvaloniaFact]
     public void FindNext_DirectionUp_SearchesBackward()
     {
         var editor = CreateMockEditor("Hello World Hello");
@@ -212,7 +211,7 @@ public class FindReplaceViewModelTests
 
     // --- Replace ---
 
-    [Fact]
+    [AvaloniaFact]
     public void ReplaceAll_ReplacesAllOccurrences()
     {
         var editor = CreateMockEditor("Hello World Hello");
@@ -226,7 +225,7 @@ public class FindReplaceViewModelTests
         editor.Document.Text.Should().Be("Hi World Hi");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ReplaceAll_RespectsCaseSensitivity()
     {
         var editor = CreateMockEditor("Hello HELLO hello");
@@ -243,7 +242,7 @@ public class FindReplaceViewModelTests
 
     // --- Pattern matching (regex) ---
 
-    [Fact]
+    [AvaloniaFact]
     public void FindNext_WithPatternMatching_UsesRegex()
     {
         var editor = CreateMockEditor("Dim x As Integer");
@@ -260,7 +259,7 @@ public class FindReplaceViewModelTests
 
     // --- Scope items ---
 
-    [Fact]
+    [AvaloniaFact]
     public void ScopeItems_HasExpectedEntries()
     {
         var sut = CreateSut();
@@ -273,7 +272,7 @@ public class FindReplaceViewModelTests
 
     // --- No active editor ---
 
-    [Fact]
+    [AvaloniaFact]
     public void FindNext_NoActiveEditor_DoesNotThrow()
     {
         _documentDockService.ActiveDocument.Returns((BaseEditorWindowViewModel?)null);
@@ -287,7 +286,7 @@ public class FindReplaceViewModelTests
 
     // --- Not found ---
 
-    [Fact]
+    [AvaloniaFact]
     public void FindNext_NotFound_ShowsMessageBox()
     {
         var editor = CreateMockEditor("Hello World");
@@ -306,10 +305,9 @@ public class FindReplaceViewModelTests
 
     // --- MainViewViewModel delegation ---
 
-    [Fact]
+    [AvaloniaFact]
     public void FindInCode_DelegatesToFindReplaceService()
     {
-        AvaloniaTestSetup.EnsureInitialized();
         var findReplace = Substitute.For<IFindReplaceService>();
         var sut = CreateMainViewViewModel(findReplace);
 
@@ -318,10 +316,9 @@ public class FindReplaceViewModelTests
         findReplace.Received(1).ShowFind();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ReplaceInCode_DelegatesToFindReplaceService()
     {
-        AvaloniaTestSetup.EnsureInitialized();
         var findReplace = Substitute.For<IFindReplaceService>();
         var sut = CreateMainViewViewModel(findReplace);
 
@@ -330,10 +327,9 @@ public class FindReplaceViewModelTests
         findReplace.Received(1).ShowReplace();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void FindNextInCode_DelegatesToFindReplaceService()
     {
-        AvaloniaTestSetup.EnsureInitialized();
         var findReplace = Substitute.For<IFindReplaceService>();
         var sut = CreateMainViewViewModel(findReplace);
 

@@ -27,7 +27,6 @@ public class CodeEditorViewModelTests : IDisposable
 
     public CodeEditorViewModelTests()
     {
-        AvaloniaTestSetup.EnsureInitialized();
         _localization.GetString("Str.Document.CodeSuffix").Returns("Code");
 
         _eventBus.Subscribe<CreateOrNavigateToSubEvent>(Arg.Any<Action<CreateOrNavigateToSubEvent>>())
@@ -52,7 +51,7 @@ public class CodeEditorViewModelTests : IDisposable
 
     // ── Edit-while-running reset prompt (VB6-faithful E&C affordance) ──
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ConfirmResetWhileRunningAsync_Yes_RequestsProjectEnd()
     {
         _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>())
@@ -64,7 +63,7 @@ public class CodeEditorViewModelTests : IDisposable
         _eventBus.Received(1).Publish(Arg.Any<EndProjectRequestedEvent>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ConfirmResetWhileRunningAsync_No_KeepsRunning()
     {
         _windowManager.MessageBox(Arg.Any<string>(), Arg.Any<string>(), MessageBoxButtons.YesNo, Arg.Any<MessageBoxIcon>())
@@ -76,7 +75,7 @@ public class CodeEditorViewModelTests : IDisposable
         _eventBus.DidNotReceive().Publish(Arg.Any<EndProjectRequestedEvent>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void IsProjectRunning_ReflectsTheDebugController()
     {
         _debugController.IsSessionActive.Returns(true);
@@ -85,7 +84,7 @@ public class CodeEditorViewModelTests : IDisposable
 
     // ── Initialization — Form ────────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void Initialize_Form_SetsFormDefinition()
     {
         var form = TestHelpers.CreateForm(name: "Form1");
@@ -94,7 +93,7 @@ public class CodeEditorViewModelTests : IDisposable
         vm.FormDefinition.Should().BeSameAs(form);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Initialize_Form_SetsDocumentTextFromFormCode()
     {
         var form = TestHelpers.CreateForm(name: "Form1");
@@ -103,7 +102,7 @@ public class CodeEditorViewModelTests : IDisposable
         vm.Document.Text.Should().Be(form.Code);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Initialize_Form_ObjectNamesContainsGeneral()
     {
         var form = TestHelpers.CreateForm(name: "Form1");
@@ -112,7 +111,7 @@ public class CodeEditorViewModelTests : IDisposable
         vm.ObjectNames.Should().Contain("(General)");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Initialize_Form_TitleContainsFormAndProjectName()
     {
         var project = TestHelpers.CreateProject("MyProject");
@@ -125,7 +124,7 @@ public class CodeEditorViewModelTests : IDisposable
 
     // ── Initialization — Module ──────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void Initialize_Module_SetsModuleDefinition()
     {
         var module = TestHelpers.CreateModule(name: "Module1");
@@ -134,7 +133,7 @@ public class CodeEditorViewModelTests : IDisposable
         vm.ModuleDefinition.Should().BeSameAs(module);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Initialize_Module_SetsDocumentTextFromModuleCode()
     {
         var module = TestHelpers.CreateModule(name: "Module1");
@@ -143,7 +142,7 @@ public class CodeEditorViewModelTests : IDisposable
         vm.Document.Text.Should().Be(module.Code);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Initialize_Module_ObjectNamesContainsOnlyGeneral()
     {
         var module = TestHelpers.CreateModule(name: "Module1");
@@ -153,7 +152,7 @@ public class CodeEditorViewModelTests : IDisposable
             .Which.Should().Be("(General)");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Initialize_Module_TitleContainsModuleAndProjectName()
     {
         var project = TestHelpers.CreateProject("MyProject");
@@ -166,7 +165,7 @@ public class CodeEditorViewModelTests : IDisposable
 
     // ── Document URI ─────────────────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void GetDocumentUri_Form_ReturnsCorrectUri()
     {
         var form = TestHelpers.CreateForm(name: "Form1");
@@ -175,7 +174,7 @@ public class CodeEditorViewModelTests : IDisposable
         vm.GetDocumentUriPublic().Should().Be("vb6://form/Form1");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void GetDocumentUri_Module_ReturnsCorrectUri()
     {
         var module = TestHelpers.CreateModule(name: "Module1");
@@ -186,7 +185,7 @@ public class CodeEditorViewModelTests : IDisposable
 
     // ── LSP open on init ─────────────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void Initialize_Form_WhenLspRunning_CallsOpenDocument()
     {
         _lspClient.IsRunning.Returns(true);
@@ -200,7 +199,7 @@ public class CodeEditorViewModelTests : IDisposable
             Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Initialize_Form_TellsTheClientEvenWhenNoServerIsRunning()
     {
         // This used to assert the opposite, mirroring a gate in the view-model rather than a requirement.
@@ -217,7 +216,7 @@ public class CodeEditorViewModelTests : IDisposable
         _lspClient.Received(1).OpenDocumentAsync("vb6://form/Form1", form.Code, Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Initialize_Module_WhenLspRunning_CallsOpenDocument()
     {
         _lspClient.IsRunning.Returns(true);
@@ -231,7 +230,7 @@ public class CodeEditorViewModelTests : IDisposable
             Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Initialize_Module_TellsTheClientEvenWhenNoServerIsRunning()
     {
         // This used to assert the opposite, mirroring a gate in the view-model rather than a requirement.
@@ -250,7 +249,7 @@ public class CodeEditorViewModelTests : IDisposable
 
     // ── LSP delegation ───────────────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public async Task RequestHoverAsync_DelegatesToLspClient()
     {
         var form = TestHelpers.CreateForm(name: "Form1");
@@ -265,7 +264,7 @@ public class CodeEditorViewModelTests : IDisposable
         result.Should().BeSameAs(expected);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task RequestFoldingRangesAsync_DelegatesToLspClient()
     {
         var form = TestHelpers.CreateForm(name: "Form1");
@@ -279,7 +278,7 @@ public class CodeEditorViewModelTests : IDisposable
         result.Should().BeSameAs(expected);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task RequestCompletionAsync_DelegatesToLspClient()
     {
         var form = TestHelpers.CreateForm(name: "Form1");
@@ -294,7 +293,7 @@ public class CodeEditorViewModelTests : IDisposable
         result.Should().BeSameAs(expected);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task RequestSignatureHelpAsync_DelegatesToLspClient()
     {
         var form = TestHelpers.CreateForm(name: "Form1");
@@ -310,7 +309,7 @@ public class CodeEditorViewModelTests : IDisposable
         result.Should().BeSameAs(expected);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task RequestDefinitionAsync_DelegatesToLspClient()
     {
         var form = TestHelpers.CreateForm(name: "Form1");
@@ -325,7 +324,7 @@ public class CodeEditorViewModelTests : IDisposable
         result.Should().BeSameAs(expected);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task RequestDocumentHighlightAsync_DelegatesToLspClient()
     {
         var form = TestHelpers.CreateForm(name: "Form1");
@@ -343,7 +342,7 @@ public class CodeEditorViewModelTests : IDisposable
         result.Should().BeSameAs(expected);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task RequestRenameAsync_DelegatesToLspClient()
     {
         var form = TestHelpers.CreateForm(name: "Form1");
@@ -358,7 +357,7 @@ public class CodeEditorViewModelTests : IDisposable
             "vb6://form/Form1", pos, "newName", Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task RequestFormattingAsync_DelegatesToLspClient()
     {
         var form = TestHelpers.CreateForm(name: "Form1");
@@ -374,7 +373,7 @@ public class CodeEditorViewModelTests : IDisposable
 
     // ── Dispose ──────────────────────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void Dispose_CallsCloseDocumentAsync()
     {
         var form = TestHelpers.CreateForm(name: "Form1");
@@ -386,7 +385,7 @@ public class CodeEditorViewModelTests : IDisposable
         _lspClient.Received(1).CloseDocumentAsync("vb6://form/Form1", Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Dispose_UpdatesFormCodeFromDocument()
     {
         var form = TestHelpers.CreateForm(name: "Form1");
@@ -399,7 +398,7 @@ public class CodeEditorViewModelTests : IDisposable
         form.Code.Should().Be("Dim x As Integer");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Dispose_WritesTheBufferBackBeforeClosingTheDocument()
     {
         // Order, not just outcome. Both halves happen in one disposal block, and nothing pinned their
@@ -428,7 +427,7 @@ public class CodeEditorViewModelTests : IDisposable
 
     // ── Announcing a save to the language layer ──────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ASavedModuleIsAnnouncedToItsServers()
     {
         Action<DocumentSavedEvent>? saved = null;
@@ -443,7 +442,7 @@ public class CodeEditorViewModelTests : IDisposable
         await _lspClient.Received(1).SaveDocumentAsync("vb6://module/Module1", Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task ASaveOfSomeOtherDocumentIsIgnored()
     {
         // Every editor hears every save. Without the match, saving one module would announce a save of
@@ -459,7 +458,7 @@ public class CodeEditorViewModelTests : IDisposable
         await _lspClient.DidNotReceive().SaveDocumentAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task AUserControlIsAnnouncedOnceUnderItsModuleUri()
     {
         // A UserControl or PropertyPage is ONE file with two halves, and Initialize(ModuleDefinition) sets
@@ -491,7 +490,7 @@ public class CodeEditorViewModelTests : IDisposable
             "vb6://module/UserControl1", Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Dispose_UpdatesModuleCodeFromDocument()
     {
         var module = TestHelpers.CreateModule(name: "Module1");
@@ -504,7 +503,7 @@ public class CodeEditorViewModelTests : IDisposable
         module.Code.Should().Be("Public Sub Hello()\nEnd Sub");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Dispose_UnsubscribesFromDiagnosticsPublished()
     {
         var form = TestHelpers.CreateForm(name: "Form1");
@@ -520,7 +519,7 @@ public class CodeEditorViewModelTests : IDisposable
 
     // ── LSP delegation with Module URI ───────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public async Task RequestHoverAsync_Module_UsesModuleUri()
     {
         var module = TestHelpers.CreateModule(name: "Utils");
@@ -533,7 +532,7 @@ public class CodeEditorViewModelTests : IDisposable
             "vb6://module/Utils", pos, Arg.Any<CancellationToken>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public async Task RequestCompletionAsync_Module_UsesModuleUri()
     {
         var module = TestHelpers.CreateModule(name: "Utils");
@@ -548,7 +547,7 @@ public class CodeEditorViewModelTests : IDisposable
 
     // ── Constructor subscribes to events ─────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void Constructor_SubscribesToCreateOrNavigateToSubEvent()
     {
         CreateSut();
@@ -557,7 +556,7 @@ public class CodeEditorViewModelTests : IDisposable
             Arg.Any<Action<CreateOrNavigateToSubEvent>>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Constructor_SubscribesToApplyAllUnsavedChangesEvent()
     {
         CreateSut();
@@ -566,7 +565,7 @@ public class CodeEditorViewModelTests : IDisposable
             Arg.Any<Action<ApplyAllUnsavedChangesEvent>>());
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Constructor_SubscribesToFormUnloadedEvent()
     {
         CreateSut();
@@ -577,7 +576,7 @@ public class CodeEditorViewModelTests : IDisposable
 
     // ── Initialize returns self (fluent) ─────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void Initialize_Form_ReturnsSelf()
     {
         var form = TestHelpers.CreateForm();
@@ -588,7 +587,7 @@ public class CodeEditorViewModelTests : IDisposable
         result.Should().BeSameAs(vm);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Initialize_Module_ReturnsSelf()
     {
         var module = TestHelpers.CreateModule();
@@ -615,7 +614,7 @@ public class CodeEditorViewModelTests : IDisposable
         return form;
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void IsReadOnly_IsTrue_ForAFormThatCannotBeSavedFaithfully()
     {
         var vm = CreateSut();
@@ -625,7 +624,7 @@ public class CodeEditorViewModelTests : IDisposable
         vm.ReadOnlyReason.Should().Contain("companion binary content");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void IsReadOnly_IsFalse_ForAnOrdinaryForm()
     {
         var vm = CreateSut();
@@ -635,7 +634,7 @@ public class CodeEditorViewModelTests : IDisposable
         vm.ReadOnlyReason.Should().BeNull();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void IsReadOnly_IsFalse_ForAStandaloneModule()
     {
         // .bas/.cls round-trip byte-identically since #18, so they are never gated.
@@ -662,7 +661,7 @@ public class CodeEditorViewModelTests : IDisposable
         return module;
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Initialize_Module_WithADesignerHalf_AdoptsIt()
     {
         // The whole of #152 in one assertion. This used to be null, so the module door and the designer
@@ -675,7 +674,7 @@ public class CodeEditorViewModelTests : IDisposable
         vm.FormDefinition.Should().BeSameAs(module.FormPart, "a UserControl's editor holds both halves");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Initialize_Module_WithADesignerHalf_ListsItsControls()
     {
         // Not cosmetic: FindComponent returns null without a form definition, so the event dropdown stays
@@ -687,7 +686,7 @@ public class CodeEditorViewModelTests : IDisposable
         vm.SelectedObject.Should().Be("(General)");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Initialize_Module_WithoutADesignerHalf_LeavesTheFormNull()
     {
         // A .bas or .cls has no designer half, and everything downstream keys off that rather than off a
@@ -701,7 +700,7 @@ public class CodeEditorViewModelTests : IDisposable
         vm.IsReadOnly.Should().BeFalse();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Initialize_Module_WithAnUnfaithfulDesignerHalf_IsReadOnly()
     {
         // #147's other half, which falls out of #152 rather than needing its own wiring: an unfaithful
@@ -714,7 +713,7 @@ public class CodeEditorViewModelTests : IDisposable
         vm.ReadOnlyReason.Should().NotBeNullOrEmpty();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void FlushingAUserControlsEditor_UpdatesBothHalves()
     {
         // The divergence itself. SaveModule serializes module.Code; SerializeFormToFile serializes

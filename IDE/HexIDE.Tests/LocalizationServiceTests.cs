@@ -7,11 +7,10 @@ namespace HexIDE.Tests;
 
 public class LocalizationServiceTests
 {
-    public LocalizationServiceTests() => AvaloniaTestSetup.EnsureInitialized();
 
     private static LocalizationService CreateSut() => new();
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_English_GetString_ReturnsEnglishValue()
     {
         var sut = CreateSut();
@@ -21,7 +20,7 @@ public class LocalizationServiceTests
         sut.ActiveLanguage.Should().Be("en");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void GetString_UnknownKey_ReturnsKeyItself()
     {
         var sut = CreateSut();
@@ -30,7 +29,7 @@ public class LocalizationServiceTests
         sut.GetString("Str.Does.Not.Exist").Should().Be("Str.Does.Not.Exist");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Indexer_MatchesGetString()
     {
         var sut = CreateSut();
@@ -40,7 +39,7 @@ public class LocalizationServiceTests
         sut["Str.Menu.File"].Should().Be(sut.GetString("Str.Menu.File"));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_PutsStringsIntoApplicationResources_ForDynamicResource()
     {
         // Proves the AXAML path: Apply injects the strings into Application.Resources where
@@ -52,7 +51,7 @@ public class LocalizationServiceTests
         value.Should().Be("_File");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_RaisesLanguageChanged()
     {
         var sut = CreateSut();
@@ -64,7 +63,7 @@ public class LocalizationServiceTests
         raised.Should().Be(1);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_UnknownPack_FallsBackToEnglish()
     {
         var sut = CreateSut();
@@ -75,7 +74,7 @@ public class LocalizationServiceTests
         sut.GetString("Str.Menu.File.Exit").Should().Be("E_xit");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_DoesNotChangeThreadCulture()
     {
         // The localization service is a pack selector — it must never mutate thread culture,
@@ -90,13 +89,13 @@ public class LocalizationServiceTests
         CultureInfo.CurrentUICulture.Should().BeSameAs(uiCulture);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AvailableLanguages_IncludesEnglish()
     {
         CreateSut().AvailableLanguages.Select(l => l.Id).Should().Contain("en");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AvailableLanguages_AreLanguageNeutralsOnly_NotRegions()
     {
         // The Language combo lists one entry per translation; regions live in RegionsFor, not here.
@@ -107,7 +106,7 @@ public class LocalizationServiceTests
         ids.Should().NotContain(["en-US", "en-GB", "fr-FR", "zh-CN", "ja-JP", "de-AT"]);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void RegionsFor_ReturnsRegionsUnderALanguage()
     {
         var sut = CreateSut();
@@ -126,7 +125,7 @@ public class LocalizationServiceTests
         sut.RegionsFor("xx-not-a-lang").Should().BeEmpty();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void GetStringFrom_English_ReturnsEnglishValue()
     {
         var sut = CreateSut();
@@ -134,7 +133,7 @@ public class LocalizationServiceTests
         sut.GetStringFrom("en", "Str.Menu.File.Print").Should().Be("_Print...");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_EnGb_OverridesUsSpellings_AndInheritsCanonical()
     {
         var sut = CreateSut();
@@ -148,14 +147,14 @@ public class LocalizationServiceTests
         sut.GetString("Str.Menu.File").Should().Be("_File");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void RegionsFor_English_IncludesUsAndGb()
     {
         // en-GB is the one region that ships a real pack; en-US is a fileless region (≡ canonical en).
         CreateSut().RegionsFor("en").Select(r => r.Id).Should().Contain(["en-US", "en-GB"]);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_RegionOverNeutralOverCanonical_ResolvesThreeTier()
     {
         // zz / zz-ZZ are synthetic test packs (not in the manifest, so invisible in the dropdown):
@@ -168,7 +167,7 @@ public class LocalizationServiceTests
         sut.GetString("Str.Menu.File.NewProject").Should().Be("_New Project");   // canonical en-US fallback
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_FrenchRegion_InheritsNeutralFrenchPack()
     {
         var sut = CreateSut();
@@ -181,14 +180,14 @@ public class LocalizationServiceTests
         sut.GetString("Str.Menu.File").Should().Be(frFile);   // the empty fr-FR pack inherits neutral fr
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AvailableLanguages_IncludeFrenchRegions()
     {
         CreateSut().AvailableLanguages.Select(l => l.Id)
             .Should().Contain("fr");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_Arabic_IsRightToLeft_AndTranslated_WithoutMnemonics()
     {
         var sut = CreateSut();
@@ -201,7 +200,7 @@ public class LocalizationServiceTests
         file.Should().NotContain("_");       // mnemonics omitted for Arabic
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_ArabicRegion_InheritsNeutralArabic_AndRtl()
     {
         var sut = CreateSut();
@@ -214,14 +213,14 @@ public class LocalizationServiceTests
         sut.GetString("Str.Menu.File").Should().Be(arFile);          // inherits neutral ar translation
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AvailableLanguages_IncludeArabic()
     {
         CreateSut().AvailableLanguages.Select(l => l.Id)
             .Should().Contain("ar");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_ChineseRegions_InheritTheirScriptNeutral()
     {
         // Script-aware 3-tier: zh-CN/zh-SG inherit zh-Hans (Simplified); zh-TW/zh-HK/zh-MO inherit
@@ -238,7 +237,7 @@ public class LocalizationServiceTests
         sut.GetString("Str.Menu.File").Should().Be(hant);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ChineseSimplifiedAndTraditional_AreDifferentNeutrals()
     {
         var sut = CreateSut();
@@ -250,14 +249,14 @@ public class LocalizationServiceTests
         hans.Should().NotEqual(hant);   // the two scripts produce different text
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AvailableLanguages_IncludeChinese()
     {
         CreateSut().AvailableLanguages.Select(l => l.Id)
             .Should().Contain(["zh-Hans", "zh-Hant"]);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_GermanRegion_InheritsNeutralGerman_WithMnemonics()
     {
         var sut = CreateSut();
@@ -270,13 +269,13 @@ public class LocalizationServiceTests
         sut.GetString("Str.Menu.File").Should().Be(deFile);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AvailableLanguages_IncludeGerman()
     {
         CreateSut().AvailableLanguages.Select(l => l.Id).Should().Contain("de");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_SpanishRegion_InheritsNeutralSpanish()
     {
         var sut = CreateSut();
@@ -288,14 +287,14 @@ public class LocalizationServiceTests
         sut.GetString("Str.Menu.File").Should().Be(esFile);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AvailableLanguages_IncludeSpanish()
     {
         CreateSut().AvailableLanguages.Select(l => l.Id)
             .Should().Contain("es");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_JapaneseRegion_InheritsNeutralJapanese_WithoutMnemonics()
     {
         var sut = CreateSut();
@@ -308,13 +307,13 @@ public class LocalizationServiceTests
         sut.GetString("Str.Menu.File").Should().Be(jaFile);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AvailableLanguages_IncludeJapanese()
     {
         CreateSut().AvailableLanguages.Select(l => l.Id).Should().Contain("ja");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_HebrewRegion_InheritsNeutralHebrew_AndRtl()
     {
         var sut = CreateSut();
@@ -329,13 +328,13 @@ public class LocalizationServiceTests
         sut.GetString("Str.Menu.File").Should().Be(heFile);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AvailableLanguages_IncludeHebrew()
     {
         CreateSut().AvailableLanguages.Select(l => l.Id).Should().Contain("he");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_KoreanRegion_InheritsNeutralKorean_WithoutMnemonics()
     {
         var sut = CreateSut();
@@ -348,13 +347,13 @@ public class LocalizationServiceTests
         sut.GetString("Str.Menu.File").Should().Be(koFile);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AvailableLanguages_IncludeKorean()
     {
         CreateSut().AvailableLanguages.Select(l => l.Id).Should().Contain("ko");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_RussianRegion_InheritsNeutralRussian_WithoutMnemonics()
     {
         var sut = CreateSut();
@@ -367,7 +366,7 @@ public class LocalizationServiceTests
         sut.GetString("Str.Menu.File").Should().Be(ruFile);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_UkrainianRegion_InheritsNeutralUkrainian_WithoutMnemonics()
     {
         var sut = CreateSut();
@@ -380,13 +379,13 @@ public class LocalizationServiceTests
         sut.GetString("Str.Menu.File").Should().Be(ukFile);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AvailableLanguages_IncludeRussianAndUkrainian()
     {
         CreateSut().AvailableLanguages.Select(l => l.Id).Should().Contain(["ru", "uk"]);
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData("cs", "cs-CZ")]
     [InlineData("it", "it-IT")]
     [InlineData("pl", "pl-PL")]
@@ -405,14 +404,14 @@ public class LocalizationServiceTests
         sut.GetString("Str.Menu.Edit").Should().Be(edit);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AvailableLanguages_IncludeRemainingVsLanguages()
     {
         CreateSut().AvailableLanguages.Select(l => l.Id)
             .Should().Contain(["cs", "it", "pl", "pt", "tr"]);
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData("en-AU", "en")]      // English region → canonical neutral `en`
     [InlineData("fr-SN", "fr")]
     [InlineData("pt-AO", "pt")]
@@ -426,7 +425,7 @@ public class LocalizationServiceTests
         sut.GetString("Str.Menu.File").Should().Be(expected);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_AddedArabicRegion_InheritsRtlFromNeutral()
     {
         var sut = CreateSut();
@@ -434,7 +433,7 @@ public class LocalizationServiceTests
         sut.FlowDirection.Should().Be(FlowDirection.RightToLeft);
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData("id", "id-ID")]
     [InlineData("vi", "vi-VN")]
     [InlineData("nl", "nl-NL")]
@@ -457,7 +456,7 @@ public class LocalizationServiceTests
         sut.GetString("Str.StatusBar.Ready").Should().Be(ready);
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData("hi", "hi-IN")]
     [InlineData("el", "el-GR")]
     public void Apply_Batch2NonLatin_TranslatesWithoutMnemonics_AndRegionInherits(string neutral, string region)
@@ -472,7 +471,7 @@ public class LocalizationServiceTests
         sut.GetString("Str.StatusBar.Ready").Should().Be(ready);
     }
 
-    [Theory]
+    [AvaloniaTheory]
     [InlineData("ur", "ur-PK")]
     [InlineData("ur", "ur-IN")]
     [InlineData("fa", "fa-IR")]
@@ -490,14 +489,14 @@ public class LocalizationServiceTests
         sut.GetString("Str.StatusBar.Ready").Should().Be(ready);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AvailableLanguages_IncludeBatch2Languages()
     {
         CreateSut().AvailableLanguages.Select(l => l.Id)
             .Should().Contain(["hi", "ur", "id", "vi", "fa", "nl", "sv", "el", "nb", "da", "fi"]);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void GetPropertyDescription_ReturnsLocalizedText()
     {
         var sut = CreateSut();
@@ -510,7 +509,7 @@ public class LocalizationServiceTests
             .Be("The identifier used to refer to this object in code.");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void GetPropertyDescription_WhenNoKeyExists_ReturnsNull()
     {
         // A property with no Str.PropDesc.* key falls back (caller uses the Core English description).
@@ -520,7 +519,7 @@ public class LocalizationServiceTests
         sut.GetPropertyDescription("NoSuchPropertyXyz").Should().BeNull();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AvailableLanguages_IncludeSystemDefaultFirst()
     {
         var langs = CreateSut().AvailableLanguages;
@@ -528,7 +527,7 @@ public class LocalizationServiceTests
         langs.Select(l => l.Id).Should().Contain("system");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AvailableLanguages_AfterSystemDefault_AreAlphaSortedByDisplayName()
     {
         var langs = CreateSut().AvailableLanguages;
@@ -537,7 +536,7 @@ public class LocalizationServiceTests
             .Should().BeInAscendingOrder(StringComparer.OrdinalIgnoreCase);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_System_ResolvesToARealPack()
     {
         var sut = CreateSut();
@@ -551,7 +550,7 @@ public class LocalizationServiceTests
         sut.GetString("Str.Menu.File").Should().Be("_File");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_Pseudo_TransformsStrings()
     {
         var sut = CreateSut();
@@ -564,7 +563,7 @@ public class LocalizationServiceTests
         value.Should().NotBe("_File");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_PseudoLtr_SetsLeftToRight()
     {
         var sut = CreateSut();
@@ -572,7 +571,7 @@ public class LocalizationServiceTests
         sut.FlowDirection.Should().Be(FlowDirection.LeftToRight);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void Apply_PseudoRtl_SetsRightToLeft()
     {
         var sut = CreateSut();
@@ -580,7 +579,7 @@ public class LocalizationServiceTests
         sut.FlowDirection.Should().Be(FlowDirection.RightToLeft);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AvailableLanguages_HidePseudo_ForNormalUsers()
     {
         // Pseudo locales are developer-only — never shown in the dropdown to end users
@@ -589,7 +588,7 @@ public class LocalizationServiceTests
             .Should().NotContain(["pseudo", "pseudo-rtl"]);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void AvailableLanguages_IncludePseudo_InDeveloperMode()
     {
         var dev = Substitute.For<IDeveloperModeService>();

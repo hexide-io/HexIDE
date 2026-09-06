@@ -13,7 +13,7 @@ namespace HexIDE.Tests;
 /// </summary>
 public class LocalizationCoverageTests
 {
-    [Fact]
+    [AvaloniaFact]
     public void EveryAxamlStrKey_ExistsInEnglishPack()
     {
         var hexIdeDir = FindHexIdeProjectDir();
@@ -35,12 +35,11 @@ public class LocalizationCoverageTests
         missing.Should().BeEmpty("every Str.* key used in AXAML must exist in en.json");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void EveryVBProperty_HasAPropDescKey()
     {
         // The property grid localizes descriptions via Str.PropDesc.{name}; every VB6 property must
         // have one (else GetPropertyDescription returns null and the grid silently falls back).
-        AvaloniaTestSetup.EnsureInitialized();
         _ = VBProperties.NameProperty; // force static init -> populate PropertiesByName
 
         var loc = new LocalizationService();
@@ -58,7 +57,7 @@ public class LocalizationCoverageTests
         missing.Should().BeEmpty();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void RegionPacks_OnlyOverrideCanonicalKeys()
     {
         // A region/language pack must only override keys that exist in the canonical en pack —

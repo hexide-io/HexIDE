@@ -19,7 +19,6 @@ public class UserTranslationsServiceTests
     // A canonical en key with no placeholders — used for the plain write/clear/reset round-trips.
     private const string PlainKey = "Str.Menu.File";
 
-    public UserTranslationsServiceTests() => AvaloniaTestSetup.EnsureInitialized();
 
     /// <summary>A fresh, empty temp directory keyed off the calling test's name (deterministic, isolated).</summary>
     private static string FreshDir([CallerMemberName] string testName = "")
@@ -43,7 +42,7 @@ public class UserTranslationsServiceTests
 
     // ── SetOverride / GetOverrides round-trip ──────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void SetOverride_WritesFileAndRoundTripsViaGetOverrides()
     {
         var dir = FreshDir();
@@ -61,7 +60,7 @@ public class UserTranslationsServiceTests
         reloaded.GetOverrides("de").Should().Contain(new KeyValuePair<string, string>(PlainKey, "DeiFile"));
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SetOverride_RaisesOverridesChanged_WithLocaleId()
     {
         var dir = FreshDir();
@@ -74,7 +73,7 @@ public class UserTranslationsServiceTests
         raisedFor.Should().Be("fr");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void GetOverrides_UnknownLocale_ReturnsEmpty()
     {
         var sut = new UserTranslationsService(FreshDir());
@@ -84,7 +83,7 @@ public class UserTranslationsServiceTests
 
     // ── null/whitespace value clears the key ───────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void SetOverride_NullValue_ClearsTheKey_AndReturnsTrue()
     {
         var dir = FreshDir();
@@ -96,7 +95,7 @@ public class UserTranslationsServiceTests
         sut.GetOverrides("de").Should().NotContainKey(PlainKey);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SetOverride_WhitespaceValue_ClearsTheKey_AndReturnsTrue()
     {
         var dir = FreshDir();
@@ -110,7 +109,7 @@ public class UserTranslationsServiceTests
 
     // ── ClearOverride removes the key, deletes the file when empty ──────────
 
-    [Fact]
+    [AvaloniaFact]
     public void ClearOverride_RemovesKey_AndDeletesFileWhenEmpty()
     {
         var dir = FreshDir();
@@ -124,7 +123,7 @@ public class UserTranslationsServiceTests
         File.Exists(FilePath(dir, "de")).Should().BeFalse("the file must be deleted once the last key is cleared");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ClearOverride_KeepsFile_WhenOtherKeysRemain()
     {
         var dir = FreshDir();
@@ -139,7 +138,7 @@ public class UserTranslationsServiceTests
         File.Exists(FilePath(dir, "de")).Should().BeTrue("the file survives while another override remains");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void ClearOverride_RaisesOverridesChanged()
     {
         var dir = FreshDir();
@@ -155,7 +154,7 @@ public class UserTranslationsServiceTests
 
     // ── ResetAll deletes the file and forgets the locale ───────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void ResetAll_RemovesAllOverrides_AndDeletesFile()
     {
         var dir = FreshDir();
@@ -171,7 +170,7 @@ public class UserTranslationsServiceTests
         File.Exists(FilePath(dir, "de")).Should().BeFalse();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void OverriddenIds_ReflectsLocalesWithOverrides()
     {
         var dir = FreshDir();
@@ -184,7 +183,7 @@ public class UserTranslationsServiceTests
 
     // ── PreservesPlaceholders ──────────────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void PreservesPlaceholders_True_ForSamePlaceholderEdit()
     {
         var sut = new UserTranslationsService(FreshDir());
@@ -193,7 +192,7 @@ public class UserTranslationsServiceTests
         sut.PreservesPlaceholders(PlaceholderKey, "Zurück in {0} Sekunden").Should().BeTrue();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void PreservesPlaceholders_True_ForMnemonicAndPunctuationChange()
     {
         var sut = new UserTranslationsService(FreshDir());
@@ -204,7 +203,7 @@ public class UserTranslationsServiceTests
         sut.PreservesPlaceholders(PlaceholderKey, "_Reverting in {0}s!").Should().BeTrue();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void PreservesPlaceholders_False_WhenPlaceholderDropped()
     {
         var sut = new UserTranslationsService(FreshDir());
@@ -213,7 +212,7 @@ public class UserTranslationsServiceTests
         sut.PreservesPlaceholders(PlaceholderKey, "Reverting now…").Should().BeFalse();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void PreservesPlaceholders_False_WhenExtraPlaceholderAdded()
     {
         var sut = new UserTranslationsService(FreshDir());
@@ -222,7 +221,7 @@ public class UserTranslationsServiceTests
         sut.PreservesPlaceholders(PlaceholderKey, "Reverting {0} of {1}…").Should().BeFalse();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void PreservesPlaceholders_False_ForStrayUnescapedBrace_EvenWhenIndexSetMatches()
     {
         var sut = new UserTranslationsService(FreshDir());
@@ -233,7 +232,7 @@ public class UserTranslationsServiceTests
         sut.PreservesPlaceholders(PlaceholderKey, "Zurück in {0}s {").Should().BeFalse();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void PreservesPlaceholders_False_ForStrayBrace_OnNoPlaceholderCanonicalKey()
     {
         var sut = new UserTranslationsService(FreshDir());
@@ -243,7 +242,7 @@ public class UserTranslationsServiceTests
         sut.PreservesPlaceholders(PlainKey, "100{ off").Should().BeFalse();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void PreservesPlaceholders_True_ForEscapedBraces()
     {
         var sut = new UserTranslationsService(FreshDir());
@@ -252,7 +251,7 @@ public class UserTranslationsServiceTests
         sut.PreservesPlaceholders(PlainKey, "Use {{curly}} braces").Should().BeTrue();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SetOverride_StrayBrace_ReturnsFalse_AndDoesNotPersist()
     {
         var dir = FreshDir();
@@ -264,7 +263,7 @@ public class UserTranslationsServiceTests
         File.Exists(FilePath(dir, "de")).Should().BeFalse();
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void LoadAll_DropsStrayBraceValues()
     {
         var dir = FreshDir();
@@ -280,7 +279,7 @@ public class UserTranslationsServiceTests
         sut.GetOverrides("de").Should().NotContainKey(PlaceholderKey);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void SetOverride_PlaceholderBreaker_ReturnsFalse_AndDoesNotPersist()
     {
         var dir = FreshDir();
@@ -294,7 +293,7 @@ public class UserTranslationsServiceTests
 
     // ── LoadAll drops bad entries / survives corruption ────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public void LoadAll_DropsOrphanKeysNotInCanonical()
     {
         var dir = FreshDir();
@@ -310,7 +309,7 @@ public class UserTranslationsServiceTests
         sut.GetOverrides("de").Should().NotContainKey("Str.Not.A.Real.Key");
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void LoadAll_DropsEmptyAndWhitespaceValues()
     {
         var dir = FreshDir();
@@ -326,7 +325,7 @@ public class UserTranslationsServiceTests
         sut.GetOverrides("de").Should().NotContainKey(PlaceholderKey);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void LoadAll_DropsPlaceholderBreakers()
     {
         var dir = FreshDir();
@@ -342,7 +341,7 @@ public class UserTranslationsServiceTests
         sut.GetOverrides("de").Should().NotContainKey(PlaceholderKey);
     }
 
-    [Fact]
+    [AvaloniaFact]
     public void LoadAll_SurvivesCorruptJsonFile_WithoutThrowing()
     {
         var dir = FreshDir();
