@@ -612,7 +612,19 @@ widening visibility to `public` just for a test. When a new test project needs r
 - **MVVM**: use `[Notify]` (PropertyChanged.SourceGenerator) for `INotifyPropertyChanged` properties.
 - **`DrawingContext.DrawImage(image, destRect)` samples the source's *device-independent* extent, not its pixels.** Composing a `RenderTargetBitmap` rendered at `96 * scaling` dpi into another therefore reads only the top-left `1/scaling` of it and stretches that to fill — on a 150% display, correctly placed and sized output with magnified, clipped contents inside. Use the three-argument overload with an explicit **pixel** source rect. Related: render a visual with `RenderTargetBitmap.Render`, which handles scaling correctly, rather than routing it through a drawing context. Both traps are invisible at 100% scaling and invisible headlessly. See `SnapshotComposer`.
 - **Avalonia 12 breaking changes** (already migrated, for reference): `GotFocusEventArgs` → `FocusChangedEventArgs`; `CaptionButtons` (chrome control) removed — replaced with custom `MDICaptionButtons : TemplatedControl`; `GetVisualRoot()` → `TopLevel.GetTopLevel(this)`; `RenderOptions.SetTextRenderingMode` → `TextOptions.SetTextRenderingMode`; `RenderOptions.TextRenderingMode="Alias"` in AXAML → `TextOptions.TextRenderingMode="Alias"`; `<CompiledBinding Path="X" />` inside `MultiBinding` → `<Binding Path="X" />`.
-- **Integration test project** (`HexIDE.Integration.Tests`) uses xunit v3 (`xunit.v3 3.2.0`) with MTP runner (`TestingPlatformDotnetTestSupport=true`). Run with `dotnet test` or `dotnet run`. No `Microsoft.NET.Test.Sdk` needed.
+- **Test frameworks are mid-migration** ([#297](https://github.com/hexide-io/HexIDE/issues/297)).
+  `HexIDE.Integration.Tests` (xunit v3, **MTP** runner) and `HexIDE.VbLspServer.Tests` (xunit v3, VSTest
+  runner) are on v3; `HexIDE.Tests` and `HexIDE.Runtime.Tests` are still on xunit v2. A v3 project needs no
+  `OutputType` change — `xunit.v3.core` makes it an executable itself.
+- **`xunit.v3` is capped at `[3.2.2,4.0.0)` and that is deliberate.** 4.0.0 (still "Core Framework v3" — the
+  package version and the framework generation are decoupled) breaks `Avalonia.Headless.XUnit` with a
+  `MissingMethodException` at test **discovery**: no build error, no restore warning. The package's own
+  dependency is an open `>= 3.2.2`, so a routine bump resolves it happily. See the comment in
+  `Directory.Packages.props`.
+- **`--filter` works under VSTest, not under MTP.** `HexIDE.Integration.Tests` is MTP, so
+  `dotnet test HexIDE.Integration.Tests/ --filter "FullyQualifiedName~Foo"` silently runs **every** test
+  rather than failing. Use `--filter-class` / `--filter-method` / `--filter-query` there. The other three
+  projects are still VSTest and take `--filter` normally.
 
 ## Living Documents
 
