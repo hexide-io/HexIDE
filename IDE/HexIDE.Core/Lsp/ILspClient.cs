@@ -7,6 +7,22 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>Fired when the server sends textDocument/publishDiagnostics.</summary>
     event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
 
+    /// <summary>
+    /// Fired when the server asks for the user's attention about <em>itself</em> — <c>window/showMessage</c>.
+    ///
+    /// <para>
+    /// Distinct from diagnostics, which are about the developer's code. This is the server saying something
+    /// is wrong with its own setup, and it is the only channel it has for that. Discarding these is why a
+    /// misconfigured server used to be indistinguishable from a broken IDE.
+    /// </para>
+    ///
+    /// <para>
+    /// <c>window/logMessage</c> deliberately has no event: it is diagnostic detail for a log, not something
+    /// to put in front of anyone, and it is written straight to the logger.
+    /// </para>
+    /// </summary>
+    event EventHandler<ShowMessageParams>? MessageShown;
+
     bool IsRunning { get; }
 
     /// <summary>
