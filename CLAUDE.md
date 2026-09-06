@@ -181,23 +181,41 @@ guarantee. Nothing here probes collation or culture-sensitive formatting directl
 divergence is weak evidence of absence. Reach for the container when a CI failure will not reproduce under
 WSL; that is the case it was set up for.
 
-**Distrust a suspiciously fast test run, on either platform.** A run that skips the build — roughly
-5-18s where a real one takes 28-37s — has several times reported a large batch of failures (282 of ~940)
-with **no error message against any of them**, and passed on the very next attempt. It was first seen
-under WSL and assumed to be a 9p artifact; it then reproduced on **Windows**, so that framing was wrong.
+**The 282-failure run is a thread-affinity race in the test harness, not a build problem.** Every so often
+`HexIDE.Tests` reports a large batch of failures — **282**, the same number every time, because it is
+exactly the set of tests that touch Avalonia — and passes on the very next attempt.
 
-What correlates, across every occurrence: the run followed a build or execution of another configuration
-of the same projects — a Windows `dotnet test` before a WSL one, or a `HexIDE.Desktop` build and launch
-before a test run. The likeliest mechanism is that MSBuild's up-to-date check is satisfied for the test
-project while a project it references has been rebuilt underneath it, so the test host loads a mismatched
-assembly set. Two things are ruled out: `--artifacts-path` does correctly separate `obj/` as well as
-`bin/`, and it is not specific to the 9p mount. This is still a hypothesis; it has not been proven by
-forcing the race, and is recorded as an observation rather than tidied into a rule.
+Each of those failures carries a real message, and it is always this one:
 
-What to do: **check the duration before believing a red**. If a run reports failures without rebuilding,
-run it again; if the second run rebuilds and passes, the first was noise. A genuine failure reproduces and
-names the tests it broke. Shutting down a running `HexIDE.Desktop` before a test run also appears to help,
-and is worth doing anyway to avoid file locks.
+```
+System.InvalidOperationException : The calling thread cannot access this object because a different
+thread owns it.
+   at Avalonia.Threading.Dispatcher.VerifyAccess()
+```
+
+**The mechanism.** `AvaloniaTestSetup.EnsureInitialized` binds Avalonia's dispatcher to whichever thread
+calls it first, and every later access must come from that same thread.
+`TestParallelization.cs` disables parallelisation to protect this, which prevents *concurrency* but does
+**not** guarantee *the same thread*: an async continuation may resume on a different pool thread, and when
+that happens around the first initialisation, every Avalonia-dependent test afterwards is on the wrong
+side of `VerifyAccess`. The suite has async-heavy tests (real stream I/O, JSON-RPC, timers) that make the
+drift more likely, though the fault is the harness's, not theirs.
+
+The `Setup was already called on one of AppBuilder instances` failures are the **same fragility wearing a
+different face** — what you get when the first initialisation throws and the latch, which is set *after*
+the call it guards, never latches. Both are tracked in
+[#286](https://github.com/hexide-io/HexIDE/issues/286).
+
+**What to do: re-run it, then believe the second answer.** A genuine failure reproduces and names
+different tests; this one is always the same 282 with the same message.
+
+**What this note used to say, and why it is worth recording that it was wrong.** It attributed the run to
+MSBuild's up-to-date check loading a mismatched assembly set, told the reader to expect *no error message
+against any of the failures*, and offered run duration as the tell. All three were wrong, and the middle
+one is why it went unexamined for so long — a reader who has been told there is no error does not go
+looking for one. The duration correlation was real but incidental: a run that fails 282 tests in their
+constructors finishes sooner because it does less work. Diagnosed properly on 2026-09-06 by reading a CI
+log instead of the note.
 
 ## MCP Dev Loop
 
