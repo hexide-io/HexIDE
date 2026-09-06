@@ -40,26 +40,26 @@ public class VBLspClientTests
     {
         GivenTransportHasNoServer();
         var sut = CreateSut();
-        await sut.StartAsync();
+        await sut.StartAsync(TestContext.Current.CancellationToken);
 
         const string uri = "vb6://m/Module1";
         var pos = new Position(0, 0);
 
         // Notifications must be safe no-ops.
-        await sut.OpenDocumentAsync(uri, "Sub Foo()\nEnd Sub");
-        await sut.ChangeDocumentAsync(uri, 2, "Sub Foo()\nEnd Sub");
-        await sut.CloseDocumentAsync(uri);
+        await sut.OpenDocumentAsync(uri, "Sub Foo()\nEnd Sub", TestContext.Current.CancellationToken);
+        await sut.ChangeDocumentAsync(uri, 2, "Sub Foo()\nEnd Sub", TestContext.Current.CancellationToken);
+        await sut.CloseDocumentAsync(uri, TestContext.Current.CancellationToken);
 
         // Collection requests return empty; single-result requests return null.
-        (await sut.RequestHoverAsync(uri, pos)).Should().BeNull();
-        (await sut.RequestDocumentSymbolsAsync(uri)).Should().BeEmpty();
-        (await sut.RequestFoldingRangesAsync(uri)).Should().BeEmpty();
-        (await sut.RequestCompletionAsync(uri, pos)).Should().BeEmpty();
-        (await sut.RequestSignatureHelpAsync(uri, pos)).Should().BeNull();
-        (await sut.RequestDefinitionAsync(uri, pos)).Should().BeNull();
-        (await sut.RequestDocumentHighlightAsync(uri, pos)).Should().BeNull();
-        (await sut.RequestRenameAsync(uri, pos, "NewName")).Should().BeNull();
-        (await sut.RequestFormattingAsync(uri)).Should().BeEmpty();
+        (await sut.RequestHoverAsync(uri, pos, TestContext.Current.CancellationToken)).Should().BeNull();
+        (await sut.RequestDocumentSymbolsAsync(uri, TestContext.Current.CancellationToken)).Should().BeEmpty();
+        (await sut.RequestFoldingRangesAsync(uri, TestContext.Current.CancellationToken)).Should().BeEmpty();
+        (await sut.RequestCompletionAsync(uri, pos, TestContext.Current.CancellationToken)).Should().BeEmpty();
+        (await sut.RequestSignatureHelpAsync(uri, pos, TestContext.Current.CancellationToken)).Should().BeNull();
+        (await sut.RequestDefinitionAsync(uri, pos, TestContext.Current.CancellationToken)).Should().BeNull();
+        (await sut.RequestDocumentHighlightAsync(uri, pos, TestContext.Current.CancellationToken)).Should().BeNull();
+        (await sut.RequestRenameAsync(uri, pos, "NewName", TestContext.Current.CancellationToken)).Should().BeNull();
+        (await sut.RequestFormattingAsync(uri, TestContext.Current.CancellationToken)).Should().BeEmpty();
     }
 
     [Fact]
@@ -99,7 +99,7 @@ public class VBLspClientTests
     {
         GivenTransportHasNoServer();
         var sut = CreateSut();
-        await sut.StartAsync();
+        await sut.StartAsync(TestContext.Current.CancellationToken);
 
         var stopTwice = async () =>
         {

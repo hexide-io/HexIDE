@@ -58,8 +58,8 @@ public class LspClientRegistryTests
             Registration("vb6", vb6),
             Registration("md", markdown, language: "markdown"));
 
-        await sut.StartAsync();
-        await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\nEnd Sub");
+        await sut.StartAsync(TestContext.Current.CancellationToken);
+        await sut.OpenDocumentAsync(Vb6Doc, "Sub Main()\nEnd Sub", TestContext.Current.CancellationToken);
 
         await vb6.Received(1).StartAsync(Arg.Any<CancellationToken>());
         await markdown.DidNotReceive().StartAsync(Arg.Any<CancellationToken>());
@@ -71,7 +71,7 @@ public class LspClientRegistryTests
         var server = FakeServer();
         var sut = Registry(Registration("vb6", server));
 
-        await sut.StartAsync();
+        await sut.StartAsync(TestContext.Current.CancellationToken);
 
         await server.DidNotReceive().StartAsync(Arg.Any<CancellationToken>());
         sut.Connections.Single().State.Should().Be(LanguageConnectionState.NotStarted);
@@ -88,9 +88,9 @@ public class LspClientRegistryTests
             .Returns([new DocumentSymbol("B", SymbolKind.Function, Span(1), Span(1))]);
 
         var sut = Registry(Registration("a", first), Registration("b", second));
-        await sut.OpenDocumentAsync(Vb6Doc, "code");
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
 
-        var symbols = await sut.RequestDocumentSymbolsAsync(Vb6Doc);
+        var symbols = await sut.RequestDocumentSymbolsAsync(Vb6Doc, TestContext.Current.CancellationToken);
 
         symbols.Select(s => s.Name).Should().BeEquivalentTo(["A", "B"],
             "a language server beside a linter is ordinary, not exotic — both answers belong");
@@ -107,9 +107,9 @@ public class LspClientRegistryTests
             .Returns([new TextEdit(Span(0), "x")]);
 
         var sut = Registry(Registration("low", low, priority: 0), Registration("high", high, priority: 10));
-        await sut.OpenDocumentAsync(Vb6Doc, "code");
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
 
-        var edits = await sut.RequestFormattingAsync(Vb6Doc);
+        var edits = await sut.RequestFormattingAsync(Vb6Doc, TestContext.Current.CancellationToken);
 
         edits.Should().HaveCount(1);
         await low.DidNotReceive().RequestFormattingAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
@@ -129,9 +129,9 @@ public class LspClientRegistryTests
         var sut = Registry(
             Registration("cannot", cannotFormat, priority: 10),
             Registration("can", canFormat));
-        await sut.OpenDocumentAsync(Vb6Doc, "code");
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
 
-        var edits = await sut.RequestFormattingAsync(Vb6Doc);
+        var edits = await sut.RequestFormattingAsync(Vb6Doc, TestContext.Current.CancellationToken);
 
         edits.Should().ContainSingle().Which.NewText.Should().Be("formatted");
         await cannotFormat.DidNotReceive().RequestFormattingAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
@@ -143,9 +143,9 @@ public class LspClientRegistryTests
         var first = FakeServer();
         var second = FakeServer();
         var sut = Registry(Registration("first", first), Registration("second", second));
-        await sut.OpenDocumentAsync(Vb6Doc, "code");
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
 
-        await sut.RequestFormattingAsync(Vb6Doc);
+        await sut.RequestFormattingAsync(Vb6Doc, TestContext.Current.CancellationToken);
 
         await first.Received(1).RequestFormattingAsync(Vb6Doc, Arg.Any<CancellationToken>());
         await second.DidNotReceive().RequestFormattingAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
@@ -164,9 +164,9 @@ public class LspClientRegistryTests
             .Returns(new HoverResult(new MarkupContent("plaintext", "hello"), null));
 
         var sut = Registry(Registration("silent", silent, priority: 10), Registration("talkative", talkative));
-        await sut.OpenDocumentAsync(Vb6Doc, "code");
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
 
-        var hover = await sut.RequestHoverAsync(Vb6Doc, new Position(0, 0));
+        var hover = await sut.RequestHoverAsync(Vb6Doc, new Position(0, 0), TestContext.Current.CancellationToken);
 
         hover!.Contents.Value.Should().Be("hello");
     }
@@ -181,9 +181,9 @@ public class LspClientRegistryTests
             .Returns([new VbaBuiltinSymbol("Len", "Len(s)", "length")]);
 
         var sut = Registry(Registration("without", without, priority: 10), Registration("with", with));
-        await sut.OpenDocumentAsync(Vb6Doc, "code");
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
 
-        var symbols = await sut.RequestBuiltinSymbolsAsync();
+        var symbols = await sut.RequestBuiltinSymbolsAsync(TestContext.Current.CancellationToken);
 
         symbols.Should().ContainSingle().Which.Name.Should().Be("Len");
     }
@@ -194,8 +194,8 @@ public class LspClientRegistryTests
         var server = FakeServer();
         var sut = Registry(Registration("vb6", server));
 
-        await sut.OpenDocumentAsync("file:///c:/proj/notes.xyz", "whatever");
-        var symbols = await sut.RequestDocumentSymbolsAsync("file:///c:/proj/notes.xyz");
+        await sut.OpenDocumentAsync("file:///c:/proj/notes.xyz", "whatever", TestContext.Current.CancellationToken);
+        var symbols = await sut.RequestDocumentSymbolsAsync("file:///c:/proj/notes.xyz", TestContext.Current.CancellationToken);
 
         await server.DidNotReceive().StartAsync(Arg.Any<CancellationToken>());
         symbols.Should().BeEmpty("an unrecognised document opens with features absent, not with an error");
@@ -210,8 +210,8 @@ public class LspClientRegistryTests
         server.StartAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException(new InvalidOperationException("no")));
         var sut = Registry(Registration("broken", server));
 
-        await sut.OpenDocumentAsync(Vb6Doc, "code");
-        await sut.OpenDocumentAsync(Vb6Doc, "code again");
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+        await sut.OpenDocumentAsync(Vb6Doc, "code again", TestContext.Current.CancellationToken);
 
         sut.Connections.Single().State.Should().Be(LanguageConnectionState.Failed);
         await server.Received(1).StartAsync(Arg.Any<CancellationToken>());
@@ -227,7 +227,7 @@ public class LspClientRegistryTests
 
         sut.Connections.Single().State.Should().Be(LanguageConnectionState.NotStarted);
 
-        await sut.OpenDocumentAsync(Vb6Doc, "code");
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
 
         sut.Connections.Single().State.Should().Be(LanguageConnectionState.Running);
     }
@@ -252,7 +252,7 @@ public class LspClientRegistryTests
     {
         var server = FakeServer();
         var sut = Registry(Registration("vb6", server));
-        await sut.OpenDocumentAsync(Vb6Doc, "code");
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
 
         PublishDiagnosticsParams? seen = null;
         sut.DiagnosticsPublished += (_, p) => seen = p;
@@ -269,7 +269,7 @@ public class LspClientRegistryTests
 
         sut.IsRunning.Should().BeFalse("nothing has started yet");
 
-        await sut.OpenDocumentAsync(Vb6Doc, "code");
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
 
         sut.IsRunning.Should().BeTrue();
     }

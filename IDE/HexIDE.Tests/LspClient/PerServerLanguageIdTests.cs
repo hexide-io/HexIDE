@@ -54,7 +54,7 @@ public class PerServerLanguageIdTests : IAsyncDisposable
             Substitute.For<ILogger<LspClientRegistry>>());
         _disposables.Add(sut);
 
-        await sut.OpenDocumentAsync(PyDoc, "x = 1");
+        await sut.OpenDocumentAsync(PyDoc, "x = 1", TestContext.Current.CancellationToken);
 
         await python.Received(1).OpenDocumentAsync(PyDoc, "x = 1", Arg.Any<CancellationToken>());
         await python3.Received(1).OpenDocumentAsync(PyDoc, "x = 1", Arg.Any<CancellationToken>());
@@ -75,7 +75,7 @@ public class PerServerLanguageIdTests : IAsyncDisposable
             Substitute.For<ILogger<LspClientRegistry>>());
         _disposables.Add(sut);
 
-        await sut.OpenDocumentAsync(PyDoc, "x = 1");
+        await sut.OpenDocumentAsync(PyDoc, "x = 1", TestContext.Current.CancellationToken);
 
         await python.Received(1).OpenDocumentAsync(PyDoc, Arg.Any<string>(), Arg.Any<CancellationToken>());
         await markdown.DidNotReceive().OpenDocumentAsync(
@@ -92,7 +92,7 @@ public class PerServerLanguageIdTests : IAsyncDisposable
             Substitute.For<ILogger<LspClientRegistry>>());
         _disposables.Add(sut);
 
-        await sut.OpenDocumentAsync("file:///c:/p/README.MD", "# hi");
+        await sut.OpenDocumentAsync("file:///c:/p/README.MD", "# hi", TestContext.Current.CancellationToken);
 
         await server.Received(1).OpenDocumentAsync(
             Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
@@ -147,11 +147,11 @@ public class PerServerLanguageIdTests : IAsyncDisposable
         // goes ON THE WIRE — a mocked client would assert only that we passed our own argument along.
         var server = new DidOpenRecordingServer();
         var sut = ClientDeclaring(declared, server);
-        await sut.StartAsync();
+        await sut.StartAsync(TestContext.Current.CancellationToken);
 
-        await sut.OpenDocumentAsync(PyDoc, "x = 1");
+        await sut.OpenDocumentAsync(PyDoc, "x = 1", TestContext.Current.CancellationToken);
 
-        (await server.LanguageId.WaitAsync(TimeSpan.FromSeconds(10))).Should().Be(declared);
+        (await server.LanguageId.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken)).Should().Be(declared);
     }
 
     [Fact]
@@ -162,11 +162,11 @@ public class PerServerLanguageIdTests : IAsyncDisposable
         // from a global table to a per-server declaration.
         var server = new DidOpenRecordingServer();
         var sut = ClientDeclaring(DocumentLanguage.Vb6, server);
-        await sut.StartAsync();
+        await sut.StartAsync(TestContext.Current.CancellationToken);
 
-        await sut.OpenDocumentAsync("vb6://module/Module1", "Sub Main()\r\nEnd Sub\r\n");
+        await sut.OpenDocumentAsync("vb6://module/Module1", "Sub Main()\r\nEnd Sub\r\n", TestContext.Current.CancellationToken);
 
-        (await server.LanguageId.WaitAsync(TimeSpan.FromSeconds(10))).Should().Be("vb6");
+        (await server.LanguageId.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken)).Should().Be("vb6");
     }
 
     public async ValueTask DisposeAsync()

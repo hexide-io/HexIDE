@@ -142,7 +142,7 @@ public class ServerSpeaksAboutItselfTests : IAsyncDisposable
         client.MessageShown += (_, _) => Interlocked.Increment(ref shown);
 
         await server.SayAsync("window/logMessage", LspMessageType.Error, "chatty detail");
-        await Task.Delay(300);
+        await Task.Delay(300, TestContext.Current.CancellationToken);
 
         shown.Should().Be(0, "logMessage is for the log; showMessage is the channel that asks for attention");
     }

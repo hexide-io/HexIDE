@@ -141,7 +141,13 @@ public class DynamicRegistrationProbe : IAsyncDisposable
         var (_, server) = await ConnectedAsync();
 
         var register = server.RegisterHoverAsync();
+        // xUnit1051 suppressed deliberately: this Task.Delay is the TIMEOUT ARM of the race, not
+        // work the test is waiting on. Giving it the test's cancellation token would make the
+        // timeout itself cancellable — the guard would vanish exactly when a cancelled run most
+        // needs it to fire, and WhenAny would settle on a faulted task rather than a timeout.
+#pragma warning disable xUnit1051
         var finished = await Task.WhenAny(register, Task.Delay(TimeSpan.FromSeconds(10)));
+#pragma warning restore xUnit1051
 
         finished.Should().BeSameAs(register, "an unanswered request would hang the server, not degrade it");
 

@@ -92,11 +92,11 @@ public class SaveOnTheWireTests : IAsyncDisposable
     public async Task AServerThatAskedIsToldWithoutTheText(string capabilities)
     {
         var (client, server) = await ConnectedTo(capabilities);
-        await client.OpenDocumentAsync(Uri, "# hello");
+        await client.OpenDocumentAsync(Uri, "# hello", TestContext.Current.CancellationToken);
 
-        await client.SaveDocumentAsync(Uri);
+        await client.SaveDocumentAsync(Uri, TestContext.Current.CancellationToken);
 
-        var save = await server.FirstSave.WaitAsync(TimeSpan.FromSeconds(10));
+        var save = await server.FirstSave.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         save.GetProperty("textDocument").GetProperty("uri").GetString().Should().Be(Uri);
         save.TryGetProperty("text", out _).Should().BeFalse(
             "a null in place of an absent field sends a server down its has-text branch with nothing in "
@@ -108,11 +108,11 @@ public class SaveOnTheWireTests : IAsyncDisposable
     {
         var (client, server) = await ConnectedTo(
             """{"textDocumentSync":{"openClose":true,"change":1,"save":{"includeText":true}}}""");
-        await client.OpenDocumentAsync(Uri, "# hello");
+        await client.OpenDocumentAsync(Uri, "# hello", TestContext.Current.CancellationToken);
 
-        await client.SaveDocumentAsync(Uri);
+        await client.SaveDocumentAsync(Uri, TestContext.Current.CancellationToken);
 
-        var save = await server.FirstSave.WaitAsync(TimeSpan.FromSeconds(10));
+        var save = await server.FirstSave.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         save.GetProperty("text").GetString().Should().Be("# hello");
     }
 
@@ -121,12 +121,12 @@ public class SaveOnTheWireTests : IAsyncDisposable
     {
         var (client, server) = await ConnectedTo(
             """{"textDocumentSync":{"openClose":true,"change":1,"save":{"includeText":true}}}""");
-        await client.OpenDocumentAsync(Uri, "# first");
-        await client.ChangeDocumentAsync(Uri, 2, "# second");
+        await client.OpenDocumentAsync(Uri, "# first", TestContext.Current.CancellationToken);
+        await client.ChangeDocumentAsync(Uri, 2, "# second", TestContext.Current.CancellationToken);
 
-        await client.SaveDocumentAsync(Uri);
+        await client.SaveDocumentAsync(Uri, TestContext.Current.CancellationToken);
 
-        var save = await server.FirstSave.WaitAsync(TimeSpan.FromSeconds(10));
+        var save = await server.FirstSave.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         save.GetProperty("text").GetString().Should().Be(
             "# second", "announcing a save of text the server was never given describes a file it cannot see");
     }
@@ -141,9 +141,9 @@ public class SaveOnTheWireTests : IAsyncDisposable
     public async Task AServerThatDidNotAskHearsNothing(string capabilities)
     {
         var (client, server) = await ConnectedTo(capabilities);
-        await client.OpenDocumentAsync(Uri, "# hello");
+        await client.OpenDocumentAsync(Uri, "# hello", TestContext.Current.CancellationToken);
 
-        await client.SaveDocumentAsync(Uri);
+        await client.SaveDocumentAsync(Uri, TestContext.Current.CancellationToken);
         await SettleAsync();
 
         server.SaveCount.Should().Be(0);
@@ -170,7 +170,7 @@ public class SaveOnTheWireTests : IAsyncDisposable
         var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), "markdown");
         _disposables.Add(client);
 
-        await client.SaveDocumentAsync(Uri);   // never started
+        await client.SaveDocumentAsync(Uri, TestContext.Current.CancellationToken);   // never started
         await SettleAsync();
 
         server.SaveCount.Should().Be(0);
@@ -185,9 +185,9 @@ public class SaveOnTheWireTests : IAsyncDisposable
         var (client, server) = await ConnectedTo(
             """{"textDocumentSync":{"openClose":true,"change":1,"save":{"includeText":true}}}""");
 
-        await client.SaveDocumentAsync("file:///c:/proj/never-opened.md");
+        await client.SaveDocumentAsync("file:///c:/proj/never-opened.md", TestContext.Current.CancellationToken);
 
-        var save = await server.FirstSave.WaitAsync(TimeSpan.FromSeconds(10));
+        var save = await server.FirstSave.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
         save.TryGetProperty("text", out _).Should().BeFalse();
     }
 
@@ -213,8 +213,8 @@ public class SaveOnTheWireTests : IAsyncDisposable
             Substitute.For<ILogger<LspClientRegistry>>());
         _disposables.Add(registry);
 
-        await registry.OpenDocumentAsync(Uri, "# hello");
-        await registry.SaveDocumentAsync(Uri);
+        await registry.OpenDocumentAsync(Uri, "# hello", TestContext.Current.CancellationToken);
+        await registry.SaveDocumentAsync(Uri, TestContext.Current.CancellationToken);
         await SettleAsync();
 
         asked.Server.SaveCount.Should().Be(1);
@@ -237,7 +237,7 @@ public class SaveOnTheWireTests : IAsyncDisposable
             Substitute.For<ILogger<LspClientRegistry>>());
         _disposables.Add(registry);
 
-        await registry.SaveDocumentAsync(Uri);
+        await registry.SaveDocumentAsync(Uri, TestContext.Current.CancellationToken);
 
         started.Should().BeFalse();
     }

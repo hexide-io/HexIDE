@@ -102,7 +102,7 @@ public class UserControlSaveRoundTripTests : IDisposable
         await svc.OpenProject(vbp);
         await svc.SaveProject(project(), saveAs: false);
 
-        var saved = await File.ReadAllTextAsync(ctlPath);
+        var saved = await File.ReadAllTextAsync(ctlPath, TestContext.Current.CancellationToken);
         Occurrences(saved, "Begin VB.UserControl").Should().Be(1);
         saved.Should().Contain("Public Sub Hello()");
     }
@@ -116,9 +116,9 @@ public class UserControlSaveRoundTripTests : IDisposable
 
         await svc.OpenProject(vbp);
         await svc.SaveProject(project(), saveAs: false);
-        var afterFirst = await File.ReadAllTextAsync(ctlPath);
+        var afterFirst = await File.ReadAllTextAsync(ctlPath, TestContext.Current.CancellationToken);
         await svc.SaveProject(project(), saveAs: false);
-        var afterSecond = await File.ReadAllTextAsync(ctlPath);
+        var afterSecond = await File.ReadAllTextAsync(ctlPath, TestContext.Current.CancellationToken);
 
         afterSecond.Should().Be(afterFirst, "a save must be idempotent, not additive");
     }
@@ -152,6 +152,6 @@ public class UserControlSaveRoundTripTests : IDisposable
         await svc.OpenProject(vbp);
         await svc.SaveProject(project(), saveAs: false);
 
-        (await File.ReadAllTextAsync(ctlPath)).Should().Be(junk);
+        (await File.ReadAllTextAsync(ctlPath, TestContext.Current.CancellationToken)).Should().Be(junk);
     }
 }

@@ -126,7 +126,7 @@ public class CompanionBinaryPreservationTests : IDisposable
         if (vbp is null) return; // VB6 not installed (CI)
 
         var frxPath = Directory.EnumerateFiles(dir, "*.frx").Single();
-        var before = await File.ReadAllBytesAsync(frxPath);
+        var before = await File.ReadAllBytesAsync(frxPath, TestContext.Current.CancellationToken);
         before.Length.Should().BeGreaterThan(12, "the fixture must actually carry blobs");
 
         var svc = MakeService();
@@ -134,7 +134,7 @@ public class CompanionBinaryPreservationTests : IDisposable
         await svc.SaveProject(loaded.Single(), saveAs: false);
 
         File.Exists(frxPath).Should().BeTrue("a save must never delete a companion it cannot reproduce");
-        var after = await File.ReadAllBytesAsync(frxPath);
+        var after = await File.ReadAllBytesAsync(frxPath, TestContext.Current.CancellationToken);
         after.Should().Equal(before, "the companion holds the only copy of those images");
     }
 
@@ -145,7 +145,7 @@ public class CompanionBinaryPreservationTests : IDisposable
         if (vbp is null) return;
 
         var frxPath = Directory.EnumerateFiles(dir, "*.frx").Single();
-        var before = await File.ReadAllBytesAsync(frxPath);
+        var before = await File.ReadAllBytesAsync(frxPath, TestContext.Current.CancellationToken);
 
         var svc = MakeService();
         await svc.OpenProject(vbp);
@@ -153,7 +153,7 @@ public class CompanionBinaryPreservationTests : IDisposable
         await svc.SaveProject(project, saveAs: false);
         await svc.SaveProject(project, saveAs: false);
 
-        (await File.ReadAllBytesAsync(frxPath)).Should().Equal(before);
+        (await File.ReadAllBytesAsync(frxPath, TestContext.Current.CancellationToken)).Should().Equal(before);
     }
 
     [Fact]
@@ -281,7 +281,7 @@ public class CompanionBinaryPreservationTests : IDisposable
         // AFTER the load, so the model does not absorb it. The last cited record runs to end-of-file, so a
         // byte appended BEFORE loading simply becomes part of that record and is faithfully written back —
         // which says nothing about whether the save wrote the companion at all.
-        await File.WriteAllBytesAsync(frxPath, (await File.ReadAllBytesAsync(frxPath)).Append((byte)0xEE).ToArray());
+        await File.WriteAllBytesAsync(frxPath, (await File.ReadAllBytesAsync(frxPath, TestContext.Current.CancellationToken)).Append((byte)0xEE).ToArray(), TestContext.Current.CancellationToken);
 
         await svc.SaveProject(loaded.Single(), saveAs: false);
 
@@ -300,14 +300,13 @@ public class CompanionBinaryPreservationTests : IDisposable
         // The old blob-count comparison blocked this by accident. Removing it made the deletion reachable,
         // so the guard is now stated in terms of what the designer file actually cites.
         var frm = Path.Join(dir, "Bare.frm");
-        await File.WriteAllTextAsync(frm,
-            "VERSION 5.00\r\nBegin VB.Form Form1 \r\n   Caption = \"x\"\r\nEnd\r\nAttribute VB_Name = \"Bare\"\r\n");
+        await File.WriteAllTextAsync(frm, "VERSION 5.00\r\nBegin VB.Form Form1 \r\n   Caption = \"x\"\r\nEnd\r\nAttribute VB_Name = \"Bare\"\r\n", TestContext.Current.CancellationToken);
         var orphan = Path.ChangeExtension(frm, ".frx");
         var orphanBytes = new byte[] { 4, 0, 0, 0, 1, 2, 3, 4 };
-        await File.WriteAllBytesAsync(orphan, orphanBytes);
+        await File.WriteAllBytesAsync(orphan, orphanBytes, TestContext.Current.CancellationToken);
 
         var vbp = Path.Join(dir, "Test.vbp");
-        await File.WriteAllTextAsync(vbp, "Type=Exe\r\nForm=Bare.frm\r\nName=\"Test\"\r\n");
+        await File.WriteAllTextAsync(vbp, "Type=Exe\r\nForm=Bare.frm\r\nName=\"Test\"\r\n", TestContext.Current.CancellationToken);
 
         var svc = MakeService();
         await svc.OpenProject(vbp);

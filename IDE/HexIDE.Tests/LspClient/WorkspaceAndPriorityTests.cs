@@ -58,8 +58,8 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
             Substitute.For<ILogger<LspClientRegistry>>());
         _disposables.Add(sut);
 
-        await sut.OpenDocumentAsync("file:///c:/p/M.bas", "code");
-        var edits = await sut.RequestFormattingAsync("file:///c:/p/M.bas");
+        await sut.OpenDocumentAsync("file:///c:/p/M.bas", "code", TestContext.Current.CancellationToken);
+        var edits = await sut.RequestFormattingAsync("file:///c:/p/M.bas", TestContext.Current.CancellationToken);
 
         edits.Should().ContainSingle().Which.NewText.Should().Be("mine");
     }
@@ -81,8 +81,8 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
             Substitute.For<ILogger<LspClientRegistry>>());
         _disposables.Add(sut);
 
-        await sut.OpenDocumentAsync("file:///c:/p/M.bas", "code");
-        var edits = await sut.RequestFormattingAsync("file:///c:/p/M.bas");
+        await sut.OpenDocumentAsync("file:///c:/p/M.bas", "code", TestContext.Current.CancellationToken);
+        var edits = await sut.RequestFormattingAsync("file:///c:/p/M.bas", TestContext.Current.CancellationToken);
 
         edits.Should().ContainSingle().Which.NewText.Should().Be("bundled");
     }
@@ -143,9 +143,9 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
             var server = new RootRecordingServer();
             var sut = ClientRootedAt(new FixedWorkspace(directory), server);
 
-            await sut.StartAsync();
+            await sut.StartAsync(TestContext.Current.CancellationToken);
 
-            var rootUri = await server.RootUri.WaitAsync(TimeSpan.FromSeconds(10));
+            var rootUri = await server.RootUri.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
             rootUri.Should().NotBeNull();
             new Uri(rootUri!).LocalPath.TrimEnd('/', '\\')
                 .Should().Be(directory.TrimEnd('/', '\\'));
@@ -165,9 +165,9 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
         var server = new RootRecordingServer();
         var sut = ClientRootedAt(new FixedWorkspace(null), server);
 
-        await sut.StartAsync();
+        await sut.StartAsync(TestContext.Current.CancellationToken);
 
-        (await server.RootUri.WaitAsync(TimeSpan.FromSeconds(10))).Should().BeNull();
+        (await server.RootUri.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken)).Should().BeNull();
     }
 
     [Fact]
@@ -186,9 +186,9 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
 
             // The project opens AFTER the client exists — the ordinary case, not a contrived one.
             workspace.Directory = directory;
-            await sut.StartAsync();
+            await sut.StartAsync(TestContext.Current.CancellationToken);
 
-            (await server.RootUri.WaitAsync(TimeSpan.FromSeconds(10))).Should().NotBeNull();
+            (await server.RootUri.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken)).Should().NotBeNull();
         }
         finally
         {
@@ -261,11 +261,11 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
             workspace);
         _disposables.Add(sut);
 
-        await sut.OpenDocumentAsync("file:///projects/a/M.bas", "code");
+        await sut.OpenDocumentAsync("file:///projects/a/M.bas", "code", TestContext.Current.CancellationToken);
         created.Should().HaveCount(1);
 
         workspace.Directory = "/projects/b";
-        await sut.OpenDocumentAsync("file:///projects/b/M.bas", "code");
+        await sut.OpenDocumentAsync("file:///projects/b/M.bas", "code", TestContext.Current.CancellationToken);
 
         created.Should().HaveCount(2, "the server was rebuilt so it could be told the new root");
         await created[0].Received(1).StopAsync();
@@ -289,8 +289,8 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
             workspace);
         _disposables.Add(sut);
 
-        await sut.OpenDocumentAsync("file:///projects/a/One.bas", "code");
-        await sut.OpenDocumentAsync("file:///projects/a/Two.bas", "code");
+        await sut.OpenDocumentAsync("file:///projects/a/One.bas", "code", TestContext.Current.CancellationToken);
+        await sut.OpenDocumentAsync("file:///projects/a/Two.bas", "code", TestContext.Current.CancellationToken);
 
         created.Should().HaveCount(1);
         await created[0].DidNotReceive().StopAsync();
@@ -315,9 +315,9 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
             workspace);
         _disposables.Add(sut);
 
-        await sut.OpenDocumentAsync("file:///projects/a/M.bas", "code");
+        await sut.OpenDocumentAsync("file:///projects/a/M.bas", "code", TestContext.Current.CancellationToken);
         workspace.Directory = "/projects/b";
-        await sut.OpenDocumentAsync("file:///projects/b/M.bas", "code");
+        await sut.OpenDocumentAsync("file:///projects/b/M.bas", "code", TestContext.Current.CancellationToken);
 
         attempts.Should().Be(1);
     }

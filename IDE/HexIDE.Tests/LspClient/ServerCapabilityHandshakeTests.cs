@@ -55,7 +55,7 @@ public class ServerCapabilityHandshakeTests : IAsyncDisposable
         var sut = ClientTalkingToServerAdvertising(
             """{"hoverProvider":{"workDoneProgress":false},"renameProvider":{"prepareProvider":true}}""");
 
-        await sut.StartAsync();
+        await sut.StartAsync(TestContext.Current.CancellationToken);
 
         sut.IsRunning.Should().BeTrue(
             "a capability in its other legal shape must not disable the entire language client");
@@ -66,7 +66,7 @@ public class ServerCapabilityHandshakeTests : IAsyncDisposable
     {
         var sut = ClientTalkingToServerAdvertising("""{"hoverProvider":true,"definitionProvider":true}""");
 
-        await sut.StartAsync();
+        await sut.StartAsync(TestContext.Current.CancellationToken);
 
         sut.IsRunning.Should().BeTrue();
     }
@@ -78,7 +78,7 @@ public class ServerCapabilityHandshakeTests : IAsyncDisposable
         // describe what it told us. Losing knowledge is acceptable, losing the connection is not.
         var sut = ClientTalkingToServerAdvertising("""["not", "an", "object"]""");
 
-        await sut.StartAsync();
+        await sut.StartAsync(TestContext.Current.CancellationToken);
 
         sut.IsRunning.Should().BeTrue("the handshake succeeded even though its reply was uninterpretable");
     }
@@ -96,7 +96,7 @@ public class ServerCapabilityHandshakeTests : IAsyncDisposable
         // treated as a failed handshake.
         var sut = ClientTalkingToServerAdvertising("{}");
 
-        await sut.StartAsync();
+        await sut.StartAsync(TestContext.Current.CancellationToken);
 
         sut.IsRunning.Should().BeTrue();
     }
@@ -139,9 +139,9 @@ public class ServerCapabilityHandshakeTests : IAsyncDisposable
         // The stub WOULD answer hover. Advertising nothing must stop us asking — so a null here proves the
         // request was gated, not that the server had nothing to say.
         var sut = ClientTalkingToServerAdvertising("{}");
-        await sut.StartAsync();
+        await sut.StartAsync(TestContext.Current.CancellationToken);
 
-        var hover = await sut.RequestHoverAsync("vb6://module/M", new Position(0, 0));
+        var hover = await sut.RequestHoverAsync("vb6://module/M", new Position(0, 0), TestContext.Current.CancellationToken);
 
         hover.Should().BeNull("the server advertised no hoverProvider, so it must not be asked");
     }
@@ -152,9 +152,9 @@ public class ServerCapabilityHandshakeTests : IAsyncDisposable
         // The control for the test above. Without it, "returns null" would pass even if gating had broken
         // into refusing everything.
         var sut = ClientTalkingToServerAdvertising("""{"hoverProvider":true}""");
-        await sut.StartAsync();
+        await sut.StartAsync(TestContext.Current.CancellationToken);
 
-        var hover = await sut.RequestHoverAsync("vb6://module/M", new Position(0, 0));
+        var hover = await sut.RequestHoverAsync("vb6://module/M", new Position(0, 0), TestContext.Current.CancellationToken);
 
         hover.Should().NotBeNull();
         hover!.Contents.Value.Should().Be("stub hover");
@@ -166,9 +166,9 @@ public class ServerCapabilityHandshakeTests : IAsyncDisposable
         // Gating reads a capability in either legal shape, or #238 would come back as "supported feature
         // silently refused" instead of "handshake fails".
         var sut = ClientTalkingToServerAdvertising("""{"hoverProvider":{"workDoneProgress":false}}""");
-        await sut.StartAsync();
+        await sut.StartAsync(TestContext.Current.CancellationToken);
 
-        (await sut.RequestHoverAsync("vb6://module/M", new Position(0, 0))).Should().NotBeNull();
+        (await sut.RequestHoverAsync("vb6://module/M", new Position(0, 0), TestContext.Current.CancellationToken)).Should().NotBeNull();
     }
 
     [Theory]
@@ -195,7 +195,7 @@ public class ServerCapabilityHandshakeTests : IAsyncDisposable
         // the only thing left that can make IsRunning false is the flag under test.
         var sut = ClientTalkingToServer(new RefusingServer());
 
-        await sut.StartAsync();
+        await sut.StartAsync(TestContext.Current.CancellationToken);
 
         sut.IsRunning.Should().BeFalse(
             "the transport is alive, so only a genuinely failed handshake can produce this");

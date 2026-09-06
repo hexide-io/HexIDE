@@ -33,8 +33,7 @@ public class ServerShellSmokeTest
 
         // initialize — VbServerCapabilities declares the payload; the framework fills in ServerInfo.
         var initParams = new { processId = (int?)null, rootUri = (string?)null, capabilities = new { } };
-        var init = await rpc.InvokeWithParameterObjectAsync<JsonElement>("initialize", initParams)
-                            .WaitAsync(Timeout);
+        var init = await rpc.InvokeWithParameterObjectAsync<JsonElement>("initialize", initParams, TestContext.Current.CancellationToken).WaitAsync(Timeout, TestContext.Current.CancellationToken);
 
         init.GetProperty("serverInfo").GetProperty("name").GetString()
             .Should().Be("HexIDE VB6 Language Server");
@@ -85,17 +84,16 @@ public class ServerShellSmokeTest
         await rpc.NotifyWithParameterObjectAsync("initialized", new { });
 
         // vb/builtinSymbols returns the built-in signature table: [{name, signature, documentation}, ...].
-        var symbols = await rpc.InvokeWithParameterObjectAsync<JsonElement>("vb/builtinSymbols", new { })
-                               .WaitAsync(Timeout);
+        var symbols = await rpc.InvokeWithParameterObjectAsync<JsonElement>("vb/builtinSymbols", new { }, TestContext.Current.CancellationToken).WaitAsync(Timeout, TestContext.Current.CancellationToken);
         symbols.ValueKind.Should().Be(JsonValueKind.Array);
         symbols.GetArrayLength().Should().BeGreaterThan(0);
         symbols[0].GetProperty("name").GetString().Should().NotBeNullOrEmpty();
 
         // Clean lifecycle teardown.
-        await rpc.InvokeAsync<object?>("shutdown").WaitAsync(Timeout);
+        await rpc.InvokeAsync<object?>("shutdown").WaitAsync(Timeout, TestContext.Current.CancellationToken);
         await rpc.NotifyAsync("exit");
 
         server.Exit();
-        await loop.WaitAsync(Timeout);
+        await loop.WaitAsync(Timeout, TestContext.Current.CancellationToken);
     }
 }

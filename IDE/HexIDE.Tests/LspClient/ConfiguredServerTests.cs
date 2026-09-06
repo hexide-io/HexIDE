@@ -274,7 +274,7 @@ public class ConfiguredServerTests : IDisposable
 
         using var pipe = new NamedPipeServerStream(
             pipeName, PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
-        var serving = pipe.WaitForConnectionAsync().ContinueWith(_ =>
+        var serving = pipe.WaitForConnectionAsync(TestContext.Current.CancellationToken).ContinueWith(_ =>
         {
             var rpc = new JsonRpc(
                 new HeaderDelimitedMessageHandler(pipe, pipe, new SystemTextJsonFormatter()), recorder);
@@ -288,10 +288,10 @@ public class ConfiguredServerTests : IDisposable
             """);
 
         await using var client = registrations.Should().ContainSingle().Subject.CreateClient();
-        await client.StartAsync();
-        await client.OpenDocumentAsync("file:///c:/p/README.md", "# hi");
+        await client.StartAsync(TestContext.Current.CancellationToken);
+        await client.OpenDocumentAsync("file:///c:/p/README.md", "# hi", TestContext.Current.CancellationToken);
 
-        (await recorder.LanguageId.WaitAsync(TimeSpan.FromSeconds(30))).Should().Be("markdown");
+        (await recorder.LanguageId.WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken)).Should().Be("markdown");
 
         (await serving).Dispose();
     }

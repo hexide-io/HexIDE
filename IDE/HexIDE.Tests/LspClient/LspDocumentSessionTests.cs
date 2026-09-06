@@ -126,7 +126,7 @@ public class LspDocumentSessionTests : IDisposable
         session.Start();
         _document.Text = "# hi there";
 
-        await session.FlushAsync();
+        await session.FlushAsync(TestContext.Current.CancellationToken);
 
         await _client.Received(1).ChangeDocumentAsync(
             Uri, Arg.Any<int>(), "# hi there", Arg.Any<CancellationToken>());
@@ -144,8 +144,8 @@ public class LspDocumentSessionTests : IDisposable
                 Arg.Any<string>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>()))
             .Do(call => versions.Add(call.ArgAt<int>(1)));
 
-        await session.FlushAsync();
-        await session.FlushAsync();
+        await session.FlushAsync(TestContext.Current.CancellationToken);
+        await session.FlushAsync(TestContext.Current.CancellationToken);
 
         versions.Should().HaveCount(2);
         versions[1].Should().BeGreaterThan(versions[0]);
@@ -159,7 +159,7 @@ public class LspDocumentSessionTests : IDisposable
         session.Dispose();
         _client.ClearReceivedCalls();
 
-        await session.FlushAsync();
+        await session.FlushAsync(TestContext.Current.CancellationToken);
 
         await _client.DidNotReceive().ChangeDocumentAsync(
             Arg.Any<string>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>());
@@ -176,7 +176,7 @@ public class LspDocumentSessionTests : IDisposable
         session.Start();
         _document.Text = "after";   // arms the debounce; nothing has been sent yet
 
-        await session.NotifySavedAsync();
+        await session.NotifySavedAsync(TestContext.Current.CancellationToken);
 
         Received.InOrder(() =>
         {
@@ -191,7 +191,7 @@ public class LspDocumentSessionTests : IDisposable
         // A carried file that failed to read, or a document with no path: there is no open document to
         // announce a save of, and telling a server about one invites it to hold state for a URI it was
         // never given.
-        await Session("x").NotifySavedAsync();
+        await Session("x").NotifySavedAsync(TestContext.Current.CancellationToken);
 
         await _client.DidNotReceive().SaveDocumentAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
@@ -204,7 +204,7 @@ public class LspDocumentSessionTests : IDisposable
         session.Dispose();
         _client.ClearReceivedCalls();
 
-        await session.NotifySavedAsync();
+        await session.NotifySavedAsync(TestContext.Current.CancellationToken);
 
         await _client.DidNotReceive().SaveDocumentAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }

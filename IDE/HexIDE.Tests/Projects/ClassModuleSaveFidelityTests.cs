@@ -97,13 +97,13 @@ public class ClassModuleSaveFidelityTests : IDisposable
         if (vbp is null) return; // VB6 not installed (CI)
 
         var clsPath = Directory.EnumerateFiles(dir, "*.cls").Single();
-        var before = await File.ReadAllTextAsync(clsPath);
+        var before = await File.ReadAllTextAsync(clsPath, TestContext.Current.CancellationToken);
 
         var svc = MakeService();
         await svc.OpenProject(vbp);
         await svc.SaveProject(loaded.Single(), saveAs: false);
 
-        (await File.ReadAllTextAsync(clsPath)).Should().Be(before,
+        (await File.ReadAllTextAsync(clsPath, TestContext.Current.CancellationToken)).Should().Be(before,
             "a save must not rewrite a class the user never opened");
     }
 
@@ -114,7 +114,7 @@ public class ClassModuleSaveFidelityTests : IDisposable
         if (vbp is null) return;
 
         var clsPath = Directory.EnumerateFiles(dir, "*.cls").Single();
-        var before = await File.ReadAllTextAsync(clsPath);
+        var before = await File.ReadAllTextAsync(clsPath, TestContext.Current.CancellationToken);
 
         var svc = MakeService();
         await svc.OpenProject(vbp);
@@ -122,7 +122,7 @@ public class ClassModuleSaveFidelityTests : IDisposable
         module.UpdateCode(module.Code + "\r\nPublic Sub Added()\r\nEnd Sub\r\n");
         await svc.SaveProject(loaded.Single(), saveAs: false);
 
-        var after = await File.ReadAllTextAsync(clsPath);
+        var after = await File.ReadAllTextAsync(clsPath, TestContext.Current.CancellationToken);
         after.Should().Contain("Public Sub Added()");
 
         // Everything above the first non-attribute line must be identical.
@@ -146,7 +146,7 @@ public class ClassModuleSaveFidelityTests : IDisposable
         if (vbp is null) return;
 
         var clsPath = Directory.EnumerateFiles(dir, "*.cls").Single();
-        var before = await File.ReadAllTextAsync(clsPath);
+        var before = await File.ReadAllTextAsync(clsPath, TestContext.Current.CancellationToken);
 
         var svc = MakeService();
         await svc.OpenProject(vbp);
@@ -154,6 +154,6 @@ public class ClassModuleSaveFidelityTests : IDisposable
         (await svc.ReloadModuleFromDisk(module)).Should().BeTrue();
         await svc.SaveProject(loaded.Single(), saveAs: false);
 
-        (await File.ReadAllTextAsync(clsPath)).Should().Be(before);
+        (await File.ReadAllTextAsync(clsPath, TestContext.Current.CancellationToken)).Should().Be(before);
     }
 }
