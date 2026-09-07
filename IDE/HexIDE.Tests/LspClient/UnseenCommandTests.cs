@@ -117,6 +117,51 @@ public class UnseenCommandTests : IDisposable
     }
 
     [Fact]
+    public void APipeEntryThatLaunchesSomethingIsAnnouncedLikeAnyOtherLaunch()
+    {
+        // THE regression guard for making the pipe arm able to launch. The notice used to key on
+        // `transport == "stdio"`, which was right while stdio was the only arm that started a process —
+        // and keying on the transport rather than on the consequence is exactly how a second launching arm
+        // slips past a trust gate. The entry below runs an executable; that it does so behind a pipe
+        // rather than over stdin changes nothing about whose decision it was.
+        var result = Loader("""
+            {"version":1,"servers":[{"id":"rdc","extensions":[".bas"],"languageId":"vba",
+             "transport":"pipe","pipeName":"hexide.probe","command":"some-server.exe",
+             "arguments":"-n {pipe}"}]}
+            """).Load([], Store());
+
+        result.Problems.Should().ContainSingle(p => p.Kind == LanguageServerConfigProblemKind.UnseenCommand)
+            .Which.Message.Should().Contain("some-server.exe").And.Contain("-n {pipe}",
+                "arguments are part of the identity: the same executable with different arguments runs "
+              + "different code");
+    }
+
+    [Fact]
+    public void APipeEntryThatOnlyConnectsIsStillNotAnnounced()
+    {
+        // The other half, and the reason the gate is about consequence rather than transport. A pipe with
+        // no command connects to something already running — someone else decided to start that, and
+        // announcing it would report a fact about a program the IDE did not launch.
+        var result = Loader("""
+            {"version":1,"servers":[{"id":"rdc","extensions":[".bas"],"languageId":"vba",
+             "transport":"pipe","pipeName":"hexide.probe"}]}
+            """).Load([], Store());
+
+        result.Problems.Should().NotContain(p => p.Kind == LanguageServerConfigProblemKind.UnseenCommand);
+    }
+
+    [Fact]
+    public void AWebSocketEntryIsNeverAnnouncedBecauseItStartsNothing()
+    {
+        var result = Loader("""
+            {"version":1,"servers":[{"id":"ws","extensions":[".bas"],"languageId":"vba",
+             "transport":"websocket","endpoint":"ws://localhost:1234/"}]}
+            """).Load([], Store());
+
+        result.Problems.Should().NotContain(p => p.Kind == LanguageServerConfigProblemKind.UnseenCommand);
+    }
+
+    [Fact]
     public void ADisabledEntryIsNotAnnounced()
     {
         // Nothing will be launched, so there is nothing to announce — and warning about a command that will
