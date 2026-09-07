@@ -376,10 +376,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
         if (SelectedObject == GeneralObject || SelectedObject is null)
         {
             ProcedureNames.Add(DeclarationsProc);
-            if (_symbols is not null)
-                foreach (var s in _symbols)
-                    if (s.Kind is SymbolKind.Method or SymbolKind.Function or SymbolKind.Property)
-                        ProcedureNames.Add(s.Name);
+            foreach (var s in FlattenedSymbols())
+                if (s.Kind is SymbolKind.Method or SymbolKind.Function or SymbolKind.Property)
+                    ProcedureNames.Add(s.Name);
         }
         else
         {
@@ -406,6 +405,18 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
     {
         RefreshProcedureNames();
     }
+
+    /// <summary>
+    /// Every symbol the server reported, nesting included.
+    /// </summary>
+    /// <remarks>
+    /// <c>textDocument/documentSymbol</c> answers with a tree, and servers differ on how deep they make it.
+    /// The bundled VB6 server returns procedures at the top level; a server that reports the module as one
+    /// symbol containing its procedures is equally conformant, and reading only the top level of that
+    /// answer yields a procedure dropdown with the module's name in it and nothing else.
+    /// </remarks>
+    private IEnumerable<DocumentSymbol> FlattenedSymbols() =>
+        _symbols is null ? [] : _symbols.SelectMany(s => s.Flatten());
 
     private string GetDocumentUri()
     {
@@ -521,8 +532,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
         if (SelectedObject == GeneralObject || SelectedObject is null)
         {
             // Navigate to existing proc by symbol range
-            if (_symbols is null) return;
-            var sym = Array.Find(_symbols, s => s.Name == newValue);
+            // Searched over the same flattened view the dropdown was filled from. Looking only at the top
+            // level here would offer a name and then decline to navigate to it.
+            var sym = FlattenedSymbols().FirstOrDefault(s => s.Name == newValue);
             if (sym is null) return;
             var line = sym.SelectionRange.Start.Line + 1;
             if (line >= 1 && line <= Document.LineCount)
