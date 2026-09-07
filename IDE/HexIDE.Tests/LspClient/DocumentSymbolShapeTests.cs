@@ -210,6 +210,97 @@ public class DocumentSymbolShapeTests : IAsyncDisposable
             "the reply is rejected whole rather than partially walked — the parse never completes");
     }
 
+    // ── textDocument/definition ─────────────────────────────────────────────────────────────────────
+
+    private async Task<Location[]?> DefinitionFromServerAnswering(string definitionJson)
+    {
+        var (clientSide, serverSide) = FullDuplexStream.CreatePair();
+
+        var serverRpc = new JsonRpc(
+            new HeaderDelimitedMessageHandler(serverSide, serverSide, new SystemTextJsonFormatter()),
+            new DefinitionServer(definitionJson));
+        serverRpc.StartListening();
+
+        var transport = Substitute.For<ILspTransport>();
+        transport.IsAlive.Returns(true);
+        transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
+            .Returns(ci => Task.FromResult<IJsonRpcMessageHandler?>(
+                new HeaderDelimitedMessageHandler(clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>())));
+
+        var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), DocumentLanguage.Vb6);
+        _disposables.Add(client);
+        await client.StartAsync(TestContext.Current.CancellationToken);
+
+        return await client.RequestDefinitionAsync(
+            "vb6://module/Module1", new Position(0, 0), TestContext.Current.CancellationToken);
+    }
+
+    [Fact]
+    public async Task ABareLocationObjectIsAccepted()
+    {
+        // The natural answer to "where is this one thing defined", and what several servers send. Modelled
+        // as an array only, it failed to bind and became "no definition here" — silent, and
+        // indistinguishable from a server that genuinely had nothing to offer.
+        var locations = await DefinitionFromServerAnswering("""
+            {"uri":"vb6://module/Other",
+             "range":{"start":{"line":4,"character":2},"end":{"line":4,"character":8}}}
+            """);
+
+        locations.Should().ContainSingle();
+        locations![0].Uri.Should().Be("vb6://module/Other");
+        locations[0].Range.Start.Line.Should().Be(4);
+    }
+
+    [Fact]
+    public async Task AnArrayOfLocationsIsStillAccepted()
+    {
+        var locations = await DefinitionFromServerAnswering("""
+            [{"uri":"vb6://module/A","range":{"start":{"line":1,"character":0},"end":{"line":1,"character":2}}},
+             {"uri":"vb6://module/B","range":{"start":{"line":2,"character":0},"end":{"line":2,"character":2}}}]
+            """);
+
+        locations.Should().HaveCount(2);
+        locations!.Select(l => l.Uri).Should().Equal(["vb6://module/A", "vb6://module/B"]);
+    }
+
+    [Fact]
+    public async Task ALocationLinkPrefersTheIdentifierOverTheWholeDeclaration()
+    {
+        // The third shape. targetRange covers the whole declaration including its body; landing the caret
+        // there is technically the definition and does not look like arriving at one.
+        var locations = await DefinitionFromServerAnswering("""
+            [{"targetUri":"vb6://module/Other",
+              "targetRange":{"start":{"line":10,"character":0},"end":{"line":18,"character":0}},
+              "targetSelectionRange":{"start":{"line":10,"character":11},"end":{"line":10,"character":16}}}]
+            """);
+
+        locations.Should().ContainSingle();
+        locations![0].Uri.Should().Be("vb6://module/Other");
+        locations[0].Range.Start.Line.Should().Be(10);
+        locations[0].Range.Start.Character.Should().Be(11, "the identifier, not the body");
+    }
+
+    [Fact]
+    public async Task ANullReplyMeansNoDefinitionRatherThanAnEmptyOne()
+    {
+        (await DefinitionFromServerAnswering("null")).Should().BeNull();
+    }
+
+    /// <summary>A server that advertises definitions and answers with whatever JSON it was given.</summary>
+    private sealed class DefinitionServer(string definitionJson)
+    {
+        [JsonRpcMethod("initialize", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement Initialize(JsonElement _) =>
+            JsonDocument.Parse("""{"capabilities":{"definitionProvider":true}}""").RootElement.Clone();
+
+        [JsonRpcMethod("initialized")]
+        public void Initialized(JsonElement _) { }
+
+        [JsonRpcMethod("textDocument/definition", UseSingleObjectParameterDeserialization = true)]
+        public JsonElement Definition(JsonElement _) =>
+            JsonDocument.Parse(definitionJson).RootElement.Clone();
+    }
+
     /// <summary>A server that advertises document symbols and answers with whatever JSON it was given.</summary>
     private sealed class StubServer(string symbolsJson)
     {

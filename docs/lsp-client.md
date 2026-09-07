@@ -204,7 +204,7 @@ than inferred.
 | ○ | `textDocument/colorPresentation` | → |  |
 | ✅ | `textDocument/completion` | → |  |
 | ○ | `textDocument/declaration` | → |  |
-| ◐ | `textDocument/definition` | → | Same-file, procedure-level symbols only — not variables, not cross-file |
+| ✅ | `textDocument/definition` | → | All three reply shapes; opens the document a cross-file answer names |
 | ○ | `textDocument/diagnostic` | → | The pull model. A server publishing only this way connects and reports nothing ([#284](https://github.com/hexide-io/HexIDE/issues/284)) |
 | ◐ | `textDocument/didChange` | → | Full text only; a declared incremental kind is ignored ([#282](https://github.com/hexide-io/HexIDE/issues/282)) |
 | ✅ | `textDocument/didClose` | → |  |
