@@ -20,7 +20,6 @@
          11.2.x) — building against it fails with AVLIC0001 (no licence key). Deliberately NOT used; the debugger
          Locals pane uses a native Avalonia TreeView + a columnar row template instead. Do not re-add it. -->
     <PackageVersion Include="Avalonia.Desktop" Version="12.0.4" />
-    <PackageVersion Include="Avalonia.Diagnostics" Version="11.3.17" />
     <PackageVersion Include="Avalonia.Headless" Version="12.0.2" />
     <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.0.2" />
     <PackageVersion Include="Avalonia.Skia" Version="12.0.4" />
