@@ -4,6 +4,7 @@ using HexIDE;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Lsp;
+using HexIDE.Tools.LanguageServers;
 using HexIDE.Projects;
 using HexIDE.Tools;
 using HexIDE.Tools.ObjectBrowser;
@@ -43,9 +44,17 @@ public class DockFactoryTests
         // Substitute returns null from LoadLayoutManifest → factory builds the default layout.
         var wss = Substitute.For<IWindowStateService>();
 
+        // A registry with nothing attached: the view model reads Connections and
+        // ConfigurationProblems in its constructor.
+        var lsRegistry = Substitute.For<ILanguageConnectionRegistry>();
+        lsRegistry.Connections.Returns([]);
+        lsRegistry.ConfigurationProblems.Returns([]);
+        var languageServers = new LanguageServersToolViewModel(lsRegistry, loc);
+
         var factory = new MainViewViewModel.DockFactory(
             toolBox, projectExplorer, properties, formLayout,
-            immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor, wss);
+            immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
+            languageServers, wss);
         return (factory, immediate);
     }
 

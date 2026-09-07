@@ -48,6 +48,7 @@ public sealed record LayoutManifest(
             new("colorPalette",      false, DockRegion.Bottom,   4, 0.3),
             new("objectBrowser",     false, DockRegion.Document, 0, null),
             new("translationEditor", false, DockRegion.Document, 1, null),
+            new("languageServers",   false, DockRegion.Document, 2, null),
         });
 }
 

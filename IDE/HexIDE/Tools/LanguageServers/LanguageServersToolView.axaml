@@ -1,0 +1,148 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ls="clr-namespace:HexIDE.Tools.LanguageServers"
+             mc:Ignorable="d" d:DesignWidth="720" d:DesignHeight="520"
+             x:DataType="ls:LanguageServersToolViewModel"
+             x:Class="HexIDE.Tools.LanguageServers.LanguageServersToolView">
+
+    <UserControl.Styles>
+        <!-- Machine text: ids, commands, pipe names, raw JSON. Monospace because the reason it is here is
+             to be compared, character for character, against what the user wrote in their own file. -->
+        <Style Selector="TextBlock.machine">
+            <Setter Property="FontFamily" Value="Courier New" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style Selector="TextBlock.label">
+            <Setter Property="Opacity" Value="0.7" />
+            <Setter Property="Width" Value="96" />
+        </Style>
+    </UserControl.Styles>
+
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" Padding="10">
+        <StackPanel Spacing="14">
+
+            <!-- Nothing attached at all. Its own message, because "no servers" and "servers, none working"
+                 are different situations and an empty list says neither. -->
+            <TextBlock IsVisible="{CompiledBinding HasNoServers}"
+                       TextWrapping="Wrap"
+                       Text="{DynamicResource Str.Tool.LanguageServers.None}" />
+
+            <ItemsControl ItemsSource="{CompiledBinding Groups}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate DataType="ls:LanguageServerGroupViewModel">
+                        <StackPanel Margin="0,0,0,10">
+                            <!-- The language is the group, so what a user has FOR a language reads together. -->
+                            <TextBlock Text="{CompiledBinding Language}"
+                                       FontWeight="Bold" FontSize="14" Margin="0,0,0,4" />
+
+                            <ItemsControl ItemsSource="{CompiledBinding Rows}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="ls:LanguageServerRowViewModel">
+                                        <Border BorderBrush="{DynamicResource DockTitleBarBrush}"
+                                                BorderThickness="1" Padding="8" Margin="0,0,0,6">
+                                            <StackPanel Spacing="3">
+
+                                                <DockPanel>
+                                                    <TextBlock DockPanel.Dock="Right" Classes="machine"
+                                                               Margin="8,0,0,0" Opacity="0.7"
+                                                               Text="{CompiledBinding Kind}" />
+                                                    <TextBlock Text="{CompiledBinding DisplayName}"
+                                                               FontWeight="Bold" />
+                                                </DockPanel>
+
+                                                <Grid ColumnDefinitions="96,*">
+                                                    <TextBlock Classes="label" Grid.Column="0"
+                                                               Text="{DynamicResource Str.Tool.LanguageServers.Id}" />
+                                                    <TextBlock Grid.Column="1" Classes="machine" Text="{CompiledBinding Id}" />
+                                                </Grid>
+
+                                                <Grid ColumnDefinitions="96,*">
+                                                    <TextBlock Classes="label" Grid.Column="0"
+                                                               Text="{DynamicResource Str.Tool.LanguageServers.Transport}" />
+                                                    <StackPanel Grid.Column="1">
+                                                        <TextBlock Classes="machine" Text="{CompiledBinding Transport}" />
+                                                        <TextBlock Classes="machine" Opacity="0.8"
+                                                                   IsVisible="{CompiledBinding HasEndpoint}"
+                                                                   Text="{CompiledBinding Endpoint}" />
+                                                    </StackPanel>
+                                                </Grid>
+
+                                                <Grid ColumnDefinitions="96,*">
+                                                    <TextBlock Classes="label" Grid.Column="0"
+                                                               Text="{DynamicResource Str.Tool.LanguageServers.Claims}" />
+                                                    <TextBlock Grid.Column="1" Classes="machine" Text="{CompiledBinding Claims}" />
+                                                </Grid>
+
+                                                <Grid ColumnDefinitions="96,*">
+                                                    <TextBlock Classes="label" Grid.Column="0"
+                                                               Text="{DynamicResource Str.Tool.LanguageServers.Priority}" />
+                                                    <TextBlock Grid.Column="1" Classes="machine" Text="{CompiledBinding Priority}" />
+                                                </Grid>
+
+                                                <Grid ColumnDefinitions="96,*">
+                                                    <TextBlock Classes="label" Grid.Column="0"
+                                                               Text="{DynamicResource Str.Tool.LanguageServers.Status}" />
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                                        <TextBlock Text="{CompiledBinding State}" FontWeight="Bold" />
+                                                        <TextBlock Opacity="0.7" Text="{CompiledBinding Age}" />
+                                                    </StackPanel>
+                                                </Grid>
+
+                                                <Grid ColumnDefinitions="96,*" IsVisible="{CompiledBinding HasReportedIdentity}">
+                                                    <TextBlock Classes="label" Grid.Column="0"
+                                                               Text="{DynamicResource Str.Tool.LanguageServers.ReportedBy}" />
+                                                    <TextBlock Grid.Column="1" Classes="machine" Text="{CompiledBinding ReportedBy}" />
+                                                </Grid>
+
+                                                <!-- The two derived lines. These are the whole point for a server
+                                                     that answers the handshake and then serves nothing: a bare
+                                                     "Running" reports that as success. -->
+                                                <TextBlock TextWrapping="Wrap" Margin="0,4,0,0"
+                                                           IsVisible="{CompiledBinding AdvertisedNothing}"
+                                                           Text="{DynamicResource Str.Tool.LanguageServers.AdvertisedNothing}" />
+                                                <TextBlock TextWrapping="Wrap"
+                                                           IsVisible="{CompiledBinding SendingNothing}"
+                                                           Text="{DynamicResource Str.Tool.LanguageServers.SendingNothing}" />
+
+                                                <Expander IsVisible="{CompiledBinding HasCapabilities}"
+                                                          Margin="0,4,0,0"
+                                                          Header="{DynamicResource Str.Tool.LanguageServers.Advertised}">
+                                                    <SelectableTextBlock Classes="machine" FontSize="11"
+                                                                         Text="{CompiledBinding CapabilitiesJson}" />
+                                                </Expander>
+
+                                            </StackPanel>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <!-- Configuration problems: entries that never became connections at all, so they can appear
+                 nowhere above. An entry that failed to parse and one that was never written are otherwise
+                 the same observable state. -->
+            <StackPanel IsVisible="{CompiledBinding HasProblems}" Spacing="4">
+                <TextBlock Text="{DynamicResource Str.Tool.LanguageServers.Problems}"
+                           FontWeight="Bold" FontSize="14" />
+                <ItemsControl ItemsSource="{CompiledBinding Problems}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <!-- Message renders verbatim: it already names the file, the reason, and for a
+                                 JSON fault the pointer and line. Rewording it would lose all three. -->
+                            <SelectableTextBlock Classes="machine" FontSize="11" Margin="0,0,0,4"
+                                                 Text="{CompiledBinding Message}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                <TextBlock Opacity="0.7" TextWrapping="Wrap"
+                           Text="{DynamicResource Str.Tool.LanguageServers.RestartNote}" />
+            </StackPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

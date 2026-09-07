@@ -50,12 +50,12 @@ public class LayoutManifestJsonTests
     }
 
     [Fact]
-    public void Default_HasElevenToolsWithExpectedHomes()
+    public void Default_HasTwelveToolsWithExpectedHomes()
     {
         var d = LayoutManifest.Default;
 
         d.Version.Should().Be(LayoutManifest.CurrentVersion);
-        d.Tools.Should().HaveCount(11);
+        d.Tools.Should().HaveCount(12);
 
         d.Tools.Single(t => t.Key == "toolbox").Region.Should().Be(DockRegion.Left);
         d.Tools.Single(t => t.Key == "properties").Region.Should().Be(DockRegion.Right);
@@ -64,6 +64,14 @@ public class LayoutManifestJsonTests
         d.Tools.Single(t => t.Key == "callStack").Region.Should().Be(DockRegion.Bottom);
         d.Tools.Single(t => t.Key == "callStack").Open.Should().BeFalse();
         d.Tools.Single(t => t.Key == "objectBrowser").Region.Should().Be(DockRegion.Document);
+        d.Tools.Single(t => t.Key == "languageServers").Region.Should().Be(DockRegion.Document);
+        d.Tools.Single(t => t.Key == "languageServers").Open.Should().BeFalse(
+            "it is a diagnostic surface, opened when something is wrong rather than carried by default");
+
+        // NOTE: adding a tool needs no CurrentVersion bump. A layout saved before it existed simply has
+        // no entry for it, and restore iterates the SAVED states — so the tool is not placed, which is
+        // exactly right for one that defaults to closed. A bump would force every existing layout to be
+        // discarded to add a window nobody had open.
 
         // Default open-state: the four left/right built-ins are open; debug + document tools start closed.
         d.Tools.Where(t => t.Open).Select(t => t.Key)

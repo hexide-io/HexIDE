@@ -13,6 +13,7 @@ using HexIDE.Localization;
 using HexIDE.Themes;
 using HexIDE.Tools;
 using HexIDE.Tools.ObjectBrowser;
+using HexIDE.Tools.LanguageServers;
 using HexIDE.Tools.TranslationEditor;
 using HexIDE.VisualDesigner;
 using Microsoft.Extensions.Logging;
@@ -36,6 +37,7 @@ public partial class DISetup
             .Bind().As(Singleton).To<ColorPaletteToolViewModel>()
             .Bind().As(Singleton).To<ObjectBrowserToolViewModel>()
             .Bind().As(Singleton).To<TranslationEditorViewModel>()
+            .Bind().As(Singleton).To<LanguageServersToolViewModel>()
             .Bind().As(Singleton).To<WindowManager>()
             .Bind().As(Singleton).To<ProjectManager>()
             .Bind().As(Singleton).To<EditorService>()
@@ -169,6 +171,7 @@ public partial class DISetup
             .Root<IHexIdeHost>("HexIdeHost")
             .Root<ToolBoxToolViewModel>("ToolBoxViewModel")
             .Root<TranslationEditorViewModel>("TranslationEditorViewModel")
+            .Root<LanguageServersToolViewModel>("LanguageServersToolViewModel")
             .Root<IPersonalityService>("PersonalityService")
             .Root<AddinProjectTemplateService>("AddinProjectTemplateService");
 

@@ -10,6 +10,11 @@
 #
 # Fails (exit 1) on: private key material, committed build artefacts, dangling relative
 # links in Markdown, machine-specific absolute paths, personal-identity references, and
+# --untracked on every scan, and it is load-bearing rather than tidy. `git grep` alone sees only
+# TRACKED files, so a brand-new file is invisible to every check here until it is staged -- which
+# means running this before `git add`, exactly as the instructions say to, returns a false green.
+# That has already let a forbidden third-party name reach CI twice. --untracked still honours
+# .gitignore, so build output and artifacts/ stay out of scope.
 # a third-party project named outside the places we agreed it may be. Warns (exit 0) on
 # the upstream-attribution mention, which is expected and must not block.
 #
@@ -37,7 +42,7 @@ done < <(git ls-files | grep -Ei '\.(key|pem|pfx|p12)$')
 
 while IFS= read -r hit; do
   [ -n "$hit" ] && note "PEM private-key block: $hit"
-done < <(git grep -lI 'PRIVATE KEY' -- . "${EXCLUDE[@]}")
+done < <(git grep --untracked -lI 'PRIVATE KEY' -- . "${EXCLUDE[@]}")
 
 # 2. Committed build artefacts and editor backups. A binary in a public repository is a
 #    thing people are right to distrust: they cannot diff it and cannot tell what is in it.
@@ -49,7 +54,7 @@ done < <(git ls-files | grep -Ei '\.(exe|dll|pdb|bak)$')
 #    to a reader and a small identity leak.
 while IFS= read -r hit; do
   [ -n "$hit" ] && note "machine-specific absolute path: $hit"
-done < <(git grep -nIF 'C:\Users\' -- . "${EXCLUDE[@]}")
+done < <(git grep --untracked -nIF 'C:\Users\' -- . "${EXCLUDE[@]}")
 
 # 4. Personal-identity references. The pattern is supplied from outside the repository
 #    and is deliberately NOT written here: a literal in this file would publish the exact
@@ -68,7 +73,7 @@ done < <(git grep -nIF 'C:\Users\' -- . "${EXCLUDE[@]}")
 if [ -n "${HEXIDE_IDENTITY_PATTERN:-}" ]; then
   while IFS= read -r hit; do
     [ -n "$hit" ] && note "personal-identity reference: $hit"
-  done < <(git grep -nIiE "$HEXIDE_IDENTITY_PATTERN" -- . "${EXCLUDE[@]}")
+  done < <(git grep --untracked -nIiE "$HEXIDE_IDENTITY_PATTERN" -- . "${EXCLUDE[@]}")
 else
   printf '  \xE2\x97\x8B identity scan SKIPPED (HEXIDE_IDENTITY_PATTERN not set)\n'
 fi
@@ -112,13 +117,13 @@ rm -f /tmp/hexide-linkcheck.$$
 ALLOWED='^(IDE/HexIDE\.Runtime\.Tests/BattleshipChallenge\.cs|IDE/HexIDE\.Runtime/Interpreter/README\.md|LspServer/HexIDE\.VbLspServer\.Tests/README\.md|demo/battleship/README\.md|docs/vb6-grammar-fixes\.md|docs/lsp-parity-matrix\.md)$'
 while IFS= read -r f; do
   [ -n "$f" ] && note "third-party project named outside the agreed places: $f"
-done < <(git grep -lIiE 'twinbasic|rdcore|rubberduck' -- . "${EXCLUDE[@]}" | grep -vE "$ALLOWED")
+done < <(git grep --untracked -lIiE 'twinbasic|rdcore|rubberduck' -- . "${EXCLUDE[@]}" | grep -vE "$ALLOWED")
 
 # 7. Upstream attribution — expected, never a failure. Flagged only so a stale code
 #    reference cannot hide among the legitimate licence mentions.
 while IFS= read -r f; do
   [ -n "$f" ] && warned "AvaloniaVisualBasic mentioned (fine as upstream attribution; confirm it is not a stale code reference): $f"
-done < <(git grep -lI 'AvaloniaVisualBasic' -- . "${EXCLUDE[@]}")
+done < <(git grep --untracked -lI 'AvaloniaVisualBasic' -- . "${EXCLUDE[@]}")
 
 echo
 if [ "$fail" -eq 0 ]; then

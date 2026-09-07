@@ -39,6 +39,21 @@ public sealed class VBLspClient : ILspClient
 
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
     public event EventHandler<ShowMessageParams>? MessageShown;
+    public event EventHandler? StateChanged;
+
+    private ServerIdentity? _identity;
+
+    /// <summary>What the server called itself at initialize. Cleared whenever the connection drops, so
+    /// it never outlives the thing it describes.</summary>
+    public ServerIdentity? ReportedIdentity => _identity;
+
+    /// <summary>Raised outside any lock, and never allowed to take the client down with a bad handler:
+    /// this fires from transport and RPC callbacks, where an exception has nowhere useful to go.</summary>
+    private void RaiseStateChanged()
+    {
+        try { StateChanged?.Invoke(this, EventArgs.Empty); }
+        catch (Exception ex) { _logger.LogDebug(ex, "A StateChanged handler threw"); }
+    }
 
     // Running only when the underlying transport is connected AND the initialize handshake completed.
     public bool IsRunning => _transport.IsAlive && _initialized;
@@ -205,6 +220,8 @@ public sealed class VBLspClient : ILspClient
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
+        _identity = null;
+        RaiseStateChanged();
         if (_stopping) return;
         _logger.LogWarning("VB LSP connection lost: {Reason} ({Description})", e.Reason, e.Description);
         if (!_transport.CanReconnect) return;
@@ -332,8 +349,13 @@ public sealed class VBLspClient : ILspClient
         }
 
         _capabilities = ReadCapabilities(raw) is { } caps ? new CapabilitySnapshot(caps) : null;
+        _identity = ReadServerIdentity(raw);
         _initialized = true;
-        _logger.LogInformation("VB6 LSP server initialized");
+        _logger.LogInformation("LSP server initialized: {Server}",
+            _identity is { Name: { Length: > 0 } n }
+                ? (_identity.Version is { Length: > 0 } v ? $"{n} {v}" : n)
+                : "(the server did not name itself)");
+        RaiseStateChanged();
     }
 
     /// <summary>
@@ -366,6 +388,41 @@ public sealed class VBLspClient : ILspClient
     /// Lifts the capabilities object out of an initialize reply, or null if there is not one.
     /// Never throws: an uninterpretable reply costs knowledge, not the connection.
     /// </summary>
+    /// <summary>
+    /// The server's own name and version from the initialize reply, or null if it offered none.
+    ///
+    /// <para>
+    /// Both members are optional in the protocol, and this is the one field here that does not come from
+    /// HexIDE's own configuration — everything else describes what the IDE was told to expect, while this
+    /// describes what actually answered. Never used to decide behaviour.
+    /// </para>
+    /// </summary>
+    private ServerIdentity? ReadServerIdentity(JsonElement raw)
+    {
+        try
+        {
+            if (raw.ValueKind != JsonValueKind.Object
+                || !raw.TryGetProperty("serverInfo", out var info)
+                || info.ValueKind != JsonValueKind.Object)
+            {
+                return null;
+            }
+
+            var name = info.TryGetProperty("name", out var n) && n.ValueKind == JsonValueKind.String
+                ? n.GetString() : null;
+            var version = info.TryGetProperty("version", out var v) && v.ValueKind == JsonValueKind.String
+                ? v.GetString() : null;
+
+            return name is null && version is null ? null : new ServerIdentity(name, version);
+        }
+        catch (Exception ex)
+        {
+            // Cosmetic detail. A server that sends something unreadable here is still a working server.
+            _logger.LogDebug(ex, "Could not read serverInfo");
+            return null;
+        }
+    }
+
     private JsonElement? ReadCapabilities(JsonElement raw)
     {
         try
@@ -639,7 +696,9 @@ public sealed class VBLspClient : ILspClient
         await _transport.DisposeAsync();
         _initialized = false;
         _capabilities = null;
+        _identity = null;
         _warnedCapabilities.Clear();
+        RaiseStateChanged();
     }
 
     public async ValueTask DisposeAsync() => await StopAsync();
@@ -649,6 +708,8 @@ public sealed class VBLspClient : ILspClient
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
+        _identity = null;
+        RaiseStateChanged();
     }
 
     internal void RaisePublishDiagnostics(PublishDiagnosticsParams p) =>

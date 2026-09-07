@@ -10,6 +10,7 @@ using HexIDE.Forms.Views.Options;
 using HexIDE.IDE;
 using HexIDE.Tools;
 using HexIDE.Tools.ObjectBrowser;
+using HexIDE.Tools.LanguageServers;
 using HexIDE.Tools.TranslationEditor;
 using HexIDE.VisualDesigner;
 using HexIDE.VisualDesigner.Views;
@@ -61,6 +62,7 @@ public class ViewLocator : IDataTemplate
         Register<ColorPaletteToolViewModel, ColorPaletteToolView>();
         Register<ObjectBrowserToolViewModel, ObjectBrowserToolView>();
         Register<TranslationEditorViewModel, TranslationEditorView>();
+        Register<LanguageServersToolViewModel, LanguageServersToolView>();
         Register<NewProjectViewModel, NewProjectView>();
         Register<FindReplaceViewModel, FindReplaceView>();
         Register<SaveChangesViewModel, SaveChangesView>();
