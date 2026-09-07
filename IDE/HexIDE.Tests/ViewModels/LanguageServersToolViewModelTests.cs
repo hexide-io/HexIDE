@@ -49,7 +49,7 @@ public class LanguageServersToolViewModelTests
         var (vm, _) = Sut(
             Conn("bundled", "vb6"),
             Conn("rumdl", "markdown"),
-            Conn("rdcore", "vb6"));
+            Conn("vba-lsp", "vb6"));
 
         vm.Groups.Select(g => g.Language).Should().Equal(["markdown", "vb6"]);
         vm.Groups.Single(g => g.Language == "vb6").Rows.Should().HaveCount(2);
@@ -111,11 +111,11 @@ public class LanguageServersToolViewModelTests
         // The first failure anyone hits is a command that does not exist or is not on PATH, and the command
         // string is the thing they need in front of them — comparable to their own file, so not translated.
         var (vm, _) = Sut(Conn("md", "markdown",
-            transport: LanguageConnectionTransport.Pipe, endpoint: "hexide.rdcore (connect)"));
+            transport: LanguageConnectionTransport.Pipe, endpoint: "vba-lsp.pipe (connect)"));
 
         var row = vm.Groups.Single().Rows.Single();
         row.Transport.Should().Be("pipe");
-        row.Endpoint.Should().Be("hexide.rdcore (connect)");
+        row.Endpoint.Should().Be("vba-lsp.pipe (connect)");
         row.HasEndpoint.Should().BeTrue();
     }
 
@@ -133,11 +133,11 @@ public class LanguageServersToolViewModelTests
     public void TheServersOwnNameIsShownWhenItGaveOne()
     {
         // The only field here that is not HexIDE's configuration reflected back at the user.
-        var (vm, _) = Sut(Conn("s", "vba", identity: new ServerIdentity("RDCore.LanguageServer", "1.0.0")));
+        var (vm, _) = Sut(Conn("s", "vba", identity: new ServerIdentity("ExampleVbaServer", "1.0.0")));
 
         var row = vm.Groups.Single().Rows.Single();
         row.HasReportedIdentity.Should().BeTrue();
-        row.ReportedBy.Should().Be("RDCore.LanguageServer 1.0.0");
+        row.ReportedBy.Should().Be("ExampleVbaServer 1.0.0");
     }
 
     [Fact]
@@ -189,13 +189,13 @@ public class LanguageServersToolViewModelTests
     [Fact]
     public void TheReportIsPlainTextSomeoneCanSendToWhoeverWroteTheServer()
     {
-        var (vm, _) = Sut(Conn("rdcore", "vba", capabilitiesJson: "{}",
-            transport: LanguageConnectionTransport.Pipe, endpoint: "hexide.rdcore (connect)",
-            identity: new ServerIdentity("RDCore.LanguageServer", "1.0.0")));
+        var (vm, _) = Sut(Conn("vba-lsp", "vba", capabilitiesJson: "{}",
+            transport: LanguageConnectionTransport.Pipe, endpoint: "vba-lsp.pipe (connect)",
+            identity: new ServerIdentity("ExampleVbaServer", "1.0.0")));
 
         var report = vm.ToReportText();
 
-        report.Should().Contain("rdcore").And.Contain("pipe").And.Contain("hexide.rdcore (connect)");
-        report.Should().Contain("RDCore.LanguageServer 1.0.0");
+        report.Should().Contain("vba-lsp").And.Contain("pipe").And.Contain("vba-lsp.pipe (connect)");
+        report.Should().Contain("ExampleVbaServer 1.0.0");
     }
 }
