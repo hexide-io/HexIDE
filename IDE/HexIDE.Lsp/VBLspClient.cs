@@ -783,20 +783,76 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    /// <summary>
+    /// Where the symbol under the cursor is defined, in whichever of the protocol's three shapes the
+    /// server answered in.
+    /// </summary>
+    /// <remarks>
+    /// <b><c>textDocument/definition</c> answers <c>Location | Location[] | LocationLink[]</c>.</b> Only the
+    /// middle one deserializes into an array, so a server returning a single <c>Location</c> object — which
+    /// is the natural answer to "where is this one thing defined", and what several servers send — failed
+    /// to bind, landed in the catch below, and became "no definition here". Silent, and indistinguishable
+    /// from a server that genuinely had nothing.
+    /// </remarks>
     public async Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("definitionProvider")) return null;
         var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<Location[]?>(
+            var raw = await _rpc.InvokeWithParameterObjectAsync<JsonElement?>(
                 "textDocument/definition", p, cancellationToken);
+            return ReadLocations(raw);
         }
         catch (Exception ex)
         {
             _logger.LogDebug(ex, "textDocument/definition request failed");
             return null;
         }
+    }
+
+    /// <summary>Reads all three reply shapes into the one the caller understands, or null for none.</summary>
+    internal static Location[]? ReadLocations(JsonElement? raw)
+    {
+        if (raw is not { } value) return null;
+
+        if (value.ValueKind == JsonValueKind.Object)
+            return ReadLocation(value) is { } single ? [single] : null;
+
+        if (value.ValueKind != JsonValueKind.Array) return null;
+
+        var locations = new List<Location>();
+        foreach (var element in value.EnumerateArray())
+        {
+            if (ReadLocation(element) is { } location) locations.Add(location);
+        }
+        return [.. locations];
+    }
+
+    /// <summary>
+    /// One <c>Location</c> or <c>LocationLink</c>.
+    /// </summary>
+    /// <remarks>
+    /// A <c>LocationLink</c> is told apart by <c>targetUri</c>, and its <c>targetSelectionRange</c> is
+    /// preferred over <c>targetRange</c>: the first is the identifier itself, the second the whole
+    /// declaration including its body. Landing the caret on the body would technically be the definition
+    /// and would not look like arriving at one.
+    /// </remarks>
+    private static Location? ReadLocation(JsonElement element)
+    {
+        if (element.ValueKind != JsonValueKind.Object) return null;
+
+        if (element.TryGetProperty("targetUri", out var targetUri) && targetUri.ValueKind == JsonValueKind.String)
+        {
+            var range =
+                (element.TryGetProperty("targetSelectionRange", out var sel) ? ReadRange(sel) : null)
+                ?? (element.TryGetProperty("targetRange", out var whole) ? ReadRange(whole) : null);
+            return range is null ? null : new Location(targetUri.GetString()!, range);
+        }
+
+        if (!element.TryGetProperty("uri", out var uri) || uri.ValueKind != JsonValueKind.String) return null;
+        if (!element.TryGetProperty("range", out var r) || ReadRange(r) is not { } plain) return null;
+        return new Location(uri.GetString()!, plain);
     }
 
     public async Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(string uri, Position position, CancellationToken cancellationToken = default)

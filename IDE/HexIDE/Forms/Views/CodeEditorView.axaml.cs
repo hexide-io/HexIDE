@@ -1073,7 +1073,11 @@ public partial class CodeEditorView : UserControl
 
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (loc.Uri == vm.GetDocumentUriPublic())
+                // AreSame, not ==. A server may normalise the URI it echoes — a lower-cased drive letter
+                // is the measured case (#236) — and an ordinal compare then reads "same file" as "some
+                // other file", quietly sending this through the cross-file branch instead. #236's fix
+                // reached the diagnostics path and never reached this one.
+                if (HexIDE.Lsp.LspDocumentUri.AreSame(loc.Uri, vm.GetDocumentUriPublic()))
                 {
                     // Same file — move caret directly
                     if (targetLine >= 1 && targetLine <= TextEditor.Document.LineCount)
@@ -1149,8 +1153,14 @@ public partial class CodeEditorView : UserControl
 
             await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
             {
+                // A plain dictionary lookup compares ordinally, and `Changes` is keyed by whatever URI the
+                // SERVER chose to write. A normalised drive letter therefore matches nothing and rename
+                // applies NOTHING — silently, and indistinguishably from a rename the server declined.
+                // Worse than the definition case above, because there is no second branch to fall into.
                 var docUri = vm.GetDocumentUriPublic();
-                if (!edit.Changes.TryGetValue(docUri, out var textEdits)) return;
+                var textEdits = edit.Changes
+                    .FirstOrDefault(c => HexIDE.Lsp.LspDocumentUri.AreSame(c.Key, docUri)).Value;
+                if (textEdits is null) return;
 
                 // Apply edits in reverse order to preserve offsets
                 var sorted = new List<TextEdit>(textEdits);
