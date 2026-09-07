@@ -309,7 +309,15 @@ public partial class ObjectBrowserToolViewModel : Document
 
             var symbols = await lspClient.RequestDocumentSymbolsAsync(uri, CancellationToken.None);
 
-            foreach (var sym in symbols)
+            // Flattened: a server may report the module as one symbol holding its members, and the browser
+            // lists members rather than the container. Skipping the container itself would need to know
+            // which symbol it is, and a member list that includes the module reads worse than one that
+            // does not — so the container is dropped only when it is the sole root with children.
+            var members = symbols.Length == 1 && symbols[0].Children is { Length: > 0 }
+                ? symbols[0].Children!.SelectMany(s => s.Flatten())
+                : symbols.SelectMany(s => s.Flatten());
+
+            foreach (var sym in members)
             {
                 var (kind, signature) = MapSymbol(sym);
                 classVm.Members.Add(new OBMemberViewModel(sym.Name, kind, signature));
@@ -339,13 +347,41 @@ public partial class ObjectBrowserToolViewModel : Document
         }
     }
 
+    /// <summary>
+    /// A protocol symbol kind as the Object Browser's much smaller vocabulary.
+    /// </summary>
+    /// <remarks>
+    /// <b>The default arm is the dangerous one and it is now reached only by kinds that really are
+    /// method-like.</b> Before the enum carried all twenty-six kinds, a <c>Module</c> (2), <c>Variable</c>
+    /// (13) or <c>Event</c> (24) fell through and was rendered as a method — a wrong label rather than a
+    /// missing one, and nothing anywhere would have reported it.
+    ///
+    /// <para>
+    /// A signature is prefixed only where VB6 has a keyword for the thing. <c>Sub</c> versus
+    /// <c>Function</c> is not decidable from <c>SymbolKind</c> alone — the protocol's <c>Method</c> covers
+    /// both — so the bare name is the honest rendering, and <c>Detail</c> is preferred whenever a server
+    /// bothered to send one.
+    /// </para>
+    /// </remarks>
     private static (OBMemberKind kind, string signature) MapSymbol(DocumentSymbol sym) => sym.Kind switch
     {
-        SymbolKind.Property => (OBMemberKind.Property, $"Property {sym.Name}"),
-        SymbolKind.Enum     => (OBMemberKind.Constant, $"Enum {sym.Name}"),
-        SymbolKind.Struct   => (OBMemberKind.Constant, $"Type {sym.Name}"),
-        _                   => (OBMemberKind.Method,   sym.Name)
+        SymbolKind.Property                        => (OBMemberKind.Property, Signature(sym, "Property")),
+        SymbolKind.Event                           => (OBMemberKind.Method,   Signature(sym, "Event")),
+        SymbolKind.Enum                            => (OBMemberKind.Constant, Signature(sym, "Enum")),
+        SymbolKind.EnumMember or SymbolKind.Constant
+                                                   => (OBMemberKind.Constant, Signature(sym, null)),
+        SymbolKind.Struct or SymbolKind.Object      => (OBMemberKind.Constant, Signature(sym, "Type")),
+        SymbolKind.Class or SymbolKind.Interface
+            or SymbolKind.Module or SymbolKind.File => (OBMemberKind.Constant, Signature(sym, null)),
+        SymbolKind.Variable or SymbolKind.Field     => (OBMemberKind.Property, Signature(sym, "Dim")),
+        _                                           => (OBMemberKind.Method,   Signature(sym, null)),
     };
+
+    /// <summary>What a server said the member looks like, or a keyword and its name when it said nothing.</summary>
+    private static string Signature(DocumentSymbol sym, string? keyword) =>
+        !string.IsNullOrWhiteSpace(sym.Detail) ? $"{sym.Name} {sym.Detail}"
+        : keyword is null ? sym.Name
+        : $"{keyword} {sym.Name}";
 
     private async Task LoadReferenceLibraryAsync(OBLibraryViewModel lib)
     {

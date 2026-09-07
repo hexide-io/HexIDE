@@ -453,20 +453,115 @@ public record CompletionList(
 public record DocumentSymbolParams(
     [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument);
 
+/// <summary>
+/// What a symbol is, as the protocol numbers it.
+/// </summary>
+/// <remarks>
+/// <b>All twenty-six, not the five VB6 happens to produce.</b> This is deserialized from whatever a server
+/// sends, and a value with no member is not a compile error — it lands in the enum as an undefined number
+/// and every <c>switch</c> falls to its default arm. So a partial enum does not fail loudly on an
+/// unexpected kind, it silently relabels it: a <c>Module</c> arriving as <c>2</c> was rendered as a method.
+/// The names are the protocol's, including the ones no VB6 server will ever send.
+/// </remarks>
 public enum SymbolKind
 {
-    Method   = 6,
+    File = 1,
+    Module = 2,
+    Namespace = 3,
+    Package = 4,
+    Class = 5,
+    Method = 6,
     Property = 7,
-    Enum     = 10,
+    Field = 8,
+    Constructor = 9,
+    Enum = 10,
+    Interface = 11,
     Function = 12,
-    Struct   = 23,
+    Variable = 13,
+    Constant = 14,
+    String = 15,
+    Number = 16,
+    Boolean = 17,
+    Array = 18,
+    Object = 19,
+    Key = 20,
+    Null = 21,
+    EnumMember = 22,
+    Struct = 23,
+    Event = 24,
+    Operator = 25,
+    TypeParameter = 26,
 }
 
+/// <summary>
+/// One symbol in a document's structure, with the symbols nested inside it.
+/// </summary>
+/// <remarks>
+/// <b><c>Children</c> is the half of this the protocol is actually built around.</b>
+/// <c>textDocument/documentSymbol</c> answers with a <em>tree</em> — a class holding its methods, a module
+/// holding its procedures — and a client modelling only the top level receives that tree and keeps its
+/// root. Against a server that reports one module symbol containing every procedure, dropping children is
+/// the difference between a full outline and a list of one.
+///
+/// <para>
+/// <b><c>Range</c> and <c>SelectionRange</c> are non-nullable, and that is a guarantee the reader makes
+/// rather than one the wire gives.</b> The protocol's other legal answer to this request,
+/// <c>SymbolInformation[]</c>, carries a <c>location</c> and no ranges at all — so a client that
+/// deserializes straight into this shape gets nulls in fields nothing checks.
+/// <c>VBLspClient.RequestDocumentSymbolsAsync</c> normalises both answers before anything sees them, which
+/// is what lets every consumer here treat a symbol as a plain value.
+/// </para>
+/// </remarks>
 public record DocumentSymbol(
     [property: JsonPropertyName("name")]           string Name,
     [property: JsonPropertyName("kind")]           SymbolKind Kind,
     [property: JsonPropertyName("range")]          Range Range,
-    [property: JsonPropertyName("selectionRange")] Range SelectionRange);
+    [property: JsonPropertyName("selectionRange")] Range SelectionRange,
+    [property: JsonPropertyName("detail")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? Detail = null,
+    [property: JsonPropertyName("children")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DocumentSymbol[]? Children = null)
+{
+    /// <summary>
+    /// This symbol and every symbol beneath it, depth first.
+    /// </summary>
+    /// <remarks>
+    /// Offered rather than flattening at the seam, because the two consumers here want a flat list and a
+    /// future outline view wants the tree — and only one of those can be reconstructed from the other.
+    ///
+    /// <para>
+    /// The depth cap guards the walk, not the wire. Measured: a reply is bounded first by
+    /// <c>System.Text.Json</c>'s own <c>MaxDepth</c> of 64 while it is parsed, and a symbol level costs two
+    /// JSON levels, so nothing deeper than ~31 symbols ever reaches this. What the cap is actually for is
+    /// a tree built in memory — by a test, or by a future caller — where an unbounded walk is a stack
+    /// overflow rather than an exception: unrecoverable, and attributable to nothing.
+    /// </para>
+    /// </remarks>
+    public IEnumerable<DocumentSymbol> Flatten(int maxDepth = 64)
+    {
+        yield return this;
+        if (maxDepth <= 0 || Children is null) yield break;
+        foreach (var child in Children)
+            foreach (var descendant in child.Flatten(maxDepth - 1))
+                yield return descendant;
+    }
+}
+
+/// <summary>
+/// The protocol's <em>other</em> answer to <c>textDocument/documentSymbol</c> — a flat list, each entry
+/// carrying a <see cref="Location"/> instead of ranges.
+/// </summary>
+/// <remarks>
+/// Modelled so it can be recognised and converted, never handed to a consumer. The two shapes are
+/// distinguishable only by inspecting an element: a <c>SymbolInformation</c> has <c>location</c>, a
+/// <c>DocumentSymbol</c> has <c>range</c>. Servers pick freely between them, and the reference
+/// implementation's own servers do not agree with each other.
+/// </remarks>
+public record SymbolInformation(
+    [property: JsonPropertyName("name")]          string Name,
+    [property: JsonPropertyName("kind")]          SymbolKind Kind,
+    [property: JsonPropertyName("location")]      Location Location,
+    [property: JsonPropertyName("containerName")] string? ContainerName = null);
 
 public record HoverClientCapabilities(
     [property: JsonPropertyName("contentFormat")] string[]? ContentFormat = null);

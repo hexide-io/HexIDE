@@ -201,13 +201,28 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         // why the gate belongs on the connection and not here.
         Task.WhenAll(StartedClaimantsFor(uri).Select(c => c.SaveDocumentAsync(uri, cancellationToken)));
 
-    // ── Merged features ─────────────────────────────────────────────────────────────────────────────
+    // ── One-answer features ─────────────────────────────────────────────────────────────────────────
+    // A document has ONE structure and ONE set of folds, however many servers are looking at it. Two
+    // servers answering describe the same thing twice, so the answers do not merge — they duplicate.
+    // Asking only the top-priority claimant is what makes a second server attached to `.bas` an addition
+    // rather than a corruption of what was already working.
     public Task<DocumentSymbol[]> RequestDocumentSymbolsAsync(string uri, CancellationToken ct = default) =>
-        GatherAsync(uri, c => c.RequestDocumentSymbolsAsync(uri, ct));
+        SoleClaimantFor(uri, "documentSymbolProvider") is { } c
+            ? c.RequestDocumentSymbolsAsync(uri, ct)
+            : Task.FromResult<DocumentSymbol[]>([]);
 
+    // Folds have a second, sharper reason. AvaloniaEdit's FoldingManager takes a single ordered set of
+    // sections; two servers' folds partially overlap in general, and a partially-overlapping section is
+    // not merely a duplicate — it can take out folding for the whole document behind the debug-level
+    // catch that wraps the update.
     public Task<FoldingRange[]> RequestFoldingRangesAsync(string uri, CancellationToken ct = default) =>
-        GatherAsync(uri, c => c.RequestFoldingRangesAsync(uri, ct));
+        SoleClaimantFor(uri, "foldingRangeProvider") is { } c
+            ? c.RequestFoldingRangesAsync(uri, ct)
+            : Task.FromResult<FoldingRange[]>([]);
 
+    // ── Merged features ─────────────────────────────────────────────────────────────────────────────
+    // Completions genuinely combine: two servers offer different candidates for one prefix, and dropping
+    // either would hide something the user could have typed. This is the case the merge helpers exist for.
     public Task<CompletionItem[]> RequestCompletionAsync(string uri, Position position, CancellationToken ct = default) =>
         GatherAsync(uri, c => c.RequestCompletionAsync(uri, position, ct));
 
