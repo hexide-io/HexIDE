@@ -45,6 +45,29 @@ public interface ILspClient : IAsyncDisposable
     ServerIdentity? ReportedIdentity { get; }
 
     /// <summary>
+    /// The last attempt to bring this connection up, as a chain with the point it stopped at — or null if
+    /// none has been made.
+    ///
+    /// <para>
+    /// Every failure path here converges on the same observable outcome: no connection, and an exception
+    /// written to a log nobody is reading. Which of five quite different things happened — the command does
+    /// not exist, the pipe had nobody on it, the handshake was never answered, the reply could not be read,
+    /// the IDE was simply shutting down — is not recoverable afterwards from anything the client keeps.
+    /// </para>
+    /// </summary>
+    LanguageConnectionAttempt? LastAttempt { get; }
+
+    /// <summary>
+    /// Requests this client declined to make because the server did not advertise support for them.
+    ///
+    /// <para>
+    /// Refusing is correct and deliberate. It is also invisible: a feature that is off because the server
+    /// never claimed it looks exactly like a feature that is broken, and the refusal is the explanation.
+    /// </para>
+    /// </summary>
+    IReadOnlyList<string> DeclinedCapabilities { get; }
+
+    /// <summary>
     /// What the server advertised during initialize, exactly as it sent it — or null if nothing is
     /// connected, or the reply could not be read.
     ///

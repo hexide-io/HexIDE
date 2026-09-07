@@ -221,6 +221,50 @@ public sealed class LanguageServerConfigLoader
     /// server off harder than deleting it, which is backwards.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// Reports fields that belong to a different transport than the one this entry chose.
+    /// </summary>
+    /// <remarks>
+    /// One method rather than a line per <c>case</c>: which fields are meaningless for which transport is
+    /// a single fact, and splitting it across the switch is how one arm gains a field the others forget.
+    /// Never fatal — the entry is usable, and the user has simply written something that will not be read.
+    /// </remarks>
+    private static void ReportIgnoredFields(
+        LanguageServerEntry entry, List<LanguageServerConfigProblem> problems)
+    {
+        var transport = entry.Transport?.Trim().ToLowerInvariant();
+
+        var ignored = new List<string>();
+        void Note(string name, object? value)
+        {
+            if (value is string s ? !string.IsNullOrWhiteSpace(s) : value is not null) ignored.Add(name);
+        }
+
+        if (transport is "pipe" or "websocket")
+        {
+            Note("command", entry.Command);
+            Note("arguments", entry.Arguments);
+            Note("workingDirectory", entry.WorkingDirectory);
+        }
+
+        if (transport is "stdio" or "websocket")
+        {
+            Note("pipeName", entry.PipeName);
+            Note("pipeRole", entry.PipeRole);
+        }
+
+        if (transport is "stdio" or "pipe")
+            Note("endpoint", entry.Endpoint);
+
+        if (ignored.Count == 0) return;
+
+        problems.Add(new LanguageServerConfigProblem(
+            entry.Id,
+            $"{(ignored.Count == 1 ? "Field" : "Fields")} {string.Join(", ", ignored)} "
+          + $"{(ignored.Count == 1 ? "does" : "do")} not apply to transport '{transport}' and will be ignored.",
+            false,
+            LanguageServerConfigProblemKind.IgnoredField));
+    }
     private static bool Validate(
         LanguageServerEntry entry, List<LanguageServerConfigProblem> problems, out string id)
     {
@@ -246,7 +290,14 @@ public sealed class LanguageServerConfigLoader
                 LanguageServerConfigProblemKind.UnrecognisedField));
 
         if (entry.Enabled == false)
+        {
+            problems.Add(new LanguageServerConfigProblem(
+                entry.Id,
+                $"'{entry.Id}' is switched off (\"enabled\": false) and was not registered.",
+                false,
+                LanguageServerConfigProblemKind.Disabled));
             return true;
+        }
 
         var missing = new List<string>();
 
@@ -254,6 +305,11 @@ public sealed class LanguageServerConfigLoader
             missing.Add("extensions");
         if (string.IsNullOrWhiteSpace(entry.LanguageId))
             missing.Add("languageId");
+
+        // Fields that are real, correctly spelled, and meaningless for the chosen transport. The
+        // extension-data catch above cannot see them: they are DECLARED properties, so they bind cleanly
+        // and are then simply never read.
+        ReportIgnoredFields(entry, problems);
 
         switch (entry.Transport?.Trim().ToLowerInvariant())
         {

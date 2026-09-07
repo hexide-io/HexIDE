@@ -6,6 +6,49 @@ using HexIDE.Lsp.Messages;
 
 namespace HexIDE.Tools.LanguageServers;
 
+/// <summary>One rung of the connect chain: a stage, what happened there, and how long in.</summary>
+public sealed class LanguageServerStepViewModel
+{
+    private readonly LanguageConnectionStep _s;
+    private readonly ILocalizationService _localization;
+
+    public LanguageServerStepViewModel(LanguageConnectionStep step, ILocalizationService localization)
+    {
+        _s = step;
+        _localization = localization;
+    }
+
+    public string Stage => _localization.GetString(_s.Stage switch
+    {
+        LanguageConnectionStage.Connecting => "Str.Tool.LanguageServers.Vm.Stage.Connecting",
+        LanguageConnectionStage.Connected => "Str.Tool.LanguageServers.Vm.Stage.Connected",
+        LanguageConnectionStage.HandshakeSent => "Str.Tool.LanguageServers.Vm.Stage.HandshakeSent",
+        LanguageConnectionStage.Initialized => "Str.Tool.LanguageServers.Vm.Stage.Initialized",
+        _ => "Str.Tool.LanguageServers.Vm.Stage.NotAttempted",
+    });
+
+    /// <summary>A tick, a cross, or a dash. Glyphs rather than words so the chain reads as a shape and
+    /// the eye finds the break without reading every rung.</summary>
+    public string Marker => _s.Outcome switch
+    {
+        LanguageConnectionStepOutcome.Reached => "\u2713",
+        LanguageConnectionStepOutcome.StoppedHere => "\u2717",
+        LanguageConnectionStepOutcome.Cancelled => "\u2013",
+        _ => " ",
+    };
+
+    public bool IsBreak => _s.Outcome == LanguageConnectionStepOutcome.StoppedHere;
+
+    /// <summary>Cancelled is called out separately because it is NOT a fault: the IDE was shutting down.</summary>
+    public bool IsCancelled => _s.Outcome == LanguageConnectionStepOutcome.Cancelled;
+
+    public string Elapsed => _s.At is { } at ? $"{at.TotalMilliseconds:N0} ms" : "";
+
+    /// <summary>Verbatim machine text — an exception message, an OS error. Never translated: it is the
+    /// thing worth quoting to whoever wrote the server.</summary>
+    public string Detail => _s.Detail ?? "";
+    public bool HasDetail => !string.IsNullOrWhiteSpace(_s.Detail);
+}
 /// <summary>
 /// One attached language server, as a row.
 ///
@@ -129,6 +172,38 @@ public sealed class LanguageServerRowViewModel
     /// </summary>
     public bool SendingNothing => IsRunning && !ServerCapabilities.AcceptsOpenClose(_c.Capabilities);
 
+
+    /// <summary>
+    /// How far the last attempt got, rung by rung, with the point it stopped at.
+    /// </summary>
+    /// <remarks>
+    /// The shape is the add-in trust view's: a chain and where it broke. Empty for a connection nothing
+    /// has tried yet, which is the honest answer rather than a chain of dashes.
+    /// </remarks>
+    public IReadOnlyList<LanguageServerStepViewModel> Chain =>
+        _c.Attempt is { } a
+            ? [.. a.Steps.Select(step => new LanguageServerStepViewModel(step, _localization))]
+            : [];
+
+    public bool HasChain => Chain.Count > 0;
+
+    /// <summary>True when the attempt ended because the IDE was stopping. Not a fault, and the reason the
+    /// registry writing Failed for it is wrong.</summary>
+    public bool WasCancelled => Chain.Any(s => s.IsCancelled);
+
+    /// <summary>Requests this client declined because the server never advertised them. A feature that is
+    /// off because it was never claimed looks exactly like one that is broken; this is the difference.</summary>
+    public IReadOnlyList<string> Declined => _c.DeclinedByClient ?? [];
+    public bool HasDeclined => Declined.Count > 0;
+
+    public int OpenDocumentCount => _c.OpenDocumentCount;
+
+    /// <summary>Zero open documents has two very different causes — nothing of this language is open, or
+    /// documents are open and are not reaching the server (hexide-io/HexIDE#273).</summary>
+    public bool ShowsDocumentCount => IsRunning;
+
+    public string WorkspaceRoot => _c.WorkspaceRootUri ?? "";
+    public bool HasWorkspaceRoot => !string.IsNullOrWhiteSpace(_c.WorkspaceRootUri);
     /// <summary>Plain text, for a bug report someone can send to whoever wrote the server.</summary>
     public string ToReportText()
     {
@@ -141,6 +216,18 @@ public sealed class LanguageServerRowViewModel
             $"  state     : {State}{(Age.Length > 0 ? " · " + Age : "")}",
         };
         if (HasReportedIdentity) lines.Add($"  reported  : {ReportedBy}");
+        if (HasChain)
+        {
+            lines.Add("  how far it got:");
+            foreach (var step in Chain)
+            {
+                lines.Add($"    {step.Marker} {step.Stage}"
+                        + (step.Elapsed.Length > 0 ? $"  ({step.Elapsed})" : "")
+                        + (step.HasDetail ? $"  {step.Detail}" : ""));
+            }
+        }
+        if (HasDeclined) lines.Add($"  declined by the client: {string.Join(", ", Declined)}");
+        if (HasWorkspaceRoot) lines.Add($"  workspace root sent: {WorkspaceRoot}");
         lines.Add("  advertised at initialize:");
         lines.Add(HasCapabilities ? CapabilitiesJson : "    (nothing)");
         return string.Join(Environment.NewLine, lines);

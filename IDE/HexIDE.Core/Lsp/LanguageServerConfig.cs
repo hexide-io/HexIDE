@@ -150,6 +150,28 @@ public enum LanguageServerConfigProblemKind
     /// about trust rather than syntax.
     /// </summary>
     UnseenCommand,
+
+    /// <summary>
+    /// The entry says <c>"enabled": false</c>, so no server was registered for it.
+    /// </summary>
+    /// <remarks>
+    /// Not an error, and recorded anyway: a disabled entry produces no connection, so without a row of
+    /// its own "I switched this off" and "this was never configured" are the same observable state — an
+    /// absence. The point of switching something off temporarily is being able to see that you did.
+    /// </remarks>
+    Disabled,
+
+    /// <summary>
+    /// A field that is real, spelled correctly, and meaningless for this entry's transport — a
+    /// <c>command</c> on a <c>pipe</c> entry, say.
+    /// </summary>
+    /// <remarks>
+    /// Distinct from <see cref="UnrecognisedField"/> because the extension-data catch cannot see these:
+    /// they are declared properties, so they bind cleanly and are then simply never read. The entry
+    /// parses, registers, and connects to nothing, with no problem reported anywhere — a silently skipped
+    /// row one level deeper than a typo.
+    /// </remarks>
+    IgnoredField,
 }
 
 // Names are pinned per property rather than left to the naming policy. This is a file people have

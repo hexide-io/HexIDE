@@ -29,6 +29,9 @@ public sealed class WebSocketLspTransport : ILspTransport
 
     public bool IsAlive => _socket is { State: WebSocketState.Open };
 
+    /// <summary>Why the last connect attempt failed, in this transport's words. See ILspTransport.</summary>
+    public string? LastFailure { get; private set; }
+
     public bool CanReconnect => true;
 
     // A WebSocket drop is detected via JsonRpc.Disconnected (StreamJsonRpc owns the receive loop),
@@ -41,6 +44,7 @@ public sealed class WebSocketLspTransport : ILspTransport
         {
             // A malformed endpoint degrades to "LSP disabled" rather than crashing IDE startup.
             _logger.LogWarning("Invalid WebSocket LSP endpoint '{Endpoint}' — LSP unavailable.", _endpoint);
+            LastFailure = $"'{_endpoint}' is not a valid absolute URL";
             return null;
         }
 
@@ -67,6 +71,7 @@ public sealed class WebSocketLspTransport : ILspTransport
         {
             // Graceful absence — the IDE runs with LSP features disabled (or, on reconnect, retries).
             _logger.LogWarning(ex, "WebSocket LSP connect failed ({Uri}) — LSP unavailable.", _endpoint);
+            LastFailure = $"could not connect to {_endpoint}: {ex.Message}";
             socket.Dispose();
             return null;
         }

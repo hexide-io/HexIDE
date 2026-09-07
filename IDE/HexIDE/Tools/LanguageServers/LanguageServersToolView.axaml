@@ -96,6 +96,56 @@
                                                     <TextBlock Grid.Column="1" Classes="machine" Text="{CompiledBinding ReportedBy}" />
                                                 </Grid>
 
+                                                <!-- How far the last attempt got. The valuable half of #259: every failure path below converges
+                                                     on "no connection", and which of five things happened is otherwise unrecoverable. -->
+                                                <StackPanel IsVisible="{CompiledBinding HasChain}" Margin="0,6,0,0" Spacing="1">
+                                                    <TextBlock FontWeight="Bold" Opacity="0.8"
+                                                               Text="{DynamicResource Str.Tool.LanguageServers.HowFar}" />
+                                                    <ItemsControl ItemsSource="{CompiledBinding Chain}" Margin="8,2,0,0">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate DataType="ls:LanguageServerStepViewModel">
+                                                                <Grid ColumnDefinitions="16,150,70,*">
+                                                                    <!-- Glyph rather than a word, so the break is found by shape, not by reading. -->
+                                                                    <TextBlock Grid.Column="0" Classes="machine" Text="{CompiledBinding Marker}" />
+                                                                    <TextBlock Grid.Column="1" Text="{CompiledBinding Stage}" />
+                                                                    <TextBlock Grid.Column="2" Classes="machine" Opacity="0.6"
+                                                                               Text="{CompiledBinding Elapsed}" />
+                                                                    <TextBlock Grid.Column="3" Classes="machine"
+                                                                               IsVisible="{CompiledBinding HasDetail}"
+                                                                               Text="{CompiledBinding Detail}" />
+                                                                </Grid>
+                                                            </DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                    <!-- Said explicitly, because the registry records this as Failed and it is not a failure. -->
+                                                    <TextBlock Margin="8,2,0,0" TextWrapping="Wrap" Opacity="0.8"
+                                                               IsVisible="{CompiledBinding WasCancelled}"
+                                                               Text="{DynamicResource Str.Tool.LanguageServers.WasCancelled}" />
+                                                </StackPanel>
+
+                                                <!-- Requests refused because the server never advertised them. Correct, deliberate, and otherwise
+                                                     indistinguishable from the feature being broken. -->
+                                                <Grid ColumnDefinitions="96,*" IsVisible="{CompiledBinding HasDeclined}" Margin="0,4,0,0">
+                                                    <TextBlock Classes="label" Grid.Column="0"
+                                                               Text="{DynamicResource Str.Tool.LanguageServers.Declined}" />
+                                                    <ItemsControl Grid.Column="1" ItemsSource="{CompiledBinding Declined}">
+                                                        <ItemsControl.ItemTemplate>
+                                                            <DataTemplate><TextBlock Classes="machine" Text="{CompiledBinding}" /></DataTemplate>
+                                                        </ItemsControl.ItemTemplate>
+                                                    </ItemsControl>
+                                                </Grid>
+
+                                                <Grid ColumnDefinitions="96,*" IsVisible="{CompiledBinding ShowsDocumentCount}">
+                                                    <TextBlock Classes="label" Grid.Column="0"
+                                                               Text="{DynamicResource Str.Tool.LanguageServers.Documents}" />
+                                                    <TextBlock Grid.Column="1" Classes="machine" Text="{CompiledBinding OpenDocumentCount}" />
+                                                </Grid>
+
+                                                <Grid ColumnDefinitions="96,*" IsVisible="{CompiledBinding HasWorkspaceRoot}">
+                                                    <TextBlock Classes="label" Grid.Column="0"
+                                                               Text="{DynamicResource Str.Tool.LanguageServers.WorkspaceRoot}" />
+                                                    <TextBlock Grid.Column="1" Classes="machine" Text="{CompiledBinding WorkspaceRoot}" />
+                                                </Grid>
                                                 <!-- The two derived lines. These are the whole point for a server
                                                      that answers the handshake and then serves nothing: a bare
                                                      "Running" reports that as success. -->

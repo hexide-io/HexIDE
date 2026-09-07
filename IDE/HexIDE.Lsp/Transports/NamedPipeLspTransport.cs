@@ -96,6 +96,9 @@ public sealed class NamedPipeLspTransport : ILspTransport
 
     // A server this transport launched is one-shot, matching StdioProcessLspTransport: a crash does
     // not auto-respawn. A pre-existing endpoint we merely dialled can be re-dialled.
+    /// <summary>Why the last connect attempt failed, in this transport's words. See ILspTransport.</summary>
+    public string? LastFailure { get; private set; }
+
     public bool CanReconnect => _launch is null;
 
     public event EventHandler? Closed;
@@ -145,6 +148,12 @@ public sealed class NamedPipeLspTransport : ILspTransport
                     : "Named pipe LSP connect failed ('{Pipe}', timeout {Timeout:g}) — LSP unavailable.",
                 _pipeName,
                 _connectTimeout);
+            // The timed-out / did-not-connect distinction was already computed here and discarded. It is
+            // the useful half: a timeout means nothing was listening, and everything else means something
+            // was and refused.
+            LastFailure = timedOut
+                ? $"nothing connected on pipe '{_pipeName}' within {_connectTimeout:g}"
+                : $"could not use pipe '{_pipeName}': {ex.Message}";
             await DisposeAsync();
             return null;
         }

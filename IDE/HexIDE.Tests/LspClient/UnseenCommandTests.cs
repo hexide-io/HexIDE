@@ -126,7 +126,13 @@ public class UnseenCommandTests : IDisposable
              "languageId":"markdown","transport":"stdio","command":"rumdl"}]}
             """).Load([], Store());
 
-        result.Problems.Should().BeEmpty();
+        // Narrowed from "no problems at all": a disabled entry now DOES produce a row, because otherwise
+        // "I switched this off" and "this was never configured" are the same observable state. What must
+        // not happen is the trust notice, which is what this test is named for — announcing a command that
+        // will not run is exactly what trains people to ignore the announcement.
+        result.Problems.Should().NotContain(p => p.Kind == LanguageServerConfigProblemKind.UnseenCommand);
+        result.Problems.Should().ContainSingle()
+            .Which.Kind.Should().Be(LanguageServerConfigProblemKind.Disabled);
     }
 
     [Fact]
