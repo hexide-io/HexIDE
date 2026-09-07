@@ -233,6 +233,94 @@ public class LspClientRegistryTests
     }
 
     [Fact]
+    public async Task AServerThatDiesAfterStartingStopsReportingItselfRunning()
+    {
+        // The projection used to read the CACHED state on one line and the LIVE capabilities on the
+        // next. Entry.State is written in five places and none is a death path -- when a transport
+        // closes, the client clears its own flags and tells the registry nothing -- so a crashed server
+        // reported Running, for the rest of the session, beside capabilities that had already gone null.
+        // Running-with-nothing-advertised is the most confusing row this record can produce.
+        var alive = true;
+        var server = FakeServer();
+        server.IsRunning.Returns(_ => alive);
+        server.AdvertisedCapabilities.Returns(_ => alive
+            ? JsonDocument.Parse(FullCapabilities).RootElement.Clone()
+            : (JsonElement?)null);
+        var sut = Registry(Registration("vb6", server));
+
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+        sut.Connections.Single().State.Should().Be(LanguageConnectionState.Running);
+
+        alive = false;   // the far end went away; nothing writes that down
+
+        var row = sut.Connections.Single();
+        row.State.Should().Be(LanguageConnectionState.Stopped,
+            "a server that has gone away is Stopped, not Running -- and reporting Running beside null "
+          + "capabilities is the pairing that makes a connections view actively misleading");
+        row.Capabilities.Should().BeNull("the live read already knew; only the state lagged");
+    }
+
+    [Fact]
+    public async Task AServerWhoseReconnectSucceededStopsReportingItselfFailed()
+    {
+        // The same staleness read the other way. A pipe or websocket client that comes back up through
+        // its own reconnect loop is live again, while the cached state still says Failed from the first
+        // attempt. Fixing only the Running direction would leave this half wrong.
+        var alive = false;
+        var server = FakeServer();
+        server.IsRunning.Returns(_ => alive);
+        var sut = Registry(Registration("vb6", server));
+
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+        sut.Connections.Single().State.Should().Be(LanguageConnectionState.Failed);
+
+        alive = true;    // the reconnect loop got through
+
+        sut.Connections.Single().State.Should().Be(LanguageConnectionState.Running);
+    }
+
+    [Fact]
+    public async Task TheAggregateAndThePerConnectionStateCannotDisagree()
+    {
+        // IsRunning reads the client live; Connections[].State used to read the cache. The registry could
+        // therefore contradict itself -- IsRunning false while the only row said Running. Whatever the
+        // answer is, one object must not give two of them.
+        var alive = true;
+        var server = FakeServer();
+        server.IsRunning.Returns(_ => alive);
+        var sut = Registry(Registration("vb6", server));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+
+        foreach (var live in new[] { true, false, true })
+        {
+            alive = live;
+            var anyRunning = sut.Connections.Any(c => c.State == LanguageConnectionState.Running);
+            anyRunning.Should().Be(sut.IsRunning,
+                $"the aggregate and the rows must agree (client alive: {live})");
+        }
+    }
+
+    [Fact]
+    public async Task ReportingHonestlyDoesNotMakeAFailedServerRetry()
+    {
+        // The guard on the fix itself. Reconciling the PROJECTION must not repeal the invariant that a
+        // failed server stays failed for the session -- that is an argued decision (retrying on every
+        // document open turns one broken registration into a repeated cost), and a projection change is
+        // exactly the kind of edit that could undo it by accident.
+        var server = Substitute.For<ILspClient>();
+        server.IsRunning.Returns(false);
+        server.StartAsync(Arg.Any<CancellationToken>())
+            .Returns(Task.FromException(new InvalidOperationException("no")));
+        var sut = Registry(Registration("broken", server));
+
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+        await sut.OpenDocumentAsync(Vb6Doc, "more", TestContext.Current.CancellationToken);
+
+        sut.Connections.Single().State.Should().Be(LanguageConnectionState.Failed);
+        await server.Received(1).StartAsync(Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task InjectedDiagnosticsAreRaisedWithNoServerAtAll()
     {
         // The external-compiler side channel. It must not depend on a language server, because the whole
