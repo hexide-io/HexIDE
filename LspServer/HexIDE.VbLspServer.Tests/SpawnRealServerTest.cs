@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+﻿// SPDX-License-Identifier: MIT
 // Copyright (C) 2026 The HexIDE Authors
 // The seam CI never tests: spawn the REAL server process and drive it over REAL stdio (exactly as the
 // IDE's StdioProcessLspTransport does), proving the exe boots, frames LSP correctly, and publishes
@@ -80,8 +80,9 @@ public class SpawnRealServerTest
             pub.GetProperty("diagnostics").EnumerateArray().Should()
                 .Contain(d => d.GetProperty("severity").GetInt32() == 1, "a syntax error is published");
 
-            await rpc.InvokeAsync<object?>("shutdown").WaitAsync(Timeout, TestContext.Current.CancellationToken);
-            await rpc.NotifyAsync("exit");
+            await rpc.InvokeWithParameterObjectAsync<object?>("shutdown", null, TestContext.Current.CancellationToken)
+                .WaitAsync(Timeout, TestContext.Current.CancellationToken);
+            await rpc.NotifyWithParameterObjectAsync("exit", null);
         }
         finally
         {

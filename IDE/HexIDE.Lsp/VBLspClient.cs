@@ -1,4 +1,4 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Text.Json;
 using HexIDE.Lsp.Messages;
 using Microsoft.Extensions.Logging;
@@ -619,8 +619,19 @@ public sealed class VBLspClient : ILspClient
         var rpc = _rpc;
         if (rpc is not null)
         {
-            try { await rpc.InvokeAsync("shutdown"); } catch { }
-            try { await rpc.NotifyWithParameterObjectAsync("exit", EmptyParams.Instance); } catch { }
+            // Both take NO parameters (LSP 3.17), and the distinction is not pedantry.
+            // `InvokeAsync(name)` is StreamJsonRpc's POSITIONAL overload and puts `"params":[]` on
+            // the wire, which rumdl (tower-lsp) and an OmniSharp-based server both REJECT; and
+            // `EmptyParams.Instance` sends `"params":{}`, which rumdl also rejects. Only omitting the
+            // member is accepted by every server measured, and it is what the specification and
+            // vscode-languageserver-node send. A null argument object is what omits it.
+            //
+            // The cost of getting this wrong is not a rejected request: LSP has a server exit 0 when a
+            // shutdown preceded exit and 1 otherwise, so a server that refuses ours correctly reports
+            // that we never shut it down, and any supervisor reads every clean exit as a crash.
+            // See hexide-io/HexIDE#312.
+            try { await rpc.InvokeWithParameterObjectAsync<object?>("shutdown", null); } catch { }
+            try { await rpc.NotifyWithParameterObjectAsync("exit", null); } catch { }
         }
         DisposeRpc();
 
