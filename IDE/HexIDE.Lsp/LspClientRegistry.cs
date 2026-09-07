@@ -254,6 +254,48 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     }
 
     /// <summary>
+    /// Every claimant's lenses, concatenated.
+    /// </summary>
+    /// <remarks>
+    /// <b>Gathering is right here, where it would be wrong for symbols.</b> Two servers listing the same
+    /// procedure produce one duplicated entry in a dropdown; two servers offering a lens on the same line
+    /// produce two genuinely different offers — "Run test" from one and "Show references" from another —
+    /// and a client that dropped either would be hiding a thing the user could have done.
+    /// </remarks>
+    public Task<CodeLens[]> RequestCodeLensesAsync(string uri, CancellationToken ct = default) =>
+        GatherAsync(uri, c => c.RequestCodeLensesAsync(uri, ct));
+
+    /// <summary>
+    /// Sends a command to the server that declared it.
+    /// </summary>
+    /// <remarks>
+    /// <b>The one request here with no document to route by, and no capability flag either.</b> A command
+    /// belongs to whichever server named it in <c>executeCommandProvider.commands</c>, so that list is the
+    /// routing key — see <see cref="ServerCapabilities.DeclaresCommand"/>. Every other helper on this class
+    /// asks "who claims this file"; a command has no file, and asking the wrong server would not fail
+    /// quietly, it would run something.
+    ///
+    /// <para>
+    /// A command nobody declares goes nowhere and answers null. That is deliberate: the alternative is
+    /// picking a server, and the whole point of routing by declaration is that no such pick is safe.
+    /// </para>
+    /// </remarks>
+    public async Task<JsonElement?> ExecuteCommandAsync(
+        string command, JsonElement[]? arguments = null, CancellationToken ct = default)
+    {
+        foreach (var e in _entries)
+        {
+            if (e.Client is not { IsRunning: true } client) continue;
+            if (!ServerCapabilities.DeclaresCommand(client.AdvertisedCapabilities, command)) continue;
+            return await client.ExecuteCommandAsync(command, arguments, ct);
+        }
+
+        _logger.LogDebug(
+            "No started language server declares the command {Command}; it was not sent.", command);
+        return null;
+    }
+
+    /// <summary>
     /// Raised on this registry directly, not routed. Injection is a client-side side channel used by an
     /// external compiler, and it works with no server connected at all — routing it to one would make it
     /// depend on something it deliberately does not need.

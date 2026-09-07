@@ -124,6 +124,33 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>Sends textDocument/formatting and returns text edits, or empty.</summary>
     Task<TextEdit[]> RequestFormattingAsync(string uri, CancellationToken cancellationToken = default);
 
+    /// <summary>
+    /// Sends <c>textDocument/codeLens</c> and returns the lenses, or empty.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every lens that comes back is resolved.</b> The protocol lets a server return a lens with no
+    /// command and expect a <c>codeLens/resolve</c> round trip, and an unresolved lens is one the user can
+    /// see and cannot click — the worst of the three states. An implementation therefore resolves its own
+    /// before answering, which keeps the resolve on the connection that issued the lens without any caller
+    /// having to know that lenses have provenance.
+    /// </remarks>
+    Task<CodeLens[]> RequestCodeLensesAsync(string uri, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sends <c>workspace/executeCommand</c> and returns whatever the server answered, or null.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not document-scoped, and routed differently because of it.</b> The command goes to the server that
+    /// declared it in <c>executeCommandProvider.commands</c> — see
+    /// <see cref="ServerCapabilities.DeclaresCommand"/>. A command no started server declares is not sent
+    /// anywhere and returns null, which is the only safe answer: guessing would run a command on a server
+    /// that never offered it.
+    /// </remarks>
+    Task<System.Text.Json.JsonElement?> ExecuteCommandAsync(
+        string command,
+        System.Text.Json.JsonElement[]? arguments = null,
+        CancellationToken cancellationToken = default);
+
     /// <summary>Sends vb/builtinSymbols and returns all VBA built-in function signatures, or empty.</summary>
     Task<VbaBuiltinSymbol[]> RequestBuiltinSymbolsAsync(CancellationToken cancellationToken = default);
 

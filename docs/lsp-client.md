@@ -35,7 +35,8 @@ library the specification is written around.
 |---|---|
 | Lifecycle | `initialize`, `initialized`, `shutdown`, `exit` |
 | Document sync | `textDocument/didOpen`, `didChange`, `didClose`, `didSave` |
-| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `documentHighlight`, `rename`, `formatting` |
+| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `documentHighlight`, `rename`, `formatting`, `codeLens` |
+| Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
 **Consumed from the server:** `textDocument/publishDiagnostics`, plus `window/logMessage` and
@@ -134,6 +135,29 @@ exercised against a real foreign server; the other two are covered against fakes
 
 ---
 
+## Commands and lenses
+
+`textDocument/codeLens` is how a server offers an action against a range — the protocol's affordance for
+*Run test* above a procedure — and `workspace/executeCommand` is how the client invokes it. They are
+implemented as a pair because neither is useful alone: a lens carries a command, and a command with
+nothing to trigger it is unreachable.
+
+**A lens is resolved before it is handed on.** The protocol lets a server return the ranges cheaply and
+compute each command only when asked, via `codeLens/resolve`. An unresolved lens is one the user can see
+and cannot click, so the client resolves its own before answering. That has to happen *inside* the client
+rather than at a call site: once lenses from several servers are gathered into one list, nothing records
+which connection produced which, and a resolve sent to the wrong server is meaningless.
+
+**A command is routed by who declared it, not by the document.** Every other request here is about a file,
+so "which server" is answered by "which one claims this file". A command has no file. The only thing that
+says who owns it is the list the server published in `executeCommandProvider.commands`, so that list is
+the routing key — and a command no started server declares is not sent anywhere. Guessing would not fail
+quietly; it would run something.
+
+**Lenses combine across servers, and that is deliberate.** Two servers listing the same procedure as a
+document symbol produce one duplicated dropdown entry; two servers offering a lens on the same line offer
+two genuinely different things, and dropping either would hide something the user could have done.
+
 ## Custom methods
 
 `vb/builtinSymbols` is HexIDE's own method, not an LSP one. It is gated on the server advertising it under
@@ -149,7 +173,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 20 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 23 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -176,7 +200,7 @@ than inferred.
 | | Method | Dir | Notes |
 |---|---|---|---|
 | ○ | `textDocument/codeAction` | → | Needs a bound AST — a backend's job, see below |
-| ○ | `textDocument/codeLens` | → |  |
+| ✅ | `textDocument/codeLens` | → |  |
 | ○ | `textDocument/colorPresentation` | → |  |
 | ✅ | `textDocument/completion` | → |  |
 | ○ | `textDocument/declaration` | → |  |
@@ -232,7 +256,7 @@ than inferred.
 | ○ | `workspace/didCreateFiles` | → |  |
 | ○ | `workspace/didDeleteFiles` | → |  |
 | ○ | `workspace/didRenameFiles` | → |  |
-| ○ | `workspace/executeCommand` | → |  |
+| ✅ | `workspace/executeCommand` | → | Routed to the server that declared the command |
 | ○ | `workspace/foldingRange/refresh` | ← |  |
 | ○ | `workspace/inlayHint/refresh` | ← |  |
 | ○ | `workspace/inlineValue/refresh` | ← |  |
@@ -295,7 +319,7 @@ than inferred.
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ○ | `codeLens/resolve` | → |  |
+| ✅ | `codeLens/resolve` | → | Resolved by the issuing client before a lens is handed on |
 
 ### `documentLink/*` — 0 of 1
 

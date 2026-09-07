@@ -114,12 +114,43 @@ public record InitializeParams(
     [property: JsonPropertyName("capabilities")] ClientCapabilities Capabilities);
 
 public record ClientCapabilities(
-    [property: JsonPropertyName("textDocument")] TextDocumentClientCapabilities? TextDocument = null);
+    [property: JsonPropertyName("textDocument")] TextDocumentClientCapabilities? TextDocument = null,
+    [property: JsonPropertyName("workspace")] WorkspaceClientCapabilities? Workspace = null);
 
 public record TextDocumentClientCapabilities(
     [property: JsonPropertyName("publishDiagnostics")] PublishDiagnosticsClientCapabilities? PublishDiagnostics = null,
     [property: JsonPropertyName("hover")] HoverClientCapabilities? Hover = null,
-    [property: JsonPropertyName("synchronization")] TextDocumentSyncClientCapabilities? Synchronization = null);
+    [property: JsonPropertyName("synchronization")] TextDocumentSyncClientCapabilities? Synchronization = null,
+    [property: JsonPropertyName("codeLens")] CodeLensClientCapabilities? CodeLens = null);
+
+/// <summary>
+/// What the client can do at workspace scope.
+///
+/// <para>
+/// Its own node because <c>executeCommand</c> is not a document capability, and the protocol puts it here
+/// for the reason that matters to us: a command is invoked against the <em>workspace</em>, not against a
+/// file. That distinction survives into how we route one — see <c>LspClientRegistry</c>.
+/// </para>
+/// </summary>
+public record WorkspaceClientCapabilities(
+    [property: JsonPropertyName("executeCommand")] ExecuteCommandClientCapabilities? ExecuteCommand = null);
+
+/// <summary>
+/// Declares that the client will ask for code lenses.
+/// </summary>
+/// <remarks>
+/// <b>Deliberately empty, and <c>dynamicRegistration</c> is deliberately absent rather than <c>false</c>.</b>
+/// `DynamicRegistrationProbe` asserts that the string never appears anywhere in what we send, on the
+/// reasoning that a conformant server may only register dynamically for something the client asked for — so
+/// asking for nothing is what obliges every server to declare its capabilities statically at initialize.
+/// Writing an explicit <c>false</c> means the same thing to a correct reader and weakens a rule that is
+/// currently absolute, which is worth more than the byte it saves.
+/// </remarks>
+public record CodeLensClientCapabilities();
+
+/// <summary>Declares that the client will send <c>workspace/executeCommand</c>. Empty for the reason in
+/// <see cref="CodeLensClientCapabilities"/>.</summary>
+public record ExecuteCommandClientCapabilities();
 
 /// <summary>
 /// What the client can do about document synchronization.
@@ -195,6 +226,8 @@ public record ServerCapabilities(
     [property: JsonPropertyName("documentHighlightProvider")]   System.Text.Json.JsonElement? DocumentHighlightProvider = null,
     [property: JsonPropertyName("renameProvider")]              System.Text.Json.JsonElement? RenameProvider = null,
     [property: JsonPropertyName("documentFormattingProvider")]  System.Text.Json.JsonElement? DocumentFormattingProvider = null,
+    [property: JsonPropertyName("codeLensProvider")]            System.Text.Json.JsonElement? CodeLensProvider = null,
+    [property: JsonPropertyName("executeCommandProvider")]      System.Text.Json.JsonElement? ExecuteCommandProvider = null,
     [property: JsonPropertyName("experimental")]                System.Text.Json.JsonElement? Experimental = null)
 {
     /// <summary>
@@ -229,6 +262,50 @@ public record ServerCapabilities(
         && caps.ValueKind == System.Text.Json.JsonValueKind.Object
         && caps.TryGetProperty(capabilityName, out var value)
         && IsEnabled(value);
+
+    /// <summary>
+    /// True when the server named this command in its <c>executeCommandProvider.commands</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>This is the routing key for <c>workspace/executeCommand</c>, and it is why that request cannot go
+    /// through the document-scoped helpers.</b> Every other request this client sends is about a file, so
+    /// "which server" is answered by "which one claims this file". A command is about the workspace, and the
+    /// only thing that says which server owns it is the list the server itself published. Asking any other
+    /// server would run someone else's command, or nobody's.
+    ///
+    /// <para>
+    /// A server that advertises <c>executeCommandProvider</c> with no <c>commands</c> array declares no
+    /// commands, and so owns none. That is a real shape — <c>ExecuteCommandOptions.commands</c> is required
+    /// by the specification, but a server that omits it should lose the request rather than receive every
+    /// command by default.
+    /// </para>
+    /// </remarks>
+    public static bool DeclaresCommand(System.Text.Json.JsonElement? capabilities, string command) =>
+        capabilities is { } caps
+        && caps.ValueKind == System.Text.Json.JsonValueKind.Object
+        && caps.TryGetProperty("executeCommandProvider", out var provider)
+        && provider.ValueKind == System.Text.Json.JsonValueKind.Object
+        && provider.TryGetProperty("commands", out var commands)
+        && commands.ValueKind == System.Text.Json.JsonValueKind.Array
+        && commands.EnumerateArray().Any(c =>
+            c.ValueKind == System.Text.Json.JsonValueKind.String
+            && string.Equals(c.GetString(), command, StringComparison.Ordinal));
+
+    /// <summary>
+    /// True when the server asks to be called back for <c>codeLens/resolve</c>.
+    /// </summary>
+    /// <remarks>
+    /// Read from <c>codeLensProvider.resolveProvider</c>. A bare <c>true</c> for <c>codeLensProvider</c> is
+    /// legal and means lenses arrive complete, so the absence of this is not a defect — it is the server
+    /// saying there is nothing to resolve.
+    /// </remarks>
+    public static bool ResolvesCodeLenses(System.Text.Json.JsonElement? capabilities) =>
+        capabilities is { } caps
+        && caps.ValueKind == System.Text.Json.JsonValueKind.Object
+        && caps.TryGetProperty("codeLensProvider", out var provider)
+        && provider.ValueKind == System.Text.Json.JsonValueKind.Object
+        && provider.TryGetProperty("resolveProvider", out var resolve)
+        && resolve.ValueKind == System.Text.Json.JsonValueKind.True;
 
     /// <summary>
     /// True for a capability under <c>experimental</c>, which is where the protocol says to put a method
@@ -451,6 +528,59 @@ public record FoldingRange(
     [property: JsonPropertyName("startCharacter")] int? StartCharacter = null,
     [property: JsonPropertyName("endCharacter")]   int? EndCharacter = null,
     [property: JsonPropertyName("kind")]           string? Kind = null);
+
+public record CodeLensParams(
+    [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument);
+
+/// <summary>
+/// A command the server offers against a range of a document — the protocol's affordance for "Run test"
+/// above a procedure, and the reason this pair was implemented together.
+/// </summary>
+/// <remarks>
+/// <b><c>Command</c> is optional, and that is the whole of <c>codeLens/resolve</c>.</b> A server may return
+/// the ranges cheaply and compute each command only when asked, so a lens with no command is not a broken
+/// lens — it is an unresolved one, and clicking it would do nothing until it is resolved. <c>Data</c> is
+/// the server's own opaque handle for doing that, and it must be handed back untouched.
+/// </remarks>
+/// <remarks>
+/// <b>The two optional members are omitted when absent, not written as <c>null</c>.</b> This record goes
+/// <em>out</em> as well as in: <c>codeLens/resolve</c> hands the server back its own lens, so writing
+/// <c>"data": null</c> where the server sent no <c>data</c> would return it an object it did not give us.
+/// <c>data</c> is explicitly the server's private handle, and the one field it is entitled to expect
+/// verbatim.
+/// </remarks>
+public record CodeLens(
+    [property: JsonPropertyName("range")]   Range Range,
+    [property: JsonPropertyName("command")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Command? Command = null,
+    [property: JsonPropertyName("data")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] System.Text.Json.JsonElement? Data = null);
+
+/// <summary>
+/// A command the client can invoke, as named by the server.
+/// </summary>
+/// <remarks>
+/// <c>Title</c> is what a human reads; <c>CommandName</c> is what goes on the wire. They are unrelated
+/// strings and the protocol says nothing about either, so a client that displays the identifier or sends
+/// the label is wrong in a way no server can correct.
+/// </remarks>
+public record Command(
+    [property: JsonPropertyName("title")]     string Title,
+    [property: JsonPropertyName("command")]   string CommandName,
+    [property: JsonPropertyName("arguments")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] System.Text.Json.JsonElement[]? Arguments = null);
+
+/// <remarks>
+/// <b><c>arguments</c> is omitted when there are none, never sent as <c>null</c>.</b> The protocol marks it
+/// optional, so absent is unambiguously valid while <c>null</c> is only probably-tolerated — the same
+/// distinction that made <c>"params": []</c> on <c>shutdown</c> a real defect against two of three foreign
+/// servers (hexide-io/HexIDE#312). Where the two spellings differ only in how strict a reader is, send the
+/// one nothing can object to.
+/// </remarks>
+public record ExecuteCommandParams(
+    [property: JsonPropertyName("command")]   string Command,
+    [property: JsonPropertyName("arguments")]
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] System.Text.Json.JsonElement[]? Arguments = null);
 
 public record SignatureHelpParams(
     [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
