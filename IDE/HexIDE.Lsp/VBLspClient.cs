@@ -378,7 +378,13 @@ public sealed class VBLspClient : ILspClient
                     // halves of one negotiation: gate without declare and a conformant server withholds
                     // `save` because nothing asked for it, while we decline to send because it did not
                     // offer — both correct, nothing happening, and no error anywhere.
-                    Synchronization: new TextDocumentSyncClientCapabilities(DidSave: true))));
+                    Synchronization: new TextDocumentSyncClientCapabilities(DidSave: true),
+                    // Same bargain as `save` above, and the same failure if only half of it ships: a server
+                    // that composes its capabilities from what the client asked for withholds
+                    // `codeLensProvider` when nothing declared this, and then our gate declines to ask.
+                    CodeLens: new CodeLensClientCapabilities()),
+                new WorkspaceClientCapabilities(
+                    ExecuteCommand: new ExecuteCommandClientCapabilities())));
 
         // Deliberately received as a raw JsonElement, and interpreted separately below.
         //
@@ -733,6 +739,89 @@ public sealed class VBLspClient : ILspClient
         {
             _logger.LogDebug(ex, "textDocument/formatting request failed");
             return [];
+        }
+    }
+
+    public async Task<CodeLens[]> RequestCodeLensesAsync(string uri, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("codeLensProvider")) return [];
+        var p = new CodeLensParams(new TextDocumentIdentifier(uri));
+
+        CodeLens[] lenses;
+        try
+        {
+            lenses = await _rpc.InvokeWithParameterObjectAsync<CodeLens[]?>(
+                "textDocument/codeLens", p, cancellationToken) ?? [];
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "textDocument/codeLens request failed");
+            return [];
+        }
+
+        // Resolve here, on the connection that issued the lens. A lens with no command is not broken, it is
+        // deferred -- and a caller cannot resolve it, because by the time lenses from several servers have
+        // been gathered into one list nothing records which connection produced which. Doing it here is what
+        // lets the rest of the client treat a lens as a plain value.
+        if (!ServerCapabilities.ResolvesCodeLenses(AdvertisedCapabilities)) return lenses;
+
+        var resolved = new CodeLens[lenses.Length];
+        for (var i = 0; i < lenses.Length; i++)
+        {
+            // Already actionable. Asking again would be a round trip for an answer we hold.
+            if (lenses[i].Command is not null) { resolved[i] = lenses[i]; continue; }
+            resolved[i] = await ResolveCodeLensAsync(lenses[i], cancellationToken) ?? lenses[i];
+        }
+        return resolved;
+    }
+
+    /// <summary>
+    /// Fills in one lens's command via <c>codeLens/resolve</c>, or null when the server could not.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not on <see cref="ILspClient"/>. Exposing it would invite a caller to resolve a lens
+    /// against the wrong connection, which is exactly the mistake the gathering step makes possible and
+    /// this class exists to prevent.
+    /// </remarks>
+    private async Task<CodeLens?> ResolveCodeLensAsync(CodeLens lens, CancellationToken cancellationToken)
+    {
+        if (_rpc is null) return null;
+        try
+        {
+            return await _rpc.InvokeWithParameterObjectAsync<CodeLens?>(
+                "codeLens/resolve", lens, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // The unresolved lens is still returned by the caller. A lens that cannot be resolved is one
+            // the user cannot click, which is poor -- and dropping it would hide that the server offered
+            // something here at all, which is worse.
+            _logger.LogDebug(ex, "codeLens/resolve request failed");
+            return null;
+        }
+    }
+
+    public async Task<System.Text.Json.JsonElement?> ExecuteCommandAsync(
+        string command,
+        System.Text.Json.JsonElement[]? arguments = null,
+        CancellationToken cancellationToken = default)
+    {
+        // Gated on the command, not on the capability. A server that advertises executeCommandProvider
+        // still only owns the commands it named, and sending it someone else's is how a client turns
+        // "nothing happened" into "the wrong thing happened".
+        if (_rpc is null || !_initialized
+            || !ServerCapabilities.DeclaresCommand(AdvertisedCapabilities, command)) return null;
+
+        var p = new ExecuteCommandParams(command, arguments);
+        try
+        {
+            return await _rpc.InvokeWithParameterObjectAsync<System.Text.Json.JsonElement?>(
+                "workspace/executeCommand", p, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug(ex, "workspace/executeCommand request failed for {Command}", command);
+            return null;
         }
     }
 
