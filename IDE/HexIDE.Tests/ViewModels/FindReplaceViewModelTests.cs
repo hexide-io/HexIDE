@@ -6,6 +6,7 @@ using HexIDE.IDE;
 using HexIDE.Keymaps;
 using HexIDE.Localization;
 using HexIDE.Lsp;
+using HexIDE.Tools.LanguageServers;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Themes;
@@ -361,9 +362,17 @@ public class FindReplaceViewModelTests
         var objectBrowser = new ObjectBrowserToolViewModel(projectManager, Substitute.For<ILspClient>(), editorService, Substitute.For<IComponentRegistry>(), Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(), loc);
         var translationEditor = new TranslationEditorViewModel(loc, Substitute.For<IUserTranslationsService>(), windowManager);
         var windowStateService = Substitute.For<IWindowStateService>();
+        // A registry with nothing attached: the view model reads Connections and
+        // ConfigurationProblems in its constructor.
+        var lsRegistry = Substitute.For<ILanguageConnectionRegistry>();
+        lsRegistry.Connections.Returns([]);
+        lsRegistry.ConfigurationProblems.Returns([]);
+        var languageServers = new LanguageServersToolViewModel(lsRegistry, loc);
+
         var dockFactory = new MainViewViewModel.DockFactory(
             toolBox, projectExplorer, properties, formLayout,
             immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
+            languageServers,
             windowStateService);
 
         return new MainViewViewModel(
@@ -379,6 +388,7 @@ public class FindReplaceViewModelTests
             colorPalette,
             objectBrowser,
             translationEditor,
+            languageServers,
             projectManager,
             Substitute.For<IFocusedProjectUtil>(),
             projectService,
