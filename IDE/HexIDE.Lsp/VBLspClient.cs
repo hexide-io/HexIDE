@@ -611,14 +611,31 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    /// <summary>
+    /// The document's symbols, in whichever of the protocol's two shapes the server chose to answer in.
+    /// </summary>
+    /// <remarks>
+    /// <b><c>textDocument/documentSymbol</c> has two legal replies and they share no field.</b>
+    /// <c>DocumentSymbol[]</c> is a tree with <c>range</c>/<c>selectionRange</c> and <c>children</c>;
+    /// <c>SymbolInformation[]</c> is flat and carries a <c>location</c> instead. Deserializing straight
+    /// into the first shape does not fail on the second — it produces symbols whose ranges are null, and
+    /// the first consumer to read one throws somewhere unrelated to the cause.
+    ///
+    /// <para>
+    /// So the answer is read as JSON and normalised here. Everything past this point sees one shape, with
+    /// both ranges guaranteed present, which is the only way the guarantee on
+    /// <see cref="DocumentSymbol"/> can be true.
+    /// </para>
+    /// </remarks>
     public async Task<DocumentSymbol[]> RequestDocumentSymbolsAsync(string uri, CancellationToken cancellationToken = default)
     {
         if (_rpc is null || !_initialized || !CanServe("documentSymbolProvider")) return [];
         var p = new DocumentSymbolParams(new TextDocumentIdentifier(uri));
         try
         {
-            return await _rpc.InvokeWithParameterObjectAsync<DocumentSymbol[]>(
-                "textDocument/documentSymbol", p, cancellationToken) ?? [];
+            var raw = await _rpc.InvokeWithParameterObjectAsync<JsonElement?>(
+                "textDocument/documentSymbol", p, cancellationToken);
+            return ReadDocumentSymbols(raw);
         }
         catch (Exception ex)
         {
@@ -626,6 +643,96 @@ public sealed class VBLspClient : ILspClient
             return [];
         }
     }
+
+    /// <summary>Turns either legal reply shape into the one the rest of the client understands.</summary>
+    internal static DocumentSymbol[] ReadDocumentSymbols(JsonElement? raw)
+    {
+        if (raw is not { ValueKind: JsonValueKind.Array } array) return [];
+
+        var symbols = new List<DocumentSymbol>();
+        foreach (var element in array.EnumerateArray())
+        {
+            if (ReadSymbol(element, 64) is { } symbol) symbols.Add(symbol);
+        }
+        return [.. symbols];
+    }
+
+    /// <summary>
+    /// One symbol of either shape, or null when the element is not one at all.
+    /// </summary>
+    /// <remarks>
+    /// The two shapes are told apart by <c>location</c>, which only <c>SymbolInformation</c> has. A
+    /// <c>SymbolInformation</c>'s single range becomes both of ours: it is the only range the server gave,
+    /// so claiming to know a narrower selection would be inventing one.
+    ///
+    /// <para>
+    /// <c>selectionRange</c> falls back to <c>range</c> when a <c>DocumentSymbol</c> omits it. The
+    /// specification requires it, so this is a malformed reply — but the whole point of this seam is that a
+    /// server we did not write cannot make a consumer here throw.
+    /// </para>
+    /// </remarks>
+    private static DocumentSymbol? ReadSymbol(JsonElement element, int depth)
+    {
+        if (element.ValueKind != JsonValueKind.Object) return null;
+        if (!element.TryGetProperty("name", out var name) || name.ValueKind != JsonValueKind.String)
+            return null;
+
+        var kind = element.TryGetProperty("kind", out var k) && k.ValueKind == JsonValueKind.Number
+            ? (SymbolKind)k.GetInt32()
+            : SymbolKind.Method;
+
+        Messages.Range? range = null;
+        if (element.TryGetProperty("location", out var location)
+            && location.ValueKind == JsonValueKind.Object
+            && location.TryGetProperty("range", out var locationRange))
+        {
+            range = ReadRange(locationRange);
+        }
+        else if (element.TryGetProperty("range", out var own))
+        {
+            range = ReadRange(own);
+        }
+
+        // A symbol with no range at all cannot be navigated to, and every consumer here exists to navigate.
+        // Dropping it loses a name; keeping it would put a null where nothing checks for one.
+        if (range is null) return null;
+
+        var selection = element.TryGetProperty("selectionRange", out var sel) ? ReadRange(sel) : null;
+
+        DocumentSymbol[]? children = null;
+        if (depth > 0
+            && element.TryGetProperty("children", out var childArray)
+            && childArray.ValueKind == JsonValueKind.Array)
+        {
+            var read = new List<DocumentSymbol>();
+            foreach (var child in childArray.EnumerateArray())
+            {
+                if (ReadSymbol(child, depth - 1) is { } c) read.Add(c);
+            }
+            if (read.Count > 0) children = [.. read];
+        }
+
+        var detail = element.TryGetProperty("detail", out var d) && d.ValueKind == JsonValueKind.String
+            ? d.GetString()
+            : null;
+
+        return new DocumentSymbol(name.GetString()!, kind, range, selection ?? range, detail, children);
+    }
+
+    private static Messages.Range? ReadRange(JsonElement element)
+    {
+        if (element.ValueKind != JsonValueKind.Object) return null;
+        if (!element.TryGetProperty("start", out var start) || !element.TryGetProperty("end", out var end))
+            return null;
+        return ReadPosition(start) is { } s && ReadPosition(end) is { } e ? new Messages.Range(s, e) : null;
+    }
+
+    private static Position? ReadPosition(JsonElement element) =>
+        element.ValueKind == JsonValueKind.Object
+        && element.TryGetProperty("line", out var line) && line.ValueKind == JsonValueKind.Number
+        && element.TryGetProperty("character", out var ch) && ch.ValueKind == JsonValueKind.Number
+            ? new Position(line.GetInt32(), ch.GetInt32())
+            : null;
 
     public async Task<FoldingRange[]> RequestFoldingRangesAsync(string uri, CancellationToken cancellationToken = default)
     {

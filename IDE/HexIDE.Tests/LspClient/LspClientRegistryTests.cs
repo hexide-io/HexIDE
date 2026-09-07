@@ -78,22 +78,76 @@ public class LspClientRegistryTests
     }
 
     [Fact]
-    public async Task EveryClaimantSeesTheDocumentAndTheirResultsMerge()
+    public async Task EveryClaimantSeesTheDocumentAndTheirCompletionsMerge()
     {
+        // The merge rule, kept where it belongs. Two servers offering different candidates for one prefix
+        // are adding to each other, and dropping either would hide something the user could have typed.
+        var first = FakeServer();
+        var second = FakeServer();
+        first.RequestCompletionAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns([new CompletionItem("A", CompletionItemKind.Function)]);
+        second.RequestCompletionAsync(Vb6Doc, Arg.Any<Position>(), Arg.Any<CancellationToken>())
+            .Returns([new CompletionItem("B", CompletionItemKind.Function)]);
+
+        var sut = Registry(Registration("a", first), Registration("b", second));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+
+        var items = await sut.RequestCompletionAsync(
+            Vb6Doc, new Position(0, 0), TestContext.Current.CancellationToken);
+
+        items.Select(i => i.Label).Should().BeEquivalentTo(["A", "B"],
+            "a language server beside a linter is ordinary, not exotic — both answers belong");
+    }
+
+    [Fact]
+    public async Task DocumentSymbolsComeFromOneServer_NotEveryClaimant()
+    {
+        // THIS REPLACES A MERGE. The rule used to be that symbols from every claimant were concatenated,
+        // on the same "a language server beside a linter" reasoning as completions. It does not hold here,
+        // for two reasons found later: a linter does not advertise `documentSymbolProvider`, so it was
+        // never a claimant for this call — and a document has ONE structure, so two servers that DO
+        // advertise it are describing the same procedures twice, not contributing different ones.
+        //
+        // The visible cost was every procedure appearing twice in the VB6 procedure dropdown the moment a
+        // second VB6-capable server was attached, which is precisely the configuration this seam exists
+        // to make ordinary.
         var first = FakeServer();
         var second = FakeServer();
         first.RequestDocumentSymbolsAsync(Vb6Doc, Arg.Any<CancellationToken>())
             .Returns([new DocumentSymbol("A", SymbolKind.Function, Span(0), Span(0))]);
         second.RequestDocumentSymbolsAsync(Vb6Doc, Arg.Any<CancellationToken>())
-            .Returns([new DocumentSymbol("B", SymbolKind.Function, Span(1), Span(1))]);
+            .Returns([new DocumentSymbol("A", SymbolKind.Function, Span(0), Span(0))]);
 
-        var sut = Registry(Registration("a", first), Registration("b", second));
+        var sut = Registry(Registration("a", first, priority: 5), Registration("b", second));
         await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
 
         var symbols = await sut.RequestDocumentSymbolsAsync(Vb6Doc, TestContext.Current.CancellationToken);
 
-        symbols.Select(s => s.Name).Should().BeEquivalentTo(["A", "B"],
-            "a language server beside a linter is ordinary, not exotic — both answers belong");
+        symbols.Select(s => s.Name).Should().BeEquivalentTo(["A"],
+            "both servers describe the same document, so merging duplicates rather than adds");
+        await second.DidNotReceive().RequestDocumentSymbolsAsync(Vb6Doc, Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task FoldsComeFromOneServerToo()
+    {
+        // Sharper than the symbol case: AvaloniaEdit's FoldingManager takes one ordered set of sections,
+        // and two servers' folds overlap partially in general. A partially-overlapping section is not a
+        // cosmetic duplicate — it can take out folding for the whole document.
+        var first = FakeServer();
+        var second = FakeServer();
+        first.RequestFoldingRangesAsync(Vb6Doc, Arg.Any<CancellationToken>())
+            .Returns([new FoldingRange(0, 10)]);
+        second.RequestFoldingRangesAsync(Vb6Doc, Arg.Any<CancellationToken>())
+            .Returns([new FoldingRange(5, 15)]);
+
+        var sut = Registry(Registration("a", first, priority: 5), Registration("b", second));
+        await sut.OpenDocumentAsync(Vb6Doc, "code", TestContext.Current.CancellationToken);
+
+        var folds = await sut.RequestFoldingRangesAsync(Vb6Doc, TestContext.Current.CancellationToken);
+
+        folds.Should().ContainSingle().Which.EndLine.Should().Be(10);
+        await second.DidNotReceive().RequestFoldingRangesAsync(Vb6Doc, Arg.Any<CancellationToken>());
     }
 
     [Fact]
