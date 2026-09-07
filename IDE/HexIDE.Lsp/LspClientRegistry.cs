@@ -79,10 +79,40 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             e.Registration.Id,
             e.Registration.DisplayName,
             LanguageConnectionKind.LanguageServer,
-            e.State,
+            ProjectedState(e),
             e.Registration.Extensions,
             e.Registration.LanguageId,
             e.Client?.AdvertisedCapabilities)).ToList();
+
+    /// <summary>
+    /// What a connection's state is <em>now</em>, rather than what it was when something last wrote it down.
+    ///
+    /// <para>
+    /// <see cref="Entry.State"/> is written in five places and <b>none of them is a death path</b>: when a
+    /// transport closes, the client clears its own flags and tells the registry nothing. So a server that
+    /// crashed after starting kept reporting <see cref="LanguageConnectionState.Running"/> for the rest of
+    /// the session — beside <c>Capabilities</c>, which is read live from the client and had already gone
+    /// null. <c>Running</c> with nothing advertised is the most confusing pairing this record can produce,
+    /// and it is what the projection used to emit.
+    /// </para>
+    ///
+    /// <para>
+    /// It corrects both directions, because the same staleness reads the other way too: a pipe or websocket
+    /// server whose reconnect loop came back up is live again while the cached state still says
+    /// <see cref="LanguageConnectionState.Failed"/>.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>This deliberately does not touch <see cref="Entry.State"/>.</b> <c>EnsureStartedAsync</c> gates on
+    /// Failed being terminal for the session, and that is an argued decision rather than an accident — a
+    /// projection fix must not repeal it by a side effect. What is <em>reported</em> becomes honest; what is
+    /// <em>retried</em> is unchanged, and a crashed server still is not restarted.
+    /// </para>
+    /// </summary>
+    private static LanguageConnectionState ProjectedState(Entry e) =>
+        e.Client is { IsRunning: true } ? LanguageConnectionState.Running
+        : e.State == LanguageConnectionState.Running ? LanguageConnectionState.Stopped
+        : e.State;
 
     /// <summary>
     /// Starts nothing. Servers start on the first document of a language they claim, so that a project
