@@ -47,6 +47,9 @@ public sealed class StdioProcessLspTransport : ILspTransport
     public bool IsAlive => _process is { HasExited: false };
 
     // A spawned subprocess is one-shot: a crash does not auto-respawn (preserves desktop behaviour).
+    /// <summary>Why the last connect attempt failed, in this transport's words. See ILspTransport.</summary>
+    public string? LastFailure { get; private set; }
+
     public bool CanReconnect => false;
 
     public event EventHandler? Closed;
@@ -157,6 +160,9 @@ public sealed class StdioProcessLspTransport : ILspTransport
             // IsAlive would then throw on every poll. Tear it down and report "no transport"; LSP features simply
             // degrade off (no diagnostics/definition/rename) rather than crashing the IDE.
             _logger.LogError(ex, "Failed to start the VB6 LSP server process ({File})", fileName);
+            // The command is the first thing anyone needs: "not on PATH" and "there but not runnable"
+            // are different problems and the exception distinguishes them.
+            LastFailure = $"could not start '{fileName}': {ex.Message}";
             _process.Exited -= OnProcessExited;
             _process.Dispose();
             _process = null;

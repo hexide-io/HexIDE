@@ -62,6 +62,8 @@ public class ReconnectReplayTests : IAsyncDisposable
         : ILspTransport
     {
         public bool IsAlive { get; private set; } = true;
+        public string? LastFailure => null;
+
         public bool CanReconnect => true;
         public event EventHandler? Closed;
 

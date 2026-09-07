@@ -22,6 +22,25 @@ public interface ILspTransport : IAsyncDisposable
     /// </summary>
     bool CanReconnect { get; }
 
+    /// <summary>
+    /// Why the last <see cref="ConnectAsync"/> returned null, in the transport's own words — or null if
+    /// it has not failed.
+    ///
+    /// <para>
+    /// A string rather than a structured result, deliberately. All three transports already <em>compose</em>
+    /// this sentence for their log line and then throw it away; the text is the thing that was lost, and
+    /// modelling it would mean inventing a taxonomy for failures that arrive as arbitrary
+    /// <see cref="Exception"/>s from three unrelated stacks.
+    /// </para>
+    ///
+    /// <para>
+    /// It exists because <see cref="ConnectAsync"/> returning <c>null</c> is the transport's entire
+    /// vocabulary for failure: a command that does not exist, a pipe nothing is listening on, and a
+    /// malformed URL are one value by the time anything above can look.
+    /// </para>
+    /// </summary>
+    string? LastFailure { get; }
+
     /// <summary>Raised when the underlying channel closes unexpectedly (e.g. the server process exits).</summary>
     event EventHandler? Closed;
 

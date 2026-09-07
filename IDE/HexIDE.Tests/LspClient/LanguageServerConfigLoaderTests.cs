@@ -145,7 +145,13 @@ public class LanguageServerConfigLoaderTests : IDisposable
             """).Load([BundledVb6()]);
 
         result.Entries.Should().ContainSingle().Which.Enabled.Should().BeFalse();
-        result.Problems.Should().BeEmpty("a disabled entry needs nothing but an id");
+        // The claim is that a disabled entry is not VALIDATED — it need not name a command it will never
+        // run. It does now carry one row saying it is switched off, so that "off" and "absent" are
+        // distinguishable; that row is not a complaint about the entry.
+        result.Problems.Should().NotContain(p => p.Kind == LanguageServerConfigProblemKind.Configuration,
+            "a disabled entry needs nothing but an id");
+        result.Problems.Should().ContainSingle()
+            .Which.Kind.Should().Be(LanguageServerConfigProblemKind.Disabled);
     }
 
     // ── The file is hand-written ──────────────────────────────────────────────────────────────────────
