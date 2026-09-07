@@ -515,14 +515,21 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
     public string GetDocumentUriPublic() => GetDocumentUri();
 
     /// <summary>
-    /// Opens the form or module matching the given LSP URI and navigates to the given line/column.
-    /// Used for cross-file go-to-definition. Currently a no-op for cross-file (future enhancement).
+    /// Opens the document a server's <c>Location</c> names and puts the caret on it.
     /// </summary>
+    /// <remarks>
+    /// <b>This used to be a no-op, justified by a comment about the BUNDLED server.</b> It said the server
+    /// "currently only returns symbols from the same file" — true of ours, and a statement about one
+    /// backend rather than about the protocol. A foreign server that answers properly stops it being true
+    /// without anything here changing, and the failure is silent: the definition is found, returned, and
+    /// dropped.
+    /// </remarks>
     public void NavigateToUri(string uri, int line, int col)
     {
-        // Cross-file navigation requires resolving a URI back to a FormDefinition/ModuleDefinition.
-        // The LSP server currently only returns symbols from the same file, so this is a no-op for now.
-        Log.Debug("[definition] Cross-file navigation to {Uri}:{Line}:{Col} is not yet implemented", uri, line, col);
+        // Line and column arrive one-based from the caller, which has already converted from the
+        // protocol's zero-based Position.
+        if (!editorService.NavigateTo(uri, line, col))
+            Log.Debug("[definition] Nothing loaded answers to {Uri}", uri);
     }
 
     private void OnSelectedProcedureChanged(string? oldValue, string? newValue)
