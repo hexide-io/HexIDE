@@ -138,9 +138,17 @@ public sealed class LanguageServerConfigLoader
     /// What this entry will actually launch, or null when it launches nothing.
     ///
     /// <para>
-    /// Only the stdio transport starts a process. A WebSocket endpoint or a pipe HexIDE merely connects to
-    /// is someone else's decision to have run something, and announcing it would be reporting a fact about
-    /// a program the IDE did not start.
+    /// The question is whether HEXIDE STARTS A PROCESS, not which transport is named. A WebSocket
+    /// endpoint, or a pipe HexIDE merely connects to, is someone else's decision to have run something,
+    /// and announcing it would report a fact about a program the IDE did not start. A pipe entry that
+    /// carries a <c>command</c> is not that: HexIDE launches it, exactly as it launches a stdio server,
+    /// so it belongs behind the same notice.
+    /// </para>
+    ///
+    /// <para>
+    /// This used to test <c>transport == "stdio"</c>, which was right while stdio was the only arm that
+    /// could launch anything. Keying on the transport rather than on the consequence is precisely how
+    /// adding a second launching arm would have slipped past the gate.
     /// </para>
     ///
     /// <para>
@@ -151,8 +159,15 @@ public sealed class LanguageServerConfigLoader
     /// </summary>
     private static string? LaunchedCommandOf(LanguageServerEntry entry)
     {
-        if (!string.Equals(entry.Transport?.Trim(), "stdio", StringComparison.OrdinalIgnoreCase))
-            return null;
+        var transport = entry.Transport?.Trim();
+        var launches =
+            string.Equals(transport, "stdio", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(transport, "pipe", StringComparison.OrdinalIgnoreCase);
+
+        if (!launches) return null;
+
+        // A pipe entry WITHOUT a command connects to something already running — nothing is started, so
+        // there is nothing to announce.
         if (string.IsNullOrWhiteSpace(entry.Command)) return null;
 
         return string.IsNullOrWhiteSpace(entry.Arguments)
@@ -240,7 +255,9 @@ public sealed class LanguageServerConfigLoader
             if (value is string s ? !string.IsNullOrWhiteSpace(s) : value is not null) ignored.Add(name);
         }
 
-        if (transport is "pipe" or "websocket")
+        // Not "pipe" any more: a pipe entry may now carry a command, and HexIDE launches it. Only
+        // websocket has nothing to start.
+        if (transport is "websocket")
         {
             Note("command", entry.Command);
             Note("arguments", entry.Arguments);
