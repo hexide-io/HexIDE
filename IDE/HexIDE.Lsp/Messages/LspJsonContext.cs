@@ -48,5 +48,14 @@ namespace HexIDE.Lsp;
 [JsonSerializable(typeof(DocumentFormattingParams))]
 [JsonSerializable(typeof(FormattingOptions))]
 [JsonSerializable(typeof(VbaBuiltinSymbol[]))]
+// NOT an LSP type, and load-bearing for exactly that reason. StreamJsonRpc deserializes the `data` member
+// of any JSON-RPC ERROR response into this, using the formatter's options — which are these. Unregistered,
+// the generated resolver returns null, the error reply cannot be read, and the failure is not scoped to
+// that one request: the whole connection dies with a ParseError and reconnects.
+//
+// So a server answering -32601 to one unsupported method took the entire language client down with it,
+// rather than that request returning nothing. Found by pointing the client at a server that throws
+// (`RequestFailureLoggingTests`), which is a thing no server we had ever driven happened to do.
+[JsonSerializable(typeof(StreamJsonRpc.Protocol.CommonErrorData))]
 [JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
 public partial class LspJsonContext : JsonSerializerContext { }

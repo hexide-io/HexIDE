@@ -248,7 +248,9 @@ public sealed class VBLspClient : ILspClient
 
         var p = new DidOpenTextDocumentParams(new TextDocumentItem(uri, _languageId, version, text));
         try { await rpc.NotifyWithParameterObjectAsync("textDocument/didOpen", p); }
-        catch (Exception ex) { _logger.LogDebug(ex, "textDocument/didOpen failed for {Uri}", uri); }
+        // No token: this path is the reconnect replay as well as the first open, and neither is cancelled
+        // by a caller — so anything thrown here is a real failure rather than a superseded request.
+        catch (Exception ex) { WarnRequestFailedOnce("textDocument/didOpen", ex, CancellationToken.None); }
     }
 
     /// <summary>
@@ -294,6 +296,7 @@ public sealed class VBLspClient : ILspClient
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
+        _warnedFailures.Clear();
         _identity = null;
         RaiseStateChanged();
         if (_stopping) return;
@@ -560,7 +563,7 @@ public sealed class VBLspClient : ILspClient
             new VersionedTextDocumentIdentifier(uri, version),
             [new TextDocumentContentChangeEvent(text)]);
         try { await rpc.NotifyWithParameterObjectAsync("textDocument/didChange", p); }
-        catch (Exception ex) { _logger.LogDebug(ex, "textDocument/didChange failed"); }
+        catch (Exception ex) { WarnRequestFailedOnce("textDocument/didChange", ex, cancellationToken); }
     }
 
     public async Task CloseDocumentAsync(string uri, CancellationToken cancellationToken = default)
@@ -570,7 +573,7 @@ public sealed class VBLspClient : ILspClient
         if (rpc is null || !_initialized || !ServerCapabilities.AcceptsOpenClose(_capabilities?.Value)) return;
         var p = new DidCloseTextDocumentParams(new TextDocumentIdentifier(uri));
         try { await rpc.NotifyWithParameterObjectAsync("textDocument/didClose", p); }
-        catch (Exception ex) { _logger.LogDebug(ex, "textDocument/didClose failed"); }
+        catch (Exception ex) { WarnRequestFailedOnce("textDocument/didClose", ex, cancellationToken); }
     }
 
     public async Task SaveDocumentAsync(string uri, CancellationToken cancellationToken = default)
@@ -592,7 +595,7 @@ public sealed class VBLspClient : ILspClient
 
         var p = new DidSaveTextDocumentParams(new TextDocumentIdentifier(uri), text);
         try { await rpc.NotifyWithParameterObjectAsync("textDocument/didSave", p); }
-        catch (Exception ex) { _logger.LogDebug(ex, "textDocument/didSave failed"); }
+        catch (Exception ex) { WarnRequestFailedOnce("textDocument/didSave", ex, cancellationToken); }
     }
 
     public async Task<HoverResult?> RequestHoverAsync(string uri, Position position, CancellationToken cancellationToken = default)
@@ -606,7 +609,7 @@ public sealed class VBLspClient : ILspClient
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "textDocument/hover request failed");
+            WarnRequestFailedOnce("textDocument/hover", ex, cancellationToken);
             return null;
         }
     }
@@ -639,7 +642,7 @@ public sealed class VBLspClient : ILspClient
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "textDocument/documentSymbol request failed");
+            WarnRequestFailedOnce("textDocument/documentSymbol", ex, cancellationToken);
             return [];
         }
     }
@@ -745,7 +748,7 @@ public sealed class VBLspClient : ILspClient
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "textDocument/foldingRange request failed");
+            WarnRequestFailedOnce("textDocument/foldingRange", ex, cancellationToken);
             return [];
         }
     }
@@ -762,7 +765,7 @@ public sealed class VBLspClient : ILspClient
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "textDocument/completion request failed");
+            WarnRequestFailedOnce("textDocument/completion", ex, cancellationToken);
             return [];
         }
     }
@@ -778,7 +781,7 @@ public sealed class VBLspClient : ILspClient
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "textDocument/signatureHelp request failed");
+            WarnRequestFailedOnce("textDocument/signatureHelp", ex, cancellationToken);
             return null;
         }
     }
@@ -806,7 +809,7 @@ public sealed class VBLspClient : ILspClient
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "textDocument/definition request failed");
+            WarnRequestFailedOnce("textDocument/definition", ex, cancellationToken);
             return null;
         }
     }
@@ -866,7 +869,7 @@ public sealed class VBLspClient : ILspClient
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "textDocument/documentHighlight request failed");
+            WarnRequestFailedOnce("textDocument/documentHighlight", ex, cancellationToken);
             return null;
         }
     }
@@ -882,7 +885,7 @@ public sealed class VBLspClient : ILspClient
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "textDocument/rename request failed");
+            WarnRequestFailedOnce("textDocument/rename", ex, cancellationToken);
             return null;
         }
     }
@@ -900,7 +903,7 @@ public sealed class VBLspClient : ILspClient
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "textDocument/formatting request failed");
+            WarnRequestFailedOnce("textDocument/formatting", ex, cancellationToken);
             return [];
         }
     }
@@ -918,7 +921,7 @@ public sealed class VBLspClient : ILspClient
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "textDocument/codeLens request failed");
+            WarnRequestFailedOnce("textDocument/codeLens", ex, cancellationToken);
             return [];
         }
 
@@ -959,7 +962,7 @@ public sealed class VBLspClient : ILspClient
             // The unresolved lens is still returned by the caller. A lens that cannot be resolved is one
             // the user cannot click, which is poor -- and dropping it would hide that the server offered
             // something here at all, which is worse.
-            _logger.LogDebug(ex, "codeLens/resolve request failed");
+            WarnRequestFailedOnce("codeLens/resolve", ex, cancellationToken);
             return null;
         }
     }
@@ -983,7 +986,7 @@ public sealed class VBLspClient : ILspClient
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "workspace/executeCommand request failed for {Command}", command);
+            WarnRequestFailedOnce("workspace/executeCommand", ex, cancellationToken);
             return null;
         }
     }
@@ -998,7 +1001,7 @@ public sealed class VBLspClient : ILspClient
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "vb/builtinSymbols request failed");
+            WarnRequestFailedOnce("vb/builtinSymbols", ex, cancellationToken);
             return [];
         }
     }
@@ -1040,6 +1043,7 @@ public sealed class VBLspClient : ILspClient
         _capabilities = null;
         _identity = null;
         _warnedCapabilities.Clear();
+        _warnedFailures.Clear();
         RaiseStateChanged();
     }
 
@@ -1050,6 +1054,7 @@ public sealed class VBLspClient : ILspClient
         _initialized = false;
         _capabilities = null;
         _warnedCapabilities.Clear();
+        _warnedFailures.Clear();
         _identity = null;
         RaiseStateChanged();
     }
@@ -1250,5 +1255,54 @@ public sealed class VBLspClient : ILspClient
             capabilityName);
     }
 
+    /// <summary>
+    /// Says once, at warning, that a request to the server threw.
+    /// </summary>
+    /// <remarks>
+    /// <b>An exception and an empty answer are not the same event, and logging both at debug made them
+    /// indistinguishable.</b> A server replying "no definition here" is normal and constant; a request that
+    /// <em>threw</em> means the feature did not work. Both landed in the same catch at the same level, under
+    /// a log the IDE writes at Information by default — so a feature could be bound, implemented,
+    /// advertised and inert with no trace anywhere (hexide-io/HexIDE#325).
+    ///
+    /// <para>
+    /// <b>Cancellation is excluded, and that exclusion is the whole reason this can be a warning at all.</b>
+    /// Completion, signature help, highlighting and folding are each driven by a
+    /// <see cref="CancellationTokenSource"/> that is replaced on the next keystroke, so a superseded request
+    /// throwing <see cref="OperationCanceledException"/> is the design working. Warning on those would emit
+    /// a line per keypress and bury exactly what this exists to surface.
+    /// </para>
+    ///
+    /// <para>
+    /// Once per method per connection, for the same reason as
+    /// <see cref="WarnUnavailableOnce"/>: a server broken for one method is broken for every call to it, and
+    /// the second thousand lines say nothing the first did not. Repeats stay at debug so a full trace is
+    /// still available to anyone who asks for one. The set clears with the connection.
+    /// </para>
+    /// </remarks>
+    private void WarnRequestFailedOnce(string method, Exception ex, CancellationToken cancellationToken)
+    {
+        if (ex is OperationCanceledException || cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogDebug(ex, "{Method} was superseded before it completed", method);
+            return;
+        }
+
+        if (!_warnedFailures.TryAdd(method, 0))
+        {
+            _logger.LogDebug(ex, "{Method} failed again", method);
+            return;
+        }
+
+        _logger.LogWarning(ex,
+            "'{Method}' failed against the connected language server, so that feature will not work. "
+          + "Further failures of this method are logged at debug for this connection.",
+            method);
+    }
+
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _warnedCapabilities = new();
+
+    /// <summary>Methods already reported as failing on this connection. Cleared wherever
+    /// <see cref="_warnedCapabilities"/> is, so a reconnect to a different server reports afresh.</summary>
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _warnedFailures = new();
 }
