@@ -59,6 +59,26 @@ public enum LanguageConnectionState
 /// will be wrong for a server not yet met, and the raw answer is the only honest response to "why is hover
 /// unavailable in this file". Null when nothing has been advertised yet, or when it could not be read.
 /// </param>
+/// <param name="Transport">How this connection is reached. Shown verbatim, because the words are the ones
+/// the user wrote in their own configuration file and must be comparable to it character for character.</param>
+/// <param name="Endpoint">
+/// The resolved destination — a command line for <c>stdio</c>, a URL for <c>websocket</c>, a pipe name and
+/// role for <c>pipe</c>. The first failure anyone hits is a command that does not exist or is not on PATH,
+/// and the command string is the thing they need in front of them to see why.
+/// </param>
+/// <param name="Priority">
+/// Where this server ranks when exactly one must be chosen. Present so that "two servers claim this
+/// language and I cannot tell which answered" has a visible answer rather than an inferred one.
+/// </param>
+/// <param name="StateSince">
+/// When the connection entered <see cref="State"/>. A bare <see cref="LanguageConnectionState.Starting"/>
+/// cannot distinguish slow-but-healthy from hung, and the handshake is bounded in tens of seconds, so the
+/// duration is the whole signal. Null when nothing has happened yet.
+/// </param>
+/// <param name="ReportedIdentity">
+/// What the server called itself in its <c>initialize</c> reply. The only field that answers "which
+/// <em>build</em> answered me" — everything else here is what the IDE was configured to believe.
+/// </param>
 public sealed record LanguageServerConnection(
     string Id,
     string DisplayName,
@@ -66,7 +86,33 @@ public sealed record LanguageServerConnection(
     LanguageConnectionState State,
     IReadOnlyList<string> Extensions,
     string LanguageId,
-    JsonElement? Capabilities);
+    JsonElement? Capabilities,
+    // Appended, never inserted. This is a positional record with one production construction site and
+    // several tests asserting on it; an insert whose types happen to line up compiles cleanly while landing
+    // a value in the wrong slot.
+    LanguageConnectionTransport Transport = LanguageConnectionTransport.Stdio,
+    string? Endpoint = null,
+    int Priority = 0,
+    DateTimeOffset? StateSince = null,
+    ServerIdentity? ReportedIdentity = null);
+
+/// <summary>How a connection is reached. The three the configuration file accepts, and nothing else.</summary>
+public enum LanguageConnectionTransport
+{
+    Stdio,
+    Pipe,
+    WebSocket,
+}
+
+/// <summary>
+/// What a server said it was, in its own words, during <c>initialize</c>.
+/// </summary>
+/// <remarks>
+/// Both halves are optional in the protocol and neither is verified — a server may say anything or nothing.
+/// It is displayed as reported and never used to decide behaviour, which is why it is a plain pair of
+/// strings rather than something parsed.
+/// </remarks>
+public sealed record ServerIdentity(string? Name, string? Version);
 
 /// <summary>
 /// The inspectable set of language-service connections.

@@ -57,6 +57,13 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public event EventHandler<ShowMessageParams>? MessageShown;
     public event EventHandler? ConnectionsChanged;
 
+    /// <summary>
+    /// The <see cref="ILspClient"/> half of the same signal. A caller holding this object as a single
+    /// client wants to know when "is anything listening" changed; a caller holding it as a registry wants
+    /// to know when any row changed. Those are the same moment, so this forwards rather than duplicating.
+    /// </summary>
+    public event EventHandler? StateChanged;
+
     /// <summary>True when any connection is up — "is language intelligence available at all".</summary>
     /// <remarks>
     /// Callers use this as a cheap gate before asking for a feature, so the useful meaning is "is anything
@@ -72,6 +79,13 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// </summary>
     public JsonElement? AdvertisedCapabilities => null;
 
+    /// <summary>
+    /// Null for the same reason as <see cref="AdvertisedCapabilities"/>: several servers may be attached
+    /// and there is no honest single answer to "what did the server call itself". The attributed answer
+    /// is on each <see cref="Connections"/> row.
+    /// </summary>
+    public ServerIdentity? ReportedIdentity => null;
+
     public IReadOnlyList<LanguageServerConfigProblem> ConfigurationProblems { get; }
 
     public IReadOnlyList<LanguageServerConnection> Connections =>
@@ -82,7 +96,12 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             ProjectedState(e),
             e.Registration.Extensions,
             e.Registration.LanguageId,
-            e.Client?.AdvertisedCapabilities)).ToList();
+            e.Client?.AdvertisedCapabilities,
+            e.Registration.Transport,
+            e.Registration.Endpoint,
+            e.Registration.Priority,
+            e.StateSince,
+            e.Client?.ReportedIdentity)).ToList();
 
     /// <summary>
     /// What a connection's state is <em>now</em>, rather than what it was when something last wrote it down.
@@ -134,9 +153,11 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             if (e.Client is not { } client) continue;
             client.DiagnosticsPublished -= OnInnerDiagnostics;
             client.MessageShown -= OnInnerMessage;
+            client.StateChanged -= OnInnerStateChanged;
             try { await client.StopAsync(); } catch (Exception ex) { _logger.LogDebug(ex, "Stop failed for {Id}", e.Registration.Id); }
             e.Client = null;
             e.State = LanguageConnectionState.Stopped;
+            e.StateSince = DateTimeOffset.UtcNow;
         }
         ConnectionsChanged?.Invoke(this, EventArgs.Empty);
     }
@@ -366,11 +387,13 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
             client.DiagnosticsPublished -= OnInnerDiagnostics;
             client.MessageShown -= OnInnerMessage;
+            client.StateChanged -= OnInnerStateChanged;
             try { await client.StopAsync(); }
             catch (Exception ex) { _logger.LogDebug(ex, "Stop failed for {Id}", e.Registration.Id); }
             e.Client = null;
             // NotStarted rather than Stopped: this one is eligible to run again, at the new root.
             e.State = LanguageConnectionState.NotStarted;
+            e.StateSince = DateTimeOffset.UtcNow;
         }
 
         _rootedAt = current;
@@ -403,15 +426,18 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             if (e.Client is not null) return;
 
             e.State = LanguageConnectionState.Starting;
+            e.StateSince = DateTimeOffset.UtcNow;
             ConnectionsChanged?.Invoke(this, EventArgs.Empty);
 
             var client = e.Registration.CreateClient();
             client.DiagnosticsPublished += OnInnerDiagnostics;
             client.MessageShown += OnInnerMessage;
+            client.StateChanged += OnInnerStateChanged;
             e.Client = client;
 
             await client.StartAsync(cancellationToken);
             e.State = client.IsRunning ? LanguageConnectionState.Running : LanguageConnectionState.Failed;
+            e.StateSince = DateTimeOffset.UtcNow;
 
             if (!client.IsRunning)
                 _logger.LogWarning("Language server '{Id}' did not start; its languages have no support.",
@@ -423,6 +449,7 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             // own languages, not the IDE.
             _logger.LogWarning(ex, "Language server '{Id}' failed to start.", e.Registration.Id);
             e.State = LanguageConnectionState.Failed;
+            e.StateSince = DateTimeOffset.UtcNow;
         }
         finally
         {
@@ -437,6 +464,18 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// </summary>
     private void OnInnerMessage(object? sender, ShowMessageParams p) => MessageShown?.Invoke(this, p);
 
+    /// <summary>
+    /// A connection came up or went away on its own — a transport closing, or a reconnect loop getting
+    /// through. Nothing in the registry writes a state on those paths, which is exactly why the projection
+    /// reconciles rather than trusting the cache; this is the other half, so a view refreshes when it
+    /// happens instead of when something else happens to ask.
+    /// </summary>
+    private void OnInnerStateChanged(object? sender, EventArgs e)
+    {
+        ConnectionsChanged?.Invoke(this, EventArgs.Empty);
+        StateChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     private void OnInnerDiagnostics(object? sender, PublishDiagnosticsParams p) =>
         // Forwarded with this registry as the sender: subscribers key on the URI, and which server produced
         // a diagnostic is not something the editor should have to reason about.
@@ -447,6 +486,11 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         public LanguageServerRegistration Registration { get; } = registration;
         public ILspClient? Client;
         public LanguageConnectionState State = LanguageConnectionState.NotStarted;
+
+        /// <summary>When <see cref="State"/> was last written. Null until something happens, which is
+        /// itself the honest answer for a registration nothing has started yet.</summary>
+        public DateTimeOffset? StateSince;
+
         public readonly SemaphoreSlim Gate = new(1, 1);
     }
 }
