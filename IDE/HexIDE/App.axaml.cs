@@ -90,10 +90,6 @@ public partial class App : Application
                 rootViewModel.ObservePropertyChanged(x => x.WindowTitle)
                     .Subscribe(title => desktop.MainWindow.Title = title);
 
-#if DEBUG
-                desktop.MainWindow.AttachDevTools();
-#endif
-
                 Static.MainView.WindowInitialized();
             }
             else
