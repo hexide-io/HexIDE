@@ -1,4 +1,4 @@
-# CLAUDE.md
+﻿# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -54,6 +54,23 @@ public repository. Do not reason about whether yours is "obviously" generic; jus
 check that the client speaks LSP to something that does not accommodate it. A client and server by one hand
 agree with each other rather than with the specification, which is how three defects hid until a foreign
 server was pointed at (`ForeignServerFixture.cs` has the history).
+
+**They do not cover teardown, and a fourth defect hid there.** Both end-to-end tests dispose the
+registry as best-effort (`ForeignServerIntegrationTests.cs`, `TwoForeignServersTests.cs`), and
+`VBLspClient.StopAsync` swallows its own exceptions — so a `shutdown` that **two of the three** reject
+(rumdl, and a second server on another framework; texlab happens to accept it) was invisible to all of
+them. Worse, two tests in
+`HexIDE.VbLspServer.Tests` sent the same non-conformant request themselves, and the bundled server accepts
+it — so the suite agreed with the bug. It was found by driving a *fourth*, externally-authored server and
+reading its **exit code**: LSP has a server exit 0 when a shutdown preceded exit and 1 otherwise, which
+made HexIDE's every clean exit look like a crash to any supervisor (hexide-io/HexIDE#312).
+
+The lesson generalises past the one bug: **an assertion that a request did not throw is not an
+assertion that the server accepted it**, and teardown is where this suite is weakest. When adding a
+protocol test, prefer asserting the wire frame or an observable server-side consequence over asserting
+that our own call returned. `ShutdownWireShapeTests` is the worked example — it reads the bytes,
+because a `[JsonRpcMethod]` handler cannot tell you whether `params` arrived as `[]`, `{}`, or not at
+all, and those three are not interchangeable to a real server.
 
 Three servers, chosen for **framework** diversity rather than language diversity — interop bugs come from
 the server's LSP library, not from the language being analysed:

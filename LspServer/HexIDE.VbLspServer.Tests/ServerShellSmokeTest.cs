@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+﻿// SPDX-License-Identifier: MIT
 // Copyright (C) 2026 The HexIDE Authors
 // Phase 2 acceptance: the MIT server shell boots over a stream pair and completes the LSP
 // lifecycle, driven by StreamJsonRpc (the same transport the real IDE client uses).
@@ -90,8 +90,9 @@ public class ServerShellSmokeTest
         symbols[0].GetProperty("name").GetString().Should().NotBeNullOrEmpty();
 
         // Clean lifecycle teardown.
-        await rpc.InvokeAsync<object?>("shutdown").WaitAsync(Timeout, TestContext.Current.CancellationToken);
-        await rpc.NotifyAsync("exit");
+        await rpc.InvokeWithParameterObjectAsync<object?>("shutdown", null, TestContext.Current.CancellationToken)
+            .WaitAsync(Timeout, TestContext.Current.CancellationToken);
+        await rpc.NotifyWithParameterObjectAsync("exit", null);
 
         server.Exit();
         await loop.WaitAsync(Timeout, TestContext.Current.CancellationToken);
