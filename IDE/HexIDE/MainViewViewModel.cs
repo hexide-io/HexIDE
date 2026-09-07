@@ -26,6 +26,8 @@ using HexIDE.Runtime.ProjectElements;
 using HexIDE.Addins;
 using HexIDE.Tools;
 using HexIDE.Tools.ObjectBrowser;
+using System.Windows.Input;
+using HexIDE.Tools.LanguageServers;
 using HexIDE.Tools.TranslationEditor;
 using HexIDE.Utils;
 using HexIDE.VisualDesigner;
@@ -82,6 +84,7 @@ public partial class MainViewViewModel : ObservableObject
     public ColorPaletteToolViewModel ColorPalette { get; }
     public ObjectBrowserToolViewModel ObjectBrowser { get; }
     public TranslationEditorViewModel TranslationEditor { get; }
+    public LanguageServersToolViewModel LanguageServers { get; }
     public IFocusedProjectUtil FocusedProjectUtil { get; }
 
     public IStatusBarService StatusBar { get; }
@@ -211,6 +214,7 @@ public partial class MainViewViewModel : ObservableObject
             ColorPaletteToolViewModel colorPalette,
             ObjectBrowserToolViewModel objectBrowser,
             TranslationEditorViewModel translationEditor,
+            LanguageServersToolViewModel languageServers,
             IWindowStateService windowStateService)
         {
             this.windowStateService = windowStateService;
@@ -227,6 +231,7 @@ public partial class MainViewViewModel : ObservableObject
                 ["colorPalette"]      = colorPalette,
                 ["objectBrowser"]     = objectBrowser,
                 ["translationEditor"] = translationEditor,
+                ["languageServers"]   = languageServers,
             };
         }
 
@@ -659,6 +664,7 @@ public partial class MainViewViewModel : ObservableObject
         ColorPaletteToolViewModel colorPalette,
         ObjectBrowserToolViewModel objectBrowser,
         TranslationEditorViewModel translationEditor,
+        LanguageServersToolViewModel languageServers,
         IProjectManager projectManager,
         IFocusedProjectUtil focusedProjectUtil,
         IProjectService projectService,
@@ -734,6 +740,8 @@ public partial class MainViewViewModel : ObservableObject
         ColorPalette = colorPalette;
         ObjectBrowser = objectBrowser;
         TranslationEditor = translationEditor;
+        LanguageServers = languageServers;
+        OpenLanguageServersCommand = new DelegateCommand(OpenLanguageServers);
         FocusedProjectUtil = focusedProjectUtil;
 
         this.windowStateService = windowStateService;
@@ -1392,6 +1400,29 @@ public partial class MainViewViewModel : ObservableObject
         docDock.ActiveDockable = ObjectBrowser;
         ScheduleLayoutSave();
     }
+    /// <summary>Opens the language-server view, or brings it forward if it is already open.</summary>
+    public ICommand OpenLanguageServersCommand { get; private set; } = null!;
+
+    public void OpenLanguageServers()
+    {
+        var docDock = FindDock<DocumentDock>(_ => true);
+        if (docDock == null) return;
+
+        if (docDock.VisibleDockables?.Contains(LanguageServers) == true)
+        {
+            dockFactory.SetFocusedDockable(docDock, LanguageServers);
+            docDock.ActiveDockable = LanguageServers;
+            return;
+        }
+
+        docDock.VisibleDockables ??= dockFactory.CreateList<IDockable>();
+        docDock.VisibleDockables.Add(LanguageServers);
+        dockFactory.InitDockable(LanguageServers, docDock);
+        dockFactory.SetFocusedDockable(docDock, LanguageServers);
+        docDock.ActiveDockable = LanguageServers;
+        ScheduleLayoutSave();
+    }
+
     public void OpenTranslationEditor()
     {
         var docDock = FindDock<DocumentDock>(_ => true);

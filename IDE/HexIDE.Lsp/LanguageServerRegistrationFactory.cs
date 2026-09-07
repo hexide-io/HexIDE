@@ -36,7 +36,7 @@ public sealed class LanguageServerRegistrationFactory(ILoggerFactory loggerFacto
         foreach (var entry in entries)
         {
             if (entry.Enabled == false || entry.Id is not { } id) continue;
-            if (TransportFactoryFor(entry) is not { } transport) continue;
+            if (TransportFor(entry) is not { } transport) continue;
 
             var languageId = entry.LanguageId ?? "";
             registrations.Add(new LanguageServerRegistration(
@@ -45,8 +45,10 @@ public sealed class LanguageServerRegistrationFactory(ILoggerFactory loggerFacto
                 Extensions: entry.Extensions ?? [],
                 LanguageId: languageId,
                 CreateClient: () => new VBLspClient(
-                    transport(), loggerFactory.CreateLogger<VBLspClient>(), languageId, workspace),
-                Priority: entry.Priority ?? 0));
+                    transport.Create(), loggerFactory.CreateLogger<VBLspClient>(), languageId, workspace),
+                Priority: entry.Priority ?? 0,
+                Transport: transport.Kind,
+                Endpoint: transport.Endpoint));
         }
 
         return registrations;
@@ -61,6 +63,44 @@ public sealed class LanguageServerRegistrationFactory(ILoggerFactory loggerFacto
     /// field is missing — but it is not this class's place to assume the loader ran.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// A transport factory together with what it is — the kind, and the address it resolved to.
+    /// </summary>
+    /// <remarks>
+    /// One method returns all three deliberately. The obvious alternative is a second switch that describes
+    /// what the first one built, and two switches over the same input drift: a transport added to one and
+    /// forgotten in the other yields a working connection that reports itself as something else, which is
+    /// worse than reporting nothing.
+    /// </remarks>
+    private sealed record TransportChoice(
+        Func<ILspTransport> Create, LanguageConnectionTransport Kind, string? Endpoint);
+
+    private TransportChoice? TransportFor(LanguageServerEntry entry)
+    {
+        if (TransportFactoryFor(entry) is not { } create) return null;
+
+        return entry.Transport?.Trim().ToLowerInvariant() switch
+        {
+            // The command line as the user wrote it. This is the first thing anyone needs when a server
+            // does not start, and it must be comparable to their own file character for character.
+            "stdio" => new TransportChoice(create, LanguageConnectionTransport.Stdio,
+                string.Join(' ', new[] { entry.Command?.Trim(), entry.Arguments?.Trim() }
+                    .Where(part => !string.IsNullOrWhiteSpace(part)))),
+
+            "websocket" => new TransportChoice(create, LanguageConnectionTransport.WebSocket,
+                entry.Endpoint?.Trim()),
+
+            // The role belongs with the name: connecting to a pipe and owning one fail in opposite ways,
+            // and "nothing dialled in" reads identically to "nothing was listening" without it.
+            "pipe" => new TransportChoice(create, LanguageConnectionTransport.Pipe,
+                string.Equals(entry.PipeRole?.Trim(), "listen", StringComparison.OrdinalIgnoreCase)
+                    ? $"{entry.PipeName?.Trim()} (listen)"
+                    : $"{entry.PipeName?.Trim()} (connect)"),
+
+            _ => null,
+        };
+    }
+
     private Func<ILspTransport>? TransportFactoryFor(LanguageServerEntry entry) =>
         entry.Transport?.Trim().ToLowerInvariant() switch
         {

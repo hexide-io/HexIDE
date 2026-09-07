@@ -23,7 +23,26 @@ public interface ILspClient : IAsyncDisposable
     /// </summary>
     event EventHandler<ShowMessageParams>? MessageShown;
 
+    /// <summary>
+    /// Fired when this client's liveness changes — connected, disconnected, or reconnected.
+    ///
+    /// <para>
+    /// Without it, a connection's death is observable only by asking. The registry writes a state down at
+    /// five points and none of them is a death path, so the far end going away used to be invisible until
+    /// something happened to look. A view that only refreshes when the IDE does something else is a view
+    /// that reports the past.
+    /// </para>
+    /// </summary>
+    event EventHandler? StateChanged;
+
     bool IsRunning { get; }
+
+    /// <summary>
+    /// What the server called itself during <c>initialize</c>, or null if it said nothing or nothing is
+    /// connected. Reported, never trusted: it is the only answer to "which build am I talking to", and it
+    /// is the server's own claim about itself.
+    /// </summary>
+    ServerIdentity? ReportedIdentity { get; }
 
     /// <summary>
     /// What the server advertised during initialize, exactly as it sent it — or null if nothing is

@@ -37,13 +37,24 @@ namespace HexIDE.Lsp;
 /// answers. Equal priorities fall back to registration order, which is deterministic but accidental: it
 /// varies with discovery, and discovery changes when a server is installed or removed.
 /// </param>
+/// <param name="Transport">
+/// How this server is reached. Carried here because the choice is made once, when the registration is built
+/// from configuration, and then consumed into a closure — so without it the transport is knowable at the
+/// moment of construction and nowhere afterwards, including to anything wanting to report what is attached.
+/// </param>
+/// <param name="Endpoint">
+/// The resolved destination that goes with <paramref name="Transport"/>: a command line, a URL, or a pipe
+/// name and role. Null when the transport carries no meaningful address.
+/// </param>
 public sealed record LanguageServerRegistration(
     string Id,
     string DisplayName,
     IReadOnlyList<string> Extensions,
     string LanguageId,
     Func<ILspClient> CreateClient,
-    int Priority = 0)
+    int Priority = 0,
+    LanguageConnectionTransport Transport = LanguageConnectionTransport.Stdio,
+    string? Endpoint = null)
 {
     /// <summary>
     /// The priority the entries HexIDE contributes itself are given — deliberately below the value an

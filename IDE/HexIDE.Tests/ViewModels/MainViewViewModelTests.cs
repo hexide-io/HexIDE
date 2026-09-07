@@ -7,6 +7,7 @@ using HexIDE.Localization;
 using HexIDE.Projects;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Lsp;
+using HexIDE.Tools.LanguageServers;
 using HexIDE.Themes;
 using HexIDE.Tools;
 using HexIDE.Tools.ObjectBrowser;
@@ -56,9 +57,17 @@ public class MainViewViewModelTests
         var translationEditor = new TranslationEditorViewModel(loc, Substitute.For<IUserTranslationsService>(), _windowManager);
         var windowStateService = Substitute.For<IWindowStateService>();
 
+        // A registry with nothing attached: the view model reads Connections and
+        // ConfigurationProblems in its constructor.
+        var lsRegistry = Substitute.For<ILanguageConnectionRegistry>();
+        lsRegistry.Connections.Returns([]);
+        lsRegistry.ConfigurationProblems.Returns([]);
+        var languageServers = new LanguageServersToolViewModel(lsRegistry, loc);
+
         var dockFactory = new MainViewViewModel.DockFactory(
             toolBox, projectExplorer, properties, formLayout,
             immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
+            languageServers,
             windowStateService);
 
         _sut = new MainViewViewModel(
@@ -74,6 +83,7 @@ public class MainViewViewModelTests
             colorPalette,
             objectBrowser,
             translationEditor,
+            languageServers,
             _projectManager,
             _focusedProjectUtil,
             _projectService,
