@@ -12,7 +12,6 @@
 
     <ItemGroup>
         <PackageReference Include="Avalonia" />
-        <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
         <PackageReference Include="Classic.Avalonia.Theme" />
         <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="Serilog" />

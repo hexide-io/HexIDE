@@ -1,4 +1,4 @@
-<Project>
+﻿<Project>
   <PropertyGroup>
     <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
@@ -20,7 +20,6 @@
          11.2.x) — building against it fails with AVLIC0001 (no licence key). Deliberately NOT used; the debugger
          Locals pane uses a native Avalonia TreeView + a columnar row template instead. Do not re-add it. -->
     <PackageVersion Include="Avalonia.Desktop" Version="12.0.4" />
-    <PackageVersion Include="Avalonia.Diagnostics" Version="11.3.17" />
     <PackageVersion Include="Avalonia.Headless" Version="12.0.2" />
     <PackageVersion Include="Avalonia.Headless.XUnit" Version="12.0.2" />
     <PackageVersion Include="Avalonia.Skia" Version="12.0.4" />
@@ -41,7 +40,6 @@
     <PackageVersion Include="Dock.Model" Version="12.0.0.2" />
     <PackageVersion Include="Dock.Model.Avalonia" Version="12.0.0.2" />
     <PackageVersion Include="Dock.Model.MVVM" Version="12.0.0.2" />
-    <PackageVersion Include="Dock.Serializer" Version="11.3.0.12" />
   </ItemGroup>
   <!-- ANTLR4 -->
   <ItemGroup>
@@ -78,12 +76,8 @@
   <!-- Testing -->
   <ItemGroup>
     <PackageVersion Include="AwesomeAssertions" Version="9.4.0" />
-    <PackageVersion Include="coverlet.collector" Version="10.0.1" />
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.6.0" />
     <PackageVersion Include="NSubstitute" Version="5.3.0" />
-    <PackageVersion Include="xunit" Version="2.9.3" />
     <PackageVersion Include="xunit.analyzers" Version="2.0.0-pre.40" />
-    <PackageVersion Include="xunit.runner.visualstudio" Version="4.0.0-pre.4" />
     <!-- CEILING, not a stale pin. xunit.v3 4.0.0 (still "Core Framework v3" — the package version and the
          framework generation are decoupled) breaks Avalonia.Headless.XUnit: MissingMethodException in
          AvaloniaFactDiscoverer.CreateTestCase, AvaloniaUI/Avalonia#22072, open and confirmed upstream.
@@ -99,6 +93,5 @@
   <ItemGroup>
     <PackageVersion Include="LanguageExt.Core" Version="5.0.0-beta-77" />
     <PackageVersion Include="Svg.Skia" Version="2.0.0" />
-    <PackageVersion Include="Tmds.DBus.Protocol" Version="0.94.1" />
   </ItemGroup>
 </Project>

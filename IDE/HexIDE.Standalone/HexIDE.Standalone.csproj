@@ -33,7 +33,6 @@
     <ItemGroup>
         <PackageReference Include="Avalonia" />
         <PackageReference Include="Avalonia.Themes.Simple" />
-        <PackageReference Include="Avalonia.Diagnostics" />
         <PackageReference Include="Avalonia.Desktop" />
         <PackageReference Include="Classic.Avalonia.Theme" />
         <PackageReference Include="PropertyChanged.SourceGenerator" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />

@@ -53,7 +53,7 @@ Upstream fork: HexIDE is a derived work of **AvaloniaVisualBasic6** by Bartosz K
 <https://github.com/BAndysc/AvaloniaVisualBasic6>. Icons: see **Icons** below.
 
 *Build- and test-time only (not redistributed in the app):* Antlr4BuildTasks, Svg.Skia, xUnit,
-NSubstitute, AwesomeAssertions, coverlet, Microsoft.NET.Test.Sdk, Avalonia.Headless, Avalonia.Diagnostics.
+NSubstitute, AwesomeAssertions, coverlet, Microsoft.NET.Test.Sdk, Avalonia.Headless.
 The MCP automation server (`ModelContextProtocol.AspNetCore`) is compiled in for **Debug only** and is
 excluded from Release binaries.
 

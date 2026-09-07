@@ -31,7 +31,6 @@
 
   <ItemGroup>
     <PackageReference Include="Avalonia.Desktop" />
-    <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
     <!-- The embedded MCP server is a DEV/automation tool. It is compiled out of Release builds: no
          AspNetCore framework dependency, no Server/ code, no open port on an end-user's machine. -->
     <FrameworkReference Include="Microsoft.AspNetCore.App" Condition="'$(Configuration)' == 'Debug'" />

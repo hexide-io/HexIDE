@@ -418,9 +418,6 @@ public class VBLoader
             appInfo: Interpreter.AppInfo.FromProject(element.Owner),
             additionalModules: standardModules, classModules: classModules);
         window.Show();
-#if DEBUG
-        window.AttachDevTools();
-#endif
 
         var tcs = new TaskCompletionSource();
 

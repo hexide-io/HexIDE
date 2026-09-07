@@ -16,10 +16,6 @@ public partial class MainWindow : Window
         CommandManager.SetCommandBindings(this, CommandManager.GetCommandBindings(MainView));
         CommandManager.InvalidateRequerySuggested();
 
-#if DEBUG
-        this.AttachDevTools();
-#endif
-
         Activated += OnActivated;
     }
 

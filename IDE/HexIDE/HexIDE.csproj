@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFrameworks>$(DotNetVersion)</TargetFrameworks>
         <Nullable>enable</Nullable>
@@ -17,7 +17,6 @@
         <PackageReference Include="Avalonia.Controls.DataGrid" />
         <PackageReference Include="Avalonia.Controls.ColorPicker" />
         <PackageReference Include="Classic.Avalonia.Theme" />
-        <PackageReference Include="Avalonia.Diagnostics" Condition="'$(Configuration)' == 'Debug'" />
         <PackageReference Include="CommunityToolkit.Mvvm" />
         <PackageReference Include="Pure.DI" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers" />
         <PackageReference Include="Dock.Avalonia" />
@@ -25,7 +24,6 @@
         <PackageReference Include="Dock.Model" />
         <PackageReference Include="Dock.Model.MVVM" />
         <PackageReference Include="Dock.Model.Avalonia" />
-        <PackageReference Include="Dock.Serializer" />
         <PackageReference Include="PropertyChanged.SourceGenerator" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
         <PackageReference Include="R3" />
     </ItemGroup>
