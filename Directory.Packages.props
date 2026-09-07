@@ -41,7 +41,6 @@
     <PackageVersion Include="Dock.Model" Version="12.0.0.2" />
     <PackageVersion Include="Dock.Model.Avalonia" Version="12.0.0.2" />
     <PackageVersion Include="Dock.Model.MVVM" Version="12.0.0.2" />
-    <PackageVersion Include="Dock.Serializer" Version="11.3.0.12" />
   </ItemGroup>
   <!-- ANTLR4 -->
   <ItemGroup>
