@@ -101,6 +101,31 @@ public sealed class LanguageServerRegistrationFactory(ILoggerFactory loggerFacto
         };
     }
 
+    /// <summary>
+    /// How to start the server behind a pipe entry, or null when the entry connects to one that is
+    /// already running.
+    /// </summary>
+    /// <remarks>
+    /// <c>{pipe}</c> in the arguments is substituted with the agreed pipe name by the transport, which is
+    /// what makes this usable at all: a server that is told which pipe to create cannot be given a fixed
+    /// command line.
+    ///
+    /// <para>
+    /// Note the consequence for reconnection: a launched transport reports <c>CanReconnect == false</c>,
+    /// because HexIDE owns the process. If it dies, retrying the same pipe would wait for a server nobody
+    /// is going to start.
+    /// </para>
+    /// </remarks>
+    private static NamedPipeLaunch? LaunchFor(LanguageServerEntry entry) =>
+        string.IsNullOrWhiteSpace(entry.Command)
+            ? null
+            : new NamedPipeLaunch(
+                entry.Command!.Trim(),
+                entry.Arguments?.Trim() ?? "",
+                // Empty means "inherit", which for a server whose own file discovery is relative to its
+                // working directory is rarely what anyone wants — but it is the caller's call, not ours.
+                string.IsNullOrWhiteSpace(entry.WorkingDirectory) ? null : entry.WorkingDirectory.Trim());
+
     private Func<ILspTransport>? TransportFactoryFor(LanguageServerEntry entry) =>
         entry.Transport?.Trim().ToLowerInvariant() switch
         {
@@ -125,7 +150,12 @@ public sealed class LanguageServerRegistrationFactory(ILoggerFactory loggerFacto
                 string.Equals(entry.PipeRole?.Trim(), "listen", StringComparison.OrdinalIgnoreCase)
                     ? NamedPipeRole.Listen
                     : NamedPipeRole.Connect,
-                loggerFactory.CreateLogger<NamedPipeLspTransport>()),
+                loggerFactory.CreateLogger<NamedPipeLspTransport>(),
+                // The transport has always accepted this and nothing ever passed one, so from
+                // configuration the pipe arm could only ever CONNECT — a server reached this way had to be
+                // started by hand, outside the IDE, before the IDE would find it. A command makes the
+                // entry self-contained; without one the behaviour is exactly as before.
+                LaunchFor(entry)),
 
             _ => null,
         };

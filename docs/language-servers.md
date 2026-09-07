@@ -54,7 +54,7 @@ Comments and trailing commas are allowed — this is a file you edit by hand, no
 | `extensions` | yes | The file extensions this server **serves**. This is what routing reads. |
 | `languageId` | yes | What this server wants those files **called**, in the protocol sense. |
 | `transport` | yes | `stdio`, `pipe` or `websocket`. |
-| `command` | for `stdio` | The executable to launch. |
+| `command` | for `stdio` | The executable to launch. Optional on `pipe` — see *Starting the server yourself* below. |
 | `arguments` | no | Command line. Part of the command's identity — see *A command you have not run before*. |
 | `workingDirectory` | no | Empty means the server runs in whichever project is open, which is usually what you want. |
 | `pipeName` / `pipeRole` | for `pipe` | `pipeRole` is `connect` (default) or `listen`. |
@@ -76,6 +76,39 @@ recognised as serving them if it declares VB6 source extensions (`.bas`, `.frm`,
 names the language `vb6` directly. Declaring only `.cls` is not enough, because a `.cls` is equally a
 LaTeX class file and reading that as a claim on VB6 would hand a LaTeX server your project's source.
 
+## Letting HexIDE start a pipe server
+
+A `pipe` entry connects to a server that is already running. Give it a `command` and HexIDE will start
+that server itself, then connect to it — which makes the entry self-contained, rather than something that
+only works if you remembered to launch the server first.
+
+```jsonc
+{
+  "id": "example",
+  "extensions": [".bas"],
+  "languageId": "vba",
+  "transport": "pipe",
+  "pipeName": "hexide.example",
+  "command": "C:/tools/example-server.exe",
+  "arguments": "--pipe {pipe}",
+  "workingDirectory": "C:/tools/example"
+}
+```
+
+**`{pipe}` in `arguments` is replaced with the pipe name.** Without it this would not be much use: a
+server that has to be told which pipe to create cannot be given a fixed command line.
+
+`workingDirectory` matters more here than it does for `stdio`. Some servers resolve their own
+configuration relative to where they were started, so the directory you launch them from is part of
+whether they work at all. Leave it out and the server inherits the IDE's.
+
+**A launched server is not reconnected to.** When HexIDE owns the process, a server that dies stays dead
+for the session: retrying the same pipe would mean waiting for something nobody is going to start. A pipe
+entry with no `command` behaves as it always has, and is re-dialled, because its lifetime is someone
+else's business.
+
+It also changes who is announcing what — see below.
+
 ## A command you have not run before
 
 The first time HexIDE is asked to launch a particular command line, it says so rather than launching it
@@ -86,6 +119,11 @@ indefinitely and silently.
 
 The **arguments are part of the command's identity**, not just the executable: `node` is harmless, and
 `node /tmp/something.js` is whatever that script says.
+
+This applies to a `pipe` entry that carries a `command` exactly as it does to a `stdio` one. What
+decides it is whether HexIDE starts a process, not which transport the entry names — a pipe it merely
+connects to is someone else's decision to have run something, and announcing that would be reporting
+a fact about a program the IDE did not start.
 
 Nothing is refused — refusing to run what you typed into your own file would be theatre. The launch is
 simply not silent.
