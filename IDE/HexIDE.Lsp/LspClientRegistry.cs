@@ -86,6 +86,13 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// </summary>
     public ServerIdentity? ReportedIdentity => null;
 
+    /// <summary>Null for the same reason as the two above: attributed per row, meaningless in aggregate.</summary>
+    public LanguageConnectionAttempt? LastAttempt => null;
+
+    /// <summary>Empty, not null. Aggregating refusals across servers would say a feature was declined
+    /// when one server declined it and another served it.</summary>
+    public IReadOnlyList<string> DeclinedCapabilities => [];
+
     public IReadOnlyList<LanguageServerConfigProblem> ConfigurationProblems { get; }
 
     public IReadOnlyList<LanguageServerConnection> Connections =>
@@ -101,7 +108,11 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             e.Registration.Endpoint,
             e.Registration.Priority,
             e.StateSince,
-            e.Client?.ReportedIdentity)).ToList();
+            e.Client?.ReportedIdentity,
+            e.Client?.LastAttempt ?? e.LastAttempt,
+            e.Client?.DeclinedCapabilities,
+            (e.Client as VBLspClient)?.OpenDocumentCount ?? 0,
+            (e.Client as VBLspClient)?.SentWorkspaceRootUri)).ToList();
 
     /// <summary>
     /// What a connection's state is <em>now</em>, rather than what it was when something last wrote it down.
@@ -448,6 +459,14 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             // Graceful absence, as everywhere else on this seam: a server that will not start disables its
             // own languages, not the IDE.
             _logger.LogWarning(ex, "Language server '{Id}' failed to start.", e.Registration.Id);
+            // A throw here can precede the client existing at all, so the registry has to hold the
+            // reason itself; otherwise the row says Failed and nothing else.
+            e.LastAttempt ??= new LanguageConnectionAttempt(
+                LanguageConnectionStage.Connecting,
+                [new LanguageConnectionStep(
+                    LanguageConnectionStage.Connecting,
+                    LanguageConnectionStepOutcome.StoppedHere, null, ex.Message)],
+                DateTimeOffset.UtcNow);
             e.State = LanguageConnectionState.Failed;
             e.StateSince = DateTimeOffset.UtcNow;
         }
@@ -490,6 +509,10 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         /// <summary>When <see cref="State"/> was last written. Null until something happens, which is
         /// itself the honest answer for a registration nothing has started yet.</summary>
         public DateTimeOffset? StateSince;
+
+        /// <summary>Set when the attempt failed before a client existed to hold it — a throw inside
+        /// CreateClient, for instance. The client's own record wins whenever there is one.</summary>
+        public LanguageConnectionAttempt? LastAttempt;
 
         public readonly SemaphoreSlim Gate = new(1, 1);
     }

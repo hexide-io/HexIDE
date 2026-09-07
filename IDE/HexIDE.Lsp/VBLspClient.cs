@@ -47,6 +47,72 @@ public sealed class VBLspClient : ILspClient
     /// it never outlives the thing it describes.</summary>
     public ServerIdentity? ReportedIdentity => _identity;
 
+    private LanguageConnectionAttempt? _attempt;
+
+    /// <summary>The chain of the last connect attempt, and where it stopped.</summary>
+    public LanguageConnectionAttempt? LastAttempt => _attempt;
+
+    /// <summary>
+    /// How many documents this client currently has open on the server.
+    /// </summary>
+    /// <remarks>
+    /// Worth surfacing because zero is a real answer with two quite different causes: nothing of this
+    /// language is open, or documents ARE open and are not reaching the server. hexide-io/HexIDE#273 is
+    /// the second case, and it is otherwise indistinguishable from a healthy idle connection.
+    /// </remarks>
+    public int OpenDocumentCount
+    {
+        get { lock (_openDocuments) return _openDocuments.Count; }
+    }
+
+    /// <summary>The workspace root actually sent at initialize, or null if none was.</summary>
+    public string? SentWorkspaceRootUri { get; private set; }
+
+    /// <summary>Requests declined because the server never advertised them. A snapshot of the keys: the
+    /// backing store is a ConcurrentDictionary written from request paths on other threads, so no lock is
+    /// needed and none is taken.</summary>
+    public IReadOnlyList<string> DeclinedCapabilities => [.. _warnedCapabilities.Keys];
+
+    /// <summary>
+    /// Records one connect attempt as it happens.
+    /// </summary>
+    /// <remarks>
+    /// Built forward rather than reconstructed afterwards: by the time a caller sees a null handler or a
+    /// caught exception, which of five different things went wrong is no longer recoverable from anything
+    /// the client keeps. The stopwatch is per attempt, so a hung handshake reads as the duration it hung
+    /// for rather than as a wall-clock timestamp nobody can subtract in their head.
+    /// </remarks>
+    private sealed class AttemptRecorder
+    {
+        private readonly List<LanguageConnectionStep> _steps = [];
+        private readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
+        private readonly DateTimeOffset _startedAt = DateTimeOffset.UtcNow;
+        private LanguageConnectionStage _reached = LanguageConnectionStage.NotAttempted;
+
+        public void Reached(LanguageConnectionStage stage)
+        {
+            _reached = stage;
+            _steps.Add(new LanguageConnectionStep(
+                stage, LanguageConnectionStepOutcome.Reached, _clock.Elapsed, null));
+        }
+
+        public LanguageConnectionAttempt StoppedAt(
+            LanguageConnectionStage stage, string? detail,
+            LanguageConnectionStepOutcome outcome = LanguageConnectionStepOutcome.StoppedHere)
+        {
+            // A stage is one rung. Reaching it and then stopping there is the SAME rung changing outcome,
+            // not two events -- appending would render "Connecting" twice, once with a tick and once with
+            // a cross, which reads as two attempts. Caught by looking at it, not by a test.
+            var i = _steps.FindLastIndex(s => s.Stage == stage);
+            var step = new LanguageConnectionStep(stage, outcome, _clock.Elapsed, detail);
+            if (i >= 0) _steps[i] = step; else _steps.Add(step);
+            return Build(stage);
+        }
+
+        public LanguageConnectionAttempt Build(LanguageConnectionStage? reached = null) =>
+            new(reached ?? _reached, _steps, _startedAt);
+    }
+
     /// <summary>Raised outside any lock, and never allowed to take the client down with a bad handler:
     /// this fires from transport and RPC callbacks, where an exception has nowhere useful to go.</summary>
     private void RaiseStateChanged()
@@ -119,19 +185,27 @@ public sealed class VBLspClient : ILspClient
                 PropertyNameCaseInsensitive = true,
             }
         };
+        var attempt = new AttemptRecorder();
+        attempt.Reached(LanguageConnectionStage.Connecting);
+
         var handler = await _transport.ConnectAsync(formatter, cancellationToken);
         if (handler is null)
         {
-            // No server/endpoint available — run with LSP features disabled.
+            // No server/endpoint available — run with LSP features disabled. `null` is the transport's
+            // whole vocabulary for failure, so the reason comes from the transport itself.
+            _attempt = attempt.StoppedAt(LanguageConnectionStage.Connecting, _transport.LastFailure);
+            RaiseStateChanged();
             return;
         }
+
+        attempt.Reached(LanguageConnectionStage.Connected);
 
         var rpc = new JsonRpc(handler, new LspNotificationReceiver(this));
         rpc.Disconnected += OnRpcDisconnected;
         _rpc = rpc;
         rpc.StartListening();
 
-        await InitializeAsync(cancellationToken);
+        await InitializeAsync(cancellationToken, attempt);
 
         if (_initialized)
             await ReopenTrackedDocumentsAsync();
@@ -287,7 +361,7 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
-    private async Task InitializeAsync(CancellationToken cancellationToken)
+    private async Task InitializeAsync(CancellationToken cancellationToken, AttemptRecorder attempt)
     {
         if (_rpc is null) return;
 
@@ -324,6 +398,8 @@ public sealed class VBLspClient : ILspClient
         // will also ignore. Measured, after the first attempt at this fix used a linked token and hung
         // exactly as before. The token is still passed, so the server is told; the bound is here.
         JsonElement raw;
+        SentWorkspaceRootUri = WorkspaceRootUri();
+        attempt.Reached(LanguageConnectionStage.HandshakeSent);
         try
         {
             raw = await _rpc
@@ -335,21 +411,35 @@ public sealed class VBLspClient : ILspClient
         {
             // Someone called Stop while we were waiting. Ordinary shutdown, not a fault.
             _logger.LogDebug("Initialize abandoned: the client was stopped during the handshake.");
+            // Cancelled, NOT stopped: the IDE was shutting down and nothing was wrong. The registry
+            // writes Failed for this today, which makes every ordinary exit look like a fault.
+            _attempt = attempt.StoppedAt(
+                LanguageConnectionStage.HandshakeSent,
+                "the client was stopped during the handshake",
+                LanguageConnectionStepOutcome.Cancelled);
             return;
         }
         catch (TimeoutException)
         {
+            _attempt = attempt.StoppedAt(
+                LanguageConnectionStage.HandshakeSent,
+                $"the server did not answer initialize within {_initializeTimeout:g}");
             AbandonUnansweredHandshake();
+            RaiseStateChanged();
             return;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to initialize VB6 LSP server");
+            _attempt = attempt.StoppedAt(LanguageConnectionStage.HandshakeSent, ex.Message);
+            RaiseStateChanged();
             return;
         }
 
         _capabilities = ReadCapabilities(raw) is { } caps ? new CapabilitySnapshot(caps) : null;
         _identity = ReadServerIdentity(raw);
+        attempt.Reached(LanguageConnectionStage.Initialized);
+        _attempt = attempt.Build();
         _initialized = true;
         _logger.LogInformation("LSP server initialized: {Server}",
             _identity is { Name: { Length: > 0 } n }

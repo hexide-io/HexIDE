@@ -94,7 +94,86 @@ public sealed record LanguageServerConnection(
     string? Endpoint = null,
     int Priority = 0,
     DateTimeOffset? StateSince = null,
-    ServerIdentity? ReportedIdentity = null);
+    ServerIdentity? ReportedIdentity = null,
+    // ── appended, phase 2 ──
+    LanguageConnectionAttempt? Attempt = null,
+    // Not `= []`: a collection expression is not a constant, so it cannot be a parameter default.
+    IReadOnlyList<string>? DeclinedByClient = null,
+    int OpenDocumentCount = 0,
+    string? WorkspaceRootUri = null);
+
+/// <summary>
+/// How far a connection attempt got. Ordered, and the order is the sequence itself.
+/// </summary>
+/// <remarks>
+/// Deliberately NOT extra members on <see cref="LanguageConnectionState"/>. That enum answers "where is this
+/// now", is written in five places, and is read by code that decides whether to retry — widening it would
+/// make a reporting improvement into a behaviour change. This answers a different question, "how far did the
+/// last attempt get", and only a view reads it.
+/// </remarks>
+public enum LanguageConnectionStage
+{
+    /// <summary>Nothing was tried. A server for a language nothing has opened is here, on purpose.</summary>
+    NotAttempted,
+
+    /// <summary>Reaching the far end — launching a process, dialling a pipe, opening a socket.</summary>
+    Connecting,
+
+    /// <summary>The channel is open. Nothing has been said over it yet.</summary>
+    Connected,
+
+    /// <summary><c>initialize</c> has been sent and the reply is outstanding. Where a hung server sits.</summary>
+    HandshakeSent,
+
+    /// <summary>The reply arrived and was read. The connection is usable.</summary>
+    Initialized,
+}
+
+/// <summary>What happened at one stage.</summary>
+public enum LanguageConnectionStepOutcome
+{
+    /// <summary>Got here and moved on.</summary>
+    Reached,
+
+    /// <summary>Got here and stopped. Exactly one step in a failed attempt has this.</summary>
+    StoppedHere,
+
+    /// <summary>
+    /// Abandoned because the IDE was shutting down, not because anything was wrong.
+    /// </summary>
+    /// <remarks>
+    /// Distinct from <see cref="StoppedHere"/> for a reason with history: the registry writes
+    /// <c>Failed</c> for both today, so an ordinary exit looks like a fault. A timeout that cries wolf on
+    /// every shutdown is one a reader learns to ignore, which is how the signal gets lost.
+    /// </remarks>
+    Cancelled,
+
+    /// <summary>Never got this far.</summary>
+    NotAttempted,
+}
+
+/// <param name="Detail">
+/// Verbatim machine text — an exception message, an OS error, a JSON-RPC error, whatever the layer below
+/// actually said. <b>Never a localization key.</b> Translating it would destroy the thing that makes it
+/// worth showing, which is that it can be searched for and quoted to whoever wrote the server.
+/// </param>
+public sealed record LanguageConnectionStep(
+    LanguageConnectionStage Stage,
+    LanguageConnectionStepOutcome Outcome,
+    TimeSpan? At,
+    string? Detail);
+
+/// <summary>
+/// One attempt to bring a connection up, as a chain with the point it stopped at.
+/// </summary>
+/// <remarks>
+/// The shape is borrowed from the add-in trust view, which shows a chain and where it broke — the only
+/// mechanism in this codebase whose failures reach the UI at all. Everything else is a log line and silence.
+/// </remarks>
+public sealed record LanguageConnectionAttempt(
+    LanguageConnectionStage ReachedStage,
+    IReadOnlyList<LanguageConnectionStep> Steps,
+    DateTimeOffset StartedAt);
 
 /// <summary>How a connection is reached. The three the configuration file accepts, and nothing else.</summary>
 public enum LanguageConnectionTransport
