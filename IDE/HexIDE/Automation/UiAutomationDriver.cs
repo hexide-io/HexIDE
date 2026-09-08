@@ -373,18 +373,79 @@ public static class UiAutomationDriver
             if (!TryParseModifiers(modifiers, out var mods, out var modError))
                 return new InteractOutcome(false, "keyboard", null, modError);
 
-            var target = FindTextSurface(control) ?? control;
+            if (FindKeyTarget(control) is not { } target)
+                return new InteractOutcome(false, "keyboard", null,
+                    $"'{Describe(control)}' has nothing under it that can take keyboard focus, so a key "
+                  + "press there would go nowhere. Address a focusable control, or a text surface.");
+
             target.Focus();
             target.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = parsedKey, KeyModifiers = mods });
             target.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyUpEvent, Key = parsedKey, KeyModifiers = mods });
-            return new InteractOutcome(true, "keyboard",
-                $"pressed {(mods == KeyModifiers.None ? string.Empty : mods + "+")}{parsedKey}", null);
+
+            // Naming the receiver is half the point. Both gaps this closes presented as "reports success and
+            // nothing happens", and in each the answer was that the event went to a control other than the
+            // one the caller meant — which the old reply had no way to say.
+            var chord = mods == KeyModifiers.None ? string.Empty : mods + "+";
+            var where = ReferenceEquals(target, control) ? string.Empty : $" on {Describe(target)}";
+            return new InteractOutcome(true, "keyboard", $"pressed {chord}{parsedKey}{where}", null);
         }
         catch (Exception ex) { return new InteractOutcome(false, "keyboard", null, $"press_key threw: {ex.Message}"); }
     }
 
+    /// <summary>
+    /// Where a synthetic key press should be raised, or null when nothing under here could receive one.
+    /// </summary>
+    /// <remarks>
+    /// <b>Deliberately not <see cref="FindTextSurface"/>, and the difference is the whole of two recorded
+    /// gaps.</b> A routed event raised on an element travels down to it and back up from it — so anything
+    /// BELOW the element chosen is on neither leg, and a handler attached there cannot fire however correct
+    /// it is. <c>press_key</c> therefore wants the DEEPEST input surface; <c>type_text</c> wants the
+    /// outermost, because it drives the editor's own insert API rather than the event system. The two tools
+    /// want opposite ends of the same chain, which is why they no longer share a resolver.
+    ///
+    /// <para>
+    /// Concretely: AvaloniaEdit nests <c>TextEditor</c> → <c>TextArea</c> → <c>TextView</c>, and the code
+    /// editor attaches its key handling to <c>TextArea</c>. Resolving to <c>TextEditor</c> made every
+    /// keyboard command in the editor undrivable while reporting success — go to definition, Enter
+    /// auto-indent, format document, the edit-while-running prompt.
+    /// </para>
+    ///
+    /// <para>
+    /// The focusable fallback closes the other half: addressing a dock container resolved to the container
+    /// itself, which cannot take focus, so the key went nowhere and the reply still said success.
+    /// </para>
+    /// </remarks>
+    private static Control? FindKeyTarget(Control control)
+    {
+        if (control is TextArea or TextBox) return control;
+        if (control is TextEditor outer) return outer.TextArea;
+
+        var descendants = control.GetVisualDescendants().OfType<Control>().ToList();
+
+        // An AvaloniaEdit surface, innermost first: its TextArea is where key handling lives.
+        if (descendants.FirstOrDefault(c => c is TextArea) is { } area) return area;
+        if (descendants.FirstOrDefault(c => c is TextEditor) is TextEditor editor) return editor.TextArea;
+
+        if (descendants.FirstOrDefault(c => c is TextBox) is { } box) return box;
+
+        // Nothing text-shaped: any focusable descendant will at least receive the event, and the caller is
+        // told which one. Falling back to the addressed control is last, and only when it can take focus —
+        // returning a container that cannot is what made a dead key press look like a successful one.
+        return descendants.FirstOrDefault(c => c.Focusable && c.IsEffectivelyVisible)
+            ?? (control.Focusable ? control : null);
+    }
+
+    /// <summary>A control named the way a caller would recognise it: type plus whatever identity it carries.</summary>
+    private static string Describe(Control control)
+    {
+        var id = control.Name ?? (control as StyledElement)?.Name;
+        return string.IsNullOrEmpty(id) ? control.GetType().Name : $"{control.GetType().Name}[{id}]";
+    }
+
     // The nearest editable text surface: the control itself, else its first AvaloniaEdit editor/area, else
     // a plain TextBox descendant (editor surfaces are preferred over incidental TextBoxes like combo edits).
+    // Used by type_text, which drives each surface's own insert API — see FindKeyTarget for why press_key
+    // must not share this.
     private static Control? FindTextSurface(Control control)
     {
         if (control is TextEditor or TextArea or TextBox) return control;
