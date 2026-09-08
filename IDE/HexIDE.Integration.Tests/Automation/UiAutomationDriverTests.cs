@@ -5,6 +5,8 @@ using System.Windows.Input;
 using Avalonia;
 using Avalonia.Automation;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using AvaloniaEdit;
@@ -601,6 +603,84 @@ public class UiAutomationDriverTests
         {
             UiAutomationDriver.PressKey(box, "NotAKey", null).Error.Should().Contain("unknown key");
             UiAutomationDriver.PressKey(box, "S", "Hyper").Error.Should().Contain("unknown modifier");
+        }
+        finally { window.Close(); }
+    }
+
+    // ── press_key target resolution ─────────────────────────────────────────────────────────────
+    // Two recorded MCP gaps, one root cause: the key was raised on a control the caller did not mean,
+    // and the reply said "success" either way. A routed event reaches the element it is raised on and
+    // its ancestors -- never anything below -- so resolving too SHALLOW makes a handler unreachable,
+    // and resolving to a non-focusable container makes the press a no-op. Both looked identical to a
+    // feature that was simply broken, and one of them cost a wrongly-filed issue.
+
+    [AvaloniaFact]
+    public void PressKey_ResolvesToTheDeepestInputSurface_SoAHandlerBelowTheEditorStillFires()
+    {
+        // THE case. AvaloniaEdit nests TextEditor -> TextArea, and the code editor attaches its key
+        // handling to TextArea. Raising on the TextEditor put TextArea on neither leg of the route.
+        var editor = new TextEditor();
+        var host = new StackPanel();
+        host.Children.Add(editor);
+        var window = Show(host);
+        try
+        {
+            var seen = 0;
+            editor.TextArea.AddHandler(
+                InputElement.KeyDownEvent, (object? _, KeyEventArgs e) => { if (e.Key == Key.F12) seen++; },
+                RoutingStrategies.Tunnel);
+
+            var outcome = UiAutomationDriver.PressKey(host, "F12", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            seen.Should().Be(1, "a handler on TextArea must receive a key pressed at the editor's host");
+            outcome.Detail.Should().Contain("TextArea",
+                "the reply has to name the receiver, or a no-op is unattributable");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void PressKey_OnAContainerWithNothingFocusable_FailsRatherThanReportingSuccess()
+    {
+        // A dock container has no focus and no text surface. Reporting success there is what made
+        // "input was blocked" and "the key went nowhere" indistinguishable from the result.
+        var label = new TextBlock { Text = "not focusable" };
+        var host = new StackPanel { Focusable = false };
+        host.Children.Add(label);
+        var window = Show(host);
+        try
+        {
+            var outcome = UiAutomationDriver.PressKey(host, "A", null);
+
+            outcome.Success.Should().BeFalse();
+            outcome.Error.Should().Contain("keyboard focus");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void PressKey_OnAFocusableControlItself_ReachesItAndSaysNothingExtra()
+    {
+        // The ordinary case, pinned so the resolution above cannot quietly redirect a direct address.
+        var box = new TextBox();
+        var window = Show(box);
+        try
+        {
+            var seen = false;
+            box.AddHandler(InputElement.KeyDownEvent, (object? _, KeyEventArgs e) => seen = true,
+                RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
+
+            var outcome = UiAutomationDriver.PressKey(box, "Enter", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            seen.Should().BeTrue();
+
+            // Asserted as an absence rather than an exact string: Avalonia's `Key.Enter` is an alias for
+            // `Key.Return`, so the reply echoes the CANONICAL name rather than the one the caller typed.
+            // That is useful — it says what the key resolved to — and it is not what this test is about.
+            outcome.Detail.Should().NotContain(" on ",
+                "naming the receiver is noise when it is the control that was addressed");
         }
         finally { window.Close(); }
     }
