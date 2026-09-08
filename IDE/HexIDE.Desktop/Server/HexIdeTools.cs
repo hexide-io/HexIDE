@@ -144,9 +144,15 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // The result is honoured rather than assumed. A refusal used to come back as
             // MutateResult(true, null) — success for a file that was not written — and an agent, unlike a
             // developer, has no dialog to read and will build on that answer. (#147)
-            var written = form is not null
+            // ON THE UI THREAD, and that is the whole of #334 rather than a tidiness point. A save first
+            // publishes ApplyAllUnsavedChangesEvent to flush open editor buffers into the model; the
+            // handler reads AvaloniaEdit's Document.Text, which throws "Call from invalid thread" off it.
+            // EventBus logs that and carries on, so the flush silently does nothing and the PREVIOUS text
+            // is serialized -- a file with a fresh timestamp, stale contents, and a success returned to a
+            // caller who cannot see the log. Awaiting the save here left this method on a pool thread.
+            var written = await Dispatcher.UIThread.InvokeAsync(async () => form is not null
                 ? await ctx.ProjectService.SaveForm(form, false)
-                : module is not null && await ctx.ProjectService.SaveModule(module, false);
+                : module is not null && await ctx.ProjectService.SaveModule(module, false));
             return written
                 ? new MutateResult(true, null)
                 : new MutateResult(false, "HexIDE cannot reproduce this file faithfully, so it was not "
@@ -330,13 +336,16 @@ internal sealed class HexIdeTools(IdeContext ctx)
             {
                 if (ownerModule.AbsolutePath is null)
                     return new MutateResult(false, "UserControl has no saved path — save the project via File > Save first");
-                written = await ctx.ProjectService.SaveModule(ownerModule, false);
+                written = await Dispatcher.UIThread.InvokeAsync(
+                    async () => await ctx.ProjectService.SaveModule(ownerModule, false));
             }
             else
             {
                 if (form!.AbsolutePath is null)
                     return new MutateResult(false, "Form has no saved path — save the project via File > Save first");
-                written = await ctx.ProjectService.SaveForm(form, false);
+                // Same UI-thread requirement as the other write tool, and for the same reason. (#334)
+                written = await Dispatcher.UIThread.InvokeAsync(
+                    async () => await ctx.ProjectService.SaveForm(form, false));
             }
             // See the note on the other write tool: a refusal must not come back as success. (#147)
             return written
