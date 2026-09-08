@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Linq;
 using System.Reflection;
 using Avalonia;
 using Avalonia.Automation;
@@ -7,6 +8,7 @@ using Avalonia.Automation.Provider;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
+using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 using AvaloniaEdit;
 using AvaloniaEdit.Editing;
@@ -176,6 +178,15 @@ public static class UiAutomationDriver
         if (peer.GetProvider<IRangeValueProvider>() is not null) list.Add("rangeValue");
         if (peer.GetProvider<IScrollProvider>() is not null) list.Add("scroll");
 
+        // Advertised so the verb is discoverable: a control owning a context menu or a flyout accepts
+        // expand/collapse even though its peer offers no ExpandCollapse provider. Without this the action
+        // exists and nothing says so, which is how the eight toolbar Add commands came to be recorded as
+        // unreachable.
+        if (control is not null
+            && (control.ContextMenu is not null || FlyoutsOf(control).Any())
+            && !list.Contains("expandCollapse"))
+            list.Add("expandCollapse");
+
         if (control is MenuItem menuItem)
         {
             if (!list.Contains("invoke")) list.Add("invoke");
@@ -242,6 +253,28 @@ public static class UiAutomationDriver
                         openMenu.Open();
                         return Ok($"opened menu '{LabelOf(control, peer)}'");
                     }
+                    // A deterministic route to a context menu. press_key Apps also opens one -- watched
+                    // on screen -- but it goes through ContextRequested and lands on whichever control the
+                    // input layer decides, which is not necessarily the one addressed; this opens the menu
+                    // belonging to the control named, and says so.
+                    // Focused first, and that is not cosmetic. A popup opened over an UNFOCUSED owner
+                    // light-dismisses almost immediately: press_key Apps opens the Project Explorer's menu
+                    // and it is gone before the next MCP call can walk it -- watched on screen, "it did pop
+                    // up a couple of times ... but it closed too soon". A dump that runs a round-trip later
+                    // then reports nothing, which reads exactly like a menu that never opened. The same
+                    // trap as the transient tooltip, one layer up.
+                    if (control.ContextMenu is { } contextMenu)
+                    {
+                        Safe(() => control.Focus(), false);
+                        contextMenu.Open(control);
+                        return Ok($"opened context menu on '{LabelOf(control, peer)}'");
+                    }
+                    if (FlyoutsOf(control).FirstOrDefault() is { } flyout)
+                    {
+                        Safe(() => control.Focus(), false);
+                        flyout.ShowAt(control);
+                        return Ok($"opened flyout on '{LabelOf(control, peer)}'");
+                    }
                     return Unsupported("expand");
 
                 case "collapse":
@@ -254,6 +287,16 @@ public static class UiAutomationDriver
                     {
                         closeMenu.Close();
                         return Ok($"closed menu '{LabelOf(control, peer)}'");
+                    }
+                    if (control.ContextMenu is { IsOpen: true } openContextMenu)
+                    {
+                        openContextMenu.Close();
+                        return Ok($"closed context menu on '{LabelOf(control, peer)}'");
+                    }
+                    if (FlyoutsOf(control).FirstOrDefault(f => f.IsOpen) is { } openFlyout)
+                    {
+                        openFlyout.Hide();
+                        return Ok($"closed flyout on '{LabelOf(control, peer)}'");
                     }
                     return Unsupported("collapse");
 
@@ -798,6 +841,15 @@ public static class UiAutomationDriver
     // control wrappers, collecting the closest meaningful Control descendants.
     private static void CollectMeaningfulChildren(Visual parent, List<MeaningfulChild> acc)
     {
+        // Asked of the PARENT, not of each child, and the difference is where the items end up. A flyout's
+        // popup is not a visual child of its button, so grafting it while iterating the button's siblings
+        // put eight Add commands next to the toolbar buttons instead of inside the one that owns them --
+        // and left a dump rooted AT the button reporting no children at all, because the button's own
+        // popup was never considered. Here they are children of their owner, which is both where they
+        // appear on screen and what makes the path round-trip.
+        if (parent is Control owner && AttachedPopupOf(owner) is { } attached)
+            CollectPopupChildren(attached, acc);
+
         foreach (var v in parent.GetVisualChildren())
         {
             if (v is Popup popup)
@@ -833,6 +885,73 @@ public static class UiAutomationDriver
         if (popup.Child is Visual content) CollectMeaningfulChildren(content, acc);
     }
 
+
+    /// <summary>
+    /// The open popup a control owns <i>logically</i> rather than visually — a context menu or a flyout —
+    /// or null when it owns none or it is closed.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Why a second route exists at all.</b> A menu-bar dropdown's <c>Popup</c> is a visual child
+    /// of its <c>MenuItem</c>, so the ordinary walk finds it. A <c>ContextMenu</c> and a <c>Button.Flyout</c>
+    /// are attached with <c>ISetLogicalParent.SetParent</c> instead: the popup is never a visual child of
+    /// anything, so a visual walk cannot reach it however deep it goes. That asymmetry is what made menus
+    /// look like they worked while context menus and toolbar flyouts reported <c>children: []</c> — one
+    /// cause wearing two faces, recorded as two separate entries in docs/mcp-server-gaps.md.</para>
+    ///
+    /// <para><b>Found from the owner, not by enumerating popup roots.</b> Avalonia exposes no public list of
+    /// live <c>PopupRoot</c>s, but every one of these popups is reachable from the control that owns it —
+    /// which the visual walk is already standing on.</para>
+    ///
+    /// <para><b>The two routes differ, and neither generalises to the other.</b> A flyout hands over its
+    /// <c>Popup</c> directly. An open <c>ContextMenu</c> does not: it is realised as the popup's
+    /// <i>child</i>, so the popup is its LOGICAL PARENT. Both were measured before being relied on.</para>
+    ///
+    /// <para>Closed popups are skipped by <see cref="CollectPopupChildren"/>: nothing is realised, so there
+    /// is nothing to report and nothing to address. Open it first.</para>
+    /// </remarks>
+
+    /// <summary>
+    /// <see cref="AttachedPopupOf"/>, for the snapshot composer: the same question, asked by the code that
+    /// renders rather than the code that walks. One definition, so a popup a caller can address is always a
+    /// popup they can also see.
+    /// </summary>
+    internal static Popup? AttachedPopupOfPublic(Control c) => AttachedPopupOf(c);
+
+    private static Popup? AttachedPopupOf(Control c)
+    {
+        if (c.ContextMenu is { IsOpen: true } menu)
+            return menu.GetLogicalParent() as Popup;
+
+        foreach (var f in FlyoutsOf(c))
+            if (f is PopupFlyoutBase { IsOpen: true } open)
+                return open.Popup;
+        return null;
+    }
+
+    /// <summary>
+    /// Every flyout a control owns, in the order <c>expand</c> should prefer them.
+    /// </summary>
+    /// <remarks>
+    /// <b>Three routes, and missing one is indistinguishable from the popup not existing.</b>
+    /// <c>Button.Flyout</c> is the toolbar case; <c>FlyoutBase.GetAttachedFlyout</c> is the attached-property
+    /// form; and <c>Control.ContextFlyout</c> is how a context menu is usually written in this codebase —
+    /// the Project Explorer's is a <c>MenuFlyout</c> on <c>TreeView.ContextFlyout</c>
+    /// (Tools/Projects/ProjectToolView.axaml:125), not a <c>ContextMenu</c> at all. Omitting that one made
+    /// an open, plainly visible menu report nothing, which reads exactly like a menu that never opened —
+    /// and was twice diagnosed that way before the AXAML was checked.
+    /// </remarks>
+    private static IEnumerable<FlyoutBase> FlyoutsOf(Control c)
+    {
+        var primary = c switch
+        {
+            Button b => b.Flyout,
+            SplitButton sb => sb.Flyout,
+            _ => FlyoutBase.GetAttachedFlyout(c),
+        };
+        if (primary is not null) yield return primary;
+        if (c.ContextFlyout is { } context && !ReferenceEquals(context, primary)) yield return context;
+    }
+
     // All Control descendants at any depth (for the #AutomationId shortcut). Crosses into open popups
     // for the same reason the control-view walk does — otherwise #SomeId finds an item on the menu bar
     // but never one inside an open menu.
@@ -848,6 +967,10 @@ public static class UiAutomationDriver
             else if (v is Control c)
             {
                 yield return c;
+                // Same crossing as the control-view walk: without it #SomeId finds an item on the menu bar
+                // but never one inside an open context menu or toolbar flyout.
+                if (AttachedPopupOf(c) is { Child: Visual attached })
+                    foreach (var d in Descendants(attached)) yield return d;
                 foreach (var d in Descendants(c)) yield return d;
             }
             else
