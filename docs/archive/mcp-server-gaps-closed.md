@@ -537,3 +537,146 @@ layout, so it does not actually enlarge the pane.
 
 **Suggested fix.** Return scalar property values (string/number/bool) alongside the member list. A
 `get_immediate_output` returning the Immediate buffer as text would remove the whole class of workaround.
+
+## A MenuFlyout on a toolbar Button opened blind, and its items were invisible — **CLOSED** (#343, 2026-09-08)
+
+
+> **Fixed — and the entry was wrong about why, in the direction that sends the next reader looking for the
+> wrong fix.** Corrections first, because they were measured:
+>
+> - *"`interact invoke` ... does nothing visible — it fires the button's own invoke, which is not what opens
+>   a flyout."* **False.** `Button.OnClick` opens the flyout; invoke has always opened it. What failed was
+>   *seeing* the result.
+> - *"`press_key Space` ... does not open it either"* and the heading *"cannot be opened"* — false for the
+>   same reason.
+>
+> The single real cause: a `ContextMenu` and a `Button.Flyout` are attached with
+> `ISetLogicalParent.SetParent`, so their `Popup` is never a **visual** child of anything and a visual walk
+> cannot reach it however deep it goes. A menu-bar dropdown's popup *is* a visual child, which is why menus
+> looked like they worked and these did not.
+>
+> `AttachedPopupOf` now finds a popup from its owner by all three routes — `Button.Flyout`,
+> `FlyoutBase.GetAttachedFlyout`, and `Control.ContextFlyout` — and feeds it to the existing popup walk, so
+> the items appear as children of the owner and their paths round-trip. `SnapshotComposer` shares the same
+> definition, so a popup you can address is one you can also see. A control owning either now advertises
+> `expandCollapse`, and `expand`/`collapse` open and shut it: the verb existing while nothing said so is how
+> these eight commands came to be recorded as unreachable.
+>
+> Measured live, all the way through:
+>
+> ```
+> interact invoke  Button[Standard.AddForm]        → success
+> dump_visual_tree root=<that button>
+>   → Pane/MenuItem[Form], MenuItem[MDI Form] (isEnabled:false), MenuItem[Module], … MenuItem[Add File...]
+> interact invoke  …/Pane/MenuItem[Module]         → success
+> get_project_info                                 → modules: ["Module1"]
+> take_snapshot                                    → the flyout is in the picture
+> ```
+>
+> Not merely observable: driven end-to-end. And `MDI Form` reporting `isEnabled:false` answers the
+> Consequence's "not even *observed* to be enabled or disabled".
+
+
+**Symptom.** The Add Item toolbar button (`Standard.AddForm`) carries a `MenuFlyout` holding eight
+Add commands. None of it is reachable:
+
+- `interact invoke` on the button reports success and does nothing visible — it fires the button's own
+  invoke, which is not what opens a flyout.
+- `interact expand` fails: the button advertises only an `invoke` provider, no `expandCollapse`.
+- `press_key Space` on the button reports success and does not open it either.
+- `dump_visual_tree(root=<button>)` returns the button with `children: []`, both with
+  `interactiveOnly: false` and at full depth — the flyout's items are simply not in that subtree.
+- A synthetic Win32 click at the button's rect (DPI-corrected, see below) did not open it either.
+
+**Consequence.** Eight toolbar commands cannot be verified through MCP at all — not driven, and not even
+*observed* to be enabled or disabled. Note the contrast that makes this easy to misdiagnose: menu-bar
+dropdowns work fine (`interact expand` on `MenuItem[Project]` opens it, and its items appear in the tree and
+in `take_snapshot`), so the obvious inference is that "menus work" — they do, but only the menu bar's.
+
+**Workaround.** Verify the command, not the menu item. `inspect_element` on the button lists the
+DataContext's members, so the presence of the bound command (e.g. `AddFileCommand`) is confirmable there,
+and the same command can be driven end-to-end through its menu-bar twin where one exists. Say explicitly
+that the toolbar entry was verified structurally rather than driven.
+
+**Suggested fix.** Give a control that owns a `FlyoutBase` an `expandCollapse` provider, so `interact
+expand` opens it and the popup's contents then become dumpable; failing that, an `open_flyout(target)`
+action. Whichever route, the flyout's items need to reach `dump_visual_tree` — a popup that opens but
+cannot be walked only moves the problem.
+
+## A context menu opened but was invisible to both `take_snapshot` and `dump_visual_tree` — **CLOSED** (#343, 2026-09-08)
+
+
+> **Fixed, same cause as the MenuFlyout entry above — one parenting problem wearing two faces, exactly as
+> this entry predicted.** The Project Explorer's menu turned out to be a `MenuFlyout` on
+> **`TreeView.ContextFlyout`** (Tools/Projects/ProjectToolView.axaml:125) — not a `ContextMenu`, and not on
+> the `TreeViewItem`. Handling only `ContextMenu` and `Button.Flyout` left an open, plainly visible menu
+> reporting nothing, which reads exactly like a menu that never opened, and was twice diagnosed that way
+> before the AXAML was read.
+>
+> **The second half was lifetime, not visibility.** A popup opened over an UNFOCUSED owner light-dismisses
+> almost immediately: `press_key Apps` does open this menu — watched on screen — but it is gone before the
+> next MCP call can walk it, so every later look reported nothing. `interact expand` now focuses the owner
+> before opening, and the menu stays up across calls. The same trap as the transient tooltip, one layer up.
+>
+> Measured live:
+>
+> ```
+> interact expand  …/Custom/Tree                   → "opened flyout on 'Tree'"
+> dump_visual_tree root=…/Custom/Tree
+>   → MenuItem[Properties], MenuItem[Add] (expandCollapse), MenuItem[Print]
+>     plus Set as Start Up / View Object / View Code, each isHidden:true
+> take_snapshot                                    → Properties / Add ▸ / Print, in the picture
+> ```
+>
+> The visible three match a photograph the maintainer took of this menu earlier the same day, and the
+> `isHidden` flags — added the day before — are what separate them from the items that are merely present.
+>
+> **Still transient across calls.** Snapshot it in the call straight after opening: an intervening
+> `dump_visual_tree` was enough for it to dismiss before the picture was taken.
+
+
+**Symptom.** A context menu can be opened — and then neither tool can see it. `take_snapshot` returns the
+window with no menu in it, and `dump_visual_tree` returns the ordinary window tree with no popup root. The
+menu is plainly on screen the whole time.
+
+**This is not a missing verb, and I recorded it as one until it was pointed out.** `interact` has no
+right-click action, so the first conclusion was "a context menu cannot be opened at all". It can:
+
+```
+press_key(…/Custom/Tree/Pane/TreeItem, "Apps")
+  → {"success":true,"detail":"pressed Apps on Border[SelectionBorder]"}
+```
+
+…opens the Project Explorer's menu (Properties / Add ▸ / Print). The keypress works. What fails is
+*seeing* it, and the two failures look identical from the tool output — which is exactly how a capture
+problem gets written up as an interaction problem.
+
+**Cause.** Both tools discover popups by walking the **owner window's visual tree** for `Popup` children —
+`SnapshotComposer.CollectOpenPopupRoots` (`:105-124`) and `UiAutomationDriver` (`:643`, `:683`). That
+reaches a **menu-bar** popup, because `Menu` → `MenuItem` → `Popup` really are visual children, which is
+why the fix for the closed gap 12 works. A `ContextMenu` is not: it is set as a *property* on the control
+that owns it, so it is only logically parented and the walk never arrives.
+
+Predicted, as it turns out: `artifacts/design/259-language-server-visibility.md` noted that these two call
+sites "cross `Popup`s found via `GetVisualChildren()` and a flyout's popup may be only logically parented".
+This is that, measured.
+
+**A second oddity, recorded rather than explained.** A keyboard-invoked context menu is placed at the
+pointer, and a synthetic key press carries no pointer position — so it opened at the last real pointer
+location, which was over a *different application* entirely. Whether the placement contributes to the
+capture failure or is merely untidy is not established: the composer never finds the popup at all, so it
+never gets as far as caring where it is.
+
+**Workaround.** `press_key` with `Apps` opens the menu, and its items can be invoked blind through
+`interact invoke_command` on the owning DataContext if the command is known. So a context-menu *action*
+can be driven; its *presentation* — that the right items appear, enabled, in the right order — cannot be
+asserted at all.
+
+**Suggested fix.** Enumerate open popups from the application's own top-level list rather than by walking
+the owner window's visual tree; Avalonia tracks popup roots globally, and that reaches logically-parented
+popups as well as visual ones. Both call sites want the same change, and closing it would also make the
+`MenuFlyout` gap above (a flyout attached to a toolbar `Button`) tractable, since that is the same
+parenting problem wearing different clothes.
+
+A `context_menu(target)` action raising `ContextRequested` is still worth adding — `Apps` depends on the
+target being focusable and on Avalonia's own key handling — but it is a convenience, not the blocker.

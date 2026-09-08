@@ -106,22 +106,35 @@ public static class SnapshotComposer
     {
         foreach (var child in root.GetVisualChildren())
         {
+            // Attached first, because the owner is an ordinary control the visual walk lands on and its
+            // popup is not a visual child of anything: a context menu and a toolbar flyout are parented
+            // LOGICALLY, so composing only visual-child popups drew a window with the menu missing.
+            if (child is Control owner && UiAutomationDriver.AttachedPopupOfPublic(owner) is { IsOpen: true } attached)
+                AddPopupRoot(attached, window, acc);
+
             if (child is Popup { IsOpen: true } popup)
             {
                 // The popup's ROOT, not its Child. The root is the popup's analogue of a window: it owns
                 // the border, padding and shadow the menu is actually drawn with, and its ClientSize is the
                 // whole thing. Rendering Child alone gave a box clipped to the content and placed by the
                 // content's origin, so a menu came out short and shifted.
-                if (popup.Child is { } content
-                    && TopLevel.GetTopLevel(content) is { } popupRoot
-                    && !ReferenceEquals(popupRoot, window))
-                {
-                    acc.Add(popupRoot);
-                    CollectOpenPopupRoots(content, window, acc);
-                }
+                AddPopupRoot(popup, window, acc);
                 continue;
             }
             CollectOpenPopupRoots(child, window, acc);
+        }
+    }
+
+    /// <summary>Adds an open popup's realised root, then recurses into it for nested popups.</summary>
+    private static void AddPopupRoot(Popup popup, Window window, List<TopLevel> acc)
+    {
+        if (popup.Child is { } content
+            && TopLevel.GetTopLevel(content) is { } popupRoot
+            && !ReferenceEquals(popupRoot, window)
+            && !acc.Contains(popupRoot))
+        {
+            acc.Add(popupRoot);
+            CollectOpenPopupRoots(content, window, acc);
         }
     }
 }
