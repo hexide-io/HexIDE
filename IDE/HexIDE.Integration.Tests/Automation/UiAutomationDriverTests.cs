@@ -684,4 +684,89 @@ public class UiAutomationDriverTests
         }
         finally { window.Close(); }
     }
+
+    // ── hover ──────────────────────────────────────────────────────────────────────────────────────
+    // A hover is a POSITION, not just an event: the code editor reads e.GetPosition(TextView) and turns it
+    // into a text location, so an event carrying no usable point produces no tip however well it is routed.
+
+    [AvaloniaFact]
+    public void Hover_RaisesEnteredAndMoved_CarryingAPosition()
+    {
+        var button = new Button { Content = "Hover me", Width = 120, Height = 40 };
+        var window = Show(button);
+        try
+        {
+            var events = new List<string>();
+            Point? seen = null;
+            button.AddHandler(InputElement.PointerEnteredEvent,
+                // Direct, not Bubble: Avalonia registers PointerEntered/Exited as DIRECT events, so a
+                // bubbling handler never sees one however it is raised.
+                (object? _, PointerEventArgs e) => events.Add("entered"), RoutingStrategies.Direct);
+            button.AddHandler(InputElement.PointerMovedEvent,
+                (object? _, PointerEventArgs e) => { events.Add("moved"); seen = e.GetPosition(button); },
+                RoutingStrategies.Bubble);
+
+            var outcome = UiAutomationDriver.Hover(button, null, null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Mechanism.Should().Be("pointer");
+            events.Should().Equal(["entered", "moved"],
+                "a tooltip service waits for Entered; the editor listens to Moved — both are needed");
+            seen.Should().NotBeNull("an event with no usable position produces no tip");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Hover_DefaultsToTheCentreOfAnOrdinaryControl()
+    {
+        var button = new Button { Content = "Hover me", Width = 120, Height = 40 };
+        var window = Show(button);
+        try
+        {
+            Point? seen = null;
+            button.AddHandler(InputElement.PointerMovedEvent,
+                (object? _, PointerEventArgs e) => seen = e.GetPosition(button), RoutingStrategies.Bubble);
+
+            UiAutomationDriver.Hover(button, null, null).Success.Should().BeTrue();
+
+            seen!.Value.X.Should().BeApproximately(button.Bounds.Width / 2, 1.0);
+            seen!.Value.Y.Should().BeApproximately(button.Bounds.Height / 2, 1.0);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Hover_HonoursAnExplicitPoint()
+    {
+        // The escape hatch for anything the defaults get wrong — and the only way to hover a specific
+        // pixel of a surface that is neither a text editor nor uniform.
+        var button = new Button { Content = "Hover me", Width = 120, Height = 40 };
+        var window = Show(button);
+        try
+        {
+            Point? seen = null;
+            button.AddHandler(InputElement.PointerMovedEvent,
+                (object? _, PointerEventArgs e) => seen = e.GetPosition(button), RoutingStrategies.Bubble);
+
+            UiAutomationDriver.Hover(button, 12, 7).Success.Should().BeTrue();
+
+            seen!.Value.X.Should().BeApproximately(12, 1.0);
+            seen!.Value.Y.Should().BeApproximately(7, 1.0);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Hover_OnADetachedControl_FailsRatherThanRaisingIntoNothing()
+    {
+        // No window means no coordinate space. Raising anyway would report success for a hover that could
+        // not have had a position — the failure shape this whole pass keeps finding.
+        var orphan = new Button { Content = "nowhere" };
+
+        var outcome = UiAutomationDriver.Hover(orphan, null, null);
+
+        outcome.Success.Should().BeFalse();
+        outcome.Error.Should().Contain("not attached");
+    }
 }

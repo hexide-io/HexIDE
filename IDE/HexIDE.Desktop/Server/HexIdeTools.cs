@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
@@ -1238,6 +1239,61 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
             return UiAutomationDriver.TypeText(control, text);
         });
+    }
+
+    [McpServerTool(Name = "hover")]
+    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) by raising real PointerEntered/PointerMoved events, waits out the hover dwell, and reports whether a tip appeared — for hover-only affordances nothing else can reach: LSP quick-info, the debugger's Auto Data Tips, and ordinary ToolTips. 'x'/'y' are optional and relative to the target's own top-left. Omit them and the point is the CARET for a code editor (position it first with interact set_property CaretOffset, which is how you hover a particular identifier) and the centre of anything else. 'dwellMs' (default 700) must exceed the 400ms quick-info dwell plus whatever the tip itself needs — raise it for a slow language server.")]
+    public async Task<InteractOutcome> HoverAsync(
+        string target, double? x = null, double? y = null, int dwellMs = 700, CancellationToken ct = default)
+    {
+        var raised = await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            var (window, _, error) = ResolveActiveWindow();
+            if (window is null) return new InteractOutcome(false, "pointer", null, error);
+
+            var (control, resolveError) = UiAutomationDriver.Resolve(window, target);
+            return control is null
+                ? new InteractOutcome(false, "pointer", null, resolveError)
+                : UiAutomationDriver.Hover(control, x, y);
+        });
+
+        if (!raised.Success) return raised;
+
+        // Waited OFF the UI thread deliberately. Every tip this exists to surface is produced by an async
+        // continuation -- a 400ms dwell, then an await -- so blocking the dispatcher here would stop the
+        // very thing being waited for and report, accurately, that no tip appeared.
+        await Task.Delay(Math.Clamp(dwellMs, 0, 10_000), ct);
+
+        var tip = await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            var (window, _, _) = ResolveActiveWindow();
+            return window is null ? null : DescribeOpenToolTip(window);
+        });
+
+        return raised with
+        {
+            Detail = tip is null
+                ? raised.Detail + "; no tip appeared within " + dwellMs + "ms"
+                : raised.Detail + "; tip: " + tip,
+        };
+    }
+
+    /// <summary>The text of any tooltip currently realised under a window, or null when none is.</summary>
+    /// <remarks>
+    /// Reported so a caller need not snapshot to find out whether the hover did anything. A ToolTip IS
+    /// reachable through the visual tree (unlike a ContextMenu, which is only logically parented — see the
+    /// context-menu gap in docs/mcp-server-gaps.md), so a plain descendant walk finds it.
+    /// </remarks>
+    private static string? DescribeOpenToolTip(Visual root)
+    {
+        foreach (var tip in root.GetVisualDescendants().OfType<ToolTip>())
+        {
+            var text = tip.Content as string
+                ?? tip.GetVisualDescendants().OfType<TextBlock>().FirstOrDefault()?.Text
+                ?? tip.Content?.ToString();
+            if (!string.IsNullOrWhiteSpace(text)) return text.Trim();
+        }
+        return null;
     }
 
     [McpServerTool(Name = "press_key")]
