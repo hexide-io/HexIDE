@@ -1242,60 +1242,121 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "hover")]
-    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) by raising real PointerEntered/PointerMoved events, waits out the hover dwell, and reports whether a tip appeared — for hover-only affordances nothing else can reach: LSP quick-info, the debugger's Auto Data Tips, and ordinary ToolTips. 'x'/'y' are optional and relative to the target's own top-left. Omit them and the point is the CARET for a code editor (position it first with interact set_property CaretOffset, which is how you hover a particular identifier) and the centre of anything else. 'dwellMs' (default 700) must exceed the 400ms quick-info dwell plus whatever the tip itself needs — raise it for a slow language server.")]
+    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) by raising real PointerEntered/PointerMoved events, watches for a tip, and reports its text. WORKS for tips a control raises from its OWN pointer handler — LSP quick-info and the debugger's Auto Data Tips in the code editor. Does NOT work for a declarative ToolTip.Tip: Avalonia's ToolTipService ignores a synthetic pointer, so a toolbar button's tooltip stays shut. 'x'/'y' are optional and relative to the target's own top-left; omit them and the point is the CARET for a code editor (position it first with interact set_property CaretOffset, which is how you hover a particular identifier) and the centre of anything else. 'dwellMs' (default 1500) is how long to watch — it must exceed the 400ms quick-info dwell plus the language server's round trip. The tip is TRANSIENT (a synthetic pointer never sets IsPointerOver, so it closes again shortly after opening), which is why this polls rather than looking once, and it is placed at the SCREEN ORIGIN (0,0), not under the target, because a synthetic pointer carries no screen position for Avalonia to anchor the popup to — so assert the reported text, never a snapshot.")]
     public async Task<InteractOutcome> HoverAsync(
-        string target, double? x = null, double? y = null, int dwellMs = 700, CancellationToken ct = default)
+        string target, double? x = null, double? y = null, int dwellMs = 1500, CancellationToken ct = default)
     {
+        Control? hovered = null;
+
         var raised = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var (window, _, error) = ResolveActiveWindow();
             if (window is null) return new InteractOutcome(false, "pointer", null, error);
 
             var (control, resolveError) = UiAutomationDriver.Resolve(window, target);
-            return control is null
-                ? new InteractOutcome(false, "pointer", null, resolveError)
-                : UiAutomationDriver.Hover(control, x, y);
+            if (control is null) return new InteractOutcome(false, "pointer", null, resolveError);
+
+            hovered = control;
+            return UiAutomationDriver.Hover(control, x, y);
         });
 
-        if (!raised.Success) return raised;
+        if (!raised.Success || hovered is null) return raised;
 
-        // Waited OFF the UI thread deliberately. Every tip this exists to surface is produced by an async
-        // continuation -- a 400ms dwell, then an await -- so blocking the dispatcher here would stop the
-        // very thing being waited for and report, accurately, that no tip appeared.
-        await Task.Delay(Math.Clamp(dwellMs, 0, 10_000), ct);
-
-        var tip = await Dispatcher.UIThread.InvokeAsync(() =>
+        // POLLED, and measured to need it. A synthetic pointer never sets IsPointerOver, so Avalonia closes
+        // the tip again shortly after the editor opens it: the tip is real, visible, and transient. Looking
+        // once when the dwell expires reports "no tip" for a tip a human plainly sees on screen.
+        //
+        // Waited off the UI thread throughout: every tip this exists to surface comes from an async
+        // continuation -- a 400ms dwell, then an await -- so holding the dispatcher would stop the very
+        // thing being waited for and then report, accurately, that nothing happened.
+        string? tip = null;
+        var deadline = Environment.TickCount64 + Math.Clamp(dwellMs, 0, 10_000);
+        while (tip is null && Environment.TickCount64 < deadline)
         {
-            var (window, _, _) = ResolveActiveWindow();
-            return window is null ? null : DescribeOpenToolTip(window);
-        });
+            await Task.Delay(50, ct);
+            tip = await Dispatcher.UIThread.InvokeAsync(() => DescribeOpenToolTip(hovered));
+        }
 
+        if (tip is not null)
+            return raised with { Detail = raised.Detail + "; tip: " + tip };
+
+        // Nothing OPENED. Say so plainly -- and then, separately, say what the control declares, because
+        // the caller's real question is usually "has this button the right tooltip?" and that is answerable
+        // from the attached property even when Avalonia will not show it. The two are reported under
+        // different words on purpose: "tip:" means a popup was observed open, "declared tip:" means only
+        // that the text is set. Collapsing them would turn a limitation into a passing assertion.
+        var declared = await Dispatcher.UIThread.InvokeAsync(() => DescribeDeclaredToolTip(hovered));
+        var unopened = raised.Detail + "; no tip opened within " + dwellMs + "ms";
         return raised with
         {
-            Detail = tip is null
-                ? raised.Detail + "; no tip appeared within " + dwellMs + "ms"
-                : raised.Detail + "; tip: " + tip,
+            Detail = declared is null
+                ? unopened
+                : unopened
+                  + " (Avalonia's ToolTipService opens a declarative tip from IsPointerOver, which a"
+                  + " synthetic pointer never sets); declared tip: " + declared,
         };
     }
 
-    /// <summary>The text of any tooltip currently realised under a window, or null when none is.</summary>
+    /// <summary>
+    /// The tooltip text a control (or one of its ancestors or descendants) <i>declares</i>, open or not.
+    /// </summary>
     /// <remarks>
-    /// Reported so a caller need not snapshot to find out whether the hover did anything. A ToolTip IS
-    /// reachable through the visual tree (unlike a ContextMenu, which is only logically parented — see the
-    /// context-menu gap in docs/mcp-server-gaps.md), so a plain descendant walk finds it.
+    /// Deliberately says nothing about whether anything is on screen. It exists so a caller can still assert
+    /// a toolbar button's tooltip <i>text</i> in the one case this tool cannot make a tip appear, and its
+    /// result is reported under different wording from an observed-open tip so the two can never be
+    /// mistaken for each other.
     /// </remarks>
-    private static string? DescribeOpenToolTip(Visual root)
+    private static string? DescribeDeclaredToolTip(Control? from)
     {
-        foreach (var tip in root.GetVisualDescendants().OfType<ToolTip>())
-        {
-            var text = tip.Content as string
-                ?? tip.GetVisualDescendants().OfType<TextBlock>().FirstOrDefault()?.Text
-                ?? tip.Content?.ToString();
-            if (!string.IsNullOrWhiteSpace(text)) return text.Trim();
-        }
+        if (from is null) return null;
+
+        for (var c = from; c is not null; c = c.Parent as Control)
+            if (DeclaredOn(c) is { } fromAncestor) return fromAncestor;
+        foreach (var c in from.GetVisualDescendants().OfType<Control>())
+            if (DeclaredOn(c) is { } fromDescendant) return fromDescendant;
+        return null;
+
+        static string? DeclaredOn(Control c) =>
+            ToolTip.GetTip(c)?.ToString() is { Length: > 0 } text ? text.Trim() : null;
+    }
+
+    /// <summary>
+    /// The text of a tooltip currently OPEN on a control, one of its ancestors, or one of its
+    /// descendants; null when none is open.
+    /// </summary>
+    /// <remarks>
+    /// <b>Reads the attached property rather than looking for a ToolTip in the window's visual tree, and the
+    /// difference is the whole reason this works.</b> On the desktop a tooltip is realised in its own popup
+    /// <c>TopLevel</c>, so it is NOT a visual descendant of the window that owns it — the same parenting that
+    /// makes a context menu invisible to <c>take_snapshot</c> (see docs/mcp-server-gaps.md). A headless test
+    /// does not show this, because headless popups are in-window overlays and a descendant walk finds them.
+    ///
+    /// <para>
+    /// Ancestors are searched because the tip is set on whichever control owns it: the code editor attaches
+    /// quick-info to its <c>TextEditor</c>, which may be above the element a caller addressed.
+    /// </para>
+    /// </remarks>
+    private static string? DescribeOpenToolTip(Control? from)
+    {
+        if (from is null) return null;
+
+        // Ancestors AND descendants. The tip is set on whichever control owns it, which is rarely the one
+        // a caller addressed: the code editor attaches quick-info to its TextEditor, several levels BELOW
+        // the CodeEditorView a path resolves to. Walking only upwards finds nothing and reports no tip for
+        // one that is plainly open.
+        for (var c = from; c is not null; c = c.Parent as Control)
+            if (TipOn(c) is { } fromAncestor) return fromAncestor;
+
+        foreach (var c in from.GetVisualDescendants().OfType<Control>())
+            if (TipOn(c) is { } fromDescendant) return fromDescendant;
+
         return null;
     }
 
+    private static string? TipOn(Control c) =>
+        ToolTip.GetIsOpen(c) && ToolTip.GetTip(c) is { } tip && tip.ToString() is { Length: > 0 } text
+            ? text.Trim()
+            : null;
     [McpServerTool(Name = "press_key")]
     [Description("Presses a key on the control at 'target' (a path from dump_visual_tree) by raising real KeyDown/KeyUp events — for navigation and commands that type_text doesn't cover: Enter, Tab, Back(space), Delete, Escape, arrow keys, etc., optionally with modifiers. 'key' is an Avalonia Key name (Enter, Tab, Back, Escape, Down, S, ...). 'modifiers' is an optional combo like 'Ctrl', 'Ctrl+Shift', 'Alt'. Resolves to the DEEPEST input surface under 'target' — for the code editor that is AvaloniaEdit's TextArea, where its key handling lives — because a routed event reaches only the element it is raised on and its ancestors, never anything below. Falls back to the first focusable descendant, and FAILS rather than reporting success when nothing under 'target' can take keyboard focus. The reply names the control that actually received the key when it is not the one addressed.")]
     public async Task<InteractOutcome> PressKeyAsync(string target, string key, string? modifiers = null, CancellationToken ct = default)

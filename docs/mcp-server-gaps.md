@@ -153,24 +153,51 @@ can set the selection (unlocking the row's context-menu commands like Edit/Delet
 
 ---
 
-## 7. No pointer-hover action — can't trigger a data tip (or any hover) via MCP
+## 7. A declarative `ToolTip.Tip` cannot be made to open (narrowed 2026-09-08)
 
-**Symptom.** Debugger P6c's **Auto Data Tips** (hover an identifier in break mode → its live value) are triggered by
-a `PointerMoved` dwell over a specific glyph. MCP's `interact` verbs are provider actions (invoke/select/set_value/
-toggle/expand/collapse) + reflection (invoke_command/set_property), and `press_key` raises key events — none of them
-move the pointer or raise a hover. So the data tip (and LSP quick-info hover, and any hover-only affordance) can't be
-made to appear for a `take_snapshot`.
+**Was:** *No pointer-hover action — can't trigger a data tip (or any hover) via MCP.* A `hover(target, x?, y?,
+dwellMs?)` action now exists and raises real `PointerEntered`/`PointerMoved`, so the editor half of this is
+closed. What remains is narrower and has a different cause, so the entry is narrowed rather than archived.
 
-**How it bit (P6c).** Verified everything reachable another way: the typed-eval path is proven (`get_watches` live +
-`WatchEvalTests`), the show/suppress DECISION is unit-tested (`DataTipTests`: a resolved value shows `x = 42`, a
-keyword / out-of-scope / error shows nothing), and the word-extraction mirrors the proven `GetWordUnderCaret` (used
-by Rename). Only the pointer-hover→tooltip plumbing itself is unverified live. A headless integration test could
-raise a synthetic `PointerMoved`, but positioning it over an exact glyph in a headless `TextView` (offset→pixel needs
-real layout) is unreliable enough that it wasn't worth it for low-risk plumbing.
+**Symptom.** `hover` reaches anything that opens a tip from its **own** pointer handler, but not a tip Avalonia
+manages. Measured against the running IDE:
 
-**Fix consideration.** A small `hover(target, x?, y?)` MCP action that raises `PointerMoved` (and holds through the
-dwell) on a control — or, for the editor specifically, `hover_identifier(name)` / `show_data_tip(line, col)` that
-positions over a text offset — would make data tips and quick-info hover snapshot-verifiable.
+| Target | Result |
+|---|---|
+| Code editor over an identifier | `tip: count As Integer` — the LSP quick-info tip, text asserted |
+| `Button[Standard.AddForm]`, which carries `ToolTip.Tip` | `no tip opened within 1000ms` |
+
+`ToolTipService` opens a declarative tip in response to `IsPointerOver` changing. That property is set by the
+input manager from a real device position; a synthetically raised `PointerEntered` does not set it, and it is
+not publicly settable. So the toolbar button's tip cannot be made to appear at all.
+
+**Workaround, and it is deliberately not a fix.** When nothing opens, `hover` reports what the control
+*declares* — `declared tip: Add Form` — read straight off the attached property. That answers the question a
+caller usually has (*has this button the right tooltip?*) without pretending a popup appeared: an observed tip
+is reported as `tip:` and a declared one as `declared tip:`, and the two are never merged. Asserting the tip's
+**existence on screen**, or its placement, is still out of reach for this case.
+
+**Two further measurements worth keeping.**
+
+- **A synthetic tip is placed at the screen origin.** Not near the target — at (0, 0). A synthetic pointer
+  carries no screen position for Avalonia to anchor the popup to. Observed twice with the window maximised and
+  once windowed, landing in the same place each time (screenshot: the quick-info tip in the desktop's top-left
+  corner while the caret was at Ln 4, Col 14). So `hover` makes a tip's **text** assertable and its
+  **position** meaningless — assert the reported string, never a snapshot.
+- **A synthetic tip is transient.** Without `IsPointerOver` the tip closes again shortly after opening, which
+  is why `hover` polls for it rather than looking once when the dwell expires. Sampling once reported "no tip"
+  for a tip plainly visible on screen.
+
+**Still unmeasured: the debugger's Auto Data Tips**, which is the case this gap was originally filed for
+(P6c). It shares the editor's `PointerMoved` handler with quick-info, so it is *expected* to work now, but
+that is an inference and not a measurement. Getting a project into break mode to check it ran into
+hexide-io/HexIDE#334 and #335 (both found doing exactly this), so it is blocked behind those rather than done.
+
+**Fix consideration.** Nothing cheap. `IsPointerOver` has no public setter, so short of Avalonia exposing one
+— or a real platform-level pointer injection, which is a much larger tool — the declarative case stays out of
+reach. Calling `ToolTip.SetIsOpen(control, true)` directly would make the popup appear, and was rejected: it
+would report a tip for a control that a real hover might never show one for, which is a false green of exactly
+the kind this document exists to prevent.
 
 ---
 
