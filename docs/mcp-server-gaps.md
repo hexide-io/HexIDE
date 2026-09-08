@@ -185,19 +185,30 @@ is reported as `tip:` and a declared one as `declared tip:`, and the two are nev
   `PointerMoved` does not update that. The position is also *per window* and *sticky*: it holds the last place
   a real pointer crossed this window, so it stays stale while the pointer is over some other application.
 
-  **Measured, not inferred.** The real pointer was parked over the Toolbox strip on the left edge — far from
-  the identifier — and `hover` was then fired at the caret, reported as `(176.1, 61.8)` inside the editor. The
-  tip opened against the left edge beside the Toolbox, at the pointer: not at the caret, not at the origin.
-  The prediction was written down before the run.
+  **Measured, not inferred — twice, with the prediction written down first each time.**
+
+  1. *Does it follow the real pointer?* The pointer was parked over the Toolbox strip, far from the
+     identifier, and `hover` fired at the caret — reported as `(176.1, 61.8)` inside the editor. The tip
+     opened against the left edge beside the Toolbox: at the pointer, not at the caret, not at the origin.
+  2. *Is the resting default the screen origin or the window's client origin?* A freshly launched IDE that no
+     pointer had ever crossed, pinned to screen `(300, 250)` at 900×600, with the real pointer held on the
+     taskbar where even a maximised window cannot reach it. The tip opened at screen `(0, 15)` — well outside
+     the window. Client-relative would have put it at roughly `(300, 280)`. **The default is the screen
+     origin.**
 
   Every earlier sighting fits the same rule, and each had looked like a different phenomenon:
 
   | Where the tip appeared | Where the real pointer had last crossed the window |
   |---|---|
   | At the caret — correct, by coincidence | the editor, where the maintainer had been clicking |
-  | Screen origin (0, 0) | nowhere: freshly relaunched, never crossed |
+  | Just below the screen origin | nowhere: freshly relaunched, never crossed |
   | Over the status bar | near the window's bottom edge |
   | Bottom-left, while the pointer sat top-right | over the terminal, so HexIDE's tracked position was stale |
+
+  **The small drop below `(0, 0)` is the tooltip's own offset, not the title bar.** It looked like title-bar
+  height on a maximised window, which is a good guess and was worth testing — but the same ~15 px appeared
+  with the window at `(300, 250)`, whose title bar sits at y≈250. It is the ordinary nudge that keeps a tip
+  clear of the cursor, and it is constant.
 
   **Two earlier readings were wrong, and are kept because the next person will make them too.** First "an
   arbitrary position" — it is not arbitrary, it is anchored to something, just not to anything the *call*
