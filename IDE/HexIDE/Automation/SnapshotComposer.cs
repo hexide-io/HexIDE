@@ -12,8 +12,8 @@ namespace HexIDE.Automation;
 ///
 /// <para>A popup — a dropped-down menu, a combo's list, a flyout — is not drawn into its parent window.
 /// It is realised in its own top-level root, so rendering the window alone produces a picture with a menu
-/// bar and no menu, which is what gap 12 in <c>docs/mcp-server-gaps.md</c> reported: the tools could see a
-/// menu's <i>structure</i> but never show it.</para>
+/// bar and no menu, which is what gap 12 in <c>docs/archive/mcp-server-gaps-closed.md</c> reported: the
+/// tools could see a menu's <i>structure</i> but never show it.</para>
 ///
 /// <para>So render each piece and compose them. The canvas is the union of the window and every open
 /// popup, in screen pixels, because a menu routinely hangs past the window's own edge and clipping it back
