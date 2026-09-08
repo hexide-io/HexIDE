@@ -464,7 +464,7 @@ public partial class CodeEditorView : UserControl
         _hoverCts = new CancellationTokenSource();
         var token = _hoverCts.Token;
 
-        ToolTip.SetIsOpen(TextEditor, false);
+        CloseTip();
 
         var tvPos = TextEditor.TextArea.TextView.GetPosition(point);
         if (tvPos is null) return;
@@ -503,7 +503,7 @@ public partial class CodeEditorView : UserControl
                 var tip = token.IsCancellationRequested ? null : DataTipText(word, result);
                 if (tip is null)
                 {
-                    ToolTip.SetIsOpen(TextEditor, false);
+                    CloseTip();
                     return;
                 }
                 ToolTip.SetTip(TextEditor, tip);
@@ -524,10 +524,26 @@ public partial class CodeEditorView : UserControl
     internal static string? DataTipText(string? word, HexIDE.Runtime.Debugging.DebugEvalResult? result)
         => string.IsNullOrEmpty(word) || result is not { Ok: true } r ? null : $"{word} = {r.Display}";
 
+    /// <summary>Closes the editor's tip and clears its text.</summary>
+    /// <remarks>
+    /// Clearing matters as much as closing. <c>SetIsOpen(false)</c> leaves <c>ToolTip.Tip</c> attached, so
+    /// the control keeps advertising the LAST identifier's value long after that tip has gone — and this
+    /// tip is dynamic, rebuilt per hover, unlike the static tips the property is designed for. Anything
+    /// that reads the property then attributes the previous word's value to whatever is hovered now: the
+    /// `hover` MCP tool reported "declared tip: total = 42" over `Debug.Print`, which is a wrong answer
+    /// rather than a missing one. A real pointer can hit the same window, since ToolTipService may show
+    /// what is attached before the replacement evaluation returns.
+    /// </remarks>
+    private void CloseTip()
+    {
+        ToolTip.SetIsOpen(TextEditor, false);
+        ToolTip.SetTip(TextEditor, null);
+    }
+
     private void OnPointerExited(object? sender, PointerEventArgs e)
     {
         _hoverCts?.Cancel();
-        ToolTip.SetIsOpen(TextEditor, false);
+        CloseTip();
     }
 
     public void TriggerQuickInfo()
@@ -609,7 +625,7 @@ public partial class CodeEditorView : UserControl
                 }
                 else
                 {
-                    ToolTip.SetIsOpen(TextEditor, false);
+                    CloseTip();
                 }
             });
         }
