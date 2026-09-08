@@ -769,4 +769,84 @@ public class UiAutomationDriverTests
         outcome.Success.Should().BeFalse();
         outcome.Error.Should().Contain("not attached");
     }
+
+    // ── Saying when a node is not on screen (gap 15) ─────────────────────────────────
+
+    [AvaloniaFact]
+    public void A_collapsed_control_is_reported_as_hidden()
+    {
+        // The regression: a read-only banner bound to IsVisible showed in the tree of a form that was NOT
+        // read-only, with nothing to distinguish it from a rendered one. Read as "the banner is showing",
+        // that says a fresh, perfectly reproducible file is being held unsaveable — a serious bug, and one
+        // entirely consistent with the change under test at the time.
+        var banner = new TextBlock { Text = "Read-only", IsVisible = false };
+        var window = Show(new StackPanel { Children = { banner, new TextBlock { Text = "Code" } } });
+        try
+        {
+            var tree = UiAutomationDriver.Dump(window, "Window", maxDepth: 20, interactiveOnly: false);
+
+            var node = Find(tree, n => n.Name == "Read-only");
+            node.Should().NotBeNull("the node stays in the tree — it exists in the template");
+            node!.IsHidden.Should().BeTrue();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void A_showing_control_says_nothing_at_all()
+    {
+        // Null, not false, so the field is absent from the overwhelmingly common case: a dump runs to
+        // hundreds of nodes and the hidden one is the exception worth spelling out.
+        var window = Show(new TextBlock { Text = "Code" });
+        try
+        {
+            var tree = UiAutomationDriver.Dump(window, "Window", maxDepth: 20, interactiveOnly: false);
+
+            Find(tree, n => n.Name == "Code")!.IsHidden.Should().BeNull();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void A_visible_control_inside_a_collapsed_parent_is_hidden_too()
+    {
+        // Effective visibility, not the local flag. The child's own IsVisible is true, and reporting that
+        // would move the same trap up one level instead of closing it.
+        var child = new TextBlock { Text = "Inner" };
+        var parent = new StackPanel { IsVisible = false, Children = { child } };
+        var window = Show(new StackPanel { Children = { parent, new TextBlock { Text = "Code" } } });
+        try
+        {
+            child.IsVisible.Should().BeTrue("the child's own flag is untouched — that is the point");
+
+            var tree = UiAutomationDriver.Dump(window, "Window", maxDepth: 20, interactiveOnly: false);
+
+            Find(tree, n => n.Name == "Inner")!.IsHidden.Should().BeTrue();
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Inspect_reports_hidden_for_a_single_control_too()
+    {
+        // inspect_element is where a caller checks one specific banner, so it must answer the same question.
+        var banner = new TextBlock { Text = "Read-only", IsVisible = false };
+        var window = Show(new StackPanel { Children = { banner } });
+        try
+        {
+            var detail = UiAutomationDriver.Inspect(banner, "Window/Text[Read-only]");
+
+            detail.IsHidden.Should().BeTrue();
+        }
+        finally { window.Close(); }
+    }
+
+    private static UiNode? Find(UiNode node, Func<UiNode, bool> predicate)
+    {
+        if (predicate(node)) return node;
+        foreach (var child in node.Children)
+            if (Find(child, predicate) is { } hit) return hit;
+        return null;
+    }
+
 }
