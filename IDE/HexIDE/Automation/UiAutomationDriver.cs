@@ -10,6 +10,7 @@ using Avalonia.Input;
 using Avalonia.VisualTree;
 using AvaloniaEdit;
 using AvaloniaEdit.Editing;
+using AvaloniaEdit.Rendering;
 
 namespace HexIDE.Automation;
 
@@ -392,6 +393,90 @@ public static class UiAutomationDriver
         catch (Exception ex) { return new InteractOutcome(false, "keyboard", null, $"press_key threw: {ex.Message}"); }
     }
 
+    /// <summary>
+    /// Moves the pointer onto a control so hover-only affordances appear.
+    /// </summary>
+    /// <remarks>
+    /// <b>A hover is a position, not just an event.</b> The code editor's handler reads
+    /// <c>e.GetPosition(TextView)</c> and converts it to a text location, so an event carrying no usable
+    /// point produces no tip however correctly it is routed. The point is therefore computed and passed
+    /// in top-level coordinates, which is what <c>PointerEventArgs</c> translates from.
+    ///
+    /// <para>
+    /// <b>The default is the CARET, not the centre, for an AvaloniaEdit surface.</b> Hovering the middle
+    /// of a code editor is meaningless — what a caller wants is a particular identifier — and the caret is
+    /// already positionable through <c>interact set_property CaretOffset</c>. So "hover this identifier"
+    /// becomes two steps a caller already knows, rather than a new addressing scheme that would have to
+    /// convert a text offset to a pixel on their behalf. Anything else hovers at its centre.
+    /// </para>
+    ///
+    /// <para>
+    /// Raises <c>PointerEntered</c> then <c>PointerMoved</c>: the first is what a tooltip service waits
+    /// for, the second is what the editor's own handler listens to. Neither the dwell nor whatever the
+    /// tip needs afterwards happens here — this returns as soon as the events are delivered, and the
+    /// caller waits.
+    /// </para>
+    /// </remarks>
+    public static InteractOutcome Hover(Control control, double? x, double? y)
+    {
+        try
+        {
+            if (TopLevel.GetTopLevel(control) is not { } topLevel)
+                return new InteractOutcome(false, "pointer", null,
+                    "the control is not attached to a window, so it has no coordinates to hover at");
+
+            var target = FindHoverTarget(control);
+            var local = HoverPoint(target, x, y);
+            if (target.TranslatePoint(local, topLevel) is not { } atTopLevel)
+                return new InteractOutcome(false, "pointer", null,
+                    $"could not translate ({local.X:0.#}, {local.Y:0.#}) on '{Describe(target)}' into window coordinates");
+
+            var pointer = new Avalonia.Input.Pointer(
+                Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+            var props = new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.Other);
+
+            foreach (var routed in new[] { InputElement.PointerEnteredEvent, InputElement.PointerMovedEvent })
+            {
+                target.RaiseEvent(new PointerEventArgs(
+                    routed, target, pointer, topLevel, atTopLevel,
+                    (ulong)Environment.TickCount64, props, KeyModifiers.None));
+            }
+
+            var where = ReferenceEquals(target, control) ? string.Empty : $" on {Describe(target)}";
+            return new InteractOutcome(true, "pointer",
+                $"hovered ({local.X:0.#}, {local.Y:0.#}){where}", null);
+        }
+        catch (Exception ex) { return new InteractOutcome(false, "pointer", null, $"hover threw: {ex.Message}"); }
+    }
+
+    /// <summary>The element a hover should land on — the editor's text view, else the control itself.</summary>
+    private static Control FindHoverTarget(Control control)
+    {
+        if (control is TextEditor or TextArea) return control;
+        return control.GetVisualDescendants().OfType<Control>().FirstOrDefault(c => c is TextEditor) ?? control;
+    }
+
+    /// <summary>Where on the control to hover: an explicit point, else the caret, else the centre.</summary>
+    private static Point HoverPoint(Control target, double? x, double? y)
+    {
+        if (x is { } px && y is { } py) return new Point(px, py);
+
+        var area = target as TextArea ?? (target as TextEditor)?.TextArea;
+        if (area?.TextView is { } view && view.VisualLinesValid)
+        {
+            var caret = area.Caret.Position;
+            var visual = view.GetVisualPosition(
+                new TextViewPosition(caret.Line, caret.Column), VisualYPosition.TextMiddle);
+
+            // GetVisualPosition is in document coordinates; the scroll offset is what makes it a point on
+            // screen. A caret scrolled out of view yields a point outside the control, which is honest --
+            // you cannot hover what is not shown.
+            var point = visual - view.ScrollOffset;
+            if (view.TranslatePoint(point, target) is { } onTarget) return onTarget;
+        }
+
+        return new Point(target.Bounds.Width / 2, target.Bounds.Height / 2);
+    }
     /// <summary>
     /// Where a synthetic key press should be raised, or null when nothing under here could receive one.
     /// </summary>
