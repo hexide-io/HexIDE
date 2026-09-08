@@ -556,6 +556,43 @@ public class CodeEditorViewModelTests : IDisposable
             Arg.Any<Action<CreateOrNavigateToSubEvent>>());
     }
 
+    // ── The flush must survive being published off the UI thread (#334) ──────────────
+
+    [AvaloniaFact]
+    public async Task ApplyAllUnsavedChanges_PublishedOffTheUiThread_StillFlushesTheEditorIntoTheModel()
+    {
+        // The regression this exists for is SILENT. Document.Text throws "Call from invalid thread" off
+        // the UI thread; EventBus logs that and moves on; the save that published the event then writes
+        // the model's PREVIOUS code with a fresh timestamp and reports success. An MCP write tool awaited
+        // its save on a pool thread and did exactly that, and nothing in the result said so.
+        Action<ApplyAllUnsavedChangesEvent>? flush = null;
+        _eventBus.Subscribe(Arg.Any<Action<ApplyAllUnsavedChangesEvent>>())
+            .Returns(ci =>
+            {
+                flush = ci.Arg<Action<ApplyAllUnsavedChangesEvent>>();
+                return Substitute.For<IDisposable>();
+            });
+
+        var module = TestHelpers.CreateModule(name: "Module1");
+        var vm = CreateSut().Initialize(module);
+        vm.Document.Text = "Sub Edited()";
+
+        flush.Should().NotBeNull("the view model subscribes in its constructor");
+
+        // Awaited rather than waited on: the handler marshals with Dispatcher.UIThread.Invoke, so the UI
+        // thread has to keep pumping while the pool thread blocks on it. Blocking the test thread here
+        // would deadlock the very mechanism under test.
+        var threw = await Task.Run(() =>
+        {
+            try { flush!(new ApplyAllUnsavedChangesEvent()); return (Exception?)null; }
+            catch (Exception ex) { return ex; }
+        });
+
+        threw.Should().BeNull("a flush from a pool thread must marshal, not throw");
+        module.Code.Should().Contain("Sub Edited()",
+            "an unflushed editor means the next save serializes the previous code");
+    }
+
     [AvaloniaFact]
     public void Constructor_SubscribesToApplyAllUnsavedChangesEvent()
     {
