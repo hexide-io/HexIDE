@@ -96,6 +96,17 @@ post-`stop_project` IDE snapshot — only the *populated rows* pixel needs a hum
 a form is up. Confirmed (P5) that `set_window_state` doesn't change which window is captured — the preference is in
 the capture-target selection, not window Z-order/activation.
 
+**And now `hover`, which is what makes this the blocker it is (2026-09-08).** The `hover` action closed the
+editor half of gap 7, so **Auto Data Tips are the one paused-state feature that a tool could otherwise verify
+outright** — not a pixel, but the tip's actual text. It cannot: `hover` resolves a path against the active
+window like everything else, so with a form up there is no path to the code editor to aim at.
+`activate_document_tab` was tried as an escape hatch and **also fails** — it succeeds, and the tools still
+resolve against `VBFormRuntime` — which is a third confirmation, after `set_window_state` and the
+break-before-`Show` attempt, that the preference is in target selection and not in activation.
+
+So the "highest-value dev-server fix" note below is now understating it: this no longer blocks only *pixel*
+verification of paused-state panes. It blocks a **textual, assertable** one.
+
 **Workarounds used.** (a) `get_debug_state` for the pause fact; (b) a post-`stop_project` IDE snapshot to confirm
 the caret-reveal + Immediate output + tool-pane chrome; (c) the user confirming live paused-state pixels
 (amber bar, populated Locals/Call Stack rows).
@@ -252,10 +263,21 @@ is reported as `tip:` and a declared one as `declared tip:`, and the two are nev
   is why `hover` polls for it rather than looking once when the dwell expires. Sampling once reported "no tip"
   for a tip plainly visible on screen.
 
-**Still unmeasured: the debugger's Auto Data Tips**, which is the case this gap was originally filed for
-(P6c). It shares the editor's `PointerMoved` handler with quick-info, so it is *expected* to work now, but
-that is an inference and not a measurement. Getting a project into break mode to check it ran into
-hexide-io/HexIDE#334 and #335 (both found doing exactly this), so it is blocked behind those rather than done.
+**Still unmeasured: the debugger's Auto Data Tips**, the case this gap was originally filed for (P6c). It
+shares the editor's `PointerMoved` handler with quick-info, so it is *expected* to work, but that is an
+inference and not a measurement.
+
+**It is blocked by gap 4, not by anything in this entry.** Break mode is now reachable — a breakpoint in
+`Form_Load` arms and pauses, and `get_locals` reports the value — but while the program is paused every tool
+resolves against the **running form's** window (`VBFormRuntime`), so no path addresses the code editor and
+`hover` has nothing to aim at. Closing gap 4, or giving the tools a way to name the IDE window, is what
+unblocks this.
+
+*Two issues were opened against this line and both are now resolved, one of them wrongly filed:*
+hexide-io/HexIDE#334 was real and is fixed (MCP writes saved the previous content and reported success);
+**#335 was not a defect** — breakpoints in `Form_Load` work, and the report was an artefact of #334 corrupting
+the project under test. A negative observation made while another defect is active is not evidence, which is
+the part worth remembering.
 
 **Fix consideration.** Nothing cheap. `IsPointerOver` has no public setter, so short of Avalonia exposing one
 — or a real platform-level pointer injection, which is a much larger tool — the declarative case stays out of
