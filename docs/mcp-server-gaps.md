@@ -57,67 +57,6 @@ without a full resume.
 
 ---
 
-## 4. Can't snapshot the IDE while a form is running (debugger paused-state)
-
-**Symptom.** While a VB6 program is *running* — including when the **interpreter is paused at a breakpoint** —
-`take_snapshot` captures the `VBFormRuntime` window, not the IDE main window (`activeDialog` reports the form).
-So the IDE's **paused-state editor** — the amber current-statement bar and the red breakpoint gutter as they
-appear *during* a break — cannot be captured. (This is the inverse of gap #1: there the modal *over* the form is
-invisible; here the *IDE behind* the form is.)
-
-**How it bit.** Verifying the interpreter debugger (Phase 1): the pause was fully confirmable via
-`get_debug_state` (Paused / module / 1-based line / reason) and the reveal was confirmable *after* `stop_project`
-(the caret lands on the break line — `Ln 6, Col 1` in the status bar), and the red dot is snapshottable while
-*not* running — but the **amber bar while paused** could only be confirmed by the **user watching the live IDE**.
-The functional path is the same `Stopped`-event handler that `get_debug_state` reflects, so it's provable; the
-one *pixel* needs a human.
-
-**Also blocks DRIVING the IDE while a form runs (not just snapshotting).** `dump_visual_tree` walks the *active
-window* — which is the running `VBFormRuntime` — so it never returns the IDE's code-editor control, and
-`press_key` / `type_text` (which need a path from `dump_visual_tree`) therefore can't target the editor while a
-form is up. **How it bit (Phase-3 E&C affordance):** the "edit code while running → VB6 reset-project prompt" can't
-be triggered over MCP — sending an editor keystroke needs the IDE editor addressable, which it isn't while the form
-is foreground. The prompt logic is VM-tested (`ConfirmResetWhileRunningAsync`, `IsProjectRunning`) and the run-state
-(`IsSessionActive`) is runtime-tested, but the live keystroke→dialog step needs the **user** (or a fix below).
-
-**How it bit (Phase-5 Call Stack window).** The populated Call Stack pane (and by extension the populated Locals
-pane) while paused can't be pixel-snapshotted for the same reason. Two escape hatches were tried and **both fail**:
-(1) breaking early in `Form_Load` **before** the form is shown does **not** hand the IDE the foreground — the
-`VBFormRuntime` window already exists and is preferred the moment the run starts, even pre-`Show`; (2)
-`set_window_state("Maximized")` on the IDE main window does **not** override `take_snapshot`'s form preference
-(`activeDialog` still reports the form). So the earlier "break in `Form_Load`-before-show → IDE foreground" note is
-**wrong** — the only reliable IDE-foreground state is `stop_project`, which clears the paused panes. The pane's data
-was instead verified via `get_call_stack` (the exact model the pane binds), its behaviour via `step_over`/`step_out`
-+ `get_debug_state`, its binding via VM tests, and its **chrome** (title + "Procedure"/"Line" headers) via a
-post-`stop_project` IDE snapshot — only the *populated rows* pixel needs a human.
-
-**Root cause.** Same window-selection logic as gap #1: the running form is a separate top-level window that
-`take_snapshot` **and** `dump_visual_tree` prefer; there's no way to ask for the IDE main window specifically while
-a form is up. Confirmed (P5) that `set_window_state` doesn't change which window is captured — the preference is in
-the capture-target selection, not window Z-order/activation.
-
-**And now `hover`, which is what makes this the blocker it is (2026-09-08).** The `hover` action closed the
-editor half of gap 7, so **Auto Data Tips are the one paused-state feature that a tool could otherwise verify
-outright** — not a pixel, but the tip's actual text. It cannot: `hover` resolves a path against the active
-window like everything else, so with a form up there is no path to the code editor to aim at.
-`activate_document_tab` was tried as an escape hatch and **also fails** — it succeeds, and the tools still
-resolve against `VBFormRuntime` — which is a third confirmation, after `set_window_state` and the
-break-before-`Show` attempt, that the preference is in target selection and not in activation.
-
-So the "highest-value dev-server fix" note below is now understating it: this no longer blocks only *pixel*
-verification of paused-state panes. It blocks a **textual, assertable** one.
-
-**Workarounds used.** (a) `get_debug_state` for the pause fact; (b) a post-`stop_project` IDE snapshot to confirm
-the caret-reveal + Immediate output + tool-pane chrome; (c) the user confirming live paused-state pixels
-(amber bar, populated Locals/Call Stack rows).
-
-**Fix consideration.** A `take_snapshot` **and** `dump_visual_tree` target/scope parameter
-(e.g. `window: "ide" | "form" | "auto"`), so debugger/IDE-chrome verification can force the main window even while a
-form runs. This is now the single highest-value dev-server fix — it blocks pixel-verifying *every* paused-state tool
-pane (Locals, Call Stack, and future Watches/data-tips).
-
----
-
 ## 5. Can't select / delete / reorder a designer control via MCP
 
 **Symptom.** A control placed with `add_control` is created and auto-selected, but there is no way to (a) select a
@@ -263,21 +202,27 @@ is reported as `tip:` and a declared one as `declared tip:`, and the two are nev
   is why `hover` polls for it rather than looking once when the dwell expires. Sampling once reported "no tip"
   for a tip plainly visible on screen.
 
-**Still unmeasured: the debugger's Auto Data Tips**, the case this gap was originally filed for (P6c). It
-shares the editor's `PointerMoved` handler with quick-info, so it is *expected* to work, but that is an
-inference and not a measurement.
+**The debugger's Auto Data Tips — the case this gap was filed for (P6c) — are now MEASURED and work.**
+Paused at a breakpoint with `total = 42` in scope, `hover` on the identifier returns `tip: total = 42`,
+confirmed on screen at the same moment. It took closing gap 4 to get there: while a program is paused the
+frontmost window is the program's form, so until `window: "ide"` existed there was no path to aim at the
+editor.
 
-**It is blocked by gap 4, not by anything in this entry.** Break mode is now reachable — a breakpoint in
-`Form_Load` arms and pauses, and `get_locals` reports the value — but while the program is paused every tool
-resolves against the **running form's** window (`VBFormRuntime`), so no path addresses the code editor and
-`hover` has nothing to aim at. Closing gap 4, or giving the tools a way to name the IDE window, is what
-unblocks this.
-
-*Two issues were opened against this line and both are now resolved, one of them wrongly filed:*
+*Two issues were opened against this line and both are resolved, one of them wrongly filed:*
 hexide-io/HexIDE#334 was real and is fixed (MCP writes saved the previous content and reported success);
-**#335 was not a defect** — breakpoints in `Form_Load` work, and the report was an artefact of #334 corrupting
-the project under test. A negative observation made while another defect is active is not evidence, which is
-the part worth remembering.
+**#335 was not a defect** — breakpoints in `Form_Load` work, and the report was an artefact of #334
+corrupting the project under test. A negative observation made while another defect is active is not
+evidence, which is the part worth keeping.
+
+**A stale-tip bug fell out of this measurement, and is fixed.** Hovering `Debug.Print` right after hovering
+`total` reported `declared tip: total = 42` — a wrong answer, not a missing one. The editor closed its tip
+with `SetIsOpen(false)` and left `ToolTip.Tip` attached, so the control kept advertising the previous
+identifier's value. This tip is *dynamic*, rebuilt per hover, unlike the static tips that property is meant
+for. Closing now clears it (`CodeEditorView.CloseTip`), which also removes the live-user hazard: a real
+pointer could be shown the previous word's value before the replacement evaluation returned.
+
+**What remains open here is only the declarative case** — a toolbar button's `ToolTip.Tip` still cannot be
+made to appear, for the `IsPointerOver` reason above.
 
 **Fix consideration.** Nothing cheap. `IsPointerOver` has no public setter, so short of Avalonia exposing one
 — or a real platform-level pointer injection, which is a much larger tool — the declarative case stays out of
