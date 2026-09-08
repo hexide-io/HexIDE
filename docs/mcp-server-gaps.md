@@ -179,11 +179,40 @@ is reported as `tip:` and a declared one as `declared tip:`, and the two are nev
 
 **Two further measurements worth keeping.**
 
-- **A synthetic tip is placed at the screen origin.** Not near the target — at (0, 0). A synthetic pointer
-  carries no screen position for Avalonia to anchor the popup to. Observed twice with the window maximised and
-  once windowed, landing in the same place each time (screenshot: the quick-info tip in the desktop's top-left
-  corner while the caret was at Ln 4, Col 14). So `hover` makes a tip's **text** assertable and its
-  **position** meaningless — assert the reported string, never a snapshot.
+- **A synthetic tip opens at the REAL pointer, wherever it last was over this window.**
+  `CodeEditorView.axaml.cs:219` sets `ToolTip.SetPlacement(TextEditor, PlacementMode.Pointer)`, so Avalonia
+  anchors the popup to the pointer position **it** tracks for that `TopLevel` — and a synthetically raised
+  `PointerMoved` does not update that. The position is also *per window* and *sticky*: it holds the last place
+  a real pointer crossed this window, so it stays stale while the pointer is over some other application.
+
+  **Measured, not inferred.** The real pointer was parked over the Toolbox strip on the left edge — far from
+  the identifier — and `hover` was then fired at the caret, reported as `(176.1, 61.8)` inside the editor. The
+  tip opened against the left edge beside the Toolbox, at the pointer: not at the caret, not at the origin.
+  The prediction was written down before the run.
+
+  Every earlier sighting fits the same rule, and each had looked like a different phenomenon:
+
+  | Where the tip appeared | Where the real pointer had last crossed the window |
+  |---|---|
+  | At the caret — correct, by coincidence | the editor, where the maintainer had been clicking |
+  | Screen origin (0, 0) | nowhere: freshly relaunched, never crossed |
+  | Over the status bar | near the window's bottom edge |
+  | Bottom-left, while the pointer sat top-right | over the terminal, so HexIDE's tracked position was stale |
+
+  **Two earlier readings were wrong, and are kept because the next person will make them too.** First "an
+  arbitrary position" — it is not arbitrary, it is anchored to something, just not to anything the *call*
+  controls. Then "always the screen origin", asserted from two samples that happened to agree; a third
+  sighting refuted it, and the origin turned out to be merely the default for a window no pointer had entered.
+  A rule drawn from two agreeing measurements is a guess wearing a measurement's clothes.
+
+  **Consequence for a caller, unchanged by the explanation:** `hover` makes a tip's **text** assertable and its
+  **position** meaningless, because the position is set by a pointer no automated caller has. Assert the
+  reported string; never snapshot the tip.
+
+  **Rejected:** having `hover` impose a deterministic placement (a `PlacementRect` at the hover point) so the
+  tip lands where it was asked for. It would make a snapshot *look* right while showing the tip somewhere no
+  real user would ever see it — trading an honest limitation for a misleading picture.
+
 - **A synthetic tip is transient.** Without `IsPointerOver` the tip closes again shortly after opening, which
   is why `hover` polls for it rather than looking once when the dwell expires. Sampling once reported "no tip"
   for a tip plainly visible on screen.
