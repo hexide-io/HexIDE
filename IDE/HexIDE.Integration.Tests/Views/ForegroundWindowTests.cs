@@ -116,4 +116,61 @@ public class ForegroundWindowTests
 
         ForegroundWindow.Pick(main, new[] { main, form, msgBox, later }).Should().BeSameAs(msgBox);
     }
+
+    // ── Choosing the window explicitly (gap 4) ───────────────────────────────────────
+
+    [AvaloniaFact]
+    public void Ide_scope_returns_the_main_window_even_while_a_form_is_running()
+    {
+        // The whole point of the scope. "auto" answers "what is the user looking at"; a tool verifying the
+        // IDE's own paused-state editor is asking a different question, and used to get the program's form.
+        var main = Shown("HexIDE");
+        var form = Shown("Form1");
+
+        ForegroundWindow.Pick("auto", main, new[] { main, form }).Window.Should().BeSameAs(form);
+        ForegroundWindow.Pick("ide", main, new[] { main, form }).Window.Should().BeSameAs(main);
+    }
+
+    [AvaloniaFact]
+    public void Ide_scope_wins_over_a_dialog_too()
+    {
+        // A dialog outranks a form under "auto" — it must not outrank an explicit request.
+        var main = Shown("HexIDE");
+        var form = Shown("Form1");
+        var dialog = new Window { Title = "Run-time error" };
+        _ = dialog.ShowDialog(form);
+
+        ForegroundWindow.Pick("auto", main, new[] { main, form, dialog }).Window.Should().BeSameAs(dialog);
+        ForegroundWindow.Pick("ide", main, new[] { main, form, dialog }).Window.Should().BeSameAs(main);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("auto")]
+    [InlineData("AUTO")]
+    public void An_absent_or_auto_scope_keeps_the_historical_behaviour(string? scope)
+    {
+        // Every existing caller passes nothing. If these diverged, adding the parameter would have changed
+        // what six tools already do.
+        var main = Shown("HexIDE");
+        var form = Shown("Form1");
+
+        ForegroundWindow.Pick(scope, main, new[] { main, form }).Window
+            .Should().BeSameAs(ForegroundWindow.Pick(main, new[] { main, form }));
+    }
+
+    [AvaloniaFact]
+    public void An_unknown_scope_is_named_rather_than_quietly_treated_as_auto()
+    {
+        // Falling back would answer a different question than the one asked and look like it worked: the
+        // caller wanted a window the default does not give them, which is the only reason to pass this.
+        var main = Shown("HexIDE");
+        var form = Shown("Form1");
+
+        var (window, error) = ForegroundWindow.Pick("editor", main, new[] { main, form });
+
+        window.Should().BeNull();
+        error.Should().Contain("editor").And.Contain("auto").And.Contain("ide");
+    }
 }

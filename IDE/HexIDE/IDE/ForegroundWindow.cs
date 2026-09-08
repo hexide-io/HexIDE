@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Avalonia.Controls;
 
@@ -18,6 +19,48 @@ namespace HexIDE.IDE;
 /// </summary>
 public static class ForegroundWindow
 {
+    /// <summary>
+    /// The window a caller asked for: the frontmost one by default, or the IDE's own window on request.
+    /// </summary>
+    /// <remarks>
+    /// <para>Exists because "frontmost" is the wrong answer for a whole class of question. While a VB6
+    /// program runs — <b>including while it is paused at a breakpoint</b> — the frontmost window is the
+    /// program's form, so every tool that resolves a path against it is addressing the program rather than
+    /// the IDE, and the IDE's own editor becomes unreachable at exactly the moment its debugger state is
+    /// worth looking at. That is gap 4 in <c>docs/mcp-server-gaps.md</c>, and it costs more than pixels:
+    /// an Auto Data Tip carries readable text, and no path can be aimed at the editor to trigger one.</para>
+    ///
+    /// <para><b>Activation is not the lever.</b> Three separate attempts to move the foreground —
+    /// <c>set_window_state</c>, breaking before the form is shown, and <c>activate_document_tab</c> — all
+    /// succeed and change nothing here, because the preference is in target <i>selection</i>. So the choice
+    /// has to be passed in, not arranged for.</para>
+    ///
+    /// <para><b>Two values, not three.</b> A <c>"form"</c> scope was considered and left out: <c>"auto"</c>
+    /// already resolves to the running form whenever one is up, so it would name a case that is already
+    /// covered — and it would suggest an ability to pick <i>which</i> form, which an enum cannot do once a
+    /// project shows more than one.</para>
+    /// </remarks>
+    /// <param name="scope">
+    /// <c>"auto"</c> or null for the frontmost window; <c>"ide"</c> (or <c>"main"</c>) for the IDE's own
+    /// window, whatever is in front of it.
+    /// </param>
+    public static (Window? Window, string? Error) Pick(
+        string? scope, Window mainWindow, IReadOnlyList<Window> windows)
+    {
+        if (string.IsNullOrWhiteSpace(scope) || scope.Equals("auto", StringComparison.OrdinalIgnoreCase))
+            return (Pick(mainWindow, windows), null);
+
+        if (scope.Equals("ide", StringComparison.OrdinalIgnoreCase)
+            || scope.Equals("main", StringComparison.OrdinalIgnoreCase))
+            return (mainWindow, null);
+
+        // Named rather than silently treated as "auto". A caller who mistypes this is trying to reach a
+        // window the default would not have given them, so falling back would answer a different question
+        // than the one asked and look like it worked.
+        return (null, $"Unknown window '{scope}'. Use \"auto\" (the frontmost window, the default) "
+                    + "or \"ide\" (the IDE window, even while a program is running).");
+    }
+
     /// <summary>
     /// Picks the frontmost visible window, falling back to <paramref name="mainWindow"/> when nothing
     /// else is on screen.

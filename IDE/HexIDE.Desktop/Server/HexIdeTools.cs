@@ -1138,27 +1138,25 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "take_snapshot")]
-    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image. If a modal dialog is open it is captured in preference to the main window (its title is reported in 'active_dialog'); otherwise the main window is captured.")]
-    public async Task<SnapshotResult> TakeSnapshotAsync(CancellationToken ct)
+    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image. If a modal dialog is open it is captured in preference to the main window (its title is reported in 'active_dialog'); otherwise the main window is captured. 'window' selects which top-level window to address: \"auto\" (default) is the frontmost one, which while a VB6 program runs — INCLUDING while it is paused at a breakpoint — is the program's form, not the IDE; pass \"ide\" to address the IDE itself in that state.")]
+    public async Task<SnapshotResult> TakeSnapshotAsync(
+        string? window = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var lifetime = Avalonia.Application.Current!.ApplicationLifetime as
-                Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime;
-            var mainWindow = lifetime?.MainWindow;
-            if (mainWindow is null)
-                return new SnapshotResult(null, "No main window", null);
+            // Through the shared resolver, so 'window' means the same thing here as in every other tool.
+            // A modal dialog is a separate top-level window and is captured in preference to whatever is
+            // underneath — which may be a running program's form rather than the main window.
+            var (active, label, error) = ResolveActiveWindow(window);
+            if (active is null)
+                return new SnapshotResult(null, error, null);
 
-            // A modal dialog is a separate top-level window; capture it (so the dialog UI is
-            // visible) in preference to whatever is underneath — which may be a running program's
-            // form rather than the main window.
-            var window = HexIDE.IDE.ForegroundWindow.Pick(mainWindow, lifetime!.Windows);
-            var activeDialog = window != mainWindow ? DescribeWindow(window) : null;
+            var activeDialog = label == "MainWindow" ? null : label;
 
             // A dropped-down menu, a combo's list, a flyout: each is realised in its own top-level root,
             // so rendering the window alone gives a menu bar with no menu. The composer draws them in
             // their real positions — gap 12 in docs/mcp-server-gaps.md.
-            using var bitmap = HexIDE.Automation.SnapshotComposer.Capture(window);
+            using var bitmap = HexIDE.Automation.SnapshotComposer.Capture(active);
             if (bitmap is null)
                 return new SnapshotResult(null, "Window has no size", activeDialog);
 
@@ -1170,21 +1168,22 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "dump_visual_tree")]
-    [Description("Walks the live control tree of the active window (a visible modal dialog is preferred over the main window) and returns a structured node tree for discovering and addressing controls. Uses the UIA 'control view': structural layout wrappers (Panels, Borders, ContentPresenters, dock plumbing) are collapsed away, so the tree is shallow and paths are short. Each node carries its addressing 'path' (feed it back as a target), automation ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers (invoke/selection/selectionItem/value/toggle/expandCollapse/...), and enabled/offscreen flags. Use this to find what is on screen before inspect_element or interact. Params: root (optional path to scope to a subtree; null = whole window), maxDepth (default 20, counted in meaningful/control-view levels), interactiveOnly (default true — keeps only nodes that are interactive or have an interactive descendant). For deeply nested or large areas, pass a 'root' to scope the dump.")]
+    [Description("Walks the live control tree of the active window (a visible modal dialog is preferred over the main window) and returns a structured node tree for discovering and addressing controls. Uses the UIA 'control view': structural layout wrappers (Panels, Borders, ContentPresenters, dock plumbing) are collapsed away, so the tree is shallow and paths are short. Each node carries its addressing 'path' (feed it back as a target), automation ControlType, Name, AutomationId, ClassName, the DataContext ViewModel type, supported interaction providers (invoke/selection/selectionItem/value/toggle/expandCollapse/...), and enabled/offscreen flags. Use this to find what is on screen before inspect_element or interact. Params: root (optional path to scope to a subtree; null = whole window), maxDepth (default 20, counted in meaningful/control-view levels), interactiveOnly (default true — keeps only nodes that are interactive or have an interactive descendant). For deeply nested or large areas, pass a 'root' to scope the dump. 'window' selects which top-level window to address: \"auto\" (default) is the frontmost one, which while a VB6 program runs — INCLUDING while it is paused at a breakpoint — is the program's form, not the IDE; pass \"ide\" to address the IDE itself in that state.")]
     public async Task<VisualTreeResult> DumpVisualTreeAsync(
-        string? root = null, int maxDepth = 20, bool interactiveOnly = true, CancellationToken ct = default)
+        string? root = null, int maxDepth = 20, bool interactiveOnly = true, string? window = null,
+        CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var (window, label, error) = ResolveActiveWindow();
-            if (window is null)
+            var (active, label, error) = ResolveActiveWindow(window);
+            if (active is null)
                 return new VisualTreeResult(error, null, null);
 
-            Control start = window;
+            Control start = active;
             var basePath = "Window";
             if (root is not null)
             {
-                var (resolved, resolveError) = UiAutomationDriver.Resolve(window, root);
+                var (resolved, resolveError) = UiAutomationDriver.Resolve(active, root);
                 if (resolved is null)
                     return new VisualTreeResult(resolveError, label, null);
                 start = resolved;
@@ -1196,17 +1195,18 @@ internal sealed class HexIdeTools(IdeContext ctx)
         });
     }
 
-    [McpServerTool(Name = "inspect_element")]
+    [McpServerTool(Name = "inspect_element 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused.")]
     [Description("Returns a deep inspection of a single control addressed by 'target' (a path from dump_visual_tree): identity, supported interaction providers, bounding rectangle, current selection/value/toggle state, and the DataContext ViewModel's public command and property members (the surface the reflection-based interact actions target). Use before interact to confirm an element supports the action you intend, or — for a control with no provider — to discover the VM members the reflection fallback can reach.")]
-    public async Task<InspectResult> InspectElementAsync(string target, CancellationToken ct = default)
+    public async Task<InspectResult> InspectElementAsync(
+        string target, string? window = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var (window, label, error) = ResolveActiveWindow();
-            if (window is null)
+            var (active, label, error) = ResolveActiveWindow(window);
+            if (active is null)
                 return new InspectResult(error, null, null);
 
-            var (control, resolveError) = UiAutomationDriver.Resolve(window, target);
+            var (control, resolveError) = UiAutomationDriver.Resolve(active, target);
             if (control is null)
                 return new InspectResult(resolveError, label, null);
 
@@ -1214,17 +1214,19 @@ internal sealed class HexIdeTools(IdeContext ctx)
         });
     }
 
-    [McpServerTool(Name = "interact")]
+    [McpServerTool(Name = "interact 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused.")]
     [Description("Drives a live control addressed by 'target' (a path from dump_visual_tree) through its UI Automation provider — one polymorphic verb instead of a tool per interaction. Provider actions: invoke (click a Button / menu item), select (pick a ComboBox/ListBox item), set_value (set a TextBox's text), toggle (flip a CheckBox), expand / collapse (open/close a dropdown, tree node, expander). Reflection fallback (for controls with no provider — see inspect_element's dataContextMembers): invoke_command (value = a command name; executes that ICommand on the target's DataContext after a CanExecute check) and set_property (value = \"PropertyName=NewValue\"; sets that VM property, coercing to its type). 'value': required for set_value (the text) and the reflection actions; for select, the item text to match (omit if 'target' already points at the item). A missing provider fails with \"element does not support '<action>'\" — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. Virtualized dropdown items aren't addressable until realized — 'expand' first, then dump_visual_tree(root=combo), then 'select'. Actions are real and unguarded (the server is DEBUG-only). Use dump_visual_tree/inspect_element first to find the target and confirm what it supports.")]
-    public async Task<InteractOutcome> InteractAsync(string target, string action, string? value = null, CancellationToken ct = default)
+    public async Task<InteractOutcome> InteractAsync(
+        string target, string action, string? value = null, string? window = null,
+        CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var (window, _, error) = ResolveActiveWindow();
-            if (window is null)
+            var (active, _, error) = ResolveActiveWindow(window);
+            if (active is null)
                 return new InteractOutcome(false, "peer", null, error);
 
-            var (control, resolveError) = UiAutomationDriver.Resolve(window, target);
+            var (control, resolveError) = UiAutomationDriver.Resolve(active, target);
             if (control is null)
                 return new InteractOutcome(false, "peer", null, resolveError);
 
@@ -1233,16 +1235,17 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "type_text")]
-    [Description("Types text into the control at 'target' (a path from dump_visual_tree) by inserting at the caret via the control's own API — works on the code editor (AvaloniaEdit), which has no value provider for 'interact set_value'. If 'target' isn't itself a text surface, the nearest descendant editor/textbox is used (the AvaloniaEdit editor is preferred over incidental textboxes). Multi-line text is inserted verbatim (include \\n for new lines); exact, reliable, and not altered by live auto-indent/IntelliSense. For a typing cadence, call this once per line. Use press_key for Enter/Tab/commands.")]
-    public async Task<InteractOutcome> TypeTextAsync(string target, string text, CancellationToken ct = default)
+    [Description("Types text into the control at 'target' (a path from dump_visual_tree) by inserting at the caret via the control's own API — works on the code editor (AvaloniaEdit), which has no value provider for 'interact set_value'. If 'target' isn't itself a text surface, the nearest descendant editor/textbox is used (the AvaloniaEdit editor is preferred over incidental textboxes). Multi-line text is inserted verbatim (include \\n for new lines); exact, reliable, and not altered by live auto-indent/IntelliSense. For a typing cadence, call this once per line. Use press_key for Enter/Tab/commands. 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused.")]
+    public async Task<InteractOutcome> TypeTextAsync(
+        string target, string text, string? window = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var (window, _, error) = ResolveActiveWindow();
-            if (window is null)
+            var (active, _, error) = ResolveActiveWindow(window);
+            if (active is null)
                 return new InteractOutcome(false, "keyboard", null, error);
 
-            var (control, resolveError) = UiAutomationDriver.Resolve(window, target);
+            var (control, resolveError) = UiAutomationDriver.Resolve(active, target);
             if (control is null)
                 return new InteractOutcome(false, "keyboard", null, resolveError);
 
@@ -1251,18 +1254,19 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "hover")]
-    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) by raising real PointerEntered/PointerMoved events, watches for a tip, and reports its text. WORKS for tips a control raises from its OWN pointer handler — LSP quick-info and the debugger's Auto Data Tips in the code editor. Does NOT work for a declarative ToolTip.Tip: Avalonia's ToolTipService ignores a synthetic pointer, so a toolbar button's tooltip stays shut. 'x'/'y' are optional and relative to the target's own top-left; omit them and the point is the CARET for a code editor (position it first with interact set_property CaretOffset, which is how you hover a particular identifier) and the centre of anything else. 'dwellMs' (default 1500) is how long to watch — it must exceed the 400ms quick-info dwell plus the language server's round trip. The tip is TRANSIENT (a synthetic pointer never sets IsPointerOver, so it closes again shortly after opening), which is why this polls rather than looking once, and it is placed AT THE REAL POINTER — wherever it last crossed this window — and not under the target: the editor opens quick-info with PlacementMode.Pointer, which anchors to a position Avalonia tracks per window and a synthetic event never updates. Measured: with the mouse parked over the Toolbox, hovering the caret opened the tip beside the Toolbox; on a fresh window at screen (300,250) that no pointer had crossed, it opened at screen (0,15). So assert the reported text, never a snapshot.")]
+    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) by raising real PointerEntered/PointerMoved events, watches for a tip, and reports its text. WORKS for tips a control raises from its OWN pointer handler — LSP quick-info and the debugger's Auto Data Tips in the code editor. Does NOT work for a declarative ToolTip.Tip: Avalonia's ToolTipService ignores a synthetic pointer, so a toolbar button's tooltip stays shut. 'x'/'y' are optional and relative to the target's own top-left; omit them and the point is the CARET for a code editor (position it first with interact set_property CaretOffset, which is how you hover a particular identifier) and the centre of anything else. 'dwellMs' (default 1500) is how long to watch — it must exceed the 400ms quick-info dwell plus the language server's round trip. The tip is TRANSIENT (a synthetic pointer never sets IsPointerOver, so it closes again shortly after opening), which is why this polls rather than looking once, and it is placed AT THE REAL POINTER — wherever it last crossed this window — and not under the target: the editor opens quick-info with PlacementMode.Pointer, which anchors to a position Avalonia tracks per window and a synthetic event never updates. Measured: with the mouse parked over the Toolbox, hovering the caret opened the tip beside the Toolbox; on a fresh window at screen (300,250) that no pointer had crossed, it opened at screen (0,15). So assert the reported text, never a snapshot. 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused.")]
     public async Task<InteractOutcome> HoverAsync(
-        string target, double? x = null, double? y = null, int dwellMs = 1500, CancellationToken ct = default)
+        string target, double? x = null, double? y = null, int dwellMs = 1500, string? window = null,
+        CancellationToken ct = default)
     {
         Control? hovered = null;
 
         var raised = await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var (window, _, error) = ResolveActiveWindow();
-            if (window is null) return new InteractOutcome(false, "pointer", null, error);
+            var (active, _, error) = ResolveActiveWindow(window);
+            if (active is null) return new InteractOutcome(false, "pointer", null, error);
 
-            var (control, resolveError) = UiAutomationDriver.Resolve(window, target);
+            var (control, resolveError) = UiAutomationDriver.Resolve(active, target);
             if (control is null) return new InteractOutcome(false, "pointer", null, resolveError);
 
             hovered = control;
@@ -1366,17 +1370,19 @@ internal sealed class HexIdeTools(IdeContext ctx)
         ToolTip.GetIsOpen(c) && ToolTip.GetTip(c) is { } tip && tip.ToString() is { Length: > 0 } text
             ? text.Trim()
             : null;
-    [McpServerTool(Name = "press_key")]
+    [McpServerTool(Name = "press_key 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused.")]
     [Description("Presses a key on the control at 'target' (a path from dump_visual_tree) by raising real KeyDown/KeyUp events — for navigation and commands that type_text doesn't cover: Enter, Tab, Back(space), Delete, Escape, arrow keys, etc., optionally with modifiers. 'key' is an Avalonia Key name (Enter, Tab, Back, Escape, Down, S, ...). 'modifiers' is an optional combo like 'Ctrl', 'Ctrl+Shift', 'Alt'. Resolves to the DEEPEST input surface under 'target' — for the code editor that is AvaloniaEdit's TextArea, where its key handling lives — because a routed event reaches only the element it is raised on and its ancestors, never anything below. Falls back to the first focusable descendant, and FAILS rather than reporting success when nothing under 'target' can take keyboard focus. The reply names the control that actually received the key when it is not the one addressed.")]
-    public async Task<InteractOutcome> PressKeyAsync(string target, string key, string? modifiers = null, CancellationToken ct = default)
+    public async Task<InteractOutcome> PressKeyAsync(
+        string target, string key, string? modifiers = null, string? window = null,
+        CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var (window, _, error) = ResolveActiveWindow();
-            if (window is null)
+            var (active, _, error) = ResolveActiveWindow(window);
+            if (active is null)
                 return new InteractOutcome(false, "keyboard", null, error);
 
-            var (control, resolveError) = UiAutomationDriver.Resolve(window, target);
+            var (control, resolveError) = UiAutomationDriver.Resolve(active, target);
             if (control is null)
                 return new InteractOutcome(false, "keyboard", null, resolveError);
 
@@ -1386,14 +1392,17 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
     // Active window for the automation tools: prefer a visible modal dialog over the main window
     // (mirrors take_snapshot) so dialogs are addressable with no extra parameter.
-    private static (Window? window, string? label, string? error) ResolveActiveWindow()
+    private static (Window? window, string? label, string? error) ResolveActiveWindow(string? scope = null)
     {
         var lifetime = Avalonia.Application.Current!.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime;
         var mainWindow = lifetime?.MainWindow;
         if (mainWindow is null)
             return (null, null, "No main window");
 
-        var window = HexIDE.IDE.ForegroundWindow.Pick(mainWindow, lifetime!.Windows);
+        var (window, error) = HexIDE.IDE.ForegroundWindow.Pick(scope, mainWindow, lifetime!.Windows);
+        if (window is null)
+            return (null, null, error);
+
         var label = window != mainWindow ? DescribeWindow(window) : "MainWindow";
         return (window, label, null);
     }
