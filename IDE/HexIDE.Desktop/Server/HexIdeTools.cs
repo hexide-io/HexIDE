@@ -438,8 +438,26 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     : "Project is already running";
                 return new MutateResult(false, reason);
             }
+            // So get_last_runtime_error answers "did THIS run raise" rather than "has anything ever".
+            // The sequence survives, so a caller holding an older one can still tell something happened.
+            ctx.RootViewModel.RuntimeErrors.Clear();
             ctx.ProjectRunnerService.RunStartupProject();
             return new MutateResult(true, null);
+        });
+    }
+
+
+    [McpServerTool(Name = "get_last_runtime_error")]
+    [Description("Returns the last runtime error the running program raised, WITH ITS TEXT, and keeps it after the error dialog has been dismissed. Use it after any run that might raise: stop_project and shutdown_ide both close open dialogs, so a run whose form silently did nothing is otherwise indistinguishable from a run whose error dialog was dismissed a moment earlier. run_project clears the message first, so a result here belongs to the most recent run. 'sequence' only ever increases and is not cleared — compare it across runs to tell 'no error' from 'the same error again', which message text cannot do. Returns raised:false when the current run has raised nothing.")]
+    public async Task<RuntimeErrorResult> GetLastRuntimeErrorAsync(CancellationToken ct)
+    {
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            var last = ctx.RootViewModel.RuntimeErrors.Last;
+            return last is null
+                ? new RuntimeErrorResult(false, null, null, 0)
+                : new RuntimeErrorResult(true, last.Value.Message,
+                                         last.Value.At.ToString("o"), last.Value.Sequence);
         });
     }
 
@@ -1651,6 +1669,8 @@ internal record ToolboxItemsResult(ToolboxItem[] Items);
 internal record TemplateInfo(string Name, bool Supported, string Source);
 
 internal record NewProjectTemplatesResult(TemplateInfo[] Templates);
+
+internal record RuntimeErrorResult(bool Raised, string? Message, string? At, int Sequence);
 
 internal record VisualTreeResult(string? Error, string? Window, UiNode? Root);
 
