@@ -100,9 +100,62 @@ public static class UiAutomationDriver
             if (typeof(System.Windows.Input.ICommand).IsAssignableFrom(p.PropertyType))
                 members.Add(new VmMember(p.Name, "command", null, false));
             else
-                members.Add(new VmMember(p.Name, "property", p.PropertyType.Name, p.CanWrite));
+                members.Add(new VmMember(p.Name, "property", p.PropertyType.Name, p.CanWrite,
+                                         ReadValue(dataContext, p)));
         }
         return [.. members];
+    }
+
+
+    /// <summary>Cap on a reported value, in characters. The Immediate buffer is unbounded.</summary>
+    private const int MaxValueLength = 4000;
+
+    /// <summary>
+    /// A property's current value as text, or null when it cannot be read as text.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Only recognised types are called at all.</b> This invokes a getter, and a getter is
+    /// arbitrary code: restricting it to scalars and a couple of known text holders keeps the blast radius
+    /// to properties whose reads are ordinary. Anything else is listed without a value, exactly as before.</para>
+    ///
+    /// <para><b><c>TextDocument</c> earns its special case.</b> The Immediate window's contents are an
+    /// AvaloniaEdit <c>TextDocument</c>, not a string, so a scalars-only reader would leave the single most
+    /// useful piece of text in the IDE unreadable — which is the gap this closes. Its <c>Text</c> must be
+    /// read on the UI thread; every caller here is already on it.</para>
+    ///
+    /// <para><b>Truncated rather than unbounded,</b> and it says so in the value itself. A long-running
+    /// program's Debug.Print output has no natural limit, and a tool result that grows without one is a
+    /// different failure from the one being fixed.</para>
+    ///
+    /// <para><b>A throwing getter yields null, not an exception.</b> Inspecting a control must not fail
+    /// because one view-model property is unhappy; a computed getter can easily depend on state that is not
+    /// there yet.</para>
+    /// </remarks>
+    private static string? ReadValue(object dataContext, PropertyInfo p)
+    {
+        if (!p.CanRead) return null;
+
+        var t = Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType;
+        var readable = t == typeof(string) || t.IsEnum || t.IsPrimitive
+                    || t == typeof(decimal) || t == typeof(DateTime) || t == typeof(DateTimeOffset)
+                    || t == typeof(TimeSpan) || t == typeof(Guid)
+                    || typeof(AvaloniaEdit.Document.TextDocument).IsAssignableFrom(t);
+        if (!readable) return null;
+
+        return Safe(() =>
+        {
+            var raw = p.GetValue(dataContext);
+            var text = raw switch
+            {
+                null => null,
+                AvaloniaEdit.Document.TextDocument doc => doc.Text,
+                IFormattable f => f.ToString(null, CultureInfo.InvariantCulture),
+                _ => raw.ToString(),
+            };
+            return text is { Length: > MaxValueLength }
+                ? text[..MaxValueLength] + $"… [truncated at {MaxValueLength} chars]"
+                : text;
+        }, null);
     }
 
     /// <summary>
@@ -938,7 +991,11 @@ public record UiNodeDetail(
     VmMember[] DataContextMembers);
 
 /// <summary>A reflectable public member of a control's DataContext.</summary>
-public record VmMember(string Name, string Kind, string? TypeName, bool CanWrite);
+/// <param name="Value">
+/// The member's current value where it is readable as text, else null. Null means "not read" — a command,
+/// an unsupported type, a getter that threw — never "the value is empty", which reads back as <c>""</c>.
+/// </param>
+public record VmMember(string Name, string Kind, string? TypeName, bool CanWrite, string? Value = null);
 
 /// <summary>Outcome of <see cref="UiAutomationDriver.Interact"/>. <c>Mechanism</c> is "peer" for
 /// provider-backed actions (Phase 6) and "reflection" for the DataContext fallback (Phase 7).</summary>

@@ -849,4 +849,85 @@ public class UiAutomationDriverTests
         return null;
     }
 
+
+    // ── Reading what the IDE said (dataContextMembers values) ────────────────────────
+
+    private sealed class ValueVm
+    {
+        public string Text { get; set; } = "a runtime error message";
+        public int Count { get; } = 42;
+        public bool Flag { get; } = true;
+        public string? Missing { get; }
+        public string Empty { get; } = "";
+        public AvaloniaEdit.Document.TextDocument Document { get; } = new("x = 1" + (char)10 + "y = 2");
+        public object Complicated { get; } = new();
+        public string Explodes => throw new InvalidOperationException("not ready");
+        public System.Windows.Input.ICommand? DoIt => null;
+    }
+
+    [AvaloniaFact]
+    public void Scalar_properties_report_their_value()
+    {
+        var members = UiAutomationDriver.ReflectDataContextMembers(new ValueVm());
+
+        Member(members, "Text").Value.Should().Be("a runtime error message");
+        Member(members, "Count").Value.Should().Be("42");
+        Member(members, "Flag").Value.Should().Be("True");
+    }
+
+    [AvaloniaFact]
+    public void A_TextDocument_reports_its_text()
+    {
+        // The Immediate window's contents are a TextDocument, not a string — the single most useful piece
+        // of text in the IDE, and unreachable to a scalars-only reader.
+        UiAutomationDriver.ReflectDataContextMembers(new ValueVm())
+            .Single(m => m.Name == "Document").Value.Should().Be("x = 1" + (char)10 + "y = 2");
+    }
+
+    [AvaloniaFact]
+    public void Null_means_not_read_and_empty_means_empty()
+    {
+        // The distinction is the point: an empty string is a fact about the value, null is a fact about
+        // the reader. Collapsing them would make "no output yet" and "cannot see the output" identical.
+        var members = UiAutomationDriver.ReflectDataContextMembers(new ValueVm());
+
+        Member(members, "Empty").Value.Should().Be("");
+        Member(members, "Missing").Value.Should().BeNull();
+        Member(members, "Complicated").Value.Should().BeNull("an unsupported type is listed, not read");
+    }
+
+    [AvaloniaFact]
+    public void A_throwing_getter_does_not_fail_the_inspection()
+    {
+        // A computed getter can easily depend on state that is not there yet. Inspecting a control must
+        // not fail because one view-model property is unhappy.
+        var members = UiAutomationDriver.ReflectDataContextMembers(new ValueVm());
+
+        Member(members, "Explodes").Value.Should().BeNull();
+        members.Should().Contain(m => m.Name == "Text", "the other members still come back");
+    }
+
+    [AvaloniaFact]
+    public void A_command_is_still_listed_without_a_value()
+    {
+        var doIt = Member(UiAutomationDriver.ReflectDataContextMembers(new ValueVm()), "DoIt");
+
+        doIt.Kind.Should().Be("command");
+        doIt.Value.Should().BeNull();
+    }
+
+    [AvaloniaFact]
+    public void A_long_value_is_truncated_and_says_so()
+    {
+        // Debug.Print output has no natural limit, and a tool result that grows without one is a different
+        // failure from the one being fixed.
+        var vm = new ValueVm { Text = new string('x', 9000) };
+
+        var value = Member(UiAutomationDriver.ReflectDataContextMembers(vm), "Text").Value;
+
+        value!.Length.Should().BeLessThan(9000);
+        value.Should().EndWith("chars]").And.Contain("truncated");
+    }
+
+    private static VmMember Member(VmMember[] members, string name) => members.Single(m => m.Name == name);
 }
