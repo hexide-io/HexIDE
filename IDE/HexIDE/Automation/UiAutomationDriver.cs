@@ -81,6 +81,7 @@ public static class UiAutomationDriver
             Safe(() => peer.IsEnabled(), true),
             Safe(() => peer.IsKeyboardFocusable(), false),
             Safe(() => peer.IsOffscreen(), false),
+            Hidden(control),
             [rect.X, rect.Y, rect.Width, rect.Height],
             selection,
             value,
@@ -716,8 +717,29 @@ public static class UiAutomationDriver
             info.Providers,
             info.Peer is null || Safe(() => info.Peer.IsEnabled(), true),
             info.Peer is not null && Safe(() => info.Peer.IsOffscreen(), false),
+            Hidden(node.Control),
             children);
     }
+
+
+    /// <summary>
+    /// <c>true</c> when a control is in the tree but not on screen; null when it is showing.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Effective visibility, not the local flag.</b> A control can be <c>IsVisible</c> itself and
+    /// still be invisible because an ancestor is collapsed, so reporting the local property would move the
+    /// same trap up one level rather than close it.</para>
+    ///
+    /// <para><b>Not the same question as <c>IsOffscreen</c>,</b> which is a UIA concept about clipping and
+    /// scroll position: a control scrolled out of view is offscreen and visible, and a collapsed one is
+    /// visible-to-UIA and not showing. Neither answers "is this on screen", which is the whole meaning of a
+    /// banner, a validation message, an overlay or an empty-state placeholder.</para>
+    ///
+    /// <para><b>Null rather than false</b> so it is absent from the overwhelmingly common case and a dump
+    /// stays readable — a hidden node is the exception worth spelling out, and the tree is already long.</para>
+    /// </remarks>
+    private static bool? Hidden(Control control) =>
+        Safe(() => control.IsEffectivelyVisible, true) ? null : true;
 
     // Nearest control-view children: descends transparently through non-Control visuals AND structural
     // control wrappers, collecting the closest meaningful Control descendants.
@@ -893,6 +915,7 @@ public record UiNode(
     string[] Providers,
     bool IsEnabled,
     bool IsOffscreen,
+    bool? IsHidden,
     UiNode[] Children);
 
 /// <summary>Deep single-node inspection from <see cref="UiAutomationDriver.Inspect"/>.</summary>
@@ -907,6 +930,7 @@ public record UiNodeDetail(
     bool IsEnabled,
     bool IsKeyboardFocusable,
     bool IsOffscreen,
+    bool? IsHidden,
     double[] BoundingRect,
     string[] SelectionItems,
     string? Value,
