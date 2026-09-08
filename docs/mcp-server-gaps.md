@@ -196,6 +196,30 @@ is reported as `tip:` and a declared one as `declared tip:`, and the two are nev
      the window. Client-relative would have put it at roughly `(300, 280)`. **The default is the screen
      origin.**
 
+  3. *Does it survive the pointer leaving?* The pointer was walked from the taskbar up into the window, over
+     the editor, and back out through the bottom edge at y≈850, then left outside. The tip still opened
+     inside the window rather than reverting to `(0, 15)`. **The position persists after the pointer
+     exits** — it is a last-known value, not a live one.
+
+  **One part of that third run resists explanation, and is left that way.** The tip's **x** matched the exit
+  point exactly; its **y** did not — it appeared near the *top* of the window, just below the toolbar, having
+  exited at the *bottom*. Two candidate rules were considered and neither survives arithmetic: excluding the
+  menu/toolbar chrome from the client area shifts the anchor **down**, not up, and clamping to the placement
+  target's bounds would pin it to the editor's **bottom** edge. So: measured, reproducible in its x, and no
+  vertical rule worth defending. It does not change what a caller should do, because the conclusion below
+  never depended on the position being predictable — only on its not being controllable.
+
+  3. *Does it survive the pointer leaving?* The pointer was walked from the taskbar up into the window, over
+     the editor, and out again through the **top** edge, then left outside. The tip opened at that exit
+     point — just below the toolbar — rather than reverting to `(0, 15)`. **The position persists after the
+     pointer exits:** it is a last-known value, not a live one, which is why a window the pointer left
+     minutes ago still places its tip where the pointer used to be.
+
+  That run also settles a fair question — whether the menu bar and toolbars count as "client area" for this.
+  They do, and no special case is needed: they are ordinary controls in the same `TopLevel`, so passing over
+  them updates the tracked position like anywhere else. The tip landing *just below* the toolbar is the same
+  constant nudge measured in run 2 — the anchor was on the toolbar, and the tip drew beneath it.
+
   Every earlier sighting fits the same rule, and each had looked like a different phenomenon:
 
   | Where the tip appeared | Where the real pointer had last crossed the window |
