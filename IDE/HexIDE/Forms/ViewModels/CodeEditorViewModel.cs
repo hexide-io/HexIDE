@@ -203,9 +203,26 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
         }));
         AutoDispose(this.eventBus.Subscribe<ApplyAllUnsavedChangesEvent>(e =>
         {
-            formDefinition?.UpdateCode(Document.Text);
-            if (moduleDefinition is not null)
-                moduleDefinition.UpdateCode(Document.Text);
+            // Marshalled, because failing here is INVISIBLE and corrupting. Document.Text throws
+            // "Call from invalid thread" off the UI thread, EventBus logs the exception and moves to the
+            // next handler, and the save that published this event then serializes the model's previous
+            // code as though the editor had been flushed. The caller is told the file was written; it was,
+            // with the wrong contents. An MCP write tool did exactly this. (#334)
+            //
+            // Invoke rather than Post: the publisher writes the model to disk on the very next statement,
+            // so a flush that has merely been queued is a flush that did not happen. Inlines when already
+            // on the UI thread, which every in-app caller is.
+            if (Avalonia.Threading.Dispatcher.UIThread.CheckAccess())
+                Flush();
+            else
+                Avalonia.Threading.Dispatcher.UIThread.Invoke(Flush);
+
+            void Flush()
+            {
+                formDefinition?.UpdateCode(Document.Text);
+                if (moduleDefinition is not null)
+                    moduleDefinition.UpdateCode(Document.Text);
+            }
         }));
         AutoDispose(this.eventBus.Subscribe<DocumentSavedEvent>(e =>
         {
