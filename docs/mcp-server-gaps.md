@@ -758,3 +758,45 @@ resolving to the nearest ancestor `ScrollViewer`) would close it for every scrol
 just this one — the Object Browser, the Translation Editor and the Locals tree have the same shape. Failing
 that, `take_snapshot` could accept an optional element `path` and capture that element at its full desired
 size rather than clipped to the viewport, which would also make long content diffable.
+
+---
+
+## press_key cannot reach a handler attached to TextArea, which is where the code editor's live
+
+**Symptom.** `press_key` reports `{"success":true,"mechanism":"keyboard","detail":"pressed F12"}` and nothing
+happens. No exception, no log line, no visible effect — indistinguishable from a feature that is bound and
+broken. It cost a wrongly-filed issue (hexide-io/HexIDE#325) and a round of diagnosis into the wrong layer.
+
+**Mechanism.** `UiAutomationDriver.PressKey` resolves its target through `FindTextSurface`, which returns
+the first **`TextEditor`** descendant, then raises `KeyDownEvent` on it. But AvaloniaEdit nests
+`TextEditor` → `TextArea` → `TextView`, and `CodeEditorView` attaches its key handling to **`TextArea`**
+(`CodeEditorView.axaml.cs:229`, `RoutingStrategies.Tunnel`).
+
+A routed event raised on `TextEditor` tunnels *down to* it and bubbles *up from* it. `TextArea` is beneath
+it in the tree, so it is on neither route. The handler cannot fire, however correct it is — and the tool
+reports success, because raising the event did succeed.
+
+So **every keyboard command in the code editor is undrivable at the obvious target**: F12 (go to
+definition), Enter auto-indent, Shift+Alt+F (format), and the whole edit-while-running reset prompt.
+
+**Workaround.** Address the `TextArea` explicitly. It is in `dump_visual_tree` as the `None` node with
+`className: "TextArea"` under the editor's `PART_ScrollViewer`:
+
+```
+…/Pane[#0]/Custom/Pane[PART_ScrollViewer]/None
+```
+
+`FindTextSurface` returns a `TextArea` unchanged when handed one, so the event raises on the right element
+and tunnel handlers fire. Verified: F12 at a call site then moves the caret to the declaration.
+
+**Suggested fix.** `FindTextSurface` prefers `TextEditor` over `TextArea`
+(`descendants.FirstOrDefault(c => c is TextEditor) ?? descendants.FirstOrDefault(c => c is TextArea)`),
+which is right for `type_text` — inserting at the caret wants the editor's own API — and wrong for
+`press_key`, which wants the innermost element so the route covers everything above it. The two tools want
+opposite ends of the same chain, so the preference belongs at the call site rather than in a shared helper:
+`press_key` should prefer the *deepest* text surface, `type_text` the outermost.
+
+**The general lesson, which is the reason this is written down.** A synthetic `RaiseEvent` reproduces a real
+keypress only for handlers on the target or its ancestors. Anything attached below the element the harness
+picked is unreachable and reports success. When a keyboard-driven feature appears to do nothing, establish
+that the handler is on the event's route **before** concluding anything about the feature.
