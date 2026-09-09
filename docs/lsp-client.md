@@ -35,7 +35,7 @@ library the specification is written around.
 |---|---|
 | Lifecycle | `initialize`, `initialized`, `shutdown`, `exit` |
 | Document sync | `textDocument/didOpen`, `didChange`, `didClose`, `didSave` |
-| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `documentHighlight`, `rename`, `formatting`, `codeLens` |
+| Language requests | `hover`, `documentSymbol`, `foldingRange`, `completion`, `signatureHelp`, `definition`, `declaration`, `documentHighlight`, `rename`, `formatting`, `codeLens` |
 | Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
@@ -173,7 +173,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 23 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 24 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -195,7 +195,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 14 of 41
+### `textDocument/*` — 15 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -203,7 +203,7 @@ than inferred.
 | ✅ | `textDocument/codeLens` | → |  |
 | ○ | `textDocument/colorPresentation` | → |  |
 | ✅ | `textDocument/completion` | → |  |
-| ○ | `textDocument/declaration` | → |  |
+| ✅ | `textDocument/declaration` | → | Where a name is declared, which a server may answer differently from `definition` |
 | ✅ | `textDocument/definition` | → | All three reply shapes; opens the document a cross-file answer names |
 | ○ | `textDocument/diagnostic` | → | The pull model. A server publishing only this way connects and reports nothing ([#284](https://github.com/hexide-io/HexIDE/issues/284)) |
 | ◐ | `textDocument/didChange` | → | Full text only; a declared incremental kind is ignored ([#282](https://github.com/hexide-io/HexIDE/issues/282)) |

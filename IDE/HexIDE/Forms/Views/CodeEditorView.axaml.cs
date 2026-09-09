@@ -738,6 +738,12 @@ public partial class CodeEditorView : UserControl
             e.Handled = true;
             GoToDefinition();
         }
+        // Ctrl+F12 = go to declaration, next to F12 because it answers the neighbouring question
+        else if (e.Key == Key.F12 && e.KeyModifiers == KeyModifiers.Control)
+        {
+            e.Handled = true;
+            GoToDeclaration();
+        }
         // Shift+Alt+F = format document
         else if (e.Key == Key.F && e.KeyModifiers == (KeyModifiers.Shift | KeyModifiers.Alt))
         {
@@ -1063,22 +1069,36 @@ public partial class CodeEditorView : UserControl
         }
     }
 
-    // ── Go to definition (F12) ────────────────────────────────────────────────
+    // ── Go to definition (F12) and declaration (Ctrl+F12) ─────────────────────
 
-    public void GoToDefinition()
+    public void GoToDefinition() => GoTo("definition", (vm, p) => vm.RequestDefinitionAsync(p));
+
+    /// <summary>
+    /// Where the symbol is DECLARED, which is a different question from where it is defined.
+    /// </summary>
+    /// <remarks>
+    /// Shares everything below with go-to-definition because the answer has the same shape -- a list of
+    /// locations -- and only the request differs. A server that does not distinguish them simply never
+    /// advertises <c>declarationProvider</c>, so this quietly does nothing rather than duplicating F12.
+    /// </remarks>
+    public void GoToDeclaration() => GoTo("declaration", (vm, p) => vm.RequestDeclarationAsync(p));
+
+    private void GoTo(string what, Func<CodeEditorViewModel, Position, Task<HexIDE.Lsp.Messages.Location[]?>> request)
     {
         if (DataContext is not CodeEditorViewModel vm) return;
         var caret = TextEditor.TextArea.Caret.Position;
         var lspPos = new Position(caret.Line - 1, caret.Column - 1);
-        _ = GoToDefinitionAsync(vm, lspPos);
+        _ = GoToLocationAsync(vm, lspPos, what, request);
     }
 
-    private async Task GoToDefinitionAsync(CodeEditorViewModel vm, Position position)
+    private async Task GoToLocationAsync(
+        CodeEditorViewModel vm, Position position, string what,
+        Func<CodeEditorViewModel, Position, Task<HexIDE.Lsp.Messages.Location[]?>> request)
     {
         try
         {
             await vm.FlushDocumentAsync();
-            var locations = await vm.RequestDefinitionAsync(position);
+            var locations = await request(vm, position);
 
             if (locations is not { Length: > 0 })
                 return;
@@ -1114,7 +1134,7 @@ public partial class CodeEditorView : UserControl
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            Log.Debug("[definition] {ErrorMessage}", ex.Message);
+            Log.Debug("[{What}] {ErrorMessage}", what, ex.Message);
         }
     }
 

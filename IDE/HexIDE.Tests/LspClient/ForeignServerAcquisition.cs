@@ -61,13 +61,24 @@ internal sealed record ForeignAsset(string Rid, string FileName, string Sha256);
 /// <param name="Key">Short name; also the cache directory and the environment-variable suffix.</param>
 /// <param name="ExecutableName">The file inside the archive, without a platform extension.</param>
 /// <param name="ReleaseUrlFormat">Format string taking the version and the asset name.</param>
+/// <param name="ExecutableSubdirectory">
+/// Where inside the archive the executable sits, relative to the extraction directory, with <c>{0}</c> for
+/// the version. Empty for an archive that is just the binary — which the first three are.
+/// <para>
+/// clangd is not: it ships <c>bin/</c> beside a <c>lib/clang/&lt;major&gt;/include</c> tree that it locates
+/// relative to its own path, so the binary cannot be lifted out. Flattening it appears to work — a fixture
+/// with no <c>#include</c> does not care that the resource directory is missing — and breaks on the first
+/// one that includes anything, which is the worst way for this to fail.
+/// </para>
+/// </param>
 internal sealed record ForeignServerSource(
     string Key,
     string Version,
     string ExecutableName,
     string ReleaseUrlFormat,
     DigestProvenance Provenance,
-    ForeignAsset[] Assets);
+    ForeignAsset[] Assets,
+    string ExecutableSubdirectory = "");
 
 /// <summary>
 /// Fetches the pinned third-party language servers the foreign-backend tests need, into a gitignored
@@ -158,6 +169,53 @@ internal static class ForeignServerAcquisition
             new("osx-arm64", "texlab-aarch64-macos.tar.gz",
                 "af7972ffd230711ba04ada9b69cc32ce9111d9196ba69538062872faefdbee56"),
         ]);
+
+    /// <summary>
+    /// A C/C++ server, and the reason a fourth was worth adding.
+    ///
+    /// <para>
+    /// It is on a <b>fourth framework</b> — LLVM's own hand-rolled transport in clang-tools-extra, not
+    /// tower-lsp, lsp-server or vscode-languageserver-node — which is the bar this suite sets. And it is
+    /// the only server here that answers <c>textDocument/declaration</c> <b>differently</b> from
+    /// <c>textDocument/definition</c>: C++ separates a header's declaration from its definition, so the
+    /// two requests return different lines and the difference can be asserted rather than assumed.
+    /// </para>
+    ///
+    /// <para>
+    /// Its digests are <b>computed here</b>, because it publishes no checksum file. The macOS asset is a
+    /// universal binary, so one file and one digest serve both Mac RIDs rather than a special case. There
+    /// is <b>no Linux arm64 build</b> — clangd publishes x86-64 only — so that platform finds nothing and
+    /// its tests skip; that is correct, but it would go red on an arm64 Linux runner under
+    /// <c>HEXIDE_REQUIRE_FOREIGN_LSP=1</c>. CI is x64, so it does not bite today.
+    /// </para>
+    ///
+    /// <para>
+    /// The Linux build is glibc rather than musl, because clangd offers no musl build — so the "musl where
+    /// offered" rule yields nothing here. Measured: it needs no more than <c>GLIBC_2.18</c> and links only
+    /// libc/libm/libdl/libpthread/librt, so CI's 2.39 and the container's are far above the floor. It will
+    /// not run on Alpine.
+    /// </para>
+    /// </summary>
+    public static readonly ForeignServerSource Cpp = new(
+        Key: "cpp",
+        Version: "22.1.6",
+        ExecutableName: "clangd",
+        // No `v` on the tag, unlike the other two.
+        ReleaseUrlFormat: "https://github.com/clangd/clangd/releases/download/{0}/{1}",
+        Provenance: DigestProvenance.ComputedHere,
+        Assets:
+        [
+            new("win-x64", "clangd-windows-22.1.6.zip",
+                "ce54f16e0b4fd76d450eeda9664420b195360b73febcfe40e661108fa57f2ce1"),
+            new("linux-x64", "clangd-linux-22.1.6.zip",
+                "a9c77443af2e447ed467e84771848d3a6ac1c56f84bcfcde717e66318de77cfa"),
+            // One universal binary, so the same file and digest twice rather than a special case.
+            new("osx-x64", "clangd-mac-22.1.6.zip",
+                "631aef462556cbd74e0ebaae1778a38d1997d0ba3371652ca54f82652a179e7d"),
+            new("osx-arm64", "clangd-mac-22.1.6.zip",
+                "631aef462556cbd74e0ebaae1778a38d1997d0ba3371652ca54f82652a179e7d"),
+        ],
+        ExecutableSubdirectory: "clangd_{0}/bin");
 
     /// <summary>
     /// The reference implementation's servers, hosted on Node.
@@ -308,7 +366,12 @@ internal static class ForeignServerAcquisition
 
         var exeName = OperatingSystem.IsWindows() ? server.ExecutableName + ".exe" : server.ExecutableName;
         var directory = Path.Combine(CacheRoot(), server.Key, server.Version, asset.Rid);
-        var executable = Path.Combine(directory, exeName);
+        // Path.Combine drops an empty segment, so a flat archive is unaffected by the nested case.
+        var executable = Path.Combine(
+            directory,
+            string.Format(server.ExecutableSubdirectory, server.Version)
+                  .Replace('/', Path.DirectorySeparatorChar),
+            exeName);
 
         // The common case: already fetched by an earlier run, or restored from the CI cache.
         if (File.Exists(executable)) return executable;

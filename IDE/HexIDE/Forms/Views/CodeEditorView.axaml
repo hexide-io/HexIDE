@@ -63,6 +63,8 @@
                               ExecutingCommand="{CompiledBinding #Root.ClearAllBookmarks}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.GoToDefinitionCommand}"
                               ExecutingCommand="{CompiledBinding #Root.GoToDefinition}" />
+        <input:CommandBinding Command="{x:Static vb:ApplicationCommands.GoToDeclarationCommand}"
+                              ExecutingCommand="{CompiledBinding #Root.GoToDeclaration}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.RenameSymbolCommand}"
                               ExecutingCommand="{CompiledBinding #Root.RenameSymbol}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.FormatDocumentCommand}"
@@ -141,6 +143,7 @@
                         </MenuItem>
                         <Separator />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToDefinition}" Command="{x:Static vb:ApplicationCommands.GoToDefinitionCommand}" />
+                        <MenuItem Header="{DynamicResource Str.CodeEditor.Context.GoToDeclaration}" Command="{x:Static vb:ApplicationCommands.GoToDeclarationCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.Rename}"        Command="{x:Static vb:ApplicationCommands.RenameSymbolCommand}" />
                         <MenuItem Header="{DynamicResource Str.CodeEditor.Context.FormatDocument}"  Command="{x:Static vb:ApplicationCommands.FormatDocumentCommand}" />
                     </MenuFlyout>

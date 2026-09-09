@@ -57,7 +57,7 @@ done < <(git grep -nI 'GNU GENERAL PUBLIC LICENSE' -- . "${EXCLUDE[@]}")
 #    `git add -f` or a re-scoped ignore rule would quietly defeat.
 while IFS= read -r f; do
   [ -n "$f" ] && note "downloaded language server is tracked (it must never be committed): $f"
-done < <(git ls-files -- artifacts/ 'IDE/HexIDE.Tests/[Tt]ools/' | grep -Ei '(rumdl|texlab)|\.(exe|tar\.gz|zip)$')
+done < <(git ls-files -- artifacts/ 'IDE/HexIDE.Tests/[Tt]ools/' | grep -Ei '(rumdl|texlab|clangd)|\.(exe|tar\.gz|zip)$')
 
 # 6. Every centrally-managed package must have a RECORDED, PERMITTED licence.
 #
