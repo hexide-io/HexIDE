@@ -516,6 +516,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel
     public Task<Location[]?> RequestDefinitionAsync(Position position, CancellationToken ct = default)
         => lspClient.RequestDefinitionAsync(GetDocumentUri(), position, ct);
 
+    public Task<Location[]?> RequestDeclarationAsync(Position position, CancellationToken ct = default)
+        => lspClient.RequestDeclarationAsync(GetDocumentUri(), position, ct);
+
     public Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(Position position, CancellationToken ct = default)
         => lspClient.RequestDocumentHighlightAsync(GetDocumentUri(), position, ct);
 

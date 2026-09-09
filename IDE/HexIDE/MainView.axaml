@@ -210,6 +210,7 @@
                             <MenuItem Header="{DynamicResource Str.Menu.View.Object}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Viewobject}" Command="{x:Static vb:ApplicationCommands.ViewObjectCommand}"  />
                             <Separator />
                             <MenuItem Header="{DynamicResource Str.Menu.View.Definition}" Command="{x:Static vb:ApplicationCommands.GoToDefinitionCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.View.Declaration}" Command="{x:Static vb:ApplicationCommands.GoToDeclarationCommand}" />
                             <MenuItem Header="{DynamicResource Str.Menu.View.LastPosition}" IsEnabled="False" />
                             <Separator />
                             <MenuItem Header="{DynamicResource Str.Menu.View.ObjectBrowser}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Objectbrowser}" Command="{x:Static vb:ApplicationCommands.OpenObjectBrowserCommand}" />
