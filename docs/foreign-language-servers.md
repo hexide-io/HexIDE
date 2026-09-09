@@ -56,7 +56,7 @@ relying on the runner image happening to have it.
 
 ## The GPL question
 
-texlab is GPL-3.0. HexIDE is MIT and guards that with `scripts/check-no-gpl.sh` on every push. These are
+texlab is GPL-3.0. HexIDE is MIT and guards that with `scripts/check-licences.sh` on every push. These are
 consistent, for reasons worth stating explicitly rather than leaving to be re-derived:
 
 - **It is never distributed.** It is downloaded at test time into `artifacts/`, which is gitignored, and
@@ -66,7 +66,7 @@ consistent, for reasons worth stating explicitly rather than leaving to be re-de
 - **Running a GPL program does not make your program GPL.** The obligations attach to conveying the work
   or a derivative of it. Driving an unmodified binary across a protocol boundary is neither.
 
-**And the guarantee is enforced, not merely intended.** `check-no-gpl.sh` fails if any downloaded server
+**And the guarantee is enforced, not merely intended.** `check-licences.sh` fails if any downloaded server
 becomes a tracked file. That check exists because the whole argument above rests on the binary staying out
 of the tree, and a `git add -f` or a re-scoped ignore rule would otherwise defeat it silently.
 

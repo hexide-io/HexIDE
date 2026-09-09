@@ -1,0 +1,51 @@
+# Declared licence of every centrally-managed NuGet package, one per line: package<TAB>SPDX.
+#
+# Enforced by scripts/check-licences.sh, which fails when a package in Directory.Packages.props is
+# missing here or carries a licence outside the permitted set. Adding a dependency therefore means
+# recording what it is licensed under, which is the point: the tree's "100% MIT" promise is about what
+# HexIDE ships, and a dependency whose terms nobody checked is exactly how that promise breaks.
+#
+# Values were read from the NuGet registration API's licenceExpression (or its legacy licenseUrl) at the
+# pinned version, not from memory. Re-check with that API rather than assuming when bumping a package.
+#
+# The permitted set is MIT, Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, 0BSD, Unlicense and MS-PL --
+# permissive licences compatible with redistributing an MIT product. Copyleft and, importantly,
+# NOASSERTION or any unresolved licence are refused: an unknown licence is not a mild finding, it is an
+# unbounded one, and it cannot be undone once shipped.
+Antlr4.Runtime.Standard	BSD-3-Clause
+Antlr4BuildTasks	MIT
+Avalonia	MIT
+Avalonia.AvaloniaEdit	MIT
+Avalonia.Browser	MIT
+Avalonia.Controls.ColorPicker	MIT
+Avalonia.Controls.DataGrid	MIT
+Avalonia.Desktop	MIT
+Avalonia.Headless	MIT
+Avalonia.Headless.XUnit	MIT
+Avalonia.Skia	MIT
+Avalonia.Themes.Simple	MIT
+AwesomeAssertions	Apache-2.0
+Classic.Avalonia.Theme	MIT
+CommunityToolkit.Mvvm	MIT
+Dock.Avalonia	MIT
+Dock.Avalonia.Themes.Simple	MIT
+Dock.Model	MIT
+Dock.Model.Avalonia	MIT
+Dock.Model.MVVM	MIT
+EmmyLua.LanguageServer.Framework	MIT
+LanguageExt.Core	MIT
+MessagePack	MIT
+Microsoft.Extensions.Logging.Abstractions	MIT
+ModelContextProtocol.AspNetCore	Apache-2.0
+NSubstitute	BSD-3-Clause
+Nerdbank.MessagePack	MIT
+PropertyChanged.SourceGenerator	MIT
+Pure.DI	MIT
+R3	MIT
+Serilog	Apache-2.0
+Serilog.Extensions.Logging	Apache-2.0
+Serilog.Sinks.File	Apache-2.0
+StreamJsonRpc	MIT
+Svg.Skia	MIT
+xunit.analyzers	Apache-2.0
+xunit.v3	Apache-2.0

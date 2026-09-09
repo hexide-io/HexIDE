@@ -129,8 +129,8 @@ jobs:
       # No existence guard. The script used to live only in the private repository, so this
       # step skipped here and reported success — the check has never actually run against
       # this tree. If it goes missing again, this must go red rather than quietly pass.
-      - name: Guard the 100%-MIT tree (no GPL-licensed artifacts)
-        run: bash scripts/check-no-gpl.sh
+      - name: Guard the 100%-MIT tree (no GPL, no unknown-licence dependency)
+        run: bash scripts/check-licences.sh
 
   # Repo-wide guard: the checks that used to run only when this tree was produced by a
   # copy-in from elsewhere. There is no copy-in any more, so they run here.

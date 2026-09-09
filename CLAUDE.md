@@ -507,6 +507,23 @@ nice-to-have.
 
 ## Critical Constraints
 
+- **The tree stays 100% MIT, and a dependency's licence must be RECORDED before it is used.** Every
+  centrally-managed package needs a line in `scripts/package-licences.tsv` giving its SPDX id, and that id
+  must be permissive (MIT, Apache-2.0, BSD-2/3-Clause, ISC, 0BSD, Unlicense, MS-PL). `scripts/check-licences.sh`
+  fails CI otherwise. Read the licence from the NuGet registration API at the pinned version — not from
+  memory, and not from the package's README.
+  **An unknown licence is refused as firmly as a copyleft one.** `NOASSERTION` is not a mild finding: GPL
+  terms are at least knowable, whereas an unresolved licence is unbounded and cannot be undone once shipped.
+  The guard used to check only for GPL, which caught the last problem rather than the next one.
+- **Code travels OUT to licence-ambiguous neighbours, never back in.** Contributing to a project whose CLA
+  permits relicensing is a decision the maintainer is free to make; importing from a repository whose licence
+  no tool can resolve is irreversible and breaks a promise made to everyone downstream. So anything wanted in
+  both places is **authored in this tree first**, under MIT, and a copy is contributed outward — never written
+  there and copied back. `check-licences.sh` enforces the inbound half by refusing references to such an
+  origin's namespaces.
+  Facts are not code: a protocol's method names, wire shapes and semantics are free to read and implement.
+  It is *expression* that must not cross — the same line already drawn for the VBA documentation.
+
 - **Avalonia 12.0.4 / Dock 12.0.0.2** — the project is on Avalonia 12. `Classic.Avalonia.Theme 12.0.1-beta1` is kept as a **controls-only** dependency (provides `ClassicBorderDecorator`, `ClassicBorderStyle`). **Do not pin it back to 11.3.0.3**: that build was compiled against Avalonia 11, so `ClassicBorderDecorator.DrawRadioButtonBorder` called a `StreamGeometryContext.ArcTo` overload Avalonia 12 replaced, and **every VB6 option button killed the process on render** (`MissingMethodException`, thrown on the render thread — uncatchable, and nothing reaches the Serilog log; the stack only exists in the Windows Application event log). It is a prerelease because it is the only Avalonia-12 build published. `<ClassicTheme />` remains **NOT loaded** and this change does not re-open that question — do not add it back. The `Classic.Avalonia.Theme.Dock`, `.ColorPicker`, and `.DataGrid` sub-packages have been removed. `Avalonia.Themes.Simple 12.0.4` is the base theme (`<SimpleTheme />` in App.axaml).
 - **`Classic.CommonControls.Avalonia 12.0.1-beta1` controls** (`ToolBar`, `ToolBarButton`, `RebarHandle`, `ListView`, `ListViewItem`) are **NOT used** — the `TypeLoadException: PseudolassesExtensions` applied to the 11.x build, but they stay unused by design (VB6 chrome removal is on the Evolution path). Use standard Avalonia `StackPanel`/`Button`/`ToggleButton`/`ListBox` instead. The version follows `Classic.Avalonia.Theme` transitively; no project references it directly. `SystemColors` static resource keys from that assembly are still used for color lookups and do not crash.
 - **Anything compiled against Avalonia 11 fails only at render time.** That whole class of bug builds cleanly, passes view-model tests, and then kills the process the first time the control is painted. `HexIDE.Integration.Tests/Controls/ClassicRenderTests.cs` is the guard — it renders the affected controls for real under Skia (`UseHeadlessDrawing = false`) and asserts a frame came back. Add a case there before trusting any new `Classic.*` surface.

@@ -26,7 +26,7 @@ cd "$(dirname "$0")/.." || exit 2
 # literal "PRIVATE KEY", a Windows user path, the third-party names. Excluding both from
 # the *content* scans is what stops them flagging themselves. They stay inside the
 # *filename* scans below, so a stray key or binary dropped in scripts/ is still caught.
-EXCLUDE=( ':!scripts/check-tree-hygiene.sh' ':!scripts/check-no-gpl.sh' )
+EXCLUDE=( ':!scripts/check-tree-hygiene.sh' ':!scripts/check-licences.sh' )
 
 fail=0
 warn=0
