@@ -92,9 +92,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "set_file_content")]
-    [Description("Replaces the VB6 source code of a named form or module and saves to disk. Use get_project_info to list available names.")]
+    [Description("Replaces the VB6 source code of a named form or module and saves to disk. Use get_project_info to list available names. Pass the CODE SECTION, not a whole file: a .frm's VERSION/Begin designer block is refused (it describes controls, which this tool does not apply), and a .bas/.cls header is stripped. A form's leading 'Attribute VB_*' block is its identity and is invisible in the editor -- if your content omits it the existing one is kept and the result says so, so a body written from what is on screen can no longer destroy VB_Name.")]
     public async Task<MutateResult> SetFileContentAsync(string name, string content, CancellationToken ct)
     {
+        var restoredHeader = false;
         var (form, module, error) = await Dispatcher.UIThread.InvokeAsync<(FormDefinition?, ModuleDefinition?, string?)>(() =>
         {
             var project = ctx.ProjectManager.StartupProject;
@@ -105,11 +106,29 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
             if (form is not null)
             {
+                // REFUSED rather than stripped, and the asymmetry with the module branch below is the
+                // point. A module's header carries nothing the model does not already own, so dropping it
+                // loses nothing. A form's designer block describes its CONTROLS, and this tool does not
+                // apply them -- so accepting the file would either bury the header in the code (where it is
+                // compiled as VB) or silently discard the controls the caller supplied. (#338)
+                if (HexIDE.Runtime.Serialization.FormCodeText.LooksLikeFormFile(content))
+                    return (null, null,
+                        "That is a whole .frm file, not a form's code section: it opens with a VERSION / "
+                        + "Begin designer block. This tool replaces code only and would not apply the "
+                        + "controls. Pass what get_file_content returns, or edit the .frm on disk.");
+
+                // The attribute block is restored when the incoming text omits it. VB_Name is the form's
+                // identity, it sits at the top of the code section, and NEITHER VB6 nor this IDE's editor
+                // shows it -- so writing "the code" as seen on screen used to delete it, with no warning,
+                // straight to disk. (gap 14)
+                var kept = HexIDE.Runtime.Serialization.FormCodeText.PreserveAttributes(content, form.Code);
+                restoredHeader = !ReferenceEquals(kept, content);
+
                 var editor = FindEditor(name);
                 if (editor is not null)
-                    editor.Document.Text = content;
+                    editor.Document.Text = kept;
                 else
-                    form.UpdateCode(content);
+                    form.UpdateCode(kept);
                 return (form, null, null);
             }
 
@@ -154,7 +173,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 ? await ctx.ProjectService.SaveForm(form, false)
                 : module is not null && await ctx.ProjectService.SaveModule(module, false));
             return written
-                ? new MutateResult(true, null)
+                ? new MutateResult(true, null, restoredHeader
+                    ? "Kept the form's Attribute header, which the content omitted. VB_Name is the form's "
+                      + "identity and is invisible in the editor; without this the write would have "
+                      + "destroyed it. Call get_file_content first to see the whole code section."
+                    : null)
                 : new MutateResult(false, "HexIDE cannot reproduce this file faithfully, so it was not "
                                         + "written and the copy on disk is unchanged.");
         }
@@ -670,13 +693,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "add_control")]
-    [Description("Places a control of the given type on a named form's designer canvas at the given position and size. The form must be open in the visual designer (call view_designer first if needed). Returns the auto-generated control name (e.g. 'Command1').")]
+    [Description("Places a control of the given type on a named form's designer canvas at the given position and size, and SAVES the form. The form must be open in the visual designer (call view_designer first if needed). Returns the auto-generated control name (e.g. 'Command1'). A refusal to write (an unfaithful form) comes back as success:false naming the control that is in the designer but not on disk.")]
     public async Task<AddControlResult> AddControlAsync(
         string formName, string type,
         double x, double y, double width, double height,
         CancellationToken ct)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        var spawned = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var designer = ctx.DocumentDockService.OpenDocuments
                 .OfType<HexIDE.VisualDesigner.FormEditViewModel>()
@@ -705,8 +728,40 @@ internal sealed class HexIdeTools(IdeContext ctx)
             }
 
             designer.SpawnControlAt(componentClass, new Avalonia.Rect(x, y, width, height));
-            return new AddControlResult(true, designer.SelectedComponent?.Name, null);
+            return new AddControlResult(true, designer.SelectedComponent?.Name, null, designer.FormDefinition);
         });
+
+        if (!spawned.Success || spawned.Form is null)
+            return spawned with { Form = null };
+
+        // PERSISTED, because until this it was not: nine controls were added through this tool and all nine
+        // were lost when the IDE crashed, with the .frm on disk still holding a bare form. Its sibling
+        // set_control_property saved on every call, so the pair disagreed about whether a designer edit was
+        // durable, and the one that did not save is the one that creates things.
+        //
+        // On the UI thread: a save first publishes ApplyAllUnsavedChangesEvent, whose handler reads
+        // AvaloniaEdit's Document.Text and throws off it, leaving the previous content to be written and
+        // reported as success. (#334)
+        try
+        {
+            var written = await Dispatcher.UIThread.InvokeAsync(
+                async () => await ctx.ProjectService.SaveForm(spawned.Form, false));
+
+            // A refusal must not come back as success. (#147) The control is real and in the designer --
+            // saying otherwise would be its own wrong answer -- but the file on disk does not have it, and
+            // a caller who is told "saved" will not find out until something else reads that file.
+            return written
+                ? spawned with { Form = null }
+                : new AddControlResult(false, spawned.ControlName,
+                    $"'{spawned.ControlName}' was added to the designer but NOT written: HexIDE cannot reproduce "
+                    + "this form faithfully, so the copy on disk is unchanged. Undo the add or the designer "
+                    + "and the file will stay out of step.");
+        }
+        catch (Exception ex)
+        {
+            return new AddControlResult(false, spawned.ControlName,
+                $"'{spawned.ControlName}' was added to the designer but the save failed: {ex.Message}");
+        }
     }
 
     [McpServerTool(Name = "invoke_format_command")]
@@ -1612,7 +1667,11 @@ internal record DiagnosticItem(
     int Line,
     int Column);
 
-internal record MutateResult(bool Success, string? Error);
+/// <param name="Note">
+/// Something the caller should know about a write that DID happen — not an error. A silent adjustment is
+/// how a form lost its identity and reached a commit; saying so costs one line.
+/// </param>
+internal record MutateResult(bool Success, string? Error, string? Note = null);
 
 /// <summary>
 /// What <c>shutdown_ide</c> tore down on the way out. <see cref="Requested"/> is deliberately not
@@ -1640,7 +1699,13 @@ internal record UndoStateResult(
     string? UndoDescription,
     string? RedoDescription);
 
-internal record AddControlResult(bool Success, string? ControlName, string? Error);
+/// <param name="Form">
+/// Carried between the spawn and the save and blanked before returning -- internal plumbing, never
+/// serialized to a caller. The two steps run on the UI thread and the save is awaited, so the form has to
+/// survive the hop between them.
+/// </param>
+internal record AddControlResult(bool Success, string? ControlName, string? Error,
+    [property: System.Text.Json.Serialization.JsonIgnore] FormDefinition? Form = null);
 
 internal record BookmarksResult(string? Uri, int[] Lines, string? Error);
 
