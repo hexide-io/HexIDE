@@ -53,6 +53,25 @@ internal sealed class ForeignServer
         extensions: [".tex", ".cls", ".sty", ".bib"]);
 
     /// <summary>
+    /// A C/C++ server, on LLVM's own LSP layer — a fourth framework, and the only server here that
+    /// distinguishes <c>declaration</c> from <c>definition</c>.
+    /// </summary>
+    /// <remarks>
+    /// The arguments are not decoration. <c>--log=error</c> silences a per-request info log that would
+    /// otherwise pour into the drained stderr pipe; <c>--background-index=false</c> and
+    /// <c>--pch-storage=memory</c> keep a test run from indexing in the background or writing a
+    /// <c>.cache/clangd</c> directory onto the machine. Measured: with these, stderr is empty and the
+    /// answers are identical.
+    /// </remarks>
+    public static readonly ForeignServer Cpp = new(
+        ForeignServerAcquisition.Cpp,
+        pathVariable: "HEXIDE_CPP_LSP",
+        onPath: "clangd",
+        serverArguments: "--log=error --background-index=false --pch-storage=memory",
+        languageId: "cpp",
+        extensions: [".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"]);
+
+    /// <summary>
     /// The reference implementation's JSON server, hosted on Node.
     ///
     /// <para>
@@ -199,7 +218,7 @@ internal sealed class ForeignServer
 public sealed class ForeignServerFactAttribute : FactAttribute
 {
     /// <param name="server">
-    /// Which server this test needs — <c>markdown</c>, <c>latex</c> or <c>json</c>. A string rather than
+    /// Which server this test needs — <c>markdown</c>, <c>latex</c>, <c>json</c> or <c>cpp</c>. A string rather than
     /// the type itself because attribute arguments must be compile-time constants.
     /// </param>
     /// <param name="sourceFilePath">Supplied by the compiler; see the note on the source-information pair below.</param>
@@ -213,6 +232,7 @@ public sealed class ForeignServerFactAttribute : FactAttribute
         var needed = server switch
         {
             "latex" => ForeignServer.Latex,
+            "cpp" => ForeignServer.Cpp,
             "json" => ForeignServer.Json,
             _ => ForeignServer.Markdown,
         };

@@ -54,6 +54,7 @@
     "Str.Menu.View.Code": "_Code",
     "Str.Menu.View.Object": "O_bject",
     "Str.Menu.View.Definition": "_Definition",
+    "Str.Menu.View.Declaration": "Dec_laration",
     "Str.Menu.View.LastPosition": "Last Positio_n",
     "Str.Menu.View.ObjectBrowser": "_Object Browser",
     "Str.Menu.View.ImmediateWindow": "_Immediate Window",
@@ -291,6 +292,7 @@
     "Str.CodeEditor.Context.PreviousBookmark": "_Previous Bookmark",
     "Str.CodeEditor.Context.ClearAllBookmarks": "_Clear All Bookmarks",
     "Str.CodeEditor.Context.GoToDefinition": "_Go to Definition",
+    "Str.CodeEditor.Context.GoToDeclaration": "Go to Dec_laration",
     "Str.CodeEditor.Context.Rename": "_Rename...",
     "Str.CodeEditor.Context.FormatDocument": "_Format Document",
 

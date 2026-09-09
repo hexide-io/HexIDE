@@ -48,6 +48,11 @@ public class RequiredServersTests
             "the LaTeX language server");
 
     [Fact]
+    public void TheCppServerIsAvailableWhenItIsRequired() =>
+        RequireOrIgnore("cpp", () => ForeignServer.Cpp.Find() is not null,
+            "the C/C++ language server");
+
+    [Fact]
     public void TheReferenceServerIsAvailableWhenItIsRequired() =>
         RequireOrIgnore("json", () => ForeignServer.Json.Find() is not null,
             "the reference JSON language server (which needs Node)");

@@ -238,6 +238,9 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     public Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken ct = default) =>
         FirstAnswerAsync(uri, c => c.RequestDefinitionAsync(uri, position, ct));
 
+    public Task<Location[]?> RequestDeclarationAsync(string uri, Position position, CancellationToken ct = default) =>
+        FirstAnswerAsync(uri, c => c.RequestDeclarationAsync(uri, position, ct));
+
     public Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(string uri, Position position, CancellationToken ct = default) =>
         FirstAnswerAsync(uri, c => c.RequestDocumentHighlightAsync(uri, position, ct));
 

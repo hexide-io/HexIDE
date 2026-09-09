@@ -23,6 +23,7 @@ would prove nothing.
 | rumdl | Markdown | MIT | `tower-lsp` | The baseline foreign path; publishes on open, change **and save**, which is what proves save notifications reach a server that acts on them. |
 | texlab | LaTeX | **GPL-3.0** | `lsp-server` | A different author, licence and release convention — and it claims `.cls`, which is a LaTeX class file *and* a VB6 class module. Declares **incremental** sync, where everything else declares full (#282). |
 | vscode-json-language-server | JSON | MIT | **`vscode-languageserver-node`** | The **reference implementation**. See below. |
+| clangd | C/C++ | Apache-2.0 WITH LLVM-exception | **LLVM's own** | The only server here that answers `textDocument/declaration` **differently** from `definition` — C++ separates a header's declaration from its definition, so the two return different lines and the difference is assertable rather than assumed. Also declares **incremental** sync and a nested `save` inside `textDocumentSync`, a shape the bundled server never sends. |
 
 **Framework diversity matters more than language diversity.** Interop bugs come from the server's LSP
 library, not from the language being analysed — five servers on the same crate mostly re-test the same

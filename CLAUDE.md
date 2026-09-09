@@ -50,7 +50,7 @@ public repository. Do not reason about whether yours is "obviously" generic; jus
 
 ### The foreign-server tests fetch real third-party language servers
 
-`HexIDE.Tests` includes fourteen tests that drive language servers **HexIDE did not write** — the only
+`HexIDE.Tests` includes sixteen tests that drive language servers **HexIDE did not write** — the only
 check that the client speaks LSP to something that does not accommodate it. A client and server by one hand
 agree with each other rather than with the specification, which is how three defects hid until a foreign
 server was pointed at (`ForeignServerFixture.cs` has the history).
@@ -72,7 +72,7 @@ that our own call returned. `ShutdownWireShapeTests` is the worked example — i
 because a `[JsonRpcMethod]` handler cannot tell you whether `params` arrived as `[]`, `{}`, or not at
 all, and those three are not interchangeable to a real server.
 
-Three servers, chosen for **framework** diversity rather than language diversity — interop bugs come from
+Four servers, chosen for **framework** diversity rather than language diversity — interop bugs come from
 the server's LSP library, not from the language being analysed:
 
 | Server | Tests | Framework | Obtained as |
@@ -80,8 +80,9 @@ the server's LSP library, not from the language being analysed:
 | rumdl (Markdown) | 6 | `tower-lsp` | pinned binary download |
 | texlab (LaTeX) | 5 | `lsp-server` | pinned binary download |
 | vscode-json-language-server | 3 | `vscode-languageserver-node` | `npm ci` against a committed lockfile |
+| clangd (C/C++) | 2 | LLVM's own | pinned binary download |
 
-**Read [`docs/foreign-language-servers.md`](docs/foreign-language-servers.md) before adding a fourth** — it
+**Read [`docs/foreign-language-servers.md`](docs/foreign-language-servers.md) before adding a fifth** — it
 carries the full reasoning, including why a GPL-licensed server is consistent with a 100%-MIT tree, and the
 bar for a new one (a protocol *shape* nothing else exercises, not simply another server).
 
@@ -95,8 +96,8 @@ collides with the tracked `Tools/` directory holding real source — a collision
 because its filesystem is case-insensitive. Downloaded binaries live under `artifacts/`; nothing fetched
 ever lands beside tracked files.
 
-- **Use your own build instead**: set `HEXIDE_MARKDOWN_LSP`, `HEXIDE_LATEX_LSP` or `HEXIDE_JSON_LSP` to an
-  executable, or put `rumdl` / `texlab` on `PATH`. All are checked before the download, so an explicit
+- **Use your own build instead**: set `HEXIDE_MARKDOWN_LSP`, `HEXIDE_LATEX_LSP`, `HEXIDE_JSON_LSP` or
+  `HEXIDE_CPP_LSP` to an executable, or put `rumdl` / `texlab` / `clangd` on `PATH`. All are checked before the download, so an explicit
   choice is never silently overridden.
 - **Stay off the network**: `HEXIDE_FOREIGN_LSP_DOWNLOAD=0`. The affected tests then skip, visibly.
 - **Forbid skipping**: `HEXIDE_REQUIRE_FOREIGN_LSP=1` turns "no server available" into a failure. CI sets
@@ -591,8 +592,8 @@ user-facing string is a localization key, never a hardcoded literal.**
    New VB6 property ⇒ add its `Str.PropDesc.{name}`.
 3. **Translate every new key into all shipped packs in the same change — don't defer.** The moment you add a
    `Str.*` key to `en`, add its translation to each shipped full-translation pack (the supported set:
-   `ar, cs, da, de, el, es, fa, fi, fr, he, hi, id, it, ja, ko, nb, nl, pl, pt, ru, sv, tr, uk, ur, vi,
-   zh-Hans, zh-Hant`) so non-English IDEs never show English fall-through. A missing key *inherits* English
+   `ar, cs, da, de, el, eo, es, fa, fi, fr, he, hi, id, it, ja, ko, la, nb, nl, pl, pt, ru, sv, tr, uk, ur,
+   vi, zh-Hans, zh-Hant` — **29**) so non-English IDEs never show English fall-through. A missing key *inherits* English
    (no blank control), but that drift must not ship — close it at the point of creation. For more than a
    couple of keys, use the language-packs workflow (one agent per pack: translate the new keys,
    **preserving `{0}`/`{1}` placeholders and each pack's mnemonic convention** — `_` kept for Latin scripts,
@@ -603,6 +604,22 @@ user-facing string is a localization key, never a hardcoded literal.**
    ```sh
    cd tools/TranslationCoverage && dotnet run
    ```
+**The shipped set is closed, and `LanguagePack.cs` is its single source of truth.** This list, that file and
+the coverage tool must agree; they did not for a while, which is how `la` and `eo` came to be translated in
+every pass without anyone having decided they were shipped.
+
+**No more languages "for fun" — the bar is whether a real person would pick it, not whether it is a real
+language.** `la` (Latin) and `eo` (Esperanto) stay, as a recorded decision rather than an accident: Latin is
+the Holy See's official language, Esperanto has a genuine localisation community, and both are already
+complete. Nothing further of that kind is added — Klingon, Na'vi, Tolkien's languages and their relatives are
+refused on request, and this line is the maintainer's own standing instruction to refuse them.
+
+The reason is cost, not taste. Every pack is a permanent tax on every new key: adding two keys today cost 58
+translations, and the guarantee that makes this system worth anything is that **every shipped pack is 100%
+complete, enforced at build**. A pack nobody selects still has to be kept complete forever, or the guarantee
+weakens for the packs that people do use. A legitimacy test ("is it a real language of a real state") gets
+this backwards — it admits Latin, which nobody will select, and excludes Esperanto, which someone might.
+
 5. **Verify** nothing was missed: switch to **Pseudo (LTR)** in Options → Language — any plain-English
    (un-`⟦bracketed⟧`) chrome is a string you forgot to key.
 

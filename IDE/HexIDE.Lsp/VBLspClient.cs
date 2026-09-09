@@ -814,6 +814,27 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    public async Task<Location[]?> RequestDeclarationAsync(string uri, Position position, CancellationToken cancellationToken = default)
+    {
+        // Gated on declarationProvider, not definitionProvider. Falling back to the definition capability
+        // would send declaration requests to servers that never claimed to answer them -- and the two
+        // capabilities are genuinely independent: of the servers this suite drives, several advertise
+        // definition and explicitly not declaration.
+        if (_rpc is null || !_initialized || !CanServe("declarationProvider")) return null;
+        var p = new TextDocumentPositionParams(new TextDocumentIdentifier(uri), position);
+        try
+        {
+            var raw = await _rpc.InvokeWithParameterObjectAsync<JsonElement?>(
+                "textDocument/declaration", p, cancellationToken);
+            return ReadLocations(raw);
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/declaration", ex, cancellationToken);
+            return null;
+        }
+    }
+
     /// <summary>Reads all three reply shapes into the one the caller understands, or null for none.</summary>
     internal static Location[]? ReadLocations(JsonElement? raw)
     {

@@ -116,6 +116,18 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>Sends textDocument/signatureHelp and returns signature information, or null.</summary>
     Task<SignatureHelp?> RequestSignatureHelpAsync(string uri, Position position, CancellationToken cancellationToken = default);
     Task<Location[]?> RequestDefinitionAsync(string uri, Position position, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Where the symbol at <paramref name="position"/> is DECLARED, which is not always where it is defined.
+    /// </summary>
+    /// <remarks>
+    /// A separate request because the two are separate questions, and a server that distinguishes them
+    /// answers each differently: a C header's declaration against its .cpp definition is the clearest case,
+    /// and VB6 has its own — a <c>Declare Function</c> or an <c>Implements</c> member's signature is the
+    /// declaration, while the body that runs is the definition. A client that only asks for the definition
+    /// cannot reach the other one at all.
+    /// </remarks>
+    Task<Location[]?> RequestDeclarationAsync(string uri, Position position, CancellationToken cancellationToken = default);
     Task<DocumentHighlight[]?> RequestDocumentHighlightAsync(string uri, Position position, CancellationToken cancellationToken = default);
 
     /// <summary>Sends textDocument/rename and returns the workspace edits, or null.</summary>

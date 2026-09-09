@@ -54,6 +54,7 @@
     "Str.Menu.View.Code": "_Codex",
     "Str.Menu.View.Object": "O_biectum",
     "Str.Menu.View.Definition": "_Definitio",
+    "Str.Menu.View.Declaration": "Dec_laratio",
     "Str.Menu.View.LastPosition": "Ultima Positi_o",
     "Str.Menu.View.ObjectBrowser": "_Explorator Obiectorum",
     "Str.Menu.View.ImmediateWindow": "Fenestra _Immediata",
@@ -290,6 +291,7 @@
     "Str.CodeEditor.Context.PreviousBookmark": "_Prius Signaculum",
     "Str.CodeEditor.Context.ClearAllBookmarks": "_Dele Omnia Signacula",
     "Str.CodeEditor.Context.GoToDefinition": "_Adi Definitionem",
+    "Str.CodeEditor.Context.GoToDeclaration": "Adi Dec_larationem",
     "Str.CodeEditor.Context.Rename": "_Renomina...",
     "Str.CodeEditor.Context.FormatDocument": "_Compone Documentum",
 
