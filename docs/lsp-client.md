@@ -205,7 +205,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 24 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 25 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -227,7 +227,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 15 of 41
+### `textDocument/*` — 16 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -273,7 +273,7 @@ than inferred.
 | ○ | `textDocument/willSave` | → |  |
 | ○ | `textDocument/willSaveWaitUntil` | → |  |
 
-### `workspace/*` — 0 of 21
+### `workspace/*` — 2 of 21
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -293,7 +293,7 @@ than inferred.
 | ○ | `workspace/inlayHint/refresh` | ← |  |
 | ○ | `workspace/inlineValue/refresh` | ← |  |
 | ○ | `workspace/semanticTokens/refresh` | ← |  |
-| ○ | `workspace/symbol` | → | Needs a bound AST — a backend's job, see below |
+| ✅ | `workspace/symbol` | → | Asked of every running server that offers it, and unioned |
 | ○ | `workspace/willCreateFiles` | → |  |
 | ○ | `workspace/willDeleteFiles` | → |  |
 | ○ | `workspace/willRenameFiles` | → |  |
@@ -347,7 +347,7 @@ than inferred.
 |---|---|---|---|
 | ○ | `codeAction/resolve` | → |  |
 
-### `codeLens/*` — 0 of 1
+### `codeLens/*` — 1 of 1
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -414,8 +414,11 @@ Three clusters account for nearly all of the gap:
 - **Features needing a bound AST** — references, code actions, semantic tokens, inlay hints, call hierarchy,
   workspace symbols and their `*/resolve` companions. Not wired because nothing here would answer them; see
   *What the client would consume* below.
-- **Workspace-level protocol** — `workspace/*` is 0 of 21. HexIDE has no workspace model, which also rules
-  out file-operation notifications, watched files and configuration round-trips.
+- **Workspace-level protocol** — `workspace/*` is 2 of 21. There *is* a workspace model now — one folder
+  per loaded project, sent in `initialize` — and `workspace/symbol` searches it. What is still absent is
+  everything that keeps that model live or reacts to it: file-operation notifications, watched files,
+  configuration round-trips, and `didChangeWorkspaceFolders` for a group whose membership changes while a
+  server is running ([#261](https://github.com/hexide-io/HexIDE/issues/261)).
 - **Server-to-client courtesy** — `window/*` and `client/*` are 2 of 8 between them. The two that landed
   are the ones that cost no analysis depth and buy diagnosability: a server can now explain its own
   problems instead of appearing broken ([#289](https://github.com/hexide-io/HexIDE/issues/289)). Dynamic registration stays refused on
