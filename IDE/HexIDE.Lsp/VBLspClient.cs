@@ -373,6 +373,7 @@ public sealed class VBLspClient : ILspClient
         var initParams = new InitializeParams(
             ProcessId: Environment.ProcessId,
             RootUri: WorkspaceRootUri(),
+            WorkspaceFolders: WorkspaceFolders(),
             Capabilities: new ClientCapabilities(
                 new TextDocumentClientCapabilities(
                     PublishDiagnostics: new PublishDiagnosticsClientCapabilities(),
@@ -387,7 +388,8 @@ public sealed class VBLspClient : ILspClient
                     // `codeLensProvider` when nothing declared this, and then our gate declines to ask.
                     CodeLens: new CodeLensClientCapabilities()),
                 new WorkspaceClientCapabilities(
-                    ExecuteCommand: new ExecuteCommandClientCapabilities())));
+                    ExecuteCommand: new ExecuteCommandClientCapabilities(),
+                    WorkspaceFolders: true)));
 
         // Deliberately received as a raw JsonElement, and interpreted separately below.
         //
@@ -466,6 +468,48 @@ public sealed class VBLspClient : ILspClient
     /// the user has never heard of.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// The workspace's folders as the wire wants them, or null when there are none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Null rather than an empty array</b>, because the protocol gives the two different meanings: null
+    /// is "no folders are open", where an empty array is a workspace that has folders and happens to have
+    /// none of them right now. With no project loaded the first is the true statement.
+    /// </para>
+    ///
+    /// <para>
+    /// <c>rootUri</c> is still sent alongside, and the four servers this suite drives are why: measured,
+    /// they show three different behaviours. texlab reads <c>workspace_folders</c> ALONE and had no root at
+    /// all before this change; clangd never parses the field, so <c>rootUri</c> is its only channel; rumdl
+    /// prefers the folders and falls back; the reference JSON server reads neither. Sending one of the pair
+    /// silently un-scopes whichever servers read the other, and there is no way to tell from this side.
+    /// </para>
+    /// </remarks>
+    private WorkspaceFolder[]? WorkspaceFolders()
+    {
+        if (_workspace?.Folders is not { Count: > 0 } folders) return null;
+
+        var wire = new List<WorkspaceFolder>(folders.Count);
+        foreach (var folder in folders)
+        {
+            try
+            {
+                wire.Add(new WorkspaceFolder(new Uri(folder.Directory).AbsoluteUri, folder.Name));
+            }
+            catch (Exception ex)
+            {
+                // One unusable path costs that folder, not the handshake. Logged rather than swallowed,
+                // because a server quietly rooted at fewer places than the IDE has open is exactly the
+                // kind of silence this whole change exists to remove.
+                _logger.LogWarning(ex,
+                    "Could not express workspace folder {Directory} as a URI; it will not be sent",
+                    folder.Directory);
+            }
+        }
+        return wire.Count > 0 ? [.. wire] : null;
+    }
+
     private string? WorkspaceRootUri()
     {
         var directory = _workspace?.Directory;

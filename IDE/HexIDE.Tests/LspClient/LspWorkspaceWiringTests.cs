@@ -70,4 +70,63 @@ public class LspWorkspaceWiringTests
 
         composition.LspWorkspace.Directory.Should().BeNull();
     }
+
+    // ── One folder per loaded project (#261) ──────────────────────────────────────────────────────
+
+    private static ProjectDefinition ProjectIn(string directory, string name)
+    {
+        var project = TestHelpers.CreateProject(name);
+        project.AbsolutePath = Path.Combine(directory, name + ".vbp");
+        return project;
+    }
+
+    private static ProjectLspWorkspace WorkspaceOver(params ProjectDefinition[] projects)
+    {
+        var manager = Substitute.For<IProjectManager>();
+        manager.LoadedProjects.Returns(projects);
+        manager.StartupProject.Returns(projects.FirstOrDefault());
+        return new ProjectLspWorkspace(() => manager);
+    }
+
+    [Fact]
+    public void EachLoadedProjectContributesItsOwnFolder()
+    {
+        var one = Path.Combine(Path.GetTempPath(), "hexide-a");
+        var two = Path.Combine(Path.GetTempPath(), "hexide-b");
+
+        var folders = WorkspaceOver(ProjectIn(one, "Orders"), ProjectIn(two, "Shared")).Folders;
+
+        folders.Select(f => f.Name).Should().BeEquivalentTo(["Orders", "Shared"]);
+        folders.Select(f => f.Directory).Should().OnlyHaveUniqueItems();
+    }
+
+    [Fact]
+    public void TwoProjectsInOneDirectoryCollapseToOneFolder()
+    {
+        // A server should not index the same tree twice because a group happens to keep two projects
+        // side by side, which is an ordinary layout rather than an odd one.
+        var shared = Path.Combine(Path.GetTempPath(), "hexide-shared");
+
+        var folders = WorkspaceOver(ProjectIn(shared, "Client"), ProjectIn(shared, "Server")).Folders;
+
+        folders.Should().HaveCount(1);
+    }
+
+    [Fact]
+    public void WithNothingLoadedThereAreNoFolders()
+    {
+        // Empty, not null: "no folders" is a state the caller turns into the null the wire wants, and it
+        // must not have to distinguish an empty list from a missing one.
+        WorkspaceOver().Folders.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void TheStartupProjectStillAnswersDirectory()
+    {
+        // The single root stays, and is still the startup project's. clangd never parses workspaceFolders
+        // at all, so this is that server's only channel — measured, not assumed.
+        var one = Path.Combine(Path.GetTempPath(), "hexide-a");
+
+        WorkspaceOver(ProjectIn(one, "Orders")).Directory.Should().NotBeNullOrWhiteSpace();
+    }
 }

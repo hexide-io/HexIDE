@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
 using HexIDE.IDE;
 using HexIDE.Lsp;
 
@@ -53,4 +56,50 @@ public sealed class ProjectLspWorkspace(Func<IProjectManager> projectManager) : 
         projectManager() is { StartupProject: { } project }
             ? ProjectService.ProjectFilesDirectory(project)
             : null;
+
+    /// <summary>One folder per loaded project, named as the user sees the project named.</summary>
+    /// <remarks>
+    /// <para>
+    /// Deduplicated by full path, and <b>ordinally</b>. Two projects genuinely sharing a directory produce
+    /// the same string and collapse to one entry, which is what a server wants — it should not index the
+    /// same tree twice. Two differently-cased spellings of one Windows directory do not collapse, and that
+    /// is the deliberate direction to err: a duplicate folder is harmless, whereas merging two folders that
+    /// only look alike on a case-insensitive filesystem would drop one project's root on Linux, where the
+    /// paths are genuinely distinct.
+    /// </para>
+    ///
+    /// <para>
+    /// Empty rather than null when nothing is loaded — "no folders" is a state the protocol can express,
+    /// and the caller turns it into the null the wire wants.
+    /// </para>
+    /// </remarks>
+    public IReadOnlyList<LspWorkspaceFolder> Folders
+    {
+        get
+        {
+            if (projectManager() is not { LoadedProjects: { } projects }) return [];
+
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var folders = new List<LspWorkspaceFolder>();
+            foreach (var project in projects)
+            {
+                var directory = ProjectService.ProjectFilesDirectory(project);
+                if (string.IsNullOrWhiteSpace(directory)) continue;
+
+                var full = TryFullPath(directory);
+                if (full is null || !seen.Add(full)) continue;
+
+                folders.Add(new LspWorkspaceFolder(project.Name, full));
+            }
+            return folders;
+        }
+    }
+
+    // A path that cannot be resolved costs that folder, not the workspace: the others are still worth
+    // sending, and the one that failed was never going to root a server usefully.
+    private static string? TryFullPath(string directory)
+    {
+        try { return Path.GetFullPath(directory); }
+        catch (Exception) { return null; }
+    }
 }
