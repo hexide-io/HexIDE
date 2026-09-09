@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# check-no-gpl.sh — guards HexIDE's "100% MIT" guarantee. Runs in CI on every push.
+# check-licences.sh — guards HexIDE's "100% MIT" guarantee. Runs in CI on every push.
 #
 # Fails (exit 1) if any GPL-*licensed artifact* reappears in the tree: the Rubberduck
 # VBA grammar, a GPL-named licence file, a GPL SPDX header, or the embedded GNU GPL
@@ -19,12 +19,12 @@ cd "$(dirname "$0")/.." || exit 2
 
 # The guard scripts themselves necessarily contain GPL pattern strings / a GPL-ish name;
 # exclude both from every scan so they can't self-flag.
-EXCLUDE=( ':!scripts/check-no-gpl.sh' ':!scripts/prepare-public-copy.sh' )
+EXCLUDE=( ':!scripts/check-licences.sh' ':!scripts/prepare-public-copy.sh' ':!scripts/package-licences.tsv' )
 
 fail=0
 note() { printf '  \xE2\x9C\x97 %s\n' "$1"; fail=1; }
 
-echo "check-no-gpl: scanning for GPL-licensed artifacts…"
+echo "check-licences: scanning for GPL and unknown-licence artifacts…"
 
 # 1. The Rubberduck VBA grammar (the origin of the GPL obligation) must not reappear.
 #    (Loops use process substitution so `fail` persists — a piped `while` runs in a subshell.)
@@ -59,9 +59,43 @@ while IFS= read -r f; do
   [ -n "$f" ] && note "downloaded language server is tracked (it must never be committed): $f"
 done < <(git ls-files -- artifacts/ 'IDE/HexIDE.Tests/[Tt]ools/' | grep -Ei '(rumdl|texlab)|\.(exe|tar\.gz|zip)$')
 
-if [ "$fail" -eq 0 ]; then
-  echo "check-no-gpl: OK — no GPL-licensed artifacts in the tree."
+# 6. Every centrally-managed package must have a RECORDED, PERMITTED licence.
+#
+#    "No GPL" was the old shape of this guard and it only ever caught the last problem. An unlicensed
+#    dependency -- NOASSERTION, or a licence nobody resolved -- walks straight past a GPL grep while being
+#    strictly worse: GPL terms are at least known. The nearest neighbour project is NOASSERTION across its
+#    whole repository, so this is a live case rather than a hypothetical one.
+PERMITTED='^(MIT|Apache-2\.0|BSD-2-Clause|BSD-3-Clause|ISC|0BSD|Unlicense|MS-PL)$'
+MANIFEST=scripts/package-licences.tsv
+
+if [ ! -f "$MANIFEST" ]; then
+  note "licence manifest missing: $MANIFEST"
 else
-  echo "check-no-gpl: FAILED — remove the artifacts above; the tree must stay 100% MIT."
+  while IFS= read -r pkg; do
+    [ -n "$pkg" ] || continue
+    lic=$(awk -F'	' -v p="$pkg" '$1==p{print $2}' "$MANIFEST" | head -n1)
+    if [ -z "$lic" ]; then
+      note "package has no recorded licence: $pkg (add it to $MANIFEST)"
+    elif ! printf '%s' "$lic" | grep -Eq "$PERMITTED"; then
+      note "package licence is not permitted: $pkg -> $lic"
+    fi
+  done < <(grep -o 'PackageVersion Include="[^"]*"' Directory.Packages.props | sed 's/.*Include="//;s/"$//')
+fi
+
+# 7. Code flows OUT to a licence-ambiguous neighbour, never back in.
+#
+#    Contributing to a project whose CLA allows relicensing is a decision the maintainer can make freely.
+#    Importing from a repository whose licence no tool can resolve is not reversible, and it would break a
+#    promise made to everyone downstream. So the direction of travel is one-way, and it is enforced here
+#    rather than remembered: anything wanted in both places is authored in THIS tree first (MIT), and a
+#    copy is contributed outward.
+while IFS= read -r hit; do
+  [ -n "$hit" ] && note "reference to a licence-ambiguous origin (code must not travel inward): $hit"
+done < <(git grep -nIE '(using|namespace)[[:space:]]+RDCore(\.|;|[[:space:]])' -- . "${EXCLUDE[@]}")
+
+if [ "$fail" -eq 0 ]; then
+  echo "check-licences: OK — every dependency has a recorded, permitted licence."
+else
+  echo "check-licences: FAILED — resolve the findings above; the tree must stay 100% MIT."
 fi
 exit "$fail"
