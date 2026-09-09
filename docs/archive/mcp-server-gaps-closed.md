@@ -680,3 +680,92 @@ parenting problem wearing different clothes.
 
 A `context_menu(target)` action raising `ContextRequested` is still worth adding — `Apps` depends on the
 target being focusable and on Avalonia's own key handling — but it is a convenience, not the blocker.
+
+## 11. `add_control` mutated the designer but never persisted — **CLOSED** (#344, 2026-09-09)
+
+
+> **Fixed.** `add_control` now saves the form, like its sibling `set_control_property` always did. The pair
+> disagreed about whether a designer edit was durable, and the one that did **not** save is the one that
+> creates things — which is why nine controls could exist, be reported as added, and not survive a crash.
+>
+> The save runs **on the UI thread**: a save first publishes `ApplyAllUnsavedChangesEvent`, whose handler
+> reads AvaloniaEdit's `Document.Text` and throws off it, leaving the previous content to be written and
+> reported as success (#334, closed the same week). And a refusal is **not** reported as success (#147): an
+> unfaithful form comes back `success:false`, naming the control that is in the designer but not on disk,
+> because a caller told "saved" would not find out otherwise until something else read that file.
+>
+> Measured live: `add_control(Form1, CommandButton, 40, 40, 100, 30)` → `Command0`, and the `.frm` on disk
+> carried `Begin VB.CommandButton Command0` immediately, with no further call.
+
+
+**Symptom.** Nine controls were added successfully via `add_control`; the IDE then crashed and **all of
+them were lost** — `frmOrders.frm` on disk still held only the bare form. `set_control_property` saves;
+`add_control` does not.
+
+**Workaround.** For anything more than a couple of controls, author the `.frm` directly and open the
+project — the format is small and well understood (`Left`/`Top`/`Width`/`Height` in twips, i.e. pixels
+× 15, plus `Caption`/`Text`). That is also faster than one round trip per control, and it survives a
+crash. Use `add_control` for interactive exploration, not for composing a form.
+
+**Fix consideration.** Either save after `add_control` (consistent with `set_control_property`), or add
+an explicit `save_form` tool so a caller can batch adds and commit once.
+
+---
+
+## 14. `set_file_content` silently dropped a form's `Attribute` header — **CLOSED** (#344, 2026-09-09)
+
+
+> **Fixed, in both directions — the entry's case and its mirror (#338).**
+>
+> A form's leading `Attribute VB_*` block is now **kept** when the incoming content omits it, and the result
+> says so rather than adjusting silently. Preserving beats refusing here: omitting the block is what a caller
+> does when they mean exactly what they said — *replace the code* — and the block is not code.
+>
+> The mirror case is **refused**: a whole `.frm`, opening with a `VERSION` / `Begin` designer block, comes
+> back as an error rather than being written into the code buffer where it is compiled as VB (#338).
+>
+> **The asymmetry with the module branch is deliberate.** A module's header carries nothing the model does
+> not already own, so stripping it loses nothing. A form's designer block describes its **controls**, and
+> this tool does not apply them — so accepting the file would either bury the header in the code or silently
+> discard the controls the caller supplied. Strip where nothing is lost; refuse where something would be.
+>
+> Measured live, all three paths, checking the bytes on disk each time:
+>
+> ```
+> set …  "Attribute VB_Name … / Private Sub Form_Load() … one"   → success
+> set …  "Private Sub Form_Load() … two"        (no header)      → success + note
+>        disk: Attribute VB_Name = "Form1" survives, body is "two"
+> set …  "VERSION 5.00 / Begin VB.Form … "                       → refused; disk unchanged
+> ```
+
+
+**Symptom.** Writing a fresh body to a form removes its attribute block:
+
+```
+-Attribute VB_Name = "frmBillOfFare"
+-Attribute VB_GlobalNameSpace = False
+-Attribute VB_Creatable = False
+-Attribute VB_PredeclaredId = True
+-Attribute VB_Exposed = False
+```
+
+No warning, no error, and the change is written straight to disk — `hasUnsavedChanges` reads `false`
+afterwards, because as far as the IDE is concerned the save succeeded.
+
+**How it bit.** Using `set_file_content` to drop a few probe lines into `demo/bill-of-fare`'s form for a
+live check. It replaced the whole code section, taking the header and every event handler with it, and the
+damage reached a commit before it was spotted in `git diff`.
+
+**Not a defect in the tool.** `get_file_content` returns the attribute block too, so the pair is
+self-consistent and a **get → modify → set** round-trip preserves everything. The trap is that "the VB6
+source code of a form" *includes* the `Attribute` header, which is easy not to know: it is invisible in the
+IDE's editor, VB6 hides it, and nothing in the tool description mentions it. `VB_Name` is load-bearing.
+
+**Workarounds.** (a) Always `get_file_content` first and edit the returned text. (b) For a throwaway probe,
+use a scratch project (`--newproject`) rather than a demo or a real one. (c) `git status` before committing
+after any live verification — that is what caught it here, one commit late.
+
+**Suggested fix.** Either preserve the `Attribute` block when the incoming content has none — the IDE knows
+the form's name and can re-emit the header it just parsed — or refuse the write with "content is missing
+the Attribute header; call get_file_content first". Silently accepting a body that destroys a form's
+identity is the one behaviour that should not be available.
