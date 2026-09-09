@@ -22,9 +22,11 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
 {
     private readonly List<IAsyncDisposable> _disposables = [];
 
-    private sealed class FixedWorkspace(string? directory) : ILspWorkspace
+    private sealed class FixedWorkspace(string? directory, params LspWorkspaceFolder[] folders) : ILspWorkspace
     {
         public string? Directory { get; set; } = directory;
+
+        public IReadOnlyList<LspWorkspaceFolder> Folders { get; set; } = folders;
     }
 
     // ── Priority: a user's entry outranks a default ───────────────────────────────────────────────────
@@ -89,17 +91,23 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
 
     // ── Workspace: the server is told where it is ─────────────────────────────────────────────────────
 
-    /// <summary>Records the <c>rootUri</c> of the initialize it is sent.</summary>
+    /// <summary>Records the initialize frame it is sent, so the wire can be asserted rather than the call.</summary>
     private sealed class RootRecordingServer
     {
         private readonly TaskCompletionSource<string?> _rootUri =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource<JsonElement> _frame =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public Task<string?> RootUri => _rootUri.Task;
+
+        /// <summary>The whole <c>initialize</c> params, cloned — the frame, not our idea of it.</summary>
+        public Task<JsonElement> Frame => _frame.Task;
 
         [JsonRpcMethod("initialize", UseSingleObjectParameterDeserialization = true)]
         public JsonElement Initialize(JsonElement p)
         {
+            _frame.TrySetResult(p.Clone());
             _rootUri.TrySetResult(
                 p.TryGetProperty("rootUri", out var r) && r.ValueKind == JsonValueKind.String
                     ? r.GetString()
@@ -154,6 +162,84 @@ public class WorkspaceAndPriorityTests : IAsyncDisposable
         {
             try { System.IO.Directory.Delete(directory, recursive: true); } catch { /* best effort */ }
         }
+    }
+
+    [Fact]
+    public async Task EveryLoadedProjectBecomesAWorkspaceFolder()
+    {
+        // A .vbg group names its members by relative path, so its projects routinely live in different
+        // directories. One root meant every server believed the workspace was wherever the STARTUP project
+        // happened to be, and switching startup project silently re-rooted every server (#261).
+        var a = Path.Combine(Path.GetTempPath(), "hexide-ws-a-" + Guid.NewGuid().ToString("N"));
+        var b = Path.Combine(Path.GetTempPath(), "hexide-ws-b-" + Guid.NewGuid().ToString("N"));
+        var server = new RootRecordingServer();
+        var sut = ClientRootedAt(
+            new FixedWorkspace(a, new LspWorkspaceFolder("Orders", a), new LspWorkspaceFolder("Shared", b)),
+            server);
+
+        await sut.StartAsync(TestContext.Current.CancellationToken);
+        var frame = await server.Frame.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        frame.TryGetProperty("workspaceFolders", out var folders).Should().BeTrue();
+        folders.ValueKind.Should().Be(JsonValueKind.Array);
+        folders.GetArrayLength().Should().Be(2, "one folder per loaded project, not one for the group");
+
+        var names = folders.EnumerateArray().Select(f => f.GetProperty("name").GetString()).ToList();
+        names.Should().BeEquivalentTo(["Orders", "Shared"], "a folder is named as the user sees the project");
+
+        foreach (var folder in folders.EnumerateArray())
+            folder.GetProperty("uri").GetString().Should().StartWith("file:///",
+                "a folder is addressed by URI, not by path");
+    }
+
+    [Fact]
+    public async Task RootUriIsStillSentAlongsideTheFolders()
+    {
+        // Not a compatibility shrug. Measured across the four servers this suite drives: clangd never
+        // parses workspaceFolders at all, so rootUri is its ONLY root channel — dropping it in favour of
+        // the modern field would silently un-scope that server while looking like a tidy-up.
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-ws-" + Guid.NewGuid().ToString("N"));
+        var server = new RootRecordingServer();
+        var sut = ClientRootedAt(
+            new FixedWorkspace(directory, new LspWorkspaceFolder("Orders", directory)), server);
+
+        await sut.StartAsync(TestContext.Current.CancellationToken);
+        var frame = await server.Frame.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        frame.GetProperty("rootUri").ValueKind.Should().Be(JsonValueKind.String);
+        frame.GetProperty("workspaceFolders").GetArrayLength().Should().Be(1);
+    }
+
+    [Fact]
+    public async Task TheClientDeclaresItUnderstandsWorkspaceFolders()
+    {
+        // Declaring and sending are two halves of one negotiation. A server that composes its behaviour
+        // from what the client claimed ignores folders it was handed when nothing declared support —
+        // the same trap already recorded for `save` and `codeLens`.
+        var directory = Path.Combine(Path.GetTempPath(), "hexide-ws-" + Guid.NewGuid().ToString("N"));
+        var server = new RootRecordingServer();
+        var sut = ClientRootedAt(new FixedWorkspace(directory, new LspWorkspaceFolder("Orders", directory)), server);
+
+        await sut.StartAsync(TestContext.Current.CancellationToken);
+        var frame = await server.Frame.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        frame.GetProperty("capabilities").GetProperty("workspace")
+             .GetProperty("workspaceFolders").GetBoolean().Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task WithNoProjectOpenTheFoldersAreAbsentRatherThanEmpty()
+    {
+        // The protocol distinguishes them: null is "no folders are open", an empty array is a workspace
+        // that has folders and happens to have none right now. With nothing loaded the first is true.
+        var server = new RootRecordingServer();
+        var sut = ClientRootedAt(new FixedWorkspace(null), server);
+
+        await sut.StartAsync(TestContext.Current.CancellationToken);
+        var frame = await server.Frame.WaitAsync(TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
+
+        if (frame.TryGetProperty("workspaceFolders", out var folders))
+            folders.ValueKind.Should().Be(JsonValueKind.Null, "an empty array would claim something different");
     }
 
     [Fact]

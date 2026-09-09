@@ -108,10 +108,29 @@ public record ShowMessageParams(
     [property: JsonPropertyName("type")] LspMessageType Type,
     [property: JsonPropertyName("message")] string Message);
 
+/// <param name="RootUri">
+/// The single root, <b>deprecated by the protocol</b> in favour of <paramref name="WorkspaceFolders"/> and
+/// still sent, because "deprecated" is not "ignored". Measured across the four servers this suite drives,
+/// there are three different behaviours and no field is safe to omit:
+/// <list type="bullet">
+/// <item>texlab reads <c>workspaceFolders</c> ONLY, and has no root at all without it;</item>
+/// <item>clangd never parses <c>workspaceFolders</c> — <c>rootUri</c> is its sole root channel;</item>
+/// <item>rumdl prefers the folders and falls back to <c>rootUri</c>;</item>
+/// <item>the reference JSON server reads neither, resolving relative paths against the document instead.</item>
+/// </list>
+/// So clangd is the reason this field stays rather than a compatibility shrug, and sending both is the only
+/// payload none of them is harmed by.
+/// </param>
+/// <param name="WorkspaceFolders">
+/// Every folder in the workspace, or <see langword="null"/> when there is no project open — one per loaded
+/// project, so a <c>.vbg</c> group's members are each described rather than all being assumed to live
+/// wherever the startup project does.
+/// </param>
 public record InitializeParams(
     [property: JsonPropertyName("processId")] int? ProcessId,
     [property: JsonPropertyName("rootUri")] string? RootUri,
-    [property: JsonPropertyName("capabilities")] ClientCapabilities Capabilities);
+    [property: JsonPropertyName("capabilities")] ClientCapabilities Capabilities,
+    [property: JsonPropertyName("workspaceFolders")] WorkspaceFolder[]? WorkspaceFolders = null);
 
 public record ClientCapabilities(
     [property: JsonPropertyName("textDocument")] TextDocumentClientCapabilities? TextDocument = null,
@@ -133,7 +152,22 @@ public record TextDocumentClientCapabilities(
 /// </para>
 /// </summary>
 public record WorkspaceClientCapabilities(
-    [property: JsonPropertyName("executeCommand")] ExecuteCommandClientCapabilities? ExecuteCommand = null);
+    [property: JsonPropertyName("executeCommand")] ExecuteCommandClientCapabilities? ExecuteCommand = null,
+    /// <summary>
+    /// That this client sends <c>workspaceFolders</c> in <c>initialize</c> and understands the concept.
+    /// </summary>
+    /// <remarks>
+    /// Declared as well as sent, and both halves are needed. A server that composes its behaviour from what
+    /// the client claimed will ignore the folders it was handed if nothing declared support for them — the
+    /// same trap as <c>save</c> and <c>codeLens</c> above, where declaring and using are two halves of one
+    /// negotiation and shipping either alone produces silence rather than an error.
+    /// </remarks>
+    [property: JsonPropertyName("workspaceFolders")] bool? WorkspaceFolders = null);
+
+/// <summary>One folder of a multi-root workspace, as the protocol spells it.</summary>
+public record WorkspaceFolder(
+    [property: JsonPropertyName("uri")] string Uri,
+    [property: JsonPropertyName("name")] string Name);
 
 /// <summary>
 /// Declares that the client will ask for code lenses.

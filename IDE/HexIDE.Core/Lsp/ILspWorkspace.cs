@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace HexIDE.Lsp;
 
 /// <summary>
@@ -32,4 +34,31 @@ public interface ILspWorkspace
     /// </para>
     /// </summary>
     string? Directory { get; }
+
+    /// <summary>
+    /// Every folder in the workspace, one per loaded project — empty when there is no project open.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="Directory"/> answers "the one root", which is only ever right for a single project. A
+    /// <c>.vbg</c> group names its members by relative path, so its projects routinely live in completely
+    /// different directories, and one root then means every server believes the workspace is wherever the
+    /// STARTUP project happens to be. Changing which member is the startup project silently re-roots every
+    /// server, including for documents that did not move.
+    /// </para>
+    ///
+    /// <para>
+    /// The protocol says the same thing: <c>rootUri</c> is deprecated in favour of <c>workspaceFolders</c>,
+    /// plural, precisely because one root was never enough. <see cref="Directory"/> remains, because a
+    /// server that reads only <c>rootUri</c> still has to be told something.
+    /// </para>
+    /// </remarks>
+    IReadOnlyList<LspWorkspaceFolder> Folders { get; }
 }
+
+/// <summary>One folder of the workspace: a directory, and the name a user would recognise it by.</summary>
+/// <remarks>
+/// A directory rather than a URI, because expressing a path as a URI can fail and the language layer
+/// already owns that conversion and its error handling. This type says where, not how to spell it.
+/// </remarks>
+public sealed record LspWorkspaceFolder(string Name, string Directory);

@@ -54,6 +54,38 @@ repository.
 
 ---
 
+## Describing the workspace
+
+`initialize` carries **both** `workspaceFolders` — one per loaded project — and the deprecated `rootUri`,
+and the client declares `workspace.workspaceFolders`. Sending both is not belt-and-braces: the four servers
+this suite drives were measured, and they show three different behaviours.
+
+| Server | Reads `workspaceFolders` | Reads `rootUri` |
+|---|---|---|
+| texlab | **only** — no fallback | no |
+| clangd | **never parses it** | **its sole root channel** |
+| rumdl | preferred | falls back |
+| vscode-json-language-server | no | no — resolves relative to the document |
+
+So omitting either field silently un-scopes whichever servers read the other, with nothing observable from
+the client side. texlab had **no root at all** until the folders were sent; dropping `rootUri` as
+"deprecated" would do the same to clangd.
+
+**One folder per loaded project**, because a `.vbg` group names its members by relative path and they
+routinely live in different directories. Before this, every server was rooted at whichever project happened
+to be the *startup* one, and changing that silently re-rooted every server — including for documents that
+had not moved ([#261](https://github.com/hexide-io/HexIDE/issues/261)). Folders sharing a directory collapse
+to one entry, so a server does not index the same tree twice.
+
+`workspaceFolders` is **null, never an empty array**, when no project is open: the protocol gives those two
+different meanings, and "no folders are open" is the true one.
+
+**Not yet done:** `workspace/didChangeWorkspaceFolders`. A server started while a group was open is
+correct; one already running when a project joins or leaves the group is not told, and keeps the folder list
+it was given at `initialize`.
+
+---
+
 ## Capability negotiation
 
 The client reads the server's `initialize` result and gates on it. Nothing is called unconditionally.
