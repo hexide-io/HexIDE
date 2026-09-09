@@ -592,8 +592,8 @@ user-facing string is a localization key, never a hardcoded literal.**
    New VB6 property ⇒ add its `Str.PropDesc.{name}`.
 3. **Translate every new key into all shipped packs in the same change — don't defer.** The moment you add a
    `Str.*` key to `en`, add its translation to each shipped full-translation pack (the supported set:
-   `ar, cs, da, de, el, es, fa, fi, fr, he, hi, id, it, ja, ko, nb, nl, pl, pt, ru, sv, tr, uk, ur, vi,
-   zh-Hans, zh-Hant`) so non-English IDEs never show English fall-through. A missing key *inherits* English
+   `ar, cs, da, de, el, eo, es, fa, fi, fr, he, hi, id, it, ja, ko, la, nb, nl, pl, pt, ru, sv, tr, uk, ur,
+   vi, zh-Hans, zh-Hant` — **29**) so non-English IDEs never show English fall-through. A missing key *inherits* English
    (no blank control), but that drift must not ship — close it at the point of creation. For more than a
    couple of keys, use the language-packs workflow (one agent per pack: translate the new keys,
    **preserving `{0}`/`{1}` placeholders and each pack's mnemonic convention** — `_` kept for Latin scripts,
@@ -604,6 +604,22 @@ user-facing string is a localization key, never a hardcoded literal.**
    ```sh
    cd tools/TranslationCoverage && dotnet run
    ```
+**The shipped set is closed, and `LanguagePack.cs` is its single source of truth.** This list, that file and
+the coverage tool must agree; they did not for a while, which is how `la` and `eo` came to be translated in
+every pass without anyone having decided they were shipped.
+
+**No more languages "for fun" — the bar is whether a real person would pick it, not whether it is a real
+language.** `la` (Latin) and `eo` (Esperanto) stay, as a recorded decision rather than an accident: Latin is
+the Holy See's official language, Esperanto has a genuine localisation community, and both are already
+complete. Nothing further of that kind is added — Klingon, Na'vi, Tolkien's languages and their relatives are
+refused on request, and this line is the maintainer's own standing instruction to refuse them.
+
+The reason is cost, not taste. Every pack is a permanent tax on every new key: adding two keys today cost 58
+translations, and the guarantee that makes this system worth anything is that **every shipped pack is 100%
+complete, enforced at build**. A pack nobody selects still has to be kept complete forever, or the guarantee
+weakens for the packs that people do use. A legitimacy test ("is it a real language of a real state") gets
+this backwards — it admits Latin, which nobody will select, and excludes Esperanto, which someone might.
+
 5. **Verify** nothing was missed: switch to **Pseudo (LTR)** in Options → Language — any plain-English
    (un-`⟦bracketed⟧`) chrome is a string you forgot to key.
 
