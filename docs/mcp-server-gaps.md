@@ -290,22 +290,6 @@ That is how the `VBOptionButton` render crash was identified — nothing else su
 has now gone", and surface the last few lines of the IDE log with the failure. A `--crash-log` style
 handler that flushes Serilog on `AppDomain.UnhandledException` would also make the IDE log self-sufficient.
 
-## 11. `add_control` mutates the designer but never persists
-
-**Symptom.** Nine controls were added successfully via `add_control`; the IDE then crashed and **all of
-them were lost** — `frmOrders.frm` on disk still held only the bare form. `set_control_property` saves;
-`add_control` does not.
-
-**Workaround.** For anything more than a couple of controls, author the `.frm` directly and open the
-project — the format is small and well understood (`Left`/`Top`/`Width`/`Height` in twips, i.e. pixels
-× 15, plus `Caption`/`Text`). That is also faster than one round trip per control, and it survives a
-crash. Use `add_control` for interactive exploration, not for composing a form.
-
-**Fix consideration.** Either save after `add_control` (consistent with `set_control_property`), or add
-an explicit `save_form` tool so a caller can batch adds and commit once.
-
----
-
 ## Not an MCP gap (recorded to avoid confusion)
 
 - **`Debug.Print` didn't reach the Immediate window** — that was an *interpreter* bug (the `Debug` object was
@@ -334,39 +318,6 @@ surfaces that can be constructed standalone.
 mid-session, or have the launcher expose a readiness signal the client re-polls, so a restart with the IDE
 already up is sufficient. Failing that, document that the IDE must be started *after* the session, not
 before — which is the opposite of the intuitive order and worth stating explicitly.
-
-## 14. `set_file_content` silently drops a form's `Attribute` header if the caller omits it
-
-**Symptom.** Writing a fresh body to a form removes its attribute block:
-
-```
--Attribute VB_Name = "frmBillOfFare"
--Attribute VB_GlobalNameSpace = False
--Attribute VB_Creatable = False
--Attribute VB_PredeclaredId = True
--Attribute VB_Exposed = False
-```
-
-No warning, no error, and the change is written straight to disk — `hasUnsavedChanges` reads `false`
-afterwards, because as far as the IDE is concerned the save succeeded.
-
-**How it bit.** Using `set_file_content` to drop a few probe lines into `demo/bill-of-fare`'s form for a
-live check. It replaced the whole code section, taking the header and every event handler with it, and the
-damage reached a commit before it was spotted in `git diff`.
-
-**Not a defect in the tool.** `get_file_content` returns the attribute block too, so the pair is
-self-consistent and a **get → modify → set** round-trip preserves everything. The trap is that "the VB6
-source code of a form" *includes* the `Attribute` header, which is easy not to know: it is invisible in the
-IDE's editor, VB6 hides it, and nothing in the tool description mentions it. `VB_Name` is load-bearing.
-
-**Workarounds.** (a) Always `get_file_content` first and edit the returned text. (b) For a throwaway probe,
-use a scratch project (`--newproject`) rather than a demo or a real one. (c) `git status` before committing
-after any live verification — that is what caught it here, one commit late.
-
-**Suggested fix.** Either preserve the `Attribute` block when the incoming content has none — the IDE knows
-the form's name and can re-emit the header it just parsed — or refuse the write with "content is missing
-the Attribute header; call get_file_content first". Silently accepting a body that destroys a form's
-identity is the one behaviour that should not be available.
 
 ## A collapsed ComboBox reports only its selected item, which reads as "the item is missing"
 
