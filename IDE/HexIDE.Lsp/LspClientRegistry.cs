@@ -55,6 +55,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
     public event EventHandler<ShowMessageParams>? MessageShown;
+    public event EventHandler<LogMessageParams>? MessageLogged;
+    public event EventHandler<LogTraceParams>? TraceReceived;
     public event EventHandler? ConnectionsChanged;
 
     /// <summary>
@@ -164,6 +166,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             if (e.Client is not { } client) continue;
             client.DiagnosticsPublished -= OnInnerDiagnostics;
             client.MessageShown -= OnInnerMessage;
+            client.MessageLogged -= OnInnerLogMessage;
+            client.TraceReceived -= OnInnerTrace;
             client.StateChanged -= OnInnerStateChanged;
             try { await client.StopAsync(); } catch (Exception ex) { _logger.LogDebug(ex, "Stop failed for {Id}", e.Registration.Id); }
             e.Client = null;
@@ -319,6 +323,30 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             all.AddRange(await client.RequestWorkspaceSymbolsAsync(query, ct));
         }
         return [.. all];
+    }
+
+    /// <summary>
+    /// Asks every running server to change how much it says about itself.
+    /// </summary>
+    /// <remarks>
+    /// <b>Every one, because this interface has no way to name a single one.</b> Hiding which server
+    /// answered is the whole point of the router, and the cost lands here: a per-server level is a real
+    /// requirement and it cannot be expressed through this method. It belongs on the registry interface,
+    /// which does know one connection from another, and is added there when something needs it.
+    ///
+    /// <para>
+    /// A server that has not started is skipped rather than started. Waking a process to tell it how
+    /// talkative to be would be an odd reason to spend one, and the level it will start at comes from
+    /// configuration anyway.
+    /// </para>
+    /// </remarks>
+    public async Task SetTraceAsync(string value, CancellationToken ct = default)
+    {
+        foreach (var e in _entries)
+        {
+            if (e.Client is not { IsRunning: true } client) continue;
+            await client.SetTraceAsync(value, ct);
+        }
     }
 
     /// <summary>
@@ -524,6 +552,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
 
             client.DiagnosticsPublished -= OnInnerDiagnostics;
             client.MessageShown -= OnInnerMessage;
+            client.MessageLogged -= OnInnerLogMessage;
+            client.TraceReceived -= OnInnerTrace;
             client.StateChanged -= OnInnerStateChanged;
             try { await client.StopAsync(); }
             catch (Exception ex) { _logger.LogDebug(ex, "Stop failed for {Id}", e.Registration.Id); }
@@ -569,6 +599,8 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
             var client = e.Registration.CreateClient();
             client.DiagnosticsPublished += OnInnerDiagnostics;
             client.MessageShown += OnInnerMessage;
+            client.MessageLogged += OnInnerLogMessage;
+            client.TraceReceived += OnInnerTrace;
             client.StateChanged += OnInnerStateChanged;
             e.Client = client;
 
@@ -607,6 +639,9 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// Forwarded as-is. Which server spoke is already in the message the client logged; a subscriber's job
     /// is to put it in front of someone, not to work out who it came from.
     /// </summary>
+    private void OnInnerLogMessage(object? sender, LogMessageParams e) => MessageLogged?.Invoke(this, e);
+    private void OnInnerTrace(object? sender, LogTraceParams e) => TraceReceived?.Invoke(this, e);
+
     private void OnInnerMessage(object? sender, ShowMessageParams p) => MessageShown?.Invoke(this, p);
 
     /// <summary>

@@ -39,7 +39,7 @@ library the specification is written around.
 | Actions | `codeLens/resolve`, `workspace/executeCommand` — see *Commands and lenses* |
 | Custom | `vb/builtinSymbols` — see *Custom methods* |
 
-**Consumed from the server:** `textDocument/publishDiagnostics`, plus `window/logMessage` and
+**Consumed from the server:** `textDocument/publishDiagnostics`, `$/logTrace`, plus `window/logMessage` and
 `window/showMessage` — the channel a server uses to talk about *itself* rather than about a document.
 The first goes to the log at the severity the server declared; the second goes there **and** to the
 status bar, because a message the user never sees was the bug and a message with no trace afterwards
@@ -85,6 +85,34 @@ correct; one already running when a project joins or leaves the group is not tol
 it was given at `initialize`.
 
 ---
+
+## Asking a server to describe its own work
+
+A wire capture shows what a server said. It cannot show *why*. That a request took two seconds is on the
+wire; that the server fell back to a slower parsing strategy to answer it is not, and only the server knows.
+
+The protocol's answer is a trace level, and this client speaks all of it:
+
+- **`trace` at `initialize`**, taken from the server's own entry in `lsp-servers.json`. It travels in the
+  handshake, so it has to be known before the process exists, which is why it is configuration rather than
+  a setting. It is sent even when the level is `off`, so a capture of a quiet session says *we asked for
+  nothing* rather than leaving a reader to infer it from an absence.
+- **`$/setTrace`** changes the level on a server that is already running, without restarting it.
+- **`$/logTrace`** is what comes back, raised as an event rather than buried in a log.
+
+Three levels, and only three: `off`, `messages`, `verbose`. A fourth spelling circulates because one
+editor's client-side rendering enum carries it, but the specification's own model does not, so offering it
+would mean sending a value no server is obliged to understand.
+
+**No server ever confirms any of this.** `$/setTrace` is a notification, so there is no reply and no error,
+and the protocol defines no capability by which a client can discover whether a server honours tracing at
+all. The only signal available is negative — we asked, and nothing arrived. Any interface built on this must
+therefore say *asked*, never *accepted*.
+
+That distinction is not pedantic, because silence is the normal case. Five servers were driven with
+`trace: "verbose"` **and** an explicit `$/setTrace`: not one emitted a single `$/logTrace`, and three of the
+binaries contain no trace machinery at all. A fourth's framework implements the types and its server never
+calls them. So a trace pane that is empty against most servers is correct, and has to say why.
 
 ## Capability negotiation
 
@@ -205,7 +233,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 25 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 27 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -303,7 +331,7 @@ than inferred.
 
 | | Method | Dir | Notes |
 |---|---|---|---|
-| ✅ | `window/logMessage` | ← | Written to the log at the severity the server declared |
+| ✅ | `window/logMessage` | ← | Raised as an event **and** logged at the severity the server declared. It used to be logged only, at a level the default configuration discards |
 | ○ | `window/showDocument` | ← |  |
 | ✅ | `window/showMessage` | ← | Shown in the status bar, and logged |
 | ○ | `window/showMessageRequest` | ← |  |
@@ -317,14 +345,14 @@ than inferred.
 | ○ | `client/registerCapability` | ← | **Refused deliberately, and logged.** `dynamicRegistration` is a *client* capability and this client declares none, so a conformant server must declare everything at `initialize`. One that asks anyway gets `MethodNotFound` and a local warning naming the method ([#288](https://github.com/hexide-io/HexIDE/issues/288)) |
 | ○ | `client/unregisterCapability` | ← | Counterpart to the above, refused the same way |
 
-### `$/*` — 0 of 4
+### `$/*` — 2 of 4
 
 | | Method | Dir | Notes |
 |---|---|---|---|
 | ○ | `$/cancelRequest` | ↔ | Tokens are passed to StreamJsonRpc, but **cancelling one does not unblock the client's await**: it notifies and then waits for the server to acknowledge. Measured while fixing [#231](https://github.com/hexide-io/HexIDE/issues/231) |
-| ○ | `$/logTrace` | ← |  |
+| ✅ | `$/logTrace` | ← | Raised as an event and logged. A server's own account of its reasoning, which a wire capture cannot reconstruct |
 | ○ | `$/progress` | ↔ |  |
-| ○ | `$/setTrace` | → |  |
+| ✅ | `$/setTrace` | → | Changes the level on a running server. A notification, so **no server ever confirms it**, and the protocol defines no capability for asking |
 
 ### `notebookDocument/*` — 0 of 4
 

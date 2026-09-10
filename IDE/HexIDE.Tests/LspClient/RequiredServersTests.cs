@@ -61,4 +61,17 @@ public class RequiredServersTests
     public void TheProtocolModelIsAvailableWhenItIsRequired() =>
         RequireOrIgnore("metaModel", () => LspSpecificationModel.All() is not null,
             $"the LSP {LspSpecificationModel.Version} metaModel");
+
+    /// <summary>
+    /// The bundled server is not downloaded, it is built — but it fails open in exactly the same way.
+    /// </summary>
+    /// <remarks>
+    /// Running the IDE’s tests does not build the server half, so a tree that has only ever built the IDE
+    /// skips the one test where HexIDE’s own client and HexIDE’s own server actually meet. That is fine on a
+    /// laptop and unacceptable in CI, where the two halves agreeing with each other is the whole point.
+    /// </remarks>
+    [Fact]
+    public void TheBundledServerIsBuiltWhenForeignServersAreRequired() =>
+        RequireOrIgnore("bundled", () => BundledServer.Find() is not null,
+            "the bundled VB6 language server (build it with: cd LspServer && dotnet build HexIDE.VbLspServer/)");
 }

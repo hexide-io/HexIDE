@@ -64,6 +64,14 @@ jobs:
       - name: Run Runtime Tests
         run: dotnet test HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj
 
+      # The IDE half and the server half are separate builds, and nothing in this job produced the server
+      # until now. One test needs it: the only one where HexIDE's own client speaks to HexIDE's own
+      # server over a real process, rather than each half being proved against a fixture spoken by hand.
+      # Without this step it skips, and HEXIDE_REQUIRE_FOREIGN_LSP below turns that skip into a failure.
+      - name: Build the bundled VB6 language server (for the round-trip test)
+        working-directory: LspServer
+        run: dotnet build HexIDE.VbLspServer/HexIDE.VbLspServer.csproj
+
       # HEXIDE_REQUIRE_FOREIGN_LSP turns "no server available" from a skip into a failure. Without it a
       # broken download would quietly return the suite to the state this change exists to leave: green,
       # with the foreign-backend proof silently not running.

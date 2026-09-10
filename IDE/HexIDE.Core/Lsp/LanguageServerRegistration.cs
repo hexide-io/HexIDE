@@ -1,3 +1,5 @@
+using HexIDE.Lsp.Messages;
+
 namespace HexIDE.Lsp;
 
 /// <summary>
@@ -54,7 +56,9 @@ public sealed record LanguageServerRegistration(
     Func<ILspClient> CreateClient,
     int Priority = 0,
     LanguageConnectionTransport Transport = LanguageConnectionTransport.Stdio,
-    string? Endpoint = null)
+    string? Endpoint = null,
+    // Appended, for the same reason the initialize parameters are.
+    string Trace = LspTraceValue.Off)
 {
     /// <summary>
     /// The priority the entries HexIDE contributes itself are given — deliberately below the value an

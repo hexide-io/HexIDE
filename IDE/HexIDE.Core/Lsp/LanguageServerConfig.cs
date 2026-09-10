@@ -90,6 +90,18 @@ public sealed class LanguageServerEntry
     /// Decides which server answers where only one can. Absent means zero; the entries HexIDE contributes
     /// as defaults sit below zero, so a user's server wins without them having to know this field exists.
     /// </summary>
+    /// <summary>
+    /// How much this server should be asked to say about its own work: <c>off</c>, <c>messages</c> or
+    /// <c>verbose</c>. Absent means off.
+    /// </summary>
+    /// <remarks>
+    /// Here rather than in application settings because it travels in the initialization request, so it has
+    /// to be known before the process exists. Changing it on a server that is already running is a separate
+    /// operation the protocol provides, and does not go through this file.
+    /// </remarks>
+    [JsonPropertyName("trace")]
+    public string? Trace { get; set; }
+
     [JsonPropertyName("priority")]
     public int? Priority { get; set; }
 

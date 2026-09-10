@@ -4,13 +4,13 @@ Five phases, in order. Phase 3 deliberately precedes phase 4: the capture is dri
 automation before any window exists, which is how everything else here has been checked.
 
 ## 1. The protocol prerequisite
-- [ ] 1.1 Send `trace` in `InitializeParams`, from the per-server configured level
-- [ ] 1.2 Send `$/setTrace` when the level is changed while a server is running
-- [ ] 1.3 Handle `$/logTrace` and surface it rather than discarding it
-- [ ] 1.4 Add the message severity LSP 3.18 defines, and stop ranking an unknown severity above a known one
-- [ ] 1.5 Emit `$/logTrace` from the bundled server, so the client half has a conformant server to prove itself against
-- [ ] 1.6 Wire tests, not just "the call returned" — assert the frame, per this repository's standing lesson
-- [ ] 1.7 Regenerate the client coverage table and its counts
+- [x] 1.1 Send `trace` in `InitializeParams`, from the per-server configured level
+- [x] 1.2 Send `$/setTrace` when the level is changed while a server is running
+- [x] 1.3 Handle `$/logTrace` and surface it rather than discarding it
+- [x] 1.4 Add the message severity LSP 3.18 defines, and stop ranking an unknown severity above a known one
+- [x] 1.5 Emit `$/logTrace` from the bundled server, so the client half has a conformant server to prove itself against
+- [x] 1.6 Wire tests, not just "the call returned" — assert the frame, per this repository's standing lesson
+- [x] 1.7 Regenerate the client coverage table and its counts
 
 ## 2. The capture model, with no user interface
 - [ ] 2.1 A tap that sees byte-exact JSON bodies both directions, installed at every connect unconditionally

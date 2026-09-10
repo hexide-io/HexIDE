@@ -39,6 +39,8 @@ public sealed class VBLspClient : ILspClient
 
     public event EventHandler<PublishDiagnosticsParams>? DiagnosticsPublished;
     public event EventHandler<ShowMessageParams>? MessageShown;
+    public event EventHandler<LogMessageParams>? MessageLogged;
+    public event EventHandler<LogTraceParams>? TraceReceived;
     public event EventHandler? StateChanged;
 
     private ServerIdentity? _identity;
@@ -141,14 +143,27 @@ public sealed class VBLspClient : ILspClient
     /// </param>
     public VBLspClient(
         ILspTransport transport, ILogger<VBLspClient> logger, string languageId,
-        ILspWorkspace? workspace = null, TimeSpan? initializeTimeout = null)
+        ILspWorkspace? workspace = null, TimeSpan? initializeTimeout = null,
+        string trace = LspTraceValue.Off)
     {
         _transport = transport;
         _logger = logger;
         _languageId = languageId;
         _workspace = workspace;
         _initializeTimeout = initializeTimeout ?? DefaultInitializeTimeout;
+        _trace = LspTraceValue.Normalise(trace) ?? LspTraceValue.Off;
     }
+
+    /// <summary>
+    /// The level this connection is currently asking for. Not readonly, because it is also what a later
+    /// <c>$/setTrace</c> changed it to.
+    /// </summary>
+    /// <remarks>
+    /// Kept here rather than only passed through to <c>initialize</c> because a transport can reconnect,
+    /// and re-handshaking at the level configured months ago would quietly undo a level the developer set
+    /// two minutes earlier. The connection is the thing that owns this, not the process.
+    /// </remarks>
+    private string _trace;
 
     private readonly string _languageId;
     private readonly ILspWorkspace? _workspace;
@@ -374,6 +389,10 @@ public sealed class VBLspClient : ILspClient
             ProcessId: Environment.ProcessId,
             RootUri: WorkspaceRootUri(),
             WorkspaceFolders: WorkspaceFolders(),
+            // Sent even when it is off. The field is optional and off is its default, so this line changes
+            // nothing about how a server behaves — it changes what a capture of a quiet session can tell
+            // you, which is the difference between "we never asked" and "we asked and it said nothing".
+            Trace: _trace,
             Capabilities: new ClientCapabilities(
                 new TextDocumentClientCapabilities(
                     PublishDiagnostics: new PublishDiagnosticsClientCapabilities(),
@@ -1198,6 +1217,43 @@ public sealed class VBLspClient : ILspClient
         DiagnosticsPublished?.Invoke(this, p);
 
     internal void RaiseMessageShown(ShowMessageParams p) => MessageShown?.Invoke(this, p);
+    internal void RaiseMessageLogged(LogMessageParams p) => MessageLogged?.Invoke(this, p);
+    internal void RaiseTraceReceived(LogTraceParams p) => TraceReceived?.Invoke(this, p);
+
+    /// <summary>
+    /// Asks this server for a different amount of commentary, and remembers the answer it will never give.
+    /// </summary>
+    /// <remarks>
+    /// The level is recorded before the notification is sent rather than after, and deliberately: there is
+    /// no acknowledgement to wait for, so "sent successfully" and "the server is now verbose" are not the
+    /// same statement and the second one is not available. Recording first also means a reconnect
+    /// re-handshakes at the level the developer last chose, even if the connection died mid-notification.
+    /// </remarks>
+    public async Task SetTraceAsync(string value, CancellationToken cancellationToken = default)
+    {
+        if (LspTraceValue.Normalise(value) is not { } level)
+        {
+            _logger.LogWarning("Ignoring an unknown trace level {Value} for the {Language} server",
+                value, _languageId);
+            return;
+        }
+
+        _trace = level;
+
+        if (_rpc is null) return;
+
+        try
+        {
+            await _rpc.NotifyWithParameterObjectAsync("$/setTrace", new SetTraceParams(level))
+                .WaitAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            // A notification that could not be written is not a failure worth surfacing: the level is
+            // recorded, and the next handshake carries it.
+            _logger.LogDebug(ex, "Could not send $/setTrace to the {Language} server", _languageId);
+        }
+    }
 
     public Task InjectDiagnosticsAsync(string uri, Diagnostic[] diagnostics)
     {
@@ -1229,8 +1285,32 @@ public sealed class VBLspClient : ILspClient
         /// </para>
         /// </summary>
         [JsonRpcMethod("window/logMessage", UseSingleObjectParameterDeserialization = true)]
-        public void OnLogMessage(LogMessageParams p) =>
+        public void OnLogMessage(LogMessageParams p)
+        {
             _client._logger.Log(LevelOf(p.Type), "[{Language} server] {Message}", _client._languageId, p.Message);
+            _client.RaiseMessageLogged(p);
+        }
+
+        /// <summary>
+        /// The server describing its own work, having been asked to.
+        /// </summary>
+        /// <remarks>
+        /// Logged at Debug and raised. Debug because this is commentary a developer opted into and not
+        /// something to put in a shared log by default, and raised because the log is not where it is meant
+        /// to end up — it is the one channel carrying reasoning a wire capture cannot reconstruct.
+        ///
+        /// <para>
+        /// Expect nothing from most servers. Five were driven with verbose tracing and an explicit
+        /// <c>$/setTrace</c>; four never sent a single one of these. A handler that is never called is the
+        /// normal case here rather than evidence of a defect.
+        /// </para>
+        /// </remarks>
+        [JsonRpcMethod("$/logTrace", UseSingleObjectParameterDeserialization = true)]
+        public void OnLogTrace(LogTraceParams p)
+        {
+            _client._logger.LogDebug("[{Language} server trace] {Message}", _client._languageId, p.Message);
+            _client.RaiseTraceReceived(p);
+        }
 
         /// <summary>
         /// The server asking for the user's attention. Logged <b>and</b> raised, because a message the user
@@ -1322,22 +1402,32 @@ public sealed class VBLspClient : ILspClient
         }
 
         /// <summary>
-        /// Maps the protocol's four levels onto the logger's.
+        /// Maps the protocol's message levels onto the logger's.
+        /// </summary>
+        /// <remarks>
+        /// <c>Log</c> becomes Debug rather than Information: it is the level a server uses for running
+        /// commentary, and promoting it would bury the two levels that mean something. <c>Debug</c>, added
+        /// in 3.18, is noisier still and goes to Trace.
         ///
         /// <para>
-        /// <c>Log</c> becomes Debug rather than Information: it is the level a server uses for running
-        /// commentary, and promoting it would bury the two levels that mean something. An unrecognised
-        /// value becomes Information — a server saying something we cannot rank is still a server saying
-        /// something, and dropping it would recreate the bug in miniature.
+        /// <b>An unrecognised value goes to Trace, and the arm here previously had that exactly backwards.</b>
+        /// The old reasoning was that a server saying something we cannot rank is still a server saying
+        /// something. True, and it drew the wrong conclusion, because this scale gets quieter as its numbers
+        /// rise. A value we do not recognise is therefore one the protocol added <em>after</em> the noisiest
+        /// level we know, and sending it to Information promoted a server's most trivial chatter above its
+        /// own running commentary. 3.18's <c>Debug</c> is the first real instance, and the old arm would
+        /// have mis-ranked it upward without ever failing. Nothing is dropped either way; it is only ranked
+        /// where something we cannot read belongs.
         /// </para>
-        /// </summary>
+        /// </remarks>
         private static LogLevel LevelOf(LspMessageType type) => type switch
         {
             LspMessageType.Error => LogLevel.Error,
             LspMessageType.Warning => LogLevel.Warning,
             LspMessageType.Info => LogLevel.Information,
             LspMessageType.Log => LogLevel.Debug,
-            _ => LogLevel.Information,
+            LspMessageType.Debug => LogLevel.Trace,
+            _ => LogLevel.Trace,
         };
     }
 
