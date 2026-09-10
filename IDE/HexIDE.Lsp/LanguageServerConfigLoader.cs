@@ -2,6 +2,8 @@ using HexIDE.IDE;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 
+using HexIDE.Lsp.Messages;
+
 namespace HexIDE.Lsp;
 
 /// <summary>What the configuration came to, and everything wrong with it.</summary>
@@ -305,6 +307,22 @@ public sealed class LanguageServerConfigLoader
               + "Ignored — check the spelling.",
                 false,
                 LanguageServerConfigProblemKind.UnrecognisedField));
+
+        // Reported, and then survivable. A trace level nobody can read is a mistake worth naming, and it
+        // is emphatically not a reason to refuse the server: the entry still says how to reach a working
+        // language service, and turning a misspelled diagnostic setting into no language features at all
+        // would be a wildly disproportionate answer to a typo.
+        if (entry.Trace is { } trace && !string.IsNullOrWhiteSpace(trace)
+            && LspTraceValue.Normalise(trace) is null)
+        {
+            problems.Add(new LanguageServerConfigProblem(
+                entry.Id,
+                $"'{entry.Id}' asks for trace level '{trace.Trim()}', which is not one of "
+              + $"'{LspTraceValue.Off}', '{LspTraceValue.Messages}' or '{LspTraceValue.Verbose}'. "
+              + "Tracing is off for this server.",
+                false,
+                LanguageServerConfigProblemKind.Configuration));
+        }
 
         if (entry.Enabled == false)
         {

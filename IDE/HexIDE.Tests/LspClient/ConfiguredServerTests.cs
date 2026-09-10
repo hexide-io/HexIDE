@@ -59,6 +59,16 @@ public class ConfiguredServerTests : IDisposable
         return new LanguageServerRegistrationFactory(_loggerFactory).Create(configuration.Entries);
     }
 
+    /// <summary>The same load, keeping what it complained about.</summary>
+    private LanguageServerConfigResult ConfigurationFrom(string? json, params LanguageServerEntry[] defaults)
+    {
+        var path = Path.Combine(_dir, "lsp-servers.json");
+        if (json is not null) File.WriteAllText(path, json);
+
+        return new LanguageServerConfigLoader(
+            path, _loggerFactory.CreateLogger<LanguageServerConfigLoader>()).Load(defaults);
+    }
+
     [Fact]
     public void WithNoFileTheBundledServerIsRegisteredExactlyAsShipped()
     {
@@ -240,6 +250,65 @@ public class ConfiguredServerTests : IDisposable
     // ── The factory's own wiring, over a real channel ─────────────────────────────────────────────────
 
     /// <summary>Records the <c>languageId</c> of the first didOpen it is sent.</summary>
+    // ── Trace level ──────────────────────────────────────────────────────────
+
+    [Fact]
+    public void AConfiguredTraceLevelReachesTheRegistration()
+    {
+        var registrations = RegistrationsFrom("""
+            {"version":1,"servers":[{"id":"vb6","extensions":[".bas"],"languageId":"vb6",
+             "transport":"stdio","command":"server.exe","trace":"verbose"}]}
+            """);
+
+        registrations.Should().ContainSingle();
+        registrations[0].Trace.Should().Be(LspTraceValue.Verbose);
+    }
+
+    [Fact]
+    public void SayingNothingMeansOff()
+    {
+        var registrations = RegistrationsFrom("""
+            {"version":1,"servers":[{"id":"vb6","extensions":[".bas"],"languageId":"vb6",
+             "transport":"stdio","command":"server.exe"}]}
+            """);
+
+        registrations[0].Trace.Should().Be(LspTraceValue.Off);
+    }
+
+    [Fact]
+    public void TheLevelIsReadWhateverCaseItWasWrittenIn()
+    {
+        // A hand-edited file, so this is a spelling people will use rather than a hypothetical.
+        var registrations = RegistrationsFrom("""
+            {"version":1,"servers":[{"id":"vb6","extensions":[".bas"],"languageId":"vb6",
+             "transport":"stdio","command":"server.exe","trace":"  Verbose  "}]}
+            """);
+
+        registrations[0].Trace.Should().Be(LspTraceValue.Verbose);
+    }
+
+    [Fact]
+    public void AMisspelledLevelIsReportedAndTheServerStillStarts()
+    {
+        // The proportion is the point. "Your trace setting is misspelled" and "you have no language
+        // features" are wildly different costs, and a typo in a diagnostic setting must not buy the second.
+        const string json = """
+            {"version":1,"servers":[{"id":"vb6","extensions":[".bas"],"languageId":"vb6",
+             "transport":"stdio","command":"server.exe","trace":"chatty"}]}
+            """;
+
+        var configuration = ConfigurationFrom(json);
+        var registrations = RegistrationsFrom(json);
+
+        registrations.Should().ContainSingle("a bad trace level must not cost the server");
+        registrations[0].Trace.Should().Be(LspTraceValue.Off);
+
+        configuration.Problems.Should().Contain(
+            problem => problem.EntryId == "vb6" && problem.Message.Contains("chatty") && !problem.EntryRejected,
+            "a level nobody can read is worth naming, or the developer watches an empty trace and blames "
+          + "the server");
+    }
+
     private sealed class DidOpenRecorder
     {
         private readonly TaskCompletionSource<string> _languageId =

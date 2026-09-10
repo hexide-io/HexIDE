@@ -219,6 +219,41 @@ empty edit array when already correct; a single whole-document edit, so one `Ctr
 
 ---
 
+## The server's own trace
+
+Not a language feature, so it is absent from the table below — but it is the only way to see *why* one of
+those features cost what it did.
+
+Set `trace` to `messages` or `verbose` in `initialize`, or send `$/setTrace` to a running server, and the
+analysis reports itself over `$/logTrace`. At `messages` that is one line per analysis; at `verbose` the
+same line arrives with detail attached in the notification's `verbose` member. Off is the default, an
+unrecognised value is ignored rather than silently downgraded, and with the level off nothing is measured —
+the parse runs exactly as it does when nobody is watching.
+
+```
+vb6://module/Form1: LL fallback, 41.3 ms, 1 diagnostic, 7 symbols
+```
+
+**What it deliberately does not carry is the point.** A client capturing its own traffic already has every
+method name, payload and elapsed time, so echoing those back would prove the notification works and teach
+nothing. What only the server process knows is:
+
+- **Which prediction stage answered.** The parser tries SLL first and falls back to a full LL(\*) re-parse
+  when SLL bails — on a genuine syntax error, or on VB6's call-vs-array ambiguity. That fallback is the
+  single largest determinant of how long an analysis took, and until this channel existed it was reported
+  to nobody.
+- **Whether the wall-clock budget expired.** When it does, the previously published diagnostics are kept.
+  On the wire that is an unchanged diagnostic set, which looks identical to a file nobody edited.
+- **A document refused rather than analysed** — a ranged content change against a server advertising Full
+  sync is refused and the document evicted. On the wire, an empty diagnostic array; indistinguishable from
+  a file with nothing wrong.
+
+Measured against five third-party servers, this channel is empty in practice: `trace: "verbose"` plus an
+explicit `$/setTrace` produced zero `$/logTrace` frames between them. So the bundled server is also the
+reference implementation the client half is proved against.
+
+---
+
 ## Summary
 
 | Feature | Method | Depth | Principal limit |
