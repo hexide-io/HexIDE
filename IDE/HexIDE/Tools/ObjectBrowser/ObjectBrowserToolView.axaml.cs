@@ -19,6 +19,12 @@ public partial class ObjectBrowserToolView : UserControl
             vm.GoToDefinitionCommand.Execute(null);
     }
 
+    private void SearchResults_OnDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (DataContext is ObjectBrowserToolViewModel vm)
+            vm.GoToSearchResultCommand.Execute(null);
+    }
+
     private async void Copy_OnClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not ObjectBrowserToolViewModel vm) return;

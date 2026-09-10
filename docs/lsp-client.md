@@ -411,9 +411,11 @@ in the first place; the guard will catch it, but the guard is a backstop, not a 
 
 Three clusters account for nearly all of the gap:
 
-- **Features needing a bound AST** — references, code actions, semantic tokens, inlay hints, call hierarchy,
-  workspace symbols and their `*/resolve` companions. Not wired because nothing here would answer them; see
-  *What the client would consume* below.
+- **Features needing a bound AST** — references, code actions, semantic tokens, inlay hints, call hierarchy
+  and their `*/resolve` companions. Not wired because nothing here would answer them; see *What the client
+  would consume* below. `workspace/symbol` used to sit in this list and no longer does: the client speaks it
+  and the Object Browser surfaces it, so the missing half is a *server*, which is exactly the point of the
+  seam.
 - **Workspace-level protocol** — `workspace/*` is 2 of 21. There *is* a workspace model now — one folder
   per loaded project, sent in `initialize` — and `workspace/symbol` searches it. What is still absent is
   everything that keeps that model live or reacts to it: file-operation notifications, watched files,
@@ -454,11 +456,23 @@ awaiting effort, they are **server** features awaiting a server.
 | Semantic tokens | `textDocument/semanticTokens` | Not wired |
 | Inlay hints | `textDocument/inlayHint` | Not wired |
 | Call hierarchy | `textDocument/prepareCallHierarchy` | Not wired |
-| Workspace symbols | `workspace/symbol` | Not wired |
+| Workspace symbols | `workspace/symbol` | **Wired** — see below |
 
 "Not wired" is a statement about the client, and it is the honest one: wiring each is a bounded piece of
 client work with no architectural obstacle, worth doing when a backend exists that would answer. What would
 *not* be honest is carrying them here as planned analysis work.
+
+**`workspace/symbol` is the one that has been wired anyway, and it is worth saying why.** The bundled server
+does not advertise it and will not — finding a name anywhere in a workspace is a binding question, and
+binding is outside its hard limit. The client speaks it regardless, and the Object Browser's search box
+asks every running server that offers it. So attaching a server that *can* answer is now the whole of what
+it takes, with no client work in between. That is the seam working as designed, and it is the shape the
+remaining rows would take too.
+
+The Object Browser therefore has to distinguish three empty answers that look identical: **nothing has
+started yet** (servers start lazily, when a document of their language is opened), **nothing running offers
+the feature**, and **nothing matched**. Only the third is "not there", and a search box that said so for
+all three would be confidently wrong two-thirds of the time.
 
 ---
 
