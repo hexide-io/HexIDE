@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using HexIDE.IDE;
@@ -29,6 +30,8 @@ public partial class ObjectBrowserToolViewModel : Document
     private readonly IEditorService editorService;
     private readonly ITypeLibraryService typeLibraryService;
     private readonly IFocusedProjectUtil focusedProjectUtil;
+    private readonly ILanguageConnectionRegistry connections;
+    private readonly ILocalizationService localization;
 
     private readonly Dictionary<ProjectDefinition, OBLibraryViewModel> projectToLibrary = new();
     private OBLibraryViewModel? vbaLibrary;
@@ -48,6 +51,28 @@ public partial class ObjectBrowserToolViewModel : Document
     public ObservableCollection<OBClassViewModel> FilteredClasses { get; } = new();
     public ObservableCollection<OBMemberViewModel> FilteredMembers { get; } = new();
 
+    /// <summary>What every running server that offers it found for the last search, merged.</summary>
+    public ObservableCollection<OBSearchResultViewModel> SearchResults { get; } = new();
+
+    [Notify] private OBSearchResultViewModel? selectedSearchResult;
+
+    /// <summary>Whether the search-results pane is showing at all — it is not, until a search is run.</summary>
+    [Notify] private bool isShowingSearchResults;
+
+    [Notify] private bool isSearchingWorkspace;
+
+    /// <summary>
+    /// Why the results list looks the way it does, in words.
+    /// </summary>
+    /// <remarks>
+    /// <b>The point of this line is that an empty list has four causes and only one of them is "not
+    /// there".</b> Servers here start lazily — a server starts when a document of its language is opened,
+    /// because that is the first moment the language is known to be present — so a search run before
+    /// anything is open reaches nobody. Showing "no matches" for that would be a confident wrong answer to
+    /// the one question the user asked.
+    /// </remarks>
+    [Notify] private string searchStatus = string.Empty;
+
     public string MembersHeader => selectedClass != null ? $"Members of '{selectedClass.Name}'" : "Members";
 
     public string DescriptionSignature => selectedMember != null
@@ -62,6 +87,7 @@ public partial class ObjectBrowserToolViewModel : Document
 
     public DelegateCommand SearchCommand { get; }
     public DelegateCommand ClearSearchCommand { get; }
+    public DelegateCommand GoToSearchResultCommand { get; }
     public DelegateCommand GoToDefinitionCommand { get; }
     public DelegateCommand BackCommand { get; }
     public DelegateCommand ForwardCommand { get; }
@@ -75,7 +101,7 @@ public partial class ObjectBrowserToolViewModel : Document
     public ObjectBrowserToolViewModel(IProjectManager projectManager, ILspClient lspClient,
         IEditorService editorService, IComponentRegistry componentRegistry,
         ITypeLibraryService typeLibraryService, IFocusedProjectUtil focusedProjectUtil,
-        ILocalizationService localization)
+        ILocalizationService localization, ILanguageConnectionRegistry connections)
     {
         localization.BindTitle(this, "Str.Tool.ObjectBrowser.Title");
         CanClose = true;
@@ -86,9 +112,17 @@ public partial class ObjectBrowserToolViewModel : Document
         this.editorService = editorService;
         this.typeLibraryService = typeLibraryService;
         this.focusedProjectUtil = focusedProjectUtil;
+        this.connections = connections;
+        this.localization = localization;
 
-        SearchCommand = new DelegateCommand(RebuildFilteredClasses);
-        ClearSearchCommand = new DelegateCommand(() => { SearchText = string.Empty; RebuildFilteredClasses(); });
+        SearchCommand = new DelegateCommand(Search);
+        ClearSearchCommand = new DelegateCommand(() =>
+        {
+            SearchText = string.Empty;
+            RebuildFilteredClasses();
+            ClearSearchResults();
+        });
+        GoToSearchResultCommand = new DelegateCommand(GoToSearchResult, () => SelectedSearchResult != null);
         GoToDefinitionCommand = new DelegateCommand(GoToDefinition, () => SelectedClass?.CanNavigate ?? false);
         BackCommand = new DelegateCommand(GoBack, () => _navIndex > 0);
         ForwardCommand = new DelegateCommand(GoForward, () => _navIndex < _navHistory.Count - 1);
@@ -118,6 +152,8 @@ public partial class ObjectBrowserToolViewModel : Document
         });
         this.ObservePropertyChanged(x => x.SelectedClass).Subscribe(_ => OnClassSelectionChanged());
         this.ObservePropertyChanged(x => x.SelectedMember).Subscribe(_ => UpdateCurrentHistoryMember());
+        this.ObservePropertyChanged(x => x.SelectedSearchResult)
+            .Subscribe(_ => GoToSearchResultCommand.RaiseCanExecutedChanged());
 
         Libraries.Add(OBLibraryViewModel.AllLibraries);
 
@@ -363,18 +399,36 @@ public partial class ObjectBrowserToolViewModel : Document
     /// bothered to send one.
     /// </para>
     /// </remarks>
-    private static (OBMemberKind kind, string signature) MapSymbol(DocumentSymbol sym) => sym.Kind switch
+    private static (OBMemberKind kind, string signature) MapSymbol(DocumentSymbol sym) =>
+        (KindOf(sym.Kind), Signature(sym, KeywordFor(sym.Kind)));
+
+    /// <summary>Which of the browser's four member kinds a protocol symbol kind is.</summary>
+    /// <remarks>
+    /// Shared with the workspace-search list, whose hits belong to no loaded class and so cannot go through
+    /// <see cref="MapSymbol"/>. Two lists in one window disagreeing about what a property looks like would
+    /// read as a rendering fault rather than as two code paths.
+    /// </remarks>
+    internal static OBMemberKind KindOf(SymbolKind kind) => kind switch
     {
-        SymbolKind.Property                        => (OBMemberKind.Property, Signature(sym, "Property")),
-        SymbolKind.Event                           => (OBMemberKind.Method,   Signature(sym, "Event")),
-        SymbolKind.Enum                            => (OBMemberKind.Constant, Signature(sym, "Enum")),
-        SymbolKind.EnumMember or SymbolKind.Constant
-                                                   => (OBMemberKind.Constant, Signature(sym, null)),
-        SymbolKind.Struct or SymbolKind.Object      => (OBMemberKind.Constant, Signature(sym, "Type")),
-        SymbolKind.Class or SymbolKind.Interface
-            or SymbolKind.Module or SymbolKind.File => (OBMemberKind.Constant, Signature(sym, null)),
-        SymbolKind.Variable or SymbolKind.Field     => (OBMemberKind.Property, Signature(sym, "Dim")),
-        _                                           => (OBMemberKind.Method,   Signature(sym, null)),
+        SymbolKind.Property                         => OBMemberKind.Property,
+        SymbolKind.Event                            => OBMemberKind.Method,
+        SymbolKind.Enum or SymbolKind.EnumMember or SymbolKind.Constant
+            or SymbolKind.Struct or SymbolKind.Object
+            or SymbolKind.Class or SymbolKind.Interface
+            or SymbolKind.Module or SymbolKind.File  => OBMemberKind.Constant,
+        SymbolKind.Variable or SymbolKind.Field      => OBMemberKind.Property,
+        _                                            => OBMemberKind.Method,
+    };
+
+    /// <summary>The VB6 keyword for a symbol kind, or null where VB6 has no word for the thing.</summary>
+    private static string? KeywordFor(SymbolKind kind) => kind switch
+    {
+        SymbolKind.Property                     => "Property",
+        SymbolKind.Event                        => "Event",
+        SymbolKind.Enum                         => "Enum",
+        SymbolKind.Struct or SymbolKind.Object  => "Type",
+        SymbolKind.Variable or SymbolKind.Field => "Dim",
+        _                                       => null,
     };
 
     /// <summary>What a server said the member looks like, or a keyword and its name when it said nothing.</summary>
@@ -479,10 +533,141 @@ public partial class ObjectBrowserToolViewModel : Document
     private void ApplyNavEntry(NavEntry entry)
     {
         SearchText = string.Empty;
+        ClearSearchResults();
         SelectedLibrary = entry.Library;
         RebuildFilteredClasses();
         SelectedClass = entry.Class;
         SelectedMember = entry.Member;
+    }
+
+    // Workspace-wide search ────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// Filters what the browser already holds, and asks every capable server what it can find beyond it.
+    /// </summary>
+    /// <remarks>
+    /// The two halves answer different questions and both are wanted. The local filter narrows the type
+    /// libraries and project modules the browser has loaded; <c>workspace/symbol</c> reaches procedures and
+    /// variables inside files, which the browser never holds and cannot filter for.
+    /// </remarks>
+    private void Search()
+    {
+        RebuildFilteredClasses();
+        SearchWorkspaceAsync(SearchText.Trim()).ListenErrors();
+    }
+
+    private CancellationTokenSource? searchInFlight;
+
+    /// <summary>
+    /// Internal rather than private so a test can await it.
+    /// </summary>
+    /// <remarks>
+    /// The command that calls this is fire-and-forget, which is right for a UI and useless for a test:
+    /// polling for a status line to settle asserts on a race rather than on behaviour.
+    /// </remarks>
+    internal async Task SearchWorkspaceAsync(string query)
+    {
+        // A second search started while the first is outstanding must not have its results arrive after it
+        // and overwrite the newer ones — the list would then show an older query with no sign of it.
+        searchInFlight?.Cancel();
+        searchInFlight?.Dispose();
+        var cts = new CancellationTokenSource();
+        searchInFlight = cts;
+
+        SearchResults.Clear();
+        SelectedSearchResult = null;
+
+        if (query.Length == 0)
+        {
+            ClearSearchResults();
+            return;
+        }
+
+        IsShowingSearchResults = true;
+
+        // Both refusals are stated rather than silent, because an empty list cannot say which happened.
+        if (!lspClient.IsRunning)
+        {
+            SearchStatus = localization.GetString("Str.Tool.ObjectBrowser.Search.NoServer");
+            return;
+        }
+
+        if (!AnyRunningServerOffersWorkspaceSearch())
+        {
+            SearchStatus = localization.GetString("Str.Tool.ObjectBrowser.Search.NoProvider");
+            return;
+        }
+
+        IsSearchingWorkspace = true;
+        try
+        {
+            var symbols = await lspClient.RequestWorkspaceSymbolsAsync(query, cts.Token);
+            if (cts.IsCancellationRequested) return;
+
+            // Ordered here rather than left in arrival order: the results are several servers' answers
+            // concatenated, so arrival order is registration order, which means nothing to a reader.
+            foreach (var symbol in symbols
+                         .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
+                         .ThenBy(s => s.Location.Uri, StringComparer.OrdinalIgnoreCase)
+                         .ThenBy(s => s.Location.Range.Start.Line))
+            {
+                SearchResults.Add(new OBSearchResultViewModel(symbol, KindOf(symbol.Kind)));
+            }
+
+            SearchStatus = SearchResults.Count == 0
+                ? string.Format(localization.GetString("Str.Tool.ObjectBrowser.Search.NoMatches"), query)
+                : string.Format(localization.GetString("Str.Tool.ObjectBrowser.Search.Matches"), SearchResults.Count);
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "ObjectBrowser: workspace symbol search for {Query} failed", query);
+            SearchStatus = localization.GetString("Str.Tool.ObjectBrowser.Search.Failed");
+        }
+        finally
+        {
+            if (ReferenceEquals(searchInFlight, cts)) IsSearchingWorkspace = false;
+        }
+    }
+
+    /// <summary>
+    /// Whether anything that is up right now claims <c>workspaceSymbolProvider</c>.
+    /// </summary>
+    /// <remarks>
+    /// Read from the connection registry rather than from the router, which reports null capabilities on
+    /// purpose — "what did the server advertise" has no single answer across several of them. Present
+    /// and not <c>false</c> is the test, because most capabilities are <c>boolean | XxxOptions</c> and a
+    /// conformant server may send either.
+    /// </remarks>
+    private bool AnyRunningServerOffersWorkspaceSearch() =>
+        (connections.Connections ?? []).Any(c =>
+            c.State == LanguageConnectionState.Running
+            && c.Capabilities is { } caps
+            && caps.TryGetProperty("workspaceSymbolProvider", out var value)
+            && value.ValueKind is not (JsonValueKind.False or JsonValueKind.Null or JsonValueKind.Undefined));
+
+    private void ClearSearchResults()
+    {
+        SearchResults.Clear();
+        SelectedSearchResult = null;
+        IsShowingSearchResults = false;
+        IsSearchingWorkspace = false;
+        SearchStatus = string.Empty;
+    }
+
+    /// <summary>
+    /// Opens a search hit where the server said it was.
+    /// </summary>
+    /// <remarks>
+    /// By URI and position, not through the browser's own class list: a hit is very often a procedure
+    /// inside a module, which the browser has no view-model for at all. A URI nothing loaded answers to is
+    /// a no-op — a server may know about a file the IDE has not opened.
+    /// </remarks>
+    private void GoToSearchResult()
+    {
+        if (SelectedSearchResult is not { } hit) return;
+        if (!editorService.NavigateTo(hit.Uri, hit.Line, hit.Column))
+            Log.Debug("ObjectBrowser: nothing loaded answers to {Uri}", hit.Uri);
     }
 
     private void GoToDefinition()

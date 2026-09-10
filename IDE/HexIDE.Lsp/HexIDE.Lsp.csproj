@@ -24,4 +24,14 @@
     <ItemGroup>
         <ProjectReference Include="..\HexIDE.Core\HexIDE.Core.csproj" />
     </ItemGroup>
+
+  <!-- The reply readers are internal: they parse a wire shape rather than offering an API, and
+       widening them to public just so a test can reach them would make a parsing detail part of
+       this assembly's surface. Three of them (documentSymbol, definition, workspace/symbol) each
+       handle several legal shapes of one reply, which is exactly what wants direct testing. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="HexIDE.Tests" />
+    <InternalsVisibleTo Include="HexIDE.Integration.Tests" />
+  </ItemGroup>
+
 </Project>

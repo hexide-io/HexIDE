@@ -15,7 +15,17 @@ public class OBMemberViewModel
         Description = description;
     }
 
-    public string KindGlyph => Kind switch
+    public string KindGlyph => GlyphFor(Kind);
+
+    /// <summary>
+    /// The glyph for a kind, without a member to hang it on.
+    /// </summary>
+    /// <remarks>
+    /// Static because the workspace-search list shows the same glyphs for things that are not members of
+    /// any loaded class. Two lists in one window disagreeing about what a property looks like would read as
+    /// a rendering fault rather than as two code paths.
+    /// </remarks>
+    public static string GlyphFor(OBMemberKind kind) => kind switch
     {
         OBMemberKind.Property   => "⊞",
         OBMemberKind.Event      => "⟡",
