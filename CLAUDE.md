@@ -287,6 +287,15 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 - `--newproject` — skip the startup dialog and create a default Standard EXE project
 - Positional `.vbp` path — skip the startup dialog and open that project
 
+**The server answers loopback only, and now checks that rather than assuming it.** A request whose `Host`
+header does not name a loopback address on the bound port is refused with **403** before it reaches any
+endpoint, health included, and so is one carrying an `Origin` that is not loopback. If a client of yours
+starts getting 403s it is sending the wrong `Host`, not talking to a broken IDE. Binding to loopback alone
+did not close this: DNS rebinding lets a page the developer happens to visit reach a local port with no
+preflight, and the `Host` header is the one thing that trick cannot forge. There is still **no
+authentication**, so anything able to open a socket to the port can drive the IDE. That is a separate
+control and a separate decision ([#352](https://github.com/hexide-io/HexIDE/issues/352)).
+
 ### Rebuild cycle (no user interaction required)
 
 When you need to rebuild while HexIDE is running, always follow this cycle — do NOT ask the user:
