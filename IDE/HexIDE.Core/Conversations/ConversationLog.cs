@@ -41,6 +41,9 @@ public sealed class ConversationLog : IAsyncDisposable
         /// </remarks>
         public volatile bool Armed;
 
+        /// <summary>Frames seen at the tap, used only to recognise the opening of a connection.</summary>
+        public int Seen;
+
         /// <summary>Requests sent and not yet answered, keyed by who started them.</summary>
         public Dictionary<(ConversationDirection Origin, string Id), (long Sequence, long StartedAt)> Outstanding { get; } = [];
     }
@@ -104,6 +107,51 @@ public sealed class ConversationLog : IAsyncDisposable
 
     /// <summary>Whether bodies are being retained for a connection.</summary>
     public bool IsArmed(string connectionId) => Of(connectionId).Armed;
+
+    /// <summary>
+    /// How many frames at the start of a connection are kept in full whatever the arming says.
+    /// </summary>
+    /// <remarks>
+    /// Generous rather than exact. The handshake is an initialize request and its reply, an initialized
+    /// notification, and whatever a server volunteers immediately afterwards — a banner, a capability
+    /// registration attempt, an early diagnostic. Counting precisely would mean recognising methods, and
+    /// this needs to be decided before a frame has been read.
+    /// </remarks>
+    public const int OpeningFrames = 8;
+
+    /// <summary>
+    /// Whether this frame's body should be kept: because someone armed the connection, or because the
+    /// connection has only just started.
+    /// </summary>
+    /// <remarks>
+    /// <b>The handshake is kept unconditionally, and it is the one exception to arming.</b> Servers start
+    /// lazily, when a document of their language is first opened, so arming after the fact provably cannot
+    /// reach an <c>initialize</c> that has already happened — and several of the costliest defects in this
+    /// project's history turn on what that exchange contained. The cost is fixed and tiny: a handful of
+    /// frames, once per process.
+    ///
+    /// <para>
+    /// Decided by position rather than by method, deliberately. Recognising <c>initialize</c> would mean
+    /// reading the frame first and then deciding whether to copy it, which depends on the inbound buffer
+    /// still being valid after the inner formatter has run — something nothing here has measured. Counting
+    /// frames needs no such assumption.
+    /// </para>
+    ///
+    /// <para>
+    /// Called once per frame in each direction, so the count advances roughly twice per exchange. That is
+    /// why the allowance is generous rather than precise.
+    /// </para>
+    /// </remarks>
+    public bool ShouldKeepBody(string connectionId)
+    {
+        var connection = Of(connectionId);
+        if (connection.Armed) return true;
+
+        // Saturating, so a long-lived connection cannot roll this counter over and start capturing again.
+        var seen = Interlocked.Increment(ref connection.Seen);
+        if (seen > OpeningFrames) Interlocked.Exchange(ref connection.Seen, OpeningFrames + 1);
+        return seen <= OpeningFrames;
+    }
 
     /// <summary>
     /// Starts or stops retaining bodies for one connection.

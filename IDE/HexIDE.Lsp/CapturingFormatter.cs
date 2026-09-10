@@ -62,8 +62,7 @@ internal sealed class CapturingFormatter(
     {
         // Tee rather than serialize twice. The bytes the inner formatter writes are exactly the bytes the
         // handler will frame, so watching them go past costs one copy when armed and one addition when not.
-        var armed = log.IsArmed(connectionId);
-        var tee = new TeeWriter(bufferWriter, armed);
+        var tee = new TeeWriter(bufferWriter, log.ShouldKeepBody(connectionId));
 
         inner.Serialize(tee, message);
 
@@ -100,7 +99,7 @@ internal sealed class CapturingFormatter(
         byte[]? copy = null;
         try
         {
-            if (log.IsArmed(connectionId)) copy = contentBuffer.ToArray();
+            if (log.ShouldKeepBody(connectionId)) copy = contentBuffer.ToArray();
         }
         catch (Exception) { copy = null; }
 

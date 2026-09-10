@@ -140,10 +140,12 @@ public class CapturingFormatterTests : IAsyncDisposable
     }
 
     [Fact]
-    public async Task SizeIsRecordedWithoutRetainingAnything()
+    public async Task TheOpeningOfAConnectionIsKeptEvenWhenNothingIsArmed()
     {
-        // The whole reason capture can be on by default. An unarmed connection knows how big a reply was
-        // without holding a byte of it.
+        // The one exception to arming, and it is not a convenience. Servers start lazily, when a document
+        // of their language is first opened, so arming after the fact provably cannot reach an initialize
+        // that has already happened — and several of the costliest defects in this project's history turn
+        // on what that exchange contained, one of them on its CONTENT rather than its shape.
         var (client, _, _) = Connect();
         client.StartListening();
 
@@ -152,7 +154,29 @@ public class CapturingFormatterTests : IAsyncDisposable
         await _log.DrainAsync();
 
         var entry = _log.Snapshot("vb6").Single();
-        entry.SizeBytes.Should().BeGreaterThan(0);
+        _log.Body("vb6", entry.Sequence).Should().NotBeNull(
+            "the handshake is kept whatever the arming says, because it cannot be captured retrospectively");
+    }
+
+    [Fact]
+    public async Task OnceTheOpeningIsPastAnUnarmedConnectionKeepsNothing()
+    {
+        // The whole reason capture can be on by default: an unarmed connection knows how big a frame was
+        // without holding a byte of it. Driven past the opening allowance first, or this would be
+        // measuring the exception above rather than the rule.
+        var (client, _, _) = Connect();
+        client.StartListening();
+
+        for (var i = 0; i < ConversationLog.OpeningFrames + 4; i++)
+        {
+            await client.NotifyAsync("greet", $"warm-{i}");
+        }
+
+        await client.NotifyAsync("greet", "past-the-opening");
+        await _log.DrainAsync();
+
+        var entry = _log.Snapshot("vb6").Last(e => e.Method == "greet");
+        entry.SizeBytes.Should().BeGreaterThan(0, "the size is metadata and is always recorded");
         _log.Body("vb6", entry.Sequence).Should().BeNull("nothing was armed, so nothing was kept");
     }
 
@@ -163,10 +187,18 @@ public class CapturingFormatterTests : IAsyncDisposable
         var (client, _, _) = Connect();
         client.StartListening();
 
+        // Past the opening allowance deliberately. Inside it every frame is kept regardless, so a test
+        // that stayed there would pass with arming doing nothing at all — which is the failure this suite
+        // exists to avoid rather than an acceptable shortcut.
+        for (var i = 0; i < ConversationLog.OpeningFrames + 4; i++)
+        {
+            await client.NotifyAsync("greet", $"warm-{i}");
+        }
+
         await client.NotifyAsync("greet", "byte-exact");
         await _log.DrainAsync();
 
-        var entry = _log.Snapshot("vb6").Single(e => e.Method == "greet");
+        var entry = _log.Snapshot("vb6").Last(e => e.Method == "greet");
         var body = _log.Body("vb6", entry.Sequence);
 
         body.Should().NotBeNull();
