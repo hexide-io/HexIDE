@@ -78,15 +78,24 @@ public record PublishDiagnosticsParams(
 
 /// <summary>
 /// How serious a server says its own message is. The protocol's numbering, which is <b>not</b> the same as
-/// <c>DiagnosticSeverity</c>'s despite looking like it — this one has a fourth level, <c>Log</c>, and no
-/// value means "hint".
+/// <c>DiagnosticSeverity</c>'s despite looking like it. It carries a fifth level that scale has no
+/// counterpart for, and no value here means "hint".
 /// </summary>
+/// <remarks>
+/// <b>This scale gets quieter as its numbers rise</b>, which is the opposite of every other severity in the
+/// protocol and the reason an unrecognised value must not be treated as ordinary. A number this client does
+/// not know is one the specification added <em>after</em> the noisiest level here, so it belongs below them
+/// all rather than in the middle.
+/// </remarks>
 public enum LspMessageType
 {
     Error = 1,
     Warning = 2,
     Info = 3,
     Log = 4,
+
+    /// <summary>Added in 3.18, and noisier than <see cref="Log"/>.</summary>
+    Debug = 5,
 }
 
 /// <summary>
@@ -130,7 +139,70 @@ public record InitializeParams(
     [property: JsonPropertyName("processId")] int? ProcessId,
     [property: JsonPropertyName("rootUri")] string? RootUri,
     [property: JsonPropertyName("capabilities")] ClientCapabilities Capabilities,
-    [property: JsonPropertyName("workspaceFolders")] WorkspaceFolder[]? WorkspaceFolders = null);
+    [property: JsonPropertyName("workspaceFolders")] WorkspaceFolder[]? WorkspaceFolders = null,
+    // Appended, never inserted. This is a positional record with several construction sites and tests
+    // asserting on it; an insert whose types line up compiles cleanly while landing a value in the wrong slot.
+    [property: JsonPropertyName("trace")] string? Trace = null);
+
+/// <summary>
+/// How much a server should say about its own work: the three values the protocol defines, and nothing else.
+/// </summary>
+/// <remarks>
+/// <b><c>compact</c> is not here on purpose.</b> It appears in one editor's client-side rendering enum and
+/// is easy to mistake for a fourth level, but the specification's own model carries exactly these three, so
+/// offering it would mean sending a value no server is obliged to understand.
+///
+/// <para>
+/// Strings rather than an enum because that is what crosses the wire, and because the value arrives from a
+/// hand-edited configuration file where anything at all might be written. <see cref="Normalise"/> is the
+/// single place that decides what counts.
+/// </para>
+/// </remarks>
+public static class LspTraceValue
+{
+    public const string Off = "off";
+    public const string Messages = "messages";
+    public const string Verbose = "verbose";
+
+    /// <summary>The canonical spelling of <paramref name="value"/>, or null when it names no level.</summary>
+    /// <remarks>
+    /// Null rather than a fallback to <see cref="Off"/>, so a caller can tell "the user asked for nothing"
+    /// from "the user asked for something that does not exist". Only the second is worth reporting.
+    /// </remarks>
+    public static string? Normalise(string? value) => value?.Trim().ToLowerInvariant() switch
+    {
+        Off => Off,
+        Messages => Messages,
+        Verbose => Verbose,
+        _ => null,
+    };
+}
+
+/// <summary>Changes the trace level on a connection that is already up.</summary>
+/// <remarks>
+/// A notification, so there is no reply and no error. Nothing in the protocol reports whether a server
+/// honours it, and measurement says most do not: five servers asked for verbose tracing, four then said
+/// nothing at all. So this is only ever "asked", never "accepted".
+/// </remarks>
+public record SetTraceParams(
+    [property: JsonPropertyName("value")] string Value);
+
+/// <summary>
+/// A server's own account of what it is doing, as opposed to what it is saying about a document.
+/// </summary>
+/// <remarks>
+/// The distinction is the point. A wire capture shows what was said; this shows why. A server is the only
+/// thing that knows it fell back to a slower parse or abandoned one on a deadline, and that is the answer
+/// to "why did this take two seconds" that no amount of watching the wire can reconstruct.
+///
+/// <para>
+/// <c>verbose</c> carries the detail and is sent only when the level is verbose, which is the whole of the
+/// difference between the two non-off levels.
+/// </para>
+/// </remarks>
+public record LogTraceParams(
+    [property: JsonPropertyName("message")] string Message,
+    [property: JsonPropertyName("verbose")] string? Verbose = null);
 
 public record ClientCapabilities(
     [property: JsonPropertyName("textDocument")] TextDocumentClientCapabilities? TextDocument = null,

@@ -1,5 +1,7 @@
 using Microsoft.Extensions.Logging;
 
+using HexIDE.Lsp.Messages;
+
 namespace HexIDE.Lsp;
 
 /// <summary>
@@ -39,16 +41,24 @@ public sealed class LanguageServerRegistrationFactory(ILoggerFactory loggerFacto
             if (TransportFor(entry) is not { } transport) continue;
 
             var languageId = entry.LanguageId ?? "";
+
+            // An unreadable level is not a reason to refuse the server. It is reported by the loader and
+            // falls back to off here, because "your trace setting is misspelled" and "your language server
+            // will not start" are wildly different costs for the same typo.
+            var trace = LspTraceValue.Normalise(entry.Trace) ?? LspTraceValue.Off;
+
             registrations.Add(new LanguageServerRegistration(
                 Id: id,
                 DisplayName: string.IsNullOrWhiteSpace(entry.DisplayName) ? id : entry.DisplayName,
                 Extensions: entry.Extensions ?? [],
                 LanguageId: languageId,
                 CreateClient: () => new VBLspClient(
-                    transport.Create(), loggerFactory.CreateLogger<VBLspClient>(), languageId, workspace),
+                    transport.Create(), loggerFactory.CreateLogger<VBLspClient>(), languageId, workspace,
+                    trace: trace),
                 Priority: entry.Priority ?? 0,
                 Transport: transport.Kind,
-                Endpoint: transport.Endpoint));
+                Endpoint: transport.Endpoint,
+                Trace: trace));
         }
 
         return registrations;

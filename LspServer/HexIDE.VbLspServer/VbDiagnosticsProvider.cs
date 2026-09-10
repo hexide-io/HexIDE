@@ -2,6 +2,7 @@
 // Copyright (C) 2026 The HexIDE Authors
 // Parses VB6 source (proleap / grammars-v4 grammar) and returns LSP diagnostics.
 
+using System.Diagnostics;   // Stopwatch (the reported parse only)
 using Antlr4.Runtime;
 using Antlr4.Runtime.Atn;   // PredictionMode (two-stage SLL->LL prediction)
 using Antlr4.Runtime.Misc;  // ParseCanceledException (BailErrorStrategy)
@@ -48,6 +49,33 @@ public static class VbDiagnosticsProvider
         return (diagnostics, tree);
     }
 
+    /// <summary>
+    /// The same parse as <see cref="GetDiagnosticsAndTree"/>, plus a <see cref="ParseReport"/> saying which
+    /// prediction stage answered and what it cost.
+    /// </summary>
+    /// <remarks>
+    /// A separate entry point rather than an extra out-parameter on the existing one, for two reasons.
+    /// Existing callers keep byte-for-byte what they get today. And nothing is measured unless someone
+    /// asked: a client that never turns tracing on never allocates a report and never reads a timestamp.
+    /// The parse itself is identical either way — the report is written from inside it, and reading the
+    /// stage cannot change it.
+    /// </remarks>
+    public static (List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree, ParseReport Report)
+        GetDiagnosticsAndTreeReported(string source)
+    {
+        var report = new ParseReport();
+        var diagnostics = new List<LspDiagnostic>();
+
+        var startedAt = Stopwatch.GetTimestamp();
+        var tree = ParseSource(source, diagnostics, report);
+        report.Elapsed = Stopwatch.GetElapsedTime(startedAt);
+
+        if (EnableUndeclaredVariableCheck && diagnostics.Count == 0 && tree is not null)
+            diagnostics.AddRange(VbScopeAnalyzer.GetOptionExplicitDiagnostics(tree));
+
+        return (diagnostics, tree, report);
+    }
+
     /// <summary>Wall-clock budget for a single parse. VB6's genuine call-vs-array ambiguity can push the
     /// LL stage to ~1s on a slow machine, and a rare environmental runaway (e.g. a GC stall landing on a
     /// ~120 MB parse) must never freeze the editor. 2s clears every legitimate parse with margin.</summary>
@@ -67,6 +95,15 @@ public static class VbDiagnosticsProvider
         => RunWithin(() => GetDiagnosticsAndTree(source), budget);
 
     /// <summary>
+    /// <see cref="TryGetDiagnosticsAndTreeWithin"/> with a <see cref="ParseReport"/> attached. Identical
+    /// race, identical abandonment: a <c>null</c> return still means "analysis pending", and the report of
+    /// the abandoned parse is discarded along with its result rather than being handed back half-written.
+    /// </summary>
+    public static Task<(List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree, ParseReport Report)?>
+        TryGetDiagnosticsAndTreeReportedWithin(string source, TimeSpan budget)
+        => RunWithinCore(() => GetDiagnosticsAndTreeReported(source), budget);
+
+    /// <summary>
     /// The budget race itself, with the work passed in.
     /// </summary>
     /// <remarks>
@@ -79,10 +116,19 @@ public static class VbDiagnosticsProvider
     /// A test supplies work whose duration it controls, and asserts the DECISION rather than the parser's
     /// speed. That is the only part of this worth asserting — the parser being fast is not a defect.
     /// </remarks>
-    internal static async Task<(List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree)?>
+    internal static Task<(List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree)?>
         RunWithin(
             Func<(List<LspDiagnostic> Diagnostics, VisualBasic6Parser.StartRuleContext? Tree)> work,
             TimeSpan budget)
+        => RunWithinCore(work, budget);
+
+    /// <summary>
+    /// The race itself, over whatever the work returns. Kept generic so the reported and unreported parses
+    /// share one implementation — the abandonment rules below are the subtle part, and having two copies of
+    /// them is how they drift apart. <see cref="RunWithin"/> stays non-generic so the tuple element names
+    /// its tests read survive type inference.
+    /// </summary>
+    private static async Task<T?> RunWithinCore<T>(Func<T> work, TimeSpan budget) where T : struct
     {
         // A budget that has already expired can admit nothing, so say so before starting work rather than
         // starting a parse and racing it against a delay that is complete before it begins.
@@ -134,7 +180,13 @@ public static class VbDiagnosticsProvider
     /// LL might have succeeded — exactly when we fall back. (SLL-only was rejected empirically: it
     /// mispredicts the call/array/member decision, flagging valid VB6 like <c>x = Foo(1)</c> as errors.)
     /// </remarks>
-    internal static VisualBasic6Parser.StartRuleContext? ParseSource(string source, List<LspDiagnostic>? diagnostics = null)
+    /// <param name="report">
+    /// Optional, and null on every path that has not asked for tracing. Nothing here reads it, branches on
+    /// it, or feeds it back into the parse — it is written at the three points where the outcome becomes
+    /// known and nowhere else, so the parse behaves identically whether or not one was passed.
+    /// </param>
+    internal static VisualBasic6Parser.StartRuleContext? ParseSource(
+        string source, List<LspDiagnostic>? diagnostics = null, ParseReport? report = null)
     {
         // Defense-in-depth: never let a giant paste drive a multi-second parse on the keystroke path.
         if (source.Length > MaxParseInputChars)
@@ -143,6 +195,7 @@ public static class VbDiagnosticsProvider
                 new LspRange(new LspPosition(0, 0), new LspPosition(0, 1)),
                 "File too large for live analysis; diagnostics paused.",
                 2));
+            if (report is not null) report.Outcome = ParseOutcome.InputTooLarge;
             return null;
         }
 
@@ -178,13 +231,20 @@ public static class VbDiagnosticsProvider
             try
             {
                 // SLL success ⇒ tree identical to LL's (Adaptive LL(*) guarantee).
-                return parser.startRule();
+                var tree = parser.startRule();
+                // After the call, not before: a bail or a depth abort must not be recorded as an SLL answer.
+                if (report is not null) report.Prediction = ParsePrediction.Sll;
+                return tree;
             }
             catch (ParseCanceledException)
             {
                 // ── Stage 2: authoritative LL(*) re-parse ─────────────────────────────────────────
                 // SLL found a real error or mispredicted an ambiguous construct; LL with normal recovery +
                 // the collecting listener is correct for both cases.
+                // Before the re-parse, not after — unlike the SLL arm. Reaching this branch at all is the
+                // fact worth reporting: it is why the analysis cost what it did, whether or not LL then
+                // finishes.
+                if (report is not null) report.Prediction = ParsePrediction.Ll;
                 parser.Reset();          // resets parser state + rewinds the input to token 0
                 tokenStream.Seek(0);     // belt-and-suspenders (no re-lex — buffer already filled)
                 parser.RemoveParseListeners();                          // drop the SLL guard (its counter is now dirty)
@@ -202,6 +262,7 @@ public static class VbDiagnosticsProvider
                 new LspRange(new LspPosition(0, 0), new LspPosition(0, 1)),
                 "Expression or block nesting too deep for analysis; diagnostics paused.",
                 2));
+            if (report is not null) report.Outcome = ParseOutcome.NestingTooDeep;
             return null;
         }
     }

@@ -17,11 +17,54 @@ public interface ILspClient : IAsyncDisposable
     /// </para>
     ///
     /// <para>
-    /// <c>window/logMessage</c> deliberately has no event: it is diagnostic detail for a log, not something
-    /// to put in front of anyone, and it is written straight to the logger.
+    /// <b>This used to say that <c>window/logMessage</c> deliberately had no event, and that has been
+    /// reversed.</b> The reasoning was that running commentary is detail for a log rather than something to
+    /// put in front of anyone. That is a sound claim about where it should be <em>shown</em>, and it was
+    /// used to decide whether it should be <em>reachable</em>, which is not the same question and not this
+    /// interface's to answer. A transport-level contract should hand its consumers what arrived; choosing
+    /// a destination is theirs.
+    ///
+    /// <para>
+    /// There was a second argument at the time — that written straight to a logger it landed at a level the
+    /// default configuration discards, so a server explaining its own misconfiguration explained it to
+    /// nobody. True when written, and deliberately not the reason recorded here, because it is a fact about
+    /// one logging configuration rather than about this interface. Make log levels adjustable per logger
+    /// and it evaporates; the argument above does not.
     /// </para>
     /// </summary>
     event EventHandler<ShowMessageParams>? MessageShown;
+
+    /// <summary>
+    /// The server's running commentary about itself — <c>window/logMessage</c>.
+    /// </summary>
+    /// <remarks>
+    /// Distinct from <see cref="MessageShown"/> in intent rather than in shape: that one asks for attention,
+    /// this one does not. Both are the server talking about its own state rather than about a document, and
+    /// a server that starts, connects and then serves nothing has only these to explain itself with.
+    ///
+    /// <para>
+    /// Still logged as well as raised. A message nobody sees is one bug and a message with no trace
+    /// afterwards is the next one, which is the argument that already applies to its louder sibling.
+    /// </para>
+    /// </remarks>
+    event EventHandler<LogMessageParams>? MessageLogged;
+
+    /// <summary>
+    /// What the server says it is doing, when asked to say — <c>$/logTrace</c>.
+    /// </summary>
+    /// <remarks>
+    /// <b>A different kind of information from anything else on this interface.</b> Every other event
+    /// reports something that happened to a document or to a connection. This reports the server's own
+    /// account of its reasoning, which is the one thing watching the wire cannot reconstruct: a capture
+    /// shows that a request took two seconds, and only the server can say that it fell back to a slower
+    /// parse to answer it.
+    ///
+    /// <para>
+    /// Arrives only when a trace level was asked for, and in practice only from servers that implement it,
+    /// which are fewer than the specification would suggest.
+    /// </para>
+    /// </remarks>
+    event EventHandler<LogTraceParams>? TraceReceived;
 
     /// <summary>
     /// Fired when this client's liveness changes — connected, disconnected, or reconnected.
@@ -177,6 +220,28 @@ public interface ILspClient : IAsyncDisposable
     /// </remarks>
     Task<SymbolInformation[]> RequestWorkspaceSymbolsAsync(
         string query, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Asks the server to change how much it says about its own work, without restarting it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Fire-and-forget, and unverifiable.</b> <c>$/setTrace</c> is a notification, so there is no reply,
+    /// no error, and no capability by which a client can discover whether a server honours tracing at all.
+    /// Measured against five servers, every one accepted the notification and four then emitted nothing
+    /// ever. So a caller may report that a server was asked; it may never report that a server agreed.
+    ///
+    /// <para>
+    /// The level a server <em>starts</em> at is not set through here. That one travels in the initialization
+    /// request and so must be known before the process exists, which is why it comes from configuration.
+    /// </para>
+    ///
+    /// <para>
+    /// On a router this reaches every running connection. Setting the level for one named server is a
+    /// different operation on a different interface, and belongs there because this one deliberately has no
+    /// notion of which server is answering.
+    /// </para>
+    /// </remarks>
+    Task SetTraceAsync(string value, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Injects diagnostics directly into the pipeline — as if the server had sent a

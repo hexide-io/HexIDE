@@ -31,21 +31,32 @@ public static class LspServerHost
 
         var store = new DocumentStore();
 
+        // The server's own trace channel. Off until a client asks for it, at which point it carries what
+        // only this process knows about an analysis — never a restatement of the frames the client sent.
+        var trace = new TraceReporter(ls);
+
         // ── Lifecycle ───────────────────────────────────────────────────────────────────────────
         // Capabilities are declared by VbServerCapabilities, which the framework calls during initialize.
         // It handles no messages; it exists only to declare, which keeps the whole payload in one readable
         // block and leaves the dispatch path below untouched.
         ls.AddHandler(new VbServerCapabilities());
 
-        ls.OnInitialize((_, serverInfo) =>
+        ls.OnInitialize((initializeParams, serverInfo) =>
         {
             serverInfo.Name = "HexIDE VB6 Language Server";
             serverInfo.Version = "1.0.0";
+            // Trace level is per connection and arrives here first. Absent means off, which it already is.
+            trace.ApplyInitialize(initializeParams.Trace);
             Log.Information("initialize received");
             return Task.CompletedTask;
         });
         ls.OnInitialized(_ => { Log.Information("client initialized"); return Task.CompletedTask; });
         ls.OnShutdown(() => { Log.Information("shutdown received"); return Task.CompletedTask; });
+
+        // $/setTrace changes the level on a running server. The framework carries the parameter types but
+        // dispatches nothing for this method, so the registration is ours.
+        ls.AddNotificationHandler("$/setTrace", (NotificationMessage m, CancellationToken _) =>
+            trace.ApplySetTraceAsync(m.Params?.RootElement));
 
         // ── Document sync ───────────────────────────────────────────────────────────────────────
         // Publish diagnostics on EVERY didOpen/didChange (no debounce — the IDE's procedure-dropdown
@@ -55,7 +66,7 @@ public static class LspServerHost
         {
             var p = m.Params!.RootElement;
             if (TryReadDoc(p, out var uri, out var text) && text is not null)
-                await PublishAsync(ls, store, uri, text);
+                await PublishAsync(ls, store, trace, uri, text);
         });
 
         ls.AddNotificationHandler("textDocument/didChange", async (NotificationMessage m, CancellationToken _) =>
@@ -67,7 +78,7 @@ public static class LspServerHost
             switch (ReadContentChange(p, out var text))
             {
                 case ContentChange.Full when text is not null:
-                    await PublishAsync(ls, store, uri, text);
+                    await PublishAsync(ls, store, trace, uri, text);
                     break;
 
                 case ContentChange.Ranged:
@@ -85,6 +96,11 @@ public static class LspServerHost
                     store.RemoveDocument(uri);
                     await ls.SendNotification(new NotificationMessage("textDocument/publishDiagnostics",
                         LspRequestHandlers.BuildPublishParams(uri, [])));
+                    // On the wire this refusal is indistinguishable from a file with nothing wrong: an
+                    // empty diagnostics array either way. Say what actually happened.
+                    await trace.ReportDocumentRefusedAsync(uri,
+                        "ranged contentChange refused (this server advertises Full sync); document evicted "
+                      + "rather than mis-applied");
                     break;
             }
         });
@@ -122,11 +138,19 @@ public static class LspServerHost
         }
     }
 
-    private static async Task PublishAsync(LanguageServer ls, DocumentStore store, string uri, string text)
+    /// <remarks>
+    /// The publish goes first and the trace line behind it, so the functional message keeps exactly the
+    /// ordering it had before tracing existed. <c>trace.IsEnabled</c> is read before the analysis, not
+    /// after: with tracing off nothing is measured, nothing is allocated, and nothing extra is sent.
+    /// </remarks>
+    private static async Task PublishAsync(
+        LanguageServer ls, DocumentStore store, TraceReporter trace, string uri, string text)
     {
-        var diagnostics = await store.UpdateDocumentAsync(uri, text);
+        var update = await store.UpdateDocumentAsync(uri, text, trace.IsEnabled);
         await ls.SendNotification(new NotificationMessage("textDocument/publishDiagnostics",
-            LspRequestHandlers.BuildPublishParams(uri, diagnostics)));
+            LspRequestHandlers.BuildPublishParams(uri, update.Diagnostics)));
+        if (update.Analysis is { } analysis)
+            await trace.ReportAnalysisAsync(uri, analysis);
     }
 
     private static string? ReadUri(JsonElement p) =>

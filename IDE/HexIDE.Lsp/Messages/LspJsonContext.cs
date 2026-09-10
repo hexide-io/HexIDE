@@ -50,6 +50,8 @@ namespace HexIDE.Lsp;
 [JsonSerializable(typeof(VbaBuiltinSymbol[]))]
 [JsonSerializable(typeof(WorkspaceSymbolParams))]
 [JsonSerializable(typeof(SymbolInformation[]))]
+[JsonSerializable(typeof(SetTraceParams))]
+[JsonSerializable(typeof(LogTraceParams))]
 // NOT an LSP type, and load-bearing for exactly that reason. StreamJsonRpc deserializes the `data` member
 // of any JSON-RPC ERROR response into this, using the formatter's options — which are these. Unregistered,
 // the generated resolver returns null, the error reply cannot be read, and the failure is not scoped to
