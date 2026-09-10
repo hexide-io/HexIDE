@@ -149,6 +149,60 @@ public class ProtocolCoverageDocTests
         text.Should().Contain($"implements {implemented} of the {specification.Count}",
             $"the table currently marks {implemented} of {specification.Count} as implemented or partial");
     }
+
+    /// <summary>
+    /// Every section heading's "N of M" must match the rows beneath it.
+    /// </summary>
+    /// <remarks>
+    /// The headline total was guarded and the section headings were not, so they drifted separately and
+    /// silently: three of them were wrong at once — `textDocument/*` understated by one, `workspace/*` said
+    /// 0 while two rows were ticked, and `codeLens/*` said 0 of 1 with its single row ticked. A reader
+    /// scanning for where the gaps are reads these headings, not the ninety rows, so a wrong one is worse
+    /// than a wrong total. Nothing noticed, which is the same failure the whole guard exists to prevent.
+    /// </remarks>
+    [LspModelFact]
+    public void EverySectionHeadingMatchesItsOwnRows()
+    {
+        var text = File.ReadAllText(DocumentPath());
+        var lines = text.Split((char)10);   // newline, spelled so no escape survives editing
+
+        string? section = null;
+        var stated = 0;
+        var statedTotal = 0;
+        var counted = 0;
+        var rows = 0;
+        var problems = new List<string>();
+
+        void Close()
+        {
+            if (section is null) return;
+            if (counted != stated || rows != statedTotal)
+                problems.Add($"{section}: heading says {stated} of {statedTotal}, rows give {counted} of {rows}");
+        }
+
+        foreach (var line in lines)
+        {
+            var heading = Regex.Match(line, @"^### `?([^`—]+?)`?\s*—\s*(\d+) of (\d+)");
+            if (heading.Success)
+            {
+                Close();
+                section = heading.Groups[1].Value.Trim();
+                stated = int.Parse(heading.Groups[2].Value);
+                statedTotal = int.Parse(heading.Groups[3].Value);
+                counted = 0;
+                rows = 0;
+                continue;
+            }
+
+            var row = Regex.Match(line, @"^\|\s*(?<mark>[✅◐○])\s*\|");
+            if (!row.Success || section is null) continue;
+            rows++;
+            if (row.Groups["mark"].Value is "✅" or "◐") counted++;
+        }
+        Close();
+
+        problems.Should().BeEmpty("each section heading states its own coverage and must not drift from it");
+    }
 }
 
 /// <summary>

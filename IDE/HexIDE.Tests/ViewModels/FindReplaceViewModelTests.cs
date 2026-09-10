@@ -359,7 +359,8 @@ public class FindReplaceViewModelTests
         var projectService = Substitute.For<IProjectService>();
         var projectExplorer = new ProjectToolViewModel(projectManager, eventBus, projectService, editorService, loc);
         var colorPalette = new ColorPaletteToolViewModel(mockDocDock);
-        var objectBrowser = new ObjectBrowserToolViewModel(projectManager, Substitute.For<ILspClient>(), editorService, Substitute.For<IComponentRegistry>(), Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(), loc);
+        var objectBrowser = new ObjectBrowserToolViewModel(projectManager, Substitute.For<ILspClient>(), editorService, Substitute.For<IComponentRegistry>(), Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(), loc,
+            Substitute.For<ILanguageConnectionRegistry>());
         var translationEditor = new TranslationEditorViewModel(loc, Substitute.For<IUserTranslationsService>(), windowManager);
         var windowStateService = Substitute.For<IWindowStateService>();
         // A registry with nothing attached: the view model reads Connections and

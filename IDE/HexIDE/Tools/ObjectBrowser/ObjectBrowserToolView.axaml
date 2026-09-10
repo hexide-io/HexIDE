@@ -8,7 +8,7 @@
              x:DataType="ob:ObjectBrowserToolViewModel"
              x:Class="HexIDE.Tools.ObjectBrowser.ObjectBrowserToolView">
 
-    <Grid RowDefinitions="Auto,Auto,*,100">
+    <Grid RowDefinitions="Auto,Auto,Auto,*,100">
 
         <!-- Chrome bar — styled to match ToolDock active title bar -->
         <Border Grid.Row="0"
@@ -91,8 +91,53 @@
             </TextBox>
         </DockPanel>
 
+        <!-- Search results — a workspace-wide answer, which the two panels below cannot hold.
+             Collapsed until a search is run, so browsing keeps the full height it had. -->
+        <Border Grid.Row="2"
+                IsVisible="{CompiledBinding IsShowingSearchResults}"
+                BorderThickness="0,0,0,1"
+                Margin="2,0,2,2">
+            <DockPanel>
+                <DockPanel DockPanel.Dock="Top" Margin="4,2">
+                    <TextBlock DockPanel.Dock="Left"
+                               Text="{DynamicResource Str.Tool.ObjectBrowser.Panel.SearchResults}"
+                               FontWeight="SemiBold" />
+                    <TextBlock Text="{CompiledBinding SearchStatus}"
+                               Margin="8,0,0,0"
+                               FontSize="11"
+                               TextWrapping="NoWrap"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" />
+                </DockPanel>
+                <ProgressBar DockPanel.Dock="Top"
+                             IsIndeterminate="True"
+                             IsVisible="{CompiledBinding IsSearchingWorkspace}"
+                             Height="3" />
+                <ListBox Height="96"
+                         ItemsSource="{CompiledBinding SearchResults}"
+                         SelectedItem="{CompiledBinding SelectedSearchResult}"
+                         DoubleTapped="SearchResults_OnDoubleTapped">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate x:DataType="ob:OBSearchResultViewModel">
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <TextBlock Text="{CompiledBinding KindGlyph}"
+                                           FontSize="11"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Text="{CompiledBinding Name}"
+                                           VerticalAlignment="Center" />
+                                <TextBlock Text="{CompiledBinding Where}"
+                                           FontSize="11"
+                                           Opacity="0.7"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                </ListBox>
+            </DockPanel>
+        </Border>
+
         <!-- Two-panel split -->
-        <Grid Grid.Row="2" ColumnDefinitions="*,4,*">
+        <Grid Grid.Row="3" ColumnDefinitions="*,4,*">
 
             <!-- Classes panel -->
             <DockPanel Grid.Column="0">
@@ -151,7 +196,7 @@
         </Grid>
 
         <!-- Description panel -->
-        <Border Grid.Row="3"
+        <Border Grid.Row="4"
                 BorderThickness="0,1,0,0"
                 Padding="6,4">
             <StackPanel Spacing="2">

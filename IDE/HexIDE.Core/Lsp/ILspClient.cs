@@ -167,6 +167,18 @@ public interface ILspClient : IAsyncDisposable
     Task<VbaBuiltinSymbol[]> RequestBuiltinSymbolsAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Symbols matching <paramref name="query"/> anywhere in the workspace, or empty.
+    /// </summary>
+    /// <remarks>
+    /// <b>The first request here with no document.</b> Every other language request is about a file, which
+    /// is what decides the server; this one is about the workspace, so it is routed by advertised
+    /// capability instead — and needs the workspace to have been described, which is why it depends on
+    /// <c>workspaceFolders</c> reaching <c>initialize</c>.
+    /// </remarks>
+    Task<SymbolInformation[]> RequestWorkspaceSymbolsAsync(
+        string query, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Injects diagnostics directly into the pipeline — as if the server had sent a
     /// textDocument/publishDiagnostics notification. Used by external compilers (e.g. VB6.EXE).
     /// Pass an empty array to clear diagnostics for a URI.

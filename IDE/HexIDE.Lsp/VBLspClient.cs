@@ -1071,6 +1071,76 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
+    public async Task<SymbolInformation[]> RequestWorkspaceSymbolsAsync(
+        string query, CancellationToken cancellationToken = default)
+    {
+        if (_rpc is null || !_initialized || !CanServe("workspaceSymbolProvider")) return [];
+        try
+        {
+            var raw = await _rpc.InvokeWithParameterObjectAsync<JsonElement?>(
+                "workspace/symbol", new WorkspaceSymbolParams(query), cancellationToken);
+            return ReadWorkspaceSymbols(raw);
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("workspace/symbol", ex, cancellationToken);
+            return [];
+        }
+    }
+
+    /// <summary>
+    /// Reads either reply shape into the one the caller understands.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// 3.17 added <c>WorkspaceSymbol</c> beside the older <c>SymbolInformation</c>, and the difference is
+    /// not cosmetic: a <c>WorkspaceSymbol</c>'s <c>location</c> may carry <b>only a uri</b>, with the range
+    /// deferred to <c>workspaceSymbol/resolve</c> so a server can answer a broad query without computing
+    /// positions for thousands of hits.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>We do not implement resolve, and a range-less hit is kept anyway</b>, pointing at the start of its
+    /// file. That is a deliberate degradation rather than an oversight: the file is right, only the line is
+    /// unknown, so the user lands in the correct document instead of not being told the symbol exists.
+    /// Dropping it would hide a real answer; inventing a line would be a wrong one. Position zero is
+    /// visibly "we were not told", which is the honest third option.
+    /// </para>
+    /// </remarks>
+    internal static SymbolInformation[] ReadWorkspaceSymbols(JsonElement? raw)
+    {
+        if (raw is not { ValueKind: JsonValueKind.Array } array) return [];
+
+        var symbols = new List<SymbolInformation>();
+        foreach (var element in array.EnumerateArray())
+        {
+            if (element.ValueKind != JsonValueKind.Object) continue;
+            if (!element.TryGetProperty("name", out var name) || name.ValueKind != JsonValueKind.String) continue;
+            if (!element.TryGetProperty("location", out var location)) continue;
+            if (!location.TryGetProperty("uri", out var uri) || uri.ValueKind != JsonValueKind.String) continue;
+
+            var kind = element.TryGetProperty("kind", out var k) && k.ValueKind == JsonValueKind.Number
+                ? (SymbolKind)k.GetInt32()
+                : SymbolKind.Variable;
+
+            // ReadRange takes the RANGE, not the location that holds it — passing the location silently
+            // returns null and every symbol lands at line 0, which reads as a server that answered without
+            // positions rather than a client that looked in the wrong place.
+            var range = location.TryGetProperty("range", out var r) ? ReadRange(r) : null;
+            range ??= new Messages.Range(new Position(0, 0), new Position(0, 0));
+
+            symbols.Add(new SymbolInformation(
+                name.GetString()!,
+                kind,
+                new Location(uri.GetString()!, range),
+                element.TryGetProperty("containerName", out var container)
+                    && container.ValueKind == JsonValueKind.String
+                        ? container.GetString()
+                        : null));
+        }
+        return [.. symbols];
+    }
+
     public async Task StopAsync()
     {
         _stopping = true;

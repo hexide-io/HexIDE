@@ -272,6 +272,72 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     }
 
     /// <summary>
+    /// Every capable server's matches for <paramref name="query"/>, concatenated.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Routed by capability, because there is no document to route by.</b> That makes it the second
+    /// request of this shape after <c>vb/builtinSymbols</c> — and unlike that one it asks EVERY capable
+    /// server rather than the first, because they do not answer the same question. A workspace holding VB6
+    /// and LaTeX has two servers that each know a disjoint part of it; taking the first answer would drop a
+    /// whole language from the results and look like the symbols simply were not there.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>This is the opposite of the rule for document symbols, and deliberately so.</b> The note on
+    /// lenses below says gathering would be wrong "for symbols": that is about
+    /// <c>textDocument/documentSymbol</c>, where two claimants describe the SAME file and concatenating
+    /// duplicates every entry. Here each server covers a different part of the workspace, so concatenating
+    /// unions rather than duplicates. The distinction is document scope, not the word "symbol".
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Only servers that are already running are asked, and this must not change.</b> A server starts
+    /// when a document of its language is opened, because that is the first moment the language is known to
+    /// be present; a search box establishes no such thing, and waking every registration on a keystroke
+    /// would launch a LaTeX process because someone typed in a VB6 project. The cost is real and lands on
+    /// the caller: with nothing open there are no results, and a surface showing that must say "nothing is
+    /// running" rather than "no matches".
+    /// </para>
+    ///
+    /// <para>
+    /// Two servers that genuinely overlap — both claiming <c>.bas</c>, both indexing it — would produce a
+    /// duplicate entry. That is accepted: a duplicate is visible and harmless, where the alternative loses
+    /// entire languages silently, and this client has no way to tell two servers' identical answers apart
+    /// from one server's two genuine hits at the same name.
+    /// </para>
+    /// </remarks>
+    public async Task<SymbolInformation[]> RequestWorkspaceSymbolsAsync(
+        string query, CancellationToken ct = default)
+    {
+        var all = new List<SymbolInformation>();
+        foreach (var e in _entries)
+        {
+            if (e.Client is not { IsRunning: true } client) continue;
+            if (!Declares(client, "workspaceSymbolProvider")) continue;
+
+            all.AddRange(await client.RequestWorkspaceSymbolsAsync(query, ct));
+        }
+        return [.. all];
+    }
+
+    /// <summary>
+    /// Whether a running client's advertised capabilities carry <paramref name="capability"/> as anything
+    /// other than an explicit refusal.
+    /// </summary>
+    /// <remarks>
+    /// Most capabilities are <c>boolean | XxxOptions</c> in the protocol, so a conformant server may answer
+    /// either — modelling one narrowly is what caused a total silent blackout once already (#238). Present
+    /// and not <c>false</c> is therefore the test.
+    /// </remarks>
+    private static bool Declares(ILspClient client, string capability) =>
+        client.AdvertisedCapabilities is { } caps
+        && caps.TryGetProperty(capability, out var value)
+        && value.ValueKind != JsonValueKind.False
+        && value.ValueKind != JsonValueKind.Null
+        && value.ValueKind != JsonValueKind.Undefined;
+
+    /// <summary>
     /// Every claimant's lenses, concatenated.
     /// </summary>
     /// <remarks>

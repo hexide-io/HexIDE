@@ -597,6 +597,14 @@ public record SymbolInformation(
     [property: JsonPropertyName("location")]      Location Location,
     [property: JsonPropertyName("containerName")] string? ContainerName = null);
 
+/// <summary>A workspace-wide symbol search. The query is matched by the server, not by us.</summary>
+/// <remarks>
+/// An empty query is legal and means "everything the server knows"; servers differ on whether they answer
+/// it at all, and one that does may answer with a great deal. Whether to send one is the caller's call.
+/// </remarks>
+public record WorkspaceSymbolParams(
+    [property: JsonPropertyName("query")] string Query);
+
 public record HoverClientCapabilities(
     [property: JsonPropertyName("contentFormat")] string[]? ContentFormat = null);
 

@@ -258,6 +258,12 @@
     "Str.Tool.ObjectBrowser.Toolbar.Search": "Quaere",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "Quaere",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Classes",
+    "Str.Tool.ObjectBrowser.Panel.SearchResults": "Inventa Quaestionis",
+    "Str.Tool.ObjectBrowser.Search.NoServer": "Nullus servitor linguae adhuc inceptus est. Aperi fenestram codicis ut unum incipias.",
+    "Str.Tool.ObjectBrowser.Search.NoProvider": "Nullus servitor linguae currens quaestionem per totum spatium laboris praebet.",
+    "Str.Tool.ObjectBrowser.Search.NoMatches": "Nihil in spatio laboris «{0}» respondet.",
+    "Str.Tool.ObjectBrowser.Search.Matches": "Congruentiae inventae: {0}",
+    "Str.Tool.ObjectBrowser.Search.Failed": "Quaestio perfici non potuit. Vide acta ut plura cognoscas.",
 
     "Str.Dialog.UnfaithfulSave.Body.One": "Haec forma non servata est, quia HexIDE eam nondum fideliter exprimere potest:\n\n{0}\n\nPlica eius in disco immutata manet. Si servaretur, forma tacite mutaretur — Visual Basic 6 plicam sic mutatam sine querela aperit, et ideo damnum facile latet — itaque HexIDE eam intactam relinquit potius quam eam corrumpat.",
     "Str.Dialog.UnfaithfulSave.Body.Many": "Hae formae non servatae sunt, quia HexIDE eas nondum fideliter exprimere potest:\n\n{0}\n\nPlicae earum in disco immutatae manent. Si servarentur, formae tacite mutarentur — Visual Basic 6 plicas sic mutatas sine querela aperit, et ideo damnum facile latet — itaque HexIDE eas intactas relinquit potius quam eas corrumpat.",

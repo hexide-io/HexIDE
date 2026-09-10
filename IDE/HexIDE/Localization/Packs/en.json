@@ -259,6 +259,12 @@
     "Str.Tool.ObjectBrowser.Toolbar.Search": "Search",
     "Str.Tool.ObjectBrowser.Toolbar.SearchPlaceholder": "Search",
     "Str.Tool.ObjectBrowser.Panel.Classes": "Classes",
+    "Str.Tool.ObjectBrowser.Panel.SearchResults": "Search Results",
+    "Str.Tool.ObjectBrowser.Search.NoServer": "No language server has started yet. Open a code window to start one.",
+    "Str.Tool.ObjectBrowser.Search.NoProvider": "No running language server offers workspace-wide search.",
+    "Str.Tool.ObjectBrowser.Search.NoMatches": "Nothing in the workspace matches “{0}”.",
+    "Str.Tool.ObjectBrowser.Search.Matches": "Matches found: {0}",
+    "Str.Tool.ObjectBrowser.Search.Failed": "The search could not be completed. See the log for details.",
 
     "Str.Dialog.UnfaithfulSave.Body.One": "This form was not saved, because HexIDE cannot yet reproduce it faithfully:\n\n{0}\n\nIts file on disk is unchanged. Saving it would change the form silently — Visual Basic 6 opens the result without complaining, which is what makes the damage easy to miss — so HexIDE leaves it alone rather than damage it.",
     "Str.Dialog.UnfaithfulSave.Body.Many": "These forms were not saved, because HexIDE cannot yet reproduce them faithfully:\n\n{0}\n\nTheir files on disk are unchanged. Saving them would change the forms silently — Visual Basic 6 opens the results without complaining, which is what makes the damage easy to miss — so HexIDE leaves them alone rather than damage them.",

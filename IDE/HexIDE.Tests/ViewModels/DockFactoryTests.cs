@@ -38,7 +38,8 @@ public class DockFactoryTests
         var colorPalette = new ColorPaletteToolViewModel(docDock);
         var objectBrowser = new ObjectBrowserToolViewModel(projectManager, Substitute.For<ILspClient>(),
             editorService, Substitute.For<IComponentRegistry>(), Substitute.For<ITypeLibraryService>(),
-            Substitute.For<IFocusedProjectUtil>(), loc);
+            Substitute.For<IFocusedProjectUtil>(), loc,
+            Substitute.For<ILanguageConnectionRegistry>());
         var translationEditor = new TranslationEditorViewModel(loc, Substitute.For<IUserTranslationsService>(), windowManager);
 
         // Substitute returns null from LoadLayoutManifest → factory builds the default layout.

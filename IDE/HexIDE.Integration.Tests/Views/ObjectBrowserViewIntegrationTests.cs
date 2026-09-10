@@ -35,7 +35,8 @@ public class ObjectBrowserViewIntegrationTests
             Substitute.For<IComponentRegistry>(),
             Substitute.For<ITypeLibraryService>(),
             Substitute.For<IFocusedProjectUtil>(),
-            Loc());
+            Loc(),
+            Substitute.For<ILanguageConnectionRegistry>());
     }
 
     private static ObjectBrowserToolViewModel CreateSutWithProject(string projectName = "TestProject")
@@ -53,7 +54,8 @@ public class ObjectBrowserViewIntegrationTests
             Substitute.For<IComponentRegistry>(),
             Substitute.For<ITypeLibraryService>(),
             Substitute.For<IFocusedProjectUtil>(),
-            Loc());
+            Loc(),
+            Substitute.For<ILanguageConnectionRegistry>());
     }
 
     private static ObjectBrowserToolViewModel CreateSutWithTwoForms()
@@ -72,7 +74,8 @@ public class ObjectBrowserViewIntegrationTests
             Substitute.For<IComponentRegistry>(),
             Substitute.For<ITypeLibraryService>(),
             Substitute.For<IFocusedProjectUtil>(),
-            Loc());
+            Loc(),
+            Substitute.For<ILanguageConnectionRegistry>());
     }
 
     // --- View rendering ---
@@ -219,7 +222,8 @@ public class ObjectBrowserViewIntegrationTests
             new ComponentRegistry(),
             Substitute.For<ITypeLibraryService>(),
             Substitute.For<IFocusedProjectUtil>(),
-            Loc());
+            Loc(),
+            Substitute.For<ILanguageConnectionRegistry>());
     }
 
     [AvaloniaFact]

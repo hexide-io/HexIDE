@@ -53,7 +53,8 @@ public class MainViewViewModelTests
         var editorService = Substitute.For<IEditorService>();
         var projectExplorer = new ProjectToolViewModel(_projectManager, _eventBus, _projectService, editorService, loc);
         var colorPalette = new ColorPaletteToolViewModel(mockDocDock);
-        var objectBrowser = new ObjectBrowserToolViewModel(_projectManager, Substitute.For<ILspClient>(), editorService, Substitute.For<IComponentRegistry>(), Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(), loc);
+        var objectBrowser = new ObjectBrowserToolViewModel(_projectManager, Substitute.For<ILspClient>(), editorService, Substitute.For<IComponentRegistry>(), Substitute.For<ITypeLibraryService>(), Substitute.For<IFocusedProjectUtil>(), loc,
+            Substitute.For<ILanguageConnectionRegistry>());
         var translationEditor = new TranslationEditorViewModel(loc, Substitute.For<IUserTranslationsService>(), _windowManager);
         var windowStateService = Substitute.For<IWindowStateService>();
 
