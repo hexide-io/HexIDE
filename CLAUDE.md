@@ -333,6 +333,7 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 | `get_lsp_message(connectionId, sequence)` | One message's body, as the bytes that crossed the wire. Needs the connection armed, except for a connection's opening, which is always kept. |
 | `arm_lsp_capture(connectionId?, armed)` | Arms or disarms retention of message **bodies**. Session-scoped; use `--capture-lsp` to arm before the first connection exists. |
 | `clear_lsp_capture(connectionId?)` | Discards the record and keeps the arming, so the next thing exercised is the only thing in it. |
+| `export_lsp_conversation(connectionId?)` | Writes the conversation as JSON-lines plus a manifest and returns both paths. **Always pseudonymised** — this is the shareable form; `get_lsp_message` is the raw one and is not. |
 | `get_lsp_capture_state()` | What is being recorded: every known connection, whether its bodies are kept, and what it has discarded. Read-only — ask this rather than arming something to find out what is armed. |
 | `interact(target, action, value?)` | Drive a control. Provider actions: `invoke`/`select`/`set_value`/`toggle`/`expand`/`collapse`. Reflection actions (DataContext VM): `invoke_command`/`set_property`. The generic substitute for per-interaction tools. |
 

@@ -28,6 +28,9 @@ internal sealed class IdeContext : IDisposable
     /// <summary>The recorded language-server conversations, for the capture tools.</summary>
     public HexIDE.Conversations.ConversationLog Capture { get; }
 
+    /// <summary>The session's pseudonym mapping, so every export names a path the same way.</summary>
+    public HexIDE.Redaction.Pseudonymiser Pseudonyms { get; }
+
     public IdeContext(
         IProjectManager projectManager,
         IDocumentDockService documentDockService,
@@ -43,7 +46,8 @@ internal sealed class IdeContext : IDisposable
         IPersonalityService personalityService,
         AddinProjectTemplateService addinProjectTemplateService,
         ILanguageSwitchService languageSwitch,
-        HexIDE.Conversations.ConversationLog capture)
+        HexIDE.Conversations.ConversationLog capture,
+        HexIDE.Redaction.Pseudonymiser pseudonyms)
     {
         ProjectManager = projectManager;
         DocumentDockService = documentDockService;
@@ -61,6 +65,7 @@ internal sealed class IdeContext : IDisposable
         AddinProjectTemplateService = addinProjectTemplateService;
         LanguageSwitch = languageSwitch;
         Capture = capture;
+        Pseudonyms = pseudonyms;
     }
 
     public void Dispose() => Diagnostics.Dispose();
