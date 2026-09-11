@@ -34,7 +34,7 @@ automation before any window exists, which is how everything else here has been 
 - [x] 3.1 A launch flag that arms capture at start
 - [x] 3.2 Tools: list envelopes with filters, fetch one payload by id, arm and disarm, clear
 - [x] 3.3 The capture service lives outside the automation server's own folder, since the server is absent from Release and the capture is not
-- [ ] 3.4 Verified by driving a real conversation and reading it back
+- [x] 3.4 Verified by driving a real conversation and reading it back
 
 ## 4. The window
 - [ ] 4.1 A `Protocol Inspector` document tab, registered in the view locator table, the dock factory and the layout manifest
