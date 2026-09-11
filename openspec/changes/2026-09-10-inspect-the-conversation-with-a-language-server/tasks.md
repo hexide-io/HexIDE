@@ -13,18 +13,18 @@ automation before any window exists, which is how everything else here has been 
 - [x] 1.7 Regenerate the client coverage table and its counts
 
 ## 2. The capture model, with no user interface
-- [ ] 2.1 A tap that sees byte-exact JSON bodies both directions, installed at every connect unconditionally
-- [ ] 2.2 Envelope ring per connection, capped in entries, with a non-evicting handshake prologue
-- [ ] 2.3 Payload store per connection, capped in bytes under a global ceiling, evicting bodies while envelopes survive
-- [ ] 2.4 Per-frame cap storing head and tail with the true length recorded
-- [ ] 2.5 Deduplicate `didChange` bodies by content hash
-- [ ] 2.6 Request and response paired by id, with latency recorded
-- [ ] 2.7 Handshake payloads captured unconditionally; everything after, only when armed
+- [x] 2.1 A tap that sees byte-exact JSON bodies both directions, installed at every connect unconditionally
+- [x] 2.2 Envelope ring per connection, capped in entries, with a non-evicting handshake prologue
+- [x] 2.3 Payload store per connection, capped in bytes under a global ceiling, evicting bodies while envelopes survive
+- [x] 2.4 Per-frame cap storing head and tail with the true length recorded
+- [x] 2.5 Deduplicate `didChange` bodies by content hash
+- [x] 2.6 Request and response paired by id, with latency recorded
+- [x] 2.7 Handshake payloads captured unconditionally; everything after, only when armed
 - [ ] 2.8 Arming and trace level held per connection id, surviving a respawn, reset by an IDE restart
 - [ ] 2.9 Process lifecycle, standard error and exit code in the same record, attributed to the server that produced them
 - [ ] 2.10 Declined requests, and capabilities advertised but not consumed, recorded as never-sent entries
 - [ ] 2.11 A per-transport note of what cannot be observed
-- [ ] 2.12 Drop counts, per connection, exposed rather than inferred
+- [x] 2.12 Drop counts, per connection, exposed rather than inferred
 - [ ] 2.13 A named, tested redaction component: consistent pseudonymisation over root URI, workspace folders, `file:` document URIs and server launch configuration
 - [ ] 2.14 Export as one JSON-RPC message per line plus a manifest
 - [ ] 2.15 Limits read from configuration, clamped, with a rejected value reported through the existing configuration-problems channel
