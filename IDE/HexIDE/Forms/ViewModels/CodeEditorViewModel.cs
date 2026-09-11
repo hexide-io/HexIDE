@@ -25,7 +25,7 @@ using Serilog;
 
 namespace HexIDE.Forms.ViewModels;
 
-public partial class CodeEditorViewModel : BaseEditorWindowViewModel
+public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchableDocument
 {
     private readonly IWindowManager windowManager;
     private readonly IEditorService editorService;

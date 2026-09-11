@@ -28,12 +28,28 @@ public class FindReplaceViewModelTests
         localization.GetString("Str.FindReplace.Msg.TitleFind").Returns("Find");
         localization.GetString("Str.FindReplace.Msg.TitleReplace").Returns("Replace");
         localization.GetString("Str.FindReplace.Msg.ScopeCurrentModule").Returns("Current Module");
-        localization.GetString("Str.FindReplace.Msg.ScopeCurrentProject").Returns("Current Project");
         localization.GetString("Str.FindReplace.Msg.ScopeAllOpenDocuments").Returns("All Open Documents");
         localization.GetString("Str.FindReplace.Msg.NotFound").Returns("The search text '{0}' was not found.");
         localization.GetString("Str.FindReplace.Msg.ReplacementsMade").Returns("{0} replacement(s) made.");
         localization.GetString("Str.FindReplace.Msg.InvalidRegex").Returns("Invalid regular expression pattern.");
+        localization.GetString("Str.FindReplace.Msg.NothingToSearch")
+            .Returns("There is nothing here for Find to search.");
         return new(_windowManager, _documentDockService, localization);
+    }
+
+    /// <summary>
+    /// A carried-file editor holding the given text — the plain-text editor for a README or a .json the
+    /// project carries but does not compile.
+    /// </summary>
+    /// <remarks>
+    /// <c>Initialize</c> is deliberately skipped: it wants a <c>RelatedDocumentDefinition</c> and a file on
+    /// disk, and neither has anything to do with whether Find can search the buffer.
+    /// </remarks>
+    private static RelatedDocumentEditorViewModel CreateCarriedFileEditor(string text)
+    {
+        var vm = new RelatedDocumentEditorViewModel(Substitute.For<ILspClient>());
+        vm.Document.Text = text;
+        return vm;
     }
 
     private CodeEditorViewModel CreateMockEditor(string text)
@@ -55,9 +71,16 @@ public class FindReplaceViewModelTests
         return vm;
     }
 
-    private void SetActiveEditor(CodeEditorViewModel editor)
+    private void SetActiveEditor(BaseEditorWindowViewModel editor)
     {
         _documentDockService.ActiveDocument.Returns(editor);
+    }
+
+    /// <summary>Puts these documents in the dock, in this order, with the first one active.</summary>
+    private void SetOpenDocuments(params BaseEditorWindowViewModel[] documents)
+    {
+        _documentDockService.OpenDocuments.Returns(documents);
+        _documentDockService.ActiveDocument.Returns(documents[0]);
     }
 
     // --- Title ---
@@ -261,28 +284,202 @@ public class FindReplaceViewModelTests
     // --- Scope items ---
 
     [AvaloniaFact]
-    public void ScopeItems_HasExpectedEntries()
+    public void ScopeItems_OffersOnlyTheScopesThatAreImplemented()
     {
         var sut = CreateSut();
 
-        sut.ScopeItems.Should().HaveCount(3);
+        // "Current Project" was removed rather than left decorative — see the note on FindScope.
+        sut.ScopeItems.Should().HaveCount(2);
         sut.ScopeItems[0].Should().Be("Current Module");
-        sut.ScopeItems[1].Should().Be("Current Project");
-        sut.ScopeItems[2].Should().Be("All Open Documents");
+        sut.ScopeItems[1].Should().Be("All Open Documents");
     }
 
-    // --- No active editor ---
+    [AvaloniaFact]
+    public void SelectedScopeIndex_SelectsAllOpenDocuments()
+    {
+        var sut = CreateSut();
+
+        sut.SelectedScopeIndex = 1;
+
+        sut.Scope.Should().Be(FindScope.AllOpenDocuments);
+    }
+
+    // --- Nothing searchable is active ---
+    //
+    // These replace a test that asserted only that FindNextCommand did not throw. It passed throughout
+    // the whole of hexide-io/HexIDE#363: returning silently does not throw either.
 
     [AvaloniaFact]
-    public void FindNext_NoActiveEditor_DoesNotThrow()
+    public void FindNext_NoActiveDocument_SaysSoRatherThanReturningSilently()
     {
         _documentDockService.ActiveDocument.Returns((BaseEditorWindowViewModel?)null);
         var sut = CreateSut();
         sut.SearchText = "hello";
 
-        var act = () => sut.FindNextCommand.Execute(null);
+        sut.FindNextCommand.Execute(null);
 
-        act.Should().NotThrow();
+        _windowManager.Received(1).MessageBox(
+            "There is nothing here for Find to search.",
+            Arg.Any<string>(),
+            Arg.Any<MessageBoxButtons>(),
+            Arg.Any<MessageBoxIcon>());
+    }
+
+    [AvaloniaFact]
+    public void ReplaceOne_NoActiveDocument_SaysSoRatherThanReturningSilently()
+    {
+        _documentDockService.ActiveDocument.Returns((BaseEditorWindowViewModel?)null);
+        var sut = CreateSut();
+        sut.SearchText = "hello";
+
+        sut.ReplaceOneCommand.Execute(null);
+
+        _windowManager.Received(1).MessageBox(
+            "There is nothing here for Find to search.",
+            Arg.Any<string>(),
+            Arg.Any<MessageBoxButtons>(),
+            Arg.Any<MessageBoxIcon>());
+    }
+
+    [AvaloniaFact]
+    public void ReplaceAll_NoActiveDocument_SaysSoRatherThanReturningSilently()
+    {
+        _documentDockService.ActiveDocument.Returns((BaseEditorWindowViewModel?)null);
+        var sut = CreateSut();
+        sut.SearchText = "hello";
+
+        sut.ReplaceAllCommand.Execute(null);
+
+        _windowManager.Received(1).MessageBox(
+            "There is nothing here for Find to search.",
+            Arg.Any<string>(),
+            Arg.Any<MessageBoxButtons>(),
+            Arg.Any<MessageBoxIcon>());
+    }
+
+    // --- The carried-file editor ---
+
+    [AvaloniaFact]
+    public void FindNext_CarriedFileEditorActive_SelectsTheMatch()
+    {
+        var editor = CreateCarriedFileEditor("# Notes\nthe needle is here\n");
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.SearchText = "needle";
+
+        sut.FindNextCommand.Execute(null);
+
+        editor.SelectionStart.Should().Be(editor.Document.Text.IndexOf("needle", StringComparison.Ordinal));
+        editor.SelectionLength.Should().Be("needle".Length);
+        _windowManager.DidNotReceive().MessageBox(
+            Arg.Any<string>(), Arg.Any<string>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>());
+    }
+
+    [AvaloniaFact]
+    public void ReplaceAll_CarriedFileEditorActive_RewritesTheBuffer()
+    {
+        var editor = CreateCarriedFileEditor("alpha alpha alpha");
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.SearchText = "alpha";
+        sut.ReplaceText = "beta";
+
+        sut.ReplaceAllCommand.Execute(null);
+
+        editor.Document.Text.Should().Be("beta beta beta");
+    }
+
+    // --- Scope: All Open Documents ---
+
+    [AvaloniaFact]
+    public void FindNext_AllOpenDocuments_FindsAMatchInAnotherDocument()
+    {
+        var active = CreateMockEditor("nothing of interest here");
+        var other = CreateMockEditor("the needle lives over here");
+        SetOpenDocuments(active, other);
+        var sut = CreateSut();
+        sut.Scope = FindScope.AllOpenDocuments;
+        sut.SearchText = "needle";
+
+        sut.FindNextCommand.Execute(null);
+
+        other.SelectionStart.Should().Be(other.Document.Text.IndexOf("needle", StringComparison.Ordinal));
+        other.SelectionLength.Should().Be("needle".Length);
+        active.SelectionLength.Should().Be(0);
+    }
+
+    [AvaloniaFact]
+    public void FindNext_AllOpenDocuments_BringsTheMatchingDocumentToTheFront()
+    {
+        var active = CreateMockEditor("nothing of interest here");
+        var other = CreateMockEditor("the needle lives over here");
+        SetOpenDocuments(active, other);
+        var sut = CreateSut();
+        sut.Scope = FindScope.AllOpenDocuments;
+        sut.SearchText = "needle";
+
+        sut.FindNextCommand.Execute(null);
+
+        // A match selected in a tab nobody can see is not a search result.
+        _documentDockService.Received(1).TryActivate<BaseEditorWindowViewModel>(
+            Arg.Is<Func<BaseEditorWindowViewModel, bool>>(predicate => predicate(other)));
+    }
+
+    [AvaloniaFact]
+    public void FindNext_AllOpenDocuments_ReachesACarriedFileFromACodeWindow()
+    {
+        var active = CreateMockEditor("Sub Nothing()\nEnd Sub");
+        var carried = CreateCarriedFileEditor("the needle is in the README");
+        SetOpenDocuments(active, carried);
+        var sut = CreateSut();
+        sut.Scope = FindScope.AllOpenDocuments;
+        sut.SearchText = "needle";
+
+        sut.FindNextCommand.Execute(null);
+
+        carried.SelectionLength.Should().Be("needle".Length);
+    }
+
+    [AvaloniaFact]
+    public void FindNext_CurrentModuleScope_DoesNotReachAnotherDocument()
+    {
+        var active = CreateMockEditor("nothing of interest here");
+        var other = CreateMockEditor("the needle lives over here");
+        SetOpenDocuments(active, other);
+        var sut = CreateSut();
+        sut.Scope = FindScope.CurrentModule;
+        sut.SearchText = "needle";
+
+        sut.FindNextCommand.Execute(null);
+
+        other.SelectionLength.Should().Be(0);
+        _windowManager.Received(1).MessageBox(
+            Arg.Is<string>(s => s.Contains("needle")),
+            Arg.Any<string>(),
+            Arg.Any<MessageBoxButtons>(),
+            Arg.Any<MessageBoxIcon>());
+    }
+
+    [AvaloniaFact]
+    public void ReplaceAll_AllOpenDocuments_ReplacesInEveryOpenDocument()
+    {
+        var active = CreateMockEditor("alpha here");
+        var other = CreateMockEditor("alpha there, alpha everywhere");
+        SetOpenDocuments(active, other);
+        var sut = CreateSut();
+        sut.Scope = FindScope.AllOpenDocuments;
+        sut.SearchText = "alpha";
+        sut.ReplaceText = "beta";
+
+        sut.ReplaceAllCommand.Execute(null);
+
+        active.Document.Text.Should().Be("beta here");
+        other.Document.Text.Should().Be("beta there, beta everywhere");
+        _windowManager.Received(1).MessageBox(
+            "3 replacement(s) made.",
+            Arg.Any<string>(),
+            Arg.Any<MessageBoxButtons>(),
+            Arg.Any<MessageBoxIcon>());
     }
 
     // --- Not found ---
@@ -312,7 +509,7 @@ public class FindReplaceViewModelTests
         var findReplace = Substitute.For<IFindReplaceService>();
         var sut = CreateMainViewViewModel(findReplace);
 
-        sut.FindInCode();
+        sut.FindInCodeCommand.Execute(null);
 
         findReplace.Received(1).ShowFind();
     }
@@ -323,7 +520,7 @@ public class FindReplaceViewModelTests
         var findReplace = Substitute.For<IFindReplaceService>();
         var sut = CreateMainViewViewModel(findReplace);
 
-        sut.ReplaceInCode();
+        sut.ReplaceInCodeCommand.Execute(null);
 
         findReplace.Received(1).ShowReplace();
     }
@@ -334,17 +531,64 @@ public class FindReplaceViewModelTests
         var findReplace = Substitute.For<IFindReplaceService>();
         var sut = CreateMainViewViewModel(findReplace);
 
-        sut.FindNextInCode();
+        sut.FindNextInCodeCommand.Execute(null);
 
         findReplace.Received(1).FindNext();
     }
 
+    // --- MainViewViewModel: Edit ▸ Find is greyed out where it would do nothing ---
+
+    [AvaloniaFact]
+    public void FindCommands_AreDisabled_WhenNoDocumentIsActive()
+    {
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.ActiveDocument.Returns((BaseEditorWindowViewModel?)null);
+        var sut = CreateMainViewViewModel(Substitute.For<IFindReplaceService>(), dock);
+
+        sut.FindInCodeCommand.CanExecute(null).Should().BeFalse();
+        sut.ReplaceInCodeCommand.CanExecute(null).Should().BeFalse();
+        sut.FindNextInCodeCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void FindCommands_AreEnabled_ForACodeWindow()
+    {
+        // Built BEFORE the Returns() call, not inside it: CodeEditorViewModel's constructor talks to the
+        // substituted services it is given, and NSubstitute binds Returns() to the last call made on ANY
+        // substitute — so inlining this silently configures eventBus.Subscribe instead of ActiveDocument.
+        var editor = CreateMockEditor("Sub Foo()\nEnd Sub");
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.ActiveDocument.Returns(editor);
+        var sut = CreateMainViewViewModel(Substitute.For<IFindReplaceService>(), dock);
+
+        sut.FindInCodeCommand.CanExecute(null).Should().BeTrue();
+        sut.ReplaceInCodeCommand.CanExecute(null).Should().BeTrue();
+        sut.FindNextInCodeCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public void FindCommands_AreEnabled_ForACarriedFileEditor()
+    {
+        var editor = CreateCarriedFileEditor("# README");
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.ActiveDocument.Returns(editor);
+        var sut = CreateMainViewViewModel(Substitute.For<IFindReplaceService>(), dock);
+
+        // The case the old hard cast to CodeEditorViewModel refused outright.
+        sut.FindInCodeCommand.CanExecute(null).Should().BeTrue();
+        sut.FindNextInCodeCommand.CanExecute(null).Should().BeTrue();
+    }
+
     private static MainViewViewModel CreateMainViewViewModel(IFindReplaceService findReplace)
+        => CreateMainViewViewModel(findReplace, null);
+
+    private static MainViewViewModel CreateMainViewViewModel(
+        IFindReplaceService findReplace, IDocumentDockService? documentDock)
     {
         var windowManager = Substitute.For<IWindowManager>();
         var projectManager = Substitute.For<IProjectManager>();
         projectManager.LoadedProjects.Returns(new List<ProjectDefinition>());
-        var mockDocDock = Substitute.For<IDocumentDockService>();
+        var mockDocDock = documentDock ?? Substitute.For<IDocumentDockService>();
         var toolBox = (ToolBoxToolViewModel)System.Runtime.CompilerServices.RuntimeHelpers.GetUninitializedObject(typeof(ToolBoxToolViewModel));
         var eventBus = Substitute.For<IEventBus>();
         var loc = Substitute.For<ILocalizationService>();

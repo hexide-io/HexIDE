@@ -645,11 +645,11 @@
     "Str.FindReplace.Msg.TitleFind": "Invenire",
     "Str.FindReplace.Msg.TitleReplace": "Substituere",
     "Str.FindReplace.Msg.ScopeCurrentModule": "Modulus Praesens",
-    "Str.FindReplace.Msg.ScopeCurrentProject": "Inceptum Praesens",
     "Str.FindReplace.Msg.ScopeAllOpenDocuments": "Omnia Documenta Aperta",
     "Str.FindReplace.Msg.NotFound": "Textus quaesitus '{0}' non inventus est.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} substitutiones factae.",
     "Str.FindReplace.Msg.InvalidRegex": "Exemplar expressionis regularis invalidum.",
+    "Str.FindReplace.Msg.NothingToSearch": "Nihil hic est quod perquiri possit. Invenire in fenestris codicis et in plicis textus quas inceptum fert operatur.",
 
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE non inventum est. VB6 in loco praedefinito installa aut variabilem ambientis VB6_EXE statue.",
     "Str.Vb6Toolchain.BuildFailedTitle": "Constructio Defecit",

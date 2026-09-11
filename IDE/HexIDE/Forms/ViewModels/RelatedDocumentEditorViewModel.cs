@@ -30,7 +30,8 @@ namespace HexIDE.Forms.ViewModels;
 /// that honest keeps the polyglot direction a small class rather than a growing conditional.
 /// </para>
 /// </summary>
-public partial class RelatedDocumentEditorViewModel(ILspClient lspClient) : BaseEditorWindowViewModel
+public partial class RelatedDocumentEditorViewModel(ILspClient lspClient)
+    : BaseEditorWindowViewModel, ISearchableDocument
 {
     private RelatedDocumentDefinition? document;
     private bool hadByteOrderMark;
@@ -63,6 +64,21 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient) : Base
 
     /// <summary>The buffer the editor binds to.</summary>
     public TextDocument Document { get; } = new();
+
+    /// <summary>
+    /// Caret and selection, mirrored to and from the view — the rest of <see cref="ISearchableDocument"/>.
+    ///
+    /// <para>
+    /// The VB6 code editor has carried these since it was written, for the navigation its own features
+    /// need. This editor had no reason to until Find could reach it, which is why it did not have them and
+    /// why Find silently refused a file it was perfectly able to search (hexide-io/HexIDE#363).
+    /// </para>
+    /// </summary>
+    [Notify] private int caretOffset;
+
+    [Notify] private int selectionStart;
+
+    [Notify] private int selectionLength;
 
     public RelatedDocumentDefinition? RelatedDocument => document;
 
