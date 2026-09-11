@@ -89,26 +89,64 @@ not look for and one it cannot read, so the resources are lost even though they 
 
 ### Requirement: A save SHALL NOT be able to destroy the previous version
 Writing a file SHALL be arranged so that the previous content survives intact until the new content is
-complete.
+complete. Where a designer file has a binary companion, the two SHALL be treated as one artifact: a save
+SHALL write both halves or neither, and SHALL decide which before either is written.
 
 Interrupted writes happen — a crash, a full disk, a killed process — and the file being written at that
 moment is the one the developer cares about most. Writing in place means the interruption lands in the
 middle of their source file; completing the write elsewhere first means the worst outcome is a leftover
 temporary file next to an intact original.
 
+A companion is not a separate file that happens to sit alongside. Each record's offset is simply where it
+landed, and the designer file cites those offsets, so the citations are meaningful only against the exact
+companion produced with them. Writing one half without the other leaves citations addressing a partition
+that no longer exists — and because a file's faithfulness is re-derived from its own citations, the result
+reopens as reproducible. The markers that would have flagged it are the ones that were overwritten.
+
+Two halves cannot be committed to disk in one indivisible step, so the order SHALL be chosen for what an
+interruption leaves behind. Writing the companion first leaves the previous designer file, whose citations
+may overrun the new companion and be refused on the next load. Writing the text first leaves citations that
+resolve inside the larger stale companion — to the wrong records, with nothing to indicate it. An
+interrupted save SHALL fail towards the outcome the developer is told about.
+
 #### Scenario: An interrupted save
 - **WHEN** a save is interrupted before it completes
 - **THEN** the file on disk is still the previous version, unmodified
 
+#### Scenario: A file the IDE will not write
+- **WHEN** a designer file cannot be written faithfully
+- **THEN** neither it nor its companion is modified, and the developer is told which file and why
+
+#### Scenario: An interrupted save of a designer file and its companion
+- **WHEN** a save is interrupted between the two halves
+- **THEN** what remains on disk is a pair whose mismatch is detected on the next load, rather than one that
+  reads as correct
+
+#### Scenario: A companion the designer file does not reference
+- **WHEN** a save produces no binary content for a designer file that cited none
+- **THEN** any companion beside it is left alone, because it holds content this file never referenced
+
+#### Scenario: One record referenced by two properties
+- **WHEN** more than one property cites the same companion content
+- **THEN** it is written once, and both citations address the copy that was written
+
 ### Requirement: The IDE SHALL refuse to save a file it cannot reproduce
 Where the IDE knows it would not reproduce a file faithfully, it SHALL leave the file on disk untouched and
-SHALL tell the developer why, rather than writing a version it knows to be wrong.
+SHALL tell the developer why, rather than writing a version it knows to be wrong. This SHALL hold wherever
+that file would be written, **including a new location**.
 
 Refusing is the honest response to an incomplete implementation, and it is what makes an incomplete one safe
 to put in front of people. The alternative is a save that appears to succeed and produces a file the
 original product cannot open — silent, discovered later, unrecoverable if it has been committed over the
 original. A refusal is none of those things: nothing is lost, and the developer learns immediately what the
 IDE cannot yet handle.
+
+Saving to a new location is not a safe middle ground, and the IDE SHALL NOT treat it as one. The copy
+carries the loss — content the IDE could not reproduce is absent from it — and because a file's
+faithfulness is re-derived from the file itself, the copy then reads as reproducible. The very markers that
+caused the refusal are what went missing, so nothing remains to raise it again: the copy opens without a
+warning, edits freely, and saves over itself. A refusal the developer could have recovered from becomes a
+file that looks correct and is not.
 
 #### Scenario: Saving a file the IDE would not reproduce
 - **WHEN** a save is requested for a file the IDE knows it cannot reproduce
@@ -118,9 +156,13 @@ IDE cannot yet handle.
 - **WHEN** a save covers several such files
 - **THEN** they are reported together rather than one prompt at a time
 
+#### Scenario: A single file saved on its own
+- **WHEN** one such file is saved outside a batch
+- **THEN** the developer is told at that moment, and that refusal is not reported again during a later save
+
 #### Scenario: Saving elsewhere
-- **WHEN** the developer explicitly saves such a file to a new location
-- **THEN** the save proceeds, since the original is not at risk
+- **WHEN** the developer saves such a file to a new location
+- **THEN** it is refused there too, and no destination is asked for, because the copy would carry the loss
 
 ### Requirement: A file the IDE will not save SHALL be presented as read-only
 Where the IDE would refuse to save a file, its editing surfaces SHALL be read-only and SHALL state the
@@ -224,23 +266,38 @@ opposite directions, which is why no layer may hold the assumption privately.
 - **THEN** what is written back is its position relative to that container
 
 ### Requirement: Unreproducible binary content SHALL hold a file read-only
-Where a file references binary content through a property the IDE does not model, the IDE SHALL treat that
-file as one it cannot reproduce.
+Where a file cites binary content the IDE cannot reproduce — because the property carrying the citation is
+one it does not model, or because the cited content did not reach the model at all — the IDE SHALL treat
+that file as one it cannot reproduce.
 
 The reference is what is lost, not the bytes: the companion file is left alone by a separate guard, so the
 image survives on disk while the property pointing at it does not. That is a save which looks successful and
-silently strips a control's picture, which is the same class of failure as flattening and is currently
-invisible to the gate. Recognising it widens the refusal before the container work narrows it — the count of
-refused files gets worse before it gets better, and that is the correct direction, because a refusal is
-recoverable and a silent strip is not.
+silently strips a control's picture, which is the same class of failure as flattening. Recognising it widens
+the refusal before the container work narrows it — the count of refused files gets worse before it gets
+better, and that is the correct direction, because a refusal is recoverable and a silent strip is not.
+
+Whether the citation was honoured SHALL be judged against **what the file itself cites**, not against what
+the companion yielded. A count taken from the companion cannot see a companion that is absent — there is
+nothing to count — nor one that is truncated, where the unreachable offset is dropped from both sides at
+once and they agree at a number lower than the file actually cites. The citations are in the file being
+opened, so they can be counted whatever became of the file beside it.
 
 #### Scenario: A property the IDE does not model referencing a companion blob
 - **WHEN** such a file is loaded
 - **THEN** it is presented read-only rather than saved with the reference dropped
 
 #### Scenario: A modelled property referencing a companion blob
-- **WHEN** the referencing property is one the IDE does model
+- **WHEN** the referencing property is one the IDE does model and the cited content reached the model
 - **THEN** the file is not held read-only on that account
+
+#### Scenario: A citation that cannot be honoured
+- **WHEN** a file cites companion content that did not reach the model, because the companion is absent or
+  too short to hold the cited offset
+- **THEN** the file is presented read-only, however ordinary the property carrying the citation
+
+#### Scenario: Two properties citing one offset
+- **WHEN** more than one property cites the same companion offset
+- **THEN** it counts once, so sharing content is not mistaken for a shortfall
 
 ### Requirement: A carried file SHALL round-trip without becoming source
 The deserializer SHALL recognise the project-file key for a carried file, and SHALL place such an entry in a

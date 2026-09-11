@@ -264,6 +264,46 @@ hexide-io/HexIDE#360.
 correlation and transport concerns are genuinely shared rather than speculatively abstracted. HexIDE's own
 automation traffic is explicitly out of scope.
 
+## Open questions
+
+Everything above is settled. This section exists because a record of forty-one decisions and no doubts reads
+as a record of a design that had none, and the next person to open it would rediscover these from scratch —
+most of them surfaced within minutes of the first sketch of the window.
+
+None of these blocks the capture model or the automation surface. All of them are phase four's, and each is
+answerable by looking at a real timeline rather than by reasoning, which is the honest reason they are not
+decided here.
+
+**Where the detail pane goes.** A pane below the grid keeps a selected message and its neighbours in view at
+once, which is how most of the value is read: a request, its answer, and the thing that came in between. It
+also halves an already-wide grid. A pane that replaces the grid gives a large body the room it needs and
+loses the context that made the row worth opening. There is a third shape — the body in its own document tab
+— which is the only one that survives a body larger than the window, and the only one that lets two
+messages be compared side by side.
+
+**Whether a drop is marked inline as well as in the header.** The header carries a count, because a record
+that truncates silently reads exactly like a complete one. Whether the gap is also marked *at the point it
+happened* is a different question: inline, it says which part of the conversation is missing rather than
+merely that some of it is; equally, an eviction is oldest-first, so on a busy connection the marker would
+sit permanently at the top of the list and say nothing a reader does not already know.
+
+**What the detail pane shows for a body that has been evicted.** Envelopes outlive payloads by design, so a
+row whose body is gone is a normal state and not an error — the row is still worth selecting for its method,
+latency and size. It needs wording that distinguishes three cases a reader will otherwise conflate: nothing
+was kept because the connection was not armed, something was kept and has since been evicted, and the frame
+was truncated with its true length recorded. A single "not available" collapses all three and invites the
+bug report that the capture is broken.
+
+**Whether the server column earns its width.** The interleaved timeline is the point, so the column is
+load-bearing while more than one server is in view. Filtered to one, it is the same value on every row.
+Hiding it automatically is a grid that rearranges itself under the reader, which is its own cost.
+
+**Where the opt-out from pseudonymisation lives, and how loudly it declares itself.** The decision that it
+exists is settled and it is strictly non-default. Its surface is not: Options has no page for any of this
+yet, and a flag that makes real paths and launch arguments leave the machine needs to be unmissable both
+where it is set and in anything exported while it is on. An export that does not carry its own redaction
+state is worse than one that was never redacted, because the reader cannot tell which they are holding.
+
 ## Order
 
 Five changes. The automation tools land **before** the window, so the capture can be driven and verified
