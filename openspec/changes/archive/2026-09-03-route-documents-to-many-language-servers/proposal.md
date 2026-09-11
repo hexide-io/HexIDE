@@ -48,9 +48,11 @@ seam: the contract is sound, and its untested assumptions are all of the form *"
   connection surface, and lazy start. The "IDE depends only on the contract" and "features degrade rather
   than fail" requirements are unchanged and are what make gating cheap — a gated-out feature returns the
   same empty result the existing degradation path already returns, so no caller changes.
-- Requires a companion change to `language-server`: the bundled server must advertise exactly the
-  capabilities it implements. That has no requirement about capabilities today.
-- **Blocked on that companion change.** Gating against a server that advertises nothing would black out
+- Modifies `language-server`: the bundled server must advertise exactly the capabilities it implements,
+  and must refuse a ranged content change rather than mis-applying it. This was originally scoped as a
+  separate, blocking change and is phase one of this one instead — the ordering constraint is real and the
+  second change was not, since the two halves are useless apart.
+- **Gating is blocked on that phase.** Gating against a server that advertises nothing would black out
   every feature. A compatibility rule treating "advertises nothing" as "supports everything" was considered
   and rejected: it is backwards from the protocol, nothing ever removes a compatibility rule once shipped,
   and it would mask the identical defect in every foreign server — which is the defect gating exists to catch.
