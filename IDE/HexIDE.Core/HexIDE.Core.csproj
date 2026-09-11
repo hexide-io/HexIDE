@@ -9,4 +9,15 @@
         <Description>Framework-agnostic abstractions for building VB6 IDEs. Zero third-party dependencies.</Description>
     </PropertyGroup>
 
+    <ItemGroup>
+        <InternalsVisibleTo Include="HexIDE.Tests" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <!-- The pseudonym pool. Embedded rather than copied beside the assembly: it is read once at first
+             use and a missing file would make redaction fail at the moment somebody is trying to share a
+             capture, which is the worst possible moment to discover a packaging mistake. -->
+        <EmbeddedResource Include="Redaction\pseudonym-pool.txt" />
+    </ItemGroup>
+
 </Project>
