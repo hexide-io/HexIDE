@@ -68,21 +68,38 @@ public class TheTapStaysOutOfTheWayTests : IAsyncDisposable
         //
         // Both halves matter. That the calls succeeded proves nothing blocked; that frames were dropped
         // proves the queue really was saturated, so the first half was not measured against an easy case.
+        //
+        // THE SECOND HALF USED TO BE A COIN TOSS, and that is worth recording rather than quietly fixing.
+        // It awaited each round trip in turn, which hands the pump a scheduling opportunity between every
+        // single frame — so on a fast machine a one-deep queue kept up and nothing was dropped, and the
+        // test failed while nothing was wrong. Measured at roughly one run in three locally. Two changes
+        // close it: fire a batch without awaiting between calls, so the writer genuinely outruns the
+        // reader, and keep going until saturation is observed rather than assuming one batch produces it.
         _log = new ConversationLog(queueDepth: 1);
         var client = Connect(_log);
         _log.Arm("vb6", true);
 
-        var clock = Stopwatch.StartNew();
-        for (var i = 0; i < 300; i++)
+        const int PerRound = 200;
+        var sent = 0;
+
+        for (var round = 0; round < 40 && _log.QueueDropped == 0; round++)
         {
-            var answer = await client.InvokeAsync<int>("echo", i).WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
-            answer.Should().Be(i, "the protocol must be unaffected by anything the capture is doing");
+            var calls = new List<Task<int>>(PerRound);
+            for (var i = 0; i < PerRound; i++) calls.Add(client.InvokeAsync<int>("echo", sent + i));
+
+            // Every one of them, not merely the batch: a capture that waited would stall an arbitrary
+            // member of the batch, and a timeout here is the shape that failure takes.
+            var answers = await Task.WhenAll(calls)
+                .WaitAsync(TimeSpan.FromSeconds(30), TestContext.Current.CancellationToken);
+
+            answers.Should().Equal(Enumerable.Range(sent, PerRound),
+                "the protocol must be unaffected by anything the capture is doing");
+            sent += PerRound;
         }
 
-        clock.Stop();
         _log.QueueDropped.Should().BeGreaterThan(0,
-            "a queue one deep under three hundred round trips must have been saturated — if it was not, "
-          + "this test proved nothing about a tap under pressure");
+            "a queue one deep under {0} concurrent round trips must have been saturated — if it was not, "
+          + "this test proved nothing about a tap under pressure", sent);
     }
 
     [Fact]
@@ -162,9 +179,29 @@ public class TheTapStaysOutOfTheWayTests : IAsyncDisposable
         var dropped = _log.QueueDropped;
 
         dropped.Should().BeGreaterThan(0);
-        (recorded + dropped).Should().BeGreaterThanOrEqualTo(1000,
+
+        // EXACTLY a thousand, not at least. The weaker form was what let the drain's own gap hide: with
+        // the fence silently skipped when the queue was full, this read the record one frame early and
+        // failed by one — which looks like an accounting hole in the capture and was a hole in the drain.
+        // An inequality here would have passed either way.
+        (recorded + dropped).Should().Be(1000,
             "everything that happened is either in the record or in the count of what is missing from it — "
           + "a frame that is in neither has been lost silently, which is the one outcome this design "
           + "refuses everywhere");
+    }
+
+    [Fact]
+    public async Task ADrainOnALogThatHasGoneAwayReturnsRatherThanHanging()
+    {
+        // The drain waits for room in the queue, so the one thing that could leave a caller stuck forever
+        // is a queue nobody is reading any more. Export calls this, and an export during shutdown is not a
+        // strange thing to happen.
+        _log = new ConversationLog(queueDepth: 1);
+        var client = Connect(_log);
+
+        for (var i = 0; i < 100; i++) await client.NotifyAsync("note", i);
+        await _log.DisposeAsync();
+
+        await _log.DrainAsync().WaitAsync(TimeSpan.FromSeconds(5), TestContext.Current.CancellationToken);
     }
 }
