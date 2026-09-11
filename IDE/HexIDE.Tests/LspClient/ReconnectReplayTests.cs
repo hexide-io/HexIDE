@@ -65,6 +65,10 @@ public class ReconnectReplayTests : IAsyncDisposable
         public string? LastFailure => null;
 
         public bool CanReconnect => true;
+
+        /// <summary>An in-memory pair, so there is no process and nothing hidden from a record.</summary>
+        public string? Unobservable => null;
+
         public event EventHandler? Closed;
 
         private Stream? _clientSide;

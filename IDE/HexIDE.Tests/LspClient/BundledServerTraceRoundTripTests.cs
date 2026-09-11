@@ -172,6 +172,45 @@ internal static class BundledServer
         "Release";
 #endif
 
+    /// <summary>
+    /// Why the built server cannot be trusted, or null when it can.
+    /// </summary>
+    /// <remarks>
+    /// <b>An out-of-date binary is worse than an absent one, and this was measured the hard way.</b> A
+    /// contributor working on the server rebased, ran these tests, and got two failures that read exactly
+    /// like their own change having broken the trace round trip. It had not: the binary on disk predated
+    /// the feature and could not emit a trace notification at all. Absence skips; staleness ran, waited
+    /// twenty seconds, and then blamed the wrong person.
+    ///
+    /// <para>
+    /// Compared against the newest source rather than against a build stamp, because the question is not
+    /// "was this built" but "was it built since the thing it is being asked to demonstrate". A minute of
+    /// slack absorbs a build finishing between the compile and the copy.
+    /// </para>
+    /// </remarks>
+    public static string? StaleReason()
+    {
+        if (Find() is not { } exe) return null;
+
+        var built = File.GetLastWriteTimeUtc(exe);
+        var sources = new DirectoryInfo(Path.Combine(RepoRoot(), "LspServer"));
+        if (!sources.Exists) return null;
+
+        var newest = sources
+            .EnumerateFiles("*.cs", SearchOption.AllDirectories)
+            .Where(f => !f.FullName.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}")
+                     && !f.FullName.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}"))
+            .Select(f => f.LastWriteTimeUtc)
+            .DefaultIfEmpty(DateTime.MinValue)
+            .Max();
+
+        return newest > built.AddMinutes(1)
+            ? $"the bundled VB6 language server was built at {built:u} and its source has changed since "
+            + $"({newest:u}). Rebuild it with: cd LspServer && dotnet build HexIDE.VbLspServer/ — these "
+            + "tests are skipped rather than run against a binary that predates what they assert."
+            : null;
+    }
+
     /// <summary>The built server executable, or null when this tree has not built one.</summary>
     /// <remarks>
     /// The IDE half and the server half are separate builds, and running the IDE's tests does not produce
@@ -225,6 +264,12 @@ public sealed class BundledServerFactAttribute : FactAttribute
         [CallerLineNumber] int sourceLineNumber = -1)
             : base(sourceFilePath, sourceLineNumber)
     {
+        if (BundledServer.StaleReason() is { } stale)
+        {
+            Skip = stale;
+            return;
+        }
+
         if (BundledServer.Find() is not null) return;
 
         Skip = "The bundled VB6 language server has not been built. Run "

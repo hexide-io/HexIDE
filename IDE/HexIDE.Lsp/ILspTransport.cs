@@ -41,6 +41,30 @@ public interface ILspTransport : IAsyncDisposable
     /// </summary>
     string? LastFailure { get; }
 
+    /// <summary>
+    /// What a record of this connection structurally cannot contain, in a sentence, or null when it can
+    /// contain everything.
+    /// </summary>
+    /// <remarks>
+    /// <b>Because "nothing was reported" and "nothing could be reported" read identically, and the first
+    /// reading is the wrong one.</b> A conversation captured over a transport HexIDE did not start has no
+    /// exit code to show and no standard error to read, and a reader who is not told that will conclude the
+    /// server exited cleanly and said nothing on its way out.
+    ///
+    /// <para>
+    /// The transport answers rather than the client, because the client cannot know: a named pipe HexIDE
+    /// launched and a named pipe it merely dialled are the same type with the same interface, and only one
+    /// of them owns a process.
+    /// </para>
+    ///
+    /// <para>
+    /// Prose rather than a set of flags, for the same reason <see cref="LastFailure"/> is. Anything read by
+    /// a person, once, at the top of a record does not need a taxonomy — and inventing one now would fix
+    /// the shape of an answer before a third kind of gap has been met.
+    /// </para>
+    /// </remarks>
+    string? Unobservable { get; }
+
     /// <summary>Raised when the underlying channel closes unexpectedly (e.g. the server process exits).</summary>
     event EventHandler? Closed;
 
