@@ -61,7 +61,12 @@ public sealed class ConversationLog : IAsyncDisposable
         // A marker rather than an entry. The pump reads strictly in order, so a fence completing proves
         // everything written before it has been processed — which polling a queue length does not, since
         // an item can be out of the queue and still in flight.
-        TaskCompletionSource? Fence = null);
+        TaskCompletionSource? Fence = null,
+
+        // The second marker, and it rides the queue for the same reason the fence does: clearing touches
+        // per-connection state the pump owns, so doing it from a caller's thread would race the pump
+        // rather than order against it. `ConnectionId` empty means every connection.
+        TaskCompletionSource<int>? ClearTo = null);
 
     private readonly CaptureLimits _limits;
     private readonly TimeProvider _clock;
@@ -92,12 +97,30 @@ public sealed class ConversationLog : IAsyncDisposable
     /// <em>reports</em> a correction, because that is where a person wrote the value.
     /// </para>
     /// </remarks>
+    /// <param name="armEveryConnection">
+    /// Arms every connection as it first appears, rather than waiting to be asked.
+    /// </param>
+    /// <remarks>
+    /// <b>A default rather than a loop over the configured servers, and the difference matters.</b> Arming
+    /// by id at startup can only reach ids somebody has already written down, and a connection is created
+    /// lazily by whoever first needs one — for a server respawned after a crash, or for a registration that
+    /// came from a file this process has not read. A default applies to every connection there turns out to
+    /// be, which is what "arm capture at start" has to mean if it is to survive the restart-per-iteration
+    /// development loop it exists for.
+    ///
+    /// <para>
+    /// It does not make arming permanent. A connection armed this way disarms like any other; the default
+    /// only decides what a connection starts as.
+    /// </para>
+    /// </remarks>
     public ConversationLog(
         CaptureLimits? limits = null,
         TimeProvider? clock = null,
         int queueDepth = 4096,
-        IReadOnlyDictionary<string, CaptureLimits>? perConnection = null)
+        IReadOnlyDictionary<string, CaptureLimits>? perConnection = null,
+        bool armEveryConnection = false)
     {
+        ArmsEveryConnection = armEveryConnection;
         _limits = (limits ?? CaptureLimits.Default).Clamped(out var adjustments);
         Adjustments = adjustments;
 
@@ -219,6 +242,50 @@ public sealed class ConversationLog : IAsyncDisposable
     /// </remarks>
     public void Arm(string connectionId, bool armed) => Of(connectionId).Armed = armed;
 
+    /// <summary>Whether a connection is armed the moment it first appears.</summary>
+    public bool ArmsEveryConnection { get; }
+
+    /// <summary>
+    /// Discards a connection's record, or every connection's, keeping whatever was armed armed.
+    /// </summary>
+    /// <remarks>
+    /// <b>Arming survives a clear, and separating the two is the point.</b> Arming is a decision somebody
+    /// made about what to watch; the record is what has been watched so far. A loop that exercises a
+    /// feature, reads the record, clears it and exercises the next one would be pointless if clearing also
+    /// stopped the recording.
+    ///
+    /// <para>
+    /// What is <em>not</em> reset is how many frames the connection has seen. The opening allowance exists
+    /// because a handshake cannot be captured retrospectively, and a clear does not make a connection new
+    /// again — treating it as new would hand a second opening allowance to a server that has been running
+    /// for an hour.
+    /// </para>
+    ///
+    /// <para>
+    /// Ordered through the pump rather than applied in place, so it cannot race a frame being recorded.
+    /// Everything written before the call is discarded; anything written after it survives.
+    /// </para>
+    /// </remarks>
+    /// <returns>How many envelopes were discarded, so a caller can say what it did.</returns>
+    public async Task<int> ClearAsync(string? connectionId = null)
+    {
+        var done = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        try
+        {
+            await _queue.Writer.WriteAsync(new Pending(
+                connectionId ?? "", default, default, default, null, null, 0, null, null,
+                ClearTo: done)).ConfigureAwait(false);
+        }
+        catch (ChannelClosedException)
+        {
+            // The log is going away and disposal clears everything anyway.
+            return 0;
+        }
+
+        return await done.Task.ConfigureAwait(false);
+    }
+
     /// <summary>
     /// Records one thing that happened. Called on the RPC thread; does as little as possible.
     /// </summary>
@@ -313,7 +380,7 @@ public sealed class ConversationLog : IAsyncDisposable
         lock (_connectionsLock)
         {
             if (_connections.TryGetValue(connectionId, out var existing)) return existing;
-            var created = new Connection(LimitsFor(connectionId), _budget);
+            var created = new Connection(LimitsFor(connectionId), _budget) { Armed = ArmsEveryConnection };
             _connections[connectionId] = created;
             return created;
         }
@@ -335,6 +402,12 @@ public sealed class ConversationLog : IAsyncDisposable
         if (pending.Fence is { } fence)
         {
             fence.TrySetResult();
+            return;
+        }
+
+        if (pending.ClearTo is { } cleared)
+        {
+            cleared.TrySetResult(ClearOnPump(pending.ConnectionId));
             return;
         }
 
@@ -390,6 +463,37 @@ public sealed class ConversationLog : IAsyncDisposable
         // The response is not itself an entry. It is the second half of one, and a timeline that showed
         // both would double every request in a view whose entire job is to be read in order.
         return true;
+    }
+
+    /// <summary>
+    /// The pump-thread half of <see cref="ClearAsync"/>. Never called from anywhere else.
+    /// </summary>
+    /// <remarks>
+    /// <c>Outstanding</c> is the reason this cannot be done in place: it is a plain dictionary that only
+    /// the single reader touches, so it carries no lock to take. Clearing it matters — its entries name
+    /// sequence numbers that no longer exist, and a reply arriving afterwards would otherwise be paired
+    /// against a vanished envelope.
+    /// </remarks>
+    private int ClearOnPump(string connectionId)
+    {
+        List<Connection> targets;
+        lock (_connectionsLock)
+        {
+            targets = connectionId.Length == 0
+                ? [.. _connections.Values]
+                : _connections.TryGetValue(connectionId, out var one) ? [one] : [];
+        }
+
+        var discarded = 0;
+        foreach (var connection in targets)
+        {
+            discarded += connection.Ring.Count;
+            connection.Ring.Clear();
+            connection.Bodies.Clear();
+            connection.Outstanding.Clear();
+        }
+
+        return discarded;
     }
 
     public async ValueTask DisposeAsync()

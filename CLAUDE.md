@@ -280,11 +280,16 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 | `take_snapshot` | Capture the IDE window as PNG; returns temp file path — read it with the `Read` tool to view |
 | `dump_visual_tree(root?, maxDepth?, interactiveOnly?)` | Walk the active window's **control-view** tree (structural wrappers collapsed; a visible modal dialog is preferred). Each node carries an addressable `path`, automation ControlType, Name/AutomationId, DataContext VM type, and supported interaction providers. The discovery entry point. |
 | `inspect_element(target)` | Deep-inspect one control by `path`: supported providers, bounds, current value/selection/toggle state, and the DataContext VM's command/property members (the surface `interact`'s reflection actions target). |
+| `list_lsp_messages(connectionId?, method?, failuresOnly?, afterSequence?, limit?)` | Recorded language-server envelopes — time, direction, method, id, size, outcome, latency — with no content. Answers "was it even sent" and "what came back", which diagnostics cannot. Works unarmed. |
+| `get_lsp_message(connectionId, sequence)` | One message's body, as the bytes that crossed the wire. Needs the connection armed, except for a connection's opening, which is always kept. |
+| `arm_lsp_capture(connectionId?, armed)` | Arms or disarms retention of message **bodies**. Session-scoped; use `--capture-lsp` to arm before the first connection exists. |
+| `clear_lsp_capture(connectionId?)` | Discards the record and keeps the arming, so the next thing exercised is the only thing in it. |
 | `interact(target, action, value?)` | Drive a control. Provider actions: `invoke`/`select`/`set_value`/`toggle`/`expand`/`collapse`. Reflection actions (DataContext VM): `invoke_command`/`set_property`. The generic substitute for per-interaction tools. |
 
 **CLI flags** (both `--` and `/` prefixes accepted, aligning with VB6 convention):
 - `--server-port <port>` — enable the MCP server on the given port (all launch profiles use 5123)
 - `--newproject` — skip the startup dialog and create a default Standard EXE project
+- `--capture-lsp` — arm the protocol capture for every language-server connection **before any is made**, so a conversation is recorded in full from its first handshake. Arming is otherwise session-scoped and the documented rebuild cycle restarts the IDE every iteration, which is what this exists for. **Unlike `--server-port`, this is not DEBUG-only**: the capture ships and the automation server does not
 - Positional `.vbp` path — skip the startup dialog and open that project
 
 **The server answers loopback only, and now checks that rather than assuming it.** A request whose `Host`

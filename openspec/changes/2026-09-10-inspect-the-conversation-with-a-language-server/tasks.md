@@ -31,9 +31,9 @@ automation before any window exists, which is how everything else here has been 
 - [x] 2.16 Capture must never block or reorder the RPC — assert that, do not assume it
 
 ## 3. The automation surface
-- [ ] 3.1 A launch flag that arms capture at start
-- [ ] 3.2 Tools: list envelopes with filters, fetch one payload by id, arm and disarm, clear
-- [ ] 3.3 The capture service lives outside the automation server's own folder, since the server is absent from Release and the capture is not
+- [x] 3.1 A launch flag that arms capture at start
+- [x] 3.2 Tools: list envelopes with filters, fetch one payload by id, arm and disarm, clear
+- [x] 3.3 The capture service lives outside the automation server's own folder, since the server is absent from Release and the capture is not
 - [ ] 3.4 Verified by driving a real conversation and reading it back
 
 ## 4. The window

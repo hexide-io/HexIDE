@@ -27,9 +27,24 @@ while arming is deliberately session-scoped. Without it, every iteration would b
 - **WHEN** an agent asks for a specific message's content
 - **THEN** it receives that message and not the conversation around it
 
+It SHALL also allow a connection's record to be discarded without disarming it. A loop that exercises one
+thing, reads the record and moves on needs the next reading to contain only the next thing; discarding that
+also stopped the recording would make every iteration after the first useless.
+
+A listing SHALL say how many entries matched when it returns fewer, for the same reason a truncated message
+body states its true length: a list that quietly stops reads exactly like a complete one.
+
 #### Scenario: A development loop that restarts the IDE
 - **WHEN** the IDE is launched with capture requested
 - **THEN** capture is armed before the first connection is made, including its initialization exchange
+
+#### Scenario: Moving on to the next thing
+- **WHEN** a connection's record is discarded
+- **THEN** the record is empty, the connection is still armed, and what follows is recorded
+
+#### Scenario: More matched than were asked for
+- **WHEN** a listing is limited
+- **THEN** the most recent matches are returned, and the total that matched is stated
 
 ### Requirement: The capture SHALL remain present in builds the automation server is absent from
 The recording machinery SHALL be part of the shipped application rather than of the automation server, so

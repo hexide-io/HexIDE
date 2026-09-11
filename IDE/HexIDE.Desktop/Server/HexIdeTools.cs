@@ -5,6 +5,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HexIDE.Automation;
+using HexIDE.Conversations;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Debugging;
@@ -1621,7 +1622,173 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase))
             ?.FormPart;
     }
+
+    // ── The recorded language-server conversation ────────────────────────────
+    //
+    // Four thin wrappers. Everything they do lives in HexIDE.Core's CaptureQueries, for two reasons that
+    // are both requirements rather than taste: the automation server is compiled out of distributed builds
+    // and the capture is not, so logic the capture needs in order to be readable belongs on the other side
+    // of that line; and nothing in the tree references this executable, so anything implemented in a tool
+    // body cannot be reached by any test.
+
+    [McpServerTool(Name = "list_lsp_messages")]
+    [Description("Lists recorded language-server message envelopes — time, direction, method, id, size, outcome and latency — with no message content. Use it to answer 'was this request even sent', 'what came back', and 'how long did it take', which the editor cannot tell you and a diagnostics list cannot distinguish. Envelopes are recorded for every connection always, whether or not capture is armed, so this works without arming anything. Pass connection_id to narrow to one server, method for an exact method name, failures_only for error responses and requests that failed, were cancelled or never came back, and after_sequence to poll for only what is new since a sequence you have already seen. The newest matches are returned when there are more than limit, and truncated says so. Message bodies need list first and then get_lsp_message, because a conversation runs to megabytes per minute of typing.")]
+    public async Task<LspMessagesResult> ListLspMessagesAsync(
+        string? connectionId,
+        string? method,
+        bool failuresOnly,
+        long? afterSequence,
+        int? limit,
+        CancellationToken ct)
+    {
+        var page = await CaptureQueries.ListAsync(ctx.Capture, new EnvelopeFilter(
+            ConnectionId: string.IsNullOrWhiteSpace(connectionId) ? null : connectionId,
+            Method: string.IsNullOrWhiteSpace(method) ? null : method,
+            FailuresOnly: failuresOnly,
+            AfterSequence: afterSequence,
+            Limit: limit ?? 200));
+
+        var rows = page.Entries.Select(e => new LspMessageRow(
+            e.Sequence,
+            e.ConnectionId,
+            e.Timestamp.ToString("o"),
+            e.Direction.ToString(),
+            e.Kind.ToString(),
+            e.Method,
+            e.CorrelationId,
+            e.SizeBytes,
+            e.Outcome == ConversationOutcome.None ? null : e.Outcome.ToString(),
+            e.Elapsed?.TotalMilliseconds,
+            e.Detail,
+            HasBody: ctx.Capture.Body(e.ConnectionId, e.Sequence) is not null)).ToArray();
+
+        return new LspMessagesResult(rows, page.Matched, page.Truncated, ctx.Capture.QueueDropped);
+    }
+
+    [McpServerTool(Name = "get_lsp_message")]
+    [Description("Returns one recorded message's body by its sequence number, as the bytes that crossed the wire. Bodies are kept only for a connection that has been armed — see arm_lsp_capture, or launch with --capture-lsp — except for the opening of every connection, which is always kept because a handshake cannot be captured after the fact. When there is no body this explains which of the possible reasons applies as far as the record knows. A body longer than the per-frame limit comes back as a head and a tail with the true length stated; it is not valid JSON in that case, and pretending otherwise would be a lie about what was sent. Not redacted: this is the developer's own machine, and export is where redaction belongs.")]
+    public async Task<LspMessageBodyResult> GetLspMessageAsync(
+        string connectionId, long sequence, CancellationToken ct)
+    {
+        if (await CaptureQueries.FetchAsync(ctx.Capture, connectionId, sequence) is not { } view)
+        {
+            return new LspMessageBodyResult(
+                sequence, connectionId, null, 0, null, null, false,
+                await CaptureQueries.ExplainMissingBodyAsync(ctx.Capture, connectionId, sequence));
+        }
+
+        return new LspMessageBodyResult(
+            view.Sequence, view.ConnectionId, view.Method, view.TrueLength,
+            view.Head, view.Tail, view.Tail is not null, null);
+    }
+
+    [McpServerTool(Name = "arm_lsp_capture")]
+    [Description("Arms or disarms retention of message BODIES for one language-server connection, or for every connection when connection_id is omitted. Envelopes are always recorded; this decides whether content is kept, which is the entire privacy boundary. Arming is session-scoped and is lost when the IDE restarts — launch with --capture-lsp to arm before the first connection is made, which is what the rebuild-and-relaunch loop needs. Arming cannot reach a handshake that has already happened, so a server already running keeps only what follows.")]
+    public async Task<LspCaptureStateResult> ArmLspCaptureAsync(
+        string? connectionId, bool armed, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(connectionId))
+        {
+            foreach (var id in ctx.Capture.Snapshot().Select(e => e.ConnectionId).Distinct(StringComparer.Ordinal))
+                ctx.Capture.Arm(id, armed);
+        }
+        else
+        {
+            ctx.Capture.Arm(connectionId, armed);
+        }
+
+        return await CaptureStateAsync();
+    }
+
+    [McpServerTool(Name = "clear_lsp_capture")]
+    [Description("Discards the recorded conversation for one connection, or for every connection when connection_id is omitted, and reports how many envelopes went. Whatever was armed stays armed: this throws away what has been watched, not the decision to watch. Use it between iterations so the next thing you exercise is the only thing in the record. It does not hand a connection a fresh opening allowance — a server that has been running for an hour is not new because its record is empty.")]
+    public async Task<LspCaptureClearedResult> ClearLspCaptureAsync(
+        string? connectionId, CancellationToken ct)
+    {
+        var discarded = await ctx.Capture.ClearAsync(
+            string.IsNullOrWhiteSpace(connectionId) ? null : connectionId);
+
+        return new LspCaptureClearedResult(discarded, await CaptureStateAsync());
+    }
+
+    /// <summary>What is being recorded right now, returned by both mutating capture tools.</summary>
+    /// <remarks>
+    /// Returned rather than left to a follow-up call because arming is invisible: a tool that answered
+    /// only "done" would leave an agent unable to tell an armed connection from one whose id it had
+    /// misspelled.
+    /// </remarks>
+    private async Task<LspCaptureStateResult> CaptureStateAsync()
+    {
+        var page = await CaptureQueries.ListAsync(ctx.Capture, new EnvelopeFilter(Limit: int.MaxValue));
+
+        var connections = page.Entries
+            .Select(e => e.ConnectionId)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .Select(id =>
+            {
+                var (envelopes, bodies, refused) = ctx.Capture.Losses(id);
+                return new LspCaptureConnectionState(
+                    id, ctx.Capture.IsArmed(id), page.Entries.Count(e => e.ConnectionId == id),
+                    envelopes, bodies, refused);
+            })
+            .ToArray();
+
+        return new LspCaptureStateResult(ctx.Capture.ArmsEveryConnection, connections);
+    }
 }
+
+internal record LspMessagesResult(
+    LspMessageRow[] Messages,
+    // How many matched in total, so a limited answer is visibly limited rather than quietly short.
+    int Matched,
+    bool Truncated,
+    // Frames the capture could not keep up with. Never silent: a record that dropped some reads exactly
+    // like one that had fewer to drop.
+    long FramesDropped);
+
+internal record LspMessageRow(
+    long Sequence,
+    string ConnectionId,
+    string At,
+    string Direction,
+    string Kind,
+    string? Method,
+    string? Id,
+    int SizeBytes,
+    string? Outcome,
+    double? ElapsedMs,
+    // A short note for the entries that are not messages: an exit code, a line of standard error, the
+    // capability a never-sent entry was refused for.
+    string? Detail,
+    bool HasBody);
+
+internal record LspMessageBodyResult(
+    long Sequence,
+    string ConnectionId,
+    string? Method,
+    int TrueLength,
+    string? Head,
+    string? Tail,
+    bool Truncated,
+    // Why there is nothing, in the terms a reader needs. Null when there is something.
+    string? Unavailable);
+
+internal record LspCaptureStateResult(
+    bool ArmsEveryConnection,
+    LspCaptureConnectionState[] Connections);
+
+internal record LspCaptureConnectionState(
+    string ConnectionId,
+    bool Armed,
+    int Envelopes,
+    long EnvelopesDropped,
+    long BodiesEvicted,
+    long BodiesRefused);
+
+internal record LspCaptureClearedResult(
+    int EnvelopesDiscarded,
+    LspCaptureStateResult State);
 
 internal record FileContentResult(string? Content, bool HasUnsavedChanges, string? Error);
 
