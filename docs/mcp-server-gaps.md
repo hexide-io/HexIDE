@@ -60,6 +60,25 @@ stated. A separate audit refuted an attempt to retire this entry on that basis, 
 finding the earlier evidence was a full restart misread as a mid-session add. Worth one clean experiment
 before either statement is trusted.
 
+**That experiment was run on 2026-09-11, twice, and this entry's own symptom did not reproduce.** With the
+IDE running and attached since session start: `shutdown_ide`, rebuild, relaunch, and the existing tools
+were callable immediately with no resume — `open_file` answered on the first try. A tool added in the same
+build (`get_lsp_capture_state`) arrived as a deferred-tool delta and worked on its first call. The cycle
+was then repeated a second time with the same result.
+
+**What that settles and what it does not.** It settles the schema half: "MCP schema changes require a
+session restart" was too strong, and `CLAUDE.md` now states the condition instead — the attachment's state
+when the SESSION began, not whether the process has restarted since. The same day supplied the negative
+case: four tools added while no IDE was running at session start did **not** appear on launch, and needed a
+resume, because there was no attachment to re-list from.
+
+It does not settle whether this entry's original symptom is gone or merely unreproduced. The two runs above
+differ from the one recorded here in that the IDE was attached at session start, which is exactly the
+variable the schema half turned on — so the likeliest reading is that both observations are the same
+mechanism seen from two starting states. Retiring it needs a session that begins with no IDE, which is the
+condition nobody has deliberately arranged. **Left open on purpose**, since this entry has already survived
+one wrong retirement.
+
 **Fix consideration.** Auto-reconnect the MCP client when a known server reappears on its port, or a
 lightweight "reconnect MCP" affordance — so the shutdown→build→relaunch→verify loop keeps the tools live
 without a full resume.
@@ -491,5 +510,151 @@ the confirmation the tool promises. Either way, do not leave a window up with no
 shutdown cannot complete, keep the server alive so the next call can say why.
 
 ---
+
+## Every parameter of a capture tool was required, including the ones that mean "no filter"
+
+**Symptom.** The first call to `list_lsp_messages` had to pass five arguments to ask the simplest possible
+question. `connectionId`, `method`, `failuresOnly`, `afterSequence` and `limit` were all in the schema's
+`required` array, so "list everything" could not be expressed as an empty call.
+
+**Cause, and it is a C# detail with a schema consequence.** A nullable parameter with no default value is
+still a *required* parameter to the MCP schema generator. `string? connectionId` is optional-looking in C#
+and mandatory on the wire. `dump_visual_tree` got this right by accident of having defaults
+(`string? root = null, int maxDepth = 20`), and the new tools did not.
+
+**Workaround used.** Pass `null` explicitly for each. It works, and it is five arguments of noise on every
+call, which is exactly the friction that makes an agent reach for a different tool.
+
+**Fixed** by giving every optional parameter a C# default. Worth knowing for the next tool: check the
+generated schema's `required` array, not the C# signature — they disagree, and only one of them is what an
+agent sees.
+
+## The capture state went blank after a clear, which is the one thing it existed to prevent
+
+**Symptom.** `clear_lsp_capture` replied:
+
+```
+{"envelopesDiscarded":13,"state":{"armsEveryConnection":true,"connections":[]}}
+```
+
+The connection was alive and armed. `arm_lsp_capture` a moment earlier had listed it correctly.
+
+**Cause.** Both mutating tools returned a state whose connection list was derived from the envelopes
+present in the record — the same answer as the real list right up until somebody empties the record.
+
+**Consequence, and why it is worse than a cosmetic wrong field.** The state is returned by those two tools
+specifically so that arming is not invisible: a tool answering only "done" would leave an agent unable to
+tell an armed connection from one whose id it had misspelled. After a clear it answered exactly that.
+An agent clearing `hexide.vb6` and one clearing `hexide.vb` got identical replies.
+
+**Fixed** by having the log name its own connections (`ConversationLog.ConnectionIds`) rather than
+inferring them from traffic, which also makes a connection armed before it has started visible — the case
+the launch flag depends on. Two tests pin it.
+
+**Found on the first real use of the tools**, by driving them rather than by reading them. Both defects had
+passing unit tests around them; neither could have been caught by one, because both are about what the
+*schema* and the *reply* look like to a caller.
+
+## There is no way to ask what is being recorded without changing it
+
+**Symptom.** To find out which connections existed and which were armed, the only tools were
+`arm_lsp_capture` and `clear_lsp_capture` — both of which mutate. Reading the state meant arming something
+first.
+
+**Workaround used.** Call `arm_lsp_capture` with the state it already had, and read the reply.
+
+**Fixed** by adding `get_lsp_capture_state`, which is the same reply with nothing changed.
+
+## An export cannot be reached from automation
+
+**Symptom.** `get_lsp_message` returns a body raw, deliberately — it is the developer's own machine and
+the live view is not redacted either. But there is no tool that produces the redacted, shareable form, so
+an agent asked to attach a conversation to an issue has no safe path: it can read bodies it must not paste,
+and cannot produce the form it should paste instead.
+
+**Workaround used.** None needed yet; noted before it is.
+
+**Suggested fix.** A tool over `ConversationExporter`, which already produces the JSON-lines form plus a
+manifest and takes a redactor. It is listed as phase-four work in #369 (task 4.5, export and copy), so this
+is a note that the automation half of it matters as much as the button — an agent is the likeliest thing to
+be asked for an export, and it is currently the only consumer that cannot make one.
+
+---
+
+## A mid-session relaunch DOES pick up new tools, if the server was attached when the session started
+
+**Measured, and it refines a rule this file and `CLAUDE.md` both state more strongly than is true.** The
+documented rule is that MCP tools are discovered at session start and a schema change needs a session
+restart. Both of these happened in one afternoon:
+
+- Four new tools were added while **no IDE was running**. Building and launching did not surface them, and
+  a session restart was needed. Consistent with the rule.
+- A fifth was added later, with the IDE **running and attached since session start**. Shutting it down,
+  rebuilding and relaunching surfaced the new tool immediately, as a deferred-tool notification, and it
+  worked on the first call.
+
+**So the distinguishing condition is whether the server was attached when the session began**, not whether
+the process was restarted since. An attached server is re-listed when it comes back; a server that was
+never attached has nothing to re-list from, and no amount of relaunching creates the attachment.
+
+**Why it is worth writing down.** The stronger reading costs a round trip through the user every time a
+tool is added, and the rule is the reason to stop and ask rather than improvise — so being wrong about it
+in the cautious direction is not free. If the IDE was up and answering at session start, try the relaunch
+before asking.
+
+**Not contradicted:** the sibling entry above, about tools not re-attaching to a *resumed* session while
+the IDE keeps running. That is the same mechanism seen from the other side — what matters is the state of
+the attachment at the moment the session starts.
+
+---
+
+## An empty reply that does not say why is a defect, not a null result
+
+**The standing bar for this surface, recorded because it was stated as a correction.** The automation
+surface is not internal scaffolding for whoever is building HexIDE. It ships to every developer who wants
+it, driven by models nobody here chooses. **A suboptimal AI surface bites exactly as a bad UI/UX surface
+bites a human user**, and "I found a way around it" is not the test — the person who found the way around
+it had context a first-time caller does not.
+
+**The worked example, and it was mine.** The first call to `list_lsp_messages` in a fresh session returned:
+
+```
+{"messages":[],"matched":0,"truncated":false,"framesDropped":0}
+```
+
+I knew why: servers start on the first document of a language they claim, and nothing was open. A caller
+who did not know that cannot tell "nothing happened" from "nothing was configured" from "the tool is
+broken" — **which is the exact ambiguity the protocol inspector exists to destroy**, reintroduced inside
+the tool built to destroy it. That is the worst available place to put it.
+
+It now answers:
+
+```
+"note": "No language server has connected yet, so there is nothing recorded. Servers start on the first
+         document of a language they claim — open a file and ask again. Nothing needs arming for
+         envelopes to be recorded."
+```
+
+Four states a bare zero collapses, each now named: no server has started; the connection id does not exist
+(and here are the ones that do); connections exist with an empty record, so it was cleared; the filter
+excluded everything. Six tests pin them, including one asserting the note is **absent** on an ordinary
+reply — a field that is always populated stops being read.
+
+**The checklist this generalises to**, for any tool added here:
+
+- An empty or surprising reply explains itself, and says what to do next where there is an obvious next step.
+- Check the generated schema's `required` array, not the C# signature. They disagree, and only one is what
+  a caller sees.
+- Enumerate the vocabulary a reply uses. A `kind` of `Unconsumed` or `Lifecycle` means nothing to somebody
+  who was never told the set, so the description now lists all seven and says which three exist nowhere else.
+- Explain anything that looks like a defect and is not. Sequence numbers have gaps, because a reply
+  completes its request's envelope rather than adding one; beside a field called `framesDropped`, an
+  unexplained gap reads as data loss.
+- A reply that mutates reports the new state, and reports it even when the answer is empty.
+
+**None of this is tested, and the descriptions are the largest part of the surface.** A description that
+misleads a caller produces a wrong call and a green build, and the author is the one person who cannot
+evaluate it — the empty-reply defect above was caught by *being* the caller, not by re-reading prose that
+had just been written. Filed as [#396](https://github.com/hexide-io/HexIDE/issues/396).
 
 ---

@@ -19,6 +19,11 @@ internal static class DesktopStartup
             System.Enum.TryParse<PersonalityName>(p, ignoreCase: true, out var name))
             HexIDE.Static.Personality = name;
 
+        // Deliberately OUTSIDE the #if DEBUG below, and the asymmetry is the point: developer mode is
+        // inert in a distributed build by design, while the capture ships in one. Gating this the same way
+        // would take the inspector away from the people it exists for.
+        HexIDE.Static.CaptureLsp = ServerOptions.CaptureLsp;
+
         // Session developer mode — set before the UI builds so the title suffix and Developer node
         // see it. Never persisted; a launch without --developer-mode is never in developer mode.
         // DEBUG-only: in Release builds the flag is inert (and DeveloperModeService.IsEnabled is
@@ -66,7 +71,7 @@ internal static class DesktopStartup
             if (ServerOptions.Port is not { } port)
                 return;
 
-            var ctx = new IdeContext(setup.ProjectManager, setup.DocumentDockService, setup.LspClient, setup.EditorService, setup.ProjectRunnerService, setup.ProjectService, setup.BookmarkService, setup.BreakpointService, setup.DebugController, HexIDE.Static.RootViewModel!, setup.ToolBoxViewModel, setup.PersonalityService, setup.AddinProjectTemplateService, setup.LanguageSwitchService);
+            var ctx = new IdeContext(setup.ProjectManager, setup.DocumentDockService, setup.LspClient, setup.EditorService, setup.ProjectRunnerService, setup.ProjectService, setup.BookmarkService, setup.BreakpointService, setup.DebugController, HexIDE.Static.RootViewModel!, setup.ToolBoxViewModel, setup.PersonalityService, setup.AddinProjectTemplateService, setup.LanguageSwitchService, setup.Capture);
             var cts = new CancellationTokenSource();
 
             desktop.MainWindow!.Opened += (_, _) =>

@@ -11,6 +11,16 @@ internal static class ServerOptions
     /// node + the dev-gated capabilities, and shows the title-bar suffix).</summary>
     public static bool DeveloperMode { get; private set; }
 
+    /// <summary><c>--capture-lsp</c>: arm the protocol capture for every connection before any of them is
+    /// made, so a conversation is recorded in full from the first handshake.</summary>
+    /// <remarks>
+    /// <b>Not a debug-only flag, unlike <c>--developer-mode</c> beside it.</b> The capture ships in
+    /// distributed builds because its audience is somebody writing a language server against a HexIDE they
+    /// downloaded, so a flag that was inert in Release would put the feature out of reach of exactly the
+    /// people it is for.
+    /// </remarks>
+    public static bool CaptureLsp { get; private set; }
+
     public static void ParseArgs(string[] args)
     {
         for (var i = 0; i < args.Length; i++)
@@ -29,6 +39,10 @@ internal static class ServerOptions
             else if (IsFlag(arg, "developer-mode"))
             {
                 DeveloperMode = true;
+            }
+            else if (IsFlag(arg, "capture-lsp"))
+            {
+                CaptureLsp = true;
             }
             else if (IsFlag(arg, "personality") && i + 1 < args.Length)
             {

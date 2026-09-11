@@ -106,6 +106,15 @@ jobs:
       - name: Build HexIDE.Standalone (Linux)
         run: dotnet build HexIDE.Standalone -f net10.0
 
+      # The configuration nothing else here builds, and the one the protocol capture has to survive.
+      # Release removes the automation server's whole Server/ folder and its AspNetCore framework
+      # reference; the capture ships regardless, because its audience is somebody writing a language
+      # server against a HexIDE they downloaded. A source guard asserts the arrangement
+      # (CaptureShipsWithoutTheServerTests), and this asserts the arrangement still compiles — the two
+      # fail in different ways and neither subsumes the other.
+      - name: Build HexIDE.Desktop in Release (the configuration the server is absent from)
+        run: dotnet build HexIDE.Desktop -f net10.0 -c Release
+
   build-lsp-server:
     runs-on: ubuntu-latest
     defaults:
