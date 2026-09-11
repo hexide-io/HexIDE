@@ -146,6 +146,98 @@ public class ConversationRedactorTests
         redacted.Should().NotContain("quintana").And.NotContain("tools");
     }
 
+    // ── Addresses, which is where this got things wrong ─────────────────────
+    //
+    // Every case below was measured against the merged implementation and every one of the first three
+    // came back misdescribing what had been configured. That is a worse failure than leaking, because a
+    // reader cannot tell a redaction artefact from a configuration mistake — they will go and look for a
+    // `file:` URI nobody ever wrote.
+
+    [Fact]
+    public void AWindowsPipePathDoesNotBecomeAUri()
+    {
+        // Measured: this came back as `file://C:/hx-…/hx-….sock`. A Windows path parses as an absolute
+        // URI, so rebuilding the answer from `Uri`'s parts invented a scheme and flipped the separators.
+        var redacted = Redactor().Endpoint(@"C:\pipe\foo.sock");
+
+        redacted.Should().NotContain("file:", "the configuration never said file:");
+        redacted.Should().NotContain("/", "a path written with backslashes must come back with backslashes");
+        redacted.Should().StartWith(@"C:\", "a drive letter is not somebody's name");
+        redacted.Should().EndWith(".sock").And.NotContain("pipe").And.NotContain("foo");
+    }
+
+    [Fact]
+    public void APortIsNeverInventedForAnAddressThatDidNotNameOne()
+    {
+        // Measured: `ws://host/lsp` came back as `ws://hx-…:80/hx-…`. Uri.Port answers with the scheme's
+        // default when none was written, so the record stated a choice the user had not made.
+        Redactor().Endpoint("ws://host/lsp").Should().NotContain(":80");
+    }
+
+    [Fact]
+    public void AWildcardBindSurvivesBecauseItNamesNothing()
+    {
+        // Measured: both of these were pseudonymised. A wildcard is a material fact about how a server was
+        // reached — it accepted a connection on every interface — and it belongs to nobody.
+        var redactor = Redactor();
+
+        redactor.Endpoint("ws://0.0.0.0:9000/").Should().Be("ws://0.0.0.0:9000/");
+        redactor.Endpoint("ws://[::]:9000/").Should().Be("ws://[::]:9000/");
+    }
+
+    [Fact]
+    public void AUnixSocketPathKeepsItsShape()
+    {
+        // A socket address is written as a path, not a URI. Collapsing it to one word loses the thing a
+        // reader needs: that two servers were reached through the same runtime directory.
+        var redacted = Redactor().Endpoint("/run/user/1000/foo.sock");
+
+        redacted.Should().StartWith("/").And.EndWith(".sock");
+        redacted.Count(c => c == '/').Should().Be(4, "the depth of the path is part of the diagnosis");
+        redacted.Should().NotContain("run").And.NotContain("1000").And.NotContain("foo");
+    }
+
+    [Fact]
+    public void AnIpv6LiteralKeepsItsBrackets()
+    {
+        // The brackets are punctuation the scheme requires, not part of the name, so a pseudonym goes
+        // inside them. Pseudonymising them along with the host produces an address that will not parse.
+        Redactor().Endpoint("ws://[2001:db8::1]:9000/lsp")
+            .Should().MatchRegex(@"^ws://\[hx-[a-z-]+\]:9000/");
+    }
+
+    [Fact]
+    public void CredentialsInAnAddressAreReplacedRatherThanDropped()
+    {
+        // They used to vanish, because Uri.Host does not carry them. Safe, and a lie: the record then
+        // said an address had no credentials when it had.
+        var redacted = Redactor().Endpoint("ws://someone:hunter2@build-07:9000/lsp");
+
+        redacted.Should().NotContain("someone").And.NotContain("hunter2");
+        redacted.Should().Contain("@", "that there were credentials is itself worth reporting");
+    }
+
+    [Fact]
+    public void AQueryStringIsReplacedWholeBecauseATokenLivesThere()
+    {
+        var redacted = Redactor().Endpoint("wss://gate.example.com/lsp?token=sk-live-9f2b");
+
+        redacted.Should().NotContain("sk-live").And.NotContain("token=");
+        redacted.Should().StartWith("wss://").And.Contain("?");
+    }
+
+    [Fact]
+    public void AnAddressForATransportThatDoesNotExistYetIsHandledAnyway()
+    {
+        // TCP is not a transport here today. The redactor is address-shaped rather than scheme-listed, so
+        // it does not need editing when one arrives — asserted, because "it will probably work" is how a
+        // redactor ships a leak on the first day of a new transport.
+        var redactor = Redactor();
+
+        redactor.Endpoint("tcp://127.0.0.1:6005").Should().Be("tcp://127.0.0.1:6005");
+        redactor.Endpoint("tcp://build-07:6005").Should().StartWith("tcp://hx-").And.EndWith(":6005");
+    }
+
     [Fact]
     public void ALoopbackEndpointKeepsItsHost()
     {
