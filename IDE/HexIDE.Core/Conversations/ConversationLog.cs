@@ -237,18 +237,35 @@ public sealed class ConversationLog : IAsyncDisposable
     /// Sends a fence through the queue rather than watching its length. An item can be out of the queue and
     /// still being processed, so a length of zero proves nothing; a fence cannot be reached until
     /// everything written ahead of it has been.
+    ///
+    /// <para>
+    /// <b>The fence waits for room, and this is the one place in the capture that is allowed to.</b> The tap
+    /// never waits — it writes with <c>TryWrite</c> and counts what it could not place, because a language
+    /// service must not be slowed by a diagnostic. A drain is the opposite kind of call: waiting is the
+    /// entire request. An earlier version used <c>TryWrite</c> here too and returned a completed task when
+    /// the queue was full, which meant a caller asking "is everything processed" could be told yes while a
+    /// frame was still in flight — recorded nowhere, counted nowhere, and appearing for all the world like
+    /// a hole in the accounting. It was measured as exactly that: nine hundred and ninety-nine frames of a
+    /// thousand, on a CI runner, against a deliberately tiny queue.
+    /// </para>
     /// </remarks>
-    public Task DrainAsync()
+    public async Task DrainAsync()
     {
         var fence = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        // If the queue is full the fence cannot be placed, and there is nothing sensible to wait for.
-        // Returning is right: this is a diagnostic convenience, and blocking a caller on a saturated
-        // capture would be a worse answer than an early one.
-        return _queue.Writer.TryWrite(new Pending(
-            "", default, default, default, null, null, 0, null, null, fence))
-                ? fence.Task
-                : Task.CompletedTask;
+        try
+        {
+            await _queue.Writer.WriteAsync(new Pending(
+                "", default, default, default, null, null, 0, null, null, fence)).ConfigureAwait(false);
+        }
+        catch (ChannelClosedException)
+        {
+            // The log is being disposed. There is nothing left to drain towards, and dispose releases any
+            // fence it finds still queued, so nobody is left waiting either way.
+            return;
+        }
+
+        await fence.Task.ConfigureAwait(false);
     }
 
     private Connection Of(string connectionId)
