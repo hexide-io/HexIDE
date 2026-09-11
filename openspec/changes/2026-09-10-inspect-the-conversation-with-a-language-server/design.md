@@ -129,11 +129,23 @@ Two cheap riders: deduplicate `didChange` bodies by content hash, since flushes 
 re-send text identical to the change that just went out; and state the true length wherever a frame is
 truncated, a precedent the automation driver already sets.
 
-**All of these limits are configurable.** Global defaults in the application settings file, per-server
-overrides in the language-server configuration file, because a budget is exactly the thing you raise for one
-noisy server and not the rest. Hand-edited values are clamped to a stated floor and ceiling, and a rejected
-value is reported through the configuration-problems channel that already exists and is already rendered.
-An Options page comes later; it is not free, since every label there is a key across thirty language packs.
+**All of these limits are configurable.** Per-server overrides in the language-server configuration file,
+because a budget is exactly the thing you raise for one noisy server and not the rest. Hand-edited values
+are clamped to a stated floor and ceiling, and a corrected value is reported through the
+configuration-problems channel that already exists and is already rendered. An Options page comes later; it
+is not free, since every label there is a key across thirty language packs.
+
+**Global defaults live in that same file rather than in the application settings file, which reverses what
+this record said and is worth explaining.** The requirement above is that a correction reaches somebody, and
+the channel named is the one belonging to the language-server configuration: validated on load, and already
+rendered in the servers window. The settings file has no problems list and nothing that would show one, so a
+mistyped limit there would be clamped in silence — which is the exact failure the reporting exists to
+prevent, and it is worse than either accepting or refusing the value. Moving the global tier once Options
+gains a page is cheap. Shipping a silent clamp is not.
+
+A shared ceiling written inside one server's entry is reported rather than obeyed. One server's
+configuration must not decide what every other server is allowed to cost, and ignoring it quietly would
+leave a user believing they had raised something they had not.
 
 ## Redaction
 
@@ -162,6 +174,37 @@ message count.
 This is the project's **first** redaction primitive. Two truncations exist and both disclaim being
 sanitisation. It belongs in a named, tested component, because a crash reporter, the automation driver and a
 future debug-adapter capture carrying live variable values will all want it.
+
+### How a pseudonym is made
+
+**Words from a fixed pool, permuted per session.** Numbered placeholders were the obvious first answer and
+are the worst possible thing to ask a person to compare: `path-17` and `path-71` look alike, sort adjacent
+and carry no shape. Words are distinguishable at a glance and memorable for exactly as long as a
+session-scoped pseudonym needs to be. That they are faintly ridiculous is load-bearing rather than a joke —
+nobody mistakes `hx-grumpy-toad` for something that was really on the wire.
+
+The pool is a little over a thousand words, sized to exceed the distinct paths in most codebases. Past the
+last word an index is written in base *pool size* and each digit draws a word, so the scheme never wraps
+onto a name already in use and a very large project reads as `hx-toad-grumpy-cat` rather than as a failure.
+
+**The pool's order is public and carries nothing.** Each session draws a full Fisher-Yates permutation from
+the system's cryptographic generator and never writes it anywhere, so the mapping is deterministic while
+the IDE runs and irrecoverable afterwards. A multiply-and-add scramble over the index was considered and
+rejected: it is a permutation, but a linear one, so anybody holding the pool file and two names could
+recover the stride and read off the rest.
+
+**Case is projected, not folded.** The mapping is keyed on the case-folded value and the original's case
+shape is applied to the name, so two spellings of one path come back as the same word capitalised
+differently — visibly the same place, visibly not the same string. Three shapes are representable; a value
+whose casing is none of them takes a suffix rather than colliding with its neighbour, because an ugly name
+is a far smaller problem than a reader believing two strings were one.
+
+**A drive letter and a file extension are kept verbatim.** Neither is somebody's name, and both are
+load-bearing: drive-letter case is the most expensive normalisation defect in this project's record, and
+routing is by extension, so `.cls` against `.frm` is a diagnosis. A prefix marks every pseudonym, chosen
+from characters legal in a URI, a path segment and a shell argument — angle brackets were the first idea
+and were dropped for exactly that reason, since `file:///<toad>/x` is not a URI and an export whose point
+is that it replays would stop replaying.
 
 ## Export
 

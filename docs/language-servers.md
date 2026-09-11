@@ -63,6 +63,7 @@ Comments and trailing commas are allowed — this is a file you edit by hand, no
 | `trace` | no | How much this server should say about its own work: `off` (default), `messages` or `verbose`. It travels in the handshake, so it sets what the server *starts* at; changing it on a running server is a separate thing the IDE does for you. Misspell it and the server still starts, with tracing off and a warning. |
 | `priority` | no | Breaks ties for features that cannot merge two answers, such as formatting and rename. Higher wins. The bundled server sits *below* the default, so your own server wins without you having to know this field exists. |
 | `enabled` | no | `false` switches an entry off entirely — no process, no registration. |
+| `capture` | no | How much of this server's conversation the protocol capture may hold. See *Giving one server a bigger record* below. |
 
 ### Extensions serve; the identifier names
 
@@ -76,6 +77,53 @@ This matters for HexIDE's own forms and modules, which have no file extension on
 recognised as serving them if it declares VB6 source extensions (`.bas`, `.frm`, `.ctl`, `.pag`) **or**
 names the language `vb6` directly. Declaring only `.cls` is not enough, because a `.cls` is equally a
 LaTeX class file and reading that as a claim on VB6 would hand a LaTeX server your project's source.
+
+## Giving one server a bigger record
+
+HexIDE keeps a record of every language-server conversation, and the amount it holds is capped so a long
+session cannot grow without bound. The caps are deliberately uneven-friendly: server traffic is wildly
+uneven, and on an identical editing script one server returned around a hundred times another's bytes,
+almost entirely completion replies. So each connection gets its own budget, and you can raise the one that
+needs it without paying for it everywhere.
+
+Defaults sit at the top of the file; a `capture` block inside a server entry overrides them for that server
+only.
+
+```jsonc
+{
+  "version": 1,
+
+  // Everything not overridden below.
+  "capture": {
+    "frameBytes": 131072          // keep more of each large message
+  },
+
+  "servers": [
+    {
+      "id": "clangd",
+      "extensions": [".c", ".cpp", ".h"],
+      "languageId": "cpp",
+      "transport": "stdio",
+      "command": "clangd",
+
+      // This one is noisy, and only this one.
+      "capture": { "payloadBytesPerConnection": 67108864 }
+    }
+  ]
+}
+```
+
+| Field | Meaning |
+|---|---|
+| `envelopeEntries` | How many messages a connection's timeline remembers. An envelope is method, direction, size and timing — no message content — so this is cheap. |
+| `prologueEntries` | Entries at the start of a connection that are never discarded, so a startup failure can still be explained after a long session. |
+| `payloadBytesPerConnection` | Message bodies retained for one connection, once you have armed it. |
+| `globalPayloadBytes` | The ceiling across every connection together. **Top level only** — written inside a server entry it is ignored, and HexIDE tells you so, because one server's entry must not decide what the others may cost. |
+| `frameBytes` | The most of any single message that is kept, as a head and a tail with the true length recorded. |
+
+**A value out of range is corrected, not refused, and you are told.** Type a payload budget of four
+gigabytes and you get the ceiling, with a line in the servers window naming the field and the value used.
+Nothing here can stop the IDE starting.
 
 ## Letting HexIDE start a pipe server
 

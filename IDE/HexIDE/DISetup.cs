@@ -67,10 +67,33 @@ public partial class DISetup
             .Bind<ITypeLibraryService>().As(Singleton).To<TypeLibraryService>()
             .Bind<IComponentRegistry>().As(Singleton).To<ComponentRegistry>()
             // LSP
+            // The configuration, read exactly once for the session.
+            //
+            // It used to be read inside the router's own factory, which was fine until the capture needed
+            // its limits: the capture is constructed first, so it would have had to read the file a second
+            // time and the two reads could disagree about what the user wrote. One binding, two consumers.
+            // Changes still take effect on restart, so nothing here resolves it later.
+            .Bind<LanguageServerConfigResult>().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<ILspServerLocator>(out var locator);
+                ctx.Inject<ILoggerFactory>(out var loggerFactory);
+
+                var log = loggerFactory.CreateLogger<DISetup>();
+                var defaults = LanguageServerDefaults.For(locator, log);
+
+                return new LanguageServerConfigLoader(
+                        loggerFactory.CreateLogger<LanguageServerConfigLoader>())
+                    .Load(defaults, new LanguageServerCommandStore());
+            })
             // One record for the session, shared by every connection and outliving each of them. A server
             // that dies and is respawned gets a new client and keeps its history, because the history
             // belongs to the connection rather than to whichever process was serving it.
-            .Bind<ConversationLog>().As(Singleton).To(_ => new ConversationLog())
+            .Bind<ConversationLog>().As(Singleton).To(ctx =>
+            {
+                ctx.Inject<LanguageServerConfigResult>(out var configuration);
+                return new ConversationLog(
+                    configuration.CaptureLimits, perConnection: configuration.PerServerCaptureLimits);
+            })
             .Bind<ILspServerLocator>().As(Singleton).To<LspServerLocator>()
             .Bind<ILspWorkspace>().As(Singleton).To<ProjectLspWorkspace>()
             // ILspClient is the ROUTER, not one connection. It implements the same interface a single
@@ -79,22 +102,15 @@ public partial class DISetup
             // is the same object seen from the other side: what is attached, and is it working.
             .Bind<ILspClient>().Bind<ILanguageConnectionRegistry>().As(Singleton).To(ctx =>
             {
-                ctx.Inject<ILspServerLocator>(out var locator);
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
                 ctx.Inject<ILspWorkspace>(out var workspace);
                 ctx.Inject<ConversationLog>(out var capture);
+                ctx.Inject<LanguageServerConfigResult>(out var configuration);
 
                 // The whole of #255 meets here. Defaults are contributed in code, the user's file is
                 // layered over them by id, and the result becomes registrations — so the bundled server is
                 // an ordinary row a user can replace or switch off, not a special case beside the file.
-                //
-                // Read once, here. Changes take effect on restart, so resolving later would only make
-                // "when did this take effect" ambiguous.
                 var log = loggerFactory.CreateLogger<DISetup>();
-                var defaults = LanguageServerDefaults.For(locator, log);
-                var configuration = new LanguageServerConfigLoader(
-                        loggerFactory.CreateLogger<LanguageServerConfigLoader>())
-                    .Load(defaults, new LanguageServerCommandStore());
 
                 foreach (var problem in configuration.Problems)
                     log.LogWarning("Language server configuration: {Message}", problem.Message);

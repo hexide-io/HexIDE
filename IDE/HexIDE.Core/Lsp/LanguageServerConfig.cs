@@ -18,6 +18,75 @@ public sealed class LanguageServerConfigFile
 
     [JsonPropertyName("servers")]
     public LanguageServerEntry[]? Servers { get; set; }
+
+    /// <summary>
+    /// How much the protocol capture may hold, for every connection that does not override it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Here rather than in the application settings file, which is a deviation from the design record
+    /// and a deliberate one.</b> The requirement is that a rejected value is reported through the
+    /// configuration-problems channel — and that channel belongs to this file, is validated on load, and is
+    /// already rendered in the Language &amp; Debug Servers window. The settings file has no problems list
+    /// and nothing that would show one, so a mistyped limit there would be silently clamped, which is the
+    /// exact failure the requirement exists to prevent. Moving the global tier once an Options page exists
+    /// is cheap; shipping a silent clamp is not.
+    /// </remarks>
+    [JsonPropertyName("capture")]
+    public CaptureLimitsEntry? Capture { get; set; }
+}
+
+/// <summary>
+/// Capture limits as written by hand: every field optional, absent meaning "leave this one alone".
+/// </summary>
+/// <remarks>
+/// Nullable throughout for the same reason every other property in this file is — a field the user did not
+/// write must not be distinguishable from one they wrote the default value into, because layering an
+/// override over a default is the whole mechanism.
+/// </remarks>
+public sealed class CaptureLimitsEntry
+{
+    [JsonPropertyName("envelopeEntries")]
+    public int? EnvelopeEntries { get; set; }
+
+    [JsonPropertyName("prologueEntries")]
+    public int? PrologueEntries { get; set; }
+
+    [JsonPropertyName("payloadBytesPerConnection")]
+    public long? PayloadBytesPerConnection { get; set; }
+
+    /// <summary>The ceiling across every connection together. Meaningful only at file level.</summary>
+    /// <remarks>
+    /// Written inside a server entry it is reported as an ignored field rather than quietly obeyed: a
+    /// per-server entry raising a global ceiling would let one server's configuration decide what every
+    /// other server is allowed to cost.
+    /// </remarks>
+    [JsonPropertyName("globalPayloadBytes")]
+    public long? GlobalPayloadBytes { get; set; }
+
+    [JsonPropertyName("frameBytes")]
+    public int? FrameBytes { get; set; }
+
+    /// <summary>These values layered over a baseline, leaving whatever was not written alone.</summary>
+    /// <param name="includeGlobalCeiling">
+    /// False where these came from a single server's entry. The ceiling is shared, so reading it from one
+    /// entry would let that server decide what every other server is allowed to cost.
+    /// </param>
+    public HexIDE.Conversations.CaptureLimits Over(
+        HexIDE.Conversations.CaptureLimits baseline, bool includeGlobalCeiling = true) =>
+        baseline with
+        {
+            EnvelopeEntries = EnvelopeEntries ?? baseline.EnvelopeEntries,
+            PrologueEntries = PrologueEntries ?? baseline.PrologueEntries,
+            PayloadBytesPerConnection = PayloadBytesPerConnection ?? baseline.PayloadBytesPerConnection,
+            GlobalPayloadBytes = (includeGlobalCeiling ? GlobalPayloadBytes : null)
+                                 ?? baseline.GlobalPayloadBytes,
+            FrameBytes = FrameBytes ?? baseline.FrameBytes,
+        };
+
+    /// <summary>Whether anything was written at all.</summary>
+    public bool IsEmpty =>
+        EnvelopeEntries is null && PrologueEntries is null && PayloadBytesPerConnection is null
+        && GlobalPayloadBytes is null && FrameBytes is null;
 }
 
 /// <summary>
@@ -108,6 +177,18 @@ public sealed class LanguageServerEntry
     /// <summary>Absent means on. <c>false</c> keeps the entry in the file while creating no client.</summary>
     [JsonPropertyName("enabled")]
     public bool? Enabled { get; set; }
+
+    /// <summary>
+    /// How much the capture may hold for this server, over the file's own defaults.
+    /// </summary>
+    /// <remarks>
+    /// Per server because a budget is exactly the thing raised for one noisy backend and not the rest.
+    /// Measured on an identical twenty-edit script, one server returned roughly a hundred times another's
+    /// inbound bytes — almost entirely completion replies — so a single number for all of them either
+    /// starves the quiet server's history or pays for the noisy one everywhere.
+    /// </remarks>
+    [JsonPropertyName("capture")]
+    public CaptureLimitsEntry? Capture { get; set; }
 
     /// <summary>
     /// Anything the IDE did not recognise, captured rather than dropped.

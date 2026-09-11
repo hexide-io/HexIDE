@@ -69,15 +69,44 @@ public sealed class ConversationLog : IAsyncDisposable
     private readonly Channel<Pending> _queue;
     private readonly Task _pump;
     private readonly Dictionary<string, Connection> _connections = [];
+    private readonly Dictionary<string, CaptureLimits>? _perConnection;
     private readonly object _connectionsLock = new();
 
     private long _sequence;
     private long _queueDropped;
 
-    public ConversationLog(CaptureLimits? limits = null, TimeProvider? clock = null, int queueDepth = 4096)
+    /// <param name="limits">What a connection may hold when it has not overridden anything.</param>
+    /// <param name="perConnection">
+    /// Overrides by connection id, for the servers whose configuration asked for one.
+    /// </param>
+    /// <remarks>
+    /// <b>Per-connection budgets rather than one pool, measured rather than assumed.</b> Over an identical
+    /// twenty-edit script one server returned roughly a hundred times another's inbound bytes, almost
+    /// entirely completion replies. Under a single budget the noisy server silently evicts the quiet one's
+    /// history, and a single drop count reports a loss nobody can attribute to anything.
+    ///
+    /// <para>
+    /// Overrides are clamped here as well as where they were read. Defence in depth rather than
+    /// duplication: this constructor is public and a caller who never went near the configuration file can
+    /// still not hand it a payload budget above the ceiling. The configuration path is the one that
+    /// <em>reports</em> a correction, because that is where a person wrote the value.
+    /// </para>
+    /// </remarks>
+    public ConversationLog(
+        CaptureLimits? limits = null,
+        TimeProvider? clock = null,
+        int queueDepth = 4096,
+        IReadOnlyDictionary<string, CaptureLimits>? perConnection = null)
     {
         _limits = (limits ?? CaptureLimits.Default).Clamped(out var adjustments);
         Adjustments = adjustments;
+
+        _perConnection = perConnection is null
+            ? null
+            : perConnection.ToDictionary(
+                pair => pair.Key,
+                pair => pair.Value.Clamped(out _),
+                StringComparer.Ordinal);
         _clock = clock ?? TimeProvider.System;
         _budget = new PayloadBudget(_limits.GlobalPayloadBytes);
 
@@ -104,6 +133,17 @@ public sealed class ConversationLog : IAsyncDisposable
     public long QueueDropped => Interlocked.Read(ref _queueDropped);
 
     public CaptureLimits Limits => _limits;
+
+    /// <summary>
+    /// What one connection may hold: its own override where it has one, the shared default otherwise.
+    /// </summary>
+    /// <remarks>
+    /// Public because an export has to state the limits a record was taken under. A reader looking at a
+    /// short timeline needs to know whether it is short because little happened or because the budget for
+    /// that server was small, and those two are indistinguishable without this.
+    /// </remarks>
+    public CaptureLimits LimitsFor(string connectionId) =>
+        _perConnection is not null && _perConnection.TryGetValue(connectionId, out var own) ? own : _limits;
 
     /// <summary>Whether bodies are being retained for a connection.</summary>
     public bool IsArmed(string connectionId) => Of(connectionId).Armed;
@@ -273,7 +313,7 @@ public sealed class ConversationLog : IAsyncDisposable
         lock (_connectionsLock)
         {
             if (_connections.TryGetValue(connectionId, out var existing)) return existing;
-            var created = new Connection(_limits, _budget);
+            var created = new Connection(LimitsFor(connectionId), _budget);
             _connections[connectionId] = created;
             return created;
         }

@@ -1,3 +1,4 @@
+using HexIDE.Conversations;
 using HexIDE.IDE;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -7,9 +8,20 @@ using HexIDE.Lsp.Messages;
 namespace HexIDE.Lsp;
 
 /// <summary>What the configuration came to, and everything wrong with it.</summary>
+/// <param name="Entries">The servers, defaults with the user's file layered over them.</param>
+/// <param name="Problems">Everything wrong with the file, including any limit that had to be clamped.</param>
+/// <param name="CaptureLimits">
+/// What the protocol capture may hold for a connection that did not override it. Already clamped.
+/// </param>
+/// <param name="PerServerCaptureLimits">
+/// Overrides by server id, for the servers that wrote one. Already clamped, and absent from this map is
+/// the ordinary case rather than a missing value.
+/// </param>
 public sealed record LanguageServerConfigResult(
     IReadOnlyList<LanguageServerEntry> Entries,
-    IReadOnlyList<LanguageServerConfigProblem> Problems);
+    IReadOnlyList<LanguageServerConfigProblem> Problems,
+    CaptureLimits CaptureLimits,
+    IReadOnlyDictionary<string, CaptureLimits> PerServerCaptureLimits);
 
 /// <summary>
 /// Reads <c>%AppData%/HexIDE/lsp-servers.json</c> and layers it over the entries HexIDE contributes itself.
@@ -64,7 +76,8 @@ public sealed class LanguageServerConfigLoader
         IReadOnlyList<LanguageServerEntry> defaults, LanguageServerCommandStore? seen = null)
     {
         var problems = new List<LanguageServerConfigProblem>();
-        var user = ReadUserEntries(problems);
+        var file = ReadUserFile(problems);
+        var user = file?.Servers ?? [];
 
         // Defaults first, then user entries replace by id and new ones append. Ordinal because an id is an
         // identifier, not prose — two ids differing only by case are two servers.
@@ -82,7 +95,67 @@ public sealed class LanguageServerConfigLoader
 
         var entries = order.Select(id => byId[id]).ToList();
         AnnounceUnseenCommands(entries, seen, problems);   // instance: it logs
-        return new LanguageServerConfigResult(entries, problems);
+
+        var limits = ReadCaptureLimits(file?.Capture, null, CaptureLimits.Default, problems);
+
+        var perServer = new Dictionary<string, CaptureLimits>(StringComparer.Ordinal);
+
+        foreach (var id in order)
+        {
+            var entry = byId[id];
+            if (entry.Capture is not { IsEmpty: false } override_) continue;
+
+            if (override_.GlobalPayloadBytes is not null)
+            {
+                // Reported rather than obeyed. One server's entry must not decide what every other server
+                // is allowed to cost, and silently ignoring it would leave a user believing they had
+                // raised a ceiling they had not.
+                problems.Add(new LanguageServerConfigProblem(
+                    id,
+                    "capture.globalPayloadBytes is a ceiling across every connection, so it is only read "
+                  + "from the top level of the file. The value on this entry has been ignored.",
+                    false,
+                    LanguageServerConfigProblemKind.IgnoredField));
+            }
+
+            perServer[id] = ReadCaptureLimits(override_, id, limits, problems, includeGlobalCeiling: false);
+        }
+
+        return new LanguageServerConfigResult(entries, problems, limits, perServer);
+    }
+
+    /// <summary>
+    /// One tier of capture limits, layered over a baseline and forced into a range the capture can honour.
+    /// </summary>
+    /// <remarks>
+    /// <b>Clamped and reported, never rejected.</b> These arrive from a file somebody edits by hand, so a
+    /// zero, a negative, or a number with three extra digits are all ordinary typing accidents — and
+    /// refusing the whole configuration over one of them would cost a working capture. Silently accepting
+    /// a two-gigabyte payload budget would cost the machine. So the value is bounded and the correction
+    /// goes into the problems list, which is already rendered: a clamp nobody is told about is the failure
+    /// this reporting exists to prevent.
+    /// </remarks>
+    private static CaptureLimits ReadCaptureLimits(
+        CaptureLimitsEntry? written,
+        string? entryId,
+        CaptureLimits baseline,
+        List<LanguageServerConfigProblem> problems,
+        bool includeGlobalCeiling = true)
+    {
+        var requested = written?.Over(baseline, includeGlobalCeiling) ?? baseline;
+        var clamped = requested.Clamped(out var adjustments);
+
+        foreach (var adjustment in adjustments)
+        {
+            problems.Add(new LanguageServerConfigProblem(
+                entryId,
+                entryId is null
+                    ? $"capture: {adjustment}"
+                    : $"capture (this server): {adjustment}",
+                false));
+        }
+
+        return clamped;
     }
 
     /// <summary>
@@ -177,14 +250,22 @@ public sealed class LanguageServerConfigLoader
             : $"{entry.Command.Trim()} {entry.Arguments.Trim()}";
     }
 
-    private IReadOnlyList<LanguageServerEntry> ReadUserEntries(List<LanguageServerConfigProblem> problems)
+    /// <summary>
+    /// The user's file, or null when there is nothing usable to read.
+    /// </summary>
+    /// <remarks>
+    /// The whole file rather than only its servers, because the capture limits live at its top level and a
+    /// method that returned entries alone would have to read it twice or hand them out separately — either
+    /// of which lets the two halves disagree about which file they came from.
+    /// </remarks>
+    private LanguageServerConfigFile? ReadUserFile(List<LanguageServerConfigProblem> problems)
     {
         try
         {
             if (!File.Exists(_filePath))
             {
                 _logger.LogDebug("No language server configuration at {Path}; using defaults", _filePath);
-                return [];
+                return null;
             }
 
             // Comments and trailing commas are allowed in this one file. It is hand-edited, it is the file
@@ -201,7 +282,7 @@ public sealed class LanguageServerConfigLoader
             if (file is null)
             {
                 problems.Add(new LanguageServerConfigProblem(null, "The configuration file is empty.", true));
-                return [];
+                return null;
             }
 
             if (file.Version > SupportedVersion)
@@ -214,10 +295,10 @@ public sealed class LanguageServerConfigLoader
                     $"The configuration declares version {file.Version}, but this HexIDE understands "
                   + $"{SupportedVersion}. It has been ignored; the built-in servers are in use.",
                     true));
-                return [];
+                return null;
             }
 
-            return file.Servers ?? [];
+            return file;
         }
         catch (Exception ex)
         {
@@ -225,7 +306,7 @@ public sealed class LanguageServerConfigLoader
             _logger.LogWarning(ex, "Could not read language server configuration at {Path}", _filePath);
             problems.Add(new LanguageServerConfigProblem(
                 null, $"The configuration file could not be read: {ex.Message}", true));
-            return [];
+            return null;
         }
     }
 

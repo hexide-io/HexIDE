@@ -25,9 +25,9 @@ automation before any window exists, which is how everything else here has been 
 - [x] 2.10 Declined requests, and capabilities advertised but not consumed, recorded as never-sent entries
 - [x] 2.11 A per-transport note of what cannot be observed
 - [x] 2.12 Drop counts, per connection, exposed rather than inferred
-- [ ] 2.13 A named, tested redaction component: consistent pseudonymisation over root URI, workspace folders, `file:` document URIs and server launch configuration
-- [ ] 2.14 Export as one JSON-RPC message per line plus a manifest
-- [ ] 2.15 Limits read from configuration, clamped, with a rejected value reported through the existing configuration-problems channel
+- [x] 2.13 A named, tested redaction component: consistent pseudonymisation over root URI, workspace folders, `file:` document URIs and server launch configuration
+- [x] 2.14 Export as one JSON-RPC message per line plus a manifest
+- [x] 2.15 Limits read from configuration, clamped, with a rejected value reported through the existing configuration-problems channel
 - [x] 2.16 Capture must never block or reorder the RPC — assert that, do not assume it
 
 ## 3. The automation surface

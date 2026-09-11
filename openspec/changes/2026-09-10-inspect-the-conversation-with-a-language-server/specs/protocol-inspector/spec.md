@@ -162,7 +162,14 @@ absence.
 
 ### Requirement: A full record SHALL discard the oldest and say that it did
 When a limit is reached the IDE SHALL discard the oldest material rather than stop recording, SHALL report
-how much was discarded, and SHALL account for it per connection. Limits SHALL be configurable.
+how much was discarded, and SHALL account for it per connection.
+
+Limits SHALL be configurable, globally and per server, and a configured value outside the range the capture
+can honour SHALL be clamped rather than refused — with the correction reported through a channel the
+developer sees. A limit arrives from a file written by hand, so a zero or three extra digits are ordinary
+typing accidents: refusing the whole configuration over one would cost a working capture, and accepting a
+budget the machine does not have would cost the machine. A clamp nobody is told about is the worst of the
+three, because the capture then behaves in a way its own configuration does not explain.
 
 Stopping leaves the developer holding the least interesting part of a long session. Discarding silently is
 worse than either, because a truncated record reads exactly like a complete one, which is the failure mode
@@ -179,3 +186,11 @@ evicts the quiet one's history and a single count reports a loss nobody can attr
 #### Scenario: One noisy server beside a quiet one
 - **WHEN** one server produces far more traffic than another
 - **THEN** the quiet server's record is not evicted to make room for it
+
+#### Scenario: A limit written outside the range the capture can honour
+- **WHEN** a configured limit is below the floor or above the ceiling
+- **THEN** it is clamped, the capture runs, and the correction is reported where the developer will see it
+
+#### Scenario: A shared ceiling written against one server
+- **WHEN** an entry for a single server sets a limit that governs every connection together
+- **THEN** it is not applied, and the developer is told it was not
