@@ -2,6 +2,8 @@ using Microsoft.Extensions.Logging;
 
 using HexIDE.Lsp.Messages;
 
+using HexIDE.Conversations;
+
 namespace HexIDE.Lsp;
 
 /// <summary>
@@ -20,7 +22,10 @@ namespace HexIDE.Lsp;
 /// workspace moves. Handing out one instance would give the second client a disposed transport.
 /// </para>
 /// </summary>
-public sealed class LanguageServerRegistrationFactory(ILoggerFactory loggerFactory, ILspWorkspace? workspace = null)
+public sealed class LanguageServerRegistrationFactory(
+    ILoggerFactory loggerFactory,
+    ILspWorkspace? workspace = null,
+    ConversationLog? capture = null)
 {
     /// <summary>
     /// The registrations for these entries, skipping the ones that are switched off.
@@ -54,7 +59,10 @@ public sealed class LanguageServerRegistrationFactory(ILoggerFactory loggerFacto
                 LanguageId: languageId,
                 CreateClient: () => new VBLspClient(
                     transport.Create(), loggerFactory.CreateLogger<VBLspClient>(), languageId, workspace,
-                    trace: trace),
+                    trace: trace,
+                    // The id, not the language: two servers can serve one language, and a record that
+                    // could not tell them apart would be worse than no record.
+                    capture: capture, connectionId: id),
                 Priority: entry.Priority ?? 0,
                 Transport: transport.Kind,
                 Endpoint: transport.Endpoint,

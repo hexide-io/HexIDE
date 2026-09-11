@@ -21,8 +21,8 @@ automation before any window exists, which is how everything else here has been 
 - [x] 2.6 Request and response paired by id, with latency recorded
 - [x] 2.7 Handshake payloads captured unconditionally; everything after, only when armed
 - [ ] 2.8 Arming and trace level held per connection id, surviving a respawn, reset by an IDE restart
-- [ ] 2.9 Process lifecycle, standard error and exit code in the same record, attributed to the server that produced them
-- [ ] 2.10 Declined requests, and capabilities advertised but not consumed, recorded as never-sent entries
+- [x] 2.9 Process lifecycle, standard error and exit code in the same record, attributed to the server that produced them
+- [x] 2.10 Declined requests, and capabilities advertised but not consumed, recorded as never-sent entries
 - [ ] 2.11 A per-transport note of what cannot be observed
 - [x] 2.12 Drop counts, per connection, exposed rather than inferred
 - [ ] 2.13 A named, tested redaction component: consistent pseudonymisation over root URI, workspace folders, `file:` document URIs and server launch configuration
