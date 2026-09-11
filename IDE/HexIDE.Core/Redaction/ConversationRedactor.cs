@@ -189,23 +189,121 @@ public sealed partial class ConversationRedactor
         return result;
     }
 
-    /// <summary>A WebSocket or HTTP endpoint: scheme and port kept, host and path rewritten.</summary>
+    /// <summary>
+    /// The address a server was reached at: scheme and port kept as written, host and path rewritten.
+    /// </summary>
     /// <remarks>
-    /// The port is a protocol detail worth keeping. The host is not: an internal hostname is one of the
-    /// two things the design singles out as living in user-authored server configuration.
+    /// <b>Textual, and deliberately not built from a parsed <see cref="System.Uri"/>.</b> An earlier
+    /// version handed the whole string to <c>Uri.TryCreate</c> and rebuilt the result from its parts, which
+    /// produced two misrepresentations rather than a leak — and a diagnostic record that misdescribes what
+    /// was configured is worse than one that says less.
+    ///
+    /// <list type="bullet">
+    /// <item><description>
+    /// <c>C:\pipe\foo.sock</c> came back as <c>file://C:/…/….sock</c>. A Windows path parses as an
+    /// absolute URI, so the redactor invented a scheme the configuration never had and flipped the
+    /// separators on the way. Measured, not imagined.
+    /// </description></item>
+    /// <item><description>
+    /// <c>ws://host/lsp</c> came back as <c>ws://…:80/…</c>. <c>Uri.Port</c> answers with the scheme's
+    /// default when none was written, so the record stated a port the user had not chosen.
+    /// </description></item>
+    /// </list>
+    ///
+    /// <para>
+    /// So the authority is located in the original text and only the parts that name something are
+    /// replaced. Everything else — the scheme's spelling, the presence or absence of a port, the
+    /// separators — survives exactly as it was typed.
+    /// </para>
     /// </remarks>
     public string Endpoint(string endpoint)
     {
         if (!IsPseudonymising || endpoint.Length == 0) return endpoint;
-        if (!System.Uri.TryCreate(endpoint, UriKind.Absolute, out var parsed)) return _names.For(endpoint);
 
-        // Loopback names nothing, and hiding it would make every local endpoint look remote — which is a
-        // material fact about how a server was reached, not a detail.
-        var host = parsed.IsLoopback ? parsed.Host : _names.For(parsed.Host);
-        var port = parsed.Port < 0 ? string.Empty : $":{parsed.Port}";
-        var path = parsed.AbsolutePath == "/" ? string.Empty : LocalPath(parsed.AbsolutePath);
+        var mark = endpoint.IndexOf("://", StringComparison.Ordinal);
+        if (mark < 0)
+        {
+            // Not a URI at all. A Unix socket address and a Windows pipe path are both written as paths,
+            // and going through the path rule keeps their depth and their separators instead of collapsing
+            // the whole address to one word.
+            return LocalPath(endpoint);
+        }
 
-        return $"{parsed.Scheme}://{host}{port}{path}";
+        var authorityStart = mark + 3;
+        var authorityEnd = endpoint.IndexOfAny(['/', '?', '#'], authorityStart);
+        var authority = authorityEnd < 0 ? endpoint[authorityStart..] : endpoint[authorityStart..authorityEnd];
+        var tail = authorityEnd < 0 ? string.Empty : endpoint[authorityEnd..];
+
+        return endpoint[..authorityStart] + Authority(authority) + Tail(tail);
+    }
+
+    /// <summary>Userinfo and host replaced; the port left exactly as written, or absent as written.</summary>
+    private string Authority(string authority)
+    {
+        var at = authority.LastIndexOf('@');
+        var credentials = at < 0 ? string.Empty : _names.For(authority[..at]) + "@";
+        var hostAndPort = at < 0 ? authority : authority[(at + 1)..];
+
+        // A port is found after the host, so an IPv6 literal's own colons have to be stepped over first.
+        var closing = hostAndPort.LastIndexOf(']');
+        var colon = hostAndPort.LastIndexOf(':');
+        var hasPort = colon > closing;
+
+        var host = hasPort ? hostAndPort[..colon] : hostAndPort;
+        var port = hasPort ? hostAndPort[colon..] : string.Empty;
+
+        return credentials + Host(host) + port;
+    }
+
+    /// <summary>A host, unless it is an address that names nothing and is therefore worth keeping.</summary>
+    /// <remarks>
+    /// Loopback and a wildcard bind both survive. Hiding loopback would make every local server look
+    /// remote, and a wildcard is a material fact about how a server was reached — that it accepted a
+    /// connection on every interface — rather than a name belonging to anybody.
+    /// </remarks>
+    private string Host(string host)
+    {
+        if (host.Length == 0) return host;
+
+        var bare = host.StartsWith('[') && host.EndsWith(']') ? host[1..^1] : host;
+
+        if (bare is "0.0.0.0" or "::" or "*"
+            || bare.Equals("localhost", StringComparison.OrdinalIgnoreCase))
+        {
+            return host;
+        }
+
+        if (System.Net.IPAddress.TryParse(bare, out var address)
+            && (System.Net.IPAddress.IsLoopback(address)
+                || address.Equals(System.Net.IPAddress.Any)
+                || address.Equals(System.Net.IPAddress.IPv6Any)))
+        {
+            return host;
+        }
+
+        // The brackets are punctuation the scheme requires, not part of the name, so they are put back
+        // around the pseudonym rather than pseudonymised with it.
+        return host.StartsWith('[') && host.EndsWith(']') ? $"[{_names.For(bare)}]" : _names.For(host);
+    }
+
+    /// <summary>
+    /// The path, and a query or fragment as one opaque value each.
+    /// </summary>
+    /// <remarks>
+    /// A path has structure worth keeping. A query does not, and it is a plausible place for a token, so it
+    /// is replaced whole for the same reason a launch argument is.
+    /// </remarks>
+    private string Tail(string tail)
+    {
+        if (tail.Length == 0) return tail;
+
+        var cut = tail.IndexOfAny(['?', '#']);
+        var path = cut < 0 ? tail : tail[..cut];
+        var query = cut < 0 ? string.Empty : tail[cut..];
+
+        var rewritten = path is "" or "/" ? path : LocalPath(path);
+
+        return query.Length == 0 ? rewritten : rewritten + query[0] + _names.For(query[1..]);
     }
 
     /// <summary>A named pipe, replaced whole.</summary>

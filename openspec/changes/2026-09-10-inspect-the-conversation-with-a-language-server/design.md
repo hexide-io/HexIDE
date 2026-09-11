@@ -199,6 +199,20 @@ differently — visibly the same place, visibly not the same string. Three shape
 whose casing is none of them takes a suffix rather than colliding with its neighbour, because an ugly name
 is a far smaller problem than a reader believing two strings were one.
 
+**An address is rewritten in place, never rebuilt from a parsed URI.** Measured after the fact, and worth
+recording because it was wrong in the first implementation: handing the whole string to a URI parser and
+reassembling the answer from its parts produced two misdescriptions rather than a leak. A Windows pipe path
+parses as an absolute URI, so it came back as a `file:` URI nobody had written, with its separators flipped;
+and a URI with no port came back carrying the scheme's default, stating a choice the user had not made. A
+diagnostic record that misdescribes what was configured is worse than one that says less, because a reader
+cannot tell the redaction from a configuration mistake. So only the parts that name something are replaced,
+and the scheme's spelling, the presence or absence of a port and the separators survive as typed.
+
+A host that names nothing survives too: loopback, because hiding it would make every local server look
+remote, and a wildcard bind, because accepting a connection on every interface is a material fact about how
+a server was reached rather than anybody's name. Credentials in an address are replaced rather than dropped
+— the parsed form discarded them silently, which is safe and is also a record claiming there were none.
+
 **A drive letter and a file extension are kept verbatim.** Neither is somebody's name, and both are
 load-bearing: drive-letter case is the most expensive normalisation defect in this project's record, and
 routing is by extension, so `.cls` against `.frm` is a diagnosis. A prefix marks every pseudonym, chosen
