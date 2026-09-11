@@ -646,11 +646,11 @@
     "Str.FindReplace.Msg.TitleFind": "Find",
     "Str.FindReplace.Msg.TitleReplace": "Replace",
     "Str.FindReplace.Msg.ScopeCurrentModule": "Current Module",
-    "Str.FindReplace.Msg.ScopeCurrentProject": "Current Project",
     "Str.FindReplace.Msg.ScopeAllOpenDocuments": "All Open Documents",
     "Str.FindReplace.Msg.NotFound": "The search text '{0}' was not found.",
     "Str.FindReplace.Msg.ReplacementsMade": "{0} replacement(s) made.",
     "Str.FindReplace.Msg.InvalidRegex": "Invalid regular expression pattern.",
+    "Str.FindReplace.Msg.NothingToSearch": "There is nothing here for Find to search. Find works in code windows and in text files the project carries.",
 
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE was not found. Install VB6 in the default location or set the VB6_EXE environment variable.",
     "Str.Vb6Toolchain.BuildFailedTitle": "Build Failed",

@@ -114,11 +114,11 @@
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ProjectPropertiesCommand}"
                               ExecutingCommand="{CompiledBinding ProjectPropertiesCommand}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.FindCommand}"
-                              ExecutingCommand="{CompiledBinding FindInCode}" />
+                              ExecutingCommand="{CompiledBinding FindInCodeCommand}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.FindNextCommand}"
-                              ExecutingCommand="{CompiledBinding FindNextInCode}" />
+                              ExecutingCommand="{CompiledBinding FindNextInCodeCommand}" />
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ReplaceCommand}"
-                              ExecutingCommand="{CompiledBinding ReplaceInCode}" />
+                              ExecutingCommand="{CompiledBinding ReplaceInCodeCommand}" />
     </input:CommandManager.CommandBindings>
     <Panel HorizontalAlignment="Left" VerticalAlignment="Top">
         <DockPanel>

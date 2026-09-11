@@ -452,4 +452,44 @@ size rather than clipped to the viewport, which would also make long content dif
 
 ---
 
+## take_snapshot of the IDE fails while a menu is open, and the default capture picks a modeless dialog
+
+**Symptom.** Two halves of one gap, both hit while verifying that Edit ▸ Find greys out on a document with
+nothing to search (hexide-io/HexIDE#363). With the Edit menu expanded, `take_snapshot(window: "ide")`
+returns `An error occurred invoking 'take_snapshot'` — no path, no detail. Plain `take_snapshot()` succeeds
+but captures the modeless **Find** dialog instead, because a dialog is preferred over the main window and a
+menu popup is apparently neither.
+
+**Consequence.** A greyed-out menu item is the whole of the feedback for a disabled command, and it is the
+one thing that cannot be photographed. Both routes fail in a way that looks like a broken tool rather than
+an unsupported surface.
+
+**Workaround used.** `inspect_element` on the menu item reports `isEnabled: false`, and
+`dump_visual_tree(root: ...Edit/Pane, interactiveOnly: false)` gives the whole menu's enabled states in one
+call. That is a stronger assertion than a pixel diff, so nothing was lost here — but it means the *rendering*
+of the disabled state (does it actually look greyed?) is unverified.
+
+**Suggested fix.** Treat an open menu popup as a capturable window, and let `window` take a popup or
+overlay selector. Failing that, return a real error message saying the surface cannot be captured while a
+popup is open, rather than a bare "an error occurred".
+
+## shutdown_ide can kill the MCP server and leave the IDE running
+
+**Symptom.** `shutdown_ide` replied `Unable to connect. Is the computer able to access the url?`. The
+process was still alive afterwards with its window intact (`MainWindowTitle` unchanged), but `/health` now
+answered `connection actively refused` — the web host had gone down while the application had not.
+
+**Consequence.** The documented recovery for a failed shutdown is to call the tool again, and there is no
+tool left to call. Worse, the state reads as "the IDE is gone" from the automation side and "the IDE is
+fine" from the desktop, so the next build fails on a file lock for a process the agent believes it closed.
+
+**Workaround used.** `Stop-Process -Name HexIDE.Desktop -Force`, then relaunch — already the documented
+fallback for an MCP disconnect, but reached here *because of* the shutdown rather than before it.
+
+**Suggested fix.** Send the reply before tearing the host down (or stop the host last), so the caller gets
+the confirmation the tool promises. Either way, do not leave a window up with no server behind it: if the
+shutdown cannot complete, keep the server alive so the next call can say why.
+
+---
+
 ---

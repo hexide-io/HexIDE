@@ -853,6 +853,13 @@ public partial class MainViewViewModel : ObservableObject
             () => AddFileAsync().ListenErrors(),
             () => projectManager.StartupProject != null);
 
+        bool CanSearchActiveDocument() =>
+            documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.ISearchableDocument;
+
+        FindInCodeCommand = new DelegateCommand(findReplaceService.ShowFind, CanSearchActiveDocument);
+        ReplaceInCodeCommand = new DelegateCommand(findReplaceService.ShowReplace, CanSearchActiveDocument);
+        FindNextInCodeCommand = new DelegateCommand(findReplaceService.FindNext, CanSearchActiveDocument);
+
         FocusedProjectUtil.ObservePropertyChanged(x => x.FocusedOrStartupProject)
             .Subscribe(_ =>
             {
@@ -915,6 +922,12 @@ public partial class MainViewViewModel : ObservableObject
                     _activeDesigner.UndoStack.Changed += _activeDesignerUndoHandler;
                 }
                 UpdateUndoHeaders();
+
+                // Whether Find has anything to search is a property of the active document, so this is
+                // the only moment at which the answer can change.
+                FindInCodeCommand.RaiseCanExecutedChanged();
+                ReplaceInCodeCommand.RaiseCanExecutedChanged();
+                FindNextInCodeCommand.RaiseCanExecutedChanged();
             });
 
         // The Save/Remove "<form>" headers depend on the focused form, not just the project.
@@ -1000,11 +1013,29 @@ public partial class MainViewViewModel : ObservableObject
         await projectService.OpenProject(path);
     }
 
-    public void FindInCode() => findReplaceService.ShowFind();
+    /// <summary>
+    /// Edit ▸ Find, Edit ▸ Replace and F3 — enabled only while a document Find can actually search is
+    /// active.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Commands rather than the plain methods these were, purely so they can be <em>disabled</em>. VB6
+    /// greyed Find out when no code window was active, and that is the fidelity-correct answer for the
+    /// form designer, the Object Browser, the Translation Editor and the Language &amp; Debug Servers
+    /// document alike: better than offering a dialog that opens, accepts a search term and does nothing
+    /// with it (hexide-io/HexIDE#363).
+    /// </para>
+    /// <para>
+    /// Not the whole answer, because the dialog is modeless: one opened over a code window survives a
+    /// switch to a tab that has no text, and its own buttons stay live. That path is covered inside
+    /// <c>FindReplaceViewModel</c>, which says so rather than returning.
+    /// </para>
+    /// </remarks>
+    public DelegateCommand FindInCodeCommand { get; }
 
-    public void ReplaceInCode() => findReplaceService.ShowReplace();
+    public DelegateCommand ReplaceInCodeCommand { get; }
 
-    public void FindNextInCode() => findReplaceService.FindNext();
+    public DelegateCommand FindNextInCodeCommand { get; }
 
     public DelegateCommand MakeProjectCommand { get; }
 
