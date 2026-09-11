@@ -32,6 +32,18 @@ public sealed class WebSocketLspTransport : ILspTransport
     /// <summary>Why the last connect attempt failed, in this transport's words. See ILspTransport.</summary>
     public string? LastFailure { get; private set; }
 
+    /// <summary>
+    /// The whole process half, and the framing with it.
+    /// </summary>
+    /// <remarks>
+    /// There is no child process here and no byte stream beneath the messages — the socket carries message
+    /// boundaries itself, so there are no length headers to read even in principle. This is the transport
+    /// where a record is most obviously partial, and least obviously so to a reader who is not told.
+    /// </remarks>
+    public string? Unobservable =>
+        "This server is reached over a network socket, so it has no process here: no start, no exit code, "
+        + "and no standard error. Messages are captured in full.";
+
     public bool CanReconnect => true;
 
     // A WebSocket drop is detected via JsonRpc.Disconnected (StreamJsonRpc owns the receive loop),

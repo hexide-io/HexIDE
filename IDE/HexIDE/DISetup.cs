@@ -1,3 +1,4 @@
+using HexIDE.Conversations;
 using System;
 using Pure.DI;
 using System.Diagnostics;
@@ -66,6 +67,10 @@ public partial class DISetup
             .Bind<ITypeLibraryService>().As(Singleton).To<TypeLibraryService>()
             .Bind<IComponentRegistry>().As(Singleton).To<ComponentRegistry>()
             // LSP
+            // One record for the session, shared by every connection and outliving each of them. A server
+            // that dies and is respawned gets a new client and keeps its history, because the history
+            // belongs to the connection rather than to whichever process was serving it.
+            .Bind<ConversationLog>().As(Singleton).To(_ => new ConversationLog())
             .Bind<ILspServerLocator>().As(Singleton).To<LspServerLocator>()
             .Bind<ILspWorkspace>().As(Singleton).To<ProjectLspWorkspace>()
             // ILspClient is the ROUTER, not one connection. It implements the same interface a single
@@ -77,6 +82,7 @@ public partial class DISetup
                 ctx.Inject<ILspServerLocator>(out var locator);
                 ctx.Inject<ILoggerFactory>(out var loggerFactory);
                 ctx.Inject<ILspWorkspace>(out var workspace);
+                ctx.Inject<ConversationLog>(out var capture);
 
                 // The whole of #255 meets here. Defaults are contributed in code, the user's file is
                 // layered over them by id, and the result becomes registrations — so the bundled server is
@@ -93,7 +99,7 @@ public partial class DISetup
                 foreach (var problem in configuration.Problems)
                     log.LogWarning("Language server configuration: {Message}", problem.Message);
 
-                var registrations = new LanguageServerRegistrationFactory(loggerFactory, workspace)
+                var registrations = new LanguageServerRegistrationFactory(loggerFactory, workspace, capture)
                     .Create(configuration.Entries);
 
                 // Distinguishable from "servers fine, nothing to say" — the confusion #231 documents, and

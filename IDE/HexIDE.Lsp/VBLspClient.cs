@@ -4,6 +4,8 @@ using HexIDE.Lsp.Messages;
 using Microsoft.Extensions.Logging;
 using StreamJsonRpc;
 
+using HexIDE.Conversations;
+
 namespace HexIDE.Lsp;
 
 public sealed class VBLspClient : ILspClient
@@ -147,7 +149,8 @@ public sealed class VBLspClient : ILspClient
     public VBLspClient(
         ILspTransport transport, ILogger<VBLspClient> logger, string languageId,
         ILspWorkspace? workspace = null, TimeSpan? initializeTimeout = null,
-        string trace = LspTraceValue.Off)
+        string trace = LspTraceValue.Off,
+        ConversationLog? capture = null, string? connectionId = null)
     {
         _transport = transport;
         _logger = logger;
@@ -155,6 +158,29 @@ public sealed class VBLspClient : ILspClient
         _workspace = workspace;
         _initializeTimeout = initializeTimeout ?? DefaultInitializeTimeout;
         _trace = LspTraceValue.Normalise(trace) ?? LspTraceValue.Off;
+        _capture = capture;
+        _connectionId = connectionId;
+    }
+
+    /// <summary>
+    /// Where this connection's conversation is recorded, and under what name. Null when nothing is
+    /// recording, which is every test that does not care and every construction site that predates this.
+    /// </summary>
+    /// <remarks>
+    /// The log outlives this object deliberately. A server that dies and is respawned gets a new client,
+    /// and its record has to be the same record — a connection's history is about the connection, not about
+    /// whichever process happened to be serving it at the time.
+    /// </remarks>
+    private readonly ConversationLog? _capture;
+    private readonly string? _connectionId;
+
+    /// <summary>Records one thing, if anything is listening. Never throws into a caller.</summary>
+    private void Note(
+        ConversationDirection direction, ConversationEntryKind kind, string? method, string? detail)
+    {
+        if (_capture is not { } capture || _connectionId is not { } id) return;
+        try { capture.Record(id, direction, kind, method, null, 0, null, detail); }
+        catch (Exception) { /* a capture is never worth breaking a connection for */ }
     }
 
     /// <summary>
@@ -203,12 +229,27 @@ public sealed class VBLspClient : ILspClient
                 PropertyNameCaseInsensitive = true,
             }
         };
+        // Wrapped, not subclassed: every serialization member on the formatter is a non-virtual interface
+        // implementation, so an override does not compile and the `new` that does is never called.
+        IJsonRpcMessageFormatter wired = _capture is { } log && _connectionId is { } captureId
+            ? new CapturingFormatter(formatter, log, captureId)
+            : formatter;
+
+        // The opening allowance counts frames, so a reconnect has to start it again or the handshake rule
+        // would apply once per process rather than once per connection — and a respawn after a crash is
+        // where a handshake is most worth having.
+        if (_capture is { } reconnecting && _connectionId is { } reconnectingId)
+            reconnecting.Reconnecting(reconnectingId);
+
         var attempt = new AttemptRecorder();
         attempt.Reached(LanguageConnectionStage.Connecting);
+        Note(ConversationDirection.Local, ConversationEntryKind.Lifecycle, null, "connecting");
 
-        var handler = await _transport.ConnectAsync(formatter, cancellationToken);
+        var handler = await _transport.ConnectAsync(wired, cancellationToken);
         if (handler is null)
         {
+            Note(ConversationDirection.Local, ConversationEntryKind.Lifecycle, null,
+                $"could not connect: {_transport.LastFailure ?? "no reason given"}");
             // No server/endpoint available — run with LSP features disabled. `null` is the transport's
             // whole vocabulary for failure, so the reason comes from the transport itself.
             _attempt = attempt.StoppedAt(LanguageConnectionStage.Connecting, _transport.LastFailure);
@@ -217,6 +258,12 @@ public sealed class VBLspClient : ILspClient
         }
 
         attempt.Reached(LanguageConnectionStage.Connected);
+        Note(ConversationDirection.Local, ConversationEntryKind.Lifecycle, null, "connected");
+
+        // Once per connection, and only when there is something to say. A reader who is not told that a
+        // transport cannot produce an exit code will read its absence as a clean exit.
+        if (_transport.Unobservable is { Length: > 0 } unobservable)
+            Note(ConversationDirection.Local, ConversationEntryKind.Note, null, unobservable);
 
         var rpc = new JsonRpc(handler, new LspNotificationReceiver(this));
         rpc.Disconnected += OnRpcDisconnected;
@@ -316,6 +363,14 @@ public sealed class VBLspClient : ILspClient
         _warnedCapabilities.Clear();
         _warnedFailures.Clear();
         _identity = null;
+
+        // Before the stopping check, deliberately. A deliberate shutdown and a server that fell over are
+        // the two things a reader most needs told apart, and only one of them is worth alarm.
+        Note(ConversationDirection.Local, ConversationEntryKind.Lifecycle, null,
+            _stopping
+                ? "disconnected: shutting down"
+                : $"disconnected: {e.Reason} ({e.Description ?? "no description"})");
+
         RaiseStateChanged();
         if (_stopping) return;
         _logger.LogWarning("VB LSP connection lost: {Reason} ({Description})", e.Reason, e.Description);
@@ -474,6 +529,7 @@ public sealed class VBLspClient : ILspClient
         attempt.Reached(LanguageConnectionStage.Initialized);
         _attempt = attempt.Build();
         _initialized = true;
+        NoteHandshake();
         _logger.LogInformation("LSP server initialized: {Server}",
             _identity is { Name: { Length: > 0 } n }
                 ? (_identity.Version is { Length: > 0 } v ? $"{n} {v}" : n)
@@ -1459,6 +1515,74 @@ public sealed class VBLspClient : ILspClient
     /// fail", and that degradation path was already built and tested.
     /// </para>
     /// </summary>
+    /// <summary>
+    /// Every capability this client will ever ask a server for.
+    /// </summary>
+    /// <remarks>
+    /// <b>Hand-written and guarded, because a list like this rots the moment nobody is checking it.</b>
+    /// Each entry is a literal passed to <see cref="CanServe"/> somewhere below, and a test asserts the two
+    /// sets are identical — so wiring a new method and forgetting this list fails the build rather than
+    /// quietly reporting a capability as unused forever.
+    ///
+    /// <para>
+    /// It exists to answer the question a server author most wants answered and nothing here could answer
+    /// before: what have I advertised that this client is not taking?
+    /// </para>
+    /// </remarks>
+    internal static readonly string[] ConsumedCapabilities =
+    [
+        "codeLensProvider",
+        "completionProvider",
+        "declarationProvider",
+        "definitionProvider",
+        "documentFormattingProvider",
+        "documentHighlightProvider",
+        "documentSymbolProvider",
+        "foldingRangeProvider",
+        "hoverProvider",
+        "renameProvider",
+        "signatureHelpProvider",
+        "vbBuiltinSymbols",
+        "workspaceSymbolProvider",
+    ];
+
+    /// <summary>
+    /// Records the handshake landing, and everything the server offered that this client will not use.
+    /// </summary>
+    /// <remarks>
+    /// Free, because both halves are known the moment initialize returns: the server has just said what it
+    /// can do, and what this client asks for is fixed. It is the inverse of a refused request, and for
+    /// somebody writing a server it is the more useful direction — a refusal says what they failed to
+    /// offer, this says what they offered and nobody came for.
+    /// </remarks>
+    private void NoteHandshake()
+    {
+        Note(ConversationDirection.Local, ConversationEntryKind.Lifecycle, null,
+            _identity is { Name: { Length: > 0 } name }
+                ? $"initialized: {name}{(_identity.Version is { Length: > 0 } v ? " " + v : "")}"
+                : "initialized: the server did not name itself");
+
+        if (_capabilities?.Value is not { ValueKind: System.Text.Json.JsonValueKind.Object } capabilities)
+            return;
+
+        foreach (var advertised in capabilities.EnumerateObject())
+        {
+            // `false` is a refusal rather than an offer, and reporting it as unconsumed would blame this
+            // client for declining something nobody put on the table.
+            if (advertised.Value.ValueKind == System.Text.Json.JsonValueKind.False) continue;
+            if (ConsumedCapabilities.Contains(advertised.Name, StringComparer.Ordinal)) continue;
+
+            // `experimental` is a container rather than a capability, and this client does reach inside it
+            // for one method. Reporting the container as unused would be wrong; walking it and comparing
+            // its contents is not done, so an unused EXPERIMENTAL capability goes unreported. A stated
+            // limit rather than a silent one.
+            if (advertised.Name == "experimental") continue;
+
+            Note(ConversationDirection.Local, ConversationEntryKind.Unconsumed, null,
+                $"advertised and unused: '{advertised.Name}'");
+        }
+    }
+
     private bool CanServe(string capabilityName)
     {
         if (ServerCapabilities.Supports(_capabilities?.Value, capabilityName)) return true;
@@ -1492,6 +1616,12 @@ public sealed class VBLspClient : ILspClient
     private void WarnUnavailableOnce(string capabilityName)
     {
         if (!_warnedCapabilities.TryAdd(capabilityName, 0)) return;
+
+        // The same once-per-connection cadence serves both purposes. These are asked on every keystroke,
+        // so a per-request entry would bury the timeline exactly as a per-request log line would.
+        Note(ConversationDirection.Sent, ConversationEntryKind.NeverSent, null,
+            $"not asked: the server did not advertise '{capabilityName}'");
+
         _logger.LogWarning(
             "The connected language server did not advertise '{Capability}'; that feature is unavailable. "
           + "If it should be supported, check which server binary was resolved — a stale one advertises "

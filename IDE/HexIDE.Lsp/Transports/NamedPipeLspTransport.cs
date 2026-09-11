@@ -99,6 +99,20 @@ public sealed class NamedPipeLspTransport : ILspTransport
     /// <summary>Why the last connect attempt failed, in this transport's words. See ILspTransport.</summary>
     public string? LastFailure { get; private set; }
 
+    /// <summary>
+    /// Nothing when HexIDE launched the server behind this pipe, and the process half when it did not.
+    /// </summary>
+    /// <remarks>
+    /// The same distinction <see cref="CanReconnect"/> turns on, read the other way round. A pipe HexIDE
+    /// dialled has a server on the far end that somebody else started and somebody else will stop, so its
+    /// lifetime is not this IDE's to report on — while the messages crossing it are captured exactly as
+    /// they are anywhere else.
+    /// </remarks>
+    public string? Unobservable => _launch is null
+        ? "This server was already running when HexIDE connected to it, so its start, its exit code and "
+        + "anything it writes to standard error belong to whoever launched it. Messages are captured in full."
+        : null;
+
     public bool CanReconnect => _launch is null;
 
     public event EventHandler? Closed;
