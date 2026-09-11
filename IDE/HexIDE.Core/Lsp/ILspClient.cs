@@ -246,7 +246,30 @@ public interface ILspClient : IAsyncDisposable
     /// <summary>
     /// Injects diagnostics directly into the pipeline — as if the server had sent a
     /// textDocument/publishDiagnostics notification. Used by external compilers (e.g. VB6.EXE).
-    /// Pass an empty array to clear diagnostics for a URI.
     /// </summary>
-    Task InjectDiagnosticsAsync(string uri, Diagnostic[] diagnostics);
+    /// <param name="uri">The document the diagnostics are about.</param>
+    /// <param name="diagnostics">What this source now says about that document; empty says nothing.</param>
+    /// <param name="owner">
+    /// Who is saying it — see <see cref="DiagnosticOwner"/>. Required rather than defaulted: an
+    /// unattributed publish is what made a build erase the language server's marks (#358), and the
+    /// parameter exists so that cannot be reintroduced by omission.
+    /// </param>
+    /// <remarks>
+    /// <b>This replaces only what <paramref name="owner"/> last said about the document, not the
+    /// document's diagnostics.</b> What subscribers receive is still one whole-document set — the union of
+    /// every source's current claim — so nothing downstream has to reason about who published what.
+    /// </remarks>
+    Task InjectDiagnosticsAsync(string uri, Diagnostic[] diagnostics, string owner);
+
+    /// <summary>
+    /// Withdraws everything one source has published, across every document, and republishes what remains.
+    ///
+    /// <para>
+    /// This is how an injecting source expires its own previous run — a build clearing the errors of the
+    /// build before it. Scoped by what that source actually published rather than by a list of documents
+    /// the caller assembles, because the two disagree exactly when it matters: a form renamed since the
+    /// last build is absent from the caller's list and still carries the marks.
+    /// </para>
+    /// </summary>
+    Task ClearDiagnosticsFromAsync(string owner);
 }
