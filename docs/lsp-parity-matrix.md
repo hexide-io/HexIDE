@@ -132,7 +132,7 @@ CLAUDE.md server sections + test counts.
 - No incremental sync, no pull diagnostics, no dynamic registration, no capability negotiation
   (client never reads capabilities).
 - No hierarchy in symbols; no semantic rename (textual whole-word matches today's behavior).
-- No `window/*` messages; file logging via Serilog to `%LOCALAPPDATA%/HexIDE/logs/lsp/` (50 MB cap,
-  best-effort prune) reproduces today's operational contract.
+- No `window/*` messages; file logging via Serilog to `%LOCALAPPDATA%/HexIDE/logs/lsp/` (10 MB per part, 5 parts per
+  session, 7 sessions retained — 350 MB in total) reproduces today's operational contract.
 - `.frm` Attribute-line leakage into body buffers (imported VB6-authored forms) is a pre-existing
   wart shared by the interpreter path — not a swap regression; ignore for launch.
