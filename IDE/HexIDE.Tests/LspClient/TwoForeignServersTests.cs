@@ -1,6 +1,7 @@
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using Microsoft.Extensions.Logging;
+using HexIDE.Conversations;
 
 // NB: namespace deliberately avoids a `Lsp` segment — see VBLspClientTests.
 namespace HexIDE.Tests.LspClient;
@@ -27,6 +28,19 @@ public class TwoForeignServersTests : IAsyncDisposable
         Path.Combine(Path.GetTempPath(), "hexide-two-" + Guid.NewGuid().ToString("N"));
 
     private readonly List<LspClientRegistry> _registries = [];
+
+    /// <summary>
+    /// The wire, recorded, so a failure here can say what happened rather than only what did not.
+    /// </summary>
+    /// <remarks>
+    /// These tests drive real subprocesses on machines nobody watching can reach, and one of them
+    /// failed twice on CI reporting nothing but two enum values (hexide-io/HexIDE#390). The capture
+    /// records the handshake unconditionally whether or not anything is armed, and records standard
+    /// error and the exit code beside the messages - which for a stdio server is the only channel a
+    /// crash can take.
+    /// </remarks>
+    private readonly ConversationLog _capture = new();
+
     private readonly ILoggerFactory _loggerFactory = LoggerFactory.Create(b => { });
 
     public TwoForeignServersTests() => Directory.CreateDirectory(_dir);
@@ -37,6 +51,7 @@ public class TwoForeignServersTests : IAsyncDisposable
         {
             try { await registry.DisposeAsync(); } catch { /* teardown is best effort */ }
         }
+        await _capture.DisposeAsync();
         _loggerFactory.Dispose();
         try { Directory.Delete(_dir, recursive: true); } catch { /* best effort */ }
         GC.SuppressFinalize(this);
@@ -54,7 +69,8 @@ public class TwoForeignServersTests : IAsyncDisposable
                 new StdioProcessLspTransport(
                     info, _loggerFactory.CreateLogger<StdioProcessLspTransport>()),
                 _loggerFactory.CreateLogger<VBLspClient>(),
-                server.LanguageId));
+                server.LanguageId,
+                capture: _capture, connectionId: id));
     }
 
     private LspClientRegistry RegistryOf(params LanguageServerRegistration[] registrations)
@@ -100,7 +116,8 @@ public class TwoForeignServersTests : IAsyncDisposable
         await sut.OpenDocumentAsync(Uri("a.tex"), "\\documentclass{article}\n");
 
         var connection = sut.Connections.Single();
-        connection.State.Should().Be(LanguageConnectionState.Running);
+        connection.State.Should().Be(LanguageConnectionState.Running,
+            "{0}", ConnectionDiagnostics.Explain(connection, _capture));
         connection.LanguageId.Should().Be("latex");
         connection.Capabilities.Should().NotBeNull("a conformant server advertises what it can do");
         ServerCapabilities.AcceptsOpenClose(connection.Capabilities)
@@ -188,7 +205,10 @@ public class TwoForeignServersTests : IAsyncDisposable
         await sut.OpenDocumentAsync(
             Uri("mystyle.cls"), "\\NeedsTeXFormat{LaTeX2e}\n\\begin{itemize}\n");
 
-        sut.Connections.Single().State.Should().Be(
-            LanguageConnectionState.Running, "it claims .cls, so that document is its business");
+        var latex = sut.Connections.Single();
+        latex.State.Should().Be(
+            LanguageConnectionState.Running,
+            "it claims .cls, so that document is its business. {0}",
+            ConnectionDiagnostics.Explain(latex, _capture));
     }
 }
