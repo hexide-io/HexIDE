@@ -1,6 +1,7 @@
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using Microsoft.Extensions.Logging;
+using HexIDE.Conversations;
 
 // NB: namespace deliberately avoids a `Lsp` segment — see VBLspClientTests.
 namespace HexIDE.Tests.LspClient;
@@ -31,6 +32,19 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
     private LspClientRegistry? _registry;
 
     /// <summary>
+    /// The wire, recorded, so a failure here can say what happened rather than only what did not.
+    /// </summary>
+    /// <remarks>
+    /// These tests drive real subprocesses on machines nobody watching can reach, and one of them
+    /// failed twice on CI reporting nothing but two enum values (hexide-io/HexIDE#390). The capture
+    /// records the handshake unconditionally whether or not anything is armed, and records standard
+    /// error and the exit code beside the messages - which for a stdio server is the only channel a
+    /// crash can take.
+    /// </remarks>
+    private readonly ConversationLog _capture = new();
+
+
+    /// <summary>
     /// A registry holding one connection to the foreign server, claiming Markdown. No VB6 server — this
     /// isolates the foreign path so a failure cannot be masked by ours answering instead.
     /// </summary>
@@ -51,7 +65,8 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
             CreateClient: () => new VBLspClient(
                 new StdioProcessLspTransport(serverInfo, loggerFactory.CreateLogger<StdioProcessLspTransport>()),
                 loggerFactory.CreateLogger<VBLspClient>(),
-                ForeignServer.Markdown.LanguageId));
+                ForeignServer.Markdown.LanguageId,
+                capture: _capture, connectionId: "foreign.markdown"));
 
         _registry = new LspClientRegistry([registration], loggerFactory.CreateLogger<LspClientRegistry>());
         return _registry;
@@ -130,7 +145,8 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
 
         var connection = sut.Connections.Single();
 
-        connection.State.Should().Be(LanguageConnectionState.Running);
+        connection.State.Should().Be(LanguageConnectionState.Running,
+            "{0}", ConnectionDiagnostics.Explain(connection, _capture));
         connection.LanguageId.Should().Be(ForeignServer.Markdown.LanguageId);
         connection.Extensions.Should().Contain(".md");
         connection.Capabilities.Should().NotBeNull("a conformant server advertises what it can do");
@@ -239,5 +255,7 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
         {
             try { await _registry.DisposeAsync(); } catch { /* teardown is best effort */ }
         }
+
+        await _capture.DisposeAsync();
     }
 }
