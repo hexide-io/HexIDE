@@ -148,7 +148,10 @@ leaves the incremental path with no coverage at all. Tracked as
 
 **`didClose` publishes an empty diagnostic set, and this is a hard requirement.** Three consumers — the
 editor's marker service, `AddinDiagnosticsService`, and the MCP `DiagnosticsCache` — depend on that empty
-publish to evict stale entries. A server that closes a document silently leaves squiggles behind.
+publish to evict stale entries. A server that closes a document silently leaves squiggles behind. What it
+evicts is that *server's* entries rather than the document's — see *Diagnostics have an owner* below, and
+note that this is the honest scope: a server closing a document has stopped having an opinion about it,
+while a compile error in the same file has not stopped being true.
 
 **On reconnect, tracked documents are replayed** through the same code path as a first open, carrying the
 version this connection has been tracking rather than `1`. Resetting to `1` would put the client's count
@@ -169,6 +172,30 @@ to its author.
 
 `includeText: false` does **not** imply "the server will read the file from disk". That was measured and
 falsified; it means only that the notification carries no text.
+
+---
+
+## Diagnostics have an owner
+
+More than one source publishes onto the one diagnostics channel: each attached server, and the real VB6
+compiler injecting what only a compiler knows. The protocol has no notion of who published what — a
+`publishDiagnostics` is a whole-document replacement, and every consumer here implements it that way.
+
+So the channel keeps the last set per **(document, source)** and raises the union. A source replaces only
+its own rows; the event subscribers see is still one whole-document set, which is what they were written
+for. Each connection is a source, keyed by its registration id; an injecting caller names its own key
+(`DiagnosticOwner`).
+
+Without that, replacement meant last-writer-wins. Building with VB6 cleared its previous errors by
+publishing an empty set for every form, which deleted whatever the language server had published for those
+forms — on a *successful* build as much as a failed one, and the marks only returned on the next keystroke
+([#358](https://github.com/hexide-io/HexIDE/issues/358)). Two servers claiming one document overwrote each
+other by the same rule.
+
+A source can also withdraw everything it published anywhere, which is how a build expires the previous
+build's errors. That is driven by what the source published rather than by a list of documents the caller
+assembles, because the two disagree exactly when it matters — a form renamed since the last build is absent
+from the caller's list and still carries the marks.
 
 ---
 
