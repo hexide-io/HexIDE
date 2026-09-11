@@ -88,6 +88,12 @@ public partial class DISetup
             // One record for the session, shared by every connection and outliving each of them. A server
             // that dies and is respawned gets a new client and keeps its history, because the history
             // belongs to the connection rather than to whichever process was serving it.
+            // ONE mapping for the whole session, and a singleton for a reason rather than by habit: two
+            // exports of the same conversation have to agree about what each path is called, or comparing
+            // them is impossible. It is also what bounds the disclosure — the permutation is drawn from
+            // the cryptographic generator at construction and is never written anywhere, so it dies with
+            // the process.
+            .Bind<HexIDE.Redaction.Pseudonymiser>().As(Singleton).To(_ => new HexIDE.Redaction.Pseudonymiser())
             .Bind<ConversationLog>().As(Singleton).To(ctx =>
             {
                 ctx.Inject<LanguageServerConfigResult>(out var configuration);
@@ -176,6 +182,7 @@ public partial class DISetup
             // The conversation record. A root because the automation tools read it directly, and Pure.DI
             // resolves only what is declared as one — a singleton reachable transitively is not enough.
             .Root<HexIDE.Conversations.ConversationLog>("Capture")
+            .Root<HexIDE.Redaction.Pseudonymiser>("Pseudonyms")
             .Root<LanguageServerMessageReporter>("LanguageServerMessages")
             .Root<IThemeService>("ThemeService")
             .Root<IKeymapService>("KeymapService")
