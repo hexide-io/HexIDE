@@ -1634,12 +1634,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
     [McpServerTool(Name = "list_lsp_messages")]
     [Description("Lists recorded language-server message envelopes — time, direction, method, id, size, outcome and latency — with no message content. Use it to answer 'was this request even sent', 'what came back', and 'how long did it take', which the editor cannot tell you and a diagnostics list cannot distinguish. Envelopes are recorded for every connection always, whether or not capture is armed, so this works without arming anything. Pass connection_id to narrow to one server, method for an exact method name, failures_only for error responses and requests that failed, were cancelled or never came back, and after_sequence to poll for only what is new since a sequence you have already seen. The newest matches are returned when there are more than limit, and truncated says so. Message bodies need list first and then get_lsp_message, because a conversation runs to megabytes per minute of typing.")]
     public async Task<LspMessagesResult> ListLspMessagesAsync(
-        string? connectionId,
-        string? method,
-        bool failuresOnly,
-        long? afterSequence,
-        int? limit,
-        CancellationToken ct)
+        string? connectionId = null,
+        string? method = null,
+        bool failuresOnly = false,
+        long? afterSequence = null,
+        int? limit = null,
+        CancellationToken ct = default)
     {
         var page = await CaptureQueries.ListAsync(ctx.Capture, new EnvelopeFilter(
             ConnectionId: string.IsNullOrWhiteSpace(connectionId) ? null : connectionId,
@@ -1685,12 +1685,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
     [McpServerTool(Name = "arm_lsp_capture")]
     [Description("Arms or disarms retention of message BODIES for one language-server connection, or for every connection when connection_id is omitted. Envelopes are always recorded; this decides whether content is kept, which is the entire privacy boundary. Arming is session-scoped and is lost when the IDE restarts — launch with --capture-lsp to arm before the first connection is made, which is what the rebuild-and-relaunch loop needs. Arming cannot reach a handshake that has already happened, so a server already running keeps only what follows.")]
     public async Task<LspCaptureStateResult> ArmLspCaptureAsync(
-        string? connectionId, bool armed, CancellationToken ct)
+        string? connectionId = null, bool armed = true, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(connectionId))
         {
-            foreach (var id in ctx.Capture.Snapshot().Select(e => e.ConnectionId).Distinct(StringComparer.Ordinal))
-                ctx.Capture.Arm(id, armed);
+            foreach (var id in ctx.Capture.ConnectionIds) ctx.Capture.Arm(id, armed);
         }
         else
         {
@@ -1700,10 +1699,15 @@ internal sealed class HexIdeTools(IdeContext ctx)
         return await CaptureStateAsync();
     }
 
+    [McpServerTool(Name = "get_lsp_capture_state")]
+    [Description("Reports what is being recorded: every known language-server connection, whether its message bodies are being kept, how many envelopes it holds, and what it has had to discard. Read-only — ask this rather than arming something to find out what is armed. 'armsEveryConnection' is true when the IDE was launched with --capture-lsp, which arms connections as they appear rather than waiting to be asked.")]
+    public async Task<LspCaptureStateResult> GetLspCaptureStateAsync(CancellationToken ct = default) =>
+        await CaptureStateAsync();
+
     [McpServerTool(Name = "clear_lsp_capture")]
     [Description("Discards the recorded conversation for one connection, or for every connection when connection_id is omitted, and reports how many envelopes went. Whatever was armed stays armed: this throws away what has been watched, not the decision to watch. Use it between iterations so the next thing you exercise is the only thing in the record. It does not hand a connection a fresh opening allowance — a server that has been running for an hour is not new because its record is empty.")]
     public async Task<LspCaptureClearedResult> ClearLspCaptureAsync(
-        string? connectionId, CancellationToken ct)
+        string? connectionId = null, CancellationToken ct = default)
     {
         var discarded = await ctx.Capture.ClearAsync(
             string.IsNullOrWhiteSpace(connectionId) ? null : connectionId);
@@ -1721,9 +1725,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
     {
         var page = await CaptureQueries.ListAsync(ctx.Capture, new EnvelopeFilter(Limit: int.MaxValue));
 
-        var connections = page.Entries
-            .Select(e => e.ConnectionId)
-            .Distinct(StringComparer.Ordinal)
+        // The LOG's connections, not the record's. Deriving them from the envelopes present gives the
+        // same answer right up until somebody clears, and then reports no connections at all while they
+        // are alive and armed — measured, on the first real use of these tools.
+        var connections = ctx.Capture.ConnectionIds
             .Order(StringComparer.Ordinal)
             .Select(id =>
             {

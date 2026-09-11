@@ -386,6 +386,38 @@ public class CaptureQueriesTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task AClearedConnectionIsStillAConnection()
+    {
+        // MEASURED ON THE FIRST REAL USE OF THE TOOLS, and it defeated the thing it was built for. The
+        // state an arm or clear reports used to derive its connection list from the envelopes present,
+        // which is the same answer until somebody clears — and then it says there are no connections at
+        // all, while they are alive and armed.
+        //
+        // The state is returned by those tools precisely so arming is not invisible: an agent that cleared
+        // a misspelled id and one that cleared a real id were getting the identical empty reply.
+        _log.Arm("vb6", true);
+        await AConversation();
+
+        await _log.ClearAsync("vb6");
+
+        _log.ConnectionIds.Should().Contain("vb6",
+            "the connection did not go anywhere; only what was recorded about it did");
+        _log.IsArmed("vb6").Should().BeTrue();
+        (await CaptureQueries.ListAsync(_log, new EnvelopeFilter())).Entries.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AConnectionIsKnownBeforeItHasSaidAnything()
+    {
+        // Arming by name creates the entry, which is what lets a launch flag or an agent arm a server that
+        // has not started yet. A list derived from traffic cannot see it.
+        _log.Arm("not-yet-started", true);
+
+        _log.ConnectionIds.Should().Contain("not-yet-started");
+        (await CaptureQueries.ListAsync(_log, new EnvelopeFilter())).Entries.Should().BeEmpty();
+    }
+
+    [Fact]
     public async Task ClearingOneConnectionLeavesTheOthers()
     {
         await AConversation("vb6");

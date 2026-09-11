@@ -246,6 +246,21 @@ public sealed class ConversationLog : IAsyncDisposable
     public bool ArmsEveryConnection { get; }
 
     /// <summary>
+    /// Every connection the log knows about, whether or not it currently holds anything for them.
+    /// </summary>
+    /// <remarks>
+    /// <b>Measured need, not symmetry.</b> A caller reporting what is being recorded used to derive the
+    /// list from the envelopes present, which is the same answer until somebody clears the record — and
+    /// then it says there are no connections at all, while they are alive and armed. An agent that cleared
+    /// a misspelled id and one that cleared a real one got the identical reply, which is the exact
+    /// confusion reporting the state was meant to remove.
+    /// </remarks>
+    public IReadOnlyList<string> ConnectionIds
+    {
+        get { lock (_connectionsLock) return [.. _connections.Keys]; }
+    }
+
+    /// <summary>
     /// Discards a connection's record, or every connection's, keeping whatever was armed armed.
     /// </summary>
     /// <remarks>

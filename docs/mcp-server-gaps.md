@@ -492,4 +492,99 @@ shutdown cannot complete, keep the server alive so the next call can say why.
 
 ---
 
+## Every parameter of a capture tool was required, including the ones that mean "no filter"
+
+**Symptom.** The first call to `list_lsp_messages` had to pass five arguments to ask the simplest possible
+question. `connectionId`, `method`, `failuresOnly`, `afterSequence` and `limit` were all in the schema's
+`required` array, so "list everything" could not be expressed as an empty call.
+
+**Cause, and it is a C# detail with a schema consequence.** A nullable parameter with no default value is
+still a *required* parameter to the MCP schema generator. `string? connectionId` is optional-looking in C#
+and mandatory on the wire. `dump_visual_tree` got this right by accident of having defaults
+(`string? root = null, int maxDepth = 20`), and the new tools did not.
+
+**Workaround used.** Pass `null` explicitly for each. It works, and it is five arguments of noise on every
+call, which is exactly the friction that makes an agent reach for a different tool.
+
+**Fixed** by giving every optional parameter a C# default. Worth knowing for the next tool: check the
+generated schema's `required` array, not the C# signature — they disagree, and only one of them is what an
+agent sees.
+
+## The capture state went blank after a clear, which is the one thing it existed to prevent
+
+**Symptom.** `clear_lsp_capture` replied:
+
+```
+{"envelopesDiscarded":13,"state":{"armsEveryConnection":true,"connections":[]}}
+```
+
+The connection was alive and armed. `arm_lsp_capture` a moment earlier had listed it correctly.
+
+**Cause.** Both mutating tools returned a state whose connection list was derived from the envelopes
+present in the record — the same answer as the real list right up until somebody empties the record.
+
+**Consequence, and why it is worse than a cosmetic wrong field.** The state is returned by those two tools
+specifically so that arming is not invisible: a tool answering only "done" would leave an agent unable to
+tell an armed connection from one whose id it had misspelled. After a clear it answered exactly that.
+An agent clearing `hexide.vb6` and one clearing `hexide.vb` got identical replies.
+
+**Fixed** by having the log name its own connections (`ConversationLog.ConnectionIds`) rather than
+inferring them from traffic, which also makes a connection armed before it has started visible — the case
+the launch flag depends on. Two tests pin it.
+
+**Found on the first real use of the tools**, by driving them rather than by reading them. Both defects had
+passing unit tests around them; neither could have been caught by one, because both are about what the
+*schema* and the *reply* look like to a caller.
+
+## There is no way to ask what is being recorded without changing it
+
+**Symptom.** To find out which connections existed and which were armed, the only tools were
+`arm_lsp_capture` and `clear_lsp_capture` — both of which mutate. Reading the state meant arming something
+first.
+
+**Workaround used.** Call `arm_lsp_capture` with the state it already had, and read the reply.
+
+**Fixed** by adding `get_lsp_capture_state`, which is the same reply with nothing changed.
+
+## An export cannot be reached from automation
+
+**Symptom.** `get_lsp_message` returns a body raw, deliberately — it is the developer's own machine and
+the live view is not redacted either. But there is no tool that produces the redacted, shareable form, so
+an agent asked to attach a conversation to an issue has no safe path: it can read bodies it must not paste,
+and cannot produce the form it should paste instead.
+
+**Workaround used.** None needed yet; noted before it is.
+
+**Suggested fix.** A tool over `ConversationExporter`, which already produces the JSON-lines form plus a
+manifest and takes a redactor. It is listed as phase-four work in #369 (task 4.5, export and copy), so this
+is a note that the automation half of it matters as much as the button — an agent is the likeliest thing to
+be asked for an export, and it is currently the only consumer that cannot make one.
+
+---
+
+## A mid-session relaunch DOES pick up new tools, if the server was attached when the session started
+
+**Measured, and it refines a rule this file and `CLAUDE.md` both state more strongly than is true.** The
+documented rule is that MCP tools are discovered at session start and a schema change needs a session
+restart. Both of these happened in one afternoon:
+
+- Four new tools were added while **no IDE was running**. Building and launching did not surface them, and
+  a session restart was needed. Consistent with the rule.
+- A fifth was added later, with the IDE **running and attached since session start**. Shutting it down,
+  rebuilding and relaunching surfaced the new tool immediately, as a deferred-tool notification, and it
+  worked on the first call.
+
+**So the distinguishing condition is whether the server was attached when the session began**, not whether
+the process was restarted since. An attached server is re-listed when it comes back; a server that was
+never attached has nothing to re-list from, and no amount of relaunching creates the attachment.
+
+**Why it is worth writing down.** The stronger reading costs a round trip through the user every time a
+tool is added, and the rule is the reason to stop and ask rather than improvise — so being wrong about it
+in the cautious direction is not free. If the IDE was up and answering at session start, try the relaunch
+before asking.
+
+**Not contradicted:** the sibling entry above, about tools not re-attaching to a *resumed* session while
+the IDE keeps running. That is the same mechanism seen from the other side — what matters is the state of
+the attachment at the moment the session starts.
+
 ---
