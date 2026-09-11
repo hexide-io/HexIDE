@@ -73,7 +73,7 @@ public class VBLspClientTests
             new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(0, 4)),
             "Expected end of statement",
             DiagnosticSeverity.Error);
-        await sut.InjectDiagnosticsAsync("vb6://m/Module1", [diagnostic]);
+        await sut.InjectDiagnosticsAsync("vb6://m/Module1", [diagnostic], DiagnosticOwner.Vb6Compiler);
 
         captured.Should().NotBeNull();
         captured!.Uri.Should().Be("vb6://m/Module1");
@@ -88,7 +88,7 @@ public class VBLspClientTests
         PublishDiagnosticsParams? captured = null;
         sut.DiagnosticsPublished += (_, p) => captured = p;
 
-        await sut.InjectDiagnosticsAsync("vb6://m/Module1", []);
+        await sut.InjectDiagnosticsAsync("vb6://m/Module1", [], DiagnosticOwner.Vb6Compiler);
 
         captured.Should().NotBeNull();
         captured!.Diagnostics.Should().BeEmpty();

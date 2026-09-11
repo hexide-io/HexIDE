@@ -81,6 +81,70 @@ public class Vb6ToolchainService : IVb6ToolchainService
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
         await Task.Delay(150);
 
+        var outcome = await RunVb6Async(project.AbsolutePath!);
+
+        // The previous build's errors expire here, whatever this one did — including a timeout, which used
+        // to return before this point and so was the one path that left them on screen indefinitely.
+        //
+        // It clears what THIS source published and nothing else. It used to send an empty diagnostic set
+        // for every form in the project, which the channel could not tell apart from "this document is
+        // clean", so a build deleted whatever a language server had published for those forms and the
+        // marks only returned on the next keystroke (#358). Driving it from what the compiler itself
+        // published also reaches a form renamed since the last build, which a walk over the project's
+        // current forms does not (the other half of #269).
+        await lspClient.ClearDiagnosticsFromAsync(DiagnosticOwner.Vb6Compiler);
+
+        if (outcome is null)
+        {
+            Log.Warning("Vb6ToolchainService: VB6 /make exceeded {Timeout}s and was terminated",
+                BuildTimeout.TotalSeconds);
+            await windowManager.MessageBox(
+                _localization.GetString("Str.Vb6Toolchain.CompilationFailedNoOutput"),
+                _localization.GetString("Str.Vb6Toolchain.BuildFailedTitle"), MessageBoxButtons.Ok, MessageBoxIcon.Error);
+            return false;
+        }
+
+        if (outcome.ExitCode != 0)
+        {
+            var byUri = ParseVb6Errors(outcome.Output, project)
+                .GroupBy(x => x.uri)
+                .ToDictionary(g => g.Key, g => g.Select(x => x.diagnostic).ToArray());
+
+            foreach (var (uri, diags) in byUri)
+                await lspClient.InjectDiagnosticsAsync(uri, diags, DiagnosticOwner.Vb6Compiler);
+
+            // If we couldn't parse any structured errors, surface the raw output.
+            if (byUri.Count == 0)
+            {
+                var msg = string.IsNullOrWhiteSpace(outcome.Output)
+                    ? _localization.GetString("Str.Vb6Toolchain.CompilationFailedNoOutput")
+                    : string.Format(_localization.GetString("Str.Vb6Toolchain.CompilationFailed"), outcome.Output);
+                await windowManager.MessageBox(msg, _localization.GetString("Str.Vb6Toolchain.BuildFailedTitle"), MessageBoxButtons.Ok, MessageBoxIcon.Error);
+            }
+        }
+
+        return outcome.ExitCode == 0;
+    }
+
+    /// <summary>What one run of <c>VB6.EXE /make</c> reported.</summary>
+    /// <param name="ExitCode">Zero when the compiler produced a binary.</param>
+    /// <param name="Output">The <c>/out</c> log and both console streams, joined for parsing.</param>
+    internal sealed record Vb6BuildOutcome(int ExitCode, string Output);
+
+    /// <summary>
+    /// Runs the compiler once, or returns null if it had to be killed for exceeding
+    /// <see cref="BuildTimeout"/>.
+    ///
+    /// <para>
+    /// Separated from the diagnostics handling around it so that handling can be exercised at all. VB6 is
+    /// Windows-only and installed on developer machines rather than on CI, so a test that has to start the
+    /// real compiler is a test that never runs — which is how this method's caller came to erase every
+    /// form's diagnostics on every build with nothing to catch it. Overriding this is the seam that lets a
+    /// test say "the compiler exited 0" without one being present.
+    /// </para>
+    /// </summary>
+    internal virtual async Task<Vb6BuildOutcome?> RunVb6Async(string projectPath)
+    {
         // VB6.exe is a GUI app: under /make it writes compile errors to the file named by /out, not
         // reliably to stdout/stderr. Capture the /out log (the authoritative error source) as well as
         // the console streams, then parse all of them together.
@@ -88,7 +152,7 @@ public class Vb6ToolchainService : IVb6ToolchainService
 
         var psi = new ProcessStartInfo(Vb6ExePath!)
         {
-            Arguments = $"/make \"{project.AbsolutePath}\" /out \"{logPath}\"",
+            Arguments = $"/make \"{projectPath}\" /out \"{logPath}\"",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
@@ -111,44 +175,16 @@ public class Vb6ToolchainService : IVb6ToolchainService
         {
             try { process.Kill(entireProcessTree: true); } catch { /* already exited */ }
             TryDeleteLog(logPath);
-            Log.Warning("Vb6ToolchainService: VB6 /make exceeded {Timeout}s and was terminated",
-                BuildTimeout.TotalSeconds);
-            await windowManager.MessageBox(
-                _localization.GetString("Str.Vb6Toolchain.CompilationFailedNoOutput"),
-                _localization.GetString("Str.Vb6Toolchain.BuildFailedTitle"), MessageBoxButtons.Ok, MessageBoxIcon.Error);
-            return false;
+            return null;
         }
 
         var stdout = await stdoutTask;
         var stderr = await stderrTask;
         var logText = ReadAndDeleteLog(logPath);
 
-        // Clear stale compiler diagnostics from previous builds.
-        foreach (var form in project.Forms)
-            await lspClient.InjectDiagnosticsAsync(GetFormUri(form), []);
-
-        if (process.ExitCode != 0)
-        {
-            var combined = string.Join("\n",
-                new[] { logText, stdout, stderr }.Where(s => !string.IsNullOrWhiteSpace(s)));
-            var byUri = ParseVb6Errors(combined, project)
-                .GroupBy(x => x.uri)
-                .ToDictionary(g => g.Key, g => g.Select(x => x.diagnostic).ToArray());
-
-            foreach (var (uri, diags) in byUri)
-                await lspClient.InjectDiagnosticsAsync(uri, diags);
-
-            // If we couldn't parse any structured errors, surface the raw output.
-            if (byUri.Count == 0)
-            {
-                var msg = string.IsNullOrWhiteSpace(combined)
-                    ? _localization.GetString("Str.Vb6Toolchain.CompilationFailedNoOutput")
-                    : string.Format(_localization.GetString("Str.Vb6Toolchain.CompilationFailed"), combined);
-                await windowManager.MessageBox(msg, _localization.GetString("Str.Vb6Toolchain.BuildFailedTitle"), MessageBoxButtons.Ok, MessageBoxIcon.Error);
-            }
-        }
-
-        return process.ExitCode == 0;
+        return new Vb6BuildOutcome(
+            process.ExitCode,
+            string.Join("\n", new[] { logText, stdout, stderr }.Where(s => !string.IsNullOrWhiteSpace(s))));
     }
 
     public async Task RunWithVb6Async(ProjectDefinition project)

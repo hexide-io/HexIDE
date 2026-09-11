@@ -12,6 +12,9 @@ public sealed class VBLspClient : ILspClient
     private readonly ILogger<VBLspClient> _logger;
     // Currently-open documents (uri -> latest version+text), so they can be replayed after a reconnect.
     private readonly ConcurrentDictionary<string, TrackedDocument> _openDocuments = new();
+    // What each source currently says about each document. This connection's server is one source; an
+    // external compiler injecting through this client is another, and neither may erase the other.
+    private readonly DiagnosticLedger _diagnostics = new();
     private readonly object _reconnectGate = new();
     private JsonRpc? _rpc;
     private volatile bool _initialized;
@@ -1213,8 +1216,17 @@ public sealed class VBLspClient : ILspClient
         RaiseStateChanged();
     }
 
-    internal void RaisePublishDiagnostics(PublishDiagnosticsParams p) =>
-        DiagnosticsPublished?.Invoke(this, p);
+    /// <summary>
+    /// Records what one source says about a document and raises the document's whole set.
+    ///
+    /// <para>
+    /// Every publish goes through here, the server's included, so that no source is privileged: whoever
+    /// speaks replaces only their own rows. Raising the union keeps the event a whole-document
+    /// replacement, which is what every subscriber already implements.
+    /// </para>
+    /// </summary>
+    internal void RaisePublishDiagnostics(string owner, PublishDiagnosticsParams p) =>
+        DiagnosticsPublished?.Invoke(this, _diagnostics.Record(p.Uri, owner, p.Diagnostics));
 
     internal void RaiseMessageShown(ShowMessageParams p) => MessageShown?.Invoke(this, p);
     internal void RaiseMessageLogged(LogMessageParams p) => MessageLogged?.Invoke(this, p);
@@ -1255,9 +1267,16 @@ public sealed class VBLspClient : ILspClient
         }
     }
 
-    public Task InjectDiagnosticsAsync(string uri, Diagnostic[] diagnostics)
+    public Task InjectDiagnosticsAsync(string uri, Diagnostic[] diagnostics, string owner)
     {
-        RaisePublishDiagnostics(new PublishDiagnosticsParams(uri, diagnostics));
+        RaisePublishDiagnostics(owner, new PublishDiagnosticsParams(uri, diagnostics));
+        return Task.CompletedTask;
+    }
+
+    public Task ClearDiagnosticsFromAsync(string owner)
+    {
+        foreach (var p in _diagnostics.Withdraw(owner))
+            DiagnosticsPublished?.Invoke(this, p);
         return Task.CompletedTask;
     }
 
@@ -1271,7 +1290,7 @@ public sealed class VBLspClient : ILspClient
         public void OnPublishDiagnostics(PublishDiagnosticsParams p)
         {
             _client._logger.LogDebug("publishDiagnostics: uri={Uri}, count={Count}", p.Uri, p.Diagnostics.Length);
-            _client.RaisePublishDiagnostics(p);
+            _client.RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, p);
         }
 
         /// <summary>
