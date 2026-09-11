@@ -72,6 +72,7 @@ public class RequiredServersTests
     /// </remarks>
     [Fact]
     public void TheBundledServerIsBuiltWhenForeignServersAreRequired() =>
-        RequireOrIgnore("bundled", () => BundledServer.Find() is not null,
+        RequireOrIgnore("bundled",
+            () => BundledServer.Find() is not null && BundledServer.StaleReason() is null,
             "the bundled VB6 language server (build it with: cd LspServer && dotnet build HexIDE.VbLspServer/)");
 }
