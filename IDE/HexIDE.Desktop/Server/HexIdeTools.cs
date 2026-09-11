@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HexIDE.Automation;
 using HexIDE.Conversations;
+using HexIDE.Redaction;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Debugging;
@@ -1716,6 +1717,41 @@ internal sealed class HexIdeTools(IdeContext ctx)
         return new LspCaptureClearedResult(discarded, await CaptureStateAsync());
     }
 
+
+    [McpServerTool(Name = "export_lsp_conversation")]
+    [Description("Writes the recorded conversation to two files and returns their paths: one JSON-RPC message per line, plus a manifest carrying the envelope table with timings, the limits the record was taken under, and everything it had to discard. This is the form to attach to an issue or send to whoever wrote the server.\n\nALWAYS PSEUDONYMISED. Paths, workspace folders and server launch configuration are replaced with stable, session-scoped fake names — consistently, so two spellings of one path stay distinguishable and a normalisation bug survives the redaction. Use get_lsp_message instead if you need the real bytes for your own inspection on this machine; that one is raw and is not for sharing. The manifest states which of the two it is, because an export that does not say is worse than one that never redacted.\n\nEvery envelope gets a line, including those whose body was never kept, because a file that omitted them would read exactly like a shorter conversation. A truncated body is written as head, tail and true length rather than as something that parses — pretending otherwise would misdescribe what was sent. Omit connection_id for the whole interleaved timeline.")]
+    public async Task<LspExportResult> ExportLspConversationAsync(
+        string? connectionId = null, CancellationToken ct = default)
+    {
+        // ALWAYS redacting, and the opt-out is deliberately not a parameter here. The design records that
+        // a non-pseudonymising mode should exist and that its surface is an open question needing "a big
+        // red flag" wherever it lands; adding a boolean to this tool would settle that question quietly,
+        // by accident, in the one place with no way to show a flag. The raw path already exists for
+        // inspection — get_lsp_message — so nothing is unreachable, only unshareable.
+        var redactor = new ConversationRedactor(ctx.Pseudonyms);
+
+        // No `unobservable` map: what a transport cannot show is already IN the record, written once per
+        // connection as a Note envelope when it connects, so it travels in the envelope table like
+        // everything else rather than being reassembled here from a second source.
+        var export = await ConversationExporter.ExportAsync(
+            ctx.Capture, redactor, string.IsNullOrWhiteSpace(connectionId) ? null : connectionId);
+
+        var stem = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide_lsp_conversation");
+        var messages = stem + ".jsonl";
+        var manifest = stem + ".manifest.json";
+
+        await System.IO.File.WriteAllTextAsync(messages, export.Messages, ct);
+        await System.IO.File.WriteAllTextAsync(manifest, export.Manifest, ct);
+
+        return new LspExportResult(
+            messages, manifest, export.Lines, export.BodiesPresent, export.BodiesAbsent,
+            export.BodiesReserialized, ctx.Pseudonyms.Assigned,
+            export.Lines == 0
+                ? "Nothing was recorded, so both files describe an empty conversation. Language servers "
+                + "start on the first document of a language they claim — open a file and export again."
+                : null);
+    }
+
     /// <summary>What is being recorded right now, returned by both mutating capture tools.</summary>
     /// <remarks>
     /// Returned rather than left to a follow-up call because arming is invisible: a tool that answered
@@ -1743,6 +1779,21 @@ internal sealed class HexIdeTools(IdeContext ctx)
         return new LspCaptureStateResult(ctx.Capture.ArmsEveryConnection, connections);
     }
 }
+
+internal record LspExportResult(
+    string MessagesPath,
+    string ManifestPath,
+    int Lines,
+    int BodiesPresent,
+    // Lines standing in for an envelope whose body was never kept or has been evicted. Counted rather
+    // than omitted: a file that dropped them would read exactly like a shorter conversation.
+    int BodiesAbsent,
+    // Whole bodies that had to be compacted onto one line, so a reader knows those are not byte-exact.
+    int BodiesReserialized,
+    // Distinct values given a pseudonym. The honest way to size the disclosure: how many real names the
+    // reader is NOT getting.
+    long PseudonymsAssigned,
+    string? Note);
 
 internal record LspMessagesResult(
     LspMessageRow[] Messages,

@@ -327,6 +327,34 @@ public class ConversationExportTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task OneSessionNamesTheSamePathTheSameWayInEveryExport()
+    {
+        // Why the pseudonym mapping is a session singleton rather than made per export. Two exports of one
+        // conversation have to agree about what each path is called, or comparing them — which is most of
+        // what somebody exports twice for — is impossible.
+        _log.Arm("vb6", true);
+        Note("vb6", "didOpen",
+            """{"jsonrpc":"2.0","method":"textDocument/didOpen","params":{"uri":"file:///C:/Users/quintana/Ledger/Form1.frm"}}""");
+
+        var shared = new Pseudonymiser();
+
+        var first = await ConversationExporter.ExportAsync(
+            _log, new ConversationRedactor(shared), clock: FixedClock);
+        var second = await ConversationExporter.ExportAsync(
+            _log, new ConversationRedactor(shared), clock: FixedClock);
+
+        second.Messages.Should().Be(first.Messages,
+            "one mapping for the session is what makes two exports comparable");
+
+        var separate = await ConversationExporter.ExportAsync(
+            _log, new ConversationRedactor(new Pseudonymiser()), clock: FixedClock);
+
+        separate.Messages.Should().NotBe(first.Messages,
+            "and a different session must NOT agree, or a pseudonym would correlate across captures — "
+          + "which is the weakness the session scope exists to bound");
+    }
+
+    [Fact]
     public async Task AnEmptyCaptureExportsAnEmptyFileAndAValidManifest()
     {
         var export = await ConversationExporter.ExportAsync(_log, Redactor(), clock: FixedClock);
