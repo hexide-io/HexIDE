@@ -260,7 +260,56 @@ HexIDE is a visual tool used by humans. Visual verification is not optional.
 
 **If you cannot verify a feature without user interaction, you are not done — drive it with `interact`, or (only if the authoring policy justifies it) build a tool.**
 
-**MCP schema changes require a session restart.** If new tools were implemented mid-session, you MUST stop and ask for a session resume — do not attempt raw HTTP workarounds.
+### The automation surface is a shipped UX, and is judged like one
+
+**This surface is not internal scaffolding for whoever is building HexIDE.** It is exposed to every
+developer who wants it, driven by models nobody here chooses. A suboptimal AI surface bites exactly as a
+bad UI/UX surface bites a human user, and it gets the same treatment: issues, follow-ups, and a bar.
+
+**"I found a way around it" is not the test.** Whoever found the way around it had context a first-time
+caller does not. Judge a tool by what a model that has never seen it would do on first contact.
+
+The worked example is in [`docs/mcp-server-gaps.md`](docs/mcp-server-gaps.md) and it was ours: the first
+call to `list_lsp_messages` in a fresh session returned `{"messages":[],"matched":0}` and nothing else. The
+author knew why — a language server starts on the first document of a language it claims, and nothing was
+open. A caller who did not know that cannot tell *nothing happened* from *nothing was configured* from *the
+tool is broken*, **which is the exact ambiguity the protocol inspector exists to destroy**, reintroduced
+inside the tool built to destroy it.
+
+So, for any tool added here:
+
+- **An empty or surprising reply explains itself**, and says what to do next where there is an obvious
+  next step. A count of zero that could mean four things must say which.
+- **Check the generated schema's `required` array, not the C# signature.** A nullable parameter with no
+  default value is still *required* on the wire, so the simplest question can cost five arguments while
+  the C# reads as optional.
+- **Enumerate the vocabulary a reply uses.** A `kind` of `Unconsumed` means nothing to somebody who was
+  never told the set.
+- **Explain anything that looks like a defect and is not.** Sequence gaps beside a field called
+  `framesDropped` read as data loss.
+- **A reply that mutates reports the new state**, and reports it even when that state is empty.
+
+**Record every shortcoming in `docs/mcp-server-gaps.md` AND file it**, exactly as a human-facing defect
+would be. An entry that lives only in that file is a note to self; the surface ships either way.
+
+**A new tool needs a session restart only if the MCP server was NOT attached when the session started.**
+Measured, both ways, in one afternoon:
+
+- Four tools were added while **no IDE was running**. Building and launching did not surface them; a
+  session restart was needed. The server had never attached, so there was nothing to re-list from.
+- A fifth was added with the IDE **running and attached since session start**. `shutdown_ide`, rebuild,
+  relaunch — and it arrived as a deferred tool and worked on the first call, with no restart.
+
+So the condition is the state of the attachment when the session began, not whether the process has
+restarted since. **If the IDE was up and answering at session start, do the rebuild cycle and try the tool
+before asking.** If it was not, stop and ask for a resume.
+
+**Never reach for raw HTTP either way.** That rule is unchanged and is not about schemas: a bypass proves
+nothing about the surface a real caller uses.
+
+This entry used to say a restart was always required. That is the cautious direction and it is not free —
+it costs a round trip through the user every time a tool is added, and the whole point of stopping to ask
+is that it is reserved for when it is genuinely needed.
 
 HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The MCP server is a dev/automation tool and is `#if DEBUG`-compiled out of Release builds** — the `Server/` folder and the AspNetCore framework dependency are excluded from Release, so a distributed binary opens no port and `--server-port` is inert. The dev loop below uses Debug builds, so this does not affect it. With HexIDE running (Debug), Claude Code connects automatically via `.mcp.json` at the repo root and has access to these tools:
 
@@ -280,11 +329,17 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 | `take_snapshot` | Capture the IDE window as PNG; returns temp file path — read it with the `Read` tool to view |
 | `dump_visual_tree(root?, maxDepth?, interactiveOnly?)` | Walk the active window's **control-view** tree (structural wrappers collapsed; a visible modal dialog is preferred). Each node carries an addressable `path`, automation ControlType, Name/AutomationId, DataContext VM type, and supported interaction providers. The discovery entry point. |
 | `inspect_element(target)` | Deep-inspect one control by `path`: supported providers, bounds, current value/selection/toggle state, and the DataContext VM's command/property members (the surface `interact`'s reflection actions target). |
+| `list_lsp_messages(connectionId?, method?, failuresOnly?, afterSequence?, limit?)` | Recorded language-server envelopes — time, direction, method, id, size, outcome, latency — with no content. Answers "was it even sent" and "what came back", which diagnostics cannot. Works unarmed. |
+| `get_lsp_message(connectionId, sequence)` | One message's body, as the bytes that crossed the wire. Needs the connection armed, except for a connection's opening, which is always kept. |
+| `arm_lsp_capture(connectionId?, armed)` | Arms or disarms retention of message **bodies**. Session-scoped; use `--capture-lsp` to arm before the first connection exists. |
+| `clear_lsp_capture(connectionId?)` | Discards the record and keeps the arming, so the next thing exercised is the only thing in it. |
+| `get_lsp_capture_state()` | What is being recorded: every known connection, whether its bodies are kept, and what it has discarded. Read-only — ask this rather than arming something to find out what is armed. |
 | `interact(target, action, value?)` | Drive a control. Provider actions: `invoke`/`select`/`set_value`/`toggle`/`expand`/`collapse`. Reflection actions (DataContext VM): `invoke_command`/`set_property`. The generic substitute for per-interaction tools. |
 
 **CLI flags** (both `--` and `/` prefixes accepted, aligning with VB6 convention):
 - `--server-port <port>` — enable the MCP server on the given port (all launch profiles use 5123)
 - `--newproject` — skip the startup dialog and create a default Standard EXE project
+- `--capture-lsp` — arm the protocol capture for every language-server connection **before any is made**, so a conversation is recorded in full from its first handshake. Arming is otherwise session-scoped and the documented rebuild cycle restarts the IDE every iteration, which is what this exists for. **Unlike `--server-port`, this is not DEBUG-only**: the capture ships and the automation server does not
 - Positional `.vbp` path — skip the startup dialog and open that project
 
 **The server answers loopback only, and now checks that rather than assuming it.** A request whose `Host`
@@ -317,7 +372,12 @@ If `shutdown_ide` is unavailable (MCP disconnected), use PowerShell: `Stop-Proce
 3. Wait for ready: poll `http://localhost:5123/health` until HTTP 200
 4. Use MCP tools to inspect and interact with the running IDE
 
-**MCP session note:** MCP tools are discovered at session start. If HexIDE is not running when a Claude Code session starts, the tools will not appear. After relaunching HexIDE mid-session, existing tool schemas remain usable (Streamable HTTP is stateless — each call is a fresh POST). Starting a new session with HexIDE already running picks up any newly added tools.
+**MCP session note:** MCP tools are discovered at session start. If HexIDE is not running when a Claude
+Code session starts, the tools will not appear **and relaunching it will not make them appear** — that
+session has no attachment, and only a resume creates one. If HexIDE *was* running at session start, the
+attachment survives a relaunch: existing schemas stay usable (Streamable HTTP is stateless — each call is
+a fresh POST) **and newly added tools are picked up**, which is measured rather than assumed. See the
+restart note above.
 
 ## Architecture
 

@@ -16,6 +16,18 @@ public class Static
     public static bool DeveloperMode { get; set; }
 
     /// <summary>
+    /// Arm the protocol capture for every language-server connection — set once at startup from the
+    /// <c>--capture-lsp</c> CLI flag; never persisted.
+    /// </summary>
+    /// <remarks>
+    /// Read in <c>DISetup</c> when the conversation log is constructed, which is the only place early
+    /// enough: servers start on the first document of a language they claim, and the desktop startup hook
+    /// runs well after that. Deliberately not gated on <c>DEBUG</c> — the capture ships and the automation
+    /// server does not.
+    /// </remarks>
+    public static bool CaptureLsp { get; set; }
+
+    /// <summary>
     /// Suppresses the save-changes prompt on the next window close, discarding unsaved work. Set only by
     /// automation (the <c>shutdown_ide</c> MCP tool), which would otherwise wedge on a modal dialog.
     /// Never set from a user-driven path.

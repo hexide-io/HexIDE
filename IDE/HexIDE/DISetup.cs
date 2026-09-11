@@ -91,8 +91,14 @@ public partial class DISetup
             .Bind<ConversationLog>().As(Singleton).To(ctx =>
             {
                 ctx.Inject<LanguageServerConfigResult>(out var configuration);
+
+                // `--capture-lsp` is honoured HERE rather than in the desktop startup hook, which is the
+                // only place early enough. Servers start on the first document of a language they claim,
+                // and that happens while the shell is still building — long before the hook runs.
                 return new ConversationLog(
-                    configuration.CaptureLimits, perConnection: configuration.PerServerCaptureLimits);
+                    configuration.CaptureLimits,
+                    perConnection: configuration.PerServerCaptureLimits,
+                    armEveryConnection: Static.CaptureLsp);
             })
             .Bind<ILspServerLocator>().As(Singleton).To<LspServerLocator>()
             .Bind<ILspWorkspace>().As(Singleton).To<ProjectLspWorkspace>()
@@ -167,6 +173,9 @@ public partial class DISetup
             .Bind<IHexIdeHost>().As(Singleton).To<HexIdeHost>()
             .Root<MainViewViewModel>("Root")
             .Root<ILspClient>("LspClient")
+            // The conversation record. A root because the automation tools read it directly, and Pure.DI
+            // resolves only what is declared as one — a singleton reachable transitively is not enough.
+            .Root<HexIDE.Conversations.ConversationLog>("Capture")
             .Root<LanguageServerMessageReporter>("LanguageServerMessages")
             .Root<IThemeService>("ThemeService")
             .Root<IKeymapService>("KeymapService")

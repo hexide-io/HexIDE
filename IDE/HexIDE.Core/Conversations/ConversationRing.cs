@@ -102,6 +102,27 @@ public sealed class ConversationRing(CaptureLimits limits)
         }
     }
 
+    /// <summary>
+    /// Discards everything held, including the prologue, and forgets what was dropped.
+    /// </summary>
+    /// <remarks>
+    /// <b>The prologue goes too, and the drop count with it.</b> Everywhere else the prologue is
+    /// deliberately immune to eviction, because drop-oldest would take the handshake first and that is the
+    /// one thing that must never go. This is not eviction: somebody has asked for an empty record, and one
+    /// that still held the handshake of a connection the reader has finished with would be a surprising
+    /// kind of empty. A surviving drop count would be worse, since it would describe material no longer
+    /// here to be missing.
+    /// </remarks>
+    public void Clear()
+    {
+        lock (_lock)
+        {
+            _prologue.Clear();
+            _recent.Clear();
+            _dropped = 0;
+        }
+    }
+
     /// <summary>Everything held, in the order it was recorded.</summary>
     public IReadOnlyList<ConversationEnvelope> Snapshot()
     {
