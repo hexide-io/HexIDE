@@ -162,6 +162,87 @@ public class CaptureQueriesTests : IAsyncDisposable
         return source[open..];
     }
 
+    // ── Saying why, when the answer would otherwise need guessing at ─────────
+    //
+    // The automation surface ships to developers driving it with models nobody here chooses, so a reply
+    // that forces a guess is a defect in the same way a bad dialog is. These pin the four states a bare
+    // count of zero collapses — and the first is the one I hit myself and worked around without noticing,
+    // which is exactly what a first-time caller cannot do.
+
+    [Fact]
+    public async Task AnEmptyRecordSaysWhyItIsEmpty()
+    {
+        var page = await CaptureQueries.ListAsync(_log, new EnvelopeFilter());
+
+        page.Note.Should().NotBeNull();
+        page.Note.Should().Contain("first document",
+            "a language server starts lazily, so an empty record is the normal state before anything is "
+          + "opened — and the commonest reason a caller sees nothing");
+    }
+
+    [Fact]
+    public async Task AConnectionIdNobodyHasSaysWhichOnesExist()
+    {
+        await AConversation("vb6");
+
+        var page = await CaptureQueries.ListAsync(_log, new EnvelopeFilter(ConnectionId: "vb"));
+
+        page.Note.Should().Contain("vb6", "a misspelled id should name the real ones rather than look empty");
+    }
+
+    [Fact]
+    public async Task AClearedRecordIsNotMistakenForAServerThatNeverRan()
+    {
+        await AConversation("vb6");
+        await _log.ClearAsync();
+
+        var page = await CaptureQueries.ListAsync(_log, new EnvelopeFilter());
+
+        page.Note.Should().Contain("cleared");
+        page.Note.Should().NotContain("first document",
+            "the server did run; saying it has not started would send a caller to open a file that is "
+          + "already open");
+    }
+
+    [Fact]
+    public async Task AFilterThatExcludedEverythingSaysThatRatherThanLookingEmpty()
+    {
+        await AConversation("vb6");
+
+        var page = await CaptureQueries.ListAsync(_log, new EnvelopeFilter(Method: "textDocument/rename"));
+
+        page.Note.Should().Contain("none match this filter");
+    }
+
+    [Fact]
+    public async Task AnAnswerWithContentCarriesNoNote()
+    {
+        // The note is for an answer that needs explaining. On every ordinary reply it would be noise, and
+        // a field that is always populated stops being read.
+        await AConversation();
+
+        (await CaptureQueries.ListAsync(_log, new EnvelopeFilter())).Note.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ASequenceOnTheWrongConnectionSaysWhereItActuallyIs()
+    {
+        // Sequence numbers are unique across the record rather than per connection, so naming the wrong
+        // connection for a real sequence is the likeliest mistake available. A dead end here would send a
+        // caller looking for a message that is sitting right there.
+        _log.Arm("vb6", true);
+        _log.Arm("latex", true);
+        await AConversation("vb6");
+        await AConversation("latex");
+
+        var onLatex = (await CaptureQueries.ListAsync(_log, new EnvelopeFilter(ConnectionId: "latex")))
+            .Entries[0].Sequence;
+
+        var explained = await CaptureQueries.ExplainMissingBodyAsync(_log, "vb6", onLatex);
+
+        explained.Should().Contain("belongs to connection 'latex'");
+    }
+
     [Fact]
     public async Task AMethodFilterAnswersWhetherSomethingWasEverSent()
     {

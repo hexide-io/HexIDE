@@ -588,3 +588,49 @@ the IDE keeps running. That is the same mechanism seen from the other side — w
 the attachment at the moment the session starts.
 
 ---
+
+## An empty reply that does not say why is a defect, not a null result
+
+**The standing bar for this surface, recorded because it was stated as a correction.** The automation
+surface is not internal scaffolding for whoever is building HexIDE. It ships to every developer who wants
+it, driven by models nobody here chooses. **A suboptimal AI surface bites exactly as a bad UI/UX surface
+bites a human user**, and "I found a way around it" is not the test — the person who found the way around
+it had context a first-time caller does not.
+
+**The worked example, and it was mine.** The first call to `list_lsp_messages` in a fresh session returned:
+
+```
+{"messages":[],"matched":0,"truncated":false,"framesDropped":0}
+```
+
+I knew why: servers start on the first document of a language they claim, and nothing was open. A caller
+who did not know that cannot tell "nothing happened" from "nothing was configured" from "the tool is
+broken" — **which is the exact ambiguity the protocol inspector exists to destroy**, reintroduced inside
+the tool built to destroy it. That is the worst available place to put it.
+
+It now answers:
+
+```
+"note": "No language server has connected yet, so there is nothing recorded. Servers start on the first
+         document of a language they claim — open a file and ask again. Nothing needs arming for
+         envelopes to be recorded."
+```
+
+Four states a bare zero collapses, each now named: no server has started; the connection id does not exist
+(and here are the ones that do); connections exist with an empty record, so it was cleared; the filter
+excluded everything. Six tests pin them, including one asserting the note is **absent** on an ordinary
+reply — a field that is always populated stops being read.
+
+**The checklist this generalises to**, for any tool added here:
+
+- An empty or surprising reply explains itself, and says what to do next where there is an obvious next step.
+- Check the generated schema's `required` array, not the C# signature. They disagree, and only one is what
+  a caller sees.
+- Enumerate the vocabulary a reply uses. A `kind` of `Unconsumed` or `Lifecycle` means nothing to somebody
+  who was never told the set, so the description now lists all seven and says which three exist nowhere else.
+- Explain anything that looks like a defect and is not. Sequence numbers have gaps, because a reply
+  completes its request's envelope rather than adding one; beside a field called `framesDropped`, an
+  unexplained gap reads as data loss.
+- A reply that mutates reports the new state, and reports it even when the answer is empty.
+
+---

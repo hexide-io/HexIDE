@@ -35,10 +35,23 @@ public sealed record EnvelopeFilter(
 /// True when the limit cut the answer short. Stated rather than inferred, for the same reason a truncated
 /// message body states its true length: a list that quietly stops reads exactly like a complete one.
 /// </param>
+/// <param name="Note">
+/// Why the answer looks the way it does, when it would otherwise need guessing at. Present for an empty
+/// answer and absent for an ordinary one.
+///
+/// <para>
+/// <b>This exists because the alternative reintroduces the exact ambiguity the inspector removes.</b> A
+/// bare <c>matched: 0</c> cannot be told apart from "nothing happened", "nothing was configured" and "the
+/// tool is broken" — which is the confusion a developer chasing a silent language feature already has, and
+/// the reason this whole capability was built. Handing it back to them inside the tool meant to dispel it
+/// is the worst place to put it.
+/// </para>
+/// </param>
 public sealed record EnvelopePage(
     IReadOnlyList<ConversationEnvelope> Entries,
     int Matched,
-    bool Truncated);
+    bool Truncated,
+    string? Note = null);
 
 /// <summary>One message's content, as far as it was kept.</summary>
 /// <param name="Sequence">Its place in the timeline, which is how it was asked for.</param>
@@ -95,10 +108,12 @@ public static class CaptureQueries
         }
 
         var limit = Math.Max(1, filter.Limit);
-        if (matched.Count <= limit) return new EnvelopePage(matched, matched.Count, false);
+        var note = matched.Count == 0 ? ExplainEmpty(log, filter) : null;
+
+        if (matched.Count <= limit) return new EnvelopePage(matched, matched.Count, false, note);
 
         return new EnvelopePage(
-            matched.GetRange(matched.Count - limit, limit), matched.Count, true);
+            matched.GetRange(matched.Count - limit, limit), matched.Count, true, note);
     }
 
     /// <summary>
@@ -132,6 +147,43 @@ public static class CaptureQueries
     }
 
     /// <summary>
+    /// Why a listing came back empty, in the terms a first-time caller needs.
+    /// </summary>
+    /// <remarks>
+    /// Four states, and a count of zero collapses all of them. The one that matters most is the first: a
+    /// language server starts on the first document of a language it claims, so a caller who has not opened
+    /// anything gets an empty record and no hint that the record is not the problem.
+    /// </remarks>
+    private static string ExplainEmpty(ConversationLog log, EnvelopeFilter filter)
+    {
+        var connections = log.ConnectionIds;
+
+        if (connections.Count == 0)
+        {
+            return "No language server has connected yet, so there is nothing recorded. Servers start on "
+                 + "the first document of a language they claim — open a file and ask again. Nothing needs "
+                 + "arming for envelopes to be recorded.";
+        }
+
+        if (filter.ConnectionId is { Length: > 0 } asked
+            && !connections.Contains(asked, StringComparer.Ordinal))
+        {
+            return $"No connection is called '{asked}'. Known connections: "
+                 + $"{string.Join(", ", connections.Order(StringComparer.Ordinal))}.";
+        }
+
+        var total = log.Snapshot(filter.ConnectionId).Count;
+        if (total == 0)
+        {
+            return $"{connections.Count} connection(s) are known and hold no envelopes. Either nothing has "
+                 + "crossed the wire yet, or the record was cleared.";
+        }
+
+        return $"{total} envelope(s) are recorded, and none match this filter. Drop the filters to see "
+             + "what is there.";
+    }
+
+    /// <summary>
     /// Why a sequence has no body, in the terms a reader needs rather than as an absence.
     /// </summary>
     /// <remarks>
@@ -147,8 +199,21 @@ public static class CaptureQueries
 
         if (FindEnvelope(log, connectionId, sequence) is null)
         {
-            return $"No envelope {sequence} for connection '{connectionId}'. It may have been discarded "
-                 + "as the oldest entry, or it may never have existed.";
+            // A sequence is unique across the whole record, not per connection, so the likeliest mistake
+            // is naming the wrong connection for a real sequence. Saying which one it belongs to costs one
+            // pass and turns a dead end into an answer.
+            foreach (var other in log.ConnectionIds)
+            {
+                if (!string.Equals(other, connectionId, StringComparison.Ordinal)
+                    && FindEnvelope(log, other, sequence) is not null)
+                {
+                    return $"Envelope {sequence} belongs to connection '{other}', not '{connectionId}'. "
+                         + "Sequence numbers are unique across the whole record rather than per connection.";
+                }
+            }
+
+            return $"No envelope {sequence} anywhere in the record. It may have been discarded as the "
+                 + "oldest entry, or it may never have existed.";
         }
 
         var (_, evicted, refused) = log.Losses(connectionId);

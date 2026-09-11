@@ -1632,7 +1632,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     // body cannot be reached by any test.
 
     [McpServerTool(Name = "list_lsp_messages")]
-    [Description("Lists recorded language-server message envelopes — time, direction, method, id, size, outcome and latency — with no message content. Use it to answer 'was this request even sent', 'what came back', and 'how long did it take', which the editor cannot tell you and a diagnostics list cannot distinguish. Envelopes are recorded for every connection always, whether or not capture is armed, so this works without arming anything. Pass connection_id to narrow to one server, method for an exact method name, failures_only for error responses and requests that failed, were cancelled or never came back, and after_sequence to poll for only what is new since a sequence you have already seen. The newest matches are returned when there are more than limit, and truncated says so. Message bodies need list first and then get_lsp_message, because a conversation runs to megabytes per minute of typing.")]
+    [Description("Lists recorded language-server message envelopes — time, direction, method, id, size, outcome and latency — with no message content. Use it to answer 'was this request even sent', 'what came back', and 'how long did it take', which the editor cannot tell you and a diagnostics list cannot distinguish. Envelopes are recorded for every connection always, whether or not capture is armed, so this works without arming anything, and every argument is optional — call it with none to see the whole timeline.\n\nIF THE ANSWER IS EMPTY, READ 'note': it says which of the possible reasons applies. The commonest is that no server has started, because a language server starts on the first document of a language it claims — so open a file first.\n\n'direction' is Sent, Received, or Local for the entries that are not messages at all. 'kind' is Request, Response, ErrorResponse or Notification for wire traffic, plus Lifecycle (a process starting, stopping, its standard error and exit code), NeverSent (a request this client declined to make, and why) and Unconsumed (a capability the server advertised that this client does not use) — those three are the ones a server author most often wants and they exist nowhere else. 'detail' carries their text.\n\nSequence numbers have GAPS, and they are not dropped frames: a reply completes its request's existing envelope rather than adding one, so the response's own sequence is consumed. 'framesDropped' is the only thing that reports real loss.\n\nFilters: connection_id for one server, method for an exact method name, failures_only for error responses and requests that failed, were cancelled or never came back, after_sequence to poll for only what is new since a sequence you have already seen. The newest matches are returned when there are more than limit, and 'truncated' plus 'matched' say what was left out. For message content, list first and then get_lsp_message — a conversation runs to megabytes per minute of typing, so nothing returns bodies in bulk.")]
     public async Task<LspMessagesResult> ListLspMessagesAsync(
         string? connectionId = null,
         string? method = null,
@@ -1662,11 +1662,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
             e.Detail,
             HasBody: ctx.Capture.Body(e.ConnectionId, e.Sequence) is not null)).ToArray();
 
-        return new LspMessagesResult(rows, page.Matched, page.Truncated, ctx.Capture.QueueDropped);
+        return new LspMessagesResult(
+            rows, page.Matched, page.Truncated, ctx.Capture.QueueDropped, page.Note);
     }
 
     [McpServerTool(Name = "get_lsp_message")]
-    [Description("Returns one recorded message's body by its sequence number, as the bytes that crossed the wire. Bodies are kept only for a connection that has been armed — see arm_lsp_capture, or launch with --capture-lsp — except for the opening of every connection, which is always kept because a handshake cannot be captured after the fact. When there is no body this explains which of the possible reasons applies as far as the record knows. A body longer than the per-frame limit comes back as a head and a tail with the true length stated; it is not valid JSON in that case, and pretending otherwise would be a lie about what was sent. Not redacted: this is the developer's own machine, and export is where redaction belongs.")]
+    [Description("Returns one recorded message's body by its sequence number, as the bytes that crossed the wire. Get the sequence from list_lsp_messages; rows there carry 'hasBody', so you can tell before asking.\n\nSEQUENCE NUMBERS ARE UNIQUE ACROSS THE WHOLE RECORD, not per connection — if you name the wrong connection for a real sequence, the reply says which connection it actually belongs to.\n\nBodies are kept only for a connection that has been armed (see arm_lsp_capture, or launch the IDE with --capture-lsp), except for the opening of every connection, which is always kept because a handshake cannot be captured after the fact. When there is no body, 'unavailable' explains which of the possible reasons applies as far as the record knows — including when the record cannot tell them apart, which it says rather than guessing.\n\nA body longer than the per-frame limit comes back as a head and a tail with the true length stated. It is NOT valid JSON in that case, and pretending otherwise would be a lie about what was sent. Not redacted: this is the developer's own machine, and export is where redaction belongs.")]
     public async Task<LspMessageBodyResult> GetLspMessageAsync(
         string connectionId, long sequence, CancellationToken ct)
     {
@@ -1683,7 +1684,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "arm_lsp_capture")]
-    [Description("Arms or disarms retention of message BODIES for one language-server connection, or for every connection when connection_id is omitted. Envelopes are always recorded; this decides whether content is kept, which is the entire privacy boundary. Arming is session-scoped and is lost when the IDE restarts — launch with --capture-lsp to arm before the first connection is made, which is what the rebuild-and-relaunch loop needs. Arming cannot reach a handshake that has already happened, so a server already running keeps only what follows.")]
+    [Description("Arms or disarms retention of message BODIES for one language-server connection, or for every connection when connection_id is omitted. Envelopes are always recorded whatever this says; arming decides only whether CONTENT is kept, which is the entire privacy boundary — so if you only need to know what was sent and what came back, you do not need this at all.\n\nConnection ids come from list_lsp_messages or get_lsp_capture_state; the reply lists every connection it knows with its new state, so a misspelled id is visible rather than silent.\n\nArming is session-scoped and is lost when the IDE restarts — launch with --capture-lsp to arm before the first connection is made, which is what the rebuild-and-relaunch loop needs. It cannot reach a handshake that has already happened, so a server already running keeps only what follows.")]
     public async Task<LspCaptureStateResult> ArmLspCaptureAsync(
         string? connectionId = null, bool armed = true, CancellationToken ct = default)
     {
@@ -1750,7 +1751,11 @@ internal record LspMessagesResult(
     bool Truncated,
     // Frames the capture could not keep up with. Never silent: a record that dropped some reads exactly
     // like one that had fewer to drop.
-    long FramesDropped);
+    long FramesDropped,
+    // Why an empty answer is empty. A bare zero cannot be told apart from "nothing happened", "nothing
+    // was configured" and "the tool is broken" — which is the ambiguity this whole capability exists to
+    // remove, and the tool that removes it is the worst place to reintroduce it.
+    string? Note);
 
 internal record LspMessageRow(
     long Sequence,
