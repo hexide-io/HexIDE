@@ -60,6 +60,25 @@ stated. A separate audit refuted an attempt to retire this entry on that basis, 
 finding the earlier evidence was a full restart misread as a mid-session add. Worth one clean experiment
 before either statement is trusted.
 
+**That experiment was run on 2026-09-11, twice, and this entry's own symptom did not reproduce.** With the
+IDE running and attached since session start: `shutdown_ide`, rebuild, relaunch, and the existing tools
+were callable immediately with no resume — `open_file` answered on the first try. A tool added in the same
+build (`get_lsp_capture_state`) arrived as a deferred-tool delta and worked on its first call. The cycle
+was then repeated a second time with the same result.
+
+**What that settles and what it does not.** It settles the schema half: "MCP schema changes require a
+session restart" was too strong, and `CLAUDE.md` now states the condition instead — the attachment's state
+when the SESSION began, not whether the process has restarted since. The same day supplied the negative
+case: four tools added while no IDE was running at session start did **not** appear on launch, and needed a
+resume, because there was no attachment to re-list from.
+
+It does not settle whether this entry's original symptom is gone or merely unreproduced. The two runs above
+differ from the one recorded here in that the IDE was attached at session start, which is exactly the
+variable the schema half turned on — so the likeliest reading is that both observations are the same
+mechanism seen from two starting states. Retiring it needs a session that begins with no IDE, which is the
+condition nobody has deliberately arranged. **Left open on purpose**, since this entry has already survived
+one wrong retirement.
+
 **Fix consideration.** Auto-reconnect the MCP client when a known server reappears on its port, or a
 lightweight "reconnect MCP" affordance — so the shutdown→build→relaunch→verify loop keeps the tools live
 without a full resume.
@@ -632,5 +651,10 @@ reply — a field that is always populated stops being read.
   completes its request's envelope rather than adding one; beside a field called `framesDropped`, an
   unexplained gap reads as data loss.
 - A reply that mutates reports the new state, and reports it even when the answer is empty.
+
+**None of this is tested, and the descriptions are the largest part of the surface.** A description that
+misleads a caller produces a wrong call and a green build, and the author is the one person who cannot
+evaluate it — the empty-reply defect above was caught by *being* the caller, not by re-reading prose that
+had just been written. Filed as [#396](https://github.com/hexide-io/HexIDE/issues/396).
 
 ---
