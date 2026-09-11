@@ -383,7 +383,7 @@ public class LspClientRegistryTests
         PublishDiagnosticsParams? seen = null;
         sut.DiagnosticsPublished += (_, p) => seen = p;
 
-        await sut.InjectDiagnosticsAsync(Vb6Doc, []);
+        await sut.InjectDiagnosticsAsync(Vb6Doc, [], DiagnosticOwner.Vb6Compiler);
 
         seen.Should().NotBeNull();
         seen!.Uri.Should().Be(Vb6Doc);

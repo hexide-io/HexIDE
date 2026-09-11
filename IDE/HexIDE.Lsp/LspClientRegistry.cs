@@ -34,6 +34,10 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     private readonly ILogger<LspClientRegistry> _logger;
     private readonly ILspWorkspace? _workspace;
 
+    // Each connection is a source of its own, and so is anything injecting through this router. Without
+    // this, two servers claiming one document overwrote each other and a build erased both (#358).
+    private readonly DiagnosticLedger _diagnostics = new();
+
     /// <summary>The workspace the running servers were told about, so a move can be noticed.</summary>
     private string? _rootedAt;
 
@@ -412,9 +416,21 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
     /// external compiler, and it works with no server connected at all — routing it to one would make it
     /// depend on something it deliberately does not need.
     /// </summary>
-    public Task InjectDiagnosticsAsync(string uri, Diagnostic[] diagnostics)
+    public Task InjectDiagnosticsAsync(string uri, Diagnostic[] diagnostics, string owner)
     {
-        DiagnosticsPublished?.Invoke(this, new PublishDiagnosticsParams(uri, diagnostics));
+        DiagnosticsPublished?.Invoke(this, _diagnostics.Record(uri, owner, diagnostics));
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Expires one source's marks everywhere it left them. Raised on this registry directly, for the same
+    /// reason injection is: the source that needs this is an external compiler, and it must not depend on
+    /// a server being connected to take back what it published.
+    /// </summary>
+    public Task ClearDiagnosticsFromAsync(string owner)
+    {
+        foreach (var p in _diagnostics.Withdraw(owner))
+            DiagnosticsPublished?.Invoke(this, p);
         return Task.CompletedTask;
     }
 
@@ -656,10 +672,39 @@ public sealed class LspClientRegistry : ILspClient, ILanguageConnectionRegistry
         StateChanged?.Invoke(this, EventArgs.Empty);
     }
 
+    /// <summary>
+    /// Merged and forwarded with this registry as the sender: subscribers key on the URI, and which server
+    /// produced a diagnostic is not something the editor should have to reason about.
+    ///
+    /// <para>
+    /// <b>Which server it came from still has to be remembered here, and forwarding verbatim is where that
+    /// was lost.</b> Rendering does not care; <em>expiry</em> does, and they arrive on the same event. Two
+    /// servers claiming one document each replaced the other's marks, and an injected clear from a build
+    /// replaced both. So the sender is recorded as the owner of what it published, and what goes out is the
+    /// document's whole set — which is the shape subscribers were already written for.
+    /// </para>
+    /// </summary>
     private void OnInnerDiagnostics(object? sender, PublishDiagnosticsParams p) =>
-        // Forwarded with this registry as the sender: subscribers key on the URI, and which server produced
-        // a diagnostic is not something the editor should have to reason about.
-        DiagnosticsPublished?.Invoke(this, p);
+        DiagnosticsPublished?.Invoke(this, _diagnostics.Record(p.Uri, OwnerOf(sender), p.Diagnostics));
+
+    /// <summary>
+    /// The owner key for a connection: its registration id, which is unique across the registry and is
+    /// what every log line about that connection already names.
+    /// </summary>
+    private string OwnerOf(object? client)
+    {
+        foreach (var e in _entries)
+        {
+            if (ReferenceEquals(e.Client, client)) return e.Registration.Id;
+        }
+
+        // Unreachable by construction — only clients this registry created are subscribed to. Falling back
+        // to a shared key rather than throwing keeps a diagnostic reaching the editor either way; the cost
+        // of the impossible case is that two such publishers would clear each other, which is still better
+        // than an exception on a notification path.
+        _logger.LogDebug("Diagnostics arrived from a connection this registry does not own.");
+        return DiagnosticOwner.LanguageServer;
+    }
 
     private sealed class Entry(LanguageServerRegistration registration)
     {
