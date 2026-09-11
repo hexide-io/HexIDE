@@ -235,6 +235,12 @@ public sealed class VBLspClient : ILspClient
             ? new CapturingFormatter(formatter, log, captureId)
             : formatter;
 
+        // The opening allowance counts frames, so a reconnect has to start it again or the handshake rule
+        // would apply once per process rather than once per connection — and a respawn after a crash is
+        // where a handshake is most worth having.
+        if (_capture is { } reconnecting && _connectionId is { } reconnectingId)
+            reconnecting.Reconnecting(reconnectingId);
+
         var attempt = new AttemptRecorder();
         attempt.Reached(LanguageConnectionStage.Connecting);
         Note(ConversationDirection.Local, ConversationEntryKind.Lifecycle, null, "connecting");
@@ -253,6 +259,11 @@ public sealed class VBLspClient : ILspClient
 
         attempt.Reached(LanguageConnectionStage.Connected);
         Note(ConversationDirection.Local, ConversationEntryKind.Lifecycle, null, "connected");
+
+        // Once per connection, and only when there is something to say. A reader who is not told that a
+        // transport cannot produce an exit code will read its absence as a clean exit.
+        if (_transport.Unobservable is { Length: > 0 } unobservable)
+            Note(ConversationDirection.Local, ConversationEntryKind.Note, null, unobservable);
 
         var rpc = new JsonRpc(handler, new LspNotificationReceiver(this));
         rpc.Disconnected += OnRpcDisconnected;

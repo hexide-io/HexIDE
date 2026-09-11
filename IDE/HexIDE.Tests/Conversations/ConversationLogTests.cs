@@ -136,6 +136,37 @@ public class ConversationLogTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task AReconnectGetsItsOwnOpeningAllowance()
+    {
+        // The handshake exception counts frames, so without resetting it the rule would apply once per
+        // PROCESS rather than once per connection — kept on the first handshake and dropped on every one
+        // after. A respawn following a crash is where a handshake is most worth having, so that is exactly
+        // backwards.
+        for (var i = 0; i < ConversationLog.OpeningFrames + 4; i++)
+            _log.ShouldKeepBody("vb6");
+
+        _log.ShouldKeepBody("vb6").Should().BeFalse("the opening allowance is spent");
+
+        _log.Reconnecting("vb6");
+
+        _log.ShouldKeepBody("vb6").Should().BeTrue("a new connection gets a new opening");
+        await Task.CompletedTask;
+    }
+
+    [Fact]
+    public void ReconnectingDoesNotDisarm()
+    {
+        // Arming belongs to the connection rather than to the process. A crash is what somebody armed
+        // capture to watch, so losing it on respawn would take the tool away at the one moment it earns
+        // its keep.
+        _log.Arm("vb6", true);
+
+        _log.Reconnecting("vb6");
+
+        _log.IsArmed("vb6").Should().BeTrue();
+    }
+
+    [Fact]
     public void ArmingIsPerConnection()
     {
         _log.Arm("vb6", true);

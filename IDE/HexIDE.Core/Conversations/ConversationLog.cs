@@ -154,6 +154,23 @@ public sealed class ConversationLog : IAsyncDisposable
     }
 
     /// <summary>
+    /// Tells the record that this connection is being established again, so its opening counts afresh.
+    /// </summary>
+    /// <remarks>
+    /// <b>Without this the handshake rule quietly stops applying after the first connection.</b> The
+    /// allowance is a frame count, and a respawned server produces a whole new handshake against a counter
+    /// that has already run out — so the one exchange the rule exists to protect would be kept on the first
+    /// connection and dropped on every one after it.
+    ///
+    /// <para>
+    /// Arming is deliberately NOT reset. It belongs to the connection rather than to the process, and a
+    /// crash is what somebody armed capture to watch — taking the tool away at that moment would take it
+    /// away exactly when it was about to be useful.
+    /// </para>
+    /// </remarks>
+    public void Reconnecting(string connectionId) => Interlocked.Exchange(ref Of(connectionId).Seen, 0);
+
+    /// <summary>
     /// Starts or stops retaining bodies for one connection.
     /// </summary>
     /// <remarks>
