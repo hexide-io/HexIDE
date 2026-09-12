@@ -49,6 +49,9 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
 
     private readonly IWindowManager _windows = Substitute.For<IWindowManager>();
 
+    /// <summary>Answers the export preview with Save, for the tests that are about what comes after it.</summary>
+    private void PreviewAccepted() => _windows.ShowDialog(Arg.Any<IDialog>()).Returns(true);
+
     private ProtocolInspectorToolViewModel Sut() => Over(_capture);
 
     private ProtocolInspectorToolViewModel Over(ConversationLog log) =>
@@ -476,6 +479,7 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
     [Fact]
     public async Task ACancelledExportWritesNothingAndSaysNothing()
     {
+        PreviewAccepted();
         // A picker returning null is the reader changing their mind. Reporting a failure for it would
         // teach them to ignore the line that also reports real ones.
         Frame("vb6", "initialize");
@@ -490,6 +494,7 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
     [Fact]
     public async Task AnExportWritesBothHalvesUnderOneStemAndSaysWhere()
     {
+        PreviewAccepted();
         // Two files, and the manifest's name is derived rather than asked for a second time: the manifest
         // cites the messages file by line number, so a separated pair is a broken one.
         _capture.Arm("vb6", true);
@@ -517,6 +522,7 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
     [Fact]
     public async Task AnExportThatFailsSaysSoRatherThanLookingLikeACancel()
     {
+        PreviewAccepted();
         // Silence after a Save button is indistinguishable from a cancel, and the reader will act on the
         // wrong one — most likely by concluding the record was empty.
         Frame("vb6", "initialize");
@@ -534,6 +540,7 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
     [Fact]
     public async Task ACancelAfterASuccessDoesNotLeaveTheOldSuccessOnScreen()
     {
+        PreviewAccepted();
         // Found against the running window. The line is true — that export did happen — and it reads as
         // though the one just cancelled had happened too, which is the reading a reader will take.
         _capture.Arm("vb6", true);
@@ -560,6 +567,7 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
     [Fact]
     public async Task TheServerFilterDecidesWhatIsExported()
     {
+        PreviewAccepted();
         // The window shows one server at a time when asked to, and an export that ignored that would hand
         // somebody a file full of another server's traffic.
         _capture.Arm("vb6", true);
@@ -581,5 +589,91 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
                 .Should().Contain("latex").And.NotContain("\"vb6\"");
         }
         finally { folder.Delete(recursive: true); }
+    }
+
+    [Fact]
+    public async Task NothingLeavesUntilThePreviewIsAccepted()
+    {
+        // The preview is the only thing that catches a secret sitting in a string literal, so declining it
+        // has to mean nothing was written and nothing was even asked for.
+        _capture.Arm("vb6", true);
+        Frame("vb6", "initialize");
+
+        _windows.ShowDialog(Arg.Any<IDialog>()).Returns(false);
+
+        var vm = Sut();
+        await vm.ExportAsync();
+
+        await _windows.DidNotReceive().SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>());
+        vm.ExportStatus.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ThePreviewIsShownBeforeThePathIsAskedFor()
+    {
+        // Order matters. Asking where to put it first invites the reader to treat the preview as a
+        // formality standing between them and a file they have already decided to write.
+        _capture.Arm("vb6", true);
+        Frame("vb6", "initialize");
+        PreviewAccepted();
+        _windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns((string?)null);
+
+        var vm = Sut();
+        await vm.ExportAsync();
+
+        Received.InOrder(() =>
+        {
+            _windows.ShowDialog(Arg.Any<IDialog>());
+            _windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>());
+        });
+    }
+
+    // ── The pane's preview of what would leave ───────────────────────────────
+
+    [Fact]
+    public void ThePaneShowsTheRawBytesUntilAskedOtherwise()
+    {
+        // Raw is what the window is for. The redaction governs egress, and the pane is not egress.
+        _capture.Arm("vb6", true);
+        Frame("vb6", "textDocument/didOpen");
+
+        var vm = Sut();
+        vm.SelectedRow = vm.Rows.Single();
+
+        vm.ShowsWhatWouldBeShared.Should().BeFalse();
+        vm.PaneText.Should().Be(vm.SelectedBody);
+    }
+
+    [Fact]
+    public void ThePaneCanShowWhatWouldLeaveInstead()
+    {
+        _capture.Arm("vb6", true);
+        Frame("vb6", "textDocument/didOpen");
+
+        var vm = Sut();
+        vm.SelectedRow = vm.Rows.Single();
+        vm.ShowsWhatWouldBeShared = true;
+
+        vm.PaneText.Should().Be(vm.SelectedTrace);
+        vm.PaneText.Should().Contain("[Trace - ", "the preview is the copy, not a description of it");
+    }
+
+    [Fact]
+    public void ThePreviewFollowsTheSelectionRatherThanStickingToOneRow()
+    {
+        // A toggle left on while the reader moves down the grid must keep previewing, or the state silently
+        // means something different from what it did a moment ago.
+        _capture.Arm("vb6", true);
+        Frame("vb6", "first");
+        Frame("vb6", "second");
+
+        var vm = Sut();
+        vm.ShowsWhatWouldBeShared = true;
+        vm.SelectedRow = vm.Rows[0];
+        var first = vm.PaneText;
+
+        vm.SelectedRow = vm.Rows[1];
+
+        vm.PaneText.Should().NotBe(first).And.Contain("second");
     }
 }

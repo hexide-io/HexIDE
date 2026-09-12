@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using Avalonia.Platform.Storage;
+using HexIDE.Forms.ViewModels;
 using Dock.Model.Mvvm.Controls;
 using HexIDE.Conversations;
 using HexIDE.IDE;
@@ -95,6 +96,23 @@ public partial class ProtocolInspectorToolViewModel : Document
     [Notify] private bool isDetailOpen;
 
     /// <summary>
+    /// How much of the window the detail pane takes.
+    /// </summary>
+    /// <remarks>
+    /// <b>A star share rather than a content-sized row, and that was measured rather than reasoned.</b>
+    /// Sized to its content, the pane was fine while a body was one wrapped paragraph and then swallowed
+    /// the entire window the moment the pane showed an indented forty-line trace — the grid was pushed off
+    /// screen with no scrollbar and no way back. A star row keeps its share whatever is in it and lets the
+    /// text scroll inside, which is what a splitter is for.
+    ///
+    /// <para>
+    /// Zero rather than collapsed, because a star row reserves its share even when its content is hidden.
+    /// Held as a value the row binds to so the pane can genuinely disappear when nothing is selected.
+    /// </para>
+    /// </remarks>
+    [Notify] private Avalonia.Controls.GridLength detailHeight = new(0);
+
+    /// <summary>
     /// The selected message as the text trace a server author already reads, ready to be pasted.
     /// </summary>
     /// <remarks>
@@ -107,6 +125,31 @@ public partial class ProtocolInspectorToolViewModel : Document
 
     /// <summary>Set while there is a message to copy, so the button can say so.</summary>
     [Notify] private bool canCopy;
+
+    /// <summary>
+    /// Whether the pane is showing what would leave rather than what crossed the wire.
+    /// </summary>
+    /// <remarks>
+    /// <b>The preview for the copy action, and it is a toggle rather than a dialog.</b> Every outbound gate
+    /// in this tree shows its payload first, and a preview is the only thing that catches a secret sitting
+    /// in a string literal — no content-agnostic redactor will ever find one. A modal on every copy would
+    /// be dismissed unread within a day; a switch on the pane the reader is already looking at is the same
+    /// disclosure at a cost they will keep paying.
+    ///
+    /// <para>
+    /// Off by default, because the raw bytes are what the window is for. What is on screen is labelled
+    /// either way, so neither state can be mistaken for the other.
+    /// </para>
+    /// </remarks>
+    [Notify] private bool showsWhatWouldBeShared;
+
+    /// <summary>What the pane is actually rendering: the raw body, or the redacted trace.</summary>
+    /// <remarks>
+    /// One property rather than two visibility-swapped text boxes, so the scroll position, the selection
+    /// and the copy behaviour belong to one control and the toggle reads as a change of view rather than a
+    /// change of place.
+    /// </remarks>
+    [Notify] private string paneText = "";
 
     /// <summary>Where the last export went, or why it did not go.</summary>
     /// <remarks>
@@ -316,10 +359,13 @@ public partial class ProtocolInspectorToolViewModel : Document
             SelectedTrace = "";
             SelectedBodyUnavailable = "";
             SelectedBodyHeader = "";
+            DetailHeight = new Avalonia.Controls.GridLength(0);
+            RefreshPane();
             return;
         }
 
         IsDetailOpen = true;
+        DetailHeight = new Avalonia.Controls.GridLength(1, Avalonia.Controls.GridUnitType.Star);
         SelectedBodyHeader = Header(row);
 
         var view = CaptureQueries
@@ -343,6 +389,7 @@ public partial class ProtocolInspectorToolViewModel : Document
             // there is.
             SelectedTrace = Trace(row, null, SelectedBodyUnavailable);
             CanCopy = true;
+            RefreshPane();
             return;
         }
 
@@ -351,6 +398,7 @@ public partial class ProtocolInspectorToolViewModel : Document
         SelectedBody = Compose(view);
         SelectedTrace = Trace(row, Redactor().Body(SelectedBody), null);
         CanCopy = true;
+        RefreshPane();
     }
 
     /// <summary>
@@ -406,6 +454,16 @@ public partial class ProtocolInspectorToolViewModel : Document
 
         try
         {
+            var connection = SelectedConnection == AllConnections ? null : SelectedConnection;
+
+            // BUILT BEFORE ANYTHING IS ASKED, because the preview has to show the bytes rather than a
+            // description of them. Nothing is written until the reader has seen them and chosen a path.
+            var export = await ConversationExporter.ExportAsync(_capture, Redactor(), connection);
+            var disclosure = await ConversationDisclosure.OfAsync(_capture, connection);
+
+            var preview = new ExportPreviewDialogViewModel(disclosure, export, _localization);
+            if (!await _windows.ShowDialog(preview)) return;
+
             var chosen = await _windows.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 Title = _localization.GetString("Str.Tool.ProtocolInspector.Export"),
@@ -414,10 +472,6 @@ public partial class ProtocolInspectorToolViewModel : Document
             });
 
             if (chosen is not { Length: > 0 }) return;
-
-            var export = await ConversationExporter.ExportAsync(
-                _capture, Redactor(),
-                SelectedConnection == AllConnections ? null : SelectedConnection);
 
             // The manifest's name is DERIVED rather than asked for a second time. Two pickers for one
             // action is how the halves end up in different folders under different stems, and the manifest
@@ -496,6 +550,10 @@ public partial class ProtocolInspectorToolViewModel : Document
     /// posting looks like the safe default and is only correct when the caller might be off-thread.
     /// </para>
     /// </remarks>
+    private void OnShowsWhatWouldBeSharedChanged() => RefreshPane();
+
+    private void RefreshPane() => PaneText = ShowsWhatWouldBeShared ? SelectedTrace : SelectedBody;
+
     private void OnSelectedConnectionChanged() => Refresh();
 
     private void OnFailuresOnlyChanged() => Refresh();

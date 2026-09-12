@@ -1,0 +1,80 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="720" d:DesignHeight="520"
+             x:DataType="vm:ExportPreviewDialogViewModel"
+             x:Class="HexIDE.Forms.Views.ExportPreviewDialog">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="16" Width="700" Height="520">
+
+        <StackPanel Grid.Row="0" Spacing="6">
+            <TextBlock Text="{DynamicResource Str.Dialog.ExportPreview.Title}"
+                       FontSize="15" FontWeight="Bold" />
+
+            <TextBlock TextWrapping="Wrap" Text="{CompiledBinding Headline}" />
+        </StackPanel>
+
+        <!-- THE DISCLOSURE, sized in terms a person can weigh. A message count is a number about the
+             protocol; "forty-seven copies of Form1, two megabytes of your source" is a number about them,
+             and it is the one that decides whether they attach the file. Full document synchronisation
+             sends the whole file on every keystroke burst, so the copy count is usually the surprise. -->
+        <StackPanel Grid.Row="1" Spacing="4" Margin="0,12,0,8">
+
+            <TextBlock TextWrapping="Wrap" FontWeight="Bold"
+                       IsVisible="{CompiledBinding CarriesDocuments}"
+                       Text="{CompiledBinding Documents}" />
+
+            <TextBlock TextWrapping="Wrap" Opacity="0.75"
+                       IsVisible="{CompiledBinding HasUnattributed}"
+                       Text="{CompiledBinding Unattributed}" />
+
+            <TextBlock TextWrapping="Wrap" Opacity="0.75"
+                       IsVisible="{CompiledBinding HasBodilessMessages}"
+                       Text="{CompiledBinding BodilessMessages}" />
+
+            <TextBlock TextWrapping="Wrap" Opacity="0.75"
+                       IsVisible="{CompiledBinding IsPseudonymised}"
+                       Text="{CompiledBinding Pseudonyms}" />
+
+            <!-- The case that most needs somebody to look. Stated where it cannot be missed rather than
+                 left as the absence of a reassurance. -->
+            <Border IsVisible="{CompiledBinding !IsPseudonymised}"
+                    Background="{DynamicResource WarningBannerBackgroundBrush}"
+                    BorderBrush="{DynamicResource WarningBannerBorderBrush}" BorderThickness="1"
+                    CornerRadius="3" Padding="8">
+                <TextBlock TextWrapping="Wrap"
+                           Foreground="{DynamicResource WarningBannerForegroundBrush}"
+                           Text="{DynamicResource Str.Dialog.ExportPreview.NotRedacted}" />
+            </Border>
+        </StackPanel>
+
+        <!-- The exact bytes that will land on disk, not a description of them. A preview is the only thing
+             that catches a secret sitting in a string literal, and no content-agnostic redactor will ever
+             find one of those. -->
+        <Border Grid.Row="2" BorderThickness="1"
+                BorderBrush="{DynamicResource DockTitleBarBrush}">
+            <TextBox IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
+                     FontFamily="Courier New"
+                     VerticalContentAlignment="Top"
+                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     Text="{CompiledBinding Preview, Mode=OneWay}" />
+        </Border>
+
+        <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
+            <TextBlock Grid.Column="0" VerticalAlignment="Center" Opacity="0.65"
+                       TextWrapping="Wrap"
+                       IsVisible="{CompiledBinding IsPreviewTruncated}"
+                       Text="{CompiledBinding PreviewNote}" />
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                <Button Content="{DynamicResource Str.Dialog.ExportPreview.Cancel}"
+                        Command="{CompiledBinding CancelCommand}" MinWidth="84" />
+                <Button Content="{DynamicResource Str.Dialog.ExportPreview.Save}"
+                        Command="{CompiledBinding SaveCommand}" MinWidth="120" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</UserControl>

@@ -53,6 +53,7 @@ public class ViewLocator : IDataTemplate
         Register<DeveloperPageViewModel, DeveloperPageView>();
         Register<AddinOptionsPageViewModel, AddinOptionsPageView>();
         Register<AddinConsentDialogViewModel, AddinConsentDialog>();
+        Register<ExportPreviewDialogViewModel, ExportPreviewDialog>();
         Register<AddWatchDialogViewModel, AddWatchDialog>();
         Register<TrustChainViewModel, TrustChainView>();
         Register<RuntimeErrorViewModel, RuntimeErrorView>();

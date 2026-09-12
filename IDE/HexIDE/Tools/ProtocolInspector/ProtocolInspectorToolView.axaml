@@ -123,8 +123,16 @@
              answer, and whatever came between them, so replacing the grid destroys the context that made
              the row worth opening. Comparing two bodies side by side wants a second tab, and that is a
              later feature the design already defers. -->
-        <Grid Grid.Row="2" RowDefinitions="*,Auto,Auto"
-              IsVisible="{CompiledBinding !NothingToShow}">
+        <Grid Grid.Row="2" IsVisible="{CompiledBinding !NothingToShow}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="2*" />
+                <RowDefinition Height="Auto" />
+
+                <!-- Bound, so the pane is a share of the window when it is open and genuinely nothing when
+                     it is not. A star row reserves its share even with hidden content, and a content-sized
+                     row let a forty-line trace push the grid off screen. -->
+                <RowDefinition Height="{CompiledBinding DetailHeight}" />
+            </Grid.RowDefinitions>
 
             <DataGrid Grid.Row="0"
                       ItemsSource="{CompiledBinding Rows}"
@@ -215,7 +223,7 @@
                           IsVisible="{CompiledBinding IsDetailOpen}"
                           Background="{DynamicResource DockTitleBarBrush}" />
 
-            <Border Grid.Row="2" MinHeight="170"
+            <Border Grid.Row="2" MinHeight="120"
                     IsVisible="{CompiledBinding IsDetailOpen}"
                     BorderBrush="{DynamicResource DockTitleBarBrush}" BorderThickness="0,1,0,0">
                 <Grid RowDefinitions="Auto,*">
@@ -235,13 +243,25 @@
                                    IsVisible="{CompiledBinding CanCopy}"
                                    Text="{DynamicResource Str.Tool.ProtocolInspector.LeavesRedacted}" />
 
-                        <!-- The Visual Studio Code text trace shape, because it is the lingua franca an
-                             author recognises on sight - and the thing being copied is going into a report
-                             addressed to somebody who does not have HexIDE. -->
-                        <Button Grid.Column="2" VerticalAlignment="Center"
-                                Click="Copy_OnClick"
-                                IsEnabled="{CompiledBinding CanCopy}"
-                                Content="{DynamicResource Str.Tool.ProtocolInspector.Copy}" />
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8"
+                                    VerticalAlignment="Center">
+
+                            <!-- THE PREVIEW FOR THE COPY, and a toggle rather than a dialog. A preview is
+                                 the only thing that catches a secret sitting in a string literal, and a
+                                 modal on every copy is dismissed unread within a day. A switch on the pane
+                                 the reader is already looking at is the same disclosure at a price they
+                                 keep paying. -->
+                            <ToggleButton IsChecked="{CompiledBinding ShowsWhatWouldBeShared}"
+                                          IsEnabled="{CompiledBinding CanCopy}"
+                                          Content="{DynamicResource Str.Tool.ProtocolInspector.PreviewShared}" />
+
+                            <!-- The Visual Studio Code text trace shape, because it is the lingua franca
+                                 an author recognises on sight - and the thing being copied is going into a
+                                 report addressed to somebody who does not have HexIDE. -->
+                            <Button Click="Copy_OnClick"
+                                    IsEnabled="{CompiledBinding CanCopy}"
+                                    Content="{DynamicResource Str.Tool.ProtocolInspector.Copy}" />
+                        </StackPanel>
                     </Grid>
 
                     <!-- WHY there is no body, not a blank pane. Three states a blank collapses: nothing was
@@ -266,7 +286,7 @@
                              FontFamily="Courier New"
                              VerticalContentAlignment="Top"
                              ScrollViewer.VerticalScrollBarVisibility="Auto"
-                             Text="{CompiledBinding SelectedBody, Mode=OneWay}" />
+                             Text="{CompiledBinding PaneText, Mode=OneWay}" />
                 </Grid>
             </Border>
         </Grid>
