@@ -672,3 +672,138 @@ evaluate it — the empty-reply defect above was caught by *being* the caller, n
 had just been written. Filed as [#396](https://github.com/hexide-io/HexIDE/issues/396).
 
 ---
+
+## get_document_tabs reported three fewer tabs than the user could see
+
+**Symptom.** A newly built Protocol Inspector tab was visibly open in the tab strip, and:
+
+```
+get_document_tabs      -> only the form designer
+activate_document_tab  -> "No document tab with title 'Protocol Inspector'"
+```
+
+The Object Browser and the language-server connection list were missing too. Three real tabs, in the same
+strip, invisible to automation.
+
+**Cause.** Both tools read `IDocumentDockService.OpenDocuments`, which is typed
+`IReadOnlyList<BaseEditorWindowViewModel>` and tracks only the editors the service was asked to open. The
+Object Browser, the connection list and the inspector are documents the shell adds straight to the dock, so
+they were never in that list. Nothing was wrong with the tools' logic; they were answering a narrower
+question than the one asked, and the difference was invisible from outside.
+
+**How it bit.** It blocked verification of the very feature being built. Worse, the failure was
+*affirmative*: not "I cannot see that kind of tab" but "no document tab with title X", which reads as the
+tab not existing. I had to take a screenshot to establish that the thing I had just built was on screen.
+
+**Fixed.** `IDocumentDockService` gained `AllTabs`, `ActiveTab`, `TryActivateAny` and `TryCloseAny`, reading
+the dock's own `VisibleDockables`. The three tools now answer about the strip the user sees, `type` gained
+a third value `tool` for documents that are not editors, and the description enumerates all three.
+
+**And the error now names what IS open.** A bare "no tab called X" cannot be told from a typo, and cost a
+second call to find out. The tabs were already in hand:
+
+```
+No document tab with title 'Protocl Inspector'. Open tabs: Object Browser,
+Language & Debug Servers, Project1 - Form1 (Form), Protocol Inspector.
+```
+
+---
+
+## A DataGrid row could be read but not selected, which makes a master-detail window undrivable
+
+**Symptom.** With the protocol inspector's grid on screen and its rows enumerated by
+`dump_visual_tree`:
+
+```
+interact(".../DataGrid/DataItem[#2]", "select")
+-> {"success": false, "mechanism": "peer", "error": "element does not support 'select'"}
+```
+
+`inspect_element` on the same row reported `"providers": []` and `"selectionItems": []`.
+
+**Cause.** A `DataGridRow`'s automation peer exposes no `ISelectionItemProvider`, and `DoSelect` refused
+when there was no provider. There was no second route either: the reflection actions set a view-model
+property by name and coerce the value from a string, and the property that holds a selection is a row
+object no string can name. So the grid was fully readable and completely inert.
+
+**How it bit.** Selecting a row is not a detail of this window, it is the window: click a row, read the
+body that crossed the wire. Every master-detail surface in the IDE has the same shape, so the gap was one
+control wide and the whole pattern deep. It surfaced while verifying the detail pane, which could not be
+verified at all until it was fixed.
+
+**Fixed.** `UiAutomationDriver.DoSelect` falls back to selecting through the grid that owns the row —
+found by walking up the visual tree, because `DataGridRow.OwningGrid` is internal — and reads
+`SelectedItem` back rather than assuming the grid accepted it. `DescribeProviders` now advertises
+`selectionItem` on a row, so the verb is discoverable instead of being a thing a caller has to try.
+Covered headlessly in `UiAutomationDriverTests`.
+
+---
+
+## A native file dialog cannot be driven, so every flow that ends in one needed a person
+
+**Symptom.** The protocol inspector's new *Export conversation…* button opens a save picker.
+`dump_visual_tree` sees nothing of it — a native Win32 dialog is not in Avalonia's control tree at all —
+and while a modal one is up the server does not answer. So the button could be found, enabled and invoked,
+and what happened next could not be observed or completed.
+
+**How far it reaches.** Not one button. Save As, Open Project, Add File, Make EXE, Make Project Group,
+every export: each of them ends in `IStorageProvider`, and each has been verified up to the dialog and by
+hand after it. This was already noted in passing inside a *closed* entry about carried files, which is
+where a general gap goes to be forgotten.
+
+**Fixed, and deliberately not by faking the dialog.** `answer_next_file_dialog(path?)` arms the answer the
+picker would have returned; `clear_file_dialog_answers` discards what is armed. `WindowManager` consults
+the armed answer before reaching for the storage provider, so everything below the picker — the writing,
+the naming, the refusals — is the same code a real click reaches. Only the part a person performs is
+skipped.
+
+Three properties are load-bearing:
+
+- **Single-shot.** A standing override would silently redirect the next unrelated save, and that damage
+  shows up somewhere other than where it was caused.
+- **Cancellation is expressible.** An empty path answers as cancelled, which is a distinct branch through
+  most of these flows and the one least likely to have been exercised by hand.
+- **DEBUG only.** The queue and both call sites compile out with the server, so a shipped build has no
+  bypass rather than an unreachable one.
+
+**It did NOT need a session restart, and that is worth recording because the expectation was wrong.** Two
+brand-new tool schemas appeared to the already-attached client as soon as the IDE relaunched carrying them,
+and were callable in the same session that added them. That matches the measured entry above about
+mid-session relaunch rather than the standing advice, which is written for the case where the server was
+not attached when the session began. Verified by using both tools to drive the export they were built for,
+including the cancellation branch.
+
+---
+
+## `list_lsp_messages` described a vocabulary it does not use, and promised data that was not there
+
+**Symptom.** The tool's own description enumerates what a `kind` can be, because a caller who reads
+`Unconsumed` in a reply has no other way to learn what it means. `ConversationEntryKind` has **nine**
+members; the description named **seven** of them, and got one of those seven wrong:
+
+- **`StandardError` and `Note` were absent entirely.** A caller shown `"kind": "StandardError"` had been
+  told the set and it was not in the set, which reads as a bug in the tool rather than a gap in the
+  sentence.
+- **`Lifecycle` was described as "a process starting, stopping, its standard error and exit code".** It
+  covers none of standard error and, at the time the sentence was written, no exit code either — nothing
+  in the tree read one. So the description was the only place in the repository claiming the record held
+  data it did not hold, and a caller who trusted it would have concluded the *server* was silent.
+- **`direction` said "Sent, Received, or Local for the entries that are not messages at all"**, which
+  puts every non-message under `Local`. A standard error line is `Received`, and the vocabulary's own
+  definition says so.
+
+**Why it survived.** The two omissions were kinds the enum had and the wire never produced — `StandardError`
+because nothing raised it, `Note` because the only path to it was an undecodable frame that the recorder
+never saw. A description drifts exactly where the code is unreachable, so the sentence agreed with the
+observable behaviour and disagreed with the design. Nothing checks a `[Description]` string against the
+enum it enumerates; the coverage guard that would have caught it is the one this repository applies to
+`docs/lsp-client.md` and to the language packs, and tool descriptions have no equivalent.
+
+**Fixed** by rewriting both sentences to the full set of nine — four for wire traffic, five that are not
+messages — and to what each kind actually carries. The
+underlying data gaps were closed in the same change: standard error and the exit code now reach the record
+(`ILspTransport.Notice`), and an undecodable frame is recorded as a `Note` with its bytes rather than
+dropped. Filed as hexide-io/HexIDE#400 for the general problem — a tool description that enumerates
+a C# enum should be guarded against it, the way the LSP coverage table is guarded against the
+specification.
+

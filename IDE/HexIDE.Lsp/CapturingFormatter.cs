@@ -64,7 +64,29 @@ internal sealed class CapturingFormatter(
         // handler will frame, so watching them go past costs one copy when armed and one addition when not.
         var tee = new TeeWriter(bufferWriter, log.ShouldKeepBody(connectionId));
 
-        inner.Serialize(tee, message);
+        try
+        {
+            inner.Serialize(tee, message);
+        }
+        catch (Exception ex)
+        {
+            // A tap INSIDE the client's own serialization stack can be blinded by a client-side defect that
+            // a byte proxy sitting outside the process was immune to. The specific one is documented and
+            // has cost this project time twice: a type missing from LspJsonContext throws here, the throw
+            // lands in a debug-level catch upstream, and the result is a server that connects, initializes
+            // and then answers nothing — indistinguishable from a broken server.
+            //
+            // So the attempt goes on the record. Nothing crossed the wire, which is exactly the finding.
+            try
+            {
+                log.Record(
+                    connectionId, ConversationDirection.Local, ConversationEntryKind.NeverSent,
+                    MethodOf(message), null, 0, null, $"could not be serialized: {ex.Message}");
+            }
+            catch (Exception) { /* never replace the caller's exception with a diagnostic's */ }
+
+            throw;
+        }
 
         // Everything below is best-effort and swallows. A throw here is survivable — measured, the one
         // call fails and the connection lives — but "survivable" is not a reason to spend the connection's
@@ -103,13 +125,48 @@ internal sealed class CapturingFormatter(
         }
         catch (Exception) { copy = null; }
 
-        var message = deserialize();
+        JsonRpcMessage message;
+        try
+        {
+            message = deserialize();
+        }
+        catch (Exception ex)
+        {
+            // THE ONE FRAME MOST WORTH RECORDING, and until now the only one that was not.
+            //
+            // Record ran after deserialize, so a body this client could not decode threw straight past it
+            // and the bytes — already copied, one line above — were dropped on the floor. A server emitting
+            // malformed JSON is a real defect and this window exists to show it, so the record was blind in
+            // exactly the case somebody opens it for. The window even renders the "not valid JSON" marker,
+            // which no wire path could reach.
+            //
+            // Recorded as a note rather than as a message, because it is not one: it has no method, no id
+            // and no direction the protocol would recognise. The bytes travel with it.
+            try
+            {
+                log.Record(
+                    connectionId, ConversationDirection.Received, ConversationEntryKind.Note,
+                    null, null, length, copy, $"undecodable frame: {ex.Message}");
+            }
+            catch (Exception) { /* the throw below is the caller's answer; this must not replace it */ }
+
+            throw;
+        }
 
         try { Record(message, ConversationDirection.Received, length, copy); }
         catch (Exception) { /* as above, and more so */ }
 
         return message;
     }
+
+    /// <summary>The method name, when the message has one to give.</summary>
+    /// <remarks>
+    /// Read off the message rather than the bytes, because on the outbound failure path there are no
+    /// bytes — that is the whole point of the entry. A response carries no method of its own and comes
+    /// back null, which the row renders as its detail instead.
+    /// </remarks>
+    private static string? MethodOf(JsonRpcMessage message) =>
+        message is JsonRpcRequest { Method: { Length: > 0 } method } ? method : null;
 
     private void Record(JsonRpcMessage message, ConversationDirection direction, int size, byte[]? body)
     {

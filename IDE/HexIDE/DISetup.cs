@@ -39,6 +39,7 @@ public partial class DISetup
             .Bind().As(Singleton).To<ObjectBrowserToolViewModel>()
             .Bind().As(Singleton).To<TranslationEditorViewModel>()
             .Bind().As(Singleton).To<LanguageServersToolViewModel>()
+            .Bind().As(Singleton).To<HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel>()
             .Bind().As(Singleton).To<WindowManager>()
             .Bind().As(Singleton).To<ProjectManager>()
             .Bind().As(Singleton).To<EditorService>()
@@ -210,6 +211,7 @@ public partial class DISetup
             .Root<ToolBoxToolViewModel>("ToolBoxViewModel")
             .Root<TranslationEditorViewModel>("TranslationEditorViewModel")
             .Root<LanguageServersToolViewModel>("LanguageServersToolViewModel")
+            .Root<HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel>("ProtocolInspectorToolViewModel")
             .Root<IPersonalityService>("PersonalityService")
             .Root<AddinProjectTemplateService>("AddinProjectTemplateService");
 

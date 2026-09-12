@@ -28,6 +28,33 @@ public sealed record EnvelopeFilter(
     long? AfterSequence = null,
     int Limit = 200);
 
+/// <summary>
+/// Why a listing came back empty, as something other than a sentence.
+/// </summary>
+/// <remarks>
+/// <b>The prose in <see cref="EnvelopePage.Note"/> is written for an automation client, and English is the
+/// right answer there.</b> A window is a different audience: it has to say the same thing in whatever
+/// language the person reading it chose. Carrying the reason as a value lets both surfaces render it, and
+/// keeps the two from drifting into different explanations of the same state.
+/// </remarks>
+public enum CaptureEmptyReason
+{
+    /// <summary>Not empty.</summary>
+    NotEmpty,
+
+    /// <summary>No server has connected, so there is nothing to have recorded.</summary>
+    NoConnections,
+
+    /// <summary>Connections exist and hold nothing — nothing has crossed the wire, or it was cleared.</summary>
+    NothingRecorded,
+
+    /// <summary>Something is recorded and the filter excludes all of it.</summary>
+    FilteredOut,
+
+    /// <summary>The connection asked about is not one this capture knows.</summary>
+    NoSuchConnection,
+}
+
 /// <summary>A page of envelopes, and how much it is a page of.</summary>
 /// <param name="Entries">In the order they happened, oldest first, however few were asked for.</param>
 /// <param name="Matched">How many matched the filter in total.</param>
@@ -47,11 +74,15 @@ public sealed record EnvelopeFilter(
 /// is the worst place to put it.
 /// </para>
 /// </param>
+/// <param name="Reason">
+/// The same fact as <paramref name="Note"/>, as a value a view can translate.
+/// </param>
 public sealed record EnvelopePage(
     IReadOnlyList<ConversationEnvelope> Entries,
     int Matched,
     bool Truncated,
-    string? Note = null);
+    string? Note = null,
+    CaptureEmptyReason Reason = CaptureEmptyReason.NotEmpty);
 
 /// <summary>One message's content, as far as it was kept.</summary>
 /// <param name="Sequence">Its place in the timeline, which is how it was asked for.</param>
@@ -108,12 +139,13 @@ public static class CaptureQueries
         }
 
         var limit = Math.Max(1, filter.Limit);
+        var reason = matched.Count == 0 ? WhyEmpty(log, filter) : CaptureEmptyReason.NotEmpty;
         var note = matched.Count == 0 ? ExplainEmpty(log, filter) : null;
 
-        if (matched.Count <= limit) return new EnvelopePage(matched, matched.Count, false, note);
+        if (matched.Count <= limit) return new EnvelopePage(matched, matched.Count, false, note, reason);
 
         return new EnvelopePage(
-            matched.GetRange(matched.Count - limit, limit), matched.Count, true, note);
+            matched.GetRange(matched.Count - limit, limit), matched.Count, true, note, reason);
     }
 
     /// <summary>
@@ -154,6 +186,30 @@ public static class CaptureQueries
     /// language server starts on the first document of a language it claims, so a caller who has not opened
     /// anything gets an empty record and no hint that the record is not the problem.
     /// </remarks>
+    /// <summary>
+    /// The same four states <see cref="ExplainEmpty"/> describes, decided once.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately beside the prose rather than derived from it. Two functions answering the same
+    /// question from the same inputs can be read side by side; a parser of one's output could not.
+    /// </remarks>
+    private static CaptureEmptyReason WhyEmpty(ConversationLog log, EnvelopeFilter filter)
+    {
+        var connections = log.ConnectionIds;
+
+        if (connections.Count == 0) return CaptureEmptyReason.NoConnections;
+
+        if (filter.ConnectionId is { Length: > 0 } asked
+            && !connections.Contains(asked, StringComparer.Ordinal))
+        {
+            return CaptureEmptyReason.NoSuchConnection;
+        }
+
+        return log.Snapshot(filter.ConnectionId).Count == 0
+            ? CaptureEmptyReason.NothingRecorded
+            : CaptureEmptyReason.FilteredOut;
+    }
+
     private static string ExplainEmpty(ConversationLog log, EnvelopeFilter filter)
     {
         var connections = log.ConnectionIds;

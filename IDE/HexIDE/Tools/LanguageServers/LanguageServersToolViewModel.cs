@@ -1,9 +1,12 @@
 using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using Dock.Model.Mvvm.Controls;
+using HexIDE.Conversations;
+using HexIDE.Events;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Lsp;
+using HexIDE.Redaction;
 using PropertyChanged.SourceGenerator;
 
 namespace HexIDE.Tools.LanguageServers;
@@ -45,6 +48,9 @@ public partial class LanguageServersToolViewModel : Document
 {
     private readonly ILanguageConnectionRegistry _registry;
     private readonly ILocalizationService _localization;
+    private readonly ConversationLog _capture;
+    private readonly IEventBus _events;
+    private readonly Pseudonymiser _pseudonyms;
 
     public ObservableCollection<LanguageServerGroupViewModel> Groups { get; } = [];
     public ObservableCollection<LanguageServerConfigProblem> Problems { get; } = [];
@@ -52,18 +58,87 @@ public partial class LanguageServersToolViewModel : Document
     [Notify] private bool hasProblems;
     [Notify] private bool hasNoServers;
 
-    public LanguageServersToolViewModel(ILanguageConnectionRegistry registry, ILocalizationService localization)
+    /// <summary>
+    /// Whether a server that has not started yet will keep bodies from its first frame.
+    /// </summary>
+    /// <remarks>
+    /// <b>The one arming question a per-row toggle cannot answer.</b> A server starts on the first document
+    /// of a language it claims, so the connection a person most wants to arm — the one that has not run
+    /// yet — has no row to tick. That is the same gap the launch flag fills, and the launch flag is no use
+    /// to somebody already running.
+    ///
+    /// <para>
+    /// It governs new connections only. Turning it on is not a claim about what has already been recorded,
+    /// and turning it off must not disarm a server somebody armed deliberately.
+    /// </para>
+    /// </remarks>
+    [Notify] private bool armsFutureServers;
+
+    /// <summary>Opens the protocol inspector on everything, from the header.</summary>
+    /// <remarks>
+    /// Always present, unlike anything else on this window: the inspector never opens itself — a window
+    /// that appears uninvited is one people learn to close reflexively — so it has to be one action from
+    /// where trouble is reported, and this is where trouble is reported.
+    /// </remarks>
+    public System.Windows.Input.ICommand ShowAllMessagesCommand { get; }
+
+    public LanguageServersToolViewModel(
+        ILanguageConnectionRegistry registry, ILocalizationService localization, ConversationLog capture,
+        IEventBus events, Pseudonymiser pseudonyms)
     {
         _registry = registry;
         _localization = localization;
+        _capture = capture;
+        _events = events;
+        _pseudonyms = pseudonyms;
+
+        ShowAllMessagesCommand = new HexIDE.Utils.DelegateCommand(
+            () => _events.Publish(new OpenProtocolInspectorEvent()));
 
         localization.BindTitle(this, "Str.Tool.LanguageServers.Title");
         CanClose = true;
         CanFloat = false;
 
+        armsFutureServers = capture.ArmsEveryConnection;
+
         _registry.ConnectionsChanged += OnConnectionsChanged;
+        _capture.ArmingChanged += OnArmingChanged;
         Refresh();
     }
+
+    /// <summary>
+    /// Brings the toggles back in step when something other than this window armed a connection.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not a rebuild, unlike every other change this window reacts to.</b> A rebuild here would replace
+    /// the checkbox under the pointer that was just clicked, and arming is the one thing on this window a
+    /// person interacts with. The rows are told to re-read instead, which is safe precisely because the
+    /// property reads through to the capture and holds no copy.
+    /// </remarks>
+    private void OnArmingChanged(object? sender, string? connectionId)
+    {
+        // Arming can come from the automation server's thread, and everything below touches a view.
+        if (Dispatcher.UIThread.CheckAccess()) Apply();
+        else Dispatcher.UIThread.Post(Apply);
+
+        void Apply()
+        {
+            // Set before the rows, and a no-op when it already agrees, so this cannot loop back through
+            // the property's own setter.
+            ArmsFutureServers = _capture.ArmsEveryConnection;
+
+            foreach (var group in Groups)
+            {
+                foreach (var row in group.Rows)
+                {
+                    if (connectionId is null || string.Equals(row.Id, connectionId, StringComparison.Ordinal))
+                        row.ArmingChanged();
+                }
+            }
+        }
+    }
+
+    private void OnArmsFutureServersChanged() => _capture.ArmsEveryConnection = ArmsFutureServers;
 
     private void OnConnectionsChanged(object? sender, EventArgs e)
     {
@@ -82,7 +157,8 @@ public partial class LanguageServersToolViewModel : Document
         Groups.Clear();
 
         var rows = _registry.Connections
-            .Select(c => (Connection: c, Row: new LanguageServerRowViewModel(c, _localization)))
+            .Select(c => (Connection: c,
+                          Row: new LanguageServerRowViewModel(c, _localization, _capture, _events)))
             .ToList();
 
         // Highest priority first within a language: that is the order the registry itself picks in, for the
@@ -110,7 +186,23 @@ public partial class LanguageServersToolViewModel : Document
     /// The whole window as plain text — the deliverable for the case this exists to serve, which is telling
     /// whoever wrote a server what HexIDE observed, without them having to install HexIDE.
     /// </summary>
-    public string ToReportText()
+    /// <summary>
+    /// The whole window as text, pseudonymised, ready for the clipboard.
+    /// </summary>
+    /// <remarks>
+    /// A property rather than something composed inside a click handler, so what gets copied can be
+    /// asserted on by a test and read by an automation client — neither of which can read a clipboard.
+    /// Recomposed on every read: the window rebuilds wholesale on any registry event, and a cached report
+    /// would describe whichever state it was built in.
+    /// </remarks>
+    public string ReportText => ToReportText(new ConversationRedactor(_pseudonyms));
+
+    /// <param name="redactor">
+    /// Required, with no default. This text exists to be sent to somebody who does not have HexIDE, so
+    /// there is no caller for whom unredacted would be the right answer, and a defaulted parameter is how
+    /// one appears later by accident.
+    /// </param>
+    public string ToReportText(ConversationRedactor redactor)
     {
         var lines = new List<string>();
         foreach (var group in Groups)
@@ -118,7 +210,7 @@ public partial class LanguageServersToolViewModel : Document
             lines.Add(group.Language);
             foreach (var row in group.Rows)
             {
-                lines.Add(row.ToReportText());
+                lines.Add(row.ToReportText(redactor));
                 lines.Add("");
             }
         }
@@ -127,7 +219,11 @@ public partial class LanguageServersToolViewModel : Document
         {
             lines.Add(_localization.GetString("Str.Tool.LanguageServers.Problems"));
             foreach (var p in Problems)
-                lines.Add($"  [{p.Kind}] {(p.EntryId is { Length: > 0 } id ? id + ": " : "")}{p.Message}");
+            {
+                // A configuration problem quotes the file that caused it, which is a path on this machine.
+                var message = redactor.Body(p.Message);
+                lines.Add($"  [{p.Kind}] {(p.EntryId is { Length: > 0 } id ? id + ": " : "")}{message}");
+            }
         }
 
         return string.Join(Environment.NewLine, lines);

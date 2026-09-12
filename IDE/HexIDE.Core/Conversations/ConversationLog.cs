@@ -71,6 +71,7 @@ public sealed class ConversationLog : IAsyncDisposable
     private readonly CaptureLimits _limits;
     private readonly TimeProvider _clock;
     private readonly PayloadBudget _budget;
+    private volatile bool _armsEveryConnection;
     private readonly Channel<Pending> _queue;
     private readonly Task _pump;
     private readonly Dictionary<string, Connection> _connections = [];
@@ -120,7 +121,7 @@ public sealed class ConversationLog : IAsyncDisposable
         IReadOnlyDictionary<string, CaptureLimits>? perConnection = null,
         bool armEveryConnection = false)
     {
-        ArmsEveryConnection = armEveryConnection;
+        _armsEveryConnection = armEveryConnection;
         _limits = (limits ?? CaptureLimits.Default).Clamped(out var adjustments);
         Adjustments = adjustments;
 
@@ -240,10 +241,57 @@ public sealed class ConversationLog : IAsyncDisposable
     /// Per connection, because several servers can be attached and a developer is nearly always chasing
     /// one of them. Arming everything would multiply the only expensive part of this for no gain.
     /// </remarks>
-    public void Arm(string connectionId, bool armed) => Of(connectionId).Armed = armed;
+    public void Arm(string connectionId, bool armed)
+    {
+        var connection = Of(connectionId);
+        if (connection.Armed == armed) return;
 
-    /// <summary>Whether a connection is armed the moment it first appears.</summary>
-    public bool ArmsEveryConnection { get; }
+        connection.Armed = armed;
+        ArmingChanged?.Invoke(this, connectionId);
+    }
+
+    /// <summary>
+    /// Whether a connection is armed the moment it first appears.
+    /// </summary>
+    /// <remarks>
+    /// <b>Settable, because a server that has not started cannot be armed by id.</b> Servers start on the
+    /// first document of a language they claim, so the ids a person would want to arm often do not exist
+    /// yet — which is the same reason the launch flag exists, and the launch flag is no use to somebody who
+    /// is already running.
+    ///
+    /// <para>
+    /// It governs connections created from here on and deliberately does not reach back: turning it on is
+    /// not a claim about what has already been recorded, and turning it off must not silently disarm a
+    /// connection somebody armed on purpose.
+    /// </para>
+    /// </remarks>
+    public bool ArmsEveryConnection
+    {
+        get => _armsEveryConnection;
+        set
+        {
+            if (_armsEveryConnection == value) return;
+
+            _armsEveryConnection = value;
+            ArmingChanged?.Invoke(this, null);
+        }
+    }
+
+    /// <summary>
+    /// Raised when arming changes: for one connection, or — with a null id — for the default.
+    /// </summary>
+    /// <remarks>
+    /// <b>Arming has three ways in and every one of them is somebody else's.</b> The connection list has the
+    /// checkbox, the automation surface has a tool, and the launch flag sets the default before anything
+    /// exists. A surface that read arming once and never heard again would show a stale toggle, and a
+    /// control that lies about its own state is worse than no control.
+    ///
+    /// <para>
+    /// Raised from whichever thread armed it — an automation request is not on the user interface thread —
+    /// so a subscriber that touches a view has to marshal.
+    /// </para>
+    /// </remarks>
+    public event EventHandler<string?>? ArmingChanged;
 
     /// <summary>
     /// Every connection the log knows about, whether or not it currently holds anything for them.

@@ -1,5 +1,10 @@
 using System.Text.Json;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using HexIDE.Conversations;
+using HexIDE.Events;
 using HexIDE.IDE;
+using HexIDE.Redaction;
 using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
@@ -58,16 +63,66 @@ public sealed class LanguageServerStepViewModel
 /// one is how a view comes to show a state and a capability set that never coexisted.
 /// </para>
 /// </summary>
-public sealed class LanguageServerRowViewModel
+public sealed partial class LanguageServerRowViewModel : ObservableObject
 {
     private readonly LanguageServerConnection _c;
     private readonly ILocalizationService _localization;
+    private readonly ConversationLog _capture;
+    private readonly IEventBus? _events;
 
-    public LanguageServerRowViewModel(LanguageServerConnection connection, ILocalizationService localization)
+    public LanguageServerRowViewModel(
+        LanguageServerConnection connection, ILocalizationService localization, ConversationLog capture,
+        IEventBus? events = null)
     {
         _c = connection;
         _localization = localization;
+        _capture = capture;
+        _events = events;
     }
+
+    /// <summary>
+    /// Opens the protocol inspector on this server's traffic alone.
+    /// </summary>
+    /// <remarks>
+    /// <b>Offered whether or not the server is armed, and that is a deliberate departure from the plan.</b>
+    /// The plan said to show it only when armed. Envelopes are recorded unconditionally, so an unarmed
+    /// connection still answers "was it even sent, and what came back" — and the moment somebody most wants
+    /// that answer is a server that has failed, which is exactly the moment they will not have armed it.
+    /// Hiding the link there would withhold it in the only case it was built for.
+    /// </remarks>
+    [RelayCommand]
+    private void ShowMessages() => _events?.Publish(new OpenProtocolInspectorEvent(Id));
+
+    /// <summary>
+    /// Whether message bodies are being kept for this server.
+    /// </summary>
+    /// <remarks>
+    /// <b>The row's only writable state, and the window's first interactivity of any kind.</b> It reads
+    /// through to the capture rather than holding a copy, so it cannot drift from what is actually being
+    /// recorded — which matters here more than usual, because two other things arm the same connection: the
+    /// automation surface and the launch flag.
+    ///
+    /// <para>
+    /// Envelopes are recorded whether or not this is on. What it governs is content, which is the only part
+    /// with a privacy cost and the only part large enough to have a memory cost.
+    /// </para>
+    /// </remarks>
+    public bool IsArmed
+    {
+        get => _capture.IsArmed(_c.Id);
+        set
+        {
+            if (value == IsArmed) return;
+
+            // The capture raises ArmingChanged, and the window turns that back into the notification for
+            // this property. Raising it here as well would be a second, earlier answer from a different
+            // source, and the two would disagree the first time an arming request was refused.
+            _capture.Arm(_c.Id, value);
+        }
+    }
+
+    /// <summary>Re-reads the arming, for when something other than this row changed it.</summary>
+    public void ArmingChanged() => OnPropertyChanged(nameof(IsArmed));
 
     public string Id => _c.Id;
     public string DisplayName => string.IsNullOrWhiteSpace(_c.DisplayName) ? _c.Id : _c.DisplayName;
@@ -204,13 +259,25 @@ public sealed class LanguageServerRowViewModel
 
     public string WorkspaceRoot => _c.WorkspaceRootUri ?? "";
     public bool HasWorkspaceRoot => !string.IsNullOrWhiteSpace(_c.WorkspaceRootUri);
-    /// <summary>Plain text, for a bug report someone can send to whoever wrote the server.</summary>
-    public string ToReportText()
+    /// <summary>
+    /// Plain text, for a bug report someone can send to whoever wrote the server.
+    /// </summary>
+    /// <param name="redactor">
+    /// Required, with no default, so nothing can produce this unredacted by accident.
+    ///
+    /// <para>
+    /// <b>This is the one artefact here whose entire purpose is to be sent to a stranger</b> — the point of
+    /// the window is telling whoever wrote a server what HexIDE observed, without them installing HexIDE.
+    /// A path, a working directory or a launch argument in it leaves the machine the moment it is pasted,
+    /// and command-line arguments are exactly where a token or an internal hostname lives.
+    /// </para>
+    /// </param>
+    public string ToReportText(ConversationRedactor redactor)
     {
         var lines = new List<string>
         {
             $"{DisplayName}  [{Id}]  {Kind}",
-            $"  transport : {Transport}" + (HasEndpoint ? $" · {Endpoint}" : ""),
+            $"  transport : {Transport}" + (HasEndpoint ? $" · {RedactedEndpoint(redactor)}" : ""),
             $"  claims    : {Claims}",
             $"  priority  : {Priority}",
             $"  state     : {State}{(Age.Length > 0 ? " · " + Age : "")}",
@@ -227,9 +294,41 @@ public sealed class LanguageServerRowViewModel
             }
         }
         if (HasDeclined) lines.Add($"  declined by the client: {string.Join(", ", Declined)}");
-        if (HasWorkspaceRoot) lines.Add($"  workspace root sent: {WorkspaceRoot}");
+        if (HasWorkspaceRoot) lines.Add($"  workspace root sent: {redactor.Uri(WorkspaceRoot)}");
         lines.Add("  advertised at initialize:");
-        lines.Add(HasCapabilities ? CapabilitiesJson : "    (nothing)");
+
+        // Through the body rule as well. These are the server's own words, but a server that echoes its
+        // root or names a path it found puts one here, and no rule about who wrote a string can tell.
+        lines.Add(HasCapabilities ? redactor.Body(CapabilitiesJson) : "    (nothing)");
         return string.Join(Environment.NewLine, lines);
+    }
+
+    /// <summary>
+    /// The endpoint, redacted by the rule that fits how this transport writes one.
+    /// </summary>
+    /// <remarks>
+    /// <b>A stdio endpoint is a command line, and it is split here even though it arrives as one string.</b>
+    /// The registry composes it for display, so the executable and its arguments are no longer separate by
+    /// the time a row sees them — but they need different rules. An executable keeps its file name, because
+    /// knowing the server was <c>texlab</c> is most of what makes a report readable; an argument is
+    /// replaced whole, because a value could be a path, a port, a hostname or a token and there is no way
+    /// to tell which from outside. Passing the lot through the executable rule would let a token through.
+    ///
+    /// <para>
+    /// A pipe and a URL go through the address rule, which keeps the scheme, the port and the separators
+    /// exactly as they were typed.
+    /// </para>
+    /// </remarks>
+    private string RedactedEndpoint(ConversationRedactor redactor)
+    {
+        if (_c.Transport != LanguageConnectionTransport.Stdio) return redactor.Endpoint(Endpoint);
+
+        var parts = Endpoint.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return Endpoint;
+
+        var command = redactor.CommandPath(parts[0]);
+        if (parts.Length == 1) return command;
+
+        return command + " " + string.Join(' ', redactor.LaunchArguments(parts[1..]));
     }
 }

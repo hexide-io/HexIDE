@@ -1,0 +1,111 @@
+# Tasks
+
+Five phases, in order. Phase 3 deliberately precedes phase 4: the capture is driven and verified through
+automation before any window exists, which is how everything else here has been checked.
+
+## 1. The protocol prerequisite
+- [x] 1.1 Send `trace` in `InitializeParams`, from the per-server configured level
+- [x] 1.2 Send `$/setTrace` when the level is changed while a server is running
+- [x] 1.3 Handle `$/logTrace` and surface it rather than discarding it
+- [x] 1.4 Add the message severity LSP 3.18 defines, and stop ranking an unknown severity above a known one
+- [x] 1.5 Emit `$/logTrace` from the bundled server, so the client half has a conformant server to prove itself against
+- [x] 1.6 Wire tests, not just "the call returned" — assert the frame, per this repository's standing lesson
+- [x] 1.7 Regenerate the client coverage table and its counts
+
+## 2. The capture model, with no user interface
+- [x] 2.1 A tap that sees byte-exact JSON bodies both directions, installed at every connect unconditionally
+  - A frame that could not be decoded produced no entry at all, because the recording ran after the
+    deserialize that threw — so the record was blind in exactly the case somebody opens the window for,
+    while the window happily rendered a "not valid JSON" marker no wire path could reach. Every
+    malformed-body test in the tree injected through `Record` directly, which is how it stayed hidden.
+    Closed in phase 5, along with the outbound twin: a message this client cannot serialize is recorded
+    as never sent rather than vanishing.
+- [x] 2.2 Envelope ring per connection, capped in entries, with a non-evicting handshake prologue
+- [x] 2.3 Payload store per connection, capped in bytes under a global ceiling, evicting bodies while envelopes survive
+- [x] 2.4 Per-frame cap storing head and tail with the true length recorded
+- [x] 2.5 Deduplicate `didChange` bodies by content hash
+- [x] 2.6 Request and response paired by id, with latency recorded
+- [x] 2.7 Handshake payloads captured unconditionally; everything after, only when armed
+- [x] 2.8 Arming and trace level held per connection id, surviving a respawn, reset by an IDE restart
+- [x] 2.9 Process lifecycle, standard error and exit code in the same record, attributed to the server that produced them
+  - **Ticked before it was true, and closed in phase 5.** Standard error went to a debug log line and
+    nowhere else; nothing in the tree read an exit code at all. Worse, task 2.11's mechanism was
+    certifying the gap as absent — the stdio transport's `Unobservable` returns null, which tells a
+    reader nothing is missing. The honesty mechanism was the thing being dishonest.
+  - Found by comparing the capture against the proxy it replaces, not by a failing test, which is the
+    reason phase 5 could not simply proceed to the removal.
+- [x] 2.10 Declined requests, and capabilities advertised but not consumed, recorded as never-sent entries
+- [x] 2.11 A per-transport note of what cannot be observed
+- [x] 2.12 Drop counts, per connection, exposed rather than inferred
+- [x] 2.13 A named, tested redaction component: consistent pseudonymisation over root URI, workspace folders, `file:` document URIs and server launch configuration
+- [x] 2.14 Export as one JSON-RPC message per line plus a manifest
+- [x] 2.15 Limits read from configuration, clamped, with a rejected value reported through the existing configuration-problems channel
+- [x] 2.16 Capture must never block or reorder the RPC — assert that, do not assume it
+
+## 3. The automation surface
+- [x] 3.1 A launch flag that arms capture at start
+- [x] 3.2 Tools: list envelopes with filters, fetch one payload by id, arm and disarm, clear
+- [x] 3.3 The capture service lives outside the automation server's own folder, since the server is absent from Release and the capture is not
+- [x] 3.4 Verified by driving a real conversation and reading it back
+
+## 4. The window
+- [x] 4.1 A `Protocol Inspector` document tab, registered in the view locator table, the dock factory and the layout manifest
+- [x] 4.2 One interleaved timeline, server as a filter, defaulting to the focused server
+- [x] 4.3 A grid: time, direction, server, method, latency, size — with failures marked in place and counted
+- [x] 4.4 Raw body one action away, truncation stating the true length
+- [x] 4.5 Export and copy, the copy action using the text trace shape a server author recognises
+- [x] 4.6 Redaction preview before anything leaves, with disclosure sized in human terms
+- [x] 4.7 Arming controls in the Language & Debug Servers window — its first interactive controls
+- [x] 4.8 A header link always present, and a per-row link, opening filtered
+  - Departed from the plan, which said to show the per-row link only when that server is armed.
+    Envelopes are recorded unconditionally, so an unarmed connection still answers "was it even
+    sent, and what came back" — and the moment somebody most wants that answer is a server that has
+    failed, which is exactly the moment they will not have armed it. Gating it there would withhold
+    the link in the only case it was built for.
+- [x] 4.9 Wire `ToReportText`, carrying redaction from its first commit
+- [x] 4.10 Localisation keys in `en`, translated across every shipped pack in the same change
+- [x] 4.11 Verified against the running IDE, not only headlessly
+  - Driven end to end through the automation surface, not by hand: the tab from the menu, the interleaved
+    timeline, the server filter, failures-only, refresh, row selection, the detail pane's three no-body
+    states, folding and colouring, copy-as-trace read back off the clipboard, the export preview and a
+    save that produced both files, the arming checkboxes in both directions (window → capture and
+    automation → checkbox), the header and per-row links opening filtered, and the report copied and read.
+  - **The pseudo-language pack found two leaks nothing else would have.** The outcome word and the
+    empty-grid explanation were HexIDE's own English reaching translated chrome — the first because a row
+    was documented as machine text throughout, the second because the window reused the prose the
+    automation surface returns, where English is right. Both are keys now, and the empty reason travels as
+    a value so the two surfaces cannot drift into different explanations of one state.
+  - Switching language while the window is open also showed the counters were composed once: fixed, with
+    a test.
+
+## 5. Retiring the proxy
+- [x] 5.1 Remove `HexIDE.LspProxy` and the `VB6_LSP_DEBUG_PROXY` environment variable
+  - The whole project, `--ws-server` bridge included. That bridge was the only thing that had ever
+    exercised the WebSocket transport end to end, so removing it would have left the socket path with no
+    proof at all — which is why hexide-io/HexIDE#382 sequenced a wire-shape assertion *before* this phase.
+    `WebSocketWireShapeTests` now reads the frames off a real socket, and the removal is unblocked rather
+    than merely convenient.
+- [x] 5.2 Remove its launch profile and its references in documentation
+  - The `LSP Trace` profile is repointed rather than deleted: it is now `LSP Capture`, launching with
+    `--capture-lsp`. Somebody who reached for that profile wanted to see the conversation, and deleting it
+    would answer a live need with an absence.
+- [x] 5.3 Confirm the inspector covers what it was reached for, and say so where the proxy was documented
+  - `docs/lsp-client.md` gained a *Reading the conversation* section with the comparison, and `CLAUDE.md`
+    carries the short form where its project-table row used to be. The inspector wins on every line —
+    always on, every transport, retrospective, and it holds what never reached the wire.
+  - **The one thing the proxy could do that this cannot** is watch a client too broken to reach its own
+    serializer: a failure outside the process is immune to a tap inside it. Recorded honestly rather than
+    waved away, and mitigated where it can be — a serialization failure is now a never-sent entry, and an
+    inbound frame this client cannot decode is recorded with its bytes.
+  - Verified against a running IDE, and the interesting half was not the bundled server. A real
+    third-party server (rumdl, given an argument it rejects) was attached deliberately misconfigured: its
+    three standard-error lines appear verbatim, followed by `process exited with code 2`, attributed to
+    that connection, on one timeline. Before this change the entire record of that failure would have been
+    "connecting, connected, disconnected". Killing the bundled server mid-conversation was checked too,
+    and produced `process exited with code -1` beside its last message.
+  - **Selecting the standard-error row found a defect nothing else would have.** The detail pane explained
+    the missing body with the sentence written for messages — "recorded and its content is no longer held
+    ... either sent before arming or discarded", then "0 bodies refused, 0 evicted". A stderr line is
+    `Received`, and the branch read the direction rather than the kind. That is the record naming the
+    wrong cause for an absence, inside the window built to stop exactly that. Fixed on the kind, with its
+    own sentence, translated, and pinned by two tests.

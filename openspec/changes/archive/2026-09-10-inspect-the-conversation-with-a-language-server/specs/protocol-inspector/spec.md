@@ -18,6 +18,10 @@ it is a few dozen bytes per message and it discloses nothing.
 - **WHEN** nothing has been armed
 - **THEN** no document text, no file path and no user-authored string has been retained
 
+#### Scenario: A frame this client cannot read
+- **WHEN** something arrives that cannot be decoded as a JSON-RPC message
+- **THEN** the record holds the bytes and says they could not be decoded, rather than holding nothing
+
 ### Requirement: Message content SHALL be retained only for a connection that has been armed
 Retaining message payloads SHALL require arming that connection explicitly. Arming SHALL be per connection,
 SHALL be visible wherever connections are listed, and SHALL NOT survive a restart of the IDE. It SHALL
@@ -61,9 +65,10 @@ exception affordable here and nowhere else.
 
 ### Requirement: The record SHALL carry what did not cross the wire
 The record SHALL include requests this client declined to send because the server did not advertise them,
-naming the capability responsible; capabilities the server advertised that this client does not consume; and,
-for a connection whose transport the IDE cannot fully observe, a statement of what cannot be observed. These
-entries SHALL be distinguishable from messages that were actually sent.
+naming the capability responsible; requests this client tried to send and could not; capabilities the server
+advertised that this client does not consume; and, for a connection whose transport the IDE cannot fully
+observe, a statement of what cannot be observed. These entries SHALL be distinguishable from messages that
+were actually sent.
 
 An absence has causes, and reporting the wrong one is worse than reporting nothing. A feature that is off
 because a server never claimed it looks exactly like a feature that is broken, and a wire trace alone cannot
@@ -74,6 +79,10 @@ events" reads identically to "lifecycle for this transport cannot be observed", 
 #### Scenario: A feature that never fired
 - **WHEN** a request was not sent because the server advertised no such capability
 - **THEN** the record says so and names the capability, marked as never sent
+
+#### Scenario: A request that failed inside this client
+- **WHEN** a message cannot be serialized and so never reaches the transport
+- **THEN** the record says so, naming the method, marked as never sent
 
 #### Scenario: An offer nobody took up
 - **WHEN** a server advertises a capability this client does not use
@@ -92,8 +101,10 @@ A server that fails badly does not explain itself in the protocol. Standard erro
 crash, because a server speaking over standard output may write nothing else there, and measurement bears
 this out: when servers in this project's own fixture genuinely failed, the human-readable cause appeared
 only on standard error and in a protocol error reply, and nothing at all appeared in the protocol's
-user-facing message channels. Nothing in this codebase reads a server's exit code today, which is precisely
-why it belongs somewhere a person can see it.
+user-facing message channels. The exit code is the other half and is easy to miss: LSP gives that number a
+meaning — a server exits 0 when a shutdown preceded exit and 1 otherwise — which is how a defect making every
+clean exit look like a crash was found by reading one. The record is the only place this codebase surfaces
+it.
 
 #### Scenario: A server crashes
 - **WHEN** a language server terminates unexpectedly

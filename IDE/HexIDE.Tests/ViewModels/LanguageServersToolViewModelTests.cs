@@ -1,4 +1,7 @@
+using HexIDE.Redaction;
+using HexIDE.Events;
 using System.Text.Json;
+using HexIDE.Conversations;
 using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Tools.LanguageServers;
@@ -10,8 +13,26 @@ namespace HexIDE.Tests.ViewModels;
 /// in the whole tree: the DI binding and the class implementing it. Every failure mode on the language-server
 /// seam presented identically, as nothing happening and nothing saying why (hexide-io/HexIDE#259).
 /// </summary>
-public class LanguageServersToolViewModelTests
+public class LanguageServersToolViewModelTests : IAsyncDisposable
 {
+    /// <summary>
+    /// A real capture, not a substitute.
+    /// </summary>
+    /// <remarks>
+    /// Arming is the one thing on this window a person changes, and the row reads it straight back off the
+    /// capture rather than holding a copy. A mock would let the row be wrong about what is actually being
+    /// recorded while every assertion here passed.
+    /// </remarks>
+    private readonly ConversationLog _capture = new();
+    private readonly IEventBus _events = Substitute.For<IEventBus>();
+    private readonly Pseudonymiser _pseudonyms = new();
+
+    public async ValueTask DisposeAsync()
+    {
+        await _capture.DisposeAsync();
+        GC.SuppressFinalize(this);
+    }
+
     private const string FullCapabilities =
         """{"textDocumentSync":{"openClose":true,"change":1},"hoverProvider":true}""";
 
@@ -33,13 +54,13 @@ public class LanguageServersToolViewModelTests
             capabilitiesJson is null ? null : JsonDocument.Parse(capabilitiesJson).RootElement.Clone(),
             transport, endpoint, priority, DateTimeOffset.UtcNow, identity);
 
-    private static (LanguageServersToolViewModel Vm, ILanguageConnectionRegistry Registry) Sut(
+    private (LanguageServersToolViewModel Vm, ILanguageConnectionRegistry Registry) Sut(
         params LanguageServerConnection[] connections)
     {
         var registry = Substitute.For<ILanguageConnectionRegistry>();
         registry.Connections.Returns(connections);
         registry.ConfigurationProblems.Returns([]);
-        return (new LanguageServersToolViewModel(registry, Loc()), registry);
+        return (new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms), registry);
     }
 
     [Fact]
@@ -159,32 +180,16 @@ public class LanguageServersToolViewModelTests
             new LanguageServerConfigProblem(null, "lsp-servers.json is not valid JSON", true),
         ]);
 
-        var vm = new LanguageServersToolViewModel(registry, Loc());
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms);
 
         vm.HasProblems.Should().BeTrue();
         vm.HasNoServers.Should().BeTrue("a file that failed to parse contributes no servers");
         vm.Problems.Single().Message.Should().Contain("not valid JSON");
     }
 
-    [Fact]
-    public void TheViewRebuildsWhenTheRegistrySaysSomethingChanged()
-    {
-        // The reason ILspClient gained StateChanged. A connection's death is otherwise observable only by
-        // asking, so a view would report the past until something else happened to refresh it.
-        var registry = Substitute.For<ILanguageConnectionRegistry>();
-        registry.Connections.Returns([Conn("s", "vb6", state: LanguageConnectionState.Starting)]);
-        registry.ConfigurationProblems.Returns([]);
-
-        var vm = new LanguageServersToolViewModel(registry, Loc());
-        vm.Groups.Single().Rows.Single().IsRunning.Should().BeFalse();
-
-        registry.Connections.Returns([Conn("s", "vb6", state: LanguageConnectionState.Running)]);
-        registry.ConnectionsChanged += Raise.Event<EventHandler>(registry, EventArgs.Empty);
-
-        vm.Groups.Single().Rows.Single().IsRunning.Should().BeTrue(
-            "the view must refresh when the registry says a connection changed, not when something else "
-          + "happens to ask");
-    }
+    // The registry's own refresh is marshalled too — it raises from transport and RPC callbacks — so its
+    // test lives beside the arming one in HexIDE.Integration.Tests, where a dispatcher is bound. It sat
+    // here for a while and passed on most runs (hexide-io/HexIDE#286).
 
     [Fact]
     public void TheReportIsPlainTextSomeoneCanSendToWhoeverWroteTheServer()
@@ -193,9 +198,234 @@ public class LanguageServersToolViewModelTests
             transport: LanguageConnectionTransport.Pipe, endpoint: "vba-lsp.pipe (connect)",
             identity: new ServerIdentity("ExampleVbaServer", "1.0.0")));
 
-        var report = vm.ToReportText();
+        var report = vm.ToReportText(new ConversationRedactor(_pseudonyms));
 
-        report.Should().Contain("vba-lsp").And.Contain("pipe").And.Contain("vba-lsp.pipe (connect)");
+        // The id, the transport word and what the server called itself all survive: they are what the
+        // report is FOR, and none of them names this machine.
+        report.Should().Contain("vba-lsp").And.Contain("pipe");
         report.Should().Contain("ExampleVbaServer 1.0.0");
+
+        // The pipe name does not. It is user-authored launch configuration, the same category as a command
+        // line, and this text exists to be sent to a stranger.
+        report.Should().NotContain("vba-lsp.pipe (connect)");
+    }
+
+    // ── Arming ───────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void AServerStartsUnarmed()
+    {
+        // Off by default is the whole privacy position: envelopes always, content only when asked for.
+        var (vm, _) = Sut(Conn("bundled", "vb6"));
+
+        vm.Groups.Single().Rows.Single().IsArmed.Should().BeFalse();
+    }
+
+    [Fact]
+    public void TickingTheRowArmsThatConnectionAndNoOther()
+    {
+        // Per server, because several can be attached and a developer is nearly always chasing one. Arming
+        // everything would multiply the only expensive part of this for no gain.
+        var (vm, _) = Sut(Conn("bundled", "vb6"), Conn("latex", "tex"));
+
+        var rows = vm.Groups.SelectMany(g => g.Rows).ToList();
+        rows.Single(r => r.Id == "bundled").IsArmed = true;
+
+        _capture.IsArmed("bundled").Should().BeTrue();
+        _capture.IsArmed("latex").Should().BeFalse();
+    }
+
+    [Fact]
+    public void TheRowReadsBackWhateverArmedTheConnection()
+    {
+        // Three things arm the same connection: this window, the automation surface and the launch flag. A
+        // toggle that showed only its own last click would be a control that lies about its own state.
+        var (vm, _) = Sut(Conn("bundled", "vb6"));
+        var row = vm.Groups.Single().Rows.Single();
+
+        _capture.Arm("bundled", true);
+
+        row.IsArmed.Should().BeTrue();
+    }
+
+    // Arming raised from elsewhere has to reach the checkbox, and the window marshals it because the
+    // automation surface arms from its own thread. That path needs a real dispatcher, so its test lives in
+    // HexIDE.Integration.Tests where one is bound: see ArmingNotificationTests.
+
+    [Fact]
+    public void ArmingIsNotDisturbedByTheWindowRebuilding()
+    {
+        // The window rebuilds every row wholesale on every registry event, deliberately. Arming has to
+        // survive that by construction rather than by being patched back in.
+        var registry = Substitute.For<ILanguageConnectionRegistry>();
+        registry.Connections.Returns([Conn("bundled", "vb6", state: LanguageConnectionState.Starting)]);
+        registry.ConfigurationProblems.Returns([]);
+
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms);
+        vm.Groups.Single().Rows.Single().IsArmed = true;
+
+        registry.Connections.Returns([Conn("bundled", "vb6", state: LanguageConnectionState.Running)]);
+        registry.ConnectionsChanged += Raise.Event<EventHandler>(registry, EventArgs.Empty);
+
+        vm.Groups.Single().Rows.Single().IsArmed.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AServerThatHasNotStartedCanBeArmedInAdvance()
+    {
+        // The one arming question a per-row toggle cannot answer: a server starts on the first document of
+        // a language it claims, so the connection somebody most wants to arm has no row to tick.
+        var (vm, _) = Sut(Conn("bundled", "vb6"));
+
+        vm.ArmsFutureServers.Should().BeFalse();
+        vm.ArmsFutureServers = true;
+
+        _capture.ArmsEveryConnection.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ArmingFutureServersLeavesTheRecordedPastAlone()
+    {
+        // Turning it on is not a claim about what has already been recorded, and turning it off must not
+        // disarm a connection somebody armed deliberately.
+        var (vm, _) = Sut(Conn("bundled", "vb6"));
+        _capture.Arm("bundled", true);
+
+        vm.ArmsFutureServers = true;
+        vm.ArmsFutureServers = false;
+
+        _capture.IsArmed("bundled").Should().BeTrue();
+    }
+
+    [Fact]
+    public void TheLaunchFlagShowsAsTicked()
+    {
+        // --capture-lsp sets the same default this checkbox does, so a session started with it must not
+        // present an unticked box beside a capture that is on.
+        var registry = Substitute.For<ILanguageConnectionRegistry>();
+        registry.Connections.Returns([]);
+        registry.ConfigurationProblems.Returns([]);
+
+        _capture.ArmsEveryConnection = true;
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms);
+
+        vm.ArmsFutureServers.Should().BeTrue();
+    }
+
+    // ── Reaching the inspector ───────────────────────────────────────────────
+
+    [Fact]
+    public void TheHeaderAsksForEverything()
+    {
+        // The inspector never opens itself, so it has to be one action from where trouble is reported.
+        var (vm, _) = Sut(Conn("bundled", "vb6"));
+
+        vm.ShowAllMessagesCommand.Execute(null);
+
+        _events.Received(1).Publish(Arg.Is<OpenProtocolInspectorEvent>(e => e.ConnectionId == null));
+    }
+
+    [Fact]
+    public void ARowAsksForItsOwnServer()
+    {
+        // Arriving from one server's row and landing on the merged timeline would make the reader do the
+        // filtering the link was for.
+        var (vm, _) = Sut(Conn("bundled", "vb6"), Conn("latex", "tex"));
+
+        vm.Groups.SelectMany(g => g.Rows).Single(r => r.Id == "latex").ShowMessagesCommand.Execute(null);
+
+        _events.Received(1).Publish(Arg.Is<OpenProtocolInspectorEvent>(e => e.ConnectionId == "latex"));
+    }
+
+    [Fact]
+    public void TheRowLinkIsOfferedWhetherOrNotTheServerIsArmed()
+    {
+        // A deliberate departure from the plan, which said to show it only when armed. Envelopes are
+        // recorded unconditionally, so an unarmed connection still answers "was it even sent" — and the
+        // moment somebody most wants that is a server that has failed, which is exactly when they will not
+        // have armed it.
+        var (vm, _) = Sut(Conn("bundled", "vb6"));
+        var row = vm.Groups.Single().Rows.Single();
+
+        row.IsArmed.Should().BeFalse();
+        row.ShowMessagesCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    // ── The report that leaves the machine ───────────────────────────────────
+
+    [Fact]
+    public void TheReportReplacesTheDirectoriesButKeepsTheExecutable()
+    {
+        // Knowing the server was texlab is most of what makes a report readable to whoever wrote it.
+        // Knowing which folder somebody keeps it in is not, and identifies the machine.
+        var (vm, _) = Sut(Conn("latex", "tex", endpoint: "/Repos/Secret/tools/texlab.exe"));
+
+        var report = vm.ReportText;
+
+        report.Should().Contain("texlab.exe");
+        report.Should().NotContain("Secret");
+        report.Should().NotContain("Repos");
+    }
+
+    [Fact]
+    public void ALaunchArgumentIsReplacedWholeAndABareSwitchIsNot()
+    {
+        // An argument's value could be a path, a port, a hostname or a token, and nothing outside can tell
+        // which. A bare switch is protocol and says nothing about the machine.
+        var (vm, _) = Sut(Conn("s", "vb6", endpoint: "/tools/srv.exe --stdio --token=hunter2"));
+
+        var report = vm.ReportText;
+
+        report.Should().Contain("--stdio");
+        report.Should().NotContain("hunter2");
+    }
+
+    [Fact]
+    public void TheWorkspaceRootIsPseudonymised()
+    {
+        // The one path in this window that names the user's own project, and it is sent verbatim to every
+        // server at initialize.
+        var registry = Substitute.For<ILanguageConnectionRegistry>();
+        registry.Connections.Returns([
+            Conn("bundled", "vb6") with { WorkspaceRootUri = "file:///C:/Repos/Ledger" },
+        ]);
+        registry.ConfigurationProblems.Returns([]);
+
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms);
+
+        vm.ReportText.Should().NotContain("Ledger");
+    }
+
+    [Fact]
+    public void OnePathGetsOneNameEverywhereItAppears()
+    {
+        // The whole reason for pseudonyms over removal: two servers under one folder have to stay
+        // recognisably under one folder, or a reader cannot tell that they are related — and a client
+        // sending one spelling while a server echoes another stops being diagnosable.
+        var (vm, _) = Sut(
+            Conn("a", "vb6", endpoint: "/shared/tools/a.exe"),
+            Conn("b", "tex", endpoint: "/shared/tools/b.exe"));
+
+        var names = System.Text.RegularExpressions.Regex
+            .Matches(vm.ReportText, "hx-[A-Za-z0-9]+")
+            .Select(m => m.Value)
+            .ToList();
+
+        names.Should().NotBeEmpty("the directories were replaced");
+        names.Distinct().Count().Should().BeLessThan(names.Count,
+            "the shared directories must come back as the SAME made-up names in both rows");
+    }
+
+    [Fact]
+    public void TheReportCannotBeProducedWithoutSayingWhetherItIsRedacted()
+    {
+        // A compile-time property, asserted here so a later default parameter is a failing test rather
+        // than a quiet change: there is no caller for whom unredacted is the right answer.
+        typeof(LanguageServersToolViewModel)
+            .GetMethod(nameof(LanguageServersToolViewModel.ToReportText))!
+            .GetParameters()
+            .Should().ContainSingle()
+            .Which.HasDefaultValue.Should().BeFalse(
+                "a defaulted redactor is how an unredacted report ships by accident");
     }
 }

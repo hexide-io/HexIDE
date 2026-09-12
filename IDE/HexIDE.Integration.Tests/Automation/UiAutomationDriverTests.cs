@@ -9,6 +9,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using AvaloniaEdit;
 using HexIDE.Automation;
 
@@ -927,6 +928,63 @@ public class UiAutomationDriverTests
 
         value!.Length.Should().BeLessThan(9000);
         value.Should().EndWith("chars]").And.Contain("truncated");
+    }
+
+    // ── DataGrid rows ────────────────────────────────────────────────────────
+
+    private sealed record GridItem(string Name, int Size);
+
+    private static (Window window, DataGrid grid, DataGridRow[] rows) ShowGrid()
+    {
+        var grid = new DataGrid
+        {
+            ItemsSource = new[] { new GridItem("Alpha", 1), new GridItem("Beta", 2) },
+            AutoGenerateColumns = true,
+        };
+
+        var window = new Window { Content = grid, Width = 400, Height = 300 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+
+        var rows = grid.GetVisualDescendants().OfType<DataGridRow>().ToArray();
+        return (window, grid, rows);
+    }
+
+    [AvaloniaFact]
+    public void A_grid_row_advertises_that_it_can_be_selected()
+    {
+        // Its peer offers nothing, so reporting the peer verbatim would tell an automation client that
+        // every grid in the IDE is unselectable — and a token nobody is told about is a token nobody tries.
+        var (window, _, rows) = ShowGrid();
+        try
+        {
+            rows.Should().NotBeEmpty("the grid must realize its rows for this to test anything");
+
+            var peer = Avalonia.Automation.Peers.ControlAutomationPeer.CreatePeerForElement(rows[0]);
+
+            UiAutomationDriver.DescribeProviders(peer, rows[0]).Should().Contain("selectionItem");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Select_SelectsAGridRowThroughTheOwningGrid()
+    {
+        // The gesture a master-detail window is built on: click a row, read the detail. A DataGridRow's
+        // automation peer exposes no ISelectionItemProvider, and the reflection actions cannot help either
+        // — they set a property from a string and a selected row is an object no string names. So without
+        // this fallback the protocol inspector was readable and undrivable.
+        var (window, grid, rows) = ShowGrid();
+        try
+        {
+            rows.Length.Should().BeGreaterThan(1);
+
+            var outcome = UiAutomationDriver.Interact(rows[1], "select", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            grid.SelectedItem.Should().Be(rows[1].DataContext);
+        }
+        finally { window.Close(); }
     }
 
     private static VmMember Member(VmMember[] members, string name) => members.Single(m => m.Name == name);
