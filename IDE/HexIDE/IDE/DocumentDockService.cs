@@ -26,6 +26,45 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
 
     public BaseEditorWindowViewModel? ActiveDocument => activeDocument;
 
+    public IReadOnlyList<IDockable> AllTabs =>
+        Dock?.VisibleDockables is { } tabs ? [.. tabs] : [];
+
+    public IDockable? ActiveTab => Dock?.ActiveDockable;
+
+    public bool TryActivateAny(Func<IDockable, bool> predicate)
+    {
+        var dock = Dock;
+        if (dock?.VisibleDockables is null) return false;
+
+        var match = dock.VisibleDockables.FirstOrDefault(predicate);
+        if (match is null) return false;
+
+        factory.Value.SetFocusedDockable(dock, match);
+        dock.ActiveDockable = match;
+        return true;
+    }
+
+    public bool TryCloseAny(Func<IDockable, bool> predicate)
+    {
+        var dock = Dock;
+        if (dock?.VisibleDockables is null) return false;
+
+        var match = dock.VisibleDockables.FirstOrDefault(predicate);
+        if (match is null) return false;
+
+        // An editor goes through the service's own path, which keeps its bookkeeping and its events
+        // intact. Anything else is a document the shell added straight to the dock, so it leaves the same
+        // way it arrived.
+        if (match is BaseEditorWindowViewModel editor)
+        {
+            CloseDocument(editor);
+            return true;
+        }
+
+        factory.Value.CloseDockable(match);
+        return true;
+    }
+
     public DocumentDockService(Lazy<MainViewViewModel.DockFactory> factory, IEventBus eventBus)
     {
         this.factory = factory;

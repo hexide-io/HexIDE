@@ -11,6 +11,7 @@ using HexIDE.IDE;
 using HexIDE.Tools;
 using HexIDE.Tools.ObjectBrowser;
 using HexIDE.Tools.LanguageServers;
+using HexIDE.Tools.ProtocolInspector;
 using HexIDE.Tools.TranslationEditor;
 using HexIDE.VisualDesigner;
 using HexIDE.VisualDesigner.Views;
@@ -63,6 +64,7 @@ public class ViewLocator : IDataTemplate
         Register<ObjectBrowserToolViewModel, ObjectBrowserToolView>();
         Register<TranslationEditorViewModel, TranslationEditorView>();
         Register<LanguageServersToolViewModel, LanguageServersToolView>();
+        Register<ProtocolInspectorToolViewModel, ProtocolInspectorToolView>();
         Register<NewProjectViewModel, NewProjectView>();
         Register<FindReplaceViewModel, FindReplaceView>();
         Register<SaveChangesViewModel, SaveChangesView>();

@@ -14,6 +14,8 @@ using HexIDE.Tools;
 using HexIDE.Tools.ObjectBrowser;
 using HexIDE.Tools.TranslationEditor;
 using HexIDE.VisualDesigner;
+using HexIDE.Conversations;
+using HexIDE.Tools.ProtocolInspector;
 
 namespace HexIDE.Tests.ViewModels;
 
@@ -613,11 +615,13 @@ public class FindReplaceViewModelTests
         lsRegistry.Connections.Returns([]);
         lsRegistry.ConfigurationProblems.Returns([]);
         var languageServers = new LanguageServersToolViewModel(lsRegistry, loc);
+        var protocolInspector = new ProtocolInspectorToolViewModel(new ConversationLog(), loc);
 
         var dockFactory = new MainViewViewModel.DockFactory(
             toolBox, projectExplorer, properties, formLayout,
             immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
             languageServers,
+            protocolInspector,
             windowStateService);
 
         return new MainViewViewModel(
@@ -634,6 +638,7 @@ public class FindReplaceViewModelTests
             objectBrowser,
             translationEditor,
             languageServers,
+            protocolInspector,
             projectManager,
             Substitute.For<IFocusedProjectUtil>(),
             projectService,

@@ -10,6 +10,8 @@ using HexIDE.Tools;
 using HexIDE.Tools.ObjectBrowser;
 using HexIDE.Tools.TranslationEditor;
 using HexIDE.VisualDesigner;
+using HexIDE.Conversations;
+using HexIDE.Tools.ProtocolInspector;
 
 namespace HexIDE.Tests.ViewModels;
 
@@ -51,11 +53,12 @@ public class DockFactoryTests
         lsRegistry.Connections.Returns([]);
         lsRegistry.ConfigurationProblems.Returns([]);
         var languageServers = new LanguageServersToolViewModel(lsRegistry, loc);
+        var protocolInspector = new ProtocolInspectorToolViewModel(new ConversationLog(), loc);
 
         var factory = new MainViewViewModel.DockFactory(
             toolBox, projectExplorer, properties, formLayout,
             immediate, locals, watches, callStack, colorPalette, objectBrowser, translationEditor,
-            languageServers, wss);
+            languageServers, protocolInspector, wss);
         return (factory, immediate);
     }
 

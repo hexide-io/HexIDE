@@ -1,0 +1,187 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:pi="clr-namespace:HexIDE.Tools.ProtocolInspector"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="560"
+             x:DataType="pi:ProtocolInspectorToolViewModel"
+             x:Class="HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolView">
+
+    <UserControl.Styles>
+        <!-- Machine text: method names, ids, byte counts. Monospace because the reason it is here is to be
+             compared character for character against what a server author sees on their own side. -->
+        <Style Selector="TextBlock.machine">
+            <Setter Property="FontFamily" Value="Courier New" />
+        </Style>
+        <Style Selector="TextBlock.dim">
+            <Setter Property="Opacity" Value="0.65" />
+        </Style>
+
+        <!-- A failure is marked IN PLACE rather than moved to a second view, because its meaning is almost
+             always in what preceded it. Styled by class from the row's own flag, so there is no converter
+             to keep in step with the rule. -->
+        <Style Selector="TextBlock.failure">
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Foreground" Value="{DynamicResource ValidationErrorBrush}" />
+        </Style>
+
+        <!-- The capture's own notes: process lifecycle, standard error, a request declined before it was
+             sent. Not traffic, and must not read as traffic. -->
+        <Style Selector="TextBlock.note">
+            <Setter Property="Opacity" Value="0.6" />
+            <Setter Property="FontStyle" Value="Italic" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,Auto,*">
+
+        <!-- The header. Filters on the left, what the record cost on the right. -->
+        <Border Grid.Row="0"
+                BorderBrush="{DynamicResource DockTitleBarBrush}" BorderThickness="0,0,0,1"
+                Padding="8,6">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+
+                <TextBlock Grid.Column="0" VerticalAlignment="Center" Margin="0,0,6,0"
+                           Classes="dim"
+                           Text="{DynamicResource Str.Tool.ProtocolInspector.Server}" />
+
+                <!-- One timeline with the server as a FILTER, not one server at a time. This IDE offers a
+                     document to every server that claims it, so "which of you answered, and was the other
+                     even asked" is a native question here and a per-server channel cannot express it. -->
+                <ComboBox Grid.Column="1" MinWidth="180" VerticalAlignment="Center"
+                          ItemsSource="{CompiledBinding Connections}"
+                          SelectedItem="{CompiledBinding SelectedConnection}" />
+
+                <CheckBox Grid.Column="2" VerticalAlignment="Center" Margin="12,0,0,0"
+                          IsChecked="{CompiledBinding FailuresOnly}"
+                          Content="{DynamicResource Str.Tool.ProtocolInspector.FailuresOnly}" />
+
+                <Button Grid.Column="3" VerticalAlignment="Center" Margin="12,0,0,0"
+                        Command="{CompiledBinding RefreshCommand}"
+                        Content="{DynamicResource Str.Tool.ProtocolInspector.Refresh}" />
+
+                <!-- What arrived since the grid was filled. The grid deliberately does not move while it
+                     is being read — comparing two rows is most of what this is for — so the count is how
+                     a reader knows there is more to get. -->
+                <TextBlock Grid.Column="4" VerticalAlignment="Center" Margin="12,0,0,0"
+                           Classes="dim"
+                           IsVisible="{CompiledBinding HasPending}"
+                           Text="{CompiledBinding PendingSummary}" />
+
+                <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="12"
+                            VerticalAlignment="Center">
+                    <TextBlock Classes="dim" Text="{CompiledBinding ShownSummary}" />
+
+                    <!-- Failures counted as well as marked. A count a reader cannot miss is the point:
+                         the rows themselves are marked in place rather than split into a second view,
+                         because a failure's meaning is almost always in what preceded it. -->
+                    <TextBlock Classes="failure"
+                               IsVisible="{CompiledBinding HasFailures}"
+                               Text="{CompiledBinding FailureSummary}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Losses, when there are any. Never inferred from a short list: a record that truncated
+             silently reads exactly like a complete one. -->
+        <Border Grid.Row="1" Padding="8,4"
+                IsVisible="{CompiledBinding Losses, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                Background="{DynamicResource DockTitleBarBrush}">
+            <TextBlock Classes="dim" TextWrapping="Wrap" Text="{CompiledBinding Losses}" />
+        </Border>
+
+        <!-- Nothing to show, and WHY. An empty grid cannot be told apart from "nothing happened",
+             "nothing is configured" and "this is broken" — which is the exact ambiguity the inspector
+             exists to remove, so it must not be reintroduced by its own empty state. -->
+        <TextBlock Grid.Row="2" Margin="16" TextWrapping="Wrap" MaxWidth="560"
+                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                   IsVisible="{CompiledBinding NothingToShow}"
+                   Text="{CompiledBinding EmptyReason}" />
+
+        <DataGrid Grid.Row="2"
+                  IsVisible="{CompiledBinding !NothingToShow}"
+                  ItemsSource="{CompiledBinding Rows}"
+                  SelectedItem="{CompiledBinding SelectedRow}"
+                  CanUserResizeColumns="True"
+                  CanUserSortColumns="False"
+                  IsReadOnly="True"
+                  GridLinesVisibility="Horizontal"
+                  VerticalScrollBarVisibility="Visible">
+            <DataGrid.Columns>
+                <!-- Wide enough for HH:mm:ss.fff in the monospace face. Measured against the running
+                     window: at 90 the milliseconds were clipped, which is the part that matters when two
+                     frames arrive in the same second. -->
+                <DataGridTemplateColumn Width="112"
+                                        Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Time}">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="pi:ProtocolInspectorRowViewModel">
+                            <TextBlock Classes="machine" Margin="4,0" VerticalAlignment="Center"
+                                       Text="{CompiledBinding At}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Width="34"
+                                        Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Direction}">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="pi:ProtocolInspectorRowViewModel">
+                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Text="{CompiledBinding Direction}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTextColumn Width="130"
+                                    Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Server}"
+                                    Binding="{CompiledBinding ConnectionId, x:DataType=pi:ProtocolInspectorRowViewModel}" />
+
+                <DataGridTemplateColumn Width="2*"
+                                        Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Method}">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="pi:ProtocolInspectorRowViewModel">
+                            <!-- Bold red for a failure, dimmed for the capture's own notes, which are not
+                                 traffic and should not read as traffic. -->
+                            <TextBlock Classes="machine" Margin="4,0" VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
+                                       Classes.failure="{CompiledBinding IsFailure}"
+                                       Classes.note="{CompiledBinding IsLocal}"
+                                       Text="{CompiledBinding Method}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTextColumn Width="70"
+                                    Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Id}"
+                                    Binding="{CompiledBinding CorrelationId, x:DataType=pi:ProtocolInspectorRowViewModel}" />
+
+                <DataGridTextColumn Width="90"
+                                    Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Outcome}"
+                                    Binding="{CompiledBinding Outcome, x:DataType=pi:ProtocolInspectorRowViewModel}" />
+
+                <!-- Latency is version one, not a later refinement. For an author it is the difference
+                     between a bug report and an anecdote. -->
+                <DataGridTemplateColumn Width="90"
+                                        Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Latency}">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="pi:ProtocolInspectorRowViewModel">
+                            <TextBlock Classes="machine" Margin="4,0" VerticalAlignment="Center"
+                                       HorizontalAlignment="Right"
+                                       Text="{CompiledBinding Elapsed}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <DataGridTemplateColumn Width="80"
+                                        Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Size}">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate x:DataType="pi:ProtocolInspectorRowViewModel">
+                            <TextBlock Classes="machine" Margin="4,0" VerticalAlignment="Center"
+                                       HorizontalAlignment="Right"
+                                       Text="{CompiledBinding Size}" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+            </DataGrid.Columns>
+        </DataGrid>
+    </Grid>
+</UserControl>

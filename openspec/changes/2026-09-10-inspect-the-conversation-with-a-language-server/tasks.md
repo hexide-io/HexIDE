@@ -37,9 +37,9 @@ automation before any window exists, which is how everything else here has been 
 - [x] 3.4 Verified by driving a real conversation and reading it back
 
 ## 4. The window
-- [ ] 4.1 A `Protocol Inspector` document tab, registered in the view locator table, the dock factory and the layout manifest
-- [ ] 4.2 One interleaved timeline, server as a filter, defaulting to the focused server
-- [ ] 4.3 A grid: time, direction, server, method, latency, size — with failures marked in place and counted
+- [x] 4.1 A `Protocol Inspector` document tab, registered in the view locator table, the dock factory and the layout manifest
+- [x] 4.2 One interleaved timeline, server as a filter, defaulting to the focused server
+- [x] 4.3 A grid: time, direction, server, method, latency, size — with failures marked in place and counted
 - [ ] 4.4 Raw body one action away, truncation stating the true length
 - [ ] 4.5 Export and copy, the copy action using the text trace shape a server author recognises
 - [ ] 4.6 Redaction preview before anything leaves, with disclosure sized in human terms

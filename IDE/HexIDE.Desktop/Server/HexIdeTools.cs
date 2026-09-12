@@ -1495,48 +1495,68 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_document_tabs")]
-    [Description("Returns all open document tabs in the editor area with their title, type ('code' or 'designer'), and whether each is the active tab.")]
+    [Description("Returns EVERY tab in the document region with its title, type and whether it is the active one. 'type' is 'designer' for a form or UserControl designer, 'code' for a source editor, and 'tool' for a document that is not an editor at all — the Object Browser, the language-server connection list, the protocol inspector. Those three are real tabs in the same strip and used to be missing from this answer, which made an automation client believe a tab it could see on screen did not exist.")]
     public async Task<DocumentTabsResult> GetDocumentTabsAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var activeTitle = ctx.DocumentDockService.ActiveDocument?.Title;
-            var tabs = ctx.DocumentDockService.OpenDocuments
+            // The DOCK's tabs, not the editor service's list. The service tracks the editors it was asked
+            // to open; the shell adds other documents to the same dock directly, and reporting only the
+            // first set answers a different question from the one asked.
+            var active = ctx.DocumentDockService.ActiveTab;
+            var tabs = ctx.DocumentDockService.AllTabs
                 .Select(d => new DocumentTabInfo(
-                    d.Title,
-                    d is HexIDE.VisualDesigner.FormEditViewModel ? "designer" : "code",
-                    d.Title == activeTitle))
+                    d.Title ?? "",
+                    d switch
+                    {
+                        HexIDE.VisualDesigner.FormEditViewModel => "designer",
+                        BaseEditorWindowViewModel => "code",
+                        _ => "tool",
+                    },
+                    ReferenceEquals(d, active)))
                 .ToArray();
             return new DocumentTabsResult(tabs);
         });
     }
 
     [McpServerTool(Name = "activate_document_tab")]
-    [Description("Brings the named document tab to the front. title must match a Title returned by get_document_tabs (case-insensitive).")]
+    [Description("Brings the named document tab to the front, whatever kind it is. title must match a Title returned by get_document_tabs (case-insensitive). If nothing matches, the error names every tab that IS open, so a near-miss does not need a second call to diagnose.")]
     public async Task<MutateResult> ActivateDocumentTabAsync(string title, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var found = ctx.DocumentDockService.TryActivate<BaseEditorWindowViewModel>(
+            var found = ctx.DocumentDockService.TryActivateAny(
                 d => string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase));
-            return found
-                ? new MutateResult(true, null)
-                : new MutateResult(false, $"No document tab with title '{title}'");
+            return found ? new MutateResult(true, null) : new MutateResult(false, NoSuchTab(title));
         });
     }
 
+    /// <summary>Says which tabs there are, rather than only that this one is not among them.</summary>
+    /// <remarks>
+    /// A bare "no tab called X" leaves a caller unable to tell a typo from a tab that never opened, and
+    /// costs a second call to find out. The tabs are already in hand.
+    /// </remarks>
+    private string NoSuchTab(string title)
+    {
+        var open = ctx.DocumentDockService.AllTabs
+            .Select(d => d.Title)
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .ToArray();
+
+        return open.Length == 0
+            ? $"No document tab with title '{title}'. Nothing is open in the document region."
+            : $"No document tab with title '{title}'. Open tabs: {string.Join(", ", open)}.";
+    }
+
     [McpServerTool(Name = "close_document_tab")]
-    [Description("Closes the named document tab. title must match a Title returned by get_document_tabs (case-insensitive).")]
+    [Description("Closes the named document tab, whatever kind it is. title must match a Title returned by get_document_tabs (case-insensitive). If nothing matches, the error names every tab that IS open.")]
     public async Task<MutateResult> CloseDocumentTabAsync(string title, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var doc = ctx.DocumentDockService.OpenDocuments.FirstOrDefault(d =>
-                string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase));
-            if (doc is null)
-                return new MutateResult(false, $"No document tab with title '{title}'");
-            ctx.DocumentDockService.CloseDocument(doc);
-            return new MutateResult(true, null);
+            var closed = ctx.DocumentDockService.TryCloseAny(
+                d => string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase));
+            return closed ? new MutateResult(true, null) : new MutateResult(false, NoSuchTab(title));
         });
     }
 
