@@ -1,3 +1,4 @@
+using HexIDE.Redaction;
 using HexIDE.Events;
 using System.Text.Json;
 using HexIDE.Conversations;
@@ -24,6 +25,7 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
     /// </remarks>
     private readonly ConversationLog _capture = new();
     private readonly IEventBus _events = Substitute.For<IEventBus>();
+    private readonly Pseudonymiser _pseudonyms = new();
 
     public async ValueTask DisposeAsync()
     {
@@ -58,7 +60,7 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
         var registry = Substitute.For<ILanguageConnectionRegistry>();
         registry.Connections.Returns(connections);
         registry.ConfigurationProblems.Returns([]);
-        return (new LanguageServersToolViewModel(registry, Loc(), _capture, _events), registry);
+        return (new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms), registry);
     }
 
     [Fact]
@@ -178,7 +180,7 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
             new LanguageServerConfigProblem(null, "lsp-servers.json is not valid JSON", true),
         ]);
 
-        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events);
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms);
 
         vm.HasProblems.Should().BeTrue();
         vm.HasNoServers.Should().BeTrue("a file that failed to parse contributes no servers");
@@ -196,10 +198,16 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
             transport: LanguageConnectionTransport.Pipe, endpoint: "vba-lsp.pipe (connect)",
             identity: new ServerIdentity("ExampleVbaServer", "1.0.0")));
 
-        var report = vm.ToReportText();
+        var report = vm.ToReportText(new ConversationRedactor(_pseudonyms));
 
-        report.Should().Contain("vba-lsp").And.Contain("pipe").And.Contain("vba-lsp.pipe (connect)");
+        // The id, the transport word and what the server called itself all survive: they are what the
+        // report is FOR, and none of them names this machine.
+        report.Should().Contain("vba-lsp").And.Contain("pipe");
         report.Should().Contain("ExampleVbaServer 1.0.0");
+
+        // The pipe name does not. It is user-authored launch configuration, the same category as a command
+        // line, and this text exists to be sent to a stranger.
+        report.Should().NotContain("vba-lsp.pipe (connect)");
     }
 
     // ── Arming ───────────────────────────────────────────────────────────────
@@ -253,7 +261,7 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
         registry.Connections.Returns([Conn("bundled", "vb6", state: LanguageConnectionState.Starting)]);
         registry.ConfigurationProblems.Returns([]);
 
-        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events);
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms);
         vm.Groups.Single().Rows.Single().IsArmed = true;
 
         registry.Connections.Returns([Conn("bundled", "vb6", state: LanguageConnectionState.Running)]);
@@ -299,7 +307,7 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
         registry.ConfigurationProblems.Returns([]);
 
         _capture.ArmsEveryConnection = true;
-        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events);
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms);
 
         vm.ArmsFutureServers.Should().BeTrue();
     }
@@ -341,5 +349,83 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
 
         row.IsArmed.Should().BeFalse();
         row.ShowMessagesCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    // ── The report that leaves the machine ───────────────────────────────────
+
+    [Fact]
+    public void TheReportReplacesTheDirectoriesButKeepsTheExecutable()
+    {
+        // Knowing the server was texlab is most of what makes a report readable to whoever wrote it.
+        // Knowing which folder somebody keeps it in is not, and identifies the machine.
+        var (vm, _) = Sut(Conn("latex", "tex", endpoint: "/Repos/Secret/tools/texlab.exe"));
+
+        var report = vm.ReportText;
+
+        report.Should().Contain("texlab.exe");
+        report.Should().NotContain("Secret");
+        report.Should().NotContain("Repos");
+    }
+
+    [Fact]
+    public void ALaunchArgumentIsReplacedWholeAndABareSwitchIsNot()
+    {
+        // An argument's value could be a path, a port, a hostname or a token, and nothing outside can tell
+        // which. A bare switch is protocol and says nothing about the machine.
+        var (vm, _) = Sut(Conn("s", "vb6", endpoint: "/tools/srv.exe --stdio --token=hunter2"));
+
+        var report = vm.ReportText;
+
+        report.Should().Contain("--stdio");
+        report.Should().NotContain("hunter2");
+    }
+
+    [Fact]
+    public void TheWorkspaceRootIsPseudonymised()
+    {
+        // The one path in this window that names the user's own project, and it is sent verbatim to every
+        // server at initialize.
+        var registry = Substitute.For<ILanguageConnectionRegistry>();
+        registry.Connections.Returns([
+            Conn("bundled", "vb6") with { WorkspaceRootUri = "file:///C:/Repos/Ledger" },
+        ]);
+        registry.ConfigurationProblems.Returns([]);
+
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events, _pseudonyms);
+
+        vm.ReportText.Should().NotContain("Ledger");
+    }
+
+    [Fact]
+    public void OnePathGetsOneNameEverywhereItAppears()
+    {
+        // The whole reason for pseudonyms over removal: two servers under one folder have to stay
+        // recognisably under one folder, or a reader cannot tell that they are related — and a client
+        // sending one spelling while a server echoes another stops being diagnosable.
+        var (vm, _) = Sut(
+            Conn("a", "vb6", endpoint: "/shared/tools/a.exe"),
+            Conn("b", "tex", endpoint: "/shared/tools/b.exe"));
+
+        var names = System.Text.RegularExpressions.Regex
+            .Matches(vm.ReportText, "hx-[A-Za-z0-9]+")
+            .Select(m => m.Value)
+            .ToList();
+
+        names.Should().NotBeEmpty("the directories were replaced");
+        names.Distinct().Count().Should().BeLessThan(names.Count,
+            "the shared directories must come back as the SAME made-up names in both rows");
+    }
+
+    [Fact]
+    public void TheReportCannotBeProducedWithoutSayingWhetherItIsRedacted()
+    {
+        // A compile-time property, asserted here so a later default parameter is a failing test rather
+        // than a quiet change: there is no caller for whom unredacted is the right answer.
+        typeof(LanguageServersToolViewModel)
+            .GetMethod(nameof(LanguageServersToolViewModel.ToReportText))!
+            .GetParameters()
+            .Should().ContainSingle()
+            .Which.HasDefaultValue.Should().BeFalse(
+                "a defaulted redactor is how an unredacted report ships by accident");
     }
 }

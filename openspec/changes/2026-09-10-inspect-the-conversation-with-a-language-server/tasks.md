@@ -50,7 +50,7 @@ automation before any window exists, which is how everything else here has been 
     sent, and what came back" — and the moment somebody most wants that answer is a server that has
     failed, which is exactly the moment they will not have armed it. Gating it there would withhold
     the link in the only case it was built for.
-- [ ] 4.9 Wire `ToReportText`, carrying redaction from its first commit
+- [x] 4.9 Wire `ToReportText`, carrying redaction from its first commit
 - [ ] 4.10 Localisation keys in `en`, translated across every shipped pack in the same change
 - [ ] 4.11 Verified against the running IDE, not only headlessly
 

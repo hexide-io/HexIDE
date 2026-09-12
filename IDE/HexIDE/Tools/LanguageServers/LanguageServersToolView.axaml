@@ -51,12 +51,21 @@
                     <TextBlock TextWrapping="Wrap" Opacity="0.75" Margin="24,0,0,0"
                                Text="{DynamicResource Str.Tool.LanguageServers.ArmFutureExplained}" />
 
-                    <!-- ALWAYS PRESENT. The inspector never opens itself — a window that appears uninvited
-                         is one people learn to close reflexively — so it has to be one action from where
-                         trouble is reported, and this is where trouble is reported. -->
-                    <Button Margin="0,8,0,0" HorizontalAlignment="Left"
-                            Command="{CompiledBinding ShowAllMessagesCommand}"
-                            Content="{DynamicResource Str.Tool.LanguageServers.ShowAllMessages}" />
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                        <!-- ALWAYS PRESENT. The inspector never opens itself — a window that appears
+                             uninvited is one people learn to close reflexively — so it has to be one action
+                             from where trouble is reported, and this is where trouble is reported. -->
+                        <Button Command="{CompiledBinding ShowAllMessagesCommand}"
+                                Content="{DynamicResource Str.Tool.LanguageServers.ShowAllMessages}" />
+
+                        <!-- THE DELIVERABLE for the case this window exists to serve: telling whoever wrote
+                             a server what HexIDE observed, without them having to install HexIDE. -->
+                        <Button Click="CopyReport_OnClick"
+                                Content="{DynamicResource Str.Tool.LanguageServers.CopyReport}" />
+
+                        <TextBlock VerticalAlignment="Center" Opacity="0.75" TextWrapping="Wrap"
+                                   Text="{DynamicResource Str.Tool.LanguageServers.ReportRedacted}" />
+                    </StackPanel>
                 </StackPanel>
             </Border>
 

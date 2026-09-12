@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.Input;
 using HexIDE.Conversations;
 using HexIDE.Events;
 using HexIDE.IDE;
+using HexIDE.Redaction;
 using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
@@ -258,13 +259,25 @@ public sealed partial class LanguageServerRowViewModel : ObservableObject
 
     public string WorkspaceRoot => _c.WorkspaceRootUri ?? "";
     public bool HasWorkspaceRoot => !string.IsNullOrWhiteSpace(_c.WorkspaceRootUri);
-    /// <summary>Plain text, for a bug report someone can send to whoever wrote the server.</summary>
-    public string ToReportText()
+    /// <summary>
+    /// Plain text, for a bug report someone can send to whoever wrote the server.
+    /// </summary>
+    /// <param name="redactor">
+    /// Required, with no default, so nothing can produce this unredacted by accident.
+    ///
+    /// <para>
+    /// <b>This is the one artefact here whose entire purpose is to be sent to a stranger</b> — the point of
+    /// the window is telling whoever wrote a server what HexIDE observed, without them installing HexIDE.
+    /// A path, a working directory or a launch argument in it leaves the machine the moment it is pasted,
+    /// and command-line arguments are exactly where a token or an internal hostname lives.
+    /// </para>
+    /// </param>
+    public string ToReportText(ConversationRedactor redactor)
     {
         var lines = new List<string>
         {
             $"{DisplayName}  [{Id}]  {Kind}",
-            $"  transport : {Transport}" + (HasEndpoint ? $" · {Endpoint}" : ""),
+            $"  transport : {Transport}" + (HasEndpoint ? $" · {RedactedEndpoint(redactor)}" : ""),
             $"  claims    : {Claims}",
             $"  priority  : {Priority}",
             $"  state     : {State}{(Age.Length > 0 ? " · " + Age : "")}",
@@ -281,9 +294,41 @@ public sealed partial class LanguageServerRowViewModel : ObservableObject
             }
         }
         if (HasDeclined) lines.Add($"  declined by the client: {string.Join(", ", Declined)}");
-        if (HasWorkspaceRoot) lines.Add($"  workspace root sent: {WorkspaceRoot}");
+        if (HasWorkspaceRoot) lines.Add($"  workspace root sent: {redactor.Uri(WorkspaceRoot)}");
         lines.Add("  advertised at initialize:");
-        lines.Add(HasCapabilities ? CapabilitiesJson : "    (nothing)");
+
+        // Through the body rule as well. These are the server's own words, but a server that echoes its
+        // root or names a path it found puts one here, and no rule about who wrote a string can tell.
+        lines.Add(HasCapabilities ? redactor.Body(CapabilitiesJson) : "    (nothing)");
         return string.Join(Environment.NewLine, lines);
+    }
+
+    /// <summary>
+    /// The endpoint, redacted by the rule that fits how this transport writes one.
+    /// </summary>
+    /// <remarks>
+    /// <b>A stdio endpoint is a command line, and it is split here even though it arrives as one string.</b>
+    /// The registry composes it for display, so the executable and its arguments are no longer separate by
+    /// the time a row sees them — but they need different rules. An executable keeps its file name, because
+    /// knowing the server was <c>texlab</c> is most of what makes a report readable; an argument is
+    /// replaced whole, because a value could be a path, a port, a hostname or a token and there is no way
+    /// to tell which from outside. Passing the lot through the executable rule would let a token through.
+    ///
+    /// <para>
+    /// A pipe and a URL go through the address rule, which keeps the scheme, the port and the separators
+    /// exactly as they were typed.
+    /// </para>
+    /// </remarks>
+    private string RedactedEndpoint(ConversationRedactor redactor)
+    {
+        if (_c.Transport != LanguageConnectionTransport.Stdio) return redactor.Endpoint(Endpoint);
+
+        var parts = Endpoint.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0) return Endpoint;
+
+        var command = redactor.CommandPath(parts[0]);
+        if (parts.Length == 1) return command;
+
+        return command + " " + string.Join(' ', redactor.LaunchArguments(parts[1..]));
     }
 }

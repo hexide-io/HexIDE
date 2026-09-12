@@ -6,6 +6,7 @@ using HexIDE.Events;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Lsp;
+using HexIDE.Redaction;
 using PropertyChanged.SourceGenerator;
 
 namespace HexIDE.Tools.LanguageServers;
@@ -49,6 +50,7 @@ public partial class LanguageServersToolViewModel : Document
     private readonly ILocalizationService _localization;
     private readonly ConversationLog _capture;
     private readonly IEventBus _events;
+    private readonly Pseudonymiser _pseudonyms;
 
     public ObservableCollection<LanguageServerGroupViewModel> Groups { get; } = [];
     public ObservableCollection<LanguageServerConfigProblem> Problems { get; } = [];
@@ -82,12 +84,13 @@ public partial class LanguageServersToolViewModel : Document
 
     public LanguageServersToolViewModel(
         ILanguageConnectionRegistry registry, ILocalizationService localization, ConversationLog capture,
-        IEventBus events)
+        IEventBus events, Pseudonymiser pseudonyms)
     {
         _registry = registry;
         _localization = localization;
         _capture = capture;
         _events = events;
+        _pseudonyms = pseudonyms;
 
         ShowAllMessagesCommand = new HexIDE.Utils.DelegateCommand(
             () => _events.Publish(new OpenProtocolInspectorEvent()));
@@ -183,7 +186,23 @@ public partial class LanguageServersToolViewModel : Document
     /// The whole window as plain text — the deliverable for the case this exists to serve, which is telling
     /// whoever wrote a server what HexIDE observed, without them having to install HexIDE.
     /// </summary>
-    public string ToReportText()
+    /// <summary>
+    /// The whole window as text, pseudonymised, ready for the clipboard.
+    /// </summary>
+    /// <remarks>
+    /// A property rather than something composed inside a click handler, so what gets copied can be
+    /// asserted on by a test and read by an automation client — neither of which can read a clipboard.
+    /// Recomposed on every read: the window rebuilds wholesale on any registry event, and a cached report
+    /// would describe whichever state it was built in.
+    /// </remarks>
+    public string ReportText => ToReportText(new ConversationRedactor(_pseudonyms));
+
+    /// <param name="redactor">
+    /// Required, with no default. This text exists to be sent to somebody who does not have HexIDE, so
+    /// there is no caller for whom unredacted would be the right answer, and a defaulted parameter is how
+    /// one appears later by accident.
+    /// </param>
+    public string ToReportText(ConversationRedactor redactor)
     {
         var lines = new List<string>();
         foreach (var group in Groups)
@@ -191,7 +210,7 @@ public partial class LanguageServersToolViewModel : Document
             lines.Add(group.Language);
             foreach (var row in group.Rows)
             {
-                lines.Add(row.ToReportText());
+                lines.Add(row.ToReportText(redactor));
                 lines.Add("");
             }
         }
@@ -200,7 +219,11 @@ public partial class LanguageServersToolViewModel : Document
         {
             lines.Add(_localization.GetString("Str.Tool.LanguageServers.Problems"));
             foreach (var p in Problems)
-                lines.Add($"  [{p.Kind}] {(p.EntryId is { Length: > 0 } id ? id + ": " : "")}{p.Message}");
+            {
+                // A configuration problem quotes the file that caused it, which is a path on this machine.
+                var message = redactor.Body(p.Message);
+                lines.Add($"  [{p.Kind}] {(p.EntryId is { Length: > 0 } id ? id + ": " : "")}{message}");
+            }
         }
 
         return string.Join(Environment.NewLine, lines);

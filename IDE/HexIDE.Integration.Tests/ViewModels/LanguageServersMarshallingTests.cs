@@ -1,3 +1,4 @@
+using HexIDE.Redaction;
 using HexIDE.IDE;
 using System;
 using System.Collections.Generic;
@@ -49,7 +50,8 @@ public class LanguageServersMarshallingTests
         registry.ConfigurationProblems.Returns([]);
 
         var capture = new ConversationLog();
-        return (new LanguageServersToolViewModel(registry, Loc(), capture, Substitute.For<IEventBus>()), capture);
+        return (new LanguageServersToolViewModel(
+            registry, Loc(), capture, Substitute.For<IEventBus>(), new Pseudonymiser()), capture);
     }
 
     [AvaloniaFact]
@@ -81,7 +83,8 @@ public class LanguageServersMarshallingTests
         registry.ConfigurationProblems.Returns([]);
 
         var capture = new ConversationLog();
-        var vm = new LanguageServersToolViewModel(registry, Loc(), capture, Substitute.For<IEventBus>());
+        var vm = new LanguageServersToolViewModel(
+            registry, Loc(), capture, Substitute.For<IEventBus>(), new Pseudonymiser());
 
         var rows = vm.Groups.SelectMany(g => g.Rows).ToDictionary(r => r.Id);
         var other = 0;
@@ -116,7 +119,7 @@ public class LanguageServersMarshallingTests
         registry.ConfigurationProblems.Returns([]);
 
         var vm = new LanguageServersToolViewModel(
-            registry, Loc(), new ConversationLog(), Substitute.For<IEventBus>());
+            registry, Loc(), new ConversationLog(), Substitute.For<IEventBus>(), new Pseudonymiser());
         vm.Groups.Single().Rows.Single().IsRunning.Should().BeFalse();
 
         registry.Connections.Returns([Conn("s", "vb6")]);
