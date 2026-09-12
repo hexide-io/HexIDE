@@ -158,7 +158,10 @@
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
 
-                    <DataGridTemplateColumn Width="34"
+                    <!-- Wider than the arrow it holds, because the HEADER is the constraint: English
+                         abbreviates to "Dir" and most languages do not, so a column sized to its content
+                         clips its own title. Measured against the German pack. -->
+                    <DataGridTemplateColumn Width="70"
                                             Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Direction}">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate x:DataType="pi:ProtocolInspectorRowViewModel">

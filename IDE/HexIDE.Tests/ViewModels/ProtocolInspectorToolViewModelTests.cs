@@ -796,4 +796,25 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
 
         vm.SelectedBody.Should().Be("""{"a":1,   "b":oops}""");
     }
+
+    [Fact]
+    public void SwitchingLanguageRebuildsWhatThisWindowComposed()
+    {
+        // The tab title rebinds itself; the counters, the losses banner and the detail header do not,
+        // because this view model builds them. A window switched to German while open kept saying
+        // "9 shown" beside a fully translated header — found against the running IDE, which is the only
+        // place it shows.
+        Frame("vb6", "initialize");
+
+        var loc = Substitute.For<ILocalizationService>();
+        loc.GetString(Arg.Any<string>()).Returns("before");
+
+        var vm = new ProtocolInspectorToolViewModel(_capture, loc, new Pseudonymiser(), _windows);
+        vm.ShownSummary.Should().Be("before");
+
+        loc.GetString(Arg.Any<string>()).Returns("after");
+        loc.LanguageChanged += Raise.Event<Action>();
+
+        vm.ShownSummary.Should().Be("after");
+    }
 }

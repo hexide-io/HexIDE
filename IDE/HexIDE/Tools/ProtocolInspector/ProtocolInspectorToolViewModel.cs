@@ -243,6 +243,11 @@ public partial class ProtocolInspectorToolViewModel : Document
         CanFloat = false;
 
         RefreshCommand = new HexIDE.Utils.DelegateCommand(Refresh);
+
+        // The tab's title rebinds itself, but everything this view model COMPOSES was composed once. A
+        // window switched to German while open kept saying "9 shown" beside a fully translated header —
+        // found by switching the language against the running IDE, which is the only way it shows.
+        localization.LanguageChanged += Retranslate;
         ExportCommand = new HexIDE.Utils.DelegateCommand(() => _ = ExportAsync(), () => !IsExporting);
 
         Refresh();
@@ -645,6 +650,24 @@ public partial class ProtocolInspectorToolViewModel : Document
     /// posting looks like the safe default and is only correct when the caller might be off-thread.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Rebuilds every string this view model composed, in the language now in force.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not the export status.</b> That describes something that already happened, names two paths, and
+    /// re-rendering last hour's outcome in a new language would claim it happened in it. Everything else
+    /// here describes the present.
+    /// </remarks>
+    private void Retranslate()
+    {
+        RefreshCounters();
+        RefreshLosses();
+
+        // The detail pane's header, its no-body explanation and its trace all carry translated text, and
+        // the cheapest way to rebuild all three correctly is the path that built them.
+        if (SelectedRow is not null) OnSelectedRowChanged();
+    }
+
     private void OnShowsWhatWouldBeSharedChanged() => RefreshPane();
 
     private void RefreshPane() => PaneText = ShowsWhatWouldBeShared ? SelectedTrace : SelectedBody;

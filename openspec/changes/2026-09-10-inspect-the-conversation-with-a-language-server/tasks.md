@@ -51,7 +51,7 @@ automation before any window exists, which is how everything else here has been 
     failed, which is exactly the moment they will not have armed it. Gating it there would withhold
     the link in the only case it was built for.
 - [x] 4.9 Wire `ToReportText`, carrying redaction from its first commit
-- [ ] 4.10 Localisation keys in `en`, translated across every shipped pack in the same change
+- [x] 4.10 Localisation keys in `en`, translated across every shipped pack in the same change
 - [ ] 4.11 Verified against the running IDE, not only headlessly
 
 ## 5. Retiring the proxy

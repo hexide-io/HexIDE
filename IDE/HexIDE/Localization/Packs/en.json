@@ -632,7 +632,7 @@
     "Str.Tool.ProtocolInspector.Export": "Export conversation...",
     "Str.Tool.ProtocolInspector.Exported": "Exported {0} messages to {1}, with the manifest at {2}.",
     "Str.Tool.ProtocolInspector.ExportFailed": "The export did not complete: {0}",
-    "Str.Tool.ProtocolInspector.LeavesRedacted": "What leaves is pseudonymised.",
+    "Str.Tool.ProtocolInspector.LeavesRedacted": "What leaves is pseudonymized.",
     "Str.Tool.ProtocolInspector.PreviewShared": "Preview what leaves",
     "Str.Tool.ProtocolInspector.NotJson": "This message is not valid JSON. {0}",
 
