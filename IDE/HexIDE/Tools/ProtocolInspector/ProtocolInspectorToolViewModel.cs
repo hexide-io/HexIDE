@@ -398,6 +398,12 @@ public partial class ProtocolInspectorToolViewModel : Document
     {
         if (IsExporting) return;
         IsExporting = true;
+
+        // Cleared BEFORE the picker, not after a success. Otherwise a reader who exports, exports again
+        // and cancels is left looking at the first export's line, which is true and reads as though the
+        // second one had also gone out. Measured against the running window.
+        ExportStatus = "";
+
         try
         {
             var chosen = await _windows.SaveFilePickerAsync(new FilePickerSaveOptions

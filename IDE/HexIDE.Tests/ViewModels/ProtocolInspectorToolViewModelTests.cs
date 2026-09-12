@@ -532,6 +532,32 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task ACancelAfterASuccessDoesNotLeaveTheOldSuccessOnScreen()
+    {
+        // Found against the running window. The line is true — that export did happen — and it reads as
+        // though the one just cancelled had happened too, which is the reading a reader will take.
+        _capture.Arm("vb6", true);
+        Frame("vb6", "initialize");
+
+        var folder = Directory.CreateTempSubdirectory("hexide-export-stale");
+        try
+        {
+            var chosen = Path.Combine(folder.FullName, "first.jsonl");
+            _windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(chosen);
+
+            var vm = Sut();
+            await vm.ExportAsync();
+            vm.ExportStatus.Should().NotBeEmpty();
+
+            _windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns((string?)null);
+            await vm.ExportAsync();
+
+            vm.ExportStatus.Should().BeEmpty();
+        }
+        finally { folder.Delete(recursive: true); }
+    }
+
+    [Fact]
     public async Task TheServerFilterDecidesWhatIsExported()
     {
         // The window shows one server at a time when asked to, and an export that ignored that would hand

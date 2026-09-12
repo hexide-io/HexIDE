@@ -766,6 +766,9 @@ Three properties are load-bearing:
 - **DEBUG only.** The queue and both call sites compile out with the server, so a shipped build has no
   bypass rather than an unreachable one.
 
-**It needs a session restart**, being new tool schemas — which is itself the cost of every tool added
-mid-flight, and the reason the fix for the carried-file gap was deliberately shaped as a change to an
-existing tool's behaviour instead.
+**It did NOT need a session restart, and that is worth recording because the expectation was wrong.** Two
+brand-new tool schemas appeared to the already-attached client as soon as the IDE relaunched carrying them,
+and were callable in the same session that added them. That matches the measured entry above about
+mid-session relaunch rather than the standing advice, which is written for the case where the server was
+not attached when the session began. Verified by using both tools to drive the export they were built for,
+including the cancellation branch.
