@@ -3,6 +3,8 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:pi="clr-namespace:HexIDE.Tools.ProtocolInspector"
+             xmlns:ctl="clr-namespace:HexIDE.Controls"
+             xmlns:avaloniaEdit="https://github.com/avaloniaui/avaloniaedit"
              mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="560"
              x:DataType="pi:ProtocolInspectorToolViewModel"
              x:Class="HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolView">
@@ -272,21 +274,23 @@
                                IsVisible="{CompiledBinding !HasSelectedBody}"
                                Text="{CompiledBinding SelectedBodyUnavailable}" />
 
-                    <!-- A read-only TextBox rather than a TextBlock: selectable and copyable is the whole
-                         point of putting the bytes on screen.
+                    <!-- A read-only editor rather than a text box: selectable and copyable is the whole
+                         point of putting the bytes on screen, and the colouring is what makes a 40-line
+                         frame scannable rather than merely present. The definition is shared with the
+                         export preview, so a colour means the same thing in both.
 
                          WRAPPED, and that was measured rather than assumed. A frame is one line of JSON
-                         with no newlines in it, so NoWrap showed about ninety characters of a 569-byte
+                         with no newlines in it, so no-wrap showed about ninety characters of a 569-byte
                          handshake and put the rest behind a horizontal scrollbar. Wrapping inserts nothing
                          and hides nothing: there is no line structure here to preserve. A body that does
                          carry newlines still shows them. -->
-                    <TextBox Grid.Row="1" Margin="4"
-                             IsVisible="{CompiledBinding HasSelectedBody}"
-                             IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
-                             FontFamily="Courier New"
-                             VerticalContentAlignment="Top"
-                             ScrollViewer.VerticalScrollBarVisibility="Auto"
-                             Text="{CompiledBinding PaneText, Mode=OneWay}" />
+                    <avaloniaEdit:TextEditor Grid.Row="1" Margin="4" Name="Body"
+                                             IsVisible="{CompiledBinding HasSelectedBody}"
+                                             IsReadOnly="True" WordWrap="True"
+                                             FontFamily="Consolas,Courier New,Monospace"
+                                             HorizontalScrollBarVisibility="Disabled"
+                                             VerticalScrollBarVisibility="Auto"
+                                             ctl:EditorText.Value="{CompiledBinding PaneText}" />
                 </Grid>
             </Border>
         </Grid>

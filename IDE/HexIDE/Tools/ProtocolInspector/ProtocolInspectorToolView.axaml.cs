@@ -3,12 +3,22 @@ using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using AvaloniaEdit;
+using HexIDE.Themes;
 
 namespace HexIDE.Tools.ProtocolInspector;
 
 public partial class ProtocolInspectorToolView : UserControl
 {
-    public ProtocolInspectorToolView() => InitializeComponent();
+    public ProtocolInspectorToolView()
+    {
+        InitializeComponent();
+
+        // The same definition the export preview uses, so a colour means the same thing in both. Null is
+        // tolerated: colouring is a nicety and this pane's job is to show what crossed the wire.
+        if (this.FindControl<TextEditor>("Body") is { } editor)
+            editor.SyntaxHighlighting = ProtocolHighlighting.Definition;
+    }
 
     private void InitializeComponent() => AvaloniaXamlLoader.Load(this);
 

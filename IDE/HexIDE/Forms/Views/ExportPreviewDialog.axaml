@@ -3,6 +3,8 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:HexIDE.Forms.ViewModels"
+             xmlns:ctl="clr-namespace:HexIDE.Controls"
+             xmlns:avaloniaEdit="https://github.com/avaloniaui/avaloniaedit"
              mc:Ignorable="d" d:DesignWidth="720" d:DesignHeight="520"
              x:DataType="vm:ExportPreviewDialogViewModel"
              x:Class="HexIDE.Forms.Views.ExportPreviewDialog">
@@ -55,12 +57,16 @@
              find one of those. -->
         <Border Grid.Row="2" BorderThickness="1"
                 BorderBrush="{DynamicResource DockTitleBarBrush}">
-            <TextBox IsReadOnly="True" AcceptsReturn="True" TextWrapping="NoWrap"
-                     FontFamily="Courier New"
-                     VerticalContentAlignment="Top"
-                     ScrollViewer.HorizontalScrollBarVisibility="Auto"
-                     ScrollViewer.VerticalScrollBarVisibility="Auto"
-                     Text="{CompiledBinding Preview, Mode=OneWay}" />
+            <!-- NOT wrapped, unlike the pane: this is one JSON-RPC message per line and the line IS the
+                 unit. Wrapping would make it impossible to see at a glance how many messages are here,
+                 which is half of what the reader came to check. -->
+            <avaloniaEdit:TextEditor Name="Preview"
+                                     IsReadOnly="True" WordWrap="False"
+                                     ShowLineNumbers="True"
+                                     FontFamily="Consolas,Courier New,Monospace"
+                                     HorizontalScrollBarVisibility="Auto"
+                                     VerticalScrollBarVisibility="Auto"
+                                     ctl:EditorText.Value="{CompiledBinding Preview}" />
         </Border>
 
         <Grid Grid.Row="3" ColumnDefinitions="*,Auto" Margin="0,10,0,0">
