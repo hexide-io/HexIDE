@@ -6,7 +6,6 @@
     <Project Path="IDE/HexIDE.TestAddin/HexIDE.TestAddin.csproj" />
     <Project Path="IDE/HexIDE.Desktop/HexIDE.Desktop.csproj" />
     <Project Path="IDE/HexIDE.Lsp/HexIDE.Lsp.csproj" />
-    <Project Path="IDE/HexIDE.LspProxy/HexIDE.LspProxy.csproj" />
     <Project Path="IDE/HexIDE.Runtime/HexIDE.Runtime.csproj" />
     <Project Path="IDE/HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj" />
     <Project Path="IDE/HexIDE.Tests/HexIDE.Tests.csproj" />

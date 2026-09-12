@@ -88,6 +88,9 @@ public partial class MainViewViewModel : ObservableObject
     public ObjectBrowserToolViewModel ObjectBrowser { get; }
     public TranslationEditorViewModel TranslationEditor { get; }
     public LanguageServersToolViewModel LanguageServers { get; }
+
+    /// <summary>What actually went over the wire to a language server.</summary>
+    public HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel ProtocolInspector { get; }
     public IFocusedProjectUtil FocusedProjectUtil { get; }
 
     public IStatusBarService StatusBar { get; }
@@ -218,6 +221,7 @@ public partial class MainViewViewModel : ObservableObject
             ObjectBrowserToolViewModel objectBrowser,
             TranslationEditorViewModel translationEditor,
             LanguageServersToolViewModel languageServers,
+            HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel protocolInspector,
             IWindowStateService windowStateService)
         {
             this.windowStateService = windowStateService;
@@ -668,6 +672,7 @@ public partial class MainViewViewModel : ObservableObject
         ObjectBrowserToolViewModel objectBrowser,
         TranslationEditorViewModel translationEditor,
         LanguageServersToolViewModel languageServers,
+        HexIDE.Tools.ProtocolInspector.ProtocolInspectorToolViewModel protocolInspector,
         IProjectManager projectManager,
         IFocusedProjectUtil focusedProjectUtil,
         IProjectService projectService,
@@ -745,6 +750,8 @@ public partial class MainViewViewModel : ObservableObject
         TranslationEditor = translationEditor;
         LanguageServers = languageServers;
         OpenLanguageServersCommand = new DelegateCommand(OpenLanguageServers);
+        ProtocolInspector = protocolInspector;
+        OpenProtocolInspectorCommand = new DelegateCommand(OpenProtocolInspector);
         FocusedProjectUtil = focusedProjectUtil;
 
         this.windowStateService = windowStateService;
@@ -945,6 +952,7 @@ public partial class MainViewViewModel : ObservableObject
         // the Translation Editor tab opens on the now-unblocked dock. MainViewViewModel is an app-lifetime
         // singleton, so the subscription never needs disposing.
         eventBus.Subscribe<OpenTranslationEditorEvent>(_ => OpenTranslationEditor());
+        eventBus.Subscribe<OpenProtocolInspectorEvent>(e => OpenProtocolInspector(e.ConnectionId));
     }
 
     [Notify] private string undoHeader = "_Undo";
@@ -1441,6 +1449,50 @@ public partial class MainViewViewModel : ObservableObject
     }
     /// <summary>Opens the language-server view, or brings it forward if it is already open.</summary>
     public ICommand OpenLanguageServersCommand { get; private set; } = null!;
+
+    /// <summary>Opens the protocol inspector, or brings it forward if it is already open.</summary>
+    /// <remarks>
+    /// <b>It never opens itself.</b> A window that appears uninvited is one people learn to close
+    /// reflexively, and this one has to be trusted when it does appear. It is reached from the menu and
+    /// from the connection list, which is where trouble is reported.
+    /// </remarks>
+    public ICommand OpenProtocolInspectorCommand { get; private set; } = null!;
+
+    public void OpenProtocolInspector() => OpenProtocolInspector(null);
+
+    /// <param name="connectionId">
+    /// One server to filter to, or null for the whole interleaved timeline.
+    /// </param>
+    /// <remarks>
+    /// The filter is applied BEFORE the tab is shown, so a reader arriving from one server's row never sees
+    /// the merged view flick past on the way to the one they asked for — and never has to wonder whether
+    /// what they are looking at is filtered yet.
+    /// </remarks>
+    public void OpenProtocolInspector(string? connectionId)
+    {
+        var docDock = FindDock<DocumentDock>(_ => true);
+        if (docDock == null) return;
+
+        if (connectionId is { Length: > 0 }) ProtocolInspector.ShowOnly(connectionId);
+
+        // Re-read on every open rather than only on construction. The capture has been recording since
+        // the session began, so a tab opened an hour in must not show what was there an hour ago.
+        ProtocolInspector.Refresh();
+
+        if (docDock.VisibleDockables?.Contains(ProtocolInspector) == true)
+        {
+            dockFactory.SetFocusedDockable(docDock, ProtocolInspector);
+            docDock.ActiveDockable = ProtocolInspector;
+            return;
+        }
+
+        docDock.VisibleDockables ??= dockFactory.CreateList<IDockable>();
+        docDock.VisibleDockables.Add(ProtocolInspector);
+        dockFactory.InitDockable(ProtocolInspector, docDock);
+        dockFactory.SetFocusedDockable(docDock, ProtocolInspector);
+        docDock.ActiveDockable = ProtocolInspector;
+        ScheduleLayoutSave();
+    }
 
     public void OpenLanguageServers()
     {

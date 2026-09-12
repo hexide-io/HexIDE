@@ -13,13 +13,29 @@ namespace HexIDE.Conversations;
 /// <param name="BodiesReserialized">
 /// Whole bodies that had to be compacted onto one line, so a reader knows those are not byte-exact.
 /// </param>
+/// <param name="NamesReplaced">
+/// How many distinct real values were given pseudonyms.
+///
+/// <para>
+/// Carried here as well as in the manifest so that anything shown to the reader before the file is written
+/// — a preview, a disclosure — states the same number the file will, from the same place. Two counts
+/// derived separately are two counts that can disagree, and the one on screen is the one a decision is
+/// made on.
+/// </para>
+/// </param>
+/// <param name="Pseudonymised">
+/// Whether the redaction was applied at all. Stated rather than assumed, because an export that does not
+/// say is worse than one that never redacted: the reader cannot tell which they are holding.
+/// </param>
 public sealed record ConversationExport(
     string Manifest,
     string Messages,
     int Lines,
     int BodiesPresent,
     int BodiesAbsent,
-    int BodiesReserialized);
+    int BodiesReserialized,
+    long NamesReplaced = 0,
+    bool Pseudonymised = false);
 
 /// <summary>
 /// Writes a capture out as raw JSON-RPC, one message per line, plus a manifest.
@@ -129,7 +145,11 @@ public static class ConversationExporter
             Lines: rows.Count,
             BodiesPresent: present,
             BodiesAbsent: absent,
-            BodiesReserialized: reserialized);
+            BodiesReserialized: reserialized,
+            // Read AFTER the walk, not before: a pseudonym is assigned the first time its value is seen,
+            // so the count only means anything once every body has been through the redactor.
+            NamesReplaced: redactor.NamedValues,
+            Pseudonymised: redactor.IsPseudonymising);
     }
 
     private readonly record struct Row(ConversationEnvelope Envelope, int Line);

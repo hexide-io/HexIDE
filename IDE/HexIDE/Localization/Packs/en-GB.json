@@ -18,6 +18,7 @@
     "Str.PropDesc.FillColor": "The colour used to fill shapes such as circles and boxes.",
     "Str.PropDesc.MaxButton": "Whether the form's title bar shows a Maximise button.",
     "Str.PropDesc.MinButton": "Whether the form's title bar shows a Minimise button.",
-    "Str.PropCategory.Behavior": "Behaviour"
+    "Str.PropCategory.Behavior": "Behaviour",
+    "Str.Tool.ProtocolInspector.LeavesRedacted": "What leaves is pseudonymised."
   }
 }

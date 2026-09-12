@@ -363,6 +363,7 @@
                             <!-- Under Tools rather than View: the View menu is the VB6 tool-window list, and
                                  both in-tree routes to a non-VB6 panel avoid it. -->
                             <MenuItem Header="{DynamicResource Str.Menu.Tools.LanguageServers}" x:Name="LanguageServersMenuItem" Command="{CompiledBinding OpenLanguageServersCommand}" />
+                            <MenuItem Header="{DynamicResource Str.Menu.Tools.ProtocolInspector}" x:Name="ProtocolInspectorMenuItem" Command="{CompiledBinding OpenProtocolInspectorCommand}" />
                         </MenuItem>
                         <MenuItem Header="{DynamicResource Str.Menu.AddIns}" x:Name="AddInsMenuItem" />
                         <MenuItem Header="{DynamicResource Str.Menu.Window}">

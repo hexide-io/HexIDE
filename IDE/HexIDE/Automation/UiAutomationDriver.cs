@@ -195,6 +195,12 @@ public static class UiAutomationDriver
             if (menuItem.HasSubMenu && !list.Contains("expandCollapse")) list.Add("expandCollapse");
         }
 
+        // A DataGridRow's peer offers NOTHING — not selectionItem, not invoke — so a grid was the one
+        // common control an automation client could read and not drive. Selecting a row is how a
+        // master-detail window is used at all, and the client's only recourse was a VM property whose type
+        // is a row object no string can express. Interact selects it through the owning grid.
+        if (control is DataGridRow && !list.Contains("selectionItem")) list.Add("selectionItem");
+
         return [.. list];
     }
 
@@ -333,9 +339,16 @@ public static class UiAutomationDriver
         value = NullIfEmpty(value);
         if (value is null)
         {
-            if (peer.GetProvider<ISelectionItemProvider>() is not { } selfSip) return Unsupported("select");
-            selfSip.Select();
-            return Ok($"selected '{LabelOf(control, peer)}'");
+            if (peer.GetProvider<ISelectionItemProvider>() is { } selfSip)
+            {
+                selfSip.Select();
+                return Ok($"selected '{LabelOf(control, peer)}'");
+            }
+
+            if (TrySelectThroughOwningGrid(control))
+                return Ok($"selected '{LabelOf(control, peer)}'");
+
+            return Unsupported("select");
         }
 
         // value present → match against the realized selectable items (the target itself if it is one, plus
@@ -351,10 +364,41 @@ public static class UiAutomationDriver
         if (matches.Count > 1)
             return Err($"ambiguous select '{value}' ({matches.Count} {facet} matches); target the item directly by path instead");
 
-        if (ControlAutomationPeer.CreatePeerForElement(matches[0]).GetProvider<ISelectionItemProvider>() is not { } sip)
-            return Unsupported("select");
-        sip.Select();
-        return Ok($"selected '{value}'");
+        if (ControlAutomationPeer.CreatePeerForElement(matches[0]).GetProvider<ISelectionItemProvider>() is { } sip)
+        {
+            sip.Select();
+            return Ok($"selected '{value}'");
+        }
+
+        if (TrySelectThroughOwningGrid(matches[0])) return Ok($"selected '{value}'");
+
+        return Unsupported("select");
+    }
+
+    /// <summary>
+    /// Selects a <see cref="DataGridRow"/> the only way there is: through the grid that owns it.
+    /// </summary>
+    /// <remarks>
+    /// <b>A DataGridRow's automation peer exposes no providers at all</b>, so <c>select</c> refused on
+    /// every grid row in the IDE and there was no second route: the reflection actions set a VM property
+    /// by name and coerce from a string, and a selected row is an object no string names. That left the
+    /// protocol inspector's central gesture — click a row, read its body — undrivable, and a UI surface an
+    /// automation client can read but not operate is not a surface.
+    ///
+    /// <para>
+    /// The grid is found by walking up rather than through <c>DataGridRow.OwningGrid</c>, which is
+    /// internal. Setting <c>SelectedItem</c> is what a click does; the return value is read back rather
+    /// than assumed, because a grid in single-selection mode can decline.
+    /// </para>
+    /// </remarks>
+    private static bool TrySelectThroughOwningGrid(Control control)
+    {
+        if (control is not DataGridRow row) return false;
+        if (control.FindAncestorOfType<DataGrid>() is not { } grid) return false;
+        if (row.DataContext is not { } item) return false;
+
+        grid.SelectedItem = item;
+        return ReferenceEquals(grid.SelectedItem, item);
     }
 
     // Realized selectable items reachable from a container: the container itself if it exposes
@@ -365,8 +409,11 @@ public static class UiAutomationDriver
         foreach (var c in new[] { container }.Concat(Descendants(container)))
         {
             var info = Classify(c);
-            if (info.Peer is not null && info.Peer.GetProvider<ISelectionItemProvider>() is not null)
+            if (info.Peer is not null
+                && (info.Peer.GetProvider<ISelectionItemProvider>() is not null || c is DataGridRow))
+            {
                 result.Add(new MeaningfulChild(c, info));
+            }
         }
         return result;
     }

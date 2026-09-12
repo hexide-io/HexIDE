@@ -71,6 +71,10 @@ public class ReconnectReplayTests : IAsyncDisposable
 
         public event EventHandler? Closed;
 
+        // This fake owns no process, so it never reports one. The stdio transport is the only
+        // implementation that raises this, and StdioProcessNoticeTests covers it directly.
+        public event EventHandler<TransportNotice>? Notice { add { } remove { } }
+
         private Stream? _clientSide;
 
         public Task<IJsonRpcMessageHandler?> ConnectAsync(

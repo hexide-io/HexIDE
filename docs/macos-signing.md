@@ -34,8 +34,8 @@ with an actual guarantee.
 Before anything else: **notarisation requires a properly signed bundle, and the `.app` cannot
 currently be sealed at all.** This is a prerequisite, not a detail.
 
-`Contents/MacOS` holds the entire .NET publish payload — four apphost executables (`HexIDE`,
-`HexIDE.LspProxy`, `HexIDE.VbLspServer`, `HexIDE.AddinPacker`), a `*.runtimeconfig.json` beside each,
+`Contents/MacOS` holds the entire .NET publish payload — three apphost executables (`HexIDE`,
+`HexIDE.VbLspServer`, `HexIDE.AddinPacker`), a `*.runtimeconfig.json` beside each,
 a `standalone/` subdirectory, and per-language satellite assembly directories. codesign rejects that
 two different ways depending on flags, and both are the same underlying fact:
 

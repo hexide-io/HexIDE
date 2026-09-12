@@ -29,6 +29,46 @@
                        TextWrapping="Wrap"
                        Text="{DynamicResource Str.Tool.LanguageServers.None}" />
 
+            <!-- What arming means, said once for the whole window rather than beside every checkbox.
+                 Three things about it are surprising and all three are load-bearing: envelopes are recorded
+                 unconditionally, the opening handshake is kept whatever the toggle says, and none of it
+                 outlives the session. -->
+            <Border BorderBrush="{DynamicResource DockTitleBarBrush}" BorderThickness="1" Padding="8">
+                <StackPanel Spacing="4">
+                    <TextBlock FontWeight="Bold"
+                               Text="{DynamicResource Str.Tool.LanguageServers.Capture}" />
+
+                    <TextBlock TextWrapping="Wrap" Opacity="0.75"
+                               Text="{DynamicResource Str.Tool.LanguageServers.CaptureExplained}" />
+
+                    <!-- The one arming question a per-row toggle cannot answer. A server starts on the
+                         first document of a language it claims, so the connection somebody most wants to
+                         arm is the one with no row to tick. -->
+                    <CheckBox Margin="0,4,0,0"
+                              IsChecked="{CompiledBinding ArmsFutureServers}"
+                              Content="{DynamicResource Str.Tool.LanguageServers.ArmFuture}" />
+
+                    <TextBlock TextWrapping="Wrap" Opacity="0.75" Margin="24,0,0,0"
+                               Text="{DynamicResource Str.Tool.LanguageServers.ArmFutureExplained}" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                        <!-- ALWAYS PRESENT. The inspector never opens itself — a window that appears
+                             uninvited is one people learn to close reflexively — so it has to be one action
+                             from where trouble is reported, and this is where trouble is reported. -->
+                        <Button Command="{CompiledBinding ShowAllMessagesCommand}"
+                                Content="{DynamicResource Str.Tool.LanguageServers.ShowAllMessages}" />
+
+                        <!-- THE DELIVERABLE for the case this window exists to serve: telling whoever wrote
+                             a server what HexIDE observed, without them having to install HexIDE. -->
+                        <Button Click="CopyReport_OnClick"
+                                Content="{DynamicResource Str.Tool.LanguageServers.CopyReport}" />
+
+                        <TextBlock VerticalAlignment="Center" Opacity="0.75" TextWrapping="Wrap"
+                                   Text="{DynamicResource Str.Tool.LanguageServers.ReportRedacted}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
             <ItemsControl ItemsSource="{CompiledBinding Groups}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="ls:LanguageServerGroupViewModel">
@@ -155,6 +195,31 @@
                                                 <TextBlock TextWrapping="Wrap"
                                                            IsVisible="{CompiledBinding SendingNothing}"
                                                            Text="{DynamicResource Str.Tool.LanguageServers.SendingNothing}" />
+
+                                                <!-- THE WINDOW'S FIRST INTERACTIVITY OF ANY KIND, and it
+                                                     belongs here rather than in the inspector: this is the
+                                                     list of servers, and arming is a per-server decision
+                                                     about one of them.
+
+                                                     Envelopes are recorded either way. What this governs is
+                                                     content, which is the only part with a privacy cost and
+                                                     the only part large enough to have a memory one. -->
+                                                <DockPanel Margin="0,6,0,0">
+                                                    <!-- OFFERED WHETHER OR NOT THE SERVER IS ARMED.
+                                                         Envelopes are recorded unconditionally, so an
+                                                         unarmed connection still answers "was it even sent,
+                                                         and what came back" — and the moment somebody most
+                                                         wants that answer is a server that has failed,
+                                                         which is exactly when they will not have armed
+                                                         it. -->
+                                                    <Button DockPanel.Dock="Right"
+                                                            Command="{CompiledBinding ShowMessagesCommand}"
+                                                            Content="{DynamicResource Str.Tool.LanguageServers.ShowMessages}" />
+
+                                                    <CheckBox VerticalAlignment="Center"
+                                                              IsChecked="{CompiledBinding IsArmed}"
+                                                              Content="{DynamicResource Str.Tool.LanguageServers.KeepBodies}" />
+                                                </DockPanel>
 
                                                 <Expander IsVisible="{CompiledBinding HasCapabilities}"
                                                           Margin="0,4,0,0"

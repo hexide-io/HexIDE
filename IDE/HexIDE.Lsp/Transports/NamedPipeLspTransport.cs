@@ -117,6 +117,10 @@ public sealed class NamedPipeLspTransport : ILspTransport
 
     public event EventHandler? Closed;
 
+    // A pipe HexIDE dialled has no process here to report on. Where HexIDE spawned the server itself the
+    // stdio transport is used, and that one does report. Unobservable carries the distinction.
+    public event EventHandler<TransportNotice>? Notice { add { } remove { } }
+
     public async Task<IJsonRpcMessageHandler?> ConnectAsync(
         IJsonRpcMessageFormatter formatter, CancellationToken cancellationToken = default)
     {

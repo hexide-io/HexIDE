@@ -60,34 +60,22 @@ public sealed class StdioProcessLspTransport : ILspTransport
 
     public event EventHandler? Closed;
 
+    /// <summary>Standard error and the exit code, which this transport is the only thing that can see.</summary>
+    public event EventHandler<TransportNotice>? Notice;
+
     public Task<IJsonRpcMessageHandler?> ConnectAsync(IJsonRpcMessageFormatter formatter, CancellationToken cancellationToken = default)
     {
         var serverInfo = _serverInfo;
         _logger.LogInformation("Starting language server: {Exe}", serverInfo.FileName);
 
-        // Debug proxy: if VB6_LSP_DEBUG_PROXY=1 is set, route traffic through
-        // LspProxy.exe which logs all LSP frames to its stderr (visible in the
-        // debug output window). The proxy forwards everything unchanged.
+        // The server is launched directly. There used to be an interposed debug proxy here, reached by
+        // setting VB6_LSP_DEBUG_PROXY=1, which relaunched the server underneath a byte-forwarding process
+        // that logged every frame to its own stderr. The protocol inspector reads the same traffic from
+        // inside this client and reads strictly more of it — see docs/lsp-client.md.
         string fileName = serverInfo.FileName;
         string arguments = serverInfo.Arguments;
-        var useProxy = Environment.GetEnvironmentVariable("VB6_LSP_DEBUG_PROXY") == "1";
-        if (useProxy)
-        {
-            var proxyExe = Path.Combine(AppContext.BaseDirectory, "HexIDE.LspProxy.exe");
-            if (!File.Exists(proxyExe))
-                proxyExe = Path.Combine(AppContext.BaseDirectory, "HexIDE.LspProxy");
-            if (File.Exists(proxyExe))
-            {
-                _logger.LogInformation("[proxy] Debug proxy active: {Proxy}", proxyExe);
-                arguments = $"\"{serverInfo.FileName}\" {serverInfo.Arguments}".TrimEnd();
-                fileName = proxyExe;
-            }
-            else
-            {
-                _logger.LogWarning("[proxy] VB6_LSP_DEBUG_PROXY=1 but proxy exe not found at {Path}", proxyExe);
-            }
-        }
-        else if (!OperatingSystem.IsWindows())
+
+        if (!OperatingSystem.IsWindows())
         {
             // Unix apphosts have historically shipped without the execute bit (neither the Content-copy
             // into the IDE output nor the publish tar sets it), so Process.Start on the apphost fails and
@@ -148,8 +136,15 @@ public sealed class StdioProcessLspTransport : ILspTransport
 
         _process.ErrorDataReceived += (_, e) =>
         {
-            if (e.Data is { Length: > 0 })
-                _logger.LogDebug("[vb-lsp stderr] {Data}", e.Data);
+            if (e.Data is not { Length: > 0 }) return;
+
+            _logger.LogDebug("[vb-lsp stderr] {Data}", e.Data);
+
+            // Onto the record as well as into the log. A debug log line is not somewhere a person looks
+            // when a server dies mid-conversation; the timeline beside the last message it managed to
+            // send is. This is what makes Unobservable's "all HexIDE's to observe" true rather than a
+            // claim (hexide-io/HexIDE#369 task 2.9).
+            Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.StandardError, e.Data));
         };
 
         _process.Exited += OnProcessExited;
@@ -203,8 +198,36 @@ public sealed class StdioProcessLspTransport : ILspTransport
 
     private void OnProcessExited(object? sender, EventArgs e)
     {
-        _logger.LogWarning("VB6 LSP server process exited");
+        // Read before anything else touches the process: Kill() and Dispose() are both moments after this,
+        // and ExitCode throws once the handle is gone.
+        var code = ExitCode();
+
+        _logger.LogWarning("VB6 LSP server process exited{Code}", code is null ? "" : $" with code {code}");
+
+        // BEFORE Closed, which is what tears the connection down. An exit code that arrived after the
+        // record had stopped accepting entries would be the one fact nobody could see.
+        Notice?.Invoke(this, new TransportNotice(
+            TransportNoticeKind.Lifecycle,
+            code is null ? "process exited" : $"process exited with code {code}"));
+
         Closed?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// The exit code, or null when the process cannot tell us.
+    /// </summary>
+    /// <remarks>
+    /// LSP gives an exit code a meaning — 0 when a shutdown preceded exit and 1 otherwise — which is how
+    /// hexide-io/HexIDE#312 was found. Nothing in the LSP client read one before this: the only thing in
+    /// the tree that ever did was the debug proxy, which logged it to its own stderr and was removed in
+    /// the same change that added this. It is wrapped because reading it races teardown: a disposed or
+    /// already-reaped handle throws rather than answering, and a diagnostic must never be the thing that
+    /// breaks a shutdown.
+    /// </remarks>
+    private int? ExitCode()
+    {
+        try { return _process?.HasExited == true ? _process.ExitCode : null; }
+        catch (Exception) { return null; }
     }
 
     public ValueTask DisposeAsync()

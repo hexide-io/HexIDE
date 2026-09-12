@@ -1495,48 +1495,68 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_document_tabs")]
-    [Description("Returns all open document tabs in the editor area with their title, type ('code' or 'designer'), and whether each is the active tab.")]
+    [Description("Returns EVERY tab in the document region with its title, type and whether it is the active one. 'type' is 'designer' for a form or UserControl designer, 'code' for a source editor, and 'tool' for a document that is not an editor at all — the Object Browser, the language-server connection list, the protocol inspector. Those three are real tabs in the same strip and used to be missing from this answer, which made an automation client believe a tab it could see on screen did not exist.")]
     public async Task<DocumentTabsResult> GetDocumentTabsAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var activeTitle = ctx.DocumentDockService.ActiveDocument?.Title;
-            var tabs = ctx.DocumentDockService.OpenDocuments
+            // The DOCK's tabs, not the editor service's list. The service tracks the editors it was asked
+            // to open; the shell adds other documents to the same dock directly, and reporting only the
+            // first set answers a different question from the one asked.
+            var active = ctx.DocumentDockService.ActiveTab;
+            var tabs = ctx.DocumentDockService.AllTabs
                 .Select(d => new DocumentTabInfo(
-                    d.Title,
-                    d is HexIDE.VisualDesigner.FormEditViewModel ? "designer" : "code",
-                    d.Title == activeTitle))
+                    d.Title ?? "",
+                    d switch
+                    {
+                        HexIDE.VisualDesigner.FormEditViewModel => "designer",
+                        BaseEditorWindowViewModel => "code",
+                        _ => "tool",
+                    },
+                    ReferenceEquals(d, active)))
                 .ToArray();
             return new DocumentTabsResult(tabs);
         });
     }
 
     [McpServerTool(Name = "activate_document_tab")]
-    [Description("Brings the named document tab to the front. title must match a Title returned by get_document_tabs (case-insensitive).")]
+    [Description("Brings the named document tab to the front, whatever kind it is. title must match a Title returned by get_document_tabs (case-insensitive). If nothing matches, the error names every tab that IS open, so a near-miss does not need a second call to diagnose.")]
     public async Task<MutateResult> ActivateDocumentTabAsync(string title, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var found = ctx.DocumentDockService.TryActivate<BaseEditorWindowViewModel>(
+            var found = ctx.DocumentDockService.TryActivateAny(
                 d => string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase));
-            return found
-                ? new MutateResult(true, null)
-                : new MutateResult(false, $"No document tab with title '{title}'");
+            return found ? new MutateResult(true, null) : new MutateResult(false, NoSuchTab(title));
         });
     }
 
+    /// <summary>Says which tabs there are, rather than only that this one is not among them.</summary>
+    /// <remarks>
+    /// A bare "no tab called X" leaves a caller unable to tell a typo from a tab that never opened, and
+    /// costs a second call to find out. The tabs are already in hand.
+    /// </remarks>
+    private string NoSuchTab(string title)
+    {
+        var open = ctx.DocumentDockService.AllTabs
+            .Select(d => d.Title)
+            .Where(t => !string.IsNullOrWhiteSpace(t))
+            .ToArray();
+
+        return open.Length == 0
+            ? $"No document tab with title '{title}'. Nothing is open in the document region."
+            : $"No document tab with title '{title}'. Open tabs: {string.Join(", ", open)}.";
+    }
+
     [McpServerTool(Name = "close_document_tab")]
-    [Description("Closes the named document tab. title must match a Title returned by get_document_tabs (case-insensitive).")]
+    [Description("Closes the named document tab, whatever kind it is. title must match a Title returned by get_document_tabs (case-insensitive). If nothing matches, the error names every tab that IS open.")]
     public async Task<MutateResult> CloseDocumentTabAsync(string title, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var doc = ctx.DocumentDockService.OpenDocuments.FirstOrDefault(d =>
-                string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase));
-            if (doc is null)
-                return new MutateResult(false, $"No document tab with title '{title}'");
-            ctx.DocumentDockService.CloseDocument(doc);
-            return new MutateResult(true, null);
+            var closed = ctx.DocumentDockService.TryCloseAny(
+                d => string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase));
+            return closed ? new MutateResult(true, null) : new MutateResult(false, NoSuchTab(title));
         });
     }
 
@@ -1633,7 +1653,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     // body cannot be reached by any test.
 
     [McpServerTool(Name = "list_lsp_messages")]
-    [Description("Lists recorded language-server message envelopes — time, direction, method, id, size, outcome and latency — with no message content. Use it to answer 'was this request even sent', 'what came back', and 'how long did it take', which the editor cannot tell you and a diagnostics list cannot distinguish. Envelopes are recorded for every connection always, whether or not capture is armed, so this works without arming anything, and every argument is optional — call it with none to see the whole timeline.\n\nIF THE ANSWER IS EMPTY, READ 'note': it says which of the possible reasons applies. The commonest is that no server has started, because a language server starts on the first document of a language it claims — so open a file first.\n\n'direction' is Sent, Received, or Local for the entries that are not messages at all. 'kind' is Request, Response, ErrorResponse or Notification for wire traffic, plus Lifecycle (a process starting, stopping, its standard error and exit code), NeverSent (a request this client declined to make, and why) and Unconsumed (a capability the server advertised that this client does not use) — those three are the ones a server author most often wants and they exist nowhere else. 'detail' carries their text.\n\nSequence numbers have GAPS, and they are not dropped frames: a reply completes its request's existing envelope rather than adding one, so the response's own sequence is consumed. 'framesDropped' is the only thing that reports real loss.\n\nFilters: connection_id for one server, method for an exact method name, failures_only for error responses and requests that failed, were cancelled or never came back, after_sequence to poll for only what is new since a sequence you have already seen. The newest matches are returned when there are more than limit, and 'truncated' plus 'matched' say what was left out. For message content, list first and then get_lsp_message — a conversation runs to megabytes per minute of typing, so nothing returns bodies in bulk.")]
+    [Description("Lists recorded language-server message envelopes — time, direction, method, id, size, outcome and latency — with no message content. Use it to answer 'was this request even sent', 'what came back', and 'how long did it take', which the editor cannot tell you and a diagnostics list cannot distinguish. Envelopes are recorded for every connection always, whether or not capture is armed, so this works without arming anything, and every argument is optional — call it with none to see the whole timeline.\n\nIF THE ANSWER IS EMPTY, READ 'note': it says which of the possible reasons applies. The commonest is that no server has started, because a language server starts on the first document of a language it claims — so open a file first.\n\n'direction' is Sent, Received (which includes a line the server wrote to standard error — it arrived, it was just not a message) or Local (observed rather than exchanged: a process starting, or the capture reporting what it cannot see). 'kind' is Request, Response, ErrorResponse or Notification for wire traffic, plus five that are not messages: Lifecycle (a process starting, stopping, or the exit code it stopped with), StandardError (one line the server wrote there, verbatim — for a server that speaks the protocol over standard output this is its only channel for a crash or a stack), NeverSent (a request this client declined to make, and why — including one it could not serialize), Unconsumed (a capability the server advertised that this client does not use), and Note (something the capture itself has to say, most often what this transport structurally cannot show: a server reached over a socket has no exit code and no standard error, and a frame this client could not decode is recorded here rather than lost). Those five are the ones a server author most often wants and they exist nowhere else. 'detail' carries their text.\n\nSequence numbers have GAPS, and they are not dropped frames: a reply completes its request's existing envelope rather than adding one, so the response's own sequence is consumed. 'framesDropped' is the only thing that reports real loss.\n\nFilters: connection_id for one server, method for an exact method name, failures_only for error responses and requests that failed, were cancelled or never came back, after_sequence to poll for only what is new since a sequence you have already seen. The newest matches are returned when there are more than limit, and 'truncated' plus 'matched' say what was left out. For message content, list first and then get_lsp_message — a conversation runs to megabytes per minute of typing, so nothing returns bodies in bulk.")]
     public async Task<LspMessagesResult> ListLspMessagesAsync(
         string? connectionId = null,
         string? method = null,
@@ -1717,6 +1737,36 @@ internal sealed class HexIdeTools(IdeContext ctx)
         return new LspCaptureClearedResult(discarded, await CaptureStateAsync());
     }
 
+
+    [McpServerTool(Name = "answer_next_file_dialog")]
+    [Description("Pre-answers the next file dialog the IDE opens, so a Save As / Open / Export flow can be driven end to end. A file picker is a NATIVE operating-system dialog: it is outside the control tree, dump_visual_tree cannot see it, interact cannot address it, and a modal one stops this server answering at all — so without this every feature ending in a file dialog needed a person to click.\n\nPass the absolute path the dialog should return. Pass nothing (or an empty path) to answer as CANCELLED, which is a distinct path through most of these flows and the one least likely to have been exercised by hand. The answer is consumed by ONE dialog and is not sticky: arm it immediately before the action that opens the picker, or it will be spent by whichever dialog opens first.\n\nThis does not simulate the dialog. Everything downstream of the picker — the writing, the naming, the refusals — is the same code a real click reaches; only the part a person performs is skipped. Nothing is created: name a path in a directory that exists, or the flow under test will report the failure it would really report.")]
+    public Task<FileDialogAnsweredResult> AnswerNextFileDialogAsync(
+        string? path = null, CancellationToken ct = default)
+    {
+        HexIDE.IDE.ScriptedFileDialogs.AnswerNextWith(path);
+
+        var cancels = string.IsNullOrWhiteSpace(path);
+        return Task.FromResult(new FileDialogAnsweredResult(
+            true,
+            cancels ? null : path,
+            HexIDE.IDE.ScriptedFileDialogs.Pending,
+            cancels
+                ? "The next file dialog will answer as cancelled."
+                : $"The next file dialog will return '{path}'. Nothing has been created there."));
+    }
+
+    [McpServerTool(Name = "clear_file_dialog_answers")]
+    [Description("Discards every armed file-dialog answer. Use it after a step that did not open the dialog it was expected to, so a leftover answer cannot be spent by an unrelated save later on. Reports how many were discarded, which is also how you find out that a step you thought opened a picker did not.")]
+    public Task<FileDialogAnsweredResult> ClearFileDialogAnswersAsync(CancellationToken ct = default)
+    {
+        var discarded = HexIDE.IDE.ScriptedFileDialogs.Clear();
+
+        return Task.FromResult(new FileDialogAnsweredResult(
+            true, null, 0,
+            discarded == 0
+                ? "Nothing was armed."
+                : $"Discarded {discarded} armed answer(s); the next file dialog will be shown for real."));
+    }
 
     [McpServerTool(Name = "export_lsp_conversation")]
     [Description("Writes the recorded conversation to two files and returns their paths: one JSON-RPC message per line, plus a manifest carrying the envelope table with timings, the limits the record was taken under, and everything it had to discard. This is the form to attach to an issue or send to whoever wrote the server.\n\nALWAYS PSEUDONYMISED. Paths, workspace folders and server launch configuration are replaced with stable, session-scoped fake names — consistently, so two spellings of one path stay distinguishable and a normalisation bug survives the redaction. Use get_lsp_message instead if you need the real bytes for your own inspection on this machine; that one is raw and is not for sharing. The manifest states which of the two it is, because an export that does not say is worse than one that never redacted.\n\nEvery envelope gets a line, including those whose body was never kept, because a file that omitted them would read exactly like a shorter conversation. A truncated body is written as head, tail and true length rather than as something that parses — pretending otherwise would misdescribe what was sent. Omit connection_id for the whole interleaved timeline.")]
@@ -1964,6 +2014,10 @@ internal record TemplateInfo(string Name, bool Supported, string Source);
 internal record NewProjectTemplatesResult(TemplateInfo[] Templates);
 
 internal record RuntimeErrorResult(bool Raised, string? Message, string? At, int Sequence);
+
+/// <param name="Path">What the next dialog will return, or null when it will answer as cancelled.</param>
+/// <param name="Pending">How many answers are still armed, so a stale one is visible rather than latent.</param>
+internal record FileDialogAnsweredResult(bool Success, string? Path, int Pending, string Note);
 
 internal record VisualTreeResult(string? Error, string? Window, UiNode? Root);
 
