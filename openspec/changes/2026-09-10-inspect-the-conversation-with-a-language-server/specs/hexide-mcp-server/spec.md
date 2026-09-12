@@ -58,3 +58,33 @@ silent, appearing only in a configuration nothing in CI currently builds.
 #### Scenario: A distributed build
 - **WHEN** a build that excludes the automation server is asked to record a conversation
 - **THEN** it records it, and only the automation tools are absent
+
+### Requirement: An automation client SHALL be able to answer a native file dialog
+The server SHALL let a client pre-answer the next file dialog the application opens, with a path or with a
+cancellation, and SHALL let armed answers be discarded. An armed answer SHALL be consumed by exactly one
+dialog. Nothing about the flow below the dialog SHALL be bypassed, and no file SHALL be created by arming
+an answer. The facility SHALL be absent from builds the automation server is absent from.
+
+A file picker is a native operating-system dialog. It is outside the control tree, so the tree cannot see
+it and no path addresses it, and while a modal one is up the server does not answer at all. Every feature
+that ends in Save As, Open, Make EXE, Add File or Export was therefore verifiable only by asking a person
+to click, which is the one thing the development loop is not allowed to require.
+
+Single-shot rather than a standing override, because an answer left armed silently redirects the next
+unrelated save, and that damage surfaces somewhere other than where it was caused.
+
+#### Scenario: Driving a save
+- **WHEN** a client arms a path and then invokes an action that opens a save dialog
+- **THEN** the flow proceeds as though a person had chosen that path, and the file is written there
+
+#### Scenario: Driving a cancellation
+- **WHEN** a client arms an empty answer and an action opens a file dialog
+- **THEN** the flow proceeds as though the dialog had been cancelled
+
+#### Scenario: An answer that was never spent
+- **WHEN** a client arms an answer and the expected dialog does not open
+- **THEN** the answer remains armed and is reported as such, and discarding it is possible
+
+#### Scenario: A distributed build
+- **WHEN** a build excludes the automation server
+- **THEN** it contains no way to bypass a file dialog

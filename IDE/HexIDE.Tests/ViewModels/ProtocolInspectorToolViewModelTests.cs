@@ -1,3 +1,7 @@
+using Avalonia.Platform.Storage;
+using System.IO;
+using HexIDE.Redaction;
+using HexIDE.IDE;
 using System.Text;
 using HexIDE.Conversations;
 using HexIDE.Localization;
@@ -37,12 +41,18 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
         {
             "Str.Tool.ProtocolInspector.Truncated" => "-- {0} of {1} bytes not kept --",
             "Str.Tool.ProtocolInspector.DetailHeader" => "#{0} {1} {2}",
+            "Str.Tool.ProtocolInspector.Exported" => "Exported {0} messages to {1} and {2}",
             var key => key,
         });
         return loc;
     }
 
-    private ProtocolInspectorToolViewModel Sut() => new(_capture, Loc());
+    private readonly IWindowManager _windows = Substitute.For<IWindowManager>();
+
+    private ProtocolInspectorToolViewModel Sut() => Over(_capture);
+
+    private ProtocolInspectorToolViewModel Over(ConversationLog log) =>
+        new(log, Loc(), new Pseudonymiser(), _windows);
 
     /// <summary>Records one frame the way the tap does, arming gate included.</summary>
     private void Frame(
@@ -266,7 +276,7 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
                 $"n{i}", null, 10, null);
         }
 
-        var vm = new ProtocolInspectorToolViewModel(small, Loc());
+        var vm = Over(small);
 
         vm.Losses.Should().NotBeEmpty();
         small.Losses("vb6").Envelopes.Should().BeGreaterThan(0, "the ring really did discard");
@@ -386,7 +396,7 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
         small.Record("vb6", ConversationDirection.Received, ConversationEntryKind.Response,
             null, "1", body.Length, body);
 
-        var vm = new ProtocolInspectorToolViewModel(small, Loc());
+        var vm = Over(small);
         vm.SelectedRow = vm.Rows.Single();
 
         vm.HasSelectedBody.Should().BeTrue();
@@ -400,5 +410,150 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
 
         // And the two halves are not joined. What is on screen must not read as a complete frame.
         vm.SelectedBody.Should().NotContain(new string('x', 4000));
+    }
+
+    // ── What leaves the machine ──────────────────────────────────────────────
+
+    [Fact]
+    public void NothingSelectedMeansNothingToCopy()
+    {
+        Frame("vb6", "initialize");
+
+        Sut().CanCopy.Should().BeFalse();
+    }
+
+    [Fact]
+    public void TheCopyIsTheTraceShapeAServerAuthorRecognises()
+    {
+        _capture.Arm("vb6", true);
+        Frame("vb6", "textDocument/didOpen");
+
+        var vm = Sut();
+        vm.SelectedRow = vm.Rows.Single();
+
+        vm.CanCopy.Should().BeTrue();
+        vm.SelectedTrace.Should().Contain("[Trace - ")
+                        .And.Contain("[vb6]")
+                        .And.Contain("Sending notification 'textDocument/didOpen'.");
+    }
+
+    [Fact]
+    public void AMessageWithNoBodyIsStillCopyable()
+    {
+        // Often exactly the finding — this was sent and never answered — so refusing to copy it would
+        // withhold the most quotable row there is.
+        _capture.Record("vb6", ConversationDirection.Local, ConversationEntryKind.Lifecycle,
+            null, null, 0, null, "process exited with 1");
+
+        var vm = Sut();
+        vm.SelectedRow = vm.Rows.Single();
+
+        vm.CanCopy.Should().BeTrue();
+        vm.SelectedTrace.Should().Contain("process exited with 1");
+    }
+
+    [Fact]
+    public void WhatIsCopiedIsRedactedEvenThoughWhatIsShownIsNot()
+    {
+        // The rule the whole design turns on. The pane is the developer looking at their own machine; the
+        // copy is addressed to somebody else, so a path in it is replaced by a stable made-up name.
+        _capture.Arm("vb6", true);
+
+        var body = System.Text.Encoding.UTF8.GetBytes(
+            """{"jsonrpc":"2.0","method":"textDocument/didOpen","params":"""
+            + """{"textDocument":{"uri":"file:///C:/Repos/Secret/Ledger.frm"}}}""");
+        _capture.Record("vb6", ConversationDirection.Sent, ConversationEntryKind.Notification,
+            "textDocument/didOpen", null, body.Length, body);
+
+        var vm = Sut();
+        vm.SelectedRow = vm.Rows.Single();
+
+        vm.SelectedBody.Should().Contain("Secret", "the live pane is the bytes that crossed the wire");
+        vm.SelectedTrace.Should().NotContain("Secret");
+        vm.SelectedTrace.Should().NotContain("Ledger");
+    }
+
+    [Fact]
+    public async Task ACancelledExportWritesNothingAndSaysNothing()
+    {
+        // A picker returning null is the reader changing their mind. Reporting a failure for it would
+        // teach them to ignore the line that also reports real ones.
+        Frame("vb6", "initialize");
+        _windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns((string?)null);
+
+        var vm = Sut();
+        await vm.ExportAsync();
+
+        vm.ExportStatus.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AnExportWritesBothHalvesUnderOneStemAndSaysWhere()
+    {
+        // Two files, and the manifest's name is derived rather than asked for a second time: the manifest
+        // cites the messages file by line number, so a separated pair is a broken one.
+        _capture.Arm("vb6", true);
+        Frame("vb6", "initialize");
+
+        var folder = Directory.CreateTempSubdirectory("hexide-export-test");
+        try
+        {
+            var chosen = Path.Combine(folder.FullName, "conversation.jsonl");
+            _windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(chosen);
+
+            var vm = Sut();
+            await vm.ExportAsync();
+
+            var manifest = Path.Combine(folder.FullName, "conversation.manifest.json");
+            File.Exists(chosen).Should().BeTrue();
+            File.Exists(manifest).Should().BeTrue();
+
+            File.ReadAllText(chosen).Should().Contain("initialize");
+            vm.ExportStatus.Should().Contain(chosen).And.Contain(manifest);
+        }
+        finally { folder.Delete(recursive: true); }
+    }
+
+    [Fact]
+    public async Task AnExportThatFailsSaysSoRatherThanLookingLikeACancel()
+    {
+        // Silence after a Save button is indistinguishable from a cancel, and the reader will act on the
+        // wrong one — most likely by concluding the record was empty.
+        Frame("vb6", "initialize");
+        _windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>())
+                .Returns(Path.Combine(Path.GetTempPath(), "no-such-directory-here", "x.jsonl"));
+
+        var vm = Sut();
+        await vm.ExportAsync();
+
+        vm.ExportStatus.Should().NotBeEmpty();
+        vm.ExportStatus.Should().Contain("Str.Tool.ProtocolInspector.ExportFailed",
+            "the failure is reported through the localised key, not swallowed");
+    }
+
+    [Fact]
+    public async Task TheServerFilterDecidesWhatIsExported()
+    {
+        // The window shows one server at a time when asked to, and an export that ignored that would hand
+        // somebody a file full of another server's traffic.
+        _capture.Arm("vb6", true);
+        _capture.Arm("latex", true);
+        Frame("vb6", "initialize");
+        Frame("latex", "initialize");
+
+        var folder = Directory.CreateTempSubdirectory("hexide-export-filter");
+        try
+        {
+            var chosen = Path.Combine(folder.FullName, "one.jsonl");
+            _windows.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(chosen);
+
+            var vm = Sut();
+            vm.SelectedConnection = "latex";
+            await vm.ExportAsync();
+
+            File.ReadAllText(Path.Combine(folder.FullName, "one.manifest.json"))
+                .Should().Contain("latex").And.NotContain("\"vb6\"");
+        }
+        finally { folder.Delete(recursive: true); }
     }
 }

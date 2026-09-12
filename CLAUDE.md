@@ -335,7 +335,9 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 | `clear_lsp_capture(connectionId?)` | Discards the record and keeps the arming, so the next thing exercised is the only thing in it. |
 | `export_lsp_conversation(connectionId?)` | Writes the conversation as JSON-lines plus a manifest and returns both paths. **Always pseudonymised** — this is the shareable form; `get_lsp_message` is the raw one and is not. |
 | `get_lsp_capture_state()` | What is being recorded: every known connection, whether its bodies are kept, and what it has discarded. Read-only — ask this rather than arming something to find out what is armed. |
-| `interact(target, action, value?)` | Drive a control. Provider actions: `invoke`/`select`/`set_value`/`toggle`/`expand`/`collapse`. Reflection actions (DataContext VM): `invoke_command`/`set_property`. The generic substitute for per-interaction tools. |
+| `answer_next_file_dialog(path?)` | Pre-answers the next file dialog, so a Save As / Open / Export flow can be driven end to end. A native picker is outside the control tree and no other tool can reach it. Omit `path` to answer as cancelled. Single-shot: arm it immediately before the action.  |
+| `clear_file_dialog_answers()` | Discards armed answers, and reports how many there were — which is how you find out a step you thought opened a picker did not. |
+| `interact(target, action, value?)` | Drive a control. Provider actions: `invoke`/`select`/`set_value`/`toggle`/`expand`/`collapse`. Reflection actions (DataContext VM): `invoke_command`/`set_property`. `select` also reaches a **DataGrid row**, whose own peer offers no provider — clicking a row is how every master-detail window here is used. The generic substitute for per-interaction tools. |
 
 **CLI flags** (both `--` and `/` prefixes accepted, aligning with VB6 convention):
 - `--server-port <port>` — enable the MCP server on the given port (all launch profiles use 5123)

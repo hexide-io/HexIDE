@@ -241,6 +241,15 @@ public class WindowManager : IWindowManager
 
     public async Task<IReadOnlyList<string>?> OpenFilePickerAsync(FilePickerOpenOptions options)
     {
+#if DEBUG
+        // An automation client cannot reach a native dialog — it is outside the control tree, and a modal
+        // one stops the automation server answering at all. An armed answer replaces the question a person
+        // would have answered, and nothing else: every line below the picker is the code a real click
+        // reaches. Compiled out of a shipped build along with the server it exists for.
+        if (ScriptedFileDialogs.TryTake(out var scripted))
+            return scripted is null ? null : [scripted];
+#endif
+
         if (Application.Current!.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime classic)
             throw new Exception("This is supported only for desktop apps");
 
@@ -256,6 +265,10 @@ public class WindowManager : IWindowManager
 
     public async Task<string?> SaveFilePickerAsync(FilePickerSaveOptions options)
     {
+#if DEBUG
+        if (ScriptedFileDialogs.TryTake(out var scripted)) return scripted;
+#endif
+
         if (Application.Current!.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime classic)
             throw new Exception("This is supported only for desktop apps");
 

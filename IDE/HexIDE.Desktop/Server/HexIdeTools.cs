@@ -1738,6 +1738,36 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
 
+    [McpServerTool(Name = "answer_next_file_dialog")]
+    [Description("Pre-answers the next file dialog the IDE opens, so a Save As / Open / Export flow can be driven end to end. A file picker is a NATIVE operating-system dialog: it is outside the control tree, dump_visual_tree cannot see it, interact cannot address it, and a modal one stops this server answering at all — so without this every feature ending in a file dialog needed a person to click.\n\nPass the absolute path the dialog should return. Pass nothing (or an empty path) to answer as CANCELLED, which is a distinct path through most of these flows and the one least likely to have been exercised by hand. The answer is consumed by ONE dialog and is not sticky: arm it immediately before the action that opens the picker, or it will be spent by whichever dialog opens first.\n\nThis does not simulate the dialog. Everything downstream of the picker — the writing, the naming, the refusals — is the same code a real click reaches; only the part a person performs is skipped. Nothing is created: name a path in a directory that exists, or the flow under test will report the failure it would really report.")]
+    public Task<FileDialogAnsweredResult> AnswerNextFileDialogAsync(
+        string? path = null, CancellationToken ct = default)
+    {
+        HexIDE.IDE.ScriptedFileDialogs.AnswerNextWith(path);
+
+        var cancels = string.IsNullOrWhiteSpace(path);
+        return Task.FromResult(new FileDialogAnsweredResult(
+            true,
+            cancels ? null : path,
+            HexIDE.IDE.ScriptedFileDialogs.Pending,
+            cancels
+                ? "The next file dialog will answer as cancelled."
+                : $"The next file dialog will return '{path}'. Nothing has been created there."));
+    }
+
+    [McpServerTool(Name = "clear_file_dialog_answers")]
+    [Description("Discards every armed file-dialog answer. Use it after a step that did not open the dialog it was expected to, so a leftover answer cannot be spent by an unrelated save later on. Reports how many were discarded, which is also how you find out that a step you thought opened a picker did not.")]
+    public Task<FileDialogAnsweredResult> ClearFileDialogAnswersAsync(CancellationToken ct = default)
+    {
+        var discarded = HexIDE.IDE.ScriptedFileDialogs.Clear();
+
+        return Task.FromResult(new FileDialogAnsweredResult(
+            true, null, 0,
+            discarded == 0
+                ? "Nothing was armed."
+                : $"Discarded {discarded} armed answer(s); the next file dialog will be shown for real."));
+    }
+
     [McpServerTool(Name = "export_lsp_conversation")]
     [Description("Writes the recorded conversation to two files and returns their paths: one JSON-RPC message per line, plus a manifest carrying the envelope table with timings, the limits the record was taken under, and everything it had to discard. This is the form to attach to an issue or send to whoever wrote the server.\n\nALWAYS PSEUDONYMISED. Paths, workspace folders and server launch configuration are replaced with stable, session-scoped fake names — consistently, so two spellings of one path stay distinguishable and a normalisation bug survives the redaction. Use get_lsp_message instead if you need the real bytes for your own inspection on this machine; that one is raw and is not for sharing. The manifest states which of the two it is, because an export that does not say is worse than one that never redacted.\n\nEvery envelope gets a line, including those whose body was never kept, because a file that omitted them would read exactly like a shorter conversation. A truncated body is written as head, tail and true length rather than as something that parses — pretending otherwise would misdescribe what was sent. Omit connection_id for the whole interleaved timeline.")]
     public async Task<LspExportResult> ExportLspConversationAsync(
@@ -1984,6 +2014,10 @@ internal record TemplateInfo(string Name, bool Supported, string Source);
 internal record NewProjectTemplatesResult(TemplateInfo[] Templates);
 
 internal record RuntimeErrorResult(bool Raised, string? Message, string? At, int Sequence);
+
+/// <param name="Path">What the next dialog will return, or null when it will answer as cancelled.</param>
+/// <param name="Pending">How many answers are still armed, so a stale one is visible rather than latent.</param>
+internal record FileDialogAnsweredResult(bool Success, string? Path, int Pending, string Note);
 
 internal record VisualTreeResult(string? Error, string? Window, UiNode? Root);
 

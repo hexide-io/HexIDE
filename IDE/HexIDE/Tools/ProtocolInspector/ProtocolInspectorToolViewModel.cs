@@ -1,7 +1,10 @@
 using System.Collections.ObjectModel;
+using Avalonia.Platform.Storage;
 using Dock.Model.Mvvm.Controls;
 using HexIDE.Conversations;
+using HexIDE.IDE;
 using HexIDE.Localization;
+using HexIDE.Redaction;
 using PropertyChanged.SourceGenerator;
 
 namespace HexIDE.Tools.ProtocolInspector;
@@ -47,6 +50,8 @@ public partial class ProtocolInspectorToolViewModel : Document
 
     private readonly ConversationLog _capture;
     private readonly ILocalizationService _localization;
+    private readonly Pseudonymiser _pseudonyms;
+    private readonly IWindowManager _windows;
 
     /// <summary>What the grid is showing, in the order it happened.</summary>
     public ObservableCollection<ProtocolInspectorRowViewModel> Rows { get; } = [];
@@ -88,6 +93,31 @@ public partial class ProtocolInspectorToolViewModel : Document
 
     /// <summary>Whether the pane is showing at all. Nothing selected means no pane.</summary>
     [Notify] private bool isDetailOpen;
+
+    /// <summary>
+    /// The selected message as the text trace a server author already reads, ready to be pasted.
+    /// </summary>
+    /// <remarks>
+    /// <b>Redacted, unlike the pane above it, and the difference is the whole rule.</b> The pane is the
+    /// developer looking at their own machine; this is the thing that leaves it. Held as a property rather
+    /// than composed inside the copy handler so it can be asserted on — by a test, and by an automation
+    /// client, which cannot read a clipboard.
+    /// </remarks>
+    [Notify] private string selectedTrace = "";
+
+    /// <summary>Set while there is a message to copy, so the button can say so.</summary>
+    [Notify] private bool canCopy;
+
+    /// <summary>Where the last export went, or why it did not go.</summary>
+    /// <remarks>
+    /// Stated in the window rather than as a transient notice: an export exists to be handed to somebody
+    /// else, and the first thing its author needs is the path. A notice that fades is gone by the time
+    /// they look for it.
+    /// </remarks>
+    [Notify] private string exportStatus = "";
+
+    /// <summary>Set while an export is running, so a second one cannot be started on top of it.</summary>
+    [Notify] private bool isExporting;
 
     /// <summary>How many rows the grid holds, and how many of those are failures.</summary>
     [Notify] private int shownCount;
@@ -132,16 +162,26 @@ public partial class ProtocolInspectorToolViewModel : Document
     /// <summary>Re-reads the capture. The only thing that changes what the grid shows.</summary>
     public System.Windows.Input.ICommand RefreshCommand { get; }
 
-    public ProtocolInspectorToolViewModel(ConversationLog capture, ILocalizationService localization)
+    /// <summary>Writes the whole conversation out as raw JSON-RPC plus a manifest.</summary>
+    public System.Windows.Input.ICommand ExportCommand { get; }
+
+    public ProtocolInspectorToolViewModel(
+        ConversationLog capture,
+        ILocalizationService localization,
+        Pseudonymiser pseudonyms,
+        IWindowManager windows)
     {
         _capture = capture;
         _localization = localization;
+        _pseudonyms = pseudonyms;
+        _windows = windows;
 
         localization.BindTitle(this, "Str.Tool.ProtocolInspector.Title");
         CanClose = true;
         CanFloat = false;
 
         RefreshCommand = new HexIDE.Utils.DelegateCommand(Refresh);
+        ExportCommand = new HexIDE.Utils.DelegateCommand(() => _ = ExportAsync(), () => !IsExporting);
 
         Refresh();
     }
@@ -271,7 +311,9 @@ public partial class ProtocolInspectorToolViewModel : Document
         {
             IsDetailOpen = false;
             HasSelectedBody = false;
+            CanCopy = false;
             SelectedBody = "";
+            SelectedTrace = "";
             SelectedBodyUnavailable = "";
             SelectedBodyHeader = "";
             return;
@@ -295,13 +337,108 @@ public partial class ProtocolInspectorToolViewModel : Document
                 : CaptureQueries
                     .ExplainMissingBodyAsync(_capture, row.ConnectionId, row.Sequence)
                     .GetAwaiter().GetResult();
+
+            // Still copyable. An envelope with no body is often exactly the finding — this was sent and
+            // never answered — and a copy action that refused it would withhold the most quotable row
+            // there is.
+            SelectedTrace = Trace(row, null, SelectedBodyUnavailable);
+            CanCopy = true;
             return;
         }
 
         HasSelectedBody = true;
         SelectedBodyUnavailable = "";
         SelectedBody = Compose(view);
+        SelectedTrace = Trace(row, Redactor().Body(SelectedBody), null);
+        CanCopy = true;
     }
+
+    /// <summary>
+    /// One message in the borrowed trace shape, which is the shape a bug report wants.
+    /// </summary>
+    /// <remarks>
+    /// The envelope is looked up rather than rebuilt from the row: a row is a projection for display —
+    /// arrows, formatted sizes, a method column that falls back to a note — and pasting any of that into a
+    /// report addressed to a server author would be quoting HexIDE's rendering back at them as though it
+    /// were the protocol.
+    /// </remarks>
+    private string Trace(ProtocolInspectorRowViewModel row, string? body, string? unavailable)
+    {
+        foreach (var envelope in _capture.Snapshot(row.ConnectionId))
+        {
+            if (envelope.Sequence == row.Sequence)
+                return ConversationTrace.ToTraceText(envelope, body, unavailable);
+        }
+
+        return "";
+    }
+
+    /// <summary>
+    /// A redactor over the session's own pseudonym table.
+    /// </summary>
+    /// <remarks>
+    /// <b>The table is shared with the automation surface's exports, and is session-scoped on purpose.</b>
+    /// One path must get the same pseudonym everywhere it appears, or a reader holding two artefacts cannot
+    /// tell that they describe the same file; and it must NOT outlive the session, or a pseudonym becomes a
+    /// stable identifier for a real path, which is the thing being avoided.
+    /// </remarks>
+    private ConversationRedactor Redactor() => new(_pseudonyms);
+
+    /// <summary>
+    /// Writes the conversation out: one JSON-RPC message per line, and a manifest beside it.
+    /// </summary>
+    /// <remarks>
+    /// <b>Always redacted, and there is deliberately no tick box here.</b> The design records that a
+    /// non-pseudonymising mode should exist and that where it lands is an open question needing an
+    /// unmissable warning; a quiet checkbox beside a Save button would settle that question by accident.
+    /// The raw bytes are already one click away in the pane above, so nothing is unreachable — only
+    /// unshareable by mistake.
+    /// </remarks>
+    public async Task ExportAsync()
+    {
+        if (IsExporting) return;
+        IsExporting = true;
+        try
+        {
+            var chosen = await _windows.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = _localization.GetString("Str.Tool.ProtocolInspector.Export"),
+                SuggestedFileName = "hexide-lsp-conversation.jsonl",
+                DefaultExtension = "jsonl",
+            });
+
+            if (chosen is not { Length: > 0 }) return;
+
+            var export = await ConversationExporter.ExportAsync(
+                _capture, Redactor(),
+                SelectedConnection == AllConnections ? null : SelectedConnection);
+
+            // The manifest's name is DERIVED rather than asked for a second time. Two pickers for one
+            // action is how the halves end up in different folders under different stems, and the manifest
+            // cites the messages file by line number, so a separated pair is a broken one.
+            var manifest = System.IO.Path.ChangeExtension(chosen, null) + ".manifest.json";
+
+            await System.IO.File.WriteAllTextAsync(chosen, export.Messages);
+            await System.IO.File.WriteAllTextAsync(manifest, export.Manifest);
+
+            ExportStatus = Format("Str.Tool.ProtocolInspector.Exported", export.Lines, chosen, manifest);
+        }
+        catch (Exception ex)
+        {
+            // Said in the window rather than only in the log. An export that silently did nothing is
+            // indistinguishable from one the reader cancelled, and they will act on the wrong one.
+            ExportStatus = Format("Str.Tool.ProtocolInspector.ExportFailed", ex.Message);
+        }
+        finally
+        {
+            IsExporting = false;
+        }
+    }
+
+    private string Format(string key, params object?[] arguments) =>
+        _localization.GetString(key) is { Length: > 0 } format
+            ? string.Format(format, arguments)
+            : string.Join(" ", arguments);
 
     /// <summary>
     /// The body, with the gap stated where one was cut out.

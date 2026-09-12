@@ -39,7 +39,7 @@
         <Border Grid.Row="0"
                 BorderBrush="{DynamicResource DockTitleBarBrush}" BorderThickness="0,0,0,1"
                 Padding="8,6">
-            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,*,Auto">
+            <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto">
 
                 <TextBlock Grid.Column="0" VerticalAlignment="Center" Margin="0,0,6,0"
                            Classes="dim"
@@ -60,15 +60,22 @@
                         Command="{CompiledBinding RefreshCommand}"
                         Content="{DynamicResource Str.Tool.ProtocolInspector.Refresh}" />
 
+                <!-- Raw JSON-RPC, one message per line, plus a manifest. It needs no decoder, it greps and
+                     it pipes, it survives a message HexIDE could not decode - which is exactly when an
+                     export matters - and it replays straight into this project's own pipe-pair tests. -->
+                <Button Grid.Column="4" VerticalAlignment="Center" Margin="8,0,0,0"
+                        Command="{CompiledBinding ExportCommand}"
+                        Content="{DynamicResource Str.Tool.ProtocolInspector.Export}" />
+
                 <!-- What arrived since the grid was filled. The grid deliberately does not move while it
                      is being read — comparing two rows is most of what this is for — so the count is how
                      a reader knows there is more to get. -->
-                <TextBlock Grid.Column="4" VerticalAlignment="Center" Margin="12,0,0,0"
+                <TextBlock Grid.Column="5" VerticalAlignment="Center" Margin="12,0,0,0"
                            Classes="dim"
                            IsVisible="{CompiledBinding HasPending}"
                            Text="{CompiledBinding PendingSummary}" />
 
-                <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="12"
+                <StackPanel Grid.Column="6" Orientation="Horizontal" Spacing="12"
                             VerticalAlignment="Center">
                     <TextBlock Classes="dim" Text="{CompiledBinding ShownSummary}" />
 
@@ -82,13 +89,25 @@
             </Grid>
         </Border>
 
-        <!-- Losses, when there are any. Never inferred from a short list: a record that truncated
-             silently reads exactly like a complete one. -->
-        <Border Grid.Row="1" Padding="8,4"
-                IsVisible="{CompiledBinding Losses, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
-                Background="{DynamicResource DockTitleBarBrush}">
-            <TextBlock Classes="dim" TextWrapping="Wrap" Text="{CompiledBinding Losses}" />
-        </Border>
+        <StackPanel Grid.Row="1">
+
+            <!-- Losses, when there are any. Never inferred from a short list: a record that truncated
+                 silently reads exactly like a complete one. -->
+            <Border Padding="8,4"
+                    IsVisible="{CompiledBinding Losses, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                    Background="{DynamicResource DockTitleBarBrush}">
+                <TextBlock Classes="dim" TextWrapping="Wrap" Text="{CompiledBinding Losses}" />
+            </Border>
+
+            <!-- Where the last export went. Stated in the window rather than as a notice that fades: an
+                 export exists to be handed to somebody else, and the first thing its author reaches for
+                 is the path. -->
+            <Border Padding="8,4"
+                    IsVisible="{CompiledBinding ExportStatus, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                    Background="{DynamicResource DockTitleBarBrush}">
+                <TextBlock Classes="dim" TextWrapping="Wrap" Text="{CompiledBinding ExportStatus}" />
+            </Border>
+        </StackPanel>
 
         <!-- Nothing to show, and WHY. An empty grid cannot be told apart from "nothing happened",
              "nothing is configured" and "this is broken" — which is the exact ambiguity the inspector
@@ -201,9 +220,29 @@
                     BorderBrush="{DynamicResource DockTitleBarBrush}" BorderThickness="0,1,0,0">
                 <Grid RowDefinitions="Auto,*">
 
-                    <TextBlock Grid.Row="0" Margin="8,5" Classes="machine dim"
-                               TextTrimming="CharacterEllipsis"
-                               Text="{CompiledBinding SelectedBodyHeader}" />
+                    <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="8,4,4,2">
+                        <TextBlock Grid.Column="0" VerticalAlignment="Center" Classes="machine dim"
+                                   TextTrimming="CharacterEllipsis"
+                                   Text="{CompiledBinding SelectedBodyHeader}" />
+
+                        <!-- WHAT LEAVES IS NOT WHAT IS SHOWN, and saying so is the point of the line.
+                             The pane below is the developer's own machine and is raw; a copy is addressed
+                             to somebody else, so it is pseudonymised. A reader who does not know that will
+                             either paste something they did not mean to, or distrust names they should
+                             have trusted. -->
+                        <TextBlock Grid.Column="1" VerticalAlignment="Center" Margin="12,0"
+                                   Classes="dim" TextTrimming="CharacterEllipsis"
+                                   IsVisible="{CompiledBinding CanCopy}"
+                                   Text="{DynamicResource Str.Tool.ProtocolInspector.LeavesRedacted}" />
+
+                        <!-- The Visual Studio Code text trace shape, because it is the lingua franca an
+                             author recognises on sight - and the thing being copied is going into a report
+                             addressed to somebody who does not have HexIDE. -->
+                        <Button Grid.Column="2" VerticalAlignment="Center"
+                                Click="Copy_OnClick"
+                                IsEnabled="{CompiledBinding CanCopy}"
+                                Content="{DynamicResource Str.Tool.ProtocolInspector.Copy}" />
+                    </Grid>
 
                     <!-- WHY there is no body, not a blank pane. Three states a blank collapses: nothing was
                          kept because the connection was not armed, something was kept and has since been

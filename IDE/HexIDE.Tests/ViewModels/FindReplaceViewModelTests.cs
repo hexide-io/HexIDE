@@ -615,7 +615,8 @@ public class FindReplaceViewModelTests
         lsRegistry.Connections.Returns([]);
         lsRegistry.ConfigurationProblems.Returns([]);
         var languageServers = new LanguageServersToolViewModel(lsRegistry, loc);
-        var protocolInspector = new ProtocolInspectorToolViewModel(new ConversationLog(), loc);
+        var protocolInspector = new ProtocolInspectorToolViewModel(
+            new ConversationLog(), loc, new HexIDE.Redaction.Pseudonymiser(), Substitute.For<IWindowManager>());
 
         var dockFactory = new MainViewViewModel.DockFactory(
             toolBox, projectExplorer, properties, formLayout,
