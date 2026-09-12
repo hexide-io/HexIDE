@@ -1,4 +1,6 @@
 using System.Text.Json;
+using CommunityToolkit.Mvvm.ComponentModel;
+using HexIDE.Conversations;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Lsp;
@@ -58,16 +60,50 @@ public sealed class LanguageServerStepViewModel
 /// one is how a view comes to show a state and a capability set that never coexisted.
 /// </para>
 /// </summary>
-public sealed class LanguageServerRowViewModel
+public sealed class LanguageServerRowViewModel : ObservableObject
 {
     private readonly LanguageServerConnection _c;
     private readonly ILocalizationService _localization;
+    private readonly ConversationLog _capture;
 
-    public LanguageServerRowViewModel(LanguageServerConnection connection, ILocalizationService localization)
+    public LanguageServerRowViewModel(
+        LanguageServerConnection connection, ILocalizationService localization, ConversationLog capture)
     {
         _c = connection;
         _localization = localization;
+        _capture = capture;
     }
+
+    /// <summary>
+    /// Whether message bodies are being kept for this server.
+    /// </summary>
+    /// <remarks>
+    /// <b>The row's only writable state, and the window's first interactivity of any kind.</b> It reads
+    /// through to the capture rather than holding a copy, so it cannot drift from what is actually being
+    /// recorded — which matters here more than usual, because two other things arm the same connection: the
+    /// automation surface and the launch flag.
+    ///
+    /// <para>
+    /// Envelopes are recorded whether or not this is on. What it governs is content, which is the only part
+    /// with a privacy cost and the only part large enough to have a memory cost.
+    /// </para>
+    /// </remarks>
+    public bool IsArmed
+    {
+        get => _capture.IsArmed(_c.Id);
+        set
+        {
+            if (value == IsArmed) return;
+
+            // The capture raises ArmingChanged, and the window turns that back into the notification for
+            // this property. Raising it here as well would be a second, earlier answer from a different
+            // source, and the two would disagree the first time an arming request was refused.
+            _capture.Arm(_c.Id, value);
+        }
+    }
+
+    /// <summary>Re-reads the arming, for when something other than this row changed it.</summary>
+    public void ArmingChanged() => OnPropertyChanged(nameof(IsArmed));
 
     public string Id => _c.Id;
     public string DisplayName => string.IsNullOrWhiteSpace(_c.DisplayName) ? _c.Id : _c.DisplayName;

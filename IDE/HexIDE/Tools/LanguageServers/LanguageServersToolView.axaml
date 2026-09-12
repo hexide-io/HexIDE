@@ -29,6 +29,30 @@
                        TextWrapping="Wrap"
                        Text="{DynamicResource Str.Tool.LanguageServers.None}" />
 
+            <!-- What arming means, said once for the whole window rather than beside every checkbox.
+                 Three things about it are surprising and all three are load-bearing: envelopes are recorded
+                 unconditionally, the opening handshake is kept whatever the toggle says, and none of it
+                 outlives the session. -->
+            <Border BorderBrush="{DynamicResource DockTitleBarBrush}" BorderThickness="1" Padding="8">
+                <StackPanel Spacing="4">
+                    <TextBlock FontWeight="Bold"
+                               Text="{DynamicResource Str.Tool.LanguageServers.Capture}" />
+
+                    <TextBlock TextWrapping="Wrap" Opacity="0.75"
+                               Text="{DynamicResource Str.Tool.LanguageServers.CaptureExplained}" />
+
+                    <!-- The one arming question a per-row toggle cannot answer. A server starts on the
+                         first document of a language it claims, so the connection somebody most wants to
+                         arm is the one with no row to tick. -->
+                    <CheckBox Margin="0,4,0,0"
+                              IsChecked="{CompiledBinding ArmsFutureServers}"
+                              Content="{DynamicResource Str.Tool.LanguageServers.ArmFuture}" />
+
+                    <TextBlock TextWrapping="Wrap" Opacity="0.75" Margin="24,0,0,0"
+                               Text="{DynamicResource Str.Tool.LanguageServers.ArmFutureExplained}" />
+                </StackPanel>
+            </Border>
+
             <ItemsControl ItemsSource="{CompiledBinding Groups}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="ls:LanguageServerGroupViewModel">
@@ -155,6 +179,18 @@
                                                 <TextBlock TextWrapping="Wrap"
                                                            IsVisible="{CompiledBinding SendingNothing}"
                                                            Text="{DynamicResource Str.Tool.LanguageServers.SendingNothing}" />
+
+                                                <!-- THE WINDOW'S FIRST INTERACTIVITY OF ANY KIND, and it
+                                                     belongs here rather than in the inspector: this is the
+                                                     list of servers, and arming is a per-server decision
+                                                     about one of them.
+
+                                                     Envelopes are recorded either way. What this governs is
+                                                     content, which is the only part with a privacy cost and
+                                                     the only part large enough to have a memory one. -->
+                                                <CheckBox Margin="0,6,0,0"
+                                                          IsChecked="{CompiledBinding IsArmed}"
+                                                          Content="{DynamicResource Str.Tool.LanguageServers.KeepBodies}" />
 
                                                 <Expander IsVisible="{CompiledBinding HasCapabilities}"
                                                           Margin="0,4,0,0"

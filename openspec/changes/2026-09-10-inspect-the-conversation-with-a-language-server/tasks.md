@@ -43,7 +43,7 @@ automation before any window exists, which is how everything else here has been 
 - [x] 4.4 Raw body one action away, truncation stating the true length
 - [x] 4.5 Export and copy, the copy action using the text trace shape a server author recognises
 - [x] 4.6 Redaction preview before anything leaves, with disclosure sized in human terms
-- [ ] 4.7 Arming controls in the Language & Debug Servers window — its first interactive controls
+- [x] 4.7 Arming controls in the Language & Debug Servers window — its first interactive controls
 - [ ] 4.8 A header link always present, and a per-row link when that server is armed, opening filtered
 - [ ] 4.9 Wire `ToReportText`, carrying redaction from its first commit
 - [ ] 4.10 Localisation keys in `en`, translated across every shipped pack in the same change

@@ -65,7 +65,7 @@ public class MainViewViewModelTests
         var lsRegistry = Substitute.For<ILanguageConnectionRegistry>();
         lsRegistry.Connections.Returns([]);
         lsRegistry.ConfigurationProblems.Returns([]);
-        var languageServers = new LanguageServersToolViewModel(lsRegistry, loc);
+        var languageServers = new LanguageServersToolViewModel(lsRegistry, loc, new ConversationLog());
         var protocolInspector = new ProtocolInspectorToolViewModel(
             new ConversationLog(), loc, new HexIDE.Redaction.Pseudonymiser(), Substitute.For<IWindowManager>());
 

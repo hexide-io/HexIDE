@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using Dock.Model.Mvvm.Controls;
+using HexIDE.Conversations;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Lsp;
@@ -45,6 +46,7 @@ public partial class LanguageServersToolViewModel : Document
 {
     private readonly ILanguageConnectionRegistry _registry;
     private readonly ILocalizationService _localization;
+    private readonly ConversationLog _capture;
 
     public ObservableCollection<LanguageServerGroupViewModel> Groups { get; } = [];
     public ObservableCollection<LanguageServerConfigProblem> Problems { get; } = [];
@@ -52,18 +54,73 @@ public partial class LanguageServersToolViewModel : Document
     [Notify] private bool hasProblems;
     [Notify] private bool hasNoServers;
 
-    public LanguageServersToolViewModel(ILanguageConnectionRegistry registry, ILocalizationService localization)
+    /// <summary>
+    /// Whether a server that has not started yet will keep bodies from its first frame.
+    /// </summary>
+    /// <remarks>
+    /// <b>The one arming question a per-row toggle cannot answer.</b> A server starts on the first document
+    /// of a language it claims, so the connection a person most wants to arm — the one that has not run
+    /// yet — has no row to tick. That is the same gap the launch flag fills, and the launch flag is no use
+    /// to somebody already running.
+    ///
+    /// <para>
+    /// It governs new connections only. Turning it on is not a claim about what has already been recorded,
+    /// and turning it off must not disarm a server somebody armed deliberately.
+    /// </para>
+    /// </remarks>
+    [Notify] private bool armsFutureServers;
+
+    public LanguageServersToolViewModel(
+        ILanguageConnectionRegistry registry, ILocalizationService localization, ConversationLog capture)
     {
         _registry = registry;
         _localization = localization;
+        _capture = capture;
 
         localization.BindTitle(this, "Str.Tool.LanguageServers.Title");
         CanClose = true;
         CanFloat = false;
 
+        armsFutureServers = capture.ArmsEveryConnection;
+
         _registry.ConnectionsChanged += OnConnectionsChanged;
+        _capture.ArmingChanged += OnArmingChanged;
         Refresh();
     }
+
+    /// <summary>
+    /// Brings the toggles back in step when something other than this window armed a connection.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not a rebuild, unlike every other change this window reacts to.</b> A rebuild here would replace
+    /// the checkbox under the pointer that was just clicked, and arming is the one thing on this window a
+    /// person interacts with. The rows are told to re-read instead, which is safe precisely because the
+    /// property reads through to the capture and holds no copy.
+    /// </remarks>
+    private void OnArmingChanged(object? sender, string? connectionId)
+    {
+        // Arming can come from the automation server's thread, and everything below touches a view.
+        if (Dispatcher.UIThread.CheckAccess()) Apply();
+        else Dispatcher.UIThread.Post(Apply);
+
+        void Apply()
+        {
+            // Set before the rows, and a no-op when it already agrees, so this cannot loop back through
+            // the property's own setter.
+            ArmsFutureServers = _capture.ArmsEveryConnection;
+
+            foreach (var group in Groups)
+            {
+                foreach (var row in group.Rows)
+                {
+                    if (connectionId is null || string.Equals(row.Id, connectionId, StringComparison.Ordinal))
+                        row.ArmingChanged();
+                }
+            }
+        }
+    }
+
+    private void OnArmsFutureServersChanged() => _capture.ArmsEveryConnection = ArmsFutureServers;
 
     private void OnConnectionsChanged(object? sender, EventArgs e)
     {
@@ -82,7 +139,7 @@ public partial class LanguageServersToolViewModel : Document
         Groups.Clear();
 
         var rows = _registry.Connections
-            .Select(c => (Connection: c, Row: new LanguageServerRowViewModel(c, _localization)))
+            .Select(c => (Connection: c, Row: new LanguageServerRowViewModel(c, _localization, _capture)))
             .ToList();
 
         // Highest priority first within a language: that is the order the registry itself picks in, for the

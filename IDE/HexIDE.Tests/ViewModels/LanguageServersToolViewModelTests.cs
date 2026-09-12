@@ -1,4 +1,5 @@
 using System.Text.Json;
+using HexIDE.Conversations;
 using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Tools.LanguageServers;
@@ -10,8 +11,24 @@ namespace HexIDE.Tests.ViewModels;
 /// in the whole tree: the DI binding and the class implementing it. Every failure mode on the language-server
 /// seam presented identically, as nothing happening and nothing saying why (hexide-io/HexIDE#259).
 /// </summary>
-public class LanguageServersToolViewModelTests
+public class LanguageServersToolViewModelTests : IAsyncDisposable
 {
+    /// <summary>
+    /// A real capture, not a substitute.
+    /// </summary>
+    /// <remarks>
+    /// Arming is the one thing on this window a person changes, and the row reads it straight back off the
+    /// capture rather than holding a copy. A mock would let the row be wrong about what is actually being
+    /// recorded while every assertion here passed.
+    /// </remarks>
+    private readonly ConversationLog _capture = new();
+
+    public async ValueTask DisposeAsync()
+    {
+        await _capture.DisposeAsync();
+        GC.SuppressFinalize(this);
+    }
+
     private const string FullCapabilities =
         """{"textDocumentSync":{"openClose":true,"change":1},"hoverProvider":true}""";
 
@@ -33,13 +50,13 @@ public class LanguageServersToolViewModelTests
             capabilitiesJson is null ? null : JsonDocument.Parse(capabilitiesJson).RootElement.Clone(),
             transport, endpoint, priority, DateTimeOffset.UtcNow, identity);
 
-    private static (LanguageServersToolViewModel Vm, ILanguageConnectionRegistry Registry) Sut(
+    private (LanguageServersToolViewModel Vm, ILanguageConnectionRegistry Registry) Sut(
         params LanguageServerConnection[] connections)
     {
         var registry = Substitute.For<ILanguageConnectionRegistry>();
         registry.Connections.Returns(connections);
         registry.ConfigurationProblems.Returns([]);
-        return (new LanguageServersToolViewModel(registry, Loc()), registry);
+        return (new LanguageServersToolViewModel(registry, Loc(), _capture), registry);
     }
 
     [Fact]
@@ -159,7 +176,7 @@ public class LanguageServersToolViewModelTests
             new LanguageServerConfigProblem(null, "lsp-servers.json is not valid JSON", true),
         ]);
 
-        var vm = new LanguageServersToolViewModel(registry, Loc());
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture);
 
         vm.HasProblems.Should().BeTrue();
         vm.HasNoServers.Should().BeTrue("a file that failed to parse contributes no servers");
@@ -175,7 +192,7 @@ public class LanguageServersToolViewModelTests
         registry.Connections.Returns([Conn("s", "vb6", state: LanguageConnectionState.Starting)]);
         registry.ConfigurationProblems.Returns([]);
 
-        var vm = new LanguageServersToolViewModel(registry, Loc());
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture);
         vm.Groups.Single().Rows.Single().IsRunning.Should().BeFalse();
 
         registry.Connections.Returns([Conn("s", "vb6", state: LanguageConnectionState.Running)]);
@@ -197,5 +214,107 @@ public class LanguageServersToolViewModelTests
 
         report.Should().Contain("vba-lsp").And.Contain("pipe").And.Contain("vba-lsp.pipe (connect)");
         report.Should().Contain("ExampleVbaServer 1.0.0");
+    }
+
+    // ── Arming ───────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void AServerStartsUnarmed()
+    {
+        // Off by default is the whole privacy position: envelopes always, content only when asked for.
+        var (vm, _) = Sut(Conn("bundled", "vb6"));
+
+        vm.Groups.Single().Rows.Single().IsArmed.Should().BeFalse();
+    }
+
+    [Fact]
+    public void TickingTheRowArmsThatConnectionAndNoOther()
+    {
+        // Per server, because several can be attached and a developer is nearly always chasing one. Arming
+        // everything would multiply the only expensive part of this for no gain.
+        var (vm, _) = Sut(Conn("bundled", "vb6"), Conn("latex", "tex"));
+
+        var rows = vm.Groups.SelectMany(g => g.Rows).ToList();
+        rows.Single(r => r.Id == "bundled").IsArmed = true;
+
+        _capture.IsArmed("bundled").Should().BeTrue();
+        _capture.IsArmed("latex").Should().BeFalse();
+    }
+
+    [Fact]
+    public void TheRowReadsBackWhateverArmedTheConnection()
+    {
+        // Three things arm the same connection: this window, the automation surface and the launch flag. A
+        // toggle that showed only its own last click would be a control that lies about its own state.
+        var (vm, _) = Sut(Conn("bundled", "vb6"));
+        var row = vm.Groups.Single().Rows.Single();
+
+        _capture.Arm("bundled", true);
+
+        row.IsArmed.Should().BeTrue();
+    }
+
+    // Arming raised from elsewhere has to reach the checkbox, and the window marshals it because the
+    // automation surface arms from its own thread. That path needs a real dispatcher, so its test lives in
+    // HexIDE.Integration.Tests where one is bound: see ArmingNotificationTests.
+
+    [Fact]
+    public void ArmingIsNotDisturbedByTheWindowRebuilding()
+    {
+        // The window rebuilds every row wholesale on every registry event, deliberately. Arming has to
+        // survive that by construction rather than by being patched back in.
+        var registry = Substitute.For<ILanguageConnectionRegistry>();
+        registry.Connections.Returns([Conn("bundled", "vb6", state: LanguageConnectionState.Starting)]);
+        registry.ConfigurationProblems.Returns([]);
+
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture);
+        vm.Groups.Single().Rows.Single().IsArmed = true;
+
+        registry.Connections.Returns([Conn("bundled", "vb6", state: LanguageConnectionState.Running)]);
+        registry.ConnectionsChanged += Raise.Event<EventHandler>(registry, EventArgs.Empty);
+
+        vm.Groups.Single().Rows.Single().IsArmed.Should().BeTrue();
+    }
+
+    [Fact]
+    public void AServerThatHasNotStartedCanBeArmedInAdvance()
+    {
+        // The one arming question a per-row toggle cannot answer: a server starts on the first document of
+        // a language it claims, so the connection somebody most wants to arm has no row to tick.
+        var (vm, _) = Sut(Conn("bundled", "vb6"));
+
+        vm.ArmsFutureServers.Should().BeFalse();
+        vm.ArmsFutureServers = true;
+
+        _capture.ArmsEveryConnection.Should().BeTrue();
+    }
+
+    [Fact]
+    public void ArmingFutureServersLeavesTheRecordedPastAlone()
+    {
+        // Turning it on is not a claim about what has already been recorded, and turning it off must not
+        // disarm a connection somebody armed deliberately.
+        var (vm, _) = Sut(Conn("bundled", "vb6"));
+        _capture.Arm("bundled", true);
+
+        vm.ArmsFutureServers = true;
+        vm.ArmsFutureServers = false;
+
+        _capture.IsArmed("bundled").Should().BeTrue();
+    }
+
+    [Fact]
+    public void TheLaunchFlagShowsAsTicked()
+    {
+        // --capture-lsp sets the same default this checkbox does, so a session started with it must not
+        // present an unticked box beside a capture that is on.
+        var registry = Substitute.For<ILanguageConnectionRegistry>();
+        registry.Connections.Returns([]);
+        registry.ConfigurationProblems.Returns([]);
+
+        _capture.ArmsEveryConnection = true;
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture);
+
+        vm.ArmsFutureServers.Should().BeTrue();
     }
 }
