@@ -670,6 +670,8 @@
     "Str.Tool.LanguageServers.ArmFuture": "Keep bodies for servers that have not started yet",
     "Str.Tool.LanguageServers.ArmFutureExplained": "A server starts on the first document of a language it claims, so until then there is no row to tick. This does not change what has already been recorded.",
     "Str.Tool.LanguageServers.KeepBodies": "Keep message bodies",
+    "Str.Tool.LanguageServers.ShowAllMessages": "Show all recorded messages",
+    "Str.Tool.LanguageServers.ShowMessages": "Show its messages",
     "Str.Tool.LanguageServers.AdvertisedNothing": "This server advertised no capabilities.",
     "Str.Tool.LanguageServers.SendingNothing": "It did not advertise document sync, so HexIDE is sending it no documents.",
     "Str.Tool.LanguageServers.Problems": "Configuration problems",

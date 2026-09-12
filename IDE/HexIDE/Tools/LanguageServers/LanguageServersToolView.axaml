@@ -50,6 +50,13 @@
 
                     <TextBlock TextWrapping="Wrap" Opacity="0.75" Margin="24,0,0,0"
                                Text="{DynamicResource Str.Tool.LanguageServers.ArmFutureExplained}" />
+
+                    <!-- ALWAYS PRESENT. The inspector never opens itself — a window that appears uninvited
+                         is one people learn to close reflexively — so it has to be one action from where
+                         trouble is reported, and this is where trouble is reported. -->
+                    <Button Margin="0,8,0,0" HorizontalAlignment="Left"
+                            Command="{CompiledBinding ShowAllMessagesCommand}"
+                            Content="{DynamicResource Str.Tool.LanguageServers.ShowAllMessages}" />
                 </StackPanel>
             </Border>
 
@@ -188,9 +195,22 @@
                                                      Envelopes are recorded either way. What this governs is
                                                      content, which is the only part with a privacy cost and
                                                      the only part large enough to have a memory one. -->
-                                                <CheckBox Margin="0,6,0,0"
-                                                          IsChecked="{CompiledBinding IsArmed}"
-                                                          Content="{DynamicResource Str.Tool.LanguageServers.KeepBodies}" />
+                                                <DockPanel Margin="0,6,0,0">
+                                                    <!-- OFFERED WHETHER OR NOT THE SERVER IS ARMED.
+                                                         Envelopes are recorded unconditionally, so an
+                                                         unarmed connection still answers "was it even sent,
+                                                         and what came back" — and the moment somebody most
+                                                         wants that answer is a server that has failed,
+                                                         which is exactly when they will not have armed
+                                                         it. -->
+                                                    <Button DockPanel.Dock="Right"
+                                                            Command="{CompiledBinding ShowMessagesCommand}"
+                                                            Content="{DynamicResource Str.Tool.LanguageServers.ShowMessages}" />
+
+                                                    <CheckBox VerticalAlignment="Center"
+                                                              IsChecked="{CompiledBinding IsArmed}"
+                                                              Content="{DynamicResource Str.Tool.LanguageServers.KeepBodies}" />
+                                                </DockPanel>
 
                                                 <Expander IsVisible="{CompiledBinding HasCapabilities}"
                                                           Margin="0,4,0,0"

@@ -952,6 +952,7 @@ public partial class MainViewViewModel : ObservableObject
         // the Translation Editor tab opens on the now-unblocked dock. MainViewViewModel is an app-lifetime
         // singleton, so the subscription never needs disposing.
         eventBus.Subscribe<OpenTranslationEditorEvent>(_ => OpenTranslationEditor());
+        eventBus.Subscribe<OpenProtocolInspectorEvent>(e => OpenProtocolInspector(e.ConnectionId));
     }
 
     [Notify] private string undoHeader = "_Undo";
@@ -1457,10 +1458,22 @@ public partial class MainViewViewModel : ObservableObject
     /// </remarks>
     public ICommand OpenProtocolInspectorCommand { get; private set; } = null!;
 
-    public void OpenProtocolInspector()
+    public void OpenProtocolInspector() => OpenProtocolInspector(null);
+
+    /// <param name="connectionId">
+    /// One server to filter to, or null for the whole interleaved timeline.
+    /// </param>
+    /// <remarks>
+    /// The filter is applied BEFORE the tab is shown, so a reader arriving from one server's row never sees
+    /// the merged view flick past on the way to the one they asked for — and never has to wonder whether
+    /// what they are looking at is filtered yet.
+    /// </remarks>
+    public void OpenProtocolInspector(string? connectionId)
     {
         var docDock = FindDock<DocumentDock>(_ => true);
         if (docDock == null) return;
+
+        if (connectionId is { Length: > 0 }) ProtocolInspector.ShowOnly(connectionId);
 
         // Re-read on every open rather than only on construction. The capture has been recording since
         // the session began, so a tab opened an hour in must not show what was there an hour ago.

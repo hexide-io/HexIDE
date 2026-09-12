@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using Avalonia.Threading;
 using Dock.Model.Mvvm.Controls;
 using HexIDE.Conversations;
+using HexIDE.Events;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Lsp;
@@ -47,6 +48,7 @@ public partial class LanguageServersToolViewModel : Document
     private readonly ILanguageConnectionRegistry _registry;
     private readonly ILocalizationService _localization;
     private readonly ConversationLog _capture;
+    private readonly IEventBus _events;
 
     public ObservableCollection<LanguageServerGroupViewModel> Groups { get; } = [];
     public ObservableCollection<LanguageServerConfigProblem> Problems { get; } = [];
@@ -70,12 +72,25 @@ public partial class LanguageServersToolViewModel : Document
     /// </remarks>
     [Notify] private bool armsFutureServers;
 
+    /// <summary>Opens the protocol inspector on everything, from the header.</summary>
+    /// <remarks>
+    /// Always present, unlike anything else on this window: the inspector never opens itself — a window
+    /// that appears uninvited is one people learn to close reflexively — so it has to be one action from
+    /// where trouble is reported, and this is where trouble is reported.
+    /// </remarks>
+    public System.Windows.Input.ICommand ShowAllMessagesCommand { get; }
+
     public LanguageServersToolViewModel(
-        ILanguageConnectionRegistry registry, ILocalizationService localization, ConversationLog capture)
+        ILanguageConnectionRegistry registry, ILocalizationService localization, ConversationLog capture,
+        IEventBus events)
     {
         _registry = registry;
         _localization = localization;
         _capture = capture;
+        _events = events;
+
+        ShowAllMessagesCommand = new HexIDE.Utils.DelegateCommand(
+            () => _events.Publish(new OpenProtocolInspectorEvent()));
 
         localization.BindTitle(this, "Str.Tool.LanguageServers.Title");
         CanClose = true;
@@ -139,7 +154,8 @@ public partial class LanguageServersToolViewModel : Document
         Groups.Clear();
 
         var rows = _registry.Connections
-            .Select(c => (Connection: c, Row: new LanguageServerRowViewModel(c, _localization, _capture)))
+            .Select(c => (Connection: c,
+                          Row: new LanguageServerRowViewModel(c, _localization, _capture, _events)))
             .ToList();
 
         // Highest priority first within a language: that is the order the registry itself picks in, for the

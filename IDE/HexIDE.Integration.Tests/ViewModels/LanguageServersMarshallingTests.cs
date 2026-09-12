@@ -1,3 +1,4 @@
+using HexIDE.IDE;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,7 +13,7 @@ using NSubstitute;
 namespace HexIDE.Integration.Tests.ViewModels;
 
 /// <summary>
-/// Arming changed from somewhere else has to reach the checkbox.
+/// Everything the connection list reacts to arrives off the user interface thread.
 /// </summary>
 /// <remarks>
 /// <b>Here rather than in HexIDE.Tests because this one genuinely needs a dispatcher.</b> The connection
@@ -27,7 +28,7 @@ namespace HexIDE.Integration.Tests.ViewModels;
 /// test next to the rest of the window's behaviour.
 /// </para>
 /// </remarks>
-public class ArmingNotificationTests
+public class LanguageServersMarshallingTests
 {
     private static ILocalizationService Loc()
     {
@@ -36,8 +37,9 @@ public class ArmingNotificationTests
         return loc;
     }
 
-    private static LanguageServerConnection Conn(string id, string language) =>
-        new(id, id, LanguageConnectionKind.LanguageServer, LanguageConnectionState.Running,
+    private static LanguageServerConnection Conn(
+        string id, string language, LanguageConnectionState state = LanguageConnectionState.Running) =>
+        new(id, id, LanguageConnectionKind.LanguageServer, state,
             [".x"], language, null, LanguageConnectionTransport.Stdio, null, 0, DateTimeOffset.UtcNow, null);
 
     private static (LanguageServersToolViewModel Vm, ConversationLog Capture) Sut(string id)
@@ -47,7 +49,7 @@ public class ArmingNotificationTests
         registry.ConfigurationProblems.Returns([]);
 
         var capture = new ConversationLog();
-        return (new LanguageServersToolViewModel(registry, Loc(), capture), capture);
+        return (new LanguageServersToolViewModel(registry, Loc(), capture, Substitute.For<IEventBus>()), capture);
     }
 
     [AvaloniaFact]
@@ -79,7 +81,7 @@ public class ArmingNotificationTests
         registry.ConfigurationProblems.Returns([]);
 
         var capture = new ConversationLog();
-        var vm = new LanguageServersToolViewModel(registry, Loc(), capture);
+        var vm = new LanguageServersToolViewModel(registry, Loc(), capture, Substitute.For<IEventBus>());
 
         var rows = vm.Groups.SelectMany(g => g.Rows).ToDictionary(r => r.Id);
         var other = 0;
@@ -102,5 +104,27 @@ public class ArmingNotificationTests
         Dispatcher.UIThread.RunJobs();
 
         vm.ArmsFutureServers.Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public void TheViewRebuildsWhenTheRegistrySaysSomethingChanged()
+    {
+        // The reason ILspClient gained StateChanged. A connection's death is otherwise observable only by
+        // asking, so a view would report the past until something else happened to refresh it.
+        var registry = Substitute.For<ILanguageConnectionRegistry>();
+        registry.Connections.Returns([Conn("s", "vb6", LanguageConnectionState.Starting)]);
+        registry.ConfigurationProblems.Returns([]);
+
+        var vm = new LanguageServersToolViewModel(
+            registry, Loc(), new ConversationLog(), Substitute.For<IEventBus>());
+        vm.Groups.Single().Rows.Single().IsRunning.Should().BeFalse();
+
+        registry.Connections.Returns([Conn("s", "vb6")]);
+        registry.ConnectionsChanged += Raise.Event<EventHandler>(registry, EventArgs.Empty);
+        Dispatcher.UIThread.RunJobs();
+
+        vm.Groups.Single().Rows.Single().IsRunning.Should().BeTrue(
+            "the view must refresh when the registry says a connection changed, not when something else "
+          + "happens to ask");
     }
 }

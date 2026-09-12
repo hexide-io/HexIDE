@@ -248,6 +248,22 @@ public partial class ProtocolInspectorToolViewModel : Document
         Refresh();
     }
 
+    /// <summary>
+    /// Narrows to one server, or widens back when it is not one this capture knows.
+    /// </summary>
+    /// <remarks>
+    /// <b>Falls back to every server rather than showing an empty grid.</b> An id can arrive for a
+    /// connection that has since gone, and a window opened from a link that then showed nothing would read
+    /// as the capture being broken — which is the one reading this whole feature exists to prevent. The
+    /// filter list carries every connection the capture knows, so membership is the honest test.
+    /// </remarks>
+    public void ShowOnly(string connectionId)
+    {
+        RefreshConnections();
+
+        SelectedConnection = Connections.Contains(connectionId) ? connectionId : AllConnections;
+    }
+
     /// <summary>Re-reads the capture. The only thing that changes what the grid shows.</summary>
     public void Refresh()
     {

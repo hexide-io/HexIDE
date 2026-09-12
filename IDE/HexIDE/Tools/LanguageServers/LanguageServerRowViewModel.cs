@@ -1,6 +1,8 @@
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using HexIDE.Conversations;
+using HexIDE.Events;
 using HexIDE.IDE;
 using HexIDE.Localization;
 using HexIDE.Lsp;
@@ -60,19 +62,35 @@ public sealed class LanguageServerStepViewModel
 /// one is how a view comes to show a state and a capability set that never coexisted.
 /// </para>
 /// </summary>
-public sealed class LanguageServerRowViewModel : ObservableObject
+public sealed partial class LanguageServerRowViewModel : ObservableObject
 {
     private readonly LanguageServerConnection _c;
     private readonly ILocalizationService _localization;
     private readonly ConversationLog _capture;
+    private readonly IEventBus? _events;
 
     public LanguageServerRowViewModel(
-        LanguageServerConnection connection, ILocalizationService localization, ConversationLog capture)
+        LanguageServerConnection connection, ILocalizationService localization, ConversationLog capture,
+        IEventBus? events = null)
     {
         _c = connection;
         _localization = localization;
         _capture = capture;
+        _events = events;
     }
+
+    /// <summary>
+    /// Opens the protocol inspector on this server's traffic alone.
+    /// </summary>
+    /// <remarks>
+    /// <b>Offered whether or not the server is armed, and that is a deliberate departure from the plan.</b>
+    /// The plan said to show it only when armed. Envelopes are recorded unconditionally, so an unarmed
+    /// connection still answers "was it even sent, and what came back" — and the moment somebody most wants
+    /// that answer is a server that has failed, which is exactly the moment they will not have armed it.
+    /// Hiding the link there would withhold it in the only case it was built for.
+    /// </remarks>
+    [RelayCommand]
+    private void ShowMessages() => _events?.Publish(new OpenProtocolInspectorEvent(Id));
 
     /// <summary>
     /// Whether message bodies are being kept for this server.

@@ -1,3 +1,4 @@
+using HexIDE.Events;
 using System.Text.Json;
 using HexIDE.Conversations;
 using HexIDE.Localization;
@@ -22,6 +23,7 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
     /// recorded while every assertion here passed.
     /// </remarks>
     private readonly ConversationLog _capture = new();
+    private readonly IEventBus _events = Substitute.For<IEventBus>();
 
     public async ValueTask DisposeAsync()
     {
@@ -56,7 +58,7 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
         var registry = Substitute.For<ILanguageConnectionRegistry>();
         registry.Connections.Returns(connections);
         registry.ConfigurationProblems.Returns([]);
-        return (new LanguageServersToolViewModel(registry, Loc(), _capture), registry);
+        return (new LanguageServersToolViewModel(registry, Loc(), _capture, _events), registry);
     }
 
     [Fact]
@@ -176,32 +178,16 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
             new LanguageServerConfigProblem(null, "lsp-servers.json is not valid JSON", true),
         ]);
 
-        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture);
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events);
 
         vm.HasProblems.Should().BeTrue();
         vm.HasNoServers.Should().BeTrue("a file that failed to parse contributes no servers");
         vm.Problems.Single().Message.Should().Contain("not valid JSON");
     }
 
-    [Fact]
-    public void TheViewRebuildsWhenTheRegistrySaysSomethingChanged()
-    {
-        // The reason ILspClient gained StateChanged. A connection's death is otherwise observable only by
-        // asking, so a view would report the past until something else happened to refresh it.
-        var registry = Substitute.For<ILanguageConnectionRegistry>();
-        registry.Connections.Returns([Conn("s", "vb6", state: LanguageConnectionState.Starting)]);
-        registry.ConfigurationProblems.Returns([]);
-
-        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture);
-        vm.Groups.Single().Rows.Single().IsRunning.Should().BeFalse();
-
-        registry.Connections.Returns([Conn("s", "vb6", state: LanguageConnectionState.Running)]);
-        registry.ConnectionsChanged += Raise.Event<EventHandler>(registry, EventArgs.Empty);
-
-        vm.Groups.Single().Rows.Single().IsRunning.Should().BeTrue(
-            "the view must refresh when the registry says a connection changed, not when something else "
-          + "happens to ask");
-    }
+    // The registry's own refresh is marshalled too — it raises from transport and RPC callbacks — so its
+    // test lives beside the arming one in HexIDE.Integration.Tests, where a dispatcher is bound. It sat
+    // here for a while and passed on most runs (hexide-io/HexIDE#286).
 
     [Fact]
     public void TheReportIsPlainTextSomeoneCanSendToWhoeverWroteTheServer()
@@ -267,7 +253,7 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
         registry.Connections.Returns([Conn("bundled", "vb6", state: LanguageConnectionState.Starting)]);
         registry.ConfigurationProblems.Returns([]);
 
-        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture);
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events);
         vm.Groups.Single().Rows.Single().IsArmed = true;
 
         registry.Connections.Returns([Conn("bundled", "vb6", state: LanguageConnectionState.Running)]);
@@ -313,8 +299,47 @@ public class LanguageServersToolViewModelTests : IAsyncDisposable
         registry.ConfigurationProblems.Returns([]);
 
         _capture.ArmsEveryConnection = true;
-        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture);
+        var vm = new LanguageServersToolViewModel(registry, Loc(), _capture, _events);
 
         vm.ArmsFutureServers.Should().BeTrue();
+    }
+
+    // ── Reaching the inspector ───────────────────────────────────────────────
+
+    [Fact]
+    public void TheHeaderAsksForEverything()
+    {
+        // The inspector never opens itself, so it has to be one action from where trouble is reported.
+        var (vm, _) = Sut(Conn("bundled", "vb6"));
+
+        vm.ShowAllMessagesCommand.Execute(null);
+
+        _events.Received(1).Publish(Arg.Is<OpenProtocolInspectorEvent>(e => e.ConnectionId == null));
+    }
+
+    [Fact]
+    public void ARowAsksForItsOwnServer()
+    {
+        // Arriving from one server's row and landing on the merged timeline would make the reader do the
+        // filtering the link was for.
+        var (vm, _) = Sut(Conn("bundled", "vb6"), Conn("latex", "tex"));
+
+        vm.Groups.SelectMany(g => g.Rows).Single(r => r.Id == "latex").ShowMessagesCommand.Execute(null);
+
+        _events.Received(1).Publish(Arg.Is<OpenProtocolInspectorEvent>(e => e.ConnectionId == "latex"));
+    }
+
+    [Fact]
+    public void TheRowLinkIsOfferedWhetherOrNotTheServerIsArmed()
+    {
+        // A deliberate departure from the plan, which said to show it only when armed. Envelopes are
+        // recorded unconditionally, so an unarmed connection still answers "was it even sent" — and the
+        // moment somebody most wants that is a server that has failed, which is exactly when they will not
+        // have armed it.
+        var (vm, _) = Sut(Conn("bundled", "vb6"));
+        var row = vm.Groups.Single().Rows.Single();
+
+        row.IsArmed.Should().BeFalse();
+        row.ShowMessagesCommand.CanExecute(null).Should().BeTrue();
     }
 }
