@@ -82,7 +82,10 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
         var vm = Sut();
 
         vm.NothingToShow.Should().BeTrue();
-        vm.EmptyReason.Should().Contain("first document",
+
+        // The KEY, not the English. This text is localised now — it is read by whoever chose the language
+        // the IDE is running in, and the capture's own prose is written for an automation client.
+        vm.EmptyReason.Should().Be("Str.Tool.ProtocolInspector.Empty.NoServers",
             "a server starts lazily, so the commonest reason for an empty record is that nothing is open");
     }
 
@@ -363,7 +366,8 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
         vm.SelectedRow = last;
 
         vm.HasSelectedBody.Should().BeFalse();
-        vm.SelectedBodyUnavailable.Should().Contain("not armed");
+        vm.SelectedBodyUnavailable.Should().Contain("Str.Tool.ProtocolInspector.NoBody.Unarmed",
+            "the unarmed case has its own translated sentence, and it is the one a reader can act on");
     }
 
     [Fact]

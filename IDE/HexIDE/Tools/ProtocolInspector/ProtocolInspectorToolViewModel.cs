@@ -221,6 +221,9 @@ public partial class ProtocolInspectorToolViewModel : Document
     /// <summary>What the capture has had to discard, per the filtered connection.</summary>
     [Notify] private string losses = "";
 
+    /// <summary>Which empty state the grid is in, kept so the text can be rebuilt in another language.</summary>
+    private CaptureEmptyReason _emptyReasonKind = CaptureEmptyReason.NotEmpty;
+
     /// <summary>Re-reads the capture. The only thing that changes what the grid shows.</summary>
     public System.Windows.Input.ICommand RefreshCommand { get; }
 
@@ -281,14 +284,16 @@ public partial class ProtocolInspectorToolViewModel : Document
         foreach (var envelope in page.Entries)
         {
             Rows.Add(new ProtocolInspectorRowViewModel(
-                envelope, _capture.Body(envelope.ConnectionId, envelope.Sequence) is not null));
+                envelope, _capture.Body(envelope.ConnectionId, envelope.Sequence) is not null,
+                _localization));
         }
 
         ShownCount = Rows.Count;
         FailureCount = Rows.Count(r => r.IsFailure);
         PendingCount = 0;
         NothingToShow = Rows.Count == 0;
-        EmptyReason = NothingToShow ? page.Note ?? "" : "";
+        _emptyReasonKind = page.Reason;
+        EmptyReason = Explain(page.Reason);
 
         RefreshCounters();
 
@@ -319,6 +324,24 @@ public partial class ProtocolInspectorToolViewModel : Document
         HasFailures = FailureCount > 0;
         HasPending = PendingCount > 0;
     }
+
+    /// <summary>
+    /// Why the grid is empty, in the reader's language.
+    /// </summary>
+    /// <remarks>
+    /// <b>Not the note the capture composed.</b> That prose is written for an automation client, where
+    /// English is right; this window is read by whoever chose the language it is running in, and English
+    /// leaking into translated chrome is the exact drift the localisation rule exists to stop. Both render
+    /// the same value, so they cannot come to describe the state differently.
+    /// </remarks>
+    private string Explain(CaptureEmptyReason reason) => reason switch
+    {
+        CaptureEmptyReason.NoConnections => _localization.GetString("Str.Tool.ProtocolInspector.Empty.NoServers"),
+        CaptureEmptyReason.NothingRecorded => _localization.GetString("Str.Tool.ProtocolInspector.Empty.Nothing"),
+        CaptureEmptyReason.FilteredOut => _localization.GetString("Str.Tool.ProtocolInspector.Empty.Filtered"),
+        CaptureEmptyReason.NoSuchConnection => _localization.GetString("Str.Tool.ProtocolInspector.Empty.NoSuchServer"),
+        _ => "",
+    };
 
     private string Text(string key, int count) =>
         _localization.GetString(key) is { Length: > 0 } format
@@ -422,9 +445,7 @@ public partial class ProtocolInspectorToolViewModel : Document
                 // A note about the process is not a message and never had a body. Saying "nothing was
                 // retained" here would imply something could have been.
                 ? _localization.GetString("Str.Tool.ProtocolInspector.NoteHasNoBody")
-                : CaptureQueries
-                    .ExplainMissingBodyAsync(_capture, row.ConnectionId, row.Sequence)
-                    .GetAwaiter().GetResult();
+                : NoBody(row);
 
             // Still copyable. An envelope with no body is often exactly the finding — this was sent and
             // never answered — and a copy action that refused it would withhold the most quotable row
@@ -469,6 +490,27 @@ public partial class ProtocolInspectorToolViewModel : Document
         {
             return Format("Str.Tool.ProtocolInspector.NotJson", ex.Message);
         }
+    }
+
+    /// <summary>
+    /// Why a selected row has no body, in the reader's language.
+    /// </summary>
+    /// <remarks>
+    /// <b>Composed here rather than taken from the capture's own explanation, for the same reason the
+    /// empty-grid text is.</b> That explanation is written for an automation client and covers states this
+    /// window cannot reach — an envelope missing entirely, or belonging to another connection — because a
+    /// row on screen came from the record a moment ago. What is left is the one state that matters, and
+    /// the capture cannot say which of its two causes applies to a given envelope, so neither does this.
+    /// </remarks>
+    private string NoBody(ProtocolInspectorRowViewModel row)
+    {
+        var (_, evicted, refused) = _capture.Losses(row.ConnectionId);
+
+        return Format(
+            _capture.IsArmed(row.ConnectionId)
+                ? "Str.Tool.ProtocolInspector.NoBody.Armed"
+                : "Str.Tool.ProtocolInspector.NoBody.Unarmed",
+            refused, evicted);
     }
 
     /// <summary>
@@ -662,6 +704,7 @@ public partial class ProtocolInspectorToolViewModel : Document
     {
         RefreshCounters();
         RefreshLosses();
+        EmptyReason = NothingToShow ? Explain(_emptyReasonKind) : "";
 
         // The detail pane's header, its no-body explanation and its trace all carry translated text, and
         // the cheapest way to rebuild all three correctly is the path that built them.

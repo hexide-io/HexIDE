@@ -52,7 +52,19 @@ automation before any window exists, which is how everything else here has been 
     the link in the only case it was built for.
 - [x] 4.9 Wire `ToReportText`, carrying redaction from its first commit
 - [x] 4.10 Localisation keys in `en`, translated across every shipped pack in the same change
-- [ ] 4.11 Verified against the running IDE, not only headlessly
+- [x] 4.11 Verified against the running IDE, not only headlessly
+  - Driven end to end through the automation surface, not by hand: the tab from the menu, the interleaved
+    timeline, the server filter, failures-only, refresh, row selection, the detail pane's three no-body
+    states, folding and colouring, copy-as-trace read back off the clipboard, the export preview and a
+    save that produced both files, the arming checkboxes in both directions (window → capture and
+    automation → checkbox), the header and per-row links opening filtered, and the report copied and read.
+  - **The pseudo-language pack found two leaks nothing else would have.** The outcome word and the
+    empty-grid explanation were HexIDE's own English reaching translated chrome — the first because a row
+    was documented as machine text throughout, the second because the window reused the prose the
+    automation surface returns, where English is right. Both are keys now, and the empty reason travels as
+    a value so the two surfaces cannot drift into different explanations of one state.
+  - Switching language while the window is open also showed the counters were composed once: fixed, with
+    a test.
 
 ## 5. Retiring the proxy
 - [ ] 5.1 Remove `HexIDE.LspProxy` and the `VB6_LSP_DEBUG_PROXY` environment variable

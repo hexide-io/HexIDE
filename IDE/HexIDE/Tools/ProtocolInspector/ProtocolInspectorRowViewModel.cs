@@ -1,4 +1,5 @@
 using HexIDE.Conversations;
+using HexIDE.Localization;
 
 namespace HexIDE.Tools.ProtocolInspector;
 
@@ -12,11 +13,14 @@ namespace HexIDE.Tools.ProtocolInspector;
 /// connection list fixed one layer down, and it is worth not reintroducing here.
 ///
 /// <para>
-/// Everything on it is machine text the localisation rules already exempt: method names, ids, directions
-/// and byte counts are what crossed the wire. Only the column headings are translated.
+/// <b>Almost all of it is machine text the localisation rules exempt</b>: method names, ids, directions and
+/// byte counts are what crossed the wire, and translating them would make them harder to compare against
+/// what a server author sees on their own side. The outcome is the exception, because it is HexIDE's own
+/// classification of what happened rather than anything the wire said.
 /// </para>
 /// </remarks>
-public sealed class ProtocolInspectorRowViewModel(ConversationEnvelope envelope, bool hasBody)
+public sealed class ProtocolInspectorRowViewModel(
+    ConversationEnvelope envelope, bool hasBody, ILocalizationService localization)
 {
     public long Sequence { get; } = envelope.Sequence;
 
@@ -72,8 +76,24 @@ public sealed class ProtocolInspectorRowViewModel(ConversationEnvelope envelope,
             : $"{elapsed.TotalMilliseconds:N0} ms"
         : "";
 
-    public string Outcome { get; } =
-        envelope.Outcome == ConversationOutcome.None ? "" : envelope.Outcome.ToString();
+    /// <summary>
+    /// How a request ended, in the reader's language.
+    /// </summary>
+    /// <remarks>
+    /// <b>Translated, unlike everything else on this row.</b> A method name, an id and a byte count are
+    /// what crossed the wire and are exempt; this word is HexIDE's own classification of what happened,
+    /// which is exactly the thing the connection list already translates for a connection's state. Found
+    /// by running the window under the pseudo-language pack, where it was the only unbracketed word in an
+    /// otherwise fully marked grid.
+    /// </remarks>
+    public string Outcome { get; } = envelope.Outcome switch
+    {
+        ConversationOutcome.Answered => localization.GetString("Str.Tool.ProtocolInspector.Outcome.Answered"),
+        ConversationOutcome.Failed => localization.GetString("Str.Tool.ProtocolInspector.Outcome.Failed"),
+        ConversationOutcome.Cancelled => localization.GetString("Str.Tool.ProtocolInspector.Outcome.Cancelled"),
+        ConversationOutcome.Abandoned => localization.GetString("Str.Tool.ProtocolInspector.Outcome.Abandoned"),
+        _ => "",
+    };
 
     /// <summary>Whether a body was retained, which decides whether opening the row shows anything.</summary>
     public bool HasBody { get; } = hasBody;
