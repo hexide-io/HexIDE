@@ -29,7 +29,16 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
         var loc = Substitute.For<ILocalizationService>();
         // Echo the key. An assertion can then tell the counters apart without depending on English, and a
         // missing format string shows up as the key rather than as an empty string.
-        loc.GetString(Arg.Any<string>()).Returns(ci => ci.Arg<string>());
+        //
+        // The two exceptions are the format strings the detail pane composes with. Echoing those would
+        // swallow their arguments, and the arguments — a byte count, a sequence number — are the whole
+        // content of what the assertion is checking.
+        loc.GetString(Arg.Any<string>()).Returns(ci => ci.Arg<string>() switch
+        {
+            "Str.Tool.ProtocolInspector.Truncated" => "-- {0} of {1} bytes not kept --",
+            "Str.Tool.ProtocolInspector.DetailHeader" => "#{0} {1} {2}",
+            var key => key,
+        });
         return loc;
     }
 
@@ -261,5 +270,135 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
 
         vm.Losses.Should().NotBeEmpty();
         small.Losses("vb6").Envelopes.Should().BeGreaterThan(0, "the ring really did discard");
+    }
+
+    // ── The body ─────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void NothingIsSelectedUntilSomethingIs()
+    {
+        Frame("vb6", "initialize");
+
+        var vm = Sut();
+
+        vm.IsDetailOpen.Should().BeFalse("a pane that opened on its own would take space from the grid "
+                                       + "before anyone had asked to read a row");
+    }
+
+    [Fact]
+    public void SelectingARowShowsWhatCrossedTheWire()
+    {
+        _capture.Arm("vb6", true);
+        Frame("vb6", "textDocument/didOpen");
+
+        var vm = Sut();
+        vm.SelectedRow = vm.Rows.Single();
+
+        vm.IsDetailOpen.Should().BeTrue();
+        vm.HasSelectedBody.Should().BeTrue();
+        vm.SelectedBody.Should().Contain("textDocument/didOpen");
+        vm.SelectedBodyUnavailable.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void DeselectingClosesThePaneRatherThanLeavingTheLastBodyOnScreen()
+    {
+        // A stale body under a grid the reader has moved on from is worse than no body: it reads as the
+        // current row's content and nothing on screen says otherwise.
+        _capture.Arm("vb6", true);
+        Frame("vb6", "initialize");
+
+        var vm = Sut();
+        vm.SelectedRow = vm.Rows.Single();
+        vm.SelectedRow = null;
+
+        vm.IsDetailOpen.Should().BeFalse();
+        vm.SelectedBody.Should().BeEmpty();
+        vm.SelectedBodyHeader.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void TheHeaderNamesTheRowThePaneIsShowing()
+    {
+        // Two rows can carry the same method a second apart, and the pane is below a grid that scrolls. The
+        // sequence is what ties what is on screen to the row that was clicked.
+        _capture.Arm("vb6", true);
+        Frame("vb6", "textDocument/hover");
+
+        var vm = Sut();
+        var row = vm.Rows.Single();
+        vm.SelectedRow = row;
+
+        vm.SelectedBodyHeader.Should().Be($"#{row.Sequence} vb6 textDocument/hover");
+    }
+
+    [Fact]
+    public void AnUnarmedConnectionSaysSoRatherThanShowingABlankPane()
+    {
+        // The commonest reason a body is missing, and the only one the reader can do something about. A
+        // blank pane here reads as a defect in the inspector.
+        //
+        // Past the opening allowance deliberately. A connection's first few frames are kept whether or not
+        // it is armed — that is the handshake rule — so a one-frame capture would show a body and prove
+        // nothing about the unarmed case.
+        for (var i = 0; i <= ConversationLog.OpeningFrames; i++) Frame("vb6", $"textDocument/didChange{i}");
+
+        var vm = Sut();
+        var last = vm.Rows.Last();
+        last.HasBody.Should().BeFalse("this frame is past the opening allowance on an unarmed connection");
+
+        vm.SelectedRow = last;
+
+        vm.HasSelectedBody.Should().BeFalse();
+        vm.SelectedBodyUnavailable.Should().Contain("not armed");
+    }
+
+    [Fact]
+    public void ALocalNoteSaysItNeverHadABodyAtAll()
+    {
+        // Distinct from "nothing was retained", which would imply something could have been. A lifecycle
+        // note is the capture talking about the process, not a message that was shortened away.
+        // Recorded the way the tap records one: no bytes, because there were none. Going through the
+        // arming gate would offer a body this entry never has.
+        _capture.Record("vb6", ConversationDirection.Local, ConversationEntryKind.Lifecycle,
+            null, null, 0, null, "process exited with 1");
+
+        var vm = Sut();
+        vm.SelectedRow = vm.Rows.Single();
+
+        vm.HasSelectedBody.Should().BeFalse();
+        vm.SelectedBodyUnavailable.Should().Be("Str.Tool.ProtocolInspector.NoteHasNoBody");
+    }
+
+    [Fact]
+    public async Task ATruncatedBodyStatesTheGapRatherThanClosingIt()
+    {
+        // Head joined straight to tail would parse as JSON and lie about what was sent — the one outcome
+        // this whole capture refuses. The gap is marked, and measured in the bytes that crossed the wire.
+        //
+        // The frame cap is set to its floor rather than provoked with a megabyte: the behaviour under test
+        // is what the pane does with a shortened body, not how large a body has to be to get shortened.
+        await using var small = new ConversationLog(new CaptureLimits(FrameBytes: 1024));
+        small.Arm("vb6", true);
+
+        var body = Encoding.UTF8.GetBytes(
+            $"{{\"jsonrpc\":\"2.0\",\"result\":\"{new string('x', 4000)}\",\"end\":true}}");
+        small.Record("vb6", ConversationDirection.Received, ConversationEntryKind.Response,
+            null, "1", body.Length, body);
+
+        var vm = new ProtocolInspectorToolViewModel(small, Loc());
+        vm.SelectedRow = vm.Rows.Single();
+
+        vm.HasSelectedBody.Should().BeTrue();
+
+        var stored = small.Body("vb6", vm.Rows.Single().Sequence);
+        stored.Should().NotBeNull();
+        stored!.Tail.Should().NotBeNull("the frame cap really did shorten this body");
+
+        var missing = stored.TrueLength - stored.Head.Length - stored.Tail!.Length;
+        vm.SelectedBody.Should().Contain($"-- {missing} of {body.Length} bytes not kept --");
+
+        // And the two halves are not joined. What is on screen must not read as a complete frame.
+        vm.SelectedBody.Should().NotContain(new string('x', 4000));
     }
 }

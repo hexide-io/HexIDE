@@ -58,6 +58,37 @@ public partial class ProtocolInspectorToolViewModel : Document
     [Notify] private bool failuresOnly;
     [Notify] private ProtocolInspectorRowViewModel? selectedRow;
 
+    /// <summary>
+    /// The selected message's body, as the bytes that crossed the wire.
+    /// </summary>
+    /// <remarks>
+    /// <b>Raw, never redacted.</b> The live view belongs to the person who owns the files and needs no
+    /// protection from their own paths; redacting here would also break the one affordance that proves
+    /// what actually crossed the wire, which is the whole reason to open a row. Redaction governs egress,
+    /// and export is where that boundary sits.
+    /// </remarks>
+    [Notify] private string selectedBody = "";
+
+    /// <summary>Which message the pane is showing, in the terms the grid used.</summary>
+    [Notify] private string selectedBodyHeader = "";
+
+    /// <summary>
+    /// Why there is no body, when there is not.
+    /// </summary>
+    /// <remarks>
+    /// <b>Three states a blank pane would collapse</b>, and telling them apart is one of the questions the
+    /// design record left open rather than guessed at: nothing was kept because the connection was not
+    /// armed, something was kept and has since been evicted, or the row is a note that never had a body at
+    /// all. The capture cannot attribute one envelope to the first two, and says so rather than inventing
+    /// an answer.
+    /// </remarks>
+    [Notify] private string selectedBodyUnavailable = "";
+
+    [Notify] private bool hasSelectedBody;
+
+    /// <summary>Whether the pane is showing at all. Nothing selected means no pane.</summary>
+    [Notify] private bool isDetailOpen;
+
     /// <summary>How many rows the grid holds, and how many of those are failures.</summary>
     [Notify] private int shownCount;
     [Notify] private int failureCount;
@@ -224,6 +255,85 @@ public partial class ProtocolInspectorToolViewModel : Document
             : _localization.GetString("Str.Tool.ProtocolInspector.Losses") is { Length: > 0 } format
                 ? string.Format(format, envelopes, bodies, refused, dropped)
                 : "";
+    }
+
+    /// <summary>
+    /// Loads the selected row's body, or says why there is none.
+    /// </summary>
+    /// <remarks>
+    /// Synchronous for the same reason the filter handlers are: a selection change arrives from the grid,
+    /// which is already on the UI thread, and a caller reading the pane straight after selecting expects
+    /// to see that row.
+    /// </remarks>
+    private void OnSelectedRowChanged()
+    {
+        if (SelectedRow is not { } row)
+        {
+            IsDetailOpen = false;
+            HasSelectedBody = false;
+            SelectedBody = "";
+            SelectedBodyUnavailable = "";
+            SelectedBodyHeader = "";
+            return;
+        }
+
+        IsDetailOpen = true;
+        SelectedBodyHeader = Header(row);
+
+        var view = CaptureQueries
+            .FetchAsync(_capture, row.ConnectionId, row.Sequence)
+            .GetAwaiter().GetResult();
+
+        if (view is null)
+        {
+            HasSelectedBody = false;
+            SelectedBody = "";
+            SelectedBodyUnavailable = row.IsLocal
+                // A note about the process is not a message and never had a body. Saying "nothing was
+                // retained" here would imply something could have been.
+                ? _localization.GetString("Str.Tool.ProtocolInspector.NoteHasNoBody")
+                : CaptureQueries
+                    .ExplainMissingBodyAsync(_capture, row.ConnectionId, row.Sequence)
+                    .GetAwaiter().GetResult();
+            return;
+        }
+
+        HasSelectedBody = true;
+        SelectedBodyUnavailable = "";
+        SelectedBody = Compose(view);
+    }
+
+    /// <summary>
+    /// The body, with the gap stated where one was cut out.
+    /// </summary>
+    /// <remarks>
+    /// A truncated frame is head and tail with the true length recorded, and it is NOT valid JSON. Joining
+    /// the two halves would produce something that parses and lies about what was sent, so the gap is
+    /// marked and measured instead — the same choice the export makes, for the same reason.
+    /// </remarks>
+    private string Compose(PayloadView view)
+    {
+        if (view.Tail is not { } tail) return view.Head;
+
+        // Bytes, not characters. TrueLength is what crossed the wire and a body is UTF-8; subtracting a
+        // string length would under-report the gap on any non-ASCII payload, which is exactly the payload
+        // a reader is least able to check by eye.
+        var kept = System.Text.Encoding.UTF8.GetByteCount(view.Head)
+                 + System.Text.Encoding.UTF8.GetByteCount(tail);
+        var missing = view.TrueLength - kept;
+        var note = _localization.GetString("Str.Tool.ProtocolInspector.Truncated") is { Length: > 0 } format
+            ? string.Format(format, missing, view.TrueLength)
+            : $"--- {missing} bytes not kept, of {view.TrueLength} on the wire ---";
+
+        return view.Head + "\n\n" + note + "\n\n" + tail;
+    }
+
+    private string Header(ProtocolInspectorRowViewModel row)
+    {
+        var method = string.IsNullOrEmpty(row.Method) ? row.Kind : row.Method;
+        return _localization.GetString("Str.Tool.ProtocolInspector.DetailHeader") is { Length: > 0 } format
+            ? string.Format(format, row.Sequence, row.ConnectionId, method)
+            : $"#{row.Sequence}  {row.ConnectionId}  {method}";
     }
 
     /// <summary>

@@ -98,90 +98,138 @@
                    IsVisible="{CompiledBinding NothingToShow}"
                    Text="{CompiledBinding EmptyReason}" />
 
-        <DataGrid Grid.Row="2"
-                  IsVisible="{CompiledBinding !NothingToShow}"
-                  ItemsSource="{CompiledBinding Rows}"
-                  SelectedItem="{CompiledBinding SelectedRow}"
-                  CanUserResizeColumns="True"
-                  CanUserSortColumns="False"
-                  IsReadOnly="True"
-                  GridLinesVisibility="Horizontal"
-                  VerticalScrollBarVisibility="Visible">
-            <DataGrid.Columns>
-                <!-- Wide enough for HH:mm:ss.fff in the monospace face. Measured against the running
-                     window: at 90 the milliseconds were clipped, which is the part that matters when two
-                     frames arrive in the same second. -->
-                <DataGridTemplateColumn Width="112"
-                                        Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Time}">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate x:DataType="pi:ProtocolInspectorRowViewModel">
-                            <TextBlock Classes="machine" Margin="4,0" VerticalAlignment="Center"
-                                       Text="{CompiledBinding At}" />
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
+        <!-- The grid and the body of whichever row is selected, sharing the space with a splitter.
 
-                <DataGridTemplateColumn Width="34"
-                                        Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Direction}">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate x:DataType="pi:ProtocolInspectorRowViewModel">
-                            <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Text="{CompiledBinding Direction}" />
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
+             THE PANE SITS BELOW THE GRID RATHER THAN REPLACING IT. The commonest read is a request, its
+             answer, and whatever came between them, so replacing the grid destroys the context that made
+             the row worth opening. Comparing two bodies side by side wants a second tab, and that is a
+             later feature the design already defers. -->
+        <Grid Grid.Row="2" RowDefinitions="*,Auto,Auto"
+              IsVisible="{CompiledBinding !NothingToShow}">
 
-                <DataGridTextColumn Width="130"
-                                    Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Server}"
-                                    Binding="{CompiledBinding ConnectionId, x:DataType=pi:ProtocolInspectorRowViewModel}" />
+            <DataGrid Grid.Row="0"
+                      ItemsSource="{CompiledBinding Rows}"
+                      SelectedItem="{CompiledBinding SelectedRow}"
+                      CanUserResizeColumns="True"
+                      CanUserSortColumns="False"
+                      IsReadOnly="True"
+                      GridLinesVisibility="Horizontal"
+                      VerticalScrollBarVisibility="Visible">
+                <DataGrid.Columns>
+                    <!-- Wide enough for HH:mm:ss.fff in the monospace face. Measured against the running
+                         window: at 90 the milliseconds were clipped, which is the part that matters when two
+                         frames arrive in the same second. -->
+                    <DataGridTemplateColumn Width="112"
+                                            Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Time}">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="pi:ProtocolInspectorRowViewModel">
+                                <TextBlock Classes="machine" Margin="4,0" VerticalAlignment="Center"
+                                           Text="{CompiledBinding At}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
 
-                <DataGridTemplateColumn Width="2*"
-                                        Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Method}">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate x:DataType="pi:ProtocolInspectorRowViewModel">
-                            <!-- Bold red for a failure, dimmed for the capture's own notes, which are not
-                                 traffic and should not read as traffic. -->
-                            <TextBlock Classes="machine" Margin="4,0" VerticalAlignment="Center"
-                                       TextTrimming="CharacterEllipsis"
-                                       Classes.failure="{CompiledBinding IsFailure}"
-                                       Classes.note="{CompiledBinding IsLocal}"
-                                       Text="{CompiledBinding Method}" />
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
+                    <DataGridTemplateColumn Width="34"
+                                            Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Direction}">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="pi:ProtocolInspectorRowViewModel">
+                                <TextBlock HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Text="{CompiledBinding Direction}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
 
-                <DataGridTextColumn Width="70"
-                                    Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Id}"
-                                    Binding="{CompiledBinding CorrelationId, x:DataType=pi:ProtocolInspectorRowViewModel}" />
+                    <DataGridTextColumn Width="130"
+                                        Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Server}"
+                                        Binding="{CompiledBinding ConnectionId, x:DataType=pi:ProtocolInspectorRowViewModel}" />
 
-                <DataGridTextColumn Width="90"
-                                    Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Outcome}"
-                                    Binding="{CompiledBinding Outcome, x:DataType=pi:ProtocolInspectorRowViewModel}" />
+                    <DataGridTemplateColumn Width="2*"
+                                            Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Method}">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="pi:ProtocolInspectorRowViewModel">
+                                <!-- Bold red for a failure, dimmed for the capture's own notes, which are not
+                                     traffic and should not read as traffic. -->
+                                <TextBlock Classes="machine" Margin="4,0" VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis"
+                                           Classes.failure="{CompiledBinding IsFailure}"
+                                           Classes.note="{CompiledBinding IsLocal}"
+                                           Text="{CompiledBinding Method}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
 
-                <!-- Latency is version one, not a later refinement. For an author it is the difference
-                     between a bug report and an anecdote. -->
-                <DataGridTemplateColumn Width="90"
-                                        Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Latency}">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate x:DataType="pi:ProtocolInspectorRowViewModel">
-                            <TextBlock Classes="machine" Margin="4,0" VerticalAlignment="Center"
-                                       HorizontalAlignment="Right"
-                                       Text="{CompiledBinding Elapsed}" />
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
+                    <DataGridTextColumn Width="70"
+                                        Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Id}"
+                                        Binding="{CompiledBinding CorrelationId, x:DataType=pi:ProtocolInspectorRowViewModel}" />
 
-                <DataGridTemplateColumn Width="80"
-                                        Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Size}">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate x:DataType="pi:ProtocolInspectorRowViewModel">
-                            <TextBlock Classes="machine" Margin="4,0" VerticalAlignment="Center"
-                                       HorizontalAlignment="Right"
-                                       Text="{CompiledBinding Size}" />
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-            </DataGrid.Columns>
-        </DataGrid>
+                    <DataGridTextColumn Width="90"
+                                        Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Outcome}"
+                                        Binding="{CompiledBinding Outcome, x:DataType=pi:ProtocolInspectorRowViewModel}" />
+
+                    <!-- Latency is version one, not a later refinement. For an author it is the difference
+                         between a bug report and an anecdote. -->
+                    <DataGridTemplateColumn Width="90"
+                                            Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Latency}">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="pi:ProtocolInspectorRowViewModel">
+                                <TextBlock Classes="machine" Margin="4,0" VerticalAlignment="Center"
+                                           HorizontalAlignment="Right"
+                                           Text="{CompiledBinding Elapsed}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn Width="80"
+                                            Header="{DynamicResource Str.Tool.ProtocolInspector.Column.Size}">
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate x:DataType="pi:ProtocolInspectorRowViewModel">
+                                <TextBlock Classes="machine" Margin="4,0" VerticalAlignment="Center"
+                                           HorizontalAlignment="Right"
+                                           Text="{CompiledBinding Size}" />
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+                </DataGrid.Columns>
+            </DataGrid>
+
+            <GridSplitter Grid.Row="1" Height="4" ResizeDirection="Rows"
+                          IsVisible="{CompiledBinding IsDetailOpen}"
+                          Background="{DynamicResource DockTitleBarBrush}" />
+
+            <Border Grid.Row="2" MinHeight="170"
+                    IsVisible="{CompiledBinding IsDetailOpen}"
+                    BorderBrush="{DynamicResource DockTitleBarBrush}" BorderThickness="0,1,0,0">
+                <Grid RowDefinitions="Auto,*">
+
+                    <TextBlock Grid.Row="0" Margin="8,5" Classes="machine dim"
+                               TextTrimming="CharacterEllipsis"
+                               Text="{CompiledBinding SelectedBodyHeader}" />
+
+                    <!-- WHY there is no body, not a blank pane. Three states a blank collapses: nothing was
+                         kept because the connection was not armed, something was kept and has since been
+                         evicted, or the row is one of the capture's own notes and never had a body at all. -->
+                    <TextBlock Grid.Row="1" Margin="12,4,12,12" TextWrapping="Wrap"
+                               VerticalAlignment="Top"
+                               IsVisible="{CompiledBinding !HasSelectedBody}"
+                               Text="{CompiledBinding SelectedBodyUnavailable}" />
+
+                    <!-- A read-only TextBox rather than a TextBlock: selectable and copyable is the whole
+                         point of putting the bytes on screen.
+
+                         WRAPPED, and that was measured rather than assumed. A frame is one line of JSON
+                         with no newlines in it, so NoWrap showed about ninety characters of a 569-byte
+                         handshake and put the rest behind a horizontal scrollbar. Wrapping inserts nothing
+                         and hides nothing: there is no line structure here to preserve. A body that does
+                         carry newlines still shows them. -->
+                    <TextBox Grid.Row="1" Margin="4"
+                             IsVisible="{CompiledBinding HasSelectedBody}"
+                             IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap"
+                             FontFamily="Courier New"
+                             VerticalContentAlignment="Top"
+                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                             Text="{CompiledBinding SelectedBody, Mode=OneWay}" />
+                </Grid>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>
