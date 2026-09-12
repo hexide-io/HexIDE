@@ -127,6 +127,25 @@ public partial class ProtocolInspectorToolViewModel : Document
     [Notify] private bool canCopy;
 
     /// <summary>
+    /// Why the selected body is not valid JSON, when it is not.
+    /// </summary>
+    /// <remarks>
+    /// <b>Only the failure is shown, and that is the whole design of it.</b> This is service-to-service
+    /// traffic: it parses essentially always, so a tick on every message would be a badge nobody reads
+    /// beside the one that matters. Silence means valid — the same shape the losses banner already uses,
+    /// for the same reason a warning on every clean capture would be ignored on the one that is not.
+    ///
+    /// <para>
+    /// A server emitting malformed JSON is a real defect and this window is where it would surface, so it
+    /// is worth saying loudly when it happens. A truncated body is exempt: it is not meant to parse, it
+    /// says so already, and reporting it as broken would be the inspector misreading its own output.
+    /// </para>
+    /// </remarks>
+    [Notify] private string bodyProblem = "";
+
+    [Notify] private bool hasBodyProblem;
+
+    /// <summary>
     /// Whether the pane is showing what would leave rather than what crossed the wire.
     /// </summary>
     /// <remarks>
@@ -359,6 +378,8 @@ public partial class ProtocolInspectorToolViewModel : Document
             SelectedTrace = "";
             SelectedBodyUnavailable = "";
             SelectedBodyHeader = "";
+            BodyProblem = "";
+            HasBodyProblem = false;
             DetailHeight = new Avalonia.Controls.GridLength(0);
             RefreshPane();
             return;
@@ -389,6 +410,8 @@ public partial class ProtocolInspectorToolViewModel : Document
             // there is.
             SelectedTrace = Trace(row, null, SelectedBodyUnavailable);
             CanCopy = true;
+            BodyProblem = "";
+            HasBodyProblem = false;
             RefreshPane();
             return;
         }
@@ -398,7 +421,33 @@ public partial class ProtocolInspectorToolViewModel : Document
         SelectedBody = Compose(view);
         SelectedTrace = Trace(row, Redactor().Body(SelectedBody), null);
         CanCopy = true;
+
+        // Skipped for a shortened frame: it is not meant to parse, it already says so, and calling it
+        // malformed would be the inspector misreading its own marker as the server's output.
+        BodyProblem = view.Tail is null ? Malformed(SelectedBody) : "";
+        HasBodyProblem = BodyProblem.Length > 0;
+
         RefreshPane();
+    }
+
+    /// <summary>Why a body does not parse, or empty when it does.</summary>
+    /// <remarks>
+    /// The message carries the position, because "invalid JSON" in a forty-kilobyte frame is a statement
+    /// nobody can act on and the line and column are what make it one.
+    /// </remarks>
+    private string Malformed(string body)
+    {
+        if (body.Length == 0) return "";
+
+        try
+        {
+            using var _ = System.Text.Json.JsonDocument.Parse(body);
+            return "";
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            return Format("Str.Tool.ProtocolInspector.NotJson", ex.Message);
+        }
     }
 
     /// <summary>
@@ -510,7 +559,16 @@ public partial class ProtocolInspectorToolViewModel : Document
     /// </remarks>
     private string Compose(PayloadView view)
     {
-        if (view.Tail is not { } tail) return view.Head;
+        // INDENTED WHEN IT PARSES, and left exactly as it arrived when it does not.
+        //
+        // A frame is one line of JSON — 569 bytes of handshake wrapped across four lines is the thing
+        // people copy out to a formatter, which is the outcome this pane exists to prevent. Re-indenting
+        // changes only insignificant whitespace: nothing is added, removed or reordered, and the true byte
+        // count is in the grid beside it. It is the same trade the exporter already makes in reverse, and
+        // records for the same reason.
+        //
+        // A body that does NOT parse is shown byte for byte, because that body is the finding.
+        if (view.Tail is not { } tail) return Readable(view.Head);
 
         // Bytes, not characters. TrueLength is what crossed the wire and a body is UTF-8; subtracting a
         // string length would under-report the gap on any non-ASCII payload, which is exactly the payload
@@ -523,6 +581,27 @@ public partial class ProtocolInspectorToolViewModel : Document
             : $"--- {missing} bytes not kept, of {view.TrueLength} on the wire ---";
 
         return view.Head + "\n\n" + note + "\n\n" + tail;
+    }
+
+    /// <summary>The body indented, or the body, if it will not parse.</summary>
+    private static string Readable(string json)
+    {
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(json);
+            var buffer = new MemoryStream();
+            using (var writer = new System.Text.Json.Utf8JsonWriter(
+                       buffer, new System.Text.Json.JsonWriterOptions { Indented = true }))
+            {
+                document.WriteTo(writer);
+            }
+
+            return System.Text.Encoding.UTF8.GetString(buffer.ToArray());
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return json;
+        }
     }
 
     private string Header(ProtocolInspectorRowViewModel row)

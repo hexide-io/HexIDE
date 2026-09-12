@@ -634,6 +634,7 @@
     "Str.Tool.ProtocolInspector.ExportFailed": "The export did not complete: {0}",
     "Str.Tool.ProtocolInspector.LeavesRedacted": "What leaves is pseudonymised.",
     "Str.Tool.ProtocolInspector.PreviewShared": "Preview what leaves",
+    "Str.Tool.ProtocolInspector.NotJson": "This message is not valid JSON. {0}",
 
     "Str.Dialog.ExportPreview.Vm.Title": "Export conversation",
     "Str.Dialog.ExportPreview.Title": "This is what will leave your machine",

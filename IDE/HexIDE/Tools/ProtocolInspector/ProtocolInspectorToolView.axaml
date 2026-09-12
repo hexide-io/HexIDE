@@ -228,7 +228,7 @@
             <Border Grid.Row="2" MinHeight="120"
                     IsVisible="{CompiledBinding IsDetailOpen}"
                     BorderBrush="{DynamicResource DockTitleBarBrush}" BorderThickness="0,1,0,0">
-                <Grid RowDefinitions="Auto,*">
+                <Grid RowDefinitions="Auto,Auto,*">
 
                     <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="8,4,4,2">
                         <TextBlock Grid.Column="0" VerticalAlignment="Center" Classes="machine dim"
@@ -266,10 +266,24 @@
                         </StackPanel>
                     </Grid>
 
+                    <!-- ONLY SHOWN WHEN IT FAILS. This is service-to-service traffic and parses
+                         essentially always, so a tick on every message would be a badge nobody reads beside
+                         the one that matters. Silence means valid — the same shape the losses banner uses,
+                         for the same reason. A server emitting malformed JSON is a real defect and this is
+                         where it would surface. -->
+                    <Border Grid.Row="1" Margin="4,0,4,4" Padding="8,5"
+                            IsVisible="{CompiledBinding HasBodyProblem}"
+                            Background="{DynamicResource WarningBannerBackgroundBrush}"
+                            BorderBrush="{DynamicResource WarningBannerBorderBrush}" BorderThickness="1">
+                        <TextBlock TextWrapping="Wrap"
+                                   Foreground="{DynamicResource WarningBannerForegroundBrush}"
+                                   Text="{CompiledBinding BodyProblem}" />
+                    </Border>
+
                     <!-- WHY there is no body, not a blank pane. Three states a blank collapses: nothing was
                          kept because the connection was not armed, something was kept and has since been
                          evicted, or the row is one of the capture's own notes and never had a body at all. -->
-                    <TextBlock Grid.Row="1" Margin="12,4,12,12" TextWrapping="Wrap"
+                    <TextBlock Grid.Row="2" Margin="12,4,12,12" TextWrapping="Wrap"
                                VerticalAlignment="Top"
                                IsVisible="{CompiledBinding !HasSelectedBody}"
                                Text="{CompiledBinding SelectedBodyUnavailable}" />
@@ -284,7 +298,7 @@
                          handshake and put the rest behind a horizontal scrollbar. Wrapping inserts nothing
                          and hides nothing: there is no line structure here to preserve. A body that does
                          carry newlines still shows them. -->
-                    <avaloniaEdit:TextEditor Grid.Row="1" Margin="4" Name="Body"
+                    <avaloniaEdit:TextEditor Grid.Row="2" Margin="4" Name="Body"
                                              IsVisible="{CompiledBinding HasSelectedBody}"
                                              IsReadOnly="True" WordWrap="True"
                                              FontFamily="Consolas,Courier New,Monospace"

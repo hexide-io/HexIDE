@@ -676,4 +676,124 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
 
         vm.PaneText.Should().NotBe(first).And.Contain("second");
     }
+
+    // ── A body that is not what it claims ────────────────────────────────────
+
+    [Fact]
+    public void AWellFormedBodyIsNotBadgedAsAnything()
+    {
+        // Service-to-service traffic parses essentially always. A tick on every message would be a badge
+        // nobody reads beside the one that matters, so silence means valid.
+        _capture.Arm("vb6", true);
+        Frame("vb6", "textDocument/didOpen");
+
+        var vm = Sut();
+        vm.SelectedRow = vm.Rows.Single();
+
+        vm.HasBodyProblem.Should().BeFalse();
+        vm.BodyProblem.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AMalformedBodyIsCalledOutWithItsPosition()
+    {
+        // A server emitting broken JSON is a real defect and this window is where it surfaces. "Invalid
+        // JSON" alone is not actionable in a forty-kilobyte frame; the position is what makes it so.
+        _capture.Arm("vb6", true);
+        var body = System.Text.Encoding.UTF8.GetBytes("""{"jsonrpc":"2.0",""");
+        _capture.Record("vb6", ConversationDirection.Received, ConversationEntryKind.Response,
+            null, "1", body.Length, body);
+
+        var vm = Sut();
+        vm.SelectedRow = vm.Rows.Single();
+
+        vm.HasBodyProblem.Should().BeTrue();
+        vm.BodyProblem.Should().Contain("Str.Tool.ProtocolInspector.NotJson");
+    }
+
+    [Fact]
+    public void TheBodyIsStillShownWhenItDoesNotParse()
+    {
+        // The marker reports; it never withholds. A body this client could not decode is exactly what an
+        // author needs in front of them.
+        _capture.Arm("vb6", true);
+        var body = System.Text.Encoding.UTF8.GetBytes("not json at all");
+        _capture.Record("vb6", ConversationDirection.Received, ConversationEntryKind.Response,
+            null, "1", body.Length, body);
+
+        var vm = Sut();
+        vm.SelectedRow = vm.Rows.Single();
+
+        vm.HasSelectedBody.Should().BeTrue();
+        vm.PaneText.Should().Contain("not json at all");
+    }
+
+    [Fact]
+    public async Task ATruncatedBodyIsNotAccusedOfBeingMalformed()
+    {
+        // It is not meant to parse and already says so. Reporting it as broken would be the inspector
+        // misreading its own marker as the server's output.
+        await using var small = new ConversationLog(new CaptureLimits(FrameBytes: 1024));
+        small.Arm("vb6", true);
+
+        var body = System.Text.Encoding.UTF8.GetBytes(
+            $$$"""{"jsonrpc":"2.0","result":"{{{new string('x', 4000)}}}"}""");
+        small.Record("vb6", ConversationDirection.Received, ConversationEntryKind.Response,
+            null, "1", body.Length, body);
+
+        var vm = Over(small);
+        vm.SelectedRow = vm.Rows.Single();
+
+        vm.HasBodyProblem.Should().BeFalse();
+    }
+
+    [Fact]
+    public void DeselectingClearsTheMarker()
+    {
+        _capture.Arm("vb6", true);
+        var body = System.Text.Encoding.UTF8.GetBytes("{oops");
+        _capture.Record("vb6", ConversationDirection.Received, ConversationEntryKind.Response,
+            null, "1", body.Length, body);
+
+        var vm = Sut();
+        vm.SelectedRow = vm.Rows.Single();
+        vm.HasBodyProblem.Should().BeTrue();
+
+        vm.SelectedRow = null;
+
+        vm.HasBodyProblem.Should().BeFalse();
+    }
+
+    [Fact]
+    public void AReadableBodyIsIndentedRatherThanLeftAsOneLine()
+    {
+        // A frame is one line of JSON, and 569 bytes of handshake wrapped across four lines is the thing
+        // people copy out to a formatter — which is the outcome this pane exists to prevent. Only
+        // insignificant whitespace changes; the true byte count is in the grid beside it.
+        _capture.Arm("vb6", true);
+        Frame("vb6", "textDocument/didOpen");
+
+        var vm = Sut();
+        vm.SelectedRow = vm.Rows.Single();
+
+        vm.SelectedBody.Should().Contain(Environment.NewLine[^1..],
+            "an indented body has lines, which is what makes it foldable");
+        vm.SelectedBody.Should().Contain("textDocument/didOpen", "and it is still the same message");
+    }
+
+    [Fact]
+    public void ABodyThatWillNotParseIsShownByteForByte()
+    {
+        // That body is the finding. Reformatting must never become a reason it cannot be read, and a
+        // best-effort tidy would misrepresent exactly the bytes somebody is trying to see.
+        _capture.Arm("vb6", true);
+        var body = System.Text.Encoding.UTF8.GetBytes("""{"a":1,   "b":oops}""");
+        _capture.Record("vb6", ConversationDirection.Received, ConversationEntryKind.Response,
+            null, "1", body.Length, body);
+
+        var vm = Sut();
+        vm.SelectedRow = vm.Rows.Single();
+
+        vm.SelectedBody.Should().Be("""{"a":1,   "b":oops}""");
+    }
 }
