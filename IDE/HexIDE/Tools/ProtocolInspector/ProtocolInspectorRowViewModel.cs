@@ -115,6 +115,28 @@ public sealed class ProtocolInspectorRowViewModel(
     /// <summary>True for the capture's own notes, which are not traffic and should not read as traffic.</summary>
     public bool IsLocal { get; } = envelope.Direction == ConversationDirection.Local;
 
+    /// <summary>
+    /// True for the entries that are not messages, and so have no body by their nature rather than
+    /// through anything having been lost.
+    /// </summary>
+    /// <remarks>
+    /// <b>Kind, not direction, and the difference is a bug this cost.</b> A line of standard error is
+    /// <see cref="ConversationDirection.Received"/> — it arrived, it was just not a message — so a check
+    /// on direction sent it down the path that explains a missing body as a message body that was refused
+    /// or evicted. That is the record naming the wrong cause for an absence, which is the one thing this
+    /// window exists to stop, and the sentence contradicted itself in the same breath by reporting zero of
+    /// each. Found by selecting the row on a running IDE.
+    /// </remarks>
+    public bool IsNotAMessage { get; } = envelope.Kind
+        is ConversationEntryKind.Lifecycle
+        or ConversationEntryKind.StandardError
+        or ConversationEntryKind.NeverSent
+        or ConversationEntryKind.Unconsumed
+        or ConversationEntryKind.Note;
+
+    /// <summary>True for a line the server wrote to standard error, which is its words rather than ours.</summary>
+    public bool IsStandardError { get; } = envelope.Kind == ConversationEntryKind.StandardError;
+
     private static string Format(int bytes) => bytes < 1024
         ? $"{bytes} B"
         : bytes < 1024 * 1024

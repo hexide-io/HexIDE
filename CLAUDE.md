@@ -403,7 +403,6 @@ Package versions are centralized in `IDE/Directory.Build.props` (Avalonia, Dock,
 |---------|------|
 | `HexIDE` | IDE shell — MVVM, form designer, toolboxes, MDI, DI setup |
 | `HexIDE.Lsp` | LSP client (`VBLspClient` via StreamJsonRpc, `LspServerLocator`) |
-| `HexIDE.LspProxy` | Debug proxy — set `VB6_LSP_DEBUG_PROXY=1` to log LSP frames to stderr |
 | `HexIDE.Runtime` | VB6 interpreter, built-in controls, component model, serialization |
 | `HexIDE.Runtime.Tests` | xUnit interpreter tests |
 | `HexIDE.Tests` | IDE ViewModel unit tests |
@@ -420,6 +419,14 @@ Package versions are centralized in `IDE/Directory.Build.props` (Avalonia, Dock,
 - **Diagnostics flow**: server → `publishDiagnostics` → `VBLspClient.DiagnosticsPublished` → `CodeEditorViewModel.OnDiagnosticsPublished` (on `Dispatcher.UIThread.Post`) → AvaloniaEdit offsets → `LspTextMarkerService.SetMarkers()` → wavy underlines.
 - **AOT**: `StreamJsonRpc` IL warnings suppressed in Desktop. `LspJsonContext` (source-gen `JsonSerializerContext`) covers all LSP types.
 - **Desktop.csproj** uses `Exists()` condition on the LspServer reference — the IDE builds fine without it (LSP diagnostics disabled).
+- **To see what crossed the wire, use the protocol inspector** (`Tools → Protocol Inspector`, or
+  `list_lsp_messages` / `get_lsp_message` from automation). Envelopes are recorded for every connection
+  always, with no arming and no document content; bodies need arming, except each connection's opening,
+  which is always kept. `--capture-lsp` arms everything before the first connection exists, which is what
+  the documented rebuild cycle needs. **`HexIDE.LspProxy` and `VB6_LSP_DEBUG_PROXY` are gone** — the
+  inspector covers every transport rather than only `stdio`, works retrospectively, and records what never
+  reached the wire at all. `docs/lsp-client.md` has the comparison and the one thing the proxy could see
+  that this cannot.
 
 ### Runtime internals
 

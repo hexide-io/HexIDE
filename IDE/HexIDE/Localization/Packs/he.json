@@ -574,6 +574,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "השהיה",
     "Str.Tool.ProtocolInspector.Column.Size": "גודל",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "זו שורה שהשרת כתב לפלט השגיאות התקני, והיא מוצגת במלואה למעלה. זו אינה הודעה, ולכן אין גוף להציג.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "רשומה זו היא הערה של הלכידה עצמה על החיבור, ולא הודעה, ולכן אין גוף להציג.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} בתים מתוך {1} לא נשמרו —",
     "Str.Tool.ProtocolInspector.Copy": "העתק כיומן מעקב",

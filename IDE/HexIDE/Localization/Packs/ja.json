@@ -574,6 +574,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "応答時間",
     "Str.Tool.ProtocolInspector.Column.Size": "サイズ",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "これはサーバーが標準エラー出力に書き込んだ行で、上に全文が表示されています。メッセージではないため、表示する本文はありません。",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "このエントリはメッセージではなく、接続についてのキャプチャ自身のメモです。そのため表示する本文はありません。",
     "Str.Tool.ProtocolInspector.Truncated": "— {1} バイトのうち {0} バイトは保持されていません —",
     "Str.Tool.ProtocolInspector.Copy": "トレースとしてコピー",

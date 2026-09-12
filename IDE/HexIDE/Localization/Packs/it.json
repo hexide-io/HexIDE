@@ -574,6 +574,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "Latenza",
     "Str.Tool.ProtocolInspector.Column.Size": "Dimensione",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Questa è una riga che il server ha scritto sull'errore standard, mostrata per intero qui sopra. Non è un messaggio, quindi non c'è alcun corpo da mostrare.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Questa voce è un'annotazione della cattura sulla connessione, non un messaggio, quindi non c'è alcun corpo da mostrare.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} byte su {1} non sono stati conservati —",
     "Str.Tool.ProtocolInspector.Copy": "Copia come traccia",

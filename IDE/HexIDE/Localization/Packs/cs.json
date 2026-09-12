@@ -574,6 +574,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "Odezva",
     "Str.Tool.ProtocolInspector.Column.Size": "Velikost",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Toto je řádek, který server zapsal na standardní chybový výstup a který je celý zobrazen výše. Není to zpráva, takže nemá žádné tělo, které by šlo zobrazit.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Tato položka je vlastní poznámka záznamu o připojení, nikoli zpráva, takže nemá žádné tělo, které by šlo zobrazit.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} bajtů z {1} nebylo uchováno —",
     "Str.Tool.ProtocolInspector.Copy": "Kopírovat jako trasování",

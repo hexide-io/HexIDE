@@ -574,6 +574,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "Svartid",
     "Str.Tool.ProtocolInspector.Column.Size": "Størrelse",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Dette er en linje, som serveren skrev til standardfejl, og den vises i sin helhed ovenfor. Det er ikke en meddelelse, så der er intet indhold at vise.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Denne post er optagelsens egen note om forbindelsen, ikke en meddelelse, så der er intet indhold at vise.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} af {1} byte blev ikke gemt —",
     "Str.Tool.ProtocolInspector.Copy": "Kopiér som trace",

@@ -626,6 +626,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "Latency",
     "Str.Tool.ProtocolInspector.Column.Size": "Size",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "This is a line the server wrote to standard error, shown above in full. It is not a message, so there is no body to show.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "This entry is the capture's own note about the connection, not a message, so there is no body to show.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} bytes of {1} were not kept —",
     "Str.Tool.ProtocolInspector.Copy": "Copy as trace",

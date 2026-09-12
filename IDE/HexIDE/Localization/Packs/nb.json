@@ -574,6 +574,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "Ventetid",
     "Str.Tool.ProtocolInspector.Column.Size": "Størrelse",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Dette er en linje serveren skrev til standardfeil, vist i sin helhet ovenfor. Det er ikke en melding, så det finnes ikke noe innhold å vise.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Denne oppføringen er opptakets egen merknad om tilkoblingen, ikke en melding, så det finnes ikke noe innhold å vise.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} av {1} byte ble ikke beholdt —",
     "Str.Tool.ProtocolInspector.Copy": "Kopier som sporing",

@@ -574,6 +574,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "تاخیر",
     "Str.Tool.ProtocolInspector.Column.Size": "سائز",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "یہ ایک سطر ہے جو سرور نے معیاری خرابی کے آؤٹ پٹ پر لکھی اور جو اوپر مکمل دکھائی گئی ہے۔ یہ کوئی پیغام نہیں ہے، اس لیے دکھانے کے لیے کوئی مواد نہیں ہے۔",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "یہ اندراج کنکشن کے بارے میں ریکارڈنگ کا اپنا نوٹ ہے، کوئی پیغام نہیں، اس لیے دکھانے کے لیے کوئی مواد نہیں ہے۔",
     "Str.Tool.ProtocolInspector.Truncated": "— {1} میں سے {0} بائٹس محفوظ نہیں کیے گئے —",
     "Str.Tool.ProtocolInspector.Copy": "ٹریس کے طور پر کاپی کریں",

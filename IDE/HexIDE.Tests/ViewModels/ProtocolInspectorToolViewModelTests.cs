@@ -388,6 +388,44 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
     }
 
     [Fact]
+    public void AStandardErrorLineSaysItIsTheServersWordsRatherThanALostBody()
+    {
+        // FOUND ON A RUNNING IDE, by selecting the row. A stderr line is Received — it arrived, it was
+        // just not a message — so the check that routed the two note sentences, which read the direction,
+        // sent this down the path written for messages: "recorded and its content is no longer held ...
+        // either sent before arming or discarded to stay within limits", followed by "0 bodies refused, 0
+        // evicted". The record naming the wrong cause for an absence is the exact thing this window exists
+        // to stop, and it contradicted itself in the same sentence.
+        _capture.Arm("vb6", true);
+        _capture.Record("vb6", ConversationDirection.Received, ConversationEntryKind.StandardError,
+            null, null, 0, null, "Unhandled exception. System.Exception");
+
+        var vm = Sut();
+        vm.SelectedRow = vm.Rows.Single();
+
+        vm.HasSelectedBody.Should().BeFalse();
+        vm.SelectedBodyUnavailable.Should()
+            .Be("Str.Tool.ProtocolInspector.StandardErrorHasNoBody")
+            .And.NotContain("NoBody.", "the message sentences report refusals and evictions, and there were none");
+    }
+
+    [Fact]
+    public void ARequestThatWasNeverSentIsNotAMessageEither()
+    {
+        // The same class, and the one most likely to be selected: a never-sent entry is what a reader
+        // clicks when they are asking why a feature did nothing. Direction is Local here, so this passed
+        // before the fix — it is pinned so the fix cannot be narrowed back to standard error alone.
+        _capture.Arm("vb6", true);
+        _capture.Record("vb6", ConversationDirection.Local, ConversationEntryKind.NeverSent,
+            "textDocument/rename", null, 0, null, "not offered: 'renameProvider'");
+
+        var vm = Sut();
+        vm.SelectedRow = vm.Rows.Single();
+
+        vm.SelectedBodyUnavailable.Should().Be("Str.Tool.ProtocolInspector.NoteHasNoBody");
+    }
+
+    [Fact]
     public async Task ATruncatedBodyStatesTheGapRatherThanClosingIt()
     {
         // Head joined straight to tail would parse as JSON and lie about what was sent — the one outcome

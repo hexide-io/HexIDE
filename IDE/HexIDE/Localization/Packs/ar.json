@@ -574,6 +574,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "زمن الاستجابة",
     "Str.Tool.ProtocolInspector.Column.Size": "الحجم",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "هذا سطر كتبه الخادم إلى خرج الخطأ القياسي، وهو معروض أعلاه بالكامل. وهو ليس رسالة، لذا لا يوجد متن لعرضه.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "هذا الإدخال هو ملاحظة الالتقاط نفسه عن الاتصال، وليس رسالة، لذا لا يوجد متن لعرضه.",
     "Str.Tool.ProtocolInspector.Truncated": "— لم يُحتفظ بـ {0} بايت من أصل {1} —",
     "Str.Tool.ProtocolInspector.Copy": "نسخ بصيغة التتبّع",

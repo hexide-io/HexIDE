@@ -573,6 +573,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "Latenteco",
     "Str.Tool.ProtocolInspector.Column.Size": "Grando",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Ĉi tio estas linio, kiun la servilo skribis al la norma erarfluo, montrata plene supre. Ĝi ne estas mesaĝo, do estas neniu korpo por montri.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Ĉi tiu enskribo estas la propra noto de la registrado pri la konekto, ne mesaĝo, do estas neniu korpo por montri.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} bajtoj el {1} ne estis konservitaj —",
     "Str.Tool.ProtocolInspector.Copy": "Kopii kiel spuron",

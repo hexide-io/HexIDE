@@ -68,29 +68,14 @@ public sealed class StdioProcessLspTransport : ILspTransport
         var serverInfo = _serverInfo;
         _logger.LogInformation("Starting language server: {Exe}", serverInfo.FileName);
 
-        // Debug proxy: if VB6_LSP_DEBUG_PROXY=1 is set, route traffic through
-        // LspProxy.exe which logs all LSP frames to its stderr (visible in the
-        // debug output window). The proxy forwards everything unchanged.
+        // The server is launched directly. There used to be an interposed debug proxy here, reached by
+        // setting VB6_LSP_DEBUG_PROXY=1, which relaunched the server underneath a byte-forwarding process
+        // that logged every frame to its own stderr. The protocol inspector reads the same traffic from
+        // inside this client and reads strictly more of it — see docs/lsp-client.md.
         string fileName = serverInfo.FileName;
         string arguments = serverInfo.Arguments;
-        var useProxy = Environment.GetEnvironmentVariable("VB6_LSP_DEBUG_PROXY") == "1";
-        if (useProxy)
-        {
-            var proxyExe = Path.Combine(AppContext.BaseDirectory, "HexIDE.LspProxy.exe");
-            if (!File.Exists(proxyExe))
-                proxyExe = Path.Combine(AppContext.BaseDirectory, "HexIDE.LspProxy");
-            if (File.Exists(proxyExe))
-            {
-                _logger.LogInformation("[proxy] Debug proxy active: {Proxy}", proxyExe);
-                arguments = $"\"{serverInfo.FileName}\" {serverInfo.Arguments}".TrimEnd();
-                fileName = proxyExe;
-            }
-            else
-            {
-                _logger.LogWarning("[proxy] VB6_LSP_DEBUG_PROXY=1 but proxy exe not found at {Path}", proxyExe);
-            }
-        }
-        else if (!OperatingSystem.IsWindows())
+
+        if (!OperatingSystem.IsWindows())
         {
             // Unix apphosts have historically shipped without the execute bit (neither the Content-copy
             // into the IDE output nor the publish tar sets it), so Process.Start on the apphost fails and

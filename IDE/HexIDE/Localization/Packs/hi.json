@@ -574,6 +574,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "विलंब",
     "Str.Tool.ProtocolInspector.Column.Size": "आकार",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "यह एक पंक्ति है जिसे सर्वर ने मानक त्रुटि आउटपुट पर लिखा और जो ऊपर पूरी दिखाई गई है। यह कोई संदेश नहीं है, इसलिए दिखाने के लिए कोई सामग्री नहीं है।",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "यह प्रविष्टि कनेक्शन के बारे में कैप्चर की अपनी टिप्पणी है, कोई संदेश नहीं, इसलिए दिखाने के लिए कोई सामग्री नहीं है।",
     "Str.Tool.ProtocolInspector.Truncated": "— {1} में से {0} बाइट नहीं रखे गए —",
     "Str.Tool.ProtocolInspector.Copy": "ट्रेस के रूप में कॉपी करें",

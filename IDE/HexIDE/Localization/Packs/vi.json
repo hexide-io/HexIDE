@@ -574,6 +574,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "Độ trễ",
     "Str.Tool.ProtocolInspector.Column.Size": "Kích thước",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Đây là một dòng mà máy chủ đã ghi ra luồng lỗi chuẩn, hiển thị đầy đủ ở trên. Nó không phải một thông điệp, nên không có nội dung để hiển thị.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Mục này là ghi chú riêng của bản ghi về kết nối, không phải một thông điệp, nên không có nội dung để hiển thị.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} byte trong số {1} đã không được giữ —",
     "Str.Tool.ProtocolInspector.Copy": "Sao chép dạng trace",

@@ -574,6 +574,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "延遲",
     "Str.Tool.ProtocolInspector.Column.Size": "大小",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "這是伺服器寫入標準錯誤輸出的一行，完整內容已顯示於上方。它並非訊息，因此沒有內容可顯示。",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "此項目是擷取程序對此連線所做的註記，而非訊息，因此沒有內容可顯示。",
     "Str.Tool.ProtocolInspector.Truncated": "— {1} 位元組中有 {0} 位元組未保留 —",
     "Str.Tool.ProtocolInspector.Copy": "複製為追蹤記錄",

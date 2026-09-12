@@ -625,6 +625,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "Mora",
     "Str.Tool.ProtocolInspector.Column.Size": "Magnitudo",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Haec linea est quam servitor in exitum errorum ordinarium scripsit, supra plene ostensa. Non est nuntius, itaque nullum corpus ostendi potest.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Haec notitia est adnotatio ipsius capturae de conexione, non nuntius, itaque nullum corpus ostendi potest.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} ex {1} octetis non servati sunt —",
     "Str.Tool.ProtocolInspector.Copy": "Describe ut vestigium",

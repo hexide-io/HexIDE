@@ -574,6 +574,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "Latens",
     "Str.Tool.ProtocolInspector.Column.Size": "Storlek",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Det här är en rad som servern skrev till standardfelutmatningen, visad i sin helhet ovan. Det är inte ett meddelande, så det finns ingen kropp att visa.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Den här posten är registreringens egen anteckning om anslutningen, inte ett meddelande, så det finns ingen kropp att visa.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} av {1} byte behölls inte —",
     "Str.Tool.ProtocolInspector.Copy": "Kopiera som spårning",

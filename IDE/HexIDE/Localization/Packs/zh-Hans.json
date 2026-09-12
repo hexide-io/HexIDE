@@ -574,6 +574,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "延迟",
     "Str.Tool.ProtocolInspector.Column.Size": "大小",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "这是服务器写入标准错误输出的一行，其完整内容已显示在上方。它不是一条消息，因此没有可显示的正文。",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "此条目是捕获自身对该连接的说明，而不是一条消息，因此没有可显示的正文。",
     "Str.Tool.ProtocolInspector.Truncated": "— 未保留 {1} 字节中的 {0} 字节 —",
     "Str.Tool.ProtocolInspector.Copy": "复制为跟踪日志",

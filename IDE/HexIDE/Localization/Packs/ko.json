@@ -574,6 +574,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "지연 시간",
     "Str.Tool.ProtocolInspector.Column.Size": "크기",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "이것은 서버가 표준 오류로 출력한 줄이며, 전문은 위에 표시되어 있습니다. 메시지가 아니므로 표시할 본문이 없습니다.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "이 항목은 메시지가 아니라 연결에 대한 캡처 자체의 기록이므로 표시할 본문이 없습니다.",
     "Str.Tool.ProtocolInspector.Truncated": "— 전체 {1}바이트 중 {0}바이트는 보관되지 않았습니다 —",
     "Str.Tool.ProtocolInspector.Copy": "추적 형식으로 복사",

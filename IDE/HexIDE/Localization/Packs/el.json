@@ -574,6 +574,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "Καθυστέρηση",
     "Str.Tool.ProtocolInspector.Column.Size": "Μέγεθος",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Αυτή είναι μια γραμμή που έγραψε ο διακομιστής στην τυπική έξοδο σφαλμάτων και εμφανίζεται ολόκληρη παραπάνω. Δεν είναι μήνυμα, οπότε δεν υπάρχει σώμα προς εμφάνιση.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Αυτή η καταχώριση είναι σημείωση της ίδιας της καταγραφής για τη σύνδεση, όχι μήνυμα, οπότε δεν υπάρχει σώμα προς εμφάνιση.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} από {1} byte δεν διατηρήθηκαν —",
     "Str.Tool.ProtocolInspector.Copy": "Αντιγραφή ως ίχνος",

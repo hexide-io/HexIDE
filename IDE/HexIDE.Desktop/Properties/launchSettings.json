@@ -2,16 +2,12 @@
   "profiles": {
     "HexIDE.Desktop": {
       "commandName": "Project",
-      "commandLineArgs": "--server-port 5123 --newproject",
-      "environmentVariables": {
-        "VB6_LSP_DEBUG_PROXY": "0"
-      }
+      "commandLineArgs": "--server-port 5123 --newproject"
     },
     "HexIDE.Desktop (Debug Logging)": {
       "commandName": "Project",
       "commandLineArgs": "--server-port 5123 --newproject",
       "environmentVariables": {
-        "VB6_LSP_DEBUG_PROXY": "0",
         "HEXIDE_LOG_LEVEL": "Debug"
       }
     },
@@ -19,15 +15,13 @@
       "commandName": "Project",
       "commandLineArgs": "--server-port 5123 --newproject",
       "environmentVariables": {
-        "VB6_LSP_DEBUG_PROXY": "0",
         "HEXIDE_LOG_LEVEL": "Verbose"
       }
     },
-    "HexIDE.Desktop (LSP Trace)": {
+    "HexIDE.Desktop (LSP Capture)": {
       "commandName": "Project",
-      "commandLineArgs": "--server-port 5123 --newproject",
+      "commandLineArgs": "--server-port 5123 --newproject --capture-lsp",
       "environmentVariables": {
-        "VB6_LSP_DEBUG_PROXY": "1",
         "HEXIDE_LOG_LEVEL": "Debug"
       }
     }

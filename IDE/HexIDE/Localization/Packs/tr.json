@@ -574,6 +574,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "Gecikme",
     "Str.Tool.ProtocolInspector.Column.Size": "Boyut",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Bu, sunucunun standart hataya yazdığı ve yukarıda tamamı gösterilen bir satırdır. Bir ileti değildir; bu yüzden gösterilecek bir gövde yok.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Bu kayıt bir ileti değil, yakalamanın bağlantı hakkındaki kendi notudur; bu yüzden gösterilecek bir gövde yok.",
     "Str.Tool.ProtocolInspector.Truncated": "— {1} baytın {0} baytı tutulmadı —",
     "Str.Tool.ProtocolInspector.Copy": "İzleme olarak kopyala",

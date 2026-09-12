@@ -574,6 +574,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "Viive",
     "Str.Tool.ProtocolInspector.Column.Size": "Koko",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Tämä on rivi, jonka palvelin kirjoitti vakiovirhetulosteeseen ja joka näkyy kokonaisuudessaan yllä. Se ei ole viesti, joten näytettävää sisältöä ei ole.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Tämä merkintä on tallennuksen oma huomautus yhteydestä, ei viesti, joten näytettävää sisältöä ei ole.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} tavua {1} tavusta jäi säilyttämättä —",
     "Str.Tool.ProtocolInspector.Copy": "Kopioi jäljityslokina",

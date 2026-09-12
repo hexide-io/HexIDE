@@ -574,6 +574,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "Opóźnienie",
     "Str.Tool.ProtocolInspector.Column.Size": "Rozmiar",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "To wiersz, który serwer zapisał na standardowym wyjściu błędów, pokazany powyżej w całości. To nie jest komunikat, więc nie ma treści do wyświetlenia.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Ten wpis to notatka rejestrowania dotycząca połączenia, a nie komunikat, więc nie ma treści do wyświetlenia.",
     "Str.Tool.ProtocolInspector.Truncated": "— nie zachowano {0} z {1} bajtów —",
     "Str.Tool.ProtocolInspector.Copy": "Kopiuj jako ślad",

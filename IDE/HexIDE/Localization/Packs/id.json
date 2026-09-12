@@ -574,6 +574,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "Latensi",
     "Str.Tool.ProtocolInspector.Column.Size": "Ukuran",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Ini adalah baris yang ditulis server ke keluaran galat standar, ditampilkan lengkap di atas. Ini bukan sebuah pesan, sehingga tidak ada isi yang dapat ditampilkan.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Entri ini adalah catatan perekaman sendiri tentang koneksi, bukan sebuah pesan, sehingga tidak ada isi yang dapat ditampilkan.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} byte dari {1} tidak disimpan —",
     "Str.Tool.ProtocolInspector.Copy": "Salin sebagai jejak",

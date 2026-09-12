@@ -441,11 +441,17 @@ public partial class ProtocolInspectorToolViewModel : Document
         {
             HasSelectedBody = false;
             SelectedBody = "";
-            SelectedBodyUnavailable = row.IsLocal
-                // A note about the process is not a message and never had a body. Saying "nothing was
-                // retained" here would imply something could have been.
-                ? _localization.GetString("Str.Tool.ProtocolInspector.NoteHasNoBody")
-                : NoBody(row);
+            // An entry that is not a message never had a body, and saying "nothing was retained" there
+            // would imply something could have been. Standard error gets its own sentence because it is
+            // the server's own words rather than a note this capture wrote.
+            SelectedBodyUnavailable = row switch
+            {
+                { IsStandardError: true } =>
+                    _localization.GetString("Str.Tool.ProtocolInspector.StandardErrorHasNoBody"),
+                { IsNotAMessage: true } =>
+                    _localization.GetString("Str.Tool.ProtocolInspector.NoteHasNoBody"),
+                _ => NoBody(row),
+            };
 
             // Still copyable. An envelope with no body is often exactly the finding — this was sent and
             // never answered — and a copy action that refused it would withhold the most quotable row

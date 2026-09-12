@@ -574,6 +574,7 @@
     "Str.Tool.ProtocolInspector.Column.Latency": "Затримка",
     "Str.Tool.ProtocolInspector.Column.Size": "Розмір",
     "Str.Tool.ProtocolInspector.DetailHeader": "#{0}  {1}  {2}",
+    "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Це рядок, який сервер записав у стандартний потік помилок; вище він показаний повністю. Це не повідомлення, тож тіла для показу немає.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Цей запис — власна примітка засобу запису про з'єднання, а не повідомлення, тож тіла для показу немає.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} байтів із {1} не збережено —",
     "Str.Tool.ProtocolInspector.Copy": "Копіювати як трасування",

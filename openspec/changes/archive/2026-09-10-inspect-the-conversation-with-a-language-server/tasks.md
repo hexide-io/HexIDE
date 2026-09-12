@@ -79,6 +79,33 @@ automation before any window exists, which is how everything else here has been 
     a test.
 
 ## 5. Retiring the proxy
-- [ ] 5.1 Remove `HexIDE.LspProxy` and the `VB6_LSP_DEBUG_PROXY` environment variable
-- [ ] 5.2 Remove its launch profile and its references in documentation
-- [ ] 5.3 Confirm the inspector covers what it was reached for, and say so where the proxy was documented
+- [x] 5.1 Remove `HexIDE.LspProxy` and the `VB6_LSP_DEBUG_PROXY` environment variable
+  - The whole project, `--ws-server` bridge included. That bridge was the only thing that had ever
+    exercised the WebSocket transport end to end, so removing it would have left the socket path with no
+    proof at all — which is why hexide-io/HexIDE#382 sequenced a wire-shape assertion *before* this phase.
+    `WebSocketWireShapeTests` now reads the frames off a real socket, and the removal is unblocked rather
+    than merely convenient.
+- [x] 5.2 Remove its launch profile and its references in documentation
+  - The `LSP Trace` profile is repointed rather than deleted: it is now `LSP Capture`, launching with
+    `--capture-lsp`. Somebody who reached for that profile wanted to see the conversation, and deleting it
+    would answer a live need with an absence.
+- [x] 5.3 Confirm the inspector covers what it was reached for, and say so where the proxy was documented
+  - `docs/lsp-client.md` gained a *Reading the conversation* section with the comparison, and `CLAUDE.md`
+    carries the short form where its project-table row used to be. The inspector wins on every line —
+    always on, every transport, retrospective, and it holds what never reached the wire.
+  - **The one thing the proxy could do that this cannot** is watch a client too broken to reach its own
+    serializer: a failure outside the process is immune to a tap inside it. Recorded honestly rather than
+    waved away, and mitigated where it can be — a serialization failure is now a never-sent entry, and an
+    inbound frame this client cannot decode is recorded with its bytes.
+  - Verified against a running IDE, and the interesting half was not the bundled server. A real
+    third-party server (rumdl, given an argument it rejects) was attached deliberately misconfigured: its
+    three standard-error lines appear verbatim, followed by `process exited with code 2`, attributed to
+    that connection, on one timeline. Before this change the entire record of that failure would have been
+    "connecting, connected, disconnected". Killing the bundled server mid-conversation was checked too,
+    and produced `process exited with code -1` beside its last message.
+  - **Selecting the standard-error row found a defect nothing else would have.** The detail pane explained
+    the missing body with the sentence written for messages — "recorded and its content is no longer held
+    ... either sent before arming or discarded", then "0 bodies refused, 0 evicted". A stderr line is
+    `Received`, and the branch read the direction rather than the kind. That is the record naming the
+    wrong cause for an absence, inside the window built to stop exactly that. Fixed on the kind, with its
+    own sentence, translated, and pinned by two tests.

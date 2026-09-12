@@ -56,12 +56,6 @@
     <ProjectReference Include="..\HexIDE.TestAddin\HexIDE.TestAddin.csproj" Condition="'$(Configuration)' == 'Debug'">
       <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
     </ProjectReference>
-    <!-- Copy LspProxy exe to output so VB6_LSP_DEBUG_PROXY=1 can find it -->
-    <ProjectReference Include="..\HexIDE.LspProxy\HexIDE.LspProxy.csproj">
-      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
-      <OutputItemType>Content</OutputItemType>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </ProjectReference>
     <!-- Copy the MIT VB6 language server exe to output for LSP diagnostics (Phase 6 swap: was the GPLv3
          HexIDE.VbLspServer). Both projects set AssemblyName=HexIDE.VbLspServer, so the exe name and the
          LspServerLocator probe are unchanged — this repoint is the whole client-facing cutover. Path

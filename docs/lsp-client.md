@@ -220,6 +220,56 @@ own source. Documents the IDE carries have no extension at all and route by sche
 `stdio`, `pipe` (named pipe, connecting or listening) and `websocket` are all supported. Only `stdio` is
 exercised against a real foreign server; the other two are covered against fakes.
 
+The three do not carry the same framing, and the difference is load-bearing rather than incidental: the two
+byte-stream transports delimit messages with a `Content-Length` header, while a WebSocket carries message
+boundaries itself and must therefore send **one JSON-RPC message per Text frame with no header at all**.
+Both directions of that are asserted against a real socket in `WebSocketWireShapeTests`, including a proof
+that the header framing genuinely would appear if the wrong handler were used — without which the
+assertion would be guarding against nothing.
+
+---
+
+## Reading the conversation
+
+**The protocol inspector is how you see what crossed the wire**, and it is the answer to the question a
+diagnostics list cannot settle: whether a request was even sent, what came back, and how long it took. A
+`Tools → Protocol Inspector` tab shows one interleaved timeline across every attached server; the same
+record is reachable from automation through `list_lsp_messages` and `get_lsp_message`.
+
+Envelopes — direction, method, id, size, outcome, latency — are recorded for every connection
+**always**, without arming anything and without retaining any document content. Bodies are kept only for a
+connection that has been armed, except each connection's opening, which is always kept because a handshake
+cannot be captured after the fact. `--capture-lsp` arms everything before the first connection exists.
+
+**This replaced an interposed debug proxy** (`HexIDE.LspProxy`, reached by setting `VB6_LSP_DEBUG_PROXY=1`),
+which relaunched the server underneath a byte-forwarding process that wrote every frame to its own stderr.
+The inspector reads strictly more, and the difference is not one of convenience:
+
+| | the proxy | the inspector |
+|---|---|---|
+| Reached by | an environment variable and a restart | always on |
+| Covered | `stdio` only | every transport, including `websocket` and named pipes |
+| Retrospective | no — it had to be running already | yes |
+| Requests never sent | invisible: nothing crossed the wire | recorded, with the capability that declined them |
+| A message this client could not serialize | invisible for the same reason | recorded as never sent |
+| Standard error and the exit code | its own stderr, mixed with the frames | on the same timeline, attributed per connection |
+| Several servers at once | one proxy per server, one log each | one timeline, filterable |
+| Output | a text log to read by eye | a grid, a redacted export, and an automation surface |
+
+The one thing the proxy could do that the inspector cannot is observe a client so broken it never reaches
+its own serializer — a failure outside the process is immune to a tap inside it. That was worth one
+mitigation rather than keeping the whole thing: a serialization failure is now recorded as a never-sent
+entry, and an inbound frame this client cannot decode is recorded with its bytes rather than lost.
+
+**A second thing went with it, and it was not a logging feature.** The proxy had a `--ws-server` mode that
+listened on a port and bridged a WebSocket to a freshly spawned stdio server, moving opaque bytes in both
+directions. It logged nothing useful — connection events only — but it was the only WebSocket server this
+repository could point the IDE at, so it was how the socket transport got exercised at all. Removing it
+without replacing that would have left the transport untested rather than merely unlogged, which is why
+[#382](https://github.com/hexide-io/HexIDE/issues/382) had to close first: `WebSocketWireShapeTests` stands
+up a real socket server and asserts the framing. **What no longer exists is a runnable local bridge**, so
+driving the IDE by hand over `ws://` now needs a WebSocket server of your own.
+
 ---
 
 ## Commands and lenses
