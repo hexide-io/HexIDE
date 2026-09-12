@@ -211,6 +211,7 @@ public sealed class VBLspClient : ILspClient
         // Channel-level death signal (e.g. stdio server process exit). WebSocket drops surface via
         // JsonRpc.Disconnected instead, wired per-connection in ConnectAndInitializeAsync.
         _transport.Closed += OnTransportClosed;
+        _transport.Notice += OnTransportNotice;
 
         await ConnectAndInitializeAsync(cancellationToken);
     }
@@ -1251,6 +1252,7 @@ public sealed class VBLspClient : ILspClient
         DisposeRpc();
 
         _transport.Closed -= OnTransportClosed;
+        _transport.Notice -= OnTransportNotice;
         await _transport.DisposeAsync();
         _initialized = false;
         _capabilities = null;
@@ -1261,6 +1263,25 @@ public sealed class VBLspClient : ILspClient
     }
 
     public async ValueTask DisposeAsync() => await StopAsync();
+
+    /// <summary>
+    /// Puts the process's own output on the timeline, beside the messages it interleaves with.
+    /// </summary>
+    /// <remarks>
+    /// Attribution comes from the client rather than the transport because the connection id lives here:
+    /// with several servers attached, standard error is only useful if you can tell which one wrote it.
+    /// </remarks>
+    private void OnTransportNotice(object? sender, TransportNotice notice)
+    {
+        // The two directions are not interchangeable and ConversationDirection already says which is
+        // which: Received is "a reply, a notification, a line of standard error", Local is "a process
+        // starting". A stderr line arrived from the server; an exit code is something observed about it.
+        var (direction, kind) = notice.Kind == TransportNoticeKind.StandardError
+            ? (ConversationDirection.Received, ConversationEntryKind.StandardError)
+            : (ConversationDirection.Local, ConversationEntryKind.Lifecycle);
+
+        Note(direction, kind, null, notice.Text);
+    }
 
     private void OnTransportClosed(object? sender, EventArgs e)
     {

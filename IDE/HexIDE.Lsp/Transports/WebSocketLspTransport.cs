@@ -50,6 +50,10 @@ public sealed class WebSocketLspTransport : ILspTransport
     // so this transport never raises Closed itself — the accessors are intentionally no-ops.
     public event EventHandler? Closed { add { } remove { } }
 
+    // No process on this side of the socket, so there is never anything to report. Unobservable says so
+    // in words the reader sees, which is the half that matters.
+    public event EventHandler<TransportNotice>? Notice { add { } remove { } }
+
     public async Task<IJsonRpcMessageHandler?> ConnectAsync(IJsonRpcMessageFormatter formatter, CancellationToken cancellationToken = default)
     {
         if (!Uri.TryCreate(_endpoint, UriKind.Absolute, out var uri))

@@ -60,6 +60,9 @@ public sealed class StdioProcessLspTransport : ILspTransport
 
     public event EventHandler? Closed;
 
+    /// <summary>Standard error and the exit code, which this transport is the only thing that can see.</summary>
+    public event EventHandler<TransportNotice>? Notice;
+
     public Task<IJsonRpcMessageHandler?> ConnectAsync(IJsonRpcMessageFormatter formatter, CancellationToken cancellationToken = default)
     {
         var serverInfo = _serverInfo;
@@ -148,8 +151,15 @@ public sealed class StdioProcessLspTransport : ILspTransport
 
         _process.ErrorDataReceived += (_, e) =>
         {
-            if (e.Data is { Length: > 0 })
-                _logger.LogDebug("[vb-lsp stderr] {Data}", e.Data);
+            if (e.Data is not { Length: > 0 }) return;
+
+            _logger.LogDebug("[vb-lsp stderr] {Data}", e.Data);
+
+            // Onto the record as well as into the log. A debug log line is not somewhere a person looks
+            // when a server dies mid-conversation; the timeline beside the last message it managed to
+            // send is. This is what makes Unobservable's "all HexIDE's to observe" true rather than a
+            // claim (hexide-io/HexIDE#369 task 2.9).
+            Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.StandardError, e.Data));
         };
 
         _process.Exited += OnProcessExited;
@@ -203,8 +213,34 @@ public sealed class StdioProcessLspTransport : ILspTransport
 
     private void OnProcessExited(object? sender, EventArgs e)
     {
-        _logger.LogWarning("VB6 LSP server process exited");
+        // Read before anything else touches the process: Kill() and Dispose() are both moments after this,
+        // and ExitCode throws once the handle is gone.
+        var code = ExitCode();
+
+        _logger.LogWarning("VB6 LSP server process exited{Code}", code is null ? "" : $" with code {code}");
+
+        // BEFORE Closed, which is what tears the connection down. An exit code that arrived after the
+        // record had stopped accepting entries would be the one fact nobody could see.
+        Notice?.Invoke(this, new TransportNotice(
+            TransportNoticeKind.Lifecycle,
+            code is null ? "process exited" : $"process exited with code {code}"));
+
         Closed?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// The exit code, or null when the process cannot tell us.
+    /// </summary>
+    /// <remarks>
+    /// LSP gives an exit code a meaning — 0 when a shutdown preceded exit and 1 otherwise — which is how
+    /// hexide-io/HexIDE#312 was found, and nothing in this codebase read it until now. It is wrapped
+    /// because reading it races teardown: a disposed or already-reaped handle throws rather than
+    /// answering, and a diagnostic must never be the thing that breaks a shutdown.
+    /// </remarks>
+    private int? ExitCode()
+    {
+        try { return _process?.HasExited == true ? _process.ExitCode : null; }
+        catch (Exception) { return null; }
     }
 
     public ValueTask DisposeAsync()

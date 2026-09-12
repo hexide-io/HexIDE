@@ -14,6 +14,12 @@ automation before any window exists, which is how everything else here has been 
 
 ## 2. The capture model, with no user interface
 - [x] 2.1 A tap that sees byte-exact JSON bodies both directions, installed at every connect unconditionally
+  - A frame that could not be decoded produced no entry at all, because the recording ran after the
+    deserialize that threw — so the record was blind in exactly the case somebody opens the window for,
+    while the window happily rendered a "not valid JSON" marker no wire path could reach. Every
+    malformed-body test in the tree injected through `Record` directly, which is how it stayed hidden.
+    Closed in phase 5, along with the outbound twin: a message this client cannot serialize is recorded
+    as never sent rather than vanishing.
 - [x] 2.2 Envelope ring per connection, capped in entries, with a non-evicting handshake prologue
 - [x] 2.3 Payload store per connection, capped in bytes under a global ceiling, evicting bodies while envelopes survive
 - [x] 2.4 Per-frame cap storing head and tail with the true length recorded
@@ -22,6 +28,12 @@ automation before any window exists, which is how everything else here has been 
 - [x] 2.7 Handshake payloads captured unconditionally; everything after, only when armed
 - [x] 2.8 Arming and trace level held per connection id, surviving a respawn, reset by an IDE restart
 - [x] 2.9 Process lifecycle, standard error and exit code in the same record, attributed to the server that produced them
+  - **Ticked before it was true, and closed in phase 5.** Standard error went to a debug log line and
+    nowhere else; nothing in the tree read an exit code at all. Worse, task 2.11's mechanism was
+    certifying the gap as absent — the stdio transport's `Unobservable` returns null, which tells a
+    reader nothing is missing. The honesty mechanism was the thing being dishonest.
+  - Found by comparing the capture against the proxy it replaces, not by a failing test, which is the
+    reason phase 5 could not simply proceed to the removal.
 - [x] 2.10 Declined requests, and capabilities advertised but not consumed, recorded as never-sent entries
 - [x] 2.11 A per-transport note of what cannot be observed
 - [x] 2.12 Drop counts, per connection, exposed rather than inferred
