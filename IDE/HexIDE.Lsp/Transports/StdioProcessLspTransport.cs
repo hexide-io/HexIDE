@@ -218,9 +218,11 @@ public sealed class StdioProcessLspTransport : ILspTransport
     /// </summary>
     /// <remarks>
     /// LSP gives an exit code a meaning — 0 when a shutdown preceded exit and 1 otherwise — which is how
-    /// hexide-io/HexIDE#312 was found, and nothing in this codebase read it until now. It is wrapped
-    /// because reading it races teardown: a disposed or already-reaped handle throws rather than
-    /// answering, and a diagnostic must never be the thing that breaks a shutdown.
+    /// hexide-io/HexIDE#312 was found. Nothing in the LSP client read one before this: the only thing in
+    /// the tree that ever did was the debug proxy, which logged it to its own stderr and was removed in
+    /// the same change that added this. It is wrapped because reading it races teardown: a disposed or
+    /// already-reaped handle throws rather than answering, and a diagnostic must never be the thing that
+    /// breaks a shutdown.
     /// </remarks>
     private int? ExitCode()
     {

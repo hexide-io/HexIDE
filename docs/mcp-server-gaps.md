@@ -778,8 +778,8 @@ including the cancellation branch.
 ## `list_lsp_messages` described a vocabulary it does not use, and promised data that was not there
 
 **Symptom.** The tool's own description enumerates what a `kind` can be, because a caller who reads
-`Unconsumed` in a reply has no other way to learn what it means. It listed five of the eight and got one
-of those five wrong:
+`Unconsumed` in a reply has no other way to learn what it means. `ConversationEntryKind` has **nine**
+members; the description named **seven** of them, and got one of those seven wrong:
 
 - **`StandardError` and `Note` were absent entirely.** A caller shown `"kind": "StandardError"` had been
   told the set and it was not in the set, which reads as a bug in the tool rather than a gap in the
@@ -799,7 +799,8 @@ observable behaviour and disagreed with the design. Nothing checks a `[Descripti
 enum it enumerates; the coverage guard that would have caught it is the one this repository applies to
 `docs/lsp-client.md` and to the language packs, and tool descriptions have no equivalent.
 
-**Fixed** by rewriting both sentences to the full set of eight and to what each kind actually carries. The
+**Fixed** by rewriting both sentences to the full set of nine — four for wire traffic, five that are not
+messages — and to what each kind actually carries. The
 underlying data gaps were closed in the same change: standard error and the exit code now reach the record
 (`ILspTransport.Notice`), and an undecodable frame is recorded as a `Note` with its bytes rather than
 dropped. Filed as hexide-io/HexIDE#400 for the general problem — a tool description that enumerates
