@@ -1,3 +1,4 @@
+using System.Linq;
 using HexIDE.Controls;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Lsp;
@@ -148,6 +149,82 @@ public class RelatedDocumentEditorViewModelTests : IDisposable
     // the UI thread in the running IDE, an arbitrary pool thread in a plain unit test. Reading the editor
     // buffer from there throws "call from invalid thread", which is a fact about the test host rather
     // than about the code. See CarriedFileDiagnosticsIntegrationTests.
+
+    // ── Folding ───────────────────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task FoldingRangesAreAskedForAgainstTheDocumentsOwnFileUri()
+    {
+        // The whole reason a carried file can be folded by an ordinary language server: unlike the IDE's
+        // forms and modules, it has a real file: URI that a server can match against something on disk.
+        var document = Carried("Geometry.vba", "Public Sub Alpha()\nEnd Sub\n");
+        var vm = Open(document);
+        var expected = new[] { new FoldingRange(0, 1) };
+        _lspClient.RequestFoldingRangesAsync(LspDocumentUri.ForFile(document.AbsolutePath!), Arg.Any<CancellationToken>())
+            .Returns(expected);
+
+        var result = await vm.RequestFoldingRangesAsync(TestContext.Current.CancellationToken);
+
+        result.Should().BeSameAs(expected);
+    }
+
+    [Fact]
+    public async Task ADocumentThatFailedToLoadIsNeverAskedAbout()
+    {
+        // THE CASE THE FIRST VERSION OF THIS TEST DESCRIBED AND DID NOT COVER. It constructed a null
+        // path, which no server is asked about for the trivial reason that there is no path - while the
+        // comment described a carried entry whose file has gone, which has a perfectly good path and a
+        // load error. That one WAS asked about, for a `file:` URI nothing had ever sent `didOpen` for.
+        //
+        // LSP requires the open first. A conformant server answers such a request with an error and a
+        // less forgiving one need not survive it, and our own client swallows the failure - so it would
+        // have been invisible from this side.
+        var vanished = Carried("gone.vba");
+        File.Delete(Path.Combine(_dir, "gone.vba"));
+        var vm = Open(new RelatedDocumentDefinition(
+            TestHelpers.CreateProject("P"), "gone.vba", Path.Combine(_dir, "gone.vba")));
+
+        vm.LoadError.Should().NotBeNull("the fixture is meant to produce a document that could not load");
+
+        var result = await vm.RequestFoldingRangesAsync(TestContext.Current.CancellationToken);
+
+        result.Should().BeEmpty();
+        await _lspClient.DidNotReceive().RequestFoldingRangesAsync(
+            Arg.Any<string>(), Arg.Any<CancellationToken>());
+
+        _ = vanished;
+    }
+
+    [Fact]
+    public async Task ADocumentWithNoPathAtAllAsksForNothing()
+    {
+        var missing = new RelatedDocumentDefinition(TestHelpers.CreateProject("P"), "gone.vba", null);
+        var vm = Open(missing);
+
+        var result = await vm.RequestFoldingRangesAsync(TestContext.Current.CancellationToken);
+
+        result.Should().BeEmpty();
+        await _lspClient.DidNotReceive().RequestFoldingRangesAsync(
+            Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task TheFoldingUriIsTheSameOneTheDocumentWasOpenedUnder()
+    {
+        // Open, change, close and fold must all name one document. They only do because every one of
+        // them derives the URI from the path rather than composing it separately.
+        var document = Carried("Notes.md", "# hi\n");
+        var vm = Open(document);
+
+        await vm.RequestFoldingRangesAsync(TestContext.Current.CancellationToken);
+
+        var foldUri = _lspClient.ReceivedCalls()
+            .Where(call => call.GetMethodInfo().Name == nameof(ILspClient.RequestFoldingRangesAsync))
+            .Select(call => (string)call.GetArguments()[0]!)
+            .Single();
+
+        foldUri.Should().Be(OpenedUri());
+    }
 
     // ── Diagnostics ───────────────────────────────────────────────────────────────────────────────────
     //

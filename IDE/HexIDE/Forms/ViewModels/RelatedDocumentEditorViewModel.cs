@@ -1,11 +1,13 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using AvaloniaEdit.Document;
 using HexIDE.Controls;
 using HexIDE.Lsp;
+using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Utils;
 using PropertyChanged.SourceGenerator;
@@ -160,6 +162,20 @@ public partial class RelatedDocumentEditorViewModel(ILspClient lspClient)
         };
         session.Start();
     }
+
+    /// <summary>
+    /// Folding ranges for this document, from whichever attached server serves it.
+    /// </summary>
+    /// <remarks>
+    /// A carried file is the one document kind in this IDE with a real <c>file:</c> URI, so it is the
+    /// one an ordinary language server can answer structural questions about without knowing anything
+    /// about VB6. It already receives diagnostics and hover on that basis; folding was simply never
+    /// wired, and the registry does all the work of deciding who — if anyone — may answer.
+    /// </remarks>
+    public Task<FoldingRange[]> RequestFoldingRangesAsync(CancellationToken ct = default)
+        => session is { IsOpen: true } open
+            ? lspClient.RequestFoldingRangesAsync(open.Uri, ct)
+            : Task.FromResult<FoldingRange[]>([]);
 
     /// <summary>
     /// Writes the buffer back. Bound to Save, unlike the VB6 code editor — where the only Save binding

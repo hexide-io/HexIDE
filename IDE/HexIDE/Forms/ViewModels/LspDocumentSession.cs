@@ -68,6 +68,18 @@ internal sealed class LspDocumentSession : IDisposable
     /// <summary>How this document is named to servers. Fixed for the session's lifetime.</summary>
     public string Uri { get; }
 
+    /// <summary>
+    /// True while the server has been told about this document and has not been told to forget it.
+    /// </summary>
+    /// <remarks>
+    /// The precondition for naming this document in any other request. LSP requires a <c>didOpen</c>
+    /// first, and a caller that composes the same URI independently gets a URI that looks right and
+    /// refers to nothing the server has heard of - which a conformant server answers with an error and
+    /// a less forgiving one may not survive. Asking through the session makes "we opened it" and "we may
+    /// ask about it" one condition rather than two spellings of a similar one.
+    /// </remarks>
+    public bool IsOpen => started && !disposed;
+
     /// <summary>Diagnostics for this document, converted to offsets in this buffer. Raised on the UI thread.</summary>
     public event Action<IReadOnlyList<LspMarker>>? MarkersChanged;
 
