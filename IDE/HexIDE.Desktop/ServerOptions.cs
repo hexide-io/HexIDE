@@ -1,4 +1,33 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
 namespace HexIDE.Desktop;
+
+/// <summary>
+/// One command-line option: how it is spelled, whether it takes a value, and what it does.
+/// </summary>
+/// <param name="Name">The flag without its prefix. Matched as both <c>--name</c> and <c>/name</c>.</param>
+/// <param name="ValueName">The value's name for the help text, or null when the flag takes none.</param>
+/// <param name="Summary">One line, as it appears in <c>--help</c>.</param>
+/// <param name="Apply">
+/// Consumes the flag. Receives the value when <paramref name="ValueName"/> is set, and returns whether it
+/// took one, so the parser can skip it.
+/// </param>
+/// <param name="Aliases">
+/// Other spellings that mean the same flag, written in full including their prefix.
+/// </param>
+internal sealed record CommandLineOption(
+    string Name,
+    string? ValueName,
+    string Summary,
+    Func<string?, bool> Apply,
+    string[]? Aliases = null)
+{
+    public bool TakesValue => ValueName is not null;
+
+    public IReadOnlyList<string> AllAliases => Aliases ?? [];
+}
 
 internal static class ServerOptions
 {
@@ -21,33 +50,65 @@ internal static class ServerOptions
     /// </remarks>
     public static bool CaptureLsp { get; private set; }
 
+    /// <summary><c>--help</c>: print the usage banner and exit without starting the IDE.</summary>
+    public static bool HelpRequested { get; private set; }
+
+    /// <summary>
+    /// Every option the IDE accepts, in the order <c>--help</c> lists them.
+    /// </summary>
+    /// <remarks>
+    /// <b>One list, read by both the parser and the help text.</b> They were two before, and the help text
+    /// did not exist; the moment it did, a flag added to one and not the other would have produced a
+    /// program that documents itself incorrectly — which is worse than one that documents itself not at
+    /// all, because the reader has no reason to doubt it. Adding a flag here is what makes it parse AND
+    /// appear in <c>--help</c>; <c>CommandLineDocumentationTests</c> then fails the build until
+    /// <c>docs/command-line.md</c> mentions it too.
+    /// </remarks>
+    public static IReadOnlyList<CommandLineOption> Options { get; } =
+    [
+        // /? is what a Windows user tries first and -h is what everyone else does. Neither cost anything,
+        // and without them both land in the parser's silent-ignore arm — so asking for help would START
+        // THE IDE, which is the worst answer available.
+        new("help", null,
+            "Print this message and exit. Also -h and /?.",
+            _ => { HelpRequested = true; return false; },
+            Aliases: ["-h", "/?", "-?"]),
+
+        new("newproject", null,
+            "Create a Standard EXE and skip the startup dialog.",
+            _ => { NewProject = true; return false; }),
+
+        new("capture-lsp", null,
+            "Record every language-server conversation from its first handshake.",
+            _ => { CaptureLsp = true; return false; }),
+
+        new("personality", "<vb6|vbaode|vba>",
+            "Select the IDE personality for this session.",
+            value => { Personality = value; return true; }),
+
+        new("server-port", "<port>",
+            "Start the automation server on this port. Debug builds only.",
+            value =>
+            {
+                if (int.TryParse(value, out var port)) Port = port;
+                return true;
+            }),
+
+        new("developer-mode", null,
+            "Turn on session developer mode. Debug builds only.",
+            _ => { DeveloperMode = true; return false; }),
+    ];
+
     public static void ParseArgs(string[] args)
     {
         for (var i = 0; i < args.Length; i++)
         {
             var arg = args[i];
 
-            if (IsFlag(arg, "server-port") && i + 1 < args.Length && int.TryParse(args[i + 1], out var port))
+            if (Match(arg) is { } option)
             {
-                Port = port;
-                i++;
-            }
-            else if (IsFlag(arg, "newproject"))
-            {
-                NewProject = true;
-            }
-            else if (IsFlag(arg, "developer-mode"))
-            {
-                DeveloperMode = true;
-            }
-            else if (IsFlag(arg, "capture-lsp"))
-            {
-                CaptureLsp = true;
-            }
-            else if (IsFlag(arg, "personality") && i + 1 < args.Length)
-            {
-                Personality = args[i + 1];
-                i++;
+                var value = option.TakesValue && i + 1 < args.Length ? args[i + 1] : null;
+                if (option.Apply(value) && value is not null) i++;
             }
             else if (!arg.StartsWith('-') && !arg.StartsWith('/') &&
                      arg.EndsWith(".vbp", StringComparison.OrdinalIgnoreCase))
@@ -57,7 +118,56 @@ internal static class ServerOptions
         }
     }
 
-    private static bool IsFlag(string arg, string name) =>
-        arg.Equals($"--{name}", StringComparison.OrdinalIgnoreCase) ||
-        arg.Equals($"/{name}", StringComparison.OrdinalIgnoreCase);
+    /// <summary>The usage text, rendered from <see cref="Options"/> so it cannot fall behind them.</summary>
+    public static string HelpText()
+    {
+        var width = Options.Max(o => Spelling(o).Length);
+
+        var lines = Options.Select(o => $"  {Spelling(o).PadRight(width)}  {o.Summary}");
+
+        return $"""
+{Banner}
+HexIDE - an open, cross-platform IDE for Visual Basic 6 & VBA.
+
+Usage:
+  HexIDE.Desktop [options] [<project>.vbp]
+
+Options:
+{string.Join(Environment.NewLine, lines)}
+
+Both prefixes work: --newproject and /newproject are the same flag, matched
+case-insensitively. An argument HexIDE does not recognise is ignored without
+complaint, so a flag that appears to do nothing may simply be misspelled.
+
+Full reference: docs/command-line.md
+""";
+    }
+
+    /// <summary>
+    /// The mark: the hexagon, and the six bonds that make the "hex" a molecule rather than a shape.
+    /// </summary>
+    private const string Banner = """
+
+       _-----------_
+     /       o       \
+    /   o    |    o   \
+   |      \  |  /      |
+   |       \ | /       |
+   |       / | \       |
+   |      /  |  \      |
+    \   o    |    o   /
+     \_______o_______/
+
+""";
+
+    private static string Spelling(CommandLineOption option) =>
+        option.TakesValue ? $"--{option.Name} {option.ValueName}" : $"--{option.Name}";
+
+    private static CommandLineOption? Match(string arg) =>
+        Options.FirstOrDefault(o => IsFlag(arg, o));
+
+    private static bool IsFlag(string arg, CommandLineOption option) =>
+        arg.Equals($"--{option.Name}", StringComparison.OrdinalIgnoreCase) ||
+        arg.Equals($"/{option.Name}", StringComparison.OrdinalIgnoreCase) ||
+        option.AllAliases.Any(alias => arg.Equals(alias, StringComparison.OrdinalIgnoreCase));
 }

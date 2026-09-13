@@ -16,6 +16,7 @@ most people will type today.
 
 | Option | Argument | What it does |
 |---|---|---|
+| `--help` | — | Prints usage and exits without starting the IDE. Also `-h`, `/?` and `-?`. |
 | `--newproject` | — | Creates a Standard EXE and skips the startup dialog. |
 | `--capture-lsp` | — | Arms the [protocol capture](lsp-client.md#reading-the-conversation) for every language-server connection before the first one is made. |
 | `--personality` | `vb6`, `vbaode`, `vba` | Selects the IDE personality for the session. |
@@ -49,10 +50,23 @@ works; `--server-port=5123` does not.
 command line even though the IDE opens groups perfectly well from **File → Open Project** — the argument
 is matched on the `.vbp` extension alone. Tracked as a gap rather than a decision.
 
-**Nothing is rejected.** There is no `--help`, and an argument HexIDE does not recognise — a misspelled
-flag, a value in the wrong place, a `.vbg` path, an unknown personality — is skipped in silence and the IDE
-starts normally. So a flag that appears to have done nothing has usually not been read at all. Worth
-checking the spelling before looking for a deeper cause.
+**Nothing is rejected.** An argument HexIDE does not recognise — a misspelled flag, a value in the wrong
+place, a `.vbg` path, an unknown personality — is skipped in silence and the IDE starts normally. So a flag
+that appears to have done nothing has usually not been read at all. Worth checking the spelling before
+looking for a deeper cause, and `--help` will tell you how a flag is spelled.
+
+**`--help` is answered before anything starts.** No window, no project, no port — it prints and exits. On
+Windows it writes to the console that launched it: HexIDE is a GUI program and owns no console of its own,
+so run from a shortcut or Explorer there is nowhere for the text to go and nothing appears.
+
+## Keeping this page true
+
+The options above are declared once, in `ServerOptions.Options`, and both the parser and `--help` read
+that list — so the program cannot accept a flag it does not print. This page is the part a list cannot
+enforce, so `CommandLineDocumentationTests` fails the build when a flag is missing from the table above,
+and when the table names a flag the parser does not accept.
+
+Adding an option is therefore three things in one place and one row here.
 
 ## Examples
 
@@ -71,4 +85,7 @@ HexIDE.Desktop --personality vba
 
 # Debug builds: drive the IDE from an automation client on port 5123
 HexIDE.Desktop --server-port 5123 --newproject
+
+# What all of this says, from the program itself
+HexIDE.Desktop --help
 ```

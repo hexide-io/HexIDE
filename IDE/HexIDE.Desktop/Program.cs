@@ -16,6 +16,15 @@ sealed class Program
     {
         FixCurrentWorkingDictionary();
         ServerOptions.ParseArgs(args);
+
+        // Before anything Avalonia touches: --help answers and leaves, so asking what the flags are never
+        // starts an IDE, loads a project or opens a port.
+        if (ServerOptions.HelpRequested)
+        {
+            ConsoleOutput.Write(ServerOptions.HelpText());
+            return;
+        }
+
         DesktopStartup.Register();
         BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);
