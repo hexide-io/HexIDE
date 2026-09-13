@@ -78,6 +78,17 @@ public sealed class NamedPipeLspTransport : ILspTransport
     private PipeStream? _pipe;
     private Process? _process;
 
+    /// <summary>
+    /// Set when a launch was configured, ran, and produced no handle to own.
+    /// </summary>
+    /// <remarks>
+    /// <c>Process.Start</c> returns null when the OS handed the request to an existing instance. There is
+    /// then a server, and it is not ours: no exit code, no standard error. Without this flag that case
+    /// reads as <see cref="Unobservable"/> null — the record promising a completeness it does not have —
+    /// because the only thing distinguishing it from a healthy launch is the missing handle.
+    /// </remarks>
+    private bool _launchedWithoutHandle;
+
     public NamedPipeLspTransport(
         string pipeName,
         NamedPipeRole role,
@@ -100,26 +111,53 @@ public sealed class NamedPipeLspTransport : ILspTransport
     public string? LastFailure { get; private set; }
 
     /// <summary>
-    /// Nothing when HexIDE launched the server behind this pipe, and the process half when it did not.
+    /// Nothing when HexIDE launched the server behind this pipe and can see it, and the process half when
+    /// it cannot.
     /// </summary>
     /// <remarks>
     /// The same distinction <see cref="CanReconnect"/> turns on, read the other way round. A pipe HexIDE
     /// dialled has a server on the far end that somebody else started and somebody else will stop, so its
     /// lifetime is not this IDE's to report on — while the messages crossing it are captured exactly as
     /// they are anywhere else.
+    ///
+    /// <para>
+    /// <b>The null arm is a claim, and it has to be earned.</b> It says the record is complete, so it is
+    /// only true because this transport now reports standard error and the exit code of a server it
+    /// launched. It did not before, and the null was a promise nothing kept — the same defect
+    /// hexide-io/HexIDE#369 fixed for stdio, which is why the third arm below exists rather than being
+    /// folded into the second.
+    /// </para>
     /// </remarks>
-    public string? Unobservable => _launch is null
-        ? "This server was already running when HexIDE connected to it, so its start, its exit code and "
-        + "anything it writes to standard error belong to whoever launched it. Messages are captured in full."
-        : null;
+    public string? Unobservable =>
+        _launch is null
+            ? "This server was already running when HexIDE connected to it, so its start, its exit code and "
+              + "anything it writes to standard error belong to whoever launched it. Messages are captured in full."
+        : _launchedWithoutHandle
+            ? "HexIDE started this server but the operating system gave back no handle for it — the request "
+              + "went to an instance that was already running — so its exit code and standard error cannot be "
+              + "read. Messages are captured in full."
+            : null;
 
     public bool CanReconnect => _launch is null;
 
     public event EventHandler? Closed;
 
-    // A pipe HexIDE dialled has no process here to report on. Where HexIDE spawned the server itself the
-    // stdio transport is used, and that one does report. Unobservable carries the distinction.
-    public event EventHandler<TransportNotice>? Notice { add { } remove { } }
+    /// <summary>
+    /// Standard error and the exit code, for a server this transport launched.
+    /// </summary>
+    /// <remarks>
+    /// <b>This used to be a no-op, on the grounds that a spawned server goes through the stdio transport.
+    /// It does not</b> — a pipe server that HexIDE starts is launched right here, and a pipe server is the
+    /// case where the process half matters most: the channel is dialled rather than inherited, so a server
+    /// that dies before its pipe exists presents as a bare connect timeout with no stream to attribute and
+    /// nothing else to go on.
+    ///
+    /// <para>
+    /// Silent for a pipe that was merely dialled, where there is genuinely no process here;
+    /// <see cref="Unobservable"/> says so in words the reader sees.
+    /// </para>
+    /// </remarks>
+    public event EventHandler<TransportNotice>? Notice;
 
     public async Task<IJsonRpcMessageHandler?> ConnectAsync(
         IJsonRpcMessageFormatter formatter, CancellationToken cancellationToken = default)
@@ -211,6 +249,15 @@ public sealed class NamedPipeLspTransport : ILspTransport
             WorkingDirectory = _launch.WorkingDirectory ?? string.Empty,
             UseShellExecute = false,
             CreateNoWindow = true,
+
+            // Standard error only. The protocol rides the pipe, so this stream carries nothing but the
+            // server's own words — which for a pipe server is the only thing it has to say when it fails
+            // before the pipe exists.
+            //
+            // Standard OUTPUT is deliberately left alone. A pipe server is exactly the kind that writes a
+            // banner there, and redirecting a stream nobody reads fills its buffer and blocks the child —
+            // turning a diagnostic into a hang. Redirect what is read; read what is redirected.
+            RedirectStandardError = true,
         };
 
         _logger.LogInformation(
@@ -224,16 +271,56 @@ public sealed class NamedPipeLspTransport : ILspTransport
         {
             // Process.Start returning null means the OS reused an existing instance; there is no child
             // to own or observe, so leave _process null and let the connect attempt decide the outcome.
+            // Recorded, because "launched and watchable" and "launched and not" are not the same record.
+            _launchedWithoutHandle = true;
             _logger.LogWarning("Process.Start returned no handle for {Exe}.", startInfo.FileName);
             return;
         }
 
         _process = process;
         process.EnableRaisingEvents = true;
+
+        process.ErrorDataReceived += (_, e) =>
+        {
+            if (e.Data is not { Length: > 0 }) return;
+
+            _logger.LogDebug("[lsp stderr] {Data}", e.Data);
+            Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.StandardError, e.Data));
+        };
+
         process.Exited += OnServerExited;
+        process.BeginErrorReadLine();
     }
 
-    private void OnServerExited(object? sender, EventArgs e) => Closed?.Invoke(this, EventArgs.Empty);
+    private void OnServerExited(object? sender, EventArgs e)
+    {
+        // Read first: Kill() and Dispose() are both moments away, and ExitCode throws once the handle
+        // is gone.
+        var code = ExitCode();
+
+        _logger.LogWarning(
+            "Language server process exited{Code}", code is null ? "" : $" with code {code}");
+
+        // BEFORE Closed, which is what tears the connection down. An exit code arriving after the record
+        // stopped accepting entries would be the one fact nobody could see — and for a pipe server that
+        // died during startup it is very nearly the only fact there is.
+        Notice?.Invoke(this, new TransportNotice(
+            TransportNoticeKind.Lifecycle,
+            code is null ? "process exited" : $"process exited with code {code}"));
+
+        Closed?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>The exit code, or null when the process cannot tell us.</summary>
+    /// <remarks>
+    /// Wrapped because reading it races teardown: a disposed or already-reaped handle throws rather than
+    /// answering, and a diagnostic must never be the thing that breaks a shutdown.
+    /// </remarks>
+    private int? ExitCode()
+    {
+        try { return _process?.HasExited == true ? _process.ExitCode : null; }
+        catch (Exception) { return null; }
+    }
 
     public async ValueTask DisposeAsync()
     {
