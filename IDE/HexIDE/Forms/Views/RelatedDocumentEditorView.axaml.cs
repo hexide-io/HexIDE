@@ -1,9 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using AvaloniaEdit;
+using AvaloniaEdit.Folding;
 using AvaloniaEdit.Highlighting;
 using Avalonia;
 using HexIDE.Controls;
@@ -17,6 +21,10 @@ public partial class RelatedDocumentEditorView : UserControl
 {
     private Action? _onPaletteChanged;
     private LspTextMarkerService? _markerService;
+    private FoldingManager? _foldingManager;
+    private TextEditor? _foldingEditor;
+    private CancellationTokenSource? _foldCts;
+    private EventHandler? _onTextChangedForFolding;
     private LspDiagnosticsColorizer? _colorizer;
     private System.ComponentModel.PropertyChangedEventHandler? _vmCaretSync;
     private EventHandler? _caretMoved;
@@ -74,6 +82,98 @@ public partial class RelatedDocumentEditorView : UserControl
         OnMarkersChanged(vm.Markers);
 
         AttachCaretSync(editor, vm);
+
+        // Folding, on the same terms as the VB6 editor. A carried file's URI is a real file: one, so an
+        // attached server can answer for it; the registry decides whether any server may.
+        _foldingManager = FoldingManager.Install(editor.TextArea);
+        _onTextChangedForFolding = (_, _) => ScheduleFolding(editor, vm);
+        editor.TextChanged += _onTextChangedForFolding;
+        _foldingEditor = editor;
+        ScheduleFolding(editor, vm);
+    }
+
+    /// <summary>
+    /// Requests folding ranges after a short settle, replacing any request already in flight.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The delay is not cosmetic and it is not only debouncing. A server starts on the first document of
+    /// a language it claims, which is this document — so at the moment this view attaches, the server it
+    /// needs is still starting and there is nobody to ask. Asking once on attach reliably returns nothing.
+    /// </para>
+    /// <para>
+    /// Re-running on every change is what recovers from that, and is the same discipline the VB6 editor
+    /// uses: whatever the first attempt missed, the next keystroke asks for again.
+    /// </para>
+    /// </remarks>
+    /// <summary>
+    /// Asks again once a publish proves the server is up.
+    /// </summary>
+    /// <remarks>
+    /// The settle below is a guess at how long a server takes to start, and for a carried file the server
+    /// is started BY this document - so the guess is against a process launch and an <c>initialize</c>,
+    /// which a node- or JVM-hosted server routinely outruns. The common carried file is a README somebody
+    /// opens to read and never types into, and for that document a missed first attempt is the whole
+    /// session. A published diagnostic is proof the server started, initialized and read the file, so it
+    /// is a better signal than any timeout.
+    /// </remarks>
+    private void RefoldOnFirstPublish()
+    {
+        if (_foldingEditor is not { } editor || DataContext is not RelatedDocumentEditorViewModel vm) return;
+        ScheduleFolding(editor, vm);
+    }
+
+    private void ScheduleFolding(TextEditor editor, RelatedDocumentEditorViewModel vm)
+    {
+        _foldCts?.Cancel();
+        _foldCts?.Dispose();
+        _foldCts = new CancellationTokenSource();
+        _ = FoldAfterDelayAsync(editor, vm, _foldCts.Token);
+    }
+
+    private async Task FoldAfterDelayAsync(TextEditor editor, RelatedDocumentEditorViewModel vm, CancellationToken token)
+    {
+        try
+        {
+            await Task.Delay(500, token);
+            await RequestFoldingsAsync(editor, vm, token);
+        }
+        catch (OperationCanceledException) { }
+    }
+
+    /// <summary>
+    /// Asks for folding ranges once the document is in place and applies whatever comes back.
+    /// </summary>
+    /// <remarks>
+    /// Failure is silent by design: a server that does not fold, or one that has not finished starting,
+    /// costs this document its chevrons and nothing else. The VB6 editor makes the same trade.
+    /// </remarks>
+    private async Task RequestFoldingsAsync(TextEditor editor, RelatedDocumentEditorViewModel vm, CancellationToken token)
+    {
+        if (_foldingManager is null) return;
+
+        try
+        {
+            var ranges = await vm.RequestFoldingRangesAsync(token);
+            if (token.IsCancellationRequested) return;
+
+            // An empty answer is applied rather than skipped, which is what clears folds that no longer
+            // fold anything - deleting the last procedure should take its chevron with it. The VB6
+            // editor does the same, and a guard here would freeze the last good set in place.
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                // Re-checked inside the post: a dock move can detach this view between the await and here,
+                // and Apply against an uninstalled manager throws.
+                if (token.IsCancellationRequested || _foldingManager is null) return;
+                Vb6FoldingAdapter.Apply(_foldingManager, editor.Document, ranges);
+            });
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "Folding ranges were not applied for the carried document.");
+        }
     }
 
     /// <summary>
@@ -129,6 +229,27 @@ public partial class RelatedDocumentEditorView : UserControl
 
     protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
     {
+        _foldCts?.Cancel();
+        _foldCts?.Dispose();
+        _foldCts = null;
+
+        if (_onTextChangedForFolding is not null)
+        {
+            // Null-checked rather than forgiven: detach can run after the template is gone, and the
+            // handler being non-null says nothing about the control still being findable.
+            var foldingEditor = this.FindControl<TextEditor>("TextEditor");
+            if (foldingEditor is not null) foldingEditor.TextChanged -= _onTextChangedForFolding;
+            _onTextChangedForFolding = null;
+        }
+
+        if (_foldingManager is not null)
+        {
+            FoldingManager.Uninstall(_foldingManager);
+            _foldingManager = null;
+        }
+
+        _foldingEditor = null;
+
         base.OnDetachedFromVisualTree(e);
 
         if (DataContext is RelatedDocumentEditorViewModel vm)
@@ -158,6 +279,10 @@ public partial class RelatedDocumentEditorView : UserControl
     {
         _markerService?.SetMarkers(markers);
         _colorizer?.SetMarkers(markers);
+
+        // A publish means a server started, initialized and read this document - which is the one thing
+        // the folding request needs and the one thing the settle below can only guess at.
+        RefoldOnFirstPublish();
     }
 
     /// <summary>
