@@ -29,3 +29,6 @@
 # would match a directory of that name at any depth, which is the kind of over-broad rule that breaks
 # things far away from where it was written.
 /corpus/** -text
+
+# ANSI art embedded by the IDE is compared and shipped byte-for-byte; keep it LF on every checkout.
+*.ans text eol=lf
