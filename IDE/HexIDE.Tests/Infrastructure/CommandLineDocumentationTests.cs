@@ -1,4 +1,4 @@
-using System.Reflection;
+using System.Text.RegularExpressions;
 
 namespace HexIDE.Tests.Infrastructure;
 
@@ -19,9 +19,14 @@ namespace HexIDE.Tests.Infrastructure;
 /// <c>en.json</c> has against the AXAML, applied to the third surface with the same failure mode.
 /// </para>
 /// <para>
-/// Reflection rather than a project reference: <c>HexIDE.Desktop</c> is an executable nothing in the tree
-/// references, and adding a reference to it from a test project would pull the automation server and its
-/// AspNetCore dependency into every test run.
+/// <b>Read from the source, not by reflecting over the built assembly</b>, and that is not a stylistic
+/// preference. Nothing in the tree references <c>HexIDE.Desktop</c>, so its <c>bin/</c> holds an assembly
+/// only once somebody has built that project: on CI the step that does so runs two steps AFTER this
+/// suite, and in a fresh clone running the documented <c>dotnet test HexIDE.Tests/</c> it never runs at
+/// all. The reflecting version therefore failed three tests on first contact and passed only on a
+/// machine that happened to have built the IDE — a guard reporting on the state of a working directory
+/// rather than on the thing it was written to check. Both halves of the question are claims about
+/// source anyway, so nothing is lost by reading it.
 /// </para>
 /// </remarks>
 public class CommandLineDocumentationTests
@@ -29,41 +34,29 @@ public class CommandLineDocumentationTests
     private static readonly string[] Flags = FlagNames();
 
     /// <summary>
-    /// The flag names, read out of the built desktop assembly's own option table.
+    /// The flag names, read out of the desktop project's own option table.
     /// </summary>
     /// <remarks>
     /// Read from the table rather than restated here, so this test cannot itself become the stale copy it
-    /// exists to prevent.
+    /// exists to prevent. Scoped to the table's own bounds, so an unrelated <c>new("…")</c> elsewhere in
+    /// the file cannot be mistaken for an option.
     /// </remarks>
     private static string[] FlagNames()
     {
-        var assembly = Assembly.LoadFrom(DesktopAssemblyPath());
-        var options = assembly.GetType("HexIDE.Desktop.ServerOptions", throwOnError: true)!;
-        var table = (System.Collections.IEnumerable)options
-            .GetProperty("Options", BindingFlags.Public | BindingFlags.Static)!
-            .GetValue(null)!;
+        var source = File.ReadAllText(Path.Combine(
+            RepoRoot(), "IDE", "HexIDE.Desktop", "ServerOptions.cs"));
 
-        var names = new List<string>();
-        foreach (var option in table)
-        {
-            names.Add((string)option.GetType().GetProperty("Name")!.GetValue(option)!);
-        }
+        var start = source.IndexOf("Options { get; } =", StringComparison.Ordinal);
+        start.Should().BeGreaterThan(-1, "ServerOptions still declares the option table this reads");
 
-        return [.. names];
-    }
+        var end = source.IndexOf("];", start, StringComparison.Ordinal);
+        end.Should().BeGreaterThan(start, "the option table is closed off where this expects");
 
-    private static string DesktopAssemblyPath()
-    {
-        var here = AppContext.BaseDirectory;
-        var configuration = here.Contains("Release", StringComparison.OrdinalIgnoreCase) ? "Release" : "Debug";
-
-        var candidate = Path.GetFullPath(Path.Combine(
-            RepoRoot(), "IDE", "HexIDE.Desktop", "bin", configuration, "net10.0", "HexIDE.Desktop.dll"));
-
-        File.Exists(candidate).Should().BeTrue(
-            $"the desktop assembly is what carries the option table; expected it at {candidate}");
-
-        return candidate;
+        return
+        [
+            .. Regex.Matches(source[start..end], """new\("(?<name>[a-z][a-z-]*)",""")
+                .Select(match => match.Groups["name"].Value)
+        ];
     }
 
     private static string RepoRoot()
@@ -89,9 +82,9 @@ public class CommandLineDocumentationTests
     [Fact]
     public void TheTableIsNotEmpty()
     {
-        // Everything below passes vacuously if the reflection quietly returned nothing, which is exactly
-        // how a guard like this fails open.
-        Flags.Should().NotBeEmpty("the option table was read from the desktop assembly");
+        // Everything below passes vacuously if the scan quietly matched nothing, which is exactly how a
+        // guard like this fails open.
+        Flags.Should().NotBeEmpty("the option table was read from ServerOptions.cs");
         Flags.Should().Contain("help", "the flag these tests exist because of");
     }
 
@@ -119,8 +112,7 @@ public class CommandLineDocumentationTests
         // paragraph behind, and the page goes on promising something the program no longer does.
         var reference = Reference();
 
-        var documented = System.Text.RegularExpressions.Regex
-            .Matches(reference, @"`--(?<name>[a-z][a-z-]*)`")
+        var documented = Regex.Matches(reference, "`--(?<name>[a-z][a-z-]*)`")
             .Select(m => m.Groups["name"].Value)
             .Distinct();
 
