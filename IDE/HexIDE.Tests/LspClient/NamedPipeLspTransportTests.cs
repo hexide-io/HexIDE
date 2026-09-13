@@ -29,7 +29,7 @@ public class NamedPipeLspTransportTests
 
     private NamedPipeLspTransport CreateSut(
         string pipeName, NamedPipeRole role, TimeSpan? timeout = null, NamedPipeLaunch? launch = null)
-        => new(pipeName, role, _logger, launch, timeout ?? TimeSpan.FromSeconds(10));
+        => new(pipeName, role, _logger, launch, connectTimeout: timeout ?? TimeSpan.FromSeconds(10));
 
     [Fact]
     public async Task InListenRole_TheTransportCreatesThePipeAndAServerDialsIn()

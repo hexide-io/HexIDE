@@ -173,7 +173,11 @@ public sealed class LanguageServerRegistrationFactory(
                 // configuration the pipe arm could only ever CONNECT — a server reached this way had to be
                 // started by hand, outside the IDE, before the IDE would find it. A command makes the
                 // entry self-contained; without one the behaviour is exactly as before.
-                LaunchFor(entry)),
+                LaunchFor(entry),
+                // The workspace, which the stdio arm has always had and this one never did. Without it a
+                // pipe entry needing the workspace on its command line could only hard-code one absolute
+                // path, so it served exactly one project on exactly one machine.
+                workspace),
 
             _ => null,
         };
