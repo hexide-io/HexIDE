@@ -340,6 +340,7 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 | `interact(target, action, value?)` | Drive a control. Provider actions: `invoke`/`select`/`set_value`/`toggle`/`expand`/`collapse`. Reflection actions (DataContext VM): `invoke_command`/`set_property`. `select` also reaches a **DataGrid row**, whose own peer offers no provider — clicking a row is how every master-detail window here is used. The generic substitute for per-interaction tools. |
 
 **CLI flags** (both `--` and `/` prefixes accepted, aligning with VB6 convention):
+- `--help` — print usage and exit without starting the IDE; also `-h`, `/?`, `-?`
 - `--server-port <port>` — enable the MCP server on the given port (all launch profiles use 5123)
 - `--newproject` — skip the startup dialog and create a default Standard EXE project
 - `--capture-lsp` — arm the protocol capture for every language-server connection **before any is made**, so a conversation is recorded in full from its first handshake. Arming is otherwise session-scoped and the documented rebuild cycle restarts the IDE every iteration, which is what this exists for. **Unlike `--server-port`, this is not DEBUG-only**: the capture ships and the automation server does not
@@ -347,10 +348,15 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 - `--personality <vb6|vbaode|vba>` — the IDE personality for the session
 - Positional `.vbp` path — skip the startup dialog and open that project
 
-The user-facing reference is [`docs/command-line.md`](docs/command-line.md), and it is the one to update
-when a flag is added — this list exists because the dev loop needs three of them constantly, not as a
-second source of truth. Note what the parser does NOT do: there is no `--help`, and an unrecognised
-argument is skipped in silence, so a flag that seems to have done nothing was probably never read.
+**Adding a flag is two places, and the build enforces the second.** Declare it in
+`ServerOptions.Options` — that one list is read by both the parser and `--help`, so a flag cannot be
+accepted without being printed — then add a row to the options table in
+[`docs/command-line.md`](docs/command-line.md). `CommandLineDocumentationTests` fails the build when the
+table is missing a flag the parser accepts, or names one it does not.
+
+The list above exists because the dev loop needs three of them constantly; it is not a third source of
+truth, and nothing checks it. Note what the parser still does NOT do: an unrecognised argument is skipped
+in silence, so a flag that seems to have done nothing was probably never read.
 
 **The server answers loopback only, and now checks that rather than assuming it.** A request whose `Host`
 header does not name a loopback address on the bound port is refused with **403** before it reaches any
