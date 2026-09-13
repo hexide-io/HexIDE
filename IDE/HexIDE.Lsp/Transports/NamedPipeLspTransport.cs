@@ -24,11 +24,26 @@ public enum NamedPipeRole
 }
 
 /// <summary>
-/// How to start a server that needs launching before the pipe can be used. <paramref name="Arguments"/>
-/// may contain the placeholder <c>{pipe}</c>, which is replaced with the agreed pipe name.
+/// How to start a server that needs launching before the pipe can be used.
 /// </summary>
+/// <remarks>
+/// <paramref name="Arguments"/> may contain three placeholders:
+/// <list type="bullet">
+///   <item><c>{pipe}</c> — the agreed pipe name.</item>
+///   <item><c>{workspaceUri}</c> — the open workspace as a <c>file:</c> URI, spelled exactly as the
+///     client's <c>rootUri</c> spells it.</item>
+///   <item><c>{workspaceDir}</c> — the same directory as a plain path, for a server that wants one.</item>
+/// </list>
+///
+/// <para>
+/// <b>The workspace ones exist because a pipe server cannot be told any other way.</b> A stdio server
+/// inherits the workspace as its working directory; a pipe server that requires the workspace as an
+/// argument had no route to it, so an entry could only ever hard-code one absolute path and would then
+/// serve exactly one project on one machine.
+/// </para>
+/// </remarks>
 /// <param name="FileName">Executable to start.</param>
-/// <param name="Arguments">Command line; <c>{pipe}</c> is substituted.</param>
+/// <param name="Arguments">Command line; the placeholders above are substituted.</param>
 /// <param name="WorkingDirectory">
 /// Working directory for the child. Not cosmetic: a server may resolve its own configuration
 /// relative to the process CWD, in which case launching from the wrong directory fails in a way that
@@ -72,6 +87,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
     private readonly string _pipeName;
     private readonly NamedPipeRole _role;
     private readonly NamedPipeLaunch? _launch;
+    private readonly ILspWorkspace? _workspace;
     private readonly TimeSpan _connectTimeout;
     private readonly ILogger<NamedPipeLspTransport> _logger;
 
@@ -94,12 +110,14 @@ public sealed class NamedPipeLspTransport : ILspTransport
         NamedPipeRole role,
         ILogger<NamedPipeLspTransport> logger,
         NamedPipeLaunch? launch = null,
+        ILspWorkspace? workspace = null,
         TimeSpan? connectTimeout = null)
     {
         _pipeName = pipeName;
         _role = role;
         _logger = logger;
         _launch = launch;
+        _workspace = workspace;
         _connectTimeout = connectTimeout ?? TimeSpan.FromSeconds(DefaultConnectTimeoutSeconds);
     }
 
@@ -166,6 +184,13 @@ public sealed class NamedPipeLspTransport : ILspTransport
         // endpoint, rather than leaking a half-open pipe that the next dial would collide with.
         await DisposeAsync();
 
+        // Resolved before the pipe exists and before anything is started, because a placeholder that
+        // cannot be filled is a knowable precondition rather than a connect failure — and reporting it as
+        // a timeout thirty seconds later would describe the wrong problem.
+        string? arguments = null;
+        if (_launch is not null && (arguments = ResolveArguments()) is null)
+            return null;
+
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(_connectTimeout);
 
@@ -176,7 +201,7 @@ public sealed class NamedPipeLspTransport : ILspTransport
             PipeStream pipe = _role == NamedPipeRole.Listen ? CreateListener() : CreateDialler();
             _pipe = pipe;
 
-            StartServerIfConfigured();
+            StartServerIfConfigured(arguments);
 
             _logger.LogInformation(
                 "Connecting to VB LSP server over named pipe '{Pipe}' ({Role}).", _pipeName, _role);
@@ -237,7 +262,86 @@ public sealed class NamedPipeLspTransport : ILspTransport
     private NamedPipeClientStream CreateDialler() =>
         new(serverName: ".", _pipeName, PipeDirection.InOut, Options);
 
-    private void StartServerIfConfigured()
+    /// <summary>
+    /// The launch arguments with their placeholders filled in, or null when one of them cannot be.
+    /// </summary>
+    /// <remarks>
+    /// Null is a refusal, not an empty string. Substituting nothing for <c>{workspaceUri}</c> hands the
+    /// server a flag with no value, and a server whose workspace argument is mandatory then fails in its
+    /// own vocabulary — a startup error the reader has to decode back into "no project was open". Saying
+    /// so here costs one line and names the actual cause.
+    /// </remarks>
+    private string? ResolveArguments()
+    {
+        var arguments = _launch!.Arguments.Replace("{pipe}", _pipeName, StringComparison.Ordinal);
+
+        var wantsUri = arguments.Contains("{workspaceUri}", StringComparison.Ordinal);
+        var wantsDir = arguments.Contains("{workspaceDir}", StringComparison.Ordinal);
+        if (!wantsUri && !wantsDir) return arguments;
+
+        var directory = WorkspaceDirectory();
+        if (string.IsNullOrWhiteSpace(directory))
+        {
+            LastFailure =
+                $"'{_launch.FileName}' is configured with a workspace placeholder and no project is open, "
+                + "so there is no workspace to give it";
+            _logger.LogWarning("{Failure}.", LastFailure);
+            return null;
+        }
+
+        if (wantsUri)
+        {
+            // The same spelling the client sends as rootUri. If they disagree the server loads one
+            // workspace and answers about another, which does not look like a failure from here.
+            var uri = LspWorkspaceUri.For(directory);
+            if (uri is null)
+            {
+                LastFailure =
+                    $"the workspace directory '{directory}' cannot be expressed as a URI, "
+                    + $"which '{_launch.FileName}' was configured to require";
+                _logger.LogWarning("{Failure}.", LastFailure);
+                return null;
+            }
+
+            arguments = arguments.Replace("{workspaceUri}", uri, StringComparison.Ordinal);
+        }
+
+        return wantsDir
+            ? arguments.Replace("{workspaceDir}", directory, StringComparison.Ordinal)
+            : arguments;
+    }
+
+    /// <summary>
+    /// Where the server PROCESS runs: the explicit setting if there is one, else the open workspace.
+    /// </summary>
+    /// <remarks>
+    /// The same rule the stdio transport applies, and for the same reason — a server resolves its own
+    /// configuration relative to where it runs, and servers start lazily, so the answer is not knowable
+    /// when the registration is built. An explicit setting always wins: somebody who named one meant it.
+    /// </remarks>
+    private string WorkingDirectory()
+    {
+        if (!string.IsNullOrWhiteSpace(_launch?.WorkingDirectory))
+            return _launch.WorkingDirectory;
+
+        return _workspace?.Directory is { } d && !string.IsNullOrWhiteSpace(d) ? d : "";
+    }
+
+    /// <summary>
+    /// Which workspace the server should ANALYSE. Always the open project, never the launch directory.
+    /// </summary>
+    /// <remarks>
+    /// <b>Deliberately not <see cref="WorkingDirectory"/>, though the first draft of this used it.</b> The
+    /// two answer different questions and only coincide by accident. A server with a required layout is
+    /// launched from its own install directory — that is what <c>workingDirectory</c> is for — while the
+    /// code it must analyse is wherever the user's project is. Filling <c>{workspaceUri}</c> from the
+    /// launch directory would hand such a server its own installation as the workspace: it would start,
+    /// report cleanly, and answer every question about the wrong tree. A wrong answer, not a failure.
+    /// </remarks>
+    private string? WorkspaceDirectory() =>
+        _workspace?.Directory is { } d && !string.IsNullOrWhiteSpace(d) ? d : null;
+
+    private void StartServerIfConfigured(string? arguments)
     {
         if (_launch is null)
             return;
@@ -245,8 +349,8 @@ public sealed class NamedPipeLspTransport : ILspTransport
         var startInfo = new ProcessStartInfo
         {
             FileName = _launch.FileName,
-            Arguments = _launch.Arguments.Replace("{pipe}", _pipeName, StringComparison.Ordinal),
-            WorkingDirectory = _launch.WorkingDirectory ?? string.Empty,
+            Arguments = arguments ?? _launch.Arguments,
+            WorkingDirectory = WorkingDirectory(),
             UseShellExecute = false,
             CreateNoWindow = true,
 

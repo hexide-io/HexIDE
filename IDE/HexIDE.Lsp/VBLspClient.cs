@@ -594,16 +594,16 @@ public sealed class VBLspClient : ILspClient
         var directory = _workspace?.Directory;
         if (string.IsNullOrWhiteSpace(directory)) return null;
 
-        try
-        {
-            return new Uri(Path.GetFullPath(directory)).AbsoluteUri;
-        }
-        catch (Exception ex)
-        {
-            // A path that cannot be made into a URI costs the root, not the connection.
-            _logger.LogWarning(ex, "Could not express the workspace directory {Directory} as a URI", directory);
-            return null;
-        }
+        // Shared with the {workspaceUri} launch placeholder rather than spelled again here. A server told
+        // one directory on its command line and a different one at initialize answers about the wrong
+        // workspace without failing, which is the worst shape a disagreement can take.
+        var uri = LspWorkspaceUri.For(directory);
+
+        // A path that cannot be made into a URI costs the root, not the connection.
+        if (uri is null)
+            _logger.LogWarning("Could not express the workspace directory {Directory} as a URI", directory);
+
+        return uri;
     }
 
     /// <summary>
