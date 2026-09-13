@@ -125,39 +125,66 @@ only.
 gigabytes and you get the ceiling, with a line in the servers window naming the field and the value used.
 Nothing here can stop the IDE starting.
 
-## Letting HexIDE start a pipe server
-
-A `pipe` entry connects to a server that is already running. Give it a `command` and HexIDE will start
-that server itself, then connect to it — which makes the entry self-contained, rather than something that
-only works if you remembered to launch the server first.
-
-```jsonc
-{
-  "id": "example",
-  "extensions": [".bas"],
-  "languageId": "vba",
-  "transport": "pipe",
-  "pipeName": "hexide.example",
-  "command": "C:/tools/example-server.exe",
-  "arguments": "--pipe {pipe}",
-  "workingDirectory": "C:/tools/example"
-}
-```
-
-**`{pipe}` in `arguments` is replaced with the pipe name.** Without it this would not be much use: a
-server that has to be told which pipe to create cannot be given a fixed command line.
-
-`workingDirectory` matters more here than it does for `stdio`. Some servers resolve their own
-configuration relative to where they were started, so the directory you launch them from is part of
-whether they work at all. Leave it out and the server inherits the IDE's.
-
-**A launched server is not reconnected to.** When HexIDE owns the process, a server that dies stays dead
-for the session: retrying the same pipe would mean waiting for something nobody is going to start. A pipe
-entry with no `command` behaves as it always has, and is re-dialled, because its lifetime is someone
-else's business.
-
-It also changes who is announcing what — see below.
-
+## Letting HexIDE start a pipe server
+
+A `pipe` entry connects to a server that is already running. Give it a `command` and HexIDE will start
+that server itself, then connect to it — which makes the entry self-contained, rather than something that
+only works if you remembered to launch the server first.
+
+```jsonc
+{
+  "id": "example",
+  "extensions": [".bas"],
+  "languageId": "vba",
+  "transport": "pipe",
+  "pipeName": "hexide.example",
+  "command": "C:/tools/example-server.exe",
+  "arguments": "--pipe {pipe} --workspace {workspaceUri}",
+  "workingDirectory": "C:/tools/example"
+}
+```
+
+### Placeholders in `arguments`
+
+| Placeholder | Becomes |
+|---|---|
+| `{pipe}` | The pipe name. |
+| `{workspaceUri}` | The open project as a `file:` URI — the same one sent as `rootUri`. |
+| `{workspaceDir}` | The same directory as a plain path. |
+
+**`{pipe}` is the one you will always need**: a server that has to be told which pipe to create cannot be
+given a fixed command line.
+
+**The workspace pair is for a server that takes the workspace as an argument** rather than reading it from
+the handshake. Without them such an entry could only name one absolute path, so it would serve one project
+on one machine — and a `.vbg` group or a second checkout would silently point the server at the wrong tree.
+
+`{workspaceUri}` is spelled by the same code that spells `rootUri`, so the two cannot disagree. That
+matters more than it sounds: a server told one directory on its command line and a different one at
+initialize does not fail — it loads one workspace and answers questions about the other.
+
+**With no project open, an entry using either workspace placeholder is not launched**, and the reason says
+so. Substituting nothing would hand the server a flag with no value and let it fail in its own vocabulary,
+which the reader then has to translate back into "no project was open".
+
+### `workingDirectory` is a different question
+
+It says where the server **runs**; the placeholders say which workspace it should **analyse**. They are
+easy to conflate and often differ: a server with a required install layout has to be launched from its own
+directory, while the code it must read is wherever your project is. HexIDE keeps them separate, so setting
+`workingDirectory` never changes what `{workspaceUri}` expands to.
+
+Leave `workingDirectory` out and the server runs in the open project's directory, the same as `stdio`. Set
+it when the server needs to be somewhere specific — some servers resolve their own configuration relative
+to where they were started, and that is part of whether they work at all.
+
+**A launched server is not reconnected to.** When HexIDE owns the process, a server that dies stays dead
+for the session: retrying the same pipe would mean waiting for something nobody is going to start. A pipe
+entry with no `command` behaves as it always has, and is re-dialled, because its lifetime is someone
+else's business.
+
+It also changes who is announcing what — see below.
+
 ## A command you have not run before
 
 The first time HexIDE is asked to launch a particular command line, it says so rather than launching it
