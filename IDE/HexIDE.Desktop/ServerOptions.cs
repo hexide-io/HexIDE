@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using HexIDE.IDE;
 
 namespace HexIDE.Desktop;
 
@@ -78,8 +79,12 @@ internal static class ServerOptions
             "Create a Standard EXE and skip the startup dialog.",
             _ => { NewProject = true; return false; }),
 
+        // Summaries stay under 58 characters. The option rows are the widest thing in --help, and the mark
+        // sits beside them only while the widest fits in 120 columns — the default width of both Windows
+        // consoles and Windows Terminal — with the mark's 24 and the gutter's 2 in front of it. One longer
+        // summary silently demotes every default-sized window to the stacked layout.
         new("capture-lsp", null,
-            "Record every language-server conversation from its first handshake.",
+            "Record every language-server conversation in full.",
             _ => { CaptureLsp = true; return false; }),
 
         new("personality", "<vb6|vbaode|vba>",
@@ -118,47 +123,50 @@ internal static class ServerOptions
         }
     }
 
-    /// <summary>The usage text, rendered from <see cref="Options"/> so it cannot fall behind them.</summary>
-    public static string HelpText()
+    /// <summary>
+    /// The usage text, rendered from <see cref="Options"/> so it cannot fall behind them, laid out for the
+    /// console it is going to.
+    /// </summary>
+    /// <remarks>
+    /// Two independent choices, made from <paramref name="target"/>: which mark (colour where the console
+    /// can show it, ASCII otherwise), and which layout (the mark beside the text where the rows fit, above
+    /// it where they would wrap). Beside keeps the whole of <c>--help</c> on one 24-row screen; stacked
+    /// costs a couple of rows more than the text alone, which is the right trade in a window already too
+    /// narrow for the option lines.
+    /// </remarks>
+    public static string HelpText(ConsoleTarget target)
     {
         var width = Options.Max(o => Spelling(o).Length);
 
-        var lines = Options.Select(o => $"  {Spelling(o).PadRight(width)}  {o.Summary}");
+        string[] text =
+        [
+            "",
+            "HexIDE - an open, cross-platform IDE for Visual Basic 6 & VBA.",
+            "",
+            "Usage:",
+            "  HexIDE.Desktop [options] [<project>.vbp]",
+            "",
+            "Options:",
+            .. Options.Select(o => $"  {Spelling(o).PadRight(width)}  {o.Summary}"),
+        ];
 
-        return $"""
-{Banner}
-HexIDE - an open, cross-platform IDE for Visual Basic 6 & VBA.
+        var mark = target.Colour ? HelpMark.Colour() : HelpMark.Mono();
+        var body = ConsoleLayout.FitsBeside(target.Width, HelpMark.Width, text)
+            ? ConsoleLayout.Beside(mark, text, HelpMark.Width)
+            : ConsoleLayout.Stacked(mark, text);
 
-Usage:
-  HexIDE.Desktop [options] [<project>.vbp]
+        string[] tail =
+        [
+            "",
+            "Both prefixes work: --newproject and /newproject are the same flag, matched",
+            "case-insensitively. An argument HexIDE does not recognise is ignored without",
+            "complaint, so a flag that appears to do nothing may simply be misspelled.",
+            "",
+            "Full reference: docs/command-line.md",
+        ];
 
-Options:
-{string.Join(Environment.NewLine, lines)}
-
-Both prefixes work: --newproject and /newproject are the same flag, matched
-case-insensitively. An argument HexIDE does not recognise is ignored without
-complaint, so a flag that appears to do nothing may simply be misspelled.
-
-Full reference: docs/command-line.md
-""";
+        return string.Join(Environment.NewLine, [.. body, .. tail]);
     }
-
-    /// <summary>
-    /// The mark: the hexagon, and the six bonds that make the "hex" a molecule rather than a shape.
-    /// </summary>
-    private const string Banner = """
-
-       _-----------_
-     /       o       \
-    /   o    |    o   \
-   |      \  |  /      |
-   |       \ | /       |
-   |       / | \       |
-   |      /  |  \      |
-    \   o    |    o   /
-     \_______o_______/
-
-""";
 
     private static string Spelling(CommandLineOption option) =>
         option.TakesValue ? $"--{option.Name} {option.ValueName}" : $"--{option.Name}";

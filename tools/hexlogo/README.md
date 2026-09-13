@@ -7,20 +7,35 @@
 
 ```sh
 cd tools/hexlogo
-python hexlogo.py --mode half --width 24 --ss 6 --pad -o hexide-logo-24.ans
+python hexlogo.py --mode half --width 24 --ss 6 --pad --crop -o hexide-logo-24.ans
 ```
 
 Python 3 only, no packages. The output is deterministic, so a regeneration that changes nothing produces
-a clean `git status`.
+a clean `git status`. `HelpMarkArtTests` checks the file's shape (12 rows, 24 cells each, SGR only, every
+row reset) on every test run, so a regeneration that breaks the contract fails the build rather than the
+help screen.
 
+- `--width 24` is the box: 24 cells wide, and in `half` mode 24 pixels tall, which is 12 rows. It is the
+  largest mark that keeps `--help` on one 24-row screen with the text beside it. The 60-column rendering
+  that was considered first is faithful and pushes the option list off screen.
+- `--crop` fits the hexagon's bounding box to that grid instead of the SVG's whole 200×200 canvas. The
+  canvas has margins; without this the mark is 10 rows of hexagon in a 12-row box with a blank row at top
+  and bottom. Cropped, it is 12 rows tall and 20 cells wide, centred in the 24-cell box.
+- `--pad` keeps every row at exactly 24 visible cells. Without it the trailing transparent cells are
+  trimmed, which is fine for printing on its own and wrong for laying text beside it.
 - `--ss 6` is the supersampling factor: each cell averages a 6×6 grid of samples. It does not change the
   silhouette (measured: 4, 5, 6 and 8 all give the same shape at this width), only the blended colour of
   edge cells, so keep it at 6 because that is what produced the checked-in bytes. Changing it produces a
   file that differs without looking different, which is the wrong kind of diff.
-- `--pad` keeps every row at exactly 24 visible cells. Without it the trailing transparent cells are
-  trimmed, which is fine for printing on its own and wrong for laying text beside it.
-- `--width 24` is the largest mark that keeps `--help` on one 24-row screen when the text sits beside it.
-  The 60-column rendering that was considered first is faithful and pushes the option list off screen.
+
+### How `--help` places it
+
+`ConsoleLayout` (in `HexIDE.Core`) puts the mark beside the text when the console is at least 24 + 2 +
+the widest text row wide, and above it otherwise. The widest row is an option line, and the summaries in
+`ServerOptions.Options` are kept short enough that beside fits in 120 columns, the default width of both
+Windows consoles and Windows Terminal. Stacked costs about two rows more than the text alone, so a narrow
+window comes out slightly taller than it did before the mark existed. That is deliberate: a window too
+narrow for the option lines is already wrapping them, and height is not the constraint there.
 
 ## What the file is
 

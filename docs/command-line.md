@@ -59,6 +59,14 @@ looking for a deeper cause, and `--help` will tell you how a flag is spelled.
 Windows it writes to the console that launched it: HexIDE is a GUI program and owns no console of its own,
 so run from a shortcut or Explorer there is nowhere for the text to go and nothing appears.
 
+**The mark at the top is in colour where the terminal can show it.** That means output going to a
+terminal rather than a file or pipe, `NO_COLOR` unset, and a terminal that takes 24-bit colour: any Windows
+console since Windows 10 1703, Windows Terminal, and on other platforms a terminal that declares
+`COLORTERM=truecolor`. Anywhere else, `--help > file` included, the same mark is drawn in plain ASCII, so
+the captured text reads the same in an editor. The mark sits beside the text when the window is wide
+enough for the longest option line, which a 120-column window is, and above it when it is not; in a
+narrower window the option lines wrap either way, so height is not the constraint there.
+
 ## Keeping this page true
 
 The options above are declared once, in `ServerOptions.Options`, and both the parser and `--help` read

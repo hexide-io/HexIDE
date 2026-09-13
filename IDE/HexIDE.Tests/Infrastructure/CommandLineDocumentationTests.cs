@@ -44,7 +44,7 @@ public class CommandLineDocumentationTests
     private static string[] FlagNames()
     {
         var source = File.ReadAllText(Path.Combine(
-            RepoRoot(), "IDE", "HexIDE.Desktop", "ServerOptions.cs"));
+            RepoTree.Root(), "IDE", "HexIDE.Desktop", "ServerOptions.cs"));
 
         var start = source.IndexOf("Options { get; } =", StringComparison.Ordinal);
         start.Should().BeGreaterThan(-1, "ServerOptions still declares the option table this reads");
@@ -59,25 +59,8 @@ public class CommandLineDocumentationTests
         ];
     }
 
-    private static string RepoRoot()
-    {
-        var dir = new DirectoryInfo(AppContext.BaseDirectory);
-        while (dir is not null)
-        {
-            if (Directory.Exists(Path.Combine(dir.FullName, "IDE")) &&
-                Directory.Exists(Path.Combine(dir.FullName, "LspServer")))
-            {
-                return dir.FullName;
-            }
-
-            dir = dir.Parent;
-        }
-
-        throw new InvalidOperationException("no ancestor holds both IDE/ and LspServer/");
-    }
-
     private static string Reference() =>
-        File.ReadAllText(Path.Combine(RepoRoot(), "docs", "command-line.md"));
+        File.ReadAllText(Path.Combine(RepoTree.Root(), "docs", "command-line.md"));
 
     [Fact]
     public void TheTableIsNotEmpty()

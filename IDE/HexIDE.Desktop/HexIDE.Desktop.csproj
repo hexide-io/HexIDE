@@ -83,6 +83,10 @@
     <AvaloniaResource Include="..\HexIDE\Icons\AppIcon\hexide.ico">
       <Link>Icons\AppIcon\hexide.ico</Link>
     </AvaloniaResource>
+    <!-- The mark that heads the help text, in colour. Generated, not drawn: tools/hexlogo/README.md has
+         the command. Read by HelpMark under the logical name, so the folder it lives in is not part of
+         the contract. -->
+    <EmbeddedResource Include="..\..\tools\hexlogo\hexide-logo-24.ans" LogicalName="hexide-logo-24.ans" />
   </ItemGroup>
 
   <!-- ── First-party add-in packaging ────────────────────────────────────────────────

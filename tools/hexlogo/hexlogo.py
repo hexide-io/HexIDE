@@ -87,8 +87,23 @@ def sample(x, y):
     return (r * k, g * k, b * k)
 
 # ---------------------------------------------------------------- raster
-def render_pixels(w, h, ss=4, margin=0.0):
-    """Return h rows of w pixels, each (r,g,b) or None. Square SVG mapped onto w x h box (may be non-square)."""
+HEX_BOX = (29.0, 13.0, 171.0, 187.0)  # the hexagon's bounding box in SVG units
+
+def render_pixels(w, h, ss=4, margin=0.0, crop=False):
+    """Return h rows of w pixels, each (r,g,b) or None.
+
+    Without crop, the whole 200x200 SVG box is mapped onto the w x h pixel grid. With crop, only the
+    hexagon's bounding box is, scaled uniformly to fill the grid's height or width (whichever binds) and
+    centred, so a mark of 12 rows really is 12 rows of hexagon rather than 10 with the SVG's margins.
+    """
+    if crop:
+        x0, y0, x1, y1 = HEX_BOX
+        x0 -= margin; y0 -= margin; x1 += margin; y1 += margin
+    else:
+        x0, y0, x1, y1 = -margin, -margin, 200 + margin, 200 + margin
+    scale = min(w / (x1 - x0), h / (y1 - y0))          # pixels per SVG unit, uniform
+    ox = (w - (x1 - x0) * scale) / 2                     # letterbox offsets in pixels
+    oy = (h - (y1 - y0) * scale) / 2
     rows = []
     for j in range(h):
         row = []
@@ -96,10 +111,10 @@ def render_pixels(w, h, ss=4, margin=0.0):
             acc = [0.0, 0.0, 0.0]; cov = 0
             for sj in range(ss):
                 for si in range(ss):
-                    fx = (i + (si + 0.5) / ss) / w
-                    fy = (j + (sj + 0.5) / ss) / h
-                    x = lerp(-margin, 200 + margin, fx)
-                    y = lerp(-margin, 200 + margin, fy)
+                    px = i + (si + 0.5) / ss
+                    py = j + (sj + 0.5) / ss
+                    x = x0 + (px - ox) / scale
+                    y = y0 + (py - oy) / scale
                     c = sample(x, y)
                     if c is not None:
                         cov += 1
@@ -214,6 +229,7 @@ def main():
     ap.add_argument("--depth", type=int, choices=[24, 256], default=24)
     ap.add_argument("--ss", type=int, default=4, help="supersample factor per pixel axis")
     ap.add_argument("--margin", type=float, default=0.0, help="extra SVG units of padding around the 200x200 box")
+    ap.add_argument("--crop", action="store_true", help="fit the hexagon's bounding box to the grid instead of the whole SVG canvas (bigger mark, same box)")
     ap.add_argument("--pad", action="store_true", help="keep every row exactly --width visible cells (no trailing trim), for side-by-side layouts")
     ap.add_argument("-o", "--out", help="write to file (UTF-8, no BOM) instead of stdout")
     a = ap.parse_args()
@@ -221,13 +237,13 @@ def main():
     PAD = a.pad
     enc = Enc(a.depth)
     if a.mode == "half":
-        px = render_pixels(a.width, a.width, a.ss, a.margin)        # cell aspect 1:2 -> square pixels
+        px = render_pixels(a.width, a.width, a.ss, a.margin, a.crop)        # cell aspect 1:2 -> square pixels
         text = emit_half(px, enc)
     elif a.mode == "quad":
-        px = render_pixels(a.width * 2, a.width, a.ss, a.margin)    # 2x2 per cell
+        px = render_pixels(a.width * 2, a.width, a.ss, a.margin, a.crop)    # 2x2 per cell
         text = emit_quad(px, enc)
     else:
-        px = render_pixels(a.width, a.width // 2, a.ss, a.margin)   # 1 px per cell, cell is 1:2
+        px = render_pixels(a.width, a.width // 2, a.ss, a.margin, a.crop)   # 1 px per cell, cell is 1:2
         text = emit_space(px, enc)
     if a.out:
         with open(a.out, "w", encoding="utf-8", newline="\n") as f:
