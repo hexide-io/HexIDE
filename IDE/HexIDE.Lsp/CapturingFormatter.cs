@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Text;
+using System.Text.Json;
 using HexIDE.Conversations;
 using StreamJsonRpc;
 using StreamJsonRpc.Protocol;
@@ -96,10 +97,10 @@ internal sealed class CapturingFormatter(
     }
 
     public JsonRpcMessage Deserialize(ReadOnlySequence<byte> contentBuffer) =>
-        Capture(contentBuffer, () => inner.Deserialize(contentBuffer));
+        Capture(contentBuffer, buffer => inner.Deserialize(buffer));
 
     public JsonRpcMessage Deserialize(ReadOnlySequence<byte> contentBuffer, Encoding encoding) =>
-        Capture(contentBuffer, () => inner.Deserialize(contentBuffer, encoding));
+        Capture(contentBuffer, buffer => inner.Deserialize(buffer, encoding));
 
     /// <summary>
     /// Copies the frame if anyone asked for it, then hands the buffer on unchanged.
@@ -115,7 +116,8 @@ internal sealed class CapturingFormatter(
     /// unconditional and the recording happens after the real work, never before it.
     /// </para>
     /// </remarks>
-    private JsonRpcMessage Capture(ReadOnlySequence<byte> contentBuffer, Func<JsonRpcMessage> deserialize)
+    private JsonRpcMessage Capture(
+        ReadOnlySequence<byte> contentBuffer, Func<ReadOnlySequence<byte>, JsonRpcMessage> deserialize)
     {
         var length = (int)contentBuffer.Length;
         byte[]? copy = null;
@@ -128,7 +130,7 @@ internal sealed class CapturingFormatter(
         JsonRpcMessage message;
         try
         {
-            message = deserialize();
+            message = deserialize(contentBuffer);
         }
         catch (Exception ex)
         {
@@ -150,6 +152,27 @@ internal sealed class CapturingFormatter(
             }
             catch (Exception) { /* the throw below is the caller's answer; this must not replace it */ }
 
+            // One repair, tried once, before spending the connection on it. See RepairNullParams.
+            if (RepairNullParams(contentBuffer) is { } repaired)
+            {
+                try
+                {
+                    message = deserialize(new ReadOnlySequence<byte>(repaired));
+                    try
+                    {
+                        log.Record(
+                            connectionId, ConversationDirection.Received, ConversationEntryKind.Note,
+                            null, null, length, copy,
+                            "recovered: the frame above carried `\"params\": null`, which JSON-RPC 2.0 does "
+                          + "not permit. Read as though the member were absent. The connection was kept.");
+                    }
+                    catch (Exception) { /* as everywhere on this path */ }
+
+                    return message;
+                }
+                catch (Exception) { /* the repair did not help; fall through to the original failure */ }
+            }
+
             throw;
         }
 
@@ -157,6 +180,75 @@ internal sealed class CapturingFormatter(
         catch (Exception) { /* as above, and more so */ }
 
         return message;
+    }
+
+    /// <summary>
+    /// The same frame with a <c>"params": null</c> member removed, or null when that is not what is wrong.
+    /// </summary>
+    /// <remarks>
+    /// <b>This exists because one malformed message used to cost the whole connection, not just the message.</b>
+    /// A frame that cannot be decoded surfaces as a stream error, and a stream error tears the connection
+    /// down — so a single notification a server should not have sent takes every language feature with it,
+    /// permanently, on a transport that cannot re-dial. That asymmetry is the defect; the server's mistake is
+    /// only the trigger.
+    ///
+    /// <para>
+    /// <b>Found by declaring one capability.</b> Once this client says it can ask for diagnostics, rumdl
+    /// sends <c>{"jsonrpc":"2.0","method":"workspace/diagnostic/refresh","params":null,"id":1}</c>.
+    /// JSON-RPC 2.0 allows <c>params</c> to be an object or an array and nothing else, so <c>null</c> is
+    /// invalid and the reader is right to reject it — and the specification's own reading of
+    /// <c>workspace/diagnostic/refresh</c> is that it takes no parameters at all, which is what "absent"
+    /// means. So dropping the member yields exactly the message the server meant to send.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Deliberately this one repair and no other.</b> It is not a licence to correct servers generally:
+    /// guessing at a frame's intent is how a client starts accepting things that mean something else. This
+    /// case is safe precisely because <c>null</c> has no valid reading to be confused with — it is the one
+    /// value the grammar forbids outright. Anything else still fails, loudly, as before.
+    /// </para>
+    /// </remarks>
+    /// <summary>
+    /// <see cref="RepairNullParams"/>, reachable from the tests.
+    /// </summary>
+    /// <remarks>
+    /// Exposed rather than exercised through a live connection on purpose. The failure being guarded lives
+    /// inside the reader, and reproducing it end to end would make a passing test depend on a third party
+    /// continuing to emit a malformed frame — so the day rumdl fixed its own bug, the guard would go quietly
+    /// vacuous while still reporting green.
+    /// </remarks>
+    internal static byte[]? RepairNullParamsForTests(ReadOnlySequence<byte> contentBuffer) =>
+        RepairNullParams(contentBuffer);
+
+    private static byte[]? RepairNullParams(ReadOnlySequence<byte> contentBuffer)
+    {
+        try
+        {
+            var reader = new Utf8JsonReader(contentBuffer);
+            using var document = JsonDocument.ParseValue(ref reader);
+            if (document.RootElement.ValueKind != JsonValueKind.Object) return null;
+            if (!document.RootElement.TryGetProperty("params", out var parameters)) return null;
+            if (parameters.ValueKind != JsonValueKind.Null) return null;
+
+            var buffer = new ArrayBufferWriter<byte>();
+            using (var writer = new Utf8JsonWriter(buffer))
+            {
+                writer.WriteStartObject();
+                foreach (var member in document.RootElement.EnumerateObject())
+                {
+                    if (member.NameEquals("params")) continue;
+                    member.WriteTo(writer);
+                }
+                writer.WriteEndObject();
+            }
+
+            return buffer.WrittenSpan.ToArray();
+        }
+        catch (Exception)
+        {
+            // A repair that cannot itself be performed is not a repair. The caller rethrows the real failure.
+            return null;
+        }
     }
 
     /// <summary>The method name, when the message has one to give.</summary>

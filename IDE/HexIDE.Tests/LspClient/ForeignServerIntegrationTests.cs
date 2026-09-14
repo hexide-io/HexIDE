@@ -87,7 +87,24 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
 
         await sut.OpenDocumentAsync(MarkdownUri, SloppyMarkdown);
 
-        var published = await received.Task.WaitAsync(TimeSpan.FromSeconds(30));
+        // The timeout is turned into the conversation rather than left as a bare TimeoutException, and that
+        // is not decoration. This test has failed on CI reporting nothing but a timeout (#390), which says
+        // only that no diagnostics arrived and nothing about why — and "why" is the whole question, because
+        // every interesting answer looks identical from here: the server died, the handshake never landed,
+        // a frame could not be decoded, the request was refused, or it simply had nothing to say.
+        //
+        // Earned immediately. The first failure it explained was a connection torn down mid-request by a
+        // malformed frame, which is a sentence the wire can say and a TimeoutException never could.
+        PublishDiagnosticsParams published;
+        try { published = await received.Task.WaitAsync(TimeSpan.FromSeconds(30)); }
+        catch (TimeoutException)
+        {
+            await _capture.DrainAsync();
+            throw new InvalidOperationException(
+                "No diagnostics arrived within 30s. The conversation was: " + string.Join(" | ",
+                    _capture.Snapshot().Select(e =>
+                        $"{e.Sequence} {e.Direction} {e.Kind} {e.Method} {e.Outcome} {e.Detail}".Trim())));
+        }
 
         published.Uri.Should().Be(MarkdownUri, "a foreign server may normalise the URI — #236 is why this is checked");
         published.Diagnostics.Should().NotBeEmpty("the document deliberately violates common Markdown lint rules");
@@ -230,7 +247,11 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
                     .Load([]);
             configuration.Problems.Should().BeEmpty("the file is well-formed");
 
-            var registrations = new LanguageServerRegistrationFactory(loggerFactory).Create(configuration.Entries);
+            // The capture is passed here for the same reason the hand-built registrations above carry one:
+            // without it this test's only account of a failure is "nothing arrived", which is what every
+            // interesting failure looks like from the outside.
+            var registrations = new LanguageServerRegistrationFactory(loggerFactory, capture: _capture)
+                .Create(configuration.Entries);
             _registry = new LspClientRegistry(registrations, loggerFactory.CreateLogger<LspClientRegistry>());
 
             var received = new TaskCompletionSource<PublishDiagnosticsParams>(
@@ -239,7 +260,19 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
 
             await _registry.OpenDocumentAsync(MarkdownUri, SloppyMarkdown);
 
-            var published = await received.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            // Same treatment as the lazy-start test above, and for the same reason: a bare timeout here
+            // says only that nothing arrived, which is true of every interesting way this can fail.
+            PublishDiagnosticsParams published;
+            try { published = await received.Task.WaitAsync(TimeSpan.FromSeconds(30)); }
+            catch (TimeoutException)
+            {
+                await _capture.DrainAsync();
+                throw new InvalidOperationException(
+                    "No diagnostics arrived within 30s. The conversation was: " + string.Join(" | ",
+                        _capture.Snapshot().Select(e =>
+                            $"{e.Sequence} {e.Direction} {e.Kind} {e.Method} {e.Outcome} {e.Detail}".Trim())));
+            }
+
             published.Diagnostics.Should().NotBeEmpty(
                 "a server named only in a configuration file produced real diagnostics for a real document");
         }

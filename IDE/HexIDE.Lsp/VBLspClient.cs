@@ -291,7 +291,19 @@ public sealed class VBLspClient : ILspClient
     {
         if (_rpc is null || !_initialized) return;
         foreach (var (uri, document) in _openDocuments)
+        {
             await SendDidOpenAsync(uri, document.Version, document.Text);
+
+            // And ASK, for a server that only answers when asked.
+            //
+            // Not a belt-and-braces repeat of the ask in OpenDocumentAsync — it is the only ask those
+            // documents will ever get. A document tracked before the handshake completed was opened when
+            // there were no capabilities to gate on, so its ask was skipped; a server that publishes covers
+            // that case by publishing on didOpen, and a server that does not has no such fallback. Without
+            // this, a document opened while the server was still starting — which is every document in the
+            // lazy-start path, and every document after a reconnect — would sit unanalysed for good.
+            PullDiagnosticsInBackground(uri);
+        }
     }
 
     /// <summary>
@@ -464,7 +476,13 @@ public sealed class VBLspClient : ILspClient
                     // Same bargain as `save` above, and the same failure if only half of it ships: a server
                     // that composes its capabilities from what the client asked for withholds
                     // `codeLensProvider` when nothing declared this, and then our gate declines to ask.
-                    CodeLens: new CodeLensClientCapabilities()),
+                    CodeLens: new CodeLensClientCapabilities(),
+                    // The same bargain again, and the only one here where shipping half of it makes things
+                    // actively WORSE rather than merely no better. A server may read this as "the client
+                    // will ask, so I need not announce" and stop publishing — measured against ruff, which
+                    // publishes freely without this line and publishes nothing at all with it. So this
+                    // declaration and the request that follows it are one change and cannot be separated.
+                    Diagnostic: new DiagnosticClientCapabilities()),
                 new WorkspaceClientCapabilities(
                     ExecuteCommand: new ExecuteCommandClientCapabilities(),
                     WorkspaceFolders: true)));
@@ -675,6 +693,7 @@ public sealed class VBLspClient : ILspClient
         // replayed when one arrives, which is what makes lazy start and reconnect work at all.
         _openDocuments[uri] = new TrackedDocument(1, text);
         await SendDidOpenAsync(uri, 1, text);
+        PullDiagnosticsInBackground(uri);
     }
 
     public async Task ChangeDocumentAsync(string uri, int version, string text, CancellationToken cancellationToken = default)
@@ -687,16 +706,233 @@ public sealed class VBLspClient : ILspClient
             [new TextDocumentContentChangeEvent(text)]);
         try { await rpc.NotifyWithParameterObjectAsync("textDocument/didChange", p); }
         catch (Exception ex) { WarnRequestFailedOnce("textDocument/didChange", ex, cancellationToken); }
+
+        // After the notification rather than before it: the answer is supposed to describe the text the
+        // server has just been given, and asking first would describe the text before this edit.
+        PullDiagnosticsInBackground(uri);
     }
 
     public async Task CloseDocumentAsync(string uri, CancellationToken cancellationToken = default)
     {
         _openDocuments.TryRemove(uri, out _);
+        ForgetPullState(uri);
         var rpc = _rpc;
         if (rpc is null || !_initialized || !ServerCapabilities.AcceptsOpenClose(_capabilities?.Value)) return;
         var p = new DidCloseTextDocumentParams(new TextDocumentIdentifier(uri));
         try { await rpc.NotifyWithParameterObjectAsync("textDocument/didClose", p); }
         catch (Exception ex) { WarnRequestFailedOnce("textDocument/didClose", ex, cancellationToken); }
+    }
+
+    // ── Diagnostics this server will only give when asked ────────────────────────────────────────────
+    //
+    // A server may deliver diagnostics by answering `textDocument/diagnostic` instead of publishing them
+    // (LSP 3.17). Nothing downstream of RaisePublishDiagnostics can tell which happened, and that is the
+    // requirement rather than a convenience — `lsp-client` asks for one channel, and a marker pipeline that
+    // had to know how its diagnostics were obtained would be the seam leaking.
+
+    /// <summary>What the server called its last answer about each document, so it can say "still true".</summary>
+    private readonly ConcurrentDictionary<string, string> _pullResultIds = new();
+
+    /// <summary>
+    /// How many times each document has been opened or changed. A request carries the value it saw; an
+    /// answer arriving after that value moved describes text nobody is looking at any more and is dropped.
+    /// </summary>
+    private readonly ConcurrentDictionary<string, int> _pullGeneration = new();
+
+    /// <summary>
+    /// True when this connection's diagnostics come from asking, so anything it publishes is redundant.
+    /// </summary>
+    internal bool IgnoresPublicationsFromThisServer() => CanServeQuietly("diagnosticProvider");
+
+    /// <summary>
+    /// Records, once per connection, that publications are being dropped in favour of asking.
+    /// </summary>
+    /// <remarks>
+    /// Silence here would be the defect this whole area keeps producing. A server author watching the
+    /// protocol inspector, having published diagnostics that never appeared, needs to be told that the
+    /// client asked instead — otherwise "my publishDiagnostics is ignored" looks like a broken client rather
+    /// than a client honouring the capability their own server advertised.
+    /// </remarks>
+    private void NoteIgnoredPublicationOnce()
+    {
+        if (!_warnedCapabilities.TryAdd("publishDiagnostics/ignored", 0)) return;
+
+        Note(ConversationDirection.Received, ConversationEntryKind.Unconsumed, "textDocument/publishDiagnostics",
+            "ignored: this server advertised 'diagnosticProvider', so its diagnostics are taken from "
+          + "textDocument/diagnostic instead. Publishing as well is legal; taking both would make the "
+          + "document's marks depend on which arrived last.");
+
+        _logger.LogDebug(
+            "Ignoring publishDiagnostics from a server that advertised diagnosticProvider; using the "
+          + "pull model for this connection instead.");
+    }
+
+    private void ForgetPullState(string uri)
+    {
+        _pullResultIds.TryRemove(uri, out _);
+        _pullGeneration.TryRemove(uri, out _);
+
+        // Nothing else would. A push server clears a document by publishing an empty set for it, and a
+        // server that only answers when asked has no way to say anything about a document we have stopped
+        // asking about — so the marks would outlive the editor that showed them.
+        if (CanServeQuietly("diagnosticProvider"))
+            RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, new PublishDiagnosticsParams(uri, []));
+    }
+
+    /// <summary>
+    /// Asks, without making the caller wait for the answer.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately not awaited. Opening a document must not block on a round trip to a linter — a server
+    /// that publishes delivers its diagnostics asynchronously, and a server that answers must not be slower
+    /// to open a file merely because of how it delivers the same thing. <see cref="PullDiagnosticsAsync"/>
+    /// swallows its own failures for the same reason every other request path here does.
+    /// </remarks>
+    private void PullDiagnosticsInBackground(string uri)
+    {
+        if (!CanServeQuietly("diagnosticProvider")) return;
+        var generation = _pullGeneration.AddOrUpdate(uri, 1, (_, n) => n + 1);
+        _ = PullDiagnosticsAsync(uri, generation);
+    }
+
+    /// <summary>
+    /// Asks the server what it has to say about one document, and puts the answer on the one channel.
+    /// </summary>
+    /// <remarks>
+    /// <b>Gated with <c>Supports</c> rather than <see cref="CanServe"/>, and that is the point rather than an
+    /// oversight.</b> Every other gate warns when the capability is absent, because a server without
+    /// <c>hoverProvider</c> cannot do hover. A server without <c>diagnosticProvider</c> is not deficient: it
+    /// publishes instead, which is what four of the five servers this suite drives do, and what the
+    /// specification treats as the ordinary case. Warning here would put a line in the log blaming every
+    /// conformant server for conforming.
+    /// </remarks>
+    private async Task PullDiagnosticsAsync(string uri, int generation)
+    {
+        var rpc = _rpc;
+        if (rpc is null || !_initialized) return;
+
+        _pullResultIds.TryGetValue(uri, out var previousResultId);
+        var p = new DocumentDiagnosticParams(
+            new TextDocumentIdentifier(uri),
+            ServerCapabilities.DiagnosticIdentifier(_capabilities?.Value),
+            previousResultId);
+
+        JsonElement? raw;
+        try
+        {
+            raw = await rpc.InvokeWithParameterObjectAsync<JsonElement?>("textDocument/diagnostic", p);
+        }
+        catch (Exception ex)
+        {
+            WarnRequestFailedOnce("textDocument/diagnostic", ex, CancellationToken.None);
+            return;
+        }
+
+        // The document moved on while we were asking, so this answer is about text that is no longer there.
+        // Publishing it would put markers on lines the user has already edited past.
+        if (_pullGeneration.TryGetValue(uri, out var current) && current != generation) return;
+
+        ApplyDiagnosticReport(uri, raw);
+    }
+
+    /// <summary>
+    /// Reads one diagnostic report and publishes what it means.
+    /// </summary>
+    /// <remarks>
+    /// <b>An <c>unchanged</c> report is not an empty one, and confusing the two is destructive.</b> It means
+    /// "what I told you last time still stands" and carries no items at all — so handling it as an empty set
+    /// would erase exactly the diagnostics it was sent to preserve, and only on the second request, so the
+    /// marks would appear correctly and then vanish. That is why this returns rather than publishes.
+    ///
+    /// <para>
+    /// Read from a raw element rather than a typed result because the protocol defines the reply as a union
+    /// discriminated by <c>kind</c> — <c>RelatedFullDocumentDiagnosticReport | RelatedUnchangedDocumentDiagnosticReport</c>
+    /// — which a source-generated resolver cannot deserialize into one class. <c>relatedDocuments</c> is
+    /// ignored, which is honest rather than lazy: this client does not declare
+    /// <c>relatedDocumentSupport</c>, so a conformant server sends none.
+    /// </para>
+    /// </remarks>
+    internal void ApplyDiagnosticReport(string uri, JsonElement? raw)
+    {
+        if (raw is not { ValueKind: JsonValueKind.Object } report) return;
+
+        if (report.TryGetProperty("resultId", out var resultId)
+            && resultId.ValueKind == JsonValueKind.String
+            && resultId.GetString() is { Length: > 0 } id)
+        {
+            _pullResultIds[uri] = id;
+        }
+
+        var kind = report.TryGetProperty("kind", out var k) && k.ValueKind == JsonValueKind.String
+            ? k.GetString()
+            : null;
+
+        // `unchanged` says the previous answer stands. Leave what is showing exactly as it is.
+        if (string.Equals(kind, "unchanged", StringComparison.Ordinal)) return;
+
+        // Anything else is a full report. `items` is required on one, and a report without it is a server
+        // saying it has nothing to report — which is an empty set and must clear, not be ignored.
+        var diagnostics = report.TryGetProperty("items", out var items)
+            ? ReadDiagnostics(items)
+            : [];
+
+        RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, new PublishDiagnosticsParams(uri, diagnostics));
+    }
+
+    /// <summary>
+    /// The diagnostics out of a report's <c>items</c>, skipping any this client cannot make sense of.
+    /// </summary>
+    /// <remarks>
+    /// One malformed entry costs that entry rather than the document's whole set. The alternative — letting
+    /// the deserializer throw on the array — would discard a server's every diagnostic because one of them
+    /// had a shape we did not expect, which is the failure mode #238 was.
+    /// </remarks>
+    internal static Diagnostic[] ReadDiagnostics(JsonElement items)
+    {
+        if (items.ValueKind != JsonValueKind.Array) return [];
+
+        var read = new List<Diagnostic>(items.GetArrayLength());
+        foreach (var item in items.EnumerateArray())
+        {
+            if (ReadDiagnostic(item) is { } diagnostic) read.Add(diagnostic);
+        }
+        return [.. read];
+    }
+
+    /// <summary>
+    /// One diagnostic, or null when the element is not one at all.
+    /// </summary>
+    /// <remarks>
+    /// Read field by field rather than deserialized, which is the treatment every other foreign reply gets
+    /// here: a server we did not write must not be able to make a consumer throw by sending a member in a
+    /// shape this client did not anticipate.
+    ///
+    /// <para>
+    /// A diagnostic with no range is dropped. Its whole purpose is to mark a place in a document, and one
+    /// without a place cannot be rendered — where keeping it would put a null somewhere nothing checks.
+    /// </para>
+    /// </remarks>
+    private static Diagnostic? ReadDiagnostic(JsonElement element)
+    {
+        if (element.ValueKind != JsonValueKind.Object) return null;
+        if (!element.TryGetProperty("range", out var rangeElement)) return null;
+        if (ReadRange(rangeElement) is not { } range) return null;
+
+        var message = element.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String
+            ? m.GetString() ?? string.Empty
+            : string.Empty;
+
+        DiagnosticSeverity? severity = element.TryGetProperty("severity", out var s)
+                                       && s.ValueKind == JsonValueKind.Number
+                                       && s.TryGetInt32(out var level)
+            ? (DiagnosticSeverity)level
+            : null;
+
+        var source = element.TryGetProperty("source", out var src) && src.ValueKind == JsonValueKind.String
+            ? src.GetString()
+            : null;
+
+        return new Diagnostic(range, message, severity, source);
     }
 
     public async Task SaveDocumentAsync(string uri, CancellationToken cancellationToken = default)
@@ -719,6 +955,12 @@ public sealed class VBLspClient : ILspClient
         var p = new DidSaveTextDocumentParams(new TextDocumentIdentifier(uri), text);
         try { await rpc.NotifyWithParameterObjectAsync("textDocument/didSave", p); }
         catch (Exception ex) { WarnRequestFailedOnce("textDocument/didSave", ex, cancellationToken); }
+
+        // Asked again, because a save is a reason to think the answer changed and a server that only
+        // answers when asked has no way to volunteer that it has. This matters most for the very servers
+        // that make save meaningful — the ones deferring their analysis until a file is written — for which
+        // not re-asking here means their entire output is unreachable.
+        PullDiagnosticsInBackground(uri);
     }
 
     public async Task<HoverResult?> RequestHoverAsync(string uri, Position position, CancellationToken cancellationToken = default)
@@ -1367,6 +1609,21 @@ public sealed class VBLspClient : ILspClient
         public void OnPublishDiagnostics(PublishDiagnosticsParams p)
         {
             _client._logger.LogDebug("publishDiagnostics: uri={Uri}, count={Count}", p.Uri, p.Diagnostics.Length);
+
+            // A server that offered to answer when asked is answered TO, and its unbidden publications are
+            // dropped. Not a preference — taking both would put two sources of truth under one owner, where
+            // each whole-document set replaces the other and the winner is decided by arrival order.
+            //
+            // It is a real shape, not a hypothetical: rumdl advertises `diagnosticProvider` AND publishes,
+            // and once this client declares it can ask, what rumdl publishes is an EMPTY set while the real
+            // diagnostics come back as the answer. Accepting both leaves the document's marks depending on
+            // which landed second. Measured.
+            if (_client.IgnoresPublicationsFromThisServer())
+            {
+                _client.NoteIgnoredPublicationOnce();
+                return;
+            }
+
             _client.RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, p);
         }
 
@@ -1451,6 +1708,31 @@ public sealed class VBLspClient : ILspClient
             {
                 ErrorCode = (int)StreamJsonRpc.Protocol.JsonRpcErrorCode.MethodNotFound,
             };
+        }
+
+        /// <summary>
+        /// The server asking to be asked again — <c>workspace/diagnostic/refresh</c>.
+        /// </summary>
+        /// <remarks>
+        /// <b>Honoured rather than refused, because it is the only thing a pull-model server has.</b> Such a
+        /// server speaks only when spoken to, so when something changes that is not a document — its
+        /// configuration file, a rule set, a dependency it watches — it cannot tell anyone. This request is
+        /// how it says "the answers you hold are stale", and refusing it leaves the editor showing
+        /// diagnostics from a configuration that no longer exists, with no event that would ever correct
+        /// them.
+        ///
+        /// <para>
+        /// Every open document is asked about afresh, and the result identifiers are dropped first: holding
+        /// them would invite the server to answer "unchanged" against the very answers being invalidated.
+        /// </para>
+        /// </remarks>
+        [JsonRpcMethod("workspace/diagnostic/refresh", UseSingleObjectParameterDeserialization = true)]
+        public void OnDiagnosticRefresh(JsonElement _)
+        {
+            _client._logger.LogDebug("The server asked for diagnostics to be refreshed; re-requesting.");
+            _client._pullResultIds.Clear();
+            foreach (var uri in _client._openDocuments.Keys)
+                _client.PullDiagnosticsInBackground(uri);
         }
 
         /// <summary>The counterpart, refused the same way and for the same reason.</summary>
@@ -1556,6 +1838,9 @@ public sealed class VBLspClient : ILspClient
         "completionProvider",
         "declarationProvider",
         "definitionProvider",
+        // Consumed, but gated quietly — see CanServeQuietly. It belongs here because a server that
+        // advertises it IS taken up on it; the absence of a warning is about what its ABSENCE means.
+        "diagnosticProvider",
         "documentFormattingProvider",
         "documentHighlightProvider",
         "documentSymbolProvider",
@@ -1610,6 +1895,26 @@ public sealed class VBLspClient : ILspClient
         WarnUnavailableOnce(capabilityName);
         return false;
     }
+
+    /// <summary>
+    /// True when the server advertised this capability, and <b>silent</b> when it did not.
+    /// </summary>
+    /// <remarks>
+    /// <b>For the capabilities whose absence is an answer rather than a shortfall.</b> Every other gate warns,
+    /// because a server without <c>hoverProvider</c> cannot do hover and somebody should be told. A server
+    /// without <c>diagnosticProvider</c> is not missing anything: it publishes diagnostics instead, which is
+    /// what four of the five servers this suite drives do and what the specification treats as ordinary.
+    /// Routing that through <see cref="CanServe"/> would write a line into the log, and an entry into the
+    /// protocol capture, blaming every conformant server for the way it conforms.
+    ///
+    /// <para>
+    /// Still counted as consumed — see <see cref="ConsumedCapabilities"/> — because a server that advertises
+    /// it is taken up on it. The two questions are "do we use this when offered" and "is not offering it a
+    /// problem", and only the first belongs in that list.
+    /// </para>
+    /// </remarks>
+    private bool CanServeQuietly(string capabilityName) =>
+        ServerCapabilities.Supports(_capabilities?.Value, capabilityName);
 
     private bool CanServeExperimental(string capabilityName)
     {

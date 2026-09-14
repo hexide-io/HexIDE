@@ -17,11 +17,17 @@ namespace HexIDE.Tests.LspClient;
 /// </para>
 ///
 /// <para>
-/// There are three, by different authors on three different LSP frameworks, because one server
+/// There are five. Four are by different authors on four different LSP frameworks, because one server
 /// establishes that HexIDE can talk to something foreign, a second establishes that it was not
-/// accidentally shaped around that one server's habits, and the third is the reference implementation
+/// accidentally shaped around that one server's habits, and one of them is the reference implementation
 /// itself — the library the specification is written around, whose reading of an ambiguous passage is the
 /// one server authors treat as correct.
+/// </para>
+///
+/// <para>
+/// The fifth is on a framework already represented here and earns its place on a different axis: it is the
+/// only one that delivers diagnostics by the <b>pull</b> model. Four servers all publishing unbidden is how
+/// a client that never asks stayed unremarkable for as long as it did.
 /// </para>
 /// </summary>
 internal sealed class ForeignServer
@@ -70,6 +76,24 @@ internal sealed class ForeignServer
         serverArguments: "--log=error --background-index=false --pch-storage=memory",
         languageId: "cpp",
         extensions: [".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"]);
+
+    /// <summary>
+    /// A Python linter, and the only server here that delivers diagnostics by the <b>pull</b> model.
+    ///
+    /// <para>
+    /// Every other server in this fixture publishes unbidden, which is why HexIDE could go four servers deep
+    /// and still not have noticed that it never asks (hexide-io/HexIDE#284). This one advertises
+    /// <c>diagnosticProvider</c> and then says nothing at all until it is asked — so a client that does not
+    /// ask gets silence for a file that visibly has a problem, rather than a quieter version of working.
+    /// </para>
+    /// </summary>
+    public static readonly ForeignServer Python = new(
+        ForeignServerAcquisition.Python,
+        pathVariable: "HEXIDE_PYTHON_LSP",
+        onPath: "ruff",
+        serverArguments: "server",
+        languageId: "python",
+        extensions: [".py", ".pyi"]);
 
     /// <summary>
     /// The reference implementation's JSON server, hosted on Node.
@@ -218,8 +242,9 @@ internal sealed class ForeignServer
 public sealed class ForeignServerFactAttribute : FactAttribute
 {
     /// <param name="server">
-    /// Which server this test needs — <c>markdown</c>, <c>latex</c>, <c>json</c> or <c>cpp</c>. A string rather than
-    /// the type itself because attribute arguments must be compile-time constants.
+    /// Which server this test needs — <c>markdown</c>, <c>latex</c>, <c>json</c>, <c>cpp</c> or
+    /// <c>python</c>. A string rather than the type itself because attribute arguments must be compile-time
+    /// constants.
     /// </param>
     /// <param name="sourceFilePath">Supplied by the compiler; see the note on the source-information pair below.</param>
     /// <param name="sourceLineNumber">Supplied by the compiler; see the note on the source-information pair below.</param>
@@ -234,6 +259,7 @@ public sealed class ForeignServerFactAttribute : FactAttribute
             "latex" => ForeignServer.Latex,
             "cpp" => ForeignServer.Cpp,
             "json" => ForeignServer.Json,
+            "python" => ForeignServer.Python,
             _ => ForeignServer.Markdown,
         };
 

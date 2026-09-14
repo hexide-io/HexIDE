@@ -53,6 +53,11 @@ public class RequiredServersTests
             "the C/C++ language server");
 
     [Fact]
+    public void ThePythonServerIsAvailableWhenItIsRequired() =>
+        RequireOrIgnore("python", () => ForeignServer.Python.Find() is not null,
+            "the Python language server (the only pull-model server here)");
+
+    [Fact]
     public void TheReferenceServerIsAvailableWhenItIsRequired() =>
         RequireOrIgnore("json", () => ForeignServer.Json.Find() is not null,
             "the reference JSON language server (which needs Node)");

@@ -197,6 +197,39 @@ build's errors. That is driven by what the source published rather than by a lis
 assembles, because the two disagree exactly when it matters — a form renamed since the last build is absent
 from the caller's list and still carries the marks.
 
+### Some servers publish; some only answer
+
+A server may deliver diagnostics by answering `textDocument/diagnostic` rather than by publishing
+(LSP 3.17's *pull* model). The client asks on open, on change and on save, and feeds the answer through the
+same call push takes — so **nothing downstream can tell the two apart**, which is the requirement rather
+than a convenience. There is no separate pacing for this: edits are already coalesced before they reach the
+client, and a second authority over the same question would answer it differently.
+
+Three things about the model are worth stating because each one fails quietly if missed.
+
+**Declaring it is half a negotiation, and shipping that half alone is worse than shipping neither.** A
+server is entitled to read `textDocument.diagnostic` as "the client will ask, so I need not announce" and
+stop publishing. Measured: `ruff` publishes freely to a client that declares nothing and publishes *nothing
+at all* to one that declares this. So a client that declares the capability and never asks has talked a
+working server into silence — a strictly worse position than never having declared it.
+
+**An `unchanged` answer is not an empty one.** A server may reply that its previous answer still stands,
+carrying no diagnostics at all. Treating that as an empty set erases exactly the marks it was sent to
+preserve — and only on the *second* request, so they render correctly and then vanish. The result
+identifier that makes such an answer possible is retained per document and sent back with the next request.
+
+**A server that advertises the capability has its publications ignored.** Both models on one connection
+would put two whole-document sets under one source, where each replaces the other and the winner is decided
+by arrival order. This is not hypothetical: `rumdl` advertises `diagnosticProvider` *and* publishes, and
+once this client declares it can ask, what `rumdl` publishes is an empty set while the real diagnostics come
+back as the answer. The dropped publications are recorded in the protocol inspector rather than discarded
+silently, because "my `publishDiagnostics` is ignored" otherwise looks like a broken client to the person
+whose server advertised the alternative.
+
+`workspace/diagnostic` — the same model at workspace scope — is **not** implemented; see the limitations
+table. `workspace/diagnostic/refresh` is, because it is the only way a server that speaks when spoken to can
+report a change that is not a document, such as its own configuration file being edited.
+
 ---
 
 ## Routing: which server gets which document
@@ -310,7 +343,7 @@ specification's own [`metaModel.json`](https://raw.githubusercontent.com/microso
 the canonical machine-readable list, so the method names and directions are the specification's rather than
 this document's recollection of them.
 
-**HexIDE implements 27 of the 93.** That is not a deficiency in itself — no client implements them all, and
+**HexIDE implements 29 of the 93.** That is not a deficiency in itself — no client implements them all, and
 most of the remainder are features no VB6 IDE needs. It is here so the shape of the gap is visible rather
 than inferred.
 
@@ -332,7 +365,7 @@ than inferred.
 | ✅ | `initialized` | → |  |
 | ✅ | `shutdown` | → |  |
 
-### `textDocument/*` — 16 of 41
+### `textDocument/*` — 17 of 41
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -342,7 +375,7 @@ than inferred.
 | ✅ | `textDocument/completion` | → |  |
 | ✅ | `textDocument/declaration` | → | Where a name is declared, which a server may answer differently from `definition` |
 | ✅ | `textDocument/definition` | → | All three reply shapes; opens the document a cross-file answer names |
-| ○ | `textDocument/diagnostic` | → | The pull model. A server publishing only this way connects and reports nothing ([#284](https://github.com/hexide-io/HexIDE/issues/284)) |
+| ✅ | `textDocument/diagnostic` | → | The pull model. Asked on open, change and save; honours `unchanged` reports and result identifiers |
 | ◐ | `textDocument/didChange` | → | Full text only; a declared incremental kind is ignored ([#282](https://github.com/hexide-io/HexIDE/issues/282)) |
 | ✅ | `textDocument/didClose` | → |  |
 | ✅ | `textDocument/didOpen` | → |  |
@@ -378,7 +411,7 @@ than inferred.
 | ○ | `textDocument/willSave` | → |  |
 | ○ | `textDocument/willSaveWaitUntil` | → |  |
 
-### `workspace/*` — 2 of 21
+### `workspace/*` — 3 of 21
 
 | | Method | Dir | Notes |
 |---|---|---|---|
@@ -386,7 +419,7 @@ than inferred.
 | ○ | `workspace/codeLens/refresh` | ← |  |
 | ○ | `workspace/configuration` | ← | A server asking for its configuration is refused |
 | ○ | `workspace/diagnostic` | → | The pull model, workspace-wide ([#284](https://github.com/hexide-io/HexIDE/issues/284)) |
-| ○ | `workspace/diagnostic/refresh` | ← |  |
+| ✅ | `workspace/diagnostic/refresh` | ← | Re-asks every open document; the only way a pull-model server can report a change that is not a document |
 | ○ | `workspace/didChangeConfiguration` | → |  |
 | ○ | `workspace/didChangeWatchedFiles` | → |  |
 | ○ | `workspace/didChangeWorkspaceFolders` | → |  |
@@ -542,7 +575,7 @@ Three clusters account for nearly all of the gap:
 | Limitation | Consequence | Tracked |
 |---|---|---|
 | Full-text sync only; a declared incremental kind is ignored | Wasteful on large files; the incremental path is untested | [#282](https://github.com/hexide-io/HexIDE/issues/282) |
-| No pull-model diagnostics (`textDocument/diagnostic`) | A server publishing only by the pull model appears to connect and reports nothing — silent, not an error | [#284](https://github.com/hexide-io/HexIDE/issues/284) |
+| No workspace-wide pull diagnostics (`workspace/diagnostic`) | Diagnostics are per open document; a server's findings about files nobody has open are never requested | [#284](https://github.com/hexide-io/HexIDE/issues/284) |
 | `lsp-servers.json` resolved through a folder API that returns nothing on Unix | Config location is unreliable on Linux/macOS unless `XDG_CONFIG_HOME` is set | [#280](https://github.com/hexide-io/HexIDE/issues/280) |
 
 ---
