@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "La génération a réussi mais l'exécutable est introuvable à :\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Échec de l'exécution",
     "Str.ProjectRunner.MustHaveStartupForm": "Une feuille de démarrage ou une procédure Sub Main() est requise",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "Cette action réinitialisera votre projet. Voulez-vous continuer ?",
     "Str.NewProject.Msg.Title": "Nouveau projet",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Votre version de HexIDE ne prend pas en charge {0}",
@@ -711,7 +710,6 @@
     "Str.PropCategory.Position": "Position",
     "Str.PropCategory.Internal": "Interne",
     "Str.PropCategory.List": "Liste",
-
     "Str.Options.Title": "Options",
     "Str.Options.Node.Environment": "Environnement",
     "Str.Options.Node.Editor": "Éditeur",
@@ -724,6 +722,11 @@
     "Str.Options.Node.Toolbars": "Barres d'outils",
     "Str.Options.Node.Formatting": "Mise en forme",
     "Str.Options.Node.Grid": "Grille",
-    "Str.Options.Node.Developer": "Développeur"
+    "Str.Options.Node.Developer": "Développeur",
+    "Str.ProjectDocument.Location": "Emplacement :",
+    "Str.ProjectDocument.NotSaved": "Non enregistré sur le disque",
+    "Str.ProjectDocument.Section.Members": "Membres",
+    "Str.ProjectDocument.Section.References": "Références",
+    "Str.ProjectDocument.Kind.RelatedDocument": "Document associé"
   }
 }

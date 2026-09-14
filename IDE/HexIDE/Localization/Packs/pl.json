@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "Kompilacja powiodła się, ale nie znaleziono pliku wykonywalnego w lokalizacji:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Uruchomienie nie powiodło się",
     "Str.ProjectRunner.MustHaveStartupForm": "Wymagany jest formularz startowy lub Sub Main()",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "Ta akcja zresetuje projekt. Czy chcesz kontynuować?",
     "Str.NewProject.Msg.Title": "Nowy projekt",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Twoja wersja HexIDE nie obsługuje {0}",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "Paski narzędzi",
     "Str.Options.Node.Formatting": "Formatowanie",
     "Str.Options.Node.Grid": "Siatka",
-    "Str.Options.Node.Developer": "Deweloper"
+    "Str.Options.Node.Developer": "Deweloper",
+    "Str.ProjectDocument.Location": "Lokalizacja:",
+    "Str.ProjectDocument.NotSaved": "Niezapisany na dysku",
+    "Str.ProjectDocument.Section.Members": "Elementy",
+    "Str.ProjectDocument.Section.References": "Odwołania",
+    "Str.ProjectDocument.Kind.RelatedDocument": "Dokument powiązany"
   }
 }

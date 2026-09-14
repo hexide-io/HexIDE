@@ -12,19 +12,16 @@
     "Str.Menu.File.MakeProjectGroup": "Crea _Gregem Inceptorum...",
     "Str.Menu.File.RecentProjects": "Recentia _Incepta",
     "Str.Menu.File.Exit": "E_xitus",
-
     "Str.RevertGate.Title": "Confirma mutationem linguae",
     "Str.RevertGate.Prompt": "Hanc linguam retinere?",
     "Str.RevertGate.Keep": "Retine",
     "Str.RevertGate.Revert": "Restitue",
     "Str.RevertGate.Countdown": "Restituens post {0}s…",
-
     "Str.Toolbar.Standard": "Ordinaria",
     "Str.Toolbar.Edit": "Recensio",
     "Str.Toolbar.Debug": "Depuratio",
     "Str.Toolbar.FormEditor": "Recensor Formarum",
     "Str.Toolbar.Customize": "Accommoda...",
-
     "Str.Menu.Edit": "_Recensio",
     "Str.Menu.Edit.Cut": "E_xscinde",
     "Str.Menu.Edit.Copy": "_Describe",
@@ -49,7 +46,6 @@
     "Str.Menu.Edit.Bookmarks.Next": "_Proximum Signaculum",
     "Str.Menu.Edit.Bookmarks.Previous": "_Prius Signaculum",
     "Str.Menu.Edit.Bookmarks.ClearAll": "_Dele Omnia Signacula",
-
     "Str.Menu.View": "_Conspectus",
     "Str.Menu.View.Code": "_Codex",
     "Str.Menu.View.Object": "O_biectum",
@@ -69,7 +65,6 @@
     "Str.Menu.View.ColorPalette": "Tabula _Colorum",
     "Str.Menu.View.Toolbars": "_Tabulae Instrumentorum",
     "Str.Menu.View.Minimap": "_Mappula",
-
     "Str.Menu.Project": "_Inceptum",
     "Str.Menu.Project.AddForm": "Adde _Formam",
     "Str.Menu.Project.AddMDIForm": "Adde Formam MD_I",
@@ -80,7 +75,6 @@
     "Str.Menu.Project.AddFile": "_Adde Plicam...",
     "Str.Menu.Project.References": "Relatio_nes...",
     "Str.Menu.Project.Components": "Co_mponentes...",
-
     "Str.Menu.Format": "_Dispositio",
     "Str.Menu.Format.Align": "_Ordina",
     "Str.Menu.Format.Align.Lefts": "_Sinistra",
@@ -107,7 +101,6 @@
     "Str.Menu.Format.Order.BringToFront": "Adduce ad Frontem",
     "Str.Menu.Format.Order.SendToBack": "Remitte ad Tergum",
     "Str.Menu.Format.LockControls": "_Obsera Moderamina",
-
     "Str.Menu.Debug": "_Depuratio",
     "Str.Menu.Debug.StepInto": "Gradus _Intro",
     "Str.Menu.Debug.StepOver": "Gradus _Super",
@@ -121,7 +114,6 @@
     "Str.Menu.Debug.SetNextStatement": "Statue _Proximam Sententiam",
     "Str.Debug.SetNextStatement.Refused": "Hic proximam sententiam statuere non licet — sola sententia supremi gradus procedurae nunc intermissae sustinetur (non ea intra structuram If, For, Do, vel Select inclusa).",
     "Str.Menu.Debug.ShowNextStatement": "Monstra Pro_ximam Sententiam",
-
     "Str.Menu.Run": "_Exsecutio",
     "Str.Menu.Run.Start": "_Incipe",
     "Str.Menu.Run.StartWithFullCompile": "Incipe cum _Plena Compilatione",
@@ -129,7 +121,6 @@
     "Str.Menu.Run.End": "_Termina",
     "Str.Menu.Run.Restart": "_Iterum Incipe",
     "Str.Menu.Run.StartWithVB6": "Incipe cum _VB6 (Alt+F5)",
-
     "Str.Menu.Tools": "_Instrumenta",
     "Str.Menu.Tools.AddProcedure": "Adde _Proceduram...",
     "Str.Menu.Tools.ProcedureAttributes": "Attributa _Procedurae...",
@@ -137,7 +128,6 @@
     "Str.Menu.Tools.Options": "_Optiones...",
     "Str.Menu.Tools.LanguageServers": "_Servitores Linguarum...",
     "Str.Menu.Tools.ProtocolInspector": "_Inspector Protocolli...",
-
     "Str.Menu.AddIns": "_Additamenta",
     "Str.Menu.Window": "_Fenestra",
     "Str.Menu.Window.Split": "S_cinde",
@@ -150,12 +140,10 @@
     "Str.Menu.Help.AvaloniaOnWeb": "Avalonia in _Rete",
     "Str.Menu.Help.About": "_De HexIDE...",
     "Str.Menu.GoToGithubRepo": "Adi repositorium github",
-
     "Str.ProjectType.StandardEXE": "EXE Ordinarium",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",
     "Str.ProjectType.ActiveXDLL": "ActiveX DLL",
     "Str.ProjectType.ActiveXControl": "Moderamen ActiveX",
-
     "Str.AddItem.Form": "Forma",
     "Str.AddItem.MDIForm": "Forma MDI",
     "Str.AddItem.Module": "Modulus",
@@ -163,7 +151,6 @@
     "Str.AddItem.UserControl": "Moderamen Usoris",
     "Str.AddItem.PropertyPage": "Pagina Proprietatis",
     "Str.AddItem.AddFile": "Adde Plicam...",
-
     "Str.Toolbar.Tip.AddForm": "Adde Formam",
     "Str.Toolbar.Tip.ListPropertiesMethods": "Enumera Proprietates/Methodos",
     "Str.Toolbar.Tip.ListConstants": "Enumera Constantes",
@@ -200,12 +187,9 @@
     "Str.Toolbar.Tip.MakeSameHeight": "Aequa Altitudinem",
     "Str.Toolbar.Tip.MakeSameSize": "Aequa Magnitudinem",
     "Str.Toolbar.Tip.LockControls": "Obsera Moderamina",
-
     "Str.Toolbox.Tab.General": "Generalia",
-
     "Str.Tool.Properties.Tab.Alphabetic": "Alphabetica",
     "Str.Tool.Properties.Tab.Categorized": "Per Categorias",
-
     "Str.Tool.Project.Toolbar.ViewCode": "Vide Codicem",
     "Str.Tool.Project.Toolbar.ViewObject": "Vide Obiectum",
     "Str.Tool.Project.Menu.SetAsStartUp": "Statue ut Initiale",
@@ -215,19 +199,15 @@
     "Str.Tool.Project.Menu.Add": "Adde",
     "Str.Tool.Project.Menu.Add.Form": "Forma",
     "Str.Tool.Project.Menu.Print": "Imprime",
-
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
-
     "Str.Tool.ColorPalette.Button.Default": "Praedefinitum",
     "Str.Tool.ColorPalette.Button.DefineColors": "Defini Colores",
-
     "Str.Tool.Locals.ContextReady": "<Paratus>",
     "Str.Tool.Locals.Ellipsis": "...",
     "Str.Tool.Locals.Column.Expression": "Expressio",
     "Str.Tool.Locals.Column.Value": "Valor",
     "Str.Tool.Locals.Column.Type": "Typus",
     "Str.Tool.Locals.MoreElements": "… {0} plura",
-
     "Str.Tool.Watches.Column.Expression": "Expressio",
     "Str.Tool.Watches.Column.Value": "Valor",
     "Str.Tool.Watches.Column.Type": "Typus",
@@ -248,7 +228,6 @@
     "Str.Dialog.AddWatch.AllContext": "(Omnes Procedurae)",
     "Str.Tool.CallStack.Column.Frame": "Procedura",
     "Str.Tool.CallStack.Column.Line": "Linea",
-
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Claude Exploratorem Obiectorum",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Explorator Obiectorum",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Adi Definitionem",
@@ -265,7 +244,6 @@
     "Str.Tool.ObjectBrowser.Search.NoMatches": "Nihil in spatio laboris «{0}» respondet.",
     "Str.Tool.ObjectBrowser.Search.Matches": "Congruentiae inventae: {0}",
     "Str.Tool.ObjectBrowser.Search.Failed": "Quaestio perfici non potuit. Vide acta ut plura cognoscas.",
-
     "Str.Dialog.UnfaithfulSave.Body.One": "Haec forma non servata est, quia HexIDE eam nondum fideliter exprimere potest:\n\n{0}\n\nPlica eius in disco immutata manet. Si servaretur, forma tacite mutaretur — Visual Basic 6 plicam sic mutatam sine querela aperit, et ideo damnum facile latet — itaque HexIDE eam intactam relinquit potius quam eam corrumpat.",
     "Str.Dialog.UnfaithfulSave.Body.Many": "Hae formae non servatae sunt, quia HexIDE eas nondum fideliter exprimere potest:\n\n{0}\n\nPlicae earum in disco immutatae manent. Si servarentur, formae tacite mutarentur — Visual Basic 6 plicas sic mutatas sine querela aperit, et ideo damnum facile latet — itaque HexIDE eas intactas relinquit potius quam eas corrumpat.",
     "Str.Designer.ReadOnly.Banner": "Tantum legendum — HexIDE hanc formam nondum fideliter exprimere potest, itaque, si servaretur, mutaretur. Eam videre et exsequi potes, sed mutationes non servabuntur.",
@@ -278,7 +256,6 @@
     "Str.Designer.Context.ViewCode": "Vide Codicem",
     "Str.Designer.Context.AlignToGrid": "Ordina ad Reticulum",
     "Str.Designer.Context.Properties": "Proprietates",
-
     "Str.CodeEditor.ReadOnly.Banner": "Tantum legendum — HexIDE hanc formam nondum fideliter exprimere potest, itaque, si servaretur, mutaretur. Codex eius recenseri non potest donec id correctum erit.",
     "Str.CodeEditor.Context.Cut": "E_xscinde",
     "Str.CodeEditor.Context.Copy": "_Describe",
@@ -301,26 +278,21 @@
     "Str.CodeEditor.Context.GoToDeclaration": "Adi Dec_larationem",
     "Str.CodeEditor.Context.Rename": "_Renomina...",
     "Str.CodeEditor.Context.FormatDocument": "_Compone Documentum",
-
     "Str.Options.Shell.Buttons.ResetAll": "Restitue Omnia",
     "Str.Options.Shell.Buttons.RestoreDefaults": "Restitue Praedefinita",
     "Str.Options.Shell.Buttons.Ok": "OK",
     "Str.Options.Shell.Buttons.Cancel": "Cancella",
-
     "Str.Options.Environment.WhenStarts.Header": "Cum HexIDE incipit",
     "Str.Options.Environment.WhenStarts.PromptForProject": "Interroga de incepto",
     "Str.Options.Environment.FileHandling.Header": "Tractatio plicarum",
     "Str.Options.Environment.ReloadExternalChanges": "Renova plicas foris IDE mutatas",
-
     "Str.Options.Theme.GroupHeader": "Thema IDE",
     "Str.Options.Theme.ThemeLabel": "Thema:",
-
     "Str.Options.Language.Header": "Lingua IDE",
     "Str.Options.Language.LanguageLabel": "_Lingua:",
     "Str.Options.Language.RegionLabel": "_Regio:",
     "Str.Options.Language.RegionStandard": "(Ordinaria)",
     "Str.Options.Language.Customize": "_Accommoda translationes…",
-
     "Str.TranslationEditor.Title": "Recensor Translationum",
     "Str.TranslationEditor.Column.Key": "Clavis",
     "Str.TranslationEditor.Column.From": "Ex",
@@ -357,17 +329,14 @@
     "Str.TranslationEditor.Area.WindowManager": "Administrator fenestrarum",
     "Str.TranslationEditor.Area.StatusBar": "Tabula status",
     "Str.TranslationEditor.Area.Other": "Alia",
-
     "Str.Options.Keymap.Header": "Compendia Claviaturae",
     "Str.Options.Keymap.Label": "Dispositio Clavium:",
     "Str.Options.Keymap.AppliedHint": "Dispositio clavium electa applicatur cum OK premis.",
-
     "Str.Options.Toolbars.VisibleToolbars": "Tabulae Instrumentorum Visibiles",
     "Str.Options.Toolbars.Standard": "Ordinaria",
     "Str.Options.Toolbars.Edit": "Recensio",
     "Str.Options.Toolbars.Debug": "Depuratio",
     "Str.Options.Toolbars.FormEditor": "Recensor Formarum",
-
     "Str.Options.EditorGeneral.CodeSettings.Header": "Configuratio Codicis",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Exige Declarationem Variabilium",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Automatice Enumera Membra",
@@ -376,24 +345,19 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Forma cum Servando",
     "Str.Options.EditorGeneral.Display.Header": "Ostensio",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Monstra Mappulam",
-
     "Str.Options.EditorFormatting.Indentation.Header": "Indentatio",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Latitudo Tabulationis:",
-
     "Str.Options.Grid.GroupHeader": "Configuratio Reticuli Formae",
     "Str.Options.Grid.ShowGrid": "Monstra Reticulum",
     "Str.Options.Grid.Width": "Latitudo Reticuli:",
     "Str.Options.Grid.Height": "Altitudo Reticuli:",
     "Str.Options.Grid.AlignControls": "Ordina Moderamina ad Reticulum",
-
-
     "Str.Options.Developer.Warning.Title": "HIC SUNT DRACONES",
     "Str.Options.Developer.Warning.Body": "Modus programmatoris ACTIVUS est. Optiones infra codicem NON SUBSCRIPTUM, NON VERIFICATUM onerare possunt et cautiones securitatis HexIDE infirmant. Eas activa tantum si ipse eas posuisti et periculum intellegis.",
     "Str.Options.Developer.Warning.SocialEngineering": "Si quis te rogavit ut haec actives: siste et HexIDE claude.",
     "Str.Options.Developer.AddIns.Header": "Additamenta",
     "Str.Options.Developer.AddIns.LoadUnsigned": "Onera fasciculos additamentorum non subscriptos",
     "Str.Options.Developer.AddIns.LoadUnsignedDescription": "Onerat fasciculos additamentorum quorum subscriptio deest aut invalida est. Valet in proximo initio.",
-
     "Str.Options.Addin.Details.Version": "Versio:",
     "Str.Options.Addin.Details.Author": "Auctor:",
     "Str.Options.Addin.Details.Publisher": "Editor:",
@@ -402,19 +366,16 @@
     "Str.Options.Addin.RevokeConsent": "Revoca assensum",
     "Str.Options.Addin.RestartNote": "Valet cum IDE denuo incipitur.",
     "Str.Options.Addin.Trust": "Fides",
-
     "Str.Dialog.About.SigningKeys.Header": "Claves subscriptionis additamentorum",
     "Str.Dialog.About.SigningKeys.RootKey": "Clavis radicalis HexIDE (SHA-256)",
     "Str.Dialog.About.SigningKeys.FirstPartyKey": "Clavis editoris primarii (SHA-256)",
     "Str.Dialog.About.Ok": "OK",
-
     "Str.Dialog.AddinConsent.Title": "Additamentum petit ut oneretur",
     "Str.Dialog.AddinConsent.TrustDetails": "Particularia fidei…",
     "Str.Dialog.AddinConsent.UnsignedWarning": "Hoc additamentum NON est subscriptum. Id permitte tantum si ipse illud aedificavisti et periculum intellegis.",
     "Str.Dialog.AddinConsent.AccessWarning": "Si id permittis, hoc additamentum cum pleno accessu ad computatrum tuum currit: plicas tuas legere et mutare et rete uti potest. Permitte tantum additamenta quibus fidis.",
     "Str.Dialog.AddinConsent.Block": "Impedi",
     "Str.Dialog.AddinConsent.Allow": "Permitte",
-
     "Str.Dialog.AddProcedure.NameLabel": "Nomen:",
     "Str.Dialog.AddProcedure.Type.Header": "Genus",
     "Str.Dialog.AddProcedure.Type.Sub": "Sub",
@@ -427,7 +388,6 @@
     "Str.Dialog.AddProcedure.AllLocalStatics": "Omnes variabiles locales tamquam Static",
     "Str.Dialog.AddProcedure.Ok": "_OK",
     "Str.Dialog.AddProcedure.Cancel": "_Cancella",
-
     "Str.Dialog.Components.Tab.Controls": "Moderamina",
     "Str.Dialog.Components.Tab.Designers": "Designatores",
     "Str.Dialog.Components.Tab.InsertableObjects": "Obiecta Inserenda",
@@ -437,7 +397,6 @@
     "Str.Dialog.Components.Close": "C_laude",
     "Str.Dialog.Components.Cancel": "_Cancella",
     "Str.Dialog.Components.Apply": "_Applica",
-
     "Str.Dialog.FindReplace.Button.FindNext": "Inveni _Proximum",
     "Str.Dialog.FindReplace.Button.Replace": "_Substitue",
     "Str.Dialog.FindReplace.Button.ReplaceAll": "Substitue _Omnia",
@@ -451,13 +410,11 @@
     "Str.Dialog.FindReplace.Option.MatchCase": "Observa _Maiusculas",
     "Str.Dialog.FindReplace.Option.WholeWordOnly": "Inveni Integrum _Verbum Tantum",
     "Str.Dialog.FindReplace.Option.UsePatternMatching": "Utere _Congruentia Exemplaris",
-
     "Str.Dialog.Font.Label.Font": "Character:",
     "Str.Dialog.Font.Label.FontStyle": "Stilus Characteris:",
     "Str.Dialog.Font.Label.Size": "Magnitudo:",
     "Str.Dialog.Font.Button.Ok": "OK",
     "Str.Dialog.Font.Button.Cancel": "Cancella",
-
     "Str.Dialog.NewProject.Tab.New": "Novum",
     "Str.Dialog.NewProject.Tab.Existing": "Exstans",
     "Str.Dialog.NewProject.Tab.Recent": "Recens",
@@ -470,7 +427,6 @@
     "Str.Dialog.NewProject.Tooltip.Back": "Retrorsum",
     "Str.Dialog.NewProject.Tooltip.UpOneLevel": "Gradum Sursum",
     "Str.Dialog.NewProject.Checkbox.DontShowOnStartup": "Noli hoc colloquium in f_uturo monstrare",
-
     "Str.Dialog.ProjectProperties.Tab.General": "Generalia",
     "Str.Dialog.ProjectProperties.Tab.Make": "Constructio",
     "Str.Dialog.ProjectProperties.Tab.Compile": "Compilatio",
@@ -493,7 +449,6 @@
     "Str.Dialog.ProjectProperties.Button.Ok": "_OK",
     "Str.Dialog.ProjectProperties.Button.Cancel": "_Cancella",
     "Str.Dialog.ProjectProperties.Button.Help": "_Auxilium",
-
     "Str.Dialog.References.AvailableReferences": "Relationes Praesto:",
     "Str.Dialog.References.Priority": "Prioritas",
     "Str.Dialog.References.Ok": "OK",
@@ -502,28 +457,23 @@
     "Str.Dialog.References.Help": "Auxilium",
     "Str.Dialog.References.Location": "Locus:",
     "Str.Dialog.References.Language": "Lingua:",
-
     "Str.Dialog.RuntimeError.Button.Continue": "Perge",
     "Str.Dialog.RuntimeError.Button.End": "Termina",
     "Str.Dialog.RuntimeError.Button.Debug": "Depura",
     "Str.Dialog.RuntimeError.Button.Help": "Auxilium",
-
     "Str.Dialog.SaveChanges.Prompt": "Servare mutationes in has plicas?",
     "Str.Dialog.SaveChanges.Button.Yes": "Ita",
     "Str.Dialog.SaveChanges.Button.No": "Minime",
     "Str.Dialog.SaveChanges.Button.Cancel": "Cancella",
-
     "Str.Dialog.FileConflict.Prompt": "Hae plicae foris IDE mutatae sunt et mutationes non servatas habent. Eas ex disco renovare (mutationibus tuis amissis), an mutationes tuas retinere?",
     "Str.Dialog.FileConflict.Button.ReloadAll": "_Renova ex Disco",
     "Str.Dialog.FileConflict.Button.KeepAll": "_Retine Mutationes Meas",
-
     "Str.Dialog.TrustChain.Title": "Catena Subscriptionis",
     "Str.Dialog.TrustChain.RevokedBanner": "Hoc additamentum revocatum est et non onerabitur.",
     "Str.Dialog.TrustChain.SignedBy": "↑ subscriptum a",
     "Str.Dialog.TrustChain.FirstPartyBadge": "✓ Primarium (clavi affixum)",
     "Str.Dialog.TrustChain.Copy": "Describe",
     "Str.Dialog.TrustChain.Close": "Claude",
-
     "Str.Dialog.MenuEditor.Caption": "_Titulus:",
     "Str.Dialog.MenuEditor.OK": "OK",
     "Str.Dialog.MenuEditor.Name": "No_men:",
@@ -541,7 +491,6 @@
     "Str.Dialog.MenuEditor.Next": "_Proximum",
     "Str.Dialog.MenuEditor.Insert": "_Insere",
     "Str.Dialog.MenuEditor.Delete": "De_le",
-
     "Str.PropDesc.Name": "Identificator quo hoc obiectum in codice designatur.",
     "Str.PropDesc.Left": "Distantia a latere sinistro interiore continentis ad marginem sinistrum moderaminis.",
     "Str.PropDesc.Top": "Distantia a summo interiore continentis ad marginem summum moderaminis.",
@@ -599,7 +548,6 @@
     "Str.PropDesc.KeyPreview": "Utrum forma eventus claviaturae ante sua moderamina accipiat.",
     "Str.PropDesc.MaxButton": "Utrum tabula tituli formae bullam maximationis ostendat.",
     "Str.PropDesc.MinButton": "Utrum tabula tituli formae bullam minimationis ostendat.",
-
     "Str.Toolbox.Title": "Arca Instrumentorum",
     "Str.Tool.Properties.Title": "Proprietates",
     "Str.Tool.Project.Title": "Grex Inceptorum - Group1",
@@ -696,10 +644,8 @@
     "Str.Tool.Watches.Title": "Observationes",
     "Str.Tool.CallStack.Title": "Acervus Vocationum",
     "Str.Tool.ObjectBrowser.Title": "Explorator Obiectorum",
-
     "Str.StatusBar.Ready": "Paratus",
     "Str.StatusBar.FileReloaded": "{0} renovata",
-
     "Str.FindReplace.Msg.TitleFind": "Invenire",
     "Str.FindReplace.Msg.TitleReplace": "Substituere",
     "Str.FindReplace.Msg.ScopeCurrentModule": "Modulus Praesens",
@@ -708,7 +654,6 @@
     "Str.FindReplace.Msg.ReplacementsMade": "{0} substitutiones factae.",
     "Str.FindReplace.Msg.InvalidRegex": "Exemplar expressionis regularis invalidum.",
     "Str.FindReplace.Msg.NothingToSearch": "Nihil hic est quod perquiri possit. Invenire in fenestris codicis et in plicis textus quas inceptum fert operatur.",
-
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE non inventum est. VB6 in loco praedefinito installa aut variabilem ambientis VB6_EXE statue.",
     "Str.Vb6Toolchain.BuildFailedTitle": "Constructio Defecit",
     "Str.Vb6Toolchain.ProjectNotSaved": "Inceptum in discum servandum est antequam cum VB6 compilari possit.",
@@ -716,26 +661,20 @@
     "Str.Vb6Toolchain.CompilationFailed": "Compilatio VB6 defecit:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Constructio successit sed exsecutabile non inventum est apud:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Exsecutio Defecit",
-
     "Str.ProjectRunner.MustHaveStartupForm": "Forma initialis aut Sub Main() habenda est",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "Haec actio inceptum tuum restituet. Visne pergere?",
-
     "Str.NewProject.Msg.Title": "Novum Inceptum",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Versio tua HexIDE {0} non sustinet",
     "Str.NewProject.Msg.FileNotFound": "Plica non inventa. Cura ut nomen plicae rectum detur.",
     "Str.NewProject.Msg.OpenProjectTitle": "Aperi Inceptum",
     "Str.NewProject.Msg.ProjectNoLongerExists": "Plica incepti iam non exsistit:\n{0}",
-
     "Str.WindowManager.AboutTitle": "De {0}",
     "Str.WindowManager.FontTitle": "Character",
-
     "Str.Dialog.AddinConsent.Vm.Title": "Additamentum — onerare permittere?",
     "Str.Dialog.AddinConsent.Vm.UnnamedAddin": "(additamentum sine nomine)",
     "Str.Dialog.AddinConsent.Vm.NoVerifiableIdentity": "Nulla identitas verificabilis — constructio programmatoris non subscripta.",
     "Str.Dialog.AddinConsent.Vm.VerifiedPublisher": "Editor verificatus: {0}",
     "Str.Dialog.AddinConsent.Vm.Unsigned": "NON SUBSCRIPTUM — constructio programmatoris (subscriptio deest aut invalida)",
-
     "Str.Menu.File.SaveProjectGroup": "Serva {0}.vbg",
     "Str.Menu.File.SaveProjectFormat": "Serva {0}",
     "Str.Menu.File.SaveProjectFallback": "Serva Inceptum",
@@ -757,25 +696,20 @@
     "Str.Menu.Edit.Undo": "_Rescinde",
     "Str.Menu.Edit.RedoFormat": "_Reface {0}",
     "Str.Menu.Edit.Redo": "_Reface",
-
     "Str.StatusBar.Running": "Currens…",
-
     "Str.Tool.Project.PropertiesFormat": "{0} Proprietates",
     "Str.Tool.Project.SaveFormFormat": "Serva {0}",
     "Str.Tool.Project.SaveFormAsFormat": "Serva {0} Ut...",
     "Str.Tool.Project.RemoveFormFormat": "Aufer {0}",
-
     "Str.Document.CodeSuffix": "Codex",
     "Str.Document.FormSuffix": "Forma",
     "Str.Document.UserControlSuffix": "Moderamen",
-
     "Str.PropCategory.Misc": "Varia",
     "Str.PropCategory.Appearance": "Species",
     "Str.PropCategory.Behavior": "Mores",
     "Str.PropCategory.Position": "Positio",
     "Str.PropCategory.Internal": "Interna",
     "Str.PropCategory.List": "Index",
-
     "Str.Options.Title": "Optiones",
     "Str.Options.Node.Environment": "Ambiens",
     "Str.Options.Node.Editor": "Recensor",
@@ -788,6 +722,11 @@
     "Str.Options.Node.Toolbars": "Tabulae Instrumentorum",
     "Str.Options.Node.Formatting": "Formatio",
     "Str.Options.Node.Grid": "Reticulum",
-    "Str.Options.Node.Developer": "Programmator"
+    "Str.Options.Node.Developer": "Programmator",
+    "Str.ProjectDocument.Location": "Locus:",
+    "Str.ProjectDocument.NotSaved": "In disco non servatum",
+    "Str.ProjectDocument.Section.Members": "Membra",
+    "Str.ProjectDocument.Section.References": "Relationes",
+    "Str.ProjectDocument.Kind.RelatedDocument": "Documentum coniunctum"
   }
 }

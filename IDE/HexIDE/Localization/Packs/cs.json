@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "Sestavení proběhlo úspěšně, ale spustitelný soubor nebyl nalezen na:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Spuštění selhalo",
     "Str.ProjectRunner.MustHaveStartupForm": "Musí existovat spouštěcí formulář nebo Sub Main()",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "Tato akce resetuje projekt. Chcete pokračovat?",
     "Str.NewProject.Msg.Title": "Nový projekt",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Vaše verze HexIDE nepodporuje {0}",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "Panely nástrojů",
     "Str.Options.Node.Formatting": "Formátování",
     "Str.Options.Node.Grid": "Mřížka",
-    "Str.Options.Node.Developer": "Vývojář"
+    "Str.Options.Node.Developer": "Vývojář",
+    "Str.ProjectDocument.Location": "Umístění:",
+    "Str.ProjectDocument.NotSaved": "Neuloženo na disk",
+    "Str.ProjectDocument.Section.Members": "Členové",
+    "Str.ProjectDocument.Section.References": "Odkazy",
+    "Str.ProjectDocument.Kind.RelatedDocument": "Související dokument"
   }
 }

@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "Erstellung erfolgreich, aber die ausführbare Datei wurde nicht gefunden unter:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Ausführung fehlgeschlagen",
     "Str.ProjectRunner.MustHaveStartupForm": "Muss ein Startformular oder Sub Main() haben",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "Diese Aktion setzt Ihr Projekt zurück. Möchten Sie fortfahren?",
     "Str.NewProject.Msg.Title": "Neues Projekt",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Ihre HexIDE-Version unterstützt {0} nicht",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "Symbolleisten",
     "Str.Options.Node.Formatting": "Formatierung",
     "Str.Options.Node.Grid": "Raster",
-    "Str.Options.Node.Developer": "Entwickler"
+    "Str.Options.Node.Developer": "Entwickler",
+    "Str.ProjectDocument.Location": "Speicherort:",
+    "Str.ProjectDocument.NotSaved": "Nicht auf Datenträger gespeichert",
+    "Str.ProjectDocument.Section.Members": "Elemente",
+    "Str.ProjectDocument.Section.References": "Verweise",
+    "Str.ProjectDocument.Kind.RelatedDocument": "Zugehöriges Dokument"
   }
 }

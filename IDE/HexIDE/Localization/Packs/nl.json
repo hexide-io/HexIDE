@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "Build geslaagd, maar het uitvoerbare bestand is niet gevonden op:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Uitvoeren mislukt",
     "Str.ProjectRunner.MustHaveStartupForm": "Moet een opstartformulier of Sub Main() hebben",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "Deze actie stelt het project opnieuw in. Wilt u doorgaan?",
     "Str.NewProject.Msg.Title": "Nieuw project",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Uw HexIDE-versie ondersteunt {0} niet",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "Werkbalken",
     "Str.Options.Node.Formatting": "Opmaak",
     "Str.Options.Node.Grid": "Raster",
-    "Str.Options.Node.Developer": "Ontwikkelaar"
+    "Str.Options.Node.Developer": "Ontwikkelaar",
+    "Str.ProjectDocument.Location": "Locatie:",
+    "Str.ProjectDocument.NotSaved": "Niet opgeslagen op schijf",
+    "Str.ProjectDocument.Section.Members": "Leden",
+    "Str.ProjectDocument.Section.References": "Verwijzingen",
+    "Str.ProjectDocument.Kind.RelatedDocument": "Gerelateerd document"
   }
 }

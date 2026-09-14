@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "הבנייה הצליחה אך קובץ ההפעלה לא נמצא ב:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "ההרצה נכשלה",
     "Str.ProjectRunner.MustHaveStartupForm": "חייב להיות טופס פתיחה או Sub Main()",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "פעולה זו תאפס את הפרויקט שלך. האם ברצונך להמשיך?",
     "Str.NewProject.Msg.Title": "פרויקט חדש",
     "Str.NewProject.Msg.VersionDoesNotSupport": "גרסת HexIDE שלך אינה תומכת ב-{0}",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "סרגלי כלים",
     "Str.Options.Node.Formatting": "עיצוב",
     "Str.Options.Node.Grid": "רשת",
-    "Str.Options.Node.Developer": "מפתח"
+    "Str.Options.Node.Developer": "מפתח",
+    "Str.ProjectDocument.Location": "מיקום:",
+    "Str.ProjectDocument.NotSaved": "לא נשמר בדיסק",
+    "Str.ProjectDocument.Section.Members": "חברים",
+    "Str.ProjectDocument.Section.References": "הפניות",
+    "Str.ProjectDocument.Kind.RelatedDocument": "מסמך קשור"
   }
 }

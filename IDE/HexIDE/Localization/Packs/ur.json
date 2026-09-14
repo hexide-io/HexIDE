@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "بلڈ کامیاب رہی مگر قابلِ عمل فائل یہاں نہیں ملی:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "چلانا ناکام",
     "Str.ProjectRunner.MustHaveStartupForm": "ایک اسٹارٹ اپ فارم یا Sub Main() ہونا ضروری ہے",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "یہ عمل آپ کے پروجیکٹ کو ری سیٹ کر دے گا۔ کیا آپ جاری رکھنا چاہتے ہیں؟",
     "Str.NewProject.Msg.Title": "نیا پروجیکٹ",
     "Str.NewProject.Msg.VersionDoesNotSupport": "آپ کا HexIDE ورژن {0} کی معاونت نہیں کرتا",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "ٹول بارز",
     "Str.Options.Node.Formatting": "فارمیٹنگ",
     "Str.Options.Node.Grid": "گرڈ",
-    "Str.Options.Node.Developer": "ڈویلپر"
+    "Str.Options.Node.Developer": "ڈویلپر",
+    "Str.ProjectDocument.Location": "مقام:",
+    "Str.ProjectDocument.NotSaved": "ڈسک پر محفوظ نہیں",
+    "Str.ProjectDocument.Section.Members": "ارکان",
+    "Str.ProjectDocument.Section.References": "حوالہ جات",
+    "Str.ProjectDocument.Kind.RelatedDocument": "متعلقہ دستاویز"
   }
 }

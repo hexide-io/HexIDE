@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "Konstruado sukcesis sed la plenumebla dosiero ne estis trovita ĉe:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Rulado malsukcesis",
     "Str.ProjectRunner.MustHaveStartupForm": "Devas havi startan formularon aŭ Sub Main()",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "Ĉi tiu ago restarigos vian projekton. Ĉu vi volas daŭrigi?",
     "Str.NewProject.Msg.Title": "Nova Projekto",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Via HexIDE-versio ne subtenas {0}",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "Ilobretoj",
     "Str.Options.Node.Formatting": "Formatado",
     "Str.Options.Node.Grid": "Krado",
-    "Str.Options.Node.Developer": "Programisto"
+    "Str.Options.Node.Developer": "Programisto",
+    "Str.ProjectDocument.Location": "Loko:",
+    "Str.ProjectDocument.NotSaved": "Ne konservita sur disko",
+    "Str.ProjectDocument.Section.Members": "Membroj",
+    "Str.ProjectDocument.Section.References": "Referencoj",
+    "Str.ProjectDocument.Kind.RelatedDocument": "Rilata dokumento"
   }
 }

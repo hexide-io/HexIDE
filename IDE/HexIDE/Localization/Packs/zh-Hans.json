@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "生成成功，但未在以下位置找到可执行文件：\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "运行失败",
     "Str.ProjectRunner.MustHaveStartupForm": "必须具有启动窗体或 Sub Main()",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "此操作将重置工程。是否继续？",
     "Str.NewProject.Msg.Title": "新建工程",
     "Str.NewProject.Msg.VersionDoesNotSupport": "您的 HexIDE 版本不支持 {0}",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "工具栏",
     "Str.Options.Node.Formatting": "格式化",
     "Str.Options.Node.Grid": "网格",
-    "Str.Options.Node.Developer": "开发者"
+    "Str.Options.Node.Developer": "开发者",
+    "Str.ProjectDocument.Location": "位置：",
+    "Str.ProjectDocument.NotSaved": "未保存到磁盘",
+    "Str.ProjectDocument.Section.Members": "成员",
+    "Str.ProjectDocument.Section.References": "引用",
+    "Str.ProjectDocument.Kind.RelatedDocument": "相关文档"
   }
 }
