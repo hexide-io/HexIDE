@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "Bygningen lykkedes, men den eksekverbare fil blev ikke fundet på:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Kørsel mislykkedes",
     "Str.ProjectRunner.MustHaveStartupForm": "Skal have en startformular eller Sub Main()",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "Denne handling nulstiller projektet. Vil du fortsætte?",
     "Str.NewProject.Msg.Title": "Nyt projekt",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Din HexIDE-version understøtter ikke {0}",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "Værktøjslinjer",
     "Str.Options.Node.Formatting": "Formatering",
     "Str.Options.Node.Grid": "Gitter",
-    "Str.Options.Node.Developer": "Udvikler"
+    "Str.Options.Node.Developer": "Udvikler",
+    "Str.ProjectDocument.Location": "Placering:",
+    "Str.ProjectDocument.NotSaved": "Ikke gemt på disk",
+    "Str.ProjectDocument.Section.Members": "Medlemmer",
+    "Str.ProjectDocument.Section.References": "Referencer",
+    "Str.ProjectDocument.Kind.RelatedDocument": "Relateret dokument"
   }
 }

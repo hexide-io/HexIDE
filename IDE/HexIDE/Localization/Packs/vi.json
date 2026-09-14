@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "Biên dịch thành công nhưng không tìm thấy tệp thực thi tại:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Chạy thất bại",
     "Str.ProjectRunner.MustHaveStartupForm": "Phải có biểu mẫu khởi động hoặc Sub Main()",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "Hành động này sẽ đặt lại dự án của bạn. Bạn có muốn tiếp tục không?",
     "Str.NewProject.Msg.Title": "Dự án mới",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Phiên bản HexIDE của bạn không hỗ trợ {0}",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "Thanh công cụ",
     "Str.Options.Node.Formatting": "Định dạng",
     "Str.Options.Node.Grid": "Lưới",
-    "Str.Options.Node.Developer": "Nhà phát triển"
+    "Str.Options.Node.Developer": "Nhà phát triển",
+    "Str.ProjectDocument.Location": "Vị trí:",
+    "Str.ProjectDocument.NotSaved": "Chưa lưu vào đĩa",
+    "Str.ProjectDocument.Section.Members": "Thành phần",
+    "Str.ProjectDocument.Section.References": "Tham chiếu",
+    "Str.ProjectDocument.Kind.RelatedDocument": "Tài liệu liên quan"
   }
 }

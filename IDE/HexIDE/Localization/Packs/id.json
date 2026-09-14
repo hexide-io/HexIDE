@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "Build berhasil tetapi berkas yang dapat dieksekusi tidak ditemukan di:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Gagal Menjalankan",
     "Str.ProjectRunner.MustHaveStartupForm": "Harus memiliki form awal atau Sub Main()",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "Tindakan ini akan mengatur ulang proyek Anda. Apakah Anda ingin melanjutkan?",
     "Str.NewProject.Msg.Title": "Proyek Baru",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Versi HexIDE Anda tidak mendukung {0}",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "Bilah Alat",
     "Str.Options.Node.Formatting": "Pemformatan",
     "Str.Options.Node.Grid": "Kisi",
-    "Str.Options.Node.Developer": "Pengembang"
+    "Str.Options.Node.Developer": "Pengembang",
+    "Str.ProjectDocument.Location": "Lokasi:",
+    "Str.ProjectDocument.NotSaved": "Belum disimpan ke disk",
+    "Str.ProjectDocument.Section.Members": "Anggota",
+    "Str.ProjectDocument.Section.References": "Referensi",
+    "Str.ProjectDocument.Kind.RelatedDocument": "Dokumen Terkait"
   }
 }

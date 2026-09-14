@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "Η δόμηση ολοκληρώθηκε, αλλά το εκτελέσιμο δεν βρέθηκε στη θέση:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Η εκτέλεση απέτυχε",
     "Str.ProjectRunner.MustHaveStartupForm": "Πρέπει να υπάρχει φόρμα εκκίνησης ή Sub Main()",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "Αυτή η ενέργεια θα επαναφέρει το έργο σας. Θέλετε να συνεχίσετε;",
     "Str.NewProject.Msg.Title": "Νέο έργο",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Η έκδοση του HexIDE δεν υποστηρίζει {0}",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "Γραμμές εργαλείων",
     "Str.Options.Node.Formatting": "Μορφοποίηση",
     "Str.Options.Node.Grid": "Πλέγμα",
-    "Str.Options.Node.Developer": "Προγραμματιστής"
+    "Str.Options.Node.Developer": "Προγραμματιστής",
+    "Str.ProjectDocument.Location": "Τοποθεσία:",
+    "Str.ProjectDocument.NotSaved": "Δεν έχει αποθηκευτεί στον δίσκο",
+    "Str.ProjectDocument.Section.Members": "Μέλη",
+    "Str.ProjectDocument.Section.References": "Αναφορές",
+    "Str.ProjectDocument.Kind.RelatedDocument": "Σχετικό έγγραφο"
   }
 }

@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "Derleme başarılı oldu ancak yürütülebilir dosya şurada bulunamadı:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Çalıştırma Başarısız",
     "Str.ProjectRunner.MustHaveStartupForm": "Bir başlangıç formu veya Sub Main() bulunmalıdır",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "Bu işlem projenizi sıfırlayacak. Devam etmek istiyor musunuz?",
     "Str.NewProject.Msg.Title": "Yeni Proje",
     "Str.NewProject.Msg.VersionDoesNotSupport": "HexIDE sürümünüz {0} öğesini desteklemiyor",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "Araç Çubukları",
     "Str.Options.Node.Formatting": "Biçimlendirme",
     "Str.Options.Node.Grid": "Izgara",
-    "Str.Options.Node.Developer": "Geliştirici"
+    "Str.Options.Node.Developer": "Geliştirici",
+    "Str.ProjectDocument.Location": "Konum:",
+    "Str.ProjectDocument.NotSaved": "Diske kaydedilmedi",
+    "Str.ProjectDocument.Section.Members": "Üyeler",
+    "Str.ProjectDocument.Section.References": "Başvurular",
+    "Str.ProjectDocument.Kind.RelatedDocument": "İlgili Belge"
   }
 }

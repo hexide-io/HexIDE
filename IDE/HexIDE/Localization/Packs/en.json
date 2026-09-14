@@ -12,19 +12,16 @@
     "Str.Menu.File.MakeProjectGroup": "Make Project _Group...",
     "Str.Menu.File.RecentProjects": "Recent _Projects",
     "Str.Menu.File.Exit": "E_xit",
-
     "Str.RevertGate.Title": "Confirm language change",
     "Str.RevertGate.Prompt": "Keep this language?",
     "Str.RevertGate.Keep": "Keep",
     "Str.RevertGate.Revert": "Revert",
     "Str.RevertGate.Countdown": "Reverting in {0}s…",
-
     "Str.Toolbar.Standard": "Standard",
     "Str.Toolbar.Edit": "Edit",
     "Str.Toolbar.Debug": "Debug",
     "Str.Toolbar.FormEditor": "Form Editor",
     "Str.Toolbar.Customize": "Customize...",
-
     "Str.Menu.Edit": "_Edit",
     "Str.Menu.Edit.Cut": "Cu_t",
     "Str.Menu.Edit.Copy": "_Copy",
@@ -49,7 +46,6 @@
     "Str.Menu.Edit.Bookmarks.Next": "_Next Bookmark",
     "Str.Menu.Edit.Bookmarks.Previous": "_Previous Bookmark",
     "Str.Menu.Edit.Bookmarks.ClearAll": "_Clear All Bookmarks",
-
     "Str.Menu.View": "_View",
     "Str.Menu.View.Code": "_Code",
     "Str.Menu.View.Object": "O_bject",
@@ -69,7 +65,6 @@
     "Str.Menu.View.ColorPalette": "Color Pa_lette",
     "Str.Menu.View.Toolbars": "_Toolbars",
     "Str.Menu.View.Minimap": "_Minimap",
-
     "Str.Menu.Project": "_Project",
     "Str.Menu.Project.AddForm": "Add _Form",
     "Str.Menu.Project.AddMDIForm": "Add MD_I Form",
@@ -80,7 +75,6 @@
     "Str.Menu.Project.AddFile": "_Add File...",
     "Str.Menu.Project.References": "Refere_nces...",
     "Str.Menu.Project.Components": "C_omponents...",
-
     "Str.Menu.Format": "F_ormat",
     "Str.Menu.Format.Align": "_Align",
     "Str.Menu.Format.Align.Lefts": "_Lefts",
@@ -107,7 +101,6 @@
     "Str.Menu.Format.Order.BringToFront": "Bring to Front",
     "Str.Menu.Format.Order.SendToBack": "Send to Back",
     "Str.Menu.Format.LockControls": "_Lock Controls",
-
     "Str.Menu.Debug": "_Debug",
     "Str.Menu.Debug.StepInto": "Step _Into",
     "Str.Menu.Debug.StepOver": "Step _Over",
@@ -121,7 +114,6 @@
     "Str.Menu.Debug.SetNextStatement": "Set _Next Statement",
     "Str.Debug.SetNextStatement.Refused": "Can't set the next statement here — only a top-level statement of the currently paused procedure is supported (not one nested inside an If, For, Do, or Select block).",
     "Str.Menu.Debug.ShowNextStatement": "Show Ne_xt Statement",
-
     "Str.Menu.Run": "_Run",
     "Str.Menu.Run.Start": "_Start",
     "Str.Menu.Run.StartWithFullCompile": "Start With _Full Compile",
@@ -129,7 +121,6 @@
     "Str.Menu.Run.End": "_End",
     "Str.Menu.Run.Restart": "_Restart",
     "Str.Menu.Run.StartWithVB6": "Start with _VB6 (Alt+F5)",
-
     "Str.Menu.Tools": "_Tools",
     "Str.Menu.Tools.AddProcedure": "Add _Procedure...",
     "Str.Menu.Tools.ProcedureAttributes": "Procedure _Attributes...",
@@ -137,7 +128,6 @@
     "Str.Menu.Tools.Options": "_Options...",
     "Str.Menu.Tools.LanguageServers": "_Language Servers...",
     "Str.Menu.Tools.ProtocolInspector": "_Protocol Inspector...",
-
     "Str.Menu.AddIns": "_Add-Ins",
     "Str.Menu.Window": "_Window",
     "Str.Menu.Window.Split": "S_plit",
@@ -150,12 +140,10 @@
     "Str.Menu.Help.AvaloniaOnWeb": "Avalonia on the _Web",
     "Str.Menu.Help.About": "_About HexIDE...",
     "Str.Menu.GoToGithubRepo": "Go to github repo",
-
     "Str.ProjectType.StandardEXE": "Standard EXE",
     "Str.ProjectType.ActiveXEXE": "ActiveX EXE",
     "Str.ProjectType.ActiveXDLL": "ActiveX DLL",
     "Str.ProjectType.ActiveXControl": "ActiveX Control",
-
     "Str.AddItem.Form": "Form",
     "Str.AddItem.MDIForm": "MDI Form",
     "Str.AddItem.Module": "Module",
@@ -163,7 +151,6 @@
     "Str.AddItem.UserControl": "User Control",
     "Str.AddItem.PropertyPage": "Property Page",
     "Str.AddItem.AddFile": "Add File...",
-
     "Str.Toolbar.Tip.AddForm": "Add Form",
     "Str.Toolbar.Tip.ListPropertiesMethods": "List Properties/Methods",
     "Str.Toolbar.Tip.ListConstants": "List Constants",
@@ -200,12 +187,9 @@
     "Str.Toolbar.Tip.MakeSameHeight": "Make Same Height",
     "Str.Toolbar.Tip.MakeSameSize": "Make Same Size",
     "Str.Toolbar.Tip.LockControls": "Lock Controls",
-
     "Str.Toolbox.Tab.General": "General",
-
     "Str.Tool.Properties.Tab.Alphabetic": "Alphabetic",
     "Str.Tool.Properties.Tab.Categorized": "Categorized",
-
     "Str.Tool.Project.Toolbar.ViewCode": "View Code",
     "Str.Tool.Project.Toolbar.ViewObject": "View Object",
     "Str.Tool.Project.Menu.SetAsStartUp": "Set as Start Up",
@@ -215,19 +199,15 @@
     "Str.Tool.Project.Menu.Add": "Add",
     "Str.Tool.Project.Menu.Add.Form": "Form",
     "Str.Tool.Project.Menu.Print": "Print",
-
     "Str.Tool.FormLayout.Preview.FormName": "Form1",
-
     "Str.Tool.ColorPalette.Button.Default": "Default",
     "Str.Tool.ColorPalette.Button.DefineColors": "Define Colors",
-
     "Str.Tool.Locals.ContextReady": "<Ready>",
     "Str.Tool.Locals.Ellipsis": "...",
     "Str.Tool.Locals.Column.Expression": "Expression",
     "Str.Tool.Locals.Column.Value": "Value",
     "Str.Tool.Locals.Column.Type": "Type",
     "Str.Tool.Locals.MoreElements": "… {0} more",
-
     "Str.Tool.Watches.Column.Expression": "Expression",
     "Str.Tool.Watches.Column.Value": "Value",
     "Str.Tool.Watches.Column.Type": "Type",
@@ -246,10 +226,8 @@
     "Str.Dialog.AddWatch.Ok": "OK",
     "Str.Dialog.AddWatch.Cancel": "Cancel",
     "Str.Dialog.AddWatch.AllContext": "(All Procedures)",
-
     "Str.Tool.CallStack.Column.Frame": "Procedure",
     "Str.Tool.CallStack.Column.Line": "Line",
-
     "Str.Tool.ObjectBrowser.Chrome.CloseTip": "Close Object Browser",
     "Str.Tool.ObjectBrowser.Chrome.Title": "Object Browser",
     "Str.Tool.ObjectBrowser.Toolbar.GoToDefinition": "Go to Definition",
@@ -266,7 +244,6 @@
     "Str.Tool.ObjectBrowser.Search.NoMatches": "Nothing in the workspace matches “{0}”.",
     "Str.Tool.ObjectBrowser.Search.Matches": "Matches found: {0}",
     "Str.Tool.ObjectBrowser.Search.Failed": "The search could not be completed. See the log for details.",
-
     "Str.Dialog.UnfaithfulSave.Body.One": "This form was not saved, because HexIDE cannot yet reproduce it faithfully:\n\n{0}\n\nIts file on disk is unchanged. Saving it would change the form silently — Visual Basic 6 opens the result without complaining, which is what makes the damage easy to miss — so HexIDE leaves it alone rather than damage it.",
     "Str.Dialog.UnfaithfulSave.Body.Many": "These forms were not saved, because HexIDE cannot yet reproduce them faithfully:\n\n{0}\n\nTheir files on disk are unchanged. Saving them would change the forms silently — Visual Basic 6 opens the results without complaining, which is what makes the damage easy to miss — so HexIDE leaves them alone rather than damage them.",
     "Str.Designer.ReadOnly.Banner": "Read-only — HexIDE cannot yet reproduce this form faithfully, so saving it would change it. You can view and run it, but changes will not be saved.",
@@ -279,7 +256,6 @@
     "Str.Designer.Context.ViewCode": "View Code",
     "Str.Designer.Context.AlignToGrid": "Align to Grid",
     "Str.Designer.Context.Properties": "Properties",
-
     "Str.CodeEditor.ReadOnly.Banner": "Read-only — HexIDE cannot yet reproduce this form faithfully, so saving it would change it. Its code cannot be edited until that is fixed.",
     "Str.CodeEditor.Context.Cut": "Cu_t",
     "Str.CodeEditor.Context.Copy": "_Copy",
@@ -302,26 +278,21 @@
     "Str.CodeEditor.Context.GoToDeclaration": "Go to Dec_laration",
     "Str.CodeEditor.Context.Rename": "_Rename...",
     "Str.CodeEditor.Context.FormatDocument": "_Format Document",
-
     "Str.Options.Shell.Buttons.ResetAll": "Reset All",
     "Str.Options.Shell.Buttons.RestoreDefaults": "Restore Defaults",
     "Str.Options.Shell.Buttons.Ok": "OK",
     "Str.Options.Shell.Buttons.Cancel": "Cancel",
-
     "Str.Options.Environment.WhenStarts.Header": "When HexIDE starts",
     "Str.Options.Environment.WhenStarts.PromptForProject": "Prompt for project",
     "Str.Options.Environment.FileHandling.Header": "File handling",
     "Str.Options.Environment.ReloadExternalChanges": "Reload files changed outside the IDE",
-
     "Str.Options.Theme.GroupHeader": "IDE Theme",
     "Str.Options.Theme.ThemeLabel": "Theme:",
-
     "Str.Options.Language.Header": "IDE Language",
     "Str.Options.Language.LanguageLabel": "_Language:",
     "Str.Options.Language.RegionLabel": "_Region:",
     "Str.Options.Language.RegionStandard": "(Standard)",
     "Str.Options.Language.Customize": "_Customize translations…",
-
     "Str.TranslationEditor.Title": "Translation Editor",
     "Str.TranslationEditor.Column.Key": "Key",
     "Str.TranslationEditor.Column.From": "From",
@@ -358,17 +329,14 @@
     "Str.TranslationEditor.Area.WindowManager": "Window manager",
     "Str.TranslationEditor.Area.StatusBar": "Status bar",
     "Str.TranslationEditor.Area.Other": "Other",
-
     "Str.Options.Keymap.Header": "Keyboard Shortcuts",
     "Str.Options.Keymap.Label": "Keymap:",
     "Str.Options.Keymap.AppliedHint": "The selected keymap is applied when you click OK.",
-
     "Str.Options.Toolbars.VisibleToolbars": "Visible Toolbars",
     "Str.Options.Toolbars.Standard": "Standard",
     "Str.Options.Toolbars.Edit": "Edit",
     "Str.Options.Toolbars.Debug": "Debug",
     "Str.Options.Toolbars.FormEditor": "Form Editor",
-
     "Str.Options.EditorGeneral.CodeSettings.Header": "Code Settings",
     "Str.Options.EditorGeneral.CodeSettings.RequireVariableDeclaration": "Require Variable Declaration",
     "Str.Options.EditorGeneral.CodeSettings.AutoListMembers": "Auto List Members",
@@ -377,24 +345,19 @@
     "Str.Options.EditorGeneral.CodeSettings.FormatOnSave": "Format on Save",
     "Str.Options.EditorGeneral.Display.Header": "Display",
     "Str.Options.EditorGeneral.Display.ShowMinimap": "Show Minimap",
-
     "Str.Options.EditorFormatting.Indentation.Header": "Indentation",
     "Str.Options.EditorFormatting.Indentation.TabWidth": "Tab Width:",
-
     "Str.Options.Grid.GroupHeader": "Form Grid Settings",
     "Str.Options.Grid.ShowGrid": "Show Grid",
     "Str.Options.Grid.Width": "Grid Width:",
     "Str.Options.Grid.Height": "Grid Height:",
     "Str.Options.Grid.AlignControls": "Align Controls to Grid",
-
-
     "Str.Options.Developer.Warning.Title": "HERE BE DRAGONS",
     "Str.Options.Developer.Warning.Body": "Developer mode is ON. The options below can load UNSIGNED, UNVERIFIED code and weaken HexIDE's safety checks. Turn them on only if you set them yourself and understand the risk.",
     "Str.Options.Developer.Warning.SocialEngineering": "If someone asked you to enable these: stop and close HexIDE.",
     "Str.Options.Developer.AddIns.Header": "Add-ins",
     "Str.Options.Developer.AddIns.LoadUnsigned": "Load unsigned add-in packages",
     "Str.Options.Developer.AddIns.LoadUnsignedDescription": "Loads add-in packages whose signature is missing or invalid. Effective next start.",
-
     "Str.Options.Addin.Details.Version": "Version:",
     "Str.Options.Addin.Details.Author": "Author:",
     "Str.Options.Addin.Details.Publisher": "Publisher:",
@@ -403,19 +366,16 @@
     "Str.Options.Addin.RevokeConsent": "Revoke consent",
     "Str.Options.Addin.RestartNote": "Takes effect on the next IDE restart.",
     "Str.Options.Addin.Trust": "Trust",
-
     "Str.Dialog.About.SigningKeys.Header": "Add-in signing keys",
     "Str.Dialog.About.SigningKeys.RootKey": "HexIDE root key (SHA-256)",
     "Str.Dialog.About.SigningKeys.FirstPartyKey": "First-party publisher key (SHA-256)",
     "Str.Dialog.About.Ok": "OK",
-
     "Str.Dialog.AddinConsent.Title": "An add-in is asking to load",
     "Str.Dialog.AddinConsent.TrustDetails": "Trust details…",
     "Str.Dialog.AddinConsent.UnsignedWarning": "This add-in is NOT signed. Only allow it if you built it yourself and understand the risk.",
     "Str.Dialog.AddinConsent.AccessWarning": "If you allow it, this add-in runs with full access to your computer: it can read and modify your files and use the network. Only allow add-ins you trust.",
     "Str.Dialog.AddinConsent.Block": "Block",
     "Str.Dialog.AddinConsent.Allow": "Allow",
-
     "Str.Dialog.AddProcedure.NameLabel": "Name:",
     "Str.Dialog.AddProcedure.Type.Header": "Type",
     "Str.Dialog.AddProcedure.Type.Sub": "Sub",
@@ -428,7 +388,6 @@
     "Str.Dialog.AddProcedure.AllLocalStatics": "All Local variables as Statics",
     "Str.Dialog.AddProcedure.Ok": "_OK",
     "Str.Dialog.AddProcedure.Cancel": "_Cancel",
-
     "Str.Dialog.Components.Tab.Controls": "Controls",
     "Str.Dialog.Components.Tab.Designers": "Designers",
     "Str.Dialog.Components.Tab.InsertableObjects": "Insertable Objects",
@@ -438,7 +397,6 @@
     "Str.Dialog.Components.Close": "C_lose",
     "Str.Dialog.Components.Cancel": "_Cancel",
     "Str.Dialog.Components.Apply": "_Apply",
-
     "Str.Dialog.FindReplace.Button.FindNext": "Find _Next",
     "Str.Dialog.FindReplace.Button.Replace": "_Replace",
     "Str.Dialog.FindReplace.Button.ReplaceAll": "Replace _All",
@@ -452,13 +410,11 @@
     "Str.Dialog.FindReplace.Option.MatchCase": "Match _Case",
     "Str.Dialog.FindReplace.Option.WholeWordOnly": "Find Whole _Word Only",
     "Str.Dialog.FindReplace.Option.UsePatternMatching": "Use _Pattern Matching",
-
     "Str.Dialog.Font.Label.Font": "Font:",
     "Str.Dialog.Font.Label.FontStyle": "Font style:",
     "Str.Dialog.Font.Label.Size": "Size:",
     "Str.Dialog.Font.Button.Ok": "OK",
     "Str.Dialog.Font.Button.Cancel": "Cancel",
-
     "Str.Dialog.NewProject.Tab.New": "New",
     "Str.Dialog.NewProject.Tab.Existing": "Existing",
     "Str.Dialog.NewProject.Tab.Recent": "Recent",
@@ -471,7 +427,6 @@
     "Str.Dialog.NewProject.Tooltip.Back": "Back",
     "Str.Dialog.NewProject.Tooltip.UpOneLevel": "Up One Level",
     "Str.Dialog.NewProject.Checkbox.DontShowOnStartup": "Don't show this dialog in the f_uture",
-
     "Str.Dialog.ProjectProperties.Tab.General": "General",
     "Str.Dialog.ProjectProperties.Tab.Make": "Make",
     "Str.Dialog.ProjectProperties.Tab.Compile": "Compile",
@@ -494,7 +449,6 @@
     "Str.Dialog.ProjectProperties.Button.Ok": "_OK",
     "Str.Dialog.ProjectProperties.Button.Cancel": "_Cancel",
     "Str.Dialog.ProjectProperties.Button.Help": "_Help",
-
     "Str.Dialog.References.AvailableReferences": "Available References:",
     "Str.Dialog.References.Priority": "Priority",
     "Str.Dialog.References.Ok": "OK",
@@ -503,28 +457,23 @@
     "Str.Dialog.References.Help": "Help",
     "Str.Dialog.References.Location": "Location:",
     "Str.Dialog.References.Language": "Language:",
-
     "Str.Dialog.RuntimeError.Button.Continue": "Continue",
     "Str.Dialog.RuntimeError.Button.End": "End",
     "Str.Dialog.RuntimeError.Button.Debug": "Debug",
     "Str.Dialog.RuntimeError.Button.Help": "Help",
-
     "Str.Dialog.SaveChanges.Prompt": "Save changes to the following files?",
     "Str.Dialog.SaveChanges.Button.Yes": "Yes",
     "Str.Dialog.SaveChanges.Button.No": "No",
     "Str.Dialog.SaveChanges.Button.Cancel": "Cancel",
-
     "Str.Dialog.FileConflict.Prompt": "These files were changed outside the IDE and have unsaved changes. Reload them from disk (losing your changes), or keep your changes?",
     "Str.Dialog.FileConflict.Button.ReloadAll": "_Reload from Disk",
     "Str.Dialog.FileConflict.Button.KeepAll": "_Keep My Changes",
-
     "Str.Dialog.TrustChain.Title": "Signing chain",
     "Str.Dialog.TrustChain.RevokedBanner": "This add-in has been revoked and will not load.",
     "Str.Dialog.TrustChain.SignedBy": "↑ signed by",
     "Str.Dialog.TrustChain.FirstPartyBadge": "✓ First-party (key-pinned)",
     "Str.Dialog.TrustChain.Copy": "Copy",
     "Str.Dialog.TrustChain.Close": "Close",
-
     "Str.Dialog.MenuEditor.Caption": "Ca_ption:",
     "Str.Dialog.MenuEditor.OK": "OK",
     "Str.Dialog.MenuEditor.Name": "Na_me:",
@@ -542,7 +491,6 @@
     "Str.Dialog.MenuEditor.Next": "_Next",
     "Str.Dialog.MenuEditor.Insert": "_Insert",
     "Str.Dialog.MenuEditor.Delete": "Dele_te",
-
     "Str.PropDesc.Name": "The identifier used to refer to this object in code.",
     "Str.PropDesc.Left": "The distance from the inside-left of the container to the control's left edge.",
     "Str.PropDesc.Top": "The distance from the inside-top of the container to the control's top edge.",
@@ -600,7 +548,6 @@
     "Str.PropDesc.KeyPreview": "Whether the form receives keyboard events before its controls do.",
     "Str.PropDesc.MaxButton": "Whether the form's title bar shows a Maximize button.",
     "Str.PropDesc.MinButton": "Whether the form's title bar shows a Minimize button.",
-
     "Str.Toolbox.Title": "Toolbox",
     "Str.Tool.Properties.Title": "Properties",
     "Str.Tool.Project.Title": "Project Group - Group1",
@@ -608,7 +555,7 @@
     "Str.Tool.Immediate.Title": "Immediate",
     "Str.Tool.Immediate.BreakModeOnly": "Evaluation is only available in break mode.",
     "Str.Tool.Locals.Title": "Locals",
-    "Str.Tool.LanguageServers.Title": "Language \u0026 Debug Servers",
+    "Str.Tool.LanguageServers.Title": "Language & Debug Servers",
     "Str.Tool.ProtocolInspector.Title": "Protocol Inspector",
     "Str.Tool.ProtocolInspector.Server": "Server",
     "Str.Tool.ProtocolInspector.FailuresOnly": "Failures only",
@@ -644,9 +591,8 @@
     "Str.Tool.ProtocolInspector.Empty.Nothing": "A server is attached and nothing has crossed the wire yet, or the record was cleared.",
     "Str.Tool.ProtocolInspector.Empty.Filtered": "Messages are recorded, and none of them match this filter. Clear the filters to see what is there.",
     "Str.Tool.ProtocolInspector.Empty.NoSuchServer": "That server is not one this record knows about.",
-    "Str.Tool.ProtocolInspector.NoBody.Unarmed": "This message was recorded but its content was not: the server is not armed. Turn on \u201cKeep message bodies\u201d in the Language & Debug Servers window, then do it again. ({0} bodies have been refused for want of arming, {1} evicted to stay within limits.)",
+    "Str.Tool.ProtocolInspector.NoBody.Unarmed": "This message was recorded but its content was not: the server is not armed. Turn on “Keep message bodies” in the Language & Debug Servers window, then do it again. ({0} bodies have been refused for want of arming, {1} evicted to stay within limits.)",
     "Str.Tool.ProtocolInspector.NoBody.Armed": "This message was recorded and its content is no longer held. The server is armed, so it was either sent before arming or discarded to stay within limits. ({0} bodies refused, {1} evicted.)",
-
     "Str.Dialog.ExportPreview.Vm.Title": "Export conversation",
     "Str.Dialog.ExportPreview.Title": "This is what will leave your machine",
     "Str.Dialog.ExportPreview.Headline": "{0} messages, written as one JSON-RPC message per line plus a manifest.",
@@ -698,10 +644,8 @@
     "Str.Tool.Watches.Title": "Watches",
     "Str.Tool.CallStack.Title": "Call Stack",
     "Str.Tool.ObjectBrowser.Title": "Object Browser",
-
     "Str.StatusBar.Ready": "Ready",
     "Str.StatusBar.FileReloaded": "Reloaded {0}",
-
     "Str.FindReplace.Msg.TitleFind": "Find",
     "Str.FindReplace.Msg.TitleReplace": "Replace",
     "Str.FindReplace.Msg.ScopeCurrentModule": "Current Module",
@@ -710,7 +654,6 @@
     "Str.FindReplace.Msg.ReplacementsMade": "{0} replacement(s) made.",
     "Str.FindReplace.Msg.InvalidRegex": "Invalid regular expression pattern.",
     "Str.FindReplace.Msg.NothingToSearch": "There is nothing here for Find to search. Find works in code windows and in text files the project carries.",
-
     "Str.Vb6Toolchain.Vb6NotFound": "VB6.EXE was not found. Install VB6 in the default location or set the VB6_EXE environment variable.",
     "Str.Vb6Toolchain.BuildFailedTitle": "Build Failed",
     "Str.Vb6Toolchain.ProjectNotSaved": "The project must be saved to disk before it can be compiled with VB6.",
@@ -718,26 +661,20 @@
     "Str.Vb6Toolchain.CompilationFailed": "VB6 compilation failed:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Build succeeded but the executable was not found at:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Run Failed",
-
     "Str.ProjectRunner.MustHaveStartupForm": "Must have a startup form or Sub Main()",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "This action will reset your project. Do you want to continue?",
-
     "Str.NewProject.Msg.Title": "New Project",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Your HexIDE version doesn't support {0}",
     "Str.NewProject.Msg.FileNotFound": "File not found. Make sure the correct file name is given.",
     "Str.NewProject.Msg.OpenProjectTitle": "Open Project",
     "Str.NewProject.Msg.ProjectNoLongerExists": "The project file no longer exists:\n{0}",
-
     "Str.WindowManager.AboutTitle": "About {0}",
     "Str.WindowManager.FontTitle": "Font",
-
     "Str.Dialog.AddinConsent.Vm.Title": "Add-in — allow to load?",
     "Str.Dialog.AddinConsent.Vm.UnnamedAddin": "(unnamed add-in)",
     "Str.Dialog.AddinConsent.Vm.NoVerifiableIdentity": "No verifiable identity — unsigned developer build.",
     "Str.Dialog.AddinConsent.Vm.VerifiedPublisher": "Verified publisher: {0}",
     "Str.Dialog.AddinConsent.Vm.Unsigned": "UNSIGNED — developer build (signature missing or invalid)",
-
     "Str.Menu.File.SaveProjectGroup": "Save {0}.vbg",
     "Str.Menu.File.SaveProjectFormat": "Save {0}",
     "Str.Menu.File.SaveProjectFallback": "Save Project",
@@ -759,25 +696,20 @@
     "Str.Menu.Edit.Undo": "_Undo",
     "Str.Menu.Edit.RedoFormat": "_Redo {0}",
     "Str.Menu.Edit.Redo": "_Redo",
-
     "Str.StatusBar.Running": "Running…",
-
     "Str.Tool.Project.PropertiesFormat": "{0} Properties",
     "Str.Tool.Project.SaveFormFormat": "Save {0}",
     "Str.Tool.Project.SaveFormAsFormat": "Save {0} As...",
     "Str.Tool.Project.RemoveFormFormat": "Remove {0}",
-
     "Str.Document.CodeSuffix": "Code",
     "Str.Document.FormSuffix": "Form",
     "Str.Document.UserControlSuffix": "UserControl",
-
     "Str.PropCategory.Misc": "Misc",
     "Str.PropCategory.Appearance": "Appearance",
     "Str.PropCategory.Behavior": "Behavior",
     "Str.PropCategory.Position": "Position",
     "Str.PropCategory.Internal": "Internal",
     "Str.PropCategory.List": "List",
-
     "Str.Options.Title": "Options",
     "Str.Options.Node.Environment": "Environment",
     "Str.Options.Node.Editor": "Editor",
@@ -790,6 +722,11 @@
     "Str.Options.Node.Toolbars": "Toolbars",
     "Str.Options.Node.Formatting": "Formatting",
     "Str.Options.Node.Grid": "Grid",
-    "Str.Options.Node.Developer": "Developer"
+    "Str.Options.Node.Developer": "Developer",
+    "Str.ProjectDocument.Location": "Location:",
+    "Str.ProjectDocument.NotSaved": "Not saved to disk",
+    "Str.ProjectDocument.Section.Members": "Members",
+    "Str.ProjectDocument.Section.References": "References",
+    "Str.ProjectDocument.Kind.RelatedDocument": "Related Document"
   }
 }

@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "Сборка прошла успешно, но исполняемый файл не найден по пути:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Запуск не удался",
     "Str.ProjectRunner.MustHaveStartupForm": "Необходима стартовая форма или Sub Main()",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "Это действие сбросит проект. Продолжить?",
     "Str.NewProject.Msg.Title": "Новый проект",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Ваша версия HexIDE не поддерживает {0}",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "Панели инструментов",
     "Str.Options.Node.Formatting": "Форматирование",
     "Str.Options.Node.Grid": "Сетка",
-    "Str.Options.Node.Developer": "Разработчик"
+    "Str.Options.Node.Developer": "Разработчик",
+    "Str.ProjectDocument.Location": "Расположение:",
+    "Str.ProjectDocument.NotSaved": "Не сохранён на диск",
+    "Str.ProjectDocument.Section.Members": "Элементы",
+    "Str.ProjectDocument.Section.References": "Ссылки",
+    "Str.ProjectDocument.Kind.RelatedDocument": "Связанный документ"
   }
 }

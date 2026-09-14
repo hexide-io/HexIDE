@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "ساخت با موفقیت انجام شد اما فایل اجرایی در این مسیر یافت نشد:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "اجرا ناموفق بود",
     "Str.ProjectRunner.MustHaveStartupForm": "باید یک فرم آغازین یا Sub Main() داشته باشد",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "این عمل پروژه شما را بازنشانی می‌کند. آیا می‌خواهید ادامه دهید؟",
     "Str.NewProject.Msg.Title": "پروژه جدید",
     "Str.NewProject.Msg.VersionDoesNotSupport": "نسخه HexIDE شما از {0} پشتیبانی نمی‌کند",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "نوارهای ابزار",
     "Str.Options.Node.Formatting": "قالب‌بندی",
     "Str.Options.Node.Grid": "شبکه",
-    "Str.Options.Node.Developer": "توسعه‌دهنده"
+    "Str.Options.Node.Developer": "توسعه‌دهنده",
+    "Str.ProjectDocument.Location": "مکان:",
+    "Str.ProjectDocument.NotSaved": "روی دیسک ذخیره نشده است",
+    "Str.ProjectDocument.Section.Members": "اعضا",
+    "Str.ProjectDocument.Section.References": "مراجع",
+    "Str.ProjectDocument.Kind.RelatedDocument": "سند مرتبط"
   }
 }

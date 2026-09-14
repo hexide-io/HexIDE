@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "ビルドは成功しましたが、実行ファイルが次の場所に見つかりませんでした:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "実行に失敗しました",
     "Str.ProjectRunner.MustHaveStartupForm": "スタートアップフォームまたは Sub Main() が必要です",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "この操作を行うと、プロジェクトがリセットされます。続行しますか？",
     "Str.NewProject.Msg.Title": "新しいプロジェクト",
     "Str.NewProject.Msg.VersionDoesNotSupport": "お使いの HexIDE のバージョンは {0} をサポートしていません",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "ツールバー",
     "Str.Options.Node.Formatting": "整形",
     "Str.Options.Node.Grid": "グリッド",
-    "Str.Options.Node.Developer": "開発者"
+    "Str.Options.Node.Developer": "開発者",
+    "Str.ProjectDocument.Location": "場所:",
+    "Str.ProjectDocument.NotSaved": "ディスクに保存されていません",
+    "Str.ProjectDocument.Section.Members": "メンバー",
+    "Str.ProjectDocument.Section.References": "参照",
+    "Str.ProjectDocument.Kind.RelatedDocument": "関連ドキュメント"
   }
 }

@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "Bygget lyckades men den körbara filen hittades inte på:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Körningen misslyckades",
     "Str.ProjectRunner.MustHaveStartupForm": "Måste ha ett startformulär eller Sub Main()",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "Den här åtgärden återställer projektet. Vill du fortsätta?",
     "Str.NewProject.Msg.Title": "Nytt projekt",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Din HexIDE-version saknar stöd för {0}",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "Verktygsfält",
     "Str.Options.Node.Formatting": "Formatering",
     "Str.Options.Node.Grid": "Rutnät",
-    "Str.Options.Node.Developer": "Utvecklare"
+    "Str.Options.Node.Developer": "Utvecklare",
+    "Str.ProjectDocument.Location": "Plats:",
+    "Str.ProjectDocument.NotSaved": "Inte sparad till disk",
+    "Str.ProjectDocument.Section.Members": "Medlemmar",
+    "Str.ProjectDocument.Section.References": "Referenser",
+    "Str.ProjectDocument.Kind.RelatedDocument": "Relaterat dokument"
   }
 }

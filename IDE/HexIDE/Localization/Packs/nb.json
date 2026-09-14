@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "Bygget lyktes, men kjørbar fil ble ikke funnet på:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Kjøring mislyktes",
     "Str.ProjectRunner.MustHaveStartupForm": "Må ha et oppstartsskjema eller Sub Main()",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "Denne handlingen nullstiller prosjektet. Vil du fortsette?",
     "Str.NewProject.Msg.Title": "Nytt prosjekt",
     "Str.NewProject.Msg.VersionDoesNotSupport": "HexIDE-versjonen din støtter ikke {0}",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "Verktøylinjer",
     "Str.Options.Node.Formatting": "Formatering",
     "Str.Options.Node.Grid": "Rutenett",
-    "Str.Options.Node.Developer": "Utvikler"
+    "Str.Options.Node.Developer": "Utvikler",
+    "Str.ProjectDocument.Location": "Plassering:",
+    "Str.ProjectDocument.NotSaved": "Ikke lagret på disk",
+    "Str.ProjectDocument.Section.Members": "Medlemmer",
+    "Str.ProjectDocument.Section.References": "Referanser",
+    "Str.ProjectDocument.Kind.RelatedDocument": "Relatert dokument"
   }
 }

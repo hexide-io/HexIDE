@@ -4,6 +4,7 @@ using System.Linq;
 using System.Windows.Input;
 using Avalonia;
 using Avalonia.Automation;
+using Avalonia.Automation.Peers;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -246,6 +247,97 @@ public class UiAutomationDriverTests
             var checkbox = UiAutomationDriver.Inspect(check, "Window/CheckBox[TheCheck]");
             checkbox.Providers.Should().Contain("toggle");
             checkbox.ToggleState.Should().BeFalse();
+        }
+        finally { window.Close(); }
+    }
+
+    // ── Tree nodes and the double-click gesture ──────────────────────────────────────────────────
+    //
+    // Both were unreachable until 2026-09-14 and are the reason the Project Explorer could be read in
+    // full and not driven at all. See docs/archive/mcp-server-gaps-closed.md.
+
+    /// <summary>A TreeView with one selectable root and one child, shown so peers exist.</summary>
+    private static (Window Window, TreeView Tree, TreeViewItem Root) BuildTreeWindow()
+    {
+        var child = new TreeViewItem { Header = "Child" };
+        var root = new TreeViewItem { Header = "Root", Name = "TheRoot" };
+        root.Items.Add(child);
+
+        var tree = new TreeView { Name = "TheTree" };
+        tree.Items.Add(root);
+
+        var window = new Window { Content = tree, Width = 300, Height = 200 };
+        window.Show();
+        Dispatcher.UIThread.RunJobs();
+        return (window, tree, root);
+    }
+
+    [AvaloniaFact]
+    public void DescribeProviders_TreeViewItem_AdvertisesSelectionItem()
+    {
+        var (window, _, root) = BuildTreeWindow();
+        try
+        {
+            // The peer itself offers only scroll. Advertising selection is what makes the node
+            // addressable at all; without it a caller reads the tree and cannot act on it.
+            var providers = UiAutomationDriver.DescribeProviders(
+                ControlAutomationPeer.CreatePeerForElement(root), root);
+
+            providers.Should().Contain("selectionItem");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_Select_OnATreeNode_SetsTheOwningTreesSelectedItem()
+    {
+        var (window, tree, root) = BuildTreeWindow();
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(root, "select", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            // SelectedItem, not IsSelected, is the assertion that matters: it is what a view model binds
+            // to, and therefore what a caller is really trying to change.
+            tree.SelectedItem.Should().BeSameAs(root);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_DoubleClick_RaisesDoubleTappedThatBubblesToTheContainer()
+    {
+        var (window, tree, root) = BuildTreeWindow();
+        try
+        {
+            // Handlers live on the container and read e.Source — the Project Explorer's does — so the
+            // event has to bubble and carry the item, not the tree.
+            object? source = null;
+            var seen = 0;
+            tree.DoubleTapped += (_, e) => { seen++; source = e.Source; };
+
+            var outcome = UiAutomationDriver.Interact(root, "double_click", null);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            seen.Should().Be(1);
+            source.Should().BeSameAs(root);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Interact_DoubleClick_SelectsFirstAsARealDoubleClickDoes()
+    {
+        var (window, tree, root) = BuildTreeWindow();
+        try
+        {
+            tree.SelectedItem.Should().BeNull("nothing is selected before the gesture");
+
+            UiAutomationDriver.Interact(root, "double_click", null);
+
+            // Without this a handler would act on whatever was selected before — the wrong document,
+            // and silently, which is the failure mode the verb exists to avoid.
+            tree.SelectedItem.Should().BeSameAs(root);
         }
         finally { window.Close(); }
     }

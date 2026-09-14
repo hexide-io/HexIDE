@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "बिल्ड सफल रहा परंतु निष्पादन योग्य फ़ाइल यहाँ नहीं मिली:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "चलाना विफल",
     "Str.ProjectRunner.MustHaveStartupForm": "एक स्टार्टअप फ़ॉर्म या Sub Main() होना आवश्यक है",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "यह क्रिया आपके प्रोजेक्ट को रीसेट कर देगी। क्या आप जारी रखना चाहते हैं?",
     "Str.NewProject.Msg.Title": "नया प्रोजेक्ट",
     "Str.NewProject.Msg.VersionDoesNotSupport": "आपका HexIDE संस्करण {0} का समर्थन नहीं करता",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "टूलबार",
     "Str.Options.Node.Formatting": "स्वरूपण",
     "Str.Options.Node.Grid": "ग्रिड",
-    "Str.Options.Node.Developer": "डेवलपर"
+    "Str.Options.Node.Developer": "डेवलपर",
+    "Str.ProjectDocument.Location": "स्थान:",
+    "Str.ProjectDocument.NotSaved": "डिस्क पर सहेजा नहीं गया",
+    "Str.ProjectDocument.Section.Members": "सदस्य",
+    "Str.ProjectDocument.Section.References": "संदर्भ",
+    "Str.ProjectDocument.Kind.RelatedDocument": "संबंधित दस्तावेज़"
   }
 }
