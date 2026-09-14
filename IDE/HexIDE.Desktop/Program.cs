@@ -21,7 +21,7 @@ sealed class Program
         // starts an IDE, loads a project or opens a port.
         if (ServerOptions.HelpRequested)
         {
-            ConsoleOutput.Write(ServerOptions.HelpText());
+            ConsoleOutput.Write(ServerOptions.HelpText);
             return;
         }
 
