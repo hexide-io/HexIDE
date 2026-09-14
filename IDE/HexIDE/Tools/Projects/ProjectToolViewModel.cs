@@ -197,6 +197,15 @@ public partial class ProjectToolViewModel : Tool
         {
             editorService.EditRelatedDocument(relatedDoc.Definition);
         }
+        else if (SelectedProject != null)
+        {
+            // Takes the double-click away from expand/collapse, which is what VB6 did here and what the
+            // fallthrough below still does for every other container. Deliberate: the chevron is what
+            // expansion is for, and fidelity does not extend to spending the primary gesture on a
+            // second way to do it. A project group keeps the old behaviour until it has something of
+            // its own to open into (.vbg is not read yet).
+            editorService.EditProject(SelectedProject.Definition);
+        }
         else if (selectedItem is IProjectTreeElement projectTreeElement)
         {
             projectTreeElement.IsExpanded = !projectTreeElement.IsExpanded;

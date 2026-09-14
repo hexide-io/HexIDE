@@ -807,3 +807,46 @@ dropped. Filed as hexide-io/HexIDE#400 for the general problem — a tool descri
 a C# enum should be guarded against it, the way the LSP coverage table is guarded against the
 specification.
 
+---
+
+## The Project Explorer cannot be driven at all: its nodes cannot be selected, and nothing can double-click
+
+**Symptom.** Two gaps that only bite together, found while verifying a feature triggered by double-clicking
+a project node.
+
+1. **Tree nodes expose no selection.** Every `TreeViewItem` in the Project Explorer reports
+   `providers: ["scroll"]` — no `selectionItem`, no `invoke`, no `expandCollapse`.
+   `interact(<project node>, "select")` fails with *"element does not support 'select'"*. The chevron beside
+   the node is a separate `ToggleButton` and does support `toggle`, so a node can be **expanded** but not
+   **selected**.
+2. **No tool performs a double-click.** `interact`'s provider actions are
+   invoke / select / set_value / toggle / expand / collapse. None is a double-tap, and there is no
+   click-with-count anywhere in the surface.
+
+**How it bit.** The Project Explorer binds `TreeView.SelectedItem` two-way to the view model and calls
+`OpenSelected()` from a `DoubleTapped` handler. Both halves of that gesture are unreachable, so a feature
+whose entire trigger is "double-click the project node" could not be exercised through automation even
+once. Its rendering was verified by other means and the gesture itself only by reading four lines of
+code-behind, which is exactly the substitution the visual-verification rule exists to prevent.
+
+**Why the reflection fallback does not cover it.** `interact`'s `invoke_command` needs an `ICommand`, and
+`OpenSelected()` is a plain method — reasonably so, since it is a gesture handler rather than a bindable
+command. `set_property` cannot help either: `SelectedItem` is an `Object` and `SelectedProject` a
+`ProjectViewModel`, and the fallback coerces from a string, so neither can be assigned the live node.
+
+**Scope, because this is wider than one feature.** The Project Explorer is the primary navigation surface
+of the IDE. Selecting a node is the precondition for most of its context menu, its toolbar and its
+`SelectedForm`/`SelectedModule`/`SelectedProject` commands. As it stands no automation client can reach any
+of them, and the reason is invisible: `dump_visual_tree` shows the nodes perfectly, so a caller sees a tree
+it appears able to address and discovers only on the failing call that it cannot.
+
+**Fix.** Two independent pieces, useful separately:
+
+- Give tree nodes a `selectionItem` provider so `select` sets `TreeView.SelectedItem` the way it already
+  does for a `DataGrid` row — the same shape as the entry above about master-detail windows, and probably
+  the same fix.
+- Add a double-click action to `interact` (`double_invoke`, or a count on `invoke`). Preferable to
+  exposing `OpenSelected` as a command purely for testability, which would put a member on the view model
+  that exists only because automation could not press the button.
+
+Found 2026-09-14 while adding the read-only project document.

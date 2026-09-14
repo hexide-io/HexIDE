@@ -34,6 +34,7 @@ public class EditorServiceNavigationTests
         () => throw new InvalidOperationException("no editor should be constructed in these tests"),
         () => throw new InvalidOperationException("no editor should be constructed in these tests"),
         () => throw new InvalidOperationException("no editor should be constructed in these tests"),
+        () => throw new InvalidOperationException("no editor should be constructed in these tests"),
         () => _projects);
 
     private ProjectDefinition ProjectWith(
