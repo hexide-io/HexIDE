@@ -348,11 +348,20 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 - `--personality <vb6|vbaode|vba>` — the IDE personality for the session
 - Positional `.vbp` path — skip the startup dialog and open that project
 
-**Adding a flag is two places, and the build enforces the second.** Declare it in
+**Adding a flag is two places and a width budget, and the build enforces all three.** Declare it in
 `ServerOptions.Options` — that one list is read by both the parser and `--help`, so a flag cannot be
 accepted without being printed — then add a row to the options table in
 [`docs/command-line.md`](docs/command-line.md). `CommandLineDocumentationTests` fails the build when the
-table is missing a flag the parser accepts, or names one it does not.
+table is missing a flag the parser accepts, and when it names one the parser does not.
+
+The third is less obvious and used to be a comment nothing checked. `--help` puts the logo mark beside the
+option list only while the widest rendered row fits, with the mark's 24 cells and the gutter's 2 in front
+of it, inside a 120-column console — so **no option row may exceed 94 columns**. A row is
+`2 + the value column + 2 + the summary`, and the value column is the longest `--name <value>` spelling in
+the table, so a wider value name costs every row at once (which is why `--personality` renders `<name>` and
+lists its values in its summary). The same test measures this and names the offending option. Miss it and
+every default-sized window silently drops to the stacked layout, which is what the beside path exists to
+avoid.
 
 The list above exists because the dev loop needs three of them constantly; it is not a third source of
 truth, and nothing checks it. Note what the parser still does NOT do: an unrecognised argument is skipped

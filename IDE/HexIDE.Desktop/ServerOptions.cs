@@ -65,6 +65,17 @@ internal static class ServerOptions
     /// appear in <c>--help</c>; <c>CommandLineDocumentationTests</c> then fails the build until
     /// <c>docs/command-line.md</c> mentions it too.
     /// </remarks>
+    /// <remarks>
+    /// <b>A summary has a width budget, and it is not a matter of taste.</b> The mark sits beside the
+    /// option list only while the widest rendered row fits, with the mark's 24 cells and the gutter's 2
+    /// in front of it, inside a 120-column console — the default width of both Windows consoles and
+    /// Windows Terminal. So no row may exceed 94 visible columns. A row is
+    /// <c>2 + the value column + 2 + the summary</c>, and the value column is the longest
+    /// <c>--name &lt;value&gt;</c> spelling in the list, so a wider value name costs every row at once.
+    /// <c>CommandLineDocumentationTests</c> computes this exactly as <see cref="HelpText"/> does and fails
+    /// the build naming the offending option — the alternative being a green build that has silently
+    /// demoted every default-sized window to the stacked layout.
+    /// </remarks>
     public static IReadOnlyList<CommandLineOption> Options { get; } =
     [
         // /? is what a Windows user tries first and -h is what everyone else does. Neither cost anything,
@@ -79,16 +90,18 @@ internal static class ServerOptions
             "Create a Standard EXE and skip the startup dialog.",
             _ => { NewProject = true; return false; }),
 
-        // Summaries stay under 58 characters. The option rows are the widest thing in --help, and the mark
-        // sits beside them only while the widest fits in 120 columns — the default width of both Windows
-        // consoles and Windows Terminal — with the mark's 24 and the gutter's 2 in front of it. One longer
-        // summary silently demotes every default-sized window to the stacked layout.
+        // "from its first handshake" is the whole flag, not decoration. Envelopes are recorded for every
+        // connection already and bodies can be armed at any time from the inspector; arming BEFORE the
+        // first connection exists is the one thing only this flag can do.
         new("capture-lsp", null,
-            "Record every language-server conversation in full.",
+            "Record every language-server conversation from its first handshake.",
             _ => { CaptureLsp = true; return false; }),
 
-        new("personality", "<vb6|vbaode|vba>",
-            "Select the IDE personality for this session.",
+        // <name>, not <vb6|vbaode|vba>: the value column is the longest spelling in the list, so naming
+        // the values here made every other row ten cells wider and put the beside layout out of reach of
+        // a default console. They live in the summary instead, where they cost one row rather than six.
+        new("personality", "<name>",
+            "IDE personality for the session: vb6, vbaode or vba.",
             value => { Personality = value; return true; }),
 
         new("server-port", "<port>",
@@ -131,8 +144,9 @@ internal static class ServerOptions
     /// Two independent choices, made from <paramref name="target"/>: which mark (colour where the console
     /// can show it, ASCII otherwise), and which layout (the mark beside the text where the rows fit, above
     /// it where they would wrap). Beside keeps the whole of <c>--help</c> on one 24-row screen; stacked
-    /// costs a couple of rows more than the text alone, which is the right trade in a window already too
-    /// narrow for the option lines.
+    /// costs a couple of rows more than the text alone, which is the right trade against slicing the mark
+    /// into bands — note that between about 94 and 120 columns the option lines do not themselves wrap,
+    /// so those rows are a real cost rather than a free one.
     /// </remarks>
     public static string HelpText(ConsoleTarget target)
     {

@@ -60,12 +60,16 @@ Windows it writes to the console that launched it: HexIDE is a GUI program and o
 so run from a shortcut or Explorer there is nowhere for the text to go and nothing appears.
 
 **The mark at the top is in colour where the terminal can show it.** That means output going to a
-terminal rather than a file or pipe, `NO_COLOR` unset, and a terminal that takes 24-bit colour: any Windows
-console since Windows 10 1703, Windows Terminal, and on other platforms a terminal that declares
-`COLORTERM=truecolor`. Anywhere else, `--help > file` included, the same mark is drawn in plain ASCII, so
-the captured text reads the same in an editor. The mark sits beside the text when the window is wide
-enough for the longest option line, which a 120-column window is, and above it when it is not; in a
-narrower window the option lines wrap either way, so height is not the constraint there.
+terminal rather than a file or pipe, `NO_COLOR` unset, `TERM` not set to `dumb`, and a terminal that takes
+24-bit colour: any Windows console since Windows 10 1703, Windows Terminal (including one hosting a WSL
+shell), and on other platforms a terminal declaring `COLORTERM=truecolor` or `COLORTERM=24bit`. Anywhere
+else, `--help > file` included, the same mark is drawn in plain ASCII, so the captured text reads the same
+in an editor.
+
+The mark sits beside the text in a window at least 120 columns wide — the default for both Windows
+consoles and Windows Terminal — and above it in anything narrower. Stacking costs a couple of rows, and
+below about 94 columns the option lines wrap as well; the mark moves first because a wrapped row pushes the
+next mark row down, which arrives as the mark sliced into bands with text between them.
 
 ## Keeping this page true
 
@@ -74,7 +78,9 @@ that list — so the program cannot accept a flag it does not print. This page i
 enforce, so `CommandLineDocumentationTests` fails the build when a flag is missing from the table above,
 and when the table names a flag the parser does not accept.
 
-Adding an option is therefore three things in one place and one row here.
+Adding an option is therefore three things in one place and one row here — plus a summary short enough
+that the rendered row stays inside 94 columns, so the mark still fits beside it in a 120-column window.
+`CommandLineDocumentationTests` measures that too, and names the offending option when it fails.
 
 ## Examples
 

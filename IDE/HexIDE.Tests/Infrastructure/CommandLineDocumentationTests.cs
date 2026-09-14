@@ -41,7 +41,21 @@ public class CommandLineDocumentationTests
     /// exists to prevent. Scoped to the table's own bounds, so an unrelated <c>new("…")</c> elsewhere in
     /// the file cannot be mistaken for an option.
     /// </remarks>
-    private static string[] FlagNames()
+    private static string[] FlagNames() =>
+    [
+        .. Regex.Matches(OptionTableSource(), """new\("(?<name>[a-z][a-z-]*)",""")
+            .Select(match => match.Groups["name"].Value)
+    ];
+
+    /// <summary>
+    /// The text of the option table itself, sliced out of <c>ServerOptions.cs</c>.
+    /// </summary>
+    /// <remarks>
+    /// Bounded by the table's own declaration and its closing bracket, so an unrelated <c>new("...")</c>
+    /// elsewhere in the file cannot be mistaken for an option. One definition of those bounds, shared by
+    /// everything here that reads the table.
+    /// </remarks>
+    private static string OptionTableSource()
     {
         var source = File.ReadAllText(Path.Combine(
             RepoTree.Root(), "IDE", "HexIDE.Desktop", "ServerOptions.cs"));
@@ -52,11 +66,7 @@ public class CommandLineDocumentationTests
         var end = source.IndexOf("];", start, StringComparison.Ordinal);
         end.Should().BeGreaterThan(start, "the option table is closed off where this expects");
 
-        return
-        [
-            .. Regex.Matches(source[start..end], """new\("(?<name>[a-z][a-z-]*)",""")
-                .Select(match => match.Groups["name"].Value)
-        ];
+        return source[start..end];
     }
 
     private static string Reference() =>
@@ -105,4 +115,96 @@ public class CommandLineDocumentationTests
                 $"docs/command-line.md documents '--{name}', so the parser has to accept it");
         }
     }
+
+    /// <summary>
+    /// Every option as <c>--help</c> will render it: the flag, its value name, and its summary.
+    /// </summary>
+    /// <remarks>
+    /// The name alone is enough to check the documentation; the width budget needs the whole row, so this
+    /// reads the first three arguments of every <c>CommandLineOption</c> in the table.
+    /// </remarks>
+    private static (string Name, string? Value, string Summary)[] Table()
+    {
+        var table = OptionTableSource();
+
+        // name, then either 'null' or a quoted value name, then the quoted summary.
+        var entry = new Regex(
+            @"new\(""(?<name>[a-z][a-z-]*)"",\s*(?:null|""(?<value>[^""]*)""),\s*""(?<summary>[^""]*)""");
+
+        return
+        [
+            .. entry.Matches(table).Select(m => (
+                m.Groups["name"].Value,
+                m.Groups["value"].Success ? m.Groups["value"].Value : null,
+                m.Groups["summary"].Value))
+        ];
+    }
+
+    /// <summary>The mark's width, read from <c>HelpMark.cs</c> rather than restated here.</summary>
+    private static int MarkWidth()
+    {
+        var source = File.ReadAllText(Path.Combine(
+            RepoTree.Root(), "IDE", "HexIDE.Desktop", "HelpMark.cs"));
+
+        var match = Regex.Match(source, @"public const int Width = (?<w>\d+);");
+        match.Success.Should().BeTrue("HelpMark still declares the width this reads");
+
+        return int.Parse(match.Groups["w"].Value);
+    }
+
+    /// <summary>
+    /// The widest option row has to leave the mark room to sit beside it in a default console.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>This is the invariant a comment used to assert and nothing checked.</b> The mark sits to the left
+    /// of the option list only while the widest rendered row, plus the mark and the gutter, fits the
+    /// console. Miss it by one column and every default-sized window silently falls back to the stacked
+    /// layout, which is the arrangement the whole beside path exists to avoid - with a green build, because
+    /// nothing composed the help text and measured it.
+    /// </para>
+    /// <para>
+    /// It had already happened. The comment stating the rule said 58 characters, the real limit was 60, and
+    /// an option three lines below it was sitting at exactly 60 - so the rule was false in the same list
+    /// that stated it, and the widest row was 94 rather than the 84 believed, leaving the layout fitting a
+    /// 120-column console by exact equality with no margin at all.
+    /// </para>
+    /// <para>
+    /// Composed the way <c>ServerOptions.HelpText</c> composes it, from the same source, so the two cannot
+    /// disagree: the value column is the longest spelling in the table, and each row is two spaces, that
+    /// column, two more, then the summary.
+    /// </para>
+    /// </remarks>
+    [Fact]
+    public void TheWidestOptionRowLeavesRoomForTheMark()
+    {
+        var table = Table();
+        table.Should().NotBeEmpty("the option table was read from ServerOptions.cs");
+
+        var column = table.Max(o => Spelling(o).Length);
+        var rows = table
+            .Select(o => (Option: o, Width: 2 + column + 2 + o.Summary.Length))
+            .OrderByDescending(r => r.Width)
+            .ToArray();
+
+        var budget = DefaultConsoleWidth - MarkWidth() - HexIDE.IDE.ConsoleLayout.Gutter.Length;
+        var widest = rows[0];
+
+        widest.Width.Should().BeLessThanOrEqualTo(budget,
+            $"'--{widest.Option.Name}' renders a {widest.Width}-column row, and a row may not exceed "
+          + $"{budget} columns if the {MarkWidth()}-cell mark and the "
+          + $"{HexIDE.IDE.ConsoleLayout.Gutter.Length}-cell gutter are to fit beside it in a "
+          + $"{DefaultConsoleWidth}-column console. Shorten its summary, or narrow the value column - it is "
+          + $"currently {column} cells, set by '{table.MaxBy(o => Spelling(o).Length).Name}'");
+    }
+
+    /// <summary>
+    /// The default width of a Windows console and of Windows Terminal, and so the width the beside layout
+    /// is designed to fit. Not a limit the code enforces at runtime - there it measures the real console.
+    /// </summary>
+    private const int DefaultConsoleWidth = 120;
+
+    /// <summary>Exactly as <c>ServerOptions.Spelling</c> builds it.</summary>
+    private static string Spelling((string Name, string? Value, string Summary) option) =>
+        option.Value is null ? $"--{option.Name}" : $"--{option.Name} {option.Value}";
 }
