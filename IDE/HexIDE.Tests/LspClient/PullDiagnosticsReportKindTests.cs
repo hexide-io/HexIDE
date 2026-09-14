@@ -219,6 +219,14 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
                "message":"`os` imported but unused","severity":2,"source":"hand-written"}]}
             """;
 
+        /// <summary>The same report with a different message, so two answers can be told apart.</summary>
+        /// <remarks>
+        /// Substituted rather than interpolated: the report's tail is <c>}}]}</c>, and a raw interpolated
+        /// literal cannot carry that many consecutive braces as content whatever the dollar count.
+        /// </remarks>
+        protected static string ReportSaying(string message) =>
+            FullReport.Replace("`os` imported but unused", message, StringComparison.Ordinal);
+
         public async Task RunAsync(CancellationToken cancellationToken)
         {
             try { await LoopAsync(cancellationToken); }
@@ -382,6 +390,94 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
         private string? _firstRequestId;
     }
 
+    /// <summary>
+    /// A server that keeps its first answer until the document has been closed, and then sends it.
+    /// </summary>
+    /// <remarks>
+    /// An analyser that is merely slow does exactly this, and a user who closes a tab before it finishes is
+    /// not doing anything unusual. The interesting part is what the late answer leaves behind: it must not
+    /// mark a document nobody has open, and it must not make the next answer for that file — after it is
+    /// reopened — look older than itself.
+    /// </remarks>
+    private sealed class LateAnswerServer(Stream stream) : ScriptedServer(stream)
+    {
+        private string? _withheld;
+
+        protected override async Task<bool> HandleAsync(
+            string? method, string? id, CancellationToken cancellationToken)
+        {
+            switch (method)
+            {
+                case "initialize":
+                    await ResultAsync(id, Capabilities, cancellationToken);
+                    return true;
+
+                case "textDocument/diagnostic" when TimesAsked == 1:
+                    _withheld = id;
+                    return true;
+
+                case "textDocument/didClose":
+                    if (_withheld is { } late)
+                    {
+                        _withheld = null;
+                        await ResultAsync(late, ReportSaying("from before the file was closed"), cancellationToken);
+                    }
+                    return true;
+
+                case "textDocument/diagnostic":
+                    await ResultAsync(id, ReportSaying("from after it was opened again"), cancellationToken);
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// The same shape, except the withheld answer is released on the <b>reopen</b> rather than on the close,
+    /// and it is the second request rather than the first.
+    /// </summary>
+    /// <remarks>
+    /// Both details are what make this the case the other test cannot reach. Released on reopen, the late
+    /// answer arrives when the document is open again, so refusing to mark a closed document does not catch
+    /// it. Withholding the <em>second</em> request gives that answer a higher generation than anything a
+    /// reopened document can produce if the counters restart — which is the whole of the bug being guarded.
+    /// </remarks>
+    private sealed class StaleAcrossReopenServer(Stream stream) : ScriptedServer(stream)
+    {
+        private string? _withheld;
+        private int _opens;
+
+        protected override async Task<bool> HandleAsync(
+            string? method, string? id, CancellationToken cancellationToken)
+        {
+            switch (method)
+            {
+                case "initialize":
+                    await ResultAsync(id, Capabilities, cancellationToken);
+                    return true;
+
+                case "textDocument/didOpen" when ++_opens == 2 && _withheld is { } late:
+                    // Before the reopen's own request is even read, so the client sees them in this order.
+                    _withheld = null;
+                    await ResultAsync(late, ReportSaying("from before the file was closed"), cancellationToken);
+                    return true;
+
+                case "textDocument/diagnostic" when TimesAsked == 2:
+                    _withheld = id;
+                    return true;
+
+                case "textDocument/diagnostic":
+                    await ResultAsync(id, ReportSaying("from after it was opened again"), cancellationToken);
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+    }
+
     private (VBLspClient Client, Func<TServer> Server) ClientTalkingToAScriptedServer<TServer>(
         Func<Stream, TServer> create)
         where TServer : ScriptedServer
@@ -481,6 +577,90 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
         lock (published)
             published[^1].Diagnostics.Should().ContainSingle()
                 .Which.Message.Should().Contain("imported but unused");
+    }
+
+    [Fact]
+    public async Task AnAnswerArrivingWhileTheFileIsClosedIsNotShownAtAll()
+    {
+        // Nothing may be published for a document the editor has let go. The close already cleared it, and
+        // a server that only answers when asked has no way to say anything about a file we have stopped
+        // asking about — so marks put back afterwards have nothing that could ever remove them.
+        var (sut, server) = ClientTalkingToAScriptedServer(stream => new LateAnswerServer(stream));
+        var published = new List<PublishDiagnosticsParams>();
+        sut.DiagnosticsPublished += (_, p) => { lock (published) published.Add(p); };
+
+        await sut.StartAsync(TestContext.Current.CancellationToken);
+        await sut.OpenDocumentAsync(Uri, "import os\n", TestContext.Current.CancellationToken);
+        await Until(() => server().TimesAsked >= 1, "the client should have asked on open");
+
+        // The close is what releases the withheld answer, so this is where the late one is delivered.
+        await sut.CloseDocumentAsync(Uri, TestContext.Current.CancellationToken);
+        await Task.Delay(300, TestContext.Current.CancellationToken);
+
+        await sut.OpenDocumentAsync(Uri, "import os\n", TestContext.Current.CancellationToken);
+
+        await Until(
+            () =>
+            {
+                lock (published)
+                    return published.Count > 0
+                        && published[^1].Diagnostics.Any(d => d.Message.Contains("after it was opened again"));
+            },
+            "the reopened document must show what the server said about it, not what it said before",
+            () =>
+            {
+                lock (published)
+                    return "the last thing published was: "
+                         + (published.Count == 0
+                             ? "nothing at all"
+                             : string.Join("; ", published[^1].Diagnostics.Select(d => d.Message)) is { Length: > 0 } m
+                                 ? m
+                                 : "an empty set");
+            });
+
+        lock (published)
+            published.Should().NotContain(
+                p => p.Diagnostics.Any(d => d.Message.Contains("before the file was closed")),
+                "a document nobody has open must not be marked — nothing would ever clear it");
+    }
+
+    [Fact]
+    public async Task AnAnswerHeldFromBeforeTheCloseDoesNotOutrankTheOneAfterTheReopen()
+    {
+        // The window the shown-based rule opens if its counters restart on close. An answer still in flight
+        // when the document closed carries a higher number than anything a reopened document can produce,
+        // so it outranks every fresh answer and the file shows pre-close diagnostics until the counter
+        // climbs back past it — two edits, here, and unboundedly many for a file that was busy before.
+        // Refusing to mark a closed document does not catch this one: by the time it lands, the document is
+        // open again. Keeping the counters monotonic per document is what closes it.
+        var (sut, server) = ClientTalkingToAScriptedServer(stream => new StaleAcrossReopenServer(stream));
+        var published = new List<PublishDiagnosticsParams>();
+        sut.DiagnosticsPublished += (_, p) => { lock (published) published.Add(p); };
+
+        await sut.StartAsync(TestContext.Current.CancellationToken);
+        await sut.OpenDocumentAsync(Uri, "import os\n", TestContext.Current.CancellationToken);
+        await Until(() => server().TimesAsked >= 1, "the client should have asked on open");
+
+        // A second ask, so the withheld answer outranks anything a restarted counter could produce.
+        await sut.ChangeDocumentAsync(Uri, 2, "import os\n\n", TestContext.Current.CancellationToken);
+        await Until(() => server().TimesAsked >= 2, "the client should have asked again after the change");
+
+        await sut.CloseDocumentAsync(Uri, TestContext.Current.CancellationToken);
+        await sut.OpenDocumentAsync(Uri, "import os\n", TestContext.Current.CancellationToken);
+
+        await Until(
+            () =>
+            {
+                lock (published)
+                    return published[^1].Diagnostics.Any(d => d.Message.Contains("after it was opened again"));
+            },
+            "the reopened file must settle on what the server said about it, not on what it said before",
+            () =>
+            {
+                lock (published)
+                    return "it settled on: "
+                         + string.Join("; ", published[^1].Diagnostics.Select(d => d.Message));
+            });
     }
 
     [Fact]

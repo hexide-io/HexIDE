@@ -795,9 +795,13 @@ public sealed class VBLspClient : ILspClient
 
     private void ForgetPullState(string uri)
     {
+        // The result identifier goes, because it names an answer about a document this client has stopped
+        // tracking. The two COUNTERS stay, and that is deliberate: resetting them makes a reopened document
+        // start at generation 1 again, so an answer still in flight from before the close — which carries a
+        // higher number — outranks every fresh answer that follows it, and the reopened document shows
+        // pre-close diagnostics until the counter climbs back past it. Monotonic per document for the life
+        // of the connection costs two integers per file ever opened and has no such window.
         _pullResultIds.TryRemove(uri, out _);
-        _pullGeneration.TryRemove(uri, out _);
-        _pullShown.TryRemove(uri, out _);
 
         // Nothing else would. A push server clears a document by publishing an empty set for it, and a
         // server that only answers when asked has no way to say anything about a document we have stopped
@@ -854,6 +858,11 @@ public sealed class VBLspClient : ILspClient
             WarnRequestFailedOnce("textDocument/diagnostic", ex, CancellationToken.None);
             return;
         }
+
+        // Closed while we were asking. Nothing may be published for a document the editor has let go — the
+        // close already cleared it, and putting marks back afterwards would leave them with nothing that
+        // could ever remove them.
+        if (!_openDocuments.ContainsKey(uri)) return;
 
         // Already overtaken: something newer is on screen, so this answer describes text nobody is looking
         // at. Claiming this slot and finding we did not win is the whole check — see _pullShown for why it
