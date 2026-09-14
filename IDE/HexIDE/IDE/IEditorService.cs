@@ -10,6 +10,7 @@ public interface IEditorService
 
     /// <summary>Opens a file the project carries but does not compile, in the plain-text editor.</summary>
     void EditRelatedDocument(RelatedDocumentDefinition? relatedDocument);
+    void EditProject(ProjectDefinition? project);
 
     /// <summary>
     /// Opens whatever document a URI names and puts the caret at a position in it. False when nothing

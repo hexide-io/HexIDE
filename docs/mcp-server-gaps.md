@@ -806,4 +806,3 @@ underlying data gaps were closed in the same change: standard error and the exit
 dropped. Filed as hexide-io/HexIDE#400 for the general problem — a tool description that enumerates
 a C# enum should be guarded against it, the way the LSP coverage table is guarded against the
 specification.
-

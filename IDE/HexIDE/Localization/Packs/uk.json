@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "Збірку виконано успішно, але виконуваний файл не знайдено за шляхом:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Запуск не виконано",
     "Str.ProjectRunner.MustHaveStartupForm": "Має бути стартова форма або Sub Main()",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "Ця дія скине проєкт. Продовжити?",
     "Str.NewProject.Msg.Title": "Новий проєкт",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Ваша версія HexIDE не підтримує {0}",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "Панелі інструментів",
     "Str.Options.Node.Formatting": "Форматування",
     "Str.Options.Node.Grid": "Сітка",
-    "Str.Options.Node.Developer": "Розробник"
+    "Str.Options.Node.Developer": "Розробник",
+    "Str.ProjectDocument.Location": "Розташування:",
+    "Str.ProjectDocument.NotSaved": "Не збережено на диск",
+    "Str.ProjectDocument.Section.Members": "Елементи",
+    "Str.ProjectDocument.Section.References": "Посилання",
+    "Str.ProjectDocument.Kind.RelatedDocument": "Пов'язаний документ"
   }
 }

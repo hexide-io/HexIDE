@@ -201,6 +201,12 @@ public static class UiAutomationDriver
         // is a row object no string can express. Interact selects it through the owning grid.
         if (control is DataGridRow && !list.Contains("selectionItem")) list.Add("selectionItem");
 
+        // Same hole, different control, and a worse one: a TreeViewItem's peer offers only scroll, so the
+        // Project Explorer — the IDE's primary navigation surface — could be read in full and not driven at
+        // all. Selecting a node is the precondition for its context menu, its toolbar and every
+        // SelectedForm/SelectedModule/SelectedProject command, and none of that was reachable.
+        if (control is TreeViewItem && !list.Contains("selectionItem")) list.Add("selectionItem");
+
         return [.. list];
     }
 
@@ -315,6 +321,9 @@ public static class UiAutomationDriver
                 case "select":
                     return DoSelect(control, peer, value);
 
+                case "doubleclick":
+                    return DoDoubleClick(control, peer);
+
                 // Phase 7 — reflection over the DataContext (opt-in: there is NO implicit fallback from the
                 // provider actions above). Reaches VM commands/properties on controls with no useful provider.
                 case "invokecommand":
@@ -324,7 +333,7 @@ public static class UiAutomationDriver
                     return ReflectSetProperty(control, value);
 
                 default:
-                    return Err($"unknown action '{action}' (expected invoke|select|set_value|toggle|expand|collapse|invoke_command|set_property)");
+                    return Err($"unknown action '{action}' (expected invoke|select|double_click|set_value|toggle|expand|collapse|invoke_command|set_property)");
             }
         }
         catch (Exception ex)
@@ -345,7 +354,7 @@ public static class UiAutomationDriver
                 return Ok($"selected '{LabelOf(control, peer)}'");
             }
 
-            if (TrySelectThroughOwningGrid(control))
+            if (TrySelectThroughOwningGrid(control) || TrySelectThroughOwningTree(control))
                 return Ok($"selected '{LabelOf(control, peer)}'");
 
             return Unsupported("select");
@@ -370,7 +379,8 @@ public static class UiAutomationDriver
             return Ok($"selected '{value}'");
         }
 
-        if (TrySelectThroughOwningGrid(matches[0])) return Ok($"selected '{value}'");
+        if (TrySelectThroughOwningGrid(matches[0]) || TrySelectThroughOwningTree(matches[0]))
+            return Ok($"selected '{value}'");
 
         return Unsupported("select");
     }
@@ -391,6 +401,70 @@ public static class UiAutomationDriver
     /// than assumed, because a grid in single-selection mode can decline.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Double-clicks a control: raises <c>DoubleTapped</c>, which bubbles the way a real one does.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Not reachable through any provider, which is why it is its own verb.</b> UI Automation has no
+    /// pattern for a double-click — it is a gesture, not a control contract — so a surface whose trigger
+    /// is a double-click had no representation here at all. That is not a rare shape: the Project
+    /// Explorer opens every form, module and project this way, and none of it could be exercised.
+    /// </para>
+    /// <para>
+    /// <b>It selects first, where the target can be selected.</b> A real double-click does, and a verb
+    /// that raised the gesture without moving the selection would fire handlers against whatever happened
+    /// to be selected before — the wrong document, silently. The reply says whether the selection moved,
+    /// so a caller can tell the two halves apart rather than inferring.
+    /// </para>
+    /// <para>
+    /// Handlers are usually attached to the container rather than the item (the Project Explorer's is on
+    /// the <c>TreeView</c>) and read <c>e.Source</c> to find which item was hit, so the event is raised on
+    /// the target itself and left to bubble.
+    /// </para>
+    /// </remarks>
+    private static InteractOutcome DoDoubleClick(Control control, AutomationPeer peer)
+    {
+        if (TopLevel.GetTopLevel(control) is not { } topLevel)
+            return Err("the control is not attached to a window, so it cannot be clicked");
+
+        var selected = TrySelectThroughOwningTree(control) || TrySelectThroughOwningGrid(control);
+        if (!selected && peer.GetProvider<ISelectionItemProvider>() is { } sip)
+        {
+            sip.Select();
+            selected = true;
+        }
+
+        var centre = new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
+        if (control.TranslatePoint(centre, topLevel) is not { } atTopLevel)
+            return Err($"could not translate the centre of '{Describe(control)}' into window coordinates");
+
+        var pointer = new Avalonia.Input.Pointer(
+            Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+        var props = new PointerPointProperties(RawInputModifiers.None, PointerUpdateKind.Other);
+        var pointerArgs = new PointerEventArgs(
+            InputElement.DoubleTappedEvent, control, pointer, topLevel, atTopLevel,
+            (ulong)Environment.TickCount64, props, KeyModifiers.None);
+
+        control.RaiseEvent(new TappedEventArgs(InputElement.DoubleTappedEvent, pointerArgs));
+
+        var note = selected ? " (selected it first, as a real double-click does)" : "";
+        return Ok($"double-clicked '{LabelOf(control, peer)}'{note}");
+    }
+
+    /// <summary>
+    /// Selects a <see cref="TreeViewItem"/>. Setting <c>IsSelected</c> is what the tree itself does; the
+    /// owning <see cref="TreeView"/> reflects it into <c>SelectedItem</c>, which is what a view model is
+    /// bound to and therefore what a caller is actually trying to change.
+    /// </summary>
+    private static bool TrySelectThroughOwningTree(Control control)
+    {
+        if (control is not TreeViewItem item) return false;
+
+        item.IsSelected = true;
+        return item.IsSelected;
+    }
+
     private static bool TrySelectThroughOwningGrid(Control control)
     {
         if (control is not DataGridRow row) return false;

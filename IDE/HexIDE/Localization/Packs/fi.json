@@ -662,7 +662,6 @@
     "Str.Vb6Toolchain.ExeNotFound": "Käännös onnistui, mutta suoritettavaa tiedostoa ei löytynyt sijainnista:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Suoritus epäonnistui",
     "Str.ProjectRunner.MustHaveStartupForm": "Käynnistyslomake tai Sub Main() on pakollinen",
-
     "Str.ProjectRunner.EditWhileRunningConfirm": "Tämä toiminto nollaa projektin. Haluatko jatkaa?",
     "Str.NewProject.Msg.Title": "Uusi projekti",
     "Str.NewProject.Msg.VersionDoesNotSupport": "HexIDE-versiosi ei tue kohdetta {0}",
@@ -723,6 +722,11 @@
     "Str.Options.Node.Toolbars": "Työkalurivit",
     "Str.Options.Node.Formatting": "Muotoilu",
     "Str.Options.Node.Grid": "Ruudukko",
-    "Str.Options.Node.Developer": "Kehittäjä"
+    "Str.Options.Node.Developer": "Kehittäjä",
+    "Str.ProjectDocument.Location": "Sijainti:",
+    "Str.ProjectDocument.NotSaved": "Ei tallennettu levylle",
+    "Str.ProjectDocument.Section.Members": "Jäsenet",
+    "Str.ProjectDocument.Section.References": "Viittaukset",
+    "Str.ProjectDocument.Kind.RelatedDocument": "Liittyvä asiakirja"
   }
 }

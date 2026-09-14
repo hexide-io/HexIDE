@@ -1,0 +1,104 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:commonControls="clr-namespace:Classic.CommonControls;assembly=Classic.CommonControls.Avalonia"
+             xmlns:viewModels="clr-namespace:HexIDE.Forms.ViewModels"
+             xmlns:classic="clr-namespace:Classic.Avalonia.Theme;assembly=Classic.Avalonia.Theme"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="400"
+             x:DataType="viewModels:ProjectDocumentViewModel"
+             x:Class="HexIDE.Forms.Views.ProjectDocumentView">
+    <UserControl.Styles>
+        <Style Selector="TextBlock.caption">
+            <Setter Property="Foreground" Value="{DynamicResource {x:Static commonControls:SystemColors.GrayTextBrushKey}}" />
+            <Setter Property="HorizontalAlignment" Value="Right" />
+            <Setter Property="Margin" Value="0,0,8,4" />
+        </Style>
+        <Style Selector="TextBlock.value">
+            <Setter Property="Margin" Value="0,0,0,4" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style Selector="TextBlock.section">
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Margin" Value="0,14,0,4" />
+        </Style>
+    </UserControl.Styles>
+
+    <classic:ClassicBorderDecorator BorderStyle="Sunken" BorderThickness="2">
+        <ScrollViewer Background="{DynamicResource {x:Static commonControls:SystemColors.WindowBrushKey}}"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="12" Orientation="Vertical">
+
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                    <TextBlock Grid.Row="0" Grid.Column="0" Classes="caption"
+                               Text="{DynamicResource Str.Dialog.ProjectProperties.General.ProjectName}" />
+                    <TextBlock Grid.Row="0" Grid.Column="1" Classes="value"
+                               AutomationProperties.AutomationId="ProjectDocument.Name"
+                               Text="{CompiledBinding ProjectName}" />
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Classes="caption"
+                               Text="{DynamicResource Str.Dialog.ProjectProperties.General.ProjectType}" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Classes="value"
+                               AutomationProperties.AutomationId="ProjectDocument.Type"
+                               Text="{CompiledBinding ProjectType}" />
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Classes="caption"
+                               Text="{DynamicResource Str.Dialog.ProjectProperties.General.StartupObject}" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Classes="value"
+                               AutomationProperties.AutomationId="ProjectDocument.Startup"
+                               Text="{CompiledBinding StartupObject}" />
+
+                    <!-- Description is optional in a .vbp and most projects carry none; an empty caption
+                         beside an empty value reads as a defect rather than as an absence. -->
+                    <TextBlock Grid.Row="3" Grid.Column="0" Classes="caption"
+                               IsVisible="{CompiledBinding HasDescription}"
+                               Text="{DynamicResource Str.Dialog.ProjectProperties.General.ProjectDescription}" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" Classes="value"
+                               IsVisible="{CompiledBinding HasDescription}"
+                               Text="{CompiledBinding Description}" />
+
+                    <TextBlock Grid.Row="4" Grid.Column="0" Classes="caption"
+                               Text="{DynamicResource Str.ProjectDocument.Location}" />
+                    <TextBlock Grid.Row="4" Grid.Column="1" Classes="value"
+                               AutomationProperties.AutomationId="ProjectDocument.Location"
+                               Text="{CompiledBinding Location}" />
+                </Grid>
+
+                <TextBlock Classes="section" Text="{DynamicResource Str.ProjectDocument.Section.Members}" />
+                <DataGrid ItemsSource="{CompiledBinding Members}"
+                          AutomationProperties.AutomationId="ProjectDocument.Members"
+                          IsReadOnly="True"
+                          CanUserSortColumns="False"
+                          CanUserResizeColumns="True"
+                          HeadersVisibility="None"
+                          GridLinesVisibility="None"
+                          Background="Transparent"
+                          RowBackground="Transparent"
+                          IsHitTestVisible="False"
+                          MaxHeight="320">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Binding="{CompiledBinding Name}" Width="Auto" />
+                        <DataGridTextColumn Binding="{CompiledBinding Kind}" Width="Auto" />
+                        <DataGridTextColumn Binding="{CompiledBinding File}" Width="*" />
+                    </DataGrid.Columns>
+                </DataGrid>
+
+                <!-- Hidden rather than shown empty: most projects reference nothing, and an always-present
+                     empty heading trains the reader to skip the area. -->
+                <StackPanel IsVisible="{CompiledBinding References.Count}">
+                    <TextBlock Classes="section" Text="{DynamicResource Str.ProjectDocument.Section.References}" />
+                    <ItemsControl ItemsSource="{CompiledBinding References}"
+                                  AutomationProperties.AutomationId="ProjectDocument.References">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <TextBlock Text="{CompiledBinding}" Margin="0,0,0,2" TextWrapping="Wrap" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+    </classic:ClassicBorderDecorator>
+</UserControl>

@@ -456,6 +456,36 @@ otes.md"));
         FindRelatedDoc(projectVm).Should().NotBeNull("a carried file the developer can see is the point");
     }
 
+    // ── Double-clicking the project node ──────────────────────────
+
+    [Fact]
+    public void OpenSelected_OnAProjectNode_OpensTheProjectDocument()
+    {
+        var project = TestHelpers.CreateProject("Opened");
+        var vm = CreateVmWithLoadedProject(project, out var projectVm);
+        vm.SelectedItem = projectVm;
+
+        vm.OpenSelected();
+
+        editorService.Received(1).EditProject(project);
+    }
+
+    [Fact]
+    public void OpenSelected_OnAProjectNode_NoLongerTogglesExpansion()
+    {
+        // The behaviour this feature takes away, asserted so it cannot come back by accident. VB6 spent
+        // the double-click on expand/collapse here; the chevron keeps that job and the gesture now opens
+        // the project. Deliberate divergence — see openspec/specs/project-explorer.
+        var project = TestHelpers.CreateProject();
+        var vm = CreateVmWithLoadedProject(project, out var projectVm);
+        vm.SelectedItem = projectVm;
+        var wasExpanded = projectVm.IsExpanded;
+
+        vm.OpenSelected();
+
+        projectVm.IsExpanded.Should().Be(wasExpanded, "expansion belongs to the chevron now");
+    }
+
     private static RelatedDocViewModel? FindRelatedDoc(ProjectViewModel projectVm)
     {
         foreach (var element in projectVm.Elements)

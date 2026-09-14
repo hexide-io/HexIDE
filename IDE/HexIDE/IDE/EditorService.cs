@@ -12,6 +12,7 @@ public class EditorService : IEditorService
     private readonly IDocumentDockService documentDockService;
     private readonly Func<CodeEditorViewModel> codeEditorViewModelFactory;
     private readonly Func<RelatedDocumentEditorViewModel> relatedDocumentEditorViewModelFactory;
+    private readonly Func<ProjectDocumentViewModel> projectDocumentViewModelFactory;
     private readonly Func<FormEditViewModel> formEditViewModelFactory;
     private readonly Func<IProjectManager> projectManager;
 
@@ -24,12 +25,14 @@ public class EditorService : IEditorService
     public EditorService(IDocumentDockService documentDockService,
         Func<CodeEditorViewModel> codeEditorViewModelFactory,
         Func<RelatedDocumentEditorViewModel> relatedDocumentEditorViewModelFactory,
+        Func<ProjectDocumentViewModel> projectDocumentViewModelFactory,
         Func<FormEditViewModel> formEditViewModelFactory,
         Func<IProjectManager> projectManager)
     {
         this.documentDockService = documentDockService;
         this.codeEditorViewModelFactory = codeEditorViewModelFactory;
         this.relatedDocumentEditorViewModelFactory = relatedDocumentEditorViewModelFactory;
+        this.projectDocumentViewModelFactory = projectDocumentViewModelFactory;
         this.formEditViewModelFactory = formEditViewModelFactory;
         this.projectManager = projectManager;
     }
@@ -152,6 +155,24 @@ public class EditorService : IEditorService
             return;
 
         documentDockService.OpenDocument(relatedDocumentEditorViewModelFactory().Initialize(relatedDocument));
+    }
+
+    /// <summary>
+    /// Opens the read-only view of what a project contains.
+    /// </summary>
+    /// <remarks>
+    /// Identified by the <see cref="ProjectDefinition"/> instance, not by its path: a project that has
+    /// never been saved has no path at all, and Save As changes the path of one that has.
+    /// </remarks>
+    public void EditProject(ProjectDefinition? project)
+    {
+        if (project == null) return;
+
+        Log.Debug("EditorService: EditProject({Name})", project.Name);
+        if (documentDockService.TryActivate<ProjectDocumentViewModel>(vm => vm.Project == project))
+            return;
+
+        documentDockService.OpenDocument(projectDocumentViewModelFactory().Initialize(project));
     }
 
     public void EditCode(FormDefinition? form)
