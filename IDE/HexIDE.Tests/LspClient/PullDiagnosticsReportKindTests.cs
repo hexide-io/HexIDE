@@ -32,6 +32,7 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
 
     private readonly List<IAsyncDisposable> _clients = [];
     private readonly List<IDisposable> _disposables = [];
+    private readonly CancellationTokenSource _stopServers = new();
 
     /// <summary>
     /// A server that answers only when asked, and the second time says nothing has changed.
@@ -126,8 +127,13 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
     }
 
     [Fact]
-    public void AFrameWithNullParametersIsReadRatherThanKillingTheConnection()
+    public void AFrameWithNullParametersIsRewrittenIntoOneThatCanBeRead()
     {
+        // NAMED for what it actually checks, after the first name claimed more. It used to say the
+        // connection survived, which this test cannot see: it never builds one. That claim belongs to
+        // AMalformedFrameDoesNotEndAConnectionNobodyIsRecording, and while the name stood unexamined the
+        // repair was in fact installed only on connections that were being recorded.
+        //
         // The defect this found, which is HexIDE's rather than the server's: a frame that cannot be decoded
         // surfaces as a STREAM error, and a stream error ends the connection — so one malformed notification
         // took every language feature with it, permanently, on a transport that cannot re-dial.
@@ -167,6 +173,314 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
         CapturingFormatter.RepairNullParamsForTests(
                 new System.Buffers.ReadOnlySequence<byte>(wellFormed))
             .Should().BeNull("there is nothing wrong with it, so it must be left exactly as it arrived");
+    }
+
+    /// <summary>
+    /// A server that hand-writes its frames, rather than being driven by a JSON-RPC library.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>StreamJsonRpc</c> on the far end cannot produce what these tests need. It will not emit
+    /// <c>"params": null</c>, because that is not valid JSON-RPC; and it will not hold a request unanswered
+    /// while it sends something else. Both are things real servers do, and both are reachable only by
+    /// writing the bytes.
+    /// </para>
+    /// <para>
+    /// The subclass decides what to say. Everything here is the plumbing: framing, the read loop, and the
+    /// two pieces of bookkeeping that make a failure legible when a scripted server misbehaves.
+    /// </para>
+    /// </remarks>
+    private abstract class ScriptedServer(Stream stream)
+    {
+        /// <summary>
+        /// Whatever stopped the loop, or null. The loop runs unobserved, so without this a scripted server
+        /// that threw would present as a client that simply never got an answer.
+        /// </summary>
+        public Exception? Fault { get; private set; }
+
+        /// <summary>Every frame that arrived, as method and id. The other half of the same story.</summary>
+        public readonly List<string> Seen = [];
+
+        private int _asked;
+
+        public int TimesAsked => Volatile.Read(ref _asked);
+
+        protected const string Capabilities =
+            """
+            {"capabilities":{
+              "textDocumentSync":{"openClose":true,"change":1},
+              "diagnosticProvider":{"interFileDependencies":false,"workspaceDiagnostics":false}}}
+            """;
+
+        protected const string FullReport =
+            """
+            {"kind":"full","items":[
+              {"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":9}},
+               "message":"`os` imported but unused","severity":2,"source":"hand-written"}]}
+            """;
+
+        public async Task RunAsync(CancellationToken cancellationToken)
+        {
+            try { await LoopAsync(cancellationToken); }
+            catch (OperationCanceledException) { /* teardown */ }
+            catch (Exception ex) { Fault = ex; }
+        }
+
+        private async Task LoopAsync(CancellationToken cancellationToken)
+        {
+            while (!cancellationToken.IsCancellationRequested)
+            {
+                var frame = await ReadFrameAsync(cancellationToken);
+                if (frame is null) return;
+
+                using var document = JsonDocument.Parse(frame);
+                var root = document.RootElement;
+                var method = root.TryGetProperty("method", out var m) ? m.GetString() : null;
+                var id = root.TryGetProperty("id", out var i) ? i.GetRawText() : null;
+                lock (Seen) Seen.Add($"{method ?? "(a reply to us)"}#{id ?? "-"}");
+
+                if (method == "textDocument/diagnostic") Interlocked.Increment(ref _asked);
+
+                if (await HandleAsync(method, id, cancellationToken)) continue;
+
+                // A METHOD and an id is a request waiting for an answer. An id with no method is the
+                // client's answer to us, and replying to THAT makes the client tear the connection down
+                // with "a response was received without a request having been sent" — which is the client
+                // behaving correctly, and reads as a mysterious hang if you have not seen it before.
+                if (method is not null && id is not null) await ResultAsync(id, "null", cancellationToken);
+            }
+        }
+
+        /// <summary>True when the script dealt with this frame; false to let the default reply stand.</summary>
+        protected abstract Task<bool> HandleAsync(string? method, string? id, CancellationToken cancellationToken);
+
+        protected Task ResultAsync(string? id, string result, CancellationToken cancellationToken) =>
+            WriteAsync($$"""{"jsonrpc":"2.0","id":{{id}},"result":{{result}}}""", cancellationToken);
+
+        protected async Task WriteAsync(string json, CancellationToken cancellationToken)
+        {
+            var body = System.Text.Encoding.UTF8.GetBytes(json);
+            var header = System.Text.Encoding.ASCII.GetBytes($"Content-Length: {body.Length}\r\n\r\n");
+            await stream.WriteAsync(header, cancellationToken);
+            await stream.WriteAsync(body, cancellationToken);
+            await stream.FlushAsync(cancellationToken);
+        }
+
+        /// <summary>One LSP frame, or null once the other end has gone.</summary>
+        private async Task<byte[]?> ReadFrameAsync(CancellationToken cancellationToken)
+        {
+            // A byte at a time, because the header must not be over-read into the body that follows it.
+            var header = new List<byte>();
+            var one = new byte[1];
+            while (header.Count < 4
+                   || header[^4] != (byte)'\r' || header[^3] != (byte)'\n'
+                   || header[^2] != (byte)'\r' || header[^1] != (byte)'\n')
+            {
+                if (await stream.ReadAsync(one, cancellationToken) == 0) return null;
+                header.Add(one[0]);
+            }
+
+            var text = System.Text.Encoding.ASCII.GetString([.. header]);
+            var marker = text.IndexOf("Content-Length:", StringComparison.OrdinalIgnoreCase)
+                       + "Content-Length:".Length;
+            var length = int.Parse(
+                text[marker..].Split('\r')[0].Trim(), System.Globalization.CultureInfo.InvariantCulture);
+
+            var body = new byte[length];
+            var read = 0;
+            while (read < length)
+            {
+                var n = await stream.ReadAsync(body.AsMemory(read), cancellationToken);
+                if (n == 0) return null;
+                read += n;
+            }
+            return body;
+        }
+    }
+
+    /// <summary>
+    /// A server that sends <c>workspace/diagnostic/refresh</c> with the <c>params: null</c> that rumdl sends.
+    /// </summary>
+    /// <remarks>
+    /// Twice, at two moments that ask different questions: once immediately after the handshake, when
+    /// nothing is open — which asks whether the connection survives it — and once after its first
+    /// diagnostics answer, which asks whether the refresh is acted on rather than merely tolerated.
+    /// </remarks>
+    private sealed class HandWrittenServer(Stream stream) : ScriptedServer(stream)
+    {
+        private int _refreshes;
+
+        /// <summary>A distinct id each time — two live requests may not share one.</summary>
+        private string MalformedRefresh() =>
+            """{"jsonrpc":"2.0","method":"workspace/diagnostic/refresh","params":null,"id":"""
+          + (9000 + Interlocked.Increment(ref _refreshes)) + "}";
+
+        protected override async Task<bool> HandleAsync(
+            string? method, string? id, CancellationToken cancellationToken)
+        {
+            switch (method)
+            {
+                case "initialize":
+                    await ResultAsync(id, Capabilities, cancellationToken);
+                    await WriteAsync(MalformedRefresh(), cancellationToken);
+                    return true;
+
+                case "textDocument/diagnostic":
+                    await ResultAsync(id, FullReport, cancellationToken);
+
+                    // Exactly once, or honouring it would drive the pair round forever.
+                    if (TimesAsked == 1) await WriteAsync(MalformedRefresh(), cancellationToken);
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+    }
+
+    /// <summary>
+    /// A server whose refresh lands while an answer is still owed, and which then never answers the request
+    /// that refresh provoked.
+    /// </summary>
+    /// <remarks>
+    /// <b>Both halves are ordinary, and together they are the case a naive staleness rule loses.</b> A
+    /// refresh arriving mid-flight is routine; a request that is slow or simply never answered is what a
+    /// busy or crashed analyser looks like. A client that decides "show only the answer to the newest
+    /// request I sent" then has nothing to show and no event that would ever correct it — the document is
+    /// blank for good, while the server believes it has reported.
+    /// </remarks>
+    private sealed class AnswerOvertakenServer(Stream stream) : ScriptedServer(stream)
+    {
+        protected override async Task<bool> HandleAsync(
+            string? method, string? id, CancellationToken cancellationToken)
+        {
+            switch (method)
+            {
+                case "initialize":
+                    await ResultAsync(id, Capabilities, cancellationToken);
+                    return true;
+
+                case "textDocument/diagnostic" when TimesAsked == 1:
+                    // The refresh goes out FIRST, so the client asks again before this one is answered.
+                    await WriteAsync(
+                        """{"jsonrpc":"2.0","method":"workspace/diagnostic/refresh","id":9001}""",
+                        cancellationToken);
+                    _firstRequestId = id;
+                    return true;
+
+                case "textDocument/diagnostic":
+                    // The second request is never answered. The first one is, late — and it is the only
+                    // answer this document will ever get.
+                    await ResultAsync(_firstRequestId, FullReport, cancellationToken);
+                    return true;
+
+                default:
+                    return false;
+            }
+        }
+
+        private string? _firstRequestId;
+    }
+
+    private (VBLspClient Client, Func<TServer> Server) ClientTalkingToAScriptedServer<TServer>(
+        Func<Stream, TServer> create)
+        where TServer : ScriptedServer
+    {
+        TServer? server = null;
+
+        var transport = Substitute.For<ILspTransport>();
+        transport.IsAlive.Returns(true);
+        transport.CanReconnect.Returns(false);
+        transport.ConnectAsync(Arg.Any<IJsonRpcMessageFormatter>(), Arg.Any<CancellationToken>())
+            .Returns(ci =>
+            {
+                var (clientSide, serverSide) = FullDuplexStream.CreatePair();
+                var started = create(serverSide);
+                Volatile.Write(ref server, started);
+                _ = started.RunAsync(_stopServers.Token);
+
+                return Task.FromResult<IJsonRpcMessageHandler?>(
+                    new HeaderDelimitedMessageHandler(
+                        clientSide, clientSide, ci.Arg<IJsonRpcMessageFormatter>()));
+            });
+
+        // capture: null — the arrangement the byte-level tests above cannot see, and the one that was broken.
+        var client = new VBLspClient(transport, Substitute.For<ILogger<VBLspClient>>(), DocumentLanguage.Vb6);
+        _clients.Add(client);
+        return (client, () => Volatile.Read(ref server)!);
+    }
+
+    [Fact]
+    public async Task AMalformedFrameDoesNotEndAConnectionNobodyIsRecording()
+    {
+        // The repair lives in CapturingFormatter, and CapturingFormatter was installed ONLY when a
+        // conversation log was supplied. So the connection that survived a malformed frame was the one being
+        // watched, and every other one still died — which is the wrong way round: a diagnostic facility must
+        // not be what keeps the thing it observes alive. The byte-level test above cannot see this, because
+        // it never builds a connection.
+        var (sut, server) = ClientTalkingToAScriptedServer(stream => new HandWrittenServer(stream));
+        var published = new List<PublishDiagnosticsParams>();
+        sut.DiagnosticsPublished += (_, p) => { lock (published) published.Add(p); };
+
+        await sut.StartAsync(TestContext.Current.CancellationToken);
+
+        // The malformed frame is already in the pipe — it was written immediately after the handshake reply,
+        // so it is read before anything this request could produce. An answer therefore proves survival.
+        await sut.OpenDocumentAsync(Uri, "import os\n", TestContext.Current.CancellationToken);
+
+        await Until(() => { lock (published) return published.Count >= 1; },
+            "a frame the server should not have sent must cost that message, never the connection",
+            () =>
+            {
+                lock (server().Seen)
+                    return $"the scripted server stopped with {server().Fault?.Message ?? "nothing"}, "
+                         + $"having seen: {string.Join(", ", server().Seen)}";
+            });
+
+        lock (published)
+            published[0].Diagnostics.Should().ContainSingle()
+                .Which.Message.Should().Contain("imported but unused");
+    }
+
+    [Fact]
+    public async Task ARefreshRequestIsActuallyActedOn()
+    {
+        // Surviving the frame and honouring it are different claims, and the first can hide the second:
+        // a handler that is never dispatched leaves a healthy connection and no re-request, which looks
+        // exactly like success. `workspace/diagnostic/refresh` is the server saying its previous answers are
+        // stale — ignoring it leaves the marks wrong until the next keystroke, and possibly forever.
+        var (sut, server) = ClientTalkingToAScriptedServer(stream => new HandWrittenServer(stream));
+
+        await sut.StartAsync(TestContext.Current.CancellationToken);
+        await sut.OpenDocumentAsync(Uri, "import os\n", TestContext.Current.CancellationToken);
+
+        await Until(() => server().TimesAsked >= 2,
+            "the server asked for a refresh after its first answer, so the client must ask again",
+            () => { lock (server().Seen) return $"the server saw: {string.Join(", ", server().Seen)}"; });
+    }
+
+    [Fact]
+    public async Task AnOvertakenAnswerIsStillShownWhenNothingNewerEverArrives()
+    {
+        // Staleness must be judged against what has been SHOWN, not against what has been ASKED. Judged
+        // against the ask, the only answer this server ever sends is discarded — a newer request went out
+        // before it came back — and because that newer request is never answered, the document stays blank
+        // permanently, with no event that would ever correct it. Judged against what is on screen, the
+        // answer is the newest thing to arrive, so it is shown; anything genuinely newer replaces it later.
+        var (sut, server) = ClientTalkingToAScriptedServer(stream => new AnswerOvertakenServer(stream));
+        var published = new List<PublishDiagnosticsParams>();
+        sut.DiagnosticsPublished += (_, p) => { lock (published) published.Add(p); };
+
+        await sut.StartAsync(TestContext.Current.CancellationToken);
+        await sut.OpenDocumentAsync(Uri, "import os\n", TestContext.Current.CancellationToken);
+
+        await Until(() => { lock (published) return published.Count >= 1; },
+            "the one answer the server sent is the best information there is, so it must reach the editor",
+            () => { lock (server().Seen) return $"the server saw: {string.Join(", ", server().Seen)}"; });
+
+        lock (published)
+            published[^1].Diagnostics.Should().ContainSingle()
+                .Which.Message.Should().Contain("imported but unused");
     }
 
     [Fact]
@@ -230,11 +544,16 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
     }
 
     /// <summary>Waits for a condition the server reaches asynchronously, rather than sleeping a guess.</summary>
-    private static async Task Until(Func<bool> condition, string what)
+    /// <param name="extra">
+    /// Evaluated only on failure, and only when supplied. A scripted server runs unobserved, so "the thing
+    /// never happened" is the same message whether the client ignored something or the server fell over —
+    /// this is where the second case gets to say so.
+    /// </param>
+    private static async Task Until(Func<bool> condition, string what, Func<string>? extra = null)
     {
         var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
         while (!condition() && DateTime.UtcNow < deadline) await Task.Delay(25);
-        condition().Should().BeTrue("{0}", what);
+        condition().Should().BeTrue("{0}", extra is null ? what : $"{what} — {extra()}");
     }
 
     [Fact]
@@ -332,10 +651,17 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        // The clients FIRST, and the order is load-bearing. Disposing one sends `shutdown` and waits for an
+        // answer, so stopping the scripted servers first leaves it waiting on a server that has stopped
+        // listening — and the test hangs in teardown rather than failing, which reads as a build that never
+        // finishes rather than as anything to do with this file.
         foreach (var client in _clients)
         {
             try { await client.DisposeAsync(); } catch { /* teardown is best effort */ }
         }
+
+        await _stopServers.CancelAsync();
+        _stopServers.Dispose();
         lock (_disposables)
         {
             foreach (var d in _disposables)

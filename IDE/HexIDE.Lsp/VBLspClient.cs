@@ -232,9 +232,13 @@ public sealed class VBLspClient : ILspClient
         };
         // Wrapped, not subclassed: every serialization member on the formatter is a non-virtual interface
         // implementation, so an override does not compile and the `new` that does is never called.
-        IJsonRpcMessageFormatter wired = _capture is { } log && _connectionId is { } captureId
-            ? new CapturingFormatter(formatter, log, captureId)
-            : formatter;
+        //
+        // UNCONDITIONALLY, which it was not. The wrapper also repairs the one frame shape that would
+        // otherwise take the whole connection down (see RepairNullParams), so making it conditional on
+        // having somewhere to write a record meant an unrecorded connection died where a recorded one
+        // lived. Every test that builds a client without a capture was on the losing side of that, which is
+        // how it went unnoticed. It records nothing when there is nothing to record.
+        IJsonRpcMessageFormatter wired = new CapturingFormatter(formatter, _capture, _connectionId);
 
         // The opening allowance counts frames, so a reconnect has to start it again or the handshake rule
         // would apply once per process rather than once per connection — and a respawn after a crash is
@@ -734,10 +738,32 @@ public sealed class VBLspClient : ILspClient
     private readonly ConcurrentDictionary<string, string> _pullResultIds = new();
 
     /// <summary>
-    /// How many times each document has been opened or changed. A request carries the value it saw; an
-    /// answer arriving after that value moved describes text nobody is looking at any more and is dropped.
+    /// How many times this client has asked about each document. A request carries the value it saw, and
+    /// the answer is compared against <see cref="_pullShown"/> to decide whether it is still worth showing.
     /// </summary>
     private readonly ConcurrentDictionary<string, int> _pullGeneration = new();
+
+    /// <summary>
+    /// The newest generation whose answer has actually reached the editor, per document.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two counters rather than one, because one was measurably wrong.</b> The first version compared an
+    /// answer's generation against the latest generation ASKED and dropped anything older. That reads as
+    /// "do not show markers for text the user has edited past", and it does do that — but it also drops the
+    /// answer to every request that was overtaken before it came back, and if the last request's answer is
+    /// the one that goes missing or arrives out of order, the document is left showing <em>nothing at all</em>,
+    /// permanently. Overlapping requests are not exotic: <c>workspace/diagnostic/refresh</c> arriving while a
+    /// pull is in flight produces them every time, which is how a scripted server reproduced a document with
+    /// three answered requests and no diagnostics on screen.
+    ///
+    /// <para>
+    /// Comparing against what has been SHOWN instead makes the rule monotonic: the newest answer to arrive
+    /// always wins and nothing can leave the document blank. The cost is that a stale answer arriving before
+    /// its newer sibling is displayed briefly and then replaced — which is exactly what a publishing server
+    /// does anyway, and enormously preferable to silence.
+    /// </para>
+    /// </remarks>
+    private readonly ConcurrentDictionary<string, int> _pullShown = new();
 
     /// <summary>
     /// True when this connection's diagnostics come from asking, so anything it publishes is redundant.
@@ -771,6 +797,7 @@ public sealed class VBLspClient : ILspClient
     {
         _pullResultIds.TryRemove(uri, out _);
         _pullGeneration.TryRemove(uri, out _);
+        _pullShown.TryRemove(uri, out _);
 
         // Nothing else would. A push server clears a document by publishing an empty set for it, and a
         // server that only answers when asked has no way to say anything about a document we have stopped
@@ -828,9 +855,11 @@ public sealed class VBLspClient : ILspClient
             return;
         }
 
-        // The document moved on while we were asking, so this answer is about text that is no longer there.
-        // Publishing it would put markers on lines the user has already edited past.
-        if (_pullGeneration.TryGetValue(uri, out var current) && current != generation) return;
+        // Already overtaken: something newer is on screen, so this answer describes text nobody is looking
+        // at. Claiming this slot and finding we did not win is the whole check — see _pullShown for why it
+        // is measured against what has been shown rather than against what has been asked.
+        if (_pullShown.AddOrUpdate(uri, generation, (_, shown) => Math.Max(shown, generation)) != generation)
+            return;
 
         ApplyDiagnosticReport(uri, raw);
     }
@@ -1725,9 +1754,19 @@ public sealed class VBLspClient : ILspClient
         /// Every open document is asked about afresh, and the result identifiers are dropped first: holding
         /// them would invite the server to answer "unchanged" against the very answers being invalidated.
         /// </para>
+        ///
+        /// <para>
+        /// <b>Parameterless, unlike every other handler here, and it has to be.</b> The specification gives
+        /// this request no parameters at all, so a conformant server sends no <c>params</c> member — and a
+        /// handler declared with the usual single-object deserialization then has a required argument
+        /// nothing supplies. Measured: the client answered
+        /// <c>-32602 "An argument was not supplied for a required parameter"</c> and the refresh was
+        /// silently refused, which looks exactly like success from outside. Declared this way it binds
+        /// whether the member is absent, an empty array, or an empty object.
+        /// </para>
         /// </remarks>
-        [JsonRpcMethod("workspace/diagnostic/refresh", UseSingleObjectParameterDeserialization = true)]
-        public void OnDiagnosticRefresh(JsonElement _)
+        [JsonRpcMethod("workspace/diagnostic/refresh")]
+        public void OnDiagnosticRefresh()
         {
             _client._logger.LogDebug("The server asked for diagnostics to be refreshed; re-requesting.");
             _client._pullResultIds.Clear();

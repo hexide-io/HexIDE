@@ -9,10 +9,18 @@ using StreamJsonRpc.Reflection;
 namespace HexIDE.Lsp;
 
 /// <summary>
-/// A message formatter that copies what crosses it into a <see cref="ConversationLog"/>, and otherwise
-/// does nothing at all.
+/// A message formatter that copies what crosses it into a <see cref="ConversationLog"/> when there is one,
+/// repairs the one frame shape that would otherwise cost a connection, and otherwise does nothing at all.
 /// </summary>
 /// <remarks>
+/// <b>Always installed, even with no log to write to.</b> It was conditional, and that was a defect rather
+/// than an economy: the <c>params: null</c> repair below lives here, so a connection survived a malformed
+/// frame only while somebody happened to be recording it. A diagnostic facility must never be what keeps
+/// the thing it observes alive — and the inverse is just as bad, since it makes the recorded connection
+/// behave differently from the one a user has. With no log the wrapper records nothing and costs a null
+/// check per frame. See <see cref="RepairNullParams"/>.
+///
+/// <para>
 /// <b>Wrapping rather than subclassing, and that is not a style preference.</b> Every serialization member
 /// on the underlying formatter is <c>virtual final newslot</c> — the runtime's encoding of an ordinary
 /// non-virtual interface implementation — so an <c>override</c> does not compile, and the <c>new</c> that
@@ -43,13 +51,30 @@ namespace HexIDE.Lsp;
 /// </remarks>
 internal sealed class CapturingFormatter(
     IJsonRpcMessageTextFormatter inner,
-    ConversationLog log,
-    string connectionId)
+    ConversationLog? log,
+    string? connectionId)
     : IJsonRpcMessageTextFormatter, IJsonRpcMessageFactory, IJsonRpcInstanceContainer, IJsonRpcFormatterState,
       IJsonRpcFormatterTracingCallbacks, IJsonRpcMessageBufferManager, IDisposable
 {
     private readonly IJsonRpcMessageFactory _factory = (IJsonRpcMessageFactory)inner;
     private readonly IJsonRpcFormatterState _state = (IJsonRpcFormatterState)inner;
+
+    /// <summary>Whether anybody wants the bytes. False whenever there is nothing to write them to.</summary>
+    private bool ShouldKeepBody() =>
+        log is not null && connectionId is not null && log.ShouldKeepBody(connectionId);
+
+    /// <summary>
+    /// Writes one entry, if there is a log. Every caller is on a path where a throw is unwelcome and some
+    /// are on one where it is fatal, so this swallows unconditionally.
+    /// </summary>
+    private void Note(
+        ConversationDirection direction, ConversationEntryKind kind,
+        string? method, string? id, int size, byte[]? body, string? detail = null)
+    {
+        if (log is null || connectionId is null) return;
+        try { log.Record(connectionId, direction, kind, method, id, size, body, detail); }
+        catch (Exception) { /* a capture is never worth breaking anything for */ }
+    }
 
     public Encoding Encoding
     {
@@ -63,7 +88,7 @@ internal sealed class CapturingFormatter(
     {
         // Tee rather than serialize twice. The bytes the inner formatter writes are exactly the bytes the
         // handler will frame, so watching them go past costs one copy when armed and one addition when not.
-        var tee = new TeeWriter(bufferWriter, log.ShouldKeepBody(connectionId));
+        var tee = new TeeWriter(bufferWriter, ShouldKeepBody());
 
         try
         {
@@ -78,13 +103,9 @@ internal sealed class CapturingFormatter(
             // and then answers nothing — indistinguishable from a broken server.
             //
             // So the attempt goes on the record. Nothing crossed the wire, which is exactly the finding.
-            try
-            {
-                log.Record(
-                    connectionId, ConversationDirection.Local, ConversationEntryKind.NeverSent,
-                    MethodOf(message), null, 0, null, $"could not be serialized: {ex.Message}");
-            }
-            catch (Exception) { /* never replace the caller's exception with a diagnostic's */ }
+            Note(
+                ConversationDirection.Local, ConversationEntryKind.NeverSent,
+                MethodOf(message), null, 0, null, $"could not be serialized: {ex.Message}");
 
             throw;
         }
@@ -123,7 +144,7 @@ internal sealed class CapturingFormatter(
         byte[]? copy = null;
         try
         {
-            if (log.ShouldKeepBody(connectionId)) copy = contentBuffer.ToArray();
+            if (ShouldKeepBody()) copy = contentBuffer.ToArray();
         }
         catch (Exception) { copy = null; }
 
@@ -144,13 +165,9 @@ internal sealed class CapturingFormatter(
             //
             // Recorded as a note rather than as a message, because it is not one: it has no method, no id
             // and no direction the protocol would recognise. The bytes travel with it.
-            try
-            {
-                log.Record(
-                    connectionId, ConversationDirection.Received, ConversationEntryKind.Note,
-                    null, null, length, copy, $"undecodable frame: {ex.Message}");
-            }
-            catch (Exception) { /* the throw below is the caller's answer; this must not replace it */ }
+            Note(
+                ConversationDirection.Received, ConversationEntryKind.Note,
+                null, null, length, copy, $"undecodable frame: {ex.Message}");
 
             // One repair, tried once, before spending the connection on it. See RepairNullParams.
             if (RepairNullParams(contentBuffer) is { } repaired)
@@ -158,15 +175,11 @@ internal sealed class CapturingFormatter(
                 try
                 {
                     message = deserialize(new ReadOnlySequence<byte>(repaired));
-                    try
-                    {
-                        log.Record(
-                            connectionId, ConversationDirection.Received, ConversationEntryKind.Note,
-                            null, null, length, copy,
-                            "recovered: the frame above carried `\"params\": null`, which JSON-RPC 2.0 does "
-                          + "not permit. Read as though the member were absent. The connection was kept.");
-                    }
-                    catch (Exception) { /* as everywhere on this path */ }
+                    Note(
+                        ConversationDirection.Received, ConversationEntryKind.Note,
+                        null, null, length, copy,
+                        "recovered: the frame above carried `\"params\": null`, which JSON-RPC 2.0 does "
+                      + "not permit. Read as though the member were absent. The connection was kept.");
 
                     return message;
                 }
@@ -263,7 +276,7 @@ internal sealed class CapturingFormatter(
     private void Record(JsonRpcMessage message, ConversationDirection direction, int size, byte[]? body)
     {
         var (kind, method, id) = Describe(message);
-        log.Record(connectionId, direction, kind, method, id, size, body);
+        Note(direction, kind, method, id, size, body);
     }
 
     /// <summary>What sort of message this is, what it is called, and which exchange it belongs to.</summary>

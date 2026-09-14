@@ -22,7 +22,7 @@ the test suite drives, see [`foreign-language-servers.md`](./foreign-language-se
 That claim is only worth as much as its evidence. HexIDE's client and HexIDE's server were written by the
 same hand, so their agreeing with each other proves nothing about the specification — three defects hid in
 exactly that gap until a server nobody here had written was pointed at the client. The suite therefore
-drives three foreign servers on three different LSP frameworks, including `vscode-languageserver-node`, the
+drives five foreign servers across four different LSP frameworks, including `vscode-languageserver-node`, the
 library the specification is written around.
 
 ---
@@ -45,20 +45,31 @@ The first goes to the log at the severity the server declared; the second goes t
 status bar, because a message the user never sees was the bug and a message with no trace afterwards
 is the next one.
 
-**Server-initiated requests.** The client registers no handlers for any of them, so what a server gets back
-is whatever StreamJsonRpc answers an unknown method with — an error response rather than silence, on the
-library's own account. **This has no test here**, and it matters: a server awaiting a reply it never gets
-hangs rather than degrading, and the difference is invisible until you drive a server that asks. Treat the
-table below as describing the library's documented behaviour on those rows, not a measurement taken in this
-repository.
+**Server-initiated requests.** Four are handled: `client/registerCapability` and
+`client/unregisterCapability` (refused, with the refusal recorded rather than silent) and
+`workspace/diagnostic/refresh`, which is acted on — every open document is asked about again. Everything
+else gets whatever StreamJsonRpc answers an unknown method with, which is an error response rather than
+silence, on the library's own account; those rows are the library's documented behaviour, not a measurement
+taken here. A server awaiting a reply it never gets hangs rather than degrading, which is invisible until
+you drive a server that asks.
+
+**A handled request is not the same as an answered one, and the gap is silent.** `workspace/diagnostic/refresh`
+takes no parameters, so a conformant server sends no `params` member — and the handler, declared like every
+other one here with single-object deserialization, had a required argument nothing supplied. The client
+answered `-32602 "An argument was not supplied for a required parameter"` and the refresh was refused, while
+the connection stayed healthy and the coverage table said the message was implemented. It is declared
+parameterless now, and `PullDiagnosticsReportKindTests` drives a scripted server that sends one and asserts
+the client asks again.
 
 ---
 
 ## Describing the workspace
 
 `initialize` carries **both** `workspaceFolders` — one per loaded project — and the deprecated `rootUri`,
-and the client declares `workspace.workspaceFolders`. Sending both is not belt-and-braces: the four servers
-this suite drives were measured, and they show three different behaviours.
+and the client declares `workspace.workspaceFolders`. Sending both is not belt-and-braces: four of the five
+servers this suite drives were measured, and they show three different behaviours. (ruff, the fifth, was
+added later for the pull model and has not been measured on this question — which is stated rather than
+quietly folded into the count.)
 
 | Server | Reads `workspaceFolders` | Reads `rootUri` |
 |---|---|---|
