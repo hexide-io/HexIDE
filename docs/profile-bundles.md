@@ -187,27 +187,32 @@ no test coverage at all, so nothing breaks — and nothing catches a regression 
 
 ## Where specs and code disagree
 
-The survey turned up ten divergences, none of them the thing being surveyed. They are recorded here
+The survey turned up eleven divergences, none of them the thing being surveyed. They are recorded here
 because several bear directly on a profile design, and because `openspec/config.yaml` has a rule for this
 case: write the intended behaviour as the requirement, open an issue, and link it from a note under
 `## Purpose`.
 
-| Where | Divergence |
-|---|---|
-| `specs/theme-packs` | Requires a user theme with "no code change and no rebuild". Packs are compiled resources behind a hard-coded array; both are required. |
-| `specs/keymap-packs` | Asserts adding a pack "SHALL require no code change". The available set is a hard-coded two-element array. |
-| `specs/ide-personalities` | States a personality controls toolbar buttons. No toolbar button is gated on personality anywhere. |
-| `specs/icon-system` | A **Requirement**, not just the Purpose, says icons "SHALL be original vector geometries". They are extracted from a third-party icon set — correctly licensed and recorded in `THIRD-PARTY-NOTICES.md`, but not original. |
-| `specs/addin-system` | Promises menu items at "a named parent location". The code has two fixed anchors and silently redirects anything else. |
-| `specs/toolbars` | Requires all four toolbars in both toggle surfaces. The toolbar band's own context flyout offers three. |
-| `CLAUDE.md` | "Every shipped pack is 100% complete, enforced at build" — the coverage tool is manual and is not invoked by CI, and the manifest is referenced by no test. |
-| `docs/MISSING_FEATURES.md` | Lists the Standard toolbar's Break button as permanently inert. It is wired and executes whenever a project is running. |
-| `IDE/HexIDE/Keymaps/KeymapPack.cs` | `CommandKeyMapping.Table` says to keep itself in sync with `ApplicationCommands.cs`; three commands are missing and no test checks it. |
-| Shipped artefacts | Two unit-test language packs (`zz`, `zz-ZZ`) are compiled into the Release assembly and are reachable at runtime. |
+All eleven are filed. The five spec contradictions still want their `## Purpose` notes, which is the
+second half of that rule and is not done by filing alone.
 
-Also found, and arguably a defect rather than a divergence: under `--personality vba` the New Project
-dialog offers no project types at all, so its OK button is permanently disabled, while the Standard
-toolbar's Add Project flyout hard-codes all four templates and bypasses the personality entirely.
+| Where | Divergence | Issue |
+|---|---|---|
+| `specs/theme-packs` | Requires a user theme with "no code change and no rebuild". Packs are compiled resources behind a hard-coded array; both are required. | [#413](https://github.com/hexide-io/HexIDE/issues/413) |
+| `specs/keymap-packs` | Asserts adding a pack "SHALL require no code change". The available set is a hard-coded two-element array. | [#414](https://github.com/hexide-io/HexIDE/issues/414) |
+| `specs/ide-personalities` | States a personality controls toolbar buttons. No toolbar button is gated on personality anywhere. | [#419](https://github.com/hexide-io/HexIDE/issues/419) |
+| `specs/icon-system` | A **Requirement**, not just the Purpose, says icons "SHALL be original vector geometries". They are Fluent UI System Icons — MIT, recorded in `THIRD-PARTY-NOTICES.md`, and the VB6-extracted artwork the clause was written against is gone. The licence position is sound; the word "original" is what is false. | [#420](https://github.com/hexide-io/HexIDE/issues/420) |
+| `specs/addin-system` | Promises menu items at "a named parent location". The code has two fixed anchors and silently redirects anything else. | [#416](https://github.com/hexide-io/HexIDE/issues/416) |
+| `specs/toolbars` | Requires all four toolbars in both toggle surfaces. The toolbar band's own context flyout offers three. | [#417](https://github.com/hexide-io/HexIDE/issues/417) |
+| `CLAUDE.md` | "Every shipped pack is 100% complete, enforced at build" — nothing checks pack parity. `LocalizationCoverageTests` covers AXAML keys against `en`, VB properties against `Str.PropDesc.*`, and region packs for orphan keys; the parity tool is manual and CI never runs it. | [#421](https://github.com/hexide-io/HexIDE/issues/421) |
+| `docs/MISSING_FEATURES.md` | Lists the Standard toolbar's Break button as permanently inert. It is wired and executes whenever a project is running. | [#422](https://github.com/hexide-io/HexIDE/issues/422) |
+| `IDE/HexIDE/Keymaps/KeymapPack.cs` | `CommandKeyMapping.Table` says to keep itself in sync with `ApplicationCommands.cs`; three commands are missing and no test checks it. | [#415](https://github.com/hexide-io/HexIDE/issues/415) |
+| Shipped artefacts | Two unit-test language packs (`zz`, `zz-ZZ`) are embedded in the Release assembly. Not selectable — `LanguagePack.cs` does not list them — so this is dead weight rather than a leak. | [#423](https://github.com/hexide-io/HexIDE/issues/423) |
+
+The eleventh is a plain defect rather than a divergence, and is filed as one
+([#418](https://github.com/hexide-io/HexIDE/issues/418)): under `--personality vba` the New Project dialog
+offers no project types at all, so its OK button can never enable, while the Standard toolbar's Add Project
+flyout hard-codes all four templates and bypasses the personality entirely. Two surfaces, disagreeing, and
+one of them a dead end.
 
 ## Sources
 
