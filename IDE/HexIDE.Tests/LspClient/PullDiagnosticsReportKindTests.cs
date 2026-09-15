@@ -775,11 +775,21 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
         // away the only thing it is for.
         var server = new PullingServer();
         var sut = ClientTalkingTo(server);
+        var published = new List<PublishDiagnosticsParams>();
+        sut.DiagnosticsPublished += (_, p) => { lock (published) published.Add(p); };
 
         await sut.StartAsync(TestContext.Current.CancellationToken);
         await sut.OpenDocumentAsync(Uri, "import os\n", TestContext.Current.CancellationToken);
         await Until(() => server.TimesAsked >= 1, "the client should have asked on open");
         server.LastPreviousResultId.Should().BeNull("there was no previous answer to refer to");
+
+        // Waiting for the ANSWER, not merely for the question. `TimesAsked` rises the moment the request
+        // reaches the server, which is before the client can possibly have been told what the answer is
+        // called — so changing the document here raced the reply, and the second request went out with no
+        // previous identifier because the client legitimately held none yet. Green on a Windows laptop,
+        // red on CI, and the defect was entirely this test's.
+        await Until(() => { lock (published) return published.Count >= 1; },
+            "the first answer must have arrived before there is a name to refer back to");
 
         await sut.ChangeDocumentAsync(Uri, 2, "import os\n\n", TestContext.Current.CancellationToken);
         await Until(() => server.TimesAsked >= 2, "the client should have asked again after the change");
