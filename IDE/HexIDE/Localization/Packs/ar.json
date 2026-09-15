@@ -577,6 +577,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "هذا سطر كتبه الخادم إلى خرج الخطأ القياسي، وهو معروض أعلاه بالكامل. وهو ليس رسالة، لذا لا يوجد متن لعرضه.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "هذا الإدخال هو ملاحظة الالتقاط نفسه عن الاتصال، وليس رسالة، لذا لا يوجد متن لعرضه.",
     "Str.Tool.ProtocolInspector.Truncated": "— لم يُحتفظ بـ {0} بايت من أصل {1} —",
+    "Str.Tool.ProtocolInspector.Reply": "— الرد، {0} بايت —",
     "Str.Tool.ProtocolInspector.Copy": "نسخ بصيغة التتبّع",
     "Str.Tool.ProtocolInspector.Export": "تصدير المحادثة...",
     "Str.Tool.ProtocolInspector.Exported": "تم تصدير {0} رسالة إلى {1}، مع ملف البيان في {2}.",

@@ -576,6 +576,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Ĉi tio estas linio, kiun la servilo skribis al la norma erarfluo, montrata plene supre. Ĝi ne estas mesaĝo, do estas neniu korpo por montri.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Ĉi tiu enskribo estas la propra noto de la registrado pri la konekto, ne mesaĝo, do estas neniu korpo por montri.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} bajtoj el {1} ne estis konservitaj —",
+    "Str.Tool.ProtocolInspector.Reply": "— respondo, {0} bajtoj —",
     "Str.Tool.ProtocolInspector.Copy": "Kopii kiel spuron",
     "Str.Tool.ProtocolInspector.Export": "Eksporti konversacion...",
     "Str.Tool.ProtocolInspector.Exported": "Eksportis {0} mesaĝojn al {1}, kun la manifesto ĉe {2}.",

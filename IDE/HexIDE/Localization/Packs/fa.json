@@ -577,6 +577,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "این سطری است که سرور در خروجی خطای استاندارد نوشته و در بالا به‌طور کامل نمایش داده شده است. این یک پیام نیست، بنابراین بدنه‌ای برای نمایش وجود ندارد.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "این مدخل یادداشت خودِ ضبط دربارهٔ اتصال است، نه یک پیام؛ بنابراین بدنه‌ای برای نمایش وجود ندارد.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} بایت از {1} نگه داشته نشد —",
+    "Str.Tool.ProtocolInspector.Reply": "— پاسخ، {0} بایت —",
     "Str.Tool.ProtocolInspector.Copy": "کپی به‌صورت ردیابی",
     "Str.Tool.ProtocolInspector.Export": "برون‌بری گفت‌وگو...",
     "Str.Tool.ProtocolInspector.Exported": "{0} پیام در {1} نوشته شد، همراه با مانیفست در {2}.",

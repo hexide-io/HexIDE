@@ -96,7 +96,19 @@ public sealed class ProtocolInspectorRowViewModel(
     };
 
     /// <summary>Whether a body was retained, which decides whether opening the row shows anything.</summary>
-    public bool HasBody { get; } = hasBody;
+    /// <remarks>
+    /// Either half counts. A request and its reply share this row, and the two bodies age out
+    /// independently — the request first, since it was stored first — so a row whose reply is still held
+    /// has something to show even once the question has gone.
+    /// </remarks>
+    public bool HasBody { get; } = hasBody || envelope.AnswerSequence is not null;
+
+    /// <summary>Where the reply's body is kept, when one was.</summary>
+    /// <remarks>
+    /// A reply is not a row. It completes this one, so its body is fetched by a sequence this row carries
+    /// rather than by one a reader can see in the grid.
+    /// </remarks>
+    public long? AnswerSequence { get; } = envelope.AnswerSequence;
 
     /// <summary>
     /// Whether this row is one a reader chasing a problem wants.

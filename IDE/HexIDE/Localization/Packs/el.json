@@ -577,6 +577,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Αυτή είναι μια γραμμή που έγραψε ο διακομιστής στην τυπική έξοδο σφαλμάτων και εμφανίζεται ολόκληρη παραπάνω. Δεν είναι μήνυμα, οπότε δεν υπάρχει σώμα προς εμφάνιση.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Αυτή η καταχώριση είναι σημείωση της ίδιας της καταγραφής για τη σύνδεση, όχι μήνυμα, οπότε δεν υπάρχει σώμα προς εμφάνιση.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} από {1} byte δεν διατηρήθηκαν —",
+    "Str.Tool.ProtocolInspector.Reply": "— απάντηση, {0} byte —",
     "Str.Tool.ProtocolInspector.Copy": "Αντιγραφή ως ίχνος",
     "Str.Tool.ProtocolInspector.Export": "Εξαγωγή συνομιλίας...",
     "Str.Tool.ProtocolInspector.Exported": "Εξήχθησαν {0} μηνύματα στο {1}, με το δηλωτικό στο {2}.",

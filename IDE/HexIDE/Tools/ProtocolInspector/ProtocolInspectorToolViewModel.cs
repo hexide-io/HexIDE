@@ -437,7 +437,14 @@ public partial class ProtocolInspectorToolViewModel : Document
             .FetchAsync(_capture, row.ConnectionId, row.Sequence)
             .GetAwaiter().GetResult();
 
-        if (view is null)
+        // The reply belongs to this row rather than to one of its own, so it is shown with it. Fetched
+        // even when the question has gone: the two bodies age out independently and the request goes
+        // first, so "the answer survives alone" is the ordinary end of a long session, not an edge.
+        var answer = row.AnswerSequence is { } at
+            ? CaptureQueries.FetchAsync(_capture, row.ConnectionId, at).GetAwaiter().GetResult()
+            : null;
+
+        if (view is null && answer is null)
         {
             HasSelectedBody = false;
             SelectedBody = "";
@@ -466,13 +473,15 @@ public partial class ProtocolInspectorToolViewModel : Document
 
         HasSelectedBody = true;
         SelectedBodyUnavailable = "";
-        SelectedBody = Compose(view);
+        SelectedBody = Both(view, answer);
         SelectedTrace = Trace(row, Redactor().Body(SelectedBody), null);
         CanCopy = true;
 
         // Skipped for a shortened frame: it is not meant to parse, it already says so, and calling it
-        // malformed would be the inspector misreading its own marker as the server's output.
-        BodyProblem = view.Tail is null ? Malformed(SelectedBody) : "";
+        // malformed would be the inspector misreading its own marker as the server's output. Skipped as
+        // soon as a reply is shown too — two JSON documents one after the other are not one, and
+        // reporting that as the server's malformed output would be the same misreading with more steps.
+        BodyProblem = view is { Tail: null } && answer is null ? Malformed(SelectedBody) : "";
         HasBodyProblem = BodyProblem.Length > 0;
 
         RefreshPane();
@@ -626,6 +635,28 @@ public partial class ProtocolInspectorToolViewModel : Document
     /// the two halves would produce something that parses and lies about what was sent, so the gap is
     /// marked and measured instead — the same choice the export makes, for the same reason.
     /// </remarks>
+    /// <summary>
+    /// The exchange: what was asked, and what came back under it.
+    /// </summary>
+    /// <remarks>
+    /// <b>One pane for both halves, because the row is the exchange.</b> A response completes its request's
+    /// entry rather than making one of its own — right for a timeline read in order, and it left the reply
+    /// with nowhere to be shown at all. Separated by a rule that states the reply's size, so nobody reads
+    /// two documents as one; joining them would produce something that is not what either end sent.
+    /// </remarks>
+    private string Both(PayloadView? request, PayloadView? answer)
+    {
+        var asked = request is null ? "" : Compose(request);
+        if (answer is null) return asked;
+
+        var format = _localization.GetString("Str.Tool.ProtocolInspector.Reply");
+        var rule = format is { Length: > 0 }
+            ? string.Format(format, answer.TrueLength)
+            : $"— reply, {answer.TrueLength} bytes —";
+
+        return asked.Length == 0 ? rule + "\n\n" + Compose(answer) : asked + "\n\n" + rule + "\n\n" + Compose(answer);
+    }
+
     private string Compose(PayloadView view)
     {
         // INDENTED WHEN IT PARSES, and left exactly as it arrived when it does not.

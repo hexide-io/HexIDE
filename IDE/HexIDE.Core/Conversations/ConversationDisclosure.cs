@@ -113,6 +113,21 @@ public sealed record ConversationDisclosure(
             }
         }
 
+        // The answers go out too, so they are counted here or this understates the export — and a
+        // disclosure that understates is the only kind that does harm. They are counted as messages and
+        // as bytes, and deliberately not attributed to a document: a reply carries a range, a hover or a
+        // capability table, never the file, and guessing otherwise would inflate the one figure the reader
+        // is actually deciding on.
+        foreach (var envelope in log.Snapshot(connectionId))
+        {
+            if (envelope.AnswerSequence is not { } answer) continue;
+
+            messages++;
+
+            if (log.Body(envelope.ConnectionId, answer) is { } reply) retained += reply.RetainedBytes;
+            else noBody++;
+        }
+
         var documents = perDocument
             .Select(pair => new DisclosedDocument(pair.Key, pair.Value.Copies, pair.Value.Bytes))
             .OrderByDescending(d => d.Bytes)

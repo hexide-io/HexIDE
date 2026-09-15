@@ -577,6 +577,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "यह एक पंक्ति है जिसे सर्वर ने मानक त्रुटि आउटपुट पर लिखा और जो ऊपर पूरी दिखाई गई है। यह कोई संदेश नहीं है, इसलिए दिखाने के लिए कोई सामग्री नहीं है।",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "यह प्रविष्टि कनेक्शन के बारे में कैप्चर की अपनी टिप्पणी है, कोई संदेश नहीं, इसलिए दिखाने के लिए कोई सामग्री नहीं है।",
     "Str.Tool.ProtocolInspector.Truncated": "— {1} में से {0} बाइट नहीं रखे गए —",
+    "Str.Tool.ProtocolInspector.Reply": "— उत्तर, {0} बाइट —",
     "Str.Tool.ProtocolInspector.Copy": "ट्रेस के रूप में कॉपी करें",
     "Str.Tool.ProtocolInspector.Export": "वार्तालाप निर्यात करें...",
     "Str.Tool.ProtocolInspector.Exported": "{0} संदेश {1} में निर्यात किए गए, मैनिफ़ेस्ट {2} पर है।",

@@ -576,6 +576,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Haec linea est quam servitor in exitum errorum ordinarium scripsit, supra plene ostensa. Non est nuntius, itaque nullum corpus ostendi potest.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Haec notitia est adnotatio ipsius capturae de conexione, non nuntius, itaque nullum corpus ostendi potest.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} ex {1} octetis non servati sunt —",
+    "Str.Tool.ProtocolInspector.Reply": "— responsum, {0} octeti —",
     "Str.Tool.ProtocolInspector.Copy": "Describe ut vestigium",
     "Str.Tool.ProtocolInspector.Export": "Exporta colloquium...",
     "Str.Tool.ProtocolInspector.Exported": "{0} nuntii in {1} exportati sunt, cum indice apud {2}.",

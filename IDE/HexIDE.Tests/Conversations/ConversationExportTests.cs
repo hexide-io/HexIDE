@@ -196,11 +196,17 @@ public class ConversationExportTests : IAsyncDisposable
         var export = await ConversationExporter.ExportAsync(_log, Redactor(), clock: FixedClock);
 
         using var manifest = Manifest(export);
-        var envelope = manifest.RootElement.GetProperty("envelopes").EnumerateArray().Single();
+        var rows = manifest.RootElement.GetProperty("envelopes").EnumerateArray().ToArray();
 
+        // Two rows for one entry: the request, and the reply that completes it. The reply has no envelope
+        // of its own by design, and it still crossed the wire, so the file has a line for it.
+        rows.Should().HaveCount(2);
+
+        var envelope = rows[0];
         envelope.GetProperty("method").GetString().Should().Be("hover");
         envelope.GetProperty("outcome").GetString().Should().Be(nameof(ConversationOutcome.Answered));
         envelope.TryGetProperty("elapsedMs", out _).Should().BeTrue();
+        envelope.GetProperty("answerBytes").GetInt32().Should().Be(response.Length);
     }
 
     [Fact]

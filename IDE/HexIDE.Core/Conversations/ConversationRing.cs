@@ -75,14 +75,33 @@ public sealed class ConversationRing(CaptureLimits limits)
     /// complete.
     /// </para>
     /// </remarks>
-    public void Complete(long sequence, ConversationOutcome outcome, TimeSpan elapsed)
+    /// <param name="answerSequence">
+    /// Where the answer's retained body sits, or null when none was kept. Recorded on the request because
+    /// the answer has no entry of its own to carry it.
+    /// </param>
+    /// <param name="answerSizeBytes">
+    /// How big the answer was, kept or not. The same reason as above, one tier down: an answer's size is
+    /// metadata, so it is recorded on a connection nobody armed.
+    /// </param>
+    public void Complete(
+        long sequence,
+        ConversationOutcome outcome,
+        TimeSpan elapsed,
+        long? answerSequence = null,
+        int? answerSizeBytes = null)
     {
         lock (_lock)
         {
             for (var i = _prologue.Count - 1; i >= 0; i--)
             {
                 if (_prologue[i].Sequence != sequence) continue;
-                _prologue[i] = _prologue[i] with { Outcome = outcome, Elapsed = elapsed };
+                _prologue[i] = _prologue[i] with
+                {
+                    Outcome = outcome,
+                    Elapsed = elapsed,
+                    AnswerSequence = answerSequence,
+                    AnswerSizeBytes = answerSizeBytes,
+                };
                 return;
             }
 
@@ -96,7 +115,13 @@ public sealed class ConversationRing(CaptureLimits limits)
             foreach (var e in all)
             {
                 _recent.Enqueue(e.Sequence == sequence
-                    ? e with { Outcome = outcome, Elapsed = elapsed }
+                    ? e with
+                    {
+                        Outcome = outcome,
+                        Elapsed = elapsed,
+                        AnswerSequence = answerSequence,
+                        AnswerSizeBytes = answerSizeBytes,
+                    }
                     : e);
             }
         }

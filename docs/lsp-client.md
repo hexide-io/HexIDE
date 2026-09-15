@@ -285,6 +285,35 @@ Envelopes — direction, method, id, size, outcome, latency — are recorded for
 connection that has been armed, except each connection's opening, which is always kept because a handshake
 cannot be captured after the fact. `--capture-lsp` arms everything before the first connection exists.
 
+### A request and its answer are one row and two bodies
+
+A response completes its request's entry rather than making one of its own. That is right for a timeline
+whose whole job is to be read in order — showing both would double every exchange — and it is why sequence
+numbers have gaps: the response consumed one and nothing displayed it.
+
+**The reply's bytes were dropped along with the entry, and that was a defect rather than the same
+decision** ([#429](https://github.com/hexide-io/HexIDE/issues/429)). No answer could be fetched by any
+surface: not a hover's contents, not an error object's code, and not the `InitializeResult` that decides
+what every later message is allowed to be. Reading a foreign server's capability table meant writing a
+second client and driving the server from outside the IDE — which is exactly the work this inspector
+exists to abolish.
+
+The answer now keeps the sequence it was already allocated, so the gap is the address:
+
+| On the request's row | Means |
+|---|---|
+| `answerSizeBytes` | How big the reply was. Recorded **whether or not bodies are being kept** — size is metadata, so it belongs to the tier that is always on. |
+| `answerSequence` | Where the reply's body is. Present only when one was retained, so a row that has it can always be read. A row with an `outcome` and no `answerSequence` was answered on a connection nobody armed. |
+
+Pass `answerSequence` to `get_lsp_message` and the reply comes back with `isAnswer`, `answerTo`, and the
+request's method — a response carries none of its own on the wire. In the window, both halves appear under
+the one row, separated by a rule stating the reply's size; they are never joined, because two JSON
+documents run together are not a third one.
+
+`export_lsp_conversation` writes a line per **frame** rather than per envelope for the same reason: the
+format's claim is that it replays into a client, and a conversation with every reply missing replays into
+nothing. The reply's manifest row carries `answerTo` and the opposite direction.
+
 **This replaced an interposed debug proxy** (`HexIDE.LspProxy`, reached by setting `VB6_LSP_DEBUG_PROXY=1`),
 which relaunched the server underneath a byte-forwarding process that wrote every frame to its own stderr.
 The inspector reads strictly more, and the difference is not one of convenience:

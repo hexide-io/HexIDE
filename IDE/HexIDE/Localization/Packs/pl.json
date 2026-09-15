@@ -577,6 +577,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "To wiersz, który serwer zapisał na standardowym wyjściu błędów, pokazany powyżej w całości. To nie jest komunikat, więc nie ma treści do wyświetlenia.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Ten wpis to notatka rejestrowania dotycząca połączenia, a nie komunikat, więc nie ma treści do wyświetlenia.",
     "Str.Tool.ProtocolInspector.Truncated": "— nie zachowano {0} z {1} bajtów —",
+    "Str.Tool.ProtocolInspector.Reply": "— odpowiedź, {0} bajtów —",
     "Str.Tool.ProtocolInspector.Copy": "Kopiuj jako ślad",
     "Str.Tool.ProtocolInspector.Export": "Eksportuj konwersację...",
     "Str.Tool.ProtocolInspector.Exported": "Wyeksportowano {0} komunikatów do {1}, a manifest do {2}.",

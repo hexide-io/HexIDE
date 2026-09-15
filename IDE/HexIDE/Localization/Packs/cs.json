@@ -577,6 +577,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Toto je řádek, který server zapsal na standardní chybový výstup a který je celý zobrazen výše. Není to zpráva, takže nemá žádné tělo, které by šlo zobrazit.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Tato položka je vlastní poznámka záznamu o připojení, nikoli zpráva, takže nemá žádné tělo, které by šlo zobrazit.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} bajtů z {1} nebylo uchováno —",
+    "Str.Tool.ProtocolInspector.Reply": "— odpověď, {0} bajtů —",
     "Str.Tool.ProtocolInspector.Copy": "Kopírovat jako trasování",
     "Str.Tool.ProtocolInspector.Export": "Exportovat konverzaci...",
     "Str.Tool.ProtocolInspector.Exported": "Exportováno {0} zpráv do {1}, manifest je v {2}.",

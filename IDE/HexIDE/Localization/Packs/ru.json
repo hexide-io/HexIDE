@@ -577,6 +577,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Это строка, которую сервер записал в стандартный поток ошибок; выше она показана целиком. Это не сообщение, поэтому тела у неё нет.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Эта запись — собственная заметка о подключении, а не сообщение, поэтому показывать нечего: тела у неё нет.",
     "Str.Tool.ProtocolInspector.Truncated": "— не сохранено {0} байт из {1} —",
+    "Str.Tool.ProtocolInspector.Reply": "— ответ, {0} байт —",
     "Str.Tool.ProtocolInspector.Copy": "Копировать как трассировку",
     "Str.Tool.ProtocolInspector.Export": "Экспортировать переписку...",
     "Str.Tool.ProtocolInspector.Exported": "Экспортировано {0} сообщений в {1}, манифест — {2}.",
