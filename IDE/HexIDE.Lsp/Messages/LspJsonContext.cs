@@ -21,6 +21,11 @@ namespace HexIDE.Lsp;
 [JsonSerializable(typeof(DidSaveTextDocumentParams))]
 [JsonSerializable(typeof(PublishDiagnosticsParams))]
 [JsonSerializable(typeof(Diagnostic[]))]
+// The request only. Its RESULT is read as a JsonElement and switched on `kind`, because the protocol
+// defines it as a union — RelatedFullDocumentDiagnosticReport | RelatedUnchangedDocumentDiagnosticReport —
+// which a source-generated resolver cannot deserialize into one class. Reading the raw element is the same
+// treatment `documentSymbol` and `definition` already get, for the same reason.
+[JsonSerializable(typeof(DocumentDiagnosticParams))]
 [JsonSerializable(typeof(TextDocumentPositionParams))]
 [JsonSerializable(typeof(HoverResult))]
 [JsonSerializable(typeof(DocumentSymbolParams))]

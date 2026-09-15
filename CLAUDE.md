@@ -50,7 +50,7 @@ public repository. Do not reason about whether yours is "obviously" generic; jus
 
 ### The foreign-server tests fetch real third-party language servers
 
-`HexIDE.Tests` includes sixteen tests that drive language servers **HexIDE did not write** — the only
+`HexIDE.Tests` includes twenty-four tests that drive language servers **HexIDE did not write** — the only
 check that the client speaks LSP to something that does not accommodate it. A client and server by one hand
 agree with each other rather than with the specification, which is how three defects hid until a foreign
 server was pointed at (`ForeignServerFixture.cs` has the history).
@@ -72,8 +72,9 @@ that our own call returned. `ShutdownWireShapeTests` is the worked example — i
 because a `[JsonRpcMethod]` handler cannot tell you whether `params` arrived as `[]`, `{}`, or not at
 all, and those three are not interchangeable to a real server.
 
-Four servers, chosen for **framework** diversity rather than language diversity — interop bugs come from
-the server's LSP library, not from the language being analysed:
+Five servers. Four are chosen for **framework** diversity rather than language diversity — interop bugs
+come from the server's LSP library, not from the language being analysed — and the fifth for a delivery
+*model* nothing else uses:
 
 | Server | Tests | Framework | Obtained as |
 |---|---|---|---|
@@ -81,8 +82,9 @@ the server's LSP library, not from the language being analysed:
 | texlab (LaTeX) | 5 | `lsp-server` | pinned binary download |
 | vscode-json-language-server | 3 | `vscode-languageserver-node` | `npm ci` against a committed lockfile |
 | clangd (C/C++) | 2 | LLVM's own | pinned binary download |
+| ruff (Python) | 2 | `lsp-server` (shared with texlab) | pinned binary download |
 
-**Read [`docs/foreign-language-servers.md`](docs/foreign-language-servers.md) before adding a fifth** — it
+**Read [`docs/foreign-language-servers.md`](docs/foreign-language-servers.md) before adding a sixth** — it
 carries the full reasoning, including why a GPL-licensed server is consistent with a 100%-MIT tree, and the
 bar for a new one (a protocol *shape* nothing else exercises, not simply another server).
 
@@ -96,8 +98,9 @@ collides with the tracked `Tools/` directory holding real source — a collision
 because its filesystem is case-insensitive. Downloaded binaries live under `artifacts/`; nothing fetched
 ever lands beside tracked files.
 
-- **Use your own build instead**: set `HEXIDE_MARKDOWN_LSP`, `HEXIDE_LATEX_LSP`, `HEXIDE_JSON_LSP` or
-  `HEXIDE_CPP_LSP` to an executable, or put `rumdl` / `texlab` / `clangd` on `PATH`. All are checked before the download, so an explicit
+- **Use your own build instead**: set `HEXIDE_MARKDOWN_LSP`, `HEXIDE_LATEX_LSP`, `HEXIDE_JSON_LSP`,
+  `HEXIDE_CPP_LSP` or `HEXIDE_PYTHON_LSP` to an executable, or put `rumdl` / `texlab` / `clangd` / `ruff`
+  on `PATH`. All are checked before the download, so an explicit
   choice is never silently overridden.
 - **Stay off the network**: `HEXIDE_FOREIGN_LSP_DOWNLOAD=0`. The affected tests then skip, visibly.
 - **Forbid skipping**: `HEXIDE_REQUIRE_FOREIGN_LSP=1` turns "no server available" into a failure. CI sets

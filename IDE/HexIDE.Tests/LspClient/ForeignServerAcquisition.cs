@@ -53,7 +53,19 @@ internal enum DigestProvenance
 /// <param name="Rid">Which platform this is for, in .NET runtime-identifier shape.</param>
 /// <param name="FileName">The asset name, appended to the release URL.</param>
 /// <param name="Sha256">Compared case-insensitively — publishers are not consistent about case.</param>
-internal sealed record ForeignAsset(string Rid, string FileName, string Sha256);
+/// <param name="Subdirectory">
+/// Where inside this particular archive the executable sits, when that differs per asset rather than per
+/// server. Empty means "use whatever the server declared", which covers every case but one.
+/// <para>
+/// ruff is that case: each of its tarballs extracts into a directory named after the asset
+/// (<c>ruff-x86_64-unknown-linux-musl/ruff</c>), while its Windows zip is flat. The server-level
+/// <see cref="ForeignServerSource.ExecutableSubdirectory"/> is formatted with the <em>version</em>, so it
+/// can say "the same nested path on every platform" and cannot say "a different one per platform, and none
+/// on Windows". Measured against all five 0.16.7 assets rather than inferred from one.
+/// </para>
+/// </param>
+internal sealed record ForeignAsset(
+    string Rid, string FileName, string Sha256, string Subdirectory = "");
 
 /// <summary>
 /// A language server the foreign-backend tests can drive, and how to obtain it.
@@ -218,6 +230,57 @@ internal static class ForeignServerAcquisition
         ExecutableSubdirectory: "clangd_{0}/bin");
 
     /// <summary>
+    /// A Python linter, and the only server here that will not say a word unless it is asked.
+    ///
+    /// <para>
+    /// <b>It earns its place on protocol shape, not on framework.</b> It is on <c>lsp-server</c>, the same
+    /// crate texlab uses, so it adds no framework diversity at all — and that is stated rather than glossed,
+    /// because the bar the other four cleared was the framework one. This one is here because it delivers
+    /// diagnostics by the <b>pull</b> model: it advertises <c>diagnosticProvider</c> and answers
+    /// <c>textDocument/diagnostic</c>, and it publishes <em>nothing</em> unbidden. Measured against 0.16.7,
+    /// not assumed.
+    /// </para>
+    ///
+    /// <para>
+    /// <b>Which is exactly why it, and not <c>gopls</c>.</b> A server that pulls and never pushes makes a
+    /// client that does not ask fail <em>loudly</em> — no diagnostics at all, for a file that plainly has a
+    /// problem. gopls also pulls, but only when switched on by a setting, so the same broken client would
+    /// see a working push path and never learn. Between two servers that exercise a path, the one that fails
+    /// loudly when it is unsupported is worth more than the one that degrades politely.
+    /// </para>
+    ///
+    /// <para>
+    /// Its digests are <b>publisher-attested</b>: a <c>.sha256</c> is released beside every asset. Each
+    /// tarball extracts into a directory named after itself while the Windows zip is flat, which is what
+    /// <see cref="ForeignAsset.Subdirectory"/> exists for.
+    /// </para>
+    /// </summary>
+    public static readonly ForeignServerSource Python = new(
+        Key: "python",
+        Version: "0.16.7",
+        ExecutableName: "ruff",
+        // No `v` on the tag, as with clangd.
+        ReleaseUrlFormat: "https://github.com/astral-sh/ruff/releases/download/{0}/{1}",
+        Provenance: DigestProvenance.Publisher,
+        Assets:
+        [
+            new("win-x64", "ruff-x86_64-pc-windows-msvc.zip",
+                "a099e761fb841fc33d44031aa37e16a3d154922fd3da284396e58ae687973e45"),
+            new("linux-x64", "ruff-x86_64-unknown-linux-musl.tar.gz",
+                "8d28939cf5cabe54a2f8f7cbfab52c643436d1bc70474198181db9e48f504411",
+                Subdirectory: "ruff-x86_64-unknown-linux-musl"),
+            new("linux-arm64", "ruff-aarch64-unknown-linux-musl.tar.gz",
+                "dd669efe4ac74ffd5842b26147c36cdd6c93b9cf0d10d5e53c12ec5b44f540bd",
+                Subdirectory: "ruff-aarch64-unknown-linux-musl"),
+            new("osx-x64", "ruff-x86_64-apple-darwin.tar.gz",
+                "6f3b98ec349f470b7efde5294d44e5171613ddaac3c251a918a7946b303d3ec2",
+                Subdirectory: "ruff-x86_64-apple-darwin"),
+            new("osx-arm64", "ruff-aarch64-apple-darwin.tar.gz",
+                "80221a5e0b1ae29262a74496f2ad1380c1ab52b3edd8cee13ec76d8acff406ca",
+                Subdirectory: "ruff-aarch64-apple-darwin"),
+        ]);
+
+    /// <summary>
     /// The reference implementation's servers, hosted on Node.
     ///
     /// <para>
@@ -366,12 +429,15 @@ internal static class ForeignServerAcquisition
 
         var exeName = OperatingSystem.IsWindows() ? server.ExecutableName + ".exe" : server.ExecutableName;
         var directory = Path.Combine(CacheRoot(), server.Key, server.Version, asset.Rid);
-        // Path.Combine drops an empty segment, so a flat archive is unaffected by the nested case.
+
+        // An asset may override the server's layout, because one publisher nests differently per platform;
+        // see the note on ForeignAsset.Subdirectory. Path.Combine drops an empty segment, so a flat archive
+        // is unaffected by either.
+        var nested = asset.Subdirectory is { Length: > 0 }
+            ? asset.Subdirectory
+            : string.Format(server.ExecutableSubdirectory, server.Version);
         var executable = Path.Combine(
-            directory,
-            string.Format(server.ExecutableSubdirectory, server.Version)
-                  .Replace('/', Path.DirectorySeparatorChar),
-            exeName);
+            directory, nested.Replace('/', Path.DirectorySeparatorChar), exeName);
 
         // The common case: already fetched by an earlier run, or restored from the CI cache.
         if (File.Exists(executable)) return executable;

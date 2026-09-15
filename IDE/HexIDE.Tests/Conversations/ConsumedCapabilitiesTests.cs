@@ -21,7 +21,12 @@ namespace HexIDE.Tests.Conversations;
 /// </remarks>
 public partial class ConsumedCapabilitiesTests
 {
-    [GeneratedRegex("""CanServe(?:Experimental)?\("([A-Za-z.]+)"\)""")]
+    /// <remarks>
+    /// Matches all three gates. <c>CanServeQuietly</c> consumes a capability exactly as <c>CanServe</c> does
+    /// and differs only in whether its ABSENCE is worth a warning — so leaving it out would report a
+    /// capability this client takes up as one it ignores, which is the falsehood this guard exists to stop.
+    /// </remarks>
+    [GeneratedRegex("""CanServe(?:Experimental|Quietly)?\("([A-Za-z.]+)"\)""")]
     private static partial Regex GateCall();
 
     private static string ClientSource()

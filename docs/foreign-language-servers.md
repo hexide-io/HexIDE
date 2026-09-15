@@ -24,17 +24,38 @@ would prove nothing.
 | texlab | LaTeX | **GPL-3.0** | `lsp-server` | A different author, licence and release convention — and it claims `.cls`, which is a LaTeX class file *and* a VB6 class module. Declares **incremental** sync, where everything else declares full (#282). |
 | vscode-json-language-server | JSON | MIT | **`vscode-languageserver-node`** | The **reference implementation**. See below. |
 | clangd | C/C++ | Apache-2.0 WITH LLVM-exception | **LLVM's own** | The only server here that answers `textDocument/declaration` **differently** from `definition` — C++ separates a header's declaration from its definition, so the two return different lines and the difference is assertable rather than assumed. Also declares **incremental** sync and a nested `save` inside `textDocumentSync`, a shape the bundled server never sends. |
+| ruff | Python | MIT | `lsp-server` *(shared with texlab)* | The only server here that delivers diagnostics by the **pull** model. It also switches model on what the client declares: told nothing it publishes, told the client can ask it publishes **nothing at all** — which makes a half-shipped negotiation fail loudly instead of quietly. |
 
 **Framework diversity matters more than language diversity.** Interop bugs come from the server's LSP
 library, not from the language being analysed — five servers on the same crate mostly re-test the same
-wire behaviour. The framework column is the one to look at when considering a fourth.
+wire behaviour. The framework column is the one to look at first.
 
-**A fourth should earn its place by exercising a shape none of these does** — a different LSP framework,
+**A sixth should earn its place by exercising a shape none of these does** — a different LSP framework,
 or a protocol path nothing here reaches. Count is not the goal.
 
+**ruff is the exception that shows what the rule is for.** It adds no framework — it is on texlab's crate —
+and it was added anyway, because the axis that mattered was the delivery *model* rather than the library.
+So read the framework column as the usual answer to "what would a new server prove", not the only one.
+
+Its arrival is also the argument for the whole apparatus, in one change. Declaring a single client
+capability to satisfy it caused rumdl to send
+`{"jsonrpc":"2.0","method":"workspace/diagnostic/refresh","params":null,"id":1}` — invalid JSON-RPC, since
+`params` may be an object or an array and nothing else — which HexIDE could not decode and which therefore
+killed **the entire connection** rather than that one message. A malformed frame costing every language
+feature is HexIDE's defect, not the server's; the server's mistake only revealed it (rumdl's half is
+tracked as #428). Nothing written by one hand would have found it.
+
+And it kept giving. Reading the repaired frame turned up two more, each of which had been sitting behind
+something that looked like success: the repair was installed **only on connections being recorded**, so a
+malformed frame killed an unwatched connection and spared a watched one; and the handler for the refresh
+had a required parameter that a conformant server never sends, so the client answered
+`-32602` and refused the refresh on a perfectly healthy connection. Both are the same shape — a claim in
+the coverage table that nothing had ever driven end to end.
+
 Currently unexercised by anything real: the `pipe` and `websocket` transports (both supported, both tested
-only against fakes), a server that genuinely defers its analysis to save, and **pull-model diagnostics**,
-which HexIDE does not support at all (#284) and which a server such as `ruff server` would demonstrate.
+only against fakes), a server that genuinely defers its analysis to save, and **workspace-wide pull
+diagnostics** (`workspace/diagnostic`), which HexIDE does not implement (#284) and which neither ruff nor
+rumdl advertises.
 
 ## The reference implementation, and why it costs a runtime dependency
 
@@ -100,7 +121,7 @@ letting a row of hex imply they are the same thing.
 
 | Variable | Effect |
 |---|---|
-| `HEXIDE_MARKDOWN_LSP`, `HEXIDE_LATEX_LSP` | Point at your own build. Checked before the download, so an explicit choice is never silently replaced. |
+| `HEXIDE_MARKDOWN_LSP`, `HEXIDE_LATEX_LSP`, `HEXIDE_JSON_LSP`, `HEXIDE_CPP_LSP`, `HEXIDE_PYTHON_LSP` | Point at your own build. Checked before the download, so an explicit choice is never silently replaced. |
 | `HEXIDE_FOREIGN_LSP_DOWNLOAD=0` | Stay off the network. The affected tests then skip, visibly. |
 | `HEXIDE_REQUIRE_FOREIGN_LSP=1` | Turn "unavailable" into a failure. **CI sets this**, because a silently skipped proof is the failure mode this whole fixture exists to prevent. |
 

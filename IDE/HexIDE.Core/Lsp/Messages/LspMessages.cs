@@ -212,7 +212,8 @@ public record TextDocumentClientCapabilities(
     [property: JsonPropertyName("publishDiagnostics")] PublishDiagnosticsClientCapabilities? PublishDiagnostics = null,
     [property: JsonPropertyName("hover")] HoverClientCapabilities? Hover = null,
     [property: JsonPropertyName("synchronization")] TextDocumentSyncClientCapabilities? Synchronization = null,
-    [property: JsonPropertyName("codeLens")] CodeLensClientCapabilities? CodeLens = null);
+    [property: JsonPropertyName("codeLens")] CodeLensClientCapabilities? CodeLens = null,
+    [property: JsonPropertyName("diagnostic")] DiagnosticClientCapabilities? Diagnostic = null);
 
 /// <summary>
 /// What the client can do at workspace scope.
@@ -281,6 +282,45 @@ public record TextDocumentSyncClientCapabilities(
 public record PublishDiagnosticsClientCapabilities(
     [property: JsonPropertyName("relatedInformation")] bool RelatedInformation = false);
 
+/// <summary>
+/// Declares that the client will ask for diagnostics rather than only be told them.
+/// </summary>
+/// <remarks>
+/// <b>Empty, and both of its optional members are deliberately absent rather than <c>false</c>.</b>
+/// <c>dynamicRegistration</c> follows the rule in <see cref="CodeLensClientCapabilities"/> — the string must
+/// not appear anywhere in what this client sends, which is what obliges every server to declare statically.
+/// <c>relatedDocumentSupport</c> is absent because this client ignores <c>relatedDocuments</c>, and claiming
+/// a capability nothing implements is the same defect as failing to claim one, pointed the other way.
+///
+/// <para>
+/// <b>Declaring this changes what conformant servers do, which is why it cannot ship without the request.</b>
+/// A server is entitled to read this as "I need not speak first" and fall silent until asked — measured
+/// against <c>ruff</c>, which publishes freely to a client that declares nothing here and publishes
+/// <em>nothing at all</em> to one that declares this. So a client that declares the capability and then does
+/// not ask is strictly worse off than one that declares neither: it has talked a working server into
+/// silence. The same deadlock as the save negotiation in
+/// <see cref="TextDocumentSyncClientCapabilities"/>, with a server that enforces it rather than forgives it.
+/// </para>
+/// </remarks>
+public record DiagnosticClientCapabilities();
+
+/// <summary>
+/// Asks a server what it currently has to say about one document.
+/// </summary>
+/// <param name="Identifier">
+/// Echoed back from the server's own <c>diagnosticProvider.identifier</c>, where it named one. It exists so
+/// a server that produces more than one kind of report can tell which is being asked for; sending back what
+/// it told us costs nothing and is the only correct value.
+/// </param>
+/// <param name="PreviousResultId">
+/// What the server called its last answer for this document, so it may reply "still true" instead of
+/// repeating itself. Null on the first request, and null for a server that names none.
+/// </param>
+public record DocumentDiagnosticParams(
+    [property: JsonPropertyName("textDocument")] TextDocumentIdentifier TextDocument,
+    [property: JsonPropertyName("identifier")] string? Identifier = null,
+    [property: JsonPropertyName("previousResultId")] string? PreviousResultId = null);
+
 public record InitializeResult(
     [property: JsonPropertyName("capabilities")] ServerCapabilities Capabilities);
 
@@ -333,6 +373,7 @@ public record ServerCapabilities(
     [property: JsonPropertyName("renameProvider")]              System.Text.Json.JsonElement? RenameProvider = null,
     [property: JsonPropertyName("documentFormattingProvider")]  System.Text.Json.JsonElement? DocumentFormattingProvider = null,
     [property: JsonPropertyName("codeLensProvider")]            System.Text.Json.JsonElement? CodeLensProvider = null,
+    [property: JsonPropertyName("diagnosticProvider")]          System.Text.Json.JsonElement? DiagnosticProvider = null,
     [property: JsonPropertyName("executeCommandProvider")]      System.Text.Json.JsonElement? ExecuteCommandProvider = null,
     [property: JsonPropertyName("experimental")]                System.Text.Json.JsonElement? Experimental = null)
 {
@@ -412,6 +453,42 @@ public record ServerCapabilities(
         && provider.ValueKind == System.Text.Json.JsonValueKind.Object
         && provider.TryGetProperty("resolveProvider", out var resolve)
         && resolve.ValueKind == System.Text.Json.JsonValueKind.True;
+
+    /// <summary>
+    /// What the server calls its own diagnostic reports, or null if it named nothing.
+    /// </summary>
+    /// <remarks>
+    /// <c>diagnosticProvider</c> is <c>boolean | DiagnosticOptions | DiagnosticRegistrationOptions</c>, and
+    /// only the object forms can carry an identifier — a server answering a bare <c>true</c> has named none,
+    /// which is legal and common. The value is echoed straight back on each request and never interpreted;
+    /// it is the server's word for its own output, not something a client has an opinion about.
+    /// </remarks>
+    public static string? DiagnosticIdentifier(System.Text.Json.JsonElement? capabilities) =>
+        capabilities is { } caps
+        && caps.ValueKind == System.Text.Json.JsonValueKind.Object
+        && caps.TryGetProperty("diagnosticProvider", out var provider)
+        && provider.ValueKind == System.Text.Json.JsonValueKind.Object
+        && provider.TryGetProperty("identifier", out var identifier)
+        && identifier.ValueKind == System.Text.Json.JsonValueKind.String
+            ? identifier.GetString()
+            : null;
+
+    /// <summary>
+    /// True when the server offers whole-workspace diagnostics as well as per-document ones.
+    /// </summary>
+    /// <remarks>
+    /// Read but not yet acted on: <c>workspace/diagnostic</c> is a separate request with its own progress and
+    /// partial-result machinery, and is deliberately out of scope (hexide-io/HexIDE#284). Present so that the
+    /// question "does this server offer it" is answerable from the capability rather than by guessing, and so
+    /// a server offering it is not silently assumed to be offering nothing.
+    /// </remarks>
+    public static bool OffersWorkspaceDiagnostics(System.Text.Json.JsonElement? capabilities) =>
+        capabilities is { } caps
+        && caps.ValueKind == System.Text.Json.JsonValueKind.Object
+        && caps.TryGetProperty("diagnosticProvider", out var provider)
+        && provider.ValueKind == System.Text.Json.JsonValueKind.Object
+        && provider.TryGetProperty("workspaceDiagnostics", out var workspace)
+        && workspace.ValueKind == System.Text.Json.JsonValueKind.True;
 
     /// <summary>
     /// True for a capability under <c>experimental</c>, which is where the protocol says to put a method
