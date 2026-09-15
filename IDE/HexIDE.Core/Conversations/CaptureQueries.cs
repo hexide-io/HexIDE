@@ -90,6 +90,16 @@ public sealed record EnvelopePage(
 /// <param name="Head">The start of the body, or all of it when it fitted.</param>
 /// <param name="Tail">The end, present only when the middle was dropped.</param>
 /// <param name="Redacted">Whether paths and server configuration were pseudonymised on the way out.</param>
+/// <param name="IsAnswer">
+/// Whether this is the reply half of an exchange rather than the request.
+/// </param>
+/// <remarks>
+/// <b>An answer is fetched by its own sequence and carries the request's method</b>, because on the wire a
+/// response has no method of its own — only an id. A view that left the method blank would be honest about
+/// the frame and useless to a reader, who is looking at it precisely to find out what <em>was</em> answered.
+/// <paramref name="AnswerTo"/> names the request so the pairing is stated rather than inferred.
+/// </remarks>
+/// <param name="AnswerTo">The request this answers, when it is an answer.</param>
 public sealed record PayloadView(
     long Sequence,
     string ConnectionId,
@@ -97,7 +107,9 @@ public sealed record PayloadView(
     int TrueLength,
     string Head,
     string? Tail,
-    bool Redacted);
+    bool Redacted,
+    bool IsAnswer = false,
+    long? AnswerTo = null);
 
 /// <summary>
 /// Reading a capture back, in the two tiers the record is already shaped for.
@@ -164,18 +176,25 @@ public static class CaptureQueries
 
         if (log.Body(connectionId, sequence) is not { } body) return null;
 
+        // Two ways a sequence can be known: it is an entry, or it is the answer an entry points at. The
+        // second has no envelope of its own by design, so the request's is what describes it.
         var envelope = FindEnvelope(log, connectionId, sequence);
+        var answered = envelope is null ? FindByAnswer(log, connectionId, sequence) : null;
+        var describing = envelope ?? answered;
+
         var head = Encoding.UTF8.GetString(body.Head);
         var tail = body.Tail is null ? null : Encoding.UTF8.GetString(body.Tail);
 
         return new PayloadView(
             Sequence: sequence,
             ConnectionId: connectionId,
-            Method: envelope?.Method,
+            Method: describing?.Method,
             TrueLength: body.TrueLength,
             Head: redactor is null ? head : redactor.Body(head),
             Tail: tail is null ? null : redactor is null ? tail : redactor.Body(tail),
-            Redacted: redactor?.IsPseudonymising ?? false);
+            Redacted: redactor?.IsPseudonymising ?? false,
+            IsAnswer: answered is not null,
+            AnswerTo: answered?.Sequence);
     }
 
     /// <summary>
@@ -253,6 +272,16 @@ public static class CaptureQueries
     {
         await log.DrainAsync().ConfigureAwait(false);
 
+        if (FindByAnswer(log, connectionId, sequence) is { } request)
+        {
+            // Reachable only if the body went between the listing and the fetch, since the request stops
+            // naming an answer the moment there is nothing to name. Worth saying plainly rather than
+            // falling through to "no envelope anywhere", which would be wrong twice over.
+            return $"Sequence {sequence} is the answer to request {request.Sequence} "
+                 + $"({request.Method ?? "no method"}) and its body has been evicted since that request "
+                 + "was listed. Answers have no entry of their own; the request names where theirs is kept.";
+        }
+
         if (FindEnvelope(log, connectionId, sequence) is null)
         {
             // A sequence is unique across the whole record, not per connection, so the likeliest mistake
@@ -286,6 +315,18 @@ public static class CaptureQueries
         foreach (var envelope in log.Snapshot(connectionId))
         {
             if (envelope.Sequence == sequence) return envelope;
+        }
+
+        return null;
+    }
+
+    /// <summary>The request whose answer is held under <paramref name="sequence"/>, if one is.</summary>
+    private static ConversationEnvelope? FindByAnswer(
+        ConversationLog log, string connectionId, long sequence)
+    {
+        foreach (var envelope in log.Snapshot(connectionId))
+        {
+            if (envelope.AnswerSequence == sequence) return envelope;
         }
 
         return null;

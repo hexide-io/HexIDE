@@ -577,6 +577,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Tämä on rivi, jonka palvelin kirjoitti vakiovirhetulosteeseen ja joka näkyy kokonaisuudessaan yllä. Se ei ole viesti, joten näytettävää sisältöä ei ole.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Tämä merkintä on tallennuksen oma huomautus yhteydestä, ei viesti, joten näytettävää sisältöä ei ole.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} tavua {1} tavusta jäi säilyttämättä —",
+    "Str.Tool.ProtocolInspector.Reply": "— vastaus, {0} tavua —",
     "Str.Tool.ProtocolInspector.Copy": "Kopioi jäljityslokina",
     "Str.Tool.ProtocolInspector.Export": "Vie keskustelu...",
     "Str.Tool.ProtocolInspector.Exported": "Vietiin {0} viestiä kohteeseen {1}, manifesti kohteeseen {2}.",

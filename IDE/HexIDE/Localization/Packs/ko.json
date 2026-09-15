@@ -577,6 +577,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "이것은 서버가 표준 오류로 출력한 줄이며, 전문은 위에 표시되어 있습니다. 메시지가 아니므로 표시할 본문이 없습니다.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "이 항목은 메시지가 아니라 연결에 대한 캡처 자체의 기록이므로 표시할 본문이 없습니다.",
     "Str.Tool.ProtocolInspector.Truncated": "— 전체 {1}바이트 중 {0}바이트는 보관되지 않았습니다 —",
+    "Str.Tool.ProtocolInspector.Reply": "— 응답, {0}바이트 —",
     "Str.Tool.ProtocolInspector.Copy": "추적 형식으로 복사",
     "Str.Tool.ProtocolInspector.Export": "대화 내보내기...",
     "Str.Tool.ProtocolInspector.Exported": "메시지 {0}개를 {1}에 내보냈으며, 매니페스트는 {2}에 있습니다.",

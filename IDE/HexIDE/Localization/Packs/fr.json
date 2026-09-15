@@ -577,6 +577,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Ceci est une ligne que le serveur a écrite sur la sortie d'erreur standard, affichée intégralement ci-dessus. Ce n'est pas un message : il n'y a donc aucun corps à afficher.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Cette entrée est une note de la capture au sujet de la connexion, et non un message : il n'y a donc aucun corps à afficher.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} octets sur {1} n'ont pas été conservés —",
+    "Str.Tool.ProtocolInspector.Reply": "— réponse, {0} octets —",
     "Str.Tool.ProtocolInspector.Copy": "Copier comme trace",
     "Str.Tool.ProtocolInspector.Export": "Exporter la conversation...",
     "Str.Tool.ProtocolInspector.Exported": "{0} messages exportés vers {1}, avec le manifeste dans {2}.",

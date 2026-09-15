@@ -577,6 +577,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Det här är en rad som servern skrev till standardfelutmatningen, visad i sin helhet ovan. Det är inte ett meddelande, så det finns ingen kropp att visa.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Den här posten är registreringens egen anteckning om anslutningen, inte ett meddelande, så det finns ingen kropp att visa.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} av {1} byte behölls inte —",
+    "Str.Tool.ProtocolInspector.Reply": "— svar, {0} byte —",
     "Str.Tool.ProtocolInspector.Copy": "Kopiera som spårning",
     "Str.Tool.ProtocolInspector.Export": "Exportera konversation...",
     "Str.Tool.ProtocolInspector.Exported": "Exporterade {0} meddelanden till {1}, med manifestet i {2}.",

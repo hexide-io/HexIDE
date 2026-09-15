@@ -577,6 +577,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Це рядок, який сервер записав у стандартний потік помилок; вище він показаний повністю. Це не повідомлення, тож тіла для показу немає.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Цей запис — власна примітка засобу запису про з'єднання, а не повідомлення, тож тіла для показу немає.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} байтів із {1} не збережено —",
+    "Str.Tool.ProtocolInspector.Reply": "— відповідь, {0} байтів —",
     "Str.Tool.ProtocolInspector.Copy": "Копіювати як трасування",
     "Str.Tool.ProtocolInspector.Export": "Експортувати розмову...",
     "Str.Tool.ProtocolInspector.Exported": "Експортовано {0} повідомлень до {1}, маніфест — у {2}.",

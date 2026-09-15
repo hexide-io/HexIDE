@@ -577,6 +577,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Bu, sunucunun standart hataya yazdığı ve yukarıda tamamı gösterilen bir satırdır. Bir ileti değildir; bu yüzden gösterilecek bir gövde yok.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Bu kayıt bir ileti değil, yakalamanın bağlantı hakkındaki kendi notudur; bu yüzden gösterilecek bir gövde yok.",
     "Str.Tool.ProtocolInspector.Truncated": "— {1} baytın {0} baytı tutulmadı —",
+    "Str.Tool.ProtocolInspector.Reply": "— yanıt, {0} bayt —",
     "Str.Tool.ProtocolInspector.Copy": "İzleme olarak kopyala",
     "Str.Tool.ProtocolInspector.Export": "Konuşmayı dışa aktar...",
     "Str.Tool.ProtocolInspector.Exported": "{0} ileti {1} konumuna aktarıldı; bildirim dosyası {2} konumunda.",

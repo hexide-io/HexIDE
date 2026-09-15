@@ -393,6 +393,11 @@ public sealed class ConversationLog : IAsyncDisposable
     }
 
     /// <summary>The body retained for a sequence, or null if it was never held or has been evicted.</summary>
+    /// <remarks>
+    /// Answers are held here too, under the sequence they were allocated —
+    /// <see cref="ConversationEnvelope.AnswerSequence"/> on the request is how that number is found, since
+    /// a response has no entry of its own.
+    /// </remarks>
     public StoredBody? Body(string connectionId, long sequence) => Of(connectionId).Bodies.Find(sequence);
 
     /// <summary>What this connection has lost, and to what.</summary>
@@ -477,7 +482,7 @@ public sealed class ConversationLog : IAsyncDisposable
         var connection = Of(pending.ConnectionId);
         var sequence = ++_sequence;   // single reader, so no interlock needed
 
-        if (TryComplete(connection, pending)) return;
+        if (TryComplete(connection, pending, sequence)) return;
 
         connection.Ring.Add(new ConversationEnvelope(
             sequence,
@@ -505,7 +510,11 @@ public sealed class ConversationLog : IAsyncDisposable
     /// still open — so pairing on the id alone merges two unrelated messages. A response therefore looks up
     /// the opposite direction from its own.
     /// </remarks>
-    private static bool TryComplete(Connection connection, Pending pending)
+    /// <param name="sequence">
+    /// The number this response was allocated. It gets no entry, but its body is kept under it and the
+    /// request it answers is told where to find it.
+    /// </param>
+    private static bool TryComplete(Connection connection, Pending pending, long sequence)
     {
         if (pending.Kind is not (ConversationEntryKind.Response or ConversationEntryKind.ErrorResponse)) return false;
         if (pending.CorrelationId is not { } id) return false;
@@ -516,15 +525,28 @@ public sealed class ConversationLog : IAsyncDisposable
 
         if (!connection.Outstanding.Remove((origin, id), out var started)) return false;
 
+        // The response is not itself an entry. It is the second half of one, and a timeline that showed
+        // both would double every request in a view whose entire job is to be read in order.
+        //
+        // ITS BODY IS STILL KEPT, which it was not, and the omission cost the single most valuable frame
+        // in the record: no response could be read back at all, `InitializeResult` included, so the only
+        // way to see what a server advertised was to drive it from outside the IDE. The entry stays
+        // single; only the bytes are two.
+        var kept = pending.Body is { } body && connection.Bodies.TryAdd(sequence, body);
+
         connection.Ring.Complete(
             started.Sequence,
             pending.Kind == ConversationEntryKind.ErrorResponse
                 ? ConversationOutcome.Failed
                 : ConversationOutcome.Answered,
-            Stopwatch.GetElapsedTime(started.StartedAt));
+            Stopwatch.GetElapsedTime(started.StartedAt),
+            // Null unless something is actually there to fetch. A number that answers nothing is worse
+            // than no number: it reads as a body the reader has failed to find.
+            kept ? sequence : null,
+            // The size, by contrast, is recorded whatever the arming says — it is metadata, and the
+            // envelope tier is the one that is always on.
+            pending.SizeBytes);
 
-        // The response is not itself an entry. It is the second half of one, and a timeline that showed
-        // both would double every request in a view whose entire job is to be read in order.
         return true;
     }
 

@@ -577,6 +577,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "זו שורה שהשרת כתב לפלט השגיאות התקני, והיא מוצגת במלואה למעלה. זו אינה הודעה, ולכן אין גוף להציג.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "רשומה זו היא הערה של הלכידה עצמה על החיבור, ולא הודעה, ולכן אין גוף להציג.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} בתים מתוך {1} לא נשמרו —",
+    "Str.Tool.ProtocolInspector.Reply": "— תשובה, {0} בתים —",
     "Str.Tool.ProtocolInspector.Copy": "העתק כיומן מעקב",
     "Str.Tool.ProtocolInspector.Export": "ייצא שיחה...",
     "Str.Tool.ProtocolInspector.Exported": "יוצאו {0} הודעות אל {1}, והמניפסט אל {2}.",

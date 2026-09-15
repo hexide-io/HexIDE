@@ -577,6 +577,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Dies ist eine Zeile, die der Server in die Standardfehlerausgabe geschrieben hat und die oben vollständig zu sehen ist. Sie ist keine Nachricht, daher gibt es keinen Inhalt anzuzeigen.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Dieser Eintrag ist ein Hinweis der Aufzeichnung zur Verbindung, keine Nachricht, daher gibt es keinen Inhalt anzuzeigen.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} von {1} Bytes wurden nicht aufbewahrt —",
+    "Str.Tool.ProtocolInspector.Reply": "— Antwort, {0} Bytes —",
     "Str.Tool.ProtocolInspector.Copy": "Als Trace kopieren",
     "Str.Tool.ProtocolInspector.Export": "Konversation exportieren...",
     "Str.Tool.ProtocolInspector.Exported": "{0} Nachrichten nach {1} exportiert, mit dem Manifest unter {2}.",

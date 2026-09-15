@@ -139,6 +139,30 @@ public enum ConversationOutcome
 /// A short human-readable note: the capability a <see cref="ConversationEntryKind.NeverSent"/> entry was
 /// refused for, an exit code, a line of standard error. Never document content.
 /// </param>
+/// <param name="AnswerSequence">
+/// Where the answer's own body is held, for a request that got one and whose answer was retained.
+/// </param>
+/// <param name="AnswerSizeBytes">
+/// How big the answer was, for a request that got one. Recorded whether or not a body was kept, because
+/// it is metadata rather than content and this tier is the one that is always on: "answered in 38ms with
+/// four kilobytes" and "answered in 38ms with an empty result" are different findings, and an unarmed
+/// connection could distinguish them in neither direction before.
+/// </param>
+/// <remarks>
+/// <b>An answer is half of this entry and used to be nothing else, which cost the one body most worth
+/// reading.</b> A response completes the request it answers rather than becoming an entry of its own —
+/// otherwise a timeline whose whole job is to be read in order would show every exchange twice. But the
+/// bytes were then dropped on the floor, so no response could ever be fetched: not a hover's contents, not
+/// an error object, and not the <c>InitializeResult</c> that decides what every later message is allowed
+/// to be. The capability table could be seen only by running a second client outside the IDE, which is
+/// precisely the thing this inspector exists to make unnecessary (#429).
+///
+/// <para>
+/// The answer keeps the sequence number it was already allocated — responses have always consumed one,
+/// which is why a listing has always had gaps in it — and the request names that number so it can be
+/// asked for. Null when nothing was kept, so the field means "fetchable" rather than "existed".
+/// </para>
+/// </remarks>
 public sealed record ConversationEnvelope(
     long Sequence,
     string ConnectionId,
@@ -150,4 +174,6 @@ public sealed record ConversationEnvelope(
     int SizeBytes,
     ConversationOutcome Outcome = ConversationOutcome.None,
     TimeSpan? Elapsed = null,
-    string? Detail = null);
+    string? Detail = null,
+    long? AnswerSequence = null,
+    int? AnswerSizeBytes = null);

@@ -577,6 +577,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Đây là một dòng mà máy chủ đã ghi ra luồng lỗi chuẩn, hiển thị đầy đủ ở trên. Nó không phải một thông điệp, nên không có nội dung để hiển thị.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Mục này là ghi chú riêng của bản ghi về kết nối, không phải một thông điệp, nên không có nội dung để hiển thị.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} byte trong số {1} đã không được giữ —",
+    "Str.Tool.ProtocolInspector.Reply": "— phản hồi, {0} byte —",
     "Str.Tool.ProtocolInspector.Copy": "Sao chép dạng trace",
     "Str.Tool.ProtocolInspector.Export": "Xuất cuộc trao đổi...",
     "Str.Tool.ProtocolInspector.Exported": "Đã xuất {0} thông điệp ra {1}, kèm tệp kê khai tại {2}.",

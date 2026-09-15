@@ -6,8 +6,11 @@ namespace HexIDE.Conversations;
 
 /// <summary>What an export produced, ready for a caller to write wherever it writes things.</summary>
 /// <param name="Manifest">The description of the capture: limits, losses, and the envelope table.</param>
-/// <param name="Messages">One line per envelope, in the order they happened.</param>
-/// <param name="Lines">How many lines <paramref name="Messages"/> holds. One per envelope, always.</param>
+/// <param name="Messages">One line per frame, in the order they happened.</param>
+/// <param name="Lines">
+/// How many lines <paramref name="Messages"/> holds. One per frame — which is one per envelope, plus one
+/// for each answer, since a response is half of an entry rather than an entry and still crossed the wire.
+/// </param>
 /// <param name="BodiesPresent">Lines that are a real protocol message.</param>
 /// <param name="BodiesAbsent">Lines standing in for an envelope whose body was never kept or has gone.</param>
 /// <param name="BodiesReserialized">
@@ -64,6 +67,14 @@ public sealed record ConversationExport(
 /// <c>jsonrpc</c> one, so a replayer can tell them apart with a single field test and the counts in the
 /// manifest say how many there were.
 /// </para>
+///
+/// <para>
+/// <b>And so does every answer, which is a line per FRAME rather than per envelope.</b> A response
+/// completes its request instead of becoming an entry — that is right for a timeline read in order, and it
+/// was wrong here: a file claiming to be the conversation, offered for replay, contained not one reply. So
+/// an answer gets its own line and its own manifest row, marked <c>answerTo</c>, carrying the request's
+/// method and id because on the wire a response has neither.
+/// </para>
 /// </remarks>
 public static class ConversationExporter
 {
@@ -99,43 +110,52 @@ public static class ConversationExporter
         var absent = 0;
         var reserialized = 0;
 
-        foreach (var envelope in envelopes)
+        string LineFor(StoredBody? body)
         {
-            var body = log.Body(envelope.ConnectionId, envelope.Sequence);
-            string line;
-
             if (body is null)
             {
-                line = """{"hexide":"no-body"}""";
                 absent++;
+                return """{"hexide":"no-body"}""";
             }
-            else if (body.IsTruncated)
+
+            if (body.IsTruncated)
             {
                 // A truncated body is not a protocol message and must not pretend to be one. Joining the
                 // head to the tail would produce something that parses and is a lie about what crossed the
                 // wire; stating both halves and the true length is the honest shape, and it is the
                 // precedent the automation driver already sets for truncated output.
-                line = Truncated(body, redactor);
                 absent++;
+                return Truncated(body, redactor);
             }
-            else
+
+            var text = redactor.Body(Encoding.UTF8.GetString(body.Head));
+            if (text.AsSpan().IndexOfAny('\n', '\r') >= 0)
             {
-                var text = redactor.Body(Encoding.UTF8.GetString(body.Head));
-                if (text.AsSpan().IndexOfAny('\n', '\r') >= 0)
-                {
-                    // A newline outside a string is insignificant whitespace in JSON, so compacting is
-                    // lossless as far as the message is concerned — but it is no longer the exact bytes,
-                    // and the manifest says so rather than letting a reader assume otherwise.
-                    text = Compacted(text);
-                    reserialized++;
-                }
-
-                line = text;
-                present++;
+                // A newline outside a string is insignificant whitespace in JSON, so compacting is
+                // lossless as far as the message is concerned — but it is no longer the exact bytes,
+                // and the manifest says so rather than letting a reader assume otherwise.
+                text = Compacted(text);
+                reserialized++;
             }
 
-            messages.Append(line).Append('\n');
-            rows.Add(new Row(envelope, rows.Count + 1));
+            present++;
+            return text;
+        }
+
+        foreach (var envelope in envelopes)
+        {
+            messages.Append(LineFor(log.Body(envelope.ConnectionId, envelope.Sequence))).Append('\n');
+            rows.Add(new Row(envelope, rows.Count + 1, IsAnswer: false));
+
+            // A RESPONSE GETS ITS OWN LINE even though it has no envelope of its own, and it has to.
+            // This format's whole claim is that it replays into a client, and a conversation with every
+            // reply missing replays into nothing — the requests would hang. The envelope table stays one
+            // row per line, so the answer's row names the request it belongs to rather than pretending
+            // to be an entry in the timeline.
+            if (envelope.AnswerSequence is not { } answer) continue;
+
+            messages.Append(LineFor(log.Body(envelope.ConnectionId, answer))).Append('\n');
+            rows.Add(new Row(envelope, rows.Count + 1, IsAnswer: true));
         }
 
         return new ConversationExport(
@@ -152,7 +172,24 @@ public static class ConversationExporter
             Pseudonymised: redactor.IsPseudonymising);
     }
 
-    private readonly record struct Row(ConversationEnvelope Envelope, int Line);
+    /// <param name="IsAnswer">
+    /// True when this row describes the reply half of <paramref name="Envelope"/> rather than the entry
+    /// itself. The two share an envelope because a response never had one of its own.
+    /// </param>
+    private readonly record struct Row(ConversationEnvelope Envelope, int Line, bool IsAnswer);
+
+    private static ConversationDirection Opposite(ConversationDirection direction) => direction switch
+    {
+        ConversationDirection.Sent => ConversationDirection.Received,
+        ConversationDirection.Received => ConversationDirection.Sent,
+        _ => direction,
+    };
+
+    /// <summary>What kind of frame the answer was, read back from how the request ended.</summary>
+    private static ConversationEntryKind AnswerKind(ConversationEnvelope envelope) =>
+        envelope.Outcome == ConversationOutcome.Failed
+            ? ConversationEntryKind.ErrorResponse
+            : ConversationEntryKind.Response;
 
     private static string Truncated(StoredBody body, ConversationRedactor redactor)
     {
@@ -277,18 +314,31 @@ public static class ConversationExporter
           + "the counts above say how many of each, not which.");
 
         writer.WriteStartArray("envelopes");
-        foreach (var (envelope, line) in rows)
+        foreach (var (envelope, line, isAnswer) in rows)
         {
             writer.WriteStartObject();
-            writer.WriteNumber("sequence", envelope.Sequence);
+
+            // An answer borrows almost everything from the request: it has no method of its own on the
+            // wire, only an id, and the pairing is the whole of what identifies it. What it does NOT
+            // borrow is direction — a reply travels the other way — and stating that wrongly would make
+            // the file lie about who said what.
+            writer.WriteNumber("sequence", isAnswer ? envelope.AnswerSequence!.Value : envelope.Sequence);
             writer.WriteNumber("line", line);
             writer.WriteString("connection", envelope.ConnectionId);
             writer.WriteString("at", envelope.Timestamp.ToString("O"));
-            writer.WriteString("direction", envelope.Direction.ToString());
-            writer.WriteString("kind", envelope.Kind.ToString());
+            writer.WriteString("direction", (isAnswer ? Opposite(envelope.Direction) : envelope.Direction).ToString());
+            writer.WriteString("kind", (isAnswer ? AnswerKind(envelope) : envelope.Kind).ToString());
 
             if (envelope.Method is { } method) writer.WriteString("method", method);
             if (envelope.CorrelationId is { } id) writer.WriteString("id", id);
+
+            if (isAnswer)
+            {
+                writer.WriteNumber("answerTo", envelope.Sequence);
+                writer.WriteNumber("bytes", envelope.AnswerSizeBytes ?? 0);
+                writer.WriteEndObject();
+                continue;
+            }
 
             writer.WriteNumber("bytes", envelope.SizeBytes);
 
@@ -297,6 +347,9 @@ public static class ConversationExporter
 
             if (envelope.Elapsed is { } elapsed)
                 writer.WriteNumber("elapsedMs", elapsed.TotalMilliseconds);
+
+            if (envelope.AnswerSequence is { } answer) writer.WriteNumber("answerSequence", answer);
+            if (envelope.AnswerSizeBytes is { } answerBytes) writer.WriteNumber("answerBytes", answerBytes);
 
             // A detail is a short human-readable note: an exit code, a capability name, a line of
             // standard error. The redactor catches a `file:` URI in it and nothing else — a bare path in a

@@ -1653,7 +1653,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     // body cannot be reached by any test.
 
     [McpServerTool(Name = "list_lsp_messages")]
-    [Description("Lists recorded language-server message envelopes — time, direction, method, id, size, outcome and latency — with no message content. Use it to answer 'was this request even sent', 'what came back', and 'how long did it take', which the editor cannot tell you and a diagnostics list cannot distinguish. Envelopes are recorded for every connection always, whether or not capture is armed, so this works without arming anything, and every argument is optional — call it with none to see the whole timeline.\n\nIF THE ANSWER IS EMPTY, READ 'note': it says which of the possible reasons applies. The commonest is that no server has started, because a language server starts on the first document of a language it claims — so open a file first.\n\n'direction' is Sent, Received (which includes a line the server wrote to standard error — it arrived, it was just not a message) or Local (observed rather than exchanged: a process starting, or the capture reporting what it cannot see). 'kind' is Request, Response, ErrorResponse or Notification for wire traffic, plus five that are not messages: Lifecycle (a process starting, stopping, or the exit code it stopped with), StandardError (one line the server wrote there, verbatim — for a server that speaks the protocol over standard output this is its only channel for a crash or a stack), NeverSent (a request this client declined to make, and why — including one it could not serialize), Unconsumed (a capability the server advertised that this client does not use), and Note (something the capture itself has to say, most often what this transport structurally cannot show: a server reached over a socket has no exit code and no standard error, and a frame this client could not decode is recorded here rather than lost). Those five are the ones a server author most often wants and they exist nowhere else. 'detail' carries their text.\n\nSequence numbers have GAPS, and they are not dropped frames: a reply completes its request's existing envelope rather than adding one, so the response's own sequence is consumed. 'framesDropped' is the only thing that reports real loss.\n\nFilters: connection_id for one server, method for an exact method name, failures_only for error responses and requests that failed, were cancelled or never came back, after_sequence to poll for only what is new since a sequence you have already seen. The newest matches are returned when there are more than limit, and 'truncated' plus 'matched' say what was left out. For message content, list first and then get_lsp_message — a conversation runs to megabytes per minute of typing, so nothing returns bodies in bulk.")]
+    [Description("Lists recorded language-server message envelopes — time, direction, method, id, size, outcome and latency — with no message content. Use it to answer 'was this request even sent', 'what came back', and 'how long did it take', which the editor cannot tell you and a diagnostics list cannot distinguish. Envelopes are recorded for every connection always, whether or not capture is armed, so this works without arming anything, and every argument is optional — call it with none to see the whole timeline.\n\nIF THE ANSWER IS EMPTY, READ 'note': it says which of the possible reasons applies. The commonest is that no server has started, because a language server starts on the first document of a language it claims — so open a file first.\n\n'direction' is Sent, Received (which includes a line the server wrote to standard error — it arrived, it was just not a message) or Local (observed rather than exchanged: a process starting, or the capture reporting what it cannot see). 'kind' is Request, Response, ErrorResponse or Notification for wire traffic, plus five that are not messages: Lifecycle (a process starting, stopping, or the exit code it stopped with), StandardError (one line the server wrote there, verbatim — for a server that speaks the protocol over standard output this is its only channel for a crash or a stack), NeverSent (a request this client declined to make, and why — including one it could not serialize), Unconsumed (a capability the server advertised that this client does not use), and Note (something the capture itself has to say, most often what this transport structurally cannot show: a server reached over a socket has no exit code and no standard error, and a frame this client could not decode is recorded here rather than lost). Those five are the ones a server author most often wants and they exist nowhere else. 'detail' carries their text.\n\nSequence numbers have GAPS, and they are not dropped frames: a reply completes its request's existing envelope rather than adding one, so the response's own sequence is consumed. 'framesDropped' is the only thing that reports real loss.\n\nA REQUEST'S REPLY IS ON THE REQUEST'S ROW, not on a row of its own. 'answerSizeBytes' is how big the reply was, recorded whether or not bodies are being kept. 'answerSequence' is the gap number above, handed back to you: pass it to get_lsp_message to read the reply itself. It is present only when the reply's body was actually retained, so a row that has it can always be read — and a row with 'outcome' but no 'answerSequence' was answered on a connection that was not armed. This is how you read an InitializeResult and find out what a server advertised.\n\nFilters: connection_id for one server, method for an exact method name, failures_only for error responses and requests that failed, were cancelled or never came back, after_sequence to poll for only what is new since a sequence you have already seen. The newest matches are returned when there are more than limit, and 'truncated' plus 'matched' say what was left out. For message content, list first and then get_lsp_message — a conversation runs to megabytes per minute of typing, so nothing returns bodies in bulk.")]
     public async Task<LspMessagesResult> ListLspMessagesAsync(
         string? connectionId = null,
         string? method = null,
@@ -1681,14 +1681,16 @@ internal sealed class HexIdeTools(IdeContext ctx)
             e.Outcome == ConversationOutcome.None ? null : e.Outcome.ToString(),
             e.Elapsed?.TotalMilliseconds,
             e.Detail,
-            HasBody: ctx.Capture.Body(e.ConnectionId, e.Sequence) is not null)).ToArray();
+            HasBody: ctx.Capture.Body(e.ConnectionId, e.Sequence) is not null,
+            AnswerSizeBytes: e.AnswerSizeBytes,
+            AnswerSequence: e.AnswerSequence)).ToArray();
 
         return new LspMessagesResult(
             rows, page.Matched, page.Truncated, ctx.Capture.QueueDropped, page.Note);
     }
 
     [McpServerTool(Name = "get_lsp_message")]
-    [Description("Returns one recorded message's body by its sequence number, as the bytes that crossed the wire. Get the sequence from list_lsp_messages; rows there carry 'hasBody', so you can tell before asking.\n\nSEQUENCE NUMBERS ARE UNIQUE ACROSS THE WHOLE RECORD, not per connection — if you name the wrong connection for a real sequence, the reply says which connection it actually belongs to.\n\nBodies are kept only for a connection that has been armed (see arm_lsp_capture, or launch the IDE with --capture-lsp), except for the opening of every connection, which is always kept because a handshake cannot be captured after the fact. When there is no body, 'unavailable' explains which of the possible reasons applies as far as the record knows — including when the record cannot tell them apart, which it says rather than guessing.\n\nA body longer than the per-frame limit comes back as a head and a tail with the true length stated. It is NOT valid JSON in that case, and pretending otherwise would be a lie about what was sent. Not redacted: this is the developer's own machine, and export is where redaction belongs.")]
+    [Description("Returns one recorded message's body by its sequence number, as the bytes that crossed the wire. Get the sequence from list_lsp_messages; rows there carry 'hasBody', so you can tell before asking.\n\nTO READ A REPLY, pass the row's 'answerSequence' rather than its 'sequence' — a reply has no row of its own, because it completes its request's. The answer comes back with 'isAnswer' true and 'answerTo' naming the request; its 'method' is the request's method, since a response carries none on the wire.\n\nSEQUENCE NUMBERS ARE UNIQUE ACROSS THE WHOLE RECORD, not per connection — if you name the wrong connection for a real sequence, the reply says which connection it actually belongs to.\n\nBodies are kept only for a connection that has been armed (see arm_lsp_capture, or launch the IDE with --capture-lsp), except for the opening of every connection, which is always kept because a handshake cannot be captured after the fact. When there is no body, 'unavailable' explains which of the possible reasons applies as far as the record knows — including when the record cannot tell them apart, which it says rather than guessing.\n\nA body longer than the per-frame limit comes back as a head and a tail with the true length stated. It is NOT valid JSON in that case, and pretending otherwise would be a lie about what was sent. Not redacted: this is the developer's own machine, and export is where redaction belongs.")]
     public async Task<LspMessageBodyResult> GetLspMessageAsync(
         string connectionId, long sequence, CancellationToken ct)
     {
@@ -1701,7 +1703,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
         return new LspMessageBodyResult(
             view.Sequence, view.ConnectionId, view.Method, view.TrueLength,
-            view.Head, view.Tail, view.Tail is not null, null);
+            view.Head, view.Tail, view.Tail is not null, null, view.IsAnswer, view.AnswerTo);
     }
 
     [McpServerTool(Name = "arm_lsp_capture")]
@@ -1872,7 +1874,12 @@ internal record LspMessageRow(
     // A short note for the entries that are not messages: an exit code, a line of standard error, the
     // capability a never-sent entry was refused for.
     string? Detail,
-    bool HasBody);
+    bool HasBody,
+    // A request and its answer are ONE row, because a timeline read in order must not show every
+    // exchange twice. So the reply's own numbers hang off the request: how big it was, and — when its
+    // body was kept — the sequence to pass to get_lsp_message to read it.
+    int? AnswerSizeBytes = null,
+    long? AnswerSequence = null);
 
 internal record LspMessageBodyResult(
     long Sequence,
@@ -1883,7 +1890,11 @@ internal record LspMessageBodyResult(
     string? Tail,
     bool Truncated,
     // Why there is nothing, in the terms a reader needs. Null when there is something.
-    string? Unavailable);
+    string? Unavailable,
+    // True when this is the reply half. The method is the request's, because a response carries none of
+    // its own on the wire, and answerTo names which request it belongs to.
+    bool IsAnswer = false,
+    long? AnswerTo = null);
 
 internal record LspCaptureStateResult(
     bool ArmsEveryConnection,

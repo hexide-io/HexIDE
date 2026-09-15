@@ -577,6 +577,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "Dette er en linje serveren skrev til standardfeil, vist i sin helhet ovenfor. Det er ikke en melding, så det finnes ikke noe innhold å vise.",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "Denne oppføringen er opptakets egen merknad om tilkoblingen, ikke en melding, så det finnes ikke noe innhold å vise.",
     "Str.Tool.ProtocolInspector.Truncated": "— {0} av {1} byte ble ikke beholdt —",
+    "Str.Tool.ProtocolInspector.Reply": "— svar, {0} byte —",
     "Str.Tool.ProtocolInspector.Copy": "Kopier som sporing",
     "Str.Tool.ProtocolInspector.Export": "Eksporter samtale...",
     "Str.Tool.ProtocolInspector.Exported": "Eksporterte {0} meldinger til {1}, med manifestet i {2}.",

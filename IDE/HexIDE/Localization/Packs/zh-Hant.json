@@ -577,6 +577,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "這是伺服器寫入標準錯誤輸出的一行，完整內容已顯示於上方。它並非訊息，因此沒有內容可顯示。",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "此項目是擷取程序對此連線所做的註記，而非訊息，因此沒有內容可顯示。",
     "Str.Tool.ProtocolInspector.Truncated": "— {1} 位元組中有 {0} 位元組未保留 —",
+    "Str.Tool.ProtocolInspector.Reply": "— 回應，{0} 位元組 —",
     "Str.Tool.ProtocolInspector.Copy": "複製為追蹤記錄",
     "Str.Tool.ProtocolInspector.Export": "匯出通訊記錄...",
     "Str.Tool.ProtocolInspector.Exported": "已將 {0} 則訊息匯出至 {1}，資訊清單位於 {2}。",

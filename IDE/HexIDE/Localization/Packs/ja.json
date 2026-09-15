@@ -577,6 +577,7 @@
     "Str.Tool.ProtocolInspector.StandardErrorHasNoBody": "これはサーバーが標準エラー出力に書き込んだ行で、上に全文が表示されています。メッセージではないため、表示する本文はありません。",
     "Str.Tool.ProtocolInspector.NoteHasNoBody": "このエントリはメッセージではなく、接続についてのキャプチャ自身のメモです。そのため表示する本文はありません。",
     "Str.Tool.ProtocolInspector.Truncated": "— {1} バイトのうち {0} バイトは保持されていません —",
+    "Str.Tool.ProtocolInspector.Reply": "— 応答、{0} バイト —",
     "Str.Tool.ProtocolInspector.Copy": "トレースとしてコピー",
     "Str.Tool.ProtocolInspector.Export": "会話をエクスポート...",
     "Str.Tool.ProtocolInspector.Exported": "{0} 件のメッセージを {1} にエクスポートしました。マニフェストは {2} です。",
