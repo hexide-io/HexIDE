@@ -57,7 +57,24 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
     private ProtocolInspectorToolViewModel Over(ConversationLog log) =>
         new(log, Loc(), new Pseudonymiser(), _windows);
 
-    /// <summary>Records one frame the way the tap does, arming gate included.</summary>
+    /// <summary>Records one frame the way the tap does, arming gate included, and waits for it to land.</summary>
+    /// <remarks>
+    /// <b>The wait is the whole point of this helper and it was missing (hexide-io/HexIDE#440).</b>
+    /// <see cref="ConversationLog.Record"/> does not store anything — it writes to a channel that a
+    /// background reader drains into the per-connection rings — while <see cref="ConversationLog.Snapshot"/>
+    /// reads the rings and neither drains nor waits. So every <c>Frame</c> was a request to record rather
+    /// than a record, and every assertion after one raced a thread pool. Forty-four tests in this class
+    /// were affected and passed only because the drain usually won.
+    ///
+    /// <para>
+    /// <b>Blocking on the drain is safe here, and that is a property of the fence rather than a hope.</b>
+    /// <c>DrainAsync</c> queues a sentinel and awaits a <see cref="TaskCompletionSource"/> created with
+    /// <see cref="TaskCreationOptions.RunContinuationsAsynchronously"/>, so its continuation is never
+    /// inlined onto the thread that completes it; this thread is only ever a waiter. Keeping the helper
+    /// synchronous is what lets the fix be one line rather than a signature change across every test in
+    /// the file, which would have buried it.
+    /// </para>
+    /// </remarks>
     private void Frame(
         string connectionId, string method,
         ConversationDirection direction = ConversationDirection.Sent,
@@ -69,6 +86,8 @@ public class ProtocolInspectorToolViewModelTests : IAsyncDisposable
 
         _capture.Record(connectionId, direction, kind, method, null, body.Length,
             keep ? body : null, detail);
+
+        _capture.DrainAsync().GetAwaiter().GetResult();
     }
 
     // ── Nothing to show ──────────────────────────────────────────────────────
