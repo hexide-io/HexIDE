@@ -8,17 +8,39 @@
 # no copy-in, and that whole gate went with it. These are the checks that still make
 # sense when the tree IS the deliverable, ported so they run on every push instead.
 #
-# Fails (exit 1) on: private key material, committed build artefacts, dangling relative
-# links in Markdown, machine-specific absolute paths, personal-identity references, and
-# --untracked on every scan, and it is load-bearing rather than tidy. `git grep` alone sees only
-# TRACKED files, so a brand-new file is invisible to every check here until it is staged -- which
-# means running this before `git add`, exactly as the instructions say to, returns a false green.
-# That has already let a forbidden third-party name reach CI twice. --untracked still honours
-# .gitignore, so build output and artifacts/ stay out of scope.
-# a third-party project named outside the places we agreed it may be. Warns (exit 0) on
-# the upstream-attribution mention, which is expected and must not block.
+# Fails (exit 1) on: a private key git would currently let you commit, build artefacts and
+# editor backups in the tree, dangling relative links in Markdown, machine-specific absolute
+# paths, personal-identity references, and a third-party project named outside the places we
+# agreed it may be. Warns (exit 0) on TWO things, both expected and neither blocking: key
+# material .gitignore already covers, and the upstream-attribution mention.
 #
-# Run from anywhere; it operates on the git-tracked tree.
+# EVERY SCAN SEES UNTRACKED FILES, and that is load-bearing rather than tidy. Git's own
+# listings see only TRACKED files, so a brand-new file is invisible until it is staged --
+# which means running this before `git add`, exactly as the instructions say to, returns a
+# false green. That has already let a forbidden third-party name reach CI twice.
+#
+# THREE mechanisms, and the third is the one worth knowing about. The content scans get it
+# from `git grep --untracked`. The build-artefact and Markdown scans get it from `tree_files`
+# below, because `git ls-files` needs asking twice; both of those honour .gitignore, so build
+# output and artifacts/ stay out of scope. The private-key FILENAME scan uses `key_candidates`
+# instead, which deliberately does NOT honour .gitignore -- the note above it says why.
+#
+# Both listings are NUL-delimited, which is not decoration. `git ls-files` C-quotes any path
+# holding a byte above 0x7F: an accented name comes back as a QUOTED, backslash-escaped string,
+# so the trailing quote defeats any extension regex anchored on `$` and the file is never seen.
+# All three scans converted here were blind to one until `-z` went in end to end. This comment
+# stays deliberately ASCII, because a scanner's own note about non-ASCII names is the last place
+# an encoding accident should be able to hide.
+#
+# THREE SCANS USED PLAIN `git ls-files` AND THE PARAGRAPH ABOVE CLAIMED OTHERWISE -- the
+# private-key FILENAME scan, the build-artefact scan and the dangling-link scan (#437). CI
+# never noticed, and could not: everything is tracked by the time a runner checks out. The
+# run that was lying is the local pre-push one, which is the only one that happens before
+# bytes leave the machine, and they leave it towards a public repository. A DER or PKCS#12
+# key carries no `PRIVATE KEY` text, so the filename scan is the only thing that would ever
+# have seen it.
+#
+# Run from anywhere; it operates on the working tree, tracked and untracked alike.
 set -uo pipefail
 cd "$(dirname "$0")/.." || exit 2
 
@@ -27,28 +49,78 @@ cd "$(dirname "$0")/.." || exit 2
 # the *content* scans is what stops them flagging themselves. They stay inside the
 # *filename* scans below, so a stray key or binary dropped in scripts/ is still caught.
 EXCLUDE=( ':!scripts/check-tree-hygiene.sh' ':!scripts/check-licences.sh' )
+#
+# `check-tree-hygiene.selftest.sh` is deliberately ABSENT from that list, though it plants every
+# kind of material scanned for below. It assembles each forbidden literal at run time
+# (`printf 'twin%s' BASIC` and friends) precisely so it need not be excluded: excusing it would
+# exempt the one file most likely to grow a real path or a real key by accident.
 
-fail=0
+# Every file in the working tree, tracked or not, minus anything .gitignore excludes. This is
+# what `git grep --untracked` already does for the content scans; `git ls-files` needs both
+# --cached and --others to answer the same question, and defaults to the first alone.
+tree_files() { git ls-files --cached --others --exclude-standard -z -- "$@"; }
+
+# Everything tree_files sees, PLUS files .gitignore excludes, minus the trees where build output
+# and downloaded dependencies live. Only the key scan uses it: for every other check an ignored
+# file is genuinely out of scope. The exclusions belong to THIS scan rather than being inherited
+# from anywhere -- dropping --exclude-standard un-hides every build output and the whole of
+# artifacts/, which on a built tree is thousands of files to walk for somewhere a key has no
+# reason to be. The bare `bin/**` and `obj/**` are not redundant with the `**/` pair: a pathspec
+# `**/bin/**` requires a segment in front, so a repository-ROOT bin/ would otherwise be walked.
+#
+# One exclusion is not written here and is worth knowing: `git ls-files --others` does not descend
+# into a nested git repository, so everything under `.claude/worktrees/*` is invisible to this scan.
+# Each of those is its own checkout and runs its own guard, so that is tolerable rather than chosen.
+key_candidates() {
+  git ls-files --cached --others -z -- . \
+    ':!:**/bin/**' ':!:**/obj/**' ':!:bin/**' ':!:obj/**' ':!:artifacts/**' ':!:**/node_modules/**'
+}
+
+# COUNTED, not a flag, and the count is printed. A scan whose `note` runs in a subshell -- one
+# `cmd | while read` where a `< <(cmd)` was -- still prints its line and then loses the increment, so the
+# guard reports the problem and exits 0. Nothing in the output distinguishes that from a scan with nothing
+# to say, which is why the total goes in the summary: it is the one number a selftest can pin, and it is
+# how a lost note, a deleted scan and a genuinely clean tree stop looking alike.
+fails=0
 warn=0
-note() { printf '  \xE2\x9C\x97 %s\n' "$1"; fail=1; }
+note() { printf '  \xE2\x9C\x97 %s\n' "$1"; fails=$((fails + 1)); }
 warned() { printf '  \xE2\x9A\xA0 %s\n' "$1"; warn=$((warn + 1)); }
 
-echo "check-tree-hygiene: scanning the tracked tree…"
+echo "check-tree-hygiene: scanning the working tree…"
 
 # 1. Private key material — by extension, and by PEM block content.
-while IFS= read -r f; do
-  [ -n "$f" ] && note "private key file: $f"
-done < <(git ls-files | grep -Ei '\.(key|pem|pfx|p12)$')
+# TWO listings here, because .gitignore is half the problem. `*.key` (.gitignore:417) and
+# `*.pfx` (:242) are ignored, so a real key is invisible to ANY listing that honours it --
+# including `git grep --untracked`, which means the PEM content scan below is blind to one
+# too. `.pem` and `.p12` are not ignored, so the same check sees those and misses the two
+# extensions it most needs. Scanning ignored files as well is the only way to close that.
+#
+# But it cannot simply fail on them: the add-in packer gates on a real
+# IDE/HexIDE.AddinPacker/firstparty/firstparty.key being present (HexIDE.Desktop.csproj:113,117),
+# so a maintainer holding the dev key would fail this on every run and learn to ignore it --
+# which is how a guard stops being read. An ignored key WARNS and a committable one FAILS.
+# The split is exactly "is git currently the only thing standing between this and a push".
+while IFS= read -r -d '' f; do
+  [ -z "$f" ] && continue
+  if git check-ignore -q -- "$f" 2>/dev/null; then
+    warned "private key material on disk, gitignored so not committable as things stand: $f"
+  else
+    note "private key file: $f"
+  fi
+done < <(key_candidates | grep -zEi '\.(key|pem|pfx|p12)$')
 
 while IFS= read -r hit; do
   [ -n "$hit" ] && note "PEM private-key block: $hit"
 done < <(git grep --untracked -lI 'PRIVATE KEY' -- . "${EXCLUDE[@]}")
 
-# 2. Committed build artefacts and editor backups. A binary in a public repository is a
-#    thing people are right to distrust: they cannot diff it and cannot tell what is in it.
-while IFS= read -r f; do
-  [ -n "$f" ] && note "build artefact / backup committed: $f"
-done < <(git ls-files | grep -Ei '\.(exe|dll|pdb|bak)$')
+# 2. Build artefacts and editor backups anywhere in the tree. A binary in a public repository
+#    is a thing people are right to distrust: they cannot diff it and cannot tell what is in it.
+#    The message says "in the tree" rather than "committed" because since #437 most hits are
+#    NOT committed -- catching one before `git add` is the whole point -- and a guard that
+#    misdescribes what it found is the defect this change exists to fix.
+while IFS= read -r -d '' f; do
+  [ -n "$f" ] && note "build artefact / backup in the tree: $f"
+done < <(tree_files | grep -zEi '\.(exe|dll|pdb|bak)$')
 
 # 3. Machine-specific absolute paths. A path from the author's own disk is both useless
 #    to a reader and a small identity leak.
@@ -81,7 +153,7 @@ fi
 # 5. Dangling relative links in Markdown. Resolve each link target for real, rather than
 #    assuming a prefix is broken — most of them resolve, and the few that do not are
 #    exactly what this is for.
-while IFS= read -r md; do
+while IFS= read -r -d '' md; do
   dir="$(dirname "$md")"
   grep -oE '\]\([^)]+\)' "$md" 2>/dev/null | sed 's/^](//;s/)$//' | while IFS= read -r target; do
     case "$target" in http://*|https://*|\#*|mailto:*|"") continue;; esac
@@ -91,7 +163,7 @@ while IFS= read -r md; do
       printf '%s->%s\n' "$md" "$target"
     fi
   done
-done < <(git ls-files '*.md') > /tmp/hexide-linkcheck.$$ 2>/dev/null
+done < <(tree_files '*.md') > /tmp/hexide-linkcheck.$$ 2>/dev/null
 while IFS= read -r hit; do
   [ -n "$hit" ] && note "dangling relative link: $hit"
 done < /tmp/hexide-linkcheck.$$
@@ -126,9 +198,9 @@ while IFS= read -r f; do
 done < <(git grep --untracked -lI 'AvaloniaVisualBasic' -- . "${EXCLUDE[@]}")
 
 echo
-if [ "$fail" -eq 0 ]; then
+if [ "$fails" -eq 0 ]; then
   echo "check-tree-hygiene: OK${warn:+ — $warn warning(s), none blocking}"
-else
-  echo "check-tree-hygiene: FAILED — fix the items above."
+  exit 0
 fi
-exit "$fail"
+echo "check-tree-hygiene: FAILED — $fails item(s) above."
+exit 1

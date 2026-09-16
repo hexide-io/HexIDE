@@ -303,6 +303,15 @@ node_modules/
 # ...but the demo gallery's .vbp files are committed source — each demo must build on its own
 !demo/**/*.vbp
 
+# Demo executables. demo/README.md tells you to rebuild any demo in place with
+# `VB6.EXE /make <Name>.vbp`, and the .vbp's ExeName32 drops the binary right beside its source.
+# Since hexide-io/HexIDE#437 the hygiene guard's artefact scan sees UNTRACKED files, so without
+# this line the mandated pre-push run fails on any demo a maintainer has rebuilt — the surest way
+# to teach someone to stop reading a guard. This does not weaken it: `--exclude-standard` filters
+# `--others` only, never `--cached`, so a force-added demo binary is still reported and still
+# fails, which is what demo/README.md promises.
+demo/**/*.exe
+
 # Visual Studio 6 workspace and project file (working project files containing files to include in project)
 *.dsw
 *.dsp
@@ -412,8 +421,16 @@ FodyWeavers.xsd
 /.claude/worktrees/
 
 # Private signing keys — never commit.
-# (The dev IDE/HexIDE.AddinPacker/firstparty/firstparty.key is still tracked pending
-#  trust-chain rotation + migration to a CI secret; see TRUST.md.)
+# (The dev IDE/HexIDE.AddinPacker/firstparty/firstparty.key is NOT tracked and never has been in
+#  this tree — it is supplied locally or from a CI secret; see TRUST.md. An earlier version of this
+#  comment said it was "still tracked pending trust-chain rotation", which was never true here.)
+#
+# ADDING AN EXTENSION HERE WEAKENS scripts/check-tree-hygiene.sh, which is not obvious and is the
+# reverse of what it looks like. That guard splits on exactly this file: key material git would let
+# you commit FAILS the run, key material .gitignore already covers only WARNS — because a maintainer
+# legitimately holds the dev key on disk. So appending `*.pem` or `*.p12` here, the obvious
+# hardening move, silently demotes those two from a failure to a warning. Change the guard's split
+# first if you want them ignored.
 *.key
 
 # Bundled add-in DLLs are build outputs. The post-build Copy targets in

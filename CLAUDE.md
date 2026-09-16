@@ -141,8 +141,15 @@ The IDE parses and writes Windows-native formats (`.vbp`, `.vbg`, `.frm`), so a 
 Gotchas). Run the suites under WSL rather than discovering it a push later:
 
 ```sh
-# Ubuntu + dotnet-sdk-10.0 from Ubuntu's own repos (no Microsoft feed needed on 26.04+)
-wsl -e bash -lc 'sudo apt-get install -y dotnet-sdk-10.0'
+# Ubuntu + dotnet-sdk-10.0 from Ubuntu's own repos (no Microsoft feed needed on 26.04+).
+#
+# `apt-get update` is NOT optional, and leaving it out is why this used to fail. The SDK takes a new
+# point release most months, and apt asks for the exact version its local list names. A list more than
+# a few weeks old therefore asks for .deb files already rotated out of the pool, and every one 404s --
+# ten of them, naming every dotnet10 package, which reads as a broken archive rather than a stale
+# cache. Measured 2026-09-16 on a working WSL: lists three weeks old, index wanting 10.0.111, pool
+# holding 10.0.112. One `apt-get update` and the same command installed cleanly.
+wsl -e bash -lc 'sudo apt-get update && sudo apt-get install -y dotnet-sdk-10.0'
 
 # Run against the SAME working tree — no second clone. .NET on Linux uses '/' regardless of the mount.
 wsl -e bash -lc 'cd /mnt/c/Repos/GitHub/HexIDE/HexIDE/IDE && \
