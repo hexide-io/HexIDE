@@ -157,6 +157,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # Before the guard, not after: this asks whether the guard can still SEE an untracked
+      # file. Three of its scans could not, while its header said they could (#437), and CI
+      # was structurally unable to notice because everything is tracked once a runner has
+      # checked out. A guard whose failure mode is a false green has to be handed something
+      # bad and watched catching it.
+      - name: Self-test the hygiene guard
+        run: bash scripts/check-tree-hygiene.selftest.sh
+
       - name: Guard tree hygiene (keys, artefacts, links, paths, naming)
         env:
           # Supplied from a repository secret so the pattern itself is never committed —
