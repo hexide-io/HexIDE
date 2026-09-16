@@ -694,8 +694,11 @@ user-facing string is a localization key, never a hardcoded literal.**
    **fails the build** if an AXAML `Str.*` key (or a VB6 property's `Str.PropDesc.*`) is missing from `en`.
    **C# `GetString` keys are NOT auto-checked — add them to `en` by hand**, or the call renders the raw key.
    New VB6 property ⇒ add its `Str.PropDesc.{name}`.
-3. **Translate every new key into all shipped packs in the same change — don't defer.** The moment you add a
-   `Str.*` key to `en`, add its translation to each shipped full-translation pack (the supported set:
+3. **Translate every new key into all shipped packs in the same change — the build enforces it.**
+   `ShippedPackParityTests` fails when a pack named in `LanguageManifest.Packs` is missing a canonical key,
+   naming the pack and the keys, so the code and its translations can no longer be split across two
+   commits. The moment you add a `Str.*` key to `en`, add its translation to each shipped
+   full-translation pack (the supported set:
    `ar, cs, da, de, el, eo, es, fa, fi, fr, he, hi, id, it, ja, ko, la, nb, nl, pl, pt, ru, sv, tr, uk, ur,
    vi, zh-Hans, zh-Hant` — **29**) so non-English IDEs never show English fall-through. A missing key *inherits* English
    (no blank control), but that drift must not ship — close it at the point of creation. For more than a
@@ -703,14 +706,22 @@ user-facing string is a localization key, never a hardcoded literal.**
    **preserving `{0}`/`{1}` placeholders and each pack's mnemonic convention** — `_` kept for Latin scripts,
    omitted for non-Latin). `en-GB` is a thin variant — add a key there only where British English differs
    from `en`.
-4. **Confirm zero drift before committing** with the coverage tool (lists any full translation still missing
-   keys; a clean run = every pack at parity with `en`):
+4. **See the whole picture at once** with the coverage tool, which is the faster way to run a backfill: the
+   build failure says *that* a pack is stale, this says *how*, across all of them together.
    ```sh
    cd tools/TranslationCoverage && dotnet run
    ```
-**The shipped set is closed, and `LanguagePack.cs` is its single source of truth.** This list, that file and
-the coverage tool must agree; they did not for a while, which is how `la` and `eo` came to be translated in
-every pass without anyone having decided they were shipped.
+**The shipped set is closed, `LanguagePack.cs` is its single source of truth, and that is now checked.**
+This list, that file and the coverage tool must agree; they did not for a while, which is how `la` and `eo`
+came to be translated in every pass without anyone having decided they were shipped. `ShippedPackParityTests`
+closes both directions — a declared language with no pack, and a full translation on disk that nothing
+declares — so the disagreement cannot recur silently. The prose list above is the one part still kept by
+hand.
+
+**A region is a country variant, not a dialect.** `fr-CA`, `pt-BR` and `en-GB` are regions and override only
+what differs from their neutral, so they are exempt from parity. A *language* is a neutral pack however
+small its speaker base — Basque would be `eu`, not a region of Spanish — and a neutral is bound by parity
+the moment it is declared.
 
 **No more languages "for fun" — the bar is whether a real person would pick it, not whether it is a real
 language.** `la` (Latin) and `eo` (Esperanto) stay, as a recorded decision rather than an accident: Latin is
@@ -720,7 +731,8 @@ refused on request, and this line is the maintainer's own standing instruction t
 
 The reason is cost, not taste. Every pack is a permanent tax on every new key: adding two keys today cost 58
 translations, and the guarantee that makes this system worth anything is that **every shipped pack is 100%
-complete, enforced at build**. A pack nobody selects still has to be kept complete forever, or the guarantee
+complete, enforced at build** — by `ShippedPackParityTests`, which is what makes this argument something
+other than an assertion. A pack nobody selects still has to be kept complete forever, or the guarantee
 weakens for the packs that people do use. A legitimacy test ("is it a real language of a real state") gets
 this backwards — it admits Latin, which nobody will select, and excludes Esperanto, which someone might.
 

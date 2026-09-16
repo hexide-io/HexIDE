@@ -2,10 +2,17 @@
 //
 // Run:  cd tools/TranslationCoverage && dotnet run
 //
-// Visibility only — ALWAYS exits 0, never fails a build. New feature keys land in en.json first
-// (enforced by LocalizationCoverageTests); the translated packs inherit any missing key as English, so
-// they silently drift until backfilled. This surfaces that drift: which full translations are missing
-// which keys, so they can be batch-backfilled (see CLAUDE.md → Localization, language-packs spec).
+// Visibility only — ALWAYS exits 0. It does NOT decide whether drift ships: `ShippedPackParityTests`
+// does, and fails the build naming the pack and the keys. This exists because the two questions are
+// different. A build failure says THAT a pack is stale, which is what you want at the moment you add a
+// key; this says HOW, across every pack at once, which is what a backfill pass needs in front of it.
+//
+// It also reads the directory rather than LanguageManifest.Packs, and so infers the shipped set from
+// filenames. That inference is only right while the manifest and the directory agree, which is itself
+// one of the things the test checks.
+//
+// New feature keys land in en.json first (enforced by LocalizationCoverageTests); a translated pack
+// inherits any missing key as English, so drift is invisible at runtime by design.
 
 using System.Text.Json;
 
