@@ -38,6 +38,36 @@ public class StdioProcessLspTransportTests
             ? new LspServerInfo("cmd.exe", "/c exit 0", Path.GetTempPath())
             : new LspServerInfo("/bin/sh", "-c \"exit 0\"", Path.GetTempPath());
 
+    /// <summary>
+    /// The same trivial command, but naming NO working directory of its own — so the workspace decides.
+    /// </summary>
+    /// <remarks>
+    /// Every other <see cref="LspServerInfo"/> in this file passes <see cref="Path.GetTempPath"/> as the
+    /// third argument, which takes the explicit branch and returns before the workspace is ever consulted.
+    /// That is why the workspace-derived working directory had no coverage at all, and why #278 could sit
+    /// in a file with tests in it.
+    /// </remarks>
+    private static LspServerInfo ATrivialCommandRootedNowhere() =>
+        OperatingSystem.IsWindows()
+            ? new LspServerInfo("cmd.exe", "/c exit 0", "")
+            : new LspServerInfo("/bin/sh", "-c \"exit 0\"", "");
+
+    /// <summary>A workspace that answers with whatever directory the test wants it to.</summary>
+    private sealed class Workspace(string? directory) : ILspWorkspace
+    {
+        public string? Directory { get; } = directory;
+
+        public IReadOnlyList<LspWorkspaceFolder> Folders { get; } = [];
+    }
+
+    /// <summary>The shape <c>ProjectService.ProjectFilesDirectory</c> mints for a project with no file yet.</summary>
+    /// <remarks>
+    /// A GUID suffix, so it is guaranteed not to exist: that method assigns and memoises the path without
+    /// creating anything, and the four call sites that write a file into it create it at that moment.
+    /// </remarks>
+    private static string AnUnsavedProjectsScratchPath() =>
+        Path.Combine(Path.GetTempPath(), $"hexide_Project1_{Guid.NewGuid():N}");
+
     [Fact]
     public async Task TheTransportLaunchesTheCommandItWasGiven()
     {
@@ -49,6 +79,50 @@ public class StdioProcessLspTransportTests
         var handler = await sut.ConnectAsync(Formatter(), Timeout());
 
         handler.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task AWorkspaceDirectoryThatDoesNotExistYetStillStartsTheServer()
+    {
+        // hexide-io/HexIDE#278. An unsaved project's directory is a real string naming nothing until the
+        // first file is written there, and handing that to Process.Start throws "The directory name is
+        // invalid" — so every brand-new project got an IDE with no language features and no stated reason.
+        // Not a first-run hazard: #260 gave the path a GUID suffix, so it is a fresh non-existent directory
+        // every time.
+        var scratch = AnUnsavedProjectsScratchPath();
+        await using var sut = new StdioProcessLspTransport(
+            ATrivialCommandRootedNowhere(), _logger, new Workspace(scratch));
+
+        var handler = await sut.ConnectAsync(Formatter(), Timeout());
+
+        handler.Should().NotBeNull();
+
+        // Not decoration. The other way to make the line above pass is to create the directory before
+        // launching, and that was rejected: nothing in the tree ever reaps a scratch directory, so it would
+        // leave an empty GUID-named directory in TEMP for every unsaved project ever opened. Without this
+        // assertion that decision is unguarded and the next reader's one-line fix silently reverses it.
+        Directory.Exists(scratch).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task AnExplicitWorkingDirectoryIsNotSecondGuessed()
+    {
+        // The other side of #278, and the reason the existence check lives only on the workspace branch. A
+        // directory somebody named in configuration is their intent: if it is wrong they need to be told,
+        // not quietly given the IDE's own directory and a server answering about the wrong tree. So this
+        // one is expected to FAIL to launch.
+        var named = Path.Combine(Path.GetTempPath(), $"no-such-cwd-{Guid.NewGuid():N}");
+        var info = OperatingSystem.IsWindows()
+            ? new LspServerInfo("cmd.exe", "/c exit 0", named)
+            : new LspServerInfo("/bin/sh", "-c \"exit 0\"", named);
+        await using var sut = new StdioProcessLspTransport(info, _logger, new Workspace(Path.GetTempPath()));
+
+        var handler = await sut.ConnectAsync(Formatter(), Timeout());
+
+        handler.Should().BeNull();
+        // The directory is the whole fault and the OS message does not name it on Windows, so the
+        // transport has to. Without this the report reads as though the executable were the problem.
+        sut.LastFailure.Should().Contain(named);
     }
 
     [Fact]

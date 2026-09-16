@@ -18,12 +18,20 @@ namespace HexIDE.Projects;
 /// </para>
 ///
 /// <para>
-/// <b>An unsaved project's directory is a shared temp path today</b> — keyed on the project's NAME, so
-/// every new "Project1" resolves to the same place (hexide-io/HexIDE#260). That is wrong, and it is wrong
-/// in the same way for a language server as it is for the files: the server is rooted somewhere that may
-/// hold another project's leavings. Answering with it anyway is still better than answering with nothing,
-/// because it is at least the directory the project's own files are in — and it stops being a special case
-/// entirely once a new project gets a real location.
+/// <b>An unsaved project's directory is a private temp path that does not exist yet.</b> It used to be
+/// shared — keyed on the project's NAME, so every new "Project1" resolved to the same place, and a server
+/// could be rooted among another project's leavings. hexide-io/HexIDE#260 fixed that by appending a GUID,
+/// which means the path is now unique per project and, in exchange, <b>never exists before the first file
+/// is written into it</b>: <c>ProjectFilesDirectory</c> mints and memoises the string, and the four call
+/// sites that write a file there create the directory at that moment.
+/// </para>
+///
+/// <para>
+/// Answering with it anyway is right, and it is what this type does. It is the directory the project's own
+/// files are about to be written into and the parent of every document URI the server will be sent, so it
+/// is the correct answer to "which tree should you analyse" even while empty. What must NOT be done with it
+/// is launch a process there — that throws, and cost the whole connection until hexide-io/HexIDE#278; see
+/// <c>LspLaunchDirectory</c>, which separates the two questions.
 /// </para>
 ///
 /// <para>
