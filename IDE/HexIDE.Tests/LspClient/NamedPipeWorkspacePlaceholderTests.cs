@@ -115,6 +115,30 @@ public class NamedPipeWorkspacePlaceholderTests
     }
 
     [Fact]
+    public async Task AWorkspaceDirectoryThatDoesNotExistYetStillLaunchesTheServer()
+    {
+        // hexide-io/HexIDE#278, the pipe transport's copy of it. Both transports resolve the launch
+        // directory the same way and now do so through the same helper, so testing one would leave the
+        // other's half of a shared rule unproven.
+        //
+        // The echo IS the measurement: it only arrives if the child actually ran. Before the fix,
+        // Process.Start threw inside the connect try-block, ConnectAsync returned null, and nothing was
+        // ever echoed — and the failure was reported as "could not use pipe", blaming the pipe for a
+        // directory fault.
+        var scratch = Path.Combine(Path.GetTempPath(), $"hexide_Project1_{Guid.NewGuid():N}");
+
+        var lines = await StderrFromLaunchAsync(
+            Echoing("hello"), new Workspace(scratch), "hexide-test-ws-absent");
+
+        lines.Should().Contain(l => l.Contains("GOT hello", StringComparison.Ordinal),
+            "a project that has not been saved yet must still get a language server");
+
+        // Same guard as the stdio test: creating the directory would also make the assertion above pass,
+        // and was rejected because nothing ever reaps a scratch directory.
+        System.IO.Directory.Exists(scratch).Should().BeFalse();
+    }
+
+    [Fact]
     public async Task AnExplicitWorkingDirectoryDoesNotBecomeTheWorkspace()
     {
         // THE DISTINCTION THAT MATTERS, and the first draft of this got it wrong. workingDirectory says

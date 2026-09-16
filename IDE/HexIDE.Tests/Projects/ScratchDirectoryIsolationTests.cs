@@ -59,6 +59,24 @@ public class ScratchDirectoryIsolationTests
     }
 
     [Fact]
+    public void AskingForTheScratchDirectoryDoesNotCreateIt()
+    {
+        // The property the rest of the system now depends on, pinned where a future reader is most likely
+        // to reach for Directory.CreateDirectory as an obvious one-line fix. It is not: this is a hot
+        // static property — the LSP workspace reads it on every didOpen and this suite calls it a dozen
+        // times purely to assert a path's SHAPE — so creating here would put filesystem I/O behind a
+        // getter and have the unit tests litter TEMP on every run. The four callers that write a file
+        // create the directory at that moment, which is the right owner.
+        //
+        // The consequence is that the path names nothing until the first save, which is exactly what made
+        // hexide-io/HexIDE#278 possible; the fix there was to stop launching a process in it, not to
+        // create it.
+        var dir = ProjectService.ProjectFilesDirectory(Unsaved("Project1"));
+
+        Directory.Exists(dir).Should().BeFalse();
+    }
+
+    [Fact]
     public void TheProjectNameStaysVisibleInTheDirectory()
     {
         // So a user looking in TEMP can still tell which directory belongs to what. Uniqueness must not

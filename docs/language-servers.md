@@ -178,6 +178,16 @@ Leave `workingDirectory` out and the server runs in the open project's directory
 it when the server needs to be somewhere specific — some servers resolve their own configuration relative
 to where they were started, and that is part of whether they work at all.
 
+**One exception, and it is the common case for a new project.** A project you have not saved yet has a
+directory that does not exist on disk — it is created the moment something is written into it. A server
+cannot be launched in a directory that is not there, so HexIDE starts it in HexIDE's own directory instead
+and says so in the log. It is still told your project's directory as the workspace to analyse, so
+`{workspaceUri}` and `rootUri` are unaffected, and the server is re-rooted normally once you save.
+
+A `workingDirectory` **you** set is never second-guessed this way. If it does not exist the server does not
+start, and the reason names the directory — because you meant that directory, and quietly running somewhere
+else would give you a server confidently answering about the wrong tree.
+
 **A launched server is not reconnected to.** When HexIDE owns the process, a server that dies stays dead
 for the session: retrying the same pipe would mean waiting for something nobody is going to start. A pipe
 entry with no `command` behaves as it always has, and is re-dialled, because its lifetime is someone

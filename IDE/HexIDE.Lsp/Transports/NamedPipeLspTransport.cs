@@ -105,6 +105,19 @@ public sealed class NamedPipeLspTransport : ILspTransport
     /// </remarks>
     private bool _launchedWithoutHandle;
 
+    /// <summary>The working directory a child was actually launched with, or null if none was launched.</summary>
+    /// <remarks>
+    /// Recorded at launch rather than recomputed when a failure is reported. Asking
+    /// <see cref="WorkingDirectory"/> again would log its "does not exist" warning a second time for the
+    /// same start, and would answer for a launch that never happened when this transport only dials.
+    /// </remarks>
+    private string? _launchCwd;
+
+    /// <summary>The cwd as a message fragment, empty when no child was launched to have one.</summary>
+    private string LaunchCwdForMessage() => _launchCwd is null
+        ? ""
+        : $" (server cwd: {(_launchCwd.Length == 0 ? "<inherited>" : _launchCwd)})";
+
     public NamedPipeLspTransport(
         string pipeName,
         NamedPipeRole role,
@@ -232,9 +245,14 @@ public sealed class NamedPipeLspTransport : ILspTransport
             // The timed-out / did-not-connect distinction was already computed here and discarded. It is
             // the useful half: a timeout means nothing was listening, and everything else means something
             // was and refused.
+            // `Process.Start` for the child happens inside this same try, so a fault launching it is
+            // reported here too — and without the cwd it reads as "could not use pipe '<name>': The
+            // directory name is invalid", blaming the pipe for a directory fault one indirection away.
+            // Read from the field rather than re-asking WorkingDirectory(), which would log its warning a
+            // second time and would name a directory even when there was no child to launch at all.
             LastFailure = timedOut
                 ? $"nothing connected on pipe '{_pipeName}' within {_connectTimeout:g}"
-                : $"could not use pipe '{_pipeName}': {ex.Message}";
+                : $"could not use pipe '{_pipeName}'{LaunchCwdForMessage()}: {ex.Message}";
             await DisposeAsync();
             return null;
         }
@@ -318,14 +336,16 @@ public sealed class NamedPipeLspTransport : ILspTransport
     /// The same rule the stdio transport applies, and for the same reason — a server resolves its own
     /// configuration relative to where it runs, and servers start lazily, so the answer is not knowable
     /// when the registration is built. An explicit setting always wins: somebody who named one meant it.
+    ///
+    /// <para>
+    /// It is now literally the same rule rather than the same rule written out twice. Both transports call
+    /// <see cref="LspLaunchDirectory"/>, which also declines a workspace directory that does not exist on
+    /// disk — the ordinary state of a project before its first save, and previously fatal to the launch
+    /// (hexide-io/HexIDE#278).
+    /// </para>
     /// </remarks>
-    private string WorkingDirectory()
-    {
-        if (!string.IsNullOrWhiteSpace(_launch?.WorkingDirectory))
-            return _launch.WorkingDirectory;
-
-        return _workspace?.Directory is { } d && !string.IsNullOrWhiteSpace(d) ? d : "";
-    }
+    private string WorkingDirectory() =>
+        LspLaunchDirectory.For(_launch?.WorkingDirectory, _workspace, _logger);
 
     /// <summary>
     /// Which workspace the server should ANALYSE. Always the open project, never the launch directory.
@@ -337,6 +357,15 @@ public sealed class NamedPipeLspTransport : ILspTransport
     /// code it must analyse is wherever the user's project is. Filling <c>{workspaceUri}</c> from the
     /// launch directory would hand such a server its own installation as the workspace: it would start,
     /// report cleanly, and answer every question about the wrong tree. A wrong answer, not a failure.
+    ///
+    /// <para>
+    /// <b>Do not "fix" the asymmetry with <see cref="WorkingDirectory"/>, which now declines a directory
+    /// that does not exist.</b> This one deliberately does not. An unsaved project's directory is where its
+    /// files are about to be written, and it is the parent of every document URI the server will be sent, so
+    /// it is the right answer to "which tree" even before anything is in it. Withholding it would instead
+    /// drop the project from <c>workspaceFolders</c> and leave every document outside any root — a far
+    /// larger change than the one #278 asked for.
+    /// </para>
     /// </remarks>
     private string? WorkspaceDirectory() =>
         _workspace?.Directory is { } d && !string.IsNullOrWhiteSpace(d) ? d : null;
@@ -363,6 +392,9 @@ public sealed class NamedPipeLspTransport : ILspTransport
             // turning a diagnostic into a hang. Redirect what is read; read what is redirected.
             RedirectStandardError = true,
         };
+
+        // Kept so a failure reported from the connect catch can name it without re-resolving.
+        _launchCwd = startInfo.WorkingDirectory;
 
         _logger.LogInformation(
             "Starting VB LSP server: {Exe} {Args} (cwd: {Cwd})",

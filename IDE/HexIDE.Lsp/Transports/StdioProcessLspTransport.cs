@@ -149,6 +149,18 @@ public sealed class StdioProcessLspTransport : ILspTransport
 
         _process.Exited += OnProcessExited;
 
+        // The named-pipe transport has logged this since it was written and this one logged nothing about
+        // where the child would run, which made a cwd fault the hardest kind to diagnose: the exception
+        // names the executable and Windows' message for a bad working directory does not name the
+        // directory. Same "<inherited>" spelling as the pipe transport, so the two logs read alike.
+        _logger.LogInformation(
+            "Starting VB LSP server: {Exe} {Args} (cwd: {Cwd})",
+            fileName,
+            arguments,
+            string.IsNullOrEmpty(_process.StartInfo.WorkingDirectory)
+                ? "<inherited>"
+                : _process.StartInfo.WorkingDirectory);
+
         try
         {
             _process.Start();
@@ -163,7 +175,17 @@ public sealed class StdioProcessLspTransport : ILspTransport
             _logger.LogError(ex, "Failed to start the VB6 LSP server process ({File})", fileName);
             // The command is the first thing anyone needs: "not on PATH" and "there but not runnable"
             // are different problems and the exception distinguishes them.
-            LastFailure = $"could not start '{fileName}': {ex.Message}";
+            //
+            // The working directory is the second, and it used to be missing. A third problem the comment
+            // above did not anticipate is a cwd that cannot be used, and Windows renders that as "The
+            // directory name is invalid" WITHOUT naming the directory — so the whole message read
+            // "could not start 'HexIDE.VbLspServer': The directory name is invalid", pointing at the
+            // executable for a fault that had nothing to do with it. LspLaunchDirectory now screens the
+            // common case, but a directory can still vanish between that check and this call, or be
+            // unreadable to this process, so the message has to carry it.
+            var cwd = _process.StartInfo.WorkingDirectory;
+            LastFailure =
+                $"could not start '{fileName}' (cwd: {(string.IsNullOrEmpty(cwd) ? "<inherited>" : cwd)}): {ex.Message}";
             _process.Exited -= OnProcessExited;
             _process.Dispose();
             _process = null;
@@ -187,14 +209,17 @@ public sealed class StdioProcessLspTransport : ILspTransport
     /// good root, but it is the one .NET uses when none is given, and inventing a temp path instead would
     /// silently point a server's configuration lookup somewhere the user has never heard of.
     /// </para>
+    ///
+    /// <para>
+    /// Empty too when the workspace names a directory that <b>does not exist yet</b>, which is the ordinary
+    /// state of a project between File → New Project and its first save (hexide-io/HexIDE#278). Handing that
+    /// path to <see cref="Process.Start()"/> throws and costs the whole connection. The rule and its
+    /// reasoning live in <see cref="LspLaunchDirectory"/>, shared with the named-pipe transport, because
+    /// this is the same rule in both places rather than two that happen to agree.
+    /// </para>
     /// </summary>
-    private string WorkingDirectory()
-    {
-        if (!string.IsNullOrWhiteSpace(_serverInfo.WorkingDirectory))
-            return _serverInfo.WorkingDirectory;
-
-        return _workspace?.Directory is { } d && !string.IsNullOrWhiteSpace(d) ? d : "";
-    }
+    private string WorkingDirectory() =>
+        LspLaunchDirectory.For(_serverInfo.WorkingDirectory, _workspace, _logger);
 
     private void OnProcessExited(object? sender, EventArgs e)
     {
