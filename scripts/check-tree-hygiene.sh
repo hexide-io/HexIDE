@@ -76,9 +76,14 @@ key_candidates() {
     ':!:**/bin/**' ':!:**/obj/**' ':!:bin/**' ':!:obj/**' ':!:artifacts/**' ':!:**/node_modules/**'
 }
 
-fail=0
+# COUNTED, not a flag, and the count is printed. A scan whose `note` runs in a subshell -- one
+# `cmd | while read` where a `< <(cmd)` was -- still prints its line and then loses the increment, so the
+# guard reports the problem and exits 0. Nothing in the output distinguishes that from a scan with nothing
+# to say, which is why the total goes in the summary: it is the one number a selftest can pin, and it is
+# how a lost note, a deleted scan and a genuinely clean tree stop looking alike.
+fails=0
 warn=0
-note() { printf '  \xE2\x9C\x97 %s\n' "$1"; fail=1; }
+note() { printf '  \xE2\x9C\x97 %s\n' "$1"; fails=$((fails + 1)); }
 warned() { printf '  \xE2\x9A\xA0 %s\n' "$1"; warn=$((warn + 1)); }
 
 echo "check-tree-hygiene: scanning the working tree…"
@@ -193,9 +198,9 @@ while IFS= read -r f; do
 done < <(git grep --untracked -lI 'AvaloniaVisualBasic' -- . "${EXCLUDE[@]}")
 
 echo
-if [ "$fail" -eq 0 ]; then
+if [ "$fails" -eq 0 ]; then
   echo "check-tree-hygiene: OK${warn:+ — $warn warning(s), none blocking}"
-else
-  echo "check-tree-hygiene: FAILED — fix the items above."
+  exit 0
 fi
-exit "$fail"
+echo "check-tree-hygiene: FAILED — $fails item(s) above."
+exit 1
