@@ -36,7 +36,9 @@ public sealed class AddinDiagnosticsService : IDiagnosticsAccess, IDisposable
             d.Range.Start.Line + 1,
             d.Range.Start.Character + 1,
             d.Message,
-            (AddinDiagnosticSeverity)(d.Severity ?? DiagnosticSeverity.Error));
+            (AddinDiagnosticSeverity)(d.Severity ?? DiagnosticSeverity.Error),
+            d.CodeText,
+            d.Source);
 
     private static string ExtractName(string uri)
     {

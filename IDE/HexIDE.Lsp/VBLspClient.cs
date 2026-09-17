@@ -970,7 +970,23 @@ public sealed class VBLspClient : ILspClient
             ? src.GetString()
             : null;
 
-        return new Diagnostic(range, message, severity, source);
+        // Cloned, for the same reason the advertised capabilities are: this element belongs to the
+        // document the reply was parsed from, which is disposed when this call returns, and what is left
+        // behind is an element that throws on the first read from whoever kept it.
+        JsonElement? code = element.TryGetProperty("code", out var c)
+                            && c.ValueKind is JsonValueKind.String or JsonValueKind.Number
+            ? c.Clone()
+            : null;
+
+        var href = element.TryGetProperty("codeDescription", out var description)
+                   && description.ValueKind == JsonValueKind.Object
+                   && description.TryGetProperty("href", out var h)
+                   && h.ValueKind == JsonValueKind.String
+            ? h.GetString()
+            : null;
+
+        return new Diagnostic(range, message, severity, source, code,
+            href is null ? null : new CodeDescription(href));
     }
 
     public async Task SaveDocumentAsync(string uri, CancellationToken cancellationToken = default)

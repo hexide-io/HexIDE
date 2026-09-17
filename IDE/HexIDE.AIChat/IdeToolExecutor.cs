@@ -106,7 +106,8 @@ public sealed class IdeToolExecutor(IHexIdeHost host)
         var items = diags.Select(d => new
         {
             d.FileName, d.Line, d.Column, d.Message,
-            severity = d.Severity.ToString()
+            severity = d.Severity.ToString(),
+            d.Code, d.Source
         });
         return JsonSerializer.Serialize(new { diagnostics = items });
     }

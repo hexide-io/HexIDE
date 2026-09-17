@@ -124,12 +124,15 @@ public class PullDiagnosticsTests : IAsyncDisposable
         // Asserted on WHAT was reported, never merely that something was. A non-empty assertion passes for
         // an unrelated diagnostic, which is the fail-open shape this suite keeps finding in itself.
         //
-        // By message and source rather than by code, because `Diagnostic` carries no `code` — this client
-        // discards the field for every server, push and pull alike (hexide-io/HexIDE#426). The server sends
-        // `F401` here and nothing in HexIDE can see it.
+        // By CODE now, which is the assertion this test wanted all along and could not make until
+        // `Diagnostic` carried one (hexide-io/HexIDE#426). A rule identifier is stable where the prose
+        // beside it is not: the message is version-fragile and localizable, `F401` is neither.
         published.Diagnostics.Should().Contain(
-            d => d.Source == "Ruff" && d.Message.Contains("imported but unused", StringComparison.Ordinal),
-            "the document's only defect is an unused import, and that rule is on by default here");
+            d => d.Source == "Ruff" && d.CodeText == "F401",
+            "the document's only defect is an unused import, and that is the rule that names it");
+        published.Diagnostics.Should().Contain(
+            d => d.CodeDescription != null && d.CodeDescription.Href!.Contains("unused-import", StringComparison.Ordinal),
+            "this server documents each rule, and the link is the other half of what a code is for");
         published.Diagnostics.Should().OnlyContain(
             d => d.Range.Start.Line >= 0 && d.Range.End.Line >= d.Range.Start.Line,
             "ranges must be well-formed, or the editor cannot place a marker");

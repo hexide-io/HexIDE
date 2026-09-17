@@ -33,6 +33,11 @@ public class DiagnosticOwnershipTests
     private static Diagnostic Say(string message) =>
         new(new LspRange(new Position(0, 0), new Position(0, 1)), message, DiagnosticSeverity.Error);
 
+    /// <summary>One diagnostic that names its rule, as a real server's does.</summary>
+    private static Diagnostic Say(string message, string source, string codeJson) =>
+        new(new LspRange(new Position(0, 0), new Position(0, 1)), message, DiagnosticSeverity.Error, source,
+            JsonDocument.Parse(codeJson).RootElement.Clone());
+
     [Fact]
     public async Task ABuildsEmptyClearDoesNotTakeTheServersDiagnosticsWithIt()
     {
@@ -51,6 +56,30 @@ public class DiagnosticOwnershipTests
 
         seen.GetAll().Should().ContainSingle()
             .Which.Message.Should().Be("Syntax error: unexpected 'End Sub'");
+    }
+
+    [Fact]
+    public async Task AnAddinSeesTheRuleThatFiredAndWhichServerSaidIt()
+    {
+        // The two fields an add-in cannot reconstruct for itself. `source` matters BECAUSE the ledger
+        // merges every server into one set: a consumer handed the union has no other way to tell which
+        // server is talking, and "which rule" is the handle for suppressing or looking one up at all
+        // (hexide-io/HexIDE#426).
+        var a = FakeServer();
+        var b = FakeServer();
+        var sut = Registry(Registration("a", a), Registration("b", b));
+        await sut.OpenDocumentAsync(Form1, "code", TestContext.Current.CancellationToken);
+
+        using var seen = new AddinDiagnosticsService(sut);
+
+        a.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(
+            a, new PublishDiagnosticsParams(Form1, [Say("'os' imported but unused", "Ruff", "\"F401\"")]));
+        b.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(
+            b, new PublishDiagnosticsParams(Form1, [Say("Type mismatch", "vbc", "1042")]));
+
+        seen.GetAll().Should().Contain(d => d.Code == "F401" && d.Source == "Ruff");
+        seen.GetAll().Should().Contain(d => d.Code == "1042" && d.Source == "vbc",
+            "a numeric code is as usable as a named one, rendered as the digits it arrived as");
     }
 
     [Fact]

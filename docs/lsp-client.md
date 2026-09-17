@@ -208,6 +208,22 @@ build's errors. That is driven by what the source published rather than by a lis
 assembles, because the two disagree exactly when it matters — a form renamed since the last build is absent
 from the caller's list and still carries the marks.
 
+### What a diagnostic carries
+
+`range`, `message`, `severity`, `source`, `code` and `codeDescription.href`. `code` is the rule that fired
+— ruff's `F401`, rumdl's `MD012` — and is `integer | string` in the specification, so it is held as a raw
+JSON element and read through `CodeText`, which renders a number as the digits it arrived as. A server
+using numeric codes is as usable as one using names, and neither can throw on the way in.
+
+It reaches every consumer that shows a diagnostic's text: the automation server's `get_diagnostics`, the
+add-in API and the AI-chat tool. It reaches nothing a human sees, because **the editor has nowhere to show
+a diagnostic's message at all** — there is no tooltip on a squiggle and no error list
+([#451](https://github.com/hexide-io/HexIDE/issues/451)). A code is most of what an error list would be
+for, so the two belong together.
+
+Still dropped: `tags`, `relatedInformation` and `data`. `tags` would change how a diagnostic is drawn
+rather than add text to it, which is a rendering decision rather than a plumbing one.
+
 ### Some servers publish; some only answer
 
 A server may deliver diagnostics by answering `textDocument/diagnostic` rather than by publishing
