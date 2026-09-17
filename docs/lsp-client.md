@@ -221,8 +221,11 @@ a diagnostic's message at all** — there is no tooltip on a squiggle and no err
 ([#451](https://github.com/hexide-io/HexIDE/issues/451)). A code is most of what an error list would be
 for, so the two belong together.
 
-Still dropped: `tags`, `relatedInformation` and `data`. `tags` would change how a diagnostic is drawn
-rather than add text to it, which is a rendering decision rather than a plumbing one.
+Still dropped: `tags`, `relatedInformation` and `data`, each for a different reason and tracked as
+[#453](https://github.com/hexide-io/HexIDE/issues/453). `tags` would change how a diagnostic is drawn
+rather than add text to it, which is a rendering decision rather than a plumbing one;
+`relatedInformation` is waiting on somewhere to render it (#451); and `data` is only meaningful if
+code actions from a foreign server are relayed, which is an open question rather than a settled no.
 
 ### Some servers publish; some only answer
 
