@@ -22,8 +22,16 @@ public record AddinFileInfo(string FileName, string FilePath, AddinDocumentKind 
 
 public record AddinProjectInfo(string ProjectName, string ProjectPath, IReadOnlyList<AddinFileInfo> Files);
 
+/// <remarks>
+/// <b><c>Code</c> and <c>Source</c> are trailing and optional deliberately.</b> This type is built by the
+/// IDE and read by add-ins, so adding to the end leaves every existing add-in compiling and running
+/// unchanged, while an add-in that wants the rule that fired — or which of several servers reported it —
+/// can now ask (hexide-io/HexIDE#426).
+/// </remarks>
 public record AddinDiagnostic(
     string FileName,
     int Line, int Column,
     string Message,
-    AddinDiagnosticSeverity Severity);
+    AddinDiagnosticSeverity Severity,
+    string? Code = null,
+    string? Source = null);

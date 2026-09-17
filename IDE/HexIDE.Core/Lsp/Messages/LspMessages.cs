@@ -18,11 +18,50 @@ public enum DiagnosticSeverity
     Hint = 4
 }
 
+/// <summary>
+/// One problem a server reports about a document.
+/// </summary>
+/// <remarks>
+/// <b><c>Code</c> is a <c>JsonElement?</c> because the protocol defines it as <c>integer | string</c></b>,
+/// which is the same reason every server capability here is one: modelling one of the two arms makes a
+/// conformant server throw on the way in, and this type is deserialized straight from a
+/// <c>publishDiagnostics</c> notification where a throw is swallowed. Read it through
+/// <see cref="CodeText"/> rather than by inspecting the element at each use.
+///
+/// <para>
+/// The protocol also defines <c>tags</c>, <c>relatedInformation</c> and <c>data</c>, which are still
+/// dropped. <c>tags</c> would change how a diagnostic is drawn rather than add text to it, and that is a
+/// rendering decision rather than a plumbing one (hexide-io/HexIDE#426).
+/// </para>
+/// </remarks>
 public record Diagnostic(
     [property: JsonPropertyName("range")] Range Range,
     [property: JsonPropertyName("message")] string Message,
     [property: JsonPropertyName("severity")] DiagnosticSeverity? Severity = null,
-    [property: JsonPropertyName("source")] string? Source = null);
+    [property: JsonPropertyName("source")] string? Source = null,
+    [property: JsonPropertyName("code")] System.Text.Json.JsonElement? Code = null,
+    [property: JsonPropertyName("codeDescription")] CodeDescription? CodeDescription = null)
+{
+    /// <summary>
+    /// The code as text — <c>F401</c>, <c>MD012</c>, <c>VBC00001</c> — or null when the server sent none.
+    /// </summary>
+    /// <remarks>
+    /// A number is rendered as the digits it arrived as, so a server using integer codes is as usable as
+    /// one using strings. Anything else a server puts here — an object, an array — reads as no code rather
+    /// than as text nobody can act on.
+    /// </remarks>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string? CodeText => Code switch
+    {
+        { ValueKind: System.Text.Json.JsonValueKind.String } text => text.GetString(),
+        { ValueKind: System.Text.Json.JsonValueKind.Number } number => number.ToString(),
+        _ => null,
+    };
+}
+
+/// <summary>Where a diagnostic's code is documented.</summary>
+public record CodeDescription(
+    [property: JsonPropertyName("href")] string? Href = null);
 
 public record TextDocumentItem(
     [property: JsonPropertyName("uri")] string Uri,

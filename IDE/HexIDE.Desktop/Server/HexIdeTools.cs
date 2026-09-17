@@ -51,7 +51,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_diagnostics")]
-    [Description("Returns current LSP errors and warnings from the VB6 language server.")]
+    [Description("Returns current diagnostics, from every attached language server and from the VB6 "
+               + "compiler, merged. Each carries 'source' (which of them reported it) and, where the "
+               + "server sent one, 'code' (the rule that fired) and 'href' (where that rule is documented).")]
     public DiagnosticsResult GetDiagnostics()
     {
         var items = ctx.Diagnostics.GetAll()
@@ -60,7 +62,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 d.Message,
                 d.Severity?.ToString() ?? "Unknown",
                 d.Range.Start.Line + 1,
-                d.Range.Start.Character + 1)))
+                d.Range.Start.Character + 1,
+                d.CodeText,
+                d.Source,
+                d.CodeDescription?.Href)))
             .ToArray();
         return new DiagnosticsResult(items);
     }
@@ -1949,12 +1954,20 @@ internal record OpenEditorsResult(
 
 internal record DiagnosticsResult(DiagnosticItem[] Diagnostics);
 
+/// <remarks>
+/// <c>Source</c> names the server that reported it, and matters because <c>DiagnosticLedger</c> merges
+/// every source into one set: without it a caller cannot tell which of two servers watching a document
+/// said this. <c>Code</c> is the rule that fired, and <c>Href</c> where that rule is documented.
+/// </remarks>
 internal record DiagnosticItem(
     string Uri,
     string Message,
     string Severity,
     int Line,
-    int Column);
+    int Column,
+    string? Code = null,
+    string? Source = null,
+    string? Href = null);
 
 /// <param name="Note">
 /// Something the caller should know about a write that DID happen — not an error. A silent adjustment is
