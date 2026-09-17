@@ -19,10 +19,11 @@ most people will type today.
 | `--help` | — | Prints usage and exits without starting the IDE. Also `-h`, `/?` and `-?`. |
 | `--newproject` | — | Creates a Standard EXE and skips the startup dialog. |
 | `--capture-lsp` | — | Arms the [protocol capture](lsp-client.md#reading-the-conversation) for every language-server connection before the first one is made. |
+| `--user-data-dir` | a directory | Keeps this session's settings and other per-user files there instead of the usual place. See below. |
 | `--personality` | `vb6`, `vbaode`, `vba` | Selects the IDE personality for the session. |
 | `--server-port` | a port number | Starts the automation server on that port. **Debug builds only** — see below. |
 | `--developer-mode` | — | Turns on session developer mode. **Debug builds only** — see below. |
-| *(positional)* | a path ending `.vbp` | Opens that project instead of showing the startup dialog. |
+| *(positional)* | a path ending `.vbp` | Opens that project instead of showing the startup dialog. Relative to where you ran HexIDE from. |
 
 ## The two that behave differently in a distributed build
 
@@ -38,6 +39,27 @@ the feature out of reach of its audience.
 
 ## Details worth knowing
 
+**`--user-data-dir` keeps a session away from your real settings.** Everything HexIDE stores per user
+lives in one directory — `settings.json`, the window layout, recent projects, [`lsp-servers.json`](language-servers.md),
+add-in consent and revocations, your own translations. Point this flag at another directory and all of it is
+read from and written to there instead, for that session only. Use it to set up a demo, an automation run or
+an experiment without touching the configuration you work in:
+
+```sh
+HexIDE.Desktop --user-data-dir ./demo-profile
+```
+
+- **The directory is created on first use**, so a new one starts from HexIDE's defaults exactly as a first
+  install would. That is also what a typo gets you: an empty profile, not an error.
+- **A relative path is relative to where you ran HexIDE from**, as it is for any other program.
+- **Logs are not per-user files** and stay in their usual place.
+- **Add-ins still load.** They live beside the executable, not in this directory; only the record of which
+  ones you allowed moves, so a fresh profile asks about each third-party add-in again.
+- **Unlike every other flag, this one refuses to start when it is malformed.** Given with nothing after it —
+  or with another flag where the directory should be — HexIDE prints why and exits with status 2. Every other
+  argument is skipped when HexIDE cannot use it, but starting normally here would put the session on exactly
+  the settings you asked it to stay away from.
+
 **`--newproject` wins.** If you pass both `--newproject` and a project path, the new project is created and
 the path is ignored.
 
@@ -45,6 +67,10 @@ the path is ignored.
 works; `--server-port=5123` does not.
 
 **`--personality` takes one of three names**, matched case-insensitively: `vb6`, `vbaode`, `vba`.
+
+**Paths are relative to where you ran HexIDE from.** HexIDE moves its working directory to its own folder as
+it starts, and used to resolve the project path *after* that move — so `HexIDE.Desktop ../demo/x.vbp` looked
+beside the executable, found nothing, and opened nothing without saying so.
 
 **The positional path must end in `.vbp`.** A `.vbg` project group cannot currently be opened from the
 command line even though the IDE opens groups perfectly well from **File → Open Project** — the argument

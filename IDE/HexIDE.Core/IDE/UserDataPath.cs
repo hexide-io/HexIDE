@@ -35,18 +35,38 @@ namespace HexIDE.IDE;
 /// </summary>
 public static class UserDataPath
 {
+    private static readonly UserDataRoot Process = new(() => Path.Combine(Base(), "HexIDE"));
+
     /// <summary>
     /// The directory holding HexIDE's per-user files, created if absent.
     ///
     /// <para>
     /// Windows keeps <c>%AppData%\HexIDE</c>, which already worked. Unix follows the XDG convention the
-    /// framework skips: <c>$XDG_CONFIG_HOME/HexIDE</c> when set, else <c>$HOME/.config/HexIDE</c>.
+    /// framework skips: <c>$XDG_CONFIG_HOME/HexIDE</c> when set, else <c>$HOME/.config/HexIDE</c>. Both
+    /// give way to a directory named with <c>--user-data-dir</c>; see <see cref="RedirectTo"/>.
     /// </para>
     /// </summary>
-    public static string Directory => Path.Combine(Base(), "HexIDE");
+    public static string Directory => Process.Directory;
 
     /// <summary>A named file inside <see cref="Directory"/>.</summary>
     public static string For(string fileName) => Path.Combine(Directory, fileName);
+
+    /// <summary>True when this session's files live in a directory named on the command line.</summary>
+    public static bool IsRedirected => Process.IsRedirected;
+
+    /// <summary>
+    /// Puts every per-user file for the rest of this process in <paramref name="directory"/>, which must be
+    /// absolute. Called once, from startup, before anything has asked where the files are.
+    /// </summary>
+    /// <remarks>
+    /// <b>Refused once the directory has been read</b>, and that is the point of the method rather than a
+    /// restriction on it. Every file here is found by asking this class, so a redirect that landed after the
+    /// first read would split one session's state across two directories: settings loaded from one, written
+    /// to the other, consent granted in a place nobody looks. Each of those fails in silence — the failure
+    /// hexide-io/HexIDE#280 was — so the only safe answer to a late redirect is an exception at the line
+    /// that made it.
+    /// </remarks>
+    public static void RedirectTo(string directory) => Process.RedirectTo(directory);
 
     /// <summary>
     /// The platform's per-user configuration root.

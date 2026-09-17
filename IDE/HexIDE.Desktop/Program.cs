@@ -14,8 +14,12 @@ sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // Read before FixCurrentWorkingDictionary moves it. A relative path on the command line means
+        // relative to the shell it was typed in; resolved after the move, ../demo/x.vbp pointed inside
+        // bin/ and the IDE opened nothing, without a word.
+        var invocationDirectory = Environment.CurrentDirectory;
         FixCurrentWorkingDictionary();
-        ServerOptions.ParseArgs(args);
+        ServerOptions.ParseArgs(args, invocationDirectory);
 
         // Before anything Avalonia touches: --help answers and leaves, so asking what the flags are never
         // starts an IDE, loads a project or opens a port.
@@ -24,6 +28,19 @@ sealed class Program
             ConsoleOutput.Write(ServerOptions.HelpText);
             return;
         }
+
+        if (ServerOptions.UserDataDirectoryMissing)
+        {
+            ConsoleOutput.Write(
+                "--user-data-dir needs a directory after it. HexIDE has not started, rather than start on "
+              + "the settings you asked it to keep away from." + Environment.NewLine);
+            Environment.ExitCode = 2;
+            return;
+        }
+
+        // Before anything else starts: UserDataPath refuses a redirect once any per-user file has been looked up.
+        if (ServerOptions.UserDataDirectory is { } userData)
+            HexIDE.IDE.UserDataPath.RedirectTo(userData);
 
         DesktopStartup.Register();
         BuildAvaloniaApp()

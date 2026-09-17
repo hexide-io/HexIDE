@@ -12,6 +12,9 @@ $XDG_CONFIG_HOME/HexIDE/lsp-servers.json   Linux and macOS, when XDG_CONFIG_HOME
 ~/.config/HexIDE/lsp-servers.json          Linux and macOS otherwise
 ```
 
+When HexIDE is started with [`--user-data-dir`](command-line.md), the file is read from that directory
+instead, which is the way to try a server without changing the configuration you work in.
+
 > Earlier revisions of this page warned that the Unix location was unreliable, because HexIDE resolved it
 > through a folder API that returns an empty string when `XDG_CONFIG_HOME` is unset — which it is on most
 > distributions. The file then landed relative to wherever the IDE was started from.
