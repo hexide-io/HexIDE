@@ -17,7 +17,7 @@ which needs no server at all. What RDCore supplies:
 | On screen | Protocol |
 |---|---|
 | The fold markers in the gutter | `textDocument/foldingRange` — six regions: `Enum`, `Type`, `Sub`, `Function`, `Property Get`, `Function` |
-| The red squiggle on line 47 | `textDocument/diagnostic` — one `VBC00001` syntax error |
+| The red squiggle on line 48 | `textDocument/diagnostic` — one `VBC00001` syntax error |
 
 To see it for yourself rather than take the screenshot's word for it, launch with `--capture-lsp` and open
 **Tools → Protocol Inspector**: both requests and their answers are there.

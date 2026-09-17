@@ -1,3 +1,4 @@
+Attribute VB_Name = "TideTable"
 Option Explicit
 
 ' A tide table: heights sampled through one day, and the swing between them.
