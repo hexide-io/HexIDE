@@ -61,6 +61,27 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public event Action<IReadOnlyList<LspMarker>>? MarkersChanged;
 
     /// <summary>
+    /// A language server for this document came up, or went away. Raised on the UI thread.
+    /// </summary>
+    /// <remarks>
+    /// <b>Exists for folding, which has no other signal.</b> The view asks for folding ranges when it
+    /// attaches, and on the first document of a session that is before any server has answered
+    /// <c>initialize</c> — the registry then has no started claimant advertising the capability, answers
+    /// with an empty set, and nothing asks again until the text changes. So a module opened and read
+    /// without being typed into never folded at all (hexide-io/HexIDE#446).
+    ///
+    /// <para>
+    /// Deliberately the server's state rather than a published diagnostic, which is what the carried-file
+    /// editor keys on. A server may advertise <c>foldingRangeProvider</c> and publish nothing — it is
+    /// entitled to — and on that server a publish would never arrive to hang the retry on.
+    /// </para>
+    /// </remarks>
+    public event Action? LanguageServerStateChanged;
+
+    /// <summary>Held so the subscription can be dropped, and so it is only ever taken once.</summary>
+    private EventHandler? languageServerStateHandler;
+
+    /// <summary>
     /// The most recent diagnostics, kept so a view attaching later can catch up.
     ///
     /// <para>
@@ -337,6 +358,19 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         session.DiagnosticsApplied += () => _ = RefreshSymbolsAsync();
 
         session.Start();
+
+        if (languageServerStateHandler is null)
+        {
+            // Posted rather than raised inline: this arrives on whichever thread the connection is
+            // running on, and every subscriber is a view.
+            languageServerStateHandler = (_, _) =>
+                Avalonia.Threading.Dispatcher.UIThread.Post(() => LanguageServerStateChanged?.Invoke());
+            lspClient.StateChanged += languageServerStateHandler;
+            AutoDispose(new ActionDisposable(() =>
+            {
+                if (languageServerStateHandler is { } handler) lspClient.StateChanged -= handler;
+            }));
+        }
     }
 
     /// <summary>

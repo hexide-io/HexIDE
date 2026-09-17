@@ -176,6 +176,7 @@ public partial class CodeEditorView : UserControl
             _colorizer = new LspDiagnosticsColorizer(TextEditor.TextArea.TextView);
             TextEditor.TextArea.TextView.LineTransformers.Add(_colorizer);
             vm.MarkersChanged += OnMarkersChanged;
+            vm.LanguageServerStateChanged += OnLanguageServerStateChanged;
 
             // Caught up rather than waiting for the next publication. A dock move detaches this view and
             // re-materialises it around fresh renderers holding nothing, and neither the language server
@@ -303,6 +304,7 @@ public partial class CodeEditorView : UserControl
         {
             vm.FocusWindowRequest -= VmOnFocusWindowRequest;
             vm.MarkersChanged -= OnMarkersChanged;
+            vm.LanguageServerStateChanged -= OnLanguageServerStateChanged;
             if (_vmSelectionSync is not null)
             {
                 vm.PropertyChanged -= _vmSelectionSync;
@@ -410,12 +412,30 @@ public partial class CodeEditorView : UserControl
     private void OnTextChangedForFolding(object? sender, EventArgs e)
     {
         if (DataContext is not CodeEditorViewModel vm) return;
+        ScheduleFolding(vm);
+    }
 
+    /// <summary>
+    /// Asks again now that a server has come up.
+    /// </summary>
+    /// <remarks>
+    /// The request made when this view attached ran before any server had answered <c>initialize</c>, so
+    /// the registry had no claimant to ask and returned nothing — and a document nobody types into never
+    /// got a second chance (hexide-io/HexIDE#446). Every later transition re-asks too, which is what a
+    /// reconnect or a server replaced in configuration needs, and costs one request that the scheduler
+    /// below already coalesces.
+    /// </remarks>
+    private void OnLanguageServerStateChanged()
+    {
+        if (DataContext is CodeEditorViewModel vm) ScheduleFolding(vm);
+    }
+
+    private void ScheduleFolding(CodeEditorViewModel vm)
+    {
         _foldCts?.Cancel();
         _foldCts?.Dispose();
         _foldCts = new CancellationTokenSource();
-        var token = _foldCts.Token;
-        _ = FoldAfterDelayAsync(vm, token);
+        _ = FoldAfterDelayAsync(vm, _foldCts.Token);
     }
 
     private async Task FoldAfterDelayAsync(CodeEditorViewModel vm, CancellationToken token)
