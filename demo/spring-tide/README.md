@@ -30,44 +30,31 @@ Before it, answering `textDocument/diagnostic` killed the server's entire output
 silenced everything after it. From an RDCore checkout at or after that commit, run its `PlatformPublish.ps1`.
 Measured on Windows, over a named pipe.
 
-**1. Attach the server.** Add this entry to `lsp-servers.json` — [where that file
-lives](../../docs/language-servers.md#where-the-file-lives) — with `command` pointing at your published
-`RDCore.LanguageServer.exe`:
+**1. Make a profile.** HexIDE keeps settings, layout and its language server configuration in a per-user
+directory, and `--user-data-dir` points a session at a different one. So the demo brings its own, and your
+own settings are never touched. Copy it somewhere outside the repository, because HexIDE writes into it:
 
-```json
-{
-  "servers": [
-    {
-      "id": "rdcore-vba",
-      "displayName": "RD-VBA (RDCore)",
-      "extensions": [".bas", ".cls", ".frm"],
-      "languageId": "vba",
-      "transport": "pipe",
-      "pipeName": "HexIDE.RDCore",
-      "pipeRole": "connect",
-      "command": "C:/path/to/publish/RDCore.LanguageServer/RDCore.LanguageServer.exe",
-      "arguments": "--pipe-name {pipe} --workspace {workspaceUri}",
-      "priority": 10
-    },
-    { "id": "hexide.vb6", "enabled": false }
-  ]
-}
+```powershell
+Copy-Item -Recurse demo/spring-tide/profile $HOME/spring-tide-profile
 ```
 
-The second entry switches off HexIDE's bundled VB6 server. Folding would come from RDCore anyway, because
-only the highest-priority server is asked for folds. **Diagnostics would not**: HexIDE merges every server's
-diagnostics into one set, so with both attached you would be looking at two servers' opinions at once.
-Delete that entry afterwards, or VB6 files get no language service whenever RDCore is not configured.
-Changes take effect on restart.
+Then set `command` in the copy's `lsp-servers.json` to your published `RDCore.LanguageServer.exe`.
 
-**2. Open it.**
+The profile's second entry switches off HexIDE's bundled VB6 server, for this profile only. Folding would come
+from RDCore anyway, because only the highest-priority server is asked for folds. **Diagnostics would not**:
+HexIDE merges every server's diagnostics into one set, so with both attached you would be looking at two
+servers' opinions at once.
 
-```sh
-cd IDE && dotnet run --project HexIDE.Desktop/ -- ../demo/spring-tide/SpringTide.vbp
+**2. Open it**, from the repository root:
+
+```powershell
+cd IDE
+dotnet run --project HexIDE.Desktop/ -- --user-data-dir $HOME/spring-tide-profile ../demo/spring-tide/SpringTide.vbp
 ```
 
 Then double-click **TideTable.bas** in the Project Explorer. The server starts on that first open; allow a
-few seconds for its workspace to load.
+few seconds for its workspace to load. Delete the profile directory when you are done; nothing else needs
+undoing.
 
 ## Why it is set up the way it is
 
