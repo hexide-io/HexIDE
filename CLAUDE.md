@@ -354,6 +354,7 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 - `--server-port <port>` — enable the MCP server on the given port (all launch profiles use 5123)
 - `--newproject` — skip the startup dialog and create a default Standard EXE project
 - `--capture-lsp` — arm the protocol capture for every language-server connection **before any is made**, so a conversation is recorded in full from its first handshake. Arming is otherwise session-scoped and the documented rebuild cycle restarts the IDE every iteration, which is what this exists for. **Unlike `--server-port`, this is not DEBUG-only**: the capture ships and the automation server does not
+- `--user-data-dir <path>` — keep this session's settings, layout, recents and `lsp-servers.json` in that directory instead of the user's own. **Use it for any demo or automation run that needs its own configuration**, rather than editing the real one and relying on someone to change it back. Works in Release. A relative path is relative to where HexIDE was started
 - `--developer-mode` — session developer mode; DEBUG-only and inert in a distributed build
 - `--personality <vb6|vbaode|vba>` — the IDE personality for the session
 - Positional `.vbp` path — skip the startup dialog and open that project

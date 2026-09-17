@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using HexIDE.IDE;
 
@@ -36,6 +37,26 @@ internal static class ServerOptions
     public static bool NewProject { get; private set; }
     public static string? ProjectPath { get; private set; }
     public static string? Personality { get; private set; }
+
+    /// <summary><c>--user-data-dir</c>: the directory this session keeps per-user files in, already made
+    /// absolute against the directory HexIDE was started from. Null when the flag was not given.</summary>
+    public static string? UserDataDirectory { get; private set; }
+
+    /// <summary><c>--user-data-dir</c> was given with nothing after it that could be a directory.</summary>
+    /// <remarks>
+    /// <b>The one flag here that refuses to start rather than being skipped.</b> Every other malformed
+    /// argument is ignored and the IDE starts normally, which is harmless when the flag was a convenience.
+    /// This one is asked for precisely to keep a session away from the user's real settings, so ignoring it
+    /// would quietly do the one thing it was given to prevent: a demo or an automation run writing into
+    /// the live configuration.
+    /// </remarks>
+    public static bool UserDataDirectoryMissing { get; private set; }
+
+    /// <summary>
+    /// Where HexIDE was started from, captured before startup moves the working directory to the
+    /// executable's folder, and what every path argument is relative to.
+    /// </summary>
+    private static string _invocationDirectory = Environment.CurrentDirectory;
 
     /// <summary><c>--developer-mode</c>: enable session developer mode (unlocks the Developer options
     /// node + the dev-gated capabilities, and shows the title-bar suffix).</summary>
@@ -97,6 +118,22 @@ internal static class ServerOptions
             "Record every language-server conversation from its first handshake.",
             _ => { CaptureLsp = true; return false; }),
 
+        // A value beginning `--` is another flag, not a directory: `--user-data-dir --newproject` must not
+        // create a profile called --newproject. Only `--`, because `/` begins every absolute Unix path.
+        new("user-data-dir", "<path>",
+            "Keep settings and other per-user files in this directory instead.",
+            value =>
+            {
+                if (string.IsNullOrWhiteSpace(value) || value.StartsWith("--", StringComparison.Ordinal))
+                {
+                    UserDataDirectoryMissing = true;
+                    return false;
+                }
+
+                UserDataDirectory = Path.GetFullPath(value, _invocationDirectory);
+                return true;
+            }),
+
         // <name>, not <vb6|vbaode|vba>: the value column is the longest spelling in the list, so naming
         // the values here made every other row ten cells wider and put the beside layout out of reach of
         // a default console. They live in the summary instead, where they cost one row rather than six.
@@ -117,8 +154,15 @@ internal static class ServerOptions
             _ => { DeveloperMode = true; return false; }),
     ];
 
-    public static void ParseArgs(string[] args)
+    /// <param name="args">The command line.</param>
+    /// <param name="invocationDirectory">
+    /// The working directory HexIDE was started in, read before anything changes it. Relative paths on the
+    /// command line are relative to this, as they are for every other program run from that shell.
+    /// </param>
+    public static void ParseArgs(string[] args, string invocationDirectory)
     {
+        _invocationDirectory = invocationDirectory;
+
         for (var i = 0; i < args.Length; i++)
         {
             var arg = args[i];
@@ -131,7 +175,7 @@ internal static class ServerOptions
             else if (!arg.StartsWith('-') && !arg.StartsWith('/') &&
                      arg.EndsWith(".vbp", StringComparison.OrdinalIgnoreCase))
             {
-                ProjectPath = arg;
+                ProjectPath = Path.GetFullPath(arg, _invocationDirectory);
             }
         }
     }
