@@ -1,0 +1,17 @@
+{
+  "servers": [
+    {
+      "id": "vba-server",
+      "displayName": "VBA language server",
+      "extensions": [".bas", ".cls", ".frm"],
+      "languageId": "vba",
+      "transport": "pipe",
+      "pipeName": "HexIDE.SpringTide",
+      "pipeRole": "connect",
+      "command": "SET THIS to the published language server executable - see the demo README",
+      "arguments": "--pipe-name {pipe} --workspace {workspaceUri}",
+      "priority": 10
+    },
+    { "id": "hexide.vb6", "enabled": false }
+  ]
+}
