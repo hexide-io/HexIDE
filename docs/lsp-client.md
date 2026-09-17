@@ -424,7 +424,7 @@ than inferred.
 | ✅ | `textDocument/documentHighlight` | → |  |
 | ○ | `textDocument/documentLink` | → |  |
 | ✅ | `textDocument/documentSymbol` | → |  |
-| ✅ | `textDocument/foldingRange` | → |  |
+| ✅ | `textDocument/foldingRange` | → | Asked when an editor attaches, 500 ms after a change, and when a server comes up — the first of those runs before the first server of a session has initialized |
 | ✅ | `textDocument/formatting` | → |  |
 | ✅ | `textDocument/hover` | → |  |
 | ○ | `textDocument/implementation` | → |  |
