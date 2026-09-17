@@ -1,0 +1,17 @@
+{
+  "Version": "0.1.0",
+  "Configuration": [],
+  "ProjectInfo": {
+    "Name": "spring-tide",
+    "References": [],
+    "Modules": [
+      {
+        "Super": null,
+        "RelativeUri": "TideTable.bas"
+      }
+    ],
+    "OtherFiles": [],
+    "Folders": [],
+    "PrecompilerConstants": {}
+  }
+}
