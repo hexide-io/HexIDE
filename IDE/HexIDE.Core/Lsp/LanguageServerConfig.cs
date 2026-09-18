@@ -43,6 +43,37 @@ public sealed class LanguageServerConfigFile
 /// write must not be distinguishable from one they wrote the default value into, because layering an
 /// override over a default is the whole mechanism.
 /// </remarks>
+/// <summary>
+/// A server entry's <c>workspaceArtifact</c>: a file HexIDE generates into the workspace before that
+/// server starts.
+/// </summary>
+/// <remarks>
+/// Nullable throughout, like everything else the user writes here, so "not written" stays distinguishable
+/// from "written empty" — the two want different messages, and an empty path is a mistake worth naming
+/// rather than a silent no-op.
+/// </remarks>
+public sealed class WorkspaceArtifactEntry
+{
+    /// <summary>
+    /// Where the file goes, relative to the workspace root.
+    /// </summary>
+    /// <remarks>
+    /// Relative and inside the workspace, both checked. This is the one field here that names a place
+    /// HexIDE will write to on the user's disk, so it is not a field where a helpful interpretation of
+    /// something odd is appropriate.
+    /// </remarks>
+    [JsonPropertyName("path")]
+    public string? Path { get; set; }
+
+    /// <summary>The registered provider that produces the content.</summary>
+    [JsonPropertyName("provider")]
+    public string? Provider { get; set; }
+
+    /// <summary>Anything unrecognised inside this object, so a misspelling here is reportable too.</summary>
+    [JsonExtensionData]
+    public Dictionary<string, JsonElement>? Unrecognized { get; set; }
+}
+
 public sealed class CaptureLimitsEntry
 {
     [JsonPropertyName("envelopeEntries")]
@@ -189,6 +220,22 @@ public sealed class LanguageServerEntry
     /// </remarks>
     [JsonPropertyName("capture")]
     public CaptureLimitsEntry? Capture { get; set; }
+
+    /// <summary>
+    /// A file this server needs to exist, in the workspace, before it starts.
+    /// </summary>
+    /// <remarks>
+    /// A whole class of server reads a project descriptor from the workspace root and can do nothing
+    /// without one — and says nothing about it, so the symptom is a server that starts, initializes, and
+    /// answers every request with nothing.
+    ///
+    /// <para>
+    /// The entry names a <em>provider</em> rather than describing a format, so no descriptor's shape is
+    /// written in configuration and the set of producible formats stays open.
+    /// </para>
+    /// </remarks>
+    [JsonPropertyName("workspaceArtifact")]
+    public WorkspaceArtifactEntry? WorkspaceArtifact { get; set; }
 
     /// <summary>
     /// Anything the IDE did not recognise, captured rather than dropped.

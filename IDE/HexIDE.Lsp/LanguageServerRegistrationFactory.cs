@@ -25,7 +25,8 @@ namespace HexIDE.Lsp;
 public sealed class LanguageServerRegistrationFactory(
     ILoggerFactory loggerFactory,
     ILspWorkspace? workspace = null,
-    ConversationLog? capture = null)
+    ConversationLog? capture = null,
+    IWorkspaceArtifactProviderRegistry? artifactProviders = null)
 {
     /// <summary>
     /// The registrations for these entries, skipping the ones that are switched off.
@@ -66,7 +67,14 @@ public sealed class LanguageServerRegistrationFactory(
                 Priority: entry.Priority ?? 0,
                 Transport: transport.Kind,
                 Endpoint: transport.Endpoint,
-                Trace: trace));
+                Trace: trace,
+                // Null for a declaration that failed its checks, which the loader has already
+                // reported. Re-read here rather than passed along so both readings apply one set
+                // of rules; see WorkspaceArtifactSpecReader.
+                WorkspaceArtifact: WorkspaceArtifactSpecReader.TryRead(
+                    id, entry.WorkspaceArtifact, artifactProviders, out var artifact, out _)
+                        ? artifact
+                        : null));
         }
 
         return registrations;
