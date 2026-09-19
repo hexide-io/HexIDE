@@ -297,19 +297,29 @@ the region, never the whole-document gate.
 | Automation `type_text`, `press_key` | Refused inside a read-only region, and the reply says so. |
 | Reload after an external change; Edit-and-Continue revert | Owner. Replaces the whole buffer. |
 
-**Undo, and why the mechanism is open.** A designer change must not be undoable from the code editor, which
-the form-designer undo spec requires, and it must not stop the code editor undoing an earlier code edit
-either — that spec says the two histories do not interfere. But an undo stack is offset-based. An edit it did
-not record shifts the offsets of every entry before it, and undoing one of those afterwards changes the wrong
-text. So "just do not record it" is unsafe.
+**Undo: read out of the library, not guessed.** A designer change must not be undoable from the code window,
+which the form-designer undo capability requires, and it must not stop the code window undoing an earlier
+code edit either, because that capability also says the two histories do not interfere. The editor library
+was decompiled (2026-09-19, AvaloniaEdit 12.0.0) and these are its actual mechanics:
 
-Two of the three obvious candidates are ruled out by that second constraint rather than by feasibility:
-clearing the code editor's history on a refresh destroys the developer's code undo, and recording the refresh
-and having undo stop at it blocks the same thing. What is left is to rebase the stack past the refresh.
-Whether AvaloniaEdit 12.0.0 allows it depends on internals inferred from the library's lineage and not read:
-a decompiler is needed, and none is installed. If it turns out to be impossible, the fallback is a MODIFIED
-delta to the undo capability saying plainly what a developer loses, not a silent breach of it. The behaviour
-is specified either way; the mechanism is task 3.8.
+- An undo entry is a document change holding an **absolute offset**, and undoing it replays a replace at that
+  offset. A change the stack did not record, above an entry, therefore invalidates it: undoing that entry
+  afterwards edits the wrong text. "Do not record it" is unsafe, measured rather than assumed.
+- Entries are internal, sealed and immutable, and nothing exposes the stack's contents. **They cannot be
+  rebased** from outside the library, which removes the candidate that looked most promising.
+- A change can be recorded inside a group with a caller's marker on it, and the stack reports the marker of
+  the most recent group. Undo pops one group atomically and clears that marker. So "is the top of the stack
+  the header refresh?" is answerable exactly when it matters: when nothing has been recorded since.
+- Pushing any change clears the redo stack.
+
+That settles the mechanism. The refresh is recorded in a marked group, so every offset stays valid. When the
+developer undoes and the top group is that refresh, the code window reverts it, undoes the edit beneath it —
+whose offsets are now valid again, because the document is back in the state that edit left — and re-applies
+the current header. The designer's change is not undone, the developer's edit is, and nothing points at the
+wrong text. **The cost is the redo stack**, which the re-application clears, so a code edit undone across a
+designer change cannot be redone. That is a real and stateable loss, and it is smaller than either
+alternative: clearing the history destroys the undo the developer still wants, and stopping undo at the
+refresh blocks it.
 
 **Marks are refused in a read-only region.** A header line never executes, and the folded header is a single
 visual line, so a click on it would otherwise set a mark on whichever line it happened to map to. A form the
@@ -417,10 +427,17 @@ not the last segment, so two `Module1`s no longer merge.
    declared at initialization, not by a list written here: a pull server answers no publication at all, so a
    test that waited for one would pass vacuously, and at least one server's delivery mode flips depending on
    whether the client accepts dynamic registration — which HexIDE refuses and the seeding probe accepted.
-5. **AvaloniaEdit behaviours** the protection and fold design assume: where read-only sections allow
-   insertion at an edge, whether `IsReadOnly` replaces the provider, how undo treats an unrecorded edit, and
-   the first-update rule for closed folds. All were inferred from the lineage. Reading the binary needs a
-   decompiler.
+5. **AvaloniaEdit behaviours: done, 2026-09-19**, read out of the 12.0.0 assembly rather than inferred:
+   - the stock read-only provider allows insertion **at** a region's first and last offset, and only refuses
+     strictly inside, so typing at the top of the file would go in front of the header. It carves read-only
+     text out of a deletion, which is what would strand a member's attribute lines when its procedure is
+     deleted. Both methods are `virtual`, so one subclass fixes both;
+   - binding the editor's read-only property **replaces the whole provider**, so the composite provider and
+     that binding cannot both be used; the composite owns it and consults the document's own verdict;
+   - a fold's "closed by default" flag is honoured **only on a manager's first update, and only for a fold
+     created in it**, so the folds this change adds set their folded state themselves. `UpdateFoldings`
+     throws unless the whole merged list is sorted by start offset, and silently skips a zero-length fold;
+   - the undo mechanics above.
 
 ## Open questions
 

@@ -22,10 +22,13 @@
   refuses non-`file:` URIs, assert the refusal on the wire or on stderr, not that the call returned. Include a
   non-ASCII name, which one server drops without replying. Re-measure the server whose delivery mode changed
   because the seeding probe accepted dynamic registration.
-- [ ] 0.5 AvaloniaEdit 12.0.0 behaviours the protection and fold design assume: insertion at a read-only
-  section's edge, whether `IsReadOnly` replaces the section provider, how undo treats an edit it did not record,
-  and the first-update rule for folds that start closed. **Blocked: needs a decompiler, and none is installed.**
-  Every one of these is inferred today from the library's lineage, not read from the binary.
+- [x] 0.5 AvaloniaEdit 12.0.0 behaviours, read out of the assembly (2026-09-19): the stock read-only provider
+  allows insertion at a region's edges and carves read-only text out of a deletion, and both methods are
+  `virtual`; binding the editor's read-only property replaces the whole section provider; a fold's
+  closed-by-default flag applies only on the manager's first update to a fold created in it, `UpdateFoldings`
+  throws on an unsorted list and skips a zero-length fold; undo entries hold absolute offsets, are internal and
+  immutable, cannot be rebased, and any push clears the redo stack, while a group can carry a caller's marker
+  that identifies the most recent group. The design records what each one settles.
 
 ## 1. Identity inside the IDE
 
@@ -136,16 +139,19 @@
   HexIDE created carries no attribute block at all, unlike one imported from VB6, which writes five — a
   fidelity gap of its own, recorded rather than fixed here.
 - [ ] 3.6 The interpreter and the pre-run syntax check parse the whole text (after 0.2).
-- [ ] 3.7 Protection: a read-only section provider over the header and member-attribute regions, combined with
-  the whole-document gate, re-evaluated on reload, and refusing insertion at the top of the file. A read-only
+- [ ] 3.7 Protection: one section provider subclassing the stock one over the header and member-attribute
+  regions, overriding both of its virtual methods — refusing insertion at a region's edges, which it allows,
+  and widening a deletion over a member's attribute run so deleting the line it describes takes the run with
+  it. It also carries the whole-document verdict, because binding the editor's read-only property would
+  replace the provider outright, and it is re-evaluated on reload. A read-only
   *region* is the header or a member's attribute run and nothing else: a form held read-only as a whole must
   still take breakpoints and answer Find, so the mark, Find and attribute rules test the region, never the
   whole-document gate.
-- [ ] 3.8 Undo: a designer change is not undoable from the code window, does not remove or block the undo of
-  an earlier code edit, and leaves earlier edits undoing the right text. Clearing the history and stopping
-  undo at the refresh both break the second of those, so the mechanism is a rebase past the refresh, subject
-  to 0.5. If 0.5 finds it impossible, a MODIFIED delta to the undo capability says what is lost, rather than
-  breaching it silently.
+- [ ] 3.8 Undo, by the mechanism 0.5 settled: record the refresh in a marked group so every offset stays
+  valid; when the developer undoes and the stack reports that group as the most recent, revert it, undo the
+  edit beneath, and re-apply the current header. The redo stack is lost at that point, which is stated in the
+  release notes rather than left to be discovered. Test: a code edit, a designer move, then undo — the edit is
+  undone, the move is not, and a second undo still undoes the right text.
 - [ ] 3.9 One guarded write path, with the policy in the design record for each of the twenty programmatic
   writers: formatting reduced to changed lines and clipped; server rename refused if it touches the header;
   Replace, Replace All, completion, Insert File, Enter auto-close, event stubs, add-in `SetContent` and
@@ -158,7 +164,10 @@
 - [ ] 3.12 Marks refused on read-only lines, including a gutter click on a folded header.
 - [ ] 3.13 Edits the IDE makes itself do not raise Edit-and-Continue's reset prompt.
 - [ ] 3.14 Folds: the header fold is merged into every fold application, including an empty or absent server
-  answer. Folded when created or re-created unless expanded in this window. Overlapping server folds dropped.
+  answer, with the merged list sorted by start offset (the manager throws otherwise) and zero-length folds
+  discarded (it skips them silently). It sets its own folded state rather than relying on the library's
+  closed-by-default flag, which applies only on the first update. Folded when created or re-created unless
+  expanded in this window. Overlapping server folds dropped.
 - [ ] 3.15 Greying: a named palette colour for each theme, meeting the dark palette's recorded contrast bar,
   applied after syntax colouring. Theme packs carry the key.
 - [ ] 3.16 Line numbers from the top of the file in the margin, status bar, Call Stack, automation and add-in
