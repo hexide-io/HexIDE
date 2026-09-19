@@ -60,7 +60,7 @@ checks=0
 # The two failure totals differ by exactly two, and that difference IS the point of run D: staging
 # `planted.key` and `planted.pfx` moves them from the warn branch to the fail branch, because git has
 # stopped standing between them and a push.
-EXPECTED_CHECKS=49
+EXPECTED_CHECKS=52
 FAILURES_UNTRACKED=15
 FAILURES_STAGED=17
 
@@ -87,6 +87,10 @@ UPSTREAM="$(printf 'Avalonia%s' VisualBasic)"
 # and losing that one letter is a single-character edit.
 IDENTITY="zzselftest$(printf '%s' persona)"
 IDENTITY_IN_FILE="ZZSELFTEST$(printf '%s' PERSONA)"
+# A pattern that matches nothing, for the armed-and-clean case. Split for the same reason the names above
+# are: written whole, it would sit in this file and the armed scan would find it here, so the run that must
+# come back clean would come back with one hit -- against the selftest itself.
+NO_IDENTITY="zzno$(printf '%s' match)$(printf '%s' here)"
 
 # A private copy of the index, so staging a probe cannot touch the repository's own. Nothing here ever
 # runs `git add` against the real index, which means an interrupted run leaves no staged files behind.
@@ -232,6 +236,18 @@ fi
 # nothing is worse than no check, because it still reads green; this is that note, asserted.
 seen "an unarmed identity scan says so rather than passing silently" "identity scan SKIPPED"
 seen "a clean tree says so in as many words" "check-tree-hygiene: OK"
+
+# The same argument one level down. Armed and finding nothing, the scan used to print nothing, which is the
+# same empty space it would leave if it had been deleted -- and the SKIPPED line above cannot help, because
+# its absence is what the reader would have to notice. So the clean pass is stated too, and asserted here
+# with a pattern that matches nothing here.
+run_guard "$NO_IDENTITY" ''
+seen "an armed identity scan that finds nothing says so too" "identity scan clean"
+absent "...and does not also claim it was skipped" "identity scan SKIPPED"
+exited "...and the tree still passes" 0
+
+# Back to the unarmed run, because the assertions below read the output of the run above them.
+run_guard '' ''
 
 echo
 echo "B. only material that should WARN"
