@@ -59,8 +59,14 @@ silently — the current-statement bar simply never appears.
 
 ### Requirement: A document's name SHALL be unique within its project, and a new project's among those loaded
 The IDE SHALL NOT give a new form, module or class a name already used by another form, module or class of the
-same project, compared without regard to case, and SHALL refuse a rename that would. A new project SHALL NOT
-be given the name of a project already loaded.
+same project, compared without regard to case, and SHALL refuse a rename that would. It SHALL refuse the same
+collision when a document is adopted from an existing file. A new project SHALL NOT be given the name of a
+project already loaded, and a project SHALL NOT be renamed to one.
+
+Every one of these names SHALL be a valid VB6 name: a letter first, then letters, digits and underscores. A
+name is part of the only identifier a document with no file can be given, and a name holding a slash, a hash,
+a question mark or a space would change what that identifier means rather than merely look odd. Escaping is
+the backstop; refusing the name at the point it is chosen is the protection.
 
 These are VB6's own rules, measured against the compiler rather than assumed: a project whose form and
 standard module share a name does not build, and a group whose two projects share a name is refused at load
@@ -78,3 +84,11 @@ documents sharing one are a single document as far as a server can tell.
 - **GIVEN** `Project1` and `Project2` loaded, and `Project1` then closed
 - **WHEN** a new project is started
 - **THEN** it is not named `Project2`
+
+#### Scenario: Renaming a project to another loaded project's name
+- **WHEN** a project is renamed to the name of another loaded project
+- **THEN** the rename is refused and the reason names the other project
+
+#### Scenario: A name that is not a VB6 name
+- **WHEN** a form is renamed to `My Form/2`
+- **THEN** the rename is refused

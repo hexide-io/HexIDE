@@ -1,12 +1,12 @@
 ## REMOVED Requirements
 
 ### Requirement: A bookmark SHALL be settable on any line and visible in the margin
-**Reason**: The code window now holds each file's header and member attribute lines, read-only. "Any line" would
-include lines the developer cannot edit and, folded, cannot see; a mark there lands on a line other than the
+**Reason**: The code window now holds each file's header and member attribute lines, read-only. "Any line"
+would include lines the developer cannot edit and, folded, cannot see; a mark there lands on a line other than the
 one clicked. The requirement is restated below, limited to editable lines, with its other content unchanged.
-**Migration**: None for developers. Bookmarks set before this change were counted from the first line after the
-header, and the sidecar migration moves each one down by that document's header length, so every bookmark
-stays on the line it was set on and none lands in the header.
+**Migration**: None for developers. Bookmarks set before this change were counted from the first line the code
+window showed, and the sidecar migration moves each one down by however many lines are now shown above that
+line, so every bookmark stays on the line it was set on and none lands in the header.
 
 ## ADDED Requirements
 

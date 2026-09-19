@@ -40,10 +40,11 @@ the same thing — so telling each what it asked for dissolves the disagreement 
 An extension no entry claims SHALL route nowhere, and the document SHALL open with language features absent.
 That is a normal outcome and SHALL NOT be reported as an error.
 
-Every document the IDE offers SHALL carry an extension, including a form or module that has no file yet, so
-no URI scheme SHALL take precedence over the extension and a language identifier SHALL NOT act as a claim.
-The identifier a server declares names what it is told a document is; which documents reach it is decided by
-the extensions it claims.
+Every form, module and class the IDE offers SHALL carry an extension, including one that has no file yet, so
+no URI scheme SHALL take precedence over the extension. A language identifier SHALL NOT act as a claim on its
+own: the identifier a server declares names what it is told a document is, and which documents can reach it
+is decided by the extensions it claims. Declaring `vb6` narrows an existing claim rather than creating one,
+in the way the next requirement describes.
 
 #### Scenario: Two servers claim one extension under different identifiers
 - **WHEN** a document of that extension is opened
@@ -54,8 +55,8 @@ the extensions it claims.
 - **THEN** it opens with language features absent and no error is reported
 
 #### Scenario: A module with no file yet
-- **WHEN** a module that has never been written to disk is opened
-- **THEN** it is routed by the extension its kind will be saved with, exactly as a saved module is
+- **WHEN** a module that has no file behind it is opened
+- **THEN** it is routed by the extension its kind will be saved with, exactly as one with a file is
 
 #### Scenario: An entry that names the language but claims none of its extensions
 - **WHEN** an entry declares the identifier `vb6` and claims no VB6 extension
@@ -82,8 +83,8 @@ directory, and SHALL still be told the project's directory as its workspace root
 questions — *where the process runs* and *which tree it analyses* — and they only coincide by accident. A
 project that has not been saved yet has a directory that is real as an answer to the second and not yet real
 as an answer to the first: it is where the project's files will be written the moment the user adds a
-module, and it is the parent of every document the server will be told is on disk. A form or module with no
-file yet is outside it, because it is not anywhere yet. Starting a process there instead fails outright,
+module. A form or module with no file yet is outside it, and so is a document adopted from somewhere else.
+Starting a process there instead fails outright,
 which costs the whole connection and every language feature with it.
 
 The IDE SHALL NOT create the directory in order to launch there. Nothing reaps these directories, so one
@@ -168,7 +169,8 @@ current path: a build repoints every path into a temporary folder and back, and 
 
 ### Requirement: A document SHALL be offered to every server that claims its language
 The IDE SHALL route a document by its language identity, derived from the document's extension, and SHALL
-offer it to **every** registered server claiming that language rather than selecting one. Where more than one
+offer it to **every** registered server claiming that language, subject to the ambiguity rule below, rather
+than selecting one. Where more than one
 server answers, the IDE SHALL combine their results: diagnostics from all sources SHALL be shown together,
 and list-shaped results SHALL be concatenated.
 
@@ -177,14 +179,17 @@ language server and a separate linter or checker on the same file — is ordinar
 the arrangement the wider ecosystem is built around. The asymmetry decides it: a combining router can be
 configured down to one server, while a router that picks one cannot be widened without changing every caller.
 
-Language identity SHALL come from the document's extension rather than from its role in the project. A
-project member's kind is a project-file concept, and the documents most likely to need a second server —
-files carried alongside the project rather than compiled by it — have no such kind.
+Language identity SHALL come from the document's extension rather than from its role in the project, with
+one exception, below, that only ever narrows the set of servers a document reaches. A project member's kind
+is a project-file concept, and the documents most likely to need a second server — files carried alongside
+the project rather than compiled by it — have no such kind.
 
 **An extension another language also uses SHALL NOT be enough, on its own, to receive a project's forms,
 modules and classes.** A project member is VB6 whatever its extension shares, so where its extension is
-ambiguous it SHALL be offered only to servers whose claim establishes VB6: one that claims an extension no
-other language uses for source, or that declares the identifier `vb6`. A file the project carries is not
+ambiguous it SHALL be offered only to servers whose claim establishes VB6: one that claims a **VB6** extension
+no other language uses — every VB6 source extension but `.cls` — or that declares the identifier `vb6`.
+Stated as "an extension no other language uses", the rule would be met by any server claiming any extension
+of its own, which is the opposite of its purpose. A file the project carries is not
 known to be VB6, and SHALL be routed by its extension alone. The alternative costs a started process and the
 developer's source sent to a server with nothing to say about it, for every class module in the project.
 
@@ -197,7 +202,7 @@ developer's source sent to a server with nothing to say about it, for every clas
 - **THEN** the document opens normally with language features absent, and nothing is reported as an error
 
 #### Scenario: A class module and a server claiming only the shared extension
-- **GIVEN** a server entry whose only VB6-looking claim is `.cls`
+- **GIVEN** a server entry whose only VB6-looking claim is `.cls`, and which does not declare `vb6`
 - **WHEN** a class module of the project is opened
 - **THEN** that server does not receive it, and the VB6 server does
 
@@ -208,7 +213,7 @@ developer's source sent to a server with nothing to say about it, for every clas
 
 ## ADDED Requirements
 
-### Requirement: A document whose name changes SHALL be closed and reopened
+### Requirement: A document whose wire name changes SHALL be closed and reopened
 Where a document's wire name changes while it is open, each server that has it open SHALL be told it closed
 under the old name and then that it opened under the new one, with its current text, in that order on each
 connection. The name changes when a document is written to a file for the first time, when it is saved to a
@@ -219,8 +224,13 @@ This is the shape the protocol itself prescribes for a rename, and for the reaso
 name can change, including which servers claim the document. Sending both without ordering them lets a
 server see two open documents for one file, or close the one it has just been given.
 
-Nothing a developer set on the document SHALL move: its breakpoints, bookmarks and diagnostics belong to the
-document, not to the name it is known by on the wire.
+Nothing a developer set on the document SHALL move: its breakpoints and bookmarks belong to the document,
+not to the name it is known by on the wire.
+
+Diagnostics SHALL follow the name. Those published or injected under the old name SHALL be withdrawn as the
+document is closed under it, whether or not the server that published them withdraws them itself, and the
+document SHALL show those that arrive under the new one. A server is entitled to say nothing on close, and a
+marker left under a name nothing answers to any more cannot be cleared by anything afterwards.
 
 #### Scenario: Saving a form for the first time
 - **GIVEN** a form with no file, open in the editor as `untitled:Project1/Form1.frm`
@@ -236,3 +246,8 @@ document, not to the name it is known by on the wire.
 #### Scenario: Renaming a module that has no file
 - **WHEN** a module with no file is renamed
 - **THEN** each server that had it open is told it closed under the old name and opened under the new one
+
+#### Scenario: Diagnostics on a document that gains a file
+- **GIVEN** a document showing diagnostics from a server and from a build
+- **WHEN** it is saved for the first time
+- **THEN** no diagnostic remains recorded under the name it had before

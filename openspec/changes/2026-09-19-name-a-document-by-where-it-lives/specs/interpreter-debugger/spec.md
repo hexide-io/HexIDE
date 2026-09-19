@@ -21,9 +21,10 @@ A developer sets and clears breakpoints on a code line without leaving the keybo
 ## ADDED Requirements
 
 ### Requirement: The debugger's line numbers SHALL be the code window's
-The interpreter SHALL be given each document's whole text as the code window holds it, header included, so
-that the line a statement starts on in the interpreter is the line it is shown on in the code window, with no
-conversion anywhere between them.
+Each document a run loads SHALL be given to the interpreter as its whole text, as the code window holds it,
+header included, so that the line a statement starts on in the interpreter is the line it is shown on in the
+code window, with no conversion anywhere between them. Which documents a run loads is a separate question,
+governed by its own requirement and unchanged here.
 
 Breakpoints, the current-statement bar, Run To Cursor, Set Next Statement and the Call Stack all exchange line
 numbers with the interpreter. Giving it only the code after the header would mean correcting by the header's

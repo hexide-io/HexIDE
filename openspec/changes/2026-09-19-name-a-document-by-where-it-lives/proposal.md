@@ -1,7 +1,8 @@
 # Name a document by where it lives, and show the whole file
 
-Tracks hexide-io/HexIDE#273. Also closes the identity half of #269, and settles for project members the
-direction of #279 that runs from a VB6 class towards another language's server.
+Tracks hexide-io/HexIDE#273. Also closes the identity half of #269. #279 is about a carried `.cls` reaching
+the VB6 server; this change settles the mirror of it, a VB6 class reaching a server that claims `.cls` for
+another language, and leaves #279's own direction where it is.
 
 ## Why
 
@@ -19,9 +20,9 @@ back as the test that #273 is fixed.
 
 Fixing the name exposes a second problem. **The editor does not hold the file.** A `.bas` or `.cls` has its
 header split off. A form has its whole designer block held elsewhere. So a server reading the file counts
-lines differently from the text the editor sent it, every position it reports into an unopened module is off
-by the header's length, and the same is true of VB6's own compiler. The obvious fix is a line-offset layer at
-the seam. That has to be kept right for every message in both directions, forever.
+lines differently from the text the editor sent it, and every position it reports into an unopened module is
+off by the header's length. The obvious fix is a line-offset layer at the seam. That has to be kept right for
+every message in both directions, forever.
 
 The decision here goes the other way: **the editor holds the whole file**, with the header folded, greyed out
 and read-only. Buffer text is then file text, a position means the same thing everywhere, and there is
@@ -55,8 +56,8 @@ nothing to map.
 - **Lines are file lines everywhere**: the line-number margin, the status bar, breakpoints, bookmarks, the
   debugger and Call Stack, the automation surface and the add-in surface. The interpreter is given the whole
   file, so its line numbers are the editor's with no conversion.
-- **A one-time sidecar migration** re-keys existing breakpoints and bookmarks and moves them down by each
-  document's header length, so they stay on the same statements.
+- **A one-time sidecar migration** re-keys existing breakpoints and bookmarks and moves them down by however
+  many lines now sit above the old first line, so they stay on the same statements.
 
 ## What this change does not do
 
@@ -95,8 +96,8 @@ wire name. So the internal identity is the document itself, qualified by the pro
 persisted by the document's name *within* its project's sidecar, which is one file per project already.
 
 **Project members are gated on ambiguous extensions.** Pure extension routing would offer every VB6 class
-module to any server claiming `.cls`. The test suite uses a LaTeX server for that case because it is the
-cheapest foreign claimant on an ambiguous extension, not because such a server is a likely attachment. The
+module to any server claiming `.cls`. The test suite drives a LaTeX server for that case because it exercises
+the ambiguous extension, not because anyone expects such a server to be attached. The
 measured cost is a process started and the developer's source sent to a server with nothing to say about it.
 The existing guard (an unambiguous VB6 extension, or the identifier `vb6`) is kept and now keyed on the
 document being a project member rather than on its URI scheme. Considered and not taken: a first-line
@@ -127,8 +128,8 @@ answer for the opposite direction (#279, a carried LaTeX `.cls` reaching the VB6
 
 **Superseded records.** The lsp-client requirement "A document on disk SHALL be identified by a URI carrying
 its extension" is rewritten. So is the rule that a language-naming scheme takes precedence over the
-extension. Three archived changes deferred this decision to #273: telling a server the document was saved,
-opening every document to its servers, and attaching a server without rebuilding. The archived decision to
+extension. The archived change that told a server about saves deferred this decision to #273 explicitly; two
+others recorded the constraint they were working around. The archived decision to
 start a server for an unsaved project rejected leaving documents outside every root as "a far larger behaviour
 change". This change does that for documents with no file, and does it knowingly: such a document has no
 location to be inside a root.
