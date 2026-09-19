@@ -54,6 +54,11 @@ public class WholeFileGrammarTests
 
         var demo = FindUpwards("demo");
         if (demo is not null) yield return demo;
+
+        // The only .ctl and .pag this repository owns. Everything else with those extensions lives in a
+        // VB6 install, which CI does not have — see corpus/designer/README.md.
+        var designer = FindUpwards(Path.Join("corpus", "designer"));
+        if (designer is not null) yield return designer;
     }
 
     private static string? FindUpwards(string folderName)
@@ -71,11 +76,12 @@ public class WholeFileGrammarTests
     private static readonly string[] Extensions = [".frm", ".cls", ".bas", ".ctl", ".pag"];
 
     /// <summary>
-    /// Bodies that already fail, and why. Only the repository's own demos are held to this: the VB6
+    /// Bodies that already fail, and why. Only the corpus this repository owns is held to this: the VB6
     /// template tree is on some machines and not others, so a list naming its files would pass or fail by
-    /// accident of who ran it. The demos are everywhere, CI included, which is what makes them assertable.
+    /// accident of who ran it. What is in the tree is everywhere, CI included, which is what makes it
+    /// assertable.
     /// </summary>
-    private static readonly Dictionary<string, string> KnownDemoBodyFailures = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly Dictionary<string, string> KnownBodyFailures = new(StringComparer.OrdinalIgnoreCase)
     {
         ["TideTable.bas"] = "spring-tide carries a deliberate syntax error — the demo exists to show a "
                           + "foreign server's diagnostics in HexIDE's editor (demo/README.md).",
@@ -100,10 +106,11 @@ public class WholeFileGrammarTests
         var report = new StringBuilder();
         var blocking = new List<string>();
         var preExisting = new List<string>();
-        var newDemoFailures = new List<string>();
+        var newRepoFailures = new List<string>();
         var unsplittable = new List<string>();
         var counts = new SortedDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var demoRoot = FindUpwards("demo");
+        var ownedRoots = new[] { FindUpwards("demo"), FindUpwards(Path.Join("corpus", "designer")) }
+            .Where(r => r is not null).Select(r => r!).ToList();
 
         foreach (var path in files)
         {
@@ -128,10 +135,9 @@ public class WholeFileGrammarTests
                 var note = "body line " + bodyError.Value.Line + ": " + First(bodyError.Value.Message);
                 preExisting.Add(path + "\n    " + note);
                 report.AppendLine("pre-exist  " + path + " — " + note);
-                if (demoRoot is not null
-                    && path.StartsWith(demoRoot, StringComparison.OrdinalIgnoreCase)
-                    && !KnownDemoBodyFailures.ContainsKey(Path.GetFileName(path)))
-                    newDemoFailures.Add(path + "\n    " + note);
+                if (ownedRoots.Any(r => path.StartsWith(r, StringComparison.OrdinalIgnoreCase))
+                    && !KnownBodyFailures.ContainsKey(Path.GetFileName(path)))
+                    newRepoFailures.Add(path + "\n    " + note);
                 continue;
             }
 
@@ -153,10 +159,10 @@ public class WholeFileGrammarTests
             "putting a file's own header in front of its body must not introduce a syntax error the body "
             + "alone did not have (report: " + ReportPath + ").\n" + string.Join("\n", blocking));
 
-        newDemoFailures.Should().BeEmpty(
-            "a demo whose body the interpreter's grammar cannot parse is a grammar gap — add it to "
-            + nameof(KnownDemoBodyFailures) + " with an issue number once it is filed, or fix it.\n"
-            + string.Join("\n", newDemoFailures));
+        newRepoFailures.Should().BeEmpty(
+            "a file in this repository whose body the interpreter's grammar cannot parse is a grammar gap "
+            + "— add it to " + nameof(KnownBodyFailures) + " with an issue number once it is filed, or fix "
+            + "it.\n" + string.Join("\n", newRepoFailures));
     }
 
     /// <summary>

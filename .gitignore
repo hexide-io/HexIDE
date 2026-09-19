@@ -303,6 +303,11 @@ node_modules/
 # ...but the demo gallery's .vbp files are committed source — each demo must build on its own
 !demo/**/*.vbp
 
+# ...and so is the designer corpus's, which is the only project anywhere here with a UserControl and a
+# PropertyPage in it. SerializationCorpusTests scans it on every run, and hexide-io/HexIDE#483 is what it
+# found the first time it did; untracked, CI would scan one project fewer and say nothing.
+!corpus/designer/*.vbp
+
 # Demo executables. demo/README.md tells you to rebuild any demo in place with
 # `VB6.EXE /make <Name>.vbp`, and the .vbp's ExeName32 drops the binary right beside its source.
 # Since hexide-io/HexIDE#437 the hygiene guard's artefact scan sees UNTRACKED files, so without

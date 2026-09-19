@@ -415,9 +415,12 @@ not the last segment, so two `Module1`s no longer merge.
    launched IDE. So for a form kind the composed prefix is the designer part and the sidecar shift is the
    designer part alone; counting the attribute run into either would double it. The three comments saying
    the block is invisible are corrected.
-2. **Both grammars parse whole real files.** Every corpus `.frm`, `.cls`, `.ctl` and `.bas` goes through the
-   interpreter's grammar and the bundled server's grammar with no syntax error, and the bundled server
-   raises no diagnostic in a header. No `.pag` exists in any corpus, so one is authored in the VB6 VM.
+2. **Both grammars parse whole real files: done, 2026-09-20 — after a fix.** They did not. Thirty of
+   forty-six corpus files failed inside the header, in both grammars, on one cause: the whitespace before
+   the comment VB6 writes when it decodes an enumerated property value (`MultiUse = -1  'True`). A `WS?` in
+   two rules per grammar fixed it, and `WholeFileGrammarTests` in each half now reports 0 blocking over 48
+   files, including the `.ctl` and `.pag` added as `corpus/designer/`. The composed buffer parses, so 3.6
+   stands as designed.
 3. **Oracle: done, 2026-09-19**, recorded in `docs/vb6-fidelity-oracle.md`. The compile-error log reads
    `Compile Error in File '<absolute path>', Line <N> : <message>`, which the current expression cannot
    match; `N` is a 0-based index into the code view, attribute lines excluded, procedure-level ones

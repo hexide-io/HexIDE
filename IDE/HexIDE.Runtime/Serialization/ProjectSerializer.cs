@@ -88,7 +88,19 @@ public class ProjectSerializer
                 ModuleKind.PropertyPage => SerializedProject.PropertyPageKey,
                 _                       => SerializedProject.ModuleKey
             };
-            WriteKnownLine($"{key}={module.Name}; {relativePath}");
+
+            // Two shapes, and VB6 is strict about which key takes which — all five measured, not assumed
+            // (docs/vb6-fidelity-oracle.md, 2026-09-20). `Module=` and `Class=` REQUIRE the `Name; File`
+            // form: given `Module=Mod1.bas`, VB6 refuses the whole project with "The project file … is
+            // corrupt, and can't be loaded", naming no line. The designer kinds require the bare path:
+            // given `UserControl=Gauge; Gauge.ctl`, VB6 reads the entire value as a filename and fails with
+            // "File not found: 'Gauge; Gauge.ctl'" — as does `Form=Form1; Form1.frm`, which is why the form
+            // loop above writes the path alone. Writing the `Name; File` shape for all four kinds here is
+            // what HexIDE did until #483, which made every project it saved that held a UserControl or a
+            // PropertyPage unopenable in VB6.
+            WriteKnownLine(module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage
+                ? $"{key}={relativePath}"
+                : $"{key}={module.Name}; {relativePath}");
         }
 
         // Related documents — files the project carries but does not compile.

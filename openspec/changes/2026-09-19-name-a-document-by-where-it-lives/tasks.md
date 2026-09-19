@@ -11,10 +11,27 @@
   the attribute run is already in the buffer and must not be counted twice. Also found while measuring:
   `get_file_content`'s `hasUnsavedChanges` is hardcoded per branch and reports provenance, not dirtiness
   (hexide-io/HexIDE#481); out of scope here.
-- [ ] 0.2 Prove both grammars on whole files. Every corpus `.frm`, `.cls`, `.ctl` and `.bas` parses, whole,
-  through the interpreter's grammar and the bundled server's grammar with no syntax error, and the bundled
-  server raises no diagnostic inside a header. No `.pag` exists in any corpus: author one in the VB6 VM and add
-  it. This gates 3.6, and a failure here is a grammar task, not a reason to feed the body alone.
+- [x] 0.2 Both grammars now parse whole files, and did not before (2026-09-20). `WholeFileGrammarTests` in
+  each half parses every corpus file whole and classifies three ways: an error in the prefix, an error that
+  appears in the body only with the prefix in front of it, and a body that already fails alone. The first two
+  block; the third is recorded. **30 of 46 files failed, in both grammars, at the same line of the same
+  file** — one cause: VB6 decodes an enumerated property value into a comment when it saves
+  (`MultiUse = -1  'True`), `COMMENT` is hidden, and the whitespace in front of it reached rules that went
+  straight from the value to `NEWLINE`. Every `.cls` VB6 ever wrote failed at line 3. Fixed with a `WS?` in
+  `moduleConfigElement` and `cp_SingleProperty` in both grammars; recorded as fix 7 in
+  `docs/vb6-grammar-fixes.md`. Now 0 blocking over 48 files (7 `.bas`, 13 `.cls`, 3 `.ctl`, 24 `.frm`,
+  1 `.pag`). **So 3.6 is unblocked: the composed buffer parses.**
+  - The `.pag` and one `.ctl` are new, in `corpus/designer/`, with a `.vbp` that `vb6.exe` builds clean.
+    Authored here and compiler-validated, **not written by the VB6 IDE** — driving the IDE needs an
+    interactive session in the VM, and PowerShell Direct lands in session 0 with no desktop (measured).
+    `corpus/designer/README.md` states the provenance and what it does not cover.
+  - Two bodies fail on their own, and both are now named rather than left in a report: spring-tide's module
+    is deliberately invalid, and `demo/neon-aurora/Class4.cls` line 174 is `1E+30`, which the server's
+    grammar rejects and the interpreter's accepts (hexide-io/HexIDE#482).
+  - Found on the way, because the new corpus project is the first with a UserControl or PropertyPage in it:
+    HexIDE wrote `UserControl=Name; File` into every `.vbp`, which VB6 reads as a filename, so every such
+    project it saved was unopenable (hexide-io/HexIDE#483). Fixed, with the five-key rule measured and
+    recorded in the oracle; two existing tests had pinned the wrong shape.
 - [x] 0.3 Oracle, recorded in `docs/vb6-fidelity-oracle.md` (2026-09-19): the `/out` log reads `Compile Error
   in File '<absolute path>', Line <N> : <message>`, with `N` a 0-based index into the code view — designer
   block and **every** `Attribute` line excluded, procedure-level ones included, physical lines counted. Two
