@@ -73,7 +73,8 @@ public sealed class LanguageServerConfigLoader
     /// </para>
     /// </summary>
     public LanguageServerConfigResult Load(
-        IReadOnlyList<LanguageServerEntry> defaults, LanguageServerCommandStore? seen = null)
+        IReadOnlyList<LanguageServerEntry> defaults, LanguageServerCommandStore? seen = null,
+        IWorkspaceArtifactProviderRegistry? artifactProviders = null)
     {
         var problems = new List<LanguageServerConfigProblem>();
         var file = ReadUserFile(problems);
@@ -86,7 +87,7 @@ public sealed class LanguageServerConfigLoader
 
         foreach (var entry in defaults.Concat(user))
         {
-            if (!Validate(entry, problems, out var id))
+            if (!Validate(entry, problems, artifactProviders, out var id))
                 continue;
             if (!byId.ContainsKey(id))
                 order.Add(id);
@@ -366,7 +367,8 @@ public sealed class LanguageServerConfigLoader
             LanguageServerConfigProblemKind.IgnoredField));
     }
     private static bool Validate(
-        LanguageServerEntry entry, List<LanguageServerConfigProblem> problems, out string id)
+        LanguageServerEntry entry, List<LanguageServerConfigProblem> problems,
+        IWorkspaceArtifactProviderRegistry? artifactProviders, out string id)
     {
         id = entry.Id ?? "";
 
@@ -404,6 +406,13 @@ public sealed class LanguageServerConfigLoader
                 false,
                 LanguageServerConfigProblemKind.Configuration));
         }
+
+        // Same judgement as trace above, and for the same reason: reported, then survivable. A server that
+        // generates no descriptor may still be useful; one that refuses to start is not. Checked before the
+        // enabled gate so a typo surfaces whether or not the entry is currently on.
+        WorkspaceArtifactSpecReader.TryRead(
+            entry.Id!, entry.WorkspaceArtifact, artifactProviders, out _, out var artifactProblems);
+        problems.AddRange(artifactProblems);
 
         if (entry.Enabled == false)
         {
