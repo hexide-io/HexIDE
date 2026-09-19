@@ -62,9 +62,12 @@ The IDE SHALL NOT give a new form, module or class a name already used by anothe
 same project, compared without regard to case, and SHALL refuse a rename that would. A new project SHALL NOT
 be given the name of a project already loaded.
 
-VB6 requires a module's name to be unique within its project, and the name of a document with no file is part
-of the only identifier servers can be given for it. Two loaded projects, or two documents, that share a name
-give two documents one name on the wire, which a server cannot tell apart.
+These are VB6's own rules, measured against the compiler rather than assumed: a project whose form and
+standard module share a name does not build, and a group whose two projects share a name is refused at load
+with nothing in it built. Both comparisons ignore case. Enforcing them as documents are created and renamed
+turns a failure at build time into a refusal at the moment it is caused. It also keeps the name usable as an
+identifier: the name of a document with no file is part of the only name servers can be given for it, and two
+documents sharing one are a single document as far as a server can tell.
 
 #### Scenario: Adding a form after deleting one
 - **GIVEN** a project with `Form1` and `Form2`, from which `Form1` has been removed

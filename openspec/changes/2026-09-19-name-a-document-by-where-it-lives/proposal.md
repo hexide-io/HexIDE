@@ -71,8 +71,8 @@ nothing to map.
 - **It does not make member-level `Attribute` statements executable.** The interpreter already raises when it
   reaches one, which is a separate, pre-existing gap. Giving the interpreter the whole file adds only
   module-level attributes, which the grammar parses and the walk never executes.
-- **It does not fix the workspace-root restart losing open documents**, as its own defect. It does state the
-  requirement, because a first save triggers that restart. The defect is filed on its own.
+- **It does not fix the workspace-root restart losing open documents** (#469) as its own defect. It does
+  state the requirement, because a first save triggers that restart.
 
 ## Decisions, and what was considered
 

@@ -9,9 +9,11 @@
   through the interpreter's grammar and the bundled server's grammar with no syntax error, and the bundled
   server raises no diagnostic inside a header. No `.pag` exists in any corpus: author one in the VB6 VM and add
   it. This gates 3.6, and a failure here is a grammar task, not a reason to feed the body alone.
-- [ ] 0.3 Oracle, recorded in `docs/vb6-fidelity-oracle.md`: the format and line base of a compile error in
-  VB6's `/out` log (file line or code line, 0- or 1-based); whether two projects in one group may share a name;
-  whether a form and a module in one project may share a name.
+- [x] 0.3 Oracle, recorded in `docs/vb6-fidelity-oracle.md` (2026-09-19): the `/out` log reads `Compile Error
+  in File '<absolute path>', Line <N> : <message>`, with `N` a 0-based index into the code view — designer
+  block and **every** `Attribute` line excluded, procedure-level ones included, physical lines counted. Two
+  projects in one group may not share a name (the group is refused and nothing builds); a form and a module
+  in one project may not share a name. Both comparisons are case-insensitive.
 - [ ] 0.4 Foreign servers and `untitled:`. For each tolerant server, a test that opens
   `untitled:Project1/Module1.<ext>` and asserts diagnostics arrive under exactly that name. For the server that
   refuses non-`file:` URIs, assert the refusal on the wire or on stderr, not that the call returned. Include a
@@ -37,9 +39,10 @@
 - [ ] 1.5 Sidecar keyed by document name within its project's file. Store unload and clear are scoped by
   project, not recomputed from current names.
 - [ ] 1.6 Automation: resolve a document by project and name across every loaded project, then key by
-  identity. That fixes minting from the caller's spelling. Replies carry `project` and `document`.
+  identity. That fixes minting from the caller's spelling (#467). Replies carry `project` and `document`.
 - [ ] 1.7 Names: new forms, modules and classes never repeat a name in their project; a rename that would is
-  refused; a new project never takes a loaded project's name. Refusal reasons are localization keys.
+  refused; a new project never takes a loaded project's name (#468). Both rules are VB6's own, measured in
+  0.3. Refusal reasons are localization keys.
 - [ ] 1.8 Tests: a rename keeps marks shown, pushed and saved; two same-named modules in a group keep separate
   marks; a mark set by automation in the wrong case is visible in the gutter; name reuse is refused.
 
@@ -65,9 +68,12 @@
   claim an unambiguous VB6 extension or declare `vb6`. Membership comes from the workspace projection the
   registry already holds.
 - [ ] 2.8 Open documents survive a root restart: the registry re-opens every document it knows is open on
-  each restarted connection before forwarding any change (filed separately as a defect; required here).
-- [ ] 2.9 Compiler diagnostics injected under the wire name resolved from the compiler's own file path, for
-  every kind, not only forms by file stem.
+  each restarted connection before forwarding any change (#469; required here).
+- [ ] 2.9 Compiler diagnostics injected under the wire name resolved from the compiler's own (absolute) file
+  path, for every kind, not only forms by file stem. Parse the format the compiler actually writes (0.3), and
+  convert its line number there and nowhere else: file line = `N + 1 + hidden lines above it`, where hidden
+  means the header **and** every `Attribute` line above the error, so the count is computed from the document
+  rather than taken as a constant per kind. Depends on #477.
 - [ ] 2.10 Export redaction pseudonymises `untitled:` path segments; the redactor's rationale and the
   disclosure's grouping key are rewritten.
 - [ ] 2.11 Tests rewritten for the retired scheme: the routing tests that open `vb6://`, the ambiguous-extension
@@ -87,7 +93,8 @@
   bypass the designer's undo stack today: the menu editor, the colour palette, and automation's property set
   with no designer open. It refreshes the header once per commit, never per drag step.
 - [ ] 3.4 Header render for a form with no file uses `<Name>.frx`. A form held read-only is never re-rendered.
-- [ ] 3.5 `VB_Name` follows a rename, for every kind, as an edit the IDE makes itself.
+- [ ] 3.5 `VB_Name` follows a rename, for every kind, as an edit the IDE makes itself (#473 for forms,
+  where it is wrong today).
 - [ ] 3.6 The interpreter and the pre-run syntax check parse the whole text (after 0.2).
 - [ ] 3.7 Protection: a read-only section provider over the header and member-attribute regions, combined with
   the whole-document gate, re-evaluated on reload, and refusing insertion at the top of the file.
@@ -108,7 +115,7 @@
   applied after syntax colouring. Theme packs carry the key.
 - [ ] 3.16 Line numbers from the top of the file in the margin, status bar, Call Stack, automation and add-in
   surfaces. Record the divergence from VB6's code-window numbering.
-- [ ] 3.17 Sidecar migration to the next format: read the recorded format, re-key, move lines by each header's
+- [ ] 3.17 Sidecar migration to the next format (#466 first, so an older build keeps what it cannot read): read the recorded format, re-key, move lines by each header's
   length, carry unmeasurable entries unchanged, keep unrecognised content, rewrite only on change and never
   after a failed read.
 - [ ] 3.18 Automation: `get_file_content` returns the whole file open or not; `set_file_content` accepts it

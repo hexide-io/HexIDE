@@ -69,13 +69,14 @@ nothing keys on it. Lookup is case-insensitive, because VB6 names are.
 | Add-in diagnostics `GetFor(name)` | last URI segment | identity, looked up by name |
 | Automation `uri` fields | `vb6://…` | `project` and `document` fields, plus the wire `uri` |
 
-**Names that form the wire name must not collide.** An `untitled:` name embeds the project name and the
-document name. A document name is unique within a project in VB6, and HexIDE does not enforce that
-everywhere: the Project Explorer's Add Form reuses `Form{Count+1}` after a delete, and a form rename checks
-only the form's own controls. A new project takes `Project{LoadedProjects.Count+1}`, which repeats after an
-unload. These become requirements: new names do not repeat a name in use, and a rename that would repeat one
-is refused. Whether VB6 lets two projects in one group share a name is measured in task 0.3, and the project
-rule follows the answer.
+**Names that form the wire name must not collide, and VB6 agrees.** An `untitled:` name embeds the project
+name and the document name. Both were measured against the real compiler (recorded in the oracle document):
+a form and a standard module in one project may not share a name, case-insensitively, and two projects in
+one group may not share a `Name=` — the group is refused at load and nothing in it builds. HexIDE enforces
+neither today: the Project Explorer's Add Form reuses `Form{Count+1}` after a delete, a form rename checks
+only the form's own controls, and a new project takes `Project{LoadedProjects.Count+1}`, which repeats after
+an unload. So these become requirements, and they are VB6's own rules rather than something this change
+invents to make its URIs work.
 
 ## Names on the wire
 
@@ -117,8 +118,8 @@ scratch folder to the `.vbp`'s folder. Setting another project as the startup pr
 move it too. Each move restarts the running servers, and today the restarted connections have lost every
 document except the one whose open triggered the restart. Later changes to the others reach a server that
 never saw them opened. The registry keeps a record of what is open and re-opens those documents on the
-restarted connection. This is filed separately as a defect, and stated here as a requirement because a first
-save triggers it.
+restarted connection. This is filed separately as #469, and stated here as a requirement because a first save
+triggers it.
 
 ## Routing
 
@@ -187,6 +188,16 @@ becomes line 14. This diverges from VB6, whose code window hid the header, and i
 VB6's status bar counted from the hidden header is unmeasured. It cannot be probed with `/make` and is
 recorded as unmeasured rather than guessed.
 
+**The compiler is the one place a conversion remains, and it is now measured.** VB6's `/make` log reports
+`Line N` as a **0-based index into its own code view**: the file minus the designer or class block, and
+minus every `Attribute` line, *including the ones inside procedures*. So the file line is
+`N + 1 + hidden lines above it`, and the hidden count is not a constant per file kind — a procedure
+attribute halfway down the file shifts everything below it. The conversion is unavoidable, because it is
+the compiler's numbering and not ours, but it lives in exactly one place: where the log is parsed.
+Everything downstream of that already speaks file lines. The measurement, the exact log format (which the
+current expression does not match at all) and what `Line 0` cannot distinguish are recorded in
+`docs/vb6-fidelity-oracle.md`.
+
 ## Protection
 
 **Read-only sections cover typing only.** Every programmatic write in the editor (twenty paths were
@@ -195,7 +206,7 @@ unfaithful forms has the same hole today. So protection is two things:
 
 1. A read-only section provider over the header and member-attribute regions, combined with the
    whole-document gate, and re-evaluated after a reload that changes the fidelity verdict. That verdict goes
-   stale today, which is filed separately. Inserting at the very top of the file is refused, because the
+   stale today (#475). Inserting at the very top of the file is refused, because the
    stock provider allows insertion at a region's edge.
 2. One guarded write path that every programmatic writer goes through, with a stated policy for each.
 
@@ -266,7 +277,7 @@ project loads, once every document is loaded and each header's length `H` is kno
 - a key naming no document in the project is carried forward unchanged and marked unmigrated. Guessing an
   offset would misplace it, and dropping it would lose marks for a file that is only temporarily missing;
 - unrecognised top-level content is kept (today it is dropped on save, contrary to the user-sidecar spec,
-  which is filed separately);
+  which is #466);
 - the file is rewritten as version 2 only if something changed, and never after a read that failed.
 
 **Downgrade.** An older build cannot be fixed. Given a version-2 sidecar it ignores the new keys and, on its
@@ -277,7 +288,7 @@ the old build show every mark `H` lines too low. It is recorded rather than miti
 
 **Automation.** Tools that name a document take and return `project` and `document`. The `uri` field, where
 there is one, is the wire name and is documented as such. Lines are file lines. Resolution covers every
-loaded project, not only the startup one. The existing defect of minting a key from the caller's spelling
+loaded project, not only the startup one. The existing defect of minting a key from the caller's spelling (#467)
 disappears, because a name now resolves to a document before anything is keyed. `get_file_content` returns
 the whole file, whether the editor is open or not, and `set_file_content` accepts what `get_file_content`
 returns. Each change is recorded in `docs/mcp-server-gaps.md`.
@@ -299,8 +310,11 @@ not the last segment, so two `Module1`s no longer merge.
 2. **Both grammars parse whole real files.** Every corpus `.frm`, `.cls`, `.ctl` and `.bas` goes through the
    interpreter's grammar and the bundled server's grammar with no syntax error, and the bundled server
    raises no diagnostic in a header. No `.pag` exists in any corpus, so one is authored in the VB6 VM.
-3. **Oracle:** the line base of VB6's compile-error log (file line or code line, 0- or 1-based), whether two
-   projects in a group may share a name, and whether a form and a module may share a name.
+3. **Oracle: done, 2026-09-19**, recorded in `docs/vb6-fidelity-oracle.md`. The compile-error log reads
+   `Compile Error in File '<absolute path>', Line <N> : <message>`, which the current expression cannot
+   match; `N` is a 0-based index into the code view, attribute lines excluded, procedure-level ones
+   included; two projects in a group may not share a name; a form and a module in one project may not
+   share a name.
 4. **Foreign servers and `untitled:`.** For each server, a test asserting that diagnostics arrive under the
    exact name sent. The server that refuses non-`file:` URIs is asserted to refuse, on the wire or on stderr,
    because "did not throw" proves nothing. The measurement that seeded this ran with dynamic registration
@@ -319,5 +333,6 @@ not the last segment, so two `Module1`s no longer merge.
   written CRLF while typed lines are LF, so a saved form can mix the two. That is a pre-existing defect, and
   it becomes visible to servers now that they see the header.
 - **Compiler diagnostics.** Their rows were keyed by `vb6://form/{Name}`, and the expression that parses
-  them appears never to match real compiler output (being verified). This change re-keys them to the wire
-  name resolved from the compiler's path. Whether they then work depends on that defect.
+  them matches none of what the compiler actually writes (#477), so that consumer has had no live traffic
+  at all. This change re-keys the rows to the wire name resolved from the
+  compiler's own (absolute) path, and converts its line numbers once, where the log is parsed.
