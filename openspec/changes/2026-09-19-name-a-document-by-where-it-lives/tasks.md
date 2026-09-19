@@ -2,10 +2,15 @@
 
 ## 0. Measurements the rest depends on
 
-- [ ] 0.1 Confirm in the running IDE what a form's code window shows today. The code says the leading
-  `Attribute VB_*` block is visible and editable, while `FormCodeText`'s remarks, the `set_file_content`
-  description and its result message say hidden. **Phases 3 and 4 depend on the answer**: it decides what the
-  composed prefix is for a form and what the sidecar shift is. Record it and correct whichever is wrong.
+- [x] 0.1 The running IDE shows a form's leading `Attribute VB_*` block (measured 2026-09-20 on
+  `demo/bill-of-fare`, form `frmBillOfFare`, freshly launched and untouched). `get_file_content` returns a
+  buffer opening on the five `Attribute VB_*` lines, and a snapshot of the code window shows them as its
+  lines 1-5: syntax-coloured as ordinary code, not folded, not greyed, caret at Ln 1 Col 1. The code was
+  right and the comments were wrong; the three that said the block is invisible are corrected. **So, for
+  phases 3 and 4:** a form kind's composed prefix is the designer part alone, and so is its sidecar shift —
+  the attribute run is already in the buffer and must not be counted twice. Also found while measuring:
+  `get_file_content`'s `hasUnsavedChanges` is hardcoded per branch and reports provenance, not dirtiness
+  (hexide-io/HexIDE#481); out of scope here.
 - [ ] 0.2 Prove both grammars on whole files. Every corpus `.frm`, `.cls`, `.ctl` and `.bas` parses, whole,
   through the interpreter's grammar and the bundled server's grammar with no syntax error, and the bundled
   server raises no diagnostic inside a header. No `.pag` exists in any corpus: author one in the VB6 VM and add

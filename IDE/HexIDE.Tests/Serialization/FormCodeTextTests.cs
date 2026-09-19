@@ -3,9 +3,10 @@ using HexIDE.Runtime.Serialization;
 namespace HexIDE.Tests.Serialization;
 
 /// <summary>
-/// `VB_Name` is a form's identity, it lives at the top of the code section, and neither VB6 nor HexIDE's
-/// editor shows it. So "replace the code" written by someone reading the screen deletes it — which is how a
-/// real form was damaged and committed before `git diff` caught it.
+/// `VB_Name` is a form's identity and it lives at the top of the code section. VB6 hid it; HexIDE's editor
+/// shows it (measured 2026-09-20). Being on screen is not being carried: "replace the code" written by
+/// someone composing a body deletes it anyway — which is how a real form was damaged and committed before
+/// `git diff` caught it.
 /// </summary>
 public class FormCodeTextTests
 {

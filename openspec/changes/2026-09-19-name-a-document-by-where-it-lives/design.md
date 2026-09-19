@@ -25,8 +25,9 @@ These were read, not assumed. Several contradict comments in the tree.
   from the live name. After a rename they disagree (#269).
 - **A form's leading `Attribute VB_*` block is already in its editor, visible and editable.** The `.frm`
   reader appends everything after the root `End` to `Code`, and the editor shows `Code` verbatim.
-  `FormCodeText`'s remarks, the `set_file_content` description and the closed automation-gap entry all say
-  the block is hidden. The code says otherwise, and the running IDE is checked in task 0.1. A `.bas` or
+  `FormCodeText`'s remarks, the `set_file_content` description and the closed automation-gap entry all said
+  the block is hidden. The code was right: measured in the running IDE on 2026-09-20 (task 0.1), a form's
+  buffer opens on its `Attribute VB_*` run, shown as ordinary code, unfolded and editable. A `.bas` or
   `.cls` has its whole header split off into `OriginalHeader`. So today the two kinds differ, and in the form
   case the one that "hides" nothing leaves `VB_Name` open to deletion.
 - **Member-level `Attribute` lines are in every buffer** (procedure-level, and `VB_Var*` after a declaration),
@@ -409,10 +410,11 @@ not the last segment, so two `Module1`s no longer merge.
 
 ## Measurements this depends on (phase 0)
 
-1. **What the editor shows today** for a form's attribute block. The code says visible, and the whole
-   composition model above turns on it: if a form's buffer really did begin at its attribute run, the prefix
-   is the designer part and the sidecar shift is the designer part alone. Confirm it in the running IDE
-   before building either, and correct the comments that say the block is hidden.
+1. **What the editor shows today: done, 2026-09-20.** A form's buffer does begin at its attribute run —
+   `get_file_content` and a snapshot of the code window agree, on an untouched `frmBillOfFare` in a freshly
+   launched IDE. So for a form kind the composed prefix is the designer part and the sidecar shift is the
+   designer part alone; counting the attribute run into either would double it. The three comments saying
+   the block is invisible are corrected.
 2. **Both grammars parse whole real files.** Every corpus `.frm`, `.cls`, `.ctl` and `.bas` goes through the
    interpreter's grammar and the bundled server's grammar with no syntax error, and the bundled server
    raises no diagnostic in a header. No `.pag` exists in any corpus, so one is authored in the VB6 VM.
