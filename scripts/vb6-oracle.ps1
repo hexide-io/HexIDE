@@ -122,13 +122,16 @@ end {
     # IS the `-Raw` switch parameter, and assigning a string to it throws "Cannot convert String to
     # SwitchParameter" during the loop — an error that reads like a parameter-binding failure at the
     # call site and sends you hunting in entirely the wrong place.
-    $cases = foreach ($entry in $collected) {
+    # @() matters: a foreach yielding ONE object assigns a scalar, and in Windows PowerShell 5.1 a
+    # PSCustomObject's .Count is $null. Every single-case run then compared $null with 1 below and warned
+    # about missing rows that were not missing. $returned already had this guard; $cases did not.
+    $cases = @(foreach ($entry in $collected) {
         if ($entry -match '^\s*([A-Za-z_][A-Za-z0-9_ ]*?)\s*:\s*(?!=)(.+)$') {
             [pscustomobject]@{ Label = $Matches[1].Trim(); Expr = $Matches[2].Trim() }
         } else {
             [pscustomobject]@{ Label = $entry.Trim(); Expr = $entry.Trim() }
         }
-    }
+    })
 
     $guestDir = 'C:\hexide-oracle'
     $outFile  = "$guestDir\out.txt"
