@@ -58,7 +58,16 @@ public sealed record LanguageServerRegistration(
     LanguageConnectionTransport Transport = LanguageConnectionTransport.Stdio,
     string? Endpoint = null,
     // Appended, for the same reason the initialize parameters are.
-    string Trace = LspTraceValue.Off)
+    string Trace = LspTraceValue.Off,
+    /// <summary>
+    /// A file this server needs generated into the workspace before it starts, or null.
+    /// </summary>
+    /// <remarks>
+    /// Carried on the registration rather than re-read from configuration at launch, so the launch path
+    /// acts on something already checked. A declaration that failed its checks arrives here as null: the
+    /// fault was reported when the file was read, and the server still starts.
+    /// </remarks>
+    WorkspaceArtifactSpec? WorkspaceArtifact = null)
 {
     /// <summary>
     /// The priority the entries HexIDE contributes itself are given — deliberately below the value an
