@@ -142,10 +142,22 @@ done < <(git grep --untracked -nIF 'C:\Users\' -- . "${EXCLUDE[@]}")
 #    anticipated title case. Keep the pattern to the distinctive parts — a surname and an
 #    employer, not a first name, which collides with unrelated third-party authors in
 #    THIRD-PARTY-NOTICES.md and trains everyone to ignore the check.
+#    Armed and finding nothing, it says so too. Otherwise the one case this check exists
+#    for — it ran, and the tree is clean — prints nothing at all, which is byte-identical
+#    to the check having been deleted. The SKIPPED line was added so a scan that did not
+#    run could not read as a pass; without this line the reader has to notice an ABSENT
+#    line to tell the two apart, which is the same trap one level down.
 if [ -n "${HEXIDE_IDENTITY_PATTERN:-}" ]; then
+  identity_hits=0
   while IFS= read -r hit; do
-    [ -n "$hit" ] && note "personal-identity reference: $hit"
+    if [ -n "$hit" ]; then
+      note "personal-identity reference: $hit"
+      identity_hits=$((identity_hits + 1))
+    fi
   done < <(git grep --untracked -nIiE "$HEXIDE_IDENTITY_PATTERN" -- . "${EXCLUDE[@]}")
+  if [ "$identity_hits" -eq 0 ]; then
+    printf '  \xE2\x9C\x93 identity scan clean\n'
+  fi
 else
   printf '  \xE2\x97\x8B identity scan SKIPPED (HEXIDE_IDENTITY_PATTERN not set)\n'
 fi
