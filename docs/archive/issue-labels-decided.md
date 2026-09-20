@@ -587,7 +587,8 @@ Four questions fell out of the first thirteen and were settled the same way.
 | 8.16 | Do the 30 issues at the old two-area cap want a third? | **Re-screen all 30** |
 | 8.17 | Issue templates | **Yes — a type dropdown only, no area** |
 
-**8.14 — the profiles issue gets filed.** `blocked` on #418 pointed at the profiles supersession, and
+**8.14 — the profiles issue gets filed.** *(Done: [#504](https://github.com/hexide-io/HexIDE/issues/504),
+filed 2026-09-20 and named as #418's blocker in a comment there, so the rule is no longer broken.)* `blocked` on #418 pointed at the profiles supersession, and
 no open issue tracked that work: #412 is a merged PR, and no open issue has "profile" in its title. A
 blocker that exists only in `docs/profile-bundles.md` and in the maintainer's head contradicts both this
 rulebook ("name the blocker in the body") and the repo's own position that the backlog lives in GitHub
