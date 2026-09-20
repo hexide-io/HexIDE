@@ -92,12 +92,20 @@ through the events below. It is never derived live from the path.
 - `<ext>` comes from the kind: `.frm`, `.bas`, `.cls`, `.ctl`, `.pag`. It is the extension the document will
   be saved with, and it is what routing reads.
 - There is no leading slash. The two spellings normalise differently, so one is chosen and never mixed.
-- It is minted through the URI type, never by interpolation, so a non-ASCII name is percent-encoded. One
-  foreign server silently drops a notification whose URI is not strictly valid and never answers the request
-  that follows, which leaves a request hanging for good (measured).
+- It is minted through the URI type, never by interpolation, so a non-ASCII name is percent-encoded.
+  **texlab** silently drops a notification whose URI is not strictly valid: no response, no error, nothing on
+  standard error, and the connection stays up and answers about later documents normally. A request naming
+  that document is then never answered at all — measured on the wire as sent with no outcome, indefinitely,
+  because only `initialize` is bounded by a timeout (hexide-io/HexIDE#486). Its percent-encoded form is
+  answered by the same server in the same process. That difference is the whole argument for minting rather
+  than interpolating, and it is asserted as one test rather than two.
 - Comparison is case-insensitive over the path, as it was for `vb6:`, because both segments are VB6 names.
-  Servers were measured to echo the ASCII form byte for byte and to percent-encode non-ASCII names. Both
-  compare equal after normalisation.
+  **A push server echoes the name back byte for byte, in either spelling** — measured on texlab, raw and
+  percent-encoded. A **pull** server cannot echo anything: a `DocumentDiagnosticReport` carries no URI, so
+  the client files the answer under the name it asked about. So the comparison rule is only ever exercised
+  against a server that speaks the name back, and on the other three the name HexIDE sent is the only name
+  in play. Worth stating because the obvious test — compare the published URI with the one sent — is a
+  tautology on three of the five, and was written that way before it was caught.
 
 **An identifier changes only by close and reopen.** The protocol's own guidance for a rename is a close under
 the old name followed by an open under the new one, and the reason it gives applies here: more than the name

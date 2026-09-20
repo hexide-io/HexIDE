@@ -37,13 +37,45 @@
   block and **every** `Attribute` line excluded, procedure-level ones included, physical lines counted. Two
   projects in one group may not share a name (the group is refused and nothing builds); a form and a module
   in one project may not share a name. Both comparisons are case-insensitive.
-- [ ] 0.4 Foreign servers and `untitled:`. For each tolerant server, a test that opens
-  `untitled:Project1/Module1.<ext>` and asserts diagnostics arrive under exactly that name — branching on what
-  the server declared at initialization, because a pull server publishes nothing and a test waiting for a
-  publication would pass vacuously. For the server that
-  refuses non-`file:` URIs, assert the refusal on the wire or on stderr, not that the call returned. Include a
-  non-ASCII name, which one server drops without replying. Re-measure the server whose delivery mode changed
-  because the seeding probe accepted dynamic registration.
+- [x] 0.4 Foreign servers and `untitled:` — measured against all five and kept as
+  `UntitledDocumentNamesTests` (2026-09-20). Each server is asked with **its own** extension, because routing
+  is by extension and none of the five claims a VB6 one: what is under test is the scheme, and sending `.bas`
+  would test something else. Measured, HexIDE's own client, pinned versions:
+
+  | Server | `untitled:Project1/Module1.<ext>` | leading slash | raw non-ASCII | percent-encoded | delivery |
+  |---|---|---|---|---|---|
+  | rumdl 0.2.64 | accepted | accepted | accepted | accepted | pull **and** publishes |
+  | texlab 5.26.0 | accepted | accepted | **dropped in silence** | accepted | push |
+  | vscode-json-language-server | accepted | accepted | accepted | accepted | pull |
+  | ruff 0.16.7 | accepted | accepted | accepted | accepted | pull |
+  | clangd 22.1.6 | **refused** | refused | refused | refused | push |
+
+  - **Every assertion reads a frame, and the first version did not.** It compared
+    `PublishDiagnosticsParams.Uri` with the name sent, which is a real echo from a push server and a
+    tautology from a pull one: a `DocumentDiagnosticReport` carries no URI, so `ApplyDiagnosticReport`
+    raises the event with the client's own string. Three of the five deliver that way, so three of the tests
+    were comparing HexIDE with HexIDE. The capture is armed and the bodies are read instead — the sent
+    `didOpen`, the sent pull request, and the received publication.
+  - The branch is read from the connection's declared `diagnosticProvider`, never from a list in the test. A
+    pull server is proved by a `textDocument/diagnostic` naming that URI, answered, with items in the answer
+    — findings it could only produce from text it holds under that name. A push server is proved by the URI
+    in its publication **and** by never having been asked. Both halves of the second are needed: rumdl
+    advertises a provider and publishes anyway, so either alone leaves the branch undetectably reversible —
+    measured by inverting it, which stayed green until the second half was added.
+  - clangd's refusal is read off its standard error (`only supports 'file' URI scheme`, naming
+    `textDocument/didOpen`), never inferred from the absence of diagnostics. It refuses the scheme, not the
+    spelling: the percent-encoded form is refused identically.
+  - texlab's silent drop and its encoded form are one test, on one server, in one process, with only the
+    spelling changed — the negative half alone would assert an absence. Its patience is a multiple of what
+    the positive half just took, so a loaded runner scales it rather than defeating it.
+  - Found on the way: a request about a document a server discarded is never answered and nothing gives up
+    on it, because only `initialize` has a timeout (hexide-io/HexIDE#486); and a foreign server whose
+    download fails its pinned digest makes its tests *vanish* rather than fail, because the refusal throws
+    from an attribute constructor (hexide-io/HexIDE#487).
+  - Every assertion here was checked by breaking it, including the one that matters most: opening the
+    document under a name one character different from the one asserted fails all four tolerant tests, pull
+    and push alike. That mutation changes what is *sent*; the earlier round only changed what was expected,
+    which is exactly why it could not see the tautology above.
 - [x] 0.5 AvaloniaEdit 12.0.0 behaviours, read out of the assembly (2026-09-19): the stock read-only provider
   allows insertion at a region's edges and carves read-only text out of a deletion, and both methods are
   `virtual`; binding the editor's read-only property replaces the whole section provider; a fold's
