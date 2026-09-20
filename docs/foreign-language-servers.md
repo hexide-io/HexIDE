@@ -68,6 +68,13 @@ five were asked. `UntitledDocumentNamesTests` keeps the answers.
 
 Three findings the table does not carry:
 
+- **clangd refuses the *name*, not the buffer** — a distinction worth keeping straight, because the short
+  version of this table invites the wrong reading. Given a `file:` URI it analyses the text it was handed
+  whether or not anything is there: measured 2026-09-20, it diagnoses a document whose file does not exist,
+  and one whose **directory** does not exist either, identically to one really on disk (the second logs a
+  non-fatal `VFS: failed to set CWD`). What it will not take is a URI whose scheme is not `file:` — including
+  `untitled:Untitled-1.cpp`, the spelling editors actually use for a never-saved buffer. So it is fully
+  content-driven, and its constraint is on the name alone.
 - **clangd refuses the scheme, and says so.** `clangd only supports 'file' URI scheme for workspace files`,
   on standard error, naming the `textDocument/didOpen` it threw away. The connection stays up; it is the
   document it will not take. This is the server that makes "assert the refusal, not the silence" mean
