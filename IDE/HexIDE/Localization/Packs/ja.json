@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "ディスクに保存されていません",
     "Str.ProjectDocument.Section.Members": "メンバー",
     "Str.ProjectDocument.Section.References": "参照",
-    "Str.ProjectDocument.Kind.RelatedDocument": "関連ドキュメント"
+    "Str.ProjectDocument.Kind.RelatedDocument": "関連ドキュメント",
+    "Str.Naming.Msg.NotAVb6Name": "'{0}' は有効な名前ではありません。名前は文字で始まり、以降は文字、数字、アンダースコアを使用できます。",
+    "Str.Naming.Msg.DocumentNameTaken": "'{0}' は、このプロジェクト内のフォーム、モジュール、またはクラスモジュールの名前として既に使用されています。VB6 ではこれらが 1 つの名前空間を共有するため、2 つが同じ名前を使用することはできません。",
+    "Str.Naming.Msg.ProjectNameTaken": "'{0}' という名前のプロジェクトは既に読み込まれています。同じグループ内の 2 つのプロジェクトに同じ名前を付けることはできません。",
+    "Str.Naming.Msg.AdoptedNameTaken": "'{1}' は追加されませんでした。このファイルに宣言されている名前は '{0}' ですが、その名前はこのプロジェクト内のフォーム、モジュール、またはクラスモジュールで既に使用されています。",
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' は追加されませんでした。このファイルに宣言されている名前は '{0}' ですが、これは有効な名前ではありません: 名前は文字で始まり、以降は文字、数字、アンダースコアを使用できます。"
   }
 }

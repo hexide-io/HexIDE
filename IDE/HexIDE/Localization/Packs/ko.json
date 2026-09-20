@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "디스크에 저장되지 않음",
     "Str.ProjectDocument.Section.Members": "멤버",
     "Str.ProjectDocument.Section.References": "참조",
-    "Str.ProjectDocument.Kind.RelatedDocument": "관련 문서"
+    "Str.ProjectDocument.Kind.RelatedDocument": "관련 문서",
+    "Str.Naming.Msg.NotAVb6Name": "'{0}'은(는) 올바른 이름이 아닙니다. 이름은 문자로 시작하고 그 뒤에는 문자, 숫자, 밑줄만 올 수 있습니다.",
+    "Str.Naming.Msg.DocumentNameTaken": "'{0}'은(는) 이미 이 프로젝트에 있는 폼, 모듈 또는 클래스의 이름입니다. VB6에서는 이들이 하나의 네임스페이스를 공유하므로 둘이 같은 이름을 가질 수 없습니다.",
+    "Str.Naming.Msg.ProjectNameTaken": "이름이 '{0}'인 프로젝트가 이미 로드되어 있습니다. 한 프로젝트 그룹 안의 두 프로젝트는 같은 이름을 가질 수 없습니다.",
+    "Str.Naming.Msg.AdoptedNameTaken": "'{1}'은(는) 추가되지 않았습니다. 이 파일에 선언된 이름 '{0}'은(는) 이미 이 프로젝트에 있는 폼, 모듈 또는 클래스의 이름입니다.",
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}'은(는) 추가되지 않았습니다. 이 파일에 선언된 이름 '{0}'은(는) 올바른 이름이 아닙니다. 이름은 문자로 시작하고 그 뒤에는 문자, 숫자, 밑줄만 올 수 있습니다."
   }
 }

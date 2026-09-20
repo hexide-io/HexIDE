@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "未儲存至磁碟",
     "Str.ProjectDocument.Section.Members": "成員",
     "Str.ProjectDocument.Section.References": "參考",
-    "Str.ProjectDocument.Kind.RelatedDocument": "相關文件"
+    "Str.ProjectDocument.Kind.RelatedDocument": "相關文件",
+    "Str.Naming.Msg.NotAVb6Name": "「{0}」不是有效的名稱。名稱必須以字母開頭，後續只能是字母、數字與底線。",
+    "Str.Naming.Msg.DocumentNameTaken": "「{0}」已經是此專案中某個表單、模組或類別的名稱。VB6 讓它們共用單一命名空間，因此兩者不能同名。",
+    "Str.Naming.Msg.ProjectNameTaken": "名稱為「{0}」的專案已經載入。同一個專案群組中的兩個專案不能同名。",
+    "Str.Naming.Msg.AdoptedNameTaken": "「{1}」未加入。它的名稱是「{0}」，而該名稱已經是此專案中某個表單、模組或類別的名稱。",
+    "Str.Naming.Msg.AdoptedNameNotValid": "「{1}」未加入。它的名稱是「{0}」，而該名稱無效：名稱必須以字母開頭，後續只能是字母、數字與底線。"
   }
 }

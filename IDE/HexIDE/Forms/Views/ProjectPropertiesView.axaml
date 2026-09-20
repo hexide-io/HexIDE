@@ -26,6 +26,10 @@
                     <Grid ColumnDefinitions="250,28,*" RowDefinitions="Auto,3,Auto,Auto,3,Auto">
                         <TextBlock Grid.Row="0" Grid.Column="0" Text="{DynamicResource Str.Dialog.ProjectProperties.General.ProjectName}" />
                         <TextBox Grid.Row="2" Grid.Column="0" Text="{CompiledBinding ProjectName}" />
+                        <TextBlock Grid.Row="2" Grid.Column="2"
+                                   Text="{CompiledBinding NameError}"
+                                   IsVisible="{CompiledBinding NameError, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                   TextWrapping="Wrap" VerticalAlignment="Center" />
 
                         <TextBlock Grid.Row="3" Grid.Column="0" Text="{DynamicResource Str.Dialog.ProjectProperties.General.HelpFileName}" VerticalAlignment="Bottom" />
                         <TextBox Grid.Row="5" Grid.Column="0" IsEnabled="False" />

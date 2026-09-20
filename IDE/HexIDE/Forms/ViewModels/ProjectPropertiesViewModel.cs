@@ -34,8 +34,25 @@ public partial class ProjectPropertiesViewModel : ObservableObject, IDialog
 
     public DelegateCommand CancelCommand { get; }
 
-    public ProjectPropertiesViewModel(ProjectDefinition projectDefinition)
+    /// <summary>
+    /// Why the name in the box cannot be used, or null when it can. Shown beside the box.
+    /// </summary>
+    /// <remarks>
+    /// A message rather than a disabled button alone. Two projects of a group may not share a name -- VB6
+    /// refuses the whole group at load and builds none of it -- and a refusal the developer cannot read is
+    /// indistinguishable from a dialog that has stopped working.
+    /// </remarks>
+    [Notify] private string? nameError;
+
+    private readonly Func<string, string?> validateName;
+
+    /// <param name="validateName">
+    /// Answers why a proposed project name cannot be used, or null when it can. Required rather than
+    /// optional: a validator that can be left out is one that silently is.
+    /// </param>
+    public ProjectPropertiesViewModel(ProjectDefinition projectDefinition, Func<string, string?> validateName)
     {
+        this.validateName = validateName;
         Title = $"{projectDefinition.Name} - Project Properties";
         selectedProjectType = projectDefinition.ProjectType;
         // Sub Main first, then the forms — VB6's own order, and the order that puts the one entry a
@@ -49,7 +66,9 @@ public partial class ProjectPropertiesViewModel : ObservableObject, IDialog
         projectName = projectDefinition.Name;
         projectDescription = projectDefinition.Description;
 
-        OkCommand = new DelegateCommand(() => CloseRequested?.Invoke(true), () => !string.IsNullOrEmpty(projectName));
+        nameError = validateName(projectName);
+        OkCommand = new DelegateCommand(() => CloseRequested?.Invoke(true),
+            () => !string.IsNullOrEmpty(projectName) && nameError is null);
         CancelCommand = new DelegateCommand(() => CloseRequested?.Invoke(false), () => true);
     }
 
@@ -69,6 +88,9 @@ public partial class ProjectPropertiesViewModel : ObservableObject, IDialog
 
     private void OnProjectNameChanged()
     {
+        NameError = string.IsNullOrEmpty(projectName) ? null : validateName(projectName);
         OkCommand.RaiseCanExecutedChanged();
     }
+
+    private void OnNameErrorChanged() => OkCommand.RaiseCanExecutedChanged();
 }

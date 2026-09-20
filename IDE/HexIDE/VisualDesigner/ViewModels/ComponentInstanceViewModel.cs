@@ -5,6 +5,7 @@ using Avalonia.Data;
 using Avalonia.Media;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
+using HexIDE.Runtime.ProjectElements;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace HexIDE.VisualDesigner;
@@ -48,6 +49,22 @@ public partial class ComponentInstanceViewModel : ObservableObject
             // existing array cannot be told apart from a collision, and refusing is the recoverable answer.
             if (parentViewModel.AllComponents.Any(c => !ReferenceEquals(c, this) && c.Name == proposed))
                 throw new DataValidationException("Name must be unique in form");
+
+            // Renaming the ROOT renames the document, so the project's rules apply on top of the form's.
+            // A form and a module of one project may not share a name -- VB6 gives them one namespace --
+            // and the name is part of the only identifier a document with no file can be given to a
+            // language server, so it has to be a name rather than merely a string.
+            if (ReferenceEquals(this, parentViewModel.Form)
+                && parentViewModel.FormDefinition is { } document)
+            {
+                if (!ProjectNaming.IsValidName(proposed))
+                    throw new DataValidationException(string.Format(
+                        parentViewModel.Localization.GetString("Str.Naming.Msg.NotAVb6Name"), proposed));
+
+                if (ProjectNaming.IsNameTaken(document.Owner, proposed!, DocumentIdentity.For(document)))
+                    throw new DataValidationException(string.Format(
+                        parentViewModel.Localization.GetString("Str.Naming.Msg.DocumentNameTaken"), proposed));
+            }
         }
     }
 

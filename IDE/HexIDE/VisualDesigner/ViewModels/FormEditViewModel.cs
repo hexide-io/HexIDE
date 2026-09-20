@@ -85,6 +85,12 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public ComponentInstanceViewModel Form { get; private set; }
 
+    /// <summary>
+    /// The strings this designer and its component view models show. Internal because a component view
+    /// model has no services of its own and needs one to phrase a refusal.
+    /// </summary>
+    internal ILocalizationService Localization => localization;
+
     public ObservableCollection<ComponentInstanceViewModel> TopLevelMenu { get; } = new();
 
     public IEventBus EventBus => eventBus;

@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "In disco non servatum",
     "Str.ProjectDocument.Section.Members": "Membra",
     "Str.ProjectDocument.Section.References": "Relationes",
-    "Str.ProjectDocument.Kind.RelatedDocument": "Documentum coniunctum"
+    "Str.ProjectDocument.Kind.RelatedDocument": "Documentum coniunctum",
+    "Str.Naming.Msg.NotAVb6Name": "'{0}' nomen validum non est. Nomen a littera incipit, deinde litteris, numeris et lineolis subscriptis continuatur.",
+    "Str.Naming.Msg.DocumentNameTaken": "'{0}' iam est nomen formae, moduli aut classis in hoc incepto. VB6 eis unum spatium nominum dat, itaque duo idem nomen habere non possunt.",
+    "Str.Naming.Msg.ProjectNameTaken": "Inceptum nomine '{0}' iam oneratum est. Duo incepta in uno grege idem nomen habere non possunt.",
+    "Str.Naming.Msg.AdoptedNameTaken": "Plica '{1}' non addita est. Nomen eius est '{0}', quod iam est nomen formae, moduli aut classis in hoc incepto.",
+    "Str.Naming.Msg.AdoptedNameNotValid": "Plica '{1}' non addita est. Nomen eius est '{0}', quod nomen validum non est: nomen a littera incipit, deinde litteris, numeris et lineolis subscriptis continuatur."
   }
 }

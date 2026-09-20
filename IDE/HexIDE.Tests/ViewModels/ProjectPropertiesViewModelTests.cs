@@ -6,11 +6,17 @@ namespace HexIDE.Tests.ViewModels;
 
 public class ProjectPropertiesViewModelTests
 {
+
+    /// <summary>
+    /// A validator that objects to nothing. These tests are about the dialog's other fields; the naming
+    /// rules have their own, in <c>ProjectNameRefusalTests</c>.
+    /// </summary>
+    private static string? NoNameObjection(string _) => null;
     [Fact]
     public void Title_IncludesProjectName()
     {
         var project = TestHelpers.CreateProject("MyApp");
-        var vm = new ProjectPropertiesViewModel(project);
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
 
         vm.Title.Should().Contain("MyApp");
     }
@@ -19,7 +25,7 @@ public class ProjectPropertiesViewModelTests
     public void CanResize_IsFalse()
     {
         var project = TestHelpers.CreateProject();
-        var vm = new ProjectPropertiesViewModel(project);
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
 
         vm.CanResize.Should().BeFalse();
     }
@@ -28,7 +34,7 @@ public class ProjectPropertiesViewModelTests
     public void ProjectName_InitializedFromProjectDefinition()
     {
         var project = TestHelpers.CreateProject("SomeProject");
-        var vm = new ProjectPropertiesViewModel(project);
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
 
         vm.ProjectName.Should().Be("SomeProject");
     }
@@ -38,7 +44,7 @@ public class ProjectPropertiesViewModelTests
     {
         var project = TestHelpers.CreateProject("Proj");
         project.Description = "A test description";
-        var vm = new ProjectPropertiesViewModel(project);
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
 
         vm.ProjectDescription.Should().Be("A test description");
     }
@@ -47,7 +53,7 @@ public class ProjectPropertiesViewModelTests
     public void SelectedProjectType_InitializedFromProjectDefinition()
     {
         var project = TestHelpers.CreateProject();
-        var vm = new ProjectPropertiesViewModel(project);
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
 
         vm.SelectedProjectType.Should().Be(VBProjectType.EXE);
     }
@@ -61,7 +67,7 @@ public class ProjectPropertiesViewModelTests
         var form2 = new FormDefinition(project, FormComponentClass.Instance, "Form2");
         project.AddForm(form2);
 
-        var vm = new ProjectPropertiesViewModel(project);
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
 
         // Sub Main leads the list and every form follows in project order — VB6's own arrangement (#210).
         // This asserted exactly two entries before Sub Main became selectable; the forms are still all
@@ -78,7 +84,7 @@ public class ProjectPropertiesViewModelTests
         var project = TestHelpers.CreateProjectWithForm("Proj", "MainForm");
         var startupForm = project.StartupForm;
 
-        var vm = new ProjectPropertiesViewModel(project);
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
 
         vm.SelectedStartupObject.Should().NotBeNull();
         vm.SelectedStartupObject!.Form.Should().Be(startupForm);
@@ -88,7 +94,7 @@ public class ProjectPropertiesViewModelTests
     public void OkCommand_CanExecute_WhenProjectNameIsNotEmpty()
     {
         var project = TestHelpers.CreateProject("NonEmpty");
-        var vm = new ProjectPropertiesViewModel(project);
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
 
         vm.OkCommand.CanExecute(null).Should().BeTrue();
     }
@@ -97,7 +103,7 @@ public class ProjectPropertiesViewModelTests
     public void OkCommand_CannotExecute_WhenProjectNameIsEmpty()
     {
         var project = TestHelpers.CreateProject("NonEmpty");
-        var vm = new ProjectPropertiesViewModel(project);
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
 
         vm.ProjectName = "";
 
@@ -108,7 +114,7 @@ public class ProjectPropertiesViewModelTests
     public void OkCommand_FiresCloseRequestedTrue()
     {
         var project = TestHelpers.CreateProject();
-        var vm = new ProjectPropertiesViewModel(project);
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
         bool? receivedValue = null;
         vm.CloseRequested += val => receivedValue = val;
 
@@ -121,7 +127,7 @@ public class ProjectPropertiesViewModelTests
     public void CancelCommand_FiresCloseRequestedFalse()
     {
         var project = TestHelpers.CreateProject();
-        var vm = new ProjectPropertiesViewModel(project);
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
         bool? receivedValue = null;
         vm.CloseRequested += val => receivedValue = val;
 
@@ -134,7 +140,7 @@ public class ProjectPropertiesViewModelTests
     public void Apply_WritesBackName()
     {
         var project = TestHelpers.CreateProject("Original");
-        var vm = new ProjectPropertiesViewModel(project);
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
         vm.ProjectName = "Updated";
 
         var target = TestHelpers.CreateProject("Target");
@@ -147,7 +153,7 @@ public class ProjectPropertiesViewModelTests
     public void Apply_WritesBackDescription()
     {
         var project = TestHelpers.CreateProject();
-        var vm = new ProjectPropertiesViewModel(project);
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
         vm.ProjectDescription = "New description";
 
         var target = TestHelpers.CreateProject();
@@ -160,7 +166,7 @@ public class ProjectPropertiesViewModelTests
     public void Apply_WritesBackProjectType()
     {
         var project = TestHelpers.CreateProject();
-        var vm = new ProjectPropertiesViewModel(project);
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
         vm.SelectedProjectType = VBProjectType.EXE;
 
         var target = TestHelpers.CreateProject();
@@ -173,7 +179,7 @@ public class ProjectPropertiesViewModelTests
     public void Apply_WritesBackStartupForm()
     {
         var project = TestHelpers.CreateProjectWithForm("Proj", "Form1");
-        var vm = new ProjectPropertiesViewModel(project);
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
 
         var target = TestHelpers.CreateProject("Target");
         vm.Apply(target);

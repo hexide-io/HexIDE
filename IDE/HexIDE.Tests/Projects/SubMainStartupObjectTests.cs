@@ -18,6 +18,12 @@ namespace HexIDE.Tests.Projects;
 /// </summary>
 public class SubMainStartupObjectTests
 {
+
+    /// <summary>
+    /// A validator that objects to nothing. These tests are about the dialog's other fields; the naming
+    /// rules have their own, in <c>ProjectNameRefusalTests</c>.
+    /// </summary>
+    private static string? NoNameObjection(string _) => null;
     private static ProjectDefinition ProjectWithForm(out FormDefinition form)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
@@ -84,7 +90,7 @@ public class SubMainStartupObjectTests
         // the entry appear and vanish as code is edited, and would stop the user choosing it BEFORE
         // writing the procedure, which is the order a code-only project is usually built in.
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
-        var vm = new ProjectPropertiesViewModel(project);
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
 
         vm.StartupObjects.Should().NotBeEmpty();
         vm.StartupObjects[0].IsSubMain.Should().BeTrue("Sub Main comes first, as in VB6");
@@ -97,7 +103,7 @@ public class SubMainStartupObjectTests
         var project = ProjectWithForm(out _);
         project.StartsAtSubMain = true;
 
-        var vm = new ProjectPropertiesViewModel(project);
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
 
         vm.SelectedStartupObject.Should().NotBeNull();
         vm.SelectedStartupObject!.IsSubMain.Should().BeTrue();
@@ -107,7 +113,7 @@ public class SubMainStartupObjectTests
     public void ApplyingSubMainFromTheDialogSetsTheModel()
     {
         var project = ProjectWithForm(out _);
-        var vm = new ProjectPropertiesViewModel(project);
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
         vm.SelectedStartupObject = vm.StartupObjects.First(o => o.IsSubMain);
 
         vm.Apply(project);
@@ -121,7 +127,7 @@ public class SubMainStartupObjectTests
     {
         var project = ProjectWithForm(out var form);
         project.StartsAtSubMain = true;
-        var vm = new ProjectPropertiesViewModel(project);
+        var vm = new ProjectPropertiesViewModel(project, NoNameObjection);
         vm.SelectedStartupObject = vm.StartupObjects.First(o => !o.IsSubMain);
 
         vm.Apply(project);

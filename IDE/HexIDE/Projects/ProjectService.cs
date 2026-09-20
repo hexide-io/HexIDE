@@ -79,7 +79,7 @@ public class ProjectService : IProjectService
             return;
         }
 
-        var name = $"Project{projectManager.LoadedProjects.Count + 1}";
+        var name = ProjectNaming.NextFreeProjectName(projectManager.LoadedProjects);
         Log.Debug("ProjectService: Creating project '{ProjectName}' from template {Template}", name, template.Name);
         projectManager.NewProject(template, name);
         EnsureGroupIfMultiple();
@@ -93,7 +93,7 @@ public class ProjectService : IProjectService
             return;
         }
 
-        var name = $"Project{projectManager.LoadedProjects.Count + 1}";
+        var name = ProjectNaming.NextFreeProjectName(projectManager.LoadedProjects);
 
         projectManager.NewProject(template, name);
         EnsureGroupIfMultiple();
@@ -682,7 +682,12 @@ public class ProjectService : IProjectService
 
     public async Task EditProjectProperties(ProjectDefinition project)
     {
-        var vm = new ProjectPropertiesViewModel(project);
+        var vm = new ProjectPropertiesViewModel(project, proposed =>
+            !ProjectNaming.IsValidName(proposed)
+                ? string.Format(localization.GetString("Str.Naming.Msg.NotAVb6Name"), proposed)
+            : ProjectNaming.IsProjectNameTaken(projectManager.LoadedProjects, proposed, project)
+                ? string.Format(localization.GetString("Str.Naming.Msg.ProjectNameTaken"), proposed)
+            : null);
         if (!await windowManager.ShowDialog(vm))
             return;
 
@@ -989,7 +994,20 @@ public class ProjectService : IProjectService
         return Task.FromResult(module);
     }
 
-    public async Task<FormDefinition?> AddExistingForm(ProjectDefinition project, string absolutePath)
+    /// <summary>
+    /// Whether a name a file asked for can be used in a project, and why not when it cannot.
+    /// </summary>
+    /// <remarks>
+    /// Checked at adoption rather than left for the build. VB6 refuses a project whose form and module
+    /// share a name with <c>Name conflicts with existing module, project, or object library</c> and does
+    /// not say which two conflicted; refusing here can, and does.
+    /// </remarks>
+    private static AdoptionRefusal CheckAdoptedName(ProjectDefinition project, string name) =>
+        !ProjectNaming.IsValidName(name) ? AdoptionRefusal.NameNotValid
+        : ProjectNaming.IsNameTaken(project, name) ? AdoptionRefusal.NameTaken
+        : AdoptionRefusal.None;
+
+    public async Task<Adopted<FormDefinition>> AddExistingForm(ProjectDefinition project, string absolutePath)
     {
         var (source, bytes) = await Vb6TextFile.ReadWithBytesAsync(absolutePath);
 
@@ -998,25 +1016,38 @@ public class ProjectService : IProjectService
         var form = new FormDeserializer().Deserialize(
             project, source, new DeserializeErrorSink(), blobs, BuildUserControlRegistry(project));
         if (form == null)
-            return null;
+            return Adopted<FormDefinition>.Unreadable();
+
+        // The form's own name, off its designer line, checked before anything is recorded: a refused form
+        // must leave the project and the baseline store exactly as it found them.
+        var name = form.Name;
+        if (CheckAdoptedName(project, name) is var refusal && refusal != AdoptionRefusal.None)
+            return Adopted<FormDefinition>.Refused(refusal, name);
 
         // Recorded only once the parse succeeded. A baseline for a form that was never added would leave
         // the dirty check answering about a file the project does not carry.
         baselineStore.Record(absolutePath, bytes);
         form.AbsolutePath = absolutePath;
         project.AddForm(form);
-        return form;
+        return Adopted<FormDefinition>.Added(form, name);
     }
 
-    public async Task<ModuleDefinition> AddExistingModule(
+    public async Task<Adopted<ModuleDefinition>> AddExistingModule(
         ProjectDefinition project, string absolutePath, ModuleKind kind)
     {
         var (source, bytes) = await Vb6TextFile.ReadWithBytesAsync(absolutePath);
-        baselineStore.Record(absolutePath, bytes);
 
         // .bas/.cls: strip the VB6 header so Code is the body only (a no-op for .ctl/.pag).
         var (preservedHeader, body) = ModuleFileFormat.SplitHeader(source, kind);
-        var module = new ModuleDefinition(project, ModuleNameFor(absolutePath, preservedHeader), kind)
+        var name = ModuleNameFor(absolutePath, preservedHeader);
+
+        // Before the baseline is recorded, so a refused file leaves no trace: a baseline for a module the
+        // project does not carry would have the dirty check answering about a stranger.
+        if (CheckAdoptedName(project, name) is var refusal && refusal != AdoptionRefusal.None)
+            return Adopted<ModuleDefinition>.Refused(refusal, name);
+
+        baselineStore.Record(absolutePath, bytes);
+        var module = new ModuleDefinition(project, name, kind)
         {
             AbsolutePath = absolutePath,
         };
@@ -1040,7 +1071,7 @@ public class ProjectService : IProjectService
         }
 
         project.AddModule(module);
-        return module;
+        return Adopted<ModuleDefinition>.Added(module, name);
     }
 
     public Task<RelatedDocumentDefinition> AddExistingRelatedDocument(

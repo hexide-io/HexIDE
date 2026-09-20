@@ -124,8 +124,12 @@ public partial class ProjectToolViewModel : Tool
         }, () => SelectedForm != null);
         AddFormCommand = new DelegateCommand(() =>
         {
-            var project = GetSelectedProject();
-            project!.Definition.AddForm(new FormDefinition(project!.Definition, FormComponentClass.Instance, $"Form{project.Definition.Forms.Count + 1}"));
+            var project = GetSelectedProject()!.Definition;
+            // The lowest unused name across every kind, not one past the form count: deleting Form1 and
+            // adding a form used to produce a second Form2, and a project holding a module called Form1
+            // cannot also hold a form called Form1 -- VB6 gives forms and modules one namespace.
+            var name = ProjectNaming.NextFreeName(project, "Form");
+            project.AddForm(new FormDefinition(project, FormComponentClass.Instance, name));
         }, () => GetSelectedProject() != null);
 
         projectManager.ProjectLoaded += OnProjectLoaded;

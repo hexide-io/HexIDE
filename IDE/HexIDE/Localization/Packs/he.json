@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "לא נשמר בדיסק",
     "Str.ProjectDocument.Section.Members": "חברים",
     "Str.ProjectDocument.Section.References": "הפניות",
-    "Str.ProjectDocument.Kind.RelatedDocument": "מסמך קשור"
+    "Str.ProjectDocument.Kind.RelatedDocument": "מסמך קשור",
+    "Str.Naming.Msg.NotAVb6Name": "'{0}' אינו שם חוקי. שם מתחיל באות וממשיך באותיות, בספרות ובקווים תחתונים.",
+    "Str.Naming.Msg.DocumentNameTaken": "'{0}' הוא כבר שם של טופס, Module או Class Module בפרויקט זה. VB6 מאגד את כולם במרחב שמות אחד, ולכן שני מסמכים אינם יכולים לשאת אותו שם.",
+    "Str.Naming.Msg.ProjectNameTaken": "פרויקט בשם '{0}' כבר טעון. שני פרויקטים באותה קבוצה אינם יכולים לשאת אותו שם.",
+    "Str.Naming.Msg.AdoptedNameTaken": "הקובץ '{1}' לא נוסף. שמו הוא '{0}', וזה כבר שם של טופס, Module או Class Module בפרויקט זה.",
+    "Str.Naming.Msg.AdoptedNameNotValid": "הקובץ '{1}' לא נוסף. שמו הוא '{0}', וזה אינו שם חוקי: שם מתחיל באות וממשיך באותיות, בספרות ובקווים תחתונים."
   }
 }

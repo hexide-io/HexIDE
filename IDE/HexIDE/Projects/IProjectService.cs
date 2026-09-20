@@ -20,10 +20,15 @@ public interface IProjectService
     Task<ModuleDefinition> AddNewPropertyPage(ProjectDefinition project, string name);
 
     /// <summary>
-    /// Adds a <c>.frm</c> that already exists on disk. Returns null if it could not be parsed, in which
-    /// case nothing was added — a form HexIDE cannot read is not one it should pretend to carry.
+    /// Adds a <c>.frm</c> that already exists on disk.
     /// </summary>
-    Task<FormDefinition?> AddExistingForm(ProjectDefinition project, string absolutePath);
+    /// <remarks>
+    /// Nothing is added when the file cannot be parsed — a form HexIDE cannot read is not one it should
+    /// pretend to carry — and nothing is added when the name the file asks for is one this project already
+    /// uses, or is not a VB6 name at all. The result says which, because Add File takes several files at
+    /// once and "one of them was refused" is not an answer anybody can act on.
+    /// </remarks>
+    Task<Adopted<FormDefinition>> AddExistingForm(ProjectDefinition project, string absolutePath);
 
     /// <summary>
     /// Adds a module file that already exists on disk, as <paramref name="kind"/>.
@@ -35,7 +40,8 @@ public interface IProjectService
     /// header, same on-disk baseline, same companion blob handling.
     /// </para>
     /// </summary>
-    Task<ModuleDefinition> AddExistingModule(ProjectDefinition project, string absolutePath, ModuleKind kind);
+    Task<Adopted<ModuleDefinition>> AddExistingModule(
+        ProjectDefinition project, string absolutePath, ModuleKind kind);
 
     /// <summary>
     /// Adds a file the project will carry but never compile. Nothing is read or written — a related
