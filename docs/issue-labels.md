@@ -391,11 +391,52 @@ All five must hold:
 Compute this from the other axes rather than judging it per issue: asked to judge it directly, a model
 certified an issue carrying two areas, which rule 2 forbids.
 
-**The derived list is a queue to pick from, not a label to apply.** It currently returns 67 of 184,
-plainly too many to advertise. Verifying `blocked` issue by issue grew that number rather than shrinking
-it, so the gate was never what stood between this and a usable list. Derive, then hand-pick 10-15.
+**The derived list is a queue to pick from, not a label to apply.** It returns 67 of 184, plainly too
+many to advertise. Verifying `blocked` issue by issue grew that number rather than shrinking it, so the
+gate was never what stood between this and a usable list.
 
-`help wanted` is a maintainer's judgement about wanting outside help. It cannot be derived.
+### Then pick by hand, and these are the disqualifiers
+
+The five gates are **necessary and nowhere near sufficient**. They are all mechanical, which is what
+makes them reliable, and also what makes them blind to everything below. None of this can be derived,
+so it is a checklist rather than a rule, applied when choosing which of the 67 to actually advertise.
+
+Disqualify an issue, however well it scores on the gates, when:
+
+- **The setup cost dwarfs the change.** Anything needing a foreign language server running locally, the
+  `vb6.exe` oracle VM, or a hand-built fixture tree. A newcomer's first hour should not be spent on
+  prerequisites, and they will not tell you they gave up.
+- **The result is invisible.** If the contributor cannot *see* the change work — plumbing, protocol
+  framing, an MCP tool description, a guard script — they finish without ever feeling they finished.
+  This is the one that rules out most of the backlog's genuinely small issues, and it is deliberate.
+- **Being wrong is silent.** VB6 semantics, coercion rules, arithmetic edges. A newcomer cannot
+  self-check a divergence they have no oracle for, and `needs-oracle` only catches the cases where we
+  already knew a measurement was owed.
+- **The work is diagnosis, not a fix.** An intermittent failure, or a cause that is not yet identified.
+  Sizing it as `small` prices the eventual fix, not the hunt, and the hunt is miserable without context.
+- **It has a prerequisite**, even an informal one. `blocked` catches the hard dependencies; a "do this
+  after that lands, or you will do the work twice" is just as expensive to walk into.
+- **It is entangled with a live design question.** If a decision in flight could invalidate the fix,
+  the contributor pays for our indecision.
+
+And one positive selector worth applying on purpose: **an issue that needs a language rather than C#**.
+The language-pack issues are JSON edits that need a speaker of the language, which is the widest door
+this repo has and reaches people the rest of the backlog never will.
+
+**The bar is not "is this easy".** It is *"can someone with no context finish this, and know that they
+finished?"* Most small issues fail the second half.
+
+### `help wanted`
+
+A maintainer's judgement about wanting outside help. It cannot be derived. Used here as the **bench**:
+issues that pass the gates and the checklist but are not currently advertised, promoted to
+`good first issue` as the advertised ones are taken.
+
+### Claiming
+
+Comment on an issue to claim it. If there is no further activity for **seven days** it is unclaimed
+again and anyone may pick it up. This exists so two people do not spend the same weekend on the same
+issue, which is the most expensive thing that can happen to a first contribution.
 
 ---
 
