@@ -532,7 +532,7 @@ replaceable LSP/backend seam.
 **Why + consequences:** this keeps HexIDE a shell + demonstrator, not a half-built compiler frontend — no
 farm-bet re-implementation of semantic analysis, and a genuinely replaceable backend. It is *why* the
 Option-Explicit undeclared-variable check is **default-off** (it needs a symbol table = semantic analysis;
-see `VbDiagnosticsProvider.EnableUndeclaredVariableCheck`) and why the Evolution catalog's "Language
+see `VbDiagnosticsProvider.EnableUndeclaredVariableCheck`) and why the modernisation catalog's "Language
 intelligence" rows are marked as belonging to that engine rather than to HexIDE. If a task needs a bound
 AST / semantic model, it belongs in the backend engine, not in HexIDE. Decided 2026-07 (user, external
 advisor concurring).
@@ -638,7 +638,7 @@ nice-to-have.
   It is *expression* that must not cross — the same line already drawn for the VBA documentation.
 
 - **Avalonia 12.0.4 / Dock 12.0.0.2** — the project is on Avalonia 12. `Classic.Avalonia.Theme 12.0.1-beta1` is kept as a **controls-only** dependency (provides `ClassicBorderDecorator`, `ClassicBorderStyle`). **Do not pin it back to 11.3.0.3**: that build was compiled against Avalonia 11, so `ClassicBorderDecorator.DrawRadioButtonBorder` called a `StreamGeometryContext.ArcTo` overload Avalonia 12 replaced, and **every VB6 option button killed the process on render** (`MissingMethodException`, thrown on the render thread — uncatchable, and nothing reaches the Serilog log; the stack only exists in the Windows Application event log). It is a prerelease because it is the only Avalonia-12 build published. `<ClassicTheme />` remains **NOT loaded** and this change does not re-open that question — do not add it back. The `Classic.Avalonia.Theme.Dock`, `.ColorPicker`, and `.DataGrid` sub-packages have been removed. `Avalonia.Themes.Simple 12.0.4` is the base theme (`<SimpleTheme />` in App.axaml).
-- **`Classic.CommonControls.Avalonia 12.0.1-beta1` controls** (`ToolBar`, `ToolBarButton`, `RebarHandle`, `ListView`, `ListViewItem`) are **NOT used** — the `TypeLoadException: PseudolassesExtensions` applied to the 11.x build, but they stay unused by design (VB6 chrome removal is on the Evolution path). Use standard Avalonia `StackPanel`/`Button`/`ToggleButton`/`ListBox` instead. The version follows `Classic.Avalonia.Theme` transitively; no project references it directly. `SystemColors` static resource keys from that assembly are still used for color lookups and do not crash.
+- **`Classic.CommonControls.Avalonia 12.0.1-beta1` controls** (`ToolBar`, `ToolBarButton`, `RebarHandle`, `ListView`, `ListViewItem`) are **NOT used** — the `TypeLoadException: PseudolassesExtensions` applied to the 11.x build, but they stay unused by design (removing VB6 chrome is intended, not incidental). Use standard Avalonia `StackPanel`/`Button`/`ToggleButton`/`ListBox` instead. The version follows `Classic.Avalonia.Theme` transitively; no project references it directly. `SystemColors` static resource keys from that assembly are still used for color lookups and do not crash.
 - **Anything compiled against Avalonia 11 fails only at render time.** That whole class of bug builds cleanly, passes view-model tests, and then kills the process the first time the control is painted. `HexIDE.Integration.Tests/Controls/ClassicRenderTests.cs` is the guard — it renders the affected controls for real under Skia (`UseHeadlessDrawing = false`) and asserts a frame came back. Add a case there before trusting any new `Classic.*` surface.
 - **`Classic.CommonControls.Dialogs` is fully removed** — `MessageBoxResult`, `MessageBoxButtons`, `MessageBoxIcon` are now in `HexIDE.Core/IDE/MessageBoxEnums.cs` (namespace `HexIDE.IDE`). `FontDialogResult`/`AboutDialogOptions` are in `HexIDE/IDE/`. Managed dialog controls (`MessageBox`, `InputBox`) are in `HexIDE.Runtime/Dialogs/`. `AboutDialog`/`FontDialog` views and their ViewModels are in `HexIDE/Forms/Views/` and `HexIDE/Forms/ViewModels/`. `WindowManager` routes all paths (SingleView + desktop) through these managed controls.
 - **All projects, tests included**: `<Nullable>enable</Nullable>` + `<TreatWarningsAsErrors>true</TreatWarningsAsErrors>`. Do not introduce nullable warnings.
@@ -827,7 +827,7 @@ widening visibility to `public` just for a test. When a new test project needs r
 > there: the design record they work against is `openspec/`, which ships in full.
 
 - **`docs/private/ROADMAP.md`** *(maintainers)* — completed phases, design decisions, accepted/rejected ideas. Keep updated when phases complete or architectural decisions are made.
-- **`docs/private/EVOLUTION.md`** *(maintainers)* — Evolution-tier modernisation catalog: Remove/Keep/Change/Add tables with effort + persona-value ratings, the muscle-memory keep-list, and suggested waves. New Evolution work starts from this catalog; update rows as modernisation work lands.
+- **`docs/private/EVOLUTION.md`** *(maintainers)* — modernisation catalog: Remove/Keep/Change/Add tables with effort + persona-value ratings, the muscle-memory keep-list, and suggested waves. Modernisation work starts from this catalog; update rows as it lands.
 - **`docs/lsp-client.md`** and **`docs/lsp-server-features.md`** — the LSP pair, split along the seam
   because the two halves have different bounds. The **client** doc is what HexIDE speaks to *any*
   server: wire contract, capability gating, sync model, routing, and the client's own gaps (#282,
@@ -873,7 +873,7 @@ When in doubt about whether a piece of work is "complete enough", err on the sid
 Every `/plan` session that results in an approved implementation plan **must** also add a new phase entry to `docs/private/ROADMAP.md` before implementation begins — *if you have it*. Working from a public clone, record the same content in the change's `proposal.md` under `openspec/changes/` instead; the roadmap entry is the maintainers' mirror of it, not a second source of truth. The roadmap entry should be written at the end of plan mode (before `ExitPlanMode`) and must include:
 
 - A short phase title and one-sentence summary
-- The motivation (which tier it serves — Fidelity / Evolution / Abstraction)
+- The motivation — what it makes possible, and for whom
 - Key implementation decisions made during planning
 - Any approaches that were considered and rejected (with reason)
 
