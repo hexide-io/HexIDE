@@ -391,11 +391,109 @@ All five must hold:
 Compute this from the other axes rather than judging it per issue: asked to judge it directly, a model
 certified an issue carrying two areas, which rule 2 forbids.
 
-**The derived list is a queue to pick from, not a label to apply.** It currently returns 67 of 184,
-plainly too many to advertise. Verifying `blocked` issue by issue grew that number rather than shrinking
-it, so the gate was never what stood between this and a usable list. Derive, then hand-pick 10-15.
+**The derived list is a queue to pick from, not a label to apply.** It returns 67 of 184, plainly too
+many to advertise. Verifying `blocked` issue by issue grew that number rather than shrinking it, so the
+gate was never what stood between this and a usable list.
 
-`help wanted` is a maintainer's judgement about wanting outside help. It cannot be derived.
+### Then pick by hand, and these are the disqualifiers
+
+The five gates are **necessary and nowhere near sufficient**. They are all mechanical, which is what
+makes them reliable, and also what makes them blind to everything below. None of this can be derived,
+so it is a checklist rather than a rule, applied when choosing which of the 67 to actually advertise.
+
+Disqualify an issue, however well it scores on the gates, when:
+
+- **A plain fork cannot build or run it.** Check this first, because it is invisible from the issue.
+  The bundled AI Chat add-in is only packaged when a first-party signing key is present, and no fork
+  has one — `CONTRIBUTING.md` says so and CI prints it as expected. So the panel does not exist in a
+  contributor's build, there is no Tools menu entry for it, and they cannot produce the screenshot
+  `CONTRIBUTING.md` asks for on a UI change. That is intended behaviour rather than a defect, and it
+  still makes every `ai-chat` issue a poor first issue until someone writes down how to run bundled
+  add-ins from a keyless clone.
+- **A build guard pins it, and the way past the guard is a maintainer-only workflow.** Renaming a
+  `### Requirement:` heading in `openspec/specs/` looks like editing Markdown, but
+  `DesignRecordTests.EveryArchivedRequirementReachedTheSpecItTargeted` builds its expected set from the
+  deltas under `changes/archive/`, so the heading cannot move by editing `specs/` alone. The clean route
+  is a `## REMOVED Requirements` change archived through the openspec CLI — tooling `CONTRIBUTING.md`
+  calls optional, in a workflow `CLAUDE.md` says must never be done by hand, on files `CONTRIBUTING.md`
+  says are the maintainer's job. The contributor meets a red test with no obvious escape.
+- **The setup cost dwarfs the change.** Anything needing a foreign language server running locally, the
+  `vb6.exe` oracle VM, or a hand-built fixture tree. A newcomer's first hour should not be spent on
+  prerequisites, and they will not tell you they gave up.
+- **The result is invisible.** If the contributor cannot *see* the change work — plumbing, protocol
+  framing, an MCP tool description, a guard script — they finish without ever feeling they finished.
+  This is the one that rules out most of the backlog's genuinely small issues, and it is deliberate.
+- **Being wrong is silent.** VB6 semantics, coercion rules, arithmetic edges. A newcomer cannot
+  self-check a divergence they have no oracle for, and `needs-oracle` only catches the cases where we
+  already knew a measurement was owed.
+- **The work is diagnosis, not a fix.** An intermittent failure, or a cause that is not yet identified.
+  Sizing it as `small` prices the eventual fix, not the hunt, and the hunt is miserable without context.
+- **It has a prerequisite**, even an informal one. `blocked` catches the hard dependencies; a "do this
+  after that lands, or you will do the work twice" is just as expensive to walk into.
+- **It is entangled with a live design question.** If a decision in flight could invalidate the fix,
+  the contributor pays for our indecision.
+
+And one positive selector worth applying on purpose: **an issue that needs a language rather than C#**.
+The language-pack issues are JSON edits that need a speaker of the language, which is the widest door
+this repo has and reaches people the rest of the backlog never will.
+
+**The bar is not "is this easy".** It is *"can someone with no context finish this, and know that they
+finished?"* Most small issues fail the second half.
+
+### The standing target is twenty
+
+A **maximum**, not a quota. Twenty is enough that an arriving contributor finds something in their area
+and does not meet an empty shelf, and few enough that each one can be checked properly and reviewed
+promptly when the PR lands. If fewer than twenty survive the two passes below, advertise fewer — an
+issue that disappoints someone is more expensive than an issue they never saw. Promote from
+`help wanted` as advertised ones are taken, rather than topping up with whatever is left.
+
+### One gate: write the scaffolding comment
+
+Before the label goes on, **someone other than the person who chose it opens the code and writes the
+comment a newcomer would need.** That single act is both the review and the deliverable: it either
+produces a usable comment, or it produces the reason the issue is unsuitable.
+
+There is deliberately no separate approval step in front of it. On the first run of this process every
+rejection came out of the attempt to write the comment — a reviewer asked "is this a reasonable first
+issue?" says yes, because from the issue body it always is.
+
+**The comment says:** where the change goes, with files and symbols; the exact command to run; how they
+will know it worked; and the one gotcha specific to this issue. The newcomer's blocker is rarely finding
+the file — it is not knowing whether they have finished.
+
+**Write it against the tree, and check it claim by claim.** Every path, symbol and test command gets
+opened, not inferred. On the first run **nine of fourteen first drafts carried factual errors**: the
+wrong method on one of two paths through a feature, a test rationale that was backwards, an NSubstitute
+auto-value assumed to be `null` when it is `string.Empty`, a list of key namespaces that omitted the
+very settings page the comment then told the reader to open.
+
+Inaccurate scaffolding is worse than none. It sends someone confidently to the wrong place, and when it
+does not work they assume the fault is theirs. If a claim cannot be confirmed, leave it out.
+
+**Three of twenty picks failed this gate**, each for something invisible from the issue text:
+
+- a feature whose add-in is only packaged when a first-party signing key is present, so **no fork can
+  run it** at all;
+- an issue naming a `.vbp` key as undecided, where **no checked-in corpus file carries it**, so the
+  answer needed the oracle;
+- a Markdown rename **pinned by a build guard**, whose only clean escape is a maintainer-only workflow.
+
+All three read as clean small issues. None was findable without opening files. **If the comment cannot
+be written honestly, that is the answer** — do not apply the label, and say in the issue what would make
+it eligible.
+
+### `help wanted`
+
+A maintainer's judgement about wanting outside help. It cannot be derived. Used here as the **bench**:
+issues that pass the gates and the checklist but are not currently advertised, promoted to
+`good first issue` as the advertised ones are taken.
+
+### Claiming
+
+Comment on an issue to claim it. If there is no further activity for **seven days** it is unclaimed
+again and anyone may pick it up. This exists so two people do not spend the same weekend on the same
+issue, which is the most expensive thing that can happen to a first contribution.
 
 ---
 
