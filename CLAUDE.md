@@ -484,7 +484,7 @@ Package versions are centralized in `IDE/Directory.Build.props` (Avalonia, Dock,
 
 **Android and iOS are not supported** — the projects have been deleted. The only non-desktop platform to consider is Browser (WASM), which is a future aspiration only — it is not a current target and requires no active work.
 
-See [OUT_OF_SCOPE.md](docs/OUT_OF_SCOPE.md) for the full list of VB6 features that are excluded by design (SDI mode, User Documents, Data Environment, etc.). COM/OLE is **not** excluded — it is in scope but Windows-gated (foundational to real-world VB6; see the COM/OLE section of the maintainers’ Evolution catalog).
+See [OUT_OF_SCOPE.md](docs/OUT_OF_SCOPE.md) for the full list of VB6 features that are excluded by design (SDI mode, User Documents, Data Environment, etc.). COM/OLE is **not** excluded — it is in scope but Windows-gated, because it is foundational to real-world VB6.
 
 ## Fidelity Principle
 
