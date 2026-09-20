@@ -28,6 +28,7 @@ namespace HexIDE.Forms.ViewModels;
 public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchableDocument
 {
     private readonly IWindowManager windowManager;
+    private readonly HexIDE.Debugging.IRunScope runScope;
     private readonly IEditorService editorService;
     private readonly IProjectService projectService;
     private readonly IEventBus eventBus;
@@ -132,6 +133,27 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public ModuleDefinition? ModuleDefinition => moduleDefinition;
 
     /// <summary>
+    /// What this editor's document <em>is</em> — the key everything per-document hangs on.
+    /// </summary>
+    /// <remarks>
+    /// Fixed when the editor is initialized and never recomputed, because the definition it names never
+    /// changes: a rename, a first save or a Save As all leave the same object in place. The gutters are built
+    /// from this and the F9 and Ctrl+F2 commands read the same value, which is what stops the two
+    /// disagreeing after a rename (#269).
+    /// </remarks>
+    public DocumentIdentity Identity =>
+        OpenDocument ?? throw new InvalidOperationException(
+            "A code editor has no document until Initialize has been called with a form or a module.");
+
+    /// <inheritdoc/>
+    public override DocumentIdentity? OpenDocument => identity;
+
+    private DocumentIdentity? identity;
+
+    /// <summary>The project currently running, or null. Read live, never captured.</summary>
+    public ProjectDefinition? RunningProject => runScope.RunningProject;
+
+    /// <summary>
     /// True when the underlying file cannot be written back faithfully, so a code edit would be discarded
     /// at save time.
     ///
@@ -175,6 +197,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         IBookmarkService bookmarkService,
         HexIDE.Debugging.IBreakpointService breakpointService,
         HexIDE.Runtime.Debugging.IDebugController debugController,
+        HexIDE.Debugging.IRunScope runScope,
         ILocalizationService localization)
     {
         this.windowManager = windowManager;
@@ -186,6 +209,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         this.bookmarkService = bookmarkService;
         this.breakpointService = breakpointService;
         this.debugController = debugController;
+        this.runScope = runScope;
         this.statusBarService = statusBarService;
         this.localization = localization;
 
@@ -282,6 +306,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public CodeEditorViewModel Initialize(FormDefinition formElement)
     {
         this.formDefinition = formElement;
+        this.identity = DocumentIdentity.For(formElement);
         AutoDispose(formElement.ObservePropertyChanged(x => x.Name)
             .Subscribe(_ => Title = ComputeTitle()));
         AutoDispose(formElement.Owner.ObservePropertyChanged(x => x.Name)
@@ -311,6 +336,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         // Null for a .bas or .cls, which have no designer half — so everything downstream that tests
         // formDefinition stays correct for them without a kind check.
         this.formDefinition = moduleElement.FormPart;
+        this.identity = DocumentIdentity.For(moduleElement);
         AutoDispose(moduleElement.ObservePropertyChanged(x => x.Name)
             .Subscribe(_ => Title = ComputeTitle()));
         AutoDispose(moduleElement.Owner.ObservePropertyChanged(x => x.Name)
@@ -469,13 +495,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     private IEnumerable<DocumentSymbol> FlattenedSymbols() =>
         _symbols is null ? [] : _symbols.SelectMany(s => s.Flatten());
 
-    private string GetDocumentUri()
-    {
-        if (moduleDefinition is not null)
-            return $"vb6://module/{moduleDefinition.Name}";
-        var name = formDefinition?.Name ?? "untitled";
-        return $"vb6://form/{name}";
-    }
+    // Through the seam converter, never spelled out here: what a document is called on the wire is one
+    // decision, and this used to be one of eight places that each made it separately.
+    private string GetDocumentUri() => DocumentWireName.For(Identity);
 
     public void SaveForm() => SaveWithFormattingAsync(() => projectService.SaveForm(formDefinition!, false)).ListenErrors();
     public void SaveModule() => SaveWithFormattingAsync(() => projectService.SaveModule(moduleDefinition!, false)).ListenErrors();

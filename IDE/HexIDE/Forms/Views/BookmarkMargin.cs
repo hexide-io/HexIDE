@@ -5,6 +5,7 @@ using Avalonia.Media;
 using AvaloniaEdit.Editing;
 using AvaloniaEdit.Rendering;
 using HexIDE.Bookmarks;
+using HexIDE.Runtime.ProjectElements;
 
 namespace HexIDE.Forms.Views;
 
@@ -15,12 +16,17 @@ public sealed class BookmarkMargin : AbstractMargin
     private static readonly IBrush BookmarkBrush = new SolidColorBrush(Color.Parse("#00C0C0"));
 
     private readonly IBookmarkService _bookmarkService;
-    private readonly string _documentUri;
+    private readonly DocumentIdentity _document;
 
-    public BookmarkMargin(IBookmarkService bookmarkService, string documentUri)
+    /// <param name="document">
+    /// The document this gutter is drawn for — an identity, for the reason given on
+    /// <see cref="HexIDE.Debugging.BreakpointMargin"/>: a name captured at attach and one recomputed by the
+    /// Ctrl+F2 command diverge on the first rename.
+    /// </param>
+    public BookmarkMargin(IBookmarkService bookmarkService, DocumentIdentity document)
     {
         _bookmarkService = bookmarkService;
-        _documentUri = documentUri;
+        _document = document;
     }
 
     protected override void OnTextViewChanged(TextView? oldTextView, TextView? newTextView)
@@ -43,9 +49,9 @@ public sealed class BookmarkMargin : AbstractMargin
 
     private void OnVisualLinesChanged(object? sender, EventArgs e) => InvalidateVisual();
 
-    private void OnBookmarksChanged(string uri)
+    private void OnBookmarksChanged(DocumentIdentity document)
     {
-        if (uri == _documentUri)
+        if (document == _document)
             InvalidateVisual();
     }
 
@@ -62,7 +68,7 @@ public sealed class BookmarkMargin : AbstractMargin
         foreach (var line in textView.VisualLines)
         {
             int lineNumber = line.FirstDocumentLine.LineNumber - 1; // convert to 0-based
-            if (!_bookmarkService.IsBookmarked(_documentUri, lineNumber)) continue;
+            if (!_bookmarkService.IsBookmarked(_document, lineNumber)) continue;
 
             double y = line.GetTextLineVisualYPosition(line.TextLines[0], VisualYPosition.LineTop)
                        - textView.VerticalOffset;
@@ -85,7 +91,7 @@ public sealed class BookmarkMargin : AbstractMargin
         if (visualLine == null) return;
 
         int lineNumber = visualLine.FirstDocumentLine.LineNumber - 1; // 0-based
-        _bookmarkService.Toggle(_documentUri, lineNumber);
+        _bookmarkService.Toggle(_document, lineNumber);
         e.Handled = true;
     }
 }

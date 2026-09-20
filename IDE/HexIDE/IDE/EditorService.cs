@@ -48,7 +48,7 @@ public class EditorService : IEditorService
         {
             foreach (var module in project.Modules)
             {
-                if (!Names(uri, "module", module.Name, module.AbsolutePath)) continue;
+                if (!Names(uri, DocumentIdentity.For(module), module.AbsolutePath)) continue;
                 EditCode(module);
                 PlaceCaret(vm => vm.ModuleDefinition == module, line, column);
                 return true;
@@ -56,7 +56,7 @@ public class EditorService : IEditorService
 
             foreach (var form in project.Forms)
             {
-                if (!Names(uri, "form", form.Name, form.AbsolutePath)) continue;
+                if (!Names(uri, DocumentIdentity.For(form), form.AbsolutePath)) continue;
                 EditCode(form);
                 // EditCode(form) redirects a UserControl or PropertyPage to its module, so the editor that
                 // opened may be keyed on the module rather than the form. Accept either.
@@ -67,7 +67,7 @@ public class EditorService : IEditorService
 
             foreach (var carried in project.RelatedDocuments)
             {
-                if (!Names(uri, null, carried.Name, carried.AbsolutePath)) continue;
+                if (!Names(uri, null, carried.AbsolutePath)) continue;
                 EditRelatedDocument(carried);
                 // Carried files open in the plain-text editor, which is a different view model with no
                 // caret to place. Opening it is the whole of what can be honoured here.
@@ -88,9 +88,9 @@ public class EditorService : IEditorService
     /// (hexide-io/HexIDE#236). A document with no file yet has no <c>file:</c> spelling at all, which is
     /// why the scheme URI is still checked first.
     /// </remarks>
-    private static bool Names(string uri, string? kind, string name, string? absolutePath)
+    private static bool Names(string uri, DocumentIdentity? document, string? absolutePath)
     {
-        if (kind is not null && LspDocumentUri.AreSame(uri, $"vb6://{kind}/{name}")) return true;
+        if (document is not null && LspDocumentUri.AreSame(uri, DocumentWireName.For(document))) return true;
         if (string.IsNullOrEmpty(absolutePath)) return false;
 
         // A path that cannot be turned into a URI is not a match, and is not an error either: it is a

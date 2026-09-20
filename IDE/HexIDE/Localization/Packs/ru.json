@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "Не сохранён на диск",
     "Str.ProjectDocument.Section.Members": "Элементы",
     "Str.ProjectDocument.Section.References": "Ссылки",
-    "Str.ProjectDocument.Kind.RelatedDocument": "Связанный документ"
+    "Str.ProjectDocument.Kind.RelatedDocument": "Связанный документ",
+    "Str.Naming.Msg.NotAVb6Name": "'{0}' не является допустимым именем. Имя начинается с буквы, за которой могут идти буквы, цифры и знаки подчёркивания.",
+    "Str.Naming.Msg.DocumentNameTaken": "Имя '{0}' уже занято формой, модулем или классом в этом проекте. В VB6 у них одно общее пространство имён, поэтому двух одинаковых имён быть не может.",
+    "Str.Naming.Msg.ProjectNameTaken": "Проект с именем '{0}' уже загружен. Два проекта в одной группе не могут называться одинаково.",
+    "Str.Naming.Msg.AdoptedNameTaken": "Файл '{1}' не добавлен. Заданное в нём имя '{0}' уже занято формой, модулем или классом в этом проекте.",
+    "Str.Naming.Msg.AdoptedNameNotValid": "Файл '{1}' не добавлен. Заданное в нём имя '{0}' недопустимо: имя начинается с буквы, за которой могут идти буквы, цифры и знаки подчёркивания."
   }
 }

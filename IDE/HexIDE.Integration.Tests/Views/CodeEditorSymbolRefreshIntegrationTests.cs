@@ -64,6 +64,7 @@ public class CodeEditorSymbolRefreshIntegrationTests
             Substitute.For<IBookmarkService>(),
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
+            Substitute.For<HexIDE.Debugging.IRunScope>(),
             localization);
     }
 

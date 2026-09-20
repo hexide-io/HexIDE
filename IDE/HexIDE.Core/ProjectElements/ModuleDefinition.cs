@@ -17,7 +17,22 @@ public partial class ModuleDefinition : INotifyPropertyChanged
 
     public FormDefinition? FormPart { get; private set; }
 
-    public void UpdateFormPart(FormDefinition? formPart) => FormPart = formPart;
+    /// <summary>
+    /// Attaches (or detaches) the designer half of a UserControl or PropertyPage.
+    /// </summary>
+    /// <remarks>
+    /// The link is recorded on the form as well, because the answer is needed in both directions and only
+    /// one of them can be reached by looking. Going the other way means scanning the project's modules for
+    /// one holding this form, which is wrong during construction: a UserControl's module and its form part
+    /// are joined here several statements before the module is added to the project, and anything asking
+    /// in that window would conclude the form stands alone.
+    /// </remarks>
+    public void UpdateFormPart(FormDefinition? formPart)
+    {
+        FormPart?.SetOwningModule(null);
+        FormPart = formPart;
+        formPart?.SetOwningModule(this);
+    }
 
     public string? AbsolutePath
     {

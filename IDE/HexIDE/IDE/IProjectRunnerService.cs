@@ -12,7 +12,7 @@ public interface IProjectRunnerService : INotifyPropertyChanged
     void StepIntoProject();
     void StepOverProject();
     void StepOutProject();
-    void RunToCursorProject(string module, int line);
+    void RunToCursorProject(DocumentIdentity document, int line);
     void EndProject();
     void RestartProject();
     bool CanStartDefaultProject { get; }
@@ -26,4 +26,7 @@ public interface IProjectRunnerService : INotifyPropertyChanged
     bool CanEndProject { get; }
     bool CanRestartProject { get; }
     bool IsRunning { get; }
+
+    /// <summary>The project currently running, or null when nothing is.</summary>
+    ProjectDefinition? RunningProject { get; }
 }

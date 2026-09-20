@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "Not saved to disk",
     "Str.ProjectDocument.Section.Members": "Members",
     "Str.ProjectDocument.Section.References": "References",
-    "Str.ProjectDocument.Kind.RelatedDocument": "Related Document"
+    "Str.ProjectDocument.Kind.RelatedDocument": "Related Document",
+    "Str.Naming.Msg.NotAVb6Name": "'{0}' is not a valid name. A name starts with a letter and continues with letters, digits and underscores.",
+    "Str.Naming.Msg.DocumentNameTaken": "'{0}' is already the name of a form, module or class in this project. VB6 gives them one namespace, so two cannot share a name.",
+    "Str.Naming.Msg.ProjectNameTaken": "A project named '{0}' is already loaded. Two projects in one group cannot share a name.",
+    "Str.Naming.Msg.AdoptedNameTaken": "'{1}' was not added. It is named '{0}', which is already the name of a form, module or class in this project.",
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' was not added. It is named '{0}', which is not a valid name: a name starts with a letter and continues with letters, digits and underscores."
   }
 }

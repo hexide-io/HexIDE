@@ -86,35 +86,63 @@
 
 ## 1. Identity inside the IDE
 
-- [ ] 1.1 A document identity: a value comparing by reference to the document's definition, holding its
-  project. A UserControl or PropertyPage has one identity (its module), as the editor already chooses, and its
-  file is the module's, not the form part's (they diverge today, #474). Written `<Project>/<Name>` for display
-  and lookup, case-insensitively, and never used as a key in that form.
-- [ ] 1.2 Re-key the breakpoint and bookmark stores, both gutters and the F9 and bookmark commands on it. The
-  gutters and commands must read one live value, never one frozen at attach and another recomputed later.
-- [ ] 1.3 Replace the six places that read a module name out of a URI (debug module name, Run To Cursor, Set
-  Next Statement, the runner's live push, `AddinDiagnosticsService.ExtractName`, the sidecar's project lookup)
-  with the identity's definition and project. The runner's live push is scoped to the running project.
-- [ ] 1.4 Replace the eight places that mint `vb6://` by hand. What remains of a URI at this phase comes from
-  one converter at the seam, so phase 2 changes one function.
-- [ ] 1.5 Sidecar keyed by document name within its project's file. Store unload and clear are scoped by
-  project, not recomputed from current names.
-- [ ] 1.6 Automation: resolve a document by project and name across every loaded project, then key by
-  identity. That fixes minting from the caller's spelling (#467). Replies carry `project` and `document`.
-- [ ] 1.7 Names: new forms, modules and classes never repeat a name in their project, including one adopted
-  from an existing file; a rename that would is refused; a new project never takes a loaded project's name and
-  cannot be renamed to one (#468). Every such name must be a valid VB6 name, which keeps a slash, hash,
-  question mark or space out of a wire name at the point it is chosen. Both collision rules are VB6's own,
-  measured in 0.3. Refusal reasons are localization keys.
-- [ ] 1.7b Add-ins: name a document by project as well as name, resolve across every loaded project, and
-  refuse an ambiguous bare name. A trailing optional argument and trailing record fields, following the
-  convention the diagnostics change used, so existing add-ins keep compiling. The file-opened and
-  file-closed events stop carrying the dock title as the document's name and path.
-- [ ] 1.8 Tests, one per scenario in this phase's delta, named after it, plus: a rename keeps marks shown,
-  pushed and saved; two same-named modules in a group keep separate marks; a mark set by automation in the
-  wrong case is visible in the gutter; name reuse is refused; a module named `Utilities` saved as `util.bas`
-  shows the current-statement bar when a run pauses in it, which is the regression the name-from-URI readers
-  would cause.
+- [x] 1.1 `DocumentIdentity` (HexIDE.Core) — the definition compared by reference, carrying its project;
+  `Name`, `AbsolutePath` and `Display` read live and nothing keys on any of them. A UserControl or
+  PropertyPage resolves to its module, and its file is the module's. **Read off the form rather than found
+  by scanning**: `ModuleDefinition.UpdateFormPart` now records the link on the form too, because a scan
+  answers "a plain form" in the several statements between a UserControl's halves being joined and its
+  module joining the project — in both the creation path and the load path — and that identity compares
+  unequal to every later one.
+- [x] 1.2 Both stores, both gutters and the F9 and Ctrl+F2 commands take the identity. `ClearProject` was
+  added to both stores for the unload path and **filters the store's own keys**, never the project's current
+  documents: a document removed while it carried marks is in neither list, and its entry would be
+  unreachable *and* would hold the whole project graph alive through the definition's `Owner`. Found and
+  fixed while re-keying: `BookmarkService.SetBookmarks(document, [])` emptied the store without raising its
+  change event, so the gutter kept its dots and the sidecar never rewrote — against the `set_bookmarks`
+  tool's own description.
+- [x] 1.3 All six gone. The live push is scoped through a new `IRunScope`, which holds the running project
+  as a **value rather than an event**: the editor that most needs it is the one opened *by* a break, so it
+  was never listening when the event fired. It is a service of its own because an editor cannot depend on
+  the runner (the cycle runs through the editor factory). `RevealBreak` now opens the editor in the running
+  project rather than the startup one.
+- [x] 1.4 One converter, `DocumentWireName.For`. All eight sites go through it.
+- [x] 1.5 Keyed by the document's name within its project's file. **Old `vb6://` keys are still read**, and
+  the two are told apart by the key itself: a VB6 name cannot look like a URI, so re-keying costs no version
+  step and `version` still records the line base, which this change does not move. Unload and clear are
+  scoped by project through `ClearProject`, and `FindProjectForUri` is gone — the identity carries its
+  project. Duplicate names within one project union their lines rather than overwriting, so a legacy project
+  holding both a form and a module called `Thing` cannot lose one's marks to the other.
+- [x] 1.6 One resolver (`DocumentLookup.Find`) across every loaded project, case-insensitive, with an
+  optional `project` argument; an ambiguous bare name is refused and the refusal lists the candidates.
+  Replies carry `project`, `document` and the wire `uri`, and a mutating reply reports what the document
+  holds afterwards — including when that is nothing. Recorded in `docs/mcp-server-gaps.md`.
+  `clear_all_breakpoints`'s description is corrected to say it clears every loaded project; whether VB6
+  agrees with that is filed as #492.
+- [x] 1.7 Generation (`ProjectNaming.NextFreeName`) is the lowest unused index pooled across **every** kind,
+  which the two Add Form commands and the four Add Module commands now share; new project names likewise.
+  Adoption refuses a taken or invalid name and says which name it objected to, because Add File is
+  multi-select. A form's rename is refused at the root component's Name property; a project's in the
+  properties dialog, which now shows the reason beside the box rather than only disabling OK. Five
+  `Str.Naming.Msg.*` keys, translated into all 29 shipped packs.
+  - **A module, class, UserControl or PropertyPage cannot be renamed through any path in the IDE**:
+    `ModuleDefinition.Name` has a public setter with no assignment anywhere outside its constructor, and the
+    Properties window binds only a form designer. So the rename half of this task covers forms and projects,
+    which are the only two renames that exist. The rule itself is in `ProjectNaming` and applies wherever a
+    module rename is eventually built. Filed as #493.
+- [x] 1.7b Project-qualified **overloads** rather than trailing optional arguments on the interface methods,
+  deviating from this task's letter for a measured reason: an add-in is loaded as a pre-built assembly
+  through `Assembly.Load`, and C# bakes a default argument into the *call site*, so a default parameter
+  keeps an add-in compiling and breaks every one already packaged with `MissingMethodException`. The records
+  do take trailing optional fields, which is the precedent this task cites and where it holds.
+  `IProjectAccess.GetProjects()` was added, without which the new argument is undiscoverable. The
+  file-opened and file-closed events carry the document, and a tab with no document reports an empty path
+  rather than its title.
+- [x] 1.8 `DocumentIdentityTests`, `DocumentLookupTests`, `ProjectNamingTests`, `ProjectNameRefusalTests`,
+  `CurrentStatementBarTests`, plus the re-keyed `BreakpointServiceTests`, `UserSidecarBreakpointTests` and
+  `AddExistingFileTests`. The sidecar's on-disk key is asserted by reading the file, which no round-trip
+  through two service instances could show. **Both halves of the current-statement check were proved by
+  mutation**: removing the project test fails the two-projects case, and removing the name test fails the
+  renamed-module case.
 
 ## 2. Names on the wire
 

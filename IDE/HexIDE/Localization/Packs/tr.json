@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "Diske kaydedilmedi",
     "Str.ProjectDocument.Section.Members": "Üyeler",
     "Str.ProjectDocument.Section.References": "Başvurular",
-    "Str.ProjectDocument.Kind.RelatedDocument": "İlgili Belge"
+    "Str.ProjectDocument.Kind.RelatedDocument": "İlgili Belge",
+    "Str.Naming.Msg.NotAVb6Name": "'{0}' geçerli bir ad değil. Ad bir harfle başlar, ardından harf, rakam ve alt çizgiyle devam eder.",
+    "Str.Naming.Msg.DocumentNameTaken": "'{0}' zaten bu projedeki bir formun, modülün veya sınıfın adı. VB6 bunları tek bir ad alanında tutar, bu yüzden ikisi aynı adı paylaşamaz.",
+    "Str.Naming.Msg.ProjectNameTaken": "'{0}' adlı bir proje zaten yüklü. Bir proje grubundaki iki proje aynı adı paylaşamaz.",
+    "Str.Naming.Msg.AdoptedNameTaken": "'{1}' eklenmedi. Adı '{0}'; bu ise zaten bu projedeki bir formun, modülün veya sınıfın adı.",
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' eklenmedi. Adı '{0}'; bu ise geçerli bir ad değil: ad bir harfle başlar, ardından harf, rakam ve alt çizgiyle devam eder."
   }
 }

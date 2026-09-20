@@ -1,3 +1,4 @@
+using HexIDE.Runtime.Components;
 using System;
 using System.IO;
 using System.Linq;
@@ -83,9 +84,9 @@ public class AddExistingFileTests : IDisposable
         var path = Stage("Utils.bas", ModuleFile);
         var project = NewProject();
 
-        var module = await MakeService().AddExistingModule(project, path, ModuleKind.StandardModule);
+        var module = (await MakeService().AddExistingModule(project, path, ModuleKind.StandardModule)).Document;
 
-        module.Name.Should().Be("Helpers");
+        module!.Name.Should().Be("Helpers");
         module.AbsolutePath.Should().Be(path, "the file joins where it lies; nothing is copied or moved");
     }
 
@@ -95,9 +96,9 @@ public class AddExistingFileTests : IDisposable
         var path = Stage("Utils.bas", ModuleFile);
         var project = NewProject();
 
-        var module = await MakeService().AddExistingModule(project, path, ModuleKind.StandardModule);
+        var module = (await MakeService().AddExistingModule(project, path, ModuleKind.StandardModule)).Document;
 
-        module.Code.Should().Contain("Public Sub Greet()")
+        module!.Code.Should().Contain("Public Sub Greet()")
             .And.NotContain("Attribute VB_Name",
                 "the editor shows the body; leaving the header in Code emits it twice on the next save");
     }
@@ -112,8 +113,8 @@ public class AddExistingFileTests : IDisposable
         var project = NewProject();
         var service = MakeService();
 
-        var module = await service.AddExistingModule(project, path, ModuleKind.StandardModule);
-        await service.SaveModule(module, saveAs: false);
+        var module = (await service.AddExistingModule(project, path, ModuleKind.StandardModule)).Document;
+        await service.SaveModule(module!, saveAs: false);
 
         (await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken)).Should().Be(before);
     }
@@ -184,10 +185,10 @@ public class AddExistingFileTests : IDisposable
         var project = NewProject();
         var service = MakeService();
 
-        var module = await service.AddExistingModule(project, path, ModuleKind.ClassModule);
-        await service.SaveModule(module, saveAs: false);
+        var module = (await service.AddExistingModule(project, path, ModuleKind.ClassModule)).Document;
+        await service.SaveModule(module!, saveAs: false);
 
-        module.Kind.Should().Be(ModuleKind.ClassModule);
+        module!.Kind.Should().Be(ModuleKind.ClassModule);
         (await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken)).Should().Be(before,
             "VB_Creatable and VB_PredeclaredId are not reconstructible from the model, so they must survive "
           + "adoption verbatim");
@@ -201,9 +202,10 @@ public class AddExistingFileTests : IDisposable
         var path = Stage("Broken.frm", "this is not a form\r\n");
         var project = NewProject();
 
-        var form = await MakeService().AddExistingForm(project, path);
+        var adopted = await MakeService().AddExistingForm(project, path);
 
-        form.Should().BeNull();
+        adopted.Document.Should().BeNull();
+        adopted.Refusal.Should().Be(AdoptionRefusal.CouldNotRead);
         project.Forms.Should().BeEmpty();
     }
 
@@ -222,10 +224,59 @@ public class AddExistingFileTests : IDisposable
         var path = Stage("Form1.frm", frm);
         var project = NewProject();
 
-        var form = await MakeService().AddExistingForm(project, path);
+        var form = (await MakeService().AddExistingForm(project, path)).Document;
 
         form.Should().NotBeNull();
         form!.AbsolutePath.Should().Be(path);
         project.Forms.Should().ContainSingle();
+    }
+
+    /// <summary>
+    /// A file whose own name a project already uses does not join it. VB6 refuses to build such a project
+    /// at all -- forms and modules share one namespace -- so refusing the add is the recoverable answer.
+    /// </summary>
+    [Fact]
+    public async Task AModuleNamedLikeOneTheProjectAlreadyHasIsRefused()
+    {
+        var path = Stage("Utils.bas", ModuleFile);   // declares Attribute VB_Name = "Helpers"
+        var project = NewProject();
+        project.AddModule(new ModuleDefinition(project, "HELPERS", ModuleKind.StandardModule));
+
+        var adopted = await MakeService().AddExistingModule(project, path, ModuleKind.StandardModule);
+
+        adopted.Document.Should().BeNull();
+        adopted.Refusal.Should().Be(AdoptionRefusal.NameTaken);
+        adopted.Name.Should().Be("Helpers", "the refusal has to say which name it objected to");
+        project.Modules.Should().ContainSingle("nothing joined, so nothing was added");
+    }
+
+    /// <summary>
+    /// The cross-kind half of the same rule: a form and a standard module of one project may not share a
+    /// name either, which is measured against the real compiler rather than assumed.
+    /// </summary>
+    [Fact]
+    public async Task AModuleNamedLikeAFormTheProjectAlreadyHasIsRefused()
+    {
+        var path = Stage("Utils.bas", ModuleFile);
+        var project = NewProject();
+        project.AddForm(new FormDefinition(project, FormComponentClass.Instance, "Helpers"));
+
+        var adopted = await MakeService().AddExistingModule(project, path, ModuleKind.StandardModule);
+
+        adopted.Refusal.Should().Be(AdoptionRefusal.NameTaken);
+        project.Modules.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task AModuleWhoseDeclaredNameIsNotAVb6NameIsRefused()
+    {
+        var path = Stage("Odd.bas", "Attribute VB_Name = \"My Module\"\r\nOption Explicit\r\n");
+        var project = NewProject();
+
+        var adopted = await MakeService().AddExistingModule(project, path, ModuleKind.StandardModule);
+
+        adopted.Refusal.Should().Be(AdoptionRefusal.NameNotValid);
+        adopted.Name.Should().Be("My Module");
+        project.Modules.Should().BeEmpty();
     }
 }

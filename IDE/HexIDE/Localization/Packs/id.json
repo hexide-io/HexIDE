@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "Belum disimpan ke disk",
     "Str.ProjectDocument.Section.Members": "Anggota",
     "Str.ProjectDocument.Section.References": "Referensi",
-    "Str.ProjectDocument.Kind.RelatedDocument": "Dokumen Terkait"
+    "Str.ProjectDocument.Kind.RelatedDocument": "Dokumen Terkait",
+    "Str.Naming.Msg.NotAVb6Name": "'{0}' bukan nama yang valid. Nama diawali dengan huruf dan dilanjutkan dengan huruf, angka, dan garis bawah.",
+    "Str.Naming.Msg.DocumentNameTaken": "'{0}' sudah menjadi nama sebuah form, modul, atau kelas di proyek ini. VB6 menempatkan semuanya dalam satu ruang nama, sehingga dua di antaranya tidak boleh bernama sama.",
+    "Str.Naming.Msg.ProjectNameTaken": "Sebuah proyek bernama '{0}' sudah dimuat. Dua proyek dalam satu grup tidak boleh bernama sama.",
+    "Str.Naming.Msg.AdoptedNameTaken": "'{1}' tidak ditambahkan. Berkas itu bernama '{0}', yang sudah menjadi nama sebuah form, modul, atau kelas di proyek ini.",
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' tidak ditambahkan. Berkas itu bernama '{0}', dan itu bukan nama yang valid: nama diawali dengan huruf dan dilanjutkan dengan huruf, angka, dan garis bawah."
   }
 }

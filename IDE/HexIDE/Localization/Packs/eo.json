@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "Ne konservita sur disko",
     "Str.ProjectDocument.Section.Members": "Membroj",
     "Str.ProjectDocument.Section.References": "Referencoj",
-    "Str.ProjectDocument.Kind.RelatedDocument": "Rilata dokumento"
+    "Str.ProjectDocument.Kind.RelatedDocument": "Rilata dokumento",
+    "Str.Naming.Msg.NotAVb6Name": "'{0}' ne estas valida nomo. Nomo komenciĝas per litero kaj poste enhavas nur literojn, ciferojn kaj substrekojn.",
+    "Str.Naming.Msg.DocumentNameTaken": "'{0}' jam estas la nomo de formularo, modulo aŭ klaso en ĉi tiu projekto. VB6 donas al ili unu solan nomspacon, do du ne povas havi la saman nomon.",
+    "Str.Naming.Msg.ProjectNameTaken": "Projekto nomata '{0}' jam estas ŝargita. Du projektoj en unu grupo ne povas havi la saman nomon.",
+    "Str.Naming.Msg.AdoptedNameTaken": "'{1}' ne estis aldonita. Ĝia nomo estas '{0}', kiu jam estas la nomo de formularo, modulo aŭ klaso en ĉi tiu projekto.",
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' ne estis aldonita. Ĝia nomo estas '{0}', kiu ne estas valida nomo: nomo komenciĝas per litero kaj poste enhavas nur literojn, ciferojn kaj substrekojn."
   }
 }

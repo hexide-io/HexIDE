@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "Не збережено на диск",
     "Str.ProjectDocument.Section.Members": "Елементи",
     "Str.ProjectDocument.Section.References": "Посилання",
-    "Str.ProjectDocument.Kind.RelatedDocument": "Пов'язаний документ"
+    "Str.ProjectDocument.Kind.RelatedDocument": "Пов'язаний документ",
+    "Str.Naming.Msg.NotAVb6Name": "'{0}' не є дійсним ім'ям. Ім'я починається з літери, а далі складається з літер, цифр і символів підкреслення.",
+    "Str.Naming.Msg.DocumentNameTaken": "'{0}' — це вже ім'я форми, модуля або класу в цьому проєкті. VB6 відводить їм один простір імен, тому два з них не можуть мати однакове ім'я.",
+    "Str.Naming.Msg.ProjectNameTaken": "Проєкт з іменем '{0}' вже завантажено. Два проєкти в одній групі не можуть мати однакове ім'я.",
+    "Str.Naming.Msg.AdoptedNameTaken": "'{1}' не додано. Його ім'я — '{0}', а це вже ім'я форми, модуля або класу в цьому проєкті.",
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' не додано. Його ім'я — '{0}', а це недійсне ім'я: ім'я починається з літери, а далі складається з літер, цифр і символів підкреслення."
   }
 }

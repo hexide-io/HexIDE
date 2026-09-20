@@ -10,11 +10,17 @@ namespace HexIDE.Integration.Tests.Views;
 
 public class ProjectPropertiesViewIntegrationTests
 {
+
+    /// <summary>
+    /// A validator that objects to nothing. These tests are about the dialog's other fields; the naming
+    /// rules have their own, in <c>ProjectNameRefusalTests</c>.
+    /// </summary>
+    private static string? NoNameObjection(string _) => null;
     [AvaloniaFact]
     public void View_WithProjectDefinition_RendersWithoutErrors()
     {
         var projectDef = new ProjectDefinition(VBProjectType.EXE, "TestProject");
-        var vm = new ProjectPropertiesViewModel(projectDef);
+        var vm = new ProjectPropertiesViewModel(projectDef, NoNameObjection);
         var view = new ProjectPropertiesView { DataContext = vm };
 
         view.Measure(new Size(800, 600));
@@ -35,7 +41,7 @@ public class ProjectPropertiesViewIntegrationTests
         projectDef.AddForm(form1);
         projectDef.AddForm(form2);
 
-        var vm = new ProjectPropertiesViewModel(projectDef);
+        var vm = new ProjectPropertiesViewModel(projectDef, NoNameObjection);
         var view = new ProjectPropertiesView { DataContext = vm };
 
         view.Measure(new Size(800, 600));
@@ -54,7 +60,7 @@ public class ProjectPropertiesViewIntegrationTests
     public void View_ProjectNameBindsCorrectly()
     {
         var projectDef = new ProjectDefinition(VBProjectType.EXE, "OriginalName");
-        var vm = new ProjectPropertiesViewModel(projectDef);
+        var vm = new ProjectPropertiesViewModel(projectDef, NoNameObjection);
         var view = new ProjectPropertiesView { DataContext = vm };
 
         view.Measure(new Size(800, 600));

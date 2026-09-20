@@ -24,6 +24,16 @@ public sealed class CurrentLineRenderer : IBackgroundRenderer
         _editor = editor;
     }
 
+    /// <summary>
+    /// The 1-based line the bar is on, or null when it is not shown.
+    /// </summary>
+    /// <remarks>
+    /// Internal so a test can assert what was painted rather than that a method was called. Whether the
+    /// bar appears is decided by a comparison the caller makes, and asserting on the call proves only that
+    /// the caller reached the decision -- not which way it went.
+    /// </remarks>
+    internal int? Line => _line;
+
     /// <summary>Highlight a 1-based line (or pass null to clear).</summary>
     public void SetLine(int? line)
     {

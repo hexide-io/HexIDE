@@ -4,13 +4,25 @@ public enum AddinDocumentKind { Form, Module, UserControl, Other }
 
 public enum AddinDiagnosticSeverity { Error = 1, Warning = 2, Information = 3, Hint = 4 }
 
-public record AddinDocument(string FileName, string FilePath, string Content, AddinDocumentKind Kind);
+/// <param name="Project">
+/// The project holding this document, by name. Trailing and optional so an add-in built against an earlier
+/// version keeps compiling, on the rule this file already records for a diagnostic's Code and Source: the
+/// IDE builds these records and add-ins read them, so nothing outside the IDE constructs one positionally.
+/// </param>
+public record AddinDocument(string FileName, string FilePath, string Content, AddinDocumentKind Kind,
+    string? Project = null);
 
+/// <param name="Project">
+/// The project holding this document, by name. Trailing and optional so an add-in built against an earlier
+/// version keeps compiling, on the rule this file already records for a diagnostic's Code and Source: the
+/// IDE builds these records and add-ins read them, so nothing outside the IDE constructs one positionally.
+/// </param>
 public record AddinSelection(
     string FileName,
     string SelectedText,
     int StartLine, int StartColumn,
-    int EndLine, int EndColumn);
+    int EndLine, int EndColumn,
+    string? Project = null);
 
 /// <summary>A text replacement. All positions are 1-based.</summary>
 public record AddinTextEdit(
@@ -18,7 +30,12 @@ public record AddinTextEdit(
     int EndLine, int EndColumn,
     string NewText);
 
-public record AddinFileInfo(string FileName, string FilePath, AddinDocumentKind Kind);
+/// <param name="Project">
+/// The project holding this document, by name. Trailing and optional so an add-in built against an earlier
+/// version keeps compiling, on the rule this file already records for a diagnostic's Code and Source: the
+/// IDE builds these records and add-ins read them, so nothing outside the IDE constructs one positionally.
+/// </param>
+public record AddinFileInfo(string FileName, string FilePath, AddinDocumentKind Kind, string? Project = null);
 
 public record AddinProjectInfo(string ProjectName, string ProjectPath, IReadOnlyList<AddinFileInfo> Files);
 
@@ -34,4 +51,5 @@ public record AddinDiagnostic(
     string Message,
     AddinDiagnosticSeverity Severity,
     string? Code = null,
-    string? Source = null);
+    string? Source = null,
+    string? Project = null);

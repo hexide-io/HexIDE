@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "Niezapisany na dysku",
     "Str.ProjectDocument.Section.Members": "Elementy",
     "Str.ProjectDocument.Section.References": "Odwołania",
-    "Str.ProjectDocument.Kind.RelatedDocument": "Dokument powiązany"
+    "Str.ProjectDocument.Kind.RelatedDocument": "Dokument powiązany",
+    "Str.Naming.Msg.NotAVb6Name": "„{0}” nie jest prawidłową nazwą. Nazwa zaczyna się od litery, a dalej składa się z liter, cyfr i znaków podkreślenia.",
+    "Str.Naming.Msg.DocumentNameTaken": "„{0}” jest już nazwą formularza, modułu lub klasy w tym projekcie. VB6 umieszcza je w jednej przestrzeni nazw, więc dwa elementy nie mogą nosić tej samej nazwy.",
+    "Str.Naming.Msg.ProjectNameTaken": "Projekt o nazwie „{0}” jest już wczytany. Dwa projekty w jednej grupie nie mogą nosić tej samej nazwy.",
+    "Str.Naming.Msg.AdoptedNameTaken": "Nie dodano pliku „{1}”. Nosi on nazwę „{0}”, która jest już nazwą formularza, modułu lub klasy w tym projekcie.",
+    "Str.Naming.Msg.AdoptedNameNotValid": "Nie dodano pliku „{1}”. Nosi on nazwę „{0}”, która nie jest prawidłową nazwą: nazwa zaczyna się od litery, a dalej składa się z liter, cyfr i znaków podkreślenia."
   }
 }

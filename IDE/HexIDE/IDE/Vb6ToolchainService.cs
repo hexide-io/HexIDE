@@ -209,7 +209,7 @@ public class Vb6ToolchainService : IVb6ToolchainService
         Process.Start(new ProcessStartInfo(exePath) { UseShellExecute = true });
     }
 
-    private static string GetFormUri(FormDefinition form) => $"vb6://form/{form.Name}";
+    private static string GetFormUri(FormDefinition form) => DocumentWireName.For(form);
 
     // The compiled EXE's file name: a .vbp may specify ExeName32="Foo.exe"; otherwise VB6 names the
     // output after the project. ExeName32 is a top-level .vbp key, preserved verbatim among the unparsed

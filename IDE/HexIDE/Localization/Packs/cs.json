@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "Neuloženo na disk",
     "Str.ProjectDocument.Section.Members": "Členové",
     "Str.ProjectDocument.Section.References": "Odkazy",
-    "Str.ProjectDocument.Kind.RelatedDocument": "Související dokument"
+    "Str.ProjectDocument.Kind.RelatedDocument": "Související dokument",
+    "Str.Naming.Msg.NotAVb6Name": "„{0}“ není platný název. Název začíná písmenem a pokračuje písmeny, číslicemi a podtržítky.",
+    "Str.Naming.Msg.DocumentNameTaken": "„{0}“ je již názvem formuláře, modulu nebo třídy v tomto projektu. Ve VB6 sdílejí jediný obor názvů, takže stejný název nelze použít dvakrát.",
+    "Str.Naming.Msg.ProjectNameTaken": "Projekt s názvem „{0}“ je již načten. Dva projekty v jedné skupině nemohou mít stejný název.",
+    "Str.Naming.Msg.AdoptedNameTaken": "Soubor „{1}“ nebyl přidán. Má název „{0}“, který je již názvem formuláře, modulu nebo třídy v tomto projektu.",
+    "Str.Naming.Msg.AdoptedNameNotValid": "Soubor „{1}“ nebyl přidán. Má název „{0}“, který není platný: název začíná písmenem a pokračuje písmeny, číslicemi a podtržítky."
   }
 }

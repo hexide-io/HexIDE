@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "Inte sparad till disk",
     "Str.ProjectDocument.Section.Members": "Medlemmar",
     "Str.ProjectDocument.Section.References": "Referenser",
-    "Str.ProjectDocument.Kind.RelatedDocument": "Relaterat dokument"
+    "Str.ProjectDocument.Kind.RelatedDocument": "Relaterat dokument",
+    "Str.Naming.Msg.NotAVb6Name": "'{0}' är inte ett giltigt namn. Ett namn börjar med en bokstav och fortsätter med bokstäver, siffror och understreck.",
+    "Str.Naming.Msg.DocumentNameTaken": "'{0}' är redan namnet på ett formulär, en modul eller en klass i det här projektet. I VB6 delar de ett och samma namnområde, så två av dem kan inte ha samma namn.",
+    "Str.Naming.Msg.ProjectNameTaken": "Ett projekt med namnet '{0}' är redan inläst. Två projekt i samma projektgrupp kan inte ha samma namn.",
+    "Str.Naming.Msg.AdoptedNameTaken": "'{1}' lades inte till. Den heter '{0}', vilket redan är namnet på ett formulär, en modul eller en klass i det här projektet.",
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' lades inte till. Den heter '{0}', vilket inte är ett giltigt namn: ett namn börjar med en bokstav och fortsätter med bokstäver, siffror och understreck."
   }
 }

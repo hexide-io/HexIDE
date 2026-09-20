@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "Non enregistré sur le disque",
     "Str.ProjectDocument.Section.Members": "Membres",
     "Str.ProjectDocument.Section.References": "Références",
-    "Str.ProjectDocument.Kind.RelatedDocument": "Document associé"
+    "Str.ProjectDocument.Kind.RelatedDocument": "Document associé",
+    "Str.Naming.Msg.NotAVb6Name": "« {0} » n'est pas un nom valide. Un nom commence par une lettre et se poursuit par des lettres, des chiffres et des traits de soulignement.",
+    "Str.Naming.Msg.DocumentNameTaken": "« {0} » est déjà le nom d'une feuille, d'un module ou d'une classe dans ce projet. VB6 les place dans un seul espace de noms ; deux d'entre eux ne peuvent donc pas porter le même nom.",
+    "Str.Naming.Msg.ProjectNameTaken": "Un projet nommé « {0} » est déjà chargé. Deux projets d'un même groupe ne peuvent pas porter le même nom.",
+    "Str.Naming.Msg.AdoptedNameTaken": "« {1} » n'a pas été ajouté. Il porte le nom « {0} », qui est déjà celui d'une feuille, d'un module ou d'une classe dans ce projet.",
+    "Str.Naming.Msg.AdoptedNameNotValid": "« {1} » n'a pas été ajouté. Il porte le nom « {0} », qui n'est pas un nom valide : un nom commence par une lettre et se poursuit par des lettres, des chiffres et des traits de soulignement."
   }
 }
