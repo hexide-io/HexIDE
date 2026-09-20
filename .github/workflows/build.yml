@@ -14,13 +14,18 @@ jobs:
   # on every merge and then paid AGAIN after every "Update branch", because protect-main requires the
   # branch be up to date. The guards below are the floor and they cost about ten seconds between them.
   #
-  # This job fails CLOSED, which is the whole of its design:
-  #   * it publishes `skip`, never `code`. Every consumer tests `skip != 'true'`, so an absent output —
-  #     this job erroring, a mistyped pattern, a later edit that forgets to set it — BUILDS.
-  #   * the list below enumerates what is safe to skip, not what is code. A path nobody has thought
-  #     about yet, including a whole new top-level directory, is code by default.
-  # Inverted, the failure mode is a green tick on a tree nothing compiled — the same false green the
-  # hygiene guard's self-test exists to catch, and it would be invisible here for the same reason.
+  # The decision itself lives in scripts/ci-skippable.sh so it can be read, run and tested outside a
+  # pull request. It fails CLOSED, which is the whole of its design:
+  #   * this job publishes `skip`, never `code`. Every consumer tests `skip != 'true'`, so an absent
+  #     output — this job erroring, a mistyped pattern, a later edit that forgets to set it — BUILDS.
+  #   * the script enumerates what is safe to skip, not what is code. A path nobody has thought about
+  #     yet, including a whole new top-level directory, is code by default.
+  # Inverted, the failure mode is a green tick on a tree nothing compiled.
+  #
+  # Two checks run before any answer is trusted, for the reason the hygiene guard self-tests before it
+  # guards: a check whose failure mode is a false green cannot be believed merely because it exited
+  # zero. The self-test hands the classifier known answers; --check-tree derives from the C# source
+  # every markdown file the build actually reads and fails if the classifier would skip one.
   #
   # Pull requests only. A push to main is nobody's critical path, and reading github.event.before
   # brings force-push and first-push edge cases for no gain. When this job does not run its outputs
@@ -30,15 +35,6 @@ jobs:
     if: github.event_name == 'pull_request'
     outputs:
       skip: ${{ steps.decide.outputs.skip }}
-    env:
-      # Markdown under docs/ that the build genuinely reads. These are code, not prose. Checked
-      # against the tree by the next step rather than trusted, because a hand-kept list is the part
-      # that rots — and this one rots silently, into builds that were skipped and should not have been.
-      DOC_BUILD_INPUTS: |
-        docs/ROADMAP.md
-        docs/command-line.md
-        docs/lsp-client.md
-        docs/lsp-server-features.md
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -46,31 +42,11 @@ jobs:
           # The decision is a diff, and a shallow clone has no base commit to diff against.
           fetch-depth: 0
 
-      - name: Check the build-input list still matches the tree
-        run: |
-          set -euo pipefail
-          declared=$(printf '%s\n' "$DOC_BUILD_INPUTS" | tr -d ' \r' | sed '/^$/d' | sort -u)
-          # A test reading a doc at runtime: Path.Combine(<root>, "docs", "<name>.md"). The leading
-          # comma is load-bearing — it requires "docs" to be resolved against something rather than
-          # being the first argument, which is what separates a real read from a relative path used
-          # as a fixture (RelatedDocumentSerializationTests builds Path.Combine("docs", "README.md")
-          # to test slash conversion and never opens it). This is a net, not a proof: a doc read
-          # through some other shape would slip past, so widen it when one appears.
-          from_tests=$(grep -rhoE ',[[:space:]]*"docs",[[:space:]]*"[^"]+\.md"' --include='*.cs' IDE LspServer 2>/dev/null \
-                       | sed -E 's|.*"([^"]+\.md)"|docs/\1|' || true)
-          # A doc listed in the solution, which a build resolves.
-          from_slnx=$(grep -oE 'docs/[^"]+\.md' HexIDE.slnx 2>/dev/null || true)
-          actual=$(printf '%s\n%s\n' "$from_tests" "$from_slnx" | sed '/^$/d' | sort -u)
+      - name: Self-test the skippable classifier
+        run: bash scripts/ci-skippable.selftest.sh
 
-          missing=$(comm -13 <(printf '%s\n' "$declared") <(printf '%s\n' "$actual"))
-          if [ -n "$missing" ]; then
-            echo "::error::The build reads these docs, but DOC_BUILD_INPUTS does not list them."
-            echo "::error::Editing one would skip the build that checks it. Add them, or stop reading them."
-            printf '%s\n' "$missing" | sed 's/^/  /'
-            exit 1
-          fi
-          echo "Build-input list agrees with the tree:"
-          printf '%s\n' "$actual" | sed 's/^/  /'
+      - name: Check every doc the build reads is classified as a build input
+        run: bash scripts/ci-skippable.sh --check-tree
 
       - name: Decide whether the builds can be skipped
         id: decide
@@ -88,19 +64,10 @@ jobs:
           if [ -z "$files" ]; then skip=false; fi
           while IFS= read -r f; do
             if [ -z "$f" ]; then continue; fi
-            if printf '%s\n' "$DOC_BUILD_INPUTS" | tr -d ' \r' | grep -qxF "$f"; then
-              echo "  code: $f is a build input"; skip=false; continue
+            if ! bash scripts/ci-skippable.sh "$f"; then
+              echo "  code: $f"
+              skip=false
             fi
-            case "$f" in
-              docs/*.md|docs/*/*.md)                     ;;
-              docs/*.png|docs/*/*.png|docs/*.svg)        ;;
-              screenshots/*|screenshots/*/*)             ;;
-              .github/ISSUE_TEMPLATE/*)                  ;;
-              LICENSE)                                   ;;
-              */*)     echo "  code: $f"; skip=false     ;;
-              *.md)                                      ;;
-              *)       echo "  code: $f"; skip=false     ;;
-            esac
           done <<< "$files"
 
           echo "skip=$skip" >> "$GITHUB_OUTPUT"
