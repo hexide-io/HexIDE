@@ -379,6 +379,12 @@ public partial class ProjectRunnerService : IProjectRunnerService
         // Run To Cursor (Ctrl+F8): a one-shot break at (module, line). Paused → arm + Continue; running → arm (breaks
         // when reached); idle → start the project and arm the target after the run-start sequence (a plain run, NOT
         // start-and-step — it runs freely to the cursor line).
+        //
+        // Deliberately NOT scoped to the running project, unlike the live breakpoint push and Set Next
+        // Statement. Those act on a run that is already going; this one may START it, and from idle the
+        // run that starts is the startup project's whatever document was pointed at. Refusing a document
+        // in a sibling project would be the defensible rule, but this method has no channel to say so —
+        // it returns void and is bound to a keystroke. Left as it was, and stated rather than hidden.
         if (!IsRunning)
         {
             _pendingRunTo = (document, line);

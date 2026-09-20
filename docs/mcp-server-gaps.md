@@ -887,3 +887,43 @@ and is fixed with the rest.
 Where a tool normalises what it was given — a name matched without regard to case is exactly that — the
 reply must carry the **normalised** form, because the difference between the two is the whole of what the
 caller cannot otherwise see.
+
+## A relaunch picks up a NEW tool but not a CHANGED one (measured 2026-09-20)
+
+**Symptom.** Four mark tools gained an optional `project` argument. The documented rebuild cycle ran —
+`shutdown_ide`, build, relaunch, `/health` — and the first call to `set_breakpoints` failed with
+`An error occurred invoking 'set_breakpoints'.` and nothing else. The session's cached schema still carried
+the old parameter list, so the request it built no longer matched what the server accepted.
+
+**What this narrows.** The entry above records that a mid-session relaunch **does** pick up a tool that did
+not exist before, measured both ways. This is the other half: a tool whose *signature* changed keeps the
+schema the session already has. Added tools yes; changed tools no. The failure is a bare invocation error,
+which reads as a broken tool rather than as a stale schema.
+
+**The actual defect underneath it, which is the transferable part.** `string? project` with **no default
+value** is `required` in the generated schema — a nullable C# parameter is not an optional JSON one. So the
+new argument was mandatory on the wire and every existing caller broke, cached schema or not. Giving all six
+`= null` made them genuinely optional, and the same call then worked on the first try after a rebuild.
+
+**How to avoid paying for it again.** Read the generated schema's `required` array, not the C# signature —
+this file and CLAUDE.md both say so, and it still cost a cycle. And when a *signature* changes rather than a
+tool being added, expect the first call to fail against a stale schema and do not diagnose the server.
+
+## `set_control_property` cannot set `Name` on anything
+
+**Symptom.** `set_control_property(formName: "Form1", controlName: "Command1", property: "Name", value:
+"Command0")` answers `Property 'Name' not found on VB.CommandButton`. The same call against the form's own
+root answers `Property 'Name' not found on VB.Form`. `Name` is the first row of the Properties window and
+the one property every VB6 developer sets on every control they draw.
+
+**Measured, not inferred** (2026-09-20), while checking whether a newly added validation refusal could
+escape this tool's narrow catch (`HexIdeTools.cs` catches only `FormatException` and `OverflowException`
+inside its dispatcher lambda). It cannot, because the property is refused before anything is set — so the
+escape is unreachable through this tool, and the guard rail nobody can reach is worth recording as such.
+
+**Consequence.** Renaming a control or a document is not automatable through the property tool at all. The
+working route is the Properties window itself: `interact` with `set_property` on the `(Name)` row's
+`PropertyViewModel.Value`, which is the reflection fallback rather than a provider action, and which does
+commit through the same validation the user gets. `set_value` on that row's `Edit` writes the text and does
+**not** commit — the binding updates on focus loss and Enter does not stand in for it — so a caller who uses
+the obvious verb sees success and no rename.
