@@ -22,6 +22,50 @@ date functions; graphics) should extend it the same way.
 - **Method:** compile a tiny `Sub Main` console-less program with `VB6.EXE /make`, run the produced `.exe`, and
   read back a file it wrote with `TypeName(expr)` + the value for each case.
 
+### Reaching the VB6 *IDE*, not just the compiler (2026-09-20)
+
+Everything above answers "what does VB6 **accept**", which `VB6.EXE /make` can do with no desktop at all.
+"What does VB6 **write**" needs the IDE, and the IDE needs a window — which the obvious route does not
+give you.
+
+**The trap.** A GUI process started through PowerShell Direct lands in the guest's **session 0**. It has no
+window (`MainWindowHandle` is `0`, `MainWindowTitle` empty) and `AppActivate` reports the process as not
+found, so SendKeys reaches nothing. Nothing about this is visible from the host: the process starts, stays
+running, and does nothing.
+
+**What works, in two parts.** First there has to be a console session at all — on a VM nobody logs into,
+there is none (`query user` answers `No User exists for *`). Autologon provides one:
+
+```powershell
+$k = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+Set-ItemProperty $k -Name AutoAdminLogon    -Value '1'
+Set-ItemProperty $k -Name DefaultUserName   -Value '<guest account>'
+Set-ItemProperty $k -Name DefaultDomainName -Value '<guest computer name>'
+New-ItemProperty  $k -Name DefaultPassword  -Value '<password>' -PropertyType String -Force
+```
+
+**Restart from inside the guest** (`shutdown /r`), never with `Restart-VM`. That is not a preference: a
+host-side restart discarded every one of these writes, twice, and the reverted values read exactly like
+Windows rejecting the logon and disabling autologon itself — the wrong diagnosis, and a convincing one. The
+registry hive had simply not been flushed. `RegistryKey.Flush()` before restarting is belt and braces.
+
+Then run the GUI work as an **interactive scheduled task**, which executes in that console session:
+
+```powershell
+schtasks /create /tn Probe /tr 'powershell -ExecutionPolicy Bypass -WindowStyle Hidden -File C:\probe.ps1' `
+         /sc once /st 23:59 /ru '<COMPUTER>\<account>' /it /f
+schtasks /run /tn Probe
+```
+
+Two details cost a run each. The user must be **domain-qualified** (`COMPUTERccount`); the bare name
+registers fine and then `schtasks /run` fails with `ERROR: Element not found.`, which names nothing. And
+`/it` needs **no** `/rp` — passing a password alongside it is what produced that error in the first place.
+Keeping the password out of the command line is also what this file tells you to do everywhere else.
+
+Verified end to end: a task launched this way reported `session=1`, a real window handle, and a successful
+`AppActivate` + `SendKeys`. The guest is a disposable, isolated oracle VM; autologon on a machine that is
+not is a different decision.
+
 ### The scripted harness — `scripts/vb6-oracle.ps1`
 
 Everything below this section is what the script automates. **Prefer the script**; keep reading only if you
