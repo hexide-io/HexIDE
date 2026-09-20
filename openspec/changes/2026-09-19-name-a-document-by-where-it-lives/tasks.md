@@ -146,6 +146,11 @@
 
 ## 2. Names on the wire
 
+> **#489 is settled and does not gate this phase** (2026-09-20). Measured against the real VB6 IDE: no file
+> is written for a form or module until the project is saved, in a saved project as much as an unsaved one.
+> So a pathless document is a state this phase must *name*, not one the IDE could have designed away. 2.1 is
+> unchanged. See the design record, and `docs/vb6-fidelity-oracle.md` for the measurement.
+
 - [ ] 2.1 The seam converter: `file:` from the document's own path when it has one (for a UserControl or
   PropertyPage, the module's path); otherwise
   `untitled:<Project>/<Name>.<ext>`, extension from the kind, no leading slash, built through the URI type so
@@ -175,6 +180,10 @@
   Membership is stated by the caller when the document is opened and remembered with the session — the
   workspace projection exposes only a directory and folders, and neither parsing an `untitled:` name nor
   matching a path can answer it. Change, close and save route by the same record.
+- [ ] 2.7a Order 2.6 after 2.7, and prove the gate before the scheme goes. `Claims()` exists because of
+  #277, where a VB6 server attached as `vba` started, initialized and was then never sent a document, and it
+  is reachable today only from the branch 2.6 retires. Retiring that branch before 2.7's gate is built and
+  asserted against a real foreign server reopens exactly that silence, with nothing to catch it.
 - [ ] 2.8 Open documents survive a root restart: the registry re-opens every document it knows is open on
   each restarted connection before forwarding any change (#469; required here).
 - [ ] 2.9 Compiler diagnostics injected under the wire name resolved from the compiler's own (absolute) file
