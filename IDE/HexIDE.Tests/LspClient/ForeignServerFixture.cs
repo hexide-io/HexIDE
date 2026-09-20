@@ -78,13 +78,21 @@ internal sealed class ForeignServer
         extensions: [".c", ".cc", ".cpp", ".cxx", ".h", ".hh", ".hpp", ".hxx"]);
 
     /// <summary>
-    /// A Python linter, and the only server here that delivers diagnostics by the <b>pull</b> model.
+    /// A Python linter, and the server that made the <b>pull</b> model impossible to ignore.
     ///
     /// <para>
-    /// Every other server in this fixture publishes unbidden, which is why HexIDE could go four servers deep
-    /// and still not have noticed that it never asks (hexide-io/HexIDE#284). This one advertises
-    /// <c>diagnosticProvider</c> and then says nothing at all until it is asked — so a client that does not
-    /// ask gets silence for a file that visibly has a problem, rather than a quieter version of working.
+    /// It advertises <c>diagnosticProvider</c> and then says nothing at all until it is asked — so a client
+    /// that does not ask gets silence for a file that visibly has a problem, rather than a quieter version
+    /// of working. That is why HexIDE could go four servers deep without noticing that it never asked
+    /// (hexide-io/HexIDE#284).
+    /// </para>
+    ///
+    /// <para>
+    /// It is <b>not</b> the only one here that advertises a provider, which this comment used to say.
+    /// Measured 2026-09-20: rumdl and the reference JSON server advertise one too, and rumdl publishes as
+    /// well — the client takes its answer and records the publication as dropped, because two whole-document
+    /// sets under one owner leave the marks depending on which arrived last. What is distinctive here is
+    /// the <em>silence</em>: this is the one that gives nothing at all to a client that does not ask.
     /// </para>
     /// </summary>
     public static readonly ForeignServer Python = new(

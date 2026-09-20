@@ -151,6 +151,22 @@ public class UntitledDocumentNamesTests : IAsyncDisposable
         return matches[0];
     }
 
+    /// <summary>
+    /// True once the record holds a matching entry, draining as it goes. For anything written from a
+    /// different thread than the frame it belongs to, which a single drain can split.
+    /// </summary>
+    private async Task<bool> WaitFor(string id, Func<ConversationEnvelope, bool> match, TimeSpan within)
+    {
+        var deadline = DateTime.UtcNow + within;
+        while (true)
+        {
+            await _capture.DrainAsync();
+            if (_capture.Snapshot(id).Any(match)) return true;
+            if (DateTime.UtcNow >= deadline) return false;
+            await Task.Delay(50);
+        }
+    }
+
     private string Conversation(string id) =>
         "The conversation was: " + string.Join(" | ", _capture.Snapshot(id)
             .Select(e => $"{e.Sequence} {e.Direction} {e.Kind} {e.Method} {e.Outcome} {e.Detail}".Trim()));
@@ -214,16 +230,27 @@ public class UntitledDocumentNamesTests : IAsyncDisposable
             // A server may publish as well as answer, and one of these does. What it must not do is have
             // both taken: two whole-document sets under one owner leaves the marks depending on which
             // landed last. The client notes the first one it drops — once per connection, by design — so
-            // this is a Contain rather than an OnlyContain.
-            if (wire.Any(e => e.Method == "textDocument/publishDiagnostics"
-                              && e.Direction == ConversationDirection.Received
-                              && e.Kind == ConversationEntryKind.Notification))
+            // this looks for one note, not one per publication.
+            //
+            // Asked in this order, and not the other way round, because the two entries are written by
+            // different threads: the publication is recorded on the read loop as it is deserialized, and
+            // the note is queued afterwards from the handler that dropped it. "If a publication arrived,
+            // assert the note" therefore races a drain landing between them — sometimes a spurious
+            // failure, sometimes an assertion that quietly does not run. Waiting for the note and only
+            // then requiring that nothing was published has neither failure mode.
+            var noted = await WaitFor(id, e => e.Method == "textDocument/publishDiagnostics"
+                                               && e.Kind == ConversationEntryKind.Unconsumed
+                                               && e.Detail != null
+                                               && e.Detail.StartsWith("ignored:", StringComparison.Ordinal),
+                                      TimeSpan.FromSeconds(5));
+            if (!noted)
             {
-                wire.Should().Contain(
+                _capture.Snapshot(id).Should().NotContain(
                     e => e.Method == "textDocument/publishDiagnostics"
-                         && e.Kind == ConversationEntryKind.Unconsumed
-                         && e.Detail != null && e.Detail.StartsWith("ignored:", StringComparison.Ordinal),
-                    "a publication from a server that also answers must be recorded as dropped. " + Conversation(id));
+                         && e.Direction == ConversationDirection.Received
+                         && e.Kind == ConversationEntryKind.Notification,
+                    "this server published as well as answering, and the publication was taken rather than "
+                  + "dropped — which puts two whole-document sets under one owner. " + Conversation(id));
             }
         }
         else
