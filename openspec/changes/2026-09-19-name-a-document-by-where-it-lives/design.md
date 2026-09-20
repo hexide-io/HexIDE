@@ -499,6 +499,34 @@ is eventually built; building it is filed as hexide-io/HexIDE#493. The delta's r
 therefore proved at the store and in the editor by setting the model property, which is the only gesture
 that exists.
 
+## When a document gets its file (#489, settled 2026-09-20)
+
+Task 2.1 names a document `untitled:` when it has no path, which presumes a document can *have* no path.
+hexide-io/HexIDE#489 asked whether that state should exist at all, or whether the IDE should write a file the
+moment a form or module is created. It is settled by measurement against the real VB6 IDE, recorded in
+`docs/vb6-fidelity-oracle.md` under *When a document gets a file, and what a dangling `Startup=` does*.
+
+**VB6 writes nothing until the project is saved** - not for a new project, not for a module added to an
+unsaved one, and not for a form added to a project that already has a directory of its own. Discarding an
+unsaved document leaves nothing behind, `%TEMP%` included. A pathless component is a first-class state there,
+rendered `Form2 (Form2)` in the Project Explorer and listed as a bare `Form2` in the save prompt.
+
+Three consequences for this change, none of which move task 2.1:
+
+- **2.1 stands exactly as written.** The `untitled:` branch was live under every candidate route anyway:
+  `IProjectTemplate` creates `Form1` with no path and `NewProject` writes nothing, so a session opens on a
+  pathless document on every `File > New Project` today. What #489 could have changed is how *often* that
+  happens, never whether it can - so it never gated the naming question, and the four routes it weighed were
+  three points on a write axis plus one naming choice that is 2.1 itself.
+- **2.4 inherits the harder half of the test burden.** "A first save of a pathless form sends close-then-open"
+  becomes the common case rather than the rare one, so it is the scenario 2.11 must press hardest.
+- **Two invariants HexIDE must match, one of which it currently breaks.** VB6 asks for each pathless file
+  before the project's own, defaulting to the project's directory and the component's `Name`; and it abandons
+  the entire save when one of those pickers is cancelled, rather than writing a `.vbp` that names a file it
+  did not save. HexIDE can reach that second state, and the `.vbp` it then writes compiles under `vb6.exe`,
+  exit 0 and silent, into a program with the wrong entry point. Filed separately - it is a serializer defect,
+  not a naming one, and outside this change.
+
 ## Open questions
 
 - **A file shared by two projects in a group.** Two documents, one file, one wire name. The protocol allows a
