@@ -214,13 +214,18 @@ public class UntitledDocumentNamesTests : IAsyncDisposable
             // so the server cannot echo a name and nothing here pretends it did — what it must do is
             // resolve the name to text it is holding, and a report with items in it is the only way it
             // could. Asked about a document it never took, these servers answer empty or not at all.
-            var request = TheOnly(id, "textDocument/diagnostic", ConversationDirection.Sent);
-            request.Outcome.Should().Be(ConversationOutcome.Answered,
-                "this server advertised diagnosticProvider, so nothing reaches the editor unless it answered. "
-              + Conversation(id));
-            DocumentUriIn(id, request.Sequence).Should().Be(uri, "and it was asked about this document");
+            // Selected by having been answered, rather than taken as the first one sent. One of these
+            // servers re-pulls, so there is more than one request on the wire and the later one may still
+            // be outstanding when this runs — picking by position would make the assertion depend on how
+            // many times the server changed its mind.
+            var request = wire.FirstOrDefault(
+                e => e.Method == "textDocument/diagnostic" && e.Direction == ConversationDirection.Sent
+                     && e.Outcome == ConversationOutcome.Answered && e.AnswerSequence is not null);
+            request.Should().NotBeNull(
+                "this server advertised diagnosticProvider, so nothing reaches the editor unless HexIDE "
+              + "asked and it answered. " + Conversation(id));
+            DocumentUriIn(id, request!.Sequence).Should().Be(uri, "and it was asked about this document");
 
-            request.AnswerSequence.Should().NotBeNull("the answer's body is retained under its own sequence");
             var report = Frame(id, request.AnswerSequence!.Value);
             report.GetProperty("result").GetProperty("items").GetArrayLength()
                 .Should().BeGreaterThan(0,
@@ -441,8 +446,12 @@ public class UntitledDocumentNamesTests : IAsyncDisposable
           + "for an unrelated complaint — it is also content this server could only produce from the text "
           + "sent under this name");
 
-        DocumentUriIn(id, TheOnly(id, "textDocument/diagnostic", ConversationDirection.Sent).Sequence)
-            .Should().Be(uri, "and the request that produced it named the untitled document");
+        var answeredPull = _capture.Snapshot(id).FirstOrDefault(
+            e => e.Method == "textDocument/diagnostic" && e.Direction == ConversationDirection.Sent
+                 && e.Outcome == ConversationOutcome.Answered && e.AnswerSequence is not null);
+        answeredPull.Should().NotBeNull("the findings above came back as an answer, so there is one");
+        DocumentUriIn(id, answeredPull!.Sequence)
+            .Should().Be(uri, "and the request that produced them named the untitled document");
 
         connection.Capabilities.Should().NotBeNull();
         connection.Capabilities!.Value.TryGetProperty("diagnosticProvider", out _).Should().BeTrue(
