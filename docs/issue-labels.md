@@ -448,14 +448,30 @@ promptly when the PR lands. If fewer than twenty survive the two passes below, a
 issue that disappoints someone is more expensive than an issue they never saw. Promote from
 `help wanted` as advertised ones are taken, rather than topping up with whatever is left.
 
-### Before applying: review it adversarially, against the code
+### One gate: write the scaffolding comment
 
-Someone other than the person who chose it opens the code and tries to **disqualify** it. Not "is this
-a reasonable first issue" — a reviewer asked that will say yes. The question is *"what will stop a
-newcomer finishing this, and would they have seen it coming?"*
+Before the label goes on, **someone other than the person who chose it opens the code and writes the
+comment a newcomer would need.** That single act is both the review and the deliverable: it either
+produces a usable comment, or it produces the reason the issue is unsuitable.
 
-This is not ceremony, and the rate is the argument. On the first run of this process, **three of twenty
-picks were rejected at this step**, each for something invisible from the issue text:
+There is deliberately no separate approval step in front of it. On the first run of this process every
+rejection came out of the attempt to write the comment — a reviewer asked "is this a reasonable first
+issue?" says yes, because from the issue body it always is.
+
+**The comment says:** where the change goes, with files and symbols; the exact command to run; how they
+will know it worked; and the one gotcha specific to this issue. The newcomer's blocker is rarely finding
+the file — it is not knowing whether they have finished.
+
+**Write it against the tree, and check it claim by claim.** Every path, symbol and test command gets
+opened, not inferred. On the first run **nine of fourteen first drafts carried factual errors**: the
+wrong method on one of two paths through a feature, a test rationale that was backwards, an NSubstitute
+auto-value assumed to be `null` when it is `string.Empty`, a list of key namespaces that omitted the
+very settings page the comment then told the reader to open.
+
+Inaccurate scaffolding is worse than none. It sends someone confidently to the wrong place, and when it
+does not work they assume the fault is theirs. If a claim cannot be confirmed, leave it out.
+
+**Three of twenty picks failed this gate**, each for something invisible from the issue text:
 
 - a feature whose add-in is only packaged when a first-party signing key is present, so **no fork can
   run it** at all;
@@ -463,26 +479,9 @@ picks were rejected at this step**, each for something invisible from the issue 
   answer needed the oracle;
 - a Markdown rename **pinned by a build guard**, whose only clean escape is a maintainer-only workflow.
 
-All three read as clean small issues. None was findable without opening files. **A review done from the
-issue body is not this review.**
-
-### Then scaffold it, and check the scaffolding
-
-An accepted issue gets a comment saying where the change goes, what to run, how you will know it works,
-and the one gotcha specific to it. The newcomer's blocker is rarely finding the file; it is not knowing
-whether they have finished.
-
-**Then check the comment against the tree, claim by claim.** On the first run, **nine of fourteen first
-drafts contained factual errors** — the wrong method on one of two paths through a feature, a test
-rationale that was backwards, an NSubstitute auto-value assumed to be `null` when it is `string.Empty`,
-a list of key namespaces that omitted the very settings page the comment then told the reader to open.
-
-Inaccurate scaffolding is worse than none. It sends someone confidently to the wrong place, and when it
-does not work they assume the fault is theirs. If a claim cannot be confirmed, leave it out.
-
-One observed side effect worth relying on: **writing the scaffolding is what surfaces the
-disqualifiers.** All three rejections above came from someone opening the files in order to write the
-comment. If a scaffolding comment cannot be written honestly, that is the disqualification.
+All three read as clean small issues. None was findable without opening files. **If the comment cannot
+be written honestly, that is the answer** — do not apply the label, and say in the issue what would make
+it eligible.
 
 ### `help wanted`
 
