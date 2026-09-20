@@ -105,3 +105,6 @@ calls of any kind.
 
 - **Bugs / features:** open a GitHub issue with steps to reproduce and your OS + .NET SDK version.
 - **Security vulnerabilities:** please **do not** open a public issue — follow [SECURITY.md](SECURITY.md).
+- **Labels:** you don't need to pick any — a maintainer labels at triage. They're worth knowing for
+  *finding* work, though: issues carry an area, a T-shirt size and sometimes a state such as `blocked`
+  or `needs-oracle`. [`docs/issue-labels.md`](docs/issue-labels.md) says what each one means.
