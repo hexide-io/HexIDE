@@ -99,7 +99,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
         EnsureDockSubscription(dock);
 
         openDocuments.Add(vm);
-        eventBus.Publish(new FileOpenedEvent(vm.Title));
+        eventBus.Publish(new FileOpenedEvent(vm.Title, vm.OpenDocument));
         vm.CloseRequest += OnCloseRequest;
 
         vm.IsOpen = true;
@@ -142,7 +142,7 @@ public sealed class DocumentDockService : IDocumentDockService, IDisposable
         {
             if (item is BaseEditorWindowViewModel removed && openDocuments.Remove(removed))
             {
-                eventBus.Publish(new FileClosedEvent(removed.Title));
+                eventBus.Publish(new FileClosedEvent(removed.Title, removed.OpenDocument));
                 removed.CloseRequest -= OnCloseRequest;
                 removed.Dispose();
                 Log.Debug("DocumentDockService: Disposed '{Title}'", removed.Title);

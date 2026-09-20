@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "Ikke lagret på disk",
     "Str.ProjectDocument.Section.Members": "Medlemmer",
     "Str.ProjectDocument.Section.References": "Referanser",
-    "Str.ProjectDocument.Kind.RelatedDocument": "Relatert dokument"
+    "Str.ProjectDocument.Kind.RelatedDocument": "Relatert dokument",
+    "Str.Naming.Msg.NotAVb6Name": "«{0}» er ikke et gyldig navn. Et navn begynner med en bokstav og fortsetter med bokstaver, sifre og understrekingstegn.",
+    "Str.Naming.Msg.DocumentNameTaken": "«{0}» er allerede navnet på et skjema, en modul eller en klasse i dette prosjektet. VB6 gir dem ett felles navnerom, så to av dem kan ikke ha samme navn.",
+    "Str.Naming.Msg.ProjectNameTaken": "Et prosjekt med navnet «{0}» er allerede lastet inn. To prosjekter i én prosjektgruppe kan ikke ha samme navn.",
+    "Str.Naming.Msg.AdoptedNameTaken": "«{1}» ble ikke lagt til. Den heter «{0}», som allerede er navnet på et skjema, en modul eller en klasse i dette prosjektet.",
+    "Str.Naming.Msg.AdoptedNameNotValid": "«{1}» ble ikke lagt til. Den heter «{0}», som ikke er et gyldig navn: et navn begynner med en bokstav og fortsetter med bokstaver, sifre og understrekingstegn."
   }
 }

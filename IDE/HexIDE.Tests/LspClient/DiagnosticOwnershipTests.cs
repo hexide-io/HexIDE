@@ -1,4 +1,5 @@
 using System.Text.Json;
+using HexIDE.IDE;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using Microsoft.Extensions.Logging;
@@ -38,6 +39,18 @@ public class DiagnosticOwnershipTests
         new(new LspRange(new Position(0, 0), new Position(0, 1)), message, DiagnosticSeverity.Error, source,
             JsonDocument.Parse(codeJson).RootElement.Clone());
 
+    /// <summary>
+    /// A project manager holding nothing. These tests are about which diagnostics survive which event, not
+    /// about which document owns them, so the add-in service falls back to naming a diagnostic by the last
+    /// segment of the URI it arrived under.
+    /// </summary>
+    private static IProjectManager NoProjects()
+    {
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns([]);
+        return projects;
+    }
+
     [Fact]
     public async Task ABuildsEmptyClearDoesNotTakeTheServersDiagnosticsWithIt()
     {
@@ -47,7 +60,7 @@ public class DiagnosticOwnershipTests
 
         // An addin reading the cache is the observable consequence — asserting that the call returned
         // says nothing about what reached a consumer.
-        using var seen = new AddinDiagnosticsService(sut);
+        using var seen = new AddinDiagnosticsService(sut, NoProjects());
 
         server.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(
             server, new PublishDiagnosticsParams(Form1, [Say("Syntax error: unexpected 'End Sub'")]));
@@ -70,7 +83,7 @@ public class DiagnosticOwnershipTests
         var sut = Registry(Registration("a", a), Registration("b", b));
         await sut.OpenDocumentAsync(Form1, "code", TestContext.Current.CancellationToken);
 
-        using var seen = new AddinDiagnosticsService(sut);
+        using var seen = new AddinDiagnosticsService(sut, NoProjects());
 
         a.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(
             a, new PublishDiagnosticsParams(Form1, [Say("'os' imported but unused", "Ruff", "\"F401\"")]));
@@ -90,7 +103,7 @@ public class DiagnosticOwnershipTests
         var sut = Registry(Registration("a", a), Registration("b", b));
         await sut.OpenDocumentAsync(Form1, "code", TestContext.Current.CancellationToken);
 
-        using var seen = new AddinDiagnosticsService(sut);
+        using var seen = new AddinDiagnosticsService(sut, NoProjects());
 
         a.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(
             a, new PublishDiagnosticsParams(Form1, [Say("from a")]));
@@ -107,7 +120,7 @@ public class DiagnosticOwnershipTests
         var sut = Registry(Registration("vb6", server));
         await sut.OpenDocumentAsync(Form1, "code", TestContext.Current.CancellationToken);
 
-        using var seen = new AddinDiagnosticsService(sut);
+        using var seen = new AddinDiagnosticsService(sut, NoProjects());
 
         await sut.InjectDiagnosticsAsync(
             Form1, [Say("Compile error: Sub or Function not defined")], DiagnosticOwner.Vb6Compiler);
@@ -126,7 +139,7 @@ public class DiagnosticOwnershipTests
         // one.
         var sut = new VBLspClient(
             Substitute.For<ILspTransport>(), Substitute.For<ILogger<VBLspClient>>(), DocumentLanguage.Vb6);
-        using var seen = new AddinDiagnosticsService(sut);
+        using var seen = new AddinDiagnosticsService(sut, NoProjects());
 
         await sut.InjectDiagnosticsAsync(Form1, [Say("from the compiler")], DiagnosticOwner.Vb6Compiler);
         await sut.InjectDiagnosticsAsync(Form1, [Say("from a linter")], "linter");
@@ -146,7 +159,7 @@ public class DiagnosticOwnershipTests
         // error has to disappear.
         var sut = new VBLspClient(
             Substitute.For<ILspTransport>(), Substitute.For<ILogger<VBLspClient>>(), DocumentLanguage.Vb6);
-        using var seen = new AddinDiagnosticsService(sut);
+        using var seen = new AddinDiagnosticsService(sut, NoProjects());
 
         await sut.InjectDiagnosticsAsync(Form1, [Say("from the compiler")], DiagnosticOwner.Vb6Compiler);
         await sut.ClearDiagnosticsFromAsync(DiagnosticOwner.Vb6Compiler);

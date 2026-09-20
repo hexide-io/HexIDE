@@ -1099,9 +1099,7 @@ public partial class MainViewViewModel : ObservableObject
         if (documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.CodeEditorViewModel code)
         {
             var line = code.Document.GetLineByOffset(code.CaretOffset).LineNumber;
-            var uri = code.GetDocumentUriPublic();
-            var module = uri[(uri.LastIndexOf('/') + 1)..];   // vb6://form/Form1 → Form1
-            projectRunnerService.RunToCursorProject(module, line);
+            projectRunnerService.RunToCursorProject(code.Identity, line);
         }
     }
 
@@ -1138,7 +1136,7 @@ public partial class MainViewViewModel : ObservableObject
         if (documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.CodeEditorViewModel code)
         {
             var line = code.Document.GetLineByOffset(code.CaretOffset).LineNumber;
-            breakpointService.Toggle(code.GetDocumentUriPublic(), line);
+            breakpointService.Toggle(code.Identity, line);
         }
     }
 
@@ -1147,7 +1145,9 @@ public partial class MainViewViewModel : ObservableObject
     // Bring the code editor for the module the interpreter just broke in to the front (creating/activating its tab).
     private void RevealBreak(string module)
     {
-        var project = projectManager.StartupProject;
+        // The project that is running, which is not always the startup one — RunProject takes a project, and
+        // a group's other project may hold a module of the same name.
+        var project = projectRunnerService.RunningProject ?? projectManager.StartupProject;
         if (project is null)
             return;
         var form = project.Forms.FirstOrDefault(f => string.Equals(f.Name, module, StringComparison.OrdinalIgnoreCase));
@@ -1171,9 +1171,9 @@ public partial class MainViewViewModel : ObservableObject
         if (documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.CodeEditorViewModel code)
         {
             var line = code.Document.GetLineByOffset(code.CaretOffset).LineNumber;
-            var uri = code.GetDocumentUriPublic();
-            var module = uri[(uri.LastIndexOf('/') + 1)..];
-            if (!debugController.SetNextStatement(module, line))
+            // The definition's own name, not a tail read off a URI: a module named Utilities saved as
+            // util.bas answers to "Utilities", and the file stem would name nothing the controller knows.
+            if (!debugController.SetNextStatement(code.Identity.Name, line))
                 windowManager.MessageBox(localization.GetString("Str.Debug.SetNextStatement.Refused"),
                     icon: MessageBoxIcon.Information).ListenErrors();
         }
@@ -1197,7 +1197,7 @@ public partial class MainViewViewModel : ObservableObject
     private async Task AddFormAsync()
     {
         var p = projectManager.StartupProject!;
-        var name = NextName(p.Forms.Select(f => f.Name), "Form");
+        var name = ProjectNaming.NextFreeName(p, "Form");
         var form = await projectService.AddNewForm(p, name);
         editorService.EditForm(form);
     }
@@ -1205,7 +1205,7 @@ public partial class MainViewViewModel : ObservableObject
     private async Task AddModuleAsync(ModuleKind kind, string prefix)
     {
         var p = projectManager.StartupProject!;
-        var name = NextName(p.Modules.Where(m => m.Kind == kind).Select(m => m.Name), prefix);
+        var name = ProjectNaming.NextFreeName(p, prefix);
         var module = await projectService.AddNewModule(p, name, kind);
         editorService.EditCode(module);
     }
@@ -1213,9 +1213,7 @@ public partial class MainViewViewModel : ObservableObject
     private async Task AddUserControlAsync()
     {
         var p = projectManager.StartupProject!;
-        var name = NextName(
-            p.Modules.Where(m => m.Kind == ModuleKind.UserControl).Select(m => m.Name),
-            "UserControl");
+        var name = ProjectNaming.NextFreeName(p, "UserControl");
         var module = await projectService.AddNewUserControl(p, name);
         editorService.EditForm(module.FormPart);
     }
@@ -1223,9 +1221,7 @@ public partial class MainViewViewModel : ObservableObject
     private async Task AddPropertyPageAsync()
     {
         var p = projectManager.StartupProject!;
-        var name = NextName(
-            p.Modules.Where(m => m.Kind == ModuleKind.PropertyPage).Select(m => m.Name),
-            "PropertyPage");
+        var name = ProjectNaming.NextFreeName(p, "PropertyPage");
         var module = await projectService.AddNewPropertyPage(p, name);
         editorService.EditForm(module.FormPart);
     }
@@ -1284,16 +1280,22 @@ public partial class MainViewViewModel : ObservableObject
         if (kind == ProjectFileKind.Form)
         {
             // A .frm that will not parse adds nothing at all, rather than a tree node with no form behind it.
-            if (await projectService.AddExistingForm(project, path) is { } form)
+            var adopted = await projectService.AddExistingForm(project, path);
+            if (adopted.Document is { } form)
                 editorService.EditForm(form);
             else
-                Log.Warning("Add File: {Path} could not be parsed as a form; not added", path);
+                await ReportRefusedAdoption(adopted.Refusal, adopted.Name, path);
             return;
         }
 
         if (kind.AsModuleKind() is { } moduleKind)
         {
-            var module = await projectService.AddExistingModule(project, path, moduleKind);
+            var adopted = await projectService.AddExistingModule(project, path, moduleKind);
+            if (adopted.Document is not { } module)
+            {
+                await ReportRefusedAdoption(adopted.Refusal, adopted.Name, path);
+                return;
+            }
             // A UserControl or PropertyPage opens in its designer, matching Add User Control; a .bas or
             // .cls has no designer half, so it opens as code.
             if (module.FormPart is { } formPart)
@@ -1304,6 +1306,31 @@ public partial class MainViewViewModel : ObservableObject
         }
 
         editorService.EditRelatedDocument(await projectService.AddExistingRelatedDocument(project, path));
+    }
+
+    /// <summary>
+    /// Tells the developer why one of the files they picked did not join the project.
+    /// </summary>
+    /// <remarks>
+    /// Named, both the file and the name it asked for, because Add File is multi-select: a refusal that
+    /// says only "a file was refused" leaves the developer to work out which of five it meant. A file that
+    /// could not be read stays a log line, as it was — it is a malformed file rather than a decision the
+    /// developer can revisit by choosing a different name.
+    /// </remarks>
+    private async Task ReportRefusedAdoption(AdoptionRefusal refusal, string? name, string path)
+    {
+        if (refusal == AdoptionRefusal.CouldNotRead || name is null)
+        {
+            Log.Warning("Add File: {Path} could not be read as the kind it was classified as; not added", path);
+            return;
+        }
+
+        var key = refusal == AdoptionRefusal.NameTaken
+            ? "Str.Naming.Msg.AdoptedNameTaken"
+            : "Str.Naming.Msg.AdoptedNameNotValid";
+        await windowManager.MessageBox(
+            string.Format(localization.GetString(key), name, Path.GetFileName(path)),
+            icon: MessageBoxIcon.Warning);
     }
 
     private bool TryOpenAlreadyCarried(ProjectDefinition project, string path)
@@ -1344,17 +1371,6 @@ public partial class MainViewViewModel : ObservableObject
             Path.GetFullPath(carried),
             Path.GetFullPath(picked),
             OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
-
-    private static string NextName(IEnumerable<string> existing, string prefix)
-    {
-        var used = existing
-            .Where(n => n.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) &&
-                        int.TryParse(n[prefix.Length..], out _))
-            .Select(n => int.Parse(n[prefix.Length..]))
-            .ToHashSet();
-        for (var i = 1; ; i++)
-            if (!used.Contains(i)) return prefix + i;
-    }
 
     private T? FindDock<T>(Func<T, bool> action) where T : class, IDockable => FindDock<T>(Layout, action);
 

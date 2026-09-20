@@ -32,16 +32,33 @@ public partial class ProjectRunnerService : IProjectRunnerService
     private readonly IDebugController debugController;
     private readonly IBreakpointService breakpointService;
     private readonly WatchService watchService;
+    private readonly RunScope runScope;
 
     // A Run-To-Cursor target requested while IDLE — applied AFTER the run-start Reset (which clears the controller's
     // target), so the fresh run breaks at it. Consumed once in RunProject.
-    private (string Module, int Line)? _pendingRunTo;
+    private (DocumentIdentity Document, int Line)? _pendingRunTo;
 
     [Notify]
     [AlsoNotify(nameof(IsRunning), nameof(CanStartDefaultProject), nameof(CanStartDefaultProjectWithFullCompile), nameof(CanBreakProject), nameof(CanContinueProject), nameof(CanStepIntoProject), nameof(CanStepOverProject), nameof(CanStepOutProject), nameof(CanRunToCursor), nameof(CanEndProject), nameof(CanRestartProject))]
-    private System.IDisposable? runningProject;
+    private System.IDisposable? runHandle;
 
-    public bool IsRunning => runningProject != null;
+    public bool IsRunning => runHandle != null;
+
+    /// <summary>
+    /// The project currently running, or null when nothing is.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <c>RunHandle</c>, which is how a run is torn down. This is which project it is, and it
+    /// is what scopes anything pushed into the run by name: the debug controller takes a bare module name,
+    /// and a group's other project may hold a module called the same thing. Held in
+    /// <see cref="RunScope"/> rather than here, because a code editor needs to read it and cannot depend on
+    /// this service.
+    /// </remarks>
+    public ProjectDefinition? RunningProject
+    {
+        get => runScope.RunningProject;
+        private set => runScope.RunningProject = value;
+    }
 
     public ProjectRunnerService(IEventBus eventBus,
         IWindowManager windowManager,
@@ -49,7 +66,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
         ILocalizationService localization,
         IDebugController debugController,
         IBreakpointService breakpointService,
-        WatchService watchService)
+        WatchService watchService,
+        RunScope runScope)
     {
         this.eventBus = eventBus;
         this.windowManager = windowManager;
@@ -58,6 +76,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
         this.debugController = debugController;
         this.breakpointService = breakpointService;
         this.watchService = watchService;
+        this.runScope = runScope;
 
         // Break/Continue toggle the debug state without touching `runningProject`, so re-query the run commands
         // when the controller pauses/resumes (otherwise the Break/Continue buttons stay stale).
@@ -67,10 +86,13 @@ public partial class ProjectRunnerService : IProjectRunnerService
         // A breakpoint toggled (in the gutter or via MCP) while a run is live takes effect immediately, matching
         // VB6 — push just that document's set to the controller. Launch-time application is ApplyBreakpoints().
         // (Persistence/load is UserSidecarService's job, on project open/save.)
-        breakpointService.BreakpointsChanged += uri =>
+        breakpointService.BreakpointsChanged += document =>
         {
-            if (IsRunning)
-                debugController.SetBreakpoints(ModuleNameFromUri(uri), breakpointService.GetBreakpoints(uri));
+            // Scoped to the project that is actually running. The controller is told a bare module name,
+            // because a run is one project; so a toggle in a group's OTHER project, which may hold a module
+            // of the same name, would otherwise move the running project's breakpoints.
+            if (RunningProject is { } running && document.IsIn(running))
+                debugController.SetBreakpoints(document.Name, breakpointService.GetBreakpoints(document));
         };
 
         // A break-type watch added / edited / removed while running takes effect immediately (VB6 evaluates watches
@@ -96,15 +118,15 @@ public partial class ProjectRunnerService : IProjectRunnerService
         // (a project group with a colliding module name) can't push its breakpoints onto this run.
         debugController.ClearBreakpoints();
         foreach (var form in project.Forms)
-            PushBreakpoints(form.Name, $"vb6://form/{form.Name}");
+            PushBreakpoints(DocumentIdentity.For(form));
         foreach (var module in project.Modules)
-            PushBreakpoints(module.Name, $"vb6://module/{module.Name}");
+            PushBreakpoints(DocumentIdentity.For(module));
 
-        void PushBreakpoints(string moduleName, string uri)
+        void PushBreakpoints(DocumentIdentity document)
         {
-            var lines = breakpointService.GetBreakpoints(uri);
+            var lines = breakpointService.GetBreakpoints(document);
             if (lines.Count > 0)
-                debugController.SetBreakpoints(moduleName, lines);
+                debugController.SetBreakpoints(document.Name, lines);
         }
     }
 
@@ -118,13 +140,6 @@ public partial class ProjectRunnerService : IProjectRunnerService
             .Select(w => new WatchBreakSpec(w.Expression, w.Type == WatchType.BreakWhenChanged))
             .ToList();
         debugController.SetWatchBreaks(specs);
-    }
-
-    // vb6://form/Form1 → "Form1"; vb6://module/Module1 → "Module1" — the bare name the debug gate reports.
-    private static string ModuleNameFromUri(string uri)
-    {
-        var slash = uri.LastIndexOf('/');
-        return slash >= 0 ? uri[(slash + 1)..] : uri;
     }
 
     public void RunProject(ProjectDefinition projectDefinition, bool stepInto = false)
@@ -154,6 +169,11 @@ public partial class ProjectRunnerService : IProjectRunnerService
                     throw new OperationCanceledException();
                 }
 
+                // Claimed before anything can execute, not once the task is in hand: a breakpoint on the
+                // first statement of Form_Load breaks while the form is still being loaded, and an editor
+                // asked to show the current-statement bar needs to know which project is running by then.
+                RunningProject = projectDefinition;
+
                 // Fresh debug session: clear any prior break/abort state, then apply the current breakpoints so the
                 // very first statement can already be a break.
                 debugController.Reset();
@@ -161,7 +181,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 ApplyWatchBreaks();   // push Break-When-True/Changed watches so the run can break on them from line 1
                 if (_pendingRunTo is { } rt)   // an idle Run-To-Cursor: arm the target now that Reset has cleared it
                 {
-                    debugController.RunToCursor(rt.Module, rt.Line);
+                    debugController.RunToCursor(rt.Document.Name, rt.Line);
                     _pendingRunTo = null;
                 }
                 // F8-from-idle: arm step BEFORE the first statement runs, so the run breaks at line 1 (VB6
@@ -180,7 +200,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
                     window.Show();
                 }
 
-                RunningProject = new ActionDisposable(() => tokenSource.Cancel());
+                RunHandle = new ActionDisposable(() => tokenSource.Cancel());
                 try
                 {
                     await task;
@@ -192,6 +212,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
                     // controller (and the editor's current-statement bar) return to a clean state. Idempotent with
                     // EndProject's own Stop(); on the plain window-close path this is the ONLY teardown.
                     debugController.Stop();
+                    RunHandle = null;
                     RunningProject = null;
                 }
             }
@@ -251,12 +272,15 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 }
             }
 
+            // Claimed before anything can execute — see the same line on the startup-form path.
+            RunningProject = projectDefinition;
+
             debugController.Reset();
             ApplyBreakpoints(projectDefinition);
             ApplyWatchBreaks();
             if (_pendingRunTo is { } rt)
             {
-                debugController.RunToCursor(rt.Module, rt.Line);
+                debugController.RunToCursor(rt.Document.Name, rt.Line);
                 _pendingRunTo = null;
             }
             if (stepInto)
@@ -273,7 +297,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
             };
             interpreter.SetAppInfo(AppInfo.FromProject(projectDefinition));
 
-            RunningProject = new ActionDisposable(() => debugController.Stop());
+            RunHandle = new ActionDisposable(() => debugController.Stop());
             try
             {
                 await interpreter.RunStartupSubMain();
@@ -292,6 +316,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
             finally
             {
                 debugController.Stop();
+                RunHandle = null;
                 RunningProject = null;
             }
         }
@@ -349,24 +374,30 @@ public partial class ProjectRunnerService : IProjectRunnerService
             debugController.Pause();
     }
 
-    public void RunToCursorProject(string module, int line)
+    public void RunToCursorProject(DocumentIdentity document, int line)
     {
         // Run To Cursor (Ctrl+F8): a one-shot break at (module, line). Paused → arm + Continue; running → arm (breaks
         // when reached); idle → start the project and arm the target after the run-start sequence (a plain run, NOT
         // start-and-step — it runs freely to the cursor line).
+        //
+        // Deliberately NOT scoped to the running project, unlike the live breakpoint push and Set Next
+        // Statement. Those act on a run that is already going; this one may START it, and from idle the
+        // run that starts is the startup project's whatever document was pointed at. Refusing a document
+        // in a sibling project would be the defensible rule, but this method has no channel to say so —
+        // it returns void and is bound to a keystroke. Left as it was, and stated rather than hidden.
         if (!IsRunning)
         {
-            _pendingRunTo = (module, line);
+            _pendingRunTo = (document, line);
             RunStartupProject();
         }
         else if (debugController.State == DebugState.Paused)
         {
-            debugController.RunToCursor(module, line);
+            debugController.RunToCursor(document.Name, line);
             debugController.Continue();
         }
         else
         {
-            debugController.RunToCursor(module, line);
+            debugController.RunToCursor(document.Name, line);
         }
     }
 
@@ -381,7 +412,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
         // Abort first so a paused interpreter unwinds via StopExecutionSignal, then cancel the token (closes the
         // window). Order matters: Stop() releases the break gate that Dispose()'s cancel alone cannot.
         debugController.Stop();
-        RunningProject?.Dispose();
+        RunHandle?.Dispose();
+        RunHandle = null;
         RunningProject = null;
     }
 

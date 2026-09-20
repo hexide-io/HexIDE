@@ -43,6 +43,20 @@ public partial class FormDefinition : INotifyPropertyChanged
     private string? absolutePath;
     private List<ComponentInstance> components;
 
+    /// <summary>
+    /// The module this form is the designer half of — a UserControl or PropertyPage — or null for a plain
+    /// form.
+    /// </summary>
+    /// <remarks>
+    /// A <c>.ctl</c> or <c>.pag</c> is one file with two halves and one identity, and that identity is the
+    /// module's. Recorded here by <see cref="ModuleDefinition.UpdateFormPart"/> rather than found by
+    /// searching, so it is already right in the window between the two being joined and the module being
+    /// added to the project.
+    /// </remarks>
+    public ModuleDefinition? OwningModule { get; private set; }
+
+    internal void SetOwningModule(ModuleDefinition? module) => OwningModule = module;
+
     public string? AbsolutePath
     {
         get => absolutePath;

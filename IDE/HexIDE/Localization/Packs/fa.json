@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "روی دیسک ذخیره نشده است",
     "Str.ProjectDocument.Section.Members": "اعضا",
     "Str.ProjectDocument.Section.References": "مراجع",
-    "Str.ProjectDocument.Kind.RelatedDocument": "سند مرتبط"
+    "Str.ProjectDocument.Kind.RelatedDocument": "سند مرتبط",
+    "Str.Naming.Msg.NotAVb6Name": "'{0}' نام معتبری نیست. نام با یک حرف آغاز می‌شود و با حروف، ارقام و زیرخط ادامه می‌یابد.",
+    "Str.Naming.Msg.DocumentNameTaken": "'{0}' هم‌اکنون نام یک فرم، ماژول یا کلاس در این پروژه است. VB6 همهٔ آن‌ها را در یک فضای نام قرار می‌دهد، پس دو مورد نمی‌توانند نام یکسانی داشته باشند.",
+    "Str.Naming.Msg.ProjectNameTaken": "پروژه‌ای با نام '{0}' هم‌اکنون بارگذاری شده است. دو پروژه در یک گروه نمی‌توانند نام یکسانی داشته باشند.",
+    "Str.Naming.Msg.AdoptedNameTaken": "'{1}' افزوده نشد. نام آن '{0}' است که هم‌اکنون نام یک فرم، ماژول یا کلاس در این پروژه است.",
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' افزوده نشد. نام آن '{0}' است که معتبر نیست: نام با یک حرف آغاز می‌شود و با حروف، ارقام و زیرخط ادامه می‌یابد."
   }
 }

@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "未保存到磁盘",
     "Str.ProjectDocument.Section.Members": "成员",
     "Str.ProjectDocument.Section.References": "引用",
-    "Str.ProjectDocument.Kind.RelatedDocument": "相关文档"
+    "Str.ProjectDocument.Kind.RelatedDocument": "相关文档",
+    "Str.Naming.Msg.NotAVb6Name": "“{0}”不是有效的名称。名称以字母开头，其后只能包含字母、数字和下划线。",
+    "Str.Naming.Msg.DocumentNameTaken": "“{0}”已经是此工程中某个窗体、模块或类的名称。VB6 让它们共用一个命名空间，因此不允许重名。",
+    "Str.Naming.Msg.ProjectNameTaken": "名为“{0}”的工程已加载。同一个工程组中的两个工程不能同名。",
+    "Str.Naming.Msg.AdoptedNameTaken": "“{1}”未添加。它的名称是“{0}”，而该名称已经是此工程中某个窗体、模块或类的名称。",
+    "Str.Naming.Msg.AdoptedNameNotValid": "“{1}”未添加。它的名称是“{0}”，而该名称无效：名称以字母开头，其后只能包含字母、数字和下划线。"
   }
 }

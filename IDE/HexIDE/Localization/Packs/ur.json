@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "ڈسک پر محفوظ نہیں",
     "Str.ProjectDocument.Section.Members": "ارکان",
     "Str.ProjectDocument.Section.References": "حوالہ جات",
-    "Str.ProjectDocument.Kind.RelatedDocument": "متعلقہ دستاویز"
+    "Str.ProjectDocument.Kind.RelatedDocument": "متعلقہ دستاویز",
+    "Str.Naming.Msg.NotAVb6Name": "'{0}' درست نام نہیں ہے۔ نام حرف سے شروع ہوتا ہے اور اس کے بعد حروف، ہندسے اور انڈر اسکور آ سکتے ہیں۔",
+    "Str.Naming.Msg.DocumentNameTaken": "'{0}' اس پروجیکٹ میں پہلے ہی کسی فارم، ماڈیول یا کلاس کا نام ہے۔ VB6 ان سب کو ایک ہی نیم اسپیس میں رکھتا ہے، اس لیے کسی دو کا ایک ہی نام نہیں ہو سکتا۔",
+    "Str.Naming.Msg.ProjectNameTaken": "'{0}' نام کا ایک پروجیکٹ پہلے ہی لوڈ ہو چکا ہے۔ ایک گروپ میں دو پروجیکٹ ایک ہی نام نہیں رکھ سکتے۔",
+    "Str.Naming.Msg.AdoptedNameTaken": "'{1}' شامل نہیں کی گئی۔ اس کا نام '{0}' ہے، جو اس پروجیکٹ میں پہلے ہی کسی فارم، ماڈیول یا کلاس کا نام ہے۔",
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' شامل نہیں کی گئی۔ اس کا نام '{0}' ہے، جو درست نام نہیں ہے: نام حرف سے شروع ہوتا ہے اور اس کے بعد حروف، ہندسے اور انڈر اسکور آ سکتے ہیں۔"
   }
 }

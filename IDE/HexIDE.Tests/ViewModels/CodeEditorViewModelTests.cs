@@ -22,6 +22,7 @@ public class CodeEditorViewModelTests : IDisposable
     private readonly IBookmarkService _bookmarkService = Substitute.For<IBookmarkService>();
     private readonly HexIDE.Debugging.IBreakpointService _breakpointService = Substitute.For<HexIDE.Debugging.IBreakpointService>();
     private readonly HexIDE.Runtime.Debugging.IDebugController _debugController = Substitute.For<HexIDE.Runtime.Debugging.IDebugController>();
+    private readonly HexIDE.Debugging.IRunScope _runScope = Substitute.For<HexIDE.Debugging.IRunScope>();
     private readonly ILocalizationService _localization = Substitute.For<ILocalizationService>();
     private CodeEditorViewModel? _sut;
 
@@ -40,7 +41,7 @@ public class CodeEditorViewModelTests : IDisposable
     private CodeEditorViewModel CreateSut()
     {
         _sut = new CodeEditorViewModel(
-            _windowManager, _editorService, _projectService, _eventBus, _lspClient, _settingsService, _statusBarService, _bookmarkService, _breakpointService, _debugController, _localization);
+            _windowManager, _editorService, _projectService, _eventBus, _lspClient, _settingsService, _statusBarService, _bookmarkService, _breakpointService, _debugController, _runScope, _localization);
         return _sut;
     }
 

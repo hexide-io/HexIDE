@@ -67,6 +67,7 @@ public class FindReplaceViewModelTests
         var vm = new CodeEditorViewModel(wm, es, ps, eb, lsp, ss, sb, bs,
             Substitute.For<HexIDE.Debugging.IBreakpointService>(),
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
+            Substitute.For<HexIDE.Debugging.IRunScope>(),
             Substitute.For<ILocalizationService>());
         vm.Document.Text = text;
         vm.CaretOffset = 0;

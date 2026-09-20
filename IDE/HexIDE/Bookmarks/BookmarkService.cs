@@ -1,46 +1,49 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using HexIDE.Runtime.ProjectElements;
 
 namespace HexIDE.Bookmarks;
 
 public class BookmarkService : IBookmarkService
 {
-    private readonly Dictionary<string, SortedSet<int>> _bookmarks = new();
+    private readonly Dictionary<DocumentIdentity, SortedSet<int>> _bookmarks = new();
 
-    public event Action<string>? BookmarksChanged;
+    public event Action<DocumentIdentity>? BookmarksChanged;
 
-    public void SetBookmarks(string documentUri, IEnumerable<int> lines)
+    public void SetBookmarks(DocumentIdentity document, IEnumerable<int> lines)
     {
         var set = new SortedSet<int>(lines);
         if (set.Count == 0)
-        {
-            _bookmarks.Remove(documentUri);
-            return;
-        }
-        _bookmarks[documentUri] = set;
-        BookmarksChanged?.Invoke(documentUri);
+            _bookmarks.Remove(document);
+        else
+            _bookmarks[document] = set;
+        // Raised for the empty case too, as the breakpoint store always has. It used to return first, so
+        // clearing a document's bookmarks emptied the store and left the gutter's dots on screen — and,
+        // because the sidecar saves on this event, the cleared bookmarks came back on the next load.
+        BookmarksChanged?.Invoke(document);
     }
 
-    public void Toggle(string documentUri, int line)
+    public void Toggle(DocumentIdentity document, int line)
     {
-        if (!_bookmarks.TryGetValue(documentUri, out var set))
+        if (!_bookmarks.TryGetValue(document, out var set))
         {
             set = new SortedSet<int>();
-            _bookmarks[documentUri] = set;
+            _bookmarks[document] = set;
         }
 
         if (!set.Remove(line))
             set.Add(line);
 
-        BookmarksChanged?.Invoke(documentUri);
+        BookmarksChanged?.Invoke(document);
     }
 
-    public bool IsBookmarked(string documentUri, int line)
-        => _bookmarks.TryGetValue(documentUri, out var set) && set.Contains(line);
+    public bool IsBookmarked(DocumentIdentity document, int line)
+        => _bookmarks.TryGetValue(document, out var set) && set.Contains(line);
 
-    public int? NextBookmark(string documentUri, int currentLine)
+    public int? NextBookmark(DocumentIdentity document, int currentLine)
     {
-        if (!_bookmarks.TryGetValue(documentUri, out var set) || set.Count == 0)
+        if (!_bookmarks.TryGetValue(document, out var set) || set.Count == 0)
             return null;
 
         // Find first bookmark after currentLine, wrapping around
@@ -48,9 +51,9 @@ public class BookmarkService : IBookmarkService
         return after.Count > 0 ? after.Min : set.Min;
     }
 
-    public int? PreviousBookmark(string documentUri, int currentLine)
+    public int? PreviousBookmark(DocumentIdentity document, int currentLine)
     {
-        if (!_bookmarks.TryGetValue(documentUri, out var set) || set.Count == 0)
+        if (!_bookmarks.TryGetValue(document, out var set) || set.Count == 0)
             return null;
 
         // Find last bookmark before currentLine, wrapping around
@@ -58,18 +61,28 @@ public class BookmarkService : IBookmarkService
         return before.Count > 0 ? before.Max : set.Max;
     }
 
-    public void ClearAll(string documentUri)
+    public void ClearAll(DocumentIdentity document)
     {
-        if (_bookmarks.TryGetValue(documentUri, out var set) && set.Count > 0)
+        if (_bookmarks.TryGetValue(document, out var set) && set.Count > 0)
         {
             set.Clear();
-            BookmarksChanged?.Invoke(documentUri);
+            BookmarksChanged?.Invoke(document);
         }
     }
 
-    public IReadOnlyList<int> GetBookmarks(string documentUri)
+    public void ClearProject(ProjectDefinition project)
     {
-        if (!_bookmarks.TryGetValue(documentUri, out var set))
+        var mine = _bookmarks.Keys.Where(document => document.IsIn(project)).ToList();
+        foreach (var document in mine)
+        {
+            _bookmarks.Remove(document);
+            BookmarksChanged?.Invoke(document);
+        }
+    }
+
+    public IReadOnlyList<int> GetBookmarks(DocumentIdentity document)
+    {
+        if (!_bookmarks.TryGetValue(document, out var set))
             return Array.Empty<int>();
         return new List<int>(set);
     }

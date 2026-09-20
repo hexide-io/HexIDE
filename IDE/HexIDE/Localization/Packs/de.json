@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "Nicht auf Datenträger gespeichert",
     "Str.ProjectDocument.Section.Members": "Elemente",
     "Str.ProjectDocument.Section.References": "Verweise",
-    "Str.ProjectDocument.Kind.RelatedDocument": "Zugehöriges Dokument"
+    "Str.ProjectDocument.Kind.RelatedDocument": "Zugehöriges Dokument",
+    "Str.Naming.Msg.NotAVb6Name": "'{0}' ist kein gültiger Name. Ein Name beginnt mit einem Buchstaben und besteht danach aus Buchstaben, Ziffern und Unterstrichen.",
+    "Str.Naming.Msg.DocumentNameTaken": "'{0}' ist bereits der Name eines Formulars, Moduls oder Klassenmoduls in diesem Projekt. VB6 kennt dafür nur einen Namensraum, daher können zwei nicht denselben Namen tragen.",
+    "Str.Naming.Msg.ProjectNameTaken": "Ein Projekt mit dem Namen '{0}' ist bereits geladen. Zwei Projekte in einer Projektgruppe können nicht denselben Namen tragen.",
+    "Str.Naming.Msg.AdoptedNameTaken": "'{1}' wurde nicht hinzugefügt. Der darin festgelegte Name '{0}' ist bereits der Name eines Formulars, Moduls oder Klassenmoduls in diesem Projekt.",
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' wurde nicht hinzugefügt. Der darin festgelegte Name '{0}' ist kein gültiger Name: Ein Name beginnt mit einem Buchstaben und besteht danach aus Buchstaben, Ziffern und Unterstrichen."
   }
 }

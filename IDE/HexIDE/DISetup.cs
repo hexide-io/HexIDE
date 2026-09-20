@@ -59,6 +59,7 @@ public partial class DISetup
             // Debugger: one breakpoint store + one watch store + one interpreter controller per IDE session.
             .Bind<HexIDE.Debugging.IBreakpointService>().As(Singleton).To<HexIDE.Debugging.BreakpointService>()
             .Bind().As(Singleton).To<HexIDE.Debugging.WatchService>()
+            .Bind<HexIDE.Debugging.IRunScope>().Bind().As(Singleton).To<HexIDE.Debugging.RunScope>()
             .Bind<HexIDE.Runtime.Debugging.IDebugController>().As(Singleton).To<HexIDE.Runtime.Debugging.DebugController>()
             .Bind<IUserSidecarService>().As(Singleton).To<UserSidecarService>()
             .Bind<IFindReplaceService>().As(Singleton).To<FindReplaceService>()

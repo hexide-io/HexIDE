@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "डिस्क पर सहेजा नहीं गया",
     "Str.ProjectDocument.Section.Members": "सदस्य",
     "Str.ProjectDocument.Section.References": "संदर्भ",
-    "Str.ProjectDocument.Kind.RelatedDocument": "संबंधित दस्तावेज़"
+    "Str.ProjectDocument.Kind.RelatedDocument": "संबंधित दस्तावेज़",
+    "Str.Naming.Msg.NotAVb6Name": "'{0}' एक मान्य नाम नहीं है। नाम अक्षर से शुरू होता है और उसके बाद अक्षर, अंक और अंडरस्कोर आ सकते हैं।",
+    "Str.Naming.Msg.DocumentNameTaken": "'{0}' इस प्रोजेक्ट में पहले से ही किसी फ़ॉर्म, मॉड्यूल या क्लास का नाम है। VB6 इन सबको एक ही नेमस्पेस देता है, इसलिए दोनों का एक ही नाम नहीं हो सकता।",
+    "Str.Naming.Msg.ProjectNameTaken": "'{0}' नाम का प्रोजेक्ट पहले से लोड है। एक ही समूह में दो प्रोजेक्ट का एक ही नाम नहीं हो सकता।",
+    "Str.Naming.Msg.AdoptedNameTaken": "'{1}' जोड़ी नहीं गई। इसका नाम '{0}' है, जो इस प्रोजेक्ट में पहले से ही किसी फ़ॉर्म, मॉड्यूल या क्लास का नाम है।",
+    "Str.Naming.Msg.AdoptedNameNotValid": "'{1}' जोड़ी नहीं गई। इसका नाम '{0}' है, जो मान्य नाम नहीं है: नाम अक्षर से शुरू होता है और उसके बाद अक्षर, अंक और अंडरस्कोर आ सकते हैं।"
   }
 }

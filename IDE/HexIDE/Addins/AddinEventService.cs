@@ -31,10 +31,25 @@ public sealed class AddinEventService : IAddinEvents, IDisposable
         projectRunnerService.PropertyChanged += OnRunnerPropertyChanged;
 
         _fileOpenedSub = eventBus.Subscribe<FileOpenedEvent>(e =>
-            FileOpened?.Invoke(new AddinFileEventArgs(e.Title, e.Title)));
+            FileOpened?.Invoke(Describe(e.Document, e.Title)));
         _fileClosedSub = eventBus.Subscribe<FileClosedEvent>(e =>
-            FileClosed?.Invoke(new AddinFileEventArgs(e.Title, e.Title)));
+            FileClosed?.Invoke(Describe(e.Document, e.Title)));
     }
+
+    /// <summary>
+    /// What an add-in is told about a tab that opened or closed.
+    /// </summary>
+    /// <remarks>
+    /// Both fields used to be the tab's <em>title</em> — which is localized, carries the project name and a
+    /// "(Code)" suffix, and is not a path by any reading. An add-in matching it against a name it had from
+    /// anywhere else never matched. A tab with no document keeps the title as its name, because there is
+    /// nothing else to call it, but its path is now empty rather than a title pretending to be one.
+    /// </remarks>
+    private static AddinFileEventArgs Describe(DocumentIdentity? document, string title) =>
+        document is null
+            ? new AddinFileEventArgs(string.Empty, title)
+            : new AddinFileEventArgs(document.AbsolutePath ?? string.Empty, document.Name,
+                document.Project.Name);
 
     private void OnProjectLoaded(ProjectDefinition p) =>
         ProjectLoaded?.Invoke(new AddinProjectEventArgs(p.AbsolutePath ?? string.Empty, p.Name));

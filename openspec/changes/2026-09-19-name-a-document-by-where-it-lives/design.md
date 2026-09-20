@@ -452,6 +452,53 @@ not the last segment, so two `Module1`s no longer merge.
      throws unless the whole merged list is sorted by start offset, and silently skips a zero-length fold;
    - the undo mechanics above.
 
+## Settled while building phase 1
+
+Five decisions the design above left implicit, each recorded with what it was weighed against.
+
+**The sidecar's `version` records the line base, not the key shape.** Phase 1 changes how entries are keyed
+and phase 3 changes how lines are counted, and only one of those needs a version step. A VB6 name is a
+letter followed by letters, digits and underscores, so it can never look like a URI: `vb6://form/Form1` and
+`Form1` are told apart by the key itself, and the reader accepts both. Spending a version on the re-key
+would have meant two migrations for phase 3's author to branch on, and a `version: 1` file with either key
+shape is unambiguous without one. What `version` therefore means, unchanged, is *lines counted from the
+first line the code window showed*.
+
+**A `Thing` form and a `Thing` module in one project union their sidecar lines rather than overwriting.**
+Phase 1 stops such a project being *created*, but one loaded from a `.vbp` written elsewhere may already
+hold both, and the key within a project's own file is the bare name. Writing the second over the first
+would silently destroy the on-disk record on the next debounced save, which is the harm the migration
+exists to prevent.
+
+**Which project is running is a value, not an event.** The editor needs it to decide whether a pause
+reported by bare module name is in *its* document, and a group's two `Module1`s make the name alone
+insufficient. An event would not do: the editor that most needs this is the one opened **by** the break, so
+it did not exist when the event fired. It is a service of its own (`IRunScope`) rather than a property on
+the runner because an editor cannot depend on the runner — the dependency closes a cycle through the editor
+factory, which is why the reset prompt is already routed through the bus.
+
+**A form records the module it is the designer half of.** `DocumentIdentity.For(FormDefinition)` resolves a
+`.ctl` or `.pag` to its module, and finding that by scanning the project's modules is wrong in the window
+between the two halves being joined and the module being added to the project — several statements, in both
+the creation path and the load path. A scan answers "a plain form" there, and that identity compares
+unequal to every one produced afterwards. The link is recorded on the form by `UpdateFormPart`, which is the
+one place the two are joined.
+
+**The add-in surface takes overloads, not trailing optional arguments.** The task list asked for optional
+arguments "so existing add-ins keep compiling", citing `AddinDiagnostic`'s `Code` and `Source`. That
+precedent states its own precondition — the IDE builds that record and add-ins read it — and the
+precondition does not hold for an interface method an add-in *calls*: add-ins are loaded as pre-built
+assemblies through `Assembly.Load`, and C# bakes a default argument into the call site, so a default
+parameter keeps an add-in compiling and breaks every one already packaged. Overloads satisfy both. The
+records still take trailing optional fields, where the precedent does hold.
+
+**A module cannot be renamed at all, so the rename half of 1.7 covers forms and projects.**
+`ModuleDefinition.Name` has a public setter and no assignment outside its constructor; the Properties window
+binds only a form designer. The collision rule lives in `ProjectNaming` and applies wherever a module rename
+is eventually built; building it is filed as hexide-io/HexIDE#493. The delta's rename scenarios are
+therefore proved at the store and in the editor by setting the model property, which is the only gesture
+that exists.
+
 ## Open questions
 
 - **A file shared by two projects in a group.** Two documents, one file, one wire name. The protocol allows a

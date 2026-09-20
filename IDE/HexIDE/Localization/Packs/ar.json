@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "لم يتم الحفظ على القرص",
     "Str.ProjectDocument.Section.Members": "الأعضاء",
     "Str.ProjectDocument.Section.References": "المراجع",
-    "Str.ProjectDocument.Kind.RelatedDocument": "مستند مرتبط"
+    "Str.ProjectDocument.Kind.RelatedDocument": "مستند مرتبط",
+    "Str.Naming.Msg.NotAVb6Name": "الاسم '{0}' غير صالح. يبدأ الاسم بحرف، وتأتي بعده حروف وأرقام وشرطات سفلية.",
+    "Str.Naming.Msg.DocumentNameTaken": "الاسم '{0}' مستخدَم بالفعل لنموذج أو Module أو Class في هذا المشروع. يضع VB6 هذه العناصر كلها في مساحة اسم واحدة، لذا لا يمكن أن يحمل عنصران الاسم نفسه.",
+    "Str.Naming.Msg.ProjectNameTaken": "يوجد بالفعل مشروع محمَّل بالاسم '{0}'. ولا يمكن أن يحمل مشروعان في مجموعة واحدة الاسم نفسه.",
+    "Str.Naming.Msg.AdoptedNameTaken": "لم تتم إضافة '{1}'. فاسمه هو '{0}'، وهو مستخدَم بالفعل لنموذج أو Module أو Class في هذا المشروع.",
+    "Str.Naming.Msg.AdoptedNameNotValid": "لم تتم إضافة '{1}'. فاسمه هو '{0}'، وهو ليس اسماً صالحاً: يبدأ الاسم بحرف، وتأتي بعده حروف وأرقام وشرطات سفلية."
   }
 }

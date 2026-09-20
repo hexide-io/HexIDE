@@ -728,6 +728,11 @@
     "Str.ProjectDocument.NotSaved": "Ei tallennettu levylle",
     "Str.ProjectDocument.Section.Members": "Jäsenet",
     "Str.ProjectDocument.Section.References": "Viittaukset",
-    "Str.ProjectDocument.Kind.RelatedDocument": "Liittyvä asiakirja"
+    "Str.ProjectDocument.Kind.RelatedDocument": "Liittyvä asiakirja",
+    "Str.Naming.Msg.NotAVb6Name": "'{0}' ei ole kelvollinen nimi. Nimi alkaa kirjaimella ja jatkuu kirjaimilla, numeroilla ja alaviivoilla.",
+    "Str.Naming.Msg.DocumentNameTaken": "'{0}' on jo jonkin tämän projektin lomakkeen, moduulin tai luokan nimi. VB6:ssa niillä on yhteinen nimiavaruus, joten kahdella ei voi olla samaa nimeä.",
+    "Str.Naming.Msg.ProjectNameTaken": "Projekti nimeltä '{0}' on jo ladattu. Kahdella saman ryhmän projektilla ei voi olla samaa nimeä.",
+    "Str.Naming.Msg.AdoptedNameTaken": "Tiedostoa '{1}' ei lisätty. Sen nimi on '{0}', joka on jo jonkin tämän projektin lomakkeen, moduulin tai luokan nimi.",
+    "Str.Naming.Msg.AdoptedNameNotValid": "Tiedostoa '{1}' ei lisätty. Sen nimi on '{0}', joka ei ole kelvollinen nimi: nimi alkaa kirjaimella ja jatkuu kirjaimilla, numeroilla ja alaviivoilla."
   }
 }
