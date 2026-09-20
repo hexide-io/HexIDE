@@ -41,6 +41,14 @@ public class SerializationCorpusTests
     /// </summary>
     private static IEnumerable<string> CorpusRoots()
     {
+        // Always, ahead of the priority order below rather than inside it. This is the only project in the
+        // corpus with a UserControl and a PropertyPage in it, and it is how hexide-io/HexIDE#483 was found:
+        // the .vbp item-line shape for those two keys was wrong, and no project that used them had ever
+        // round-tripped. An explicit HEXIDE_ROUNDTRIP_CORPUS means a developer is pointing at more VB6
+        // files; it is not an instruction to stop checking the repository's own.
+        var designer = FindUpwards(Path.Join("corpus", "designer"));
+        if (designer is not null) yield return designer;
+
         var env = Environment.GetEnvironmentVariable("HEXIDE_ROUNDTRIP_CORPUS");
         if (!string.IsNullOrWhiteSpace(env))
         {

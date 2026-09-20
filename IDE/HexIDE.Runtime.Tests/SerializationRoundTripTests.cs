@@ -95,14 +95,22 @@ public class SerializationRoundTripTests
         vbp.Should().Contain("Class=Class1;");
     }
 
+    // These two asked for the wrong thing until 2026-09-20. They asserted `UserControl=UserControl1;` —
+    // the `Name; File` shape the code emitted — and VB6 reads that whole value as a filename, so every
+    // project HexIDE saved with a UserControl or a PropertyPage in it was unopenable (hexide-io/HexIDE#483,
+    // measured in docs/vb6-fidelity-oracle.md). The assertion certified the defect for as long as it
+    // existed, which is what an expectation written from the code rather than from the compiler does.
+    // ProjectItemLineShapeTests carries the rule for all four keys.
+
     [Fact]
     public void ProjectSerializer_UserControl_WritesUserControlKey()
     {
         var p = MakeProject();
         AddModule(p, "UserControl1", ModuleKind.UserControl);
         var (vbp, _) = RoundTripProject(p);
-        vbp.Should().Contain("UserControl=UserControl1;");
-        vbp.Should().NotContain("Module=UserControl1;");
+        vbp.Should().Contain("UserControl=UserControl1.ctl");
+        vbp.Should().NotContain("UserControl1;", "VB6 takes the whole value on this key as a filename");
+        vbp.Should().NotContain("Module=UserControl1");
     }
 
     [Fact]
@@ -111,8 +119,9 @@ public class SerializationRoundTripTests
         var p = MakeProject();
         AddModule(p, "PropPage1", ModuleKind.PropertyPage);
         var (vbp, _) = RoundTripProject(p);
-        vbp.Should().Contain("PropertyPage=PropPage1;");
-        vbp.Should().NotContain("Module=PropPage1;");
+        vbp.Should().Contain("PropertyPage=PropPage1.pag");
+        vbp.Should().NotContain("PropPage1;", "VB6 takes the whole value on this key as a filename");
+        vbp.Should().NotContain("Module=PropPage1");
     }
 
     // ── ProjectDeserializer: kind round-trips ─────────────────────────────────

@@ -60,8 +60,13 @@ moduleConfig
     : BEGIN NEWLINE+ moduleConfigElement+ END NEWLINE+
     ;
 
+// The trailing WS? is not cosmetic. VB6 writes a decoded comment after the value in almost every header
+// it generates -- `MultiUse = -1  'True` -- and COMMENT is on the hidden channel, so what reaches the
+// parser is the whitespace in front of it. NEWLINE absorbs leading whitespace itself, but only when a
+// newline actually follows it, so the spaces before a comment are tokenized as WS and the rule has to
+// accept them. Without this, every .cls VB6 ever wrote fails to parse at line 3.
 moduleConfigElement
-    : ambiguousIdentifier WS? EQ WS? literal NEWLINE
+    : ambiguousIdentifier WS? EQ WS? literal WS? NEWLINE
     ;
 
 moduleAttributes
@@ -110,8 +115,10 @@ cp_Properties
     | controlProperties
     ;
 
+// The trailing WS? is the designer-block half of the same thing moduleConfigElement documents:
+// `Enabled = 0   'False` leaves whitespace in front of a hidden comment.
 cp_SingleProperty
-    : WS? (DESIGNER_KEY | implicitCallStmt_InStmt) WS? EQ WS? '$'? cp_PropertyValue FRX_OFFSET? NEWLINE+
+    : WS? (DESIGNER_KEY | implicitCallStmt_InStmt) WS? EQ WS? '$'? cp_PropertyValue FRX_OFFSET? WS? NEWLINE+
     ;
 
 cp_PropertyName

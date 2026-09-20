@@ -99,7 +99,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "set_file_content")]
-    [Description("Replaces the VB6 source code of a named form or module and saves to disk. Use get_project_info to list available names. Pass the CODE SECTION, not a whole file: a .frm's VERSION/Begin designer block is refused (it describes controls, which this tool does not apply), and a .bas/.cls header is stripped. A form's leading 'Attribute VB_*' block is its identity and is invisible in the editor -- if your content omits it the existing one is kept and the result says so, so a body written from what is on screen can no longer destroy VB_Name.")]
+    [Description("Replaces the VB6 source code of a named form or module and saves to disk. Use get_project_info to list available names. Pass the CODE SECTION, not a whole file: a .frm's VERSION/Begin designer block is refused (it describes controls, which this tool does not apply), and a .bas/.cls header is stripped. A form's leading 'Attribute VB_*' block is its identity; the editor shows it, but content composed rather than round-tripped rarely carries it -- if yours omits it the existing one is kept and the result says so, so a body that leaves it out can no longer destroy VB_Name.")]
     public async Task<MutateResult> SetFileContentAsync(string name, string content, CancellationToken ct)
     {
         var restoredHeader = false;
@@ -125,9 +125,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
                         + "controls. Pass what get_file_content returns, or edit the .frm on disk.");
 
                 // The attribute block is restored when the incoming text omits it. VB_Name is the form's
-                // identity, it sits at the top of the code section, and NEITHER VB6 nor this IDE's editor
-                // shows it -- so writing "the code" as seen on screen used to delete it, with no warning,
-                // straight to disk. (gap 14)
+                // identity and it sits at the top of the code section. VB6 hides it; this IDE's editor does
+                // show it (measured 2026-09-20 -- it opens the code window), but a caller composing a
+                // body rather than round-tripping one omits it anyway, and that used to delete it with no
+                // warning, straight to disk. (gap 14)
                 var kept = HexIDE.Runtime.Serialization.FormCodeText.PreserveAttributes(content, form.Code);
                 restoredHeader = !ReferenceEquals(kept, content);
 
@@ -182,8 +183,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
             return written
                 ? new MutateResult(true, null, restoredHeader
                     ? "Kept the form's Attribute header, which the content omitted. VB_Name is the form's "
-                      + "identity and is invisible in the editor; without this the write would have "
-                      + "destroyed it. Call get_file_content first to see the whole code section."
+                      + "identity; without this the write would have destroyed it. Call get_file_content "
+                      + "first and edit what it returns, which includes the header."
                     : null)
                 : new MutateResult(false, "HexIDE cannot reproduce this file faithfully, so it was not "
                                         + "written and the copy on disk is unchanged.");

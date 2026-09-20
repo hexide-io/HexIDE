@@ -7,9 +7,11 @@ namespace HexIDE.Runtime.Serialization;
 /// The text of a form's <b>code section</b> — everything a <c>.frm</c> holds after its designer block.
 /// </summary>
 /// <remarks>
-/// <para>A form's code section opens with an <c>Attribute VB_*</c> block that VB6 hides and HexIDE's editor
-/// does not show. <c>VB_Name</c> is load-bearing: it is the form's identity. Anyone writing "the code" of a
-/// form naturally writes the part they can see, and a straight replacement then deletes that block with no
+/// <para>A form's code section opens with an <c>Attribute VB_*</c> block that VB6 hides. HexIDE's editor
+/// <i>does</i> show it — measured in the running IDE on 2026-09-20, where it is the opening lines of
+/// the code window, syntax-coloured as ordinary code and freely editable. <c>VB_Name</c> is load-bearing: it is the
+/// form's identity. Being on screen is not the same as being written back: anyone composing "the code" of a
+/// form writes the part they came to write, and a straight replacement then deletes that block with no
 /// warning — which happened, and reached a commit before <c>git diff</c> caught it.</para>
 ///
 /// <para>The mirror mistake is passing a whole <c>.frm</c> instead, which puts <c>VERSION</c> /

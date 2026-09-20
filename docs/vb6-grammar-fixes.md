@@ -58,9 +58,28 @@ something this project can offer outward rather than something it must ask for.
 | 4 | Typed function names (`Function MakeName$()`) | parser | add `typeHint?` after the name in `functionStmt` (matching `propertyGetStmt`) |
 | 5 | `D`-exponent doubles (`1.5D10`, `2.5D-5`) | lexer | `DOUBLELITERAL` exponent `'E'` → `('E' | 'D')` |
 | 6 | Hex / octal `%` suffix (`&H1F%`) | lexer | add `PERCENT` to `COLORLITERAL` (hex) and `OCTALLITERAL` suffixes |
+| 7 | Trailing comment after a header or designer property value (`MultiUse = -1  'True`, `Enabled = 0   'False`) | parser | add `WS?` before `NEWLINE` in `moduleConfigElement` and `cp_SingleProperty` |
 
 Provenance: VB6 Language Reference ("Line numbers", "If…Then…Else", "Type Declaration Characters"), each
 verified against `vb6.exe`; deliberately divergent from the Rubberduck grammar.
+
+**Fix 7 has a different provenance, and a wider blast radius than its size suggests (2026-09-20).** It was
+not read out of the language reference at all — it was measured against files VB6 itself wrote: the VB98
+Template tree (22 designer files) plus every `.cls` header in this repository's demos. VB6 decodes an
+enumerated property value into a comment when it saves — `MultiUse = -1  'True`, `Enabled = 0   'False`,
+`StartUpPosition = 3  'Windows Default` — and `COMMENT` is on the hidden channel, so what reaches the
+parser is the **whitespace in front of the comment**. `NEWLINE` swallows leading whitespace itself, but
+only when a newline actually follows, so those spaces lex as `WS` and the property rules, which went
+straight from the value to `NEWLINE`, rejected them.
+
+The effect was that **every `.cls` VB6 has ever written failed to parse at line 3**, and 30 of 46 corpus
+files failed somewhere in their header — in both grammars, at the same line of the same file, because both
+carry the proleap shape. It went unnoticed because nothing ever parsed a whole file: the IDE splits the
+header off at load and hands the parser only the body. `WholeFileGrammarTests`, in both halves, is what
+now asks the whole-file question, and hexide-io/HexIDE#273 is why it is being asked.
+
+This one is worth upstreaming ahead of the others: it is two optional tokens, it cannot change what the
+grammar accepts anywhere else, and without it the grammar cannot read the files its own subject produces.
 
 ## Open gaps (found, not yet fixed)
 
