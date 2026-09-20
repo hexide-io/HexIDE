@@ -403,6 +403,20 @@ so it is a checklist rather than a rule, applied when choosing which of the 67 t
 
 Disqualify an issue, however well it scores on the gates, when:
 
+- **A plain fork cannot build or run it.** Check this first, because it is invisible from the issue.
+  The bundled AI Chat add-in is only packaged when a first-party signing key is present, and no fork
+  has one — `CONTRIBUTING.md` says so and CI prints it as expected. So the panel does not exist in a
+  contributor's build, there is no Tools menu entry for it, and they cannot produce the screenshot
+  `CONTRIBUTING.md` asks for on a UI change. That is intended behaviour rather than a defect, and it
+  still makes every `ai-chat` issue a poor first issue until someone writes down how to run bundled
+  add-ins from a keyless clone.
+- **A build guard pins it, and the way past the guard is a maintainer-only workflow.** Renaming a
+  `### Requirement:` heading in `openspec/specs/` looks like editing Markdown, but
+  `DesignRecordTests.EveryArchivedRequirementReachedTheSpecItTargeted` builds its expected set from the
+  deltas under `changes/archive/`, so the heading cannot move by editing `specs/` alone. The clean route
+  is a `## REMOVED Requirements` change archived through the openspec CLI — tooling `CONTRIBUTING.md`
+  calls optional, in a workflow `CLAUDE.md` says must never be done by hand, on files `CONTRIBUTING.md`
+  says are the maintainer's job. The contributor meets a red test with no obvious escape.
 - **The setup cost dwarfs the change.** Anything needing a foreign language server running locally, the
   `vb6.exe` oracle VM, or a hand-built fixture tree. A newcomer's first hour should not be spent on
   prerequisites, and they will not tell you they gave up.
@@ -425,6 +439,50 @@ this repo has and reaches people the rest of the backlog never will.
 
 **The bar is not "is this easy".** It is *"can someone with no context finish this, and know that they
 finished?"* Most small issues fail the second half.
+
+### The standing target is twenty
+
+A **maximum**, not a quota. Twenty is enough that an arriving contributor finds something in their area
+and does not meet an empty shelf, and few enough that each one can be checked properly and reviewed
+promptly when the PR lands. If fewer than twenty survive the two passes below, advertise fewer — an
+issue that disappoints someone is more expensive than an issue they never saw. Promote from
+`help wanted` as advertised ones are taken, rather than topping up with whatever is left.
+
+### Before applying: review it adversarially, against the code
+
+Someone other than the person who chose it opens the code and tries to **disqualify** it. Not "is this
+a reasonable first issue" — a reviewer asked that will say yes. The question is *"what will stop a
+newcomer finishing this, and would they have seen it coming?"*
+
+This is not ceremony, and the rate is the argument. On the first run of this process, **three of twenty
+picks were rejected at this step**, each for something invisible from the issue text:
+
+- a feature whose add-in is only packaged when a first-party signing key is present, so **no fork can
+  run it** at all;
+- an issue naming a `.vbp` key as undecided, where **no checked-in corpus file carries it**, so the
+  answer needed the oracle;
+- a Markdown rename **pinned by a build guard**, whose only clean escape is a maintainer-only workflow.
+
+All three read as clean small issues. None was findable without opening files. **A review done from the
+issue body is not this review.**
+
+### Then scaffold it, and check the scaffolding
+
+An accepted issue gets a comment saying where the change goes, what to run, how you will know it works,
+and the one gotcha specific to it. The newcomer's blocker is rarely finding the file; it is not knowing
+whether they have finished.
+
+**Then check the comment against the tree, claim by claim.** On the first run, **nine of fourteen first
+drafts contained factual errors** — the wrong method on one of two paths through a feature, a test
+rationale that was backwards, an NSubstitute auto-value assumed to be `null` when it is `string.Empty`,
+a list of key namespaces that omitted the very settings page the comment then told the reader to open.
+
+Inaccurate scaffolding is worse than none. It sends someone confidently to the wrong place, and when it
+does not work they assume the fault is theirs. If a claim cannot be confirmed, leave it out.
+
+One observed side effect worth relying on: **writing the scaffolding is what surfaces the
+disqualifiers.** All three rejections above came from someone opening the files in order to write the
+comment. If a scaffolding comment cannot be written honestly, that is the disqualification.
 
 ### `help wanted`
 
