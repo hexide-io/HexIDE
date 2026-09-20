@@ -21,9 +21,9 @@ would prove nothing.
 | Server | Language | Licence | Framework | What it exercises that nothing else does |
 |---|---|---|---|---|
 | rumdl | Markdown | MIT | `tower-lsp` | The baseline foreign path; publishes on open, change **and save**, which is what proves save notifications reach a server that acts on them. |
-| texlab | LaTeX | **GPL-3.0** | `lsp-server` | A different author, licence and release convention — and it claims `.cls`, which is a LaTeX class file *and* a VB6 class module. Declares **incremental** sync, where everything else declares full (#282). |
+| texlab | LaTeX | **GPL-3.0** | `lsp-server` | A different author, licence and release convention — and it claims `.cls`, which is a LaTeX class file *and* a VB6 class module. Declares **incremental** sync, where everything else declares full (#282). The only one that **discards a URI it cannot parse in total silence**, and then never answers a request about it. |
 | vscode-json-language-server | JSON | MIT | **`vscode-languageserver-node`** | The **reference implementation**. See below. |
-| clangd | C/C++ | Apache-2.0 WITH LLVM-exception | **LLVM's own** | The only server here that answers `textDocument/declaration` **differently** from `definition` — C++ separates a header's declaration from its definition, so the two return different lines and the difference is assertable rather than assumed. Also declares **incremental** sync and a nested `save` inside `textDocumentSync`, a shape the bundled server never sends. |
+| clangd | C/C++ | Apache-2.0 WITH LLVM-exception | **LLVM's own** | The only server here that answers `textDocument/declaration` **differently** from `definition` — C++ separates a header's declaration from its definition, so the two return different lines and the difference is assertable rather than assumed. Also declares **incremental** sync and a nested `save` inside `textDocumentSync`, a shape the bundled server never sends, and it is the only one that **refuses a non-`file:` URI outright** — and says so, which is what makes a refusal assertable. |
 | ruff | Python | MIT | `lsp-server` *(shared with texlab)* | The only server here that delivers diagnostics by the **pull** model. It also switches model on what the client declares: told nothing it publishes, told the client can ask it publishes **nothing at all** — which makes a half-shipped negotiation fail loudly instead of quietly. |
 
 **Framework diversity matters more than language diversity.** Interop bugs come from the server's LSP
@@ -51,6 +51,36 @@ malformed frame killed an unwatched connection and spared a watched one; and the
 had a required parameter that a conformant server never sends, so the client answered
 `-32602` and refused the refresh on a perfectly healthy connection. Both are the same shape — a claim in
 the coverage table that nothing had ever driven end to end.
+
+## What they do with a document that has no file (2026-09-20)
+
+hexide-io/HexIDE#273 names a never-saved document `untitled:<Project>/<Name>.<ext>`, which is a scheme
+HexIDE had never sent. Whether a server answers about one is a question about other people's code, so all
+five were asked. `UntitledDocumentNamesTests` keeps the answers.
+
+| Server | `untitled:` | leading slash | raw non-ASCII | percent-encoded |
+|---|---|---|---|---|
+| rumdl | accepted, echoed byte for byte | accepted | accepted | accepted |
+| texlab | accepted | accepted | **dropped in silence** | accepted |
+| vscode-json-language-server | accepted | accepted | accepted | accepted |
+| ruff | accepted | accepted | accepted | accepted |
+| clangd | **refused** | refused | refused | refused |
+
+Three findings the table does not carry:
+
+- **clangd refuses the scheme, and says so.** `clangd only supports 'file' URI scheme for workspace files`,
+  on standard error, naming the `textDocument/didOpen` it threw away. The connection stays up; it is the
+  document it will not take. This is the server that makes "assert the refusal, not the silence" mean
+  something — every other way of failing looks identical from the client.
+- **texlab drops a URI that is not strictly valid without a word**, and then never answers a request naming
+  that document. No response, no error, nothing on standard error, and a later valid document on the same
+  connection is answered normally. Its percent-encoded form works in the same process. That is why #273
+  mints these through the URI type instead of interpolating a string.
+- **Only a server that publishes can echo a name at all**, and the one that does echoes it byte for byte,
+  in both spellings. A `DocumentDiagnosticReport` carries no URI, so a server answering the pull model has
+  nothing to echo *with* — the client raises the event under the URI it asked about. Anything comparing a
+  published URI against what was sent is therefore measuring the server on texlab and measuring itself on
+  the other three, which is how the first version of these tests was wrong.
 
 Currently unexercised by anything real: the `pipe` and `websocket` transports (both supported, both tested
 only against fakes), a server that genuinely defers its analysis to save, and **workspace-wide pull
