@@ -1099,9 +1099,7 @@ public partial class MainViewViewModel : ObservableObject
         if (documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.CodeEditorViewModel code)
         {
             var line = code.Document.GetLineByOffset(code.CaretOffset).LineNumber;
-            var uri = code.GetDocumentUriPublic();
-            var module = uri[(uri.LastIndexOf('/') + 1)..];   // vb6://form/Form1 → Form1
-            projectRunnerService.RunToCursorProject(module, line);
+            projectRunnerService.RunToCursorProject(code.Identity, line);
         }
     }
 
@@ -1138,7 +1136,7 @@ public partial class MainViewViewModel : ObservableObject
         if (documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.CodeEditorViewModel code)
         {
             var line = code.Document.GetLineByOffset(code.CaretOffset).LineNumber;
-            breakpointService.Toggle(code.GetDocumentUriPublic(), line);
+            breakpointService.Toggle(code.Identity, line);
         }
     }
 
@@ -1147,7 +1145,9 @@ public partial class MainViewViewModel : ObservableObject
     // Bring the code editor for the module the interpreter just broke in to the front (creating/activating its tab).
     private void RevealBreak(string module)
     {
-        var project = projectManager.StartupProject;
+        // The project that is running, which is not always the startup one — RunProject takes a project, and
+        // a group's other project may hold a module of the same name.
+        var project = projectRunnerService.RunningProject ?? projectManager.StartupProject;
         if (project is null)
             return;
         var form = project.Forms.FirstOrDefault(f => string.Equals(f.Name, module, StringComparison.OrdinalIgnoreCase));
@@ -1171,9 +1171,9 @@ public partial class MainViewViewModel : ObservableObject
         if (documentDockService.ActiveDocument is HexIDE.Forms.ViewModels.CodeEditorViewModel code)
         {
             var line = code.Document.GetLineByOffset(code.CaretOffset).LineNumber;
-            var uri = code.GetDocumentUriPublic();
-            var module = uri[(uri.LastIndexOf('/') + 1)..];
-            if (!debugController.SetNextStatement(module, line))
+            // The definition's own name, not a tail read off a URI: a module named Utilities saved as
+            // util.bas answers to "Utilities", and the file stem would name nothing the controller knows.
+            if (!debugController.SetNextStatement(code.Identity.Name, line))
                 windowManager.MessageBox(localization.GetString("Str.Debug.SetNextStatement.Refused"),
                     icon: MessageBoxIcon.Information).ListenErrors();
         }

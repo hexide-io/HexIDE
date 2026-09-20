@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using HexIDE.Automation;
 using HexIDE.Conversations;
+using HexIDE.Lsp;
 using HexIDE.Redaction;
 using HexIDE.Forms.ViewModels;
 using HexIDE.Runtime.Components;
@@ -820,84 +821,69 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_bookmarks")]
-    [Description("Returns the bookmarked line numbers (0-based) for a named form or module. Returns an empty array if no bookmarks exist.")]
-    public async Task<BookmarksResult> GetBookmarksAsync(string name, CancellationToken ct)
+    [Description("Returns the bookmarked line numbers (0-based) for a form or module, named by its own VB6 name in any loaded project (case does not matter). Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them. Empty array if none.")]
+    public async Task<BookmarksResult> GetBookmarksAsync(string name, string? project, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var project = ctx.ProjectManager.StartupProject;
-            if (project is null)
-                return new BookmarksResult(null, [], "No project loaded");
+            var lookup = ResolveDocument(name, project);
+            if (lookup.Document is not { } document)
+                return new BookmarksResult(null, null, null, [], lookup.Error);
 
-            var uri = ResolveDocumentUri(project, name);
-            if (uri is null)
-                return new BookmarksResult(null, [], $"No form or module named '{name}' found");
-
-            var lines = ctx.BookmarkService.GetBookmarks(uri);
-            return new BookmarksResult(uri, [.. lines], null);
+            return new BookmarksResult(document.Project.Name, document.Name, DocumentWireName.For(document),
+                [.. ctx.BookmarkService.GetBookmarks(document)], null);
         });
     }
 
     [McpServerTool(Name = "set_bookmarks")]
-    [Description("Replaces all bookmarks for a named form or module with the supplied 0-based line numbers. Pass an empty array to clear all bookmarks for that document.")]
-    public async Task<MutateResult> SetBookmarksAsync(string name, int[] lines, CancellationToken ct)
+    [Description("Replaces all bookmarks for a form or module with the supplied 0-based line numbers. Named by its own VB6 name in any loaded project (case does not matter); pass `project` to say which when a group holds two of one name. Pass an empty array to clear them. The note reports what the document holds afterwards.")]
+    public async Task<MutateResult> SetBookmarksAsync(string name, int[] lines, string? project, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var project = ctx.ProjectManager.StartupProject;
-            if (project is null)
-                return new MutateResult(false, "No project loaded");
+            var lookup = ResolveDocument(name, project);
+            if (lookup.Document is not { } document)
+                return new MutateResult(false, lookup.Error);
 
-            var uri = ResolveDocumentUri(project, name);
-            if (uri is null)
-                return new MutateResult(false, $"No form or module named '{name}' found");
-
-            ctx.BookmarkService.SetBookmarks(uri, lines);
-            return new MutateResult(true, null);
+            ctx.BookmarkService.SetBookmarks(document, lines);
+            return new MutateResult(true, null, Held(document, ctx.BookmarkService.GetBookmarks(document), "bookmark"));
         });
     }
 
     // ---- Debugger ----
 
     [McpServerTool(Name = "get_breakpoints")]
-    [Description("Returns the breakpoint line numbers (1-based) for a named form or module. Empty array if none.")]
-    public async Task<BreakpointsResult> GetBreakpointsAsync(string name, CancellationToken ct)
+    [Description("Returns the breakpoint line numbers (1-based) for a form or module, named by its own VB6 name in any loaded project (case does not matter). Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them. Empty array if none.")]
+    public async Task<BreakpointsResult> GetBreakpointsAsync(string name, string? project, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var project = ctx.ProjectManager.StartupProject;
-            if (project is null)
-                return new BreakpointsResult(null, [], "No project loaded");
+            var lookup = ResolveDocument(name, project);
+            if (lookup.Document is not { } document)
+                return new BreakpointsResult(null, null, null, [], lookup.Error);
 
-            var uri = ResolveDocumentUri(project, name);
-            if (uri is null)
-                return new BreakpointsResult(null, [], $"No form or module named '{name}' found");
-
-            return new BreakpointsResult(uri, [.. ctx.BreakpointService.GetBreakpoints(uri)], null);
+            return new BreakpointsResult(document.Project.Name, document.Name, DocumentWireName.For(document),
+                [.. ctx.BreakpointService.GetBreakpoints(document)], null);
         });
     }
 
     [McpServerTool(Name = "set_breakpoints")]
-    [Description("Replaces all breakpoints for a named form or module with the supplied 1-based line numbers. Pass an empty array to clear that document's breakpoints. Takes effect immediately if the project is running.")]
-    public async Task<MutateResult> SetBreakpointsAsync(string name, int[] lines, CancellationToken ct)
+    [Description("Replaces all breakpoints for a form or module with the supplied 1-based line numbers. Named by its own VB6 name in any loaded project (case does not matter); pass `project` to say which when a group holds two of one name. Pass an empty array to clear them. Takes effect immediately if that project is the one running. The note reports what the document holds afterwards.")]
+    public async Task<MutateResult> SetBreakpointsAsync(string name, int[] lines, string? project, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var project = ctx.ProjectManager.StartupProject;
-            if (project is null)
-                return new MutateResult(false, "No project loaded");
+            var lookup = ResolveDocument(name, project);
+            if (lookup.Document is not { } document)
+                return new MutateResult(false, lookup.Error);
 
-            var uri = ResolveDocumentUri(project, name);
-            if (uri is null)
-                return new MutateResult(false, $"No form or module named '{name}' found");
-
-            ctx.BreakpointService.SetDocument(uri, lines);
-            return new MutateResult(true, null);
+            ctx.BreakpointService.SetDocument(document, lines);
+            return new MutateResult(true, null, Held(document, ctx.BreakpointService.GetBreakpoints(document), "breakpoint"));
         });
     }
 
     [McpServerTool(Name = "clear_all_breakpoints")]
-    [Description("Removes every breakpoint in the project.")]
+    [Description("Removes every breakpoint the IDE holds, in EVERY loaded project rather than only the startup one. With a group open that is more than it sounds; to clear one document, call set_breakpoints with an empty array.")]
     public async Task<MutateResult> ClearAllBreakpointsAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -974,25 +960,45 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
     [McpServerTool(Name = "run_to_cursor")]
     [Description("Run To Cursor (Ctrl+F8): run until (module, 1-based line) then break — a one-shot temporary breakpoint. While paused it continues to the target; while running it arms the target; from idle it starts the project and runs to the target (a real breakpoint hit first stays paused there; continue proceeds toward the target). Call get_debug_state afterward to read the paused module/line.")]
-    public async Task<MutateResult> RunToCursorAsync(string module, int line, CancellationToken ct)
+    public async Task<MutateResult> RunToCursorAsync(string module, int line, string? project, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             if (!ctx.ProjectRunnerService.CanRunToCursor)
                 return new MutateResult(false, "No project to run — load a project first");
-            ctx.ProjectRunnerService.RunToCursorProject(module, line);
-            return new MutateResult(true, null);
+
+            var lookup = ResolveDocument(module, project);
+            if (lookup.Document is not { } document)
+                return new MutateResult(false, lookup.Error);
+
+            ctx.ProjectRunnerService.RunToCursorProject(document, line);
+            return new MutateResult(true, null, $"Running to {document.Display} line {line}.");
         });
     }
 
     [McpServerTool(Name = "set_next_statement")]
     [Description("Set Next Statement (Ctrl+F9): move the execution point to (module, 1-based line) WITHOUT running the statements in between — the next step_into/continue executes from there. Only while paused, and only to a TOP-LEVEL statement of the currently paused procedure (a target nested inside an If/For/Do/Select block, or a move while paused inside such a block, is refused — a tree-walker limit, not VB6's). Returns an error result if refused. Call get_debug_state afterward to read the moved current line.")]
-    public async Task<MutateResult> SetNextStatementAsync(string module, int line, CancellationToken ct)
+    public async Task<MutateResult> SetNextStatementAsync(string module, int line, string? project, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
-            ctx.DebugController.SetNextStatement(module, line)
-                ? new MutateResult(true, null)
-                : new MutateResult(false, "Refused — must be paused, and the target must be a top-level statement of the paused procedure (not nested in a block)"));
+        {
+            var lookup = ResolveDocument(module, project);
+            if (lookup.Document is not { } document)
+                return new MutateResult(false, lookup.Error);
+
+            // Scoped to the run, because the controller is told a bare name and a group's other project may
+            // hold a module called the same thing — which would move the execution point of the running
+            // project to a line of a document that is not executing.
+            if (ctx.ProjectRunnerService.RunningProject is not { } running)
+                return new MutateResult(false, "No project is running");
+            if (!document.IsIn(running))
+                return new MutateResult(false,
+                    $"{document.Display} is not in the running project ('{running.Name}')");
+
+            return ctx.DebugController.SetNextStatement(document.Name, line)
+                ? new MutateResult(true, null, $"Next statement is {document.Display} line {line}.")
+                : new MutateResult(false, "Refused — must be paused, and the target must be a top-level statement of the paused procedure (not nested in a block)");
+        });
     }
 
     [McpServerTool(Name = "get_debug_state")]
@@ -1619,15 +1625,67 @@ internal sealed class HexIdeTools(IdeContext ctx)
         return string.Equals(text, segment, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static string? ResolveDocumentUri(
-        HexIDE.Runtime.ProjectElements.ProjectDefinition project, string name)
+    /// <summary>
+    /// The document a caller named, or the reason it could not be named.
+    /// </summary>
+    private readonly record struct DocumentLookup(DocumentIdentity? Document, string? Error);
+
+    /// <summary>
+    /// Finds the form, module or class a caller named, in any loaded project.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This replaces a helper that searched the startup project only and then built a key by interpolating
+    /// the <em>caller's</em> spelling of the name (hexide-io/HexIDE#467). The stores compared their keys
+    /// ordinally, so a client that wrote <c>form1</c> for <c>Form1</c> created a second entry the gutter
+    /// never read, and the reply echoed that spelling back, which reads as confirmation. A name now
+    /// resolves to a document before anything is keyed, and what comes back is the document's own name.
+    /// </para>
+    /// <para>
+    /// Every loaded project, because a name is only unique within one: with a group open, a bare
+    /// <c>Module1</c> may name two documents, and answering with whichever was found first is a coin toss
+    /// the caller cannot see. That case is refused, and the refusal lists the candidates.
+    /// </para>
+    /// </remarks>
+    /// <param name="name">The document's VB6 name. Matched without regard to case, as VB6 does.</param>
+    /// <param name="project">The project to look in, by name. Null searches every loaded project.</param>
+    private DocumentLookup ResolveDocument(string name, string? project)
     {
-        if (project.Forms.Any(f => string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase)))
-            return $"vb6://form/{name}";
-        if (project.Modules.Any(m => string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase)))
-            return $"vb6://module/{name}";
-        return null;
+        var loaded = ctx.ProjectManager.LoadedProjects;
+        if (loaded.Count == 0)
+            return new DocumentLookup(null, "No project loaded");
+
+        if (project is not null
+            && !loaded.Any(p => string.Equals(p.Name, project, StringComparison.OrdinalIgnoreCase)))
+            return new DocumentLookup(null,
+                $"No loaded project named '{project}'. Loaded: {string.Join(", ", loaded.Select(p => p.Name))}");
+
+        var found = HexIDE.Runtime.ProjectElements.DocumentLookup.Find(loaded, name, project);
+
+        return found.Count switch
+        {
+            1 => new DocumentLookup(found[0], null),
+            0 => new DocumentLookup(null, project is null
+                ? $"No form or module named '{name}' in any loaded project"
+                : $"No form or module named '{name}' in project '{project}'"),
+            _ => new DocumentLookup(null,
+                $"'{name}' names more than one document: {string.Join(", ", found.Select(d => d.Display))}. "
+                + "Pass `project` to say which."),
+        };
     }
+
+    /// <summary>
+    /// What a document holds after a mark was set on it, for the reply's note.
+    /// </summary>
+    /// <remarks>
+    /// A reply that mutates reports the new state, and reports it when that state is empty: "cleared" is
+    /// the answer a caller who passed an empty array is owed, and an empty note would read as a tool that
+    /// did nothing.
+    /// </remarks>
+    private static string Held(DocumentIdentity document, IReadOnlyList<int> lines, string what) =>
+        lines.Count == 0
+            ? $"{document.Display} now has no {what}s."
+            : $"{document.Display} now has {what}s on {string.Join(", ", lines)}.";
 
     private CodeEditorViewModel? FindEditor(string name) =>
         ctx.DocumentDockService.OpenDocuments
@@ -2010,9 +2068,13 @@ internal record UndoStateResult(
 internal record AddControlResult(bool Success, string? ControlName, string? Error,
     [property: System.Text.Json.Serialization.JsonIgnore] FormDefinition? Form = null);
 
-internal record BookmarksResult(string? Uri, int[] Lines, string? Error);
+/// <param name="Project">The project holding the document, by name.</param>
+/// <param name="Document">The document's own VB6 name, as the IDE spells it rather than as the call spelled it.</param>
+/// <param name="Uri">The name a language server knows this document by.</param>
+internal record BookmarksResult(string? Project, string? Document, string? Uri, int[] Lines, string? Error);
 
-internal record BreakpointsResult(string? Uri, int[] Lines, string? Error);
+/// <inheritdoc cref="BookmarksResult"/>
+internal record BreakpointsResult(string? Project, string? Document, string? Uri, int[] Lines, string? Error);
 
 internal record DebugStateResult(bool Running, string State, string? StopReason, string? Module, int? Line);
 

@@ -91,6 +91,10 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
 
     public FormDefinition? FormDefinition => formDefinition;
 
+    /// <inheritdoc/>
+    public override DocumentIdentity? OpenDocument =>
+        formDefinition is null ? null : DocumentIdentity.For(formDefinition);
+
     /// <summary>
     /// True when this form cannot be written back faithfully, so editing it would waste the developer's
     /// time — the save is refused (see ProjectService.SaveForm) and every change is lost.

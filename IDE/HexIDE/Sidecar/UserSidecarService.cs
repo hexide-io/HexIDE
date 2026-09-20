@@ -42,28 +42,24 @@ public class UserSidecarService : IUserSidecarService
 
     private void OnProjectUnloaded(ProjectDefinition project)
     {
-        // Clear this project's URIs from the shared stores WITHOUT persisting the emptied state: suppress the
+        // Clear this project's documents from the shared stores WITHOUT persisting the emptied state: suppress the
         // change-driven save (_loading) and cancel any pending debounce, so removing it from memory never erases
         // the project's on-disk sidecar.
+        //
+        // Scoped by project rather than by name: every key is a document of this project, so nothing another
+        // loaded project owns can be reached from here even if it is called the same thing.
         _saveCts?.Cancel();
         _loading = true;
         try
         {
-            foreach (var uri in ProjectUris(project))
-            {
-                bookmarkService.SetBookmarks(uri, Array.Empty<int>());
-                breakpointService.ClearDocument(uri);
-            }
+            bookmarkService.ClearProject(project);
+            breakpointService.ClearProject(project);
         }
         finally
         {
             _loading = false;
         }
     }
-
-    private static IEnumerable<string> ProjectUris(ProjectDefinition project) =>
-        project.Forms.Select(f => $"vb6://form/{f.Name}")
-            .Concat(project.Modules.Select(m => $"vb6://module/{m.Name}"));
 
     public async Task LoadAsync(ProjectDefinition project)
     {
@@ -77,13 +73,18 @@ public class UserSidecarService : IUserSidecarService
             var data = JsonSerializer.Deserialize<UserSidecarData>(json, s_jsonOptions);
             if (data == null) return;
 
+            var byName = DocumentLookup.DocumentsOf(project)
+                .ToDictionary(d => d.Name, d => d, StringComparer.OrdinalIgnoreCase);
+
             if (data.Bookmarks != null)
-                foreach (var (uri, lines) in data.Bookmarks)
-                    bookmarkService.SetBookmarks(uri, lines);
+                foreach (var (key, lines) in data.Bookmarks)
+                    if (Resolve(byName, key) is { } document)
+                        bookmarkService.SetBookmarks(document, lines);
 
             if (data.Breakpoints != null)
-                foreach (var (uri, lines) in data.Breakpoints)
-                    breakpointService.SetDocument(uri, lines);
+                foreach (var (key, lines) in data.Breakpoints)
+                    if (Resolve(byName, key) is { } document)
+                        breakpointService.SetDocument(document, lines);
         }
         catch (Exception ex)
         {
@@ -95,6 +96,28 @@ public class UserSidecarService : IUserSidecarService
         }
     }
 
+    /// <summary>
+    /// The document a sidecar key names, or null when this project has no such document.
+    /// </summary>
+    /// <remarks>
+    /// <b>Two spellings, told apart by the key itself.</b> A sidecar written before documents had identities
+    /// keyed by the URI the IDE used internally — <c>vb6://form/Form1</c> — and one written since keys by the
+    /// document's name alone, because the file already belongs to exactly one project. A VB6 name is a
+    /// letter followed by letters, digits and underscores, so it can never look like a URI; no version step
+    /// is needed to distinguish them, and none is spent on it. The <c>version</c> field records how the
+    /// <em>lines</em> are counted, which is a separate question and not one this change moves.
+    /// </remarks>
+    private static DocumentIdentity? Resolve(IReadOnlyDictionary<string, DocumentIdentity> byName, string key)
+    {
+        var name = key;
+        if (key.StartsWith("vb6://", StringComparison.OrdinalIgnoreCase))
+        {
+            var slash = key.LastIndexOf('/');
+            if (slash >= 0) name = key[(slash + 1)..];
+        }
+        return byName.TryGetValue(name, out var document) ? document : null;
+    }
+
     public async Task SaveAsync(ProjectDefinition project)
     {
         var path = SidecarPath(project);
@@ -102,17 +125,25 @@ public class UserSidecarService : IUserSidecarService
 
         try
         {
-            // Collect a per-document line map (keyed by the same vb6:// URIs) from a service.
-            Dictionary<string, List<int>> Collect(Func<string, IReadOnlyList<int>> getLines)
+            // A per-document line map for one store, keyed by the document's name within this project's own
+            // file. The project needs no naming inside it, because the sidecar belongs to one.
+            Dictionary<string, List<int>> Collect(Func<DocumentIdentity, IReadOnlyList<int>> getLines)
             {
-                var map = new Dictionary<string, List<int>>();
-                foreach (var uri in project.Forms.Select(f => $"vb6://form/{f.Name}")
-                             .Concat(project.Modules.Select(m => $"vb6://module/{m.Name}")))
+                var map = new Dictionary<string, List<int>>(StringComparer.OrdinalIgnoreCase);
+                foreach (var document in DocumentLookup.DocumentsOf(project))
                 {
-                    var lines = getLines(uri);
-                    if (lines.Count > 0)
-                        map[uri] = new List<int>(lines);
+                    var lines = getLines(document);
+                    if (lines.Count == 0) continue;
+
+                    // Unioned rather than overwritten. A name is unique within a project from now on, but a
+                    // project loaded from a .vbp written elsewhere may already hold a form and a module
+                    // sharing one — and writing the second over the first would silently lose its marks.
+                    if (map.TryGetValue(document.Name, out var existing))
+                        existing.AddRange(lines.Where(line => !existing.Contains(line)));
+                    else
+                        map[document.Name] = new List<int>(lines);
                 }
+                foreach (var lines in map.Values) lines.Sort();
                 return map;
             }
 
@@ -138,12 +169,14 @@ public class UserSidecarService : IUserSidecarService
         }
     }
 
-    private void OnSidecarStateChanged(string uri)
+    private void OnSidecarStateChanged(DocumentIdentity document)
     {
         if (_loading) return;
 
-        var project = FindProjectForUri(uri);
-        if (project == null) return;
+        // The document carries its project, so there is nothing to look up and nothing to guess: this used
+        // to search every loaded project for one holding a form or module of the URI's name, and answered
+        // with whichever project was found first when two of them held one.
+        var project = document.Project;
 
         _saveCts?.Cancel();
         _saveCts?.Dispose();
@@ -162,26 +195,6 @@ public class UserSidecarService : IUserSidecarService
         catch (OperationCanceledException) { }
     }
 
-    private ProjectDefinition? FindProjectForUri(string uri)
-    {
-        foreach (var project in projectManager.LoadedProjects)
-        {
-            if (uri.StartsWith("vb6://form/", StringComparison.Ordinal))
-            {
-                var name = uri["vb6://form/".Length..];
-                if (project.Forms.Any(f => f.Name == name))
-                    return project;
-            }
-            else if (uri.StartsWith("vb6://module/", StringComparison.Ordinal))
-            {
-                var name = uri["vb6://module/".Length..];
-                if (project.Modules.Any(m => m.Name == name))
-                    return project;
-            }
-        }
-        return null;
-    }
-
     private static string? SidecarPath(ProjectDefinition project)
     {
         if (project.AbsolutePath == null) return null;
@@ -193,6 +206,16 @@ public class UserSidecarService : IUserSidecarService
 
 internal class UserSidecarData
 {
+    /// <summary>
+    /// How this sidecar is written. Read from the next change onwards, when lines start being counted from
+    /// the top of the file rather than from the first line the code window showed.
+    /// </summary>
+    /// <remarks>
+    /// It records the <b>line base</b>, not how entries are keyed. The two key spellings — the old
+    /// <c>vb6://form/Form1</c> and the document's bare name — are told apart by the key itself, since a VB6
+    /// name cannot look like a URI, so re-keying costs no version step. See
+    /// <c>UserSidecarService.Resolve</c>.
+    /// </remarks>
     [JsonPropertyName("version")]
     public int Version { get; set; } = 1;
 

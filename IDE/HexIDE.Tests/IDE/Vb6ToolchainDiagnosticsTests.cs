@@ -1,4 +1,5 @@
 using HexIDE.Localization;
+using HexIDE.IDE;
 using HexIDE.Lsp;
 using HexIDE.Runtime.Components;
 using HexIDE.Lsp.Messages;
@@ -109,11 +110,23 @@ public class Vb6ToolchainDiagnosticsTests
             ]));
     }
 
+    /// <summary>
+    /// A project manager holding nothing. These tests are about which diagnostics survive which event, not
+    /// about which document owns them, so the add-in service falls back to naming a diagnostic by the last
+    /// segment of the URI it arrived under.
+    /// </summary>
+    private static IProjectManager NoProjects()
+    {
+        var projects = Substitute.For<IProjectManager>();
+        projects.LoadedProjects.Returns([]);
+        return projects;
+    }
+
     [Fact]
     public async Task ASuccessfulBuildLeavesTheServersDiagnosticsWhereTheyWere()
     {
         var project = ProjectWithTwoForms();
-        using var seen = new AddinDiagnosticsService(_lsp);
+        using var seen = new AddinDiagnosticsService(_lsp, NoProjects());
         await GivenTheServerReportedAsyntaxErrorInForm1();
 
         (await Build(exitCode: 0).MakeWithVb6Async(project)).Should().BeTrue();
@@ -129,7 +142,7 @@ public class Vb6ToolchainDiagnosticsTests
         // The worst shape in #358: a compile error in a .bas, or output the regex does not match. Nothing
         // is injected, a message box carries the raw text, and the editor used to be left blank.
         var project = ProjectWithTwoForms();
-        using var seen = new AddinDiagnosticsService(_lsp);
+        using var seen = new AddinDiagnosticsService(_lsp, NoProjects());
         await GivenTheServerReportedAsyntaxErrorInForm1();
 
         (await Build(exitCode: 1, output: "Compile error in Module1").MakeWithVb6Async(project))
@@ -146,7 +159,7 @@ public class Vb6ToolchainDiagnosticsTests
     public async Task AFailedBuildsErrorsSitBesideTheServersOnTheSameForm()
     {
         var project = ProjectWithTwoForms();
-        using var seen = new AddinDiagnosticsService(_lsp);
+        using var seen = new AddinDiagnosticsService(_lsp, NoProjects());
         await GivenTheServerReportedAsyntaxErrorInForm1();
 
         var output = $@"{Path.Combine("C:", "proj", "Form1.frm")}(7) : error C0001: Type mismatch";
@@ -163,7 +176,7 @@ public class Vb6ToolchainDiagnosticsTests
     {
         // The behaviour the erasing clear was there for, and which must survive scoping it to one owner.
         var project = ProjectWithTwoForms();
-        using var seen = new AddinDiagnosticsService(_lsp);
+        using var seen = new AddinDiagnosticsService(_lsp, NoProjects());
 
         var output = $@"{Path.Combine("C:", "proj", "Form1.frm")}(7) : error C0001: Type mismatch";
         await Build(exitCode: 1, output).MakeWithVb6Async(project);
@@ -180,7 +193,7 @@ public class Vb6ToolchainDiagnosticsTests
         // The timeout used to return before the clear ran, so it was the one path that left a previous
         // build's markers on screen with nothing to remove them.
         var project = ProjectWithTwoForms();
-        using var seen = new AddinDiagnosticsService(_lsp);
+        using var seen = new AddinDiagnosticsService(_lsp, NoProjects());
 
         var output = $@"{Path.Combine("C:", "proj", "Form1.frm")}(7) : error C0001: Type mismatch";
         await Build(exitCode: 1, output).MakeWithVb6Async(project);
@@ -197,7 +210,7 @@ public class Vb6ToolchainDiagnosticsTests
         // The other half of #269. The clear follows what the compiler published, so it reaches the URI the
         // editor was opened under — which a walk over the project's CURRENT forms does not.
         var project = ProjectWithTwoForms();
-        using var seen = new AddinDiagnosticsService(_lsp);
+        using var seen = new AddinDiagnosticsService(_lsp, NoProjects());
 
         var output = $@"{Path.Combine("C:", "proj", "Form1.frm")}(7) : error C0001: Type mismatch";
         await Build(exitCode: 1, output).MakeWithVb6Async(project);

@@ -49,7 +49,6 @@ public partial class CodeEditorView : UserControl
     private HexIDE.Runtime.Debugging.IDebugController? _debugController;
     private Action<HexIDE.Runtime.Debugging.StoppedInfo>? _onDebugStopped;
     private Action? _onDebugContinued;
-    private string? _debugModuleName;
     private System.ComponentModel.PropertyChangedEventHandler? _vmSelectionSync;
     private bool _resetPromptOpen;
     private string? _preEditSnapshot;   // document text captured before the first edit while running (for No→revert)
@@ -195,26 +194,24 @@ public partial class CodeEditorView : UserControl
             _ = RequestFoldingsAsync(vm, CancellationToken.None);
 
             // Bookmark gutter margin
-            _bookmarkMargin = new BookmarkMargin(vm.BookmarkService, vm.GetDocumentUriPublic());
+            _bookmarkMargin = new BookmarkMargin(vm.BookmarkService, vm.Identity);
             TextEditor.TextArea.LeftMargins.Insert(0, _bookmarkMargin);
 
             // Debugger: breakpoint gutter (red dots, click-to-toggle) + the amber current-statement bar.
-            var docUri = vm.GetDocumentUriPublic();
-            _debugModuleName = docUri[(docUri.LastIndexOf('/') + 1)..]; // vb6://form/Form1 → Form1
-            _breakpointMargin = new HexIDE.Debugging.BreakpointMargin(vm.BreakpointService, docUri);
+            _breakpointMargin = new HexIDE.Debugging.BreakpointMargin(vm.BreakpointService, vm.Identity);
             TextEditor.TextArea.LeftMargins.Insert(0, _breakpointMargin);
             _currentLineRenderer = new HexIDE.Debugging.CurrentLineRenderer(TextEditor);
             TextEditor.TextArea.TextView.BackgroundRenderers.Insert(0, _currentLineRenderer);
 
             _debugController = vm.DebugController;
-            _onDebugStopped = info => ShowCurrentStatement(info.Module, info.Line);
+            _onDebugStopped = info => ShowCurrentStatement(vm, info.Module, info.Line);
             _onDebugContinued = () => _currentLineRenderer?.SetLine(null);
             _debugController.Stopped += _onDebugStopped;
             _debugController.Continued += _onDebugContinued;
             // If the interpreter is already paused (this tab was opened by the Stopped bridge after the break),
             // show the current statement immediately rather than waiting for the next event.
             if (_debugController.CurrentStop is { } stop)
-                ShowCurrentStatement(stop.Module, stop.Line);
+                ShowCurrentStatement(vm, stop.Module, stop.Line);
 
             // Hover tooltip
             ToolTip.SetPlacement(TextEditor, PlacementMode.Pointer);
@@ -256,11 +253,32 @@ public partial class CodeEditorView : UserControl
     // Paint (and reveal) the amber current-statement bar when the interpreter breaks in THIS document; clear it
     // when the break is elsewhere. Lines are 1-based (matching the runtime and the breakpoint store). Invoked on
     // the UI thread — the controller raises Stopped from the interpreter's own (UI-thread) execution.
-    private void ShowCurrentStatement(string module, int line)
+    /// <summary>
+    /// Shows or clears the amber current-statement bar for a pause the interpreter has just reported.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The controller names a module and nothing else, which is right on its own terms — a run is one
+    /// project and its gate knows nothing of the IDE's documents. So the decision is made here, against the
+    /// document's identity: it has to be <em>in the running project</em> as well as answer to that name.
+    /// A group whose two projects each hold a <c>Module1</c> would otherwise light the bar in both editors,
+    /// one of which is not executing anything.
+    /// </para>
+    /// <para>
+    /// The name is read off the definition at this moment rather than captured when the view attached. A
+    /// captured one stops matching the moment the document is renamed, and the bar then never appears
+    /// again in that editor.
+    /// </para>
+    /// </remarks>
+    private void ShowCurrentStatement(CodeEditorViewModel vm, string module, int line)
     {
         if (_currentLineRenderer is null)
             return;
-        if (!string.Equals(module, _debugModuleName, StringComparison.OrdinalIgnoreCase))
+
+        var executingHere = vm.RunningProject is { } running
+                            && vm.Identity.IsIn(running)
+                            && vm.Identity.IsNamed(module);
+        if (!executingHere)
         {
             _currentLineRenderer.SetLine(null);
             return;
@@ -583,14 +601,14 @@ public partial class CodeEditorView : UserControl
     {
         if (DataContext is not CodeEditorViewModel vm) return;
         int line = TextEditor.TextArea.Caret.Line - 1; // 0-based
-        vm.BookmarkService.Toggle(vm.GetDocumentUriPublic(), line);
+        vm.BookmarkService.Toggle(vm.Identity, line);
     }
 
     public void NextBookmark()
     {
         if (DataContext is not CodeEditorViewModel vm) return;
         int current = TextEditor.TextArea.Caret.Line - 1;
-        var target = vm.BookmarkService.NextBookmark(vm.GetDocumentUriPublic(), current);
+        var target = vm.BookmarkService.NextBookmark(vm.Identity, current);
         if (target.HasValue)
             JumpToBookmarkLine(target.Value);
     }
@@ -599,7 +617,7 @@ public partial class CodeEditorView : UserControl
     {
         if (DataContext is not CodeEditorViewModel vm) return;
         int current = TextEditor.TextArea.Caret.Line - 1;
-        var target = vm.BookmarkService.PreviousBookmark(vm.GetDocumentUriPublic(), current);
+        var target = vm.BookmarkService.PreviousBookmark(vm.Identity, current);
         if (target.HasValue)
             JumpToBookmarkLine(target.Value);
     }
@@ -607,7 +625,7 @@ public partial class CodeEditorView : UserControl
     public void ClearAllBookmarks()
     {
         if (DataContext is not CodeEditorViewModel vm) return;
-        vm.BookmarkService.ClearAll(vm.GetDocumentUriPublic());
+        vm.BookmarkService.ClearAll(vm.Identity);
     }
 
     private void JumpToBookmarkLine(int line)

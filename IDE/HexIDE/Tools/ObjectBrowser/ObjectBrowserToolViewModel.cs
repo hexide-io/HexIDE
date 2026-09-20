@@ -340,8 +340,8 @@ public partial class ObjectBrowserToolViewModel : Document
         try
         {
             var uri = classVm.ModuleDefinition != null
-                ? $"vb6://module/{classVm.ModuleDefinition.Name}"
-                : $"vb6://form/{classVm.FormDefinition!.Name}";
+                ? DocumentWireName.For(classVm.ModuleDefinition)
+                : DocumentWireName.For(classVm.FormDefinition!);
 
             var symbols = await lspClient.RequestDocumentSymbolsAsync(uri, CancellationToken.None);
 
