@@ -34,10 +34,18 @@ These were read, not assumed. Several contradict comments in the tree.
   because only the leading run is ever split off. The interpreter raises when it reaches one.
 - **No line is tracked.** Breakpoints and bookmarks are bare integers. Inserting a line above one leaves it on
   the old number, which is now a different statement. There is no anchor anywhere in the IDE.
-- **Almost every document has a file.** Add Form, Module, UserControl and PropertyPage write the file the
-  moment they are created. In a never-saved project that file goes into a per-project scratch folder, which
-  servers are already told is their workspace root. Only the template's `Form1`, the Project Explorer's Add
-  Form and add-in project templates produce a document with no path.
+- **Almost every document has a file, and which ones do is an accident of the menu used.**
+  `ProjectService`'s Add Form, Module, UserControl and PropertyPage write the file the moment they are
+  created, and the MCP `add_file` tool goes the same way. In a never-saved project that file goes into a
+  per-project scratch folder, which servers are already told is their workspace root — and which is minted
+  but not created until something writes into it. Exactly **two** routes produce a document with no path:
+  the Standard EXE template's `Form1` (`IProjectTemplate.cs:16`), and the Project Explorer's Add Form
+  (`ProjectToolViewModel.cs:128`), which builds the definition itself and never goes through
+  `ProjectService`.
+
+  **Earlier drafts of this bullet also named add-in project templates. That is wrong** — no add-in path adds
+  a form or a module, checked 2026-09-20. The fork between those two routes is hexide-io/HexIDE#489, which
+  was settled by measurement on 2026-09-20 and closed.
 
 ## Identity inside the IDE
 
