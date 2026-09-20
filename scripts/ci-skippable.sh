@@ -13,6 +13,14 @@
 #
 # The list enumerates what is SAFE TO SKIP, never what is code. Anything unrecognised — including a
 # whole new top-level directory — builds.
+#
+# WHERE THIS RUNS, because it is the fact least likely to be rediscovered: the self-test and
+# --check-tree are steps of the `changes` job, not of build-ide. They run on every pull request,
+# including ones whose build is skipped. So a future carve-out making scripts/ prose would not
+# blind them. The argument against such a carve-out is not that one; it is that a wrong 6m 40s is
+# bounded, visible and paid once, while a wrong classifier is unbounded and silent — it skips the
+# build for every later pull request and reports success each time. Trading a bounded visible cost
+# against an unbounded silent one is the wrong direction whatever the ratio. scripts/ stays code.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
