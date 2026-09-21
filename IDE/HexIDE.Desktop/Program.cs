@@ -38,12 +38,25 @@ sealed class Program
             return;
         }
 
+#if DEBUG
+        if (ServerOptions.ServerPortInvalid is { } badPort)
+        {
+            ConsoleOutput.Write(
+                $"--server-port needs a port number from 1 to 65535 after it, and got '{badPort}'. HexIDE has not "
+              + "started, rather than start without the automation server you asked for." + Environment.NewLine);
+            Environment.ExitCode = 2;
+            return;
+        }
+#endif
+
         // Before anything else starts: UserDataPath refuses a redirect once any per-user file has been looked up.
         if (ServerOptions.UserDataDirectory is { } userData)
             HexIDE.IDE.UserDataPath.RedirectTo(userData);
 
         DesktopStartup.Register();
-        BuildAvaloniaApp()
+        // The lifetime returns the code the app shut down with. Discarding it made every exit 0, including
+        // the one a server that could not bind asks for (hexide-io/HexIDE#53).
+        Environment.ExitCode = BuildAvaloniaApp()
             .StartWithClassicDesktopLifetime(args);
     }
 

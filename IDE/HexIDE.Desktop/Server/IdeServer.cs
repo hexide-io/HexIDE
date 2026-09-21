@@ -60,19 +60,43 @@ internal static class IdeServer
             Status: "ok",
             Project: ctx.ProjectManager.StartupProject?.Name,
             LspRunning: ctx.LspClient.IsRunning,
+            Pid: Environment.ProcessId,
             Timestamp: DateTimeOffset.UtcNow)));
 
         app.MapMcp("/mcp");
 
-        Log.Information("HexIDE MCP server listening on http://localhost:{Port}", port);
+        // Distinguished from a failure later on, because only a failure to START means this process is an IDE
+        // with no server, which a client cannot tell from one that has a server (hexide-io/HexIDE#53).
+        try
+        {
+            await app.StartAsync(ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            throw new IdeServerStartException(port, ex);
+        }
 
-        await app.StartAsync(ct);
+        // Only now: this line used to be written before the bind was attempted, so a port already in use
+        // left a log that said the server was listening.
+        Log.Information("HexIDE MCP server listening on http://localhost:{Port}", port);
         await app.WaitForShutdownAsync(ct);
     }
 }
 
+/// <param name="Pid">
+/// The process answering. A launcher that polls for a 200 needs this to know the 200 came from the process it
+/// just started and not from an older one still holding the port (hexide-io/HexIDE#53).
+/// </param>
 internal record HealthResponse(
     string Status,
     string? Project,
     bool LspRunning,
+    int Pid,
     DateTimeOffset Timestamp);
+
+/// <summary>The automation server never started listening. The IDE must not carry on without it.</summary>
+internal sealed class IdeServerStartException(int port, Exception inner)
+    : Exception($"The automation server could not start on port {port}.", inner)
+{
+    public int Port { get; } = port;
+}
