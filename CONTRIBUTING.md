@@ -69,8 +69,8 @@ servers the test suite drives, and reproducing CI's Linux failures on Windows.
   exception.)
 - **Any new user-facing string is a localization key**, never a hardcoded literal — add it to the English
   pack (`IDE/HexIDE/Localization/Packs/en.json`). **You do not need to translate it.** The maintainer adds
-  the other languages when merging. CI on a PR from a fork reports the missing translations as a warning
-  that names the packs, and the warning does not fail the build. Ticking *Allow edits by maintainers* on
+  the other languages when merging. On your PR, CI reports the missing translations as a warning that
+  names the packs, and the warning does not fail the build. Ticking *Allow edits by maintainers* on
   the PR lets the translations go straight onto your branch. If you do speak one of the languages, a
   translation from you is welcome.
 - **Tests** assert with **AwesomeAssertions** (`value.Should().Be(...)`) and mock with **NSubstitute** —

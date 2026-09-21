@@ -145,29 +145,34 @@ jobs:
       # broken download would quietly return the suite to the state this change exists to leave: green,
       # with the foreign-backend proof silently not running.
       #
-      # One test is left out for a pull request from a fork: the one that every shipped language pack has
-      # every key in en.json. Contributors add the English only and the maintainer translates on merge
-      # (CONTRIBUTING.md), so on a fork's PR that test failing is the expected state, not a finding.
-      # It is not dropped, only demoted — the next step still runs it and reports the result as a warning,
-      # so the reviewer sees which packs need work before merging. Everywhere else, including the push to
-      # main that every merge makes, it runs here and blocks as before; that push is the backstop.
+      # One test is left out for an outside contributor's pull request: the one that every shipped
+      # language pack has every key in en.json. Contributors add the English only and the maintainer
+      # translates on merge (CONTRIBUTING.md), so on their PR that test failing is the expected state, not
+      # a finding. It is not dropped, only demoted: the next step still runs it and reports the result as a
+      # warning, so the reviewer sees which packs need work before merging. The push to main that every
+      # merge makes runs it here and blocks as before, and that push is the backstop.
+      #
+      # "Outside" is decided by author_association, NOT by whether the PR comes from a fork. The
+      # maintainers' own PRs come from forks too (they show as MEMBER), and a head-repo test would have
+      # silently relaxed the rule for them, whose work is meant to arrive translated.
+      #
       # Only the key-completeness test is excluded. Its two neighbours check that the manifest and the
       # files on disk agree, which no contributor change has a reason to break.
       - name: Run ViewModel Tests
         env:
           HEXIDE_REQUIRE_FOREIGN_LSP: '1'
-          FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+          CONTRIBUTOR_PR: ${{ github.event_name == 'pull_request' && !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association) }}
         run: |
-          if [ "$FORK_PR" = "true" ]; then
-            echo "Pull request from a fork: translation completeness is reported by the next step, not here."
+          if [ "$CONTRIBUTOR_PR" = "true" ]; then
+            echo "Outside contributor's pull request: translation completeness is reported by the next step, not here."
             dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey"
           else
             dotnet test HexIDE.Tests/HexIDE.Tests.csproj
           fi
 
-      - name: Report translation completeness (fork pull requests, non-blocking)
+      - name: Report translation completeness (outside contributors' pull requests, non-blocking)
         id: translations
-        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
+        if: github.event_name == 'pull_request' && !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
         continue-on-error: true
         run: dotnet test HexIDE.Tests/HexIDE.Tests.csproj --no-build -- --filter-method "*EveryShippedTranslationHasEveryCanonicalKey"
 
