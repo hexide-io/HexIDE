@@ -202,9 +202,9 @@ HexIDE is under active development. Near-term work is client-side editor polish:
 and completion (docs + icons), inline rename, signature help, more themes, and editor context
 menus.
 
-Deeper cross-file analysis (project-wide navigation and rename) and any debugging experience
-(Immediate window, breakpoints, stepping) depend on a dedicated execution/analysis backend and
-are further out.
+Cross-file semantic analysis, project-wide navigation, and rename remain future work and need a
+dedicated language backend. The native interpreter debugger is available now, with breakpoints,
+stepping, Break, Immediate, Locals, Watches, and Call Stack.
 
 Development happens in the open — see the issue tracker and Discussions to follow along or weigh in.
 
