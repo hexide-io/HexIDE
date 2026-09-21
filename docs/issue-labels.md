@@ -450,9 +450,10 @@ issue that disappoints someone is more expensive than an issue they never saw. P
 
 ### One gate: write the scaffolding comment
 
-Before the label goes on, **someone other than the person who chose it opens the code and writes the
-comment a newcomer would need.** That single act is both the review and the deliverable: it either
-produces a usable comment, or it produces the reason the issue is unsuitable.
+Before the label goes on, **someone independent of the choice opens the code and writes the comment a
+newcomer would need** — a human, or a small red-team workflow whose agents did not pick the issue. That
+single act is both the review and the deliverable: it either produces a usable comment, or it produces the
+reason the issue is unsuitable.
 
 There is deliberately no separate approval step in front of it. On the first run of this process every
 rejection came out of the attempt to write the comment — a reviewer asked "is this a reasonable first
@@ -485,9 +486,11 @@ it eligible.
 
 ### `help wanted`
 
-A maintainer's judgement about wanting outside help. It cannot be derived. Used here as the **bench**:
-issues that pass the gates and the checklist but are not currently advertised, promoted to
-`good first issue` as the advertised ones are taken.
+A maintainer's judgement about wanting outside help. It cannot be derived. **Every `good first issue`
+carries it too, and not the other way round**: a `help wanted` issue can be too large, or not yet
+scaffolded, to offer a newcomer, and those are where `good first issue` is promoted from as advertised ones
+are taken. It is advertised in its own right — GitHub features it beside `good first issue` — so it is not
+a place to hold issues out of sight.
 
 ### Claiming
 
