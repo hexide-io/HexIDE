@@ -21,9 +21,11 @@ public class MenuPathTests
     [InlineData("F_ormat", "Format")]
     [InlineData("Remove", "Remove")]
     [InlineData("Snake__case", "Snake_case")]
-    [InlineData("Trailing_", "Trailing")]
+    [InlineData("Trailing_", "Trailing_")]
+    [InlineData("_First_Second", "First_Second")]
+    [InlineData("__x_y", "_xy")]
     [InlineData("", "")]
-    public void StripAccessKey_removes_access_key_markers_and_unescapes_doubled_underscores(string header, string expected)
+    public void StripAccessKey_matches_what_Avalonia_displays(string header, string expected)
     {
         MenuPath.StripAccessKey(header).Should().Be(expected);
     }

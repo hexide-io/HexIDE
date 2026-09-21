@@ -1,5 +1,4 @@
 using System.Linq;
-using System.Text;
 using Avalonia.Controls;
 
 namespace HexIDE.Automation;
@@ -18,20 +17,25 @@ public static class MenuPath
     public readonly record struct Result(MenuItem? Item, string? Error);
 
     /// <summary>
-    /// The header as displayed: a single underscore marks the access key and is dropped, a doubled one is a
-    /// literal underscore. Matches Avalonia's access-text rule, wherever in the header the key falls.
+    /// The header as displayed. Mirrors Avalonia's <c>AccessText.RemoveAccessKeyMarker</c>, which is internal:
+    /// the first underscore not doubled and not last marks the access key and is dropped, wherever it falls,
+    /// and every doubled underscore then becomes a literal one.
     /// </summary>
     public static string StripAccessKey(string header)
     {
-        var text = new StringBuilder(header.Length);
-        for (var i = 0; i < header.Length; i++)
+        var marker = FindAccessKeyMarker(header);
+        var text = marker >= 0 ? header.Remove(marker, 1) : header;
+        return text.Replace("__", "_");
+    }
+
+    private static int FindAccessKeyMarker(string text)
+    {
+        for (var i = text.IndexOf('_'); i >= 0 && i + 1 < text.Length; i = text.IndexOf('_', i + 2))
         {
-            if (header[i] != '_')
-                text.Append(header[i]);
-            else if (i + 1 < header.Length && header[i + 1] == '_')
-                text.Append(header[++i]);
+            if (text[i + 1] != '_')
+                return i;
         }
-        return text.ToString();
+        return -1;
     }
 
     public static Result Resolve(IEnumerable<object?> menuBarItems, string path)
