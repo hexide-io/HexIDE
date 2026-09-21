@@ -1573,7 +1573,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "invoke_menu_item")]
-    [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Headers are matched case-insensitively with leading underscores (access-key prefixes) stripped. Works reliably for add-in contributed items (DelegateCommand). Built-in items that use routed commands may not execute correctly via this tool. Returns an error if the path cannot be resolved or the item has no executable command.")]
+    [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Each segment is the text the menu displays, matched case-insensitively: 'Project/Add Module' reaches the item whose header is 'Add _Module' (the underscore marks the access key, wherever it falls). A menu need not be open first. If a segment is not found, the error names the menu it looked in and every item that menu holds. Works reliably for add-in contributed items (DelegateCommand). Built-in items that use routed commands may not execute correctly via this tool. Returns an error if the path cannot be resolved or the item has no executable command.")]
     public async Task<MutateResult> InvokeMenuItemAsync(string path, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1588,26 +1588,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (menu is null)
                 return new MutateResult(false, "No menu bar found in main window");
 
-            var segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
-            if (segments.Length == 0)
-                return new MutateResult(false, "Path is empty");
+            var (found, error) = MenuPath.Resolve(menu.Items, path);
+            if (found is null)
+                return new MutateResult(false, error);
 
-            IEnumerable<object?> currentItems = menu.Items;
-            MenuItem? found = null;
-
-            foreach (var segment in segments)
-            {
-                found = currentItems
-                    .OfType<MenuItem>()
-                    .FirstOrDefault(mi => MenuHeaderMatches(mi.Header, segment));
-
-                if (found is null)
-                    return new MutateResult(false, $"Menu item '{segment}' not found");
-
-                currentItems = found.Items;
-            }
-
-            if (found!.Command is null)
+            if (found.Command is null)
                 return new MutateResult(false, $"'{path}' is a submenu or has no command");
 
             if (!found.Command.CanExecute(found.CommandParameter))
@@ -1616,13 +1601,6 @@ internal sealed class HexIdeTools(IdeContext ctx)
             found.Command.Execute(found.CommandParameter);
             return new MutateResult(true, null);
         });
-    }
-
-    private static bool MenuHeaderMatches(object? header, string segment)
-    {
-        var text = header?.ToString() ?? string.Empty;
-        if (text.StartsWith('_')) text = text[1..];
-        return string.Equals(text, segment, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
