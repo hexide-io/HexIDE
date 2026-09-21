@@ -869,6 +869,21 @@ widening visibility to `public` just for a test. When a new test project needs r
 
 ## Git Workflow
 
+**Claim the issue before starting non-trivial work.** Find or open it, then take it: with maintainer
+access, `gh issue edit N --repo hexide-io/HexIDE --add-assignee @me`; without it, comment asking to be
+assigned, and wait for the assignment before starting (CONTRIBUTING.md asks outside contributors for
+exactly this, and it only means something if the maintainers' own work follows it too). Work that begins
+as a conversation rather than from an issue gets claimed once its scope is clear, not retroactively after
+the PR. Typo-level fixes need no issue.
+
+- **Release the claim when you set work aside**: unassign, and say on the issue where it got to. An
+  assignment nobody is working on blocks a contributor silently, which is worse than no assignment.
+- **An assignment names a person, not a session.** Several agent sessions can run under one account,
+  sometimes in one checkout, and to each other they all look like the same assignee. So also comment
+  `in progress on branch <name>`. The branch name is what a second session can check. And never
+  `git stash` or switch branches in a checkout you did not create: another session's uncommitted work may
+  be sitting in it. Use a `git worktree` of your own instead.
+
 **Commit and push unprompted** when a significant piece of work completes (a spec migration, a feature phase, a bug fix, a doc housekeeping pass, etc.), unless there is an open question that warrants a manual check first. If you still need the user to verify something before the work is considered stable, ask before committing. Do not wait to be asked when the work is clearly done and self-contained.
 
 When in doubt about whether a piece of work is "complete enough", err on the side of committing — a WIP commit is easy to amend or squash, but uncommitted work can be lost.
