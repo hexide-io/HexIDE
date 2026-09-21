@@ -5,6 +5,10 @@ Avalonia. Contributions — bug reports, fixes, features, translations — are w
 
 By participating you agree to abide by our [Code of Conduct](CODE_OF_CONDUCT.md).
 
+> **HexIDE is changing quickly, and something you want to work on may already be in progress.** Before
+> you start anything non-trivial, find or open its issue and comment to ask for it. A maintainer will
+> assign it to you. See [Making a change](#making-a-change).
+
 ## Licensing of contributions (read first)
 
 HexIDE is **MIT-licensed throughout** — both halves of the monorepo. The VB6 language server runs as a
@@ -105,7 +109,11 @@ calls of any kind.
 
 ## Making a change
 
-1. Open an issue first for anything non-trivial, so we can agree on the approach.
+1. For anything non-trivial, find or open an issue first, so we can agree on the approach, and **ask to
+   be assigned before you start**. A comment on the issue is enough. Contributors can't assign
+   themselves on GitHub, but a maintainer can assign anyone who has commented. An issue that is already
+   assigned is being worked on. If one has been assigned for a while with no visible activity, ask on
+   it, because it may be free. If you set work aside, say so on the issue so someone else can pick it up.
 2. Branch off the default branch; keep each PR focused and its commits tidy.
 3. Make sure the build is green and the relevant tests pass locally. CI runs the IDE and LSP builds/tests.
 4. Describe *what* and *why* in the PR. Screenshots help for any UI change.
