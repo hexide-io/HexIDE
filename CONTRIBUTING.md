@@ -69,10 +69,10 @@ servers the test suite drives, and reproducing CI's Linux failures on Windows.
   exception.)
 - **Any new user-facing string is a localization key**, never a hardcoded literal — add it to the English
   pack (`IDE/HexIDE/Localization/Packs/en.json`). **You do not need to translate it.** The maintainer adds
-  the other languages when merging. Until then `ShippedPackParityTests` fails on your PR and names the
-  packs that lack the new key. That failure is expected, and it is the maintainer's to fix, so leave it
-  red. Ticking *Allow edits by maintainers* on the PR lets the translations go straight onto your branch.
-  If you do speak one of the languages, a translation from you is welcome.
+  the other languages when merging. CI on a PR from a fork reports the missing translations as a warning
+  that names the packs, and the warning does not fail the build. Ticking *Allow edits by maintainers* on
+  the PR lets the translations go straight onto your branch. If you do speak one of the languages, a
+  translation from you is welcome.
 - **Tests** assert with **AwesomeAssertions** (`value.Should().Be(...)`) and mock with **NSubstitute** —
   not xUnit `Assert.*` and not Moq.
 
@@ -108,7 +108,6 @@ calls of any kind.
 1. Open an issue first for anything non-trivial, so we can agree on the approach.
 2. Branch off the default branch; keep each PR focused and its commits tidy.
 3. Make sure the build is green and the relevant tests pass locally. CI runs the IDE and LSP builds/tests.
-   The one expected exception is a missing translation (see *Conventions* above).
 4. Describe *what* and *why* in the PR. Screenshots help for any UI change.
 
 ## Advanced setup
