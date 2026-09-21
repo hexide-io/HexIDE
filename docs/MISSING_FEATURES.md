@@ -80,7 +80,7 @@
 | Color Palette | — | Done | |
 | Toolbars > Standard | — | Done | Toggle persisted; right-click context menu on toolbar band |
 | Toolbars > Edit | — | Done | 12 buttons: IntelliSense, indent/outdent, breakpoint, bookmarks |
-| Toolbars > Debug | — | Done | 12 buttons: run/break/end, step, windows, quick watch |
+| Toolbars > Debug | — | Done | 12 buttons: Start/Break/End, breakpoint, Step Into/Over/Out, Locals/Immediate/Watches/Call Stack, Quick Watch |
 | Toolbars > Form Editor | — | Done | Bring to Front/Back, 6 alignment, 3 make-same-size, Lock Controls; visibility persisted to settings |
 
 ---
@@ -144,7 +144,7 @@
 |---|---|---|---|
 | Start | F5 | Done | Runs project via HexIDE interpreter in a new window |
 | Start With Full Compile | Ctrl+F5 | Stub | Calls same code path as Start; compile step not distinct |
-| Break | Ctrl+Break | Stub | `CanExecute` hardcoded to `false`; `BreakCurrentProject()` throws `NotImplementedException` |
+| Break | Ctrl+Break | Done | Requests a pause at the next statement gate while the interpreter is running |
 | End | — | Done | |
 | Restart | Shift+F5 | Done | |
 | Start with VB6 | Alt+F5 | Done | Shells out to VB6.EXE if installed |
@@ -205,7 +205,7 @@
 | Undo | Done | |
 | Redo | Done | |
 | Start | Done | |
-| Break | Stub | Button present; `CanExecute=false` always |
+| Break | Done | Requests a pause at the next statement gate while the interpreter is running |
 | End | Done | |
 | Project Explorer | Done | Opens/focuses tool window |
 | Properties | Done | Opens/focuses tool window |
