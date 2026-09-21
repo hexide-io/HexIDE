@@ -58,7 +58,7 @@ public static class MenuPath
                 var where = found is null ? "the menu bar" : $"menu '{DisplayedHeader(found)}'";
                 var holds = candidates.Count == 0
                     ? "It has no items."
-                    : $"It holds: {string.Join(", ", candidates.Select(DisplayedHeader))}.";
+                    : $"It holds: {string.Join(", ", candidates.Select(DisplayedHeader))}";
                 return new Result(null, $"No item '{segment}' in {where}. {holds}");
             }
 

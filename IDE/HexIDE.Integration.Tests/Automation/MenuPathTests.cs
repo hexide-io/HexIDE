@@ -83,7 +83,7 @@ public class MenuPathTests
         var result = MenuPath.Resolve(BuildMenu().Items, "Project/Add Widget");
 
         result.Item.Should().BeNull();
-        result.Error.Should().Be("No item 'Add Widget' in menu 'Project'. It holds: Add Form, Add Module.");
+        result.Error.Should().Be("No item 'Add Widget' in menu 'Project'. It holds: Add Form, Add Module");
     }
 
     [AvaloniaFact]
@@ -91,7 +91,7 @@ public class MenuPathTests
     {
         var result = MenuPath.Resolve(BuildMenu().Items, "Tools/Options");
 
-        result.Error.Should().Be("No item 'Tools' in the menu bar. It holds: Project, Format.");
+        result.Error.Should().Be("No item 'Tools' in the menu bar. It holds: Project, Format");
     }
 
     [AvaloniaFact]
