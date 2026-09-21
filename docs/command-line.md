@@ -63,8 +63,15 @@ HexIDE.Desktop --user-data-dir ./demo-profile
 **`--newproject` wins.** If you pass both `--newproject` and a project path, the new project is created and
 the path is ignored.
 
-**`--server-port` needs its value as the next argument**, and that value must parse as a number. `--server-port 5123`
-works; `--server-port=5123` does not.
+**`--server-port` needs its value as the next argument**, and that value must be a port number from 1 to
+65535. `--server-port 5123` works; `--server-port=5123` does not. Anything else stops HexIDE before it opens
+a window, rather than letting it start without the server you asked for.
+
+**A port something else already holds stops HexIDE too.** Usually the something else is another HexIDE
+started with the same port. HexIDE used to open anyway, with no server behind it, and a client went on
+talking to the other instance with nothing to say it was the wrong one. Now it says the port is in use and
+exits with code 3; the window may flash first, because the server starts once the window is open. To tell
+which process a client is actually reaching, `/health` reports the answering process's `pid`.
 
 **`--personality` takes one of three names**, matched case-insensitively: `vb6`, `vbaode`, `vba`.
 
@@ -76,8 +83,10 @@ beside the executable, found nothing, and opened nothing without saying so.
 command line even though the IDE opens groups perfectly well from **File → Open Project** — the argument
 is matched on the `.vbp` extension alone. Tracked as a gap rather than a decision.
 
-**Nothing is rejected.** An argument HexIDE does not recognise — a misspelled flag, a value in the wrong
-place, a `.vbg` path, an unknown personality — is skipped in silence and the IDE starts normally. So a flag
+**Almost nothing is rejected.** An argument HexIDE does not recognise — a misspelled flag, a value in the wrong
+place, a `.vbg` path, an unknown personality — is skipped in silence and the IDE starts normally. The
+exceptions are the two flags whose whole purpose would be defeated by carrying on without them: a
+`--user-data-dir` with no directory, and a `--server-port` with no usable port. So a flag
 that appears to have done nothing has usually not been read at all. Worth checking the spelling before
 looking for a deeper cause, and `--help` will tell you how a flag is spelled.
 
@@ -96,6 +105,17 @@ The mark sits beside the text in a window at least 120 columns wide — the defa
 consoles and Windows Terminal — and above it in anything narrower. Stacking costs a couple of rows, and
 below about 94 columns the option lines wrap as well; the mark moves first because a wrapped row pushes the
 next mark row down, which arrives as the mark sliced into bands with text between them.
+
+## Exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | HexIDE ran and closed normally, or `--help` answered. |
+| 2 | The command line was refused before anything started: `--user-data-dir` without a directory, or `--server-port` without a port from 1 to 65535. |
+| 3 | The automation server's port was already in use. Debug builds only. |
+| 4 | The automation server could not start for any other reason; the message gives the cause. Debug builds only. |
+
+Each non-zero exit also prints why, to the console HexIDE was started from, the same way `--help` does.
 
 ## Keeping this page true
 

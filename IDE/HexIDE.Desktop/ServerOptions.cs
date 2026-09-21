@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using HexIDE.IDE;
@@ -44,13 +45,24 @@ internal static class ServerOptions
 
     /// <summary><c>--user-data-dir</c> was given with nothing after it that could be a directory.</summary>
     /// <remarks>
-    /// <b>The one flag here that refuses to start rather than being skipped.</b> Every other malformed
+    /// <b>One of two flags here that refuse to start rather than being skipped</b>, with
+    /// <see cref="ServerPortInvalid"/>. Every other malformed
     /// argument is ignored and the IDE starts normally, which is harmless when the flag was a convenience.
     /// This one is asked for precisely to keep a session away from the user's real settings, so ignoring it
     /// would quietly do the one thing it was given to prevent: a demo or an automation run writing into
     /// the live configuration.
     /// </remarks>
     public static bool UserDataDirectoryMissing { get; private set; }
+
+    /// <summary>
+    /// <c>--server-port</c> was given with something that is not a port (the text, or empty when nothing
+    /// followed); null when the flag was absent or valid.
+    /// </summary>
+    /// <remarks>
+    /// Refused for the reason a port already in use is (hexide-io/HexIDE#53): the flag is asked for so that a
+    /// client can reach this IDE, and skipping it opens one that looks normal and serves nothing.
+    /// </remarks>
+    public static string? ServerPortInvalid { get; private set; }
 
     /// <summary>
     /// Where HexIDE was started from, captured before startup moves the working directory to the
@@ -145,8 +157,15 @@ internal static class ServerOptions
             "Start the automation server on this port. Debug builds only.",
             value =>
             {
-                if (int.TryParse(value, out var port)) Port = port;
-                return true;
+                // A value beginning `--` is the next flag, not a port, and is left for it.
+                if (value is not null && value.StartsWith("--", StringComparison.Ordinal))
+                    value = null;
+                if (int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var port)
+                    && port is >= 1 and <= 65535)
+                    Port = port;
+                else
+                    ServerPortInvalid = value ?? "";
+                return value is not null;
             }),
 
         new("developer-mode", null,

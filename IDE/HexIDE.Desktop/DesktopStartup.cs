@@ -81,9 +81,20 @@ internal static class DesktopStartup
                     {
                         await IdeServer.RunAsync(port, ctx, cts.Token);
                     }
+                    // Fatal, and said aloud. Carrying on would leave an IDE that looks normal and serves
+                    // nothing, while a client goes on driving whichever process still holds the port --
+                    // the old one, after a relaunch that did not take (hexide-io/HexIDE#53). No dialog: a
+                    // modal would wedge exactly the automation run that needs to see this exit.
+                    catch (IdeServerStartException ex)
+                    {
+                        var (exitCode, message) = HexIDE.Net.ServerStartFailure.Describe(ex.InnerException!, ex.Port);
+                        Serilog.Log.Error(ex, "HexIDE MCP server failed to start on port {Port}; exiting with {ExitCode}", ex.Port, exitCode);
+                        ConsoleOutput.Write(message);
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() => desktop.Shutdown(exitCode));
+                    }
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {
-                        Serilog.Log.Error(ex, "HexIDE MCP server failed to start on port {Port}", port);
+                        Serilog.Log.Error(ex, "HexIDE MCP server stopped with an error on port {Port}", port);
                     }
                 });
 

@@ -394,7 +394,9 @@ When you need to rebuild while HexIDE is running, always follow this cycle — d
 1. **Shut down**: call `shutdown_ide` MCP tool (clean shutdown, releases all file locks)
 2. **Build**: `cd IDE && dotnet build HexIDE.Desktop/HexIDE.Desktop.csproj -c Debug`
 3. **Relaunch**: `Start-Process "$PWD\IDE\HexIDE.Desktop\bin\Debug\net10.0\HexIDE.Desktop.exe" "--server-port 5123 --newproject"`
-4. **Wait for ready**: poll `http://localhost:5123/health` until HTTP 200 (use a loop with 1 s sleep, up to 30 s)
+4. **Wait for ready**: poll `http://localhost:5123/health` until HTTP 200 **whose `pid` is the process you just
+   launched** (`Start-Process -PassThru` gives you it; use a loop with 1 s sleep, up to 30 s). A 200 alone is not
+   enough: if another HexIDE still holds the port, it answers, and yours exits with code 3 (#53).
 5. **Continue**: MCP tools are immediately usable once `/health` returns 200
 
 If `shutdown_ide` is unavailable (MCP disconnected), use PowerShell: `Stop-Process -Name HexIDE.Desktop -ErrorAction SilentlyContinue` then proceed from step 2.
