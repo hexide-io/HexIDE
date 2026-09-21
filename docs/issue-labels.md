@@ -450,9 +450,10 @@ issue that disappoints someone is more expensive than an issue they never saw. P
 
 ### One gate: write the scaffolding comment
 
-Before the label goes on, **someone other than the person who chose it opens the code and writes the
-comment a newcomer would need.** That single act is both the review and the deliverable: it either
-produces a usable comment, or it produces the reason the issue is unsuitable.
+Before the label goes on, **someone independent of the choice opens the code and writes the comment a
+newcomer would need** — a human, or a small red-team workflow whose agents did not pick the issue. That
+single act is both the review and the deliverable: it either produces a usable comment, or it produces the
+reason the issue is unsuitable.
 
 There is deliberately no separate approval step in front of it. On the first run of this process every
 rejection came out of the attempt to write the comment — a reviewer asked "is this a reasonable first
