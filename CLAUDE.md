@@ -705,7 +705,11 @@ user-facing string is a localization key, never a hardcoded literal.**
 3. **Translate every new key into all shipped packs in the same change — the build enforces it.**
    `ShippedPackParityTests` fails when a pack named in `LanguageManifest.Packs` is missing a canonical key,
    naming the pack and the keys, so the code and its translations can no longer be split across two
-   commits. The moment you add a `Str.*` key to `en`, add its translation to each shipped
+   commits. **Only an outside contributor's pull request is exempt.** Outside contributors add English only
+   (CONTRIBUTING.md), and on their PRs `build.yml` runs that test as a non-blocking warning. The maintainer
+   translates before merging, and the push to `main` runs the test as a blocking check. The exemption is
+   keyed on `author_association`, not on the PR coming from a fork: maintainers' PRs come from forks too,
+   show as `MEMBER`, and stay blocking. Work in this tree still translates in the same change. The moment you add a `Str.*` key to `en`, add its translation to each shipped
    full-translation pack (the supported set:
    `ar, cs, da, de, el, eo, es, fa, fi, fr, he, hi, id, it, ja, ko, la, nb, nl, pl, pt, ru, sv, tr, uk, ur,
    vi, zh-Hans, zh-Hant` — **29**) so non-English IDEs never show English fall-through. A missing key *inherits* English
