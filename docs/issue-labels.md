@@ -485,9 +485,11 @@ it eligible.
 
 ### `help wanted`
 
-A maintainer's judgement about wanting outside help. It cannot be derived. Used here as the **bench**:
-issues that pass the gates and the checklist but are not currently advertised, promoted to
-`good first issue` as the advertised ones are taken.
+A maintainer's judgement about wanting outside help. It cannot be derived. **Every `good first issue`
+carries it too, and not the other way round**: a `help wanted` issue can be too large, or not yet
+scaffolded, to offer a newcomer, and those are where `good first issue` is promoted from as advertised ones
+are taken. It is advertised in its own right — GitHub features it beside `good first issue` — so it is not
+a place to hold issues out of sight.
 
 ### Claiming
 
