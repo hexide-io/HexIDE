@@ -161,6 +161,33 @@ public static class UiAutomationDriver
     }
 
     /// <summary>
+    /// Every action <see cref="Interact"/> accepts, in the spelling a caller passes. The unknown-action error
+    /// is built from this, so the list it prints cannot drift from the switch.
+    /// </summary>
+    public static readonly IReadOnlyList<string> Verbs =
+    [
+        "invoke", "select", "double_click", "set_value", "set_range_value", "toggle", "expand", "collapse",
+        "scroll", "invoke_command", "set_property",
+    ];
+
+    /// <summary>
+    /// What each token <see cref="DescribeProviders"/> reports lets a caller do. A token names a capability,
+    /// not a verb (<c>value</c> is driven with <c>set_value</c>), so this is the translation, and every token
+    /// must have one: a token that reaches no verb is a lead that goes nowhere (hexide-io/HexIDE#361).
+    /// </summary>
+    public static readonly IReadOnlyDictionary<string, string[]> VerbsByProvider = new Dictionary<string, string[]>
+    {
+        ["invoke"] = ["invoke"],
+        ["selection"] = ["select"],
+        ["selectionItem"] = ["select"],
+        ["value"] = ["set_value"],
+        ["toggle"] = ["toggle"],
+        ["expandCollapse"] = ["expand", "collapse"],
+        ["rangeValue"] = ["set_range_value"],
+        ["scroll"] = ["scroll"],
+    };
+
+    /// <summary>
     /// The action tokens a control actually accepts. Mostly its automation providers, but not only:
     /// <see cref="Interact"/> has fallbacks for controls whose peer offers nothing, and a token missing
     /// here is a token nobody tries. <c>MenuItemAutomationPeer</c> exposes <b>no providers at all</b>, so
@@ -175,8 +202,14 @@ public static class UiAutomationDriver
         if (peer.GetProvider<IValueProvider>() is not null) list.Add("value");
         if (peer.GetProvider<IToggleProvider>() is not null) list.Add("toggle");
         if (peer.GetProvider<IExpandCollapseProvider>() is not null) list.Add("expandCollapse");
-        if (peer.GetProvider<IRangeValueProvider>() is not null) list.Add("rangeValue");
-        if (peer.GetProvider<IScrollProvider>() is not null) list.Add("scroll");
+        // Both only when the verb would do something. ItemsControlAutomationPeer implements IScrollProvider
+        // on EVERY ListBox, TreeView and TreeViewItem, whether or not there is a scroller behind it, and a
+        // ProgressBar's range is read-only; advertising those kept 40 inert nodes in the default tree
+        // (hexide-io/HexIDE#361) and promised a verb that could only refuse or silently do nothing.
+        if (peer.GetProvider<IRangeValueProvider>() is { } range && Safe(() => IsSettable(range), false))
+            list.Add("rangeValue");
+        if (peer.GetProvider<IScrollProvider>() is { } scroller && Safe(() => CanScroll(scroller), false))
+            list.Add("scroll");
 
         // Advertised so the verb is discoverable: a control owning a context menu or a flyout accepts
         // expand/collapse even though its peer offers no ExpandCollapse provider. Without this the action
@@ -212,8 +245,8 @@ public static class UiAutomationDriver
 
     // ── interaction (Phase 6) ───────────────────────────────────────────────────────────────────────
 
-    /// <summary>Drives a resolved control through its automation provider. Provider-backed actions only
-    /// (Phase 6): <c>invoke | select | set_value | toggle | expand | collapse</c>. A missing provider
+    /// <summary>Drives a resolved control through its automation provider. The accepted actions are
+    /// <see cref="Verbs"/>, and <see cref="VerbsByProvider"/> says which reported token each serves. A missing provider
     /// yields a clean "element does not support '&lt;action&gt;'" error — the caller's signal to inspect
     /// and switch to a Phase-7 reflection action.</summary>
     public static InteractOutcome Interact(Control control, string action, string? value)
@@ -324,6 +357,12 @@ public static class UiAutomationDriver
                 case "doubleclick":
                     return DoDoubleClick(control, peer);
 
+                case "scroll":
+                    return DoScroll(control, value);
+
+                case "setrangevalue":
+                    return DoSetRangeValue(control, peer, value);
+
                 // Phase 7 — reflection over the DataContext (opt-in: there is NO implicit fallback from the
                 // provider actions above). Reaches VM commands/properties on controls with no useful provider.
                 case "invokecommand":
@@ -333,7 +372,7 @@ public static class UiAutomationDriver
                     return ReflectSetProperty(control, value);
 
                 default:
-                    return Err($"unknown action '{action}' (expected invoke|select|double_click|set_value|toggle|expand|collapse|invoke_command|set_property)");
+                    return Err($"unknown action '{action}' (expected {string.Join('|', Verbs)})");
             }
         }
         catch (Exception ex)
@@ -450,6 +489,107 @@ public static class UiAutomationDriver
 
         var note = selected ? " (selected it first, as a real double-click does)" : "";
         return Ok($"double-clicked '{LabelOf(control, peer)}'{note}");
+    }
+
+    private const string ScrollDirections = "up|down|left|right (a page), line_up|line_down|line_left|line_right, home|end";
+
+    /// <summary>
+    /// Scrolls the target, or the nearest control containing it that can scroll the way asked. The fallback
+    /// is what makes the verb usable: the content a caller wants to see more of (a card, a tree node, a row)
+    /// is what the tree offers to address, while the <see cref="ScrollViewer"/> around it is often a
+    /// template part that never appears. The reply names what actually moved and where it now is, and says
+    /// so when it could not move, rather than reporting a scroll that changed nothing.
+    /// </summary>
+    private static InteractOutcome DoScroll(Control control, string? value)
+    {
+        var direction = new string((value ?? string.Empty).Where(char.IsLetter).ToArray()).ToLowerInvariant();
+        (bool Vertical, ScrollAmount Amount, double? Percent)? requested = direction switch
+        {
+            "up" => (true, ScrollAmount.LargeDecrement, null),
+            "down" => (true, ScrollAmount.LargeIncrement, null),
+            "left" => (false, ScrollAmount.LargeDecrement, null),
+            "right" => (false, ScrollAmount.LargeIncrement, null),
+            "lineup" => (true, ScrollAmount.SmallDecrement, null),
+            "linedown" => (true, ScrollAmount.SmallIncrement, null),
+            "lineleft" => (false, ScrollAmount.SmallDecrement, null),
+            "lineright" => (false, ScrollAmount.SmallIncrement, null),
+            "home" => (true, ScrollAmount.NoAmount, 0),
+            "end" => (true, ScrollAmount.NoAmount, 100),
+            _ => null,
+        };
+        if (requested is not { } move)
+            return Err($"scroll requires 'value', one of {ScrollDirections} (got '{value}')");
+
+        var axis = move.Vertical ? "vertically" : "horizontally";
+        if (ScrollerFor(control, move.Vertical) is not { } found)
+            return Err($"nothing to scroll {axis}: neither '{Describe(control)}' nor anything containing it " +
+                       $"has content {(move.Vertical ? "taller" : "wider")} than its viewport");
+
+        var (scroller, owner) = found;
+        var before = PercentAlong(scroller, move.Vertical);
+        const double none = ScrollPatternIdentifiers.NoScroll;
+        if (move.Percent is { } percent)
+            scroller.SetScrollPercent(move.Vertical ? none : percent, move.Vertical ? percent : none);
+        else if (move.Vertical)
+            scroller.Scroll(ScrollAmount.NoAmount, move.Amount);
+        else
+            scroller.Scroll(move.Amount, ScrollAmount.NoAmount);
+        var after = PercentAlong(scroller, move.Vertical);
+
+        var where = owner == control ? $"'{Describe(owner)}'" : $"'{Describe(owner)}' (the nearest container of the target that scrolls {axis})";
+        var position = $"now {after:0.#}% of the way along, showing {ViewSizeAlong(scroller, move.Vertical):0.#}% of the content at a time";
+        return Math.Abs(after - before) < 0.01
+            ? Err($"did not scroll {where} {direction}: it is already at that end ({position})")
+            : Ok($"scrolled {where} {direction}: {position}");
+    }
+
+    /// <summary>
+    /// The target's own scroller if it can move along the requested axis, else the nearest ancestor's. An
+    /// axis, not "anything scrollable": a strip that scrolls only sideways must not swallow a request to
+    /// page down through the pane around it.
+    /// </summary>
+    private static (IScrollProvider Scroller, Control Owner)? ScrollerFor(Control control, bool vertical)
+    {
+        foreach (var candidate in control.GetSelfAndVisualAncestors().OfType<Control>())
+        {
+            var peer = Safe(() => ControlAutomationPeer.CreatePeerForElement(candidate), null);
+            if (peer?.GetProvider<IScrollProvider>() is { } scroller
+                && Safe(() => vertical ? scroller.VerticallyScrollable : scroller.HorizontallyScrollable, false))
+                return (scroller, candidate);
+        }
+        return null;
+    }
+
+    private static bool CanScroll(IScrollProvider scroller) =>
+        scroller.VerticallyScrollable || scroller.HorizontallyScrollable;
+
+    private static double PercentAlong(IScrollProvider scroller, bool vertical) =>
+        vertical ? scroller.VerticalScrollPercent : scroller.HorizontalScrollPercent;
+
+    private static double ViewSizeAlong(IScrollProvider scroller, bool vertical) =>
+        vertical ? scroller.VerticalViewSize : scroller.HorizontalViewSize;
+
+    private static bool IsSettable(IRangeValueProvider range) => !range.IsReadOnly && range.Maximum > range.Minimum;
+
+    /// <summary>
+    /// Sets a slider, scroll bar or numeric spinner to a number. Out-of-range is refused rather than clamped:
+    /// a caller who asked for 150 on a 0..100 control has the wrong control or the wrong unit, and a clamped
+    /// success would hide both.
+    /// </summary>
+    private static InteractOutcome DoSetRangeValue(Control control, AutomationPeer peer, string? value)
+    {
+        if (peer.GetProvider<IRangeValueProvider>() is not { } range) return Unsupported("set_range_value");
+        var label = LabelOf(control, peer);
+        var bounds = $"{range.Minimum.ToString(CultureInfo.InvariantCulture)}..{range.Maximum.ToString(CultureInfo.InvariantCulture)}";
+        if (range.IsReadOnly)
+            return Err($"'{label}' is read-only: it displays a value in {bounds} and cannot be set");
+        if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
+            return Err($"set_range_value requires 'value' as a number with '.' for decimals (got '{value}'); '{label}' takes {bounds}");
+        if (number < range.Minimum || number > range.Maximum)
+            return Err($"{number.ToString(CultureInfo.InvariantCulture)} is outside '{label}''s range {bounds}; nothing was changed");
+
+        range.SetValue(number);
+        return Ok($"set '{label}' to {range.Value.ToString(CultureInfo.InvariantCulture)} (range {bounds})");
     }
 
     /// <summary>
