@@ -144,10 +144,43 @@ jobs:
       # HEXIDE_REQUIRE_FOREIGN_LSP turns "no server available" from a skip into a failure. Without it a
       # broken download would quietly return the suite to the state this change exists to leave: green,
       # with the foreign-backend proof silently not running.
+      #
+      # One test is left out for an outside contributor's pull request: the one that every shipped
+      # language pack has every key in en.json. Contributors add the English only and the maintainer
+      # translates on merge (CONTRIBUTING.md), so on their PR that test failing is the expected state, not
+      # a finding. It is not dropped, only demoted: the next step still runs it and reports the result as a
+      # warning, so the reviewer sees which packs need work before merging. The push to main that every
+      # merge makes runs it here and blocks as before, and that push is the backstop.
+      #
+      # "Outside" is decided by author_association, NOT by whether the PR comes from a fork. The
+      # maintainers' own PRs come from forks too (they show as MEMBER), and a head-repo test would have
+      # silently relaxed the rule for them, whose work is meant to arrive translated.
+      #
+      # Only the key-completeness test is excluded. Its two neighbours check that the manifest and the
+      # files on disk agree, which no contributor change has a reason to break.
       - name: Run ViewModel Tests
         env:
           HEXIDE_REQUIRE_FOREIGN_LSP: '1'
-        run: dotnet test HexIDE.Tests/HexIDE.Tests.csproj
+          CONTRIBUTOR_PR: ${{ github.event_name == 'pull_request' && !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association) }}
+        run: |
+          if [ "$CONTRIBUTOR_PR" = "true" ]; then
+            echo "Outside contributor's pull request: translation completeness is reported by the next step, not here."
+            dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey"
+          else
+            dotnet test HexIDE.Tests/HexIDE.Tests.csproj
+          fi
+
+      - name: Report translation completeness (outside contributors' pull requests, non-blocking)
+        id: translations
+        if: github.event_name == 'pull_request' && !contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association)
+        continue-on-error: true
+        run: dotnet test HexIDE.Tests/HexIDE.Tests.csproj --no-build -- --filter-method "*EveryShippedTranslationHasEveryCanonicalKey"
+
+      # A step that fails under continue-on-error still shows the job as green, so the summary page would
+      # say nothing. The annotation is what makes the result visible on the pull request itself.
+      - name: Flag missing translations
+        if: steps.translations.outcome == 'failure'
+        run: echo "::warning title=Translations needed before merge::One or more shipped language packs lack keys added to en.json. Expected for a contribution. The maintainer adds them on merge. The step above names the packs and keys."
 
       - name: Run Integration Tests (headless Avalonia UI)
         run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj

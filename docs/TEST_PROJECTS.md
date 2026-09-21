@@ -17,7 +17,7 @@ Round-trip fidelity is verified by the `HexIDE.Runtime.Tests` xUnit harness (see
 To run the corpus tests locally:
 
 ```
-cd IDE && dotnet test HexIDE.Runtime.Tests --filter "FullyQualifiedName~SerializationCorpusTests"
+cd IDE && dotnet test HexIDE.Runtime.Tests/ -- --filter-class "*SerializationCorpusTests"
 ```
 
 There is no test category or trait to filter on — `[Trait]` is not used anywhere in `IDE/`, so filter by

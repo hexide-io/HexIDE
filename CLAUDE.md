@@ -705,7 +705,11 @@ user-facing string is a localization key, never a hardcoded literal.**
 3. **Translate every new key into all shipped packs in the same change — the build enforces it.**
    `ShippedPackParityTests` fails when a pack named in `LanguageManifest.Packs` is missing a canonical key,
    naming the pack and the keys, so the code and its translations can no longer be split across two
-   commits. The moment you add a `Str.*` key to `en`, add its translation to each shipped
+   commits. **Only an outside contributor's pull request is exempt.** Outside contributors add English only
+   (CONTRIBUTING.md), and on their PRs `build.yml` runs that test as a non-blocking warning. The maintainer
+   translates before merging, and the push to `main` runs the test as a blocking check. The exemption is
+   keyed on `author_association`, not on the PR coming from a fork: maintainers' PRs come from forks too,
+   show as `MEMBER`, and stay blocking. Work in this tree still translates in the same change. The moment you add a `Str.*` key to `en`, add its translation to each shipped
    full-translation pack (the supported set:
    `ar, cs, da, de, el, eo, es, fa, fi, fr, he, hi, id, it, ja, ko, la, nb, nl, pl, pt, ru, sv, tr, uk, ur,
    vi, zh-Hans, zh-Hant` — **29**) so non-English IDEs never show English fall-through. A missing key *inherits* English
@@ -864,6 +868,21 @@ widening visibility to `public` just for a test. When a new test project needs r
 - **`docs/MISSING_LANGUAGE.md`** — the full VB6 language surface (statements, functions, operators, keywords, literals, directives, constants, in-box objects) with HexIDE's support level for each, ordered by **F5 impact**: won't load / dies mid-run / runs-but-differs / faithful. **Update the row in the same change that changes the status.** A coverage document that drifts is worse than none, because it gets quoted rather than checked. It owns *what runs*; `interpreter-gaps.md` owns *why something is missing*.
 
 ## Git Workflow
+
+**Claim the issue before starting non-trivial work.** Find or open it, then take it: with maintainer
+access, `gh issue edit N --repo hexide-io/HexIDE --add-assignee @me`; without it, comment asking to be
+assigned, and wait for the assignment before starting (CONTRIBUTING.md asks outside contributors for
+exactly this, and it only means something if the maintainers' own work follows it too). Work that begins
+as a conversation rather than from an issue gets claimed once its scope is clear, not retroactively after
+the PR. Typo-level fixes need no issue.
+
+- **Release the claim when you set work aside**: unassign, and say on the issue where it got to. An
+  assignment nobody is working on blocks a contributor silently, which is worse than no assignment.
+- **An assignment names a person, not a session.** Several agent sessions can run under one account,
+  sometimes in one checkout, and to each other they all look like the same assignee. So also comment
+  `in progress on branch <name>`. The branch name is what a second session can check. And never
+  `git stash` or switch branches in a checkout you did not create: another session's uncommitted work may
+  be sitting in it. Use a `git worktree` of your own instead.
 
 **Commit and push unprompted** when a significant piece of work completes (a spec migration, a feature phase, a bug fix, a doc housekeeping pass, etc.), unless there is an open question that warrants a manual check first. If you still need the user to verify something before the work is considered stable, ask before committing. Do not wait to be asked when the work is clearly done and self-contained.
 
