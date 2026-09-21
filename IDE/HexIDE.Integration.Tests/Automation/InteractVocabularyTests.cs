@@ -217,6 +217,22 @@ public class InteractVocabularyTests
     }
 
     [AvaloniaFact]
+    public void Set_range_value_on_a_range_with_no_width_refuses_rather_than_succeeding()
+    {
+        // Measured on the running IDE: a scroll bar whose content had come to fit reported 0..0, and setting
+        // it to 0 answered success for a change that could not happen.
+        var slider = new Slider { Minimum = 0, Maximum = 0 };
+        var window = Show(slider);
+        try
+        {
+            UiAutomationDriver.DescribeProviders(ControlAutomationPeer.CreatePeerForElement(slider), slider)
+                .Should().NotContain("rangeValue");
+            ErrorOf(slider, "set_range_value", "0").Should().Contain("nothing to set").And.Contain("0..0");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public void A_progress_bar_is_not_advertised_as_settable_and_says_why_when_asked()
     {
         var bar = new ProgressBar { Minimum = 0, Maximum = 100, Value = 40 };

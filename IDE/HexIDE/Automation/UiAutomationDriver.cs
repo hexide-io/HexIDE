@@ -539,8 +539,8 @@ public static class UiAutomationDriver
         var where = owner == control ? $"'{Describe(owner)}'" : $"'{Describe(owner)}' (the nearest container of the target that scrolls {axis})";
         var position = $"now {after:0.#}% of the way along, showing {ViewSizeAlong(scroller, move.Vertical):0.#}% of the content at a time";
         return Math.Abs(after - before) < 0.01
-            ? Err($"did not scroll {where} {direction}: it is already at that end ({position})")
-            : Ok($"scrolled {where} {direction}: {position}");
+            ? Err($"did not scroll {where} {value}: it is already at that end ({position})")
+            : Ok($"scrolled {where} {value}: {position}");
     }
 
     /// <summary>
@@ -583,6 +583,8 @@ public static class UiAutomationDriver
         var bounds = $"{range.Minimum.ToString(CultureInfo.InvariantCulture)}..{range.Maximum.ToString(CultureInfo.InvariantCulture)}";
         if (range.IsReadOnly)
             return Err($"'{label}' is read-only: it displays a value in {bounds} and cannot be set");
+        if (range.Maximum <= range.Minimum)
+            return Err($"'{label}' has nothing to set: its range is {bounds}, so it cannot move (a scroll bar is like this while its content fits)");
         if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
             return Err($"set_range_value requires 'value' as a number with '.' for decimals (got '{value}'); '{label}' takes {bounds}");
         if (number < range.Minimum || number > range.Maximum)
