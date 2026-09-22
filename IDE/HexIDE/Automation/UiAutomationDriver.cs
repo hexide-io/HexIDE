@@ -258,8 +258,27 @@ public static class UiAutomationDriver
             return null;
 
         binding.UpdateSource();
-        return ", and committed it";
+        return CommittedSuffix;
     }
+
+    private const string CommittedSuffix = ", and committed it";
+
+    /// <summary>
+    /// <paramref name="outcome"/> of a <c>set_value</c> that committed, with <paramref name="refusal"/> (from
+    /// <see cref="RefusedCommit"/>) in place of its claim that the value was committed.
+    /// </summary>
+    /// <remarks>
+    /// The sentence being replaced is written in this file, so it is replaced here too. The interact tool used to
+    /// match its text to decide whether to check at all, and a rewording would have stopped the check without a
+    /// sound (#634); it now asks <see cref="InteractOutcome.Committed"/> instead.
+    /// </remarks>
+    public static InteractOutcome WithRefusal(InteractOutcome outcome, string refusal) =>
+        outcome with
+        {
+            Detail = outcome.Detail is { } detail && detail.EndsWith(CommittedSuffix, StringComparison.Ordinal)
+                ? detail[..^CommittedSuffix.Length] + refusal
+                : outcome.Detail + refusal,
+        };
 
     /// <summary>
     /// After <c>set_value</c> committed <paramref name="typed"/> into a bound text box, what to say instead of
@@ -482,9 +501,9 @@ public static class UiAutomationDriver
                     if (peer.GetProvider<IValueProvider>() is not { } val) return Unsupported("set_value");
                     if (value is null) return Err("set_value requires 'value'");
                     val.SetValue(value);
-                    return Ok(CommitTyped(control, value) is { } committed
-                        ? $"set value of '{LabelOf(control, peer)}' to '{value}'{committed}"
-                        : $"set value of '{LabelOf(control, peer)}' to '{value}'");
+                    return CommitTyped(control, value) is { } committed
+                        ? Ok($"set value of '{LabelOf(control, peer)}' to '{value}'{committed}") with { Committed = true }
+                        : Ok($"set value of '{LabelOf(control, peer)}' to '{value}'");
 
                 case "select":
                     return DoSelect(control, peer, value);
@@ -1885,4 +1904,13 @@ public record VmMember(string Name, string Kind, string? TypeName, bool CanWrite
 
 /// <summary>Outcome of <see cref="UiAutomationDriver.Interact"/>. <c>Mechanism</c> is "peer" for
 /// provider-backed actions (Phase 6) and "reflection" for the DataContext fallback (Phase 7).</summary>
-public record InteractOutcome(bool Success, string Mechanism, string? Detail, string? Error);
+/// <param name="Committed">
+/// A <c>set_value</c> pushed its text to a bound source, so whether the source kept it is still to be asked
+/// (<see cref="UiAutomationDriver.RefusedCommit"/>). Not part of the reply; the detail says it in words.
+/// </param>
+public record InteractOutcome(
+    bool Success,
+    string Mechanism,
+    string? Detail,
+    string? Error,
+    [property: System.Text.Json.Serialization.JsonIgnore] bool Committed = false);
