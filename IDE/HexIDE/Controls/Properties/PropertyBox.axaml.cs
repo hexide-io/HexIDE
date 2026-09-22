@@ -4,6 +4,9 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
+using Avalonia.Input;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
 using HexIDE.Runtime.BuiltinTypes;
 using HexIDE.Runtime.Components;
 using HexIDE.VisualDesigner;
@@ -70,6 +73,26 @@ public class PropertyBox : TemplatedControl
         {
             box.UpdatePropertyVisibility();
         });
+        KeyDownEvent.AddClassHandler<PropertyBox>(OnKeyDownTunnel, RoutingStrategies.Tunnel);
+    }
+
+    /// <summary>
+    /// Enter commits the text typed into a property row, as it does in VB6's Properties window.
+    /// </summary>
+    /// <remarks>
+    /// The row's text box commits on focus loss, and nothing handled Enter, so a person pressing it saw the text
+    /// stay and nothing change until they clicked elsewhere; <c>press_key</c> Enter on the row did nothing at
+    /// all (#625). Tunnelled so the text box cannot take the key first. The text is selected afterwards, so the
+    /// next keystroke replaces the committed value rather than appending to it.
+    /// </remarks>
+    private static void OnKeyDownTunnel(PropertyBox box, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || e.KeyModifiers != KeyModifiers.None) return;
+        if ((e.Source as Visual)?.FindAncestorOfType<TextBox>(includeSelf: true) is not { } textBox) return;
+
+        BindingOperations.GetBindingExpressionBase(textBox, TextBox.TextProperty)?.UpdateSource();
+        textBox.SelectAll();
+        e.Handled = true;
     }
 
     protected override void OnApplyTemplate(TemplateAppliedEventArgs e)

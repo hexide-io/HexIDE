@@ -52,6 +52,47 @@ public class MenuPathTests
         },
     };
 
+    // An ellipsis says the item opens a dialog; it is not part of the command's name (#564).
+    private static Menu ToolsMenu() => new()
+    {
+        Items =
+        {
+            new MenuItem
+            {
+                Header = "_Tools",
+                Items =
+                {
+                    new MenuItem { Header = "_Options..." },
+                    new MenuItem { Header = "Protocol _Inspector…" },
+                    new MenuItem { Header = "_Save" },
+                    new MenuItem { Header = "Save _As..." },
+                    new MenuItem { Header = "S_ave..." },
+                },
+            },
+        },
+    };
+
+    [AvaloniaTheory]
+    [InlineData("Tools/Options", "_Options...")]
+    [InlineData("Tools/Options...", "_Options...")]
+    [InlineData("Tools/Protocol Inspector", "Protocol _Inspector…")]
+    [InlineData("Tools/Protocol Inspector...", "Protocol _Inspector…")]
+    [InlineData("Tools/Save As", "Save _As...")]
+    public void A_trailing_ellipsis_may_be_left_off_or_spelled_either_way(string path, string header)
+    {
+        var result = MenuPath.Resolve(ToolsMenu().Items, path);
+
+        result.Error.Should().BeNull();
+        result.Item!.Header.Should().Be(header);
+    }
+
+    [AvaloniaFact]
+    public void An_exact_header_wins_over_one_that_differs_only_by_an_ellipsis()
+    {
+        MenuPath.Resolve(ToolsMenu().Items, "Tools/Save").Item!.Header.Should().Be("_Save");
+        MenuPath.Resolve(ToolsMenu().Items, "Tools/Save...").Item!.Header.Should().Be("S_ave...");
+    }
+
     [AvaloniaFact]
     public void Resolves_an_item_whose_access_key_is_not_its_first_letter()
     {

@@ -203,6 +203,13 @@ public partial class PropertiesToolViewModel : Tool
             windowManager.MessageBox("Invalid property value", icon: MessageBoxIcon.Error).ListenErrors();
         }
 
+        // A refused value goes back to what the object holds. The row kept showing it, so after the refusal the
+        // grid displayed a value the control did not have, and a caller reading the row back saw the change it
+        // had just been refused (#625). POSTED, and measured to need it: this runs inside the row's binding
+        // writing to its source, and a change raised during that write is not carried back to the text box.
+        if (!committed && Properties.FirstOrDefault(p => p.PropertyClass == propertyClass) is { } row)
+            Avalonia.Threading.Dispatcher.UIThread.Post(() => row.UpdateValueNoRaise(before));
+
         if (committed && !Equals(before, after))
             currentDocument.UndoStack.Push(new SetPropertyCommand(instance, propertyClass, before, after));
     }

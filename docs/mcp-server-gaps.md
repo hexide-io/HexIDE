@@ -872,17 +872,3 @@ disk reads `false`.
 [#597](https://github.com/hexide-io/HexIDE/issues/597). Either record the render baseline when a new
 document is written, or keep new documents unsaved on purpose and say so in `get_file_content`'s
 description.
-
-## `set_value` on a Properties window row reports success and does not commit
-
-**Symptom.** `interact` with `set_value` on a Properties row's `Edit` (e.g.
-`…/Pane[Properties]/Custom/Tab[TabProperties]/List[AlphabeticProperties]/Pane[PART_ScrollViewer]/ListItem[Caption]/Edit`,
-`value` `Hello 494`) answers `set value of 'Edit' to 'Hello 494'`, and `get_form_controls` still reports the
-old caption. `press_key` Enter on the same `Edit` does not commit it either. The row's binding commits on
-focus loss, which neither causes.
-
-**Workaround.** Use `set_control_property`, which sets the property itself. Or, in the Properties window,
-use `interact` `set_property` with `Value=…` on the row, which is the reflection fallback.
-
-**Suggested fix.** Push the text box's binding to its source after `set_value`, or say in the reply that
-nothing has been committed: [#625](https://github.com/hexide-io/HexIDE/issues/625).
