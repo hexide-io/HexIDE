@@ -1887,9 +1887,11 @@ public sealed class VBLspClient : ILspClient
     /// </summary>
     /// <remarks>
     /// <b>Hand-written and guarded, because a list like this rots the moment nobody is checking it.</b>
-    /// Each entry is a literal passed to <see cref="CanServe"/> somewhere below, and a test asserts the two
-    /// sets are identical — so wiring a new method and forgetting this list fails the build rather than
-    /// quietly reporting a capability as unused forever.
+    /// Each entry is either a literal passed to <see cref="CanServe"/> somewhere below or a capability read
+    /// through one of the dedicated readers on <c>ServerCapabilities</c>, and a test asserts the list is
+    /// exactly those — so wiring a new method and forgetting this list fails the build rather than quietly
+    /// reporting a capability as unused forever. The guard once read only the gates, and the two capabilities
+    /// read the other way went missing from here (hexide-io/HexIDE#394).
     ///
     /// <para>
     /// It exists to answer the question a server author most wants answered and nothing here could answer
@@ -1908,10 +1910,17 @@ public sealed class VBLspClient : ILspClient
         "documentFormattingProvider",
         "documentHighlightProvider",
         "documentSymbolProvider",
+        // Read by the command-routing reader rather than a gate: a command is routed to the server that
+        // named it, so the question is never "does any server offer this" but "which one declared it".
+        "executeCommandProvider",
         "foldingRangeProvider",
         "hoverProvider",
         "renameProvider",
         "signatureHelpProvider",
+        // Read by the sync readers rather than a gate, because its two shapes mean different things — and
+        // it gates every document notification this client sends, so reporting it unused is the most
+        // misleading thing this list could get wrong.
+        "textDocumentSync",
         "vbBuiltinSymbols",
         "workspaceSymbolProvider",
     ];
