@@ -10,9 +10,10 @@
 #
 # Fails (exit 1) on: a private key git would currently let you commit, build artefacts and
 # editor backups in the tree, dangling relative links in Markdown, machine-specific absolute
-# paths, personal-identity references, and a third-party project named outside the places we
-# agreed it may be. Warns (exit 0) on TWO things, both expected and neither blocking: key
-# material .gitignore already covers, and the upstream-attribution mention.
+# paths, personal-identity references, a third-party project named outside the places we
+# agreed it may be, and unresolved merge-conflict markers. Warns (exit 0) on TWO things, both
+# expected and neither blocking: key material .gitignore already covers, and the
+# upstream-attribution mention. Exits 2, having scanned nothing, when git cannot read the tree.
 #
 # EVERY SCAN SEES UNTRACKED FILES, and that is load-bearing rather than tidy. Git's own
 # listings see only TRACKED files, so a brand-new file is invisible until it is staged --
@@ -75,6 +76,26 @@ key_candidates() {
   git ls-files --cached --others -z -- . \
     ':!:**/bin/**' ':!:**/obj/**' ':!:bin/**' ':!:obj/**' ':!:artifacts/**' ':!:**/node_modules/**'
 }
+
+# PREFLIGHT: can git read this tree at all? Every scan below asks git, through `< <(git ...)` or
+# `tree_files`, and `set -o pipefail` does not reach inside a process substitution. So a git that cannot
+# read the repository gives every scan an empty list, and the script used to end in
+# "check-tree-hygiene: OK" having looked at nothing (#533). The known case is a Windows `git worktree`
+# run under WSL: its `.git` file holds a Windows path that WSL's git cannot follow. A guard that fails
+# open is the failure this script exists to prevent, so it refuses to run instead: exit 2, as for a
+# script that could not start, and never 0.
+if [ "$(git rev-parse --is-inside-work-tree 2>/dev/null)" != "true" ]; then
+  echo "check-tree-hygiene: CANNOT RUN — git cannot read a work tree at $(pwd)."
+  echo "  Every scan asks git, so carrying on would report OK having looked at nothing."
+  echo "  A Windows git worktree under WSL is the known cause; run it from Git Bash there."
+  exit 2
+fi
+# The same failure one step later: git answers, but lists nothing. A real tree always holds this script.
+if [ -z "$(tree_files | head -c 1)" ]; then
+  echo "check-tree-hygiene: CANNOT RUN — git lists no files in the work tree at $(pwd)."
+  echo "  This script is itself in the tree, so an empty listing means git is not seeing it."
+  exit 2
+fi
 
 # COUNTED, not a flag, and the count is printed. A scan whose `note` runs in a subshell -- one
 # `cmd | while read` where a `< <(cmd)` was -- still prints its line and then loses the increment, so the
@@ -213,9 +234,23 @@ while IFS= read -r f; do
   [ -n "$f" ] && warned "AvaloniaVisualBasic mentioned (fine as upstream attribution; confirm it is not a stale code reference): $f"
 done < <(git grep --untracked -lI 'AvaloniaVisualBasic' -- . "${EXCLUDE[@]}")
 
+# 8. Unresolved merge-conflict markers. One reached main inside a Markdown file on 2026-09-22: a merge of
+#    main into a branch reported two conflicts, one was resolved, and the squash carried the other in (#614).
+#    CI and this script both passed it, because nothing here looked. The pattern is the opening and closing
+#    markers WITH their trailing space. It never matches a bare `=======`, which is also a Markdown setext
+#    heading underline and would fail every document that uses one.
+while IFS= read -r hit; do
+  [ -n "$hit" ] && note "unresolved merge-conflict marker: $hit"
+done < <(git grep --untracked -nIE '^(<<<<<<<|>>>>>>>) ' -- . "${EXCLUDE[@]}")
+
 echo
 if [ "$fails" -eq 0 ]; then
-  echo "check-tree-hygiene: OK${warn:+ — $warn warning(s), none blocking}"
+  # Tested as a number: `${warn:+...}` treated 0 as set, so a clean tree read "OK — 0 warning(s)".
+  if [ "$warn" -gt 0 ]; then
+    echo "check-tree-hygiene: OK — $warn warning(s), none blocking"
+  else
+    echo "check-tree-hygiene: OK"
+  fi
   exit 0
 fi
 echo "check-tree-hygiene: FAILED — $fails item(s) above."
