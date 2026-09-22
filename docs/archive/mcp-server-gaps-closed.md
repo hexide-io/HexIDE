@@ -1768,3 +1768,30 @@ the usual Windows 1.25/1.5 either — measure it.
 **Suggested fix.** Report the scale explicitly. `take_snapshot` returning the render scale alongside the
 path (and `inspect_element` naming the space its `boundingRect` is in) would remove the guesswork; the
 values are already known to the server.
+
+## 8. `type_text` bypasses a read-only editor, and reports `mechanism: "keyboard"` while doing it — **CLOSED** (#649, 2026-09-22)
+
+> **Fixed.** `type_text` refuses a read-only or disabled surface, naming which, and reports its mechanism as
+> `"document"`; `"keyboard"` is left to `press_key`. Verified live on a form HexIDE opens read-only (a
+> `CommandButton` nested in a `ListBox`): `type_text` answered `TextEditor is read-only, so a person could not
+> type there either; nothing was inserted`, and `get_file_content` showed the code unchanged. Worth knowing
+> when re-testing: the code window is read-only for a form HexIDE cannot save faithfully, not while a program
+> runs, so a running program is not the way to reach this.
+
+**Symptom.** Verifying the read-only editing gate (#22) against the running IDE, `type_text` successfully
+inserted `XXX_SHOULD_NOT_APPEAR` into a code editor whose `TextEditor.IsReadOnly` was bound true. The result
+reported `"mechanism":"keyboard"`, which reads as "a real key event went in" — so the first conclusion was
+that the gate was broken. It was not.
+
+**Cause.** The tool's own description says it inserts "at the caret **via the control's own API**", which is
+a document mutation, not input. `IsReadOnly` on AvaloniaEdit guards the *editing UI*, so a direct
+`Document.Insert` legitimately sidesteps it. The `mechanism: "keyboard"` label is the misleading part.
+
+**Workaround.** Do not use `type_text` to test whether input is blocked. `press_key` raises real
+`KeyDown`/`KeyUp`, but note gap #9 below before trusting a negative result from it either. The reliable
+check is behavioural at a level the user cares about — here, invoking Save and confirming the file on disk
+is byte-identical afterwards.
+
+**Suggested fix.** Report `mechanism: "api"` (or `"document"`) when inserting programmatically, and reserve
+`"keyboard"` for genuine key events. Optionally have `type_text` refuse, or warn, when the target editor is
+read-only — silently mutating a read-only document is a surprising default for an automation tool.
