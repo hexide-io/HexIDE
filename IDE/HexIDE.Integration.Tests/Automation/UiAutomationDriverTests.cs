@@ -639,6 +639,54 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
+    // #649: the insert is a document edit, so it went straight through a read-only editor and said "keyboard".
+
+    [AvaloniaFact]
+    public void TypeText_IntoAReadOnlyCodeEditor_IsRefusedAndChangesNothing()
+    {
+        var editor = new TextEditor { Text = "Sub Main()\nEnd Sub", IsReadOnly = true };
+        var window = Show(editor);
+        try
+        {
+            var outcome = UiAutomationDriver.TypeText(editor, "XXX_SHOULD_NOT_APPEAR");
+
+            outcome.Success.Should().BeFalse();
+            outcome.Mechanism.Should().Be(UiAutomationDriver.TypedMechanism);
+            outcome.Error.Should().Be("TextEditor is read-only, so a person could not type there either; nothing was inserted");
+            editor.Document.Text.Should().Be("Sub Main()\nEnd Sub");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void TypeText_IntoAReadOnlyOrDisabledTextBox_IsRefused()
+    {
+        var readOnly = new TextBox { Text = "kept", IsReadOnly = true };
+        var disabled = new TextBox { Text = "kept", IsEnabled = false };
+        var window = Show(new StackPanel { Children = { readOnly, disabled } });
+        try
+        {
+            UiAutomationDriver.TypeText(readOnly, "x").Error.Should().StartWith("TextBox is read-only");
+            UiAutomationDriver.TypeText(disabled, "x").Error.Should().StartWith("TextBox is disabled");
+            readOnly.Text.Should().Be("kept");
+            disabled.Text.Should().Be("kept");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void TypeText_ReportsItsMechanismAsADocumentEdit_NotAsKeyboardInput()
+    {
+        var box = new TextBox { Text = "" };
+        var window = Show(box);
+        try
+        {
+            UiAutomationDriver.TypeText(box, "hello").Mechanism.Should().Be("document",
+                "the text goes in through the control's API; 'keyboard' is reserved for press_key's real key events");
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void TypeText_FindsNestedTextSurface()
     {
