@@ -12,6 +12,13 @@ because what each one records is a *measurement*, and that is the part which sto
 rediscovered as a new one. Retiring them is also what lets this document's length mean something: it is
 a count of what still bites.
 
+**Record the exact call an entry failed with, arguments included.** A conclusion drawn from a call with
+unstated arguments cannot be checked by the next reader, and it can be wrong without anyone noticing: one
+entry here concluded that a document tab's content was "neither drivable nor readable" from a
+`dump_visual_tree` run with its default `interactiveOnly: true`, which filters out plain text. With
+`interactiveOnly: false` every field was there (#362). Write `dump_visual_tree(root: …, interactiveOnly: false,
+maxDepth: 14)`, not "`dump_visual_tree` returns only the tab chrome".
+
 ---
 
 ## 2. `set_control_property` only handles string / number / bool
@@ -34,7 +41,7 @@ coercion the designer's property grid uses**, so every editable property type is
 
 **Symptom.** MCP tools are discovered at session start. Shutting the IDE down — which is **required** to run
 the `vb6.exe` oracle and for any rebuild that holds file locks on the runtime DLLs — disconnects the `hexide`
-server and **removes its 38 tools from the session**; `ToolSearch("mcp__hexide__…")` then returns "no matching
+server and **removes every one of its tools from the session**; `ToolSearch("mcp__hexide__…")` then returns "no matching
 deferred tools." Relaunching the IDE (health 200) does **not** re-register them mid-session; it took a user
 **session resume** to bring them back.
 

@@ -818,11 +818,17 @@ even when it unblocks the task, which is what that comment did and why this was 
 > scroll that cannot move (`nothing to scroll vertically`, `already at that end`) fails rather than
 > reporting a success that changed nothing.
 >
-> **The "cannot read the tab's content" half had already closed by the time this was fixed.**
-> `dump_visual_tree` rooted at the Language Servers document now returns the cards beneath the tab: the
-> `Show its messages` button, the `Keep message bodies` checkbox, the configuration-problem text. Nothing in
-> #361 changed that. It is recorded here so the entry is not reopened on the strength of its own second
-> paragraph.
+> **The "cannot read the tab's content" half was never real, and neither was "cannot scroll" (#362).**
+> The entry's attempt ran `dump_visual_tree` with its defaults, and `interactiveOnly: true` filters out
+> plain text. With `interactiveOnly: false, maxDepth: 14` the same document returned every field of every
+> server card; `inspect_element` on one card returned its whole `LanguageServerRowViewModel`, including a
+> card below the fold; and `interact invoke` on the tab's own `PART_PageDownButton` already scrolled it,
+> moving that card from y = 870 to 607. So before #361 scrolling was possible but roundabout, and
+> reading was possible all along. What #361 added is a direct `scroll` action.
+>
+> An earlier version of this note said the reading half "had already closed" before #361. That was wrong
+> in the same way as the entry: it read a working result as a fix, when nothing had been broken. The entry
+> below is kept as written, because the mistake in it is the useful part.
 >
 > **What the entry did not notice.** `dump_visual_tree` was already *advertising* a `scroll` token, on 42
 > nodes, while `interact` had no such action, so the capability this entry asked for was being promised
