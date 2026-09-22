@@ -749,9 +749,14 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // form, and a form with no file saves through the native picker, which stops this server
             // answering: the call never returned and every call behind it hung. An armed answer makes the
             // save safe to attempt, including an armed cancel, which keeps the form without a file. (#514)
-            if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(designer.FormDefinition?.AbsolutePath))
+            //
+            // A UserControl or PropertyPage is saved through its MODULE, which holds the .ctl/.pag path; the
+            // designer half it draws on has no path of its own (#474). Asking about that half refused a
+            // document that has a file, and saving through it would have written a stray .frm.
+            var owner = OwnerModuleOf(designer.FormDefinition);
+            if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(owner?.AbsolutePath ?? designer.FormDefinition?.AbsolutePath))
                 return new AddControlResult(false, null,
-                    $"Form '{formName}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
+                    $"{(owner is not null ? owner.Kind.ToString() : "Form")} '{formName}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
 
             designer.SpawnControlAt(componentClass, new Avalonia.Rect(x, y, width, height));
             return new AddControlResult(true, designer.SelectedComponent?.Name, null, designer.FormDefinition);
@@ -770,8 +775,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
         // reported as success. (#334)
         try
         {
-            var written = await Dispatcher.UIThread.InvokeAsync(
-                async () => await ctx.ProjectService.SaveForm(spawned.Form, false));
+            // Through the owning module for a UserControl or PropertyPage, as set_control_property does. (#539)
+            var written = await Dispatcher.UIThread.InvokeAsync(async () =>
+                OwnerModuleOf(spawned.Form) is { } owner
+                    ? await ctx.ProjectService.SaveModule(owner, false)
+                    : await ctx.ProjectService.SaveForm(spawned.Form, false));
 
             // A refusal must not come back as success. (#147) The control is real and in the designer --
             // saying otherwise would be its own wrong answer -- but the file on disk does not have it, and
@@ -789,6 +797,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 $"'{spawned.ControlName}' was added to the designer but the save failed: {ex.Message}");
         }
     }
+
+    /// <summary>The UserControl or PropertyPage module whose designer half this is, or null for a form.</summary>
+    private ModuleDefinition? OwnerModuleOf(FormDefinition? form) =>
+        form is null
+            ? null
+            : ctx.ProjectManager.LoadedProjects.SelectMany(p => p.Modules).FirstOrDefault(m => m.FormPart == form);
 
     [McpServerTool(Name = "invoke_format_command")]
     [Description("Invokes a Format menu command on the active form designer, which lands as one undo step. " +

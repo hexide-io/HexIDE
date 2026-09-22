@@ -654,7 +654,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         if (formDefinition == null) return;
         bool before = formDefinition.LockControls;
         formDefinition.LockControls = !formDefinition.LockControls;
-        projectService.SaveForm(formDefinition, false).ListenErrors();
+        SaveLockControls();
         UndoStack.Push(new LockControlsCommand(before, formDefinition.LockControls));
     }
 
@@ -870,6 +870,27 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     }
 
     public void SaveForm() => projectService.SaveForm(formDefinition!, false).ListenErrors();
+
+    /// <summary>
+    /// Writes a Lock Controls change, but only when the designer's own form definition has a file.
+    /// </summary>
+    /// <remarks>
+    /// A form with no file saves through the Save As picker, so toggling Lock Controls, or undoing or redoing
+    /// the toggle, put a native Save As dialog in front of someone who had asked for nothing of the kind. An
+    /// automation client cannot see or close that dialog at all (#539 follow-up). Otherwise the change waits
+    /// for the next save, and a form with no file is unsaved whatever it holds.
+    ///
+    /// <para>
+    /// A UserControl's or PropertyPage's designer half has no path even when its .ctl/.pag exists (#474), so
+    /// for those this never auto-saves either. That is deliberate until #474 is fixed: the path it used to take
+    /// wrote a stray .frm.
+    /// </para>
+    /// </remarks>
+    public void SaveLockControls()
+    {
+        if (formDefinition?.AbsolutePath is not null)
+            SaveForm();
+    }
 
     public void SaveFormAs() => projectService.SaveForm(formDefinition!, true).ListenErrors();
 
