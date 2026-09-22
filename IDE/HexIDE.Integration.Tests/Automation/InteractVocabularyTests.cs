@@ -362,6 +362,28 @@ public class InteractVocabularyTests
         finally { window.Close(); }
     }
 
+    // #550: inspect_element reported a range control's provider but not its state, so the bounds could only be
+    // learned from set_range_value's refusal and a value only confirmed from a snapshot.
+    [AvaloniaFact]
+    public void Inspecting_a_range_control_reports_its_value_and_bounds()
+    {
+        var slider = new Slider { Minimum = 10, Maximum = 90, Value = 25 };
+        var window = Show(slider);
+        try
+        {
+            UiAutomationDriver.Inspect(slider, "Window/Slider").Range
+                .Should().Be(new RangeState(25, 10, 90, IsReadOnly: false));
+
+            UiAutomationDriver.Interact(slider, "set_range_value", "60").Error.Should().BeNull();
+            UiAutomationDriver.Inspect(slider, "Window/Slider").Range!.Value
+                .Should().Be(60, "reading back what set_range_value set is the point of reporting it");
+
+            UiAutomationDriver.Inspect(new Button(), "Window/Button").Range
+                .Should().BeNull("a control with no range reports none rather than zeros");
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void A_progress_bar_is_not_advertised_as_settable_and_says_why_when_asked()
     {
