@@ -680,6 +680,7 @@
     "Str.Vb6Toolchain.RunFailedTitle": "Spuštění selhalo",
     "Str.ProjectRunner.MustHaveStartupForm": "Musí existovat spouštěcí formulář nebo Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Tato akce resetuje projekt. Chcete pokračovat?",
+    "Str.ProjectRunner.StartupFormFailedToLoad": "Formulář '{0}' nelze načíst, projekt proto nebyl spuštěn.\n\n{1}",
     "Str.NewProject.Msg.Title": "Nový projekt",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Vaše verze HexIDE nepodporuje {0}",
     "Str.NewProject.Msg.FileNotFound": "Soubor nenalezen. Ujistěte se, že je zadán správný název souboru.",

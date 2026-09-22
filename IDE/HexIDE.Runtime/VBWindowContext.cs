@@ -68,6 +68,11 @@ public class VBWindowContext : IModuleExecutionRoot
 
     public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
     {
+        // An event raised before SetCode has no code to run, as when a form's controls fail to build and the
+        // run is abandoned half way. It used to reach here anyway and log a NullReferenceException after the
+        // real error, which read as a second fault (#590).
+        if (interpreter is null)
+            return;
         var argList = args is null ? null : new List<Vb6Value>(args);
         async Task Execute()
         {

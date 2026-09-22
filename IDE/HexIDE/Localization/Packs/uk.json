@@ -680,6 +680,7 @@
     "Str.Vb6Toolchain.RunFailedTitle": "Запуск не виконано",
     "Str.ProjectRunner.MustHaveStartupForm": "Має бути стартова форма або Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Ця дія скине проєкт. Продовжити?",
+    "Str.ProjectRunner.StartupFormFailedToLoad": "Не вдалося завантажити форму '{0}', тому проєкт не було запущено.\n\n{1}",
     "Str.NewProject.Msg.Title": "Новий проєкт",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Ваша версія HexIDE не підтримує {0}",
     "Str.NewProject.Msg.FileNotFound": "Файл не знайдено. Переконайтеся, що вказано правильне ім'я файлу.",

@@ -680,6 +680,7 @@
     "Str.Vb6Toolchain.RunFailedTitle": "Kørsel mislykkedes",
     "Str.ProjectRunner.MustHaveStartupForm": "Skal have en startformular eller Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Denne handling nulstiller projektet. Vil du fortsætte?",
+    "Str.ProjectRunner.StartupFormFailedToLoad": "Formularen '{0}' kunne ikke indlæses, så projektet blev ikke startet.\n\n{1}",
     "Str.NewProject.Msg.Title": "Nyt projekt",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Din HexIDE-version understøtter ikke {0}",
     "Str.NewProject.Msg.FileNotFound": "Filen blev ikke fundet. Sørg for, at det rigtige filnavn er angivet.",

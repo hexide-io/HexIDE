@@ -680,6 +680,7 @@
     "Str.Vb6Toolchain.RunFailedTitle": "Η εκτέλεση απέτυχε",
     "Str.ProjectRunner.MustHaveStartupForm": "Πρέπει να υπάρχει φόρμα εκκίνησης ή Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Αυτή η ενέργεια θα επαναφέρει το έργο σας. Θέλετε να συνεχίσετε;",
+    "Str.ProjectRunner.StartupFormFailedToLoad": "Δεν ήταν δυνατή η φόρτωση της φόρμας '{0}', οπότε το έργο δεν ξεκίνησε.\n\n{1}",
     "Str.NewProject.Msg.Title": "Νέο έργο",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Η έκδοση του HexIDE δεν υποστηρίζει {0}",
     "Str.NewProject.Msg.FileNotFound": "Το αρχείο δεν βρέθηκε. Βεβαιωθείτε ότι δόθηκε το σωστό όνομα αρχείου.",

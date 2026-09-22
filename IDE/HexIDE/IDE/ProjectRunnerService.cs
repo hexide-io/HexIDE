@@ -44,6 +44,9 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
     public bool IsRunning => runHandle != null;
 
+    /// <inheritdoc />
+    public event Action<string>? StartFailed;
+
     /// <summary>
     /// The project currently running, or null when nothing is.
     /// </summary>
@@ -190,14 +193,30 @@ public partial class ProjectRunnerService : IProjectRunnerService
                     debugController.StepInto();
 
                 Task task;
-                if (Static.SingleView)
+                try
                 {
-                    task = RunFormInBrowser(form, tokenSource.Token, out _, debugController);
+                    if (Static.SingleView)
+                    {
+                        task = RunFormInBrowser(form, tokenSource.Token, out _, debugController);
+                    }
+                    else
+                    {
+                        task = VBLoader.RunForm(form, tokenSource.Token, out var window, debugController);
+                        window.Show();
+                    }
                 }
-                else
+                catch (Exception e)
                 {
-                    task = VBLoader.RunForm(form, tokenSource.Token, out var window, debugController);
-                    window.Show();
+                    // The form could not be built, so the run never began, but Reset() above had already
+                    // put the controller in Running and the project was claimed. Both used to stay that way,
+                    // the error went only to the log, and the start was reported as having worked (#590).
+                    // Torn down here, before RunHandle exists, so nothing ever reads as running.
+                    Serilog.Log.Error(e, "The startup form {Form} failed to load", form.Name);
+                    debugController.Stop();
+                    RunningProject = null;
+                    StartFailed?.Invoke(string.Format(
+                        localization.GetString("Str.ProjectRunner.StartupFormFailedToLoad"), form.Name, e.Message));
+                    return;
                 }
 
                 RunHandle = new ActionDisposable(() => tokenSource.Cancel());
