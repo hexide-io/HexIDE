@@ -1065,47 +1065,74 @@ internal sealed class HexIdeTools(IdeContext ctx)
         });
     }
 
-    [McpServerTool(Name = "step_into")]
-    [Description("Step Into (F8): from idle, starts the project and breaks at the first executed statement; while paused, executes the next statement and breaks (descending into any called Sub/Function); while running, breaks at the next statement. Call get_debug_state afterward to read the new paused module/line.")]
-    public async Task<MutateResult> StepIntoAsync(CancellationToken ct)
+    /// <summary>How long a step's reply waits for the pause it causes before saying the program is still going.</summary>
+    private static readonly TimeSpan StepReplyWait = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// Starts a step and replies with where it paused. A step used to reply before the pause arrived, so every
+    /// step cost a second call to get_debug_state to learn where it had gone (#655).
+    /// </summary>
+    /// <remarks>
+    /// Subscribed to <c>Stopped</c> before the step starts, so a pause that lands at once is not missed; and it
+    /// waits for THAT pause rather than reading the state, which straight after the call still shows the
+    /// previous one. A statement that takes longer than <see cref="StepReplyWait"/> is reported as still
+    /// running, which is also what stepping out of an outermost event handler looks like: the program then
+    /// waits for the next event.
+    /// </remarks>
+    private async Task<MutateResult> StepAndReportAsync(Func<bool> can, Action start, CancellationToken ct)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        var stopped = new TaskCompletionSource<StoppedInfo>(TaskCreationOptions.RunContinuationsAsynchronously);
+        void OnStopped(StoppedInfo info) => stopped.TrySetResult(info);
+
+        var refused = await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            if (!ctx.ProjectRunnerService.CanStepIntoProject)
+            if (!can())
                 return new MutateResult(false, "No project to step — load a project first");
-            if (StartFailure(() => ctx.ProjectRunnerService.StepIntoProject()) is { } failed)
+            ctx.DebugController.Stopped += OnStopped;
+            if (StartFailure(start) is { } failed)
+            {
+                ctx.DebugController.Stopped -= OnStopped;
                 return failed;
-            return new MutateResult(true, null);
+            }
+            return null;
         });
+        if (refused is not null)
+            return refused;
+
+        try
+        {
+            if (await Task.WhenAny(stopped.Task, Task.Delay(StepReplyWait, ct)) == stopped.Task)
+            {
+                var at = await stopped.Task;
+                return new MutateResult(true, null, $"Paused at {at.Module} line {at.Line} ({at.Reason}).");
+            }
+
+            var running = await Dispatcher.UIThread.InvokeAsync(() => ctx.ProjectRunnerService.IsRunning);
+            return new MutateResult(true, null, running
+                ? $"Still running {StepReplyWait.TotalSeconds:0} s after the step began: the statement has not "
+                  + "finished, or the program is waiting for its next event. get_debug_state says where it breaks."
+                : "The program ended before it reached another statement.");
+        }
+        finally
+        {
+            await Dispatcher.UIThread.InvokeAsync(() => ctx.DebugController.Stopped -= OnStopped);
+        }
     }
+
+    [McpServerTool(Name = "step_into")]
+    [Description("Step Into (F8): from idle, starts the project and breaks at the first executed statement; while paused, executes the next statement and breaks (descending into any called Sub/Function); while running, breaks at the next statement. The reply's 'note' says where it paused (module, line and reason) or, when no pause comes within 2 s, whether the program is still running or has ended.")]
+    public Task<MutateResult> StepIntoAsync(CancellationToken ct) =>
+        StepAndReportAsync(() => ctx.ProjectRunnerService.CanStepIntoProject, () => ctx.ProjectRunnerService.StepIntoProject(), ct);
 
     [McpServerTool(Name = "step_over")]
-    [Description("Step Over (Shift+F8): while paused, executes the next statement and breaks in the SAME frame — a called Sub/Function runs to completion without descending (unlike step_into). On a non-call statement it behaves like step_into. From idle, starts the project and breaks at the first statement. Call get_debug_state afterward to read the new paused module/line.")]
-    public async Task<MutateResult> StepOverAsync(CancellationToken ct)
-    {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            if (!ctx.ProjectRunnerService.CanStepOverProject)
-                return new MutateResult(false, "No project to step — load a project first");
-            if (StartFailure(() => ctx.ProjectRunnerService.StepOverProject()) is { } failed)
-                return failed;
-            return new MutateResult(true, null);
-        });
-    }
+    [Description("Step Over (Shift+F8): while paused, executes the next statement and breaks in the SAME frame — a called Sub/Function runs to completion without descending (unlike step_into). On a non-call statement it behaves like step_into. From idle, starts the project and breaks at the first statement. The reply's 'note' says where it paused (module, line and reason) or, when no pause comes within 2 s, whether the program is still running or has ended.")]
+    public Task<MutateResult> StepOverAsync(CancellationToken ct) =>
+        StepAndReportAsync(() => ctx.ProjectRunnerService.CanStepOverProject, () => ctx.ProjectRunnerService.StepOverProject(), ct);
 
     [McpServerTool(Name = "step_out")]
-    [Description("Step Out (Ctrl+Shift+F8): while paused, runs the rest of the current procedure and breaks at the statement in the CALLER after it returns. Stepping out of the outermost frame runs that event/procedure to completion. From idle it starts the project (like Step Into); while running it requests a pause. Call get_debug_state afterward to read the new paused module/line.")]
-    public async Task<MutateResult> StepOutAsync(CancellationToken ct)
-    {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            if (!ctx.ProjectRunnerService.CanStepOutProject)
-                return new MutateResult(false, "No project to step — load a project first");
-            if (StartFailure(() => ctx.ProjectRunnerService.StepOutProject()) is { } failed)
-                return failed;
-            return new MutateResult(true, null);
-        });
-    }
+    [Description("Step Out (Ctrl+Shift+F8): while paused, runs the rest of the current procedure and breaks at the statement in the CALLER after it returns. Stepping out of the outermost frame runs that event/procedure to completion. From idle it starts the project (like Step Into); while running it requests a pause. The reply's 'note' says where it paused (module, line and reason) or, when no pause comes within 2 s, whether the program is still running or has ended.")]
+    public Task<MutateResult> StepOutAsync(CancellationToken ct) =>
+        StepAndReportAsync(() => ctx.ProjectRunnerService.CanStepOutProject, () => ctx.ProjectRunnerService.StepOutProject(), ct);
 
     [McpServerTool(Name = "run_to_cursor")]
     [Description("Run To Cursor (Ctrl+F8): run until (module, 1-based line) then break — a one-shot temporary breakpoint. While paused it continues to the target; while running it arms the target; from idle it starts the project and runs to the target (a real breakpoint hit first stays paused there; continue proceeds toward the target). Call get_debug_state afterward to read the paused module/line. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them.")]
