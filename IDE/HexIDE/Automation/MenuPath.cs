@@ -64,10 +64,17 @@ public static class MenuPath
 
             // The segment as typed is what the menu displays, and a displayed underscore is literal: stripping
             // the segment as well lost it, so "Remove My_App" could not reach the item showing exactly that
-            // (#544). The stripped form is tried second, for a caller who typed the raw header.
+            // (#544). The stripped form is tried second, for a caller who typed the raw header. Third, both
+            // without a trailing ellipsis, which says "this opens a dialog" and is not part of the command's
+            // name: "Tools/Protocol Inspector" missed the item showing "Protocol Inspector..." (#564). Last, so
+            // a menu holding both "Save" and "Save..." still gives each caller the one they spelled.
+            var stripped = StripAccessKey(segment);
             var match = entries.FirstOrDefault(e => Named(e, segment)) is { Header: not null } exact
                 ? exact
-                : entries.FirstOrDefault(e => Named(e, StripAccessKey(segment)));
+                : entries.FirstOrDefault(e => Named(e, stripped)) is { Header: not null } unmarked
+                    ? unmarked
+                    : entries.FirstOrDefault(e => string.Equals(
+                        WithoutEllipsis(e.Header), WithoutEllipsis(stripped), StringComparison.OrdinalIgnoreCase));
             var where = found is null ? "the menu bar" : $"menu '{found.Value.Header}'";
 
             if (match.Header is null)
@@ -93,6 +100,15 @@ public static class MenuPath
     }
 
     private static bool Named(Entry e, string text) => string.Equals(e.Header, text, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>A header without the "..." or "…" that marks an item as opening a dialog.</summary>
+    private static string WithoutEllipsis(string text)
+    {
+        var trimmed = text.TrimEnd();
+        if (trimmed.EndsWith("...", StringComparison.Ordinal)) return trimmed[..^3].TrimEnd();
+        if (trimmed.EndsWith('…')) return trimmed[..^1].TrimEnd();
+        return trimmed;
+    }
 
     /// <summary>
     /// A menu entry from a logical item: a <see cref="MenuItem"/>, the container realised for a bound item, or,
