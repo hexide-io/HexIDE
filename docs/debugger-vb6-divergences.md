@@ -273,6 +273,28 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **Status:** **by design** (a real tree-walker limit, not an artificial cap). Run To Cursor (P7a) has no such limit —
   it's a one-shot breakpoint, matched by line at any depth.
 
+### D19. Step Into from design mode runs the program without breaking
+- **VB6:** F8 in design mode starts the program and breaks on the first executable line, so the developer watches
+  it begin one statement at a time.
+- **HexIDE:** from idle, Step Into starts the program and it runs straight through. Measured 2026-09-22 on a
+  `--newproject` form whose `Form_Load` called a function: through the Debug toolbar's Step Into button and through
+  `step_into` alike, the state stayed `Running` and the Immediate window showed the load had completed. Stepping
+  from a pause works, and so do breakpoints.
+- **Why:** not known yet. The start path is meant to arm "the starting run's first statement"; the defect is there
+  or in how the first statement of a form's load is reached.
+- **Status:** **bug**, [#656](https://github.com/hexide-io/HexIDE/issues/656). What VB6 does on exactly this form is
+  still owed to the oracle.
+
+### D20. A step from a function's last statement skips `End Function` — UNMEASURED
+- **VB6:** not measured. Whether F8 stops on `End Function` / `End Sub` before returning to the caller needs the
+  oracle.
+- **HexIDE:** paused on `Twice = n * 2`, the only statement of a `Private Function`, a Step Into went straight to
+  the caller's next line without stopping on `End Function` (2026-09-22).
+- **Why:** unknown until VB6's behaviour is measured; if VB6 stops there, the walk has no statement to stop on
+  for the `End` line.
+- **Status:** **unmeasured**, recorded on [#656](https://github.com/hexide-io/HexIDE/issues/656). Not a
+  divergence until the oracle says VB6 stops there.
+
 ---
 
 ## Deferred debugger surfaces (not divergences yet — just not built)
