@@ -19,7 +19,7 @@ namespace HexIDE.Tests.Infrastructure;
 /// </remarks>
 internal static class ToolSource
 {
-    internal sealed record Parameter(string Name, bool Optional);
+    internal sealed record Parameter(string Name, bool Optional, string Type = "");
 
     internal sealed record Tool(
         string Name,
@@ -189,8 +189,8 @@ internal static class ToolSource
         if (declaration.StartsWith("CancellationToken", StringComparison.Ordinal))
             return null;
         var beforeDefault = declaration.Split('=', 2);
-        var name = beforeDefault[0].Trim().Split([' ', '\t', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries)[^1];
-        return new Parameter(name, beforeDefault.Length == 2);
+        var words = beforeDefault[0].Trim().Split([' ', '\t', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries);
+        return new Parameter(words[^1], beforeDefault.Length == 2, string.Join(" ", words[..^1]));
     }
 
     /// <summary>
