@@ -600,33 +600,38 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (window is null)
                 return new WindowStateResult("Unknown", 0, 0, 0, 0);
 
-            var state = window.WindowState switch
-            {
-                Avalonia.Controls.WindowState.Maximized => "Maximized",
-                Avalonia.Controls.WindowState.Minimized => "Minimized",
-                _ => "Normal"
-            };
-            var pos  = window.Position;
-            var size = window.ClientSize;
-            return new WindowStateResult(state, pos.X, pos.Y, (int)size.Width, (int)size.Height);
+            return WindowStateOf(window);
         });
     }
 
+    private static WindowStateResult WindowStateOf(Avalonia.Controls.Window window)
+    {
+        var state = window.WindowState switch
+        {
+            Avalonia.Controls.WindowState.Maximized => "Maximized",
+            Avalonia.Controls.WindowState.Minimized => "Minimized",
+            _ => "Normal"
+        };
+        var pos  = window.Position;
+        var size = window.ClientSize;
+        return new WindowStateResult(state, pos.X, pos.Y, (int)size.Width, (int)size.Height);
+    }
+
     [McpServerTool(Name = "set_window_state")]
-    [Description("Sets the main window to Maximized, Normal, or Minimized. When setting Normal, any of `x`, `y`, `width` and `height` that are passed are applied first; each is optional.")]
-    public async Task<MutateResult> SetWindowStateAsync(
+    [Description("Sets the main window to Maximized, Normal, or Minimized, and replies with the resulting state, position and size as get_window_state reports them. When setting Normal, any of `x`, `y`, `width` and `height` that are passed are applied first; each is optional, and one left out keeps its current value. They apply only to Normal and are refused with any other state. `width` and `height` must be positive, and a position that would leave the window on no screen at all is refused with the screens' bounds. A refused call changes nothing.")]
+    public async Task<WindowStateChangeResult> SetWindowStateAsync(
         string state,
         // Defaults, not just nullable types: a nullable parameter with no default is required in the schema,
         // so the "optional" the description promised was refused on the wire. (#582)
         int? x = null, int? y = null, int? width = null, int? height = null,
         CancellationToken ct = default)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        var refused = await Dispatcher.UIThread.InvokeAsync(WindowStateChangeResult? () =>
         {
             var window = (Avalonia.Application.Current!.ApplicationLifetime as
                 Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow;
             if (window is null)
-                return new MutateResult(false, "No main window");
+                return new WindowStateChangeResult(false, "No main window", null);
 
             var target = state.ToLowerInvariant() switch
             {
@@ -637,19 +642,62 @@ internal sealed class HexIdeTools(IdeContext ctx)
             };
 
             if (target is null)
-                return new MutateResult(false, $"Unknown state '{state}' — use Maximized, Normal, or Minimized");
+                return new WindowStateChangeResult(false, $"Unknown state '{state}' — use Maximized, Normal, or Minimized", null);
 
-            if (target == Avalonia.Controls.WindowState.Normal)
+            // Everything is checked before anything changes. A negative size used to throw out of the tool, which
+            // reached the caller as a bare "An error occurred invoking"; x without y was dropped with success; and
+            // a position on no screen was accepted, which lost the IDE window where nobody could reach it. (#602)
+            var geometry = x is not null || y is not null || width is not null || height is not null;
+            if (geometry && target != Avalonia.Controls.WindowState.Normal)
+                return new WindowStateChangeResult(false,
+                    $"x, y, width and height apply only to Normal, not {target}. Nothing was changed.", null);
+            if (width is <= 0 || height is <= 0)
+                return new WindowStateChangeResult(false,
+                    $"width and height must be positive; got {(width is <= 0 ? $"width {width}" : $"height {height}")}. Nothing was changed.", null);
+
+            if (target == Avalonia.Controls.WindowState.Normal && geometry)
             {
-                if (x is not null && y is not null)
-                    window.Position = new Avalonia.PixelPoint(x.Value, y.Value);
+                // Normal first, then the geometry. Restoring from Maximized puts the window back at its restore
+                // bounds, which overwrote a position and size applied before it, and a coordinate left out has
+                // to default to where the RESTORED window is, not to the maximised frame's -11. A refusal puts
+                // the previous state back, so it still changes nothing.
+                var previous = window.WindowState;
+                window.WindowState = target.Value;
+                var position = new Avalonia.PixelPoint(x ?? window.Position.X, y ?? window.Position.Y);
+                var size = Avalonia.PixelSize.FromSize(
+                    new Avalonia.Size(width ?? window.ClientSize.Width, height ?? window.ClientSize.Height),
+                    window.RenderScaling);
+                var frame = new Avalonia.PixelRect(position, size);
+                var screens = window.Screens.All;
+                if (screens.Count > 0 && !screens.Any(s => s.WorkingArea.Intersects(frame)))
+                {
+                    window.WindowState = previous;
+                    return new WindowStateChangeResult(false,
+                        $"({position.X},{position.Y}) would put the window on no screen. Screens: "
+                        + string.Join("; ", screens.Select(s => $"{s.WorkingArea.X},{s.WorkingArea.Y} {s.WorkingArea.Width}×{s.WorkingArea.Height}"))
+                        + ". Nothing was changed.", null);
+                }
+
+                window.Position = position;
                 if (width is not null)  window.Width  = width.Value;
                 if (height is not null) window.Height = height.Value;
+                return null;
             }
 
             window.WindowState = target.Value;
-            return new MutateResult(true, null);
+            return null;
         });
+        if (refused is not null)
+            return refused;
+
+        // Read back after layout has run. A new Width or Height reaches ClientSize in the next layout pass, so
+        // reading it straight away reported the size the window had before the call.
+        return await Dispatcher.UIThread.InvokeAsync(() =>
+            (Avalonia.Application.Current!.ApplicationLifetime as
+                Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime)?.MainWindow is { } after
+                ? new WindowStateChangeResult(true, null, WindowStateOf(after))
+                : new WindowStateChangeResult(false, "No main window", null),
+            DispatcherPriority.Background);
     }
 
     [McpServerTool(Name = "get_tool_windows")]
@@ -2340,6 +2388,9 @@ internal record ShutdownResult(bool Requested, bool ProjectStopped, int DialogsC
 internal record AddFileResult(bool Success, string? Path, string? Error, string? Note = null);
 
 internal record WindowStateResult(string State, int X, int Y, int Width, int Height);
+
+/// <summary>What <c>set_window_state</c> did: the window's state afterwards, as <c>get_window_state</c> reports it.</summary>
+internal record WindowStateChangeResult(bool Success, string? Error, WindowStateResult? Window);
 
 internal record ToolWindowInfo(string Name, bool Visible);
 

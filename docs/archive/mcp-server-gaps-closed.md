@@ -1181,7 +1181,6 @@ executable statement is still accepted. Both are noted on #569.
 
 ---
 
-<<<<<<< HEAD
 ## `add_file` created a document under a name VB6 does not accept, and could write outside the project — **CLOSED** (#596, 2026-09-22)
 
 > **Fixed.** `add_file` now applies `ProjectNaming`, the rule every other way of naming a document uses:
@@ -1207,7 +1206,9 @@ each refused, and nothing is written. The reviewer found this, not the audit.
 **Why it mattered.** Nothing refused the name until something downstream tried to use it as an identifier.
 The reply said "saves it to disk" while the `.vbp` did not list the file, so a caller checking the project
 file concluded the add had failed.
-=======
+
+---
+
 ## A run that failed to start was reported as started, and left the debugger saying `Running` — **CLOSED** (#590, 2026-09-22)
 
 > **Fixed.** When the startup form cannot be built, the start now tears down what it had claimed (the
@@ -1240,7 +1241,6 @@ in the IDE log. `run_to_cursor` takes the same path. A person pressing F5 sees n
 runtime-error dialog and `get_last_runtime_error` reports it, and reset the controller to `Stopped`:
 [#590](https://github.com/hexide-io/HexIDE/issues/590). Any exception while the startup form loads
 takes this path, not only #589's.
->>>>>>> upstream/main
 
 ---
 
@@ -1291,3 +1291,27 @@ checked. The stack trace is kept out of the reply. Authentication stays #352.
 path is denied.` with no path in it, because the writer's own message does not name one here. So the redaction
 is defensive at these four sites. It was exercised end to end on the backstop in #605, where an
 `UnauthorizedAccessException` did carry the path.
+
+---
+
+## `set_window_state` threw on a negative size, ignored `x` or `y` alone, and could put the IDE off every screen — **CLOSED** (#602, 2026-09-22)
+
+> **Fixed.** Everything is checked before anything changes, and a refusal says "Nothing was changed.":
+> - a non-positive `width` or `height` is refused;
+> - `x`, `y`, `width` or `height` with a state other than Normal is refused rather than ignored;
+> - a position that would leave the window intersecting no screen's working area is refused, and the reply
+>   names the screens.
+>
+> `x` and `y` now apply independently. A left-out coordinate keeps the window's current value, read after
+> restoring from Maximized, so it is the restored position, not the maximised frame's -11. The reply carries
+> the resulting `window` (state, position, size) as `get_window_state` reports it, read after layout, so a new
+> size is not reported as the old one.
+
+**Symptom.** On a window at (190,190) 945×447:
+- `set_window_state {"state":"Normal","width":-50,"x":-99999}` answered only `An error occurred invoking 'set_window_state'.`
+- `{"state":"Normal","x":300}` answered success and left the window where it was.
+- `{"state":"Normal","x":-99999,"y":-99999}` answered success and moved the IDE to (-32768,-32768), where nobody could see or reach it.
+
+**Found while fixing it.** Applying the geometry before `WindowState = Normal` lost it whenever the window was
+maximised: the restore put the window back at its restore bounds. Reading `ClientSize` straight after setting
+`Width` gave the size before the call.
