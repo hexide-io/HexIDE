@@ -967,8 +967,16 @@ public static class UiAutomationDriver
     /// caller waits.
     /// </para>
     /// </remarks>
-    public static InteractOutcome Hover(Control control, double? x, double? y)
+    public static InteractOutcome Hover(Control control, double? x, double? y) =>
+        Hover(control, x, y, out _);
+
+    /// <summary>Where a hover landed: the control the pointer events were raised on, and the point on it.</summary>
+    public readonly record struct HoverLanding(Control Receiver, Point Point);
+
+    /// <inheritdoc cref="Hover(Control, double?, double?)"/>
+    public static InteractOutcome Hover(Control control, double? x, double? y, out HoverLanding? landing)
     {
+        landing = null;
         try
         {
             if (TopLevel.GetTopLevel(control) is not { } topLevel)
@@ -992,11 +1000,41 @@ public static class UiAutomationDriver
                     (ulong)Environment.TickCount64, props, KeyModifiers.None));
             }
 
+            landing = new HoverLanding(target, local);
             var where = ReferenceEquals(target, control) ? string.Empty : $" on {Describe(target)}";
             return new InteractOutcome(true, "pointer",
                 $"hovered ({local.X:0.#}, {local.Y:0.#}){where}", null);
         }
         catch (Exception ex) { return new InteractOutcome(false, "pointer", null, $"hover threw: {ex.Message}"); }
+    }
+
+    /// <summary>
+    /// The tooltip text declared for the point a hover landed on, open or not: the tip of the control under
+    /// that point, else of its nearest ancestor that has one. Null when none does.
+    /// </summary>
+    /// <remarks>
+    /// <b>Found from the point, never from the receiver's descendants.</b> Searching descendants reported
+    /// whichever control happened to come first in the tree: a hover on the window that landed in a code
+    /// editor answered with the Standard toolbar's "Add Project" (#610). The hit test still finds a tip
+    /// set on a part inside the receiver, because that part is what is under the point.
+    ///
+    /// <para>
+    /// <b>By bounds, not by Avalonia's hit test.</b> Both <c>InputHitTest</c> and <c>GetVisualAt</c> skip a
+    /// disabled button (measured in the headless tests, with <c>enabledElementsOnly: false</c> too), and a
+    /// disabled toolbar button is exactly where a caller asks what the tip says.
+    /// </para>
+    /// </remarks>
+    public static string? DeclaredToolTipAt(Control receiver, Point point)
+    {
+        Visual under = receiver;
+        while (under.GetVisualChildren().Where(v => v.IsEffectivelyVisible).Reverse()
+                   .FirstOrDefault(v => receiver.TranslatePoint(point, v) is { } p && new Rect(v.Bounds.Size).Contains(p))
+               is { } topmost)
+            under = topmost;
+
+        foreach (var c in under.GetSelfAndVisualAncestors().OfType<Control>())
+            if (ToolTip.GetTip(c)?.ToString() is { Length: > 0 } text) return text.Trim();
+        return null;
     }
 
     /// <summary>The element a hover should land on — the editor's text view, else the control itself.</summary>

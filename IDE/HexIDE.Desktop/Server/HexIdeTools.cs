@@ -1573,12 +1573,16 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "hover")]
-    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) by raising real PointerEntered/PointerMoved events, watches for a tip, and reports its text. WORKS for tips a control raises from its OWN pointer handler — LSP quick-info and the debugger's Auto Data Tips in the code editor. Does NOT work for a declarative ToolTip.Tip: Avalonia's ToolTipService ignores a synthetic pointer, so a toolbar button's tooltip stays shut. 'x'/'y' are optional and relative to the target's own top-left; omit them and the point is the CARET for a code editor (position it first with interact set_property CaretOffset, which is how you hover a particular identifier) and the centre of anything else. 'dwellMs' (default 1500) is how long to watch — it must exceed the 400ms quick-info dwell plus the language server's round trip. The tip is TRANSIENT (a synthetic pointer never sets IsPointerOver, so it closes again shortly after opening), which is why this polls rather than looking once, and it is placed AT THE REAL POINTER — wherever it last crossed this window — and not under the target: the editor opens quick-info with PlacementMode.Pointer, which anchors to a position Avalonia tracks per window and a synthetic event never updates. Measured: with the mouse parked over the Toolbox, hovering the caret opened the tip beside the Toolbox; on a fresh window at screen (300,250) that no pointer had crossed, it opened at screen (0,15). So assert the reported text, never a snapshot. 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused.")]
+    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) by raising real PointerEntered/PointerMoved events, watches for a tip, and reports its text. WORKS for tips a control raises from its OWN pointer handler — LSP quick-info and the debugger's Auto Data Tips in the code editor. Does NOT work for a declarative ToolTip.Tip: Avalonia's ToolTipService ignores a synthetic pointer, so a toolbar button's tooltip stays shut. 'x'/'y' are optional and relative to the target's own top-left; omit them and the point is the CARET for a code editor (position it first with interact set_property CaretOffset, which is how you hover a particular identifier) and the centre of anything else. A target that is not a code editor but contains one is hovered at that editor, the first under it, and the reply then names the editor. 'dwellMs' (default 1500, 0 to 10000) is how long to watch — it must exceed the 400ms quick-info dwell plus the language server's round trip. When no tip opens, the reply adds the 'declared tip' of the control under the hovered point or its nearest ancestor that sets one, which is the text a human would be shown there. The tip is TRANSIENT (a synthetic pointer never sets IsPointerOver, so it closes again shortly after opening), which is why this polls rather than looking once, and it is placed AT THE REAL POINTER — wherever it last crossed this window — and not under the target: the editor opens quick-info with PlacementMode.Pointer, which anchors to a position Avalonia tracks per window and a synthetic event never updates. Measured: with the mouse parked over the Toolbox, hovering the caret opened the tip beside the Toolbox; on a fresh window at screen (300,250) that no pointer had crossed, it opened at screen (0,15). So assert the reported text, never a snapshot. 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused.")]
     public async Task<InteractOutcome> HoverAsync(
         string target, double? x = null, double? y = null, int dwellMs = 1500, string? window = null,
         CancellationToken ct = default)
     {
-        Control? hovered = null;
+        if (dwellMs is < 0 or > MaxHoverDwellMs)
+            return new InteractOutcome(false, "pointer", null,
+                $"dwellMs must be between 0 and {MaxHoverDwellMs}; it was {dwellMs}");
+
+        UiAutomationDriver.HoverLanding? landing = null;
 
         var raised = await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -1588,11 +1592,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
             var (control, resolveError) = UiAutomationDriver.Resolve(active, target);
             if (control is null) return new InteractOutcome(false, "pointer", null, resolveError);
 
-            hovered = control;
-            return UiAutomationDriver.Hover(control, x, y);
+            var outcome = UiAutomationDriver.Hover(control, x, y, out var landed);
+            landing = landed;
+            return outcome;
         });
 
-        if (!raised.Success || hovered is null) return raised;
+        if (!raised.Success || landing is not { } at) return raised;
+        var hovered = at.Receiver;
 
         // POLLED, and measured to need it. A synthetic pointer never sets IsPointerOver, so Avalonia closes
         // the tip again shortly after the editor opens it: the tip is real, visible, and transient. Looking
@@ -1602,7 +1608,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         // continuation -- a 400ms dwell, then an await -- so holding the dispatcher would stop the very
         // thing being waited for and then report, accurately, that nothing happened.
         string? tip = null;
-        var deadline = Environment.TickCount64 + Math.Clamp(dwellMs, 0, 10_000);
+        var deadline = Environment.TickCount64 + dwellMs;
         while (tip is null && Environment.TickCount64 < deadline)
         {
             await Task.Delay(50, ct);
@@ -1617,7 +1623,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
         // from the attached property even when Avalonia will not show it. The two are reported under
         // different words on purpose: "tip:" means a popup was observed open, "declared tip:" means only
         // that the text is set. Collapsing them would turn a limitation into a passing assertion.
-        var declared = await Dispatcher.UIThread.InvokeAsync(() => DescribeDeclaredToolTip(hovered));
+        var declared = await Dispatcher.UIThread.InvokeAsync(
+            () => UiAutomationDriver.DeclaredToolTipAt(at.Receiver, at.Point));
         var unopened = raised.Detail + "; no tip opened within " + dwellMs + "ms";
         return raised with
         {
@@ -1629,28 +1636,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
         };
     }
 
-    /// <summary>
-    /// The tooltip text a control (or one of its ancestors or descendants) <i>declares</i>, open or not.
-    /// </summary>
-    /// <remarks>
-    /// Deliberately says nothing about whether anything is on screen. It exists so a caller can still assert
-    /// a toolbar button's tooltip <i>text</i> in the one case this tool cannot make a tip appear, and its
-    /// result is reported under different wording from an observed-open tip so the two can never be
-    /// mistaken for each other.
-    /// </remarks>
-    private static string? DescribeDeclaredToolTip(Control? from)
-    {
-        if (from is null) return null;
-
-        for (var c = from; c is not null; c = c.Parent as Control)
-            if (DeclaredOn(c) is { } fromAncestor) return fromAncestor;
-        foreach (var c in from.GetVisualDescendants().OfType<Control>())
-            if (DeclaredOn(c) is { } fromDescendant) return fromDescendant;
-        return null;
-
-        static string? DeclaredOn(Control c) =>
-            ToolTip.GetTip(c)?.ToString() is { Length: > 0 } text ? text.Trim() : null;
-    }
+    // The watch is bounded so a mistyped value cannot hold a call open for minutes. Refused rather than
+    // clamped, because a clamped value left the reply quoting a dwell that never happened (#610).
+    private const int MaxHoverDwellMs = 10_000;
 
     /// <summary>
     /// The text of a tooltip currently OPEN on a control, one of its ancestors, or one of its
