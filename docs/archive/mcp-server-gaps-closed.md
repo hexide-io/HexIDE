@@ -818,11 +818,17 @@ even when it unblocks the task, which is what that comment did and why this was 
 > scroll that cannot move (`nothing to scroll vertically`, `already at that end`) fails rather than
 > reporting a success that changed nothing.
 >
-> **The "cannot read the tab's content" half had already closed by the time this was fixed.**
-> `dump_visual_tree` rooted at the Language Servers document now returns the cards beneath the tab: the
-> `Show its messages` button, the `Keep message bodies` checkbox, the configuration-problem text. Nothing in
-> #361 changed that. It is recorded here so the entry is not reopened on the strength of its own second
-> paragraph.
+> **The "cannot read the tab's content" half was never real, and neither was "cannot scroll" (#362).**
+> The entry's attempt ran `dump_visual_tree` with its defaults, and `interactiveOnly: true` filters out
+> plain text. With `interactiveOnly: false, maxDepth: 14` the same document returned every field of every
+> server card; `inspect_element` on one card returned its whole `LanguageServerRowViewModel`, including a
+> card below the fold; and `interact invoke` on the tab's own `PART_PageDownButton` already scrolled it,
+> moving that card from y = 870 to 607. So before #361 scrolling was possible but roundabout, and
+> reading was possible all along. What #361 added is a direct `scroll` action.
+>
+> An earlier version of this note said the reading half "had already closed" before #361. That was wrong
+> in the same way as the entry: it read a working result as a fix, when nothing had been broken. The entry
+> below is kept as written, because the mistake in it is the useful part.
 >
 > **What the entry did not notice.** `dump_visual_tree` was already *advertising* a `scroll` token, on 42
 > nodes, while `interact` had no such action, so the capability this entry asked for was being promised
@@ -857,3 +863,94 @@ resolving to the nearest ancestor `ScrollViewer`) would close it for every scrol
 just this one — the Object Browser, the Translation Editor and the Locals tree have the same shape. Failing
 that, `take_snapshot` could accept an optional element `path` and capture that element at its full desired
 size rather than clipped to the viewport, which would also make long content diffable.
+
+---
+
+## 6. Can't open a Debug-menu dialog (e.g. Add Watch) via MCP to snapshot it — **CLOSED** (#362, 2026-09-22)
+
+> **Closed, measured on the running IDE (#362).** `invoke_menu_item(path: "Debug/Add Watch...")` opened the
+> dialog, `take_snapshot()` captured it (`activeDialog: "Add Watch"`), and `dump_visual_tree()` listed its
+> expression box, three radio buttons and OK/Cancel, each drivable. The row half is closed by the tree
+> fallback in `interact select`: a `TreeViewItem` is now reported with `selectionItem`, and selecting one
+> sets the owning tree's `SelectedItem`. That path was driven on a Project Explorer node in the same pass,
+> not on a Watches row.
+
+**Symptom.** Verifying debugger P6a's **Add Watch** dialog rendering couldn't be driven through MCP. The dialog opens
+from a Debug-menu item / keyboard shortcut backed by a *routed* command (AvaloniaLabs CommandManager), not a VM
+`ICommand`: `interact invoke_command AddWatchCommand` finds no such property on `MainViewViewModel`; `interact invoke`
+on `MenuItem[Debug]` reports "element does not support 'invoke'" (a top-level menu exposes no invoke provider until
+opened, and its children aren't in the tree until then). The Watches rows render as `TreeViewItem`s but don't
+advertise a `selectionItem` provider, so selecting a row to enable `EditWatchCommand` (which opens the same dialog)
+wasn't reachable either.
+
+**How it bit (debugger P6a).** The Watches *window* was fully verified live — it renders (columns + rows in
+`dump_visual_tree`, snapshot after Stop) and evaluates correctly while paused (`get_watches`: x=42, s=hello, x*2=84,
+arr expandable). Only the **Add Watch dialog's** live render couldn't be reached; deferred to P6b (where its
+Break-type radios become functional and it's exercised again), backed meanwhile by the dialog-VM unit tests.
+
+**Fix consideration.** Best: (a) surface a `selectionItem` provider on tool-window TreeView rows so `interact select`
+can set the selection (unlocking the row's context-menu commands like Edit/Delete); also useful: (b) make a top-level
+`MenuItem` invoke open the menu and realize its children, or (c) a thin MCP action to open a named debugger dialog.
+
+---
+
+## A Project Explorer node that is not a form or module cannot be selected or opened — **CLOSED** (#362, 2026-09-22)
+
+> **Closed (#362).** A Project Explorer node is now reported as `TreeItem` with `selectionItem`, and
+> `interact(target: ".../Custom/Tree/Pane/TreeItem/TreeItem", action: "double_click", window: "ide")` on
+> Form1's node answered `double-clicked 'TreeItem' (selected it first, as a real double-click does)` and
+> activated its designer. `open_file` also resolves carried files by name or filename
+> (`HexIdeTools.OpenFileAsync`). **Not driven in this pass:** a carried-file node specifically. The project
+> had none, and `add_file` cannot create one. The route is the same one that worked on the form node.
+
+**Symptom.** There is no way to drive "select this tree node, then open it" for any node kind beyond forms
+and modules. Verified against a related-document node (a file the project carries but does not compile):
+
+- `interact select` on its `TreeViewItem` → `element does not support 'select'`; the item exposes only a
+  `scroll` provider, no `selectionItem`. (Since #361 a tree node reports no `scroll` either: nothing
+  behind its peer scrolls, so the token was a lead that went nowhere.)
+- `press_key` on the `TreeView` does nothing useful — `inspect_element` reports the tree as
+  `isKeyboardFocusable: false`, so arrow keys never reach a selection model.
+- `interact set_property` cannot help either: `ProjectToolViewModel.SelectedItem` is typed `Object`, and the
+  reflection fallback coerces a **string** to the property type. There is no way to name an existing
+  view-model instance as a value.
+- `open_file(name)` opens a form or module by name only, so it cannot reach anything else.
+
+**Consequence.** The double-click-to-open gesture is unverifiable through MCP for any new node kind. That
+matters because CLAUDE.md requires a UI feature be confirmed against the running IDE, and here the *tree*
+can be confirmed by snapshot while the *gesture* cannot be driven at all.
+
+**Workaround.** Split the verification and say which half was driven. The node's presence, icon and caption
+are visible in `take_snapshot` and assertable via `dump_visual_tree` (the node reports its
+`dataContextType`, so its type is checkable). The routing — selection to the right editor — and the editor's
+own behaviour are covered by tests instead. State plainly that the gesture itself was not driven.
+
+**Suggested fix.** Either surface a `selectionItem` provider on tree items so `interact select` works, or
+add a selection-by-path action (`interact select_node` taking the same `path` the tree dump already
+returns). The second is probably better: paths are already the addressing scheme everywhere else in this
+server, and it would work for every current and future node kind rather than needing a provider per
+control. A narrower `open_file` that accepts any project member would help too, but would not fix
+selection, which is what several context-menu commands key on.
+
+---
+
+## get_project_info omits every project member that is not a form or module — **CLOSED** (#362, 2026-09-22)
+
+> **Closed (#362).** `get_project_info` returns `relatedDocuments` beside `forms` and `modules`
+> (`ProjectInfoResult`), seen live on 2026-09-22 as `"relatedDocuments":[]`. The suggested single
+> `members` array was not adopted, so the next member kind will need this edit again.
+
+**Symptom.** `get_project_info` returns `forms` and `modules` only. A project carrying a related document (a
+file it does not compile) reports it nowhere, so after adding one the tool's output is byte-identical to
+before.
+
+**Consequence.** The obvious check after an add — call `get_project_info` and see the new member — silently
+answers "nothing happened" for a whole member kind. It reads as a failed feature rather than a blind tool.
+
+**Workaround.** Confirm through the Project Explorer instead: `take_snapshot` shows the node and its icon,
+and `dump_visual_tree` reports the node's `dataContextType`, which distinguishes a related document from a
+module.
+
+**Suggested fix.** Add a `relatedDocuments` array, and prefer a shape that will not need this edit again the
+next time a member kind is added — a single `members` array of `{name, kind, path}` would cover forms,
+modules, related documents and whatever follows.
