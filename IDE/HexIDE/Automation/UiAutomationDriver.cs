@@ -309,8 +309,8 @@ public static class UiAutomationDriver
     /// </summary>
     public static readonly IReadOnlyList<string> Verbs =
     [
-        "invoke", "select", "double_click", "set_value", "set_range_value", "toggle", "expand", "collapse",
-        "scroll", "invoke_command", "set_property",
+        "invoke", "select", "add_to_selection", "remove_from_selection", "double_click", "set_value",
+        "set_range_value", "toggle", "expand", "collapse", "scroll", "invoke_command", "set_property",
     ];
 
     /// <summary>
@@ -323,6 +323,7 @@ public static class UiAutomationDriver
         ["invoke"] = ["invoke"],
         ["selection"] = ["select"],
         ["selectionItem"] = ["select"],
+        ["multiSelectItem"] = ["add_to_selection", "remove_from_selection"],
         ["value"] = ["set_value"],
         ["toggle"] = ["toggle"],
         ["expandCollapse"] = ["expand", "collapse"],
@@ -342,6 +343,9 @@ public static class UiAutomationDriver
         if (peer.GetProvider<IInvokeProvider>() is not null) list.Add("invoke");
         if (peer.GetProvider<ISelectionProvider>() is not null) list.Add("selection");
         if (peer.GetProvider<ISelectionItemProvider>() is not null) list.Add("selectionItem");
+        // Only in a list that holds several at once: in any other, adding to the selection would replace it,
+        // which is select under another name. (#661)
+        if (control is not null && Safe(() => MultiSelectOwner(control) is not null, false)) list.Add("multiSelectItem");
         if (peer.GetProvider<IValueProvider>() is not null) list.Add("value");
         if (peer.GetProvider<IToggleProvider>() is not null) list.Add("toggle");
         if (peer.GetProvider<IExpandCollapseProvider>() is not null) list.Add("expandCollapse");
@@ -508,6 +512,12 @@ public static class UiAutomationDriver
                 case "select":
                     return DoSelect(control, peer, value);
 
+                case "addtoselection":
+                    return DoChangeSelection(control, peer, value, add: true);
+
+                case "removefromselection":
+                    return DoChangeSelection(control, peer, value, add: false);
+
                 case "doubleclick":
                     return DoDoubleClick(control, peer);
 
@@ -533,6 +543,60 @@ public static class UiAutomationDriver
         {
             return Err($"action '{norm}' threw: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// The list <paramref name="item"/> belongs to, when that list holds several selected items at once.
+    /// </summary>
+    private static ListBox? MultiSelectOwner(Control item) =>
+        ItemsControl.ItemsControlFromItemContainer(item) is ListBox owner
+        && owner.SelectionMode.HasFlag(SelectionMode.Multiple)
+        && owner.IndexFromContainer(item) >= 0
+            ? owner
+            : null;
+
+    /// <summary>
+    /// Adds the target to, or takes it out of, the selection of a list that holds several at once. <c>select</c>
+    /// replaces a selection, so without this the designer canvas could hold one control or, through Ctrl+A,
+    /// all of them, and the Format commands, which act on a chosen group, could not be aimed (#661).
+    /// </summary>
+    private static InteractOutcome DoChangeSelection(Control control, AutomationPeer peer, string? value, bool add)
+    {
+        var verb = add ? "add_to_selection" : "remove_from_selection";
+        if (NullIfEmpty(value) is not null)
+            return Err($"{verb} takes no value: target the item itself by its path from dump_visual_tree");
+        if (MultiSelectOwner(control) is not { } owner)
+            return peer.GetProvider<ISelectionItemProvider>() is not null
+                ? Err($"'{LabelOf(control, peer)}' is in a list that holds one selection at a time, so there is "
+                      + "nothing to add to; use select")
+                : Unsupported(verb);
+
+        var index = owner.IndexFromContainer(control);
+        var label = LabelOf(control, peer);
+        var was = owner.Selection.IsSelected(index);
+        if (add) owner.Selection.Select(index);
+        else owner.Selection.Deselect(index);
+
+        var change = add
+            ? was ? $"'{label}' was already selected" : $"added '{label}' to the selection"
+            : was ? $"removed '{label}' from the selection" : $"'{label}' was not selected";
+        return Ok($"{change}; {SelectionSummary(owner)}");
+    }
+
+    /// <summary>What a multi-select list now holds, by the names its rows carry in dump_visual_tree.</summary>
+    private static string SelectionSummary(ListBox owner)
+    {
+        var names = owner.Selection.SelectedIndexes
+            .Select(i => owner.ContainerFromIndex(i) is Control c
+                ? LabelOf(c, ControlAutomationPeer.CreatePeerForElement(c))
+                : owner.Items[i]?.ToString() ?? $"#{i}")
+            .ToList();
+        return names.Count switch
+        {
+            0 => "nothing is selected now",
+            1 => $"1 item is selected now: {names[0]}",
+            _ => $"{names.Count} items are selected now: {string.Join(", ", names)}",
+        };
     }
 
     private static InteractOutcome DoSelect(Control control, AutomationPeer peer, string? value)

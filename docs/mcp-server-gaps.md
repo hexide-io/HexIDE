@@ -97,6 +97,14 @@ not driven in this pass.
 control. With more than one control on a form, a caller cannot tell from the tree which node is
 `Command1`; it has to fall back on position or index. Filed as #526. The rest of this entry is the original record.
 
+**Multi-selection (#661, closed by the PR that adds this note).** `interact select` replaces a selection, so
+a caller could hold one control, or all of them through `press_key(key: "A", modifiers: "Ctrl")`, and nothing
+in between. `interact add_to_selection` / `remove_from_selection` now reach a chosen group, and each canvas
+control reports the `multiSelectItem` token that promises them. Measured with three buttons:
+`select` Command0, then `add_to_selection` Command2 → `added 'Command2' to the selection; 2 items are selected
+now: Command0, Command2`; `invoke_format_command(command: "AlignLefts")` then moved Command2 to Command0's
+Left (120) and left Command1 at 600.
+
 
 **Symptom.** A control placed with `add_control` is created and auto-selected, but there is no way to (a) select a
 *different, existing* control, (b) delete a control, or (c) exercise undo/redo of a designer edit through MCP. The

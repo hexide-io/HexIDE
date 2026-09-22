@@ -36,6 +36,7 @@ public class InteractVocabularyTests
             {
                 new Button { Content = "Click" },
                 new ListBox { ItemsSource = new[] { "one", "two" } },
+                new ListBox { ItemsSource = new[] { "three", "four" }, SelectionMode = SelectionMode.Multiple },
                 new ComboBox { ItemsSource = new[] { "one", "two" } },
                 new TabControl { Items = { new TabItem { Header = "A" }, new TabItem { Header = "B" } } },
                 new TextBox { Text = "hi" },
