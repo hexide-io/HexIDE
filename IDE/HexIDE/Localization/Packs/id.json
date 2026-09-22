@@ -680,6 +680,7 @@
     "Str.Vb6Toolchain.RunFailedTitle": "Gagal Menjalankan",
     "Str.ProjectRunner.MustHaveStartupForm": "Harus memiliki form awal atau Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Tindakan ini akan mengatur ulang proyek Anda. Apakah Anda ingin melanjutkan?",
+    "Str.ProjectRunner.StartupFormFailedToLoad": "Formulir '{0}' tidak dapat dimuat, sehingga proyek tidak dijalankan.\n\n{1}",
     "Str.NewProject.Msg.Title": "Proyek Baru",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Versi HexIDE Anda tidak mendukung {0}",
     "Str.NewProject.Msg.FileNotFound": "Berkas tidak ditemukan. Pastikan nama berkas yang diberikan benar.",

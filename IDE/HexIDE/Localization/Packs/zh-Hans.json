@@ -680,6 +680,7 @@
     "Str.Vb6Toolchain.RunFailedTitle": "运行失败",
     "Str.ProjectRunner.MustHaveStartupForm": "必须具有启动窗体或 Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "此操作将重置工程。是否继续？",
+    "Str.ProjectRunner.StartupFormFailedToLoad": "无法加载窗体“{0}”，因此项目未启动。\n\n{1}",
     "Str.NewProject.Msg.Title": "新建工程",
     "Str.NewProject.Msg.VersionDoesNotSupport": "您的 HexIDE 版本不支持 {0}",
     "Str.NewProject.Msg.FileNotFound": "找不到文件。请确认提供了正确的文件名。",

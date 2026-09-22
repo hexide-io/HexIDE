@@ -512,7 +512,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "run_project")]
-    [Description("Starts running the current VB6 project in the IDE. Returns an error if no project is loaded or it is already running.")]
+    [Description("Starts running the current VB6 project in the IDE. Returns an error if no project is loaded, if it is already running, or if its startup form cannot be built — in that last case nothing is running, the IDE has opened a runtime-error dialog, and get_last_runtime_error returns the same text. step_into, step_over, step_out and run_to_cursor report a failed start from idle the same way.")]
     public async Task<MutateResult> RunProjectAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -527,11 +527,40 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // So get_last_runtime_error answers "did THIS run raise" rather than "has anything ever".
             // The sequence survives, so a caller holding an older one can still tell something happened.
             ctx.RootViewModel.RuntimeErrors.Clear();
-            ctx.ProjectRunnerService.RunStartupProject();
+            if (StartFailure(() => ctx.ProjectRunnerService.RunStartupProject()) is { } failed)
+                return failed;
             return new MutateResult(true, null);
         });
     }
 
+
+    /// <summary>
+    /// Runs a call that may start the project, and answers the failure if the start never became a run.
+    /// </summary>
+    /// <remarks>
+    /// A startup form is built synchronously inside the start call, so a form that cannot be built has been
+    /// reported by the time the call returns. Every tool that can start a run from idle used to answer success
+    /// regardless, while nothing ran and the error reached only the log (#590).
+    /// </remarks>
+    private MutateResult? StartFailure(Action start)
+    {
+        string? failure = null;
+        void OnFailed(string message) => failure = message;
+        ctx.ProjectRunnerService.StartFailed += OnFailed;
+        try
+        {
+            start();
+        }
+        finally
+        {
+            ctx.ProjectRunnerService.StartFailed -= OnFailed;
+        }
+        return failure is null
+            ? null
+            : new MutateResult(false, failure
+                + " Nothing is running. The IDE showed this in a runtime-error dialog, which is still open, and"
+                + " get_last_runtime_error returns it.");
+    }
 
     [McpServerTool(Name = "get_last_runtime_error")]
     [Description("Returns the last runtime error the running program raised, WITH ITS TEXT, and keeps it after the error dialog has been dismissed. Use it after any run that might raise: stop_project and shutdown_ide both close open dialogs, so a run whose form silently did nothing is otherwise indistinguishable from a run whose error dialog was dismissed a moment earlier. run_project clears the message first, so a result here belongs to the most recent run. 'sequence' only ever increases and is not cleared — compare it across runs to tell 'no error' from 'the same error again', which message text cannot do. Returns raised:false when the current run has raised nothing.")]
@@ -995,7 +1024,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
         {
             if (!ctx.ProjectRunnerService.CanStepIntoProject)
                 return new MutateResult(false, "No project to step — load a project first");
-            ctx.ProjectRunnerService.StepIntoProject();
+            if (StartFailure(() => ctx.ProjectRunnerService.StepIntoProject()) is { } failed)
+                return failed;
             return new MutateResult(true, null);
         });
     }
@@ -1008,7 +1038,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
         {
             if (!ctx.ProjectRunnerService.CanStepOverProject)
                 return new MutateResult(false, "No project to step — load a project first");
-            ctx.ProjectRunnerService.StepOverProject();
+            if (StartFailure(() => ctx.ProjectRunnerService.StepOverProject()) is { } failed)
+                return failed;
             return new MutateResult(true, null);
         });
     }
@@ -1021,7 +1052,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
         {
             if (!ctx.ProjectRunnerService.CanStepOutProject)
                 return new MutateResult(false, "No project to step — load a project first");
-            ctx.ProjectRunnerService.StepOutProject();
+            if (StartFailure(() => ctx.ProjectRunnerService.StepOutProject()) is { } failed)
+                return failed;
             return new MutateResult(true, null);
         });
     }
@@ -1045,7 +1077,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (OutsideDocument(document, [line], first: 1, "line") is { } outside)
                 return new MutateResult(false, outside);
 
-            ctx.ProjectRunnerService.RunToCursorProject(document, line);
+            if (StartFailure(() => ctx.ProjectRunnerService.RunToCursorProject(document, line)) is { } failed)
+                return failed;
             return new MutateResult(true, null, $"Running to {document.Display} line {line}.");
         });
     }
@@ -1086,9 +1119,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var stop = ctx.DebugController.CurrentStop;
+            // A controller that has no session reads Running until its first run ends: it starts there so the
+            // headless interpreter path needs no Reset(). That is the controller's business, not the IDE's, and
+            // reporting it gave {"running":false,"state":"Running"} on every freshly launched IDE (#590).
+            var state = ctx.DebugController.IsSessionActive ? ctx.DebugController.State : DebugState.Stopped;
             return new DebugStateResult(
                 ctx.ProjectRunnerService.IsRunning,
-                ctx.DebugController.State.ToString(),
+                state.ToString(),
                 stop?.Reason.ToString(),
                 stop?.Module,
                 stop?.Line);

@@ -680,6 +680,7 @@
     "Str.Vb6Toolchain.RunFailedTitle": "실행 실패",
     "Str.ProjectRunner.MustHaveStartupForm": "시작 폼 또는 Sub Main()이 있어야 합니다",
     "Str.ProjectRunner.EditWhileRunningConfirm": "이 작업을 수행하면 프로젝트가 다시 설정됩니다. 계속하시겠습니까?",
+    "Str.ProjectRunner.StartupFormFailedToLoad": "폼 '{0}'을(를) 로드할 수 없어 프로젝트가 시작되지 않았습니다.\n\n{1}",
     "Str.NewProject.Msg.Title": "새 프로젝트",
     "Str.NewProject.Msg.VersionDoesNotSupport": "사용 중인 HexIDE 버전은 {0}을(를) 지원하지 않습니다",
     "Str.NewProject.Msg.FileNotFound": "파일을 찾을 수 없습니다. 올바른 파일 이름이 지정되었는지 확인하세요.",

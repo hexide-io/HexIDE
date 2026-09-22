@@ -680,6 +680,7 @@
     "Str.Vb6Toolchain.RunFailedTitle": "Rulado malsukcesis",
     "Str.ProjectRunner.MustHaveStartupForm": "Devas havi startan formularon aŭ Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Ĉi tiu ago restarigos vian projekton. Ĉu vi volas daŭrigi?",
+    "Str.ProjectRunner.StartupFormFailedToLoad": "La formularo '{0}' ne ŝargeblis, do la projekto ne startis.\n\n{1}",
     "Str.NewProject.Msg.Title": "Nova Projekto",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Via HexIDE-versio ne subtenas {0}",
     "Str.NewProject.Msg.FileNotFound": "Dosiero ne trovita. Certiĝu ke la ĝusta dosiernomo estas donita.",

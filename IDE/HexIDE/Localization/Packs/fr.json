@@ -680,6 +680,7 @@
     "Str.Vb6Toolchain.RunFailedTitle": "Échec de l'exécution",
     "Str.ProjectRunner.MustHaveStartupForm": "Une feuille de démarrage ou une procédure Sub Main() est requise",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Cette action réinitialisera votre projet. Voulez-vous continuer ?",
+    "Str.ProjectRunner.StartupFormFailedToLoad": "Impossible de charger la feuille '{0}' ; le projet n'a donc pas démarré.\n\n{1}",
     "Str.NewProject.Msg.Title": "Nouveau projet",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Votre version de HexIDE ne prend pas en charge {0}",
     "Str.NewProject.Msg.FileNotFound": "Fichier introuvable. Vérifiez que le nom de fichier indiqué est correct.",

@@ -787,10 +787,19 @@ public partial class MainViewViewModel : ObservableObject
             // Recorded BEFORE the dialog, and deliberately not tied to its lifetime: stop_project and
             // shutdown_ide both close open dialogs, so anything that only exists while the modal is up is
             // gone by the time a caller looks. (docs/mcp-server-gaps.md)
+            ReportRuntimeError(message);
+        };
+
+        // A startup form that cannot be built is reported the way a runtime error is, so the person sees it and
+        // get_last_runtime_error returns it. It used to reach only the log, while F5 appeared to do nothing (#590).
+        projectRunnerService.StartFailed += ReportRuntimeError;
+
+        void ReportRuntimeError(string message)
+        {
             RuntimeErrors.Record(message);
             var vm = new RuntimeErrorViewModel(message);
             windowManager.ShowDialog(vm);
-        };
+        }
 
         VBWindowContext.CompileError += (form, e) =>
         {

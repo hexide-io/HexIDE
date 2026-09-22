@@ -680,6 +680,7 @@
     "Str.Vb6Toolchain.RunFailedTitle": "ההרצה נכשלה",
     "Str.ProjectRunner.MustHaveStartupForm": "חייב להיות טופס פתיחה או Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "פעולה זו תאפס את הפרויקט שלך. האם ברצונך להמשיך?",
+    "Str.ProjectRunner.StartupFormFailedToLoad": "לא ניתן היה לטעון את הטופס '{0}', ולכן הפרויקט לא הופעל.\n\n{1}",
     "Str.NewProject.Msg.Title": "פרויקט חדש",
     "Str.NewProject.Msg.VersionDoesNotSupport": "גרסת HexIDE שלך אינה תומכת ב-{0}",
     "Str.NewProject.Msg.FileNotFound": "הקובץ לא נמצא. ודא ששם הקובץ הנכון צוין.",

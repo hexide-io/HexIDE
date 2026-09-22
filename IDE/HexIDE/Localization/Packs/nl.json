@@ -680,6 +680,7 @@
     "Str.Vb6Toolchain.RunFailedTitle": "Uitvoeren mislukt",
     "Str.ProjectRunner.MustHaveStartupForm": "Moet een opstartformulier of Sub Main() hebben",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Deze actie stelt het project opnieuw in. Wilt u doorgaan?",
+    "Str.ProjectRunner.StartupFormFailedToLoad": "Formulier '{0}' kon niet worden geladen, dus het project is niet gestart.\n\n{1}",
     "Str.NewProject.Msg.Title": "Nieuw project",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Uw HexIDE-versie ondersteunt {0} niet",
     "Str.NewProject.Msg.FileNotFound": "Bestand niet gevonden. Zorg dat de juiste bestandsnaam is opgegeven.",

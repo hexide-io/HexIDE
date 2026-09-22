@@ -680,6 +680,7 @@
     "Str.Vb6Toolchain.RunFailedTitle": "Körningen misslyckades",
     "Str.ProjectRunner.MustHaveStartupForm": "Måste ha ett startformulär eller Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Den här åtgärden återställer projektet. Vill du fortsätta?",
+    "Str.ProjectRunner.StartupFormFailedToLoad": "Formuläret '{0}' kunde inte läsas in, så projektet startades inte.\n\n{1}",
     "Str.NewProject.Msg.Title": "Nytt projekt",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Din HexIDE-version saknar stöd för {0}",
     "Str.NewProject.Msg.FileNotFound": "Filen hittades inte. Kontrollera att rätt filnamn har angetts.",

@@ -680,6 +680,7 @@
     "Str.Vb6Toolchain.RunFailedTitle": "اجرا ناموفق بود",
     "Str.ProjectRunner.MustHaveStartupForm": "باید یک فرم آغازین یا Sub Main() داشته باشد",
     "Str.ProjectRunner.EditWhileRunningConfirm": "این عمل پروژه شما را بازنشانی می‌کند. آیا می‌خواهید ادامه دهید؟",
+    "Str.ProjectRunner.StartupFormFailedToLoad": "فرم '{0}' بارگذاری نشد، بنابراین پروژه اجرا نشد.\n\n{1}",
     "Str.NewProject.Msg.Title": "پروژه جدید",
     "Str.NewProject.Msg.VersionDoesNotSupport": "نسخه HexIDE شما از {0} پشتیبانی نمی‌کند",
     "Str.NewProject.Msg.FileNotFound": "فایل یافت نشد. مطمئن شوید که نام فایل درست وارد شده است.",

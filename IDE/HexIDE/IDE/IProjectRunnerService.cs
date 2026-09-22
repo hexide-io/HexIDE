@@ -27,6 +27,12 @@ public interface IProjectRunnerService : INotifyPropertyChanged
     bool CanRestartProject { get; }
     bool IsRunning { get; }
 
+    /// <summary>
+    /// A start that never became a run: the startup form could not be built. Raised synchronously, before
+    /// the start call returns, with the text to show. Nothing is running afterwards.
+    /// </summary>
+    event Action<string>? StartFailed;
+
     /// <summary>The project currently running, or null when nothing is.</summary>
     ProjectDefinition? RunningProject { get; }
 }
