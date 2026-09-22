@@ -22,6 +22,11 @@ public class TestApp : Application
         {
             Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml"),
         });
+        // As App.axaml does: access-key captions name their controls without the "_" marker (#578).
+        Styles.Add(new StyleInclude(new Uri("avares://HexIDE.Integration.Tests/"))
+        {
+            Source = new Uri("avares://HexIDE/Automation/AccessKeyNames.axaml"),
+        });
     }
 
     public static AppBuilder BuildAvaloniaApp() =>
