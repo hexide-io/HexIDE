@@ -74,7 +74,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_file_content")]
-    [Description("Returns the current VB6 source code of a named form or module. Reads from the live editor if the file is open, otherwise from the last saved state.")]
+    [Description("Returns the current VB6 source code of a named form or module: the open editor's text if it is open, otherwise the IDE's copy. hasUnsavedChanges is true when saving would change the file on disk — edits typed in the editor, controls added, removed or reordered in the designer, or any other change to the IDE's copy since it was last loaded or saved. A document with no file yet always has unsaved changes.")]
     public async Task<FileContentResult> GetFileContentAsync(string name, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -83,23 +83,44 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (project is null)
                 return new FileContentResult(null, false, "No project loaded");
 
+            // COMPUTED, where it used to report only which source the text came from: true for any open
+            // editor, false for everything else, so a caller deciding what to save saved every open document
+            // and skipped every edited closed one. (#481) Asked without flushing anything, because a read
+            // must not change the model it reports on -- so the three places an edit can live are each
+            // compared directly: the editor buffer against the model, the designer's control list against
+            // the model's, and the model against what was last loaded or saved.
             var editor = FindEditor(name);
-            if (editor is not null)
-                return new FileContentResult(editor.Document.Text, true, null);
 
             var form = project.Forms.FirstOrDefault(f =>
                 string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
             if (form is not null)
-                return new FileContentResult(form.Code, false, null);
+            {
+                var text = editor?.Document.Text ?? form.Code;
+                var unsaved = !string.Equals(text, form.Code, StringComparison.Ordinal)
+                              || DesignerOf(form) is { HasComponentsNotInModel: true }
+                              || ctx.ProjectService.HasUnsavedChanges(form);
+                return new FileContentResult(text, unsaved, null);
+            }
 
             var module = project.Modules.FirstOrDefault(m =>
                 string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase));
             if (module is not null)
-                return new FileContentResult(module.Code, false, null);
+            {
+                var text = editor?.Document.Text ?? module.Code;
+                var unsaved = !string.Equals(text, module.Code, StringComparison.Ordinal)
+                              || (module.FormPart is { } part && DesignerOf(part) is { HasComponentsNotInModel: true })
+                              || ctx.ProjectService.HasUnsavedChanges(module);
+                return new FileContentResult(text, unsaved, null);
+            }
 
             return new FileContentResult(null, false, $"No form or module named '{name}' found");
         });
     }
+
+    private HexIDE.VisualDesigner.FormEditViewModel? DesignerOf(FormDefinition form) =>
+        ctx.DocumentDockService.OpenDocuments
+            .OfType<HexIDE.VisualDesigner.FormEditViewModel>()
+            .FirstOrDefault(d => d.FormDefinition == form);
 
     [McpServerTool(Name = "set_file_content")]
     [Description("Replaces the VB6 source code of a named form or module and saves to disk. Use get_project_info to list available names. Pass the CODE SECTION, not a whole file: a .frm's VERSION/Begin designer block is refused (it describes controls, which this tool does not apply), and a .bas/.cls header is stripped. A form's leading 'Attribute VB_*' block is its identity; the editor shows it, but content composed rather than round-tripped rarely carries it -- if yours omits it the existing one is kept and the result says so, so a body that leaves it out can no longer destroy VB_Name. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first.")]
@@ -749,9 +770,14 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // form, and a form with no file saves through the native picker, which stops this server
             // answering: the call never returned and every call behind it hung. An armed answer makes the
             // save safe to attempt, including an armed cancel, which keeps the form without a file. (#514)
-            if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(designer.FormDefinition?.AbsolutePath))
+            //
+            // A UserControl or PropertyPage is saved through its MODULE, which holds the .ctl/.pag path; the
+            // designer half it draws on has no path of its own (#474). Asking about that half refused a
+            // document that has a file, and saving through it would have written a stray .frm.
+            var owner = OwnerModuleOf(designer.FormDefinition);
+            if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(owner?.AbsolutePath ?? designer.FormDefinition?.AbsolutePath))
                 return new AddControlResult(false, null,
-                    $"Form '{formName}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
+                    $"{(owner is not null ? owner.Kind.ToString() : "Form")} '{formName}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
 
             designer.SpawnControlAt(componentClass, new Avalonia.Rect(x, y, width, height));
             return new AddControlResult(true, designer.SelectedComponent?.Name, null, designer.FormDefinition);
@@ -770,8 +796,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
         // reported as success. (#334)
         try
         {
-            var written = await Dispatcher.UIThread.InvokeAsync(
-                async () => await ctx.ProjectService.SaveForm(spawned.Form, false));
+            // Through the owning module for a UserControl or PropertyPage, as set_control_property does. (#539)
+            var written = await Dispatcher.UIThread.InvokeAsync(async () =>
+                OwnerModuleOf(spawned.Form) is { } owner
+                    ? await ctx.ProjectService.SaveModule(owner, false)
+                    : await ctx.ProjectService.SaveForm(spawned.Form, false));
 
             // A refusal must not come back as success. (#147) The control is real and in the designer --
             // saying otherwise would be its own wrong answer -- but the file on disk does not have it, and
@@ -789,6 +818,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 $"'{spawned.ControlName}' was added to the designer but the save failed: {ex.Message}");
         }
     }
+
+    /// <summary>The UserControl or PropertyPage module whose designer half this is, or null for a form.</summary>
+    private ModuleDefinition? OwnerModuleOf(FormDefinition? form) =>
+        form is null
+            ? null
+            : ctx.ProjectManager.LoadedProjects.SelectMany(p => p.Modules).FirstOrDefault(m => m.FormPart == form);
 
     [McpServerTool(Name = "invoke_format_command")]
     [Description("Invokes a Format menu command on the active form designer, which lands as one undo step. " +
@@ -1037,7 +1072,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_locals")]
-    [Description("Returns the paused frame's Locals as a tree (Expression/Value/Type), depth-capped. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false. 'context' is the Module.Procedure header; each row has has_children and, down to `maxDepth`, nested children (arrays/UDTs/objects expand; a class instance's Me/fields appear under a Me/module root).")]
+    [Description("Returns the paused frame's Locals as a tree (Expression/Value/Type), depth-capped. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false. 'context' is the Module.Procedure header; each row has hasChildren and, down to `maxDepth`, nested children (arrays/UDTs/objects expand; a class instance's Me/fields appear under a Me/module root).")]
     public async Task<LocalsResult> GetLocalsAsync(int maxDepth = 3, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1057,7 +1092,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     private const int MaxLocalsNodes = 5000;
 
     // Depth-bounded projection of the lazy DebugNode tree into serializable rows. Children below max_depth are
-    // omitted (has_children still signals they exist); a truncated array tail becomes a "… N more" row.
+    // omitted (hasChildren still signals they exist); a truncated array tail becomes a "… N more" row.
     private static LocalsRow MapLocalsNode(DebugNode node, int maxDepth, int depth, int[] budget)
     {
         LocalsRow[]? children = null;
@@ -1258,7 +1293,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "take_snapshot")]
-    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image. If a modal dialog is open it is captured in preference to the main window (its title is reported in 'active_dialog'); otherwise the main window is captured. 'window' selects which top-level window to address: \"auto\" (default) is the frontmost one, which while a VB6 program runs — INCLUDING while it is paused at a breakpoint — is the program's form, not the IDE; pass \"ide\" to address the IDE itself in that state.")]
+    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image. If a modal dialog is open it is captured in preference to the main window (its title is reported in 'activeDialog'); otherwise the main window is captured. 'window' selects which top-level window to address: \"auto\" (default) is the frontmost one, which while a VB6 program runs — INCLUDING while it is paused at a breakpoint — is the program's form, not the IDE; pass \"ide\" to address the IDE itself in that state.")]
     public async Task<SnapshotResult> TakeSnapshotAsync(
         string? window = null, CancellationToken ct = default)
     {

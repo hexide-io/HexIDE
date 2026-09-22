@@ -57,6 +57,33 @@ public class ToolDescriptionParameterTests
             "an optional parameter the description never names is one a first-time caller never uses");
     }
 
+    private static readonly Regex SnakeWord = new(@"\b[a-z]+(?:_[a-z]+)+\b");
+
+    private static string Camel(string snake) =>
+        Regex.Replace(snake, "_([a-z])", m => m.Groups[1].Value.ToUpperInvariant());
+
+    /// <remarks>
+    /// The reply-side twin of <see cref="No_description_spells_a_parameter_in_a_form_the_wire_does_not_accept"/>.
+    /// Replies are serialized camelCase, so <c>get_locals</c> promising rows with <c>has_children</c> and
+    /// <c>take_snapshot</c> reporting a title "in 'active_dialog'" sent a caller looking for fields that are
+    /// spelled <c>hasChildren</c> and <c>activeDialog</c> on the wire. A snake_case word is checked only when its
+    /// camelCase form is a real reply field, so tool names and prose are left alone.
+    /// </remarks>
+    [Fact]
+    public void No_description_spells_a_reply_field_in_a_form_the_wire_does_not_use()
+    {
+        var wrong = ToolSource.Tools
+            .SelectMany(t => SnakeWord.Matches(t.Description)
+                .Select(m => m.Value)
+                .Where(w => ToolSource.ReplyFields.Contains(Camel(w)))
+                .Select(w => $"{t.Name} says '{w}'; the reply field is '{Camel(w)}'"))
+            .Distinct()
+            .ToList();
+
+        string.Join(Environment.NewLine, wrong).Should().BeEmpty(
+            "replies are serialized camelCase, so a caller who looks for the snake_case spelling finds nothing");
+    }
+
     // Only a quoted camelCase name is checked: a single word in quotes is as often a value ('select', 'en') as
     // a field, and a guard that has to be told which is which is one people learn to excuse.
     private static readonly Regex QuotedField = new(@"'(?<name>[a-z]+[A-Z][A-Za-z]*)'");

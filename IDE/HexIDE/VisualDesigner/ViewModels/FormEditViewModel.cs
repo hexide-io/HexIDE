@@ -154,12 +154,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         };
         AutoDispose(this.eventBus.Subscribe<ApplyAllUnsavedChangesEvent>(e =>
         {
-            var positionInList = Components.Select((comp, index) => (comp, index)).ToDictionary(x => x.comp, x => x.index);
-            var orderedComponents = new List<ComponentInstance>();
-            foreach (var component in AllComponents.OrderBy(x => positionInList.GetValueOrDefault(x, 0)))
-            {
-                orderedComponents.Add(component.Instance);
-            }
+            var (orderedComponents, positionInList) = ComponentsAsSaved();
             RebuildContainmentOrder(positionInList);
             formDefinition?.UpdateComponents(orderedComponents);
         }));
@@ -170,6 +165,26 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         }));
         AutoDispose(this.eventBus.Subscribe<ProjectUnloadedEvent>(_ => { DesignerClipboard.Clear(); UndoStack.Clear(); }));
     }
+
+    /// <summary>The component list a save would hand the model, in the order it would hand it.</summary>
+    private (List<ComponentInstance> Ordered, Dictionary<ComponentInstanceViewModel, int> PositionInList) ComponentsAsSaved()
+    {
+        var positionInList = Components.Select((comp, index) => (comp, index)).ToDictionary(x => x.comp, x => x.index);
+        var ordered = AllComponents.OrderBy(x => positionInList.GetValueOrDefault(x, 0)).Select(x => x.Instance).ToList();
+        return (ordered, positionInList);
+    }
+
+    /// <summary>
+    /// True when the designer holds a control the model does not have yet, or lacks one it has, or orders them
+    /// differently. Answered without flushing, so asking changes nothing.
+    /// </summary>
+    /// <remarks>
+    /// Only membership and order need this. A control's properties, including its position and size, live on
+    /// the same <see cref="ComponentInstance"/> the model holds, so an edit to one is already in the model;
+    /// what waits for a save is the list itself. (#481)
+    /// </remarks>
+    public bool HasComponentsNotInModel =>
+        formDefinition is { } form && !ComponentsAsSaved().Ordered.SequenceEqual(form.Components);
 
     public FormEditViewModel Initialize(FormDefinition formElement)
     {
@@ -654,7 +669,7 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
         if (formDefinition == null) return;
         bool before = formDefinition.LockControls;
         formDefinition.LockControls = !formDefinition.LockControls;
-        projectService.SaveForm(formDefinition, false).ListenErrors();
+        SaveLockControls();
         UndoStack.Push(new LockControlsCommand(before, formDefinition.LockControls));
     }
 
@@ -870,6 +885,27 @@ public partial class FormEditViewModel : BaseEditorWindowViewModel
     }
 
     public void SaveForm() => projectService.SaveForm(formDefinition!, false).ListenErrors();
+
+    /// <summary>
+    /// Writes a Lock Controls change, but only when the designer's own form definition has a file.
+    /// </summary>
+    /// <remarks>
+    /// A form with no file saves through the Save As picker, so toggling Lock Controls, or undoing or redoing
+    /// the toggle, put a native Save As dialog in front of someone who had asked for nothing of the kind. An
+    /// automation client cannot see or close that dialog at all (#539 follow-up). Otherwise the change waits
+    /// for the next save, and a form with no file is unsaved whatever it holds.
+    ///
+    /// <para>
+    /// A UserControl's or PropertyPage's designer half has no path even when its .ctl/.pag exists (#474), so
+    /// for those this never auto-saves either. That is deliberate until #474 is fixed: the path it used to take
+    /// wrote a stray .frm.
+    /// </para>
+    /// </remarks>
+    public void SaveLockControls()
+    {
+        if (formDefinition?.AbsolutePath is not null)
+            SaveForm();
+    }
 
     public void SaveFormAs() => projectService.SaveForm(formDefinition!, true).ListenErrors();
 
