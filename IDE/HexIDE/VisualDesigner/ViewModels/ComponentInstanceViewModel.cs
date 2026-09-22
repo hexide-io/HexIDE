@@ -149,6 +149,15 @@ public partial class ComponentInstanceViewModel : ObservableObject
         }
     }
 
+    /// <summary>The name of what contains this component: a Frame or PictureBox, or else the form.</summary>
+    public string ContainerName => ContainerViewModel?.Name ?? parentViewModel.Form.Name;
+
+    /// <summary>
+    /// Whether this component lies wholly inside its container's client area. A control outside it is
+    /// legal in VB6 and invisible at run time, and is what passing twips where pixels are meant produces. (#675)
+    /// </summary>
+    public bool LiesWithinContainer => ContainerBounds.Contains(new Rect(Left, Top, Width, Height));
+
     /// <summary>How far inside its own bounds this component measures its contents from.</summary>
     private Thickness ClientInset =>
         instance.BaseClass is ComponentBaseClass baseClass ? baseClass.ClientInset(instance) : default;
