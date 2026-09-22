@@ -1838,7 +1838,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "invoke_menu_item")]
-    [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Each segment is the text the menu displays, matched case-insensitively: 'Project/Add Module' reaches the item whose header is 'Add _Module' (the underscore marks the access key, wherever it falls). A menu need not be open first. If a segment is not found, the error names the menu it looked in and every item that menu holds. Works reliably for add-in contributed items (DelegateCommand). Built-in items that use routed commands may not execute correctly via this tool. Returns an error if the path cannot be resolved or the item has no executable command.")]
+    [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Each segment is the text the menu displays, matched case-insensitively: 'Project/Add Module' reaches the item whose header is 'Add _Module' (the underscore marks the access key, wherever it falls), and a trailing '...' may be left off, so 'Tools/Options' reaches 'Options...'. A menu need not be open first. If a segment is not found, the error names the menu it looked in and every item that menu holds. Works reliably for add-in contributed items (DelegateCommand). Built-in items that use routed commands may not execute correctly via this tool. Returns an error if the path cannot be resolved or the item has no executable command.")]
     public async Task<MutateResult> InvokeMenuItemAsync(string path, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
