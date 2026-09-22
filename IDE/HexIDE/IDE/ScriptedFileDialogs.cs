@@ -60,6 +60,25 @@ public static class ScriptedFileDialogs
         }
     }
 
+    /// <summary>
+    /// True when saving a document at this path would put a real picker on screen: it has no file yet and
+    /// nothing is armed to answer for it.
+    /// </summary>
+    /// <remarks>
+    /// <b>A tool asks this before a save, and refuses rather than blocks when it is true</b>
+    /// (hexide-io/HexIDE#514). A modal native picker stops the automation server answering at all, so the
+    /// call that opened it never returns and neither does anything behind it. Asked before anything is
+    /// changed, so a refusal leaves nothing half-done. An armed answer, including an armed cancel, makes
+    /// the save safe to attempt, which is what a caller testing the pathless state needs.
+    /// </remarks>
+    public static bool WouldShowPicker(string? absolutePath) => absolutePath is null && Pending == 0;
+
+    /// <summary>What a tool says when <see cref="WouldShowPicker"/> refuses it, after naming the document.</summary>
+    public const string PickerRefusal =
+        "has no file yet, so saving it would open a native save picker, which stops this server answering " +
+        "until a person closes it. Nothing was changed. Arm answer_next_file_dialog first: with a path to " +
+        "save it there, or with none to answer the picker as cancelled and leave the document without a file.";
+
     /// <summary>Takes the next armed answer, if there is one. False means show the real dialog.</summary>
     public static bool TryTake(out string? path)
     {
