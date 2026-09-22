@@ -1420,8 +1420,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
         [("pseudo", "Pseudo (LTR)"), ("pseudo-rtl", "Pseudo (RTL)")];
 
     [McpServerTool(Name = "set_ide_language")]
-    [Description("Switches the IDE chrome language by pack id ('en', 'pseudo', 'pseudo-rtl', or an installed pack id), driving the exact live-apply + countdown-revert confirmation gate the Options dropdown uses. Returns immediately; the gate stays open and auto-reverts after its countdown. Call take_snapshot right after to capture the gate, or wait for it to time out to see the reverted chrome.")]
-    public Task<MutateResult> SetIdeLanguageAsync(string id, CancellationToken ct)
+    [Description("Switches the IDE chrome language by pack id ('en', 'pseudo', 'pseudo-rtl', or an installed pack id), driving the exact live-apply + countdown-revert confirmation gate the Options dropdown uses. Returns immediately; the gate stays open and auto-reverts after its countdown. While a gate is open, another call is refused and names the language it is waiting on. Call take_snapshot right after to capture the gate, or wait for it to time out to see the reverted chrome.")]
+    public async Task<MutateResult> SetIdeLanguageAsync(string id, CancellationToken ct)
     {
         // Checked first against what the Language page offers, languages and their regions. An unknown id used
         // to be applied anyway, which falls back to English, and answered success: the caller asked for one
@@ -1437,13 +1437,25 @@ internal sealed class HexIdeTools(IdeContext ctx)
             .Concat(languages.SelectMany(l => ctx.LanguageSwitch.RegionsFor(l.Id).Select(r => r.Id)));
         var match = known.FirstOrDefault(k => string.Equals(k, id, StringComparison.OrdinalIgnoreCase));
         if (match is null)
-            return Task.FromResult(new MutateResult(false,
+            return new MutateResult(false,
                 $"No language pack '{id}'. Languages: {string.Join(", ", ids)}. "
-                + "A region of one of them, such as 'fr-CA', is accepted too."));
+                + "A region of one of them, such as 'fr-CA', is accepted too.");
 
-        // Fire the switch+gate on the UI thread and return at once, so the modal gate is left open
-        // for take_snapshot to capture (awaiting here would block until the gate resolved).
-        Dispatcher.UIThread.Post(() => _ = ctx.LanguageSwitch.SwitchWithGateAsync(match));
+        // Checked and started in one step on the UI thread, so nothing can open a gate in between. The switch
+        // marks its gate pending before its first await, then returns here at once, leaving the modal gate
+        // open for take_snapshot to capture (awaiting it would block until the gate resolved).
+        var pending = await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (ctx.LanguageSwitch.PendingLanguage is { } open) return open;
+            _ = ctx.LanguageSwitch.SwitchWithGateAsync(match);
+            return null;
+        });
+        if (pending is not null)
+            return new MutateResult(false,
+                $"The confirmation gate for '{pending}' is still open, so nothing was changed. A second gate would "
+                + "revert to '" + pending + "', which nobody confirmed. Answer the open one with interact (find its "
+                + "Keep and Revert buttons with dump_visual_tree), or wait for its countdown, then call again.");
+
         var shown = languages.FirstOrDefault(l => l.Id == match)?.DisplayName
                     ?? PseudoLanguages.FirstOrDefault(p => p.Id == match).DisplayName
                     ?? languages.Select(l => (Language: l, Region: ctx.LanguageSwitch.RegionsFor(l.Id).FirstOrDefault(r => r.Id == match)))
@@ -1451,9 +1463,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
                         .Select(x => $"{x.Language.DisplayName} ({x.Region!.DisplayName})")
                         .FirstOrDefault()
                     ?? match;
-        return Task.FromResult(new MutateResult(true, null,
+        return new MutateResult(true, null,
             $"Switching to {shown} ('{match}'). A confirmation gate is open, and it reverts on its own unless "
-            + "Keep is pressed; take_snapshot captures it."));
+            + "Keep is pressed; take_snapshot captures it. Another switch is refused until it closes.");
     }
 
     [McpServerTool(Name = "take_snapshot")]
