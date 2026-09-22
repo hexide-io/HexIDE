@@ -79,12 +79,12 @@ public class UserSidecarService : IUserSidecarService
             if (data.Bookmarks != null)
                 foreach (var (key, lines) in data.Bookmarks)
                     if (Resolve(byName, key) is { } document)
-                        bookmarkService.SetBookmarks(document, lines);
+                        bookmarkService.SetBookmarks(document, WithinDocument(document, lines, first: 0, "bookmark", path));
 
             if (data.Breakpoints != null)
                 foreach (var (key, lines) in data.Breakpoints)
                     if (Resolve(byName, key) is { } document)
-                        breakpointService.SetDocument(document, lines);
+                        breakpointService.SetDocument(document, WithinDocument(document, lines, first: 1, "breakpoint", path));
         }
         catch (Exception ex)
         {
@@ -94,6 +94,30 @@ public class UserSidecarService : IUserSidecarService
         {
             _loading = false;
         }
+    }
+
+    /// <summary>
+    /// The <paramref name="lines"/> that are lines of <paramref name="document"/>; the rest are logged and dropped.
+    /// </summary>
+    /// <remarks>
+    /// A mark on a line the document does not have is drawn nowhere and never hit, yet it came back on every load
+    /// (#574). It could be there from before set_breakpoints and set_bookmarks refused such lines (#570), from a
+    /// file shortened outside HexIDE, or from a hand-edited sidecar. Dropped here, it is gone from the next save.
+    /// Lines are counted as those tools count them, in the code the editor numbers, which has no Attribute header;
+    /// bookmarks from 0, breakpoints from 1.
+    /// </remarks>
+    private static IEnumerable<int> WithinDocument(
+        DocumentIdentity document, IReadOnlyCollection<int> lines, int first, string what, string path)
+    {
+        var lineCount = (document.Module?.Code ?? document.Form?.Code ?? "").Split('\n').Length;
+        var last = first + lineCount - 1;
+        var outside = lines.Where(l => l < first || l > last).Distinct().ToList();
+        if (outside.Count == 0)
+            return lines;
+
+        Log.Warning("Dropped {What}s on {Lines} from {Path}: {Document} has {Count} line(s), numbered {First}..{Last}",
+            what, outside, path, document.Display, lineCount, first, last);
+        return lines.Where(l => l >= first && l <= last).ToList();
     }
 
     /// <summary>

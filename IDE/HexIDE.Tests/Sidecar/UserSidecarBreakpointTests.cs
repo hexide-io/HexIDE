@@ -21,11 +21,17 @@ public sealed class UserSidecarBreakpointTests : IDisposable
         try { Directory.Delete(_dir, recursive: true); } catch { /* best effort */ }
     }
 
+    // Twelve lines each: breakpoints 1..12, bookmarks 0..11. A mark on a line the document does not have is
+    // dropped at load (#574), so every mark these tests keep has to be on a real line.
+    private static readonly string TwelveLines = string.Join("\n", Enumerable.Range(1, 12).Select(i => $"' line {i}"));
+
     private ProjectDefinition MakeSavedProject()
     {
         Directory.CreateDirectory(_dir);
         var project = TestHelpers.CreateProjectWithForm("P", "Form1");
         project.AddModule(new ModuleDefinition(project, "Module1", ModuleKind.StandardModule));
+        project.Forms[0].UpdateCode(TwelveLines);
+        project.Modules[0].UpdateCode(TwelveLines);
         project.AbsolutePath = Path.Combine(_dir, "P.vbp");
         return project;
     }
@@ -181,5 +187,43 @@ public sealed class UserSidecarBreakpointTests : IDisposable
         var reloaded = new BookmarkService();
         await new UserSidecarService(reloaded, new BreakpointService(), projectManager).LoadAsync(project);
         reloaded.GetBookmarks(Form1(project)).Should().Equal(7);
+    }
+
+    /// <summary>
+    /// A sidecar holding marks on lines the document does not have loads without them, and the next save
+    /// writes it without them (#574). Such a sidecar was written before set_breakpoints and set_bookmarks
+    /// refused those lines, and can still come from a file shortened outside HexIDE or a hand edit.
+    /// </summary>
+    [Fact]
+    public async Task MarksOnLinesTheDocumentDoesNotHaveAreDroppedAtLoad_AndNotWrittenBack()
+    {
+        var projectManager = Substitute.For<IProjectManager>();
+        projectManager.LoadedProjects.Returns(new List<ProjectDefinition>());
+        var project = MakeSavedProject();
+        var sidecarPath = Path.Combine(_dir, "P.user.hexproj");
+
+        await File.WriteAllTextAsync(sidecarPath,
+            """
+            {
+              "version": 1,
+              "bookmarks": { "Form1": [-1, 0, 11, 12, 99] },
+              "breakpoints": { "Module1": [-1, 0, 1, 12, 13, 99] }
+            }
+            """, TestContext.Current.CancellationToken);
+
+        var bookmarks = new BookmarkService();
+        var breakpoints = new BreakpointService();
+        var sidecar = new UserSidecarService(bookmarks, breakpoints, projectManager);
+        await sidecar.LoadAsync(project);
+
+        bookmarks.GetBookmarks(Form1(project)).Should().Equal([0, 11], "bookmarks count from 0");
+        breakpoints.GetBreakpoints(Module1(project)).Should().Equal([1, 12], "breakpoints count from 1");
+
+        await sidecar.SaveAsync(project);
+        var json = JsonDocument.Parse(await File.ReadAllTextAsync(sidecarPath, TestContext.Current.CancellationToken));
+        json.RootElement.GetProperty("bookmarks").GetProperty("Form1").EnumerateArray()
+            .Select(e => e.GetInt32()).Should().Equal(0, 11);
+        json.RootElement.GetProperty("breakpoints").GetProperty("Module1").EnumerateArray()
+            .Select(e => e.GetInt32()).Should().Equal(1, 12);
     }
 }
