@@ -827,3 +827,19 @@ working route is the Properties window itself: `interact` with `set_property` on
 commit through the same validation the user gets. `set_value` on that row's `Edit` writes the text and does
 **not** commit — the binding updates on focus loss and Enter does not stand in for it — so a caller who uses
 the obvious verb sees success and no rename.
+
+---
+
+## The bookmark tools count lines from 0; every other line-taking tool, and the gutter, count from 1
+
+**Symptom.** `set_bookmarks {"name":"Module1","lines":[1]}` (`project` left at null) answers `Carried/Module1
+now has bookmarks on 1.`, and the bookmark is drawn on gutter line **2**. `get_breakpoints`,
+`set_breakpoints`, `run_to_cursor`, `set_next_statement`, `get_debug_state` and `get_call_stack` all number
+lines from 1, and so does the gutter. Both bookmark descriptions do say "0-based". A caller who has just used
+any other line tool, or read a line number off a snapshot, is still one line out.
+
+**Workaround.** Subtract one before calling `set_bookmarks`, and add one to what `get_bookmarks` returns.
+
+**Suggested fix.** Undecided, and filed as needs-decision:
+[#571](https://github.com/hexide-io/HexIDE/issues/571). Either convert at the tool boundary, which changes
+the contract, or keep 0-based and have the descriptions say the gutter shows N+1.
