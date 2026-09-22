@@ -82,10 +82,15 @@ internal sealed class HexIdeTools(IdeContext ctx)
     [Description("Returns current diagnostics, from every attached language server and from the VB6 "
                + "compiler, merged. Each carries 'source' (which of them reported it) and, where the "
                + "server sent one, 'code' (the rule that fired) and 'href' (where that rule is documented). 'severity' is Error, Warning, "
-               + "Information or Hint, as the server reported it, or Unknown when the server sent none.")]
-    public DiagnosticsResult GetDiagnostics()
+               + "Information or Hint, as the server reported it, or Unknown when the server sent none. "
+               + "Only OPEN documents are analysed, by a server that starts on the first one of its language. "
+               + "'analysed' lists the documents whose diagnostics are in, clean ones included, and 'note' says "
+               + "why the list is empty or what has not been analysed yet: no server started, or a document "
+               + "opened or edited and still being analysed.")]
+    public async Task<DiagnosticsResult> GetDiagnosticsAsync(CancellationToken ct = default)
     {
-        var items = ctx.Diagnostics.GetAll()
+        var published = ctx.Diagnostics.GetAll();
+        var items = published
             .SelectMany(p => p.Diagnostics.Select(d => new DiagnosticItem(
                 p.Uri,
                 d.Message,
@@ -96,7 +101,41 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 d.Source,
                 d.CodeDescription?.Href)))
             .ToArray();
-        return new DiagnosticsResult(items);
+        var analysed = published.Select(p => p.Uri).Order(StringComparer.Ordinal).ToArray();
+
+        // An empty list meant clean code, no server started, or an analysis not yet back, and read the same
+        // for all three; an edit checked with set_file_content then get_diagnostics came back clean. (#664)
+        // An open document with nothing yet, or edited since its latest diagnostics: what is held for it
+        // describes older text, so a clean reply for it is not an answer.
+        var pending = await Dispatcher.UIThread.InvokeAsync(() => ctx.DocumentDockService.OpenDocuments
+            .OfType<CodeEditorViewModel>()
+            .Where(e => e.AwaitingDiagnostics)
+            .Select(e => DocumentWireName.For(e.Identity))
+            .Distinct(LspDocumentUri.Comparer)
+            .Order(StringComparer.Ordinal)
+            .ToArray());
+        var serverStarted = ctx.Capture.ConnectionIds.Any();
+
+        string? note;
+        if (!serverStarted)
+            note = "No language server has started. One starts on the first open document of a language it "
+                   + "claims, and only open documents are analysed: open_file a form or module, then ask again."
+                   + (items.Length > 0 ? " The diagnostics listed came from the VB6 compiler." : "");
+        else if (pending.Length > 0)
+            note = $"Not analysed yet in its current form: {string.Join(", ", pending)}. No diagnostics have "
+                   + $"arrived for {(pending.Length == 1 ? "it" : "them")} since {(pending.Length == 1 ? "it was" : "they were")} "
+                   + "opened or last edited, so any listed describe older text, most likely because the analysis is "
+                   + "still running; ask again in a moment. list_lsp_messages shows whether anything came back.";
+        else if (items.Length > 0)
+            note = null;
+        else if (analysed.Length > 0)
+            note = $"No diagnostics: {(analysed.Length == 1 ? "the analysed document is" : $"all {analysed.Length} analysed documents are")} "
+                   + "clean. Only open documents are analysed.";
+        else
+            note = "Nothing has been analysed: no document is open, and only open documents are. open_file a form "
+                   + "or module, then ask again.";
+
+        return new DiagnosticsResult(items, analysed, note);
     }
 
     [McpServerTool(Name = "get_file_content")]
@@ -2553,7 +2592,7 @@ internal record OpenEditorsResult(
     string[] OpenWindows,
     string? ActiveWindow);
 
-internal record DiagnosticsResult(DiagnosticItem[] Diagnostics);
+internal record DiagnosticsResult(DiagnosticItem[] Diagnostics, string[] Analysed, string? Note);
 
 /// <remarks>
 /// <c>Source</c> names the server that reported it, and matters because <c>DiagnosticLedger</c> merges
