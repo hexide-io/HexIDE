@@ -74,7 +74,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_file_content")]
-    [Description("Returns the current VB6 source code of a named form or module. Reads from the live editor if the file is open, otherwise from the last saved state.")]
+    [Description("Returns the current VB6 source code of a named form or module: the open editor's text if it is open, otherwise the IDE's copy. hasUnsavedChanges is true when saving would change the file on disk — edits typed in the editor, controls added, removed or reordered in the designer, or any other change to the IDE's copy since it was last loaded or saved. A document with no file yet always has unsaved changes.")]
     public async Task<FileContentResult> GetFileContentAsync(string name, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -83,26 +83,47 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (project is null)
                 return new FileContentResult(null, false, "No project loaded");
 
+            // COMPUTED, where it used to report only which source the text came from: true for any open
+            // editor, false for everything else, so a caller deciding what to save saved every open document
+            // and skipped every edited closed one. (#481) Asked without flushing anything, because a read
+            // must not change the model it reports on -- so the three places an edit can live are each
+            // compared directly: the editor buffer against the model, the designer's control list against
+            // the model's, and the model against what was last loaded or saved.
             var editor = FindEditor(name);
-            if (editor is not null)
-                return new FileContentResult(editor.Document.Text, true, null);
 
             var form = project.Forms.FirstOrDefault(f =>
                 string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
             if (form is not null)
-                return new FileContentResult(form.Code, false, null);
+            {
+                var text = editor?.Document.Text ?? form.Code;
+                var unsaved = !string.Equals(text, form.Code, StringComparison.Ordinal)
+                              || DesignerOf(form) is { HasComponentsNotInModel: true }
+                              || ctx.ProjectService.HasUnsavedChanges(form);
+                return new FileContentResult(text, unsaved, null);
+            }
 
             var module = project.Modules.FirstOrDefault(m =>
                 string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase));
             if (module is not null)
-                return new FileContentResult(module.Code, false, null);
+            {
+                var text = editor?.Document.Text ?? module.Code;
+                var unsaved = !string.Equals(text, module.Code, StringComparison.Ordinal)
+                              || (module.FormPart is { } part && DesignerOf(part) is { HasComponentsNotInModel: true })
+                              || ctx.ProjectService.HasUnsavedChanges(module);
+                return new FileContentResult(text, unsaved, null);
+            }
 
             return new FileContentResult(null, false, $"No form or module named '{name}' found");
         });
     }
 
+    private HexIDE.VisualDesigner.FormEditViewModel? DesignerOf(FormDefinition form) =>
+        ctx.DocumentDockService.OpenDocuments
+            .OfType<HexIDE.VisualDesigner.FormEditViewModel>()
+            .FirstOrDefault(d => d.FormDefinition == form);
+
     [McpServerTool(Name = "set_file_content")]
-    [Description("Replaces the VB6 source code of a named form or module and saves to disk. Use get_project_info to list available names. Pass the CODE SECTION, not a whole file: a .frm's VERSION/Begin designer block is refused (it describes controls, which this tool does not apply), and a .bas/.cls header is stripped. A form's leading 'Attribute VB_*' block is its identity; the editor shows it, but content composed rather than round-tripped rarely carries it -- if yours omits it the existing one is kept and the result says so, so a body that leaves it out can no longer destroy VB_Name.")]
+    [Description("Replaces the VB6 source code of a named form or module and saves to disk. Use get_project_info to list available names. Pass the CODE SECTION, not a whole file: a .frm's VERSION/Begin designer block is refused (it describes controls, which this tool does not apply), and a .bas/.cls header is stripped. A form's leading 'Attribute VB_*' block is its identity; the editor shows it, but content composed rather than round-tripped rarely carries it -- if yours omits it the existing one is kept and the result says so, so a body that leaves it out can no longer destroy VB_Name. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first.")]
     public async Task<MutateResult> SetFileContentAsync(string name, string content, CancellationToken ct)
     {
         var restoredHeader = false;
@@ -132,6 +153,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 // show it (measured 2026-09-20 -- it opens the code window), but a caller composing a
                 // body rather than round-tripping one omits it anyway, and that used to delete it with no
                 // warning, straight to disk. (gap 14)
+                // Refused BEFORE the edit. This used to apply the code and only then find there was no file
+                // to write, so the reply said the change failed while the editor held it. (#538)
+                if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(form.AbsolutePath))
+                    return (null, null, $"Form '{form.Name}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
+
                 var kept = HexIDE.Runtime.Serialization.FormCodeText.PreserveAttributes(content, form.Code);
                 restoredHeader = !ReferenceEquals(kept, content);
 
@@ -147,6 +173,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase));
             if (module is not null)
             {
+                if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(module.AbsolutePath))
+                    return (null, null, $"Module '{module.Name}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
+
                 // .bas/.cls hold the BODY only; strip a VB6 header if a caller passed full file content
                 // (idempotent for a body that has none).
                 var body = HexIDE.Runtime.Serialization.ModuleFileFormat.StripHeader(content, module.Kind);
@@ -163,11 +192,6 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
         if (error is not null)
             return new MutateResult(false, error);
-
-        if (form is not null && form.AbsolutePath is null)
-            return new MutateResult(false, "Form has no saved path — save the project via File > Save first");
-        if (module is not null && module.AbsolutePath is null)
-            return new MutateResult(false, "Module has no saved path — save the project via File > Save first");
 
         try
         {
@@ -194,7 +218,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
         }
         catch (Exception ex)
         {
-            return new MutateResult(false, ex.Message);
+            // The edit is already in the IDE by now; a bare exception message would read as though it were not.
+            return new MutateResult(false, $"The new code is in the IDE but was not written: {ex.Message}");
         }
     }
 
@@ -296,7 +321,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "set_control_property")]
-    [Description("Sets a named property on a form or UserControl control and saves the file. Supports string, number, and bool properties. Use get_form_controls to see available controls and properties.")]
+    [Description("Sets a named property on a form or UserControl control and saves the file. Supports string, number, and bool properties. Use get_form_controls to see available controls and properties. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first.")]
     public async Task<MutateResult> SetControlPropertyAsync(
         string formName, string controlName, string property, string value, CancellationToken ct)
     {
@@ -352,6 +377,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return (null, null, $"Cannot parse '{value}' as {propClass.PropertyType.Name}");
             }
 
+            // Refused BEFORE the property is set, for the same reason as set_file_content. (#538)
+            if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(ownerModule is not null ? ownerModule.AbsolutePath : form.AbsolutePath))
+                return (null, null,
+                    $"{(ownerModule is not null ? "UserControl" : "Form")} '{formName}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
+
             var before = control.GetBoxedPropertyOrDefault(propClass);
             control.SetUntypedProperty(propClass, parsed);
 
@@ -368,18 +398,14 @@ internal sealed class HexIdeTools(IdeContext ctx)
             bool written;
             if (ownerModule is not null)
             {
-                if (ownerModule.AbsolutePath is null)
-                    return new MutateResult(false, "UserControl has no saved path — save the project via File > Save first");
                 written = await Dispatcher.UIThread.InvokeAsync(
                     async () => await ctx.ProjectService.SaveModule(ownerModule, false));
             }
             else
             {
-                if (form!.AbsolutePath is null)
-                    return new MutateResult(false, "Form has no saved path — save the project via File > Save first");
                 // Same UI-thread requirement as the other write tool, and for the same reason. (#334)
                 written = await Dispatcher.UIThread.InvokeAsync(
-                    async () => await ctx.ProjectService.SaveForm(form, false));
+                    async () => await ctx.ProjectService.SaveForm(form!, false));
             }
             // See the note on the other write tool: a refusal must not come back as success. (#147)
             return written
@@ -389,7 +415,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
         }
         catch (Exception ex)
         {
-            return new MutateResult(false, ex.Message);
+            // The property is already set in the IDE by now; a bare exception message would read as though it
+            // were not.
+            return new MutateResult(false, $"'{property}' is set in the IDE but was not written: {ex.Message}");
         }
     }
 
@@ -704,7 +732,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "add_control")]
-    [Description("Places a control of the given type on a named form's designer canvas at the given position and size, and SAVES the form. The form must be open in the visual designer (call view_designer first if needed). Returns the auto-generated control name (e.g. 'Command1'). A refusal to write (an unfaithful form) comes back as success:false naming the control that is in the designer but not on disk.")]
+    [Description("Places a control of the given type on a named form's designer canvas at the given position and size, and SAVES the form. The form must be open in the visual designer (call view_designer first if needed). Returns the auto-generated control name (e.g. 'Command1'). A refusal to write (an unfaithful form) comes back as success:false naming the control that is in the designer but not on disk. A form with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything is placed unless answer_next_file_dialog has been armed first; arm it with no path to keep the form without a file.")]
     public async Task<AddControlResult> AddControlAsync(
         string formName, string type,
         double x, double y, double width, double height,
@@ -738,6 +766,19 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     $"Unknown control type '{type}'. Known types: {known}");
             }
 
+            // REFUSED before anything is placed, rather than placed and then blocked. This tool saves the
+            // form, and a form with no file saves through the native picker, which stops this server
+            // answering: the call never returned and every call behind it hung. An armed answer makes the
+            // save safe to attempt, including an armed cancel, which keeps the form without a file. (#514)
+            //
+            // A UserControl or PropertyPage is saved through its MODULE, which holds the .ctl/.pag path; the
+            // designer half it draws on has no path of its own (#474). Asking about that half refused a
+            // document that has a file, and saving through it would have written a stray .frm.
+            var owner = OwnerModuleOf(designer.FormDefinition);
+            if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(owner?.AbsolutePath ?? designer.FormDefinition?.AbsolutePath))
+                return new AddControlResult(false, null,
+                    $"{(owner is not null ? owner.Kind.ToString() : "Form")} '{formName}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
+
             designer.SpawnControlAt(componentClass, new Avalonia.Rect(x, y, width, height));
             return new AddControlResult(true, designer.SelectedComponent?.Name, null, designer.FormDefinition);
         });
@@ -755,8 +796,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
         // reported as success. (#334)
         try
         {
-            var written = await Dispatcher.UIThread.InvokeAsync(
-                async () => await ctx.ProjectService.SaveForm(spawned.Form, false));
+            // Through the owning module for a UserControl or PropertyPage, as set_control_property does. (#539)
+            var written = await Dispatcher.UIThread.InvokeAsync(async () =>
+                OwnerModuleOf(spawned.Form) is { } owner
+                    ? await ctx.ProjectService.SaveModule(owner, false)
+                    : await ctx.ProjectService.SaveForm(spawned.Form, false));
 
             // A refusal must not come back as success. (#147) The control is real and in the designer --
             // saying otherwise would be its own wrong answer -- but the file on disk does not have it, and
@@ -774,6 +818,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 $"'{spawned.ControlName}' was added to the designer but the save failed: {ex.Message}");
         }
     }
+
+    /// <summary>The UserControl or PropertyPage module whose designer half this is, or null for a form.</summary>
+    private ModuleDefinition? OwnerModuleOf(FormDefinition? form) =>
+        form is null
+            ? null
+            : ctx.ProjectManager.LoadedProjects.SelectMany(p => p.Modules).FirstOrDefault(m => m.FormPart == form);
 
     [McpServerTool(Name = "invoke_format_command")]
     [Description("Invokes a Format menu command on the active form designer, which lands as one undo step. " +
@@ -1022,7 +1072,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_locals")]
-    [Description("Returns the paused frame's Locals as a tree (Expression/Value/Type), depth-capped. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false. 'context' is the Module.Procedure header; each row has has_children and, down to `maxDepth`, nested children (arrays/UDTs/objects expand; a class instance's Me/fields appear under a Me/module root).")]
+    [Description("Returns the paused frame's Locals as a tree (Expression/Value/Type), depth-capped. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false. 'context' is the Module.Procedure header; each row has hasChildren and, down to `maxDepth`, nested children (arrays/UDTs/objects expand; a class instance's Me/fields appear under a Me/module root).")]
     public async Task<LocalsResult> GetLocalsAsync(int maxDepth = 3, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1042,7 +1092,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     private const int MaxLocalsNodes = 5000;
 
     // Depth-bounded projection of the lazy DebugNode tree into serializable rows. Children below max_depth are
-    // omitted (has_children still signals they exist); a truncated array tail becomes a "… N more" row.
+    // omitted (hasChildren still signals they exist); a truncated array tail becomes a "… N more" row.
     private static LocalsRow MapLocalsNode(DebugNode node, int maxDepth, int depth, int[] budget)
     {
         LocalsRow[]? children = null;
@@ -1077,19 +1127,32 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "add_watch")]
-    [Description("Adds a watch expression to the Watches window. `watchType` is one of Expression (default; display the value), BreakWhenTrue, or BreakWhenChanged (P6a stores all three; only Expression displays a value today). Returns the full watch list after adding.")]
+    [DescribesEnum(typeof(HexIDE.Debugging.WatchType))]
+    [Description("Adds a watch expression to the Watches window. `watchType` is one of Expression (default; display the value), BreakWhenTrue, or BreakWhenChanged (P6a stores all three; only Expression displays a value today), matched without regard to case. Any other value is refused and nothing is added, rather than quietly becoming an Expression watch. Returns the full watch list, after adding or not.")]
     public async Task<WatchesResult> AddWatchAsync(string expression, string? watchType = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            var type = watchType?.Trim().ToLowerInvariant() switch
+            // An unrecognised value is REFUSED. It used to become Expression, so a misspelt BreakWhenTrue gave a
+            // watch that never breaks, reported as though the call had done what was asked. (#546) Null and
+            // empty still mean the documented default.
+            HexIDE.Debugging.WatchType? type = watchType?.Trim().ToLowerInvariant() switch
             {
-                "breakwhentrue" or "break_when_true" or "true"    => HexIDE.Debugging.WatchType.BreakWhenTrue,
+                null or "" or "expression"                               => HexIDE.Debugging.WatchType.Expression,
+                "breakwhentrue" or "break_when_true" or "true"          => HexIDE.Debugging.WatchType.BreakWhenTrue,
                 "breakwhenchanged" or "break_when_changed" or "changed" => HexIDE.Debugging.WatchType.BreakWhenChanged,
-                _ => HexIDE.Debugging.WatchType.Expression,
+                _ => null,
             };
+            if (type is not { } watchKind)
+                return (await BuildWatchesResult()) with
+                {
+                    Success = false,
+                    Error = $"'{watchType}' is not a watch type, so no watch was added. Use Expression (the default), " +
+                            "BreakWhenTrue or BreakWhenChanged.",
+                };
+
             var context = ctx.DebugController.GetLocals()?.Context ?? "(All Procedures)";
-            ctx.RootViewModel.Watches.Service.Add(new HexIDE.Debugging.WatchExpression(expression, type, context));
+            ctx.RootViewModel.Watches.Service.Add(new HexIDE.Debugging.WatchExpression(expression, watchKind, context));
             return await BuildWatchesResult();
         });
     }
@@ -1230,7 +1293,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "take_snapshot")]
-    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image. If a modal dialog is open it is captured in preference to the main window (its title is reported in 'active_dialog'); otherwise the main window is captured. 'window' selects which top-level window to address: \"auto\" (default) is the frontmost one, which while a VB6 program runs — INCLUDING while it is paused at a breakpoint — is the program's form, not the IDE; pass \"ide\" to address the IDE itself in that state.")]
+    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image. If a modal dialog is open it is captured in preference to the main window (its title is reported in 'activeDialog'); otherwise the main window is captured. 'window' selects which top-level window to address: \"auto\" (default) is the frontmost one, which while a VB6 program runs — INCLUDING while it is paused at a breakpoint — is the program's form, not the IDE; pass \"ide\" to address the IDE itself in that state.")]
     public async Task<SnapshotResult> TakeSnapshotAsync(
         string? window = null, CancellationToken ct = default)
     {
@@ -1288,7 +1351,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "inspect_element")]
-    [Description("Returns a deep inspection of a single control addressed by 'target' (a path from dump_visual_tree): identity, supported interaction providers, bounding rectangle, current selection/value/toggle state, and the DataContext ViewModel's public command and property members (the surface the reflection-based interact actions target). Use before interact to confirm an element supports the action you intend, or — for a control with no provider — to discover the VM members the reflection fallback can reach. 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused. Reports 'isHidden': true when the control is in the tree but not on screen (effectively invisible, e.g. collapsed by a binding); absent when it is showing.")]
+    [Description("Returns a deep inspection of a single control addressed by 'target' (a path from dump_visual_tree): identity, supported interaction providers, bounding rectangle, current selection/value/toggle state, for a scroll bar or slider its 'range' (value, minimum, maximum and isReadOnly, which is what set_range_value moves and refuses outside of), and the DataContext ViewModel's public command and property members (the surface the reflection-based interact actions target). Use before interact to confirm an element supports the action you intend, or — for a control with no provider — to discover the VM members the reflection fallback can reach. 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused. Reports 'isHidden': true when the control is in the tree but not on screen (effectively invisible, e.g. collapsed by a binding); absent when it is showing.")]
     public async Task<InspectResult> InspectElementAsync(
         string target, string? window = null, CancellationToken ct = default)
     {
@@ -1307,7 +1370,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "interact")]
-    [Description("Drives a live control addressed by 'target' (a path from dump_visual_tree) through its UI Automation provider — one polymorphic verb instead of a tool per interaction. Provider actions: invoke (click a Button / menu item), select (pick a ComboBox/ListBox item, a DataGrid row, or a tree node), double_click (raise DoubleTapped, selecting the target first as a real double-click does — the only way to reach a surface whose trigger is a double-click, such as opening a form, module or project from the Project Explorer; UI Automation has no pattern for it, so it is a verb rather than a provider), set_value (set a TextBox's text), toggle (flip a CheckBox), expand / collapse (open/close a dropdown, tree node, expander), set_range_value (value = a number with '.' for decimals; sets a Slider or ScrollBar, refusing a read-only one and anything outside its range rather than clamping), scroll (value = up/down/left/right for a page, line_up/line_down/line_left/line_right for a line, home/end for the top/bottom; moves the target, or the nearest control containing it that can scroll that way, so a caller can target the content it wants to see more of. The reply says how far along it now is, and a scroll that could not move says so instead of succeeding). Reflection fallback (for controls with no provider — see inspect_element's dataContextMembers): invoke_command (value = a command name; executes that ICommand on the target's DataContext after a CanExecute check) and set_property (value = \"PropertyName=NewValue\"; sets that VM property, coercing to its type). 'value': required for set_value (the text), set_range_value, scroll and the reflection actions; for select, the item text to match (omit if 'target' already points at the item). A missing provider fails with \"element does not support '<action>'\" — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. Selecting a tree node sets the owning TreeView's SelectedItem, which is what a view model binds to; a TreeViewItem's own peer offers no provider, so this is reported as supported and handled rather than refused. Virtualized dropdown items aren't addressable until realized — 'expand' first, then dump_visual_tree(root=combo), then 'select'. Actions are real and unguarded (the server is DEBUG-only). Use dump_visual_tree/inspect_element first to find the target and confirm what it supports. 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused.")]
+    [Description("Drives a live control addressed by 'target' (a path from dump_visual_tree) through its UI Automation provider — one polymorphic verb instead of a tool per interaction. Provider actions: invoke (click a Button / menu item), select (pick a ComboBox/ListBox item, a DataGrid row, or a tree node), double_click (raise DoubleTapped, selecting the target first as a real double-click does — the only way to reach a surface whose trigger is a double-click, such as opening a form, module or project from the Project Explorer; UI Automation has no pattern for it, so it is a verb rather than a provider), set_value (set a TextBox's text), toggle (flip a CheckBox), expand / collapse (open/close a dropdown, tree node, expander), set_range_value (value = a number with '.' for decimals; sets a Slider or ScrollBar, moving what the bar scrolls as dragging its thumb would, and refusing a read-only one and anything outside its range rather than clamping), scroll (value = up/down/left/right for a page, line_up/line_down/line_left/line_right for a line, home/end for the top/bottom; moves the target, the scroller or scroll bars inside its own template (so aiming at an editor or a DataGrid works), or else the nearest control containing it that can scroll that way, so a caller can target the content it wants to see more of. The reply says how far along it now is, and a scroll that could not move says so instead of succeeding). Reflection fallback (for controls with no provider — see inspect_element's dataContextMembers): invoke_command (value = a command name; executes that ICommand on the target's DataContext after a CanExecute check) and set_property (value = \"PropertyName=NewValue\"; sets that VM property, coercing to its type). 'value': required for set_value (the text), set_range_value, scroll and the reflection actions; for select, the item text to match (omit if 'target' already points at the item). A missing provider fails with \"element does not support '<action>'\" — there is NO implicit fallback to reflection; choose invoke_command/set_property explicitly. Selecting a tree node sets the owning TreeView's SelectedItem, which is what a view model binds to; a TreeViewItem's own peer offers no provider, so this is reported as supported and handled rather than refused. Virtualized dropdown items aren't addressable until realized — 'expand' first, then dump_visual_tree(root=combo), then 'select'. Actions are real and unguarded (the server is DEBUG-only). Use dump_visual_tree/inspect_element first to find the target and confirm what it supports. 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused.")]
     public async Task<InteractOutcome> InteractAsync(
         string target, string action, string? value = null, string? window = null,
         CancellationToken ct = default)
@@ -1593,17 +1656,19 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (menu is null)
                 return new MutateResult(false, "No menu bar found in main window");
 
-            var (found, error) = MenuPath.Resolve(menu.Items, path);
-            if (found is null)
-                return new MutateResult(false, error);
+            // Through the resolved command rather than the MenuItem: an entry of a submenu bound to ItemsSource,
+            // such as Recent Projects, has no MenuItem until that submenu is opened. (#544)
+            var found = MenuPath.Resolve(menu.Items, path);
+            if (found.Error is not null)
+                return new MutateResult(false, found.Error);
 
-            if (found.Command is null)
+            if (found.Command is not { } command)
                 return new MutateResult(false, $"'{path}' is a submenu or has no command");
 
-            if (!found.Command.CanExecute(found.CommandParameter))
+            if (!command.CanExecute(found.CommandParameter))
                 return new MutateResult(false, $"'{path}' command cannot execute (canExecute returned false)");
 
-            found.Command.Execute(found.CommandParameter);
+            command.Execute(found.CommandParameter);
             return new MutateResult(true, null);
         });
     }

@@ -120,6 +120,13 @@
         <input:CommandBinding Command="{x:Static vb:ApplicationCommands.ReplaceCommand}"
                               ExecutingCommand="{CompiledBinding ReplaceInCodeCommand}" />
     </input:CommandManager.CommandBindings>
+    <UserControl.Styles>
+        <!-- A toolbar button shows only an icon, so its automation name fell back to the icon's type,
+             "Avalonia.Controls.Shapes.Path", on every button. Its tooltip is the name a person sees. (#526) -->
+        <Style Selector="ClassicBorderDecorator.toolbar :is(Button)">
+            <Setter Property="AutomationProperties.Name" Value="{Binding $self.(ToolTip.Tip)}" />
+        </Style>
+    </UserControl.Styles>
     <Panel HorizontalAlignment="Left" VerticalAlignment="Top">
         <DockPanel>
             <StackPanel Background="{DynamicResource {x:Static commonControls:SystemColors.ControlBrushKey}}"
@@ -387,9 +394,10 @@
                 <ClassicBorderDecorator BorderStyle="ThinRaised" BorderThickness="1" DockPanel.Dock="Top"
                                         IsVisible="{CompiledBinding Settings.IsStandardToolbarVisible}"
                                         HorizontalAlignment="Left"
-                                        AutomationProperties.AutomationId="StandardToolbar">
+                                        AutomationProperties.AutomationId="StandardToolbar"
+                                        Classes="toolbar">
                     <StackPanel Orientation="Horizontal" Margin="0,1">
-                        <Button Width="22" Height="22" Padding="3" AutomationProperties.AutomationId="Standard.AddProject">
+                        <Button Width="22" Height="22" Padding="3" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.AddProject}" AutomationProperties.AutomationId="Standard.AddProject">
                             <Button.Flyout>
                                 <MenuFlyout>
                                     <MenuItem Header="{DynamicResource Str.ProjectType.StandardEXE}" Command="{x:Static vb:ApplicationCommands.AddProjectCommand}" CommandParameter="{x:Static projects:IProjectTemplate.StandardEXE}" utils:MenuUtils.MenuIcon="{StaticResource Geo.Standardexe16}" />
@@ -415,63 +423,63 @@
                             </Button.Flyout>
                             <Path Data="{StaticResource Geo.Addform}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.EditMenuCommand}" AutomationProperties.AutomationId="Standard.MenuEditor">
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.EditMenuCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.MenuEditor}" AutomationProperties.AutomationId="Standard.MenuEditor">
                             <Path Data="{StaticResource Geo.Menubar}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
                         <Separator />
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenProjectCommand}" AutomationProperties.AutomationId="Standard.OpenProject">
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.OpenProject}" AutomationProperties.AutomationId="Standard.OpenProject">
                             <Path Data="{StaticResource Geo.Open}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.SaveProjectCommand}" AutomationProperties.AutomationId="Standard.SaveProject">
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.SaveProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.SaveProject}" AutomationProperties.AutomationId="Standard.SaveProject">
                             <Path Data="{StaticResource Geo.Save}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
                         <Separator />
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.CutCommand}" AutomationProperties.AutomationId="Standard.Cut">
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.CutCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Cut}" AutomationProperties.AutomationId="Standard.Cut">
                             <Path Data="{StaticResource Geo.Cut}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.CopyCommand}" AutomationProperties.AutomationId="Standard.Copy">
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.CopyCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Copy}" AutomationProperties.AutomationId="Standard.Copy">
                             <Path Data="{StaticResource Geo.Copy}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.PasteCommand}" AutomationProperties.AutomationId="Standard.Paste">
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.PasteCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Paste}" AutomationProperties.AutomationId="Standard.Paste">
                             <Path Data="{StaticResource Geo.Paste}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.FindCommand}" AutomationProperties.AutomationId="Standard.Find">
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.FindCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Find}" AutomationProperties.AutomationId="Standard.Find">
                             <Path Data="{StaticResource Geo.Find}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
                         <Separator />
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.UndoCommand}" AutomationProperties.AutomationId="Standard.Undo">
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.UndoCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Undo}" AutomationProperties.AutomationId="Standard.Undo">
                             <Path Data="{StaticResource Geo.Undo}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.RedoCommand}" AutomationProperties.AutomationId="Standard.Redo">
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.RedoCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Redo}" AutomationProperties.AutomationId="Standard.Redo">
                             <Path Data="{StaticResource Geo.Redo}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
                         <Separator />
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectCommand}" AutomationProperties.AutomationId="Standard.Start">
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Start}" AutomationProperties.AutomationId="Standard.Start">
                             <Path Data="{StaticResource Geo.Play}" Fill="{StaticResource IconRun}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.BreakProjectCommand}" AutomationProperties.AutomationId="Standard.Break">
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.BreakProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Break}" AutomationProperties.AutomationId="Standard.Break">
                             <Path Data="{StaticResource Geo.Pause}" Fill="{DynamicResource IconBreak}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.EndProjectCommand}" AutomationProperties.AutomationId="Standard.End">
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.EndProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.End}" AutomationProperties.AutomationId="Standard.End">
                             <Path Data="{StaticResource Geo.Stop}" Fill="{StaticResource IconStop}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
                         <Separator />
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenProjectExplorerCommand}" AutomationProperties.AutomationId="Standard.ProjectExplorer">
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenProjectExplorerCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.ProjectExplorer}" AutomationProperties.AutomationId="Standard.ProjectExplorer">
                             <Path Data="{StaticResource Geo.Projectexplorer}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenPropertiesCommand}" AutomationProperties.AutomationId="Standard.PropertiesWindow">
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenPropertiesCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.PropertiesWindow}" AutomationProperties.AutomationId="Standard.PropertiesWindow">
                             <Path Data="{StaticResource Geo.Properties}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenFormLayoutCommand}" AutomationProperties.AutomationId="Standard.FormLayout">
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenFormLayoutCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.FormLayoutWindow}" AutomationProperties.AutomationId="Standard.FormLayout">
                             <Path Data="{StaticResource Geo.Formlayout}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenObjectBrowserCommand}" AutomationProperties.AutomationId="Standard.ObjectBrowser">
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenObjectBrowserCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.ObjectBrowser}" AutomationProperties.AutomationId="Standard.ObjectBrowser">
                             <Path Data="{StaticResource Geo.Objectbrowser}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenToolBoxCommand}" AutomationProperties.AutomationId="Standard.Toolbox">
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenToolBoxCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Toolbox}" AutomationProperties.AutomationId="Standard.Toolbox">
                             <Path Data="{StaticResource Geo.Toolbox}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
-                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenDataViewCommand}" AutomationProperties.AutomationId="Standard.DataView">
+                        <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.OpenDataViewCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.DataViewWindow}" AutomationProperties.AutomationId="Standard.DataView">
                             <Path Data="{StaticResource Geo.Dataview}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
                         </Button>
 
@@ -487,7 +495,8 @@
                 <ClassicBorderDecorator BorderStyle="ThinRaised" BorderThickness="1" DockPanel.Dock="Top"
                                         IsVisible="{CompiledBinding Settings.IsEditToolbarVisible}"
                                         HorizontalAlignment="Left"
-                                        AutomationProperties.AutomationId="EditToolbar">
+                                        AutomationProperties.AutomationId="EditToolbar"
+                                        Classes="toolbar">
                     <StackPanel Orientation="Horizontal" Margin="0,1">
                         <Button Width="22" Height="22" Padding="3" Focusable="False" Command="{x:Static vb:ApplicationCommands.ListPropertiesMethodsCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.ListPropertiesMethods}" AutomationProperties.AutomationId="Edit.ListPropertiesMethods">
                             <Path Data="{StaticResource Geo.Listproperties}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
@@ -533,7 +542,8 @@
                 <ClassicBorderDecorator BorderStyle="ThinRaised" BorderThickness="1" DockPanel.Dock="Top"
                                         IsVisible="{CompiledBinding Settings.IsDebugToolbarVisible}"
                                         HorizontalAlignment="Left"
-                                        AutomationProperties.AutomationId="DebugToolbar">
+                                        AutomationProperties.AutomationId="DebugToolbar"
+                                        Classes="toolbar">
                     <StackPanel Orientation="Horizontal" Margin="0,1">
                         <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.StartDefaultProjectCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.Start}" AutomationProperties.AutomationId="Debug.Start">
                             <Path Data="{StaticResource Geo.Play}" Fill="{StaticResource IconRun}" Width="16" Height="16" Stretch="Uniform" />
@@ -580,7 +590,8 @@
                 <ClassicBorderDecorator BorderStyle="ThinRaised" BorderThickness="1" DockPanel.Dock="Top"
                                         IsVisible="{CompiledBinding Settings.IsFormEditorToolbarVisible}"
                                         HorizontalAlignment="Left"
-                                        AutomationProperties.AutomationId="FormEditorToolbar">
+                                        AutomationProperties.AutomationId="FormEditorToolbar"
+                                        Classes="toolbar">
                     <StackPanel Orientation="Horizontal" Margin="0,1">
                         <Button Width="22" Height="22" Padding="3" Command="{x:Static vb:ApplicationCommands.BringToFrontCommand}" ToolTip.Tip="{DynamicResource Str.Toolbar.Tip.BringToFront}" AutomationProperties.AutomationId="FormEditor.BringToFront">
                             <Path Data="{StaticResource Geo.Bringtofront}" Fill="{DynamicResource IconInk}" Width="16" Height="16" Stretch="Uniform" />
