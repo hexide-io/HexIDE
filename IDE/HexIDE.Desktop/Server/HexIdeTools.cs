@@ -369,10 +369,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "set_control_property")]
-    [Description("Sets a named property on a form or UserControl control and saves the file. The value is written as the Properties window shows it: text, a number with '.' for decimals, True or False, a colour literal such as &H00C0FFC0&, or an enum by number, by name, or as '1 - Opaque'; a refused value's reply lists what that property takes. Use get_form_controls to see available controls and properties. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A refused rename changes nothing. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first.")]
+    [Description("Sets a named property on a form or UserControl control and saves the file. The value is written as the Properties window shows it: text, a number with '.' for decimals, True or False, a colour literal such as &H00C0FFC0&, or an enum by number, by name, or as '1 - Opaque'; a refused value's reply lists what that property takes. Use get_form_controls to see available controls and properties. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A refused rename changes nothing. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' gives the value the property now holds, which can differ from the text sent.")]
     public async Task<MutateResult> SetControlPropertyAsync(
         string formName, string controlName, string property, string value, CancellationToken ct)
     {
+        // What the property holds after the set, which is not always what was sent: "0 - Transparent" stores 0. (#655)
+        string? stored = null;
         var (form, ownerModule, error) = await Dispatcher.UIThread.InvokeAsync<(FormDefinition?, ModuleDefinition?, string?)>(() =>
         {
             var project = ctx.ProjectManager.StartupProject;
@@ -436,6 +438,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
             designerVm?.PushSetPropertyCommand(control, propClass, before, parsed);
 
+            stored = $"{control.GetPropertyOrDefault(VBProperties.NameProperty)}.{propClass.Name} is now "
+                     + PropertyText.Display(control.GetBoxedPropertyOrDefault(propClass)) + ", and the file is saved.";
             return (form, ownerModule, null);
         });
 
@@ -458,7 +462,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             }
             // See the note on the other write tool: a refusal must not come back as success. (#147)
             return written
-                ? new MutateResult(true, null)
+                ? new MutateResult(true, null, stored)
                 : new MutateResult(false, "HexIDE cannot reproduce this file faithfully, so it was not "
                                         + "written and the copy on disk is unchanged.");
         }
@@ -715,14 +719,14 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "set_tool_window_visible")]
-    [Description("Shows or hides a named tool panel. Valid names: Toolbox, Properties, ProjectGroup, FormLayout, Immediate, Locals, Watches, CallStack, or an add-in tool window's title. The View menu's names for the same panels, such as 'Immediate Window' or 'Project Explorer', are accepted too, without regard to case.")]
+    [Description("Shows or hides a named tool panel. Valid names: Toolbox, Properties, ProjectGroup, FormLayout, Immediate, Locals, Watches, CallStack, or an add-in tool window's title. The View menu's names for the same panels, such as 'Immediate Window' or 'Project Explorer', are accepted too, without regard to case. The reply's 'note' says whether the window is now shown or hidden.")]
     public async Task<MutateResult> SetToolWindowVisibleAsync(string name, bool visible, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var error = ctx.RootViewModel.SetToolWindowVisible(name, visible);
             return error is null
-                ? new MutateResult(true, null)
+                ? new MutateResult(true, null, $"{name} is now {(visible ? "shown" : "hidden")}.")
                 : new MutateResult(false, error);
         });
     }
@@ -788,7 +792,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         "left/top are CONTAINER-RELATIVE, matching get_form_controls and the .frm: for a control inside a " +
         "Frame or PictureBox they are measured from that container, not from the form. Note that a VB6 control " +
         "array shares one name across its elements (Options Dialog.frm has four picOptions), so a name that is " +
-        "not unique resolves to the first in document order.")]
+        "not unique resolves to the first in document order. The reply's 'note' gives the control's position and size as they now are.")]
     public async Task<MutateResult> MoveControlAsync(
         string formName,
         string controlName,
@@ -831,7 +835,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
             designer.EndDrag();
 
-            return new MutateResult(true, null);
+            var i = target.Instance;
+            return new MutateResult(true, null,
+                $"{target.Name} is at Left {PropertyText.Display(i.GetPropertyOrDefault(VBProperties.LeftProperty))}, "
+                + $"Top {PropertyText.Display(i.GetPropertyOrDefault(VBProperties.TopProperty))}, "
+                + $"Width {PropertyText.Display(i.GetPropertyOrDefault(VBProperties.WidthProperty))}, "
+                + $"Height {PropertyText.Display(i.GetPropertyOrDefault(VBProperties.HeightProperty))}, "
+                + "relative to its container, as get_form_controls reports them.");
         });
     }
 
@@ -1029,13 +1039,17 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "clear_all_breakpoints")]
-    [Description("Removes every breakpoint the IDE holds, in EVERY loaded project rather than only the startup one. With a group open that is more than it sounds; to clear one document, call set_breakpoints with an empty array.")]
+    [Description("Removes every breakpoint the IDE holds, in EVERY loaded project rather than only the startup one. With a group open that is more than it sounds; to clear one document, call set_breakpoints with an empty array. The reply's 'note' says how many breakpoints were cleared, in how many documents.")]
     public async Task<MutateResult> ClearAllBreakpointsAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            var before = ctx.BreakpointService.All();
+            var lines = before.Values.Sum(l => l.Count);
             ctx.BreakpointService.ClearAll();
-            return new MutateResult(true, null);
+            return new MutateResult(true, null, lines == 0
+                ? "There were no breakpoints to clear."
+                : $"Cleared {lines} breakpoint{(lines == 1 ? "" : "s")} in {before.Count} document{(before.Count == 1 ? "" : "s")}.");
         });
     }
 
@@ -1891,7 +1905,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "invoke_menu_item")]
-    [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Each segment is the text the menu displays, matched case-insensitively: 'Project/Add Module' reaches the item whose header is 'Add _Module' (the underscore marks the access key, wherever it falls), and a trailing '...' may be left off, so 'Tools/Options' reaches 'Options...'. A menu need not be open first. If a segment is not found, the error names the menu it looked in and every item that menu holds. Works reliably for add-in contributed items (DelegateCommand). Built-in items that use routed commands may not execute correctly via this tool. Returns an error if the path cannot be resolved or the item has no executable command.")]
+    [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Each segment is the text the menu displays, matched case-insensitively: 'Project/Add Module' reaches the item whose header is 'Add _Module' (the underscore marks the access key, wherever it falls), and a trailing '...' may be left off, so 'Tools/Options' reaches 'Options...'. A menu need not be open first. If a segment is not found, the error names the menu it looked in and every item that menu holds. Works reliably for add-in contributed items (DelegateCommand). Built-in items that use routed commands may not execute correctly via this tool. Returns an error if the path cannot be resolved or the item has no executable command. The reply's 'note' names the item invoked, as its menu shows it.")]
     public async Task<MutateResult> InvokeMenuItemAsync(string path, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1919,7 +1933,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return new MutateResult(false, $"'{path}' command cannot execute (canExecute returned false)");
 
             command.Execute(found.CommandParameter);
-            return new MutateResult(true, null);
+            return new MutateResult(true, null, $"Invoked '{found.Header ?? path}'.");
         });
     }
 

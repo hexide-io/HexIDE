@@ -88,4 +88,16 @@ public class PropertyTextTests
     {
         PropertyText.Accepted(VBProperties.BackColorProperty).Should().Contain("&H00C0FFC0&");
     }
+
+    [Fact]
+    public void A_stored_value_is_shown_as_a_reply_should_show_it()
+    {
+        // set_control_property reports what the property holds afterwards, which is not always what was sent (#655).
+        PropertyText.Display(BackStyles.Opaque).Should().Be("1 (Opaque)");
+        PropertyText.Display(VBAlign.vbAlignTop).Should().Be("1 (Align Top)");
+        PropertyText.Display("Form1").Should().Be("'Form1'");
+        PropertyText.Display(1.5).Should().Be("1.5");
+        PropertyText.Display(true).Should().Be("True");
+        PropertyText.Display(null).Should().Be("(none)");
+    }
 }
