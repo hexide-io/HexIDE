@@ -90,7 +90,34 @@ internal static class DesktopStartup
                         var (exitCode, message) = HexIDE.Net.ServerStartFailure.Describe(ex.InnerException!, ex.Port);
                         Serilog.Log.Error(ex, "HexIDE MCP server failed to start on port {Port}; exiting with {ExitCode}", ex.Port, exitCode);
                         ConsoleOutput.Write(message);
-                        Avalonia.Threading.Dispatcher.UIThread.Post(() => desktop.Shutdown(exitCode));
+                        // The forced Shutdown still closes every window, so the main window's Closing handler
+                        // runs and cannot veto. What it skips is ShutdownRequested, so the cleanup that matters
+                        // is done here by hand. The add-in loader goes first, because it must be disposed before
+                        // the forced Shutdown closes a consent dialog: until then, that dialog reads on its
+                        // return as a refusal and is persisted as Block for an add-in the user never answered
+                        // about (hexide-io/HexIDE#547). The log is closed only once the windows have closed, so
+                        // anything they log on the way out, a failed save on exit included, still reaches the
+                        // file; the language server and file watcher are left to process exit. The exit itself is
+                        // unconditional, because exit code 3 is what the rebuild cycle relies on (#53, #525).
+                        // A launch that failed still writes to the profile it shares: hexide-io/HexIDE#557.
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        {
+                            try
+                            {
+                                loader.Dispose();
+                                cts.Cancel();
+                                ctx.Dispose();
+                            }
+                            catch (Exception cleanup)
+                            {
+                                Serilog.Log.Warning(cleanup, "Cleanup before exiting with {ExitCode} failed; exiting anyway", exitCode);
+                            }
+                            finally
+                            {
+                                desktop.Shutdown(exitCode);
+                                HexIDE.Infrastructure.LoggingSetup.Shutdown();
+                            }
+                        });
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {
