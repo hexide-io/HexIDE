@@ -10,9 +10,10 @@
 #
 # Fails (exit 1) on: a private key git would currently let you commit, build artefacts and
 # editor backups in the tree, dangling relative links in Markdown, machine-specific absolute
-# paths, personal-identity references, and a third-party project named outside the places we
-# agreed it may be. Warns (exit 0) on TWO things, both expected and neither blocking: key
-# material .gitignore already covers, and the upstream-attribution mention.
+# paths, personal-identity references, a third-party project named outside the places we
+# agreed it may be, and unresolved merge-conflict markers. Warns (exit 0) on TWO things, both
+# expected and neither blocking: key material .gitignore already covers, and the
+# upstream-attribution mention.
 #
 # EVERY SCAN SEES UNTRACKED FILES, and that is load-bearing rather than tidy. Git's own
 # listings see only TRACKED files, so a brand-new file is invisible until it is staged --
@@ -212,6 +213,15 @@ done < <(git grep --untracked -lIiE 'twinbasic|rdcore|rubberduck' -- . "${EXCLUD
 while IFS= read -r f; do
   [ -n "$f" ] && warned "AvaloniaVisualBasic mentioned (fine as upstream attribution; confirm it is not a stale code reference): $f"
 done < <(git grep --untracked -lI 'AvaloniaVisualBasic' -- . "${EXCLUDE[@]}")
+
+# 8. Unresolved merge-conflict markers. One reached main inside a Markdown file on 2026-09-22: a merge of
+#    main into a branch reported two conflicts, one was resolved, and the squash carried the other in (#614).
+#    CI and this script both passed it, because nothing here looked. The pattern is the opening and closing
+#    markers WITH their trailing space. It never matches a bare `=======`, which is also a Markdown setext
+#    heading underline and would fail every document that uses one.
+while IFS= read -r hit; do
+  [ -n "$hit" ] && note "unresolved merge-conflict marker: $hit"
+done < <(git grep --untracked -nIE '^(<<<<<<<|>>>>>>>) ' -- . "${EXCLUDE[@]}")
 
 echo
 if [ "$fails" -eq 0 ]; then
