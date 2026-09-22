@@ -294,7 +294,8 @@ So, for any tool added here:
   default value is still *required* on the wire, so the simplest question can cost five arguments while
   the C# reads as optional.
 - **Enumerate the vocabulary a reply uses.** A `kind` of `Unconsumed` means nothing to somebody who was
-  never told the set.
+  never told the set. Where the reply renders an enum, put `[DescribesEnum(typeof(T))]` on the tool:
+  `ToolDescriptionEnumTests` then fails the build if the description leaves a member out (#400).
 - **Explain anything that looks like a defect and is not.** Sequence gaps beside a field called
   `framesDropped` read as data loss.
 - **A reply that mutates reports the new state**, and reports it even when that state is empty.
