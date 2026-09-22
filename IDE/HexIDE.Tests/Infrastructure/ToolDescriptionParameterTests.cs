@@ -37,7 +37,7 @@ public class ToolDescriptionParameterTests
         {
             var snake = Snake(name);
             if (snake == name) continue;
-            foreach (var tool in ToolSource.Tools.Where(t => Regex.IsMatch(t.Description, $@"\b{snake}\b")))
+            foreach (var tool in ToolSource.Tools.Where(t => Regex.IsMatch(t.AllText, $@"\b{snake}\b")))
                 wrong.Add($"{tool.Name} says '{snake}'; the parameter is '{name}'");
         }
 
@@ -96,7 +96,7 @@ public class ToolDescriptionParameterTests
     public void No_description_spells_a_reply_field_in_a_form_the_wire_does_not_use()
     {
         var wrong = ToolSource.Tools
-            .SelectMany(t => SnakeWord.Matches(t.Description)
+            .SelectMany(t => SnakeWord.Matches(t.AllText)
                 .Select(m => m.Value)
                 .Where(w => ToolSource.ReplyFields.Contains(Camel(w)))
                 .Select(w => $"{t.Name} says '{w}'; the reply field is '{Camel(w)}'"))
@@ -115,7 +115,7 @@ public class ToolDescriptionParameterTests
     public void Every_quoted_field_name_is_a_parameter_or_a_reply_field()
     {
         var unknown = ToolSource.Tools
-            .SelectMany(t => QuotedField.Matches(t.Description)
+            .SelectMany(t => QuotedField.Matches(t.AllText)
                 .Select(m => m.Groups["name"].Value)
                 .Where(n => !t.Parameters.Any(p => p.Name == n) && !ToolSource.ReplyFields.Contains(n))
                 .Select(n => $"{t.Name} quotes '{n}', which no parameter or reply field is called"))

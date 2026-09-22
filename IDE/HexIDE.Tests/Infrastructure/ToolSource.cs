@@ -19,14 +19,21 @@ namespace HexIDE.Tests.Infrastructure;
 /// </remarks>
 internal static class ToolSource
 {
-    internal sealed record Parameter(string Name, bool Optional, string Type = "");
+    /// <param name="Description">The parameter's own <c>[Description]</c>, which the SDK sends in the input schema;
+    /// empty when it has none.</param>
+    internal sealed record Parameter(string Name, bool Optional, string Type = "", string Description = "");
 
     internal sealed record Tool(
         string Name,
         string Description,
         IReadOnlyList<Parameter> Parameters,
         IReadOnlyList<(string Enum, string[] NotRendered)> Enums,
-        string ReplyType);
+        string ReplyType)
+    {
+        /// <summary>Everything a caller reads about this tool: its description and each parameter's.</summary>
+        public string AllText =>
+            string.Join(" ", new[] { Description }.Concat(Parameters.Select(p => p.Description)).Where(t => t.Length > 0));
+    }
 
     /// <summary>A positional property of a reply record: the name a caller sees on the wire, and its C# type.</summary>
     internal sealed record Field(string Name, string Type);
@@ -123,6 +130,7 @@ internal static class ToolSource
     private static (IReadOnlyList<Tool>, IReadOnlyList<string>) Read()
     {
         var source = WithoutComments(Source);
+        var constants = ConstantStrings(source);
         var starts = ToolStart.Matches(source).ToList();
         var tools = new List<Tool>();
         var unparsed = new List<string>();
@@ -157,7 +165,8 @@ internal static class ToolSource
             tools.Add(new Tool(
                 name.Groups["name"].Value,
                 description,
-                PartsOf(block[(signature.Index + signature.Length - 1)..]).Select(ParameterOf).OfType<Parameter>().ToList(),
+                PartsOf(block[(signature.Index + signature.Length - 1)..])
+                    .Select(part => ParameterOf(part, constants)).OfType<Parameter>().ToList(),
                 enums,
                 signature.Groups["reply"].Value));
         }
@@ -168,29 +177,52 @@ internal static class ToolSource
     private static string DescriptionOf(string header)
     {
         if (DescriptionStart.Match(header) is not { Success: true } start) return "";
-        var text = new StringBuilder();
-        var position = start.Index + start.Length;
-        while (Literal.Match(header, position) is { Success: true } literal)
-        {
-            text.Append(Regex.Unescape(literal.Groups["text"].Value));
-            position = literal.Index + literal.Length;
-            if (!header[position..].TrimStart().StartsWith('+')) break;
-        }
-        return text.ToString();
+        return LiteralChainAt(header, start.Index + start.Length);
     }
+
+    /// <summary>The string literals starting at <paramref name="position"/>, joined across <c>+</c>.</summary>
+    private static string LiteralChainAt(string text, int position)
+    {
+        var joined = new StringBuilder();
+        while (Literal.Match(text, position) is { Success: true } literal
+               && string.IsNullOrWhiteSpace(text[position..literal.Index]))
+        {
+            joined.Append(Regex.Unescape(literal.Groups["text"].Value));
+            position = literal.Index + literal.Length;
+            var rest = text[position..].TrimStart();
+            if (!rest.StartsWith('+')) break;
+            position = text.Length - rest.Length + 1;
+        }
+        return joined.ToString();
+    }
+
+    private static readonly Regex ConstantString = new(@"\bconst\s+string\s+(?<name>\w+)\s*=");
+    private static readonly Regex DescriptionConstant = new(
+        @"(?<=[\[,]\s*)(?:[\w.]+\.)?Description(?:Attribute)?\s*\(\s*(?<name>[A-Za-z_]\w*)\s*\)");
+
+    /// <summary>Every <c>const string</c> in the file, so a description that names one can be read.</summary>
+    private static IReadOnlyDictionary<string, string> ConstantStrings(string source) =>
+        ConstantString.Matches(source).ToDictionary(
+            m => m.Groups["name"].Value,
+            m => LiteralChainAt(source, m.Index + m.Length),
+            StringComparer.Ordinal);
 
     /// <summary>
     /// A method parameter as a caller sees it: the C# name, which the MCP SDK sends unchanged. The
     /// <see cref="CancellationToken"/> the SDK supplies itself is not one.
     /// </summary>
-    private static Parameter? ParameterOf(string part)
+    private static Parameter? ParameterOf(string part, IReadOnlyDictionary<string, string> constants)
     {
-        var declaration = Regex.Replace(part, @"^\s*(?:\[[^\]]*\]\s*)*", "").Trim();
+        var description = DescriptionOf(part);
+        if (description.Length == 0 && DescriptionConstant.Match(part) is { Success: true } named)
+            description = constants.GetValueOrDefault(named.Groups["name"].Value, "");
+        // Attributes are skipped with string literals respected, since a description may contain a bracket.
+        var declaration = Regex.Replace(part, @"^\s*(?:\[(?:[^\]""]|""(?:[^""\\]|\\.)*"")*\]\s*)*", "").Trim();
         if (declaration.StartsWith("CancellationToken", StringComparison.Ordinal))
             return null;
         var beforeDefault = declaration.Split('=', 2);
         var words = beforeDefault[0].Trim().Split([' ', '\t', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries);
-        return new Parameter(words[^1], beforeDefault.Length == 2, string.Join(" ", words[..^1]));
+        return new Parameter(words[^1], beforeDefault.Length == 2, string.Join(" ", words[..^1]), description);
     }
 
     /// <summary>
