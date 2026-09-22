@@ -1417,3 +1417,306 @@ use `interact` `set_property` with `Value=…` on the row, which is the reflecti
 
 **Suggested fix.** Push the text box's binding to its source after `set_value`, or say in the reply that
 nothing has been committed: [#625](https://github.com/hexide-io/HexIDE/issues/625).
+
+## Claude Code cut three tool descriptions short, losing `window` "ide" among other things — **CLOSED** (#638, 2026-09-22)
+
+> **Fixed.** Every description a caller reads, a tool's and each parameter's, is now at most 2048 characters,
+> and `ToolDescriptionLengthTests` fails the build on one that is longer. Text about a single parameter moved
+> into that parameter's own `[Description]`, which the SDK sends in the input schema.
+
+**Symptom.** The `interact` schema Claude Code delivered to a session ended mid-word:
+`…a TreeViewItem's own peer offers no prov… [truncated]`. The text before the marker is 2048 characters
+exactly, counted from what was received. `list_lsp_messages` arrived cut the same way, at
+`…Abandoned (the connection wen… [truncated]`.
+
+**Measured lengths before the fix:** `list_lsp_messages` 3467, `interact` 3093, `dump_visual_tree` 2266, `hover`
+2048. The first measurement missed `list_lsp_messages`: a quick script read only a `[Description]` directly after
+`[McpServerTool]`, and that tool has three `[DescribesEnum]` attributes between them. The guard found it, since it
+reads through the same parser as every other description check.
+
+**What a caller lost.** From `interact` and `dump_visual_tree`, the only mention of passing `window` "ide" to reach
+the IDE while a program runs or is paused, when the frontmost window is the program's form. From `interact` also
+the dropdown advice and "use dump_visual_tree/inspect_element first". From `list_lsp_messages`, the end of the
+`outcome` vocabulary, the sequence-gap explanation, the reply-on-the-request's-row rule, and the filters.
+
+**Not verified in the session that fixed it.** A session caches tool schemas when it attaches, so the new text
+could not be read back through the client that cut the old one. The text itself is guarded; that the client
+delivers it whole needs a session attached after the change (`/mcp`, reconnect `hexide`).
+
+**2048 is one client's limit, and the tightest known.** Other clients may cut elsewhere, which argues for keeping
+a tool's description to what the tool does rather than for raising the limit.
+
+## Every parameter of a capture tool was required, including the ones that mean "no filter" — **CLOSED** (moved from the live file 2026-09-22)
+
+> **Closed by #393 (#369 phase 3), which gave every optional parameter a C# default.**
+
+**Symptom.** The first call to `list_lsp_messages` had to pass five arguments to ask the simplest possible
+question. `connectionId`, `method`, `failuresOnly`, `afterSequence` and `limit` were all in the schema's
+`required` array, so "list everything" could not be expressed as an empty call.
+
+**Cause, and it is a C# detail with a schema consequence.** A nullable parameter with no default value is
+still a *required* parameter to the MCP schema generator. `string? connectionId` is optional-looking in C#
+and mandatory on the wire. `dump_visual_tree` got this right by accident of having defaults
+(`string? root = null, int maxDepth = 20`), and the new tools did not.
+
+**Workaround used.** Pass `null` explicitly for each. It works, and it is five arguments of noise on every
+call, which is exactly the friction that makes an agent reach for a different tool.
+
+**Fixed** by giving every optional parameter a C# default. Worth knowing for the next tool: check the
+generated schema's `required` array, not the C# signature — they disagree, and only one of them is what an
+agent sees.
+
+## The capture state went blank after a clear, which is the one thing it existed to prevent — **CLOSED** (moved from the live file 2026-09-22)
+
+> **Closed by #393 (#369 phase 3).**
+
+**Symptom.** `clear_lsp_capture` replied:
+
+```
+{"envelopesDiscarded":13,"state":{"armsEveryConnection":true,"connections":[]}}
+```
+
+The connection was alive and armed. `arm_lsp_capture` a moment earlier had listed it correctly.
+
+**Cause.** Both mutating tools returned a state whose connection list was derived from the envelopes
+present in the record — the same answer as the real list right up until somebody empties the record.
+
+**Consequence, and why it is worse than a cosmetic wrong field.** The state is returned by those two tools
+specifically so that arming is not invisible: a tool answering only "done" would leave an agent unable to
+tell an armed connection from one whose id it had misspelled. After a clear it answered exactly that.
+An agent clearing `hexide.vb6` and one clearing `hexide.vb` got identical replies.
+
+**Fixed** by having the log name its own connections (`ConversationLog.ConnectionIds`) rather than
+inferring them from traffic, which also makes a connection armed before it has started visible — the case
+the launch flag depends on. Two tests pin it.
+
+**Found on the first real use of the tools**, by driving them rather than by reading them. Both defects had
+passing unit tests around them; neither could have been caught by one, because both are about what the
+*schema* and the *reply* look like to a caller.
+
+## There is no way to ask what is being recorded without changing it — **CLOSED** (moved from the live file 2026-09-22)
+
+> **Closed by #393 (#369 phase 3), which added `get_lsp_capture_state`.**
+
+**Symptom.** To find out which connections existed and which were armed, the only tools were
+`arm_lsp_capture` and `clear_lsp_capture` — both of which mutate. Reading the state meant arming something
+first.
+
+**Workaround used.** Call `arm_lsp_capture` with the state it already had, and read the reply.
+
+**Fixed** by adding `get_lsp_capture_state`, which is the same reply with nothing changed.
+
+## An export cannot be reached from automation — **CLOSED** (moved from the live file 2026-09-22)
+
+> **Closed by #398 (#395), which added `export_lsp_conversation` over `ConversationExporter`, always pseudonymised.**
+
+**Symptom.** `get_lsp_message` returns a body raw, deliberately — it is the developer's own machine and
+the live view is not redacted either. But there is no tool that produces the redacted, shareable form, so
+an agent asked to attach a conversation to an issue has no safe path: it can read bodies it must not paste,
+and cannot produce the form it should paste instead.
+
+**Workaround used.** None needed yet; noted before it is.
+
+**Suggested fix.** A tool over `ConversationExporter`, which already produces the JSON-lines form plus a
+manifest and takes a redactor. It is listed as phase-four work in #369 (task 4.5, export and copy), so this
+is a note that the automation half of it matters as much as the button — an agent is the likeliest thing to
+be asked for an export, and it is currently the only consumer that cannot make one.
+
+**Filed as [#395](https://github.com/hexide-io/HexIDE/issues/395) and closed by
+`export_lsp_conversation`.** An entry here is a note to self; the surface ships either way, so an
+ergonomics defect gets an issue exactly as a human-facing one does.
+
+**The tool always pseudonymises, and the opt-out is deliberately NOT a parameter on it.** The design
+records that a non-pseudonymising mode should exist and that its surface is an open question needing a
+prominent warning wherever it lands. A boolean here would have settled that question quietly, in the one
+place with nowhere to put a warning. The raw form stays reachable through `get_lsp_message`, so nothing is
+inaccessible — only unshareable, which is the distinction the redaction boundary is made of.
+
+Its first real run found a leak no test had: a workspace folder's `name` survives while its `uri` is
+redacted, because body redaction is textual by design and a `"name"` beside a URI cannot be recognised
+that way — [#397](https://github.com/hexide-io/HexIDE/issues/397).
+
+## get_document_tabs reported three fewer tabs than the user could see — **CLOSED** (moved from the live file 2026-09-22)
+
+> **Closed by #402 (#369 phases 4 and 5).**
+
+**Symptom.** A newly built Protocol Inspector tab was visibly open in the tab strip, and:
+
+```
+get_document_tabs      -> only the form designer
+activate_document_tab  -> "No document tab with title 'Protocol Inspector'"
+```
+
+The Object Browser and the language-server connection list were missing too. Three real tabs, in the same
+strip, invisible to automation.
+
+**Cause.** Both tools read `IDocumentDockService.OpenDocuments`, which is typed
+`IReadOnlyList<BaseEditorWindowViewModel>` and tracks only the editors the service was asked to open. The
+Object Browser, the connection list and the inspector are documents the shell adds straight to the dock, so
+they were never in that list. Nothing was wrong with the tools' logic; they were answering a narrower
+question than the one asked, and the difference was invisible from outside.
+
+**How it bit.** It blocked verification of the very feature being built. Worse, the failure was
+*affirmative*: not "I cannot see that kind of tab" but "no document tab with title X", which reads as the
+tab not existing. I had to take a screenshot to establish that the thing I had just built was on screen.
+
+**Fixed.** `IDocumentDockService` gained `AllTabs`, `ActiveTab`, `TryActivateAny` and `TryCloseAny`, reading
+the dock's own `VisibleDockables`. The three tools now answer about the strip the user sees, `type` gained
+a third value `tool` for documents that are not editors, and the description enumerates all three.
+
+**And the error now names what IS open.** A bare "no tab called X" cannot be told from a typo, and cost a
+second call to find out. The tabs were already in hand:
+
+```
+No document tab with title 'Protocl Inspector'. Open tabs: Object Browser,
+Language & Debug Servers, Project1 - Form1 (Form), Protocol Inspector.
+```
+
+## A DataGrid row could be read but not selected, which makes a master-detail window undrivable — **CLOSED** (moved from the live file 2026-09-22)
+
+> **Closed by #402 (#369 phases 4 and 5).**
+
+**Symptom.** With the protocol inspector's grid on screen and its rows enumerated by
+`dump_visual_tree`:
+
+```
+interact(".../DataGrid/DataItem[#2]", "select")
+-> {"success": false, "mechanism": "peer", "error": "element does not support 'select'"}
+```
+
+`inspect_element` on the same row reported `"providers": []` and `"selectionItems": []`.
+
+**Cause.** A `DataGridRow`'s automation peer exposes no `ISelectionItemProvider`, and `DoSelect` refused
+when there was no provider. There was no second route either: the reflection actions set a view-model
+property by name and coerce the value from a string, and the property that holds a selection is a row
+object no string can name. So the grid was fully readable and completely inert.
+
+**How it bit.** Selecting a row is not a detail of this window, it is the window: click a row, read the
+body that crossed the wire. Every master-detail surface in the IDE has the same shape, so the gap was one
+control wide and the whole pattern deep. It surfaced while verifying the detail pane, which could not be
+verified at all until it was fixed.
+
+**Fixed.** `UiAutomationDriver.DoSelect` falls back to selecting through the grid that owns the row —
+found by walking up the visual tree, because `DataGridRow.OwningGrid` is internal — and reads
+`SelectedItem` back rather than assuming the grid accepted it. `DescribeProviders` now advertises
+`selectionItem` on a row, so the verb is discoverable instead of being a thing a caller has to try.
+Covered headlessly in `UiAutomationDriverTests`.
+
+## A native file dialog cannot be driven, so every flow that ends in one needed a person — **CLOSED** (moved from the live file 2026-09-22)
+
+> **Closed by #402 (#369 phases 4 and 5), which added `answer_next_file_dialog`.**
+
+**Symptom.** The protocol inspector's new *Export conversation…* button opens a save picker.
+`dump_visual_tree` sees nothing of it — a native Win32 dialog is not in Avalonia's control tree at all —
+and while a modal one is up the server does not answer. So the button could be found, enabled and invoked,
+and what happened next could not be observed or completed.
+
+**How far it reaches.** Not one button. Save As, Open Project, Add File, Make EXE, Make Project Group,
+every export: each of them ends in `IStorageProvider`, and each has been verified up to the dialog and by
+hand after it. This was already noted in passing inside a *closed* entry about carried files, which is
+where a general gap goes to be forgotten.
+
+**Fixed, and deliberately not by faking the dialog.** `answer_next_file_dialog(path?)` arms the answer the
+picker would have returned; `clear_file_dialog_answers` discards what is armed. `WindowManager` consults
+the armed answer before reaching for the storage provider, so everything below the picker — the writing,
+the naming, the refusals — is the same code a real click reaches. Only the part a person performs is
+skipped.
+
+Three properties are load-bearing:
+
+- **Single-shot.** A standing override would silently redirect the next unrelated save, and that damage
+  shows up somewhere other than where it was caused.
+- **Cancellation is expressible.** An empty path answers as cancelled, which is a distinct branch through
+  most of these flows and the one least likely to have been exercised by hand.
+- **DEBUG only.** The queue and both call sites compile out with the server, so a shipped build has no
+  bypass rather than an unreachable one.
+
+**It did NOT need a session restart, and that is worth recording because the expectation was wrong.** Two
+brand-new tool schemas appeared to the already-attached client as soon as the IDE relaunched carrying them,
+and were callable in the same session that added them. That matches the measured entry above about
+mid-session relaunch rather than the standing advice, which is written for the case where the server was
+not attached when the session began. Verified by using both tools to drive the export they were built for,
+including the cancellation branch.
+
+## `get_lsp_message` could not return a single response, and nothing said so — **CLOSED** (moved from the live file 2026-09-22)
+
+> **Closed by #431 (#429).**
+
+**Symptom.** Pointing HexIDE at a foreign server and trying to read what it advertised. `list_lsp_messages`
+showed the `initialize` request answered in 41 ms; `get_lsp_message` on that sequence returned the
+**request**. There was no sequence that returned the reply, no field naming one, and no explanation — the
+tool had exactly one address per exchange and it was the half already known.
+
+**How it bit.** The whole investigation was about an `InitializeResult`: which capabilities the server
+declared, and therefore which later messages were legal. Getting it meant writing a client outside the IDE
+and driving the server over its own transport by hand — reintroducing, inside the tool built to destroy
+the ambiguity, the exact work that tool exists to remove. Two other things went with it: an unarmed
+connection could say a request was answered and not how large the answer was, and
+`export_lsp_conversation` — a format whose claim is that it replays into a client — contained not one
+reply, so the requests in it would hang.
+
+**Why it survived.** `ConversationLog.TryComplete` pairs a response with its request, stamps the outcome
+and the latency onto that request's envelope, and returned. Its comment explains half the decision
+correctly and stops one step short: *"The response is not itself an entry. It is the second half of one,
+and a timeline that showed both would double every request."* True about the **entry**, and taken as
+license to drop the **body**. Everything downstream then read as working: the timeline was right, the
+latencies were right, and the one thing missing was missing uniformly, so it looked like a design rather
+than a hole. A caller who has never seen the record cannot tell "responses are not kept" from "this
+response was not kept" from "I have asked the wrong question", which is the three-way ambiguity this
+surface exists to destroy.
+
+**Fixed** (hexide-io/HexIDE#429). A response keeps the sequence it was already allocated — responses have
+always consumed one, which is why a listing has always had gaps and why this tool's description has always
+had to explain that those gaps are not dropped frames. The request's row now names it, so the apology
+becomes an address: `answerSequence` when a body was kept, and `answerSizeBytes` always, since a size is
+metadata and belongs to the tier that runs unarmed. Passing an answer sequence to `get_lsp_message` returns
+`isAnswer`, `answerTo`, and the request's method, because a response carries none on the wire. Both tool
+descriptions say all of this, including which state a row with an outcome and no `answerSequence` is in.
+
+**The general lesson is the one this file keeps re-learning.** The author knew responses completed their
+requests; a first-time caller sees a sequence number that answers with the wrong half. Judge the tool by
+what a model that has never seen it would do on first contact — and a reply that is structurally
+unreachable must at minimum say so, rather than returning something plausible and adjacent.
+
+## A mark tool answered about the startup project, keyed on the caller's spelling, and said nothing back — **CLOSED** (moved from the live file 2026-09-22)
+
+> **Closed by #495 (#273 phase 1).**
+
+**Symptom.** `set_breakpoints("form1", [5])` on a project holding `Form1` replied `{"success":true}`. The
+gutter showed nothing, the run broke nowhere, and `get_breakpoints("Form1")` answered with an empty array.
+Two tools, two confident replies, no breakpoint. With a project group open, the four mark tools could not
+reach the second project's documents at all — a name they did not recognise was `No form or module named
+'X' found`, whether or not the IDE had one open in front of the caller.
+
+**How it bit.** `ResolveDocumentUri` matched a name case-insensitively against the **startup** project and
+then built the store key by interpolating the **caller's** spelling into `vb6://form/{name}`
+(hexide-io/HexIDE#467). Both mark stores were ordinal dictionaries, so `vb6://form/form1` was a second
+entry beside `vb6://form/Form1` — one the gutter, the runner and the sidecar all read past. The reply then
+echoed that key back in its `uri` field, which reads as confirmation rather than as the symptom it was.
+
+**Why it survived.** Three separate things each looked correct. The match was case-insensitive, which is
+what VB6 does. The key was minted the same way the editor mints it, which is what consistency looks like.
+And the reply named what had been written, which is what a mutating tool should do. What nobody wrote down
+is that the two had to be the *same* string, and nothing in the surface could show they were not: a caller
+who has never seen the IDE cannot tell "set, and shown" from "set under a name nothing reads" when both
+answer `success`.
+
+**Fixed** (#273 phase 1). A name resolves to a *document* before anything is keyed, and the stores are
+keyed by that document rather than by any spelling of its name. Every tool that names a document searches
+**every loaded project**, takes an optional `project` to disambiguate, and refuses an ambiguous bare name
+with the candidates listed rather than picking one. Replies carry `project` and `document` — the IDE's own
+spelling, not the caller's — beside the wire `uri`, and a mutating reply now reports what the document
+holds afterwards, including when that is nothing: `Form1 now has no breakpoints.` rather than a bare
+success.
+
+**Two descriptions were corrected rather than fixed.** `clear_all_breakpoints` said "Removes every
+breakpoint in the project"; it removes every breakpoint in *every loaded project*, and has always done so.
+Whether VB6 agrees is unmeasured and is filed as #492. And `set_bookmarks(name, [])` promised to clear a
+document's bookmarks: it emptied the store and raised no change event, so the gutter kept its dots and the
+sidecar was never rewritten — the cleared bookmarks came back on the next load. That one was a real defect
+and is fixed with the rest.
+
+**The lesson this adds.** A reply that echoes an argument back is not evidence the argument was understood.
+Where a tool normalises what it was given — a name matched without regard to case is exactly that — the
+reply must carry the **normalised** form, because the difference between the two is the whole of what the
+caller cannot otherwise see.
