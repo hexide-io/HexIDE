@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Avalonia;
@@ -574,8 +574,8 @@ public static class UiAutomationDriver
     }
 
     /// <summary>
-    /// A scroller that belongs to the control itself: its own peer's, a ScrollViewer in its template, or,
-    /// for a control that scrolls through bare scroll bars as a DataGrid does, a scroll bar in its template.
+    /// A scroller that belongs to the control itself: its own peer's, a ScrollViewer in its template, or, for a
+    /// DataGrid, which scrolls through bare scroll bars, the grid itself driven by row.
     /// </summary>
     private static (IScrollProvider Scroller, Control Owner)? OwnScrollerFor(Control control, bool vertical)
     {
@@ -586,12 +586,11 @@ public static class UiAutomationDriver
             if (PeerScroller(viewer, vertical) is { } templated)
                 return (templated, viewer);
         // A DataGrid's peer offers no scroll provider and its template has no ScrollViewer: it owns two scroll
-        // bars and listens to their Scroll events. Without this step, "scroll" on a grid of two hundred rows
-        // answered that nothing was taller than its viewport. (#545)
-        foreach (var bar in parts.OfType<ScrollBar>())
-            if (bar.Orientation == (vertical ? Avalonia.Layout.Orientation.Vertical : Avalonia.Layout.Orientation.Horizontal)
-                && bar.IsEffectivelyVisible && bar.Maximum > bar.Minimum)
-                return (new ScrollBarScroller(bar), bar);
+        // bars and acts only on their Scroll events, which nothing outside the bar can raise. Without this step,
+        // "scroll" on a grid of two hundred rows answered that nothing was taller than its viewport. Vertical
+        // only, because rows are what ScrollIntoView reaches. (#545)
+        if (vertical && control is DataGrid grid && VerticalBarOf(grid) is { } bar)
+            return (new DataGridScroller(grid, bar), grid);
         return null;
     }
 
@@ -632,95 +631,79 @@ public static class UiAutomationDriver
         return parts;
     }
 
+    private static ScrollBar? VerticalBarOf(DataGrid grid) =>
+        TemplatePartsOf(grid).OfType<ScrollBar>().FirstOrDefault(b =>
+            b.Orientation == Avalonia.Layout.Orientation.Vertical && b.IsEffectivelyVisible && b.Maximum > b.Minimum);
+
     /// <summary>
-    /// Moves a scroll bar the way dragging its thumb does: the value changes, then the bar raises Scroll. The
-    /// second half is what a DataGrid acts on; setting the value alone moved the bar and left the rows where
-    /// they were, while the reply said it had worked. (#545)
+    /// Scrolls a DataGrid by bringing a row into view with its public <see cref="DataGrid.ScrollIntoView"/>, so
+    /// the grid moves by whole rows and the caller is told the offset it landed on.
     /// </summary>
     /// <remarks>
-    /// Scroll is a plain event that only the bar can raise, and the bar raises it from a non-public
-    /// <c>OnScroll</c>, so it is reached by reflection. Should an Avalonia update remove it, this returns false
-    /// and the caller refuses rather than report a scroll that did not happen;
-    /// <c>InteractVocabularyTests</c> pins that it is still there.
+    /// Setting the grid's scroll bar moved the bar and left the rows where they were, while the reply said it
+    /// had worked: the grid acts only on the bar's Scroll event, which the bar raises from a non-public method.
+    /// ScrollIntoView brings a row to the nearer edge, and leaves a row that is already partly shown where it
+    /// is. So a row is always brought in from below the view, which lands it at the top: going down, the grid is
+    /// first taken to its last row. Near the end, where no scroll can put the row at the top, the grid stays at
+    /// the end, which is where the bar would stop too.
     /// </remarks>
-    private static bool MoveScrollBar(ScrollBar bar, double value)
+    private static void ShowRowAtTop(DataGrid grid, ScrollBar bar, int target)
     {
-        if (RaiseScroll is null)
-            return false;
-        bar.SetCurrentValue(RangeBase.ValueProperty, Math.Clamp(value, bar.Minimum, bar.Maximum));
-        RaiseScroll.Invoke(bar, [ScrollEventType.ThumbTrack]);
-        SettleOwner(bar);
-        return true;
+        var rows = grid.ItemsSource?.Cast<object>().ToList() ?? [];
+        if (rows.Count == 0)
+            return;
+        target = Math.Clamp(target, 0, rows.Count - 1);
+        if (target > TopRowOf(bar, rows.Count))
+            grid.ScrollIntoView(rows[^1], null);
+        grid.ScrollIntoView(rows[target], null);
     }
 
-    /// <summary>
-    /// A DataGrid applies a scroll in its next layout pass and only then writes the result back to the bar, so
-    /// a position read straight afterwards was the one before the move: live, a line down reported 0.1% of
-    /// the way along and the next one 2.5%, the first row landing a call late. (#545)
-    /// </summary>
-    private static void SettleOwner(ScrollBar bar) => (bar.TemplatedParent as Avalonia.Layout.Layoutable)?.UpdateLayout();
+    /// <summary>The row at the top when the bar is at <paramref name="offset"/>: rows are taken to share one height.</summary>
+    private static int RowAt(ScrollBar bar, double offset, int rowCount) =>
+        rowCount == 0 ? 0 : (int)Math.Floor(offset / ((bar.Maximum + bar.ViewportSize) / rowCount) + 0.01);
 
-    private static readonly MethodInfo? RaiseScroll = typeof(ScrollBar).GetMethod(
-        "OnScroll", BindingFlags.Instance | BindingFlags.NonPublic, [typeof(ScrollEventType)]);
+    private static int TopRowOf(ScrollBar bar, int rowCount) => RowAt(bar, bar.Value, rowCount);
 
-    /// <summary>
-    /// Steps a scroll bar a line through the same method its own arrow buttons call, so the owner sees the
-    /// event a click raises: a DataGrid reads SmallIncrement as one row, where the bar's SmallChange is a
-    /// pixel. Reached by reflection for the reason <see cref="MoveScrollBar"/> is.
-    /// </summary>
-    private static bool StepScrollBar(ScrollBar bar, bool increment)
+    private static int RowCountOf(DataGrid grid) => grid.ItemsSource?.Cast<object>().Count() ?? 0;
+
+    /// <summary>A DataGrid presented as a vertical scroll provider, so scroll treats it like any other scroller.</summary>
+    private sealed class DataGridScroller(DataGrid grid, ScrollBar bar) : IScrollProvider
     {
-        if (typeof(ScrollBar).GetMethod(increment ? "SmallIncrement" : "SmallDecrement",
-                BindingFlags.Instance | BindingFlags.NonPublic, Type.EmptyTypes) is not { } step)
-            return false;
-        step.Invoke(bar, null);
-        SettleOwner(bar);
-        return true;
-    }
-
-    private const string CannotRaiseScroll =
-        "this scroll bar's owner moves only when the bar raises its Scroll event, and this build of Avalonia offers no way to raise it";
-
-    /// <summary>A bare scroll bar presented as a scroll provider, so scroll treats it like any other scroller.</summary>
-    private sealed class ScrollBarScroller(ScrollBar bar) : IScrollProvider
-    {
-        private bool IsVertical => bar.Orientation == Avalonia.Layout.Orientation.Vertical;
         private double Span => bar.Maximum - bar.Minimum;
-        private double Percent => Span > 0 ? (bar.Value - bar.Minimum) / Span * 100 : 0;
-        private double ViewSize => Span + bar.ViewportSize > 0 && !double.IsNaN(bar.ViewportSize)
-            ? bar.ViewportSize / (Span + bar.ViewportSize) * 100
-            : 100;
 
-        public bool HorizontallyScrollable => !IsVertical && Span > 0;
-        public bool VerticallyScrollable => IsVertical && Span > 0;
-        public double HorizontalScrollPercent => IsVertical ? ScrollPatternIdentifiers.NoScroll : Percent;
-        public double VerticalScrollPercent => IsVertical ? Percent : ScrollPatternIdentifiers.NoScroll;
-        public double HorizontalViewSize => IsVertical ? 100 : ViewSize;
-        public double VerticalViewSize => IsVertical ? ViewSize : 100;
+        public bool HorizontallyScrollable => false;
+        public bool VerticallyScrollable => Span > 0;
+        public double HorizontalScrollPercent => ScrollPatternIdentifiers.NoScroll;
+        public double VerticalScrollPercent => Span > 0 ? (bar.Value - bar.Minimum) / Span * 100 : 0;
+        public double HorizontalViewSize => 100;
+        public double VerticalViewSize => Span + bar.ViewportSize > 0 ? bar.ViewportSize / (Span + bar.ViewportSize) * 100 : 100;
 
         public void Scroll(ScrollAmount horizontalAmount, ScrollAmount verticalAmount)
         {
-            // A page is the viewport, as it is for a ScrollViewer. Not the bar's own page step: a DataGrid never
-            // sets LargeChange, and reads LargeIncrement as "go to the bar's value", so paging through the bar's
-            // own track moved a grid ten pixels, which is what a click on that track does too.
-            var page = bar.ViewportSize is > 0 and var viewport ? viewport : bar.LargeChange;
-            var moved = (IsVertical ? verticalAmount : horizontalAmount) switch
+            var count = RowCountOf(grid);
+            if (count == 0)
+                return;
+            var top = TopRowOf(bar, count);
+            var perPage = Math.Max(1, (int)Math.Floor(bar.ViewportSize / ((bar.Maximum + bar.ViewportSize) / count)));
+            var target = verticalAmount switch
             {
-                ScrollAmount.LargeDecrement => MoveScrollBar(bar, bar.Value - page),
-                ScrollAmount.LargeIncrement => MoveScrollBar(bar, bar.Value + page),
-                ScrollAmount.SmallDecrement => StepScrollBar(bar, increment: false),
-                ScrollAmount.SmallIncrement => StepScrollBar(bar, increment: true),
-                _ => true,
+                ScrollAmount.LargeDecrement => top - perPage,
+                ScrollAmount.LargeIncrement => top + perPage,
+                ScrollAmount.SmallDecrement => top - 1,
+                ScrollAmount.SmallIncrement => top + 1,
+                _ => top,
             };
-            if (!moved)
-                throw new InvalidOperationException(CannotRaiseScroll);
+            ShowRowAtTop(grid, bar, target);
         }
 
         public void SetScrollPercent(double horizontalPercent, double verticalPercent)
         {
-            var percent = IsVertical ? verticalPercent : horizontalPercent;
-            if (percent >= 0 && !MoveScrollBar(bar, bar.Minimum + Span * percent / 100))
-                throw new InvalidOperationException(CannotRaiseScroll);
+            if (verticalPercent < 0)
+                return;
+            // The ends by name, so a rounding in the row estimate cannot stop short of either.
+            var count = RowCountOf(grid);
+            ShowRowAtTop(grid, bar, verticalPercent >= 100 ? count - 1 : verticalPercent <= 0 ? 0
+                : RowAt(bar, bar.Minimum + Span * verticalPercent / 100, count));
         }
     }
 
@@ -767,12 +750,17 @@ public static class UiAutomationDriver
                 : new Vector(number, viewer.Offset.Y);
             return Ok($"scrolled '{Describe(viewer)}' to {number.ToString(CultureInfo.InvariantCulture)} through its scroll bar '{label}' (range {bounds})");
         }
-        if (control is ScrollBar ownedElsewhere)
+        // A DataGrid's bar is moved through the grid, a row at a time, and the reply says where it landed:
+        // setting the bar itself moved the bar and left the rows where they were. (#545)
+        if (control is ScrollBar { TemplatedParent: DataGrid grid, Orientation: Avalonia.Layout.Orientation.Vertical } gridBar)
         {
-            if (!MoveScrollBar(ownedElsewhere, number))
-                return Err($"did not set '{label}': {CannotRaiseScroll}");
+            var count = RowCountOf(grid);
+            ShowRowAtTop(grid, gridBar, RowAt(gridBar, number, count));
+            return Ok($"scrolled '{Describe(grid)}' through its scroll bar '{label}' to show row {TopRowOf(gridBar, count)} at the top: " +
+                      $"the bar is now at {gridBar.Value.ToString("0.#", CultureInfo.InvariantCulture)}, asked for {number.ToString(CultureInfo.InvariantCulture)} " +
+                      $"(range {bounds}; a DataGrid scrolls by whole rows)");
         }
-        else if (control is RangeBase rangeBase)
+        if (control is RangeBase rangeBase)
             rangeBase.SetCurrentValue(RangeBase.ValueProperty, number);
         else
             range.SetValue(number);

@@ -219,14 +219,16 @@ public class InteractVocabularyTests
             Dispatcher.UIThread.RunJobs();
 
             outcome.Success.Should().BeTrue(outcome.Error);
-            outcome.Detail.Should().Contain("the target's own scroll bar");
+            outcome.Detail.Should().StartWith("scrolled 'DataGrid' down");
             FirstShownRow(grid).Should().BeGreaterThan(1, "a page is the rows in view, not the ten pixels of the bar's own step");
 
             var row = FirstShownRow(grid);
             var before = bar.Value;
-            UiAutomationDriver.Interact(grid, "scroll", "line_down").Success.Should().BeTrue();
+            var line = UiAutomationDriver.Interact(grid, "scroll", "line_down");
+            line.Success.Should().BeTrue(line.Error);
             (bar.Value - before).Should().BeGreaterThan(bar.SmallChange,
                 "the reply reads the position straight away, so the grid's row step has to have landed by then");
+            line.Detail.Should().Contain("line_down");
             Dispatcher.UIThread.RunJobs();
             FirstShownRow(grid).Should().Be(row + 1, "a line on a grid is a row");
         }
@@ -246,6 +248,13 @@ public class InteractVocabularyTests
 
             outcome.Success.Should().BeTrue(outcome.Error);
             FirstShownRow(grid).Should().BeGreaterThan(0, "the rows have to move, not only the bar");
+            // A grid moves by whole rows, so the reply has to say where it landed as well as what was asked.
+            outcome.Detail.Should().Contain($"the bar is now at {bar.Value.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)}")
+                .And.Contain("asked for 500").And.Contain($"row {FirstShownRow(grid)} at the top");
+
+            UiAutomationDriver.Interact(bar, "set_range_value", "0").Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            FirstShownRow(grid).Should().Be(0, "going back up is the other direction ScrollIntoView has to serve");
         }
         finally { window.Close(); }
     }
