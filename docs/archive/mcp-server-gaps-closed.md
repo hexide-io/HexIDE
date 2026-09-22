@@ -1120,3 +1120,38 @@ does not help. A new profile asks about every third-party add-in again, which ma
 more likely, not less.
 
 **Fix.** Exit through `TryShutdown(exitCode)`, or run the cleanup before the forced shutdown.
+
+---
+
+## The name-taking tools saw one project, could not read a carried file, and refused without saying why — **CLOSED** (#572, #573, #575, 2026-09-22)
+
+> **Fixed.** `open_file`, `view_designer`, `get_form_controls`, `get_file_content` and `set_file_content`
+> resolve a name across every loaded project, as the mark tools already did, and take the same optional
+> `project`. `get_file_content` reads a carried file, from its editor or else from disk, and
+> `set_file_content` refuses one by what it is. A refusal says what the name is when it is something else,
+> and lists what each project holds.
+
+**Symptoms**, all measured on a group of two projects, `Carried` (`Module1`, carried `Notes`) and `Second`
+(`Form1`, `Module1`, `Module2`), with `project` left at null unless shown:
+
+- `open_file {"name":"Module2"}` refused while `get_breakpoints {"name":"Module2"}` answered for
+  `Second/Module2`. The five tools looked only in the startup project (#575).
+- `get_file_content {"name":"Notes"}` answered "No form or module named 'Notes' found" straight after
+  `open_file` had opened it in a tab (#572).
+- `view_designer {"name":"Module1"}` answered "No form or UserControl named 'Module1' found in the project".
+  That reads as a wrong name, when the name was right and the tool was not, and like every other miss it
+  never said what the project did hold (#573).
+
+**Now:**
+
+```
+view_designer {"name":"Module2"}              → 'Module2' is a module, which has no designer. open_file opens its code.
+view_designer {"name":"Notes"}                → 'Notes' is a carried file, which has no designer. open_file opens it.
+get_form_controls {"formName":"Module1"}      → 'Module1' names more than one document: Carried/Module1, Second/Module1. Pass `project` to say which.
+open_file {"name":"Module1","project":"Second"} → success; the tab is "Second - Module1 (Code)"
+get_file_content {"name":"Notes"}             → {"content":"# Notes\r\n\r\nA carried file.\r\n","hasUnsavedChanges":false}
+open_file {"name":"Nope"}                     → No form, module or carried file named 'Nope' in any loaded project. Carried holds no forms and UserControls; modules Module1; carried files Notes. Second holds forms and UserControls Form1; modules Module1, Module2; no carried files.
+```
+
+**Still open.** `get_project_info` still reports only the startup project, so a refusal is now the only
+reply that shows the whole group.
