@@ -249,6 +249,9 @@
                                                 <Setter Property="Height" Value="{CompiledBinding Height, Mode=TwoWay}" />
                                                 <Setter Property="(Canvas.Left)" Value="{CompiledBinding Left, Mode=TwoWay}" />
                                                 <Setter Property="(Canvas.Top)" Value="{CompiledBinding Top, Mode=TwoWay}" />
+                                                <!-- The control's own name, so automation addresses Command1 rather than the view model's
+                                                     type name, which every control on every form shared. (#526) -->
+                                                <Setter Property="AutomationProperties.Name" Value="{CompiledBinding Name}" />
                                             </Style>
                                         </controls:ControlsContainer.Styles>
                                         <controls:ControlsContainer.ItemsPanel>

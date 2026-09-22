@@ -210,6 +210,12 @@ public partial class PropertiesToolViewModel : Tool
 
 public abstract partial class BasePropertyViewModel : ObservableObject
 {
+    /// <summary>
+    /// What a row is called to anything that cannot see it: a screen reader, or automation addressing the row by
+    /// name. Without it each row was named after its view model's type, every row alike. (#526)
+    /// </summary>
+    public abstract string AccessibleName { get; }
+
     [Notify] private bool isVisible = true;
 }
 
@@ -236,6 +242,8 @@ public partial class PropertyCategoryViewModel : BasePropertyViewModel
     }
 
     public string Header { get; }
+
+    public override string AccessibleName => Header;
 }
 
 public partial class PropertyViewModel : BasePropertyViewModel
@@ -260,6 +268,8 @@ public partial class PropertyViewModel : BasePropertyViewModel
     }
 
     public string Name { get; }
+
+    public override string AccessibleName => Name;
     [Notify] private object? value;
     public string Description { get; }
     public PropertyClass PropertyClass { get; }

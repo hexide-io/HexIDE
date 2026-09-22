@@ -28,6 +28,13 @@
                     <ListBox ItemsSource="{CompiledBinding Templates}"
                              SelectedItem="{CompiledBinding SelectedTemplate}"
                              DoubleTapped="TemplateDoubleTap">
+                        <ListBox.Styles>
+                            <!-- The template's own name, so automation can tell Standard EXE from the rest; each item
+                                 was otherwise named after its view model's type, all eight alike. (#526) -->
+                            <Style Selector="ListBoxItem" x:DataType="viewModels:ProjectTemplateViewModel">
+                                <Setter Property="AutomationProperties.Name" Value="{CompiledBinding Name}" />
+                            </Style>
+                        </ListBox.Styles>
                         <ListBox.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <WrapPanel Orientation="Horizontal" />
@@ -81,6 +88,12 @@
                              SelectedItem="{CompiledBinding FileBrowser.SelectedEntry}"
                              DoubleTapped="FileBrowserDoubleTap"
                              ScrollViewer.HorizontalScrollBarVisibility="Auto">
+                        <ListBox.Styles>
+                            <!-- Each entry is named for the file or folder it shows, not its view model type. (#526) -->
+                            <Style Selector="ListBoxItem" x:DataType="viewModels:FileSystemEntryViewModel">
+                                <Setter Property="AutomationProperties.Name" Value="{CompiledBinding Name}" />
+                            </Style>
+                        </ListBox.Styles>
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="viewModels:FileSystemEntryViewModel">
                                 <StackPanel Orientation="Horizontal" Spacing="4" Margin="2,1">
@@ -130,6 +143,12 @@
                     <ListBox ItemsSource="{CompiledBinding RecentProjects}"
                              SelectedItem="{CompiledBinding SelectedRecentProject}"
                              DoubleTapped="RecentProjectDoubleTap">
+                        <ListBox.Styles>
+                            <!-- The full path, because two recent projects can share a file name. (#526) -->
+                            <Style Selector="ListBoxItem" x:DataType="viewModels:RecentProjectEntryViewModel">
+                                <Setter Property="AutomationProperties.Name" Value="{CompiledBinding FullPath}" />
+                            </Style>
+                        </ListBox.Styles>
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="viewModels:RecentProjectEntryViewModel">
                                 <StackPanel Orientation="Horizontal" Spacing="6" Margin="2,2">
