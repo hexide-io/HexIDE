@@ -275,10 +275,14 @@ public static class UiAutomationDriver
             switch (norm)
             {
                 case "invoke":
+                    // Named BEFORE the invoke. A button that closes its dialog is detached by the time the
+                    // invoke returns, its styles go with it, and its name falls back to the raw caption:
+                    // the New Project dialog's Open reported itself as '_Open' (#578).
+                    var invoked = LabelOf(control, peer);
                     if (peer.GetProvider<IInvokeProvider>() is { } inv)
                     {
                         inv.Invoke();
-                        return Ok($"invoked {ControlTypeOf(peer)} '{LabelOf(control, peer)}'");
+                        return Ok($"invoked {ControlTypeOf(peer)} '{invoked}'");
                     }
                     // MenuItemAutomationPeer exposes NO providers at all — not invoke, not
                     // expandCollapse — so every verb failed on a menu and none of it was reachable.
@@ -287,7 +291,7 @@ public static class UiAutomationDriver
                     if (control is MenuItem clickItem)
                     {
                         clickItem.RaiseEvent(new Avalonia.Interactivity.RoutedEventArgs(MenuItem.ClickEvent));
-                        return Ok($"invoked MenuItem '{LabelOf(control, peer)}'");
+                        return Ok($"invoked MenuItem '{invoked}'");
                     }
                     return Unsupported("invoke");
 
