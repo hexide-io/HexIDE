@@ -758,8 +758,16 @@ internal sealed class HexIdeTools(IdeContext ctx)
         });
     }
 
+    /// <summary>
+    /// What Undo and Redo would now do, as the Edit menu names them. The undo tools replied {"success":true} and
+    /// nothing else, so a caller had to call get_undo_state to learn which step had gone and which was next (#655).
+    /// </summary>
+    private static string UndoStackNote(HexIDE.VisualDesigner.FormEditViewModel designer) =>
+        (designer.UndoStack.UndoDescription is { } undo ? $"Next undo: '{undo}'" : "Nothing left to undo")
+        + "; " + (designer.UndoStack.RedoDescription is { } redo ? $"next redo: '{redo}'." : "nothing to redo.");
+
     [McpServerTool(Name = "invoke_designer_undo")]
-    [Description("Invokes Undo on the active form designer. Returns an error if no form designer is active or nothing is on the undo stack.")]
+    [Description("Invokes Undo on the active form designer. Returns an error if no form designer is active or nothing is on the undo stack. The reply's 'note' names the step undone and what Undo and Redo would do next.")]
     public async Task<MutateResult> InvokeDesignerUndoAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -768,13 +776,14 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return new MutateResult(false, "Active window is not a form designer");
             if (!designer.CanUndo)
                 return new MutateResult(false, "Nothing to undo");
+            var undone = designer.UndoStack.UndoDescription;
             designer.UndoStack.Undo();
-            return new MutateResult(true, null);
+            return new MutateResult(true, null, $"Undid '{undone}'. " + UndoStackNote(designer));
         });
     }
 
     [McpServerTool(Name = "invoke_designer_redo")]
-    [Description("Invokes Redo on the active form designer. Returns an error if no form designer is active or nothing is on the redo stack.")]
+    [Description("Invokes Redo on the active form designer. Returns an error if no form designer is active or nothing is on the redo stack. The reply's 'note' names the step redone and what Undo and Redo would do next.")]
     public async Task<MutateResult> InvokeDesignerRedoAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -783,8 +792,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return new MutateResult(false, "Active window is not a form designer");
             if (!designer.CanRedo)
                 return new MutateResult(false, "Nothing to redo");
+            var redone = designer.UndoStack.RedoDescription;
             designer.UndoStack.Redo();
-            return new MutateResult(true, null);
+            return new MutateResult(true, null, $"Redid '{redone}'. " + UndoStackNote(designer));
         });
     }
 
@@ -950,7 +960,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         "Commands: AlignLefts, AlignRights, AlignTops, AlignBottoms, AlignCentersH, AlignCentersV, " +
         "MakeSameWidth, MakeSameHeight, MakeSameSize, MakeHorizontalSpacingEqual, IncreaseHorizontalSpacing, " +
         "DecreaseHorizontalSpacing, RemoveHorizontalSpacing, MakeVerticalSpacingEqual, IncreaseVerticalSpacing, " +
-        "DecreaseVerticalSpacing, RemoveVerticalSpacing, SizeToGrid, CenterHorizontally, CenterVertically.")]
+        "DecreaseVerticalSpacing, RemoveVerticalSpacing, SizeToGrid, CenterHorizontally, CenterVertically. The reply's 'note' says whether a step landed and names the selection it acted on; a command with nothing to act on changes nothing and says so.")]
     public async Task<MutateResult> InvokeFormatCommandAsync(string command, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -971,8 +981,26 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     + $" Commands: {string.Join(", ", FormatCommands.Select(c => c.Name))}.");
             }
 
-            entry.Of(designer)();
-            return new MutateResult(true, null);
+            // A command with nothing to act on returns without a word, and so does one whose controls already
+            // satisfy it, so whether a step landed is the only reliable sign that anything moved. (#655)
+            var landed = false;
+            void OnChanged() => landed = true;
+            designer.UndoStack.Changed += OnChanged;
+            try { entry.Of(designer)(); }
+            finally { designer.UndoStack.Changed -= OnChanged; }
+
+            var selected = designer.SelectedComponents.Count > 0
+                ? designer.SelectedComponents.Select(c => c.Name).ToList()
+                : designer.SelectedComponent is { } one ? [one.Name] : [];
+            var selection = selected.Count == 0
+                ? "no control is selected"
+                : $"the selection is {string.Join(", ", selected)}"
+                  + (designer.SelectedComponent is { } primary && selected.Count > 1 ? $", aligned to {primary.Name}" : "");
+            return new MutateResult(true, null, landed
+                ? $"Applied '{designer.UndoStack.UndoDescription}' as one undo step; {selection}."
+                : $"Nothing changed, and no undo step was added: {selection}. The spacing commands need two or more "
+                  + "selected controls, the others at least one, and a selection that already satisfies the command "
+                  + "is left as it is.");
         });
     }
 
