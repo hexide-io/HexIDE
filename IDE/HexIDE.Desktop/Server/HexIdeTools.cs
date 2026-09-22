@@ -65,7 +65,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_open_editors")]
-    [Description("Returns the list of currently open editor windows and which one is active.")]
+    [Description("Returns the open EDITOR windows — code windows and designers — and which of them is active. It "
+               + "does not list tool documents (the Object Browser, the connection list, the protocol inspector), "
+               + "although they are tabs in the same strip, and 'activeWindow' is null while one of those is in "
+               + "front, because no editor is then active. get_document_tabs answers the other question: every tab, "
+               + "with its type and which one is active. The 'note' says which case an empty or null answer is.")]
     public async Task<OpenEditorsResult> GetOpenEditorsAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -73,7 +77,21 @@ internal sealed class HexIdeTools(IdeContext ctx)
             var docs = ctx.DocumentDockService.OpenDocuments;
             var windows = docs.Select(d => d.Title).ToArray();
             var active = ctx.DocumentDockService.ActiveDocument?.Title;
-            return new OpenEditorsResult(windows, active);
+
+            // A null activeWindow means "no EDITOR is active", which is not the same as "no tab is active", and
+            // nothing said so: a caller comparing this with get_document_tabs saw a tab there and nothing here. (#684)
+            var front = ctx.DocumentDockService.ActiveTab;
+            var note = windows.Length == 0
+                ? "No editor is open" + (front is not null
+                    ? $"; the tab in front is '{front.Title}', which is not an editor."
+                    : " and no tab is in front.")
+                : active is not null
+                    ? null
+                    : front is not null
+                        ? $"No editor is active: the tab in front is '{front.Title}', which is not an editor. "
+                          + "get_document_tabs lists it."
+                        : "No editor is active, and no tab is in front.";
+            return new OpenEditorsResult(windows, active, note);
         });
     }
 
@@ -1121,6 +1139,17 @@ internal sealed class HexIdeTools(IdeContext ctx)
                + "divide by 15.";
     }
 
+    /// <summary>
+    /// Why a tool that needs a paused program cannot answer, and what gets the caller there. The two cases
+    /// need different moves and the refusal used to name neither, though get_debug_state tells them apart. (#683)
+    /// </summary>
+    private string NotPausedRefusal(string what) =>
+        ctx.ProjectRunnerService.IsRunning
+            ? $"The project is running, not paused, so {what}. break_program pauses it where it is, or "
+              + "set_breakpoints on a line it will reach and it stops there."
+            : $"No project is running, so {what}. set_breakpoints on the line you want, then run_project; "
+              + "step_into starts it and breaks on the first statement.";
+
     /// <summary>The UserControl or PropertyPage module whose designer half this is, or null for a form.</summary>
     private ModuleDefinition? OwnerModuleOf(FormDefinition? form) =>
         form is null
@@ -1493,7 +1522,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         {
             var scope = ctx.DebugController.GetLocals();
             if (scope is null)
-                return new LocalsResult(false, "Project is not paused", null, null);
+                return new LocalsResult(false, NotPausedRefusal("there are no locals to read"), null, null);
             int cap = Math.Clamp(maxDepth, 1, 8);
             int[] budget = { MaxLocalsNodes };   // total-node budget across the whole eager projection
             var rows = scope.Locals.Select(n => MapLocalsNode(n, cap, 1, budget)).ToArray();
@@ -1532,7 +1561,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             if (ctx.DebugController.State != HexIDE.Runtime.Debugging.DebugState.Paused)
-                return new CallStackResult(false, "Project is not paused", System.Array.Empty<CallStackFrameRow>());
+                return new CallStackResult(
+                    false, NotPausedRefusal("there is no call stack to read"), System.Array.Empty<CallStackFrameRow>());
             var frames = ctx.DebugController.GetCallStack()
                 .Select(f => new CallStackFrameRow(f.ProcName, f.Module, f.Line))
                 .ToArray();
@@ -1597,7 +1627,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     {
         string? result = await Dispatcher.UIThread.InvokeAsync(() => ctx.DebugController.EvaluateAsync(expression));
         return result is null
-            ? new EvaluateResult(false, "Project is not paused", null)
+            ? new EvaluateResult(false, NotPausedRefusal("there is no frame to evaluate against"), null)
             : new EvaluateResult(true, null, result);
     }
 
@@ -2102,7 +2132,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_document_tabs")]
-    [Description("Returns EVERY tab in the document region with its title, type and whether it is the active one. 'type' is 'designer' for a form or UserControl designer, 'code' for a source editor, and 'tool' for a document that is not an editor at all — the Object Browser, the language-server connection list, the protocol inspector. Those three are real tabs in the same strip and used to be missing from this answer, which made an automation client believe a tab it could see on screen did not exist.")]
+    [Description("Returns EVERY tab in the document region with its title, type and whether it is the active one. 'type' is 'designer' for a form or UserControl designer, 'code' for a source editor, and 'tool' for a document that is not an editor at all — the Object Browser, the language-server connection list, the protocol inspector. Those three are real tabs in the same strip and used to be missing from this answer, which made an automation client believe a tab it could see on screen did not exist. get_open_editors answers the narrower question: the editors only, and which of them is active.")]
     public async Task<DocumentTabsResult> GetDocumentTabsAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -2742,7 +2772,8 @@ internal record ProjectSummary(
 
 internal record OpenEditorsResult(
     string[] OpenWindows,
-    string? ActiveWindow);
+    string? ActiveWindow,
+    string? Note = null);
 
 internal record DiagnosticsResult(DiagnosticItem[] Diagnostics, string[] Analysed, string? Note);
 
