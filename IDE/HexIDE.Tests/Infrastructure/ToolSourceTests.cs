@@ -40,6 +40,16 @@ public class ToolSourceTests
     }
 
     [Fact]
+    public void Every_description_attribute_is_credited_to_a_tool_or_a_parameter()
+    {
+        // A parameter's description travels in the input schema, and is where text too long for the tool's own
+        // description goes (#638), so one the parser cannot read would escape every guard on what a caller reads.
+        var credited = ToolSource.Tools.Count + ToolSource.Tools.Sum(t => t.Parameters.Count(p => p.Description.Length > 0));
+        credited.Should().Be(Count(@"\[\s*(?:[\w.]+\.)?Description(?:Attribute)?\s*\("),
+            "a description the parser cannot credit is one no guard checks");
+    }
+
+    [Fact]
     public void Every_tool_replies_with_a_record_the_parser_can_read()
     {
         ToolSource.Tools.Where(t => ToolSource.FieldsOf(t.ReplyType) is null)
