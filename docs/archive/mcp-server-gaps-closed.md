@@ -1153,8 +1153,8 @@ get_file_content {"name":"Notes"}             → {"content":"# Notes\r\n\r\nA c
 open_file {"name":"Nope"}                     → No form, module or carried file named 'Nope' in any loaded project. Carried holds no forms and UserControls; modules Module1; carried files Notes. Second holds forms and UserControls Form1; modules Module1, Module2; no carried files.
 ```
 
-**Still open.** `get_project_info` still reports only the startup project, so a refusal is now the only
-reply that shows the whole group.
+**Since closed.** `get_project_info` reported only the startup project, which left a refusal as the only
+reply that showed the whole group; it now lists every loaded project in `projects` (#581).
 
 ---
 
