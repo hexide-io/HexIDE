@@ -90,7 +90,22 @@ internal static class DesktopStartup
                         var (exitCode, message) = HexIDE.Net.ServerStartFailure.Describe(ex.InnerException!, ex.Port);
                         Serilog.Log.Error(ex, "HexIDE MCP server failed to start on port {Port}; exiting with {ExitCode}", ex.Port, exitCode);
                         ConsoleOutput.Write(message);
-                        Avalonia.Threading.Dispatcher.UIThread.Post(() => desktop.Shutdown(exitCode));
+                        // A launch that failed writes nothing. The forced Shutdown keeps that half: it runs no
+                        // Closing handler, so this instance's fresh default window and layout are never saved
+                        // over the profile the instance holding the port is using. But it raises no
+                        // ShutdownRequested either, so the cleanup that matters is done here by hand. Above all
+                        // the add-in loader: until it is disposed, a consent dialog open at this moment reads on
+                        // its return as a refusal and is persisted as Block for an add-in the user never
+                        // answered about (hexide-io/HexIDE#547). The log is flushed so the line above reaches
+                        // the file; the language server and file watcher are left to process exit.
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        {
+                            loader.Dispose();
+                            ctx.Dispose();
+                            cts.Cancel();
+                            HexIDE.Infrastructure.LoggingSetup.Shutdown();
+                            desktop.Shutdown(exitCode);
+                        });
                     }
                     catch (Exception ex) when (ex is not OperationCanceledException)
                     {
