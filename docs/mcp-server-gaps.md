@@ -244,26 +244,6 @@ the kind this document exists to prevent.
 
 ---
 
-## 8. `type_text` bypasses a read-only editor, and reports `mechanism: "keyboard"` while doing it
-
-**Symptom.** Verifying the read-only editing gate (#22) against the running IDE, `type_text` successfully
-inserted `XXX_SHOULD_NOT_APPEAR` into a code editor whose `TextEditor.IsReadOnly` was bound true. The result
-reported `"mechanism":"keyboard"`, which reads as "a real key event went in" — so the first conclusion was
-that the gate was broken. It was not.
-
-**Cause.** The tool's own description says it inserts "at the caret **via the control's own API**", which is
-a document mutation, not input. `IsReadOnly` on AvaloniaEdit guards the *editing UI*, so a direct
-`Document.Insert` legitimately sidesteps it. The `mechanism: "keyboard"` label is the misleading part.
-
-**Workaround.** Do not use `type_text` to test whether input is blocked. `press_key` raises real
-`KeyDown`/`KeyUp`, but note gap #9 below before trusting a negative result from it either. The reliable
-check is behavioural at a level the user cares about — here, invoking Save and confirming the file on disk
-is byte-identical afterwards.
-
-**Suggested fix.** Report `mechanism: "api"` (or `"document"`) when inserting programmatically, and reserve
-`"keyboard"` for genuine key events. Optionally have `type_text` refuse, or warn, when the target editor is
-read-only — silently mutating a read-only document is a surprising default for an automation tool.
-
 ## 10. A crashed IDE is indistinguishable from a slow tool call
 
 **Symptom.** Driving the designer to compose a screenshot, `add_control` returned success, then the next
