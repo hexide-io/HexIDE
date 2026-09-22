@@ -1178,3 +1178,23 @@ run that never broke.
 
 **Still open.** A sidecar that already holds such lines is loaded as-is, and a breakpoint on a line with no
 executable statement is still accepted. Both are noted on #569.
+
+---
+
+## `add_file` created a document under a name VB6 does not accept — **CLOSED** (#596, 2026-09-22)
+
+> **Fixed.** `add_file` now applies `ProjectNaming`, the rule every other way of naming a document uses:
+> `add_file {"name":"My Module","type":"module"}` answers `'My Module' is not a valid name. A name starts
+> with a letter and continues with letters, digits and underscores. Nothing was added.`, and a name already
+> used by any form, module or class, in any case, is refused the same way. A successful reply now carries a
+> `note` saying that the project file does not list the new file until the project is saved, and when the
+> file went to the project's temporary folder.
+
+**Symptom.** `add_file {"name":"My Module","type":"module"}` on a saved project answered
+`{"success":true,"path":"…\\My Module.bas"}` and wrote `Attribute VB_Name = "My Module"`. It was the one route
+to such a document: Project → Add names new documents with `NextFreeName`, and adopting a file refuses an
+invalid name. The tool also kept its own copy of the collision check.
+
+**Why it mattered.** Nothing refused the name until something downstream tried to use it as an identifier.
+The reply said "saves it to disk" while the `.vbp` did not list the file, so a caller checking the project
+file concluded the add had failed.
