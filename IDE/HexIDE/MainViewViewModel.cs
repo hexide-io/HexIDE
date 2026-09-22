@@ -797,8 +797,16 @@ public partial class MainViewViewModel : ObservableObject
         void ReportRuntimeError(string message)
         {
             RuntimeErrors.Record(message);
-            var vm = new RuntimeErrorViewModel(message);
-            windowManager.ShowDialog(vm);
+            EndIfAsked(new RuntimeErrorViewModel(message)).ListenErrors();
+        }
+
+        // End on this dialog ends the run, as VB6's does. It used to close the dialog and leave the program
+        // running (#600). The dialog answers true only for End. A start that failed has nothing to end, so
+        // the runner is asked first.
+        async Task EndIfAsked(RuntimeErrorViewModel vm)
+        {
+            if (await windowManager.ShowDialog(vm) && projectRunnerService.CanEndProject)
+                projectRunnerService.EndProject();
         }
 
         VBWindowContext.CompileError += (form, e) =>

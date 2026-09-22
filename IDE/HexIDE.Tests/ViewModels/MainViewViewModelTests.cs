@@ -433,4 +433,39 @@ public class MainViewViewModelTests
 
         _projectService.DidNotReceive().CreateNewProject();
     }
+
+    // --- The runtime-error dialog (#600) ---
+
+    [AvaloniaTheory]
+    [InlineData(true, true, true)]     // End pressed while a run is going: the run ends
+    [InlineData(false, true, false)]   // closed any other way: nothing ends
+    [InlineData(true, false, false)]   // End after a start that failed: nothing to end
+    public void The_runtime_error_dialog_ends_the_run_only_through_End(bool answer, bool canEnd, bool ends)
+    {
+        _windowManager.ShowDialog(Arg.Any<IDialog>()).Returns(answer);
+        _runnerService.CanEndProject.Returns(canEnd);
+
+        _runnerService.StartFailed += Raise.Event<System.Action<string>>("Form 'Form1' could not be loaded");
+
+        if (ends)
+            _runnerService.Received(1).EndProject();
+        else
+            _runnerService.DidNotReceive().EndProject();
+        _sut.RuntimeErrors.Last.Should().NotBeNull("the error is recorded whatever the dialog answers");
+    }
+
+    [Fact]
+    public void Only_End_closes_the_runtime_error_dialog_answering_true()
+    {
+        var vm = new HexIDE.Forms.ViewModels.RuntimeErrorViewModel("Run-time error '5'");
+        var answers = new List<bool>();
+        vm.CloseRequested += answers.Add;
+
+        vm.Continue();
+        vm.End();
+        vm.Debug();
+        vm.Help();
+
+        answers.Should().Equal(false, true, false, false);
+    }
 }
