@@ -1568,7 +1568,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (control is null)
                 return new InteractOutcome(false, "keyboard", null, resolveError);
 
-            return UiAutomationDriver.TypeText(control, text);
+            return UiAutomationDriver.TypeText(control, text, target);
         });
     }
 
@@ -1705,7 +1705,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (control is null)
                 return new InteractOutcome(false, "keyboard", null, resolveError);
 
-            return UiAutomationDriver.PressKey(control, key, modifiers);
+            return UiAutomationDriver.PressKey(control, key, modifiers, target);
         });
     }
 
