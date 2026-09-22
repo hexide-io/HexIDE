@@ -74,6 +74,7 @@ public sealed class ConversationLog : IAsyncDisposable
     private volatile bool _armsEveryConnection;
     private readonly Channel<Pending> _queue;
     private readonly Task _pump;
+    private readonly Task _pumpGate;
     private readonly Dictionary<string, Connection> _connections = [];
     private readonly Dictionary<string, CaptureLimits>? _perConnection;
     private readonly object _connectionsLock = new();
@@ -120,7 +121,24 @@ public sealed class ConversationLog : IAsyncDisposable
         int queueDepth = 4096,
         IReadOnlyDictionary<string, CaptureLimits>? perConnection = null,
         bool armEveryConnection = false)
+        : this(Task.CompletedTask, limits, clock, queueDepth, perConnection, armEveryConnection)
     {
+    }
+
+    /// <param name="pumpGate">
+    /// The pump reads nothing until this completes. For tests that need the queue to overflow: a consumer
+    /// that is merely hoped to fall behind keeps up on a fast machine, and a count of drops that depends on
+    /// scheduling asserts nothing (#558).
+    /// </param>
+    internal ConversationLog(
+        Task pumpGate,
+        CaptureLimits? limits = null,
+        TimeProvider? clock = null,
+        int queueDepth = 4096,
+        IReadOnlyDictionary<string, CaptureLimits>? perConnection = null,
+        bool armEveryConnection = false)
+    {
+        _pumpGate = pumpGate;
         _armsEveryConnection = armEveryConnection;
         _limits = (limits ?? CaptureLimits.Default).Clamped(out var adjustments);
         Adjustments = adjustments;
@@ -456,6 +474,7 @@ public sealed class ConversationLog : IAsyncDisposable
 
     private async Task PumpAsync()
     {
+        await _pumpGate.ConfigureAwait(false);
         await foreach (var pending in _queue.Reader.ReadAllAsync())
         {
             // Nothing in here may throw into the channel loop: a dead pump would take the whole record
