@@ -25,6 +25,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
     private readonly RevocationStore _revocations;
     private readonly List<AddinContext> _contexts = [];
     private readonly string _stateFilePath;
+    private readonly string _addinsDirectory;
     private readonly HashSet<string> _disabled;
     private IHexIdeHost? _host;
     private bool _disposed;
@@ -33,15 +34,31 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
 
     public AddinRegistry(IPackageVerifier verifier, ISettingsService settings, IDeveloperModeService devMode,
                          IWindowManager windowManager, ILocalizationService localization)
+        : this(verifier, settings, devMode, windowManager, localization,
+               new ConsentStore(), new RevocationStore(), DefaultStateFilePath(),
+               Path.Combine(AppContext.BaseDirectory, "addins"))
+    {
+    }
+
+    /// <summary>
+    /// Every per-user and per-install location named explicitly, so a test can run the real registry against a
+    /// temporary directory instead of the user's profile. The public constructor supplies the real ones and
+    /// behaves exactly as it did before this existed.
+    /// </summary>
+    internal AddinRegistry(IPackageVerifier verifier, ISettingsService settings, IDeveloperModeService devMode,
+                           IWindowManager windowManager, ILocalizationService localization,
+                           ConsentStore consent, RevocationStore revocations, string stateFilePath,
+                           string addinsDirectory)
     {
         _verifier = verifier;
         _settings = settings;
         _devMode = devMode;
         _windowManager = windowManager;
         _localization = localization;
-        _consent = new ConsentStore();
-        _revocations = new RevocationStore();
-        _stateFilePath = DefaultStateFilePath();
+        _consent = consent;
+        _revocations = revocations;
+        _stateFilePath = stateFilePath;
+        _addinsDirectory = addinsDirectory;
         _disabled = LoadDisabledSet();
     }
 
@@ -51,7 +68,7 @@ internal sealed class AddinRegistry : IAddinRegistry, IAddinLoader
     {
         _host = host;   // retained for the post-window consent pass (late-loading consented add-ins)
 
-        var dir = Path.Combine(AppContext.BaseDirectory, "addins");
+        var dir = _addinsDirectory;
         if (!Directory.Exists(dir))
         {
             Log.Debug("AddinRegistry: addins/ folder not found at {Dir} — skipping", dir);
