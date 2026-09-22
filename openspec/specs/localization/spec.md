@@ -13,6 +13,7 @@ Which languages ship, and how a pack is produced, are a separate capability (`la
 the mechanism.
 
 ## Requirements
+
 ### Requirement: Every user-facing string SHALL be addressed by a key
 Text shown to the user SHALL be referenced by a stable key resolved at display time, and SHALL NOT be
 written as a literal at the point of use.
@@ -134,3 +135,15 @@ nothing.
 #### Scenario: A region with nothing to override
 - **WHEN** a region carries no overrides at all
 - **THEN** it is still selectable and resolves entirely through its neutral language
+
+### Requirement: Only one language change SHALL await confirmation at a time
+While a language change is awaiting confirmation, another language change SHALL be refused, and nothing SHALL
+be applied by the refused change.
+
+A change that is not confirmed reverts to the language active when it was made. A second change made while the
+first is unconfirmed would record the first's unconfirmed language as the one to return to, so whichever
+resolved last would decide where the IDE ended up. That could leave the IDE in a language nobody kept.
+
+#### Scenario: A second change while the first is unconfirmed
+- **WHEN** a language change is awaiting confirmation and another change is requested
+- **THEN** the second is refused, the first's confirmation is still the only one open, and not confirming it returns the IDE to the language it had before either
