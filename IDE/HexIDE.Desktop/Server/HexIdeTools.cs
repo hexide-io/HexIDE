@@ -1604,7 +1604,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "type_text")]
-    [Description("Types text into the control at 'target' (a path from dump_visual_tree) by inserting at the caret via the control's own API — works on the code editor (AvaloniaEdit), which has no value provider for 'interact set_value'. If 'target' isn't itself a text surface, the nearest descendant editor/textbox is used (the AvaloniaEdit editor is preferred over incidental textboxes). When that happens the reply gives the path of the surface that took the text. Multi-line text is inserted verbatim (include \\n for new lines); exact, reliable, and not altered by live auto-indent/IntelliSense. For a typing cadence, call this once per line. Use press_key for Enter/Tab/commands. 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused.")]
+    [Description("Types text into the control at 'target' (a path from dump_visual_tree) by inserting at the caret via the control's own API, reported as mechanism \"document\" because it is an edit and not key events; a read-only or disabled surface is refused, as a person's typing would be — works on the code editor (AvaloniaEdit), which has no value provider for 'interact set_value'. If 'target' isn't itself a text surface, the nearest descendant editor/textbox is used (the AvaloniaEdit editor is preferred over incidental textboxes). When that happens the reply gives the path of the surface that took the text. Multi-line text is inserted verbatim (include \\n for new lines); exact, reliable, and not altered by live auto-indent/IntelliSense. For a typing cadence, call this once per line. Use press_key for Enter/Tab/commands. 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused.")]
     public async Task<InteractOutcome> TypeTextAsync(
         string target, string text, string? window = null, CancellationToken ct = default)
     {
@@ -1612,11 +1612,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
         {
             var (active, _, error) = ResolveActiveWindow(window);
             if (active is null)
-                return new InteractOutcome(false, "keyboard", null, error);
+                return new InteractOutcome(false, UiAutomationDriver.TypedMechanism, null, error);
 
             var (control, resolveError) = UiAutomationDriver.Resolve(active, target);
             if (control is null)
-                return new InteractOutcome(false, "keyboard", null, resolveError);
+                return new InteractOutcome(false, UiAutomationDriver.TypedMechanism, null, resolveError);
 
             return UiAutomationDriver.TypeText(control, text, target);
         });

@@ -1066,13 +1066,24 @@ public static class UiAutomationDriver
     /// <summary>Types text into the resolved control (or its nearest text surface) by inserting at the
     /// caret via the control's own API — reliable and exact (no synthetic keystrokes, so live
     /// auto-indent/IntelliSense don't garble it). Multi-line text is inserted verbatim.</summary>
+    /// <remarks>
+    /// The insert is a document edit, not input, so it would go through a read-only editor that a person's
+    /// keystrokes could not change. It is refused there instead, and the mechanism is reported as
+    /// <see cref="TypedMechanism"/>: this used to say "keyboard", which is how a read-only gate that held was
+    /// taken for one that had failed (#649).
+    /// </remarks>
     public static InteractOutcome TypeText(Control control, string text, string? controlPath = null)
     {
         try
         {
             if (FindTextSurface(control) is not { } surface)
-                return new InteractOutcome(false, "keyboard", null,
+                return new InteractOutcome(false, TypedMechanism, null,
                     $"'{control.GetType().Name}' has no text surface (TextEditor/TextArea/TextBox) to type into");
+
+            if (WhyNotTypable(surface) is { } refusal)
+                return new InteractOutcome(false, TypedMechanism, null,
+                    $"{surface.GetType().Name}{(ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface))} "
+                    + $"{refusal}, so a person could not type there either; nothing was inserted");
 
             surface.Focus();
             switch (surface)
@@ -1093,10 +1104,26 @@ public static class UiAutomationDriver
                     box.CaretIndex = at + text.Length;
                     break;
             }
-            return new InteractOutcome(true, "keyboard",
+            return new InteractOutcome(true, TypedMechanism,
                 $"typed {text.Length} char(s) into {surface.GetType().Name}{(ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface))}", null);
         }
-        catch (Exception ex) { return new InteractOutcome(false, "keyboard", null, $"type_text threw: {ex.Message}"); }
+        catch (Exception ex) { return new InteractOutcome(false, TypedMechanism, null, $"type_text threw: {ex.Message}"); }
+    }
+
+    /// <summary>What <see cref="TypeText"/> reports as its mechanism: an edit through the control's own API.</summary>
+    public const string TypedMechanism = "document";
+
+    /// <summary>Why a person could not type into <paramref name="surface"/> at its caret; null when they could.</summary>
+    private static string? WhyNotTypable(Control surface)
+    {
+        if (!surface.IsEffectivelyEnabled) return "is disabled";
+        return surface switch
+        {
+            TextEditor editor when !editor.TextArea.ReadOnlySectionProvider.CanInsert(editor.CaretOffset) => "is read-only",
+            TextArea area when !area.ReadOnlySectionProvider.CanInsert(area.Caret.Offset) => "is read-only",
+            TextBox { IsReadOnly: true } => "is read-only",
+            _ => null,
+        };
     }
 
     /// <summary>Presses a key (optionally with modifiers) on the resolved control by raising real
