@@ -102,7 +102,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "set_file_content")]
-    [Description("Replaces the VB6 source code of a named form or module and saves to disk. Use get_project_info to list available names. Pass the CODE SECTION, not a whole file: a .frm's VERSION/Begin designer block is refused (it describes controls, which this tool does not apply), and a .bas/.cls header is stripped. A form's leading 'Attribute VB_*' block is its identity; the editor shows it, but content composed rather than round-tripped rarely carries it -- if yours omits it the existing one is kept and the result says so, so a body that leaves it out can no longer destroy VB_Name.")]
+    [Description("Replaces the VB6 source code of a named form or module and saves to disk. Use get_project_info to list available names. Pass the CODE SECTION, not a whole file: a .frm's VERSION/Begin designer block is refused (it describes controls, which this tool does not apply), and a .bas/.cls header is stripped. A form's leading 'Attribute VB_*' block is its identity; the editor shows it, but content composed rather than round-tripped rarely carries it -- if yours omits it the existing one is kept and the result says so, so a body that leaves it out can no longer destroy VB_Name. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first.")]
     public async Task<MutateResult> SetFileContentAsync(string name, string content, CancellationToken ct)
     {
         var restoredHeader = false;
@@ -132,6 +132,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 // show it (measured 2026-09-20 -- it opens the code window), but a caller composing a
                 // body rather than round-tripping one omits it anyway, and that used to delete it with no
                 // warning, straight to disk. (gap 14)
+                // Refused BEFORE the edit. This used to apply the code and only then find there was no file
+                // to write, so the reply said the change failed while the editor held it. (#538)
+                if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(form.AbsolutePath))
+                    return (null, null, $"Form '{form.Name}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
+
                 var kept = HexIDE.Runtime.Serialization.FormCodeText.PreserveAttributes(content, form.Code);
                 restoredHeader = !ReferenceEquals(kept, content);
 
@@ -147,6 +152,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase));
             if (module is not null)
             {
+                if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(module.AbsolutePath))
+                    return (null, null, $"Module '{module.Name}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
+
                 // .bas/.cls hold the BODY only; strip a VB6 header if a caller passed full file content
                 // (idempotent for a body that has none).
                 var body = HexIDE.Runtime.Serialization.ModuleFileFormat.StripHeader(content, module.Kind);
@@ -163,11 +171,6 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
         if (error is not null)
             return new MutateResult(false, error);
-
-        if (form is not null && form.AbsolutePath is null)
-            return new MutateResult(false, "Form has no saved path — save the project via File > Save first");
-        if (module is not null && module.AbsolutePath is null)
-            return new MutateResult(false, "Module has no saved path — save the project via File > Save first");
 
         try
         {
@@ -194,7 +197,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
         }
         catch (Exception ex)
         {
-            return new MutateResult(false, ex.Message);
+            // The edit is already in the IDE by now; a bare exception message would read as though it were not.
+            return new MutateResult(false, $"The new code is in the IDE but was not written: {ex.Message}");
         }
     }
 
@@ -296,7 +300,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "set_control_property")]
-    [Description("Sets a named property on a form or UserControl control and saves the file. Supports string, number, and bool properties. Use get_form_controls to see available controls and properties.")]
+    [Description("Sets a named property on a form or UserControl control and saves the file. Supports string, number, and bool properties. Use get_form_controls to see available controls and properties. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first.")]
     public async Task<MutateResult> SetControlPropertyAsync(
         string formName, string controlName, string property, string value, CancellationToken ct)
     {
@@ -352,6 +356,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return (null, null, $"Cannot parse '{value}' as {propClass.PropertyType.Name}");
             }
 
+            // Refused BEFORE the property is set, for the same reason as set_file_content. (#538)
+            if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(ownerModule is not null ? ownerModule.AbsolutePath : form.AbsolutePath))
+                return (null, null,
+                    $"{(ownerModule is not null ? "UserControl" : "Form")} '{formName}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
+
             var before = control.GetBoxedPropertyOrDefault(propClass);
             control.SetUntypedProperty(propClass, parsed);
 
@@ -368,18 +377,14 @@ internal sealed class HexIdeTools(IdeContext ctx)
             bool written;
             if (ownerModule is not null)
             {
-                if (ownerModule.AbsolutePath is null)
-                    return new MutateResult(false, "UserControl has no saved path — save the project via File > Save first");
                 written = await Dispatcher.UIThread.InvokeAsync(
                     async () => await ctx.ProjectService.SaveModule(ownerModule, false));
             }
             else
             {
-                if (form!.AbsolutePath is null)
-                    return new MutateResult(false, "Form has no saved path — save the project via File > Save first");
                 // Same UI-thread requirement as the other write tool, and for the same reason. (#334)
                 written = await Dispatcher.UIThread.InvokeAsync(
-                    async () => await ctx.ProjectService.SaveForm(form, false));
+                    async () => await ctx.ProjectService.SaveForm(form!, false));
             }
             // See the note on the other write tool: a refusal must not come back as success. (#147)
             return written
@@ -389,7 +394,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
         }
         catch (Exception ex)
         {
-            return new MutateResult(false, ex.Message);
+            // The property is already set in the IDE by now; a bare exception message would read as though it
+            // were not.
+            return new MutateResult(false, $"'{property}' is set in the IDE but was not written: {ex.Message}");
         }
     }
 
@@ -742,9 +749,14 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // form, and a form with no file saves through the native picker, which stops this server
             // answering: the call never returned and every call behind it hung. An armed answer makes the
             // save safe to attempt, including an armed cancel, which keeps the form without a file. (#514)
-            if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(designer.FormDefinition?.AbsolutePath))
+            //
+            // A UserControl or PropertyPage is saved through its MODULE, which holds the .ctl/.pag path; the
+            // designer half it draws on has no path of its own (#474). Asking about that half refused a
+            // document that has a file, and saving through it would have written a stray .frm.
+            var owner = OwnerModuleOf(designer.FormDefinition);
+            if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(owner?.AbsolutePath ?? designer.FormDefinition?.AbsolutePath))
                 return new AddControlResult(false, null,
-                    $"Form '{formName}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
+                    $"{(owner is not null ? owner.Kind.ToString() : "Form")} '{formName}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
 
             designer.SpawnControlAt(componentClass, new Avalonia.Rect(x, y, width, height));
             return new AddControlResult(true, designer.SelectedComponent?.Name, null, designer.FormDefinition);
@@ -763,8 +775,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
         // reported as success. (#334)
         try
         {
-            var written = await Dispatcher.UIThread.InvokeAsync(
-                async () => await ctx.ProjectService.SaveForm(spawned.Form, false));
+            // Through the owning module for a UserControl or PropertyPage, as set_control_property does. (#539)
+            var written = await Dispatcher.UIThread.InvokeAsync(async () =>
+                OwnerModuleOf(spawned.Form) is { } owner
+                    ? await ctx.ProjectService.SaveModule(owner, false)
+                    : await ctx.ProjectService.SaveForm(spawned.Form, false));
 
             // A refusal must not come back as success. (#147) The control is real and in the designer --
             // saying otherwise would be its own wrong answer -- but the file on disk does not have it, and
@@ -782,6 +797,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 $"'{spawned.ControlName}' was added to the designer but the save failed: {ex.Message}");
         }
     }
+
+    /// <summary>The UserControl or PropertyPage module whose designer half this is, or null for a form.</summary>
+    private ModuleDefinition? OwnerModuleOf(FormDefinition? form) =>
+        form is null
+            ? null
+            : ctx.ProjectManager.LoadedProjects.SelectMany(p => p.Modules).FirstOrDefault(m => m.FormPart == form);
 
     [McpServerTool(Name = "invoke_format_command")]
     [Description("Invokes a Format menu command on the active form designer, which lands as one undo step. " +
@@ -1030,7 +1051,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_locals")]
-    [Description("Returns the paused frame's Locals as a tree (Expression/Value/Type), depth-capped. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false. 'context' is the Module.Procedure header; each row has has_children and, down to `maxDepth`, nested children (arrays/UDTs/objects expand; a class instance's Me/fields appear under a Me/module root).")]
+    [Description("Returns the paused frame's Locals as a tree (Expression/Value/Type), depth-capped. Valid only while paused (get_debug_state.state == Paused) — otherwise Success is false. 'context' is the Module.Procedure header; each row has hasChildren and, down to `maxDepth`, nested children (arrays/UDTs/objects expand; a class instance's Me/fields appear under a Me/module root).")]
     public async Task<LocalsResult> GetLocalsAsync(int maxDepth = 3, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1050,7 +1071,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     private const int MaxLocalsNodes = 5000;
 
     // Depth-bounded projection of the lazy DebugNode tree into serializable rows. Children below max_depth are
-    // omitted (has_children still signals they exist); a truncated array tail becomes a "… N more" row.
+    // omitted (hasChildren still signals they exist); a truncated array tail becomes a "… N more" row.
     private static LocalsRow MapLocalsNode(DebugNode node, int maxDepth, int depth, int[] budget)
     {
         LocalsRow[]? children = null;
@@ -1238,7 +1259,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "take_snapshot")]
-    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image. If a modal dialog is open it is captured in preference to the main window (its title is reported in 'active_dialog'); otherwise the main window is captured. 'window' selects which top-level window to address: \"auto\" (default) is the frontmost one, which while a VB6 program runs — INCLUDING while it is paused at a breakpoint — is the program's form, not the IDE; pass \"ide\" to address the IDE itself in that state.")]
+    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image. If a modal dialog is open it is captured in preference to the main window (its title is reported in 'activeDialog'); otherwise the main window is captured. 'window' selects which top-level window to address: \"auto\" (default) is the frontmost one, which while a VB6 program runs — INCLUDING while it is paused at a breakpoint — is the program's form, not the IDE; pass \"ide\" to address the IDE itself in that state.")]
     public async Task<SnapshotResult> TakeSnapshotAsync(
         string? window = null, CancellationToken ct = default)
     {
