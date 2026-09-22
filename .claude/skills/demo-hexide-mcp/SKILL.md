@@ -86,7 +86,7 @@ Teleport an organic AI-Chat line at each turn.
    (`invoke_command ProjectPropertiesCommand` on `MainView`), set the **Project Name** field (the enabled
    `Edit` on the General tab — its VM member is `ProjectName`) to a fresh, random, jaunty name each run
    (e.g. *Wild Ecstasy* → identifier `WildEcstasy`; names must be valid VB6 identifiers — no spaces), then
-   `invoke` `Window/Custom/Button[_OK]`. A unique project name = a unique build, so a stale exe from a prior
+   `invoke` `Window/Custom/Button[OK]`. A unique project name = a unique build, so a stale exe from a prior
    run can't lock or impersonate this one. Then `view_designer("Form1")`; `add_control` a `Timer` (use the
    name it returns, e.g. `Timer0`); teleport a short opener.
 2. **Slow build.** `open_file("Form1")`, clear the pre-seeded `Form_Load` stub (`press_key` Ctrl+A → Delete),
