@@ -187,6 +187,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </summary>
     private LspDocumentSession? session;
 
+    /// <summary>Whether this editor's text has diagnostics yet; see <see cref="LspDocumentSession.AwaitingDiagnostics"/>.</summary>
+    public bool AwaitingDiagnostics => session?.AwaitingDiagnostics ?? false;
+
     public CodeEditorViewModel(IWindowManager windowManager,
         IEditorService editorService,
         IProjectService projectService,

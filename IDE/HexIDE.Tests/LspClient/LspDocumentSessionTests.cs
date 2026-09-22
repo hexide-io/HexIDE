@@ -59,6 +59,62 @@ public class LspDocumentSessionTests : IDisposable
         _client.DiagnosticsPublished += Raise.Event<EventHandler<PublishDiagnosticsParams>>(_client, p);
     }
 
+    // ── Awaiting diagnostics (#664) ───────────────────────────────────────────────────────────────────
+    //
+    // get_diagnostics answered [] for a document whose analysis had not come back, which read as clean
+    // code. This is what lets it tell the two apart.
+
+    [Fact]
+    public void An_opened_document_awaits_diagnostics_until_the_first_arrive()
+    {
+        var session = Session("Sub A()\nEnd Sub");
+        session.Start();
+
+        session.AwaitingDiagnostics.Should().BeTrue();
+
+        Publish(new PublishDiagnosticsParams(Uri, []));
+
+        session.AwaitingDiagnostics.Should().BeFalse("an empty publish is an answer: the document is clean");
+    }
+
+    [Fact]
+    public void An_edit_after_diagnostics_awaits_them_again()
+    {
+        var session = Session("Sub A()\nEnd Sub");
+        session.Start();
+        Publish(new PublishDiagnosticsParams(Uri, []));
+
+        _document.Insert(0, "'");
+
+        session.AwaitingDiagnostics.Should().BeTrue("what is held describes the text before the edit");
+
+        Publish(OneDiagnostic(Uri, 0, 0, 1));
+
+        session.AwaitingDiagnostics.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Another_documents_diagnostics_do_not_answer_this_one()
+    {
+        var session = Session("Sub A()\nEnd Sub");
+        session.Start();
+
+        Publish(new PublishDiagnosticsParams("file:///c:/proj/OTHER.md", []));
+
+        session.AwaitingDiagnostics.Should().BeTrue();
+    }
+
+    [Fact]
+    public void A_document_not_open_awaits_nothing()
+    {
+        var session = Session("Sub A()\nEnd Sub");
+        session.AwaitingDiagnostics.Should().BeFalse("never started");
+
+        session.Start();
+        session.Dispose();
+        session.AwaitingDiagnostics.Should().BeFalse("closed");
+    }
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────────────────────────────
 
     [Fact]
