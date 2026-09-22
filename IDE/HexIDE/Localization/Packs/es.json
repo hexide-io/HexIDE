@@ -680,6 +680,7 @@
     "Str.Vb6Toolchain.RunFailedTitle": "Error de ejecución",
     "Str.ProjectRunner.MustHaveStartupForm": "Debe tener un formulario de inicio o Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Esta acción restablecerá el proyecto. ¿Desea continuar?",
+    "Str.ProjectRunner.StartupFormFailedToLoad": "No se pudo cargar el formulario '{0}', por lo que el proyecto no se inició.\n\n{1}",
     "Str.NewProject.Msg.Title": "Nuevo proyecto",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Su versión de HexIDE no admite {0}",
     "Str.NewProject.Msg.FileNotFound": "No se encontró el archivo. Asegúrese de indicar el nombre de archivo correcto.",

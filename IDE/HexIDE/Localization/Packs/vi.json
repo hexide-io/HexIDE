@@ -680,6 +680,7 @@
     "Str.Vb6Toolchain.RunFailedTitle": "Chạy thất bại",
     "Str.ProjectRunner.MustHaveStartupForm": "Phải có biểu mẫu khởi động hoặc Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Hành động này sẽ đặt lại dự án của bạn. Bạn có muốn tiếp tục không?",
+    "Str.ProjectRunner.StartupFormFailedToLoad": "Không thể tải biểu mẫu '{0}', vì vậy dự án chưa được khởi động.\n\n{1}",
     "Str.NewProject.Msg.Title": "Dự án mới",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Phiên bản HexIDE của bạn không hỗ trợ {0}",
     "Str.NewProject.Msg.FileNotFound": "Không tìm thấy tệp. Hãy đảm bảo nhập đúng tên tệp.",

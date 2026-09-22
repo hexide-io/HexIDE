@@ -680,6 +680,7 @@
     "Str.Vb6Toolchain.RunFailedTitle": "चलाना विफल",
     "Str.ProjectRunner.MustHaveStartupForm": "एक स्टार्टअप फ़ॉर्म या Sub Main() होना आवश्यक है",
     "Str.ProjectRunner.EditWhileRunningConfirm": "यह क्रिया आपके प्रोजेक्ट को रीसेट कर देगी। क्या आप जारी रखना चाहते हैं?",
+    "Str.ProjectRunner.StartupFormFailedToLoad": "फ़ॉर्म '{0}' लोड नहीं हो सका, इसलिए प्रोजेक्ट शुरू नहीं हुआ।\n\n{1}",
     "Str.NewProject.Msg.Title": "नया प्रोजेक्ट",
     "Str.NewProject.Msg.VersionDoesNotSupport": "आपका HexIDE संस्करण {0} का समर्थन नहीं करता",
     "Str.NewProject.Msg.FileNotFound": "फ़ाइल नहीं मिली। सुनिश्चित करें कि सही फ़ाइल नाम दिया गया है।",

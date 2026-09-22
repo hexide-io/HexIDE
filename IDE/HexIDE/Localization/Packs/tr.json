@@ -680,6 +680,7 @@
     "Str.Vb6Toolchain.RunFailedTitle": "Çalıştırma Başarısız",
     "Str.ProjectRunner.MustHaveStartupForm": "Bir başlangıç formu veya Sub Main() bulunmalıdır",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Bu işlem projenizi sıfırlayacak. Devam etmek istiyor musunuz?",
+    "Str.ProjectRunner.StartupFormFailedToLoad": "'{0}' formu yüklenemediği için proje başlatılmadı.\n\n{1}",
     "Str.NewProject.Msg.Title": "Yeni Proje",
     "Str.NewProject.Msg.VersionDoesNotSupport": "HexIDE sürümünüz {0} öğesini desteklemiyor",
     "Str.NewProject.Msg.FileNotFound": "Dosya bulunamadı. Doğru dosya adının girildiğinden emin olun.",

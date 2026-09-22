@@ -680,6 +680,7 @@
     "Str.Vb6Toolchain.RunFailedTitle": "فشل التشغيل",
     "Str.ProjectRunner.MustHaveStartupForm": "يجب وجود نموذج بدء التشغيل أو Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "سيؤدي هذا الإجراء إلى إعادة تعيين المشروع. هل تريد المتابعة؟",
+    "Str.ProjectRunner.StartupFormFailedToLoad": "تعذّر تحميل النموذج '{0}'، لذلك لم يبدأ المشروع.\n\n{1}",
     "Str.NewProject.Msg.Title": "مشروع جديد",
     "Str.NewProject.Msg.VersionDoesNotSupport": "إصدار HexIDE لديك لا يدعم {0}",
     "Str.NewProject.Msg.FileNotFound": "لم يُعثر على الملف. تأكد من إدخال اسم الملف الصحيح.",

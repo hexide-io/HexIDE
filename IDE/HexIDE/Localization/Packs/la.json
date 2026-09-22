@@ -680,6 +680,7 @@
     "Str.Vb6Toolchain.RunFailedTitle": "Exsecutio Defecit",
     "Str.ProjectRunner.MustHaveStartupForm": "Forma initialis aut Sub Main() habenda est",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Haec actio inceptum tuum restituet. Visne pergere?",
+    "Str.ProjectRunner.StartupFormFailedToLoad": "Forma '{0}' onerari non potuit, itaque inceptum non est incohatum.\n\n{1}",
     "Str.NewProject.Msg.Title": "Novum Inceptum",
     "Str.NewProject.Msg.VersionDoesNotSupport": "Versio tua HexIDE {0} non sustinet",
     "Str.NewProject.Msg.FileNotFound": "Plica non inventa. Cura ut nomen plicae rectum detur.",

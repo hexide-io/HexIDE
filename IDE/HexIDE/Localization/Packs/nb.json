@@ -680,6 +680,7 @@
     "Str.Vb6Toolchain.RunFailedTitle": "Kjøring mislyktes",
     "Str.ProjectRunner.MustHaveStartupForm": "Må ha et oppstartsskjema eller Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Denne handlingen nullstiller prosjektet. Vil du fortsette?",
+    "Str.ProjectRunner.StartupFormFailedToLoad": "Skjemaet '{0}' kunne ikke lastes inn, så prosjektet ble ikke startet.\n\n{1}",
     "Str.NewProject.Msg.Title": "Nytt prosjekt",
     "Str.NewProject.Msg.VersionDoesNotSupport": "HexIDE-versjonen din støtter ikke {0}",
     "Str.NewProject.Msg.FileNotFound": "Filen ble ikke funnet. Kontroller at riktig filnavn er oppgitt.",
