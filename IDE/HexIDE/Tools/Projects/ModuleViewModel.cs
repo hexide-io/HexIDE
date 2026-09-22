@@ -21,6 +21,9 @@ public partial class ModuleViewModel : ObservableObject, IDisposable, IProjectFi
     [Notify] private string file;
     [Notify] private string? locationCaption;
 
+    /// <inheritdoc/>
+    public string AccessibleName => $"{Name} ({File})";
+
     public ModuleViewModel(ProjectViewModel project, ModuleDefinition module)
     {
         Project = project;

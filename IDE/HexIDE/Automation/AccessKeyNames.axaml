@@ -2,13 +2,18 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:converters="clr-namespace:HexIDE.Converters">
     <!--
-        The automation name of a control captioned with an access key is its caption as displayed, not the
-        string with its "_" marker (#578). A style setter ranks below a local value, so a view that sets
-        AutomationProperties.Name itself keeps it; content that is not a caption with a marker leaves the
-        peer's own name in place.
+        The automation name of a button-like control is what a person reads on it. A caption with an access
+        key is named as displayed, without its "_" marker (#578). A button showing only an icon is named by its
+        tooltip, which is the name a person sees; its peer would otherwise name it by the icon's type,
+        "Avalonia.Controls.Shapes.Path", on every such button (#542). A style setter ranks below a local value,
+        so a view that sets AutomationProperties.Name itself keeps it; anything else leaves the peer's own name.
     -->
     <Style Selector="Button, RepeatButton, ToggleButton, CheckBox, RadioButton">
-        <Setter Property="AutomationProperties.Name"
-                Value="{CompiledBinding $self.Content, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" />
+        <Setter Property="AutomationProperties.Name">
+            <MultiBinding Converter="{x:Static converters:AccessKeyNameConverter.Instance}">
+                <Binding Path="$self.Content" />
+                <Binding Path="$self.(ToolTip.Tip)" />
+            </MultiBinding>
+        </Setter>
     </Style>
 </Styles>

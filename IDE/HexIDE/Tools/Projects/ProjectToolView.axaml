@@ -34,6 +34,7 @@ xmlns:HexIDE="clr-namespace:HexIDE"
             <TreeView.Styles>
                 <Style Selector="TreeViewItem">
                     <Setter Property="IsExpanded" Value="{CompiledBinding IsExpanded, Mode=TwoWay}" x:DataType="tools:IProjectTreeElement"/>
+                    <Setter Property="AutomationProperties.Name" Value="{CompiledBinding AccessibleName}" x:DataType="tools:IProjectTreeElement"/>
                 </Style>
             </TreeView.Styles>
             <TreeView.DataTemplates>
