@@ -76,6 +76,9 @@ public interface IProjectService
     /// </summary>
     bool HasUnsavedChanges(FormDefinition form);
 
+    /// <summary>The module counterpart: whether saving would change what was last loaded or saved.</summary>
+    bool HasUnsavedChanges(ModuleDefinition module);
+
     Task MakeProject();
     Task MakeProject(ProjectDefinition project);
     Task MakeProjectGroup();
