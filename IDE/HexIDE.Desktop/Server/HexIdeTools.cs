@@ -579,7 +579,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         {
             var last = ctx.RootViewModel.RuntimeErrors.Last;
             return last is null
-                ? new RuntimeErrorResult(false, null, null, 0)
+                ? new RuntimeErrorResult(false, null, null, ctx.RootViewModel.RuntimeErrors.Sequence)
                 : new RuntimeErrorResult(true, last.Value.Message,
                                          last.Value.At.ToString("o"), last.Value.Sequence);
         });
