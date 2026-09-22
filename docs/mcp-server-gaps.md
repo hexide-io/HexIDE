@@ -244,7 +244,13 @@ the kind this document exists to prevent.
 
 ---
 
-## 10. A crashed IDE is indistinguishable from a slow tool call
+## 10. A crashed IDE is indistinguishable from a slow tool call (narrowed 2026-09-22)
+
+> **Narrowed by #643.** An exception nothing caught is now written to the IDE log with its stack, and the log
+> is flushed before the process ends, so the post-mortem no longer needs the Windows event log. Checked live
+> with `HEXIDE_DEBUG_CRASH=thread` and `=ui` in a Debug build. **What remains** is the caller's side: once the
+> process is dead it cannot answer, so the client still says `Unable to connect`, and the reader must know to
+> look in the log. An exception inside a `DispatcherTimer` callback is not caught at all; see #652.
 
 **Symptom.** Driving the designer to compose a screenshot, `add_control` returned success, then the next
 call hung for the full 120 s timeout and every subsequent call failed with `Unable to connect. Is the
