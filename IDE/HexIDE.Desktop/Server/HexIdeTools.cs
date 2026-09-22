@@ -1127,19 +1127,32 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "add_watch")]
-    [Description("Adds a watch expression to the Watches window. `watchType` is one of Expression (default; display the value), BreakWhenTrue, or BreakWhenChanged (P6a stores all three; only Expression displays a value today). Returns the full watch list after adding.")]
+    [DescribesEnum(typeof(HexIDE.Debugging.WatchType))]
+    [Description("Adds a watch expression to the Watches window. `watchType` is one of Expression (default; display the value), BreakWhenTrue, or BreakWhenChanged (P6a stores all three; only Expression displays a value today), matched without regard to case. Any other value is refused and nothing is added, rather than quietly becoming an Expression watch. Returns the full watch list, after adding or not.")]
     public async Task<WatchesResult> AddWatchAsync(string expression, string? watchType = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            var type = watchType?.Trim().ToLowerInvariant() switch
+            // An unrecognised value is REFUSED. It used to become Expression, so a misspelt BreakWhenTrue gave a
+            // watch that never breaks, reported as though the call had done what was asked. (#546) Null and
+            // empty still mean the documented default.
+            HexIDE.Debugging.WatchType? type = watchType?.Trim().ToLowerInvariant() switch
             {
-                "breakwhentrue" or "break_when_true" or "true"    => HexIDE.Debugging.WatchType.BreakWhenTrue,
+                null or "" or "expression"                               => HexIDE.Debugging.WatchType.Expression,
+                "breakwhentrue" or "break_when_true" or "true"          => HexIDE.Debugging.WatchType.BreakWhenTrue,
                 "breakwhenchanged" or "break_when_changed" or "changed" => HexIDE.Debugging.WatchType.BreakWhenChanged,
-                _ => HexIDE.Debugging.WatchType.Expression,
+                _ => null,
             };
+            if (type is not { } watchKind)
+                return (await BuildWatchesResult()) with
+                {
+                    Success = false,
+                    Error = $"'{watchType}' is not a watch type, so no watch was added. Use Expression (the default), " +
+                            "BreakWhenTrue or BreakWhenChanged.",
+                };
+
             var context = ctx.DebugController.GetLocals()?.Context ?? "(All Procedures)";
-            ctx.RootViewModel.Watches.Service.Add(new HexIDE.Debugging.WatchExpression(expression, type, context));
+            ctx.RootViewModel.Watches.Service.Add(new HexIDE.Debugging.WatchExpression(expression, watchKind, context));
             return await BuildWatchesResult();
         });
     }
