@@ -42,6 +42,11 @@ public class BundledServerHandshakeTests : IAsyncDisposable
 
         await _client.StartAsync(TestContext.Current.CancellationToken);
 
+        // Recording is queued, not immediate, so read only after the queue has caught up. Without this the
+        // handshake note was sometimes not yet in the snapshot on a CI runner, and the test failed on a
+        // handshake that had in fact landed.
+        await capture.DrainAsync();
+
         // Prove the handshake landed before reading anything into an empty report: a server that never
         // answered initialize produces no unconsumed entries either.
         var entries = capture.Snapshot("vb6");
