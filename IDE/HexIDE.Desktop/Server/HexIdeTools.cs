@@ -198,10 +198,15 @@ internal sealed class HexIdeTools(IdeContext ctx)
             .FirstOrDefault(d => d.FormDefinition == form);
 
     [McpServerTool(Name = "set_file_content")]
-    [Description("Replaces the VB6 source code of a named form or module and saves to disk. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. Pass the CODE SECTION, not a whole file: a .frm's VERSION/Begin designer block is refused (it describes controls, which this tool does not apply), and a .bas/.cls header is stripped. A form's leading 'Attribute VB_*' block is its identity; the editor shows it, but content composed rather than round-tripped rarely carries it -- if yours omits it the existing one is kept and the result says so, so a body that leaves it out can no longer destroy VB_Name. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first.")]
+    [Description("Replaces the VB6 source code of a named form or module and saves to disk. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. Pass the CODE SECTION, not a whole file: a .frm's VERSION/Begin designer block is refused (it describes controls, which this tool does not apply), and a .bas/.cls header is stripped. A form's leading 'Attribute VB_*' block is its identity; the editor shows it, but content composed rather than round-tripped rarely carries it -- if yours omits it the existing one is kept and the result says so, so a body that leaves it out can no longer destroy VB_Name. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' names the file written and how many lines, and says whether the document is open in an editor, since only open documents are analysed for get_diagnostics.")]
     public async Task<MutateResult> SetFileContentAsync(string name, string content, string? project = null, CancellationToken ct = default)
     {
         var restoredHeader = false;
+        // What was written, for the reply: a bare success left a caller to find out where it went, and
+        // whether get_diagnostics would ever say anything about it. (#670)
+        string? writtenText = null, writtenPath = null;
+        var strippedHeader = false;
+        var openInEditor = false;
         var (form, module, error) = await Dispatcher.UIThread.InvokeAsync<(FormDefinition?, ModuleDefinition?, string?)>(() =>
         {
             var found = Find(name, project, carried: true);
@@ -243,6 +248,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     editor.Document.Text = kept;
                 else
                     form.UpdateCode(kept);
+                (writtenText, writtenPath, openInEditor) = (kept, form.AbsolutePath, editor is not null);
                 return (form, null, null);
             }
 
@@ -259,6 +265,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     editor.Document.Text = body;
                 else
                     module.UpdateCode(body);
+                strippedHeader = !ReferenceEquals(body, content) && body != content;
+                (writtenText, writtenPath, openInEditor) = (body, module.AbsolutePath, editor is not null);
                 return (null, module, null);
             }
         });
@@ -281,11 +289,16 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 ? await ctx.ProjectService.SaveForm(form, false)
                 : module is not null && await ctx.ProjectService.SaveModule(module, false));
             return written
-                ? new MutateResult(true, null, restoredHeader
-                    ? "Kept the form's Attribute header, which the content omitted. VB_Name is the form's "
-                      + "identity; without this the write would have destroyed it. Call get_file_content "
-                      + "first and edit what it returns, which includes the header."
-                    : null)
+                ? new MutateResult(true, null, WrittenNote(form?.Name ?? module!.Name, writtenPath, writtenText, openInEditor)
+                    + (restoredHeader
+                        ? " Kept the form's Attribute header, which the content omitted. VB_Name is the form's "
+                          + "identity; without this the write would have destroyed it. Call get_file_content "
+                          + "first and edit what it returns, which includes the header."
+                        : "")
+                    + (strippedHeader
+                        ? " The content's module header was dropped: a .bas or .cls here holds the code only, and "
+                          + "its header is written from the module itself."
+                        : ""))
                 : new MutateResult(false, "HexIDE cannot reproduce this file faithfully, so it was not "
                                         + "written and the copy on disk is unchanged.");
         }
@@ -294,6 +307,18 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // The edit is already in the IDE by now; a bare exception message would read as though it were not.
             return new MutateResult(false, $"The new code is in the IDE but was not written: {ToolFailures.WithoutProfile(ex.Message)}");
         }
+    }
+
+    /// <summary>What set_file_content wrote, and whether get_diagnostics will see it.</summary>
+    private static string WrittenNote(string name, string? path, string? text, bool openInEditor)
+    {
+        var lines = string.IsNullOrEmpty(text) ? 0 : text.TrimEnd('\r', '\n').Split('\n').Length;
+        return $"Wrote {lines} line{(lines == 1 ? "" : "s")} of code for {name} to {path}. "
+               + (openInEditor
+                   ? "Its editor shows the new text; get_diagnostics has diagnostics for it once the server has "
+                     + "analysed the change."
+                   : "It is not open in an editor, and only open documents are analysed: open_file it, then "
+                     + "get_diagnostics.");
     }
 
     private static readonly HashSet<string> KnownFileTypes = ["form", "module", "classmodule", "usercontrol", "propertypage"];
@@ -777,12 +802,14 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_undo_state")]
-    [Description("Returns the current undo/redo state of the active editor: whether it is a form designer, whether undo/redo are available, and the descriptions that would appear in the Edit menu.")]
+    [Description("Returns the current undo/redo state of the active document: what kind it is, whether Undo and Redo are available, and, for a form designer, the step each would act on as the Edit menu names it. 'activeEditorKind' is FormDesigner, CodeEditor, Other (a document with no undo of its own, such as the Object Browser; canUndo and canRedo are then false) or None (no document is open). A code editor's steps have no names, so its descriptions are null; invoke_menu_item(\"Edit/Undo\") undoes there, and invoke_designer_undo is for a designer only.")]
     public async Task<UndoStateResult> GetUndoStateAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var active = ctx.DocumentDockService.ActiveDocument;
+            // The tab in front, not ActiveDocument, which is null while a tool such as the Object Browser is
+            // in front and so reported that as no document open.
+            var active = ctx.DocumentDockService.ActiveTab;
             if (active is HexIDE.VisualDesigner.FormEditViewModel designer)
                 return new UndoStateResult(
                     "FormDesigner",
@@ -791,9 +818,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     designer.UndoStack.UndoDescription,
                     designer.UndoStack.RedoDescription);
 
-            return new UndoStateResult(
-                active?.GetType().Name ?? "None",
-                false, false, null, null);
+            // A code editor has undo of its own, and this said it could never undo; the kind was also the
+            // document's .NET type name, a set no description could list. (#672)
+            if (active is CodeEditorViewModel code)
+                return new UndoStateResult(
+                    "CodeEditor", code.Document.UndoStack.CanUndo, code.Document.UndoStack.CanRedo, null, null);
+
+            return new UndoStateResult(active is null ? "None" : "Other", false, false, null, null);
         });
     }
 
@@ -1430,7 +1461,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
     [McpServerTool(Name = "add_watch")]
     [DescribesEnum(typeof(HexIDE.Debugging.WatchType))]
-    [Description("Adds a watch expression to the Watches window. `watchType` is one of Expression (default; display the value), BreakWhenTrue, or BreakWhenChanged (P6a stores all three; only Expression displays a value today), matched without regard to case. Any other value is refused and nothing is added, rather than quietly becoming an Expression watch. Returns the full watch list, after adding or not.")]
+    [Description("Adds a watch expression to the Watches window. `watchType` is one of Expression (default; display the value), BreakWhenTrue (breaks at each statement while the expression is true), or BreakWhenChanged (breaks when its value changes); all three show their value while paused. Matched without regard to case. Any other value is refused and nothing is added, rather than quietly becoming an Expression watch. Returns the full watch list, after adding or not.")]
     public async Task<WatchesResult> AddWatchAsync(string expression, string? watchType = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(async () =>
