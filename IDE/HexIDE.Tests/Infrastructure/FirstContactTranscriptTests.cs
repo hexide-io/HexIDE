@@ -65,23 +65,75 @@ public class FirstContactTranscriptTests
             "a first-time caller copies the call the transcript shows, and a stale one fails on first contact");
     }
 
-    [Fact]
-    public void Every_reply_field_is_one_a_reply_can_still_carry()
+    /// <summary>Each call with the reply shown after it: the first <c>json</c> block before the next call.</summary>
+    private static IEnumerable<(string Tool, string Reply)> CallsWithReplies()
     {
-        var unknown = Replies
-            .SelectMany(r => FieldsOf(JsonDocument.Parse(r).RootElement))
-            .Distinct()
-            .Where(f => !ToolSource.ReplyFields.Contains(f))
-            .ToList();
-
-        string.Join(Environment.NewLine, unknown).Should().BeEmpty(
-            "a transcript showing a field no reply carries any longer teaches the caller to look for nothing");
+        string? tool = null;
+        foreach (var (lang, body) in Blocks.Value)
+        {
+            if (lang == "mcp")
+                tool = Call.Match(body).Groups["tool"].Value;
+            else if (lang == "json" && tool is not null)
+            {
+                yield return (tool, body);
+                tool = null;
+            }
+        }
     }
 
-    private static IEnumerable<string> FieldsOf(JsonElement element) => element.ValueKind switch
+    /// <remarks>
+    /// Checked against the reply type of the tool that was called, not against every field any reply has: a
+    /// field renamed in one reply otherwise stays green for as long as some other reply carries a field of the
+    /// same name, which for <c>note</c> is four of them (hexide-io/HexIDE#549).
+    /// </remarks>
+    [Fact]
+    public void Every_reply_field_is_one_that_tools_reply_can_still_carry()
     {
-        JsonValueKind.Object => element.EnumerateObject().SelectMany(p => FieldsOf(p.Value).Prepend(p.Name)),
-        JsonValueKind.Array => element.EnumerateArray().SelectMany(FieldsOf),
-        _ => [],
-    };
+        var unknown = new List<string>();
+        var shown = 0;
+        foreach (var (name, reply) in CallsWithReplies())
+        {
+            shown++;
+            var tool = ToolSource.Tools.SingleOrDefault(t => t.Name == name);
+            if (tool is null) continue; // Every_call_could_still_be_made_as_written names it
+            unknown.AddRange(UnknownFields(JsonDocument.Parse(reply).RootElement, tool.ReplyType, tool.ReplyType)
+                .Select(f => $"{name} shows '{f}'"));
+        }
+
+        shown.Should().Be(Calls.Count(), "every call in the transcript is followed by what came back");
+        string.Join(Environment.NewLine, unknown.Distinct()).Should().BeEmpty(
+            "a transcript showing a field its reply no longer carries teaches the caller to look for nothing");
+    }
+
+    /// <summary>
+    /// The fields in <paramref name="element"/> that <paramref name="record"/> does not have, following a
+    /// field into the record its type names. A field whose type names no reply record, a string or a raw
+    /// JSON body, is not looked inside.
+    /// </summary>
+    private static IEnumerable<string> UnknownFields(JsonElement element, string record, string path)
+    {
+        if (element.ValueKind == JsonValueKind.Array)
+        {
+            foreach (var item in element.EnumerateArray())
+                foreach (var unknown in UnknownFields(item, record, path + "[]"))
+                    yield return unknown;
+            yield break;
+        }
+        if (element.ValueKind != JsonValueKind.Object)
+            yield break;
+
+        var fields = ToolSource.FieldsOf(record) ?? [];
+        foreach (var property in element.EnumerateObject())
+        {
+            var field = fields.FirstOrDefault(f => f.Name == property.Name);
+            if (field is null)
+            {
+                yield return $"{path}.{property.Name}";
+                continue;
+            }
+            foreach (var nested in ToolSource.RecordsIn(field.Type).Take(1))
+                foreach (var unknown in UnknownFields(property.Value, nested, $"{path}.{property.Name}"))
+                    yield return unknown;
+        }
+    }
 }
