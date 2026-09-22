@@ -20,9 +20,31 @@ public class FormCodeTextTests
     {
         var result = FormCodeText.PreserveAttributes("Private Sub Form_Load()\r\nEnd Sub\r\n", Attrs + "Option Explicit\r\n");
 
-        result.Should().StartWith("Attribute VB_Name = \"frmOrders\"");
-        result.Should().Contain("Private Sub Form_Load()");
-        result.Should().NotContain("Option Explicit", "the old BODY is replaced — only the header is kept");
+        result.Should().Be(Attrs + "Private Sub Form_Load()\r\nEnd Sub\r\n");
+    }
+
+    [Theory]
+    [InlineData("\r\n")]
+    [InlineData("\n")]
+    public void AttributeBlock_keeps_the_exact_header_bytes_for_both_endings(string eol)
+    {
+        var block = string.Join(eol,
+            "Attribute VB_Name = \"Form1\"",
+            "Attribute VB_GlobalNameSpace = False",
+            "Attribute VB_Creatable = False",
+            "Attribute VB_PredeclaredId = True",
+            "Attribute VB_Exposed = False") + eol;
+
+        FormCodeText.AttributeBlock(block + "Option Explicit" + eol).Should().Be(block);
+    }
+
+    [Theory]
+    [InlineData("\r\n")]
+    [InlineData("\n")]
+    public void AttributeBlock_includes_leading_blank_lines_in_the_header(string eol)
+    {
+        var block = eol + eol + "Attribute VB_Name = \"Form1\"" + eol;
+        FormCodeText.AttributeBlock(block + "Option Explicit" + eol).Should().Be(block);
     }
 
     [Fact]
