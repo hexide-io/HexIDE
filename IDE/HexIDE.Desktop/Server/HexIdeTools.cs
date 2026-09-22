@@ -1609,13 +1609,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
         // A committed value is only known to have held once the source has reacted, and a refusal reacts from a
         // posted callback; this hop runs after it. (#625)
-        if (outcome is { Success: true, Detail: { } detail } && acted is not null && value is not null
-            && detail.EndsWith(", and committed it", StringComparison.Ordinal))
+        if (outcome is { Success: true, Committed: true } && acted is not null && value is not null)
         {
             var refused = await Dispatcher.UIThread.InvokeAsync(
                 () => UiAutomationDriver.RefusedCommit(acted, value), DispatcherPriority.Background);
             if (refused is not null)
-                outcome = outcome with { Detail = detail[..^", and committed it".Length] + refused };
+                outcome = UiAutomationDriver.WithRefusal(outcome, refused);
         }
         return outcome;
     }

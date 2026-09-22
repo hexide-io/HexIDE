@@ -111,6 +111,7 @@ public class PropertyRowCommitTests
             var outcome = UiAutomationDriver.Interact(editor, "set_value", "Hello");
 
             outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Committed.Should().BeTrue("the interact tool decides whether to read the value back on this (#634)");
             outcome.Detail.Should().EndWith(", and committed it");
             row.Value.Should().Be("Hello");
             Dispatcher.UIThread.RunJobs();
@@ -125,16 +126,46 @@ public class PropertyRowCommitTests
         var (window, editor, row) = Row();
         try
         {
-            UiAutomationDriver.Interact(editor, "set_value", "a bad caption").Success.Should().BeTrue();
+            var outcome = UiAutomationDriver.Interact(editor, "set_value", "a bad caption");
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Committed.Should().BeTrue();
 
             // What the interact tool does next: let the source's posted reaction run, then read the box back.
             Dispatcher.UIThread.RunJobs();
 
-            UiAutomationDriver.RefusedCommit(editor, "a bad caption")
-                .Should().StartWith(", but after committing it shows 'Form1'");
+            var refused = UiAutomationDriver.RefusedCommit(editor, "a bad caption");
+            refused.Should().StartWith(", but after committing it shows 'Form1'");
+            UiAutomationDriver.WithRefusal(outcome, refused!).Detail.Should()
+                .Contain("to 'a bad caption', but after committing it shows 'Form1'")
+                .And.NotContain("and committed it", "the claim is replaced, not contradicted");
             row.Value.Should().Be("Form1");
             editor.Text.Should().Be("Form1");
         }
         finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Set_value_on_an_unbound_box_commits_nothing_and_is_not_flagged()
+    {
+        var box = new TextBox();
+        var window = new Window { Content = box };
+        window.Show();
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(box, "set_value", "Hello");
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Committed.Should().BeFalse("there is no source to refuse it");
+            outcome.Detail.Should().NotContain("committed");
+        }
+        finally { window.Close(); }
+    }
+
+    [Fact]
+    public void The_committed_flag_is_not_part_of_the_reply()
+    {
+        var json = System.Text.Json.JsonSerializer.Serialize(new InteractOutcome(true, "peer", "d", null, Committed: true));
+
+        json.Should().NotContainEquivalentOf("committed", "the detail says it in words; the flag is for the tool");
     }
 }
