@@ -60,7 +60,7 @@ checks=0
 # The two failure totals differ by exactly two, and that difference IS the point of run D: staging
 # `planted.key` and `planted.pfx` moves them from the warn branch to the fail branch, because git has
 # stopped standing between them and a push.
-EXPECTED_CHECKS=57
+EXPECTED_CHECKS=65
 FAILURES_UNTRACKED=17
 FAILURES_STAGED=19
 
@@ -303,6 +303,43 @@ run_guard "$IDENTITY" "$STAGED_INDEX"
 assert_every_scan_reported "$FAILURES_STAGED" fail
 
 cleanup
+
+echo
+echo "E. a tree git cannot read"
+
+# The preflight, which every run above passes through without exercising: in this repository git can always
+# read the tree. So the guard is copied somewhere git cannot, and run there. GIT_CEILING_DIRECTORIES stops
+# git searching upward from the copy, so a temp directory that happens to sit inside some other repository
+# still reads as "not a repository" (#533).
+UNREADABLE="$(mktemp -d -t hygiene-selftest-norepo.XXXXXX)"
+mkdir -p "$UNREADABLE/plain/scripts" "$UNREADABLE/ignored/scripts" "$UNREADABLE/clean/scripts"
+cp "$GUARD" "$UNREADABLE/plain/scripts/"
+cp "$GUARD" "$UNREADABLE/ignored/scripts/"
+cp "$GUARD" "$UNREADABLE/clean/scripts/"
+ceiling="$UNREADABLE"
+
+output="$(cd "$UNREADABLE/plain" && GIT_CEILING_DIRECTORIES="$ceiling" bash scripts/check-tree-hygiene.sh 2>&1)"
+status=$?
+exited "outside any repository, the guard refuses to run (exit 2)" 2
+seen   "...and says git cannot read a work tree" "git cannot read a work tree"
+absent "...and never claims the tree is clean" "check-tree-hygiene: OK"
+
+# A repository whose .gitignore ignores everything, the guard included: git answers, and lists nothing.
+( cd "$UNREADABLE/ignored" && git init -q . && printf '*\n' > .gitignore )
+output="$(cd "$UNREADABLE/ignored" && GIT_CEILING_DIRECTORIES="$ceiling" bash scripts/check-tree-hygiene.sh 2>&1)"
+status=$?
+exited "a repository that lists no files is refused too (exit 2)" 2
+seen   "...and says git lists no files" "git lists no files"
+absent "...and never claims the tree is clean" "check-tree-hygiene: OK"
+# And a tree with nothing to report at all: only the guard, which its own content scans exclude. This one
+# is the only tree here with ZERO warnings -- the repository itself always carries the upstream
+# attribution -- so it is the only place the warning count's zero case can be seen.
+( cd "$UNREADABLE/clean" && git init -q . )
+output="$(cd "$UNREADABLE/clean" && GIT_CEILING_DIRECTORIES="$ceiling" bash scripts/check-tree-hygiene.sh 2>&1)"
+status=$?
+seen   "a readable tree with nothing to report says OK" "check-tree-hygiene: OK"
+absent "...and prints no warning count when there are none" "warning(s)"
+rm -rf "${UNREADABLE:?}"
 
 echo
 # Without this, deleting the catch-all branch from seen() makes every assertion above pass vacuously and
