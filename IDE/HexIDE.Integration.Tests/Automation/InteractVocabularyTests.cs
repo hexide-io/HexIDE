@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -231,6 +231,31 @@ public class InteractVocabularyTests
             line.Detail.Should().Contain("line_down");
             Dispatcher.UIThread.RunJobs();
             FirstShownRow(grid).Should().Be(row + 1, "a line on a grid is a row");
+        }
+        finally { window.Close(); }
+    }
+
+    // #545: setting a DataGrid's horizontal bar moved the bar and not the columns, and answered success.
+    [AvaloniaFact]
+    public void Set_range_value_on_a_data_grid_horizontal_bar_refuses_and_changes_nothing()
+    {
+        var grid = new DataGrid
+        {
+            ItemsSource = Enumerable.Range(1, 5).Select(i => new GridRow("row " + i)).ToList(),
+            AutoGenerateColumns = false,
+            Width = 120,
+        };
+        for (var c = 0; c < 6; c++)
+            grid.Columns.Add(new DataGridTextColumn { Header = "column " + c, Width = new DataGridLength(100) });
+        var window = Show(grid);
+        try
+        {
+            var bar = grid.GetVisualDescendants().OfType<ScrollBar>()
+                .Single(b => b.TemplatedParent == grid && b.Orientation == Orientation.Horizontal);
+            bar.Maximum.Should().BeGreaterThan(bar.Minimum, "the fixture has to overflow sideways for the refusal to mean anything");
+
+            ErrorOf(bar, "set_range_value", "50").Should().Contain("cannot be driven").And.Contain("Nothing was changed");
+            bar.Value.Should().Be(0);
         }
         finally { window.Close(); }
     }

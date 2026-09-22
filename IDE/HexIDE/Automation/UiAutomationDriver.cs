@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using Avalonia;
@@ -653,6 +653,12 @@ public static class UiAutomationDriver
     /// is. So a row is always brought in from below the view, which lands it at the top: going down, the grid is
     /// first taken to its last row. Near the end, where no scroll can put the row at the top, the grid stays at
     /// the end, which is where the bar would stop too.
+    /// <para>
+    /// Rows are indexed in <c>ItemsSource</c> order. A grid the user has sorted by a column header shows another
+    /// order, and then the row brought in, and the last row taken first, are not the ones on screen, so the
+    /// grid can land somewhere other than the row asked for. What the caller is told stays true, because every
+    /// reply reads the bar after the move rather than assuming where it went.
+    /// </para>
     /// </remarks>
     private static void ShowRowAtTop(DataGrid grid, ScrollBar bar, int target)
     {
@@ -758,7 +764,11 @@ public static class UiAutomationDriver
             return Ok($"scrolled '{Describe(viewer)}' to {number.ToString(CultureInfo.InvariantCulture)} through its scroll bar '{label}' (range {bounds})");
         }
         // A DataGrid's bar is moved through the grid, a row at a time, and the reply says where it landed:
-        // setting the bar itself moved the bar and left the rows where they were. (#545)
+        // setting the bar itself moved the bar and left the rows where they were. (#545) Its horizontal bar has
+        // no such route, since ScrollIntoView reaches rows, so it is refused rather than moved on its own.
+        if (control is ScrollBar { TemplatedParent: DataGrid, Orientation: Avalonia.Layout.Orientation.Horizontal })
+            return Err($"'{label}' is a DataGrid's horizontal scroll bar, which cannot be driven: setting it would move the bar " +
+                       "and leave the columns where they are. Nothing was changed");
         if (control is ScrollBar { TemplatedParent: DataGrid grid, Orientation: Avalonia.Layout.Orientation.Vertical } gridBar)
         {
             var count = RowCountOf(grid);
