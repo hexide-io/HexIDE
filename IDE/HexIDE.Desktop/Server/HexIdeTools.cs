@@ -74,7 +74,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_file_content")]
-    [Description("Returns the current VB6 source code of a named form or module. Reads from the live editor if the file is open, otherwise from the last saved state.")]
+    [Description("Returns the current VB6 source code of a named form or module: the open editor's text if it is open, otherwise the IDE's copy. hasUnsavedChanges is true when saving would change the file on disk — edits typed in the editor, controls added, removed or reordered in the designer, or any other change to the IDE's copy since it was last loaded or saved. A document with no file yet always has unsaved changes.")]
     public async Task<FileContentResult> GetFileContentAsync(string name, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -83,23 +83,44 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (project is null)
                 return new FileContentResult(null, false, "No project loaded");
 
+            // COMPUTED, where it used to report only which source the text came from: true for any open
+            // editor, false for everything else, so a caller deciding what to save saved every open document
+            // and skipped every edited closed one. (#481) Asked without flushing anything, because a read
+            // must not change the model it reports on -- so the three places an edit can live are each
+            // compared directly: the editor buffer against the model, the designer's control list against
+            // the model's, and the model against what was last loaded or saved.
             var editor = FindEditor(name);
-            if (editor is not null)
-                return new FileContentResult(editor.Document.Text, true, null);
 
             var form = project.Forms.FirstOrDefault(f =>
                 string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
             if (form is not null)
-                return new FileContentResult(form.Code, false, null);
+            {
+                var text = editor?.Document.Text ?? form.Code;
+                var unsaved = !string.Equals(text, form.Code, StringComparison.Ordinal)
+                              || DesignerOf(form) is { HasComponentsNotInModel: true }
+                              || ctx.ProjectService.HasUnsavedChanges(form);
+                return new FileContentResult(text, unsaved, null);
+            }
 
             var module = project.Modules.FirstOrDefault(m =>
                 string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase));
             if (module is not null)
-                return new FileContentResult(module.Code, false, null);
+            {
+                var text = editor?.Document.Text ?? module.Code;
+                var unsaved = !string.Equals(text, module.Code, StringComparison.Ordinal)
+                              || (module.FormPart is { } part && DesignerOf(part) is { HasComponentsNotInModel: true })
+                              || ctx.ProjectService.HasUnsavedChanges(module);
+                return new FileContentResult(text, unsaved, null);
+            }
 
             return new FileContentResult(null, false, $"No form or module named '{name}' found");
         });
     }
+
+    private HexIDE.VisualDesigner.FormEditViewModel? DesignerOf(FormDefinition form) =>
+        ctx.DocumentDockService.OpenDocuments
+            .OfType<HexIDE.VisualDesigner.FormEditViewModel>()
+            .FirstOrDefault(d => d.FormDefinition == form);
 
     [McpServerTool(Name = "set_file_content")]
     [Description("Replaces the VB6 source code of a named form or module and saves to disk. Use get_project_info to list available names. Pass the CODE SECTION, not a whole file: a .frm's VERSION/Begin designer block is refused (it describes controls, which this tool does not apply), and a .bas/.cls header is stripped. A form's leading 'Attribute VB_*' block is its identity; the editor shows it, but content composed rather than round-tripped rarely carries it -- if yours omits it the existing one is kept and the result says so, so a body that leaves it out can no longer destroy VB_Name.")]
