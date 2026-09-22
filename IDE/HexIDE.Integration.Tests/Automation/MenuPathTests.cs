@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using System.Windows.Input;
 using Avalonia.Headless.XUnit;
 using HexIDE.Automation;
 
@@ -98,5 +99,77 @@ public class MenuPathTests
     public void An_empty_path_is_refused()
     {
         MenuPath.Resolve(BuildMenu().Items, "/").Error.Should().Be("Path is empty");
+    }
+
+    // #544: a caller types what the menu displays, and a displayed underscore is literal.
+    [AvaloniaFact]
+    public void Reaches_an_item_whose_displayed_text_contains_an_underscore()
+    {
+        // "_Remove {0}" formatted with a project called My_App: the menu shows "Remove My_App".
+        var menu = new Menu { Items = { new MenuItem { Header = "_File", Items = { new MenuItem { Header = "_Remove My_App" } } } } };
+
+        var result = MenuPath.Resolve(menu.Items, "File/Remove My_App");
+
+        result.Error.Should().BeNull();
+        result.Item!.Header.Should().Be("_Remove My_App");
+    }
+
+    public sealed record RecentEntry(string Header, ICommand Command);
+
+    private sealed class Recorder : ICommand
+    {
+        public int Runs { get; private set; }
+        public event EventHandler? CanExecuteChanged { add { } remove { } }
+        public bool CanExecute(object? parameter) => true;
+        public void Execute(object? parameter) => Runs++;
+    }
+
+    // #544: an ItemsSource-backed submenu holds view models until it opens, and used to answer "no items".
+    [AvaloniaFact]
+    public void Reaches_an_entry_of_a_submenu_bound_to_ItemsSource_before_it_opens()
+    {
+        var open = new Recorder();
+        var menu = new Menu
+        {
+            Items =
+            {
+                new MenuItem
+                {
+                    Header = "_File",
+                    Items =
+                    {
+                        new MenuItem
+                        {
+                            Header = "Recent _Projects",
+                            ItemsSource = new[] { new RecentEntry("_1 C:\\my_dir\\P.vbp", open) },
+                        },
+                    },
+                },
+            },
+        };
+
+        var result = MenuPath.Resolve(menu.Items, "File/Recent Projects/1 C:\\my_dir\\P.vbp");
+
+        result.Error.Should().BeNull();
+        result.Command.Should().BeSameAs(open, "the entry's own command is what the menu would run");
+    }
+
+    // #544: a hidden item is not in the menu the user sees.
+    [AvaloniaFact]
+    public void A_hidden_item_is_neither_listed_nor_resolved()
+    {
+        var menu = new Menu
+        {
+            Items =
+            {
+                new MenuItem { Header = "_Help" },
+                new MenuItem { Header = "Go to github repo", IsVisible = false },
+            },
+        };
+
+        MenuPath.Resolve(menu.Items, "Tolls").Error.Should().Be("No item 'Tolls' in the menu bar. It holds: Help");
+        var hidden = MenuPath.Resolve(menu.Items, "Go to github repo");
+        hidden.Command.Should().BeNull();
+        hidden.Error.Should().Be("'Go to github repo' is in the menu bar but hidden in this IDE, so it was not invoked.");
     }
 }

@@ -1656,17 +1656,19 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (menu is null)
                 return new MutateResult(false, "No menu bar found in main window");
 
-            var (found, error) = MenuPath.Resolve(menu.Items, path);
-            if (found is null)
-                return new MutateResult(false, error);
+            // Through the resolved command rather than the MenuItem: an entry of a submenu bound to ItemsSource,
+            // such as Recent Projects, has no MenuItem until that submenu is opened. (#544)
+            var found = MenuPath.Resolve(menu.Items, path);
+            if (found.Error is not null)
+                return new MutateResult(false, found.Error);
 
-            if (found.Command is null)
+            if (found.Command is not { } command)
                 return new MutateResult(false, $"'{path}' is a submenu or has no command");
 
-            if (!found.Command.CanExecute(found.CommandParameter))
+            if (!command.CanExecute(found.CommandParameter))
                 return new MutateResult(false, $"'{path}' command cannot execute (canExecute returned false)");
 
-            found.Command.Execute(found.CommandParameter);
+            command.Execute(found.CommandParameter);
             return new MutateResult(true, null);
         });
     }
