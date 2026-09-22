@@ -33,7 +33,10 @@ internal static class IdeServer
         builder.Services
             .AddMcpServer()
             .WithHttpTransport()
-            .WithTools<HexIdeTools>();
+            .WithTools<HexIdeTools>()
+            // An exception a tool did not catch is reported with its type and message rather than the SDK's
+            // bare "An error occurred invoking" (#603).
+            .WithRequestFilters(filters => filters.AddCallToolFilter(ToolFailures.Filter));
 
         var app = builder.Build();
 
