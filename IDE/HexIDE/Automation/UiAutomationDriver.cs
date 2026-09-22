@@ -50,7 +50,9 @@ public static class UiAutomationDriver
 
     /// <summary>Deep single-node inspection: identity, provider state, and the DataContext's reflectable
     /// command/property members (the surface the Phase-7 reflection actions target).</summary>
-    public static UiNodeDetail Inspect(Control control, string path)
+    /// <param name="root">The window <paramref name="path"/> was resolved against. With it, a control whose
+    /// DataContext is inherited names the control that owns it instead of repeating its members.</param>
+    public static UiNodeDetail Inspect(Control control, string path, Control? root = null)
     {
         var peer = ControlAutomationPeer.CreatePeerForElement(control);
         var providers = DescribeProviders(peer, control);
@@ -78,6 +80,23 @@ public static class UiAutomationDriver
 
         var rect = Safe(() => peer.GetBoundingRectangle(), default(Rect));
 
+        // Members are listed where the DataContext is set, not on every control that inherits it. A scroll bar
+        // inside a code window used to report the whole CodeEditorViewModel, source file included, ahead of
+        // the range the caller asked about (#562).
+        var owner = root is null ? control : DataContextOwner(control, root);
+        var ownerPath = root is not null && !ReferenceEquals(owner, control)
+            ? PathWithin(root, "Window", owner)
+            : null;
+        var (members, omitted) = ownerPath is null ? DescribeDataContext(control.DataContext) : ([], 0);
+        string? note = null;
+        if (ownerPath is not null)
+            note = $"This control inherits its DataContext ({control.DataContext!.GetType().Name}) from {ownerPath}; "
+                 + "inspect that path for its members. invoke_command and set_property on this control act on "
+                 + "the same object.";
+        else if (omitted > 0)
+            note = $"{omitted} member(s) declared by the Dock framework's base types (layout plumbing such as "
+                 + "Proportion and CanFloat) are not listed; set_property still reaches them by name.";
+
         return new UiNodeDetail(
             path,
             ControlTypeOf(peer),
@@ -94,25 +113,69 @@ public static class UiAutomationDriver
             selection,
             value,
             toggle,
-            ReflectDataContextMembers(control.DataContext),
-            range);
+            members,
+            range,
+            ownerPath,
+            note);
+    }
+
+    /// <summary>
+    /// The outermost control, counting only those the control view shows, that shares
+    /// <paramref name="control"/>'s DataContext: where that DataContext is set, as far as a caller can address.
+    /// </summary>
+    /// <remarks>
+    /// Compared against meaningful ancestors only. A view built from a DataTemplate inherits its DataContext
+    /// from a ContentPresenter, which the control view folds away, so against the raw visual parent nearly
+    /// every view would read as inheriting. The walk stops at <paramref name="root"/>, because a path cannot
+    /// name anything above it; Avalonia 12 puts a TopLevelHost above the window, sharing its DataContext.
+    /// </remarks>
+    private static Control DataContextOwner(Control control, Control root)
+    {
+        var dataContext = control.DataContext;
+        var owner = control;
+        if (dataContext is null || ReferenceEquals(control, root)) return owner;
+        for (var a = control.GetVisualParent(); a is not null; a = a.GetVisualParent())
+        {
+            if (a is not Control c || Classify(c).Structural) continue;
+            if (!ReferenceEquals(c.DataContext, dataContext)) break;
+            owner = c;
+            if (ReferenceEquals(c, root)) break;
+        }
+        return owner;
     }
 
     /// <summary>Reflects the public instance command/property members of a control's DataContext.</summary>
-    public static VmMember[] ReflectDataContextMembers(object? dataContext)
+    public static VmMember[] ReflectDataContextMembers(object? dataContext) => DescribeDataContext(dataContext).Members;
+
+    /// <summary>
+    /// The members <see cref="ReflectDataContextMembers"/> lists, and how many it left out because the Dock
+    /// framework's base types declare them.
+    /// </summary>
+    /// <remarks>
+    /// A document or tool view model derives from Dock's, which adds about fifty layout members (MdiBounds,
+    /// Proportion, AllowedDropOperations, ...). They say nothing about the view model's own surface, and they
+    /// buried it: 73 members for a code window, of which the caller wanted none (#562).
+    /// </remarks>
+    public static (VmMember[] Members, int OmittedDockMembers) DescribeDataContext(object? dataContext)
     {
-        if (dataContext is null) return [];
+        if (dataContext is null) return ([], 0);
         var members = new List<VmMember>();
+        var omitted = 0;
         foreach (var p in dataContext.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
             if (p.GetIndexParameters().Length > 0) continue;
+            if (p.DeclaringType?.Namespace is { } ns && (ns == "Dock" || ns.StartsWith("Dock.", StringComparison.Ordinal)))
+            {
+                omitted++;
+                continue;
+            }
             if (typeof(System.Windows.Input.ICommand).IsAssignableFrom(p.PropertyType))
                 members.Add(new VmMember(p.Name, "command", null, false));
             else
                 members.Add(new VmMember(p.Name, "property", p.PropertyType.Name, p.CanWrite,
                                          ReadValue(dataContext, p)));
         }
-        return [.. members];
+        return ([.. members], omitted);
     }
 
 
@@ -144,6 +207,18 @@ public static class UiAutomationDriver
     {
         if (!p.CanRead) return null;
 
+        // An editor's document is a project file, which get_file_content already returns, open edits included.
+        // Rendering it here put a whole source file into every inspection of the editor (#562). The Immediate
+        // window's document is not a file and has no other reader, so it is still rendered below.
+        if (dataContext is HexIDE.Forms.ViewModels.ISearchableDocument searchable
+            && p.Name == nameof(HexIDE.Forms.ViewModels.ISearchableDocument.Document))
+            return Safe(() =>
+            {
+                var lines = searchable.Document.LineCount;
+                return $"<{lines} line{(lines == 1 ? "" : "s")} as the editor holds them, unsaved edits included; "
+                       + "read the text with get_file_content>";
+            }, null);
+
         var t = Nullable.GetUnderlyingType(p.PropertyType) ?? p.PropertyType;
         var readable = t == typeof(string) || t.IsEnum || t.IsPrimitive
                     || t == typeof(decimal) || t == typeof(DateTime) || t == typeof(DateTimeOffset)
@@ -162,7 +237,7 @@ public static class UiAutomationDriver
                 _ => raw.ToString(),
             };
             return text is { Length: > MaxValueLength }
-                ? text[..MaxValueLength] + $"… [truncated at {MaxValueLength} chars]"
+                ? text[..MaxValueLength] + $"… [truncated at {MaxValueLength} of {text.Length} chars]"
                 : text;
         }, null);
     }
@@ -1676,7 +1751,9 @@ public record UiNodeDetail(
     string? Value,
     bool? ToggleState,
     VmMember[] DataContextMembers,
-    RangeState? Range = null);
+    RangeState? Range = null,
+    string? DataContextOwner = null,
+    string? DataContextNote = null);
 
 /// <summary>A range control's state: a scroll bar's or slider's position, its bounds, and whether it can be set.</summary>
 public record RangeState(double Value, double Minimum, double Maximum, bool IsReadOnly);
