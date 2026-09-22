@@ -217,6 +217,11 @@ public static class UiAutomationDriver
             list.Add("rangeValue");
         if (peer.GetProvider<IScrollProvider>() is { } scroller && Safe(() => CanScroll(scroller), false))
             list.Add("scroll");
+        // And where the control's own template scrolls, which is where scroll will find it: an editor and a
+        // DataGrid offer no scroll provider of their own, and are what a caller naturally aims at. (#545)
+        else if (control is not null
+                 && Safe(() => OwnScrollerFor(control, vertical: true) is not null || OwnScrollerFor(control, vertical: false) is not null, false))
+            list.Add("scroll");
 
         // Advertised so the verb is discoverable: a control owning a context menu or a flyout accepts
         // expand/collapse even though its peer offers no ExpandCollapse provider. Without this the action
@@ -543,7 +548,11 @@ public static class UiAutomationDriver
             scroller.Scroll(move.Amount, ScrollAmount.NoAmount);
         var after = PercentAlong(scroller, move.Vertical);
 
-        var where = owner == control ? $"'{Describe(owner)}'" : $"'{Describe(owner)}' (the nearest container of the target that scrolls {axis})";
+        var where = owner == control
+            ? $"'{Describe(owner)}'"
+            : owner.TemplatedParent == control
+                ? $"'{Describe(owner)}' (the target's own {(owner is ScrollBar ? "scroll bar" : "scroller")})"
+                : $"'{Describe(owner)}' (the nearest container of the target that scrolls {axis})";
         var position = $"now {after:0.#}% of the way along, showing {ViewSizeAlong(scroller, move.Vertical):0.#}% of the content at a time";
         return Math.Abs(after - before) < 0.01
             ? Err($"did not scroll {where} {value}: it is already at that end ({position})")
@@ -551,20 +560,164 @@ public static class UiAutomationDriver
     }
 
     /// <summary>
-    /// The target's own scroller if it can move along the requested axis, else the nearest ancestor's. An
-    /// axis, not "anything scrollable": a strip that scrolls only sideways must not swallow a request to
-    /// page down through the pane around it.
+    /// The target's own scroller if it can move along the requested axis, then a scroller in the target's own
+    /// template, then the nearest ancestor's. An axis, not "anything scrollable": a strip that scrolls only
+    /// sideways must not swallow a request to page down through the pane around it.
     /// </summary>
+    /// <remarks>
+    /// The template step is what an editor or a list needs: its scroller is a template part, a descendant, so
+    /// walking only upward from the control a caller naturally aims at never found it and answered "nothing to
+    /// scroll" about a document showing a sixth of itself (#545). Only the target's own template is searched,
+    /// not every descendant, so aiming at a pane full of lists cannot pick one of them at random.
+    /// </remarks>
     private static (IScrollProvider Scroller, Control Owner)? ScrollerFor(Control control, bool vertical)
     {
-        foreach (var candidate in control.GetSelfAndVisualAncestors().OfType<Control>())
-        {
-            var peer = Safe(() => ControlAutomationPeer.CreatePeerForElement(candidate), null);
-            if (peer?.GetProvider<IScrollProvider>() is { } scroller
-                && Safe(() => vertical ? scroller.VerticallyScrollable : scroller.HorizontallyScrollable, false))
-                return (scroller, candidate);
-        }
+        if (OwnScrollerFor(control, vertical) is { } own)
+            return own;
+        foreach (var candidate in control.GetVisualAncestors().OfType<Control>())
+            if (PeerScroller(candidate, vertical) is { } outer)
+                return (outer, candidate);
         return null;
+    }
+
+    /// <summary>
+    /// A scroller that belongs to the control itself: its own peer's, a ScrollViewer in its template, or, for a
+    /// DataGrid, which scrolls through bare scroll bars, the grid itself driven by row.
+    /// </summary>
+    private static (IScrollProvider Scroller, Control Owner)? OwnScrollerFor(Control control, bool vertical)
+    {
+        if (PeerScroller(control, vertical) is { } own)
+            return (own, control);
+        var parts = TemplatePartsOf(control);
+        foreach (var viewer in parts.OfType<ScrollViewer>())
+            if (PeerScroller(viewer, vertical) is { } templated)
+                return (templated, viewer);
+        // A DataGrid's peer offers no scroll provider and its template has no ScrollViewer: it owns two scroll
+        // bars and acts only on their Scroll events, which nothing outside the bar can raise. Without this step,
+        // "scroll" on a grid of two hundred rows answered that nothing was taller than its viewport. Vertical
+        // only, because rows are what ScrollIntoView reaches. (#545)
+        if (vertical && control is DataGrid grid && VerticalBarOf(grid) is { } bar)
+            return (new DataGridScroller(grid, bar), grid);
+        return null;
+    }
+
+    private static IScrollProvider? PeerScroller(Control candidate, bool vertical)
+    {
+        var peer = Safe(() => ControlAutomationPeer.CreatePeerForElement(candidate), null);
+        return peer?.GetProvider<IScrollProvider>() is { } scroller
+               && Safe(() => vertical ? scroller.VerticallyScrollable : scroller.HorizontallyScrollable, false)
+            ? scroller
+            : null;
+    }
+
+    /// <summary>
+    /// The scrolling parts of a control's own template, found without walking into what it presents: a list's
+    /// items or an editor's text area have no templated parent, and the walk stops at them and at each
+    /// scroller it collects. That pruning is what keeps this cheap enough to ask of every node in a tree dump.
+    /// </summary>
+    /// <remarks>
+    /// The walk passes through a nested control's own template rather than stopping at it, because a part can
+    /// sit behind one: a TextBox's ScrollViewer is presented by the DataValidationErrors that wraps it.
+    /// </remarks>
+    private static List<Control> TemplatePartsOf(Control control)
+    {
+        var parts = new List<Control>();
+        var pending = new Stack<Visual>(control.GetVisualChildren());
+        while (pending.Count > 0)
+        {
+            if (pending.Pop() is not Control node || node.TemplatedParent is null)
+                continue;
+            if (node.TemplatedParent == control && node is ScrollViewer or ScrollBar)
+            {
+                parts.Add(node);
+                continue;
+            }
+            foreach (var child in node.GetVisualChildren())
+                pending.Push(child);
+        }
+        return parts;
+    }
+
+    private static ScrollBar? VerticalBarOf(DataGrid grid) =>
+        TemplatePartsOf(grid).OfType<ScrollBar>().FirstOrDefault(b =>
+            b.Orientation == Avalonia.Layout.Orientation.Vertical && b.IsEffectivelyVisible && b.Maximum > b.Minimum);
+
+    /// <summary>
+    /// Scrolls a DataGrid by bringing a row into view with its public <see cref="DataGrid.ScrollIntoView"/>, so
+    /// the grid moves by whole rows and the caller is told the offset it landed on.
+    /// </summary>
+    /// <remarks>
+    /// Setting the grid's scroll bar moved the bar and left the rows where they were, while the reply said it
+    /// had worked: the grid acts only on the bar's Scroll event, which the bar raises from a non-public method.
+    /// ScrollIntoView brings a row to the nearer edge, and leaves a row that is already partly shown where it
+    /// is. So a row is always brought in from below the view, which lands it at the top: going down, the grid is
+    /// first taken to its last row. Near the end, where no scroll can put the row at the top, the grid stays at
+    /// the end, which is where the bar would stop too.
+    /// <para>
+    /// Rows are indexed in <c>ItemsSource</c> order. A grid the user has sorted by a column header shows another
+    /// order, and then the row brought in, and the last row taken first, are not the ones on screen, so the
+    /// grid can land somewhere other than the row asked for. What the caller is told stays true, because every
+    /// reply reads the bar after the move rather than assuming where it went.
+    /// </para>
+    /// </remarks>
+    private static void ShowRowAtTop(DataGrid grid, ScrollBar bar, int target)
+    {
+        var rows = grid.ItemsSource?.Cast<object>().ToList() ?? [];
+        if (rows.Count == 0)
+            return;
+        target = Math.Clamp(target, 0, rows.Count - 1);
+        if (target > TopRowOf(bar, rows.Count))
+            grid.ScrollIntoView(rows[^1], null);
+        grid.ScrollIntoView(rows[target], null);
+    }
+
+    /// <summary>The row at the top when the bar is at <paramref name="offset"/>: rows are taken to share one height.</summary>
+    private static int RowAt(ScrollBar bar, double offset, int rowCount) =>
+        rowCount == 0 ? 0 : (int)Math.Floor(offset / ((bar.Maximum + bar.ViewportSize) / rowCount) + 0.01);
+
+    private static int TopRowOf(ScrollBar bar, int rowCount) => RowAt(bar, bar.Value, rowCount);
+
+    private static int RowCountOf(DataGrid grid) => grid.ItemsSource?.Cast<object>().Count() ?? 0;
+
+    /// <summary>A DataGrid presented as a vertical scroll provider, so scroll treats it like any other scroller.</summary>
+    private sealed class DataGridScroller(DataGrid grid, ScrollBar bar) : IScrollProvider
+    {
+        private double Span => bar.Maximum - bar.Minimum;
+
+        public bool HorizontallyScrollable => false;
+        public bool VerticallyScrollable => Span > 0;
+        public double HorizontalScrollPercent => ScrollPatternIdentifiers.NoScroll;
+        public double VerticalScrollPercent => Span > 0 ? (bar.Value - bar.Minimum) / Span * 100 : 0;
+        public double HorizontalViewSize => 100;
+        public double VerticalViewSize => Span + bar.ViewportSize > 0 ? bar.ViewportSize / (Span + bar.ViewportSize) * 100 : 100;
+
+        public void Scroll(ScrollAmount horizontalAmount, ScrollAmount verticalAmount)
+        {
+            var count = RowCountOf(grid);
+            if (count == 0)
+                return;
+            var top = TopRowOf(bar, count);
+            var perPage = Math.Max(1, (int)Math.Floor(bar.ViewportSize / ((bar.Maximum + bar.ViewportSize) / count)));
+            var target = verticalAmount switch
+            {
+                ScrollAmount.LargeDecrement => top - perPage,
+                ScrollAmount.LargeIncrement => top + perPage,
+                ScrollAmount.SmallDecrement => top - 1,
+                ScrollAmount.SmallIncrement => top + 1,
+                _ => top,
+            };
+            ShowRowAtTop(grid, bar, target);
+        }
+
+        public void SetScrollPercent(double horizontalPercent, double verticalPercent)
+        {
+            if (verticalPercent < 0)
+                return;
+            // The ends by name, so a rounding in the row estimate cannot stop short of either.
+            var count = RowCountOf(grid);
+            ShowRowAtTop(grid, bar, verticalPercent >= 100 ? count - 1 : verticalPercent <= 0 ? 0
+                : RowAt(bar, bar.Minimum + Span * verticalPercent / 100, count));
+        }
     }
 
     private static bool CanScroll(IScrollProvider scroller) =>
@@ -592,12 +745,42 @@ public static class UiAutomationDriver
             return Err($"'{label}' is read-only: it displays a value in {bounds} and cannot be set");
         if (range.Maximum <= range.Minimum)
             return Err($"'{label}' has nothing to set: its range is {bounds}, so it cannot move (a scroll bar is like this while its content fits)");
-        if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number))
+        // IsFinite as well: "NaN" parses, and neither bound comparison below is true for it, so it used to
+        // reach the control. (#545)
+        if (!double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var number) || !double.IsFinite(number))
             return Err($"set_range_value requires 'value' as a number with '.' for decimals (got '{value}'); '{label}' takes {bounds}");
         if (number < range.Minimum || number > range.Maximum)
             return Err($"{number.ToString(CultureInfo.InvariantCulture)} is outside '{label}''s range {bounds}; nothing was changed");
 
-        range.SetValue(number);
+        // A ScrollViewer's own scroll bar is moved through the viewer, and anything else with SetCurrentValue.
+        // The peer's SetValue writes a local value, which outranks the binding that keeps a bar in step with
+        // its viewer: the bar then stayed where it was put while the view moved on, for the rest of the
+        // session (#545). SetCurrentValue changes the value and leaves every binding in place.
+        if (control is ScrollBar { TemplatedParent: ScrollViewer viewer } bar)
+        {
+            viewer.Offset = bar.Orientation == Avalonia.Layout.Orientation.Vertical
+                ? new Vector(viewer.Offset.X, number)
+                : new Vector(number, viewer.Offset.Y);
+            return Ok($"scrolled '{Describe(viewer)}' to {number.ToString(CultureInfo.InvariantCulture)} through its scroll bar '{label}' (range {bounds})");
+        }
+        // A DataGrid's bar is moved through the grid, a row at a time, and the reply says where it landed:
+        // setting the bar itself moved the bar and left the rows where they were. (#545) Its horizontal bar has
+        // no such route, since ScrollIntoView reaches rows, so it is refused rather than moved on its own.
+        if (control is ScrollBar { TemplatedParent: DataGrid, Orientation: Avalonia.Layout.Orientation.Horizontal })
+            return Err($"'{label}' is a DataGrid's horizontal scroll bar, which cannot be driven: setting it would move the bar " +
+                       "and leave the columns where they are. Nothing was changed");
+        if (control is ScrollBar { TemplatedParent: DataGrid grid, Orientation: Avalonia.Layout.Orientation.Vertical } gridBar)
+        {
+            var count = RowCountOf(grid);
+            ShowRowAtTop(grid, gridBar, RowAt(gridBar, number, count));
+            return Ok($"scrolled '{Describe(grid)}' through its scroll bar '{label}' to show row {TopRowOf(gridBar, count)} at the top: " +
+                      $"the bar is now at {gridBar.Value.ToString("0.#", CultureInfo.InvariantCulture)}, asked for {number.ToString(CultureInfo.InvariantCulture)} " +
+                      $"(range {bounds}; a DataGrid scrolls by whole rows)");
+        }
+        if (control is RangeBase rangeBase)
+            rangeBase.SetCurrentValue(RangeBase.ValueProperty, number);
+        else
+            range.SetValue(number);
         return Ok($"set '{label}' to {range.Value.ToString(CultureInfo.InvariantCulture)} (range {bounds})");
     }
 

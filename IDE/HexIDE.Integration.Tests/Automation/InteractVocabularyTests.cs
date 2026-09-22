@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Automation.Peers;
 using Avalonia.Headless.XUnit;
 using Avalonia.Layout;
@@ -157,6 +158,132 @@ public class InteractVocabularyTests
         finally { window.Close(); }
     }
 
+    // #545: an editor's scroller is a template part, below the control a caller aims at, and walking only
+    // upward never found it: "nothing to scroll" about a document showing a fraction of itself.
+    [AvaloniaFact]
+    public void Scroll_on_a_control_finds_the_scroller_in_its_own_template_and_names_it()
+    {
+        var box = new TextBox
+        {
+            AcceptsReturn = true,
+            Height = 80,
+            Text = string.Join("\n", Enumerable.Range(1, 200).Select(i => $"line {i}")),
+        };
+        var window = Show(box);
+        try
+        {
+            var inner = box.GetVisualDescendants().OfType<ScrollViewer>().Single(v => v.TemplatedParent == box);
+
+            var outcome = UiAutomationDriver.Interact(box, "scroll", "down");
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            inner.Offset.Y.Should().BeGreaterThan(0);
+            outcome.Detail.Should().Contain("the target's own scroller");
+            UiAutomationDriver.DescribeProviders(ControlAutomationPeer.CreatePeerForElement(box), box)
+                .Should().Contain("scroll", "scroll works on it, so the tree has to say so for a caller to try");
+        }
+        finally { window.Close(); }
+    }
+
+    public sealed record GridRow(string Name);
+
+    private static (Window window, DataGrid grid, ScrollBar bar) ShowLongGrid()
+    {
+        var grid = new DataGrid
+        {
+            ItemsSource = Enumerable.Range(1, 200).Select(i => new GridRow("row " + i)).ToList(),
+            AutoGenerateColumns = true,
+            Height = 150,
+        };
+        var window = Show(grid);
+        var bar = grid.GetVisualDescendants().OfType<ScrollBar>()
+            .Single(b => b.TemplatedParent == grid && b.Orientation == Orientation.Vertical);
+        return (window, grid, bar);
+    }
+
+    private static int FirstShownRow(DataGrid grid) =>
+        grid.GetVisualDescendants().OfType<DataGridRow>().Where(r => r.IsVisible).Min(r => r.Index);
+
+    // #545: a DataGrid's peer offers no scroll provider and its template has no ScrollViewer, so scroll said a
+    // grid of two hundred rows had nothing taller than its viewport.
+    [AvaloniaFact]
+    public void Scroll_on_a_data_grid_pages_its_rows()
+    {
+        var (window, grid, bar) = ShowLongGrid();
+        try
+        {
+            UiAutomationDriver.DescribeProviders(ControlAutomationPeer.CreatePeerForElement(grid), grid)
+                .Should().Contain("scroll");
+
+            var outcome = UiAutomationDriver.Interact(grid, "scroll", "down");
+            Dispatcher.UIThread.RunJobs();
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Detail.Should().StartWith("scrolled 'DataGrid' down");
+            FirstShownRow(grid).Should().BeGreaterThan(1, "a page is the rows in view, not the ten pixels of the bar's own step");
+
+            var row = FirstShownRow(grid);
+            var before = bar.Value;
+            var line = UiAutomationDriver.Interact(grid, "scroll", "line_down");
+            line.Success.Should().BeTrue(line.Error);
+            (bar.Value - before).Should().BeGreaterThan(bar.SmallChange,
+                "the reply reads the position straight away, so the grid's row step has to have landed by then");
+            line.Detail.Should().Contain("line_down");
+            Dispatcher.UIThread.RunJobs();
+            FirstShownRow(grid).Should().Be(row + 1, "a line on a grid is a row");
+        }
+        finally { window.Close(); }
+    }
+
+    // #545: setting a DataGrid's horizontal bar moved the bar and not the columns, and answered success.
+    [AvaloniaFact]
+    public void Set_range_value_on_a_data_grid_horizontal_bar_refuses_and_changes_nothing()
+    {
+        var grid = new DataGrid
+        {
+            ItemsSource = Enumerable.Range(1, 5).Select(i => new GridRow("row " + i)).ToList(),
+            AutoGenerateColumns = false,
+            Width = 120,
+        };
+        for (var c = 0; c < 6; c++)
+            grid.Columns.Add(new DataGridTextColumn { Header = "column " + c, Width = new DataGridLength(100) });
+        var window = Show(grid);
+        try
+        {
+            var bar = grid.GetVisualDescendants().OfType<ScrollBar>()
+                .Single(b => b.TemplatedParent == grid && b.Orientation == Orientation.Horizontal);
+            bar.Maximum.Should().BeGreaterThan(bar.Minimum, "the fixture has to overflow sideways for the refusal to mean anything");
+
+            ErrorOf(bar, "set_range_value", "50").Should().Contain("cannot be driven").And.Contain("Nothing was changed");
+            bar.Value.Should().Be(0);
+        }
+        finally { window.Close(); }
+    }
+
+    // #545: setting a DataGrid's bar moved the bar and answered success, and the rows stayed where they were,
+    // because the grid acts on the bar's Scroll event rather than its value.
+    [AvaloniaFact]
+    public void Set_range_value_on_a_data_grid_scroll_bar_moves_the_rows()
+    {
+        var (window, grid, bar) = ShowLongGrid();
+        try
+        {
+            var outcome = UiAutomationDriver.Interact(bar, "set_range_value", "500");
+            Dispatcher.UIThread.RunJobs();
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            FirstShownRow(grid).Should().BeGreaterThan(0, "the rows have to move, not only the bar");
+            // A grid moves by whole rows, so the reply has to say where it landed as well as what was asked.
+            outcome.Detail.Should().Contain($"the bar is now at {bar.Value.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture)}")
+                .And.Contain("asked for 500").And.Contain($"row {FirstShownRow(grid)} at the top");
+
+            UiAutomationDriver.Interact(bar, "set_range_value", "0").Success.Should().BeTrue();
+            Dispatcher.UIThread.RunJobs();
+            FirstShownRow(grid).Should().Be(0, "going back up is the other direction ScrollIntoView has to serve");
+        }
+        finally { window.Close(); }
+    }
+
     [AvaloniaFact]
     public void Scroll_without_a_direction_lists_the_directions()
     {
@@ -211,7 +338,35 @@ public class InteractVocabularyTests
             ErrorOf(slider, "set_range_value", "150").Should().Contain("outside").And.Contain("0..100");
             ErrorOf(slider, "set_range_value", "fifty").Should().Contain("as a number");
             ErrorOf(slider, "set_range_value").Should().Contain("as a number");
+            // "NaN" parses as a double and fails both bound comparisons, so it used to reach the control. (#545)
+            ErrorOf(slider, "set_range_value", "NaN").Should().Contain("as a number");
+            ErrorOf(slider, "set_range_value", "Infinity").Should().Contain("as a number");
             slider.Value.Should().Be(10);
+        }
+        finally { window.Close(); }
+    }
+
+    // #545: the peer's SetValue wrote a local value over the binding that keeps a scroll bar in step with its
+    // viewer. The view scrolled once, and the bar never followed it again.
+    [AvaloniaFact]
+    public void Set_range_value_on_a_scroll_bar_moves_its_viewer_and_the_bar_keeps_following_it()
+    {
+        var (window, viewer, _) = ShowOverflowing();
+        try
+        {
+            var bar = viewer.GetVisualDescendants().OfType<ScrollBar>()
+                .Single(b => b.TemplatedParent == viewer && b.Orientation == Orientation.Vertical);
+
+            var outcome = UiAutomationDriver.Interact(bar, "set_range_value", "300");
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            outcome.Detail.Should().Contain("scrolled").And.Contain("through its scroll bar");
+            Dispatcher.UIThread.RunJobs();
+            viewer.Offset.Y.Should().Be(300);
+
+            viewer.Offset = new Avalonia.Vector(0, 100);
+            Dispatcher.UIThread.RunJobs();
+            bar.Value.Should().Be(100, "the bar is still bound to its viewer after being set");
         }
         finally { window.Close(); }
     }
