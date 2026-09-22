@@ -74,6 +74,16 @@ public static partial class PropertyText
         return $"a value the Properties window accepts for a {type.Name}";
     }
 
+    /// <summary>A stored value as a reply shows it: an enum as its number and name, anything else as written.</summary>
+    public static string Display(object? value) => value switch
+    {
+        null => "(none)",
+        Enum member => $"{Convert.ToInt64(member, CultureInfo.InvariantCulture)} ({DisplayName(member)})",
+        string text => $"'{text}'",
+        IFormattable formattable => formattable.ToString(null, CultureInfo.InvariantCulture),
+        _ => value.ToString() ?? "",
+    };
+
     private static bool TryParseEnum(Type type, string text, out object? value)
     {
         value = null;

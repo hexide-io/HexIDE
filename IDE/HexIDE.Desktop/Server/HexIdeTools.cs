@@ -369,10 +369,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "set_control_property")]
-    [Description("Sets a named property on a form or UserControl control and saves the file. The value is written as the Properties window shows it: text, a number with '.' for decimals, True or False, a colour literal such as &H00C0FFC0&, or an enum by number, by name, or as '1 - Opaque'; a refused value's reply lists what that property takes. Use get_form_controls to see available controls and properties. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A refused rename changes nothing. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first.")]
+    [Description("Sets a named property on a form or UserControl control and saves the file. The value is written as the Properties window shows it: text, a number with '.' for decimals, True or False, a colour literal such as &H00C0FFC0&, or an enum by number, by name, or as '1 - Opaque'; a refused value's reply lists what that property takes. Use get_form_controls to see available controls and properties. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A refused rename changes nothing. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' gives the value the property now holds, which can differ from the text sent.")]
     public async Task<MutateResult> SetControlPropertyAsync(
         string formName, string controlName, string property, string value, CancellationToken ct)
     {
+        // What the property holds after the set, which is not always what was sent: "0 - Transparent" stores 0. (#655)
+        string? stored = null;
         var (form, ownerModule, error) = await Dispatcher.UIThread.InvokeAsync<(FormDefinition?, ModuleDefinition?, string?)>(() =>
         {
             var project = ctx.ProjectManager.StartupProject;
@@ -436,6 +438,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
             designerVm?.PushSetPropertyCommand(control, propClass, before, parsed);
 
+            stored = $"{control.GetPropertyOrDefault(VBProperties.NameProperty)}.{propClass.Name} is now "
+                     + PropertyText.Display(control.GetBoxedPropertyOrDefault(propClass)) + ", and the file is saved.";
             return (form, ownerModule, null);
         });
 
@@ -458,7 +462,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             }
             // See the note on the other write tool: a refusal must not come back as success. (#147)
             return written
-                ? new MutateResult(true, null)
+                ? new MutateResult(true, null, stored)
                 : new MutateResult(false, "HexIDE cannot reproduce this file faithfully, so it was not "
                                         + "written and the copy on disk is unchanged.");
         }
@@ -471,7 +475,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "open_file")]
-    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. A carried file is also found by its filename, which differs from its name when VB6 carried it on a code line (`Module=Notes; Notes.md` is named Notes).")]
+    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. A carried file is also found by its filename, which differs from its name when VB6 carried it on a code line (`Module=Notes; Notes.md` is named Notes). The reply's 'note' names the tab now active and how many are open.")]
     public async Task<MutateResult> OpenFileAsync(string name, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -487,19 +491,19 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     ctx.EditorService.EditCode(form);
                 else
                     ctx.EditorService.EditCode(document.Module);
-                return new MutateResult(true, null);
+                return new MutateResult(true, null, TabStateNote());
             }
             if (found.Carried is { } carried)
             {
                 ctx.EditorService.EditRelatedDocument(carried);
-                return new MutateResult(true, null);
+                return new MutateResult(true, null, TabStateNote());
             }
             return new MutateResult(false, found.Error);
         });
     }
 
     [McpServerTool(Name = "view_designer")]
-    [Description("Opens a form or UserControl by name in the visual designer, bringing it to the front. Useful before take_snapshot to ensure the designer surface is visible. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them.")]
+    [Description("Opens a form or UserControl by name in the visual designer, bringing it to the front. Useful before take_snapshot to ensure the designer surface is visible. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'note' names the tab now active and how many are open.")]
     public async Task<MutateResult> ViewDesignerAsync(string name, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -508,7 +512,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (form is null)
                 return new MutateResult(false, error);
             ctx.EditorService.EditForm(form);
-            return new MutateResult(true, null);
+            return new MutateResult(true, null, TabStateNote());
         });
     }
 
@@ -721,14 +725,14 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "set_tool_window_visible")]
-    [Description("Shows or hides a named tool panel. Valid names: Toolbox, Properties, ProjectGroup, FormLayout, Immediate, Locals, Watches, CallStack, or an add-in tool window's title. The View menu's names for the same panels, such as 'Immediate Window' or 'Project Explorer', are accepted too, without regard to case.")]
+    [Description("Shows or hides a named tool panel. Valid names: Toolbox, Properties, ProjectGroup, FormLayout, Immediate, Locals, Watches, CallStack, or an add-in tool window's title. The View menu's names for the same panels, such as 'Immediate Window' or 'Project Explorer', are accepted too, without regard to case. The reply's 'note' says whether the window is now shown or hidden.")]
     public async Task<MutateResult> SetToolWindowVisibleAsync(string name, bool visible, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var error = ctx.RootViewModel.SetToolWindowVisible(name, visible);
             return error is null
-                ? new MutateResult(true, null)
+                ? new MutateResult(true, null, $"{name} is now {(visible ? "shown" : "hidden")}.")
                 : new MutateResult(false, error);
         });
     }
@@ -794,7 +798,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         "left/top are CONTAINER-RELATIVE, matching get_form_controls and the .frm: for a control inside a " +
         "Frame or PictureBox they are measured from that container, not from the form. Note that a VB6 control " +
         "array shares one name across its elements (Options Dialog.frm has four picOptions), so a name that is " +
-        "not unique resolves to the first in document order.")]
+        "not unique resolves to the first in document order. The reply's 'note' gives the control's position and size as they now are.")]
     public async Task<MutateResult> MoveControlAsync(
         string formName,
         string controlName,
@@ -837,7 +841,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
 
             designer.EndDrag();
 
-            return new MutateResult(true, null);
+            var i = target.Instance;
+            return new MutateResult(true, null,
+                $"{target.Name} is at Left {PropertyText.Display(i.GetPropertyOrDefault(VBProperties.LeftProperty))}, "
+                + $"Top {PropertyText.Display(i.GetPropertyOrDefault(VBProperties.TopProperty))}, "
+                + $"Width {PropertyText.Display(i.GetPropertyOrDefault(VBProperties.WidthProperty))}, "
+                + $"Height {PropertyText.Display(i.GetPropertyOrDefault(VBProperties.HeightProperty))}, "
+                + "relative to its container, as get_form_controls reports them.");
         });
     }
 
@@ -1035,13 +1045,17 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "clear_all_breakpoints")]
-    [Description("Removes every breakpoint the IDE holds, in EVERY loaded project rather than only the startup one. With a group open that is more than it sounds; to clear one document, call set_breakpoints with an empty array.")]
+    [Description("Removes every breakpoint the IDE holds, in EVERY loaded project rather than only the startup one. With a group open that is more than it sounds; to clear one document, call set_breakpoints with an empty array. The reply's 'note' says how many breakpoints were cleared, in how many documents.")]
     public async Task<MutateResult> ClearAllBreakpointsAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            var before = ctx.BreakpointService.All();
+            var lines = before.Values.Sum(l => l.Count);
             ctx.BreakpointService.ClearAll();
-            return new MutateResult(true, null);
+            return new MutateResult(true, null, lines == 0
+                ? "There were no breakpoints to clear."
+                : $"Cleared {lines} breakpoint{(lines == 1 ? "" : "s")} in {before.Count} document{(before.Count == 1 ? "" : "s")}.");
         });
     }
 
@@ -1866,6 +1880,27 @@ internal sealed class HexIdeTools(IdeContext ctx)
         return window.Content?.GetType().Name is { Length: > 0 } content ? content : "Dialog";
     }
 
+    /// <summary>A document tab's kind, as get_document_tabs reports it.</summary>
+    private static string TabType(object tab) => tab switch
+    {
+        HexIDE.VisualDesigner.FormEditViewModel => "designer",
+        BaseEditorWindowViewModel => "code",
+        _ => "tool",
+    };
+
+    /// <summary>
+    /// The document region after a tool changed it: the active tab and how many are open. The tab tools replied
+    /// {"success":true} and nothing else, so a caller had to call get_document_tabs to learn what was now in
+    /// front (#655).
+    /// </summary>
+    private string TabStateNote()
+    {
+        var count = ctx.DocumentDockService.AllTabs.Count();
+        return ctx.DocumentDockService.ActiveTab is { } active
+            ? $"Active tab: '{active.Title}' ({TabType(active)}); {count} open."
+            : $"No tab is active; {count} open.";
+    }
+
     [McpServerTool(Name = "get_document_tabs")]
     [Description("Returns EVERY tab in the document region with its title, type and whether it is the active one. 'type' is 'designer' for a form or UserControl designer, 'code' for a source editor, and 'tool' for a document that is not an editor at all — the Object Browser, the language-server connection list, the protocol inspector. Those three are real tabs in the same strip and used to be missing from this answer, which made an automation client believe a tab it could see on screen did not exist.")]
     public async Task<DocumentTabsResult> GetDocumentTabsAsync(CancellationToken ct)
@@ -1877,29 +1912,21 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // first set answers a different question from the one asked.
             var active = ctx.DocumentDockService.ActiveTab;
             var tabs = ctx.DocumentDockService.AllTabs
-                .Select(d => new DocumentTabInfo(
-                    d.Title ?? "",
-                    d switch
-                    {
-                        HexIDE.VisualDesigner.FormEditViewModel => "designer",
-                        BaseEditorWindowViewModel => "code",
-                        _ => "tool",
-                    },
-                    ReferenceEquals(d, active)))
+                .Select(d => new DocumentTabInfo(d.Title ?? "", TabType(d), ReferenceEquals(d, active)))
                 .ToArray();
             return new DocumentTabsResult(tabs);
         });
     }
 
     [McpServerTool(Name = "activate_document_tab")]
-    [Description("Brings the named document tab to the front, whatever kind it is. title must match a Title returned by get_document_tabs (case-insensitive). If nothing matches, the error names every tab that IS open, so a near-miss does not need a second call to diagnose.")]
+    [Description("Brings the named document tab to the front, whatever kind it is. title must match a Title returned by get_document_tabs (case-insensitive). If nothing matches, the error names every tab that IS open, so a near-miss does not need a second call to diagnose. The reply's 'note' names the tab now active and how many are open.")]
     public async Task<MutateResult> ActivateDocumentTabAsync(string title, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var found = ctx.DocumentDockService.TryActivateAny(
                 d => string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase));
-            return found ? new MutateResult(true, null) : new MutateResult(false, NoSuchTab(title));
+            return found ? new MutateResult(true, null, TabStateNote()) : new MutateResult(false, NoSuchTab(title));
         });
     }
 
@@ -1921,19 +1948,27 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "close_document_tab")]
-    [Description("Closes the named document tab, whatever kind it is. title must match a Title returned by get_document_tabs (case-insensitive). If nothing matches, the error names every tab that IS open.")]
+    [Description("Closes the named document tab, whatever kind it is. title must match a Title returned by get_document_tabs (case-insensitive). If nothing matches, the error names every tab that IS open. The reply's 'note' says whether the tab closed or is still waiting on an answer such as a save prompt, and names the tab now active.")]
     public async Task<MutateResult> CloseDocumentTabAsync(string title, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var closed = ctx.DocumentDockService.TryCloseAny(
                 d => string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase));
-            return closed ? new MutateResult(true, null) : new MutateResult(false, NoSuchTab(title));
+            if (!closed)
+                return new MutateResult(false, NoSuchTab(title));
+            // A document with unsaved changes asks first, so the close may still be waiting on an answer.
+            var stillOpen = ctx.DocumentDockService.AllTabs.Any(
+                d => string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase));
+            return new MutateResult(true, null, stillOpen
+                ? $"'{title}' is still open: closing it is waiting on an answer, most likely a save prompt, which "
+                  + "dump_visual_tree shows. " + TabStateNote()
+                : $"Closed '{title}'. " + TabStateNote());
         });
     }
 
     [McpServerTool(Name = "invoke_menu_item")]
-    [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Each segment is the text the menu displays, matched case-insensitively: 'Project/Add Module' reaches the item whose header is 'Add _Module' (the underscore marks the access key, wherever it falls), and a trailing '...' may be left off, so 'Tools/Options' reaches 'Options...'. A menu need not be open first. If a segment is not found, the error names the menu it looked in and every item that menu holds. Works reliably for add-in contributed items (DelegateCommand). Built-in items that use routed commands may not execute correctly via this tool. Returns an error if the path cannot be resolved or the item has no executable command.")]
+    [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Each segment is the text the menu displays, matched case-insensitively: 'Project/Add Module' reaches the item whose header is 'Add _Module' (the underscore marks the access key, wherever it falls), and a trailing '...' may be left off, so 'Tools/Options' reaches 'Options...'. A menu need not be open first. If a segment is not found, the error names the menu it looked in and every item that menu holds. Works reliably for add-in contributed items (DelegateCommand). Built-in items that use routed commands may not execute correctly via this tool. Returns an error if the path cannot be resolved or the item has no executable command. The reply's 'note' names the item invoked, as its menu shows it.")]
     public async Task<MutateResult> InvokeMenuItemAsync(string path, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1961,7 +1996,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return new MutateResult(false, $"'{path}' command cannot execute (canExecute returned false)");
 
             command.Execute(found.CommandParameter);
-            return new MutateResult(true, null);
+            return new MutateResult(true, null, $"Invoked '{found.Header ?? path}'.");
         });
     }
 
