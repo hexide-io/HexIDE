@@ -561,21 +561,66 @@ public static class UiAutomationDriver
             return Err($"'{LabelOf(control, peer)}' has no selectable items realized — if it's a dropdown, 'expand' it first, then dump_visual_tree to read the item text");
 
         var (matches, facet) = MatchByDiscriminator(candidates, value);
+        var broughtIntoView = false;
+        if (matches.Count == 0 && control is ListBox virtualized && virtualized.ItemCount > candidates.Count)
+        {
+            (matches, facet, broughtIntoView) = MatchAmongUnrealized(virtualized, value);
+            if (matches.Count == 0)
+                return Err($"no selectable item matching '{value}' among the {virtualized.ItemCount} item(s) in "
+                           + $"'{LabelOf(control, peer)}' — the ones not on screen were brought into view to check, and "
+                           + "the list was put back where it was; check the exact text via dump_visual_tree");
+        }
         if (matches.Count == 0)
             return Err($"no selectable item matching '{value}' among {candidates.Count} realized item(s) — check the exact text via dump_visual_tree");
         if (matches.Count > 1)
             return Err($"ambiguous select '{value}' ({matches.Count} {facet} matches); target the item directly by path instead");
 
+        var scrolled = broughtIntoView ? " (it was scrolled out of view, so the list was scrolled to it first)" : "";
         if (ControlAutomationPeer.CreatePeerForElement(matches[0]).GetProvider<ISelectionItemProvider>() is { } sip)
         {
             sip.Select();
-            return Ok($"selected '{value}'");
+            return Ok($"selected '{value}'{scrolled}");
         }
 
         if (TrySelectThroughOwningGrid(matches[0]) || TrySelectThroughOwningTree(matches[0]))
-            return Ok($"selected '{value}'");
+            return Ok($"selected '{value}'{scrolled}");
 
         return Unsupported("select");
+    }
+
+    /// <summary>
+    /// Brings a virtualizing list's items into view, a screenful at a time, until one matches
+    /// <paramref name="value"/>; if none does, puts the list back where it was.
+    /// </summary>
+    /// <remarks>
+    /// A list only creates rows for what is on screen, so a row scrolled out of view has no container, no
+    /// automation name, and nothing to match. The Properties window's <c>(Name)</c> row was out of reach this
+    /// way whenever the selected row had been scrolled into a short list, and the refusal counted only the
+    /// rows on screen, so it read as if the row did not exist (#627). A person scrolls to find a row; this
+    /// does the same. A row is identified by the automation name its container gets once realized, which is
+    /// what path addressing and <see cref="MatchByDiscriminator"/> use, so there is no second notion of what
+    /// an item is called.
+    /// </remarks>
+    private static (List<Control> Matches, string Facet, bool BroughtIntoView) MatchAmongUnrealized(
+        ListBox list, string value)
+    {
+        var scroller = list.Scroll as ScrollViewer;
+        var original = scroller?.Offset;
+        for (var index = 0; index < list.ItemCount; index++)
+        {
+            if (list.ContainerFromIndex(index) is not null) continue;
+            list.ScrollIntoView(index);
+            list.UpdateLayout();
+            var (matches, facet) = MatchByDiscriminator(SelectableCandidates(list), value);
+            if (matches.Count > 0) return (matches, facet, true);
+        }
+
+        if (scroller is not null && original is { } offset)
+        {
+            scroller.Offset = offset;
+            list.UpdateLayout();
+        }
+        return ([], "", false);
     }
 
     /// <summary>
