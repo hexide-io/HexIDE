@@ -38,6 +38,12 @@ public static class ComponentNaming
         if (string.Equals(oldName, proposed, StringComparison.Ordinal))
             return null;
 
+        // Every name is a VB6 identifier, a control's as much as the form's. Only the form was checked, so a
+        // control could be called "My Button" and the .frm written as `Begin VB.CommandButton My Button` (#628).
+        // A control array shares one name, but a shared name is still a valid one.
+        if (!ProjectNaming.IsValidName(proposed))
+            return string.Format(localization.GetString("Str.Naming.Msg.NotAVb6Name"), proposed);
+
         // For a genuine rename the check stands, and it stays strict on purpose. VB6's real rule is
         // uniqueness per name AND Index; Index is not modelled yet, so a rename that would JOIN an
         // existing array cannot be told apart from a collision, and refusing is the recoverable answer.
@@ -45,18 +51,11 @@ public static class ComponentNaming
                                     && c.GetPropertyOrDefault(VBProperties.NameProperty) == proposed))
             return "Name must be unique in form";
 
-        // Renaming the ROOT renames the document, so the project's rules apply on top of the form's.
-        // A form and a module of one project may not share a name -- VB6 gives them one namespace --
-        // and the name is part of the only identifier a document with no file can be given to a
-        // language server, so it has to be a name rather than merely a string.
-        if (isRoot && document is not null)
-        {
-            if (!ProjectNaming.IsValidName(proposed))
-                return string.Format(localization.GetString("Str.Naming.Msg.NotAVb6Name"), proposed);
-
-            if (ProjectNaming.IsNameTaken(document.Owner, proposed, DocumentIdentity.For(document)))
-                return string.Format(localization.GetString("Str.Naming.Msg.DocumentNameTaken"), proposed);
-        }
+        // Renaming the ROOT renames the document, so the project's rule applies on top of the form's: a form
+        // and a module of one project may not share a name, because VB6 gives them one namespace.
+        if (isRoot && document is not null
+            && ProjectNaming.IsNameTaken(document.Owner, proposed, DocumentIdentity.For(document)))
+            return string.Format(localization.GetString("Str.Naming.Msg.DocumentNameTaken"), proposed);
 
         return null;
     }

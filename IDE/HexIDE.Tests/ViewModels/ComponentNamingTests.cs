@@ -51,6 +51,15 @@ public class ComponentNamingTests
     }
 
     [Fact]
+    public void A_control_must_take_a_VB6_name_too()
+    {
+        // Only the form's name was checked, so this wrote `Begin VB.CommandButton My Button` into the .frm (#628).
+        var (_, form, _, command1, _) = Form();
+        Refusal(command1, "My Button", form).Should().Be("'My Button' is not a VB6 name");
+        Refusal(command1, "1st", form).Should().Be("'1st' is not a VB6 name");
+    }
+
+    [Fact]
     public void Committing_the_same_name_is_not_a_collision()
     {
         var (_, form, _, command1, _) = Form();
