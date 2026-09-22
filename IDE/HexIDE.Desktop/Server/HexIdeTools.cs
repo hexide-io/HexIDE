@@ -1021,6 +1021,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (lookup.Document is not { } document)
                 return new MutateResult(false, lookup.Error);
 
+            // A line the module does not have can never be reached, so the run would be a plain run under a
+            // note naming a target that does not exist. Refused before anything starts, as set_breakpoints
+            // refuses one (#569, #591).
+            if (OutsideDocument(document, [line], first: 1, "line") is { } outside)
+                return new MutateResult(false, outside);
+
             ctx.ProjectRunnerService.RunToCursorProject(document, line);
             return new MutateResult(true, null, $"Running to {document.Display} line {line}.");
         });
@@ -1035,6 +1041,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
             var lookup = ResolveDocument(module, project);
             if (lookup.Document is not { } document)
                 return new MutateResult(false, lookup.Error);
+            if (OutsideDocument(document, [line], first: 1, "line") is { } outside)
+                return new MutateResult(false, outside);
 
             // Scoped to the run, because the controller is told a bare name and a group's other project may
             // hold a module called the same thing — which would move the execution point of the running
