@@ -93,6 +93,7 @@
         </Border>
         <Grid DockPanel.Dock="Top" ColumnDefinitions="10,*,10,*,10" Margin="0,0,0,2">
             <ComboBox FontWeight="Bold" Grid.Column="1"
+                      x:Name="ObjectCombo"
                       ItemsSource="{CompiledBinding ObjectNames}"
                       SelectedItem="{CompiledBinding SelectedObject}" />
             <ComboBox FontWeight="Bold" Grid.Column="3"
