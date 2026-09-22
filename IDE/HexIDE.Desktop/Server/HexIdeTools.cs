@@ -20,21 +20,47 @@ namespace HexIDE.Desktop.Server;
 internal sealed class HexIdeTools(IdeContext ctx)
 {
     [McpServerTool(Name = "get_project_info")]
-    [Description("Returns the currently loaded VB6 project name, path, and lists of forms, modules and carried files (RelatedDoc entries).")]
+    [Description("Returns the startup project's name, path, and lists of forms, modules and carried files (RelatedDoc entries), and in 'projects' the same for every loaded project, each with 'isStartup'. With a project group open the top-level fields describe only the startup project, so read 'projects' for the rest; 'note' says when the top-level fields are not the whole picture, including when nothing is loaded or no startup project is set.")]
     public async Task<ProjectInfoResult> GetProjectInfoAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var project = ctx.ProjectManager.StartupProject;
-            if (project is null)
-                return new ProjectInfoResult(null, null, [], [], []);
+            // Every loaded project, because this is the tool every other description sends a caller to for
+            // names, and with a group open it used to list only the startup project's. With no startup
+            // project set it answered three empty lists and nothing else, which cannot be told apart from a
+            // project with nothing in it. (#581)
+            var startup = ctx.ProjectManager.StartupProject;
+            var loaded = ctx.ProjectManager.LoadedProjects;
+            var projects = loaded.Select(p => new ProjectSummary(
+                    p.Name,
+                    p.AbsolutePath,
+                    ReferenceEquals(p, startup),
+                    p.Forms.Select(f => f.Name).ToArray(),
+                    p.Modules.Select(m => m.Name).ToArray(),
+                    p.RelatedDocuments.Select(d => d.Name).ToArray()))
+                .ToArray();
 
-            return new ProjectInfoResult(
-                project.Name,
-                project.AbsolutePath,
-                project.Forms.Select(f => f.Name).ToArray(),
-                project.Modules.Select(m => m.Name).ToArray(),
-                project.RelatedDocuments.Select(d => d.Name).ToArray());
+            var note = loaded.Count switch
+            {
+                0 => "No project is loaded.",
+                _ when startup is null =>
+                    $"{loaded.Count} project{(loaded.Count == 1 ? " is" : "s are")} loaded but none is the startup project, "
+                    + "so the top-level fields are empty. 'projects' lists what is loaded.",
+                1 => null,
+                _ => $"{loaded.Count} projects are loaded. The top-level fields describe the startup project, "
+                     + $"{startup.Name}; 'projects' lists all of them.",
+            };
+
+            return startup is null
+                ? new ProjectInfoResult(null, null, [], [], [], projects, note)
+                : new ProjectInfoResult(
+                    startup.Name,
+                    startup.AbsolutePath,
+                    startup.Forms.Select(f => f.Name).ToArray(),
+                    startup.Modules.Select(m => m.Name).ToArray(),
+                    startup.RelatedDocuments.Select(d => d.Name).ToArray(),
+                    projects,
+                    note);
         });
     }
 
@@ -2160,6 +2186,17 @@ internal record ProjectInfoResult(
     // Carried files — a `RelatedDoc=` in the .vbp. Listed because they are openable and, since they are
     // the file types a configured language server exists to serve, they are exactly what needs driving
     // when verifying one.
+    string[] RelatedDocuments,
+    ProjectSummary[] Projects,
+    string? Note);
+
+/// <summary>One loaded project, as get_project_info lists it.</summary>
+internal record ProjectSummary(
+    string Name,
+    string? Path,
+    bool IsStartup,
+    string[] Forms,
+    string[] Modules,
     string[] RelatedDocuments);
 
 internal record OpenEditorsResult(

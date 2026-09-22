@@ -59,15 +59,20 @@ get_project_info
 ```json
 {
   "projectName": "Project1",
-  "projectPath": "%TEMP%\\hexide_Project1_9e0dca9565464022adf3c8730d71789e\\Project1.vbp",
+  "projectPath": "%TEMP%\\hexide_Project1_b0d84acee5354544842dab18a333ed2d\\Project1.vbp",
   "forms": ["Form1"],
   "modules": [],
-  "relatedDocuments": []
+  "relatedDocuments": [],
+  "projects": [
+    {"name": "Project1", "path": "%TEMP%\\hexide_Project1_b0d84acee5354544842dab18a333ed2d\\Project1.vbp", "isStartup": true, "forms": ["Form1"], "modules": [], "relatedDocuments": []}
+  ]
 }
 ```
 
-The path was shortened here, and the rest of the reply is verbatim. `--newproject` makes a scratch
-project in the temporary directory, which is why the path looks like that.
+The paths were shortened here, and the rest of the reply is verbatim. `--newproject` makes a scratch
+project in the temporary directory, which is why the path looks like that. With one project loaded,
+`projects` repeats the top-level fields; with a group open it lists every project, and `note` says the
+top-level fields describe only the startup one.
 
 ## 3. Open it
 
