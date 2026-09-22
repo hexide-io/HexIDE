@@ -19,7 +19,7 @@ internal class LockControlsCommand : IDesignerCommand
         if (vm.FormDefinition != null)
         {
             vm.FormDefinition.LockControls = _after;
-            vm.SaveForm();
+            vm.SaveLockControls();
         }
     }
 
@@ -28,7 +28,7 @@ internal class LockControlsCommand : IDesignerCommand
         if (vm.FormDefinition != null)
         {
             vm.FormDefinition.LockControls = _before;
-            vm.SaveForm();
+            vm.SaveLockControls();
         }
     }
 }
