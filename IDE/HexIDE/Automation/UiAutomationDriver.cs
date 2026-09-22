@@ -70,6 +70,12 @@ public static class UiAutomationDriver
                 _ => null,
             }, null);
 
+        // The range's own state, so a caller of set_range_value can read back what it set and learn the bounds
+        // without provoking a refusal to find them. Reported the way the value provider's text is. (#550)
+        RangeState? range = peer.GetProvider<IRangeValueProvider>() is { } rp
+            ? Safe<RangeState?>(() => new RangeState(rp.Value, rp.Minimum, rp.Maximum, rp.IsReadOnly), null)
+            : null;
+
         var rect = Safe(() => peer.GetBoundingRectangle(), default(Rect));
 
         return new UiNodeDetail(
@@ -88,7 +94,8 @@ public static class UiAutomationDriver
             selection,
             value,
             toggle,
-            ReflectDataContextMembers(control.DataContext));
+            ReflectDataContextMembers(control.DataContext),
+            range);
     }
 
     /// <summary>Reflects the public instance command/property members of a control's DataContext.</summary>
@@ -1374,7 +1381,11 @@ public record UiNodeDetail(
     string[] SelectionItems,
     string? Value,
     bool? ToggleState,
-    VmMember[] DataContextMembers);
+    VmMember[] DataContextMembers,
+    RangeState? Range = null);
+
+/// <summary>A range control's state: a scroll bar's or slider's position, its bounds, and whether it can be set.</summary>
+public record RangeState(double Value, double Minimum, double Maximum, bool IsReadOnly);
 
 /// <summary>A reflectable public member of a control's DataContext.</summary>
 /// <param name="Value">

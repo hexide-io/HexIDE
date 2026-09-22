@@ -1591,6 +1591,7 @@ public class ProjectService : IProjectService
     }
 
     public bool HasUnsavedChanges(FormDefinition form) => IsDirty(form);
+    public bool HasUnsavedChanges(ModuleDefinition module) => IsDirty(module);
 
     private bool IsDirty(FormDefinition form)
     {
