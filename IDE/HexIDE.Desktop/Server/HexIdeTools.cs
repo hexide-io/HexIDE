@@ -257,8 +257,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
         }
     }
 
+    private static readonly HashSet<string> KnownFileTypes = ["form", "module", "classmodule", "usercontrol", "propertypage"];
+
     [McpServerTool(Name = "add_file")]
-    [Description("Adds a new form or module to the project, saves it to disk, and returns the file path. type must be 'Form', 'Module', 'ClassModule', 'UserControl', or 'PropertyPage'.")]
+    [Description("Adds a new form or module to the startup project, saves the new file to disk, and returns its path. type must be 'Form', 'Module', 'ClassModule', 'UserControl', or 'PropertyPage'. name must be a VB6 name (a letter, then letters, digits and underscores) not already used by a form, module or class in the project; anything else is refused before a file is written. The project file itself is NOT saved, as in VB6: the note says so, and says when the file went to the project's temporary folder because it has not been saved anywhere of the user's choosing.")]
     public async Task<AddFileResult> AddFileAsync(string name, string type, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -267,26 +269,42 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (project is null)
                 return new AddFileResult(false, null, "No project loaded");
 
-            if (project.Forms.Any(f => string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase)) ||
-                project.Modules.Any(m => string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase)))
-                return new AddFileResult(false, null, $"A form or module named '{name}' already exists in the project");
+            if (!KnownFileTypes.Contains(type.ToLowerInvariant()))
+                return new AddFileResult(false, null, $"Unknown type '{type}' — must be 'Form', 'Module', 'ClassModule', 'UserControl', or 'PropertyPage'");
+
+            // The rules every other way of naming a document already applies. This tool was the one route to a
+            // document VB6 cannot load, such as "My Module" (#596).
+            if (!ProjectNaming.IsValidName(name))
+                return new AddFileResult(false, null,
+                    $"'{name}' is not a valid name. A name starts with a letter and continues with letters, digits and underscores. Nothing was added.");
+            if (ProjectNaming.IsNameTaken(project, name))
+                return new AddFileResult(false, null,
+                    $"'{name}' is already the name of a form, module or class in {project.Name}. VB6 gives them one namespace, so two cannot share a name. Nothing was added.");
+
+            // Written after the file is saved, so it describes where the file actually went. A project nobody
+            // has saved somewhere of their choosing keeps its files in a scratch folder under TEMP; --newproject
+            // even saves its .vbp there, so "has a path" is not the test. Being inside that folder is.
+            string Note(string? path)
+            {
+                const string unlisted = " The project file does not list the new file until the project is saved.";
+                return project.WorkingDirectory is { Length: > 0 } scratch && path is not null
+                       && path.StartsWith(scratch, StringComparison.OrdinalIgnoreCase)
+                    ? $"The file is in {project.Name}'s temporary folder, because the project has not been saved anywhere of your choosing; Save Project As gives it a home." + unlisted
+                    : unlisted.TrimStart();
+            }
 
             try
             {
-                return type.ToLowerInvariant() switch
+                string? path = type.ToLowerInvariant() switch
                 {
-                    "form" => new AddFileResult(true,
-                        ctx.ProjectService.AddNewForm(project, name).GetAwaiter().GetResult().AbsolutePath, null),
-                    "module" => new AddFileResult(true,
-                        ctx.ProjectService.AddNewModule(project, name, ModuleKind.StandardModule).GetAwaiter().GetResult().AbsolutePath, null),
-                    "classmodule" => new AddFileResult(true,
-                        ctx.ProjectService.AddNewModule(project, name, ModuleKind.ClassModule).GetAwaiter().GetResult().AbsolutePath, null),
-                    "usercontrol" => new AddFileResult(true,
-                        ctx.ProjectService.AddNewUserControl(project, name).GetAwaiter().GetResult().AbsolutePath, null),
-                    "propertypage" => new AddFileResult(true,
-                        ctx.ProjectService.AddNewPropertyPage(project, name).GetAwaiter().GetResult().AbsolutePath, null),
-                    _ => new AddFileResult(false, null, $"Unknown type '{type}' — must be 'Form', 'Module', 'ClassModule', 'UserControl', or 'PropertyPage'")
+                    "form" => ctx.ProjectService.AddNewForm(project, name).GetAwaiter().GetResult().AbsolutePath,
+                    "module" => ctx.ProjectService.AddNewModule(project, name, ModuleKind.StandardModule).GetAwaiter().GetResult().AbsolutePath,
+                    "classmodule" => ctx.ProjectService.AddNewModule(project, name, ModuleKind.ClassModule).GetAwaiter().GetResult().AbsolutePath,
+                    "usercontrol" => ctx.ProjectService.AddNewUserControl(project, name).GetAwaiter().GetResult().AbsolutePath,
+                    "propertypage" => ctx.ProjectService.AddNewPropertyPage(project, name).GetAwaiter().GetResult().AbsolutePath,
+                    _ => throw new System.Diagnostics.UnreachableException(),
                 };
+                return new AddFileResult(true, path, null, Note(path));
             }
             catch (Exception ex)
             {
@@ -2319,7 +2337,7 @@ internal record MutateResult(bool Success, string? Error, string? Note = null);
 /// </summary>
 internal record ShutdownResult(bool Requested, bool ProjectStopped, int DialogsClosed, string Note);
 
-internal record AddFileResult(bool Success, string? Path, string? Error);
+internal record AddFileResult(bool Success, string? Path, string? Error, string? Note = null);
 
 internal record WindowStateResult(string State, int X, int Y, int Width, int Height);
 

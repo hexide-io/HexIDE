@@ -869,3 +869,18 @@ refuse the same values with the same message. What that rule is (refuse, clamp, 
 needs measuring against `vb6.exe` first:
 [#589](https://github.com/hexide-io/HexIDE/issues/589). A negative `Left` or `Top` is ordinary VB6 and not
 part of it.
+
+## A newly added module reads as having unsaved changes although its file matches
+
+**Symptom.** On a saved project, `add_file {"name":"Helpers","type":"Module"}` succeeds and writes
+`Helpers.bas`. Then `get_file_content {"name":"Helpers"}` (`project` left at null) answers
+`{"content":"","hasUnsavedChanges":true}`, although saving would write the same bytes. The IDE's own
+`invoke_menu_item {"path":"Project/Add Module"}` does the same for `Module3`. An untouched module loaded from
+disk reads `false`.
+
+**Workaround.** Read `hasUnsavedChanges` on a document added in this session as "new", not as "edited".
+
+**Suggested fix.** Undecided, and filed as needs-decision:
+[#597](https://github.com/hexide-io/HexIDE/issues/597). Either record the render baseline when a new
+document is written, or keep new documents unsaved on purpose and say so in `get_file_content`'s
+description.
