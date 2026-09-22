@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Serilog;
@@ -81,6 +83,64 @@ public static class LoggingSetup
                 retainedFileCountLimit: retainedPartsPerSession,
                 outputTemplate: OutputTemplate,
                 shared: false);
+    }
+
+    private static int s_observingCrashes;
+
+    /// <summary>
+    /// Writes an exception nothing caught into the log, and flushes it before the process ends.
+    /// Call once, after <see cref="Initialise"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Before this, a crash left the log ending cleanly: the only record of the exception was the Windows
+    /// Application event log, and there is none on Linux or macOS. An automation caller saw only "Unable to
+    /// connect" (#643).
+    /// </para>
+    /// <para>
+    /// <b>This observes and never handles.</b> A crash still crashes exactly as before: nothing here marks an
+    /// exception handled or a task exception observed, because an IDE kept alive in an unknown state is worse
+    /// than one that stopped. It cannot catch what never reaches managed code. The render-thread
+    /// <c>MissingMethodException</c> recorded in CLAUDE.md, which killed the process on paint, reached nothing
+    /// Serilog could write.
+    /// </para>
+    /// </remarks>
+    public static void ObserveCrashes()
+    {
+        if (Interlocked.Exchange(ref s_observingCrashes, 1) == 1) return;
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => RecordUnhandled(e.ExceptionObject, e.IsTerminating);
+        TaskScheduler.UnobservedTaskException += (_, e) => RecordUnobserved(e.Exception);
+    }
+
+    /// <summary>Logs an exception nothing caught, with its full detail, flushing when the process is ending.</summary>
+    internal static void RecordUnhandled(object? exceptionObject, bool isTerminating)
+    {
+        try
+        {
+            Log.Fatal(exceptionObject as Exception,
+                "Unhandled exception ({ExceptionType}){Ending}",
+                exceptionObject?.GetType().FullName ?? "null",
+                isTerminating ? "; the process is ending" : "");
+            // The process ends when this handler returns, so the file sink's buffer must be written now.
+            if (isTerminating) Log.CloseAndFlush();
+        }
+        catch
+        {
+            // A handler that throws while the process is dying hides the exception it was called for.
+        }
+    }
+
+    /// <summary>Logs a faulted task nobody observed. It is left unobserved, so nothing changes but the log.</summary>
+    internal static void RecordUnobserved(AggregateException exception)
+    {
+        try
+        {
+            Log.Error(exception, "A task faulted and nothing observed its exception");
+        }
+        catch
+        {
+            // As above: logging must not add a failure of its own.
+        }
     }
 
     /// <summary>
