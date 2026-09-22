@@ -1053,6 +1053,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (lookup.Document is not { } document)
                 return new MutateResult(false, lookup.Error);
 
+            // A line the module does not have can never be reached, so the run would be a plain run under a
+            // note naming a target that does not exist. Refused before anything starts, as set_breakpoints
+            // refuses one (#569, #591).
+            if (OutsideDocument(document, [line], first: 1, "line") is { } outside)
+                return new MutateResult(false, outside);
+
             if (StartFailure(() => ctx.ProjectRunnerService.RunToCursorProject(document, line)) is { } failed)
                 return failed;
             return new MutateResult(true, null, $"Running to {document.Display} line {line}.");
@@ -1068,6 +1074,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
             var lookup = ResolveDocument(module, project);
             if (lookup.Document is not { } document)
                 return new MutateResult(false, lookup.Error);
+            if (OutsideDocument(document, [line], first: 1, "line") is { } outside)
+                return new MutateResult(false, outside);
 
             // Scoped to the run, because the controller is told a bare name and a group's other project may
             // hold a module called the same thing — which would move the execution point of the running
@@ -1341,6 +1349,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
         ("CenterVertically", d => d.CenterVertically),
     ];
 
+    // Named as LocalizationService names them when developer mode lists them.
+    private static readonly (string Id, string? DisplayName)[] PseudoLanguages =
+        [("pseudo", "Pseudo (LTR)"), ("pseudo-rtl", "Pseudo (RTL)")];
+
     [McpServerTool(Name = "set_ide_language")]
     [Description("Switches the IDE chrome language by pack id ('en', 'pseudo', 'pseudo-rtl', or an installed pack id), driving the exact live-apply + countdown-revert confirmation gate the Options dropdown uses. Returns immediately; the gate stays open and auto-reverts after its countdown. Call take_snapshot right after to capture the gate, or wait for it to time out to see the reverted chrome.")]
     public Task<MutateResult> SetIdeLanguageAsync(string id, CancellationToken ct)
@@ -1348,19 +1360,26 @@ internal sealed class HexIdeTools(IdeContext ctx)
         // Checked first against what the Language page offers, languages and their regions. An unknown id used
         // to be applied anyway, which falls back to English, and answered success: the caller asked for one
         // language, got another, and was told it had worked. (#585)
+        //
+        // The two pseudo-locales are accepted whether or not the Language page lists them. It lists them only
+        // in developer mode, but switching to one is how unkeyed strings are found (CLAUDE.md, localization
+        // step 5), and this server is DEBUG-only: refusing them outside developer mode broke that loop.
         var languages = ctx.LanguageSwitch.AvailableLanguages;
-        var known = languages.Select(l => l.Id)
+        var ids = languages.Select(l => l.Id).Concat(PseudoLanguages.Select(p => p.Id))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var known = ids
             .Concat(languages.SelectMany(l => ctx.LanguageSwitch.RegionsFor(l.Id).Select(r => r.Id)));
         var match = known.FirstOrDefault(k => string.Equals(k, id, StringComparison.OrdinalIgnoreCase));
         if (match is null)
             return Task.FromResult(new MutateResult(false,
-                $"No language pack '{id}'. Languages: {string.Join(", ", languages.Select(l => l.Id))}. "
+                $"No language pack '{id}'. Languages: {string.Join(", ", ids)}. "
                 + "A region of one of them, such as 'fr-CA', is accepted too."));
 
         // Fire the switch+gate on the UI thread and return at once, so the modal gate is left open
         // for take_snapshot to capture (awaiting here would block until the gate resolved).
         Dispatcher.UIThread.Post(() => _ = ctx.LanguageSwitch.SwitchWithGateAsync(match));
         var shown = languages.FirstOrDefault(l => l.Id == match)?.DisplayName
+                    ?? PseudoLanguages.FirstOrDefault(p => p.Id == match).DisplayName
                     ?? languages.Select(l => (Language: l, Region: ctx.LanguageSwitch.RegionsFor(l.Id).FirstOrDefault(r => r.Id == match)))
                         .Where(x => x.Region is not null)
                         .Select(x => $"{x.Language.DisplayName} ({x.Region!.DisplayName})")
