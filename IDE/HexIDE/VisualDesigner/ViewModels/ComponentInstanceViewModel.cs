@@ -28,44 +28,11 @@ public partial class ComponentInstanceViewModel : ObservableObject
 
     private void InstancePropertyChanging(ComponentInstance _, PropertyClass propertyClass, object? oldvalue, object? newValue)
     {
-        if (propertyClass == VBProperties.NameProperty)
-        {
-            if (string.IsNullOrEmpty(newValue as string))
-                throw new DataValidationException("Name can't be empty");
-
-            var proposed = newValue as string;
-
-            // A commit that does not change the name collides with nothing, and that is the case this guard
-            // kept rejecting. The property grid commits Name on every focus change, so it fired constantly;
-            // and it fired on real VB6 data, because a control ARRAY shares one name across its elements —
-            // Options Dialog.frm has four sibling controls all called picOptions, and Treeview Listview
-            // Splitter.frm has two lblTitle inside one picTitles — so the moment one of those was touched,
-            // "unique in form" flagged it as a duplicate of its own siblings.
-            if (string.Equals(oldvalue as string, proposed, System.StringComparison.Ordinal))
-                return;
-
-            // For a genuine rename the check stands, and it stays strict on purpose. VB6's real rule is
-            // uniqueness per name AND Index; Index is not modelled yet, so a rename that would JOIN an
-            // existing array cannot be told apart from a collision, and refusing is the recoverable answer.
-            if (parentViewModel.AllComponents.Any(c => !ReferenceEquals(c, this) && c.Name == proposed))
-                throw new DataValidationException("Name must be unique in form");
-
-            // Renaming the ROOT renames the document, so the project's rules apply on top of the form's.
-            // A form and a module of one project may not share a name -- VB6 gives them one namespace --
-            // and the name is part of the only identifier a document with no file can be given to a
-            // language server, so it has to be a name rather than merely a string.
-            if (ReferenceEquals(this, parentViewModel.Form)
-                && parentViewModel.FormDefinition is { } document)
-            {
-                if (!ProjectNaming.IsValidName(proposed))
-                    throw new DataValidationException(string.Format(
-                        parentViewModel.Localization.GetString("Str.Naming.Msg.NotAVb6Name"), proposed));
-
-                if (ProjectNaming.IsNameTaken(document.Owner, proposed!, DocumentIdentity.For(document)))
-                    throw new DataValidationException(string.Format(
-                        parentViewModel.Localization.GetString("Str.Naming.Msg.DocumentNameTaken"), proposed));
-            }
-        }
+        if (propertyClass == VBProperties.NameProperty
+            && ComponentNaming.RefusalFor(instance, oldvalue as string, newValue as string,
+                parentViewModel.AllComponents.Select(c => c.Instance), parentViewModel.FormDefinition,
+                ReferenceEquals(this, parentViewModel.Form), parentViewModel.Localization) is { } refusal)
+            throw new DataValidationException(refusal);
     }
 
     private void InstanceOnOnComponentPropertyChanged(ComponentInstance _, PropertyClass propertyClass)

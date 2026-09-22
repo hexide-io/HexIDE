@@ -369,7 +369,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "set_control_property")]
-    [Description("Sets a named property on a form or UserControl control and saves the file. Supports string, number, and bool properties. Use get_form_controls to see available controls and properties. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first.")]
+    [Description("Sets a named property on a form or UserControl control and saves the file. Supports string, number, and bool properties. Use get_form_controls to see available controls and properties. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A refused rename changes nothing. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first.")]
     public async Task<MutateResult> SetControlPropertyAsync(
         string formName, string controlName, string property, string value, CancellationToken ct)
     {
@@ -400,7 +400,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (control is null)
                 return (null, null, $"No control named '{controlName}' on form '{formName}'");
 
-            if (!control.BaseClass.PropertiesByName.TryGetValue(property, out var propClass))
+            // As the Properties window shows them, case and the parentheses of '(Name)' aside: a caller writes
+            // 'Name', and was told the property did not exist. (#494)
+            var propClass = control.BaseClass.PropertiesByName.GetValueOrDefault(property)
+                ?? control.BaseClass.Properties.FirstOrDefault(p => string.Equals(
+                       p.Name.Trim('(', ')'), property.Trim('(', ')'), StringComparison.OrdinalIgnoreCase));
+            if (propClass is null)
                 return (null, null, $"Property '{property}' not found on {control.BaseClass.VBTypeName}");
 
             object? parsed;
@@ -431,7 +436,21 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     $"{(ownerModule is not null ? "UserControl" : "Form")} '{formName}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
 
             var before = control.GetBoxedPropertyOrDefault(propClass);
-            control.SetUntypedProperty(propClass, parsed);
+
+            // A rename passes the Properties window's rules on every route. With the designer open its handler
+            // enforces them as the value is set, and throws; without it nothing would, so they are asked here.
+            if (propClass == VBProperties.NameProperty && designerVm is null
+                && HexIDE.VisualDesigner.ComponentNaming.RefusalFor(control, before as string, parsed as string,
+                       form.Components, form, control.BaseClass == FormComponentClass.Instance, ctx.Localization) is { } refusal)
+                return (null, null, $"'{controlName}' was not renamed: {refusal}");
+            try
+            {
+                control.SetUntypedProperty(propClass, parsed);
+            }
+            catch (Avalonia.Data.DataValidationException ex)
+            {
+                return (null, null, $"'{controlName}' was not {(propClass == VBProperties.NameProperty ? "renamed" : "changed")}: {ex.Message}");
+            }
 
             designerVm?.PushSetPropertyCommand(control, propClass, before, parsed);
 
