@@ -47,6 +47,81 @@ public sealed class LoggingSetupTests : IDisposable
         catch { /* a temp directory left behind is not a test failure */ }
     }
 
+    // ---------------------------------------------------------------- an exception nothing caught (#643)
+
+    private static InvalidOperationException Thrown(string message)
+    {
+        try { throw new InvalidOperationException(message); }
+        catch (InvalidOperationException ex) { return ex; }
+    }
+
+    private string WithGlobalLogger(Action act)
+    {
+        var path = Path.Combine(_dir, "ide-20260922-120000.log");
+        var before = Serilog.Log.Logger;
+        Serilog.Log.Logger = LoggingSetup.BuildConfiguration(path, LogEventLevel.Information).CreateLogger();
+        try { act(); }
+        finally
+        {
+            Serilog.Log.CloseAndFlush();
+            Serilog.Log.Logger = before;
+        }
+        return ReadAllLogText();
+    }
+
+    [Fact]
+    public void AnUnhandledExceptionIsOnDiskWithItsStackWhenTheHandlerReturns()
+    {
+        var path = Path.Combine(_dir, "ide-20260922-120000.log");
+        var before = Serilog.Log.Logger;
+        Serilog.Log.Logger = LoggingSetup.BuildConfiguration(path, LogEventLevel.Information).CreateLogger();
+        try
+        {
+            LoggingSetup.RecordUnhandled(Thrown("CRASH_SENTINEL"), isTerminating: true);
+
+            // Read while the handler's own flush is all that has happened: the process ends as it returns.
+            var text = ReadAllLogText();
+            text.Should().Contain("[FTL] Unhandled exception (System.InvalidOperationException); the process is ending");
+            text.Should().Contain("CRASH_SENTINEL");
+            text.Should().Contain(nameof(Thrown), "the stack is the part a post-mortem needs");
+        }
+        finally { Serilog.Log.Logger = before; }
+    }
+
+    [Fact]
+    public void AnUnhandledExceptionThatDoesNotEndTheProcessLeavesTheLogOpen()
+    {
+        var text = WithGlobalLogger(() =>
+        {
+            LoggingSetup.RecordUnhandled(Thrown("NOT_ENDING"), isTerminating: false);
+            Serilog.Log.Information("AFTER_SENTINEL");
+        });
+
+        text.Should().Contain("NOT_ENDING").And.NotContain("the process is ending");
+        text.Should().Contain("AFTER_SENTINEL", "the log must keep writing when the process carries on");
+    }
+
+    [Fact]
+    public void AnUnobservedTaskExceptionIsLoggedWithItsDetail()
+    {
+        var text = WithGlobalLogger(() =>
+            LoggingSetup.RecordUnobserved(new AggregateException(Thrown("TASK_SENTINEL"))));
+
+        text.Should().Contain("[ERR] A task faulted and nothing observed its exception").And.Contain("TASK_SENTINEL");
+    }
+
+    [Fact]
+    public void TheHandlerDoesNotThrowWhenWhatWasThrownIsNotAnException()
+    {
+        // The runtime passes an object: a non-CLS language can throw anything, and a handler that throws while
+        // the process is dying hides the failure it was called for.
+        var text = WithGlobalLogger(() =>
+            FluentActions.Invoking(() => LoggingSetup.RecordUnhandled("not an exception", isTerminating: false))
+                .Should().NotThrow());
+
+        text.Should().Contain("Unhandled exception (System.String)");
+    }
+
     // ---------------------------------------------------------------- the sink
 
     [Fact]

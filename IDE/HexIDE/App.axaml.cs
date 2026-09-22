@@ -34,6 +34,10 @@ public partial class App : Application
     {
         // Initialise file logging before DI so ILogger<T> instances are backed by Serilog.
         LoggingSetup.Initialise();
+        LoggingSetup.ObserveCrashes();
+#if DEBUG
+        DebugCrashHook.ArmFromEnvironment();
+#endif
 
         var envLevel = Environment.GetEnvironmentVariable("HEXIDE_LOG_LEVEL") ?? "Information";
         Log.Information("HexIDE starting — log level={LogLevel}, runtime={Runtime}, os={OS}",
