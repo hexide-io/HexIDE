@@ -1470,7 +1470,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "take_snapshot")]
-    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image. If a modal dialog is open it is captured in preference to the main window (its title is reported in 'activeDialog'); otherwise the main window is captured. 'window' selects which top-level window to address: \"auto\" (default) is the frontmost one, which while a VB6 program runs — INCLUDING while it is paused at a breakpoint — is the program's form, not the IDE; pass \"ide\" to address the IDE itself in that state.")]
+    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. inspect_element's 'boundingRect' is in the window's device-independent units measured from its top-left, which is the image's top-left, so multiply it by 'scale' to find the control in the image. If a modal dialog is open it is captured in preference to the main window (its title is reported in 'activeDialog'); otherwise the main window is captured. 'window' selects which top-level window to address: \"auto\" (default) is the frontmost one, which while a VB6 program runs — INCLUDING while it is paused at a breakpoint — is the program's form, not the IDE; pass \"ide\" to address the IDE itself in that state.")]
     public async Task<SnapshotResult> TakeSnapshotAsync(
         string? window = null, CancellationToken ct = default)
     {
@@ -1495,7 +1495,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
             var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide_snapshot.png");
             bitmap.Save(path);
 
-            return new SnapshotResult(path, null, activeDialog);
+            // The composer renders at the window's desktop scaling, with the window at the image's origin. (#646)
+            return new SnapshotResult(path, null, activeDialog,
+                bitmap.PixelSize.Width, bitmap.PixelSize.Height, active.DesktopScaling);
         });
     }
 
@@ -1543,7 +1545,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "inspect_element")]
-    [Description("Returns a deep inspection of a single control addressed by 'target' (a path from dump_visual_tree): identity, supported interaction providers, bounding rectangle, current selection/value/toggle state, for a scroll bar or slider its 'range' (value, minimum, maximum and isReadOnly, which is what set_range_value moves and refuses outside of), and the DataContext ViewModel's public command and property members (the surface the reflection-based interact actions target), each property with its current value where it reads as text. Members are listed on the control that owns the DataContext: a control that inherits it from an ancestor lists none, and 'dataContextOwner' gives the owner's path to inspect instead ('dataContextNote' says so). Members the Dock framework's base types declare are left out and counted in 'dataContextNote'. An editor's 'Document' reads as a line count, because get_file_content returns that text; the Immediate window's reads as its text. A value over 4000 characters is cut and says its full length. Use before interact to confirm an element supports the action you intend, or — for a control with no provider — to discover the VM members the reflection fallback can reach. 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused. Reports 'isHidden': true when the control is in the tree but not on screen (effectively invisible, e.g. collapsed by a binding); absent when it is showing.")]
+    [Description("Returns a deep inspection of a single control addressed by 'target' (a path from dump_visual_tree): identity, supported interaction providers, bounding rectangle ('boundingRect': x, y, width, height in the window's device-independent units from its top-left; multiply by take_snapshot's 'scale' to find it in a snapshot), current selection/value/toggle state, for a scroll bar or slider its 'range' (value, minimum, maximum and isReadOnly, which is what set_range_value moves and refuses outside of), and the DataContext ViewModel's public command and property members (the surface the reflection-based interact actions target), each property with its current value where it reads as text. Members are listed on the control that owns the DataContext: a control that inherits it from an ancestor lists none, and 'dataContextOwner' gives the owner's path to inspect instead ('dataContextNote' says so). Members the Dock framework's base types declare are left out and counted in 'dataContextNote'. An editor's 'Document' reads as a line count, because get_file_content returns that text; the Immediate window's reads as its text. A value over 4000 characters is cut and says its full length. Use before interact to confirm an element supports the action you intend, or — for a control with no provider — to discover the VM members the reflection fallback can reach. 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused. Reports 'isHidden': true when the control is in the tree but not on screen (effectively invisible, e.g. collapsed by a binding); absent when it is showing.")]
     public async Task<InspectResult> InspectElementAsync(
         string target, string? window = null, CancellationToken ct = default)
     {
@@ -2369,7 +2371,9 @@ internal record ControlInfo(
     // this container's client origin, exactly as the .frm records them, so the space is self-describing.
     string? Container);
 
-internal record SnapshotResult(string? Path, string? Error, string? ActiveDialog);
+/// <param name="Scale">Image pixels per device-independent unit, the unit inspect_element's boundingRect is in.</param>
+internal record SnapshotResult(
+    string? Path, string? Error, string? ActiveDialog, int? Width = null, int? Height = null, double? Scale = null);
 
 internal record ProjectInfoResult(
     string? ProjectName,
