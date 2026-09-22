@@ -21,6 +21,9 @@ public partial class FormViewModel : ObservableObject, IDisposable, IProjectFile
     [Notify] private string file;
     [Notify] private string? locationCaption;
 
+    /// <inheritdoc/>
+    public string AccessibleName => $"{Name} ({File})";
+
     public FormViewModel(ProjectViewModel project, FormDefinition form)
     {
         Project = project;

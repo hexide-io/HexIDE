@@ -13,6 +13,9 @@ public partial class DirectoryViewModel : IProjectTreeElement
 
     public string Name { get; }
 
+    /// <inheritdoc/>
+    public string AccessibleName => Name;
+
     /// <summary>
     /// Project-relative directory path (e.g. <c>Forms\ui</c>) — the stable identity used to
     /// preserve expansion and selection across tree rebuilds. Compared case-insensitively.

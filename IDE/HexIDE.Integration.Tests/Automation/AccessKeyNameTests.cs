@@ -78,6 +78,37 @@ public class AccessKeyNameTests
     }
 
     [AvaloniaFact]
+    public void An_icon_button_is_named_by_its_tooltip()
+    {
+        // Its peer named it by the icon's type, "Avalonia.Controls.Shapes.Path", on every such button (#542).
+        var button = new Button { Content = new Avalonia.Controls.Shapes.Path() };
+        ToolTip.SetTip(button, "Close");
+        var window = Show(button);
+        try
+        {
+            NameOf(button).Should().Be("Close");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void An_icon_button_with_no_tooltip_is_not_given_its_icons_type_name_in_a_dump()
+    {
+        var button = new Button { Content = new Avalonia.Controls.Shapes.Path() };
+        var window = Show(new StackPanel { Children = { button } });
+        try
+        {
+            var node = UiAutomationDriver.Dump(window, "Window", 5, interactiveOnly: true).Children.Single();
+
+            node.Name.Should().BeNull("a type name neither describes the button nor tells it from its siblings");
+            node.TypeNameAsName.Should().Be("Avalonia.Controls.Shapes.Path");
+            node.Path.Should().Be("Window/Button");
+            UiAutomationDriver.Resolve(window, node.Path).control.Should().BeSameAs(button);
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
     public void The_name_follows_the_caption_when_it_changes()
     {
         // A language switch replaces every caption in place.
