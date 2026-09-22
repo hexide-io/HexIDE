@@ -21,9 +21,10 @@ public class RuntimeErrorViewModel : ObservableObject, IDialog
         CloseRequested?.Invoke(false);
     }
 
+    /// <summary>Closes the dialog answering true, which is how whoever showed it knows to end the run (#600).</summary>
     public void End()
     {
-        CloseRequested?.Invoke(false);
+        CloseRequested?.Invoke(true);
     }
 
     public void Debug()
