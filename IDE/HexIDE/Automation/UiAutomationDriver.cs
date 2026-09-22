@@ -243,6 +243,48 @@ public static class UiAutomationDriver
     }
 
     /// <summary>
+    /// For a text box whose text is bound, pushes the text to its source, as Enter or leaving the box would, and
+    /// says what came of it; null when there is nothing to commit.
+    /// </summary>
+    /// <remarks>
+    /// A box bound with <c>UpdateSourceTrigger=LostFocus</c> -- every Properties window row -- took the text and
+    /// changed nothing, and the reply said it had been set (#625). Whether the source KEPT the value is a separate
+    /// question, answered by <see cref="RefusedCommit"/> once the source's own reaction has run.
+    /// </remarks>
+    private static string? CommitTyped(Control control, string typed)
+    {
+        if (control is not TextBox textBox
+            || Avalonia.Data.BindingOperations.GetBindingExpressionBase(textBox, TextBox.TextProperty) is not { } binding)
+            return null;
+
+        binding.UpdateSource();
+        return ", and committed it";
+    }
+
+    /// <summary>
+    /// After <c>set_value</c> committed <paramref name="typed"/> into a bound text box, what to say instead of
+    /// "committed it" when the box no longer shows it; null when it does.
+    /// </summary>
+    /// <remarks>
+    /// Asked after the dispatcher has run what the commit queued. A source that refuses a value puts its own
+    /// back from a posted callback, because a change raised while the binding is writing is not carried to the
+    /// box; asked straight after the write, a refused value still reads as accepted. Measured: the Properties
+    /// window's Name row, given "1st", opened its refusal and kept showing "1st".
+    /// </remarks>
+    public static string? RefusedCommit(Control control, string typed)
+    {
+        if (control is not TextBox textBox
+            || Avalonia.Data.BindingOperations.GetBindingExpressionBase(textBox, TextBox.TextProperty) is null)
+            return null;
+
+        var shown = textBox.Text ?? "";
+        return shown == typed
+            ? null
+            : $", but after committing it shows '{shown}': the change was refused or rewritten. A refusal opens a "
+              + "message box saying why, which dump_visual_tree shows.";
+    }
+
+    /// <summary>
     /// Every action <see cref="Interact"/> accepts, in the spelling a caller passes. The unknown-action error
     /// is built from this, so the list it prints cannot drift from the switch.
     /// </summary>
@@ -440,7 +482,9 @@ public static class UiAutomationDriver
                     if (peer.GetProvider<IValueProvider>() is not { } val) return Unsupported("set_value");
                     if (value is null) return Err("set_value requires 'value'");
                     val.SetValue(value);
-                    return Ok($"set value of '{LabelOf(control, peer)}' to '{value}'");
+                    return Ok(CommitTyped(control, value) is { } committed
+                        ? $"set value of '{LabelOf(control, peer)}' to '{value}'{committed}"
+                        : $"set value of '{LabelOf(control, peer)}' to '{value}'");
 
                 case "select":
                     return DoSelect(control, peer, value);
