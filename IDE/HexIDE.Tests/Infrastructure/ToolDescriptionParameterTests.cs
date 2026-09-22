@@ -45,11 +45,16 @@ public class ToolDescriptionParameterTests
             "the MCP SDK sends a parameter under its C# name, so a caller who copies the other spelling passes nothing");
     }
 
+    /// <remarks>
+    /// The name has to be quoted or code-spanned, <c>'project'</c> or <c>`project`</c>. A bare word was found in
+    /// ordinary prose: <c>run_to_cursor</c> could lose the sentence telling a caller about its <c>project</c>
+    /// parameter and stay green, because it still "starts the project" (hexide-io/HexIDE#549).
+    /// </remarks>
     [Fact]
     public void Every_optional_parameter_is_named_in_its_own_description()
     {
         var unnamed = ToolSource.Tools
-            .SelectMany(t => t.Parameters.Where(p => p.Optional && !Regex.IsMatch(t.Description, $@"\b{p.Name}\b"))
+            .SelectMany(t => t.Parameters.Where(p => p.Optional && !Regex.IsMatch(t.Description, $@"['`]{p.Name}['`]"))
                 .Select(p => $"{t.Name}: {p.Name}"))
             .ToList();
 
