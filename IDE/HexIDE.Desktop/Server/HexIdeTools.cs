@@ -369,7 +369,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "set_control_property")]
-    [Description("Sets a named property on a form or UserControl control and saves the file. Supports string, number, and bool properties. Use get_form_controls to see available controls and properties. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A refused rename changes nothing. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first.")]
+    [Description("Sets a named property on a form or UserControl control and saves the file. The value is written as the Properties window shows it: text, a number with '.' for decimals, True or False, a colour literal such as &H00C0FFC0&, or an enum by number, by name, or as '1 - Opaque'; a refused value's reply lists what that property takes. Use get_form_controls to see available controls and properties. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A refused rename changes nothing. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first.")]
     public async Task<MutateResult> SetControlPropertyAsync(
         string formName, string controlName, string property, string value, CancellationToken ct)
     {
@@ -408,27 +408,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (propClass is null)
                 return (null, null, $"Property '{property}' not found on {control.BaseClass.VBTypeName}");
 
-            object? parsed;
-            try
-            {
-                parsed = propClass.PropertyType switch
-                {
-                    var t when t == typeof(string)  => (object?)value,
-                    var t when t == typeof(double)  => double.Parse(value),
-                    var t when t == typeof(float)   => float.Parse(value),
-                    var t when t == typeof(int)     => int.Parse(value),
-                    var t when t == typeof(bool)    => bool.Parse(value),
-                    _ => null
-                };
-                if (parsed is null)
-                    return (null, null, $"Property '{property}' has type '{propClass.PropertyType.Name}' which is not supported by set_control_property");
-            }
-            catch (Exception ex) when (ex is FormatException or OverflowException)
-            {
-                // OverflowException too: int/float/double.Parse of an out-of-range literal (e.g. "99999999999" as
-                // int) overflows — return a clean parse error instead of crashing the tool handler.
-                return (null, null, $"Cannot parse '{value}' as {propClass.PropertyType.Name}");
-            }
+            // Any spelling the Properties window shows for a value; colours and enums were refused outright. (#641)
+            if (!PropertyText.TryParse(propClass, value, out var parsed))
+                return (null, null, $"Cannot set '{propClass.Name}' to '{value}': it takes {PropertyText.Accepted(propClass)}");
 
             // Refused BEFORE the property is set, for the same reason as set_file_content. (#538)
             if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(ownerModule is not null ? ownerModule.AbsolutePath : form.AbsolutePath))

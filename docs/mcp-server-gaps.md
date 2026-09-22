@@ -21,22 +21,6 @@ maxDepth: 14)`, not "`dump_visual_tree` returns only the tab chrome".
 
 ---
 
-## 2. `set_control_property` only handles string / number / bool
-
-**Symptom.** Setting an **enum** property fails — `set_control_property(Label0, "BackStyle", "1")` →
-*"Property 'BackStyle' has type 'BackStyles' which is not supported by set_control_property"*. **Colour**
-(`VBColor`) properties (`BackColor`/`ForeColor`) are likewise unsettable.
-
-**How it bit.** I couldn't make a label opaque, nor set a control's colour, via the designer tool — so the
-Phase-2 colour verification had to be done by *running code* (`Me.BackColor = &HC0FFC0` in `Form_Load`) and
-snapshotting the result, rather than a designer property set.
-
-**Fix.** Accept enum values (by member name or ordinal) and `VBColor` values (a hex `OLE_COLOR` string like
-`"&H00FF0000&"`, or an `R,G,B` triple). Better: route the incoming string through the **same property-editor
-coercion the designer's property grid uses**, so every editable property type is settable through one path.
-
----
-
 ## 3. MCP tools drop on IDE shutdown and don't re-attach mid-session
 
 **Symptom.** MCP tools are discovered at session start. Shutting the IDE down — which is **required** to run
