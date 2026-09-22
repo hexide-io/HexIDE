@@ -822,3 +822,78 @@ working route is the Properties window itself: `interact` with `set_property` on
 commit through the same validation the user gets. `set_value` on that row's `Edit` writes the text and does
 **not** commit — the binding updates on focus loss and Enter does not stand in for it — so a caller who uses
 the obvious verb sees success and no rename.
+
+## `invoke_menu_item` misses items with `_` in their text, and describes menus it cannot read (#544)
+
+**Symptom.** Three, all from #519's resolver (`MenuPath`). (1) An item whose displayed text contains an
+underscore cannot be invoked: with a project named `My_App`, `invoke_menu_item(path: "File/Remove My_App")`
+misses, because the caller's segment is stripped of an access key as if it were a header and becomes
+`Remove MyApp`. The miss then lists `Remove My_App` among the items the menu holds. This worked before #519.
+(2) `invoke_menu_item(path: "File/Recent Projects/anything")` answers `No item 'anything' in menu 'Recent
+Projects'. It has no items.` while Recent Projects is visible, which it only is when it has entries: its
+items come from `ItemsSource` and are not `MenuItem`s. (3) `invoke_menu_item(path: "Tolls/Options")` lists
+`Go to github repo`, which is hidden on desktop, and invoking that path opens the browser.
+
+**Workaround.** For (1) and (2), open the menu with `interact` `expand`, then `dump_visual_tree` scoped to
+it, then `interact` `invoke` on the item: the realised containers carry the displayed text. For (3), check
+`isHidden` in a dump before trusting a listing.
+
+**Fix.** In the issue: match the segment as given, resolve item containers as well as `MenuItem` children,
+and skip hidden items.
+
+## `interact scroll` misses a target's own scroller, and `set_range_value` detaches a scroll bar (#545)
+
+**Symptom.** (1) `interact(target: "…/Custom[Root]/None[TextEditor]", action: "scroll", value: "down")` on a
+141-line code window answers `nothing to scroll vertically: neither 'TextEditor[TextEditor]' nor anything
+containing it has content taller than its viewport`. The same call on `…/None[TextEditor]/Pane[PART_ScrollViewer]`
+scrolls. The scroller is a template part inside the target, and the search only walks upwards. (2)
+`interact(target: "…/Pane[PART_ScrollViewer]/ScrollBar[PART_VerticalScrollBar]", action: "set_range_value",
+value: "2391")` moves the view and the thumb together. Afterwards,
+`interact(target: "…/Pane[PART_ScrollViewer]", action: "scroll", value: "home")` puts the text back at line 1
+and leaves the thumb at the bottom for the rest of the session: the local value outranks the template
+binding. From reading, not yet reproduced: a `DataGrid`'s scroll bars take `set_range_value` without
+scrolling, and `NaN` is accepted.
+
+**Workaround.** Aim `scroll` at the `PART_ScrollViewer` inside the control, never at the control itself. Do
+not use `set_range_value` on a `ScrollViewer`'s scroll bars; `scroll` with `home`/`end`/a page does the same
+without breaking the binding.
+
+**Fix.** In the issue.
+
+## `inspect_element` does not show a range control's value (#550)
+
+**Symptom.** `inspect_element(target: "…/Pane[PART_ScrollViewer]/ScrollBar[PART_VerticalScrollBar]")`
+reports `"providers":["rangeValue"]` and no value, minimum, maximum or read-only flag, though its description
+promises the "current selection/value/toggle state". The bounds could only be learned from a refusal
+(`set_range_value` with `999999` answers `… outside 'PART_VerticalScrollBar''s range 0..2391.59375`), and
+whether a value took only from a snapshot.
+
+**Workaround.** Probe with an out-of-range `set_range_value` for the bounds, and `take_snapshot` to see the
+result.
+
+**Fix.** Add the range provider's `Value`, `Minimum`, `Maximum` and `IsReadOnly` to the inspection.
+
+## `add_watch` turns an unrecognised `watchType` into `Expression` without saying so (#546)
+
+**Symptom.** From reading `HexIdeTools.AddWatchAsync`: `add_watch(expression: "x > 5", watchType:
+"BreakWhenTru")` falls through the `switch` to `WatchType.Expression`, adds a watch that will never break,
+and replies with the watch list as if the call had done what was asked.
+
+**Workaround.** Read `watchType` back from the reply's list after adding.
+
+**Fix.** Refuse an unrecognised non-empty value and name the accepted spellings.
+
+## A taken `--server-port` exits without running the shutdown handlers (#547)
+
+**Symptom.** From reading `DesktopStartup.cs`: exit code 3 (#525) goes through Avalonia's forced
+`desktop.Shutdown(exitCode)`, which does not raise `ShutdownRequested`. The add-in loader is never disposed,
+and a third-party add-in's consent prompt, opened from the same `MainWindow.Opened` as the server start, can
+then be recorded as **Block** when the closing dialog returns. The IDE's own shutdown work and the server
+context's disposal are skipped too.
+
+**Workaround.** None needed for automation itself: the exit code is right. Don't launch into a taken port:
+check that `/health` stops answering before relaunching, as the rebuild cycle says. A fresh `--user-data-dir`
+does not help. A new profile asks about every third-party add-in again, which makes an open consent prompt
+more likely, not less.
+
+**Fix.** Exit through `TryShutdown(exitCode)`, or run the cleanup before the forced shutdown.
