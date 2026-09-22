@@ -55,17 +55,18 @@ HexIDE.Desktop --user-data-dir ./demo-profile
 - **Logs are not per-user files** and stay in their usual place.
 - **Add-ins still load.** They live beside the executable, not in this directory; only the record of which
   ones you allowed moves, so a fresh profile asks about each third-party add-in again.
-- **Unlike every other flag, this one refuses to start when it is malformed.** Given with nothing after it —
-  or with another flag where the directory should be — HexIDE prints why and exits with status 2. Every other
-  argument is skipped when HexIDE cannot use it, but starting normally here would put the session on exactly
-  the settings you asked it to stay away from.
+- **A malformed one refuses to start, as a malformed `--server-port` does.** Given with nothing after it —
+  or with another flag where the directory should be — HexIDE prints why and exits with status 2. Every
+  argument but these two is skipped when HexIDE cannot use it, but starting normally here would put the
+  session on exactly the settings you asked it to stay away from.
 
 **`--newproject` wins.** If you pass both `--newproject` and a project path, the new project is created and
 the path is ignored.
 
 **`--server-port` needs its value as the next argument**, and that value must be a port number from 1 to
-65535. `--server-port 5123` works; `--server-port=5123` does not. Anything else stops HexIDE before it opens
-a window, rather than letting it start without the server you asked for.
+65535. `--server-port 5123` works; `--server-port=5123` does not. In a Debug build, anything else stops
+HexIDE before it opens a window, rather than letting it start without the server you asked for. A
+distributed build has no automation server, so there it ignores the flag and its value alike.
 
 **A port something else already holds stops HexIDE too.** Usually the something else is another HexIDE
 started with the same port. HexIDE used to open anyway, with no server behind it, and a client went on
@@ -111,7 +112,7 @@ next mark row down, which arrives as the mark sliced into bands with text betwee
 | Code | Meaning |
 |---|---|
 | 0 | HexIDE ran and closed normally, or `--help` answered. |
-| 2 | The command line was refused before anything started: `--user-data-dir` without a directory, or `--server-port` without a port from 1 to 65535. |
+| 2 | The command line was refused before anything started: `--user-data-dir` without a directory, or `--server-port` without a port from 1 to 65535 (that one in Debug builds only). |
 | 3 | The automation server's port was already in use. Debug builds only. |
 | 4 | The automation server could not start for any other reason; the message gives the cause. Debug builds only. |
 
