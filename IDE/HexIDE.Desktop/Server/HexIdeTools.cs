@@ -378,7 +378,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_form_controls")]
-    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled). Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them.")]
+    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled). Position and size are in PIXELS, left/top relative to the control's container; a .frm stores twips, 15 to a pixel. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them.")]
     public async Task<FormControlsResult> GetFormControlsAsync(string formName, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -802,12 +802,14 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_undo_state")]
-    [Description("Returns the current undo/redo state of the active editor: whether it is a form designer, whether undo/redo are available, and the descriptions that would appear in the Edit menu.")]
+    [Description("Returns the current undo/redo state of the active document: what kind it is, whether Undo and Redo are available, and, for a form designer, the step each would act on as the Edit menu names it. 'activeEditorKind' is FormDesigner, CodeEditor, Other (a document with no undo of its own, such as the Object Browser; canUndo and canRedo are then false) or None (no document is open). A code editor's steps have no names, so its descriptions are null; invoke_menu_item(\"Edit/Undo\") undoes there, and invoke_designer_undo is for a designer only.")]
     public async Task<UndoStateResult> GetUndoStateAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var active = ctx.DocumentDockService.ActiveDocument;
+            // The tab in front, not ActiveDocument, which is null while a tool such as the Object Browser is
+            // in front and so reported that as no document open.
+            var active = ctx.DocumentDockService.ActiveTab;
             if (active is HexIDE.VisualDesigner.FormEditViewModel designer)
                 return new UndoStateResult(
                     "FormDesigner",
@@ -816,9 +818,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     designer.UndoStack.UndoDescription,
                     designer.UndoStack.RedoDescription);
 
-            return new UndoStateResult(
-                active?.GetType().Name ?? "None",
-                false, false, null, null);
+            // A code editor has undo of its own, and this said it could never undo; the kind was also the
+            // document's .NET type name, a set no description could list. (#672)
+            if (active is CodeEditorViewModel code)
+                return new UndoStateResult(
+                    "CodeEditor", code.Document.UndoStack.CanUndo, code.Document.UndoStack.CanRedo, null, null);
+
+            return new UndoStateResult(active is null ? "None" : "Other", false, false, null, null);
         });
     }
 
@@ -869,10 +875,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
         "The form must already be open in the visual designer (call view_designer first). " +
         "Use the form's own name as controlName to resize the form itself. " +
         "Each of `left`, `top`, `width` and `height` is optional; if all are omitted, EndDrag is still called (tests the no-change path). " +
-        "left/top are CONTAINER-RELATIVE, matching get_form_controls and the .frm: for a control inside a " +
+        "All four are in PIXELS, as the designer draws: a .frm and VB6's Properties window use twips, 15 to a pixel, so a VB6 value in twips must be divided by 15 here. " +
+        "left/top are CONTAINER-RELATIVE, as get_form_controls and the .frm have them: for a control inside a " +
         "Frame or PictureBox they are measured from that container, not from the form. Note that a VB6 control " +
         "array shares one name across its elements (Options Dialog.frm has four picOptions), so a name that is " +
-        "not unique resolves to the first in document order. The reply's 'note' gives the control's position and size as they now are.")]
+        "not unique resolves to the first in document order. The reply's 'note' gives the control's position and size as they now are, and says when it now lies outside its container.")]
     public async Task<MutateResult> MoveControlAsync(
         string formName,
         string controlName,
@@ -921,12 +928,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 + $"Top {PropertyText.Display(i.GetPropertyOrDefault(VBProperties.TopProperty))}, "
                 + $"Width {PropertyText.Display(i.GetPropertyOrDefault(VBProperties.WidthProperty))}, "
                 + $"Height {PropertyText.Display(i.GetPropertyOrDefault(VBProperties.HeightProperty))}, "
-                + "relative to its container, as get_form_controls reports them.");
+                + "in pixels relative to its container, as get_form_controls reports them."
+                + (ReferenceEquals(target, designer.Form) ? "" : OutsideContainerNote(target)));
         });
     }
 
     [McpServerTool(Name = "add_control")]
-    [Description("Places a control of the given type on a named form's designer canvas at the given position and size, and SAVES the form. The form must be open in the visual designer (call view_designer first if needed). Returns the auto-generated control name (e.g. 'Command1'). A refusal to write (an unfaithful form) comes back as success:false naming the control that is in the designer but not on disk. A form with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything is placed unless answer_next_file_dialog has been armed first; arm it with no path to keep the form without a file.")]
+    [Description("Places a control of the given type on a named form's designer canvas at the given position and size, and SAVES the form. x, y, width and height are in PIXELS, as the designer draws and get_form_controls reports: a .frm and VB6's Properties window use twips, 15 to a pixel, so VB6's default CommandButton (1215 × 495 twips) is 81 × 33 here. The reply's 'note' gives where the control landed, and says when it lies outside the form. The form must be open in the visual designer (call view_designer first if needed). Returns the auto-generated control name (e.g. 'Command1'). A refusal to write (an unfaithful form) comes back as success:false naming the control that is in the designer but not on disk. A form with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything is placed unless answer_next_file_dialog has been armed first; arm it with no path to keep the form without a file.")]
     public async Task<AddControlResult> AddControlAsync(
         string formName, string type,
         double x, double y, double width, double height,
@@ -974,7 +982,15 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     $"{(owner is not null ? owner.Kind.ToString() : "Form")} '{formName}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
 
             designer.SpawnControlAt(componentClass, new Avalonia.Rect(x, y, width, height));
-            return new AddControlResult(true, designer.SelectedComponent?.Name, null, designer.FormDefinition);
+            // Where it landed, and whether that is on the form at all: twips passed as pixels put a control
+            // fifteen times too far out, and the reply used to be plain success. (#675)
+            var placed = designer.SelectedComponent;
+            var note = placed is null
+                ? null
+                : $"{placed.Name} is at Left {PropertyText.Display(placed.RelativeLeft)}, Top {PropertyText.Display(placed.RelativeTop)}, "
+                  + $"Width {PropertyText.Display(placed.Width)}, Height {PropertyText.Display(placed.Height)}, in pixels."
+                  + OutsideContainerNote(placed);
+            return new AddControlResult(true, placed?.Name, null, designer.FormDefinition, note);
         });
 
         if (!spawned.Success || spawned.Form is null)
@@ -1011,6 +1027,17 @@ internal sealed class HexIdeTools(IdeContext ctx)
             return new AddControlResult(false, spawned.ControlName,
                 $"'{spawned.ControlName}' was added to the designer but the save failed: {ToolFailures.WithoutProfile(ex.Message)}");
         }
+    }
+
+    /// <summary>A sentence for a control that no longer lies inside its container, or "" when it does.</summary>
+    private static string OutsideContainerNote(HexIDE.VisualDesigner.ComponentInstanceViewModel control)
+    {
+        if (control.LiesWithinContainer) return "";
+        var bounds = control.ContainerBounds;
+        return $" It lies at least partly outside {control.ContainerName}, whose client area is "
+               + $"{PropertyText.Display(bounds.Width)} × {PropertyText.Display(bounds.Height)} pixels, so part or all "
+               + "of it will not be seen at run time. If these numbers came from a .frm or from VB6, they are twips: "
+               + "divide by 15.";
     }
 
     /// <summary>The UserControl or PropertyPage module whose designer half this is, or null for a form.</summary>
@@ -2694,7 +2721,7 @@ internal record UndoStateResult(
 /// survive the hop between them.
 /// </param>
 internal record AddControlResult(bool Success, string? ControlName, string? Error,
-    [property: System.Text.Json.Serialization.JsonIgnore] FormDefinition? Form = null);
+    [property: System.Text.Json.Serialization.JsonIgnore] FormDefinition? Form = null, string? Note = null);
 
 /// <param name="Project">The project holding the document, by name.</param>
 /// <param name="Document">The document's own VB6 name, as the IDE spells it rather than as the call spelled it.</param>
