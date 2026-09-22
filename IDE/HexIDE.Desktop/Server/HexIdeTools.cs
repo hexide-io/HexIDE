@@ -594,6 +594,16 @@ internal sealed class HexIdeTools(IdeContext ctx)
     {
         if (!activated.Success) return activated;
 
+        // Not while a dialog is open over the IDE. Someone may be typing into it, and pulling focus behind it
+        // would take their keystrokes or leave it unfocused; a person could not move focus there either.
+        var dialog = await Dispatcher.UIThread.InvokeAsync(OpenDialogTitle);
+        if (dialog is not null)
+            return activated with
+            {
+                Note = activated.Note + $" A dialog is open ('{dialog}'), so keyboard focus was left in it; a menu "
+                       + "item that acts on this document may be refused until the dialog is closed.",
+            };
+
         for (var attempt = 0; attempt < 10; attempt++)
         {
             var focused = await Dispatcher.UIThread.InvokeAsync(FocusActiveTab, DispatcherPriority.Background);
@@ -615,6 +625,20 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     private enum FocusOutcome { Focused, Refused, NotAnEditor }
+
+    /// <summary>The title of a dialog open over the IDE, or null when there is none.</summary>
+    /// <remarks>
+    /// A dialog is shown with an owner, which is how <see cref="HexIDE.IDE.ForegroundWindow"/> tells it apart; a
+    /// running program's form has none, so it does not count here.
+    /// </remarks>
+    private static string? OpenDialogTitle()
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
+            { MainWindow: { } main } lifetime)
+            return null;
+        var front = HexIDE.IDE.ForegroundWindow.Pick(main, lifetime.Windows);
+        return front != main && front.Owner is not null ? front.Title ?? "untitled" : null;
+    }
 
     /// <summary>
     /// Puts focus in the active tab's own editor or designer surface, or says why not; null when its view is
