@@ -2087,7 +2087,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "invoke_menu_item")]
-    [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Each segment is the text the menu displays, matched case-insensitively: 'Project/Add Module' reaches the item whose header is 'Add _Module' (the underscore marks the access key, wherever it falls), and a trailing '...' may be left off, so 'Tools/Options' reaches 'Options...'. A menu need not be open first. If a segment is not found, the error names the menu it looked in and every item that menu holds. Works reliably for add-in contributed items (DelegateCommand). Built-in items that use routed commands may not execute correctly via this tool. Returns an error if the path cannot be resolved or the item has no executable command. The reply's 'note' names the item invoked, as its menu shows it.")]
+    [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Each segment is the text the menu displays, matched case-insensitively: 'Project/Add Module' reaches the item whose header is 'Add _Module' (the underscore marks the access key, wherever it falls), and a trailing '...' may be left off, so 'Tools/Options' reaches 'Options...'. A menu need not be open first. If a segment is not found, the error names the menu it looked in and every item that menu holds. Most built-in items are routed commands, which act on the control that has keyboard focus, as a real click does: one that belongs to a document (Tools/Add Procedure to a code window) is refused until that document has focus, which open_file does not give; press_key on the editor gives it, and the refusal names what has focus instead. Returns an error if the path cannot be resolved or the item cannot execute. The reply's 'note' names the item invoked, as its menu shows it.")]
     public async Task<MutateResult> InvokeMenuItemAsync(string path, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -2112,11 +2112,30 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return new MutateResult(false, $"'{path}' is a submenu or has no command");
 
             if (!command.CanExecute(found.CommandParameter))
-                return new MutateResult(false, $"'{path}' command cannot execute (canExecute returned false)");
+                return new MutateResult(false, command is Avalonia.Labs.Input.RoutedCommand
+                    // The refusal used to stop at "canExecute returned false", and the one thing that changes
+                    // the answer, where keyboard focus is, was nowhere in it. (#678)
+                    ? $"'{path}' cannot execute where keyboard focus is now ({FocusedElementName(window)}). It is a routed "
+                      + "command, which acts on the focused control as a real click does, so an item that belongs to a "
+                      + "document needs focus in that document: open_file does not give it, and press_key on the "
+                      + "editor does. An item that is disabled in the menu is refused the same way."
+                    : $"'{path}' cannot execute now: the item is disabled.");
 
             command.Execute(found.CommandParameter);
             return new MutateResult(true, null, $"Invoked '{found.Header ?? path}'.");
         });
+    }
+
+    /// <summary>What has keyboard focus in <paramref name="window"/>, for a refusal that depends on it.</summary>
+    private static string FocusedElementName(Window window)
+    {
+        if (TopLevel.GetTopLevel(window)?.FocusManager?.GetFocusedElement() is not Control focused)
+            return "nothing has focus";
+        // The nearest name up the tree: the focused control itself is usually an unnamed part of a template.
+        var owner = focused.GetSelfAndVisualAncestors().OfType<Control>().FirstOrDefault(c => !string.IsNullOrEmpty(c.Name))?.Name;
+        var context = focused.DataContext?.GetType().Name;
+        return $"a {focused.GetType().Name}" + (owner is not null ? $" named '{owner}'" : "")
+               + (context is not null ? $" showing {context}" : "");
     }
 
     /// <summary>
