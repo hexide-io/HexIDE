@@ -539,10 +539,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "open_file")]
-    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. A carried file is also found by its filename, which differs from its name when VB6 carried it on a code line (`Module=Notes; Notes.md` is named Notes). The reply's 'note' names the tab now active and how many are open.")]
+    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. A carried file is also found by its filename, which differs from its name when VB6 carried it on a code line (`Module=Notes; Notes.md` is named Notes). The editor gets keyboard focus, as opening it by hand gives it. The reply's 'note' names the tab now active and how many are open.")]
     public async Task<MutateResult> OpenFileAsync(string name, string? project = null, CancellationToken ct = default)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        return await FocusingTheActiveTabAsync(await Dispatcher.UIThread.InvokeAsync(() =>
         {
             // Carried files are the only project members with no other route in: the Project Explorer opens
             // one on a DOUBLE-CLICK, which no interaction tool could produce when this was written, and Add
@@ -563,21 +563,102 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return new MutateResult(true, null, TabStateNote());
             }
             return new MutateResult(false, found.Error);
-        });
+        }));
     }
 
     [McpServerTool(Name = "view_designer")]
-    [Description("Opens a form or UserControl by name in the visual designer, bringing it to the front. Useful before take_snapshot to ensure the designer surface is visible. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'note' names the tab now active and how many are open.")]
+    [Description("Opens a form or UserControl by name in the visual designer, bringing it to the front. Useful before take_snapshot to ensure the designer surface is visible. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The designer gets keyboard focus, as opening it by hand gives it. The reply's 'note' names the tab now active and how many are open.")]
     public async Task<MutateResult> ViewDesignerAsync(string name, string? project = null, CancellationToken ct = default)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        return await FocusingTheActiveTabAsync(await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var (form, error) = FindDesigner(name, project);
             if (form is null)
                 return new MutateResult(false, error);
             ctx.EditorService.EditForm(form);
             return new MutateResult(true, null, TabStateNote());
-        });
+        }));
+    }
+
+    /// <summary>
+    /// Gives the active tab's editor or designer keyboard focus, as opening or clicking it by hand does, and
+    /// says so in the reply's note.
+    /// </summary>
+    /// <remarks>
+    /// Most built-in menu items are routed commands that act on the focused control, so an item belonging to
+    /// a document was refused after open_file until something else had put focus there. (#678) Retried
+    /// briefly because a newly opened document's view does not exist until the next layout pass. A tool tab
+    /// is left alone: it has no single control a click would focus.
+    /// </remarks>
+    private async Task<MutateResult> FocusingTheActiveTabAsync(MutateResult activated)
+    {
+        if (!activated.Success) return activated;
+
+        // Not while a dialog is open over the IDE. Someone may be typing into it, and pulling focus behind it
+        // would take their keystrokes or leave it unfocused; a person could not move focus there either.
+        var dialog = await Dispatcher.UIThread.InvokeAsync(OpenDialogTitle);
+        if (dialog is not null)
+            return activated with
+            {
+                Note = activated.Note + $" A dialog is open ('{dialog}'), so keyboard focus was left in it; a menu "
+                       + "item that acts on this document may be refused until the dialog is closed.",
+            };
+
+        for (var attempt = 0; attempt < 10; attempt++)
+        {
+            var focused = await Dispatcher.UIThread.InvokeAsync(FocusActiveTab, DispatcherPriority.Background);
+            if (focused is { } done)
+                return done == FocusOutcome.NotAnEditor ? activated : activated with
+                {
+                    Note = activated.Note + (done == FocusOutcome.Focused
+                        ? " Keyboard focus is in it."
+                        : " Keyboard focus could not be put in it, so a menu item that acts on it may be refused "
+                          + "until press_key reaches it."),
+                };
+            await Task.Delay(50);
+        }
+        return activated with
+        {
+            Note = activated.Note + " Keyboard focus could not be put in it, so a menu item that acts on it may be "
+                   + "refused until press_key reaches it.",
+        };
+    }
+
+    private enum FocusOutcome { Focused, Refused, NotAnEditor }
+
+    /// <summary>The title of a dialog open over the IDE, or null when there is none.</summary>
+    /// <remarks>
+    /// A dialog is shown with an owner, which is how <see cref="HexIDE.IDE.ForegroundWindow"/> tells it apart; a
+    /// running program's form has none, so it does not count here.
+    /// </remarks>
+    private static string? OpenDialogTitle()
+    {
+        if (Avalonia.Application.Current?.ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime
+            { MainWindow: { } main } lifetime)
+            return null;
+        var front = HexIDE.IDE.ForegroundWindow.Pick(main, lifetime.Windows);
+        return front != main && front.Owner is not null ? front.Title ?? "untitled" : null;
+    }
+
+    /// <summary>
+    /// Puts focus in the active tab's own editor or designer surface, or says why not; null when its view is
+    /// not built yet.
+    /// </summary>
+    private FocusOutcome? FocusActiveTab()
+    {
+        var tab = ctx.DocumentDockService.ActiveTab;
+        if (tab is not (BaseEditorWindowViewModel or HexIDE.VisualDesigner.FormEditViewModel)) return FocusOutcome.NotAnEditor;
+        if ((Avalonia.Application.Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow
+            is not { } window) return FocusOutcome.Refused;
+
+        var own = window.GetVisualDescendants().OfType<Control>()
+            .Where(c => ReferenceEquals(c.DataContext, tab) && c.IsEffectivelyVisible && c.IsEffectivelyEnabled)
+            .ToList();
+        // The surface a click lands on: an editor's text area, or the form itself in a designer, which is
+        // what FormEditView makes focusable and what a click on the canvas focuses.
+        var surface = own.FirstOrDefault(c => c is AvaloniaEdit.Editing.TextArea)
+                      ?? own.FirstOrDefault(c => c.Name == "FormContainer");
+        return surface is null ? null : surface.Focus() ? FocusOutcome.Focused : FocusOutcome.Refused;
     }
 
     [McpServerTool(Name = "run_project")]
@@ -2038,15 +2119,15 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "activate_document_tab")]
-    [Description("Brings the named document tab to the front, whatever kind it is. title must match a Title returned by get_document_tabs (case-insensitive). If nothing matches, the error names every tab that IS open, so a near-miss does not need a second call to diagnose. The reply's 'note' names the tab now active and how many are open.")]
+    [Description("Brings the named document tab to the front, whatever kind it is. title must match a Title returned by get_document_tabs (case-insensitive). If nothing matches, the error names every tab that IS open, so a near-miss does not need a second call to diagnose. An editor or designer brought to the front gets keyboard focus, as clicking its tab does. The reply's 'note' names the tab now active and how many are open.")]
     public async Task<MutateResult> ActivateDocumentTabAsync(string title, CancellationToken ct)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        return await FocusingTheActiveTabAsync(await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var found = ctx.DocumentDockService.TryActivateAny(
                 d => string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase));
             return found ? new MutateResult(true, null, TabStateNote()) : new MutateResult(false, NoSuchTab(title));
-        });
+        }));
     }
 
     /// <summary>Says which tabs there are, rather than only that this one is not among them.</summary>
@@ -2087,7 +2168,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "invoke_menu_item")]
-    [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Each segment is the text the menu displays, matched case-insensitively: 'Project/Add Module' reaches the item whose header is 'Add _Module' (the underscore marks the access key, wherever it falls), and a trailing '...' may be left off, so 'Tools/Options' reaches 'Options...'. A menu need not be open first. If a segment is not found, the error names the menu it looked in and every item that menu holds. Works reliably for add-in contributed items (DelegateCommand). Built-in items that use routed commands may not execute correctly via this tool. Returns an error if the path cannot be resolved or the item has no executable command. The reply's 'note' names the item invoked, as its menu shows it.")]
+    [Description("Invokes a menu item by slash-separated path, e.g. 'Tools/Hello from TestAddin' or 'Add-Ins/TestAddin/Do Something'. Each segment is the text the menu displays, matched case-insensitively: 'Project/Add Module' reaches the item whose header is 'Add _Module' (the underscore marks the access key, wherever it falls), and a trailing '...' may be left off, so 'Tools/Options' reaches 'Options...'. A menu need not be open first. If a segment is not found, the error names the menu it looked in and every item that menu holds. Most built-in items are routed commands, which act on the control that has keyboard focus, as a real click does: one that belongs to a document (Tools/Add Procedure to a code window) needs focus in that document, which open_file, view_designer and activate_document_tab give it, as opening it by hand does; the refusal names what has focus instead. Returns an error if the path cannot be resolved or the item cannot execute. The reply's 'note' names the item invoked, as its menu shows it.")]
     public async Task<MutateResult> InvokeMenuItemAsync(string path, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -2112,11 +2193,30 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return new MutateResult(false, $"'{path}' is a submenu or has no command");
 
             if (!command.CanExecute(found.CommandParameter))
-                return new MutateResult(false, $"'{path}' command cannot execute (canExecute returned false)");
+                return new MutateResult(false, command is Avalonia.Labs.Input.RoutedCommand
+                    // The refusal used to stop at "canExecute returned false", and the one thing that changes
+                    // the answer, where keyboard focus is, was nowhere in it. (#678)
+                    ? $"'{path}' cannot execute where keyboard focus is now ({FocusedElementName(window)}). It is a routed "
+                      + "command, which acts on the focused control as a real click does, so an item that belongs to a "
+                      + "document needs focus in that document: open_file, view_designer or activate_document_tab give it, "
+                      + "and so does press_key on it. An item that is disabled in the menu is refused the same way."
+                    : $"'{path}' cannot execute now: the item is disabled.");
 
             command.Execute(found.CommandParameter);
             return new MutateResult(true, null, $"Invoked '{found.Header ?? path}'.");
         });
+    }
+
+    /// <summary>What has keyboard focus in <paramref name="window"/>, for a refusal that depends on it.</summary>
+    private static string FocusedElementName(Window window)
+    {
+        if (TopLevel.GetTopLevel(window)?.FocusManager?.GetFocusedElement() is not Control focused)
+            return "nothing has focus";
+        // The nearest name up the tree: the focused control itself is usually an unnamed part of a template.
+        var owner = focused.GetSelfAndVisualAncestors().OfType<Control>().FirstOrDefault(c => !string.IsNullOrEmpty(c.Name))?.Name;
+        var context = focused.DataContext?.GetType().Name;
+        return $"a {focused.GetType().Name}" + (owner is not null ? $" named '{owner}'" : "")
+               + (context is not null ? $" showing {context}" : "");
     }
 
     /// <summary>

@@ -106,7 +106,6 @@ the old `docs/TODO.md` MCP section; this consolidates it.)*
 > the desktop path is verified against the running IDE.
 
 
-
 **Symptom.** Verifying that a running form's menus render correctly, `take_snapshot` shows the menu *bar*
 but never a dropped-down menu, and `dump_visual_tree` reports every top-level `MenuItem` with
 `"children": []`. `interact` refuses both `expand` and `invoke` on a top-level `MenuItem`
@@ -157,7 +156,6 @@ half, since a popup that cannot be opened cannot be captured either.
 > gives `projectStopped: true, dialogsClosed: 0` (ending the project takes its dialog with it), and an
 > open Tools ▸ Options modal gives `projectStopped: false, dialogsClosed: 1`. `/health` stops answering
 > within a second in both cases, the process is gone, and the build that used to fail on a lock succeeds.
-
 
 
 **Symptom.** With a running VB6 program showing a `MsgBox`, `shutdown_ide` returned without error and the
@@ -1814,6 +1812,30 @@ second after an edit to an open document, when the diagnostics held were for the
 
 **Also.** `DiagnosticsCache` keyed documents by raw URI string, where `AddinDiagnosticsService` had moved
 to `LspDocumentUri.Comparer`; it now uses the comparer too.
+
+## `open_file` does not give the editor keyboard focus, so a routed menu item refuses until something does — **CLOSED** (#678, 2026-09-22)
+
+> **Fixed.** `open_file`, `view_designer` and `activate_document_tab` now put keyboard focus in the document
+> they bring to the front (an editor's text area, or the designer's form surface), as opening it by hand does, and
+> say so in their note. Verified live: `open_file {"name":"Form1"}` then `invoke_menu_item {"path":"Tools/Add Procedure"}`
+> opened the dialog with no `press_key`, and focus followed `activate_document_tab` between the designer and the
+> code window. The entry is otherwise as it was.
+
+**Symptom.** Most built-in menu items are routed commands, which act on the control that has keyboard
+focus. `open_file` brings a code window to the front but leaves focus where it was (measured: nowhere), so
+`invoke_menu_item {"path":"Tools/Add Procedure"}` straight after `open_file {"name":"Form1"}` is refused.
+After `press_key {"target":".../Custom[Root]/None[TextEditor]","key":"Right"}` the same call opens the Add
+Procedure dialog. A person who opens a code window has focus in it, so the tool is behind the person here.
+
+**Narrowed by #678's PR.** The refusal used to say only `canExecute returned false`. It now says the item is a
+routed command, names what has focus, and says `press_key` on the editor is the way in. What remains is the
+focus itself.
+
+**Workaround.** `press_key` on the editor with a key that changes nothing (`Right`) before invoking an item
+that belongs to a document.
+
+**Suggested fix.** Have `open_file` and `activate_document_tab` give the opened document keyboard focus, as
+opening it by hand does: [#678](https://github.com/hexide-io/HexIDE/issues/678).
 
 ## 5. A designer control is reported under its view-model's type name, not its own — **CLOSED** (#543 for #526, #663 for #661; moved from the live file 2026-09-22)
 
