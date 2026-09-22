@@ -1197,7 +1197,7 @@ to such a document: Project → Add names new documents with `NextFreeName`, and
 invalid name. The tool also kept its own copy of the collision check.
 
 **Security, and the larger half.** The name also reached a file path unchecked: `AddNew*` builds
-`Path.Join(dir, name + ".bas")`, so `add_file {"type":"Module","name":"..\..\somewhere\X"}` wrote a
+`Path.Join(dir, name + ".bas")`, so `add_file {"type":"Module","name":"..\\..\\somewhere\\X"}` wrote a
 VB6 source file outside the project folder, anywhere the user can write, and `set_file_content` could then
 overwrite it. The extension is fixed (`.bas`, `.cls`, `.frm`, `.ctl`, `.pag`), and the server is DEBUG-only and
 loopback-only, but it has no authentication (#352). It failed open, with success and the escaped path in
