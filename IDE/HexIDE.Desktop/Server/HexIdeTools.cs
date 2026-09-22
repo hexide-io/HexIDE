@@ -74,46 +74,56 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_file_content")]
-    [Description("Returns the current VB6 source code of a named form or module: the open editor's text if it is open, otherwise the IDE's copy. hasUnsavedChanges is true when saving would change the file on disk — edits typed in the editor, controls added, removed or reordered in the designer, or any other change to the IDE's copy since it was last loaded or saved. A document with no file yet always has unsaved changes.")]
-    public async Task<FileContentResult> GetFileContentAsync(string name, CancellationToken ct)
+    [Description("Returns the current text of a named form, module or carried file: the open editor's text if it is open, otherwise the IDE's copy (for a carried file, the file on disk). Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. hasUnsavedChanges is true when saving would change the file on disk — edits typed in the editor, controls added, removed or reordered in the designer, or any other change to the IDE's copy since it was last loaded or saved. A document with no file yet always has unsaved changes.")]
+    public async Task<FileContentResult> GetFileContentAsync(string name, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var project = ctx.ProjectManager.StartupProject;
-            if (project is null)
-                return new FileContentResult(null, false, "No project loaded");
-
             // COMPUTED, where it used to report only which source the text came from: true for any open
             // editor, false for everything else, so a caller deciding what to save saved every open document
             // and skipped every edited closed one. (#481) Asked without flushing anything, because a read
             // must not change the model it reports on -- so the three places an edit can live are each
             // compared directly: the editor buffer against the model, the designer's control list against
             // the model's, and the model against what was last loaded or saved.
-            var editor = FindEditor(name);
-
-            var form = project.Forms.FirstOrDefault(f =>
-                string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
-            if (form is not null)
+            var found = Find(name, project, carried: true);
+            if (found.Document is { } document)
             {
-                var text = editor?.Document.Text ?? form.Code;
-                var unsaved = !string.Equals(text, form.Code, StringComparison.Ordinal)
-                              || DesignerOf(form) is { HasComponentsNotInModel: true }
-                              || ctx.ProjectService.HasUnsavedChanges(form);
-                return new FileContentResult(text, unsaved, null);
+                var editor = CodeEditorOf(document);
+                if (document.Form is { } form)
+                {
+                    var text = editor?.Document.Text ?? form.Code;
+                    var unsaved = !string.Equals(text, form.Code, StringComparison.Ordinal)
+                                  || DesignerOf(form) is { HasComponentsNotInModel: true }
+                                  || ctx.ProjectService.HasUnsavedChanges(form);
+                    return new FileContentResult(text, unsaved, null);
+                }
+
+                var module = document.Module!;
+                var moduleText = editor?.Document.Text ?? module.Code;
+                var moduleUnsaved = !string.Equals(moduleText, module.Code, StringComparison.Ordinal)
+                                    || (module.FormPart is { } part && DesignerOf(part) is { HasComponentsNotInModel: true })
+                                    || ctx.ProjectService.HasUnsavedChanges(module);
+                return new FileContentResult(moduleText, moduleUnsaved, null);
             }
 
-            var module = project.Modules.FirstOrDefault(m =>
-                string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase));
-            if (module is not null)
+            // A carried file is read as its editor holds it, or else as it is on disk. It used to be refused
+            // as a name that did not exist, straight after open_file had opened it. (#572)
+            if (found.Carried is { } carried)
             {
-                var text = editor?.Document.Text ?? module.Code;
-                var unsaved = !string.Equals(text, module.Code, StringComparison.Ordinal)
-                              || (module.FormPart is { } part && DesignerOf(part) is { HasComponentsNotInModel: true })
-                              || ctx.ProjectService.HasUnsavedChanges(module);
-                return new FileContentResult(text, unsaved, null);
+                var open = ctx.DocumentDockService.OpenDocuments.OfType<RelatedDocumentEditorViewModel>()
+                    .FirstOrDefault(e => e.RelatedDocument == carried);
+                if (open is not null)
+                    return new FileContentResult(open.Document.Text, open.IsDirty, null);
+                if (carried.AbsolutePath is not { } path || !File.Exists(path))
+                    return new FileContentResult(null, false,
+                        $"'{carried.Name}' is carried by {carried.Owner.Name}, but its file is not on disk"
+                        + (carried.AbsolutePath is { } missing ? $" at {missing}" : "") + ".");
+                var bytes = File.ReadAllBytes(path);
+                var bom = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF;
+                return new FileContentResult(new System.Text.UTF8Encoding(false).GetString(bom ? bytes.AsSpan(3) : bytes.AsSpan()), false, null);
             }
 
-            return new FileContentResult(null, false, $"No form or module named '{name}' found");
+            return new FileContentResult(null, false, found.Error);
         });
     }
 
@@ -123,19 +133,21 @@ internal sealed class HexIdeTools(IdeContext ctx)
             .FirstOrDefault(d => d.FormDefinition == form);
 
     [McpServerTool(Name = "set_file_content")]
-    [Description("Replaces the VB6 source code of a named form or module and saves to disk. Use get_project_info to list available names. Pass the CODE SECTION, not a whole file: a .frm's VERSION/Begin designer block is refused (it describes controls, which this tool does not apply), and a .bas/.cls header is stripped. A form's leading 'Attribute VB_*' block is its identity; the editor shows it, but content composed rather than round-tripped rarely carries it -- if yours omits it the existing one is kept and the result says so, so a body that leaves it out can no longer destroy VB_Name. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first.")]
-    public async Task<MutateResult> SetFileContentAsync(string name, string content, CancellationToken ct)
+    [Description("Replaces the VB6 source code of a named form or module and saves to disk. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. Pass the CODE SECTION, not a whole file: a .frm's VERSION/Begin designer block is refused (it describes controls, which this tool does not apply), and a .bas/.cls header is stripped. A form's leading 'Attribute VB_*' block is its identity; the editor shows it, but content composed rather than round-tripped rarely carries it -- if yours omits it the existing one is kept and the result says so, so a body that leaves it out can no longer destroy VB_Name. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first.")]
+    public async Task<MutateResult> SetFileContentAsync(string name, string content, string? project = null, CancellationToken ct = default)
     {
         var restoredHeader = false;
         var (form, module, error) = await Dispatcher.UIThread.InvokeAsync<(FormDefinition?, ModuleDefinition?, string?)>(() =>
         {
-            var project = ctx.ProjectManager.StartupProject;
-            if (project is null)
-                return (null, null, "No project loaded");
+            var found = Find(name, project, carried: true);
+            if (found.Carried is { } carried)
+                return (null, null,
+                    $"'{carried.Name}' is a carried file, and set_file_content writes only forms and modules. "
+                    + "open_file opens it for editing in the IDE.");
+            if (found.Document is not { } document)
+                return (null, null, found.Error);
 
-            var form = project.Forms.FirstOrDefault(f =>
-                string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
-            if (form is not null)
+            if (document.Form is { } form)
             {
                 // REFUSED rather than stripped, and the asymmetry with the module branch below is the
                 // point. A module's header carries nothing the model does not already own, so dropping it
@@ -161,7 +173,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 var kept = HexIDE.Runtime.Serialization.FormCodeText.PreserveAttributes(content, form.Code);
                 restoredHeader = !ReferenceEquals(kept, content);
 
-                var editor = FindEditor(name);
+                var editor = CodeEditorOf(document);
                 if (editor is not null)
                     editor.Document.Text = kept;
                 else
@@ -169,9 +181,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return (form, null, null);
             }
 
-            var module = project.Modules.FirstOrDefault(m =>
-                string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase));
-            if (module is not null)
+            var module = document.Module!;
             {
                 if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(module.AbsolutePath))
                     return (null, null, $"Module '{module.Name}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
@@ -179,15 +189,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 // .bas/.cls hold the BODY only; strip a VB6 header if a caller passed full file content
                 // (idempotent for a body that has none).
                 var body = HexIDE.Runtime.Serialization.ModuleFileFormat.StripHeader(content, module.Kind);
-                var editor = FindEditor(name);
+                var editor = CodeEditorOf(document);
                 if (editor is not null)
                     editor.Document.Text = body;
                 else
                     module.UpdateCode(body);
                 return (null, module, null);
             }
-
-            return (null, null, $"No form or module named '{name}' found");
         });
 
         if (error is not null)
@@ -262,18 +270,14 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_form_controls")]
-    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled).")]
-    public async Task<FormControlsResult> GetFormControlsAsync(string formName, CancellationToken ct)
+    [Description("Returns all controls on a form or UserControl with their key design-time properties (name, type, position, size, caption, text, visible, enabled). Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them.")]
+    public async Task<FormControlsResult> GetFormControlsAsync(string formName, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var project = ctx.ProjectManager.StartupProject;
-            if (project is null)
-                return new FormControlsResult(null, []);
-
-            var form = FindFormDefinition(project, formName);
+            var (form, error) = FindDesigner(formName, project);
             if (form is null)
-                return new FormControlsResult($"No form or UserControl named '{formName}' found", []);
+                return new FormControlsResult(error, []);
 
             // When the form is open in the designer, read live VM state (FormDefinition.Components
             // is only synced on save via ApplyAllUnsavedChangesEvent and won't reflect unsaved additions).
@@ -422,76 +426,44 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "open_file")]
-    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. A carried file is also found by its filename, which differs from its name when VB6 carried it on a code line (`Module=Notes; Notes.md` is named Notes).")]
-    public async Task<MutateResult> OpenFileAsync(string name, CancellationToken ct)
+    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. A carried file is also found by its filename, which differs from its name when VB6 carried it on a code line (`Module=Notes; Notes.md` is named Notes).")]
+    public async Task<MutateResult> OpenFileAsync(string name, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var project = ctx.ProjectManager.StartupProject;
-            if (project is null)
-                return new MutateResult(false, "No project loaded");
-
-            var form = project.Forms.FirstOrDefault(f =>
-                string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
-            if (form is not null)
+            // Carried files are the only project members with no other route in: the Project Explorer opens
+            // one on a DOUBLE-CLICK, which no interaction tool could produce when this was written, and Add
+            // File goes through a native dialog. Without them here a whole editor type is undrivable, which is
+            // what blocked verifying #255 against the running IDE. See docs/mcp-server-gaps.md.
+            var found = Find(name, project, carried: true);
+            if (found.Document is { } document)
             {
-                ctx.EditorService.EditCode(form);
+                if (document.Form is { } form)
+                    ctx.EditorService.EditCode(form);
+                else
+                    ctx.EditorService.EditCode(document.Module);
                 return new MutateResult(true, null);
             }
-
-            var module = project.Modules.FirstOrDefault(m =>
-                string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase));
-            if (module is not null)
+            if (found.Carried is { } carried)
             {
-                ctx.EditorService.EditCode(module);
+                ctx.EditorService.EditRelatedDocument(carried);
                 return new MutateResult(true, null);
             }
-
-            // Carried files last, and by name OR filename. They are the only project members with no
-            // other route in: the Project Explorer opens one on a DOUBLE-CLICK, which no interaction tool
-            // can produce, the row exposes no selection provider to select first, OpenSelected is a plain
-            // method rather than a command, and Add File goes through a native dialog. Without this branch
-            // a whole editor type is undrivable, which is what blocked verifying #255 against the running
-            // IDE. See docs/mcp-server-gaps.md.
-            //
-            // The filename is tried after every name, because the two differ for a file VB6 carried on a code
-            // line: `Module=Notes; Notes.md` is named Notes, and a caller who knows only the file asked for
-            // Notes.md and was told there was no such thing (#548). AbsolutePath is a host path, resolved
-            // against the filesystem, so System.IO.Path is the right tool for it.
-            var document = project.RelatedDocuments.FirstOrDefault(d =>
-                               string.Equals(d.Name, name, StringComparison.OrdinalIgnoreCase))
-                           ?? project.RelatedDocuments.FirstOrDefault(d =>
-                               d.AbsolutePath is { } path
-                               && string.Equals(Path.GetFileName(path), name, StringComparison.OrdinalIgnoreCase));
-            if (document is not null)
-            {
-                ctx.EditorService.EditRelatedDocument(document);
-                return new MutateResult(true, null);
-            }
-
-            return new MutateResult(
-                false, $"No form, module or carried file named '{name}' found in the project");
+            return new MutateResult(false, found.Error);
         });
     }
 
     [McpServerTool(Name = "view_designer")]
-    [Description("Opens a form or UserControl by name in the visual designer, bringing it to the front. Useful before take_snapshot to ensure the designer surface is visible. Use get_project_info to list available names.")]
-    public async Task<MutateResult> ViewDesignerAsync(string name, CancellationToken ct)
+    [Description("Opens a form or UserControl by name in the visual designer, bringing it to the front. Useful before take_snapshot to ensure the designer surface is visible. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them.")]
+    public async Task<MutateResult> ViewDesignerAsync(string name, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var project = ctx.ProjectManager.StartupProject;
-            if (project is null)
-                return new MutateResult(false, "No project loaded");
-
-            var formDef = FindFormDefinition(project, name);
-            if (formDef is not null)
-            {
-                ctx.EditorService.EditForm(formDef);
-                return new MutateResult(true, null);
-            }
-
-            return new MutateResult(false, $"No form or UserControl named '{name}' found in the project");
+            var (form, error) = FindDesigner(name, project);
+            if (form is null)
+                return new MutateResult(false, error);
+            ctx.EditorService.EditForm(form);
+            return new MutateResult(true, null);
         });
     }
 
@@ -1692,7 +1664,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     /// <summary>
     /// The document a caller named, or the reason it could not be named.
     /// </summary>
-    private readonly record struct DocumentLookup(DocumentIdentity? Document, string? Error);
+    private readonly record struct DocumentLookup(DocumentIdentity? Document, string? Error, bool Missing = false);
 
     /// <summary>
     /// Finds the form, module or class a caller named, in any loaded project.
@@ -1713,7 +1685,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     /// </remarks>
     /// <param name="name">The document's VB6 name. Matched without regard to case, as VB6 does.</param>
     /// <param name="project">The project to look in, by name. Null searches every loaded project.</param>
-    private DocumentLookup ResolveDocument(string name, string? project)
+    private DocumentLookup ResolveDocument(string name, string? project, string sought = "form or module")
     {
         var loaded = ctx.ProjectManager.LoadedProjects;
         if (loaded.Count == 0)
@@ -1729,9 +1701,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
         return found.Count switch
         {
             1 => new DocumentLookup(found[0], null),
-            0 => new DocumentLookup(null, project is null
-                ? $"No form or module named '{name}' in any loaded project"
-                : $"No form or module named '{name}' in project '{project}'"),
+            0 => new DocumentLookup(null, (project is null
+                ? $"No {sought} named '{name}' in any loaded project"
+                : $"No {sought} named '{name}' in project '{project}'")
+                + (CarriedNamed(name, project).Count > 0 ? $": '{name}' is a carried file. " : ". ")
+                + Inventory(project), Missing: true),
             _ => new DocumentLookup(null,
                 $"'{name}' names more than one document: {string.Join(", ", found.Select(d => d.Display))}. "
                 + "Pass `project` to say which."),
@@ -1750,6 +1724,95 @@ internal sealed class HexIdeTools(IdeContext ctx)
         lines.Count == 0
             ? $"{document.Display} now has no {what}s."
             : $"{document.Display} now has {what}s on {string.Join(", ", lines)}.";
+
+    /// <summary>
+    /// A name as the document tools resolve it: a form or module in any loaded project, else, where the tool
+    /// takes one, a carried file. A refusal says what the name is when it is something else, and what the
+    /// projects do hold, so a near-miss does not cost a second call to diagnose (#573).
+    /// </summary>
+    /// <remarks>
+    /// These tools used to look only in the startup project, while the mark tools searched every loaded one:
+    /// with a group open, a document in the second project could be given a breakpoint but not opened or
+    /// read, and the refusal said it did not exist (#575).
+    /// </remarks>
+    private (DocumentIdentity? Document, RelatedDocumentDefinition? Carried, string? Error) Find(
+        string name, string? project, bool carried)
+    {
+        var lookup = ResolveDocument(name, project, carried ? "form, module or carried file" : "form or module");
+        if (lookup.Document is not null || !lookup.Missing || !carried)
+            return (lookup.Document, null, lookup.Error);
+
+        var files = CarriedNamed(name, project);
+        return files.Count switch
+        {
+            1 => (null, files[0], null),
+            0 => (null, null, lookup.Error),
+            _ => (null, null, $"'{name}' names more than one carried file: "
+                              + $"{string.Join(", ", files.Select(d => $"{d.Owner.Name}/{d.Name}"))}. Pass `project` to say which."),
+        };
+    }
+
+    /// <summary>
+    /// Carried files by name, and only when none has that name, by filename. The two differ for a file VB6
+    /// carried on a code line: `Module=Notes; Notes.md` is named Notes (#548). AbsolutePath is a host path,
+    /// resolved against the filesystem, so System.IO.Path is the right tool for it.
+    /// </summary>
+    private List<RelatedDocumentDefinition> CarriedNamed(string name, string? project)
+    {
+        var all = ctx.ProjectManager.LoadedProjects
+            .Where(p => project is null || string.Equals(p.Name, project, StringComparison.OrdinalIgnoreCase))
+            .SelectMany(p => p.RelatedDocuments)
+            .ToList();
+        var byName = all.Where(d => string.Equals(d.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
+        return byName.Count > 0
+            ? byName
+            : all.Where(d => d.AbsolutePath is { } path
+                             && string.Equals(Path.GetFileName(path), name, StringComparison.OrdinalIgnoreCase)).ToList();
+    }
+
+    /// <summary>
+    /// A form, UserControl or property page to show in the designer. A module or a carried file is refused
+    /// by what it is and where it opens instead: "No form named 'Module1'" read as a wrong name, when the
+    /// name was right and the tool was not.
+    /// </summary>
+    private (FormDefinition? Form, string? Error) FindDesigner(string name, string? project)
+    {
+        var found = Find(name, project, carried: true);
+        if (found.Document is { } document)
+            return (document.Form ?? document.Module?.FormPart) is { } designer
+                ? (designer, null)
+                : (null, $"'{document.Name}' is a module, which has no designer. open_file opens its code.");
+        if (found.Carried is { } carried)
+            return (null, $"'{carried.Name}' is a carried file, which has no designer. open_file opens it.");
+        return (null, found.Error);
+    }
+
+    /// <summary>What the loaded projects hold, for a refusal: documents with a designer, code modules, carried files.</summary>
+    private string Inventory(string? project)
+    {
+        var lines = ctx.ProjectManager.LoadedProjects
+            .Where(p => project is null || string.Equals(p.Name, project, StringComparison.OrdinalIgnoreCase))
+            .Select(p =>
+            {
+                var documents = HexIDE.Runtime.ProjectElements.DocumentLookup.DocumentsOf(p).ToList();
+                return $"{p.Name} holds "
+                       + Listed("forms and UserControls", documents.Where(d => d.Form is not null || d.Module?.FormPart is not null).Select(d => d.Name))
+                       + "; " + Listed("modules", documents.Where(d => d.Form is null && d.Module?.FormPart is null).Select(d => d.Name))
+                       + "; " + Listed("carried files", p.RelatedDocuments.Select(d => d.Name))
+                       + ".";
+            });
+        return string.Join(" ", lines);
+
+        static string Listed(string what, IEnumerable<string> names)
+        {
+            var list = names.ToList();
+            return list.Count == 0 ? $"no {what}" : $"{what} {string.Join(", ", list)}";
+        }
+    }
+
+    /// <summary>The code editor open on this document, if any, matched by identity rather than by name.</summary>
+    private CodeEditorViewModel? CodeEditorOf(DocumentIdentity document) =>
+        ctx.DocumentDockService.OpenDocuments.OfType<CodeEditorViewModel>().FirstOrDefault(e => e.Identity == document);
 
     /// <summary>
     /// Why some of <paramref name="lines"/> cannot be marked in <paramref name="document"/>, or null when all can.
