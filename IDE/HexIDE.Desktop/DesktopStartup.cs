@@ -95,8 +95,9 @@ internal static class DesktopStartup
                         // is done here by hand. The add-in loader goes first, because it must be disposed before
                         // the forced Shutdown closes a consent dialog: until then, that dialog reads on its
                         // return as a refusal and is persisted as Block for an add-in the user never answered
-                        // about (hexide-io/HexIDE#547). The log is flushed so the line above reaches the file;
-                        // the language server and file watcher are left to process exit. The exit itself is
+                        // about (hexide-io/HexIDE#547). The log is closed only once the windows have closed, so
+                        // anything they log on the way out, a failed save on exit included, still reaches the
+                        // file; the language server and file watcher are left to process exit. The exit itself is
                         // unconditional, because exit code 3 is what the rebuild cycle relies on (#53, #525).
                         // A launch that failed still writes to the profile it shares: hexide-io/HexIDE#557.
                         Avalonia.Threading.Dispatcher.UIThread.Post(() =>
@@ -113,8 +114,8 @@ internal static class DesktopStartup
                             }
                             finally
                             {
-                                HexIDE.Infrastructure.LoggingSetup.Shutdown();
                                 desktop.Shutdown(exitCode);
+                                HexIDE.Infrastructure.LoggingSetup.Shutdown();
                             }
                         });
                     }
