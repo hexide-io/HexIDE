@@ -92,7 +92,21 @@ without a full resume.
 
 ---
 
-## 5. Can't select / delete / reorder a designer control via MCP
+## 5. A designer control is reported under its view-model's type name, not its own (narrowed 2026-09-22)
+
+**Was:** *Can't select / delete / reorder a designer control via MCP.* Measured again for #362, and most of
+it no longer holds. With default arguments, `dump_visual_tree(root: ".../Pane[#0]")` lists each canvas
+control as a `ListItem` (`ControlItem`) with `selectionItem`. `interact select` on it selected it,
+`press_key(key: "Delete")` on it deleted it (`get_form_controls` confirmed `Command0` gone; the Edit menu
+then offered *Undo Delete: Command0*), and `invoke_designer_undo` / `invoke_designer_redo` both exist. The
+`FormEditor.BringToFront` / `SendToBack` toolbar buttons are addressable by `automationId`; reordering was
+not driven in this pass.
+
+**What remains.** The node's name is `HexIDE.VisualDesigner.ComponentInstanceViewModel`, the view model's
+`ToString()`, so the path is `ListItem[HexIDE.VisualDesigner.ComponentInstanceViewModel]` for every
+control. With more than one control on a form, a caller cannot tell from the tree which node is
+`Command1`; it has to fall back on position or index. Filed as #526. The rest of this entry is the original record.
+
 
 **Symptom.** A control placed with `add_control` is created and auto-selected, but there is no way to (a) select a
 *different, existing* control, (b) delete a control, or (c) exercise undo/redo of a designer edit through MCP. The
@@ -114,27 +128,6 @@ the designer's selection/delete/undo aren't exposed as `ICommand`s reachable via
 existing `invoke_designer_undo` — plus surfacing each canvas control as a `dump_visual_tree` node with its name, so
 `interact` can click/rubber-band it. That would make the whole designer edit loop (add → select → move → delete →
 undo/redo) MCP-verifiable.
-
----
-
-## 6. Can't open a Debug-menu dialog (e.g. Add Watch) via MCP to snapshot it
-
-**Symptom.** Verifying debugger P6a's **Add Watch** dialog rendering couldn't be driven through MCP. The dialog opens
-from a Debug-menu item / keyboard shortcut backed by a *routed* command (AvaloniaLabs CommandManager), not a VM
-`ICommand`: `interact invoke_command AddWatchCommand` finds no such property on `MainViewViewModel`; `interact invoke`
-on `MenuItem[Debug]` reports "element does not support 'invoke'" (a top-level menu exposes no invoke provider until
-opened, and its children aren't in the tree until then). The Watches rows render as `TreeViewItem`s but don't
-advertise a `selectionItem` provider, so selecting a row to enable `EditWatchCommand` (which opens the same dialog)
-wasn't reachable either.
-
-**How it bit (debugger P6a).** The Watches *window* was fully verified live — it renders (columns + rows in
-`dump_visual_tree`, snapshot after Stop) and evaluates correctly while paused (`get_watches`: x=42, s=hello, x*2=84,
-arr expandable). Only the **Add Watch dialog's** live render couldn't be reached; deferred to P6b (where its
-Break-type radios become functional and it's exercised again), backed meanwhile by the dialog-VM unit tests.
-
-**Fix consideration.** Best: (a) surface a `selectionItem` provider on tool-window TreeView rows so `interact select`
-can set the selection (unlocking the row's context-menu commands like Edit/Delete); also useful: (b) make a top-level
-`MenuItem` invoke open the menu and realize its children, or (c) a thin MCP action to open a named debugger dialog.
 
 ---
 
@@ -380,37 +373,6 @@ calls, so expand again immediately before `select`.
 `itemsRealized: false` alongside it would be enough. A partial list that looks complete is worse than no
 list, because it supports a confident wrong conclusion; an empty array with a flag supports none.
 
-## A Project Explorer node that is not a form or module cannot be selected or opened
-
-**Symptom.** There is no way to drive "select this tree node, then open it" for any node kind beyond forms
-and modules. Verified against a related-document node (a file the project carries but does not compile):
-
-- `interact select` on its `TreeViewItem` → `element does not support 'select'`; the item exposes only a
-  `scroll` provider, no `selectionItem`. (Since #361 a tree node reports no `scroll` either: nothing
-  behind its peer scrolls, so the token was a lead that went nowhere.)
-- `press_key` on the `TreeView` does nothing useful — `inspect_element` reports the tree as
-  `isKeyboardFocusable: false`, so arrow keys never reach a selection model.
-- `interact set_property` cannot help either: `ProjectToolViewModel.SelectedItem` is typed `Object`, and the
-  reflection fallback coerces a **string** to the property type. There is no way to name an existing
-  view-model instance as a value.
-- `open_file(name)` opens a form or module by name only, so it cannot reach anything else.
-
-**Consequence.** The double-click-to-open gesture is unverifiable through MCP for any new node kind. That
-matters because CLAUDE.md requires a UI feature be confirmed against the running IDE, and here the *tree*
-can be confirmed by snapshot while the *gesture* cannot be driven at all.
-
-**Workaround.** Split the verification and say which half was driven. The node's presence, icon and caption
-are visible in `take_snapshot` and assertable via `dump_visual_tree` (the node reports its
-`dataContextType`, so its type is checkable). The routing — selection to the right editor — and the editor's
-own behaviour are covered by tests instead. State plainly that the gesture itself was not driven.
-
-**Suggested fix.** Either surface a `selectionItem` provider on tree items so `interact select` works, or
-add a selection-by-path action (`interact select_node` taking the same `path` the tree dump already
-returns). The second is probably better: paths are already the addressing scheme everywhere else in this
-server, and it would work for every current and future node kind rather than needing a provider per
-control. A narrower `open_file` that accepts any project member would help too, but would not fix
-selection, which is what several context-menu commands key on.
-
 ## take_snapshot renders DIPs while Win32 coordinates are physical pixels
 
 **Symptom.** Driving a synthetic mouse click from a `boundingRect` needs a scale conversion that nothing in
@@ -431,24 +393,14 @@ the usual Windows 1.25/1.5 either — measure it.
 path (and `inspect_element` naming the space its `boundingRect` is in) would remove the guesswork; the
 values are already known to the server.
 
-## get_project_info omits every project member that is not a form or module
+## take_snapshot's default capture picks a modeless dialog (narrowed 2026-09-22)
 
-**Symptom.** `get_project_info` returns `forms` and `modules` only. A project carrying a related document (a
-file it does not compile) reports it nowhere, so after adding one the tool's output is byte-identical to
-before.
+**Was:** *take_snapshot of the IDE fails while a menu is open, and the default capture picks a modeless
+dialog.* The first half is closed. Measured for #362: `interact(target: ".../MenuItem[Edit]", action:
+"expand", window: "ide")` then `take_snapshot(window: "ide")` returned an image with the open Edit menu
+composed in. The second half, the Find dialog being preferred over the main window, was not re-tested and
+stays open. The rest of this entry is the original record.
 
-**Consequence.** The obvious check after an add — call `get_project_info` and see the new member — silently
-answers "nothing happened" for a whole member kind. It reads as a failed feature rather than a blind tool.
-
-**Workaround.** Confirm through the Project Explorer instead: `take_snapshot` shows the node and its icon,
-and `dump_visual_tree` reports the node's `dataContextType`, which distinguishes a related document from a
-module.
-
-**Suggested fix.** Add a `relatedDocuments` array, and prefer a shape that will not need this edit again the
-next time a member kind is added — a single `members` array of `{name, kind, path}` would cover forms,
-modules, related documents and whatever follows.
-
-## take_snapshot of the IDE fails while a menu is open, and the default capture picks a modeless dialog
 
 **Symptom.** Two halves of one gap, both hit while verifying that Edit ▸ Find greys out on a document with
 nothing to search (hexide-io/HexIDE#363). With the Edit menu expanded, `take_snapshot(window: "ide")`
