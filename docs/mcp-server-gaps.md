@@ -421,6 +421,11 @@ of the disabled state (does it actually look greyed?) is unverified.
 overlay selector. Failing that, return a real error message saying the surface cannot be captured while a
 popup is open, rather than a bare "an error occurred".
 
+**Since #603.** A tool that throws now answers with the tool name, the exception type and its message instead
+of the bare line, and says it is a defect to report. Re-measured 2026-09-22: with the Edit menu expanded,
+`take_snapshot {"window":"ide"}` no longer throws at all and returns a path, which agrees with the narrowing
+note above. The half still open, the Find dialog being preferred, was not re-tested.
+
 ## shutdown_ide can kill the MCP server and leave the IDE running
 
 **Symptom.** `shutdown_ide` replied `Unable to connect. Is the computer able to access the url?`. The
@@ -808,6 +813,10 @@ new argument was mandatory on the wire and every existing caller broke, cached s
 **How to avoid paying for it again.** Read the generated schema's `required` array, not the C# signature —
 this file and CLAUDE.md both say so, and it still cost a cycle. And when a *signature* changes rather than a
 tool being added, expect the first call to fail against a stale schema and do not diagnose the server.
+
+**Since #603.** A throw inside a tool is now reported with its exception type and message rather than the bare
+line. Not re-measured for this case: a call that does not match the tool's parameters may fail in the SDK's
+own argument binding, which can report through `McpException`, and #603 leaves that as the SDK reports it.
 
 ## `set_control_property` cannot set `Name` on anything
 
