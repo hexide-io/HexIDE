@@ -60,11 +60,14 @@ public static class FormCodeText
         var pos = 0;
         foreach (var raw in Lines(code))
         {
-            var lineLength = raw.Length + 1;   // the split ate one '\n'
+            // Advance against the original string so CRLF endings are not
+            // under-counted (Lines() normalises to LF; slicing uses `code`).
+            var nl = code.IndexOf('\n', pos);
+            var next = nl < 0 ? code.Length : nl + 1;
             var line = raw.Trim();
-            if (line.Length == 0) { pos += lineLength; continue; }
+            if (line.Length == 0) { pos = next; continue; }
             if (!line.StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase)) break;
-            pos += lineLength;
+            pos = next;
             end = pos;
         }
         return end == 0 ? "" : code[..Math.Min(end, code.Length)];
