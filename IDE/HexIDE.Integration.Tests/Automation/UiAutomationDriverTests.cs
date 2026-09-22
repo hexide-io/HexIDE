@@ -912,6 +912,33 @@ public class UiAutomationDriverTests
     // The declared tip belongs to the point hovered, not to whichever descendant of the target comes first:
     // a hover on the window that landed in a code editor once answered with the toolbar's "Add Project" (#610).
 
+    [AvaloniaFact]
+    public void Hover_OnAContainer_GivesThePathOfTheEditorThePointerWentTo()
+    {
+        // A hover on the window lands in the first editor under it. "hovered (0, 25.6) on TextEditor[Editor]"
+        // did not say which editor (#610); the path does, and resolves back to it.
+        var first = new TextEditor { Name = "First" };
+        var second = new TextEditor { Name = "Second" };
+        AutomationProperties.SetAutomationId(first, "First");
+        AutomationProperties.SetAutomationId(second, "Second");
+        var host = new StackPanel();
+        host.Children.Add(first);
+        host.Children.Add(second);
+        var window = Show(host);
+        try
+        {
+            var outcome = UiAutomationDriver.Hover(window, null, null, "Window", out var landing);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            var path = outcome.Detail!.Split(", at ").Last();
+            path.Should().StartWith("Window/", "the reply must carry a path, not only a class name");
+            var (resolved, error) = UiAutomationDriver.Resolve(window, path);
+            resolved.Should().NotBeNull(error);
+            resolved.Should().BeSameAs(landing!.Value.Receiver).And.BeSameAs(first);
+        }
+        finally { window.Close(); }
+    }
+
     private static (Window Window, Button Button) ToolbarBesideAPane()
     {
         var button = new Button
@@ -931,7 +958,7 @@ public class UiAutomationDriverTests
         try
         {
             // Window centre: in the pane, well below the button.
-            UiAutomationDriver.Hover(window, null, null, out var landing).Success.Should().BeTrue();
+            UiAutomationDriver.Hover(window, null, null, null, out var landing).Success.Should().BeTrue();
 
             UiAutomationDriver.DeclaredToolTipAt(landing!.Value.Receiver, landing.Value.Point)
                 .Should().BeNull("nothing under the hovered point declares a tip, and the button is elsewhere");
@@ -947,7 +974,7 @@ public class UiAutomationDriverTests
         {
             button.IsEnabled = false; // a disabled toolbar button still declares its tip
 
-            UiAutomationDriver.Hover(window, 10, 10, out var landing).Success.Should().BeTrue();
+            UiAutomationDriver.Hover(window, 10, 10, null, out var landing).Success.Should().BeTrue();
 
             UiAutomationDriver.DeclaredToolTipAt(landing!.Value.Receiver, landing.Value.Point)
                 .Should().Be("Add Project");

@@ -971,13 +971,16 @@ public static class UiAutomationDriver
     /// </para>
     /// </remarks>
     public static InteractOutcome Hover(Control control, double? x, double? y) =>
-        Hover(control, x, y, out _);
+        Hover(control, x, y, null, out _);
 
     /// <summary>Where a hover landed: the control the pointer events were raised on, and the point on it.</summary>
     public readonly record struct HoverLanding(Control Receiver, Point Point);
 
     /// <inheritdoc cref="Hover(Control, double?, double?)"/>
-    public static InteractOutcome Hover(Control control, double? x, double? y, out HoverLanding? landing)
+    /// <param name="controlPath">The path <paramref name="control"/> was resolved from. When the pointer goes to
+    /// an editor under it, the reply gives that editor's path from this one.</param>
+    public static InteractOutcome Hover(
+        Control control, double? x, double? y, string? controlPath, out HoverLanding? landing)
     {
         landing = null;
         try
@@ -1004,7 +1007,9 @@ public static class UiAutomationDriver
             }
 
             landing = new HoverLanding(target, local);
-            var where = ReferenceEquals(target, control) ? string.Empty : $" on {Describe(target)}";
+            var where = ReferenceEquals(target, control)
+                ? string.Empty
+                : $" on {Describe(target)}{AddressOf(control, controlPath, target)}";
             return new InteractOutcome(true, "pointer",
                 $"hovered ({local.X:0.#}, {local.Y:0.#}){where}", null);
         }
