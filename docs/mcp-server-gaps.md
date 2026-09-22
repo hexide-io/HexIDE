@@ -843,3 +843,51 @@ any other line tool, or read a line number off a snapshot, is still one line out
 **Suggested fix.** Undecided, and filed as needs-decision:
 [#571](https://github.com/hexide-io/HexIDE/issues/571). Either convert at the tool boundary, which changes
 the contract, or keep 0-based and have the descriptions say the gutter shows N+1.
+
+## Three tools accept a negative control size and report success
+
+**Symptom.** On a `--newproject` form in the designer:
+
+```
+add_control {"formName":"Form1","type":"commandbutton","x":-50,"y":5000,"width":-10,"height":0}
+→ {"success":true,"controlName":"Command2"}
+set_control_property {"formName":"Form1","controlName":"Command1","property":"Width","value":"-10"}
+→ {"success":true}
+move_control {"formName":"Form1","controlName":"Command1","left":null,"top":null,"width":-20,"height":null}
+→ {"success":true}
+```
+
+`add_control` and `set_control_property` save the form, so the negative size reaches the `.frm` on disk,
+and the project then cannot run (see the next entry). A drag in the designer cannot produce a negative size;
+nothing in the property model refuses one.
+
+**Workaround.** Do not pass a negative `width` or `height`; read `get_form_controls` back after a size change.
+
+**Suggested fix.** One rule in the shared property validation, so the Properties window and all three tools
+refuse the same values with the same message. What that rule is (refuse, clamp, and whether `0` is allowed)
+needs measuring against `vb6.exe` first:
+[#589](https://github.com/hexide-io/HexIDE/issues/589). A negative `Left` or `Top` is ordinary VB6 and not
+part of it.
+
+## A run that fails to start is reported as started, and leaves the debugger saying `Running`
+
+**Symptom.** With the startup form holding a control whose `Width` is -20 (the entry above):
+
+```
+run_project {}          → {"success":true}
+get_debug_state {}      → {"running":false,"state":"Running"}
+get_last_runtime_error  → {"raised":false,"sequence":0}
+```
+
+The form never appears. The `state` half is not only this failure's doing: a freshly launched IDE that has
+run nothing answers `{"running":false,"state":"Running"}` too, and only reads `Stopped` after a run has
+been stopped. The only record is an `ArgumentException` from `VBLoader.PlaceComponentTree`
+in the IDE log. `run_to_cursor` takes the same path. A person pressing F5 sees nothing either.
+
+**Workaround.** After a start, confirm with `get_debug_state` that `running` is true, and read the IDE log
+(`%LOCALAPPDATA%/HexIDE/logs/ide/`) when it is not.
+
+**Suggested fix.** Route a failed form load through the existing runtime-error path, so the person gets the
+runtime-error dialog and `get_last_runtime_error` reports it, and reset the controller to `Stopped`:
+[#590](https://github.com/hexide-io/HexIDE/issues/590). Any exception while the startup form loads
+takes this path, not only #589's.
