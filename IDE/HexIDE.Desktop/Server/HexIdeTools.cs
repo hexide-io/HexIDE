@@ -704,7 +704,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "add_control")]
-    [Description("Places a control of the given type on a named form's designer canvas at the given position and size, and SAVES the form. The form must be open in the visual designer (call view_designer first if needed). Returns the auto-generated control name (e.g. 'Command1'). A refusal to write (an unfaithful form) comes back as success:false naming the control that is in the designer but not on disk.")]
+    [Description("Places a control of the given type on a named form's designer canvas at the given position and size, and SAVES the form. The form must be open in the visual designer (call view_designer first if needed). Returns the auto-generated control name (e.g. 'Command1'). A refusal to write (an unfaithful form) comes back as success:false naming the control that is in the designer but not on disk. A form with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything is placed unless answer_next_file_dialog has been armed first; arm it with no path to keep the form without a file.")]
     public async Task<AddControlResult> AddControlAsync(
         string formName, string type,
         double x, double y, double width, double height,
@@ -737,6 +737,14 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 return new AddControlResult(false, null,
                     $"Unknown control type '{type}'. Known types: {known}");
             }
+
+            // REFUSED before anything is placed, rather than placed and then blocked. This tool saves the
+            // form, and a form with no file saves through the native picker, which stops this server
+            // answering: the call never returned and every call behind it hung. An armed answer makes the
+            // save safe to attempt, including an armed cancel, which keeps the form without a file. (#514)
+            if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(designer.FormDefinition?.AbsolutePath))
+                return new AddControlResult(false, null,
+                    $"Form '{formName}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
 
             designer.SpawnControlAt(componentClass, new Avalonia.Rect(x, y, width, height));
             return new AddControlResult(true, designer.SelectedComponent?.Name, null, designer.FormDefinition);
