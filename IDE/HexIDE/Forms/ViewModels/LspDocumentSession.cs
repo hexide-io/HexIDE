@@ -47,6 +47,9 @@ internal sealed class LspDocumentSession : IDisposable
 
     private CancellationTokenSource? debounce;
     private int version;
+    // Edits made, and how many of them had been made when diagnostics last arrived; -1 until the first. (#664)
+    private int edits;
+    private int editsWhenLastPublished = -1;
     private bool started;
     private bool disposed;
 
@@ -79,6 +82,18 @@ internal sealed class LspDocumentSession : IDisposable
     /// ask about it" one condition rather than two spellings of a similar one.
     /// </remarks>
     public bool IsOpen => started && !disposed;
+
+    /// <summary>
+    /// True while the document is open and no diagnostics have arrived since it was opened or last edited,
+    /// so whatever a caller holds for it describes older text or nothing at all.
+    /// </summary>
+    /// <remarks>
+    /// Judged by arrival, since a publish rarely carries the version it answers: one that lands between an
+    /// edit and the debounced change it causes is counted as answering that edit. A server that does not
+    /// republish unchanged diagnostics after an edit leaves this true until it next publishes. (#664)
+    /// </remarks>
+    public bool AwaitingDiagnostics =>
+        IsOpen && Volatile.Read(ref editsWhenLastPublished) < Volatile.Read(ref edits);
 
     /// <summary>Diagnostics for this document, converted to offsets in this buffer. Raised on the UI thread.</summary>
     public event Action<IReadOnlyList<LspMarker>>? MarkersChanged;
@@ -172,6 +187,7 @@ internal sealed class LspDocumentSession : IDisposable
 
     private void OnTextChanged(object? sender, EventArgs e)
     {
+        Interlocked.Increment(ref edits);
         debounce?.Cancel();
         debounce = new CancellationTokenSource();
         var token = debounce.Token;
@@ -199,6 +215,8 @@ internal sealed class LspDocumentSession : IDisposable
         // NOT `!=`: a server may normalise the URI it echoes back — drive-letter case, percent-encoding —
         // and an exact comparison drops its diagnostics without a trace. See #236.
         if (!LspDocumentUri.AreSame(p.Uri, Uri)) return;
+
+        Volatile.Write(ref editsWhenLastPublished, Volatile.Read(ref edits));
 
         // TextDocument refuses access from anywhere but the UI thread, so the whole conversion goes there
         // rather than only the raise.
