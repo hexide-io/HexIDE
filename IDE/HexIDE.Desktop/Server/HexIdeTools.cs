@@ -859,12 +859,14 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_undo_state")]
-    [Description("Returns the current undo/redo state of the active editor: whether it is a form designer, whether undo/redo are available, and the descriptions that would appear in the Edit menu.")]
+    [Description("Returns the current undo/redo state of the active document: what kind it is, whether Undo and Redo are available, and, for a form designer, the step each would act on as the Edit menu names it. 'activeEditorKind' is FormDesigner, CodeEditor, Other (a document with no undo of its own, such as the Object Browser; canUndo and canRedo are then false) or None (no document is open). A code editor's steps have no names, so its descriptions are null; invoke_menu_item(\"Edit/Undo\") undoes there, and invoke_designer_undo is for a designer only.")]
     public async Task<UndoStateResult> GetUndoStateAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            var active = ctx.DocumentDockService.ActiveDocument;
+            // The tab in front, not ActiveDocument, which is null while a tool such as the Object Browser is
+            // in front and so reported that as no document open.
+            var active = ctx.DocumentDockService.ActiveTab;
             if (active is HexIDE.VisualDesigner.FormEditViewModel designer)
                 return new UndoStateResult(
                     "FormDesigner",
@@ -873,9 +875,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     designer.UndoStack.UndoDescription,
                     designer.UndoStack.RedoDescription);
 
-            return new UndoStateResult(
-                active?.GetType().Name ?? "None",
-                false, false, null, null);
+            // A code editor has undo of its own, and this said it could never undo; the kind was also the
+            // document's .NET type name, a set no description could list. (#672)
+            if (active is CodeEditorViewModel code)
+                return new UndoStateResult(
+                    "CodeEditor", code.Document.UndoStack.CanUndo, code.Document.UndoStack.CanRedo, null, null);
+
+            return new UndoStateResult(active is null ? "None" : "Other", false, false, null, null);
         });
     }
 

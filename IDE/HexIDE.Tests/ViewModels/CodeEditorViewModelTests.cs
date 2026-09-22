@@ -164,6 +164,59 @@ public class CodeEditorViewModelTests : IDisposable
         vm.Title.Should().Contain("Utilities");
     }
 
+    // ── Undo history after a load (#673) ─────────────────────────────
+
+    private const string SomeCode = "Private Sub Foo()\r\n    Debug.Print 1\r\nEnd Sub\r\n";
+
+    [AvaloniaFact]
+    public void OpeningAModuleLeavesNothingToUndo()
+    {
+        var module = TestHelpers.CreateModule(name: "Module1");
+        module.UpdateCode(SomeCode);
+        var vm = CreateSut().Initialize(module);
+
+        vm.Document.UndoStack.CanUndo.Should().BeFalse("loading the code is not an edit the developer can undo");
+    }
+
+    [AvaloniaFact]
+    public void OpeningAFormLeavesNothingToUndo()
+    {
+        var form = TestHelpers.CreateForm(name: "Form1");
+        form.UpdateCode(SomeCode);
+        var vm = CreateSut().Initialize(form);
+
+        vm.Document.UndoStack.CanUndo.Should().BeFalse("loading the code is not an edit the developer can undo");
+    }
+
+    [AvaloniaFact]
+    public void UndoingOneEditMoreThanWasMadeCannotEmptyTheWindow()
+    {
+        // The reported path: one real edit, then two Undos. The second used to undo the load itself and leave
+        // the buffer empty, which the next save wrote to disk.
+        var module = TestHelpers.CreateModule(name: "Module1");
+        module.UpdateCode(SomeCode);
+        var vm = CreateSut().Initialize(module);
+
+        vm.Document.Insert(0, "x");
+        vm.Document.UndoStack.Undo();
+        if (vm.Document.UndoStack.CanUndo) vm.Document.UndoStack.Undo();
+
+        vm.Document.Text.Should().Be(SomeCode);
+    }
+
+    [AvaloniaFact]
+    public void AReloadFromDiskLeavesNothingToUndo()
+    {
+        var module = TestHelpers.CreateModule(name: "Module1");
+        module.UpdateCode(SomeCode);
+        var vm = CreateSut().Initialize(module);
+        vm.Document.Insert(0, "x");
+
+        vm.ReloadFrom("Private Sub Bar()\r\nEnd Sub\r\n");
+
+        vm.Document.UndoStack.CanUndo.Should().BeFalse("undoing across a reload would put back text the file no longer has");
+    }
+
     // ── Document URI ─────────────────────────────────────────────────
 
     [AvaloniaFact]
