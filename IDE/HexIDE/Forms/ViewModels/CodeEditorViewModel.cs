@@ -315,6 +315,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         AutoDispose(formElement.Owner.ObservePropertyChanged(x => x.Name)
             .Subscribe(_ => Title = ComputeTitle()));
         Document.Text = formElement.Code;
+        ClearUndoHistoryAfterLoad();
 
         PopulateObjectNames();
 
@@ -345,6 +346,7 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         AutoDispose(moduleElement.Owner.ObservePropertyChanged(x => x.Name)
             .Subscribe(_ => Title = ComputeTitle()));
         Document.Text = moduleElement.Code;
+        ClearUndoHistoryAfterLoad();
 
         // A module with a designer half lists its controls like a form's editor does; one without falls
         // back to "(General)" alone, which is what this used to hardcode.
@@ -415,7 +417,22 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
         var caret = CaretOffset;
         Document.Text = newCode;
         CaretOffset = Math.Clamp(caret, 0, Document.TextLength);
+
+        // The history is discarded, because what it describes is gone: every entry holds an absolute offset
+        // into a document that has just been replaced wholesale from disk, and undoing back across the
+        // reload would put content the file no longer has back into the buffer (#673).
+        Document.UndoStack.ClearAll();
     }
+
+    /// <summary>
+    /// Discards the undo entry the initial load leaves behind.
+    /// </summary>
+    /// <remarks>
+    /// Loading the document is a <c>Document.Text</c> assignment, and AvaloniaEdit records every one. Without
+    /// this, Undo as the first action in a freshly opened code window, or one Undo more than the edits made,
+    /// emptied the buffer, and a save then wrote the module with no code at all (#673).
+    /// </remarks>
+    private void ClearUndoHistoryAfterLoad() => Document.UndoStack.ClearAll();
 
     private void PopulateObjectNames()
     {
