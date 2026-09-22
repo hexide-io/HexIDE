@@ -37,8 +37,10 @@ public class RuntimeErrorViewModel : ObservableObject, IDialog
         CloseRequested?.Invoke(false);
     }
 
-    public bool CanContinue() => false;
-    public bool CanEnd() => true;
-    public bool CanDebug() => false;
-    public bool CanHelp() => false;
+    // Avalonia pairs a method bound as a command with Can{Name} only when it takes one object parameter.
+    // These took none, so none was ever consulted and all four buttons were enabled (#594).
+    public bool CanContinue(object? parameter) => false;
+    public bool CanEnd(object? parameter) => true;
+    public bool CanDebug(object? parameter) => false;
+    public bool CanHelp(object? parameter) => false;
 }
