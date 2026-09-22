@@ -494,7 +494,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "run_project")]
-    [Description("Starts running the current VB6 project in the IDE. Returns an error if no project is loaded or it is already running.")]
+    [Description("Starts running the current VB6 project in the IDE. Returns an error if no project is loaded, if it is already running, or if its startup form cannot be built — in that last case nothing is running, the IDE has opened a runtime-error dialog, and get_last_runtime_error returns the same text. step_into, step_over, step_out and run_to_cursor report a failed start from idle the same way.")]
     public async Task<MutateResult> RunProjectAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
