@@ -91,6 +91,41 @@ public class ExternalFormChangeTests : IDisposable
         return (svc, project.Forms.Single(), frmPath);
     }
 
+    /// <summary>The same project with a standard module beside the form, opened and saved once.</summary>
+    private async Task<(ProjectService svc, ModuleDefinition module)> OpenWithModule()
+    {
+        File.WriteAllText(Path.Join(dir, "Form1.frm"), OneTextBox);
+        File.WriteAllText(Path.Join(dir, "Module1.bas"), "Attribute VB_Name = \"Module1\"\r\nPublic Sub Hello()\r\nEnd Sub\r\n");
+        File.WriteAllText(Path.Join(dir, "Test.vbp"),
+            "Type=Exe\r\nForm=Form1.frm\r\nModule=Module1; Module1.bas\r\nName=\"Test\"\r\n");
+
+        var svc = MakeService();
+        await svc.OpenProject(Path.Join(dir, "Test.vbp"));
+        var project = loaded.Single();
+        await svc.SaveProject(project, saveAs: false);
+        return (svc, project.Modules.Single());
+    }
+
+    // The module overload exists for get_file_content, whose hasUnsavedChanges used to report only whether
+    // the text came from an open editor. (#481)
+    [Fact]
+    public async Task UntouchedModule_ReportsNoUnsavedChanges()
+    {
+        var (svc, module) = await OpenWithModule();
+
+        svc.HasUnsavedChanges(module).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task EditedModule_ReportsUnsavedChanges()
+    {
+        var (svc, module) = await OpenWithModule();
+
+        module.UpdateCode("Public Sub Hello()\r\n    ' edited in the IDE\r\nEnd Sub\r\n");
+
+        svc.HasUnsavedChanges(module).Should().BeTrue();
+    }
+
     [Fact]
     public async Task UntouchedForm_ReportsNoUnsavedChanges()
     {
