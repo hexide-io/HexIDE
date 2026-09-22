@@ -893,3 +893,29 @@ disk reads `false`.
 [#597](https://github.com/hexide-io/HexIDE/issues/597). Either record the render baseline when a new
 document is written, or keep new documents unsaved on purpose and say so in `get_file_content`'s
 description.
+
+## `hover` quotes a declared tip from an unrelated descendant, and accepts a negative dwell
+
+**Symptom.** `hover {"target":"Window","dwellMs":-5}` (x, y, window left at null), on a `--newproject` IDE,
+answered `hovered (0, 25.6) on TextEditor[Editor]; no tip opened within -5ms (…); declared tip: Add Project`.
+The pointer went to a code editor, but the declared tip is the Standard toolbar's Add Project button:
+`DescribeDeclaredToolTip` looks through the target's descendants too, and a container reaches unrelated ones.
+The negative dwell was clamped to 0 but reported as given.
+
+**Workaround.** Hover a specific control's path, never a container, and read `declared tip:` only when the
+target is the control that declares it.
+
+**Suggested fix.** Take the declared tip from the control under the hovered point or its ancestors, refuse a
+negative `dwellMs`, and name the control that received the pointer by its path:
+[#610](https://github.com/hexide-io/HexIDE/issues/610).
+
+## `press_key` names the control that received the key only by its class
+
+**Symptom.** `press_key {"target":"Window","key":"Return"}` (modifiers, window left at null) answered
+`pressed Return on TextArea`. The IDE holds several `TextArea`s (the Immediate window's, one per open code
+editor), so the caller cannot tell which received the key.
+
+**Workaround.** Target the editor's own path rather than a container.
+
+**Suggested fix.** Name the receiving control by its `dump_visual_tree` path:
+[#611](https://github.com/hexide-io/HexIDE/issues/611).
