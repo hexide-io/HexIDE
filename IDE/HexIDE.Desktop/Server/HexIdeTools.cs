@@ -1551,7 +1551,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
         string target, string action, string? value = null, string? window = null,
         CancellationToken ct = default)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        Control? acted = null;
+        var outcome = await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var (active, _, error) = ResolveActiveWindow(window);
             if (active is null)
@@ -1561,8 +1562,21 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (control is null)
                 return new InteractOutcome(false, "peer", null, resolveError);
 
+            acted = control;
             return UiAutomationDriver.Interact(control, action, value);
         });
+
+        // A committed value is only known to have held once the source has reacted, and a refusal reacts from a
+        // posted callback; this hop runs after it. (#625)
+        if (outcome is { Success: true, Detail: { } detail } && acted is not null && value is not null
+            && detail.EndsWith(", and committed it", StringComparison.Ordinal))
+        {
+            var refused = await Dispatcher.UIThread.InvokeAsync(
+                () => UiAutomationDriver.RefusedCommit(acted, value), DispatcherPriority.Background);
+            if (refused is not null)
+                outcome = outcome with { Detail = detail[..^", and committed it".Length] + refused };
+        }
+        return outcome;
     }
 
     [McpServerTool(Name = "type_text")]
