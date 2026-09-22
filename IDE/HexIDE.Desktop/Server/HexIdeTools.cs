@@ -422,7 +422,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "open_file")]
-    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names.")]
+    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. A carried file is also found by its filename, which differs from its name when VB6 carried it on a code line (`Module=Notes; Notes.md` is named Notes).")]
     public async Task<MutateResult> OpenFileAsync(string name, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -453,8 +453,16 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // method rather than a command, and Add File goes through a native dialog. Without this branch
             // a whole editor type is undrivable, which is what blocked verifying #255 against the running
             // IDE. See docs/mcp-server-gaps.md.
+            //
+            // The filename is tried after every name, because the two differ for a file VB6 carried on a code
+            // line: `Module=Notes; Notes.md` is named Notes, and a caller who knows only the file asked for
+            // Notes.md and was told there was no such thing (#548). AbsolutePath is a host path, resolved
+            // against the filesystem, so System.IO.Path is the right tool for it.
             var document = project.RelatedDocuments.FirstOrDefault(d =>
-                string.Equals(d.Name, name, StringComparison.OrdinalIgnoreCase));
+                               string.Equals(d.Name, name, StringComparison.OrdinalIgnoreCase))
+                           ?? project.RelatedDocuments.FirstOrDefault(d =>
+                               d.AbsolutePath is { } path
+                               && string.Equals(Path.GetFileName(path), name, StringComparison.OrdinalIgnoreCase));
             if (document is not null)
             {
                 ctx.EditorService.EditRelatedDocument(document);

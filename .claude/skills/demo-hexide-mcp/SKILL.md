@@ -111,7 +111,8 @@ Teleport an organic AI-Chat line at each turn.
 
 - HexIDE running with the MCP server + a project (`get_project_info` works).
 - **Exactly one instance, and you're driving the right one.** A second launch on an already-bound
-  `--server-port` starts a silent, MCP-less window — you'd then unknowingly drive the *stale* instance. After
+  `--server-port` says the port is in use and exits with code 3 — so a relaunch that did not take leaves you
+  unknowingly driving the *stale* instance, which is still answering. After
   any (re)launch: kill **all** `HexIDE.Desktop` and **wait for the port to free** before launching one; then
   confirm `get_project_info` is blank (no leftover forms/modules) and the control names start fresh
   (`Timer0`, `Class1`) — proof you're on the new instance, not a previous run's.

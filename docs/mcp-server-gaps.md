@@ -595,10 +595,15 @@ reply — a field that is always populated stops being read.
   unexplained gap reads as data loss.
 - A reply that mutates reports the new state, and reports it even when the answer is empty.
 
-**None of this is tested, and the descriptions are the largest part of the surface.** A description that
-misleads a caller produces a wrong call and a green build, and the author is the one person who cannot
-evaluate it — the empty-reply defect above was caught by *being* the caller, not by re-reading prose that
-had just been written. Filed as [#396](https://github.com/hexide-io/HexIDE/issues/396).
+**The mechanical half of this is now tested; whether the prose helps is not.** A description that misleads
+a caller produces a wrong call and a green build. `ToolDescriptionParameterTests` and
+`FirstContactTranscriptTests` (#535, closing #396) catch a parameter or reply field named in a spelling the
+wire does not use, and a worked transcript that has drifted from the tools it shows.
+`ToolDescriptionEnumTests` (#529) catches a vocabulary missing a member. #549 made all of them fail when
+they meet source they cannot parse. None of them can say whether a description *helps*, and the author is
+the one person who cannot judge that — the empty-reply defect above was caught by *being* the caller, not
+by re-reading prose that had just been written. That half is the first-contact exercise with a fresh model,
+[#534](https://github.com/hexide-io/HexIDE/issues/534), and it is still open.
 
 ---
 

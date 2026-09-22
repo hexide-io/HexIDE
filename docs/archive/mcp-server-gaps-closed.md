@@ -900,7 +900,7 @@ can set the selection (unlocking the row's context-menu commands like Edit/Delet
 > `interact(target: ".../Custom/Tree/Pane/TreeItem/TreeItem", action: "double_click", window: "ide")` on
 > Form1's node answered `double-clicked 'TreeItem' (selected it first, as a real double-click does)` and
 > activated its designer. `open_file` also resolves carried files by name or filename
-> (`HexIdeTools.OpenFileAsync`). **Not driven in this pass:** a carried-file node specifically. The project
+> (`HexIdeTools.OpenFileAsync`; the filename half only from #548, which found it matched the name alone). **Not driven in this pass:** a carried-file node specifically. The project
 > had none, and `add_file` cannot create one. The route is the same one that worked on the form node.
 
 **Symptom.** There is no way to drive "select this tree node, then open it" for any node kind beyond forms
