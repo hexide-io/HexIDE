@@ -1120,3 +1120,26 @@ does not help. A new profile asks about every third-party add-in again, which ma
 more likely, not less.
 
 **Fix.** Exit through `TryShutdown(exitCode)`, or run the cleanup before the forced shutdown.
+
+---
+
+## A mark tool accepted lines the document does not have, and persisted them — **CLOSED** (#569, 2026-09-22)
+
+> **Fixed.** `set_breakpoints` and `set_bookmarks` now refuse the whole call when any line is outside the
+> document, name the lines and the valid range, and change nothing:
+> `set_breakpoints {"name":"Module1","lines":[1,3]}` on a two-line module answers `3 is not a line of
+> Carried/Module1, which has 2 lines: breakpoints are numbered 1..2. Nothing was changed.` The bookmark
+> refusal adds "counting from 0", because the two tools number lines differently.
+
+**Symptom.** `set_breakpoints {"name":"Module1","lines":[-1,0,99]}` (`project` left at null) on a two-line
+module answered `{"success":true,"note":"Carried/Module1 now has breakpoints on -1, 0, 99."}`, and
+`get_breakpoints` read the same three back. `set_bookmarks` did the same. The gutter showed none of the
+breakpoints, because none is a line (breakpoints count from 1). The marks survived a relaunch too: they had
+been written to the project's `*.user.hexproj` sidecar.
+
+**Why it mattered.** The reply and the readback agreed with each other, and both were wrong. A caller who
+gave bookmark numbering to the breakpoint tool, or the other way round, got a confident success and then a
+run that never broke.
+
+**Still open.** A sidecar that already holds such lines is loaded as-is, and a breakpoint on a line with no
+executable statement is still accepted. Both are noted on #569.
