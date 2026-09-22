@@ -818,27 +818,6 @@ tool being added, expect the first call to fail against a stale schema and do no
 line. Not re-measured for this case: a call that does not match the tool's parameters may fail in the SDK's
 own argument binding, which can report through `McpException`, and #603 leaves that as the SDK reports it.
 
-## `set_control_property` cannot set `Name` on anything
-
-**Symptom.** `set_control_property(formName: "Form1", controlName: "Command1", property: "Name", value:
-"Command0")` answers `Property 'Name' not found on VB.CommandButton`. The same call against the form's own
-root answers `Property 'Name' not found on VB.Form`. `Name` is the first row of the Properties window and
-the one property every VB6 developer sets on every control they draw.
-
-**Measured, not inferred** (2026-09-20), while checking whether a newly added validation refusal could
-escape this tool's narrow catch (`HexIdeTools.cs` catches only `FormatException` and `OverflowException`
-inside its dispatcher lambda). It cannot, because the property is refused before anything is set — so the
-escape is unreachable through this tool, and the guard rail nobody can reach is worth recording as such.
-
-**Consequence.** Renaming a control or a document is not automatable through the property tool at all. The
-working route is the Properties window itself: `interact` with `set_property` on the `(Name)` row's
-`PropertyViewModel.Value`, which is the reflection fallback rather than a provider action, and which does
-commit through the same validation the user gets. `set_value` on that row's `Edit` writes the text and does
-**not** commit — the binding updates on focus loss and Enter does not stand in for it — so a caller who uses
-the obvious verb sees success and no rename.
-
----
-
 ## The bookmark tools count lines from 0; every other line-taking tool, and the gutter, count from 1
 
 **Symptom.** `set_bookmarks {"name":"Module1","lines":[1]}` (`project` left at null) answers `Carried/Module1
@@ -893,3 +872,17 @@ disk reads `false`.
 [#597](https://github.com/hexide-io/HexIDE/issues/597). Either record the render baseline when a new
 document is written, or keep new documents unsaved on purpose and say so in `get_file_content`'s
 description.
+
+## `set_value` on a Properties window row reports success and does not commit
+
+**Symptom.** `interact` with `set_value` on a Properties row's `Edit` (e.g.
+`…/Pane[Properties]/Custom/Tab[TabProperties]/List[AlphabeticProperties]/Pane[PART_ScrollViewer]/ListItem[Caption]/Edit`,
+`value` `Hello 494`) answers `set value of 'Edit' to 'Hello 494'`, and `get_form_controls` still reports the
+old caption. `press_key` Enter on the same `Edit` does not commit it either. The row's binding commits on
+focus loss, which neither causes.
+
+**Workaround.** Use `set_control_property`, which sets the property itself. Or, in the Properties window,
+use `interact` `set_property` with `Value=…` on the row, which is the reflection fallback.
+
+**Suggested fix.** Push the text box's binding to its source after `set_value`, or say in the reply that
+nothing has been committed: [#625](https://github.com/hexide-io/HexIDE/issues/625).
