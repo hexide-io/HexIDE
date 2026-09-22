@@ -471,7 +471,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "open_file")]
-    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. A carried file is also found by its filename, which differs from its name when VB6 carried it on a code line (`Module=Notes; Notes.md` is named Notes).")]
+    [Description("Opens a form, module or carried file by name in the IDE code editor. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. A carried file is also found by its filename, which differs from its name when VB6 carried it on a code line (`Module=Notes; Notes.md` is named Notes). The reply's 'note' names the tab now active and how many are open.")]
     public async Task<MutateResult> OpenFileAsync(string name, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -487,19 +487,19 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     ctx.EditorService.EditCode(form);
                 else
                     ctx.EditorService.EditCode(document.Module);
-                return new MutateResult(true, null);
+                return new MutateResult(true, null, TabStateNote());
             }
             if (found.Carried is { } carried)
             {
                 ctx.EditorService.EditRelatedDocument(carried);
-                return new MutateResult(true, null);
+                return new MutateResult(true, null, TabStateNote());
             }
             return new MutateResult(false, found.Error);
         });
     }
 
     [McpServerTool(Name = "view_designer")]
-    [Description("Opens a form or UserControl by name in the visual designer, bringing it to the front. Useful before take_snapshot to ensure the designer surface is visible. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them.")]
+    [Description("Opens a form or UserControl by name in the visual designer, bringing it to the front. Useful before take_snapshot to ensure the designer surface is visible. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. The reply's 'note' names the tab now active and how many are open.")]
     public async Task<MutateResult> ViewDesignerAsync(string name, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -508,7 +508,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (form is null)
                 return new MutateResult(false, error);
             ctx.EditorService.EditForm(form);
-            return new MutateResult(true, null);
+            return new MutateResult(true, null, TabStateNote());
         });
     }
 
@@ -1776,6 +1776,27 @@ internal sealed class HexIdeTools(IdeContext ctx)
         return window.Content?.GetType().Name is { Length: > 0 } content ? content : "Dialog";
     }
 
+    /// <summary>A document tab's kind, as get_document_tabs reports it.</summary>
+    private static string TabType(object tab) => tab switch
+    {
+        HexIDE.VisualDesigner.FormEditViewModel => "designer",
+        BaseEditorWindowViewModel => "code",
+        _ => "tool",
+    };
+
+    /// <summary>
+    /// The document region after a tool changed it: the active tab and how many are open. The tab tools replied
+    /// {"success":true} and nothing else, so a caller had to call get_document_tabs to learn what was now in
+    /// front (#655).
+    /// </summary>
+    private string TabStateNote()
+    {
+        var count = ctx.DocumentDockService.AllTabs.Count();
+        return ctx.DocumentDockService.ActiveTab is { } active
+            ? $"Active tab: '{active.Title}' ({TabType(active)}); {count} open."
+            : $"No tab is active; {count} open.";
+    }
+
     [McpServerTool(Name = "get_document_tabs")]
     [Description("Returns EVERY tab in the document region with its title, type and whether it is the active one. 'type' is 'designer' for a form or UserControl designer, 'code' for a source editor, and 'tool' for a document that is not an editor at all — the Object Browser, the language-server connection list, the protocol inspector. Those three are real tabs in the same strip and used to be missing from this answer, which made an automation client believe a tab it could see on screen did not exist.")]
     public async Task<DocumentTabsResult> GetDocumentTabsAsync(CancellationToken ct)
@@ -1787,29 +1808,21 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // first set answers a different question from the one asked.
             var active = ctx.DocumentDockService.ActiveTab;
             var tabs = ctx.DocumentDockService.AllTabs
-                .Select(d => new DocumentTabInfo(
-                    d.Title ?? "",
-                    d switch
-                    {
-                        HexIDE.VisualDesigner.FormEditViewModel => "designer",
-                        BaseEditorWindowViewModel => "code",
-                        _ => "tool",
-                    },
-                    ReferenceEquals(d, active)))
+                .Select(d => new DocumentTabInfo(d.Title ?? "", TabType(d), ReferenceEquals(d, active)))
                 .ToArray();
             return new DocumentTabsResult(tabs);
         });
     }
 
     [McpServerTool(Name = "activate_document_tab")]
-    [Description("Brings the named document tab to the front, whatever kind it is. title must match a Title returned by get_document_tabs (case-insensitive). If nothing matches, the error names every tab that IS open, so a near-miss does not need a second call to diagnose.")]
+    [Description("Brings the named document tab to the front, whatever kind it is. title must match a Title returned by get_document_tabs (case-insensitive). If nothing matches, the error names every tab that IS open, so a near-miss does not need a second call to diagnose. The reply's 'note' names the tab now active and how many are open.")]
     public async Task<MutateResult> ActivateDocumentTabAsync(string title, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var found = ctx.DocumentDockService.TryActivateAny(
                 d => string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase));
-            return found ? new MutateResult(true, null) : new MutateResult(false, NoSuchTab(title));
+            return found ? new MutateResult(true, null, TabStateNote()) : new MutateResult(false, NoSuchTab(title));
         });
     }
 
@@ -1831,14 +1844,22 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "close_document_tab")]
-    [Description("Closes the named document tab, whatever kind it is. title must match a Title returned by get_document_tabs (case-insensitive). If nothing matches, the error names every tab that IS open.")]
+    [Description("Closes the named document tab, whatever kind it is. title must match a Title returned by get_document_tabs (case-insensitive). If nothing matches, the error names every tab that IS open. The reply's 'note' says whether the tab closed or is still waiting on an answer such as a save prompt, and names the tab now active.")]
     public async Task<MutateResult> CloseDocumentTabAsync(string title, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
             var closed = ctx.DocumentDockService.TryCloseAny(
                 d => string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase));
-            return closed ? new MutateResult(true, null) : new MutateResult(false, NoSuchTab(title));
+            if (!closed)
+                return new MutateResult(false, NoSuchTab(title));
+            // A document with unsaved changes asks first, so the close may still be waiting on an answer.
+            var stillOpen = ctx.DocumentDockService.AllTabs.Any(
+                d => string.Equals(d.Title, title, StringComparison.OrdinalIgnoreCase));
+            return new MutateResult(true, null, stillOpen
+                ? $"'{title}' is still open: closing it is waiting on an answer, most likely a save prompt, which "
+                  + "dump_visual_tree shows. " + TabStateNote()
+                : $"Closed '{title}'. " + TabStateNote());
         });
     }
 
