@@ -1440,7 +1440,7 @@ public static class UiAutomationDriver
         var byName = typed.Where(m => NameEquals(m.Control.Name, disc)).Select(m => m.Control).ToList();
         if (byName.Count > 0) return (byName, "name");
 
-        var byLabel = typed.Where(m => NameEquals(Safe<string?>(() => m.Info.Peer?.GetName(), null), disc))
+        var byLabel = typed.Where(m => NameEquals(MeaningfulLabelOf(m.Info.Peer), disc))
             .Select(m => m.Control).ToList();
         if (byLabel.Count > 0) return (byLabel, "label");
 
@@ -1516,7 +1516,8 @@ public static class UiAutomationDriver
             info.Peer is null || Safe(() => info.Peer.IsEnabled(), true),
             info.Peer is not null && Safe(() => info.Peer.IsOffscreen(), false),
             Hidden(node.Control),
-            children);
+            children,
+            TypeNameAsNameOf(info.Peer));
     }
 
 
@@ -1712,7 +1713,7 @@ public static class UiAutomationDriver
     {
         if (m.Info.AutoId is { } autoId) yield return autoId;
         if (NullIfEmpty(m.Control.Name) is { } xname) yield return xname;
-        if (NullIfEmpty(Safe<string?>(() => m.Info.Peer?.GetName(), null)) is { } label) yield return label;
+        if (MeaningfulLabelOf(m.Info.Peer) is { } label) yield return label;
     }
 
     private readonly record struct NodeClass(
@@ -1758,7 +1759,34 @@ public static class UiAutomationDriver
         => Safe(() => peer.GetAutomationControlType().ToString(), "Control");
 
     private static string? NameOf(Control control, AutomationPeer peer)
-        => NullIfEmpty(control.Name) ?? NullIfEmpty(Safe(() => peer.GetName(), string.Empty));
+        => NullIfEmpty(control.Name) ?? MeaningfulLabelOf(peer);
+
+    /// <summary>The peer's automation name, unless all it says is the .NET type of the control's content.</summary>
+    /// <remarks>
+    /// An icon button's peer names it by its content's <c>ToString()</c>, which for a Path is
+    /// "Avalonia.Controls.Shapes.Path" -- the same on every such button, so it neither describes the control nor
+    /// tells it from its siblings, and a path built on it cannot be trusted (#542). Such a name is dropped here,
+    /// so the path falls back to an index, and <see cref="TypeNameAsNameOf"/> reports what it was.
+    /// </remarks>
+    private static string? MeaningfulLabelOf(AutomationPeer? peer) =>
+        NullIfEmpty(Safe<string?>(() => peer?.GetName(), null)) is { } name && !IsTypeName(name) ? name : null;
+
+    /// <summary>The peer's automation name when <see cref="MeaningfulLabelOf"/> dropped it for being a type name.</summary>
+    private static string? TypeNameAsNameOf(AutomationPeer? peer) =>
+        NullIfEmpty(Safe<string?>(() => peer?.GetName(), null)) is { } name && IsTypeName(name) ? name : null;
+
+    private static readonly Dictionary<string, bool> s_typeNames = new(StringComparer.Ordinal);
+
+    /// <summary>True for a dotted name that resolves to a type in a loaded assembly.</summary>
+    private static bool IsTypeName(string name)
+    {
+        if (!name.Contains('.') || name.Contains(' ')) return false;
+        if (s_typeNames.TryGetValue(name, out var known)) return known;
+        var found = AppDomain.CurrentDomain.GetAssemblies()
+            .Any(a => Safe(() => a.GetType(name, throwOnError: false) is not null, false));
+        s_typeNames[name] = found;
+        return found;
+    }
 
     private static string? ClassNameOf(Control control, AutomationPeer peer)
         => NullIfEmpty(Safe(() => peer.GetClassName(), string.Empty)) ?? control.GetType().Name;
@@ -1794,7 +1822,8 @@ public record UiNode(
     bool IsEnabled,
     bool IsOffscreen,
     bool? IsHidden,
-    UiNode[] Children);
+    UiNode[] Children,
+    string? TypeNameAsName = null);
 
 /// <summary>Deep single-node inspection from <see cref="UiAutomationDriver.Inspect"/>.</summary>
 public record UiNodeDetail(

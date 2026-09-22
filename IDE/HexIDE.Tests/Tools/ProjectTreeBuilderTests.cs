@@ -15,6 +15,7 @@ public class ProjectTreeBuilderTests
         public string? AbsolutePath { get; } = absolutePath;
         public string? LocationCaption { get; set; }
         public bool IsExpanded { get; set; }
+        public string AccessibleName => Name;
         public event PropertyChangedEventHandler? PropertyChanged { add { } remove { } }
     }
 

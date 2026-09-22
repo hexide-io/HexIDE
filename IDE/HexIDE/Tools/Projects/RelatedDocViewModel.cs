@@ -32,6 +32,9 @@ public partial class RelatedDocViewModel : ObservableObject, IDisposable, IProje
     [Notify] private string file;
     [Notify] private string? locationCaption;
 
+    /// <inheritdoc/>
+    public string AccessibleName => $"{Name} ({File})";
+
     public RelatedDocViewModel(ProjectViewModel project, RelatedDocumentDefinition document)
     {
         Project = project;

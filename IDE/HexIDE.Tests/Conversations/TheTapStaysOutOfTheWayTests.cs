@@ -169,16 +169,28 @@ public class TheTapStaysOutOfTheWayTests : IAsyncDisposable
         // The counter exists because a record that quietly loses frames reads exactly like one that had
         // fewer to lose. It could not work at all with the obvious channel setting, which discards the item
         // and reports success — so this asserts the count moves rather than trusting that it would.
-        _log = new ConversationLog(queueDepth: 1);
+        //
+        // The pump is held until every frame has been offered, so the queue overflows by construction. It
+        // used to be left running and hoped to fall behind a producer that awaits each send; on a fast
+        // runner it kept up, dropped nothing, and failed a correct capture (#558).
+        var pumpGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        _log = new ConversationLog(pumpGate.Task, queueDepth: 1);
         var client = Connect(_log);
 
-        for (var i = 0; i < 1000; i++) await client.NotifyAsync("note", i);
+        try
+        {
+            for (var i = 0; i < 1000; i++) await client.NotifyAsync("note", i);
+        }
+        finally
+        {
+            pumpGate.SetResult();
+        }
         await _log.DrainAsync();
 
         var recorded = _log.Snapshot("vb6").Count;
         var dropped = _log.QueueDropped;
 
-        dropped.Should().BeGreaterThan(0);
+        dropped.Should().Be(999, "with the pump held, a queue one deep keeps the first frame and nothing after it");
 
         // EXACTLY a thousand, not at least. The weaker form was what let the drain's own gap hide: with
         // the fence silently skipped when the queue was full, this read the record one frame early and

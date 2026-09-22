@@ -25,6 +25,9 @@ public partial class ProjectViewModel : ObservableObject, IDisposable, IProjectT
 
     [Notify] private bool isStartupProject;
 
+    /// <inheritdoc/>
+    public string AccessibleName => $"{Name} ({File})";
+
     private readonly Dictionary<FormDefinition, FormViewModel> formViewModels = new();
     private readonly Dictionary<ModuleDefinition, ModuleViewModel> moduleViewModels = new();
     private readonly Dictionary<RelatedDocumentDefinition, RelatedDocViewModel> relatedDocViewModels = new();
@@ -61,6 +64,7 @@ public partial class ProjectViewModel : ObservableObject, IDisposable, IProjectT
     {
         File = projectDefinition.AbsolutePath == null ? projectDefinition.Name : Path.GetFileName(projectDefinition.AbsolutePath);
         OnPropertyChanged(nameof(Name));
+        OnPropertyChanged(nameof(AccessibleName));
         // Save Project As re-anchors every member's tree placement.
         if (string.IsNullOrEmpty(e.PropertyName) || e.PropertyName == nameof(ProjectDefinition.AbsolutePath))
             Rebuild();
