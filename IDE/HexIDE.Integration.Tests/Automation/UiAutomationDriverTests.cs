@@ -778,6 +778,52 @@ public class UiAutomationDriverTests
         finally { window.Close(); }
     }
 
+    [AvaloniaFact]
+    public void PressKey_OnAContainer_NamesWhichOfTwoEditorsReceivedTheKey_AsAPathThatResolvesBack()
+    {
+        // Two editors, as the IDE has an Immediate window and a code window. "pressed F12 on TextArea" was true
+        // of either, so it identified neither (#611). The reply's path must pick out the one that got the key,
+        // and resolving that path must lead press_key back to the same TextArea.
+        var first = new TextEditor { Name = "First" };
+        var second = new TextEditor { Name = "Second" };
+        // Addressable, as the IDE's editors are (its dumps show TextEditor[Editor]). Headless, with no editor
+        // theme applied, an untagged TextEditor has no template and would be folded away as a bare wrapper.
+        AutomationProperties.SetAutomationId(first, "First");
+        AutomationProperties.SetAutomationId(second, "Second");
+        var host = new StackPanel();
+        host.Children.Add(first);
+        host.Children.Add(second);
+        var window = Show(host);
+        try
+        {
+            AvaloniaEdit.Editing.TextArea? got = null;
+            foreach (var editor in new[] { first, second })
+            {
+                var area = editor.TextArea;
+                area.AddHandler(InputElement.KeyDownEvent, (object? _, KeyEventArgs e) => got = area,
+                    RoutingStrategies.Tunnel);
+            }
+
+            var outcome = UiAutomationDriver.PressKey(window, "F12", null, "Window");
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            got.Should().NotBeNull();
+            var path = outcome.Detail!.Split(", at ").Last();
+            path.Should().StartWith("Window/", "the reply must carry a path, not only a class name");
+
+            var (resolved, error) = UiAutomationDriver.Resolve(window, path);
+            resolved.Should().NotBeNull(error);
+            resolved.Should().BeOfType<TextEditor>().Which.TextArea.Should().BeSameAs(got,
+                "the path names the editor whose TextArea received the key, not the other one");
+
+            var receiver = got;
+            got = null;
+            UiAutomationDriver.PressKey(resolved!, "F12", null, path).Success.Should().BeTrue();
+            got.Should().BeSameAs(receiver, "pressing at the reported path reaches the same TextArea again");
+        }
+        finally { window.Close(); }
+    }
+
     // ── hover ──────────────────────────────────────────────────────────────────────────────────────
     // A hover is a POSITION, not just an event: the code editor reads e.GetPosition(TextView) and turns it
     // into a text location, so an event carrying no usable point produces no tip however well it is routed.

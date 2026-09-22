@@ -908,14 +908,3 @@ target is the control that declares it.
 **Suggested fix.** Take the declared tip from the control under the hovered point or its ancestors, refuse a
 negative `dwellMs`, and name the control that received the pointer by its path:
 [#610](https://github.com/hexide-io/HexIDE/issues/610).
-
-## `press_key` names the control that received the key only by its class
-
-**Symptom.** `press_key {"target":"Window","key":"Return"}` (modifiers, window left at null) answered
-`pressed Return on TextArea`. The IDE holds several `TextArea`s (the Immediate window's, one per open code
-editor), so the caller cannot tell which received the key.
-
-**Workaround.** Target the editor's own path rather than a container.
-
-**Suggested fix.** Name the receiving control by its `dump_visual_tree` path:
-[#611](https://github.com/hexide-io/HexIDE/issues/611).

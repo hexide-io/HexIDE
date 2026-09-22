@@ -879,7 +879,7 @@ public static class UiAutomationDriver
     /// <summary>Types text into the resolved control (or its nearest text surface) by inserting at the
     /// caret via the control's own API — reliable and exact (no synthetic keystrokes, so live
     /// auto-indent/IntelliSense don't garble it). Multi-line text is inserted verbatim.</summary>
-    public static InteractOutcome TypeText(Control control, string text)
+    public static InteractOutcome TypeText(Control control, string text, string? controlPath = null)
     {
         try
         {
@@ -906,7 +906,8 @@ public static class UiAutomationDriver
                     box.CaretIndex = at + text.Length;
                     break;
             }
-            return new InteractOutcome(true, "keyboard", $"typed {text.Length} char(s) into {surface.GetType().Name}", null);
+            return new InteractOutcome(true, "keyboard",
+                $"typed {text.Length} char(s) into {surface.GetType().Name}{(ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface))}", null);
         }
         catch (Exception ex) { return new InteractOutcome(false, "keyboard", null, $"type_text threw: {ex.Message}"); }
     }
@@ -914,7 +915,7 @@ public static class UiAutomationDriver
     /// <summary>Presses a key (optionally with modifiers) on the resolved control by raising real
     /// KeyDown/KeyUp events — for navigation/commands (Enter, Tab, Backspace, Escape, Ctrl+S, …) that
     /// `type_text` doesn't cover.</summary>
-    public static InteractOutcome PressKey(Control control, string key, string? modifiers)
+    public static InteractOutcome PressKey(Control control, string key, string? modifiers, string? controlPath = null)
     {
         try
         {
@@ -937,7 +938,9 @@ public static class UiAutomationDriver
             // nothing happens", and in each the answer was that the event went to a control other than the
             // one the caller meant — which the old reply had no way to say.
             var chord = mods == KeyModifiers.None ? string.Empty : mods + "+";
-            var where = ReferenceEquals(target, control) ? string.Empty : $" on {Describe(target)}";
+            var where = ReferenceEquals(target, control)
+                ? string.Empty
+                : $" on {Describe(target)}{AddressOf(control, controlPath, target)}";
             return new InteractOutcome(true, "keyboard", $"pressed {chord}{parsedKey}{where}", null);
         }
         catch (Exception ex) { return new InteractOutcome(false, "keyboard", null, $"press_key threw: {ex.Message}"); }
@@ -1155,6 +1158,67 @@ public static class UiAutomationDriver
     private static InteractOutcome ReflectErr(string error) => new(false, "reflection", null, error);
 
     // ── addressing ────────────────────────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// ", at &lt;path&gt;" naming where <paramref name="receiver"/> sits, for a reply that went somewhere other
+    /// than the control addressed; empty when there is no path to give.
+    /// </summary>
+    /// <remarks>
+    /// A class name alone did not identify the receiver: the IDE holds a TextArea for the Immediate window and
+    /// one per open code editor, and a key pressed on a container went to whichever came first (#611). The
+    /// path is one <c>dump_visual_tree</c> would print, so it can be fed straight back as a target.
+    /// </remarks>
+    private static string AddressOf(Control addressed, string? addressedPath, Control receiver) =>
+        addressedPath is { Length: > 0 }
+        && AnchorOf(addressed, receiver) is { } anchor
+        && PathWithin(addressed, addressedPath, anchor) is { } path
+            ? $", at {path}"
+            : string.Empty;
+
+    /// <summary>
+    /// The control in <paramref name="addressed"/>'s tree to name for <paramref name="receiver"/>: the receiver
+    /// itself when it is there, else the TextEditor whose TextArea it is. FindKeyTarget reaches an editor's
+    /// TextArea through the property, and before the editor's template is applied that TextArea is in no tree.
+    /// </summary>
+    private static Control? AnchorOf(Control addressed, Control receiver)
+    {
+        if (ReferenceEquals(addressed, receiver) || IsUnder(addressed, receiver))
+            return receiver;
+        return addressed.GetVisualDescendants().OfType<TextEditor>()
+            .FirstOrDefault(e => ReferenceEquals(e.TextArea, receiver));
+    }
+
+    // Asked of the TARGET's ancestor chain, explicitly. `IsVisualAncestorOf` was tried here first and answered
+    // false for a window over a control inside it (measured in the headless tests), so it is not relied on.
+    private static bool IsUnder(Visual ancestor, Visual target) => target.GetVisualAncestors().Contains(ancestor);
+
+    /// <summary>
+    /// The control-view path of <paramref name="target"/>, walked down from <paramref name="from"/> (whose own
+    /// path is <paramref name="fromPath"/>) choosing each segment exactly as <c>dump_visual_tree</c> does, so it
+    /// round-trips through <see cref="Resolve"/>. A target the control view folds into a wrapper -- a TextArea
+    /// inside its TextEditor -- gets the path of its nearest addressable ancestor, which press_key and
+    /// type_text resolve back to the same receiver. Null when the target is not below <paramref name="from"/>.
+    /// </summary>
+    internal static string? PathWithin(Control from, string fromPath, Control target)
+    {
+        if (!ReferenceEquals(from, target) && !IsUnder(from, target))
+            return null;
+
+        var current = from;
+        var path = fromPath;
+        while (!ReferenceEquals(current, target))
+        {
+            var siblings = new List<MeaningfulChild>();
+            CollectMeaningfulChildren(current, siblings);
+            var next = siblings.FirstOrDefault(m =>
+                ReferenceEquals(m.Control, target) || IsUnder(m.Control, target));
+            if (next is null)
+                break;
+            path += "/" + BestSegment(next, siblings);
+            current = next.Control;
+        }
+        return path;
+    }
 
     /// <summary>Resolves a control-view slash path (rooted at <paramref name="root"/>, first segment
     /// "Window") to a single control, or an error explaining the miss / ambiguity.</summary>
