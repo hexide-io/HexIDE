@@ -75,8 +75,8 @@ internal static class ToolFailures
         var placeholder = OperatingSystem.IsWindows() ? "%USERPROFILE%" : "~";
         var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
 
-        // Both forms, because TEMP on Windows usually carries the short one. Neither contains the other, so the
-        // order does not matter.
+        // Every spelling: long and 8.3 short (TEMP on Windows usually carries the short one), each with back- and
+        // forward slashes. None contains another, so the order does not matter.
         foreach (var form in ProfileForms(profile))
             message = message.Replace(form, placeholder, comparison);
         return message;
@@ -84,10 +84,16 @@ internal static class ToolFailures
 
     private static IEnumerable<string> ProfileForms(string profile)
     {
+        var forms = new List<string> { profile };
         if (OperatingSystem.IsWindows() && ShortPathOf(profile) is { } shortForm
             && !string.Equals(shortForm, profile, StringComparison.OrdinalIgnoreCase))
-            yield return shortForm;
-        yield return profile;
+            forms.Add(shortForm);
+
+        // And each spelled with forward slashes, as a file:///C:/Users/... URI carries it in an LSP message (#606).
+        foreach (var form in forms.ToList())
+            if (form.Contains('\\'))
+                forms.Add(form.Replace('\\', '/'));
+        return forms;
     }
 
     private static string? ShortPathOf(string path)

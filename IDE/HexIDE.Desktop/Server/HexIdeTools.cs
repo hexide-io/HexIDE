@@ -253,7 +253,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         catch (Exception ex)
         {
             // The edit is already in the IDE by now; a bare exception message would read as though it were not.
-            return new MutateResult(false, $"The new code is in the IDE but was not written: {ex.Message}");
+            return new MutateResult(false, $"The new code is in the IDE but was not written: {ToolFailures.WithoutProfile(ex.Message)}");
         }
     }
 
@@ -308,7 +308,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             }
             catch (Exception ex)
             {
-                return new AddFileResult(false, null, ex.Message);
+                return new AddFileResult(false, null, ToolFailures.WithoutProfile(ex.Message));
             }
         });
     }
@@ -465,7 +465,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         {
             // The property is already set in the IDE by now; a bare exception message would read as though it
             // were not.
-            return new MutateResult(false, $"'{property}' is set in the IDE but was not written: {ex.Message}");
+            return new MutateResult(false, $"'{property}' is set in the IDE but was not written: {ToolFailures.WithoutProfile(ex.Message)}");
         }
     }
 
@@ -870,7 +870,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         catch (Exception ex)
         {
             return new AddControlResult(false, spawned.ControlName,
-                $"'{spawned.ControlName}' was added to the designer but the save failed: {ex.Message}");
+                $"'{spawned.ControlName}' was added to the designer but the save failed: {ToolFailures.WithoutProfile(ex.Message)}");
         }
     }
 
