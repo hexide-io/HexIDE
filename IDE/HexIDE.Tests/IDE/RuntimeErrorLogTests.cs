@@ -43,6 +43,22 @@ public class RuntimeErrorLogTests
     }
 
     [Fact]
+    public void The_sequence_is_readable_after_a_clear_with_no_error_since()
+    {
+        // get_last_runtime_error read the sequence through Last, which is null once cleared, so a run that
+        // raised nothing reported 0 after one that had raised: the count a caller is told to compare went
+        // backwards. (#667)
+        var log = new RuntimeErrorLog();
+        log.Sequence.Should().Be(0);
+        log.Record("Division by zero");
+
+        log.Clear();
+
+        log.Last.Should().BeNull();
+        log.Sequence.Should().Be(1);
+    }
+
+    [Fact]
     public void The_same_error_twice_is_two_distinguishable_events()
     {
         var log = new RuntimeErrorLog();

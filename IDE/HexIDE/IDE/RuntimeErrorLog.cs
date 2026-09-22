@@ -52,6 +52,20 @@ public sealed class RuntimeErrorLog
     }
 
     /// <summary>
+    /// How many errors have been recorded, ever. Kept apart from <see cref="Last"/>, which is null after a
+    /// <see cref="Clear"/>: a caller comparing sequences across runs needs the count whether or not this run
+    /// raised, and reading it through <see cref="Last"/> turned an error-free run into a sequence of 0. (#667)
+    /// </summary>
+    public int Sequence
+    {
+        get
+        {
+            lock (_gate)
+                return _sequence;
+        }
+    }
+
+    /// <summary>
     /// Forgets the message but <b>keeps the sequence</b>, so a starting run reads as "nothing yet" while a
     /// caller holding an older sequence can still see that something has happened since.
     /// </summary>
