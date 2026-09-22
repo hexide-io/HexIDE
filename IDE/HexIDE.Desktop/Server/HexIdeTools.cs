@@ -517,10 +517,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "run_project")]
-    [Description("Starts running the current VB6 project in the IDE. Returns an error if no project is loaded, if it is already running, or if its startup form cannot be built — in that last case nothing is running, the IDE has opened a runtime-error dialog, and get_last_runtime_error returns the same text. step_into, step_over, step_out and run_to_cursor report a failed start from idle the same way.")]
+    [Description("Starts running the current VB6 project in the IDE. Returns an error if no project is loaded, if it is already running, or if its startup form cannot be built — in that last case nothing is running, the IDE has opened a runtime-error dialog, and get_last_runtime_error returns the same text. step_into, step_over, step_out and run_to_cursor report a failed start from idle the same way. The reply's 'note' says, after up to 2 s, whether it paused (at a breakpoint or Stop, with where), is running, or ended, and names any run-time error it raised.")]
     public async Task<MutateResult> RunProjectAsync(CancellationToken ct)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        var (refused, outcome) = await StartAndAwaitStopAsync(() =>
         {
             if (!ctx.ProjectRunnerService.CanStartDefaultProject)
             {
@@ -532,10 +532,14 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // So get_last_runtime_error answers "did THIS run raise" rather than "has anything ever".
             // The sequence survives, so a caller holding an older one can still tell something happened.
             ctx.RootViewModel.RuntimeErrors.Clear();
-            if (StartFailure(() => ctx.ProjectRunnerService.RunStartupProject()) is { } failed)
-                return failed;
-            return new MutateResult(true, null);
-        });
+            return StartFailure(() => ctx.ProjectRunnerService.RunStartupProject());
+        }, RunReplyWait, ct);
+        if (refused is not null)
+            return refused;
+
+        return new MutateResult(true, null, (outcome.Stop is { } at
+            ? PausedAt(at)
+            : outcome.Running ? $"Running; no pause within {RunReplyWait.TotalSeconds:0} s." : "The program ran and ended.") + RaisedNote(outcome));
     }
 
 
@@ -582,7 +586,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "stop_project")]
-    [Description("Stops the currently running VB6 project in the IDE.")]
+    [Description("Stops the currently running VB6 project in the IDE. The reply's 'note' says whether the IDE is back in design mode.")]
     public async Task<MutateResult> StopProjectAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -590,7 +594,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (!ctx.ProjectRunnerService.CanEndProject)
                 return new MutateResult(false, "No project is currently running");
             ctx.ProjectRunnerService.EndProject();
-            return new MutateResult(true, null);
+            return new MutateResult(true, null, ctx.ProjectRunnerService.IsRunning
+                ? "Stop requested; the program has not ended yet. get_debug_state says when it has."
+                : "Stopped; the IDE is back in design mode.");
         });
     }
 
@@ -1082,83 +1088,132 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "break_program")]
-    [Description("Pauses the running project at the next executed statement (VB6 Break / Ctrl+Break). Error if not running or already paused.")]
+    [Description("Pauses the running project at the next executed statement (VB6 Break / Ctrl+Break). Error if not running or already paused. The reply's 'note' gives where it paused or, when the program is waiting for an event, says it will pause at the next statement that runs.")]
     public async Task<MutateResult> BreakProgramAsync(CancellationToken ct)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        var (refused, outcome) = await StartAndAwaitStopAsync(() =>
         {
             if (!ctx.ProjectRunnerService.CanBreakProject)
                 return new MutateResult(false, ctx.ProjectRunnerService.IsRunning ? "Already paused" : "No project is running");
             ctx.ProjectRunnerService.BreakCurrentProject();
-            return new MutateResult(true, null);
-        });
+            return null;
+        }, StepReplyWait, ct);
+        if (refused is not null)
+            return refused;
+
+        return new MutateResult(true, null, (outcome.Stop is { } at
+            ? PausedAt(at)
+            : outcome.Running
+                ? "Break requested, and no statement has run since: the program is waiting for an event, and pauses "
+                  + "at the next statement that runs."
+                : "The program ended.") + RaisedNote(outcome));
     }
 
     [McpServerTool(Name = "continue_program")]
-    [Description("Resumes a paused project (VB6 Continue / F5 in break mode). Error if not currently paused.")]
+    [Description("Resumes a paused project (VB6 Continue / F5 in break mode). Error if not currently paused. The reply's 'note' says, after up to 2 s, whether it paused again (with where), is running, or ended.")]
     public async Task<MutateResult> ContinueProgramAsync(CancellationToken ct)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        var (refused, outcome) = await StartAndAwaitStopAsync(() =>
         {
             if (!ctx.ProjectRunnerService.CanContinueProject)
                 return new MutateResult(false, "Project is not paused");
             ctx.ProjectRunnerService.ContinueProject();
-            return new MutateResult(true, null);
-        });
+            return null;
+        }, RunReplyWait, ct);
+        if (refused is not null)
+            return refused;
+
+        return new MutateResult(true, null, (outcome.Stop is { } at
+            ? PausedAt(at)
+            : outcome.Running ? $"Running; no pause within {RunReplyWait.TotalSeconds:0} s." : "The program ended.") + RaisedNote(outcome));
     }
 
     /// <summary>How long a step's reply waits for the pause it causes before saying the program is still going.</summary>
     private static readonly TimeSpan StepReplyWait = TimeSpan.FromSeconds(2);
 
+    /// <summary>How long a run or continue waits for a pause (a breakpoint, a Stop) before saying it is running.</summary>
+    private static readonly TimeSpan RunReplyWait = TimeSpan.FromSeconds(2);
+
     /// <summary>
-    /// Starts a step and replies with where it paused. A step used to reply before the pause arrived, so every
-    /// step cost a second call to get_debug_state to learn where it had gone (#655).
+    /// What a run-control tool's start led to: the pause it caused, if one came within the wait; whether the
+    /// program is still running; and a run-time error raised since, as its message reads on one line.
+    /// </summary>
+    private readonly record struct RunOutcome(StoppedInfo? Stop, bool Running, string? NewError);
+
+    /// <summary>
+    /// Runs <paramref name="startOnUi"/> on the UI thread and waits up to <paramref name="wait"/> for the pause it
+    /// causes. The run-control tools replied before anything had happened, so a caller could not tell a run that
+    /// hit a breakpoint from one that was running or one that had already failed (#655).
     /// </summary>
     /// <remarks>
-    /// Subscribed to <c>Stopped</c> before the step starts, so a pause that lands at once is not missed; and it
-    /// waits for THAT pause rather than reading the state, which straight after the call still shows the
-    /// previous one. A statement that takes longer than <see cref="StepReplyWait"/> is reported as still
-    /// running, which is also what stepping out of an outermost event handler looks like: the program then
-    /// waits for the next event.
+    /// Subscribed to <c>Stopped</c> before the start, so a pause that lands at once is not missed; and it waits for
+    /// THAT pause rather than reading the state, which straight after a step still shows the previous one.
+    /// <paramref name="startOnUi"/> returns a refusal, or null once it has started something.
     /// </remarks>
-    private async Task<MutateResult> StepAndReportAsync(Func<bool> can, Action start, CancellationToken ct)
+    private async Task<(MutateResult? Refused, RunOutcome Outcome)> StartAndAwaitStopAsync(
+        Func<MutateResult?> startOnUi, TimeSpan wait, CancellationToken ct)
     {
         var stopped = new TaskCompletionSource<StoppedInfo>(TaskCreationOptions.RunContinuationsAsynchronously);
         void OnStopped(StoppedInfo info) => stopped.TrySetResult(info);
+        int? errorBefore = null;
 
         var refused = await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            if (!can())
-                return new MutateResult(false, "No project to step — load a project first");
+            errorBefore = ctx.RootViewModel.RuntimeErrors.Last?.Sequence;
             ctx.DebugController.Stopped += OnStopped;
-            if (StartFailure(start) is { } failed)
-            {
+            var refusal = startOnUi();
+            if (refusal is not null)
                 ctx.DebugController.Stopped -= OnStopped;
-                return failed;
-            }
-            return null;
+            return refusal;
         });
         if (refused is not null)
-            return refused;
+            return (refused, default);
 
         try
         {
-            if (await Task.WhenAny(stopped.Task, Task.Delay(StepReplyWait, ct)) == stopped.Task)
+            StoppedInfo? stop = await Task.WhenAny(stopped.Task, Task.Delay(wait, ct)) == stopped.Task
+                ? await stopped.Task
+                : null;
+            var (running, error) = await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                var at = await stopped.Task;
-                return new MutateResult(true, null, $"Paused at {at.Module} line {at.Line} ({at.Reason}).");
-            }
-
-            var running = await Dispatcher.UIThread.InvokeAsync(() => ctx.ProjectRunnerService.IsRunning);
-            return new MutateResult(true, null, running
-                ? $"Still running {StepReplyWait.TotalSeconds:0} s after the step began: the statement has not "
-                  + "finished, or the program is waiting for its next event. get_debug_state says where it breaks."
-                : "The program ended before it reached another statement.");
+                var last = ctx.RootViewModel.RuntimeErrors.Last;
+                return (ctx.ProjectRunnerService.IsRunning,
+                        last is { } raised && raised.Sequence != errorBefore
+                            ? System.Text.RegularExpressions.Regex.Replace(raised.Message, @"\s+", " ").Trim()
+                            : null);
+            });
+            return (null, new RunOutcome(stop, running, error));
         }
         finally
         {
             await Dispatcher.UIThread.InvokeAsync(() => ctx.DebugController.Stopped -= OnStopped);
         }
+    }
+
+    private static string PausedAt(StoppedInfo at) => $"Paused at {at.Module} line {at.Line} ({at.Reason}).";
+
+    private static string RaisedNote(RunOutcome outcome) =>
+        outcome.NewError is { } error ? $" It raised {error}; get_last_runtime_error has it." : "";
+
+    /// <summary>Starts a step and replies with where it paused.</summary>
+    /// <remarks>
+    /// A statement that takes longer than <see cref="StepReplyWait"/> is reported as still running, which is also
+    /// what stepping out of an outermost event handler looks like: the program then waits for the next event.
+    /// </remarks>
+    private async Task<MutateResult> StepAndReportAsync(Func<bool> can, Action start, CancellationToken ct)
+    {
+        var (refused, outcome) = await StartAndAwaitStopAsync(
+            () => can() ? StartFailure(start) : new MutateResult(false, "No project to step — load a project first"),
+            StepReplyWait, ct);
+        if (refused is not null)
+            return refused;
+
+        return new MutateResult(true, null, (outcome.Stop is { } at
+            ? PausedAt(at)
+            : outcome.Running
+                ? $"Still running {StepReplyWait.TotalSeconds:0} s after the step began: the statement has not "
+                  + "finished, or the program is waiting for its next event. get_debug_state says where it breaks."
+                : "The program ended before it reached another statement.") + RaisedNote(outcome));
     }
 
     [McpServerTool(Name = "step_into")]
@@ -1177,10 +1232,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
         StepAndReportAsync(() => ctx.ProjectRunnerService.CanStepOutProject, () => ctx.ProjectRunnerService.StepOutProject(), ct);
 
     [McpServerTool(Name = "run_to_cursor")]
-    [Description("Run To Cursor (Ctrl+F8): run until (module, 1-based line) then break — a one-shot temporary breakpoint. While paused it continues to the target; while running it arms the target; from idle it starts the project and runs to the target (a real breakpoint hit first stays paused there; continue proceeds toward the target). Call get_debug_state afterward to read the paused module/line. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them.")]
+    [Description("Run To Cursor (Ctrl+F8): run until (module, 1-based line) then break — a one-shot temporary breakpoint. While paused it continues to the target; while running it arms the target; from idle it starts the project and runs to the target (a real breakpoint hit first stays paused there; continue proceeds toward the target). The reply's 'note' says where it paused or, within 2 s, that it has not got there yet. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them.")]
     public async Task<MutateResult> RunToCursorAsync(string module, int line, string? project = null, CancellationToken ct = default)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        string? target = null;
+        var (refused, outcome) = await StartAndAwaitStopAsync(() =>
         {
             if (!ctx.ProjectRunnerService.CanRunToCursor)
                 return new MutateResult(false, "No project to run — load a project first");
@@ -1195,14 +1251,21 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (OutsideDocument(document, [line], first: 1, "line") is { } outside)
                 return new MutateResult(false, outside);
 
-            if (StartFailure(() => ctx.ProjectRunnerService.RunToCursorProject(document, line)) is { } failed)
-                return failed;
-            return new MutateResult(true, null, $"Running to {document.Display} line {line}.");
-        });
+            target = $"{document.Display} line {line}";
+            return StartFailure(() => ctx.ProjectRunnerService.RunToCursorProject(document, line));
+        }, StepReplyWait, ct);
+        if (refused is not null)
+            return refused;
+
+        return new MutateResult(true, null, (outcome.Stop is { } at
+            ? PausedAt(at)
+            : outcome.Running
+                ? $"Running to {target}; not reached within {StepReplyWait.TotalSeconds:0} s. get_debug_state says when it is."
+                : $"The program ended without reaching {target}.") + RaisedNote(outcome));
     }
 
     [McpServerTool(Name = "set_next_statement")]
-    [Description("Set Next Statement (Ctrl+F9): move the execution point to (module, 1-based line) WITHOUT running the statements in between — the next step_into/continue executes from there. Only while paused, and only to a TOP-LEVEL statement of the currently paused procedure (a target nested inside an If/For/Do/Select block, or a move while paused inside such a block, is refused — a tree-walker limit, not VB6's). Returns an error result if refused. Call get_debug_state afterward to read the moved current line. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them.")]
+    [Description("Set Next Statement (Ctrl+F9): move the execution point to (module, 1-based line) WITHOUT running the statements in between — the next step_into/continue executes from there. Only while paused, and only to a TOP-LEVEL statement of the currently paused procedure (a target nested inside an If/For/Do/Select block, or a move while paused inside such a block, is refused — a tree-walker limit, not VB6's). Returns an error result if refused. The reply's 'note' names the new next statement. Pass `project` when a group holds two documents of one name; without it an ambiguous name is refused and the reply lists them.")]
     public async Task<MutateResult> SetNextStatementAsync(string module, int line, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
