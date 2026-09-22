@@ -1,13 +1,22 @@
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace HexIDE.Tests.Infrastructure;
 
 /// <summary>
-/// The MCP tools as their source declares them: name, description, parameters and the enums they promise
-/// to describe. Read from <c>HexIdeTools.cs</c> as text because no test project references
+/// The MCP tools as their source declares them: name, description, parameters, reply type and the enums they
+/// promise to describe. Read from <c>HexIdeTools.cs</c> as text because no test project references
 /// <c>HexIDE.Desktop</c>, the approach <c>CommandLineDocumentationTests</c> takes with <c>ServerOptions.cs</c>.
 /// </summary>
+/// <remarks>
+/// <para>
+/// A text parser that meets a shape it does not expect must fail, not skip. Every guard built on this one
+/// reads its output, so a declaration it silently drops drops out of all of them at once (hexide-io/HexIDE#549).
+/// So it reports what it could not read in <see cref="Unparsed"/>, and <c>ToolSourceTests</c> fails on
+/// anything there and on any count that disagrees with a plain count of the attribute in the source.
+/// </para>
+/// </remarks>
 internal static class ToolSource
 {
     internal sealed record Parameter(string Name, bool Optional);
@@ -16,25 +25,57 @@ internal static class ToolSource
         string Name,
         string Description,
         IReadOnlyList<Parameter> Parameters,
-        IReadOnlyList<(string Enum, string[] NotRendered)> Enums);
+        IReadOnlyList<(string Enum, string[] NotRendered)> Enums,
+        string ReplyType);
 
-    private static readonly Regex ToolStart = new(@"\[McpServerTool\(Name = ""(?<name>[a-z_]+)""\)\]");
+    /// <summary>A positional property of a reply record: the name a caller sees on the wire, and its C# type.</summary>
+    internal sealed record Field(string Name, string Type);
+
+    // An attribute list may name the tool attribute bare, qualified, or with its Attribute suffix, and carry
+    // any arguments in any order; the name is taken from the arguments afterwards.
+    private static readonly Regex ToolStart = new(
+        @"(?<=[\[,]\s*)(?:global::)?(?:[\w.]+\.)?McpServerTool(?:Attribute)?\s*\((?<args>(?:[^()""]|""(?:[^""\\]|\\.)*"")*)\)");
+    private static readonly Regex NameArgument = new(@"\bName\s*=\s*""(?<name>[^""]+)""");
     private static readonly Regex Literal = new(@"""(?<text>(?:[^""\\]|\\.)*)""");
-    private static readonly Regex Describes = new(@"\[DescribesEnum\(typeof\((?:[\w.]+\.)?(?<type>\w+)\)(?<rest>[^\]]*)\)\]");
+    private static readonly Regex Describes = new(
+        @"(?:global::)?(?:[\w.]+\.)?DescribesEnum(?:Attribute)?\s*\(\s*typeof\s*\(\s*(?:global::)?(?:[\w.]+\.)?(?<type>\w+)\s*\)(?<rest>(?:[^()""]|""(?:[^""\\]|\\.)*"")*)\)");
+    private static readonly Regex DescriptionStart = new(@"(?<=[\[,]\s*)(?:[\w.]+\.)?Description(?:Attribute)?\s*\(");
+    private static readonly Regex Signature = new(
+        @"^[ \t]*public\s+(?:static\s+)?(?:async\s+)?(?:Task<(?<reply>\w+)>|(?<reply>\w+))\s+\w+\s*\(", RegexOptions.Multiline);
 
-    private static readonly Regex RecordStart = new(@"\brecord\s+\w+\s*\(");
+    private static readonly Regex RecordStart = new(@"\brecord\s+(?:class\s+|struct\s+)?(?<name>\w+)\s*\(");
+    private static readonly Regex PropertyName = new(@"JsonPropertyName\s*\(\s*""(?<name>[^""]+)""");
 
-    private static IReadOnlyList<Tool>? _tools;
-    private static IReadOnlyList<string>? _replyFields;
+    private static readonly Lazy<(IReadOnlyList<Tool> Tools, IReadOnlyList<string> Unparsed)> Parsed = new(Read);
+    private static readonly Lazy<IReadOnlyDictionary<string, IReadOnlyList<Field>>> ParsedRecords = new(ReadRecords);
 
-    public static IReadOnlyList<Tool> Tools => _tools ??= Read();
+    public static IReadOnlyList<Tool> Tools => Parsed.Value.Tools;
+
+    /// <summary>What the parser met and could not read, one line each. Empty is the only acceptable answer.</summary>
+    public static IReadOnlyList<string> Unparsed => Parsed.Value.Unparsed;
+
+    /// <summary>The raw source, for counts taken independently of the parser.</summary>
+    public static string Source => File.ReadAllText(Path.Combine(RepoTree.Root(), "IDE", "HexIDE.Desktop", "Server", "HexIdeTools.cs"));
 
     /// <summary>
-    /// Every field a reply can carry, as a caller sees it: the positional properties of the records in the
-    /// server folder and in the automation driver whose nodes the tree tools return, camel-cased, because the
-    /// SDK serializes with the web defaults and nothing here overrides a name.
+    /// The records in the server folder and in the automation driver whose nodes the tree tools return, by C#
+    /// name, each with its fields as a caller sees them.
     /// </summary>
-    public static IReadOnlyList<string> ReplyFields => _replyFields ??= ReadReplyFields();
+    public static IReadOnlyDictionary<string, IReadOnlyList<Field>> Records => ParsedRecords.Value;
+
+    /// <summary>Every field any reply can carry. Looser than a tool's own reply; see <see cref="FieldsOf"/>.</summary>
+    public static IReadOnlyList<string> ReplyFields =>
+        Records.Values.SelectMany(f => f).Select(f => f.Name).Distinct().ToList();
+
+    /// <summary>
+    /// The records a field's type refers to: every identifier in it that names a reply record, so a list, an
+    /// array or a nullable of one is followed as the record itself.
+    /// </summary>
+    public static IEnumerable<string> RecordsIn(string type) =>
+        Regex.Matches(type, @"\w+").Select(m => m.Value).Where(Records.ContainsKey);
+
+    /// <summary>The fields of one record, or null when no reply record has that name.</summary>
+    public static IReadOnlyList<Field>? FieldsOf(string record) => Records.TryGetValue(record, out var fields) ? fields : null;
 
     private static readonly string[] ReplyFolders =
     [
@@ -42,46 +83,93 @@ internal static class ToolSource
         Path.Combine("IDE", "HexIDE", "Automation"),
     ];
 
-    private static IReadOnlyList<string> ReadReplyFields()
+    private static IReadOnlyDictionary<string, IReadOnlyList<Field>> ReadRecords()
     {
-        var fields = new HashSet<string>(StringComparer.Ordinal);
+        var records = new Dictionary<string, IReadOnlyList<Field>>(StringComparer.Ordinal);
         foreach (var file in ReplyFolders.SelectMany(f => Directory.EnumerateFiles(Path.Combine(RepoTree.Root(), f), "*.cs")))
         {
-            var text = File.ReadAllText(file);
+            // Comments inside a parameter list are not parameters: before this, the words of a comment's last
+            // line leaked into the field set as if a reply could carry them.
+            var text = WithoutComments(File.ReadAllText(file));
             foreach (Match record in RecordStart.Matches(text))
-                foreach (var parameter in ParametersOf(text[(record.Index + record.Length - 1)..]))
-                    fields.Add(char.ToLowerInvariant(parameter.Name[0]) + parameter.Name[1..]);
+                records[record.Groups["name"].Value] = PartsOf(text[(record.Index + record.Length - 1)..])
+                    .Select(FieldOf)
+                    .OfType<Field>()
+                    .ToList();
         }
-        return fields.ToList();
+        return records;
     }
 
-    private static IReadOnlyList<Tool> Read()
+    /// <summary>
+    /// A field as the wire spells it: its <c>JsonPropertyName</c> if it has one, otherwise the name as
+    /// System.Text.Json's camel case writes it, which lower-cases a whole leading acronym (<c>VBTypeName</c> is
+    /// <c>vbTypeName</c>, not <c>vBTypeName</c>). A <c>JsonIgnore</c>d property is not on the wire at all.
+    /// </summary>
+    internal static Field? FieldOf(string part)
     {
-        var source = File.ReadAllText(Path.Combine(RepoTree.Root(), "IDE", "HexIDE.Desktop", "Server", "HexIdeTools.cs"));
+        var attributes = Regex.Match(part, @"^\s*(?:\[[^\]]*\]\s*)*").Value;
+        if (attributes.Contains("JsonIgnore", StringComparison.Ordinal))
+            return null;
+        var declaration = part[attributes.Length..].Split('=', 2)[0].Trim();
+        var at = declaration.LastIndexOfAny([' ', '\t', '\n', '\r']);
+        var name = declaration[(at + 1)..];
+        var type = declaration[..Math.Max(at, 0)].Trim();
+        var wire = PropertyName.Match(attributes) is { Success: true } renamed
+            ? renamed.Groups["name"].Value
+            : JsonNamingPolicy.CamelCase.ConvertName(name);
+        return new Field(wire, type);
+    }
+
+    private static (IReadOnlyList<Tool>, IReadOnlyList<string>) Read()
+    {
+        var source = WithoutComments(Source);
         var starts = ToolStart.Matches(source).ToList();
         var tools = new List<Tool>();
+        var unparsed = new List<string>();
         for (var i = 0; i < starts.Count; i++)
         {
             var end = i + 1 < starts.Count ? starts[i + 1].Index : source.Length;
             var block = source[starts[i].Index..end];
-            var signatureAt = block.IndexOf("\n    public ", StringComparison.Ordinal);
-            var header = block[..signatureAt];
+            var line = source[..starts[i].Index].Count(c => c == '\n') + 1;
+
+            if (NameArgument.Match(starts[i].Groups["args"].Value) is not { Success: true } name)
+            {
+                unparsed.Add($"HexIdeTools.cs:{line}: a tool attribute with no Name = \"...\"");
+                continue;
+            }
+            if (Signature.Match(block) is not { Success: true } signature)
+            {
+                unparsed.Add($"HexIdeTools.cs:{line}: {name.Groups["name"].Value} has no public method signature this can read");
+                continue;
+            }
+
+            // Only what sits between the attribute and the method belongs to the tool. An attribute placed
+            // anywhere else is reported by the count check rather than credited to a neighbour.
+            var header = block[..signature.Index];
             var enums = Describes.Matches(header)
                 .Select(m => (m.Groups["type"].Value,
                     Literal.Matches(m.Groups["rest"].Value).Select(l => l.Groups["text"].Value).ToArray()))
                 .ToList();
-            tools.Add(new Tool(starts[i].Groups["name"].Value, DescriptionOf(header), ParametersOf(block[signatureAt..]), enums));
+            var description = DescriptionOf(header);
+            if (description.Length == 0)
+                unparsed.Add($"HexIdeTools.cs:{line}: {name.Groups["name"].Value} has no [Description] this can read");
+
+            tools.Add(new Tool(
+                name.Groups["name"].Value,
+                description,
+                PartsOf(block[(signature.Index + signature.Length - 1)..]).Select(ParameterOf).OfType<Parameter>().ToList(),
+                enums,
+                signature.Groups["reply"].Value));
         }
-        return tools;
+        return (tools, unparsed);
     }
 
     /// <summary>The description's text: every literal in the attribute, joined as the compiler joins a `+` chain.</summary>
     private static string DescriptionOf(string header)
     {
-        var at = header.IndexOf("[Description(", StringComparison.Ordinal);
-        if (at < 0) return "";
+        if (DescriptionStart.Match(header) is not { Success: true } start) return "";
         var text = new StringBuilder();
-        var position = at;
+        var position = start.Index + start.Length;
         while (Literal.Match(header, position) is { Success: true } literal)
         {
             text.Append(Regex.Unescape(literal.Groups["text"].Value));
@@ -92,42 +180,83 @@ internal static class ToolSource
     }
 
     /// <summary>
-    /// The method's parameters as a caller sees them: the C# names, which the MCP SDK sends unchanged, less the
-    /// <see cref="CancellationToken"/> the SDK supplies itself.
+    /// A method parameter as a caller sees it: the C# name, which the MCP SDK sends unchanged. The
+    /// <see cref="CancellationToken"/> the SDK supplies itself is not one.
     /// </summary>
-    private static IReadOnlyList<Parameter> ParametersOf(string signature)
+    private static Parameter? ParameterOf(string part)
     {
-        var open = signature.IndexOf('(');
-        var depth = 0;
-        var close = open;
-        for (var i = open; i < signature.Length; i++)
-        {
-            if (signature[i] is '(' or '<') depth++;
-            else if (signature[i] is ')' or '>') depth--;
-            if (depth == 0) { close = i; break; }
-        }
+        var declaration = Regex.Replace(part, @"^\s*(?:\[[^\]]*\]\s*)*", "").Trim();
+        if (declaration.StartsWith("CancellationToken", StringComparison.Ordinal))
+            return null;
+        var beforeDefault = declaration.Split('=', 2);
+        var name = beforeDefault[0].Trim().Split([' ', '\t', '\n', '\r'], StringSplitOptions.RemoveEmptyEntries)[^1];
+        return new Parameter(name, beforeDefault.Length == 2);
+    }
 
-        var list = signature[(open + 1)..close];
+    /// <summary>
+    /// The comma-separated parts of the parenthesised list that <paramref name="text"/> opens with. Brackets and
+    /// commas inside a string literal, such as a parameter's own <c>[Description]</c>, are not structure.
+    /// </summary>
+    private static List<string> PartsOf(string text)
+    {
+        var open = text.IndexOf('(');
         var parts = new List<string>();
-        var start = 0;
-        depth = 0;
-        for (var i = 0; i < list.Length; i++)
+        var start = open + 1;
+        var depth = 0;
+        for (var i = open; i < text.Length; i++)
         {
-            if (list[i] is '<' or '(') depth++;
-            else if (list[i] is '>' or ')') depth--;
-            else if (list[i] == ',' && depth == 0) { parts.Add(list[start..i]); start = i + 1; }
-        }
-        if (list[start..].Trim().Length > 0) parts.Add(list[start..]);
-
-        return parts
-            .Select(p => p.Trim())
-            .Where(p => !p.StartsWith("CancellationToken", StringComparison.Ordinal))
-            .Select(p =>
+            if (text[i] == '"')
             {
-                var beforeDefault = p.Split('=', 2);
-                var name = beforeDefault[0].Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries)[^1];
-                return new Parameter(name, beforeDefault.Length == 2);
-            })
-            .ToList();
+                for (i++; i < text.Length && text[i] != '"'; i++)
+                    if (text[i] == '\\') i++;
+                continue;
+            }
+            if (text[i] is '(' or '<' or '[') depth++;
+            else if (text[i] is ')' or '>' or ']') depth--;
+            else if (text[i] == ',' && depth == 1) { parts.Add(text[start..i]); start = i + 1; }
+            if (depth == 0)
+            {
+                if (text[start..i].Trim().Length > 0) parts.Add(text[start..i]);
+                break;
+            }
+        }
+        return parts;
+    }
+
+    /// <summary>The text with its <c>//</c> and <c>/* */</c> comments blanked, string literals left alone.</summary>
+    internal static string WithoutComments(string text)
+    {
+        var result = new StringBuilder(text.Length);
+        for (var i = 0; i < text.Length; i++)
+        {
+            if (text[i] == '"')
+            {
+                var verbatim = i > 0 && text[i - 1] == '@';
+                result.Append(text[i]);
+                for (i++; i < text.Length; i++)
+                {
+                    result.Append(text[i]);
+                    if (!verbatim && text[i] == '\\' && i + 1 < text.Length) { result.Append(text[++i]); continue; }
+                    if (text[i] != '"') continue;
+                    if (verbatim && i + 1 < text.Length && text[i + 1] == '"') { result.Append(text[++i]); continue; }
+                    break;
+                }
+            }
+            else if (text[i] == '/' && i + 1 < text.Length && text[i + 1] == '/')
+            {
+                while (i < text.Length && text[i] != '\n') i++;
+                if (i < text.Length) result.Append('\n');
+            }
+            else if (text[i] == '/' && i + 1 < text.Length && text[i + 1] == '*')
+            {
+                var close = text.IndexOf("*/", i + 2, StringComparison.Ordinal);
+                var end = close < 0 ? text.Length : close + 2;
+                result.Append(new string(text[i..end].Where(c => c == '\n').ToArray()));
+                i = end - 1;
+            }
+            else
+                result.Append(text[i]);
+        }
+        return result.ToString();
     }
 }
