@@ -568,11 +568,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "set_window_state")]
-    [Description("Sets the main window to Maximized, Normal, or Minimized. When setting Normal, optional x/y/width/height are applied first.")]
+    [Description("Sets the main window to Maximized, Normal, or Minimized. When setting Normal, any of `x`, `y`, `width` and `height` that are passed are applied first; each is optional.")]
     public async Task<MutateResult> SetWindowStateAsync(
         string state,
-        int? x, int? y, int? width, int? height,
-        CancellationToken ct)
+        // Defaults, not just nullable types: a nullable parameter with no default is required in the schema,
+        // so the "optional" the description promised was refused on the wire. (#582)
+        int? x = null, int? y = null, int? width = null, int? height = null,
+        CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
@@ -688,7 +690,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         "then calls EndDrag — so the operation lands as a single undo step on the designer undo stack. " +
         "The form must already be open in the visual designer (call view_designer first). " +
         "Use the form's own name as controlName to resize the form itself. " +
-        "If left/top/width/height are all omitted, EndDrag is still called (tests the no-change path). " +
+        "Each of `left`, `top`, `width` and `height` is optional; if all are omitted, EndDrag is still called (tests the no-change path). " +
         "left/top are CONTAINER-RELATIVE, matching get_form_controls and the .frm: for a control inside a " +
         "Frame or PictureBox they are measured from that container, not from the form. Note that a VB6 control " +
         "array shares one name across its elements (Options Dialog.frm has four picOptions), so a name that is " +
@@ -696,11 +698,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
     public async Task<MutateResult> MoveControlAsync(
         string formName,
         string controlName,
-        double? left,
-        double? top,
-        double? width,
-        double? height,
-        CancellationToken ct)
+        double? left = null,
+        double? top = null,
+        double? width = null,
+        double? height = null,
+        CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {

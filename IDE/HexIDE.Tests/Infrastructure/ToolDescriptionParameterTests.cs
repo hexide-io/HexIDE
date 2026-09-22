@@ -62,6 +62,24 @@ public class ToolDescriptionParameterTests
             "an optional parameter the description never names is one a first-time caller never uses");
     }
 
+    /// <remarks>
+    /// A nullable C# parameter with no default value is still <c>required</c> in the generated schema, so a
+    /// caller who reads "optional" in the description and leaves it out is refused before the tool runs.
+    /// <c>set_window_state</c> said "optional x/y/width/height" and required all four, and <c>move_control</c>'s
+    /// description told a caller to omit what its schema required. CLAUDE.md warns about exactly this, and a
+    /// warning is not a check.
+    /// </remarks>
+    [Fact]
+    public void Every_nullable_parameter_is_optional_on_the_wire()
+    {
+        var required = ToolSource.Tools.SelectMany(t => t.Parameters
+            .Where(p => p.Type.EndsWith('?') && !p.Optional)
+            .Select(p => $"{t.Name}: {p.Type} {p.Name} has no default, so the schema requires it"));
+
+        string.Join(Environment.NewLine, required).Should().BeEmpty(
+            "give each one a default, usually = null, or make its type non-nullable if it is required");
+    }
+
     private static readonly Regex SnakeWord = new(@"\b[a-z]+(?:_[a-z]+)+\b");
 
     private static string Camel(string snake) =>
