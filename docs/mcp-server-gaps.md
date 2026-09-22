@@ -23,6 +23,12 @@ maxDepth: 14)`, not "`dump_visual_tree` returns only the tab chrome".
 
 ## 3. MCP tools drop on IDE shutdown and don't re-attach mid-session
 
+> **The MCP client's behaviour, not a HexIDE defect** (#645). Tool discovery belongs to the client: it keeps
+> a cached schema for a tool name it already knows, and does not attach at all when a session began with no
+> server answering. Measured 2026-09-22 over about a dozen relaunches in one session that began attached:
+> existing tools stayed callable every time, and a changed description was not picked up until a `/mcp`
+> reconnect. Nothing observed points at the server. Kept here for the measurements.
+
 **Symptom.** MCP tools are discovered at session start. Shutting the IDE down — which is **required** to run
 the `vb6.exe` oracle and for any rebuild that holds file locks on the runtime DLLs — disconnects the `hexide`
 server and **removes every one of its tools from the session**; `ToolSearch("mcp__hexide__…")` then returns "no matching
@@ -244,7 +250,13 @@ the kind this document exists to prevent.
 
 ---
 
-## 10. A crashed IDE is indistinguishable from a slow tool call
+## 10. A crashed IDE is indistinguishable from a slow tool call (narrowed 2026-09-22)
+
+> **Narrowed by #643.** An exception nothing caught is now written to the IDE log with its stack, and the log
+> is flushed before the process ends, so the post-mortem no longer needs the Windows event log. Checked live
+> with `HEXIDE_DEBUG_CRASH=thread` and `=ui` in a Debug build. **What remains** is the caller's side: once the
+> process is dead it cannot answer, so the client still says `Unable to connect`, and the reader must know to
+> look in the log. An exception inside a `DispatcherTimer` callback is not caught at all; see #652.
 
 **Symptom.** Driving the designer to compose a screenshot, `add_control` returned success, then the next
 call hung for the full 120 s timeout and every subsequent call failed with `Unable to connect. Is the
@@ -280,6 +292,12 @@ handler that flushes Serilog on `AppDomain.UnhandledException` would also make t
   limitation. It's listed here only because gap #1 made it hard to *see* the resulting error.
 
 ## MCP tools do not re-attach to a resumed session while the IDE keeps running
+
+> **The MCP client's behaviour, not a HexIDE defect** (#645). Tool discovery belongs to the client: it keeps
+> a cached schema for a tool name it already knows, and does not attach at all when a session began with no
+> server answering. Measured 2026-09-22 over about a dozen relaunches in one session that began attached:
+> existing tools stayed callable every time, and a changed description was not picked up until a `/mcp`
+> reconnect. Nothing observed points at the server. Kept here for the measurements.
 
 **Symptom.** HexIDE was running throughout (`HexIDE.Desktop` PID alive, port 5123 `LISTENING`), the session
 was restarted twice specifically to pick the tools up, and `mcp__hexide__*` was still absent from the tool
