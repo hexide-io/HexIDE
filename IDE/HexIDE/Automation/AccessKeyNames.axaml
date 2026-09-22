@@ -9,6 +9,6 @@
     -->
     <Style Selector="Button, RepeatButton, ToggleButton, CheckBox, RadioButton">
         <Setter Property="AutomationProperties.Name"
-                Value="{Binding $self.Content, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" />
+                Value="{CompiledBinding $self.Content, Converter={x:Static converters:AccessKeyNameConverter.Instance}}" />
     </Style>
 </Styles>
