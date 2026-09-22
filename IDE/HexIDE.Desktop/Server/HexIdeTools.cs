@@ -888,7 +888,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "set_bookmarks")]
-    [Description("Replaces all bookmarks for a form or module with the supplied 0-based line numbers. Named by its own VB6 name in any loaded project (case does not matter); pass `project` to say which when a group holds two of one name. Pass an empty array to clear them. The note reports what the document holds afterwards.")]
+    [Description("Replaces all bookmarks for a form or module with the supplied 0-based line numbers. Named by its own VB6 name in any loaded project (case does not matter); pass `project` to say which when a group holds two of one name. Pass an empty array to clear them. A line the document does not have is refused, and then nothing is changed. The note reports what the document holds afterwards.")]
     public async Task<MutateResult> SetBookmarksAsync(string name, int[] lines, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -896,6 +896,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
             var lookup = ResolveDocument(name, project);
             if (lookup.Document is not { } document)
                 return new MutateResult(false, lookup.Error);
+
+            if (OutsideDocument(document, lines, first: 0, "bookmark") is { } outside)
+                return new MutateResult(false, outside);
 
             ctx.BookmarkService.SetBookmarks(document, lines);
             return new MutateResult(true, null, Held(document, ctx.BookmarkService.GetBookmarks(document), "bookmark"));
@@ -920,7 +923,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "set_breakpoints")]
-    [Description("Replaces all breakpoints for a form or module with the supplied 1-based line numbers. Named by its own VB6 name in any loaded project (case does not matter); pass `project` to say which when a group holds two of one name. Pass an empty array to clear them. Takes effect immediately if that project is the one running. The note reports what the document holds afterwards.")]
+    [Description("Replaces all breakpoints for a form or module with the supplied 1-based line numbers. Named by its own VB6 name in any loaded project (case does not matter); pass `project` to say which when a group holds two of one name. Pass an empty array to clear them. A line the document does not have is refused, and then nothing is changed. Takes effect immediately if that project is the one running. The note reports what the document holds afterwards.")]
     public async Task<MutateResult> SetBreakpointsAsync(string name, int[] lines, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -928,6 +931,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
             var lookup = ResolveDocument(name, project);
             if (lookup.Document is not { } document)
                 return new MutateResult(false, lookup.Error);
+
+            if (OutsideDocument(document, lines, first: 1, "breakpoint") is { } outside)
+                return new MutateResult(false, outside);
 
             ctx.BreakpointService.SetDocument(document, lines);
             return new MutateResult(true, null, Held(document, ctx.BreakpointService.GetBreakpoints(document), "breakpoint"));
@@ -1734,6 +1740,33 @@ internal sealed class HexIdeTools(IdeContext ctx)
         lines.Count == 0
             ? $"{document.Display} now has no {what}s."
             : $"{document.Display} now has {what}s on {string.Join(", ", lines)}.";
+
+    /// <summary>
+    /// Why some of <paramref name="lines"/> cannot be marked in <paramref name="document"/>, or null when all can.
+    /// </summary>
+    /// <remarks>
+    /// A line the document does not have was stored, read back as held, and then shown nowhere and hit never:
+    /// set_breakpoints("Module1", [-1, 0, 99]) on a two-line module answered that it now had breakpoints on
+    /// -1, 0 and 99. The whole call is refused, rather than the good lines kept, because a caller who got one
+    /// line wrong has probably got the numbering wrong, and half a set of marks is harder to notice than none.
+    /// Lines are counted in the text the editor numbers: the open editor's buffer, else the model's code,
+    /// neither of which carries the Attribute header.
+    /// </remarks>
+    private string? OutsideDocument(DocumentIdentity document, int[] lines, int first, string what)
+    {
+        var editor = ctx.DocumentDockService.OpenDocuments.OfType<CodeEditorViewModel>()
+            .FirstOrDefault(e => e.Identity == document);
+        var text = editor?.Document.Text ?? document.Module?.Code ?? document.Form?.Code ?? "";
+        var lineCount = text.Split('\n').Length;
+        var last = first + lineCount - 1;
+
+        var outside = lines.Where(l => l < first || l > last).Distinct().ToList();
+        if (outside.Count == 0)
+            return null;
+        return $"{string.Join(", ", outside)} {(outside.Count == 1 ? "is" : "are")} not a line of {document.Display}, " +
+               $"which has {lineCount} line{(lineCount == 1 ? "" : "s")}: {what}s are numbered {first}..{last}" +
+               $"{(first == 0 ? ", counting from 0" : "")}. Nothing was changed.";
+    }
 
     private CodeEditorViewModel? FindEditor(string name) =>
         ctx.DocumentDockService.OpenDocuments
