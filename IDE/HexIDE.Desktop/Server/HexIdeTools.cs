@@ -619,7 +619,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "set_tool_window_visible")]
-    [Description("Shows or hides a named tool panel. Valid names: Toolbox, Properties, ProjectGroup, FormLayout, Immediate, Locals, Watches, CallStack.")]
+    [Description("Shows or hides a named tool panel. Valid names: Toolbox, Properties, ProjectGroup, FormLayout, Immediate, Locals, Watches, CallStack, or an add-in tool window's title. The View menu's names for the same panels, such as 'Immediate Window' or 'Project Explorer', are accepted too, without regard to case.")]
     public async Task<MutateResult> SetToolWindowVisibleAsync(string name, bool visible, CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -846,36 +846,20 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (ctx.DocumentDockService.ActiveDocument is not HexIDE.VisualDesigner.FormEditViewModel designer)
                 return new MutateResult(false, "Active window is not a form designer");
 
-            Action? action = command switch
+            // One table for dispatch and for the refusal, so the names a refusal lists are the names that work.
+            // The refusal used to send the caller back to the description, for a name one letter away. (#586)
+            var entry = FormatCommands.FirstOrDefault(c => string.Equals(c.Name, command, StringComparison.OrdinalIgnoreCase));
+            if (entry.Of is null)
             {
-                "AlignLefts"               => designer.AlignLefts,
-                "AlignRights"              => designer.AlignRights,
-                "AlignTops"                => designer.AlignTops,
-                "AlignBottoms"             => designer.AlignBottoms,
-                "AlignCentersH"            => designer.AlignCentersH,
-                "AlignCentersV"            => designer.AlignCentersV,
-                "MakeSameWidth"            => designer.MakeSameWidth,
-                "MakeSameHeight"           => designer.MakeSameHeight,
-                "MakeSameSize"             => designer.MakeSameSize,
-                "MakeHorizontalSpacingEqual"  => designer.MakeHorizontalSpacingEqual,
-                "IncreaseHorizontalSpacing"   => designer.IncreaseHorizontalSpacing,
-                "DecreaseHorizontalSpacing"   => designer.DecreaseHorizontalSpacing,
-                "RemoveHorizontalSpacing"     => designer.RemoveHorizontalSpacing,
-                "MakeVerticalSpacingEqual"    => designer.MakeVerticalSpacingEqual,
-                "IncreaseVerticalSpacing"     => designer.IncreaseVerticalSpacing,
-                "DecreaseVerticalSpacing"     => designer.DecreaseVerticalSpacing,
-                "RemoveVerticalSpacing"       => designer.RemoveVerticalSpacing,
-                "SizeToGrid"               => designer.SizeToGrid,
-                "CenterHorizontally"       => designer.CenterHorizontally,
-                "CenterVertically"         => designer.CenterVertically,
-                _                          => (Action?)null
-            };
-
-            if (action is null)
+                var near = command.Length == 0 ? [] : FormatCommands
+                    .Where(c => c.Name.StartsWith(command, StringComparison.OrdinalIgnoreCase)).Select(c => c.Name).ToList();
                 return new MutateResult(false,
-                    $"Unknown command '{command}'. See tool description for valid names.");
+                    $"Unknown command '{command}'."
+                    + (near.Count > 0 ? $" Did you mean {string.Join(" or ", near.Select(n => $"'{n}'"))}?" : "")
+                    + $" Commands: {string.Join(", ", FormatCommands.Select(c => c.Name))}.");
+            }
 
-            action();
+            entry.Of(designer)();
             return new MutateResult(true, null);
         });
     }
@@ -1296,14 +1280,58 @@ internal sealed class HexIdeTools(IdeContext ctx)
             "Shutdown requested. Poll /health until it stops answering to confirm the process exited.");
     }
 
+    private static readonly (string Name, Func<HexIDE.VisualDesigner.FormEditViewModel, Action> Of)[] FormatCommands =
+    [
+        ("AlignLefts", d => d.AlignLefts),
+        ("AlignRights", d => d.AlignRights),
+        ("AlignTops", d => d.AlignTops),
+        ("AlignBottoms", d => d.AlignBottoms),
+        ("AlignCentersH", d => d.AlignCentersH),
+        ("AlignCentersV", d => d.AlignCentersV),
+        ("MakeSameWidth", d => d.MakeSameWidth),
+        ("MakeSameHeight", d => d.MakeSameHeight),
+        ("MakeSameSize", d => d.MakeSameSize),
+        ("MakeHorizontalSpacingEqual", d => d.MakeHorizontalSpacingEqual),
+        ("IncreaseHorizontalSpacing", d => d.IncreaseHorizontalSpacing),
+        ("DecreaseHorizontalSpacing", d => d.DecreaseHorizontalSpacing),
+        ("RemoveHorizontalSpacing", d => d.RemoveHorizontalSpacing),
+        ("MakeVerticalSpacingEqual", d => d.MakeVerticalSpacingEqual),
+        ("IncreaseVerticalSpacing", d => d.IncreaseVerticalSpacing),
+        ("DecreaseVerticalSpacing", d => d.DecreaseVerticalSpacing),
+        ("RemoveVerticalSpacing", d => d.RemoveVerticalSpacing),
+        ("SizeToGrid", d => d.SizeToGrid),
+        ("CenterHorizontally", d => d.CenterHorizontally),
+        ("CenterVertically", d => d.CenterVertically),
+    ];
+
     [McpServerTool(Name = "set_ide_language")]
     [Description("Switches the IDE chrome language by pack id ('en', 'pseudo', 'pseudo-rtl', or an installed pack id), driving the exact live-apply + countdown-revert confirmation gate the Options dropdown uses. Returns immediately; the gate stays open and auto-reverts after its countdown. Call take_snapshot right after to capture the gate, or wait for it to time out to see the reverted chrome.")]
     public Task<MutateResult> SetIdeLanguageAsync(string id, CancellationToken ct)
     {
+        // Checked first against what the Language page offers, languages and their regions. An unknown id used
+        // to be applied anyway, which falls back to English, and answered success: the caller asked for one
+        // language, got another, and was told it had worked. (#585)
+        var languages = ctx.LanguageSwitch.AvailableLanguages;
+        var known = languages.Select(l => l.Id)
+            .Concat(languages.SelectMany(l => ctx.LanguageSwitch.RegionsFor(l.Id).Select(r => r.Id)));
+        var match = known.FirstOrDefault(k => string.Equals(k, id, StringComparison.OrdinalIgnoreCase));
+        if (match is null)
+            return Task.FromResult(new MutateResult(false,
+                $"No language pack '{id}'. Languages: {string.Join(", ", languages.Select(l => l.Id))}. "
+                + "A region of one of them, such as 'fr-CA', is accepted too."));
+
         // Fire the switch+gate on the UI thread and return at once, so the modal gate is left open
         // for take_snapshot to capture (awaiting here would block until the gate resolved).
-        Dispatcher.UIThread.Post(() => _ = ctx.LanguageSwitch.SwitchWithGateAsync(id));
-        return Task.FromResult(new MutateResult(true, null));
+        Dispatcher.UIThread.Post(() => _ = ctx.LanguageSwitch.SwitchWithGateAsync(match));
+        var shown = languages.FirstOrDefault(l => l.Id == match)?.DisplayName
+                    ?? languages.Select(l => (Language: l, Region: ctx.LanguageSwitch.RegionsFor(l.Id).FirstOrDefault(r => r.Id == match)))
+                        .Where(x => x.Region is not null)
+                        .Select(x => $"{x.Language.DisplayName} ({x.Region!.DisplayName})")
+                        .FirstOrDefault()
+                    ?? match;
+        return Task.FromResult(new MutateResult(true, null,
+            $"Switching to {shown} ('{match}'). A confirmation gate is open, and it reverts on its own unless "
+            + "Keep is pressed; take_snapshot captures it."));
     }
 
     [McpServerTool(Name = "take_snapshot")]
