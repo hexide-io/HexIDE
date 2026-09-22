@@ -909,6 +909,79 @@ public class UiAutomationDriverTests
         outcome.Error.Should().Contain("not attached");
     }
 
+    // The declared tip belongs to the point hovered, not to whichever descendant of the target comes first:
+    // a hover on the window that landed in a code editor once answered with the toolbar's "Add Project" (#610).
+
+    [AvaloniaFact]
+    public void Hover_OnAContainer_GivesThePathOfTheEditorThePointerWentTo()
+    {
+        // A hover on the window lands in the first editor under it. "hovered (0, 25.6) on TextEditor[Editor]"
+        // did not say which editor (#610); the path does, and resolves back to it.
+        var first = new TextEditor { Name = "First" };
+        var second = new TextEditor { Name = "Second" };
+        AutomationProperties.SetAutomationId(first, "First");
+        AutomationProperties.SetAutomationId(second, "Second");
+        var host = new StackPanel();
+        host.Children.Add(first);
+        host.Children.Add(second);
+        var window = Show(host);
+        try
+        {
+            var outcome = UiAutomationDriver.Hover(window, null, null, "Window", out var landing);
+
+            outcome.Success.Should().BeTrue(outcome.Error);
+            var path = outcome.Detail!.Split(", at ").Last();
+            path.Should().StartWith("Window/", "the reply must carry a path, not only a class name");
+            var (resolved, error) = UiAutomationDriver.Resolve(window, path);
+            resolved.Should().NotBeNull(error);
+            resolved.Should().BeSameAs(landing!.Value.Receiver).And.BeSameAs(first);
+        }
+        finally { window.Close(); }
+    }
+
+    private static (Window Window, Button Button) ToolbarBesideAPane()
+    {
+        var button = new Button
+        {
+            Content = "+", Width = 120, Height = 40,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left,
+        };
+        ToolTip.SetTip(button, "Add Project");
+        var pane = new Border { Height = 200, Background = Avalonia.Media.Brushes.White };
+        return (Show(new StackPanel { Children = { button, pane } }), button);
+    }
+
+    [AvaloniaFact]
+    public void Hover_DeclaredTip_IsNotBorrowedFromAnUnrelatedDescendant()
+    {
+        var (window, _) = ToolbarBesideAPane();
+        try
+        {
+            // Window centre: in the pane, well below the button.
+            UiAutomationDriver.Hover(window, null, null, null, out var landing).Success.Should().BeTrue();
+
+            UiAutomationDriver.DeclaredToolTipAt(landing!.Value.Receiver, landing.Value.Point)
+                .Should().BeNull("nothing under the hovered point declares a tip, and the button is elsewhere");
+        }
+        finally { window.Close(); }
+    }
+
+    [AvaloniaFact]
+    public void Hover_DeclaredTip_IsTheOneUnderThePoint_EvenWhenTheTargetIsItsContainer()
+    {
+        var (window, button) = ToolbarBesideAPane();
+        try
+        {
+            button.IsEnabled = false; // a disabled toolbar button still declares its tip
+
+            UiAutomationDriver.Hover(window, 10, 10, null, out var landing).Success.Should().BeTrue();
+
+            UiAutomationDriver.DeclaredToolTipAt(landing!.Value.Receiver, landing.Value.Point)
+                .Should().Be("Add Project");
+        }
+        finally { window.Close(); }
+    }
+
     // ── Saying when a node is not on screen (gap 15) ─────────────────────────────────
 
     [AvaloniaFact]
