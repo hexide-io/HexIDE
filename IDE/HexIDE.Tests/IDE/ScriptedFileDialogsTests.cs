@@ -70,4 +70,28 @@ public class ScriptedFileDialogsTests
         ScriptedFileDialogs.Clear().Should().Be(2);
         ScriptedFileDialogs.Pending.Should().Be(0);
     }
+
+    [Fact]
+    public void ADocumentWithNoFileAndNothingArmedWouldShowThePicker()
+    {
+        ScriptedFileDialogs.WouldShowPicker(null).Should().BeTrue(
+            "that save opens a modal native picker, which stops the automation server answering (#514)");
+    }
+
+    [Fact]
+    public void ADocumentWithAFileNeverShowsThePicker()
+    {
+        ScriptedFileDialogs.WouldShowPicker(@"C:\p\Form1.frm").Should().BeFalse();
+    }
+
+    [Fact]
+    public void AnArmedAnswerMakesTheSaveSafeToAttemptWithoutSpendingIt()
+    {
+        // An armed cancel counts, because answering the picker as cancelled is how a caller keeps a
+        // document without a file while testing that state.
+        ScriptedFileDialogs.AnswerNextWith(null);
+
+        ScriptedFileDialogs.WouldShowPicker(null).Should().BeFalse();
+        ScriptedFileDialogs.Pending.Should().Be(1, "asking must not spend the answer the save is about to take");
+    }
 }
