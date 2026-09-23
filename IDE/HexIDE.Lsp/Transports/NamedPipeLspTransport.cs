@@ -126,6 +126,13 @@ public sealed class NamedPipeLspTransport : ILspTransport
         ILspWorkspace? workspace = null,
         TimeSpan? connectTimeout = null)
     {
+        // The second line of defence, for a caller that did not come through the config loader. The
+        // framework's own error names a socket path rather than the pipe name, and arrives at connect
+        // time with a registration already standing (#694); this arrives on construction and says which
+        // argument is wrong.
+        if (PipeNameLimit.IsTooLong(pipeName))
+            throw new ArgumentOutOfRangeException(nameof(pipeName), PipeNameLimit.Refusal(pipeName));
+
         _pipeName = pipeName;
         _role = role;
         _logger = logger;

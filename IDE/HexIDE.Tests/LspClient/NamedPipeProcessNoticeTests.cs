@@ -41,9 +41,26 @@ public class NamedPipeProcessNoticeTests
             : new NamedPipeLaunch(
                 "/bin/sh", $"-c \">&2 echo {First}; >&2 echo {Second}; exit {code}\"");
 
-    /// <summary>A distinct pipe name per test, so a stray server from one cannot answer another.</summary>
-    private static string PipeName([System.Runtime.CompilerServices.CallerMemberName] string caller = "") =>
-        $"hexide-test-{caller}-{Environment.ProcessId}";
+    /// <summary>
+    /// A distinct pipe name per test, so a stray server from one cannot answer another.
+    ///
+    /// <para>
+    /// The caller's name is HASHED rather than spelled. It used to be interpolated whole, so the name was
+    /// as long as the test method — <c>AServerThatDiesBeforeItsPipeExistsStillExplainsItself</c> alone
+    /// makes 70 characters, against macOS's budget of 43, and every test here threw before asserting
+    /// anything the first time this suite ran on a Mac (#694). A hash keeps the per-test distinctness that
+    /// mattered and costs the readability of a name only a stack trace ever shows.
+    /// </para>
+    /// <para>
+    /// SHA-256 rather than <c>string.GetHashCode</c>, which is randomised per process on .NET Core.
+    /// Truncating the method name would not do either: three of these begin <c>TheExitC</c>.
+    /// </para>
+    /// </summary>
+    private static string PipeName([System.Runtime.CompilerServices.CallerMemberName] string caller = "")
+    {
+        var digest = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(caller));
+        return $"hexide-{Convert.ToHexString(digest)[..8].ToLowerInvariant()}-{Environment.ProcessId}";
+    }
 
     private static NamedPipeLspTransport Transport(NamedPipeLaunch launch, string pipeName) =>
         new(pipeName,
