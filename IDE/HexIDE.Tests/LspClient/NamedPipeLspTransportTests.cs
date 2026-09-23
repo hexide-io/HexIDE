@@ -18,7 +18,12 @@ public class NamedPipeLspTransportTests
 
     // A fresh name per test: pipe names are a machine-global namespace, so a fixed one would make
     // these tests fail each other under parallel execution.
-    private static string UniquePipeName() => $"hexide-test-{Guid.NewGuid():N}";
+    //
+    // SHORT on purpose, and 12 hex digits rather than a full GUID. This used to be the whole 32, making
+    // the name 44 characters, which is inside every platform's budget but macOS's 43 — so all six
+    // named-pipe tests threw before asserting anything, the first time this suite ran on a Mac (#694).
+    // Collision risk at 48 bits across a single run is not a consideration; the platform limit is.
+    private static string UniquePipeName() => $"hexide-{Guid.NewGuid():N}"[..19];
 
     private static IJsonRpcMessageFormatter Formatter() => new SystemTextJsonFormatter();
 
