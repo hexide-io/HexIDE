@@ -861,7 +861,18 @@ public class UiAutomationDriverTests
 
             var (resolved, error) = UiAutomationDriver.Resolve(window, path);
             resolved.Should().NotBeNull(error);
-            resolved.Should().BeOfType<TextEditor>().Which.TextArea.Should().BeSameAs(got,
+            // WHICH editor, not which class. The leaf depends on whether the editor has a template: with
+            // AvaloniaEdit's theme loaded, as the running IDE and now this harness load it, the path ends at
+            // the TextArea; without it the TextEditor is the leaf. This asserted TextEditor and so passed only
+            // while the harness differed from the app. What #611 is about is that the path picks out one of two
+            // editors, and that holds either way.
+            var resolvedArea = resolved switch
+            {
+                TextEditor editor => editor.TextArea,
+                AvaloniaEdit.Editing.TextArea textArea => textArea,
+                _ => null,
+            };
+            resolvedArea.Should().BeSameAs(got,
                 "the path names the editor whose TextArea received the key, not the other one");
 
             var receiver = got;
