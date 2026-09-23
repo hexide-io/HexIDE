@@ -79,6 +79,17 @@ jobs:
     # here: without one, a skipped or failed `needs` would skip this job no matter what the
     # rest of the expression says — and a skipped job reports Success to a required check.
     if: ${{ !cancelled() && needs.changes.outputs.skip != 'true' }}
+    # Named for the platform, as its two neighbours are, so a check list reads
+    # build-ide (linux) / (windows) / (macos) instead of leaving the original one anonymous.
+    # "linux" rather than "ubuntu": publish.yml already names its platforms linux-amd64,
+    # windows-amd64 and macos-arm64, so the OS family is this repository's vocabulary and a
+    # distro name here would be the only one of its kind.
+    #
+    # THE CHECK NAME CHANGES WITH IT. `build-ide` is a required status check in the
+    # protect-main ruleset, and a required check that never reports blocks every pull request
+    # — including this one. The ruleset's required list must name `build-ide (linux)` before
+    # this merges.
+    name: build-ide (linux)
     runs-on: ubuntu-latest
     defaults:
       run:
