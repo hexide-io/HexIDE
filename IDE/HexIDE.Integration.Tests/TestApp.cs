@@ -18,9 +18,17 @@ public class TestApp : Application
     {
         RequestedThemeVariant = ThemeVariant.Light;
         Styles.Add(new SimpleTheme());
+        Styles.Add(new Dock.Avalonia.Themes.Simple.DockSimpleTheme());
         Styles.Add(new StyleInclude(new Uri("avares://HexIDE.Integration.Tests/"))
         {
             Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml"),
+        });
+        // As App.axaml does. Without it a TextEditor has no template, so its TextArea is not in the tree at
+        // all: a test that walks or resolves a path through an editor was walking a shape the running IDE
+        // never has, and one assertion passed only because of it (#611's test named TextEditor as the leaf).
+        Styles.Add(new StyleInclude(new Uri("avares://HexIDE.Integration.Tests/"))
+        {
+            Source = new Uri("avares://AvaloniaEdit/Themes/Simple/AvaloniaEdit.xaml"),
         });
         // As App.axaml does: access-key captions name their controls without the "_" marker (#578).
         Styles.Add(new StyleInclude(new Uri("avares://HexIDE.Integration.Tests/"))
