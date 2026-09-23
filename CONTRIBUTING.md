@@ -112,11 +112,38 @@ calls of any kind.
 1. For anything non-trivial, find or open an issue first, so we can agree on the approach, and **ask to
    be assigned before you start**. A comment on the issue is enough. Contributors can't assign
    themselves on GitHub, but a maintainer can assign anyone who has commented. An issue that is already
-   assigned is being worked on. If one has been assigned for a while with no visible activity, ask on
-   it, because it may be free. If you set work aside, say so on the issue so someone else can pick it up.
+   assigned is being worked on.
+   **An assignment lapses after seven days with nothing pushed and no word on the issue.** After that,
+   ask on the issue and it is yours — you don't need the previous assignee to answer first, and a
+   maintainer will reassign it. Seven days is deliberately generous, because the rule is there to stop a
+   claim blocking somebody silently, not to hurry you along. If you are still on it and simply quiet, say
+   so on the issue and the clock starts again; nobody minds being told. If you set work aside, say that
+   too, so someone else can pick it up.
 2. Branch off the default branch; keep each PR focused and its commits tidy.
 3. Make sure the build is green and the relevant tests pass locally. CI runs the IDE and LSP builds/tests.
 4. Describe *what* and *why* in the PR. Screenshots help for any UI change.
+
+## AI-assisted contributions
+
+**HexIDE leans heavily on AI-assisted workflows, and you are welcome to use AI when contributing.** There
+is nothing to disclose and no separate track for a PR written that way.
+
+**Your pull request will be reviewed and commented on by an AI, under human direction.** A maintainer
+directs that review, reads it, and owns the decision. Nothing merges on a machine's say-so, and a review
+comment you disagree with is worth arguing with — say so on the PR and a human will look.
+
+What is judged is the change, not how it was produced: does it do what it claims, is it the smallest
+change that does, and do its tests fail without it. That last one is where an AI-assisted change most
+often comes unstuck, because a confident patch with a test that would pass either way looks exactly like
+a correct one. Revert your own fix, watch your test go red, and put it back. If it stayed green, the test
+isn't testing the fix.
+
+The licensing rules don't change: what you send has to be yours to license under MIT, whatever wrote the
+first draft, and copyleft or licence-unclear code cannot come in. See
+[Licensing of contributions](#licensing-of-contributions-read-first).
+
+To point an agent at the running IDE, see
+[Driving the IDE from an AI coding agent](#driving-the-ide-from-an-ai-coding-agent).
 
 ## Advanced setup
 
