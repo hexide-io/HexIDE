@@ -91,6 +91,14 @@ internal sealed class LspDocumentSession : IDisposable
     /// Judged by arrival, since a publish rarely carries the version it answers: one that lands between an
     /// edit and the debounced change it causes is counted as answering that edit. A server that does not
     /// republish unchanged diagnostics after an edit leaves this true until it next publishes. (#664)
+    ///
+    /// <para>
+    /// Judged by arrival from <b>any</b> source, too. An external compiler's injected set, and the
+    /// withdrawal of one, reach this through the same event as a server's answer, so either clears the
+    /// wait — the whole-document set the registry raises is what arrives, not "the analysis you were
+    /// waiting for". After a build, then, this reads as answered for a document whose language server has
+    /// said nothing since the edit.
+    /// </para>
     /// </remarks>
     public bool AwaitingDiagnostics =>
         IsOpen && Volatile.Read(ref editsWhenLastPublished) < Volatile.Read(ref edits);
