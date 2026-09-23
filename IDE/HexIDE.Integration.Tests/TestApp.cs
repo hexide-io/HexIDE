@@ -18,6 +18,7 @@ public class TestApp : Application
     {
         RequestedThemeVariant = ThemeVariant.Light;
         Styles.Add(new SimpleTheme());
+        Styles.Add(new Dock.Avalonia.Themes.Simple.DockSimpleTheme());
         Styles.Add(new StyleInclude(new Uri("avares://HexIDE.Integration.Tests/"))
         {
             Source = new Uri("avares://Avalonia.Controls.DataGrid/Themes/Simple.xaml"),
