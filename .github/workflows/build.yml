@@ -79,6 +79,17 @@ jobs:
     # here: without one, a skipped or failed `needs` would skip this job no matter what the
     # rest of the expression says — and a skipped job reports Success to a required check.
     if: ${{ !cancelled() && needs.changes.outputs.skip != 'true' }}
+    # Named for the platform, as its two neighbours are, so a check list reads
+    # build-ide (linux) / (windows) / (macos) instead of leaving the original one anonymous.
+    # "linux" rather than "ubuntu": publish.yml already names its platforms linux-amd64,
+    # windows-amd64 and macos-arm64, so the OS family is this repository's vocabulary and a
+    # distro name here would be the only one of its kind.
+    #
+    # THE CHECK NAME CHANGES WITH IT. `build-ide` is a required status check in the
+    # protect-main ruleset, and a required check that never reports blocks every pull request
+    # — including this one. The ruleset's required list must name `build-ide (linux)` before
+    # this merges.
+    name: build-ide (linux)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -216,6 +227,106 @@ jobs:
       # fail in different ways and neither subsumes the other.
       - name: Build HexIDE.Desktop in Release (the configuration the server is absent from)
         run: dotnet build HexIDE.Desktop -f net10.0 -c Release
+
+  # ── The same tests, on the two platforms that have only ever been BUILD targets ───────────────────
+  #
+  # build-ide above is the whole of the per-push suite and it is ubuntu-only, while publish.yml has
+  # built on windows-latest, windows-11-arm, macos-latest and macos-15-intel since the first release.
+  # So both platforms are compiled on every tag and have never had a test run against them.
+  #
+  # What that costs, counted rather than estimated: 35 places in the test projects branch on
+  # OperatingSystem.IsWindows(), and CI has only ever taken the other arm. Ten of them are in
+  # CodeEditorViewModelTests and DocumentWireNameTests — drive letters and backslashes becoming
+  # file:///C:/... URIs, which is the part of this product most likely to be wrong on one host and
+  # right on another. Two are in PackageVerificationTests, where the escape attempt a Windows run
+  # makes is C:\evil.dll and the one a Linux run makes is /evil.dll. Three more tests carry
+  # [WindowsOnlyFact] and skip here entirely. None of that was covered by "the maintainer develops on
+  # Windows" once an outside contributor's pull request could land on ubuntu-only CI.
+  #
+  # Also newly exercised: the win-x64 and osx-arm64 foreign-server assets. Twelve digests are pinned
+  # across the four servers for those two platforms and not one has ever been downloaded, let alone
+  # verified. HEXIDE_REQUIRE_FOREIGN_LSP below turns a failed acquisition into a red job rather than a
+  # silent skip, so the first run of this is also the first proof those pins are right.
+  #
+  # NOT a substitute for the maintainer's own machine, and this is the honest limit: a GitHub runner
+  # has no VB6, so every test gated on the VB98 Template tree returns early here exactly as it does on
+  # ubuntu. Those stay unproven until they run somewhere with the toolchain installed.
+  #
+  # Deliberately NOT added to branch protection by this change. They are visible on a pull request and
+  # do not block a merge, which is the right state while there is no local macOS to reproduce a failure
+  # on. Promoting them to required is a separate, deliberate decision.
+  build-ide-desktop:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.skip != 'true' }}
+    name: build-ide (${{ matrix.name }})
+    runs-on: ${{ matrix.runner }}
+    defaults:
+      run:
+        working-directory: IDE
+    strategy:
+      # One platform's failure must not hide the other's result, which is the whole point of running
+      # two platforms nobody has test data for.
+      fail-fast: false
+      matrix:
+        include:
+          - { name: windows, runner: windows-latest }
+          - { name: macos, runner: macos-latest }
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      # Declared rather than assumed, for the same reason as build-ide: the images happen to ship Node,
+      # and a dependency that works by luck breaks on an image change for reasons nobody can see.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # runner.os is already in the key, so each platform gets its own cache without inventing a second
+      # convention. The first run on each is a cold fetch of that platform's assets.
+      - name: Cache the foreign language servers
+        uses: actions/cache@v4
+        with:
+          path: artifacts/foreign-lsp
+          key: >-
+            foreign-lsp-${{ runner.os }}-${{ hashFiles(
+              'IDE/HexIDE.Tests/LspClient/ForeignServerAcquisition.cs',
+              'tools/node-lsp/package-lock.json') }}
+
+      - name: Cache the LSP specification model
+        uses: actions/cache@v4
+        with:
+          path: artifacts/lsp-metamodel
+          key: >-
+            lsp-metamodel-${{ runner.os }}-${{ hashFiles(
+              'IDE/HexIDE.Tests/LspClient/LspSpecificationModel.cs') }}
+
+      - name: Run Runtime Tests
+        run: dotnet test HexIDE.Runtime.Tests/HexIDE.Runtime.Tests.csproj
+
+      # One test speaks to HexIDE's own server over a real process, and nothing in this job has produced
+      # it yet. Without this step it skips, and the variable below turns that skip into a failure.
+      - name: Build the bundled VB6 language server (for the round-trip test)
+        working-directory: LspServer
+        run: dotnet build HexIDE.VbLspServer/HexIDE.VbLspServer.csproj
+
+      # The translation-completeness test is excluded here and only here. It compares JSON files on
+      # disk and cannot answer differently per platform, so running it three times would triple one
+      # result — and the outside-contributor handling build-ide does for it has a single place to live.
+      # build-ide remains the one that blocks on it.
+      - name: Run ViewModel Tests
+        env:
+          HEXIDE_REQUIRE_FOREIGN_LSP: '1'
+        run: dotnet test HexIDE.Tests/HexIDE.Tests.csproj -- --filter-not-method "*EveryShippedTranslationHasEveryCanonicalKey"
+
+      - name: Run Integration Tests (headless Avalonia UI)
+        run: dotnet test HexIDE.Integration.Tests/HexIDE.Integration.Tests.csproj
 
   build-lsp-server:
     needs: changes
