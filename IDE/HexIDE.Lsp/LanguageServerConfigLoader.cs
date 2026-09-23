@@ -446,6 +446,20 @@ public sealed class LanguageServerConfigLoader
                 break;
             case "pipe":
                 if (string.IsNullOrWhiteSpace(entry.PipeName)) missing.Add("pipeName");
+                // Refused HERE, where every other problem with this file is already reported, rather than
+                // at connect time. Unchecked, an over-long name passed validation, produced a registration,
+                // and then threw ArgumentOutOfRangeException about a socket path the reader never wrote
+                // (#694). The length that is legal depends on the host, so this is the one validation in
+                // the file whose answer differs per machine — which the message says, because the entry
+                // may be perfectly correct on the machine it was written on.
+                else if (PipeNameLimit.IsTooLong(entry.PipeName!.Trim()))
+                {
+                    problems.Add(new LanguageServerConfigProblem(
+                        entry.Id,
+                        PipeNameLimit.Refusal(entry.PipeName!.Trim()) + " The entry has been ignored.",
+                        true));
+                    return false;
+                }
                 break;
             case null or "":
                 missing.Add("transport");

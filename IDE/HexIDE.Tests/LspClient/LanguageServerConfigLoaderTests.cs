@@ -79,6 +79,31 @@ public class LanguageServerConfigLoaderTests : IDisposable
     // ── Layering ──────────────────────────────────────────────────────────────────────────────────────
 
     [Fact]
+    public void AnOverLongPipeNameIsRefusedAtLoad_NotAtConnectTime()
+    {
+        // #694: nothing checked the length, so the entry produced a registration and then threw
+        // ArgumentOutOfRangeException about a socket path the reader never wrote. The budget differs per
+        // host, so the name is built from it rather than from a literal.
+        var tooLong = new string('p', HexIDE.Lsp.PipeNameLimit.Max + 1);
+
+        var result = LoaderFor($$"""
+            {
+              "version": 1,
+              "servers": [
+                { "id": "longpipe", "extensions": [".md"], "languageId": "markdown",
+                  "transport": "pipe", "pipeName": "{{tooLong}}" }
+              ]
+            }
+            """).Load([BundledVb6()]);
+
+        result.Entries.Select(e => e.Id).Should().Equal(["hexide.vb6"], "the entry cannot work and is ignored");
+        var problem = result.Problems.Should().ContainSingle().Which;
+        problem.EntryId.Should().Be("longpipe");
+        problem.Message.Should().Contain("pipeName").And.Contain(HexIDE.Lsp.PipeNameLimit.Max.ToString());
+        problem.EntryRejected.Should().BeTrue();
+    }
+
+    [Fact]
     public void AUserEntryAddsToTheDefaults()
     {
         var result = LoaderFor("""
