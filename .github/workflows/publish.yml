@@ -48,11 +48,16 @@ on:
         required: false
         type: boolean
         default: true
+      # Default OFF, and not because this is stable software. hexide.io links every download through
+      # /releases/latest/download/<asset>, and GitHub's "latest" skips pre-releases. A release marked
+      # pre-release therefore publishes perfectly and the site goes on serving the one before it, with
+      # nothing anywhere reporting that. v0.1.0 went out as a full release; the "Alpha" in the body
+      # below is what carries the stability warning.
       prerelease:
-        description: 'Mark as a pre-release'
+        description: 'Mark as a pre-release (hexide.io will NOT serve it - its links follow releases/latest)'
         required: false
         type: boolean
-        default: true
+        default: false
 
 permissions:
   contents: write
@@ -357,9 +362,13 @@ jobs:
           body: |
             An open, cross-platform recreation of the Visual Basic 6 IDE. **Alpha.**
 
-            > ⚠️ **Saving is not yet round-trip faithful.** A save can delete `.frx` binary companions and
-            > rewrite class settings you never touched. Work on a copy — not on a project you care about.
-            > [Exactly what goes wrong](https://hexide.io/scope.html#saving)
+            > ⚠️ HexIDE opens and runs real VB6 projects, and a save now gives back the file it read:
+            > **21 of the 22 designer files VB6 itself ships survive a save byte for byte**, and the one it
+            > cannot — an ActiveX form — opens read-only rather than being quietly rewritten. Keep a backup
+            > anyway: that measure is Microsoft's own templates, not your project.
+            > [What a save changes](https://hexide.io/scope.html#saving)
+
+            **What's new:** [CHANGELOG.md](https://github.com/hexide-io/HexIDE/blob/${{ inputs.tag }}/CHANGELOG.md)
 
             **Which download?**
             - `hexide-<platform>-selfcontained.*` — no prerequisites. Start here.
