@@ -19,7 +19,7 @@
          (NB: an XML comment may not contain a double hyphen, so the literal git flag is not spelled
          out here.) -->
     <PropertyGroup>
-        <Version>0.1.0</Version>
+        <Version>0.2.0</Version>
         <Product>HexIDE</Product>
         <Company>The HexIDE Authors</Company>
         <Copyright>© The HexIDE Authors</Copyright>
