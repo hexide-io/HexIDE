@@ -1900,6 +1900,9 @@ Ten new corpus cases, and the answer to two of them decided the grammar's shape.
 |---|---|
 | `10 Skip: Debug.Print "A"` — a line number AND a named label | **legal** |
 | `Skip: 10 Debug.Print "A"` — the same pair, other order | **illegal** — Syntax error |
+| `10 Skip:` ⏎ `stmt` — number and name with **nothing after** the colon *(2026-09-27)* | **legal**; `GoTo 10` and `GoTo Skip` each reach `stmt`, and falling into the line from above just continues |
+| `10 Skip: ' a remark` ⏎ `stmt` *(2026-09-27)* | legal; `GoTo 10` reaches `stmt` |
+| `GoTo Skip` … `10 Skip:` ⏎ `End Function` — the pair as the procedure's last line *(2026-09-27)* | legal; the jump skips the assignment between and the function returns normally |
 | `Skip<tab>: Debug.Print "A"` | legal |
 | `First:` ⏎ `Second:` ⏎ `stmt` — two labels on consecutive lines | legal, and BOTH reach `stmt` |
 | `Cont: Next i` — a label before a loop terminator | legal |
