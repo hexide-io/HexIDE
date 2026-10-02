@@ -7,4 +7,7 @@ public interface IUserSidecarService
 {
     Task LoadAsync(ProjectDefinition project);
     Task SaveAsync(ProjectDefinition project);
+
+    /// <summary>Writes every change still owed to any project's sidecar, for closing the IDE.</summary>
+    void FlushAll();
 }

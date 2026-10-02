@@ -201,6 +201,7 @@ public partial class DISetup
             .Root<IDocumentDockService>("DocumentDockService")
             .Root<IProjectRunnerService>("ProjectRunnerService")
             .Root<IProjectService>("ProjectService")
+            .Root<IUserSidecarService>("UserSidecarService")
             .Root<IFileWatcherService>("FileWatcherService")
             .Root<IBookmarkService>("BookmarkService")
             .Root<HexIDE.Debugging.IBreakpointService>("BreakpointService")

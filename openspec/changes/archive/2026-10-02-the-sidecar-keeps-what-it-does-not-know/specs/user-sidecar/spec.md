@@ -1,14 +1,4 @@
-# user-sidecar Specification
-
-## Purpose
-Define where per-user, per-project state is kept: the things one developer wants remembered about a project
-that nobody else should inherit.
-
-Bookmarks and breakpoints are the clear cases. They belong to a project — they mean nothing without the file
-they point into — but they belong to one developer working on it. Somewhere between "settings" and "the
-project" there is a third thing, and this is where it goes.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Per-user project state SHALL live beside the project, not inside it
 State that is specific to one developer's work on a project SHALL be stored in a separate file alongside the
@@ -47,18 +37,6 @@ mark is missing on the next opening.
 #### Scenario: A sidecar that cannot be written for a moment
 - **WHEN** another program holds the sidecar as a change is written, and the project is closed afterwards
 - **THEN** the change is in the sidecar when the project is next opened
-
-### Requirement: The sidecar SHALL be named predictably from the project
-The sidecar SHALL be named from the project file's name with a distinct extension, in the same directory.
-
-Predictability is what makes it possible to ignore it in version control with one pattern, and to find it
-without the IDE. Deriving it from the project name rather than an identifier also means moving or renaming a
-project keeps the relationship visible, and a stray sidecar is self-explanatory rather than an orphan with
-an opaque name.
-
-#### Scenario: Locating the sidecar
-- **WHEN** a project is opened
-- **THEN** its sidecar is the file beside it named from the project's own name
 
 ### Requirement: The sidecar SHALL be optional and its absence SHALL be normal
 A project without a sidecar SHALL open normally, and the sidecar SHALL be created only when there is state
@@ -127,22 +105,3 @@ not saved until it is repaired or removed and the project opened again, which th
 #### Scenario: A sidecar that cannot be read
 - **WHEN** a project is opened whose sidecar cannot be read, and a developer then sets a bookmark
 - **THEN** the sidecar is left exactly as it was, and the log says it was not rewritten
-
-### Requirement: A mark on a line its document does not have SHALL be dropped when the sidecar is read
-When the sidecar is applied to a project, a bookmark or breakpoint on a line its document does not have SHALL
-be dropped, the drop SHALL be logged with the document and the lines, and the sidecar SHALL next be written
-without it.
-
-Such a mark is drawn nowhere and never hit, so keeping it helps nobody. Yet it is reported by every query and
-written back on every save. It arises from a document shortened outside the IDE, from a hand-edited sidecar,
-or from a version that did not check lines before storing them. Lines are counted as the editor numbers them:
-bookmarks from 0 and breakpoints from 1, in the code without its Attribute header. A mark is dropped rather
-than moved, because nothing records which line it was meant for.
-
-#### Scenario: A sidecar naming lines past the end of its document
-- **WHEN** a project is opened whose sidecar holds a breakpoint on line 99 of a two-line module
-- **THEN** the module has no breakpoint on line 99, the log says it was dropped, and the next save does not write it
-
-#### Scenario: Marks inside the document are kept
-- **WHEN** the same sidecar also holds a breakpoint on line 2
-- **THEN** that breakpoint is restored

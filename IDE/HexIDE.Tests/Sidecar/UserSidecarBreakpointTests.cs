@@ -42,8 +42,8 @@ public sealed class UserSidecarBreakpointTests : IDisposable
     [Fact]
     public async Task Breakpoints_RoundTripThroughSidecar_WrittenBesideTheVbp()
     {
-        // No project registered as "loaded" ⇒ the on-change debounced auto-save doesn't fire; we drive Save/Load
-        // explicitly for determinism.
+        // Save and Load are driven explicitly. Setting a breakpoint schedules a debounced save as well, and the
+        // explicit save supersedes it, so nothing writes the file after this test has read it.
         var projectManager = Substitute.For<IProjectManager>();
         projectManager.LoadedProjects.Returns(new List<ProjectDefinition>());
         var project = MakeSavedProject();
