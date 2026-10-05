@@ -46,7 +46,9 @@ internal sealed class LspDocumentSession : IDisposable
     private readonly Action<Action> postToUiThread;
 
     private CancellationTokenSource? debounce;
-    private int version;
+    // The version the last message about this document carried: the open's until the first change, so that
+    // change carries the next one rather than repeating it. (#470)
+    private int version = LspDocumentVersion.Opening;
     // Edits made, and how many of them had been made when diagnostics last arrived; -1 until the first. (#664)
     private int edits;
     private int editsWhenLastPublished = -1;

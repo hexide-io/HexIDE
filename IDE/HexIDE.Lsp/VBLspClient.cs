@@ -695,8 +695,8 @@ public sealed class VBLspClient : ILspClient
     {
         // Tracked BEFORE the gate, deliberately: a document opened while no server is up must still be
         // replayed when one arrives, which is what makes lazy start and reconnect work at all.
-        _openDocuments[uri] = new TrackedDocument(1, text);
-        await SendDidOpenAsync(uri, 1, text);
+        _openDocuments[uri] = new TrackedDocument(LspDocumentVersion.Opening, text);
+        await SendDidOpenAsync(uri, LspDocumentVersion.Opening, text);
         PullDiagnosticsInBackground(uri);
     }
 

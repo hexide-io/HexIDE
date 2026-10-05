@@ -164,6 +164,22 @@ evicts is that *server's* entries rather than the document's — see *Diagnostic
 note that this is the honest scope: a server closing a document has stopped having an opinion about it,
 while a compile error in the same file has not stopped being true.
 
+**A document's versions run on from its open.** A document is first opened at version 1
+(`LspDocumentVersion.Opening`), and its session numbers its changes from there, so the first change is 2. The
+client sends the open and the session sends the changes, which is how they once came apart: the session
+counted from 0, its first change repeated the open's 1, and a server that discards a change no later than
+what it holds lost it. A foreign server measured against this does exactly that, so a single edit followed by a
+pause was not analysed until the next one ([#470](https://github.com/hexide-io/HexIDE/issues/470)). The session takes a change's
+version together with its text at the moment of the edit, so a number always describes the text it is sent
+with.
+
+Three paths can still send a version that does not rise, all filed:
+- an edit made while a server is starting, after which a second server can be opened again at a lower
+  version with older text ([#719](https://github.com/hexide-io/HexIDE/issues/719));
+- a debounced change crossing the flush that superseded it, with identical text
+  ([#720](https://github.com/hexide-io/HexIDE/issues/720));
+- two editors holding one name ([#721](https://github.com/hexide-io/HexIDE/issues/721)).
+
 **On reconnect, tracked documents are replayed** through the same code path as a first open, carrying the
 version this connection has been tracking rather than `1`. Resetting to `1` would put the client's count
 behind the session's, so the next change would arrive bearing a version the server had already seen.
