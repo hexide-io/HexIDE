@@ -151,6 +151,10 @@ public partial class App : Application
                     windowClosing = true;
                     windowStateService.SaveWindowState(mainWindow);
                     rootViewModel.SaveLayout();
+                    // Personal state still waiting in a debounce. A close that unloaded every project has
+                    // written it already; a forced one did not unload them, and the debounce would not
+                    // outlive the process.
+                    _diSetup.UserSidecarService.FlushAll();
                 };
 
                 async void ConfirmThenClose()
