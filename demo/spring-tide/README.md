@@ -123,4 +123,5 @@ module listed in `.rdproj`.
 
 **`--language vb6` changes nothing you can see here.** RDCore defaults to VBA. Asked for VB6, it changes only
 the wording of one diagnostic's detail, so the profile does not pass it. An option the server does not know
-makes it exit at once, before its pipe exists; HexIDE reports that exit and the server's standard error.
+makes it exit at once, before its pipe exists, with the reason on standard error. HexIDE records both the exit
+and that output for a pipe server it launched ([#403](https://github.com/hexide-io/HexIDE/issues/403)).
