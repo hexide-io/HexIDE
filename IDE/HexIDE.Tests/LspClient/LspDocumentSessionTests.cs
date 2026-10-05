@@ -208,6 +208,23 @@ public class LspDocumentSessionTests : IDisposable
     }
 
     [Fact]
+    public async Task TheFirstChangeCarriesTheVersionAfterTheOpens()
+    {
+        // The comparison above is between two changes, which is how the first change came to repeat the
+        // open's version unnoticed: nothing compared a change with the open (#470).
+        var session = Session("a");
+        session.Start();
+        var versions = new List<int>();
+        _client.When(c => c.ChangeDocumentAsync(
+                Arg.Any<string>(), Arg.Any<int>(), Arg.Any<string>(), Arg.Any<CancellationToken>()))
+            .Do(call => versions.Add(call.ArgAt<int>(1)));
+
+        await session.FlushAsync(TestContext.Current.CancellationToken);
+
+        versions.Should().Equal(LspDocumentVersion.Opening + 1);
+    }
+
+    [Fact]
     public async Task ADisposedSessionSendsNoMoreChanges()
     {
         var session = Session("a");

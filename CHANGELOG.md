@@ -10,6 +10,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A language server that orders changes by version no longer ignores the first edit to a file.** That edit repeated the version the file was opened at, so such a server kept analysing the text
+  from before it until the next edit.
 - **Bookmarks and breakpoints are no longer lost on the way to their file.** A bookmark set just before
   closing the project, or HexIDE, was not saved, and nor was one set in a project of a group while another
   project changed or closed. A save that failed, because another program held the file, is now made again
