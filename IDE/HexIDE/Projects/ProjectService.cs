@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Avalonia.Platform.Storage;
 using AvaloniaEdit.Utils;
@@ -213,8 +214,9 @@ public class ProjectService : IProjectService
         var groupDir = Path.GetDirectoryName(groupPath)!;
         var groupName = Path.GetFileNameWithoutExtension(groupPath);
 
+        var (groupText, _, groupEncoding) = await Vb6TextFile.ReadDocumentAsync(groupPath);
         var serializedGroup = new GroupDeserializer()
-            .Deserialize(await Vb6TextFile.ReadAllTextAsync(groupPath));
+            .Deserialize(groupText);
 
         foreach (var relPath in serializedGroup.ProjectRelativePaths)
         {
@@ -231,7 +233,7 @@ public class ProjectService : IProjectService
                     p.AbsolutePath, startupAbs, StringComparison.OrdinalIgnoreCase));
         }
 
-        var group = new ProjectGroupDefinition(groupName) { AbsolutePath = groupPath };
+        var group = new ProjectGroupDefinition(groupName) { AbsolutePath = groupPath, TextEncoding = groupEncoding };
         group.UnknownLines.AddRange(serializedGroup.UnknownLines);
         projectManager.CurrentGroup = group;
         recentProjects.Add(groupPath);
@@ -261,10 +263,12 @@ public class ProjectService : IProjectService
         var formDeserializer = new FormDeserializer();
         var errorSink = new DeserializeErrorSink();
 
-        var serializedProject = projectDeserializer.Deserialize(await Vb6TextFile.ReadAllTextAsync(projectPath), errorSink);
+        var (projectText, _, projectEncoding) = await Vb6TextFile.ReadDocumentAsync(projectPath);
+        var serializedProject = projectDeserializer.Deserialize(projectText, errorSink);
 
         var project = new ProjectDefinition(serializedProject.ProjectType, serializedProject.Name ?? "Project1");
         project.AbsolutePath = projectPath;
+        project.TextEncoding = projectEncoding;
 
         // Pass 1: .ctl files — load UserControls first so FormParts are available when building the registry
         foreach (var (moduleName, modulePath, moduleKind) in serializedProject.RelativeModulePaths)
@@ -279,13 +283,15 @@ public class ProjectService : IProjectService
                 module.AbsolutePath = moduleAbsolutePath;
                 if (File.Exists(moduleAbsolutePath))
                 {
-                    var (moduleSource, moduleBytes) = await Vb6TextFile.ReadWithBytesAsync(moduleAbsolutePath);
+                    var (moduleSource, moduleBytes, moduleEncoding) = await Vb6TextFile.ReadDocumentAsync(moduleAbsolutePath);
+                    module.TextEncoding = moduleEncoding;
                     baselineStore.Record(moduleAbsolutePath, moduleBytes);
                     var ctxBlobs = await LoadCompanionBlobs(moduleAbsolutePath, moduleSource);
                     var formPart = formDeserializer.Deserialize(project, moduleSource, errorSink, ctxBlobs);
                     if (formPart != null)
                     {
                         formPart.AbsolutePath = moduleAbsolutePath;
+                        formPart.TextEncoding = moduleEncoding;
                         module.UpdateFormPart(formPart);
                         // Body only. FormSerializer regenerates the Begin..End header and then appends Code
                         // verbatim, so storing the whole file here emits the header twice on every save.
@@ -327,7 +333,7 @@ public class ProjectService : IProjectService
                 }
 
                 // Form text before companion: the .frm's cited offsets partition the .frx.
-                var (formSource, formBytes) = await Vb6TextFile.ReadWithBytesAsync(formAbsolutePath);
+                var (formSource, formBytes, formEncoding) = await Vb6TextFile.ReadDocumentAsync(formAbsolutePath);
                 baselineStore.Record(formAbsolutePath, formBytes);
 
                 var frxBlobs = await LoadCompanionBlobs(formAbsolutePath, formSource);
@@ -335,6 +341,7 @@ public class ProjectService : IProjectService
                 if (form != null)
                 {
                     form.AbsolutePath = formAbsolutePath;
+                    form.TextEncoding = formEncoding;
                     project.AddForm(form);
                 }
             }
@@ -379,7 +386,8 @@ public class ProjectService : IProjectService
                 module.AbsolutePath = moduleAbsolutePath;
                 if (File.Exists(moduleAbsolutePath))
                 {
-                    var (moduleSource, moduleBytes) = await Vb6TextFile.ReadWithBytesAsync(moduleAbsolutePath);
+                    var (moduleSource, moduleBytes, moduleEncoding) = await Vb6TextFile.ReadDocumentAsync(moduleAbsolutePath);
+                    module.TextEncoding = moduleEncoding;
                     baselineStore.Record(moduleAbsolutePath, moduleBytes);
                     // .bas/.cls: strip the VB6 header so Code is the body only (no-op for .pag/.ctl).
                     var (preservedHeader, moduleBody) = ModuleFileFormat.SplitHeader(moduleSource, moduleKind);
@@ -394,6 +402,7 @@ public class ProjectService : IProjectService
                         if (formPart != null)
                         {
                             formPart.AbsolutePath = moduleAbsolutePath;
+                            formPart.TextEncoding = moduleEncoding;
                             module.UpdateFormPart(formPart);
                             // StripHeader above is a no-op for .pag, so Code still holds the whole file —
                             // replace it with the body only or the next save writes the header twice.
@@ -537,12 +546,31 @@ public class ProjectService : IProjectService
     /// </summary>
     private async Task<bool> SaveFormCore(FormDefinition form, bool saveAs, bool announceSave = true)
     {
-        var written = await WriteFormToDisk(form, saveAs);
+        var written = await WithEncodingError(
+            () => WriteFormToDisk(form, saveAs), form.Name, form.TextEncoding);
 
         // On success only. A refusal is the opposite of a save, and telling a server a document was
         // written when it was not would have it re-read a file that still holds the previous content.
         if (written && announceSave) eventBus.Publish(new DocumentSavedEvent(form, null));
         return written;
+    }
+
+    private async Task<T> WithEncodingError<T>(Func<Task<T>> write, string name, Vb6TextEncoding encoding)
+    {
+        try
+        {
+            return await write();
+        }
+        catch (EncoderFallbackException ex)
+        {
+            Log.Warning(ex, "Cannot save {File} in code page {CodePage}", name, encoding.CodePage);
+            await windowManager.MessageBox(
+                string.Format(localization.GetString("Str.Dialog.SourceEncoding.SaveFailed"), name, encoding.CodePage),
+                "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+            // Abort close/build/save batches too. Returning false would let a close-time save continue
+            // unloading the project and discard the edit the developer just asked us to save.
+            throw new OperationCanceledException("Source encoding cannot represent the edit.", ex);
+        }
     }
 
     private async Task<bool> WriteFormToDisk(FormDefinition form, bool saveAs)
@@ -600,7 +628,7 @@ public class ProjectService : IProjectService
 
         // The designer file is read FIRST: its cited offsets are what partition the companion, so the
         // companion cannot be parsed without it. See FrxDeserializer.
-        var (source, sourceBytes) = await Vb6TextFile.ReadWithBytesAsync(path);
+        var (source, sourceBytes, sourceEncoding) = await Vb6TextFile.ReadDocumentAsync(path, form.TextEncoding);
         baselineStore.Record(path, sourceBytes);
 
         IReadOnlyDictionary<int, byte[]>? frxBlobs = null;
@@ -616,6 +644,7 @@ public class ProjectService : IProjectService
         if (fresh is null)
             return false;
 
+        form.TextEncoding = sourceEncoding;
         form.UpdateCode(fresh.Code);
         form.UpdateComponents(fresh.Components);
         // The verdict comes from the file too. Adopting only code and components left the banner describing
@@ -631,10 +660,11 @@ public class ProjectService : IProjectService
         if (path is null || !File.Exists(path))
             return false;
 
-        var (source, sourceBytes) = await Vb6TextFile.ReadWithBytesAsync(path);
+        var (source, sourceBytes, sourceEncoding) = await Vb6TextFile.ReadDocumentAsync(path, module.TextEncoding);
         baselineStore.Record(path, sourceBytes);
         var (preservedHeader, reloadedBody) = ModuleFileFormat.SplitHeader(source, module.Kind);
 
+        module.TextEncoding = sourceEncoding;
         module.RecordOriginalHeader(preservedHeader);
 
         module.UpdateCode(reloadedBody);
@@ -653,6 +683,7 @@ public class ProjectService : IProjectService
                 {
                     // Update the existing FormPart in place so an open designer's reference stays valid
                     // (the designer's FormEditViewModel.FormDefinition points at this instance).
+                    existing.TextEncoding = sourceEncoding;
                     existing.UpdateCode(fresh.Code);
                     existing.UpdateComponents(fresh.Components);
                     existing.AdoptFidelityState(fresh);
@@ -660,6 +691,7 @@ public class ProjectService : IProjectService
                 else
                 {
                     fresh.AbsolutePath = path;
+                    fresh.TextEncoding = sourceEncoding;
                     module.UpdateFormPart(fresh);
                 }
             }
@@ -907,7 +939,9 @@ public class ProjectService : IProjectService
         // stops a .vbp being written that names forms which are not beside it. (#148)
         var refused = new List<string>();
         foreach (var form in project.Forms)
-            if (!SerializeFormToFile(form, Path.Join(directory, form.Name + ".frm")))
+            if (!await WithEncodingError(
+                    () => Task.FromResult(SerializeFormToFile(form, Path.Join(directory, form.Name + ".frm"))),
+                    form.Name, form.TextEncoding))
                 refused.Add(form.Name);
 
         // Modules as well. Writing the forms and the .vbp but not the modules produced a directory whose
@@ -918,9 +952,21 @@ public class ProjectService : IProjectService
         // so the project genuinely lives there afterwards, which is already how the forms above behave.
         foreach (var module in project.Modules)
         {
+            var originalPath = module.AbsolutePath;
             module.AbsolutePath = Path.Join(directory, module.Name + "." + ModuleExtension(module.Kind));
-            if (!await SaveModuleCore(module, saveAs: false))
-                refused.Add(module.Name);
+            try
+            {
+                if (!await SaveModuleCore(module, saveAs: false))
+                {
+                    module.AbsolutePath = originalPath;
+                    refused.Add(module.Name);
+                }
+            }
+            catch
+            {
+                module.AbsolutePath = originalPath;
+                throw;
+            }
         }
 
         if (refused.Count > 0)
@@ -928,7 +974,11 @@ public class ProjectService : IProjectService
                 $"Cannot write this project to {directory}: HexIDE cannot reproduce "
               + $"{string.Join(", ", refused)}, so no project file was written.");
 
-        SerializeOnlyProjectToFile(project, Path.Join(directory, project.Name + ".vbp"));
+        await WithEncodingError(() =>
+        {
+            SerializeOnlyProjectToFile(project, Path.Join(directory, project.Name + ".vbp"));
+            return Task.FromResult(true);
+        }, project.Name, project.TextEncoding);
     }
 
     public Task<FormDefinition> AddNewForm(ProjectDefinition project, string name)
@@ -1009,7 +1059,7 @@ public class ProjectService : IProjectService
 
     public async Task<Adopted<FormDefinition>> AddExistingForm(ProjectDefinition project, string absolutePath)
     {
-        var (source, bytes) = await Vb6TextFile.ReadWithBytesAsync(absolutePath);
+        var (source, bytes, sourceEncoding) = await Vb6TextFile.ReadDocumentAsync(absolutePath);
 
         // Form text before companion: the .frm's cited offsets partition the .frx.
         var blobs = await LoadCompanionBlobs(absolutePath, source);
@@ -1028,6 +1078,7 @@ public class ProjectService : IProjectService
         // the dirty check answering about a file the project does not carry.
         baselineStore.Record(absolutePath, bytes);
         form.AbsolutePath = absolutePath;
+        form.TextEncoding = sourceEncoding;
         project.AddForm(form);
         return Adopted<FormDefinition>.Added(form, name);
     }
@@ -1035,7 +1086,7 @@ public class ProjectService : IProjectService
     public async Task<Adopted<ModuleDefinition>> AddExistingModule(
         ProjectDefinition project, string absolutePath, ModuleKind kind)
     {
-        var (source, bytes) = await Vb6TextFile.ReadWithBytesAsync(absolutePath);
+        var (source, bytes, sourceEncoding) = await Vb6TextFile.ReadDocumentAsync(absolutePath);
 
         // .bas/.cls: strip the VB6 header so Code is the body only (a no-op for .ctl/.pag).
         var (preservedHeader, body) = ModuleFileFormat.SplitHeader(source, kind);
@@ -1050,6 +1101,7 @@ public class ProjectService : IProjectService
         var module = new ModuleDefinition(project, name, kind)
         {
             AbsolutePath = absolutePath,
+            TextEncoding = sourceEncoding,
         };
         module.RecordOriginalHeader(preservedHeader);
         module.UpdateCode(body);
@@ -1063,6 +1115,7 @@ public class ProjectService : IProjectService
             if (formPart != null)
             {
                 formPart.AbsolutePath = absolutePath;
+                formPart.TextEncoding = sourceEncoding;
                 module.UpdateFormPart(formPart);
                 // SplitHeader is a no-op for .ctl/.pag, so Code still holds the whole file — replace it
                 // with the body only, or the next save emits the Begin..End header twice.
@@ -1236,7 +1289,11 @@ public class ProjectService : IProjectService
             if (projectPath == null)
                 throw new OperationCanceledException();
         }
-        SerializeOnlyProjectToFile(project, projectPath);
+        await WithEncodingError(() =>
+        {
+            SerializeOnlyProjectToFile(project, projectPath);
+            return Task.FromResult(true);
+        }, project.Name, project.TextEncoding);
         recentProjects.Add(projectPath);
         await sidecar.SaveAsync(project);
     }
@@ -1265,7 +1322,9 @@ public class ProjectService : IProjectService
     private async Task SaveGroupFile(bool saveAs)
     {
         var group = projectManager.CurrentGroup!;
-        if (saveAs || group.AbsolutePath == null)
+        var groupPath = group.AbsolutePath;
+        var choosePath = saveAs || groupPath == null;
+        if (choosePath)
         {
             var path = await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions
             {
@@ -1275,14 +1334,19 @@ public class ProjectService : IProjectService
                 SuggestedFileName = group.Name
             });
             if (path == null) throw new OperationCanceledException();
-            group.AbsolutePath = path;
-            group.Name = Path.GetFileNameWithoutExtension(path);
-            recentProjects.Add(path);
+            groupPath = path;
         }
         var content = new GroupSerializer().Serialize(
-            group.AbsolutePath!, projectManager.LoadedProjects, projectManager.StartupProject,
+            groupPath!, projectManager.LoadedProjects, projectManager.StartupProject,
             group.UnknownLines);
-        AtomicWriteText(group.AbsolutePath!, content);
+        await WithEncodingError(() =>
+        {
+            AtomicWriteText(groupPath!, content, group.TextEncoding);
+            return Task.FromResult(true);
+        }, group.Name, group.TextEncoding);
+        group.AbsolutePath = groupPath;
+        if (choosePath) group.Name = Path.GetFileNameWithoutExtension(groupPath!);
+        recentProjects.Add(groupPath!);
         Log.Information("ProjectService: Saved group {Path}", group.AbsolutePath);
     }
 
@@ -1319,9 +1383,8 @@ public class ProjectService : IProjectService
         var serializer = new FormSerializer();
         var (frmText, frxContent) = serializer.Serialize(form, Path.GetFileName(formPath));
 
-        // Below the decision. A refused Save As must not leave the model pointing at a path that was never
-        // written — the .vbp records forms by AbsolutePath, so it would name a file that does not exist.
-        form.AbsolutePath = formPath;
+        // Validate encoding before changing either half of the file pair.
+        var encodedText = Vb6TextFile.Encode(frmText, form.TextEncoding);
 
         // COMPANION FIRST, and the order is load-bearing.
         //
@@ -1338,7 +1401,8 @@ public class ProjectService : IProjectService
         //
         // Neither is correct, but a crash should fail towards the one the developer is told about.
         WriteCompanionBinary(formPath, frxContent, form);
-        AtomicWriteText(formPath, frmText);
+        AtomicWriteText(formPath, frmText, form.TextEncoding, encodedText);
+        form.AbsolutePath = formPath;
         return true;
     }
 
@@ -1422,7 +1486,7 @@ public class ProjectService : IProjectService
     // content immediately — well before the resulting FileSystemWatcher event is processed (it is
     // debounced) — is the primary self-write-suppression mechanism for the file watcher: the watcher
     // re-hashes the file, sees it matches the baseline, and ignores the IDE's own save.
-    private void AtomicWriteText(string targetPath, string content)
+    private void AtomicWriteText(string targetPath, string content, Vb6TextEncoding encoding, byte[]? encoded = null)
     {
         var tmp = targetPath + ".tmp";
         try
@@ -1431,7 +1495,7 @@ public class ProjectService : IProjectService
             // which stopped matching the file the moment VB6 source began being written as ANSI — the
             // watcher would re-hash from disk, see a different hash, and report every save as an external
             // change. Recording the actual bytes keeps self-write suppression correct.
-            var bytes = Vb6TextFile.Encode(content);
+            var bytes = encoded ?? Vb6TextFile.Encode(content, encoding);
             File.WriteAllBytes(tmp, bytes);
             File.Move(tmp, targetPath, overwrite: true);
             baselineStore.Record(targetPath, bytes);
@@ -1499,7 +1563,8 @@ public class ProjectService : IProjectService
     /// </remarks>
     internal async Task<bool> SaveModuleCore(ModuleDefinition module, bool saveAs, bool announceSave = true)
     {
-        var written = await WriteModuleToDisk(module, saveAs);
+        var written = await WithEncodingError(
+            () => WriteModuleToDisk(module, saveAs), module.Name, module.TextEncoding);
         if (written && announceSave) eventBus.Publish(new DocumentSavedEvent(module.FormPart, module));
         return written;
     }
@@ -1541,9 +1606,7 @@ public class ProjectService : IProjectService
             if (modulePath == null)
                 throw new OperationCanceledException();
         }
-        // Repointed only now the destination is known and the write is going to happen. (#148)
-        module.AbsolutePath = modulePath;
-
+        // Repoint only after encoding and writing succeed, including for Save As.
         if (designerPart is not null)
         {
             var serializer = new FormSerializer();
@@ -1551,25 +1614,27 @@ public class ProjectService : IProjectService
             var (text, binary) = serializer.Serialize(designerPart, module.Code, fileName);
             // Companion first — see SerializeFormToFile for why the order is the difference between a
             // crash leaving a laundered file and a crash leaving a refused one.
+            var encodedText = Vb6TextFile.Encode(text, module.TextEncoding);
             WriteCompanionBinary(modulePath, binary, designerPart);
-            AtomicWriteText(modulePath, text);
+            AtomicWriteText(modulePath, text, module.TextEncoding, encodedText);
+            module.AbsolutePath = modulePath;
             return true;
         }
 
         // .bas/.cls: prepend the canonical VB6 header (ModuleFileFormat) so vb6.exe can load it; Code itself
         // is body-only. (Unmanaged kinds return Code unchanged.)
-        AtomicWriteText(modulePath, ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind, module.OriginalHeader));
+        AtomicWriteText(modulePath, ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind, module.OriginalHeader), module.TextEncoding);
+        module.AbsolutePath = modulePath;
         return true;
     }
 
     private void SerializeOnlyProjectToFile(ProjectDefinition definition, string projectPath)
     {
-        definition.AbsolutePath = projectPath;
-
         var serializer = new ProjectSerializer();
         var serialized = serializer.Serialize(definition, projectPath);
 
-        AtomicWriteText(projectPath, serialized);
+        AtomicWriteText(projectPath, serialized, definition.TextEncoding);
+        definition.AbsolutePath = projectPath;
     }
 
     // ── Dirty detection ───────────────────────────────────────────────────────────────────────

@@ -17,12 +17,38 @@ namespace HexIDE.Runtime.Tests;
 public class Vb6TextFileTests
 {
     [Fact]
+    public void Western_ANSI_displays_smart_quotes_and_the_euro_sign()
+    {
+        var encoding = new Vb6TextEncoding(1252);
+        byte[] bytes = [0x80, 0x93, 0x94];
+        Vb6TextFile.Decode(bytes, encoding).Should().Be("€“”");
+        Vb6TextFile.Encode("€“”", encoding).Should().Equal(bytes);
+    }
+
+    [Fact]
+    public void Japanese_source_uses_its_selected_ANSI_code_page()
+    {
+        var encoding = new Vb6TextEncoding(932);
+        byte[] bytes = [0x82, 0xB1, 0x82, 0xF1, 0x82, 0xC9, 0x82, 0xBF, 0x82, 0xCD];
+        Vb6TextFile.Decode(bytes, encoding).Should().Be("こんにちは");
+        Vb6TextFile.Encode("こんにちは", encoding).Should().Equal(bytes);
+    }
+
+    [Fact]
+    public void Invalid_multibyte_source_is_refused_instead_of_replaced()
+    {
+        Action read = () => Vb6TextFile.Decode([0x82], new Vb6TextEncoding(932));
+        read.Should().Throw<DecoderFallbackException>();
+    }
+
+    [Fact]
     public void Ansi_bytes_survive_a_decode_encode_round_trip()
     {
-        // Every byte value, which is the property Latin-1 buys and the system codepage does not.
+        // Test an explicit Western code page independently of the host's Windows ACP.
         var original = Enumerable.Range(0, 256).Select(i => (byte)i).ToArray();
 
-        Vb6TextFile.Encode(Vb6TextFile.Decode(original)).Should().Equal(original);
+        var encoding = new Vb6TextEncoding(1252);
+        Vb6TextFile.Encode(Vb6TextFile.Decode(original, encoding), encoding).Should().Equal(original);
     }
 
     [Theory]
@@ -34,19 +60,21 @@ public class Vb6TextFileTests
     {
         var original = new byte[] { (byte)'x', b, (byte)'y' };
 
-        var text = Vb6TextFile.Decode(original);
+        var encoding = new Vb6TextEncoding(1252);
+        var text = Vb6TextFile.Decode(original, encoding);
         text.Should().NotContain("\uFFFD", "U+FFFD means the byte was already lost");
-        Vb6TextFile.Encode(text).Should().Equal(original);
+        Vb6TextFile.Encode(text, encoding).Should().Equal(original);
     }
 
     [Fact]
-    public void Utf8_content_HexIDE_wrote_earlier_is_still_read_correctly()
+    public void Bomless_UTF8_requires_an_explicit_selection()
     {
-        // Migration case: before this fix HexIDE wrote UTF-8, so "café" is C3 A9. Strict-decoding as UTF-8
-        // succeeds, so it must be read as UTF-8 rather than shown as "cafÃ©".
+        // BOM-less UTF-8 and ANSI overlap. Migration requires explicit selection, never guessing.
         var utf8 = new UTF8Encoding(false).GetBytes("café");
 
-        Vb6TextFile.Decode(utf8).Should().Be("café");
+        Vb6TextFile.Decode(utf8, new Vb6TextEncoding(1252)).Should().Be("cafÃ©");
+        Vb6TextFile.Decode(utf8, Vb6TextEncoding.Utf8).Should().Be("café");
+        Vb6TextFile.Encode("café", Vb6TextEncoding.Utf8).Should().Equal(utf8);
     }
 
     [Fact]
@@ -58,14 +86,10 @@ public class Vb6TextFileTests
     }
 
     [Fact]
-    public void Content_that_cannot_be_ansi_is_written_as_utf8_rather_than_lost()
+    public void Content_outside_the_selected_ANSI_code_page_is_refused()
     {
-        // Genuine CJK typed into HexIDE cannot be represented in Latin-1. Writing something VB6 did not
-        // expect beats dropping the characters.
-        var text = "こんにちは";
-
-        var bytes = Vb6TextFile.Encode(text);
-        new UTF8Encoding(false).GetString(bytes).Should().Be(text);
+        Action save = () => Vb6TextFile.Encode("こんにちは", new Vb6TextEncoding(1252));
+        save.Should().Throw<EncoderFallbackException>();
     }
 
     [Fact]

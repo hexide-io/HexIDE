@@ -7,72 +7,88 @@ using System.Threading.Tasks;
 namespace HexIDE.IDE;
 
 /// <summary>
-/// Reading and writing VB6 source files, which are **ANSI** — not UTF-8.
-///
-/// VB6 wrote `.vbp`, `.frm`, `.bas`, `.cls` and friends in the authoring machine's ANSI codepage, with no
-/// declaration of which one. Reading them as UTF-8 turns every byte ≥ 0x80 into U+FFFD and writes it back
-/// as `EF BF BD`, so a copyright header, an accented identifier or a localized string literal is destroyed
-/// by the first save.
-///
-/// **Decoding.** A UTF-8 BOM is honoured. Otherwise the bytes are strict-decoded as UTF-8: success means
-/// the file almost certainly *is* UTF-8 (a file HexIDE wrote before this fix), failure means it is not, and
-/// we fall back to Latin-1.
-///
-/// **Latin-1 rather than the system ANSI codepage**, deliberately. Latin-1 maps all 256 byte values to
-/// characters and back, so the round-trip is lossless for *any* input regardless of the codepage it was
-/// authored in. The system codepage would render a Western file more prettily but is lossy for anything
-/// else — an unmappable character becomes '?' and the byte is gone. It is also meaningless on Linux, where
-/// CI runs. Bytes first, display second: a Shift-JIS project will look like mojibake in the editor, but
-/// saving it returns the file byte-for-byte, which is the promise that matters.
-///
-/// **Encoding.** Content that fits in Latin-1 is written as Latin-1 — the VB6-correct form, and
-/// byte-identical to an ANSI source that was read back. Content that does not fit (genuine CJK typed into
-/// HexIDE) is written as UTF-8, because losing it would be worse than writing something VB6 did not expect.
+/// The encoding of one source document. Keep it with the document across Save As and reloads.
+/// A BOM is an explicit UTF-8 declaration; valid UTF-8 bytes alone are not one.
+/// </summary>
+public sealed record Vb6TextEncoding(int CodePage, bool Utf8Bom = false)
+{
+    // VB6 uses the Windows ANSI code page, not the console/OEM code page or the UI language.
+    // Other hosts have no Windows ACP; use Windows-1252 as the deterministic default there.
+    public static Vb6TextEncoding Ansi { get; } = new(
+        OperatingSystem.IsWindows()
+            ? CodePagesEncodingProvider.Instance.GetEncoding(0)?.CodePage ?? 1252
+            : 1252);
+
+    public static Vb6TextEncoding Utf8 { get; } = new(65001);
+    public static Vb6TextEncoding Utf8WithBom { get; } = new(65001, true);
+
+    internal Encoding GetEncoding()
+    {
+        if (Utf8Bom && CodePage != 65001)
+            throw new ArgumentException("A UTF-8 BOM requires the UTF-8 code page.");
+        if (CodePage == 65001)
+            return new UTF8Encoding(false, true);
+        return CodePagesEncodingProvider.Instance.GetEncoding(
+            CodePage, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback)
+            ?? Encoding.GetEncoding(CodePage, EncoderFallback.ExceptionFallback, DecoderFallback.ExceptionFallback);
+    }
+}
+
+/// <summary>
+/// Reads VB6 source as ANSI unless a UTF-8 BOM or an explicit caller selection declares otherwise.
+/// Never guesses an encoding from whether the bytes happen to be valid UTF-8, and never changes the
+/// encoding to accommodate an edit. Unrepresentable edits fail before writing rather than becoming '?'
+/// or silently converting the file into a format VB6 cannot read.
 /// </summary>
 public static class Vb6TextFile
 {
-    private static readonly UTF8Encoding StrictUtf8 = new(encoderShouldEmitUTF8Identifier: false,
-                                                          throwOnInvalidBytes: true);
-
     private static readonly byte[] Utf8Bom = [0xEF, 0xBB, 0xBF];
 
-    /// <summary>Decode VB6 source bytes. Never throws — the fallback always succeeds.</summary>
-    public static string Decode(byte[] bytes)
-    {
-        if (bytes.Length >= 3 && bytes[0] == Utf8Bom[0] && bytes[1] == Utf8Bom[1] && bytes[2] == Utf8Bom[2])
-            return StrictUtf8.GetString(bytes, 3, bytes.Length - 3);
+    public static Vb6TextEncoding DetectEncoding(byte[] bytes, Vb6TextEncoding? fallback = null) =>
+        bytes.AsSpan().StartsWith(Utf8Bom)
+            ? Vb6TextEncoding.Utf8WithBom
+            : fallback is { Utf8Bom: true } ? fallback with { Utf8Bom = false } : fallback ?? Vb6TextEncoding.Ansi;
 
-        try { return StrictUtf8.GetString(bytes); }
-        catch (DecoderFallbackException) { return Encoding.Latin1.GetString(bytes); }
+    public static string Decode(byte[] bytes, Vb6TextEncoding? encoding = null)
+    {
+        encoding ??= DetectEncoding(bytes);
+        var offset = encoding.Utf8Bom && bytes.AsSpan().StartsWith(Utf8Bom) ? Utf8Bom.Length : 0;
+        var codec = encoding.GetEncoding();
+        var text = codec.GetString(bytes, offset, bytes.Length - offset);
+        // Some legacy code pages have multiple byte spellings for one character. Strict fallbacks alone
+        // do not catch that normalization. Refuse the load rather than silently changing such bytes.
+        if (!codec.GetBytes(text).AsSpan().SequenceEqual(bytes.AsSpan(offset)))
+            throw new InvalidDataException($"Source bytes cannot round-trip in code page {encoding.CodePage}.");
+        return text;
     }
 
-    /// <summary>Encode for disk. Latin-1 where it fits, which is what VB6 itself wrote.</summary>
-    public static byte[] Encode(string content)
+    public static byte[] Encode(string content, Vb6TextEncoding? encoding = null)
     {
-        foreach (var c in content)
-        {
-            if (c > 'ÿ')
-                return StrictUtf8.GetBytes(content); // cannot be represented as ANSI; do not drop it
-        }
-        return Encoding.Latin1.GetBytes(content);
+        encoding ??= Vb6TextEncoding.Ansi;
+        var bytes = encoding.GetEncoding().GetBytes(content);
+        return encoding.Utf8Bom ? Utf8Bom.Concat(bytes).ToArray() : bytes;
     }
 
     public static async Task<string> ReadAllTextAsync(string path) =>
         Decode(await File.ReadAllBytesAsync(path));
 
-    /// <summary>
-    /// Decoded text plus the exact bytes it came from. Callers that record a file baseline need the bytes:
-    /// the baseline is compared against a byte-level re-read by the file watcher, so hashing the decoded
-    /// string instead would report every ANSI file as changed the moment it was opened.
-    /// </summary>
-    public static async Task<(string Text, byte[] Bytes)> ReadWithBytesAsync(string path)
+    /// <summary>Reads text, original bytes for watcher baselines, and encoding for subsequent saves.</summary>
+    public static async Task<(string Text, byte[] Bytes, Vb6TextEncoding Encoding)> ReadDocumentAsync(
+        string path, Vb6TextEncoding? fallback = null)
     {
         var bytes = await File.ReadAllBytesAsync(path);
-        return (Decode(bytes), bytes);
+        var encoding = DetectEncoding(bytes, fallback);
+        return (Decode(bytes, encoding), bytes, encoding);
+    }
+
+    public static async Task<(string Text, byte[] Bytes)> ReadWithBytesAsync(string path)
+    {
+        var (text, bytes, _) = await ReadDocumentAsync(path);
+        return (text, bytes);
     }
 
     public static string ReadAllText(string path) => Decode(File.ReadAllBytes(path));
 
-    public static void WriteAllText(string path, string content) =>
-        File.WriteAllBytes(path, Encode(content));
+    public static void WriteAllText(string path, string content, Vb6TextEncoding? encoding = null) =>
+        File.WriteAllBytes(path, Encode(content, encoding));
 }
