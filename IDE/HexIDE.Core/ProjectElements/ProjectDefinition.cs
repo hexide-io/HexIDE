@@ -1,3 +1,4 @@
+using HexIDE.IDE;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -9,6 +10,9 @@ namespace HexIDE.Runtime.ProjectElements;
 
 public partial class ProjectDefinition : INotifyPropertyChanged
 {
+    /// <summary>Source encoding retained through saves and path changes.</summary>
+    public Vb6TextEncoding TextEncoding { get; set; } = Vb6TextEncoding.Ansi;
+
     private FormDefinition? startupForm;
     private bool startsAtSubMain;
     private string? absolutePath;
