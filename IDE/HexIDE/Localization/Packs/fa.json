@@ -2,6 +2,7 @@
   "name": "Persian",
   "direction": "rtl",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0} ذخیره نشد، زیرا یک ویرایش شامل نویسه‌هایی است که نمی‌توان آن‌ها را در صفحهٔ کد فایل منبع آن ({1}) ذخیره کرد. از نویسه‌هایی استفاده کنید که آن صفحهٔ کد پشتیبانی می‌کند و سپس دوباره ذخیره کنید. ویرایش همچنان باز است؛ فایل منبع و منابع همراه آن بدون تغییر مانده‌اند.",
     "Str.Options.Language.RegionLabel": "منطقه:",
     "Str.Options.Language.RegionStandard": "(استاندارد)",
     "Str.Options.Language.Customize": "سفارشی‌سازی ترجمه‌ها…",

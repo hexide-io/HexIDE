@@ -2,6 +2,7 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0} kaydedilmedi, çünkü bir düzenleme, kaynak dosyasının kod sayfasında ({1}) saklanamayan karakterler içeriyor. Bu kod sayfasının desteklediği karakterleri kullanın ve yeniden kaydedin. Düzenleme açık kalıyor; kaynak dosyası ve eşlik eden kaynakları değişmedi.",
     "Str.Options.Language.RegionLabel": "_Bölge:",
     "Str.Options.Language.RegionStandard": "(Standart)",
     "Str.Options.Language.Customize": "Çevirileri _özelleştir…",

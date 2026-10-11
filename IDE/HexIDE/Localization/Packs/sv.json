@@ -2,6 +2,7 @@
   "name": "Swedish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0} sparades inte, eftersom en ändring innehåller tecken som inte kan lagras i källfilens teckentabell ({1}). Välj tecken som stöds av den teckentabellen och spara igen. Ändringen finns kvar i redigeraren; källfilen och dess tillhörande resursfiler är oförändrade.",
     "Str.Options.Language.RegionLabel": "_Region:",
     "Str.Options.Language.RegionStandard": "(Standard)",
     "Str.Options.Language.Customize": "_Anpassa översättningar…",

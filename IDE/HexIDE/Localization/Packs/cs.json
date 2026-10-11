@@ -2,6 +2,7 @@
   "name": "Czech",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "Dokument {0} nebyl uložen, protože úprava obsahuje znaky, které nelze uložit ve znakové stránce jeho zdrojového kódu ({1}). Zvolte znaky podporované touto znakovou stránkou a uložte znovu. Vaše úprava je stále v IDE; zdrojový soubor a jeho doprovodné soubory prostředků zůstávají na disku nezměněné.",
     "Str.Options.Language.RegionLabel": "_Oblast:",
     "Str.Options.Language.RegionStandard": "(Standardní)",
     "Str.Options.Language.Customize": "_Přizpůsobit překlady…",

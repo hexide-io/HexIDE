@@ -2,6 +2,7 @@
   "name": "Indonesian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0} tidak disimpan, karena sebuah suntingan berisi karakter yang tidak dapat disimpan dalam halaman kode berkas sumbernya ({1}). Gunakan karakter yang didukung oleh halaman kode tersebut, lalu simpan lagi. Suntingan Anda tetap terbuka; berkas sumber dan sumber daya pendampingnya tidak berubah.",
     "Str.Options.Language.RegionLabel": "_Wilayah:",
     "Str.Options.Language.RegionStandard": "(Standar)",
     "Str.Options.Language.Customize": "_Sesuaikan terjemahan…",

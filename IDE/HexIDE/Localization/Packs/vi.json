@@ -2,6 +2,7 @@
   "name": "Vietnamese",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0} không được lưu, vì một phần chỉnh sửa có chứa ký tự không thể lưu trong trang mã của tệp nguồn ({1}). Hãy chọn các ký tự được trang mã đó hỗ trợ rồi lưu lại. Phần chỉnh sửa vẫn đang mở; tệp nguồn và các tệp tài nguyên đi kèm của nó trên đĩa vẫn không thay đổi.",
     "Str.Options.Language.RegionLabel": "_Khu vực:",
     "Str.Options.Language.RegionStandard": "(Chuẩn)",
     "Str.Options.Language.Customize": "_Tùy chỉnh bản dịch…",

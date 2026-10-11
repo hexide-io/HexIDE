@@ -2,6 +2,7 @@
   "name": "Dutch",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0} is niet opgeslagen omdat een wijziging tekens bevat die niet in de codetabel van het bronbestand ({1}) kunnen worden opgeslagen. Kies tekens die door die codetabel worden ondersteund en sla opnieuw op. Het document blijft met de wijziging geopend in de IDE; het bronbestand en de bijbehorende resourcebestanden zijn ongewijzigd.",
     "Str.Options.Language.RegionLabel": "_Regio:",
     "Str.Options.Language.RegionStandard": "(Standaard)",
     "Str.Options.Language.Customize": "_Vertalingen aanpassen…",

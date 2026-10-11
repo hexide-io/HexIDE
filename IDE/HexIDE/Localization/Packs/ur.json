@@ -2,6 +2,7 @@
   "name": "Urdu",
   "direction": "rtl",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0} محفوظ نہیں کیا گیا، کیونکہ ایک ترمیم میں ایسے حروف شامل ہیں جنہیں اس کے سورس کوڈ صفحے ({1}) میں ذخیرہ نہیں کیا جا سکتا۔ ایسے حروف منتخب کریں جن کی یہ کوڈ صفحہ معاونت کرتا ہے، اور دوبارہ محفوظ کریں۔ ترمیم بدستور کھلی ہے۔ سورس فائل اور اس کے ساتھ رکھی گئی ریسورس فائلوں میں کوئی تبدیلی نہیں ہوئی۔",
     "Str.Options.Language.RegionLabel": "علاقہ:",
     "Str.Options.Language.RegionStandard": "(معیاری)",
     "Str.Options.Language.Customize": "تراجم حسبِ ضرورت بنائیں…",

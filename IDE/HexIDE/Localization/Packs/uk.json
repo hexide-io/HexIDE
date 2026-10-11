@@ -2,6 +2,7 @@
   "name": "Ukrainian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0} не було збережено, оскільки внесені зміни містять символи, які неможливо зберегти в кодовій сторінці вихідного коду ({1}). Використайте символи, які підтримує ця кодова сторінка, і збережіть знову. Ваші зміни залишаються в редакторі; файл вихідного коду та супутні ресурси не змінено.",
     "Str.Options.Language.RegionLabel": "Регіон:",
     "Str.Options.Language.RegionStandard": "(Стандартний)",
     "Str.Options.Language.Customize": "Налаштувати переклади…",

@@ -2,6 +2,7 @@
   "name": "Hindi",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0} सहेजा नहीं गया, क्योंकि किसी संपादन में ऐसे वर्ण हैं जिन्हें इसकी स्रोत फ़ाइल के कोड पृष्ठ ({1}) में संग्रहीत नहीं किया जा सकता। उस कोड पृष्ठ द्वारा समर्थित वर्ण चुनें और फिर से सहेजें। संपादन अभी भी खुला है; स्रोत फ़ाइल और उसके सहयोगी संसाधन अपरिवर्तित हैं।",
     "Str.Options.Language.RegionLabel": "क्षेत्र:",
     "Str.Options.Language.RegionStandard": "(मानक)",
     "Str.Options.Language.Customize": "अनुवाद अनुकूलित करें…",

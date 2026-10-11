@@ -2,6 +2,7 @@
   "name": "Hebrew",
   "direction": "rtl",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0} לא נשמר, מפני שעריכה בו מכילה תווים שלא ניתן לאחסן בדף הקוד של קובץ המקור שלו ({1}). השתמש בתווים שדף קוד זה תומך בהם ושמור שוב. העריכה נותרה פתוחה; קובץ המקור והמשאבים הנלווים אליו נותרו ללא שינוי.",
     "Str.Options.Language.RegionLabel": "אזור:",
     "Str.Options.Language.RegionStandard": "(רגיל)",
     "Str.Options.Language.Customize": "התאמה אישית של תרגומים…",

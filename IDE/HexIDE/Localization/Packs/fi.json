@@ -2,6 +2,7 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "Kohdetta {0} ei tallennettu, koska muokkaus sisältää merkkejä, joita ei voi tallentaa sen lähdetiedoston koodisivulla ({1}). Käytä merkkejä, joita kyseinen koodisivu tukee, ja tallenna uudelleen. Muokkaus pysyy auki; lähdetiedosto ja sen oheisresurssit ovat levyllä ennallaan.",
     "Str.Options.Language.RegionLabel": "_Alue:",
     "Str.Options.Language.RegionStandard": "(Vakio)",
     "Str.Options.Language.Customize": "_Mukauta käännöksiä…",

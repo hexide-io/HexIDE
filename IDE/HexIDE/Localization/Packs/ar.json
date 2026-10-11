@@ -2,6 +2,7 @@
   "name": "Arabic",
   "direction": "rtl",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "لم يتم حفظ {0}، لأن أحد التعديلات يحتوي على أحرف لا يمكن تخزينها في صفحة الترميز اللغوي الخاصة بملفه المصدر ({1}). اختر أحرفاً تدعمها صفحة الترميز اللغوي هذه، ثم احفظ مرة أخرى. لا يزال التعديل مفتوحاً؛ ولم يتغيّر الملف المصدر ولا الموارد المصاحبة له.",
     "Str.Options.Language.RegionLabel": "المنطقة:",
     "Str.Options.Language.RegionStandard": "(قياسية)",
     "Str.Options.Language.Customize": "تخصيص الترجمات…",

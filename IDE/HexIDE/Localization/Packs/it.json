@@ -2,6 +2,7 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0} non è stato salvato perché una modifica contiene caratteri che non possono essere memorizzati nella tabella codici del file sorgente ({1}). Usa caratteri supportati da quella tabella codici e salva di nuovo. Il documento resta aperto con le tue modifiche; il file sorgente e le risorse associate su disco sono invariati.",
     "Str.Options.Language.RegionLabel": "_Area geografica:",
     "Str.Options.Language.RegionStandard": "(Standard)",
     "Str.Options.Language.Customize": "_Personalizza traduzioni…",

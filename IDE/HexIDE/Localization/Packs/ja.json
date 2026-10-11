@@ -2,6 +2,7 @@
   "name": "Japanese",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0} は、編集内容にソースファイルのコード ページ ({1}) で保存できない文字が含まれているため、保存されませんでした。このコード ページでサポートされている文字を使用して、もう一度保存してください。編集内容はエディターにそのまま残っています。ディスク上のソースファイルと、それに付随するリソースファイルは変更されていません。",
     "Str.Options.Language.RegionLabel": "地域:",
     "Str.Options.Language.RegionStandard": "(標準)",
     "Str.Options.Language.Customize": "翻訳をカスタマイズ…",

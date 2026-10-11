@@ -2,6 +2,7 @@
   "name": "Portuguese",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0} não foi guardado, porque uma edição contém carateres que não podem ser armazenados na página de códigos do respetivo código-fonte ({1}). Escolha carateres suportados por essa página de códigos e guarde novamente. A edição continua aberta; o ficheiro de origem e os respetivos recursos associados permanecem inalterados no disco.",
     "Str.Options.Language.RegionLabel": "_Região:",
     "Str.Options.Language.RegionStandard": "(Padrão)",
     "Str.Options.Language.Customize": "_Personalizar traduções…",

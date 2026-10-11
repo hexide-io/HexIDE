@@ -2,6 +2,7 @@
   "name": "German",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0} wurde nicht gespeichert, weil eine Änderung Zeichen enthält, die sich in der Codepage der Quelldatei ({1}) nicht speichern lassen. Verwenden Sie Zeichen, die von dieser Codepage unterstützt werden, und speichern Sie erneut. Das Dokument bleibt mit der Änderung im Editor geöffnet; die Quelldatei und die zugehörigen Ressourcendateien sind unverändert.",
     "Str.Options.Language.Customize": "Übersetzungen _anpassen…",
     "Str.Options.Language.RegionLabel": "_Region:",
     "Str.Options.Language.RegionStandard": "(Standard)",

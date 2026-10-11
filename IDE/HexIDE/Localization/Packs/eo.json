@@ -2,6 +2,7 @@
   "name": "Esperanto",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0} ne estis konservita, ĉar redakto enhavas signojn, kiujn la kodpaĝo de ĝia fontkodo ({1}) ne povas enteni. Elektu signojn, kiujn tiu kodpaĝo subtenas, kaj konservu denove. La redakto restas malfermita; la fontdosiero kaj ĝiaj akompanaj rimeddosieroj sur la disko restas neŝanĝitaj.",
     "Str.Menu.File": "_Dosiero",
     "Str.Menu.File.NewProject": "_Nova Projekto",
     "Str.Menu.File.OpenProject": "_Malfermi Projekton...",

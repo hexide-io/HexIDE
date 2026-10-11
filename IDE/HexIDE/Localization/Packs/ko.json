@@ -2,6 +2,7 @@
   "name": "Korean",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0}은(는) 편집한 내용에 소스 파일의 코드 페이지({1})로 저장할 수 없는 문자가 포함되어 있으므로 저장되지 않았습니다. 해당 코드 페이지에서 지원하는 문자를 사용한 후 다시 저장하십시오. 편집한 내용은 열린 상태로 그대로 남아 있으며, 디스크에 있는 소스 파일과 관련 리소스 파일은 변경되지 않았습니다.",
     "Str.Options.Language.RegionLabel": "지역:",
     "Str.Options.Language.RegionStandard": "(표준)",
     "Str.Options.Language.Customize": "번역 사용자 지정…",

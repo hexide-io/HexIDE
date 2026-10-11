@@ -2,6 +2,7 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0} n'a pas été enregistré, car une modification contient des caractères qui ne peuvent pas être stockés dans la page de codes de son fichier source ({1}). Utilisez des caractères pris en charge par cette page de codes, puis enregistrez de nouveau. Le document reste ouvert avec vos modifications ; le fichier source et ses ressources associées sur le disque sont inchangés.",
     "Str.Options.Language.RegionLabel": "_Région :",
     "Str.Options.Language.RegionStandard": "(Standard)",
     "Str.Options.Language.Customize": "_Personnaliser les traductions…",

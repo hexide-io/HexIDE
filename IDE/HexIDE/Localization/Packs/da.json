@@ -2,6 +2,7 @@
   "name": "Danish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0} blev ikke gemt, fordi en redigering indeholder tegn, der ikke kan lagres i kildefilens tegntabel ({1}). Brug tegn, som denne tegntabel understøtter, og gem igen. Dokumentet er stadig åbent med redigeringen; kildefilen og dens tilhørende ressourcefiler på disken er uændrede.",
     "Str.Options.Language.RegionLabel": "_Region:",
     "Str.Options.Language.RegionStandard": "(Standard)",
     "Str.Options.Language.Customize": "_Tilpas oversættelser…",

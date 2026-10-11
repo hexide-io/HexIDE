@@ -2,6 +2,7 @@
   "name": "es",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0} no se guardó porque una modificación contiene caracteres que la página de códigos de su código fuente ({1}) no puede almacenar. Elija caracteres admitidos por esa página de códigos y vuelva a guardar. El documento sigue abierto con sus cambios; ni el archivo de código fuente ni sus recursos asociados han cambiado en disco.",
     "Str.Options.Language.RegionLabel": "_Región:",
     "Str.Options.Language.RegionStandard": "(Estándar)",
     "Str.Options.Language.Customize": "_Personalizar traducciones…",

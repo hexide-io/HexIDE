@@ -2,6 +2,7 @@
   "name": "Norwegian Bokmål",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0} ble ikke lagret fordi en redigering inneholder tegn som ikke kan lagres i kildefilens tegntabell ({1}). Velg tegn som denne tegntabellen støtter, og lagre på nytt. Dokumentet er fortsatt åpent med redigeringen; kildefilen og de tilhørende ressursfilene er uendret.",
     "Str.Options.Language.RegionLabel": "_Region:",
     "Str.Options.Language.RegionStandard": "(Standard)",
     "Str.Options.Language.Customize": "_Tilpass oversettelser…",

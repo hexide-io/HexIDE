@@ -2,6 +2,7 @@
   "name": "Latina",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.SaveFailed": "{0} non servatum est, quia mutatio quaedam signa continet quae in pagina codicum fontana eius ({1}) servari non possunt. Elige signa quae illa pagina codicum sustinet, deinde iterum serva. Mutatio tua adhuc aperta est; plica fontana eiusque opes comitantes in disco immutatae manent.",
     "Str.Menu.File": "_Plica",
     "Str.Menu.File.NewProject": "_Novum Inceptum",
     "Str.Menu.File.OpenProject": "_Aperi Inceptum...",
