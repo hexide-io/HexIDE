@@ -3,7 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Dialog.SourceEncoding.SaveFailed": "{0} sparades inte, eftersom en ändring innehåller tecken som inte kan lagras i källfilens teckentabell ({1}). Välj tecken som stöds av den teckentabellen och spara igen. Ändringen finns kvar i redigeraren; källfilen och dess tillhörande resursfiler är oförändrade.",
-    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} kunde inte läsas i den här datorns teckentabell ({1}), så den öppnades byte för byte, som västeuropeisk text (Latin-1). Om du sparar källfilen oförändrad skrivs samma byte tillbaka. Text som skrivits i en annan teckentabell kan se förvrängd ut, och tecken utanför Latin-1 kan inte läggas till i den.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} kunde inte läsas i den här datorns teckentabell ({1}), så den öppnades byte för byte, som västeuropeisk text (Latin-1). Om du sparar källfilen oförändrad skrivs samma byte tillbaka, men tecken utanför Latin-1 kan inte läggas till i den. Text som skrivits i en annan teckentabell kan se förvrängd ut.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "De här filerna kunde inte läsas i den här datorns teckentabell ({1}), så de öppnades byte för byte, som västeuropeisk text (Latin-1):\n\n{0}\n\nOm du sparar källfilerna oförändrade skrivs samma byte tillbaka, men tecken utanför Latin-1 kan inte läggas till i dem. Text som skrivits i en annan teckentabell kan se förvrängd ut.",
     "Str.Options.Language.RegionLabel": "_Region:",
     "Str.Options.Language.RegionStandard": "(Standard)",
     "Str.Options.Language.Customize": "_Anpassa översättningar…",

@@ -3,7 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Dialog.SourceEncoding.SaveFailed": "{0} 未保存，因为所做的编辑中含有其源文件代码页（{1}）无法存储的字符。请改用该代码页支持的字符，然后重新保存。编辑内容仍保留在打开的文档中；源文件及其配套资源文件均未发生更改。",
-    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} 无法按此计算机的代码页（{1}）读取，因此已逐字节地作为西欧（Latin-1）文本打开。若未作更改即保存，将写回完全相同的字节。以其他代码页编写的文本可能显示为乱码，且无法向该文件添加 Latin-1 以外的字符。",
+    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} 无法按此计算机的代码页（{1}）读取，因此已逐字节地作为西欧（Latin-1）文本打开。若未作更改即保存，将写回完全相同的字节，但无法向该文件添加 Latin-1 以外的字符。以其他代码页编写的文本可能显示为乱码。",
+    "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "这些文件无法按此计算机的代码页（{1}）读取，因此已逐字节地作为西欧（Latin-1）文本打开：\n\n{0}\n\n若未作更改即保存，将写回完全相同的字节，但无法向这些文件添加 Latin-1 以外的字符。以其他代码页编写的文本可能显示为乱码。",
     "Str.Options.Language.RegionLabel": "区域：",
     "Str.Options.Language.RegionStandard": "（标准）",
     "Str.Options.Language.Customize": "自定义翻译…",

@@ -3,7 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Dialog.SourceEncoding.SaveFailed": "{0} blev ikke gemt, fordi en redigering indeholder tegn, der ikke kan lagres i kildefilens tegntabel ({1}). Brug tegn, som denne tegntabel understøtter, og gem igen. Dokumentet er stadig åbent med redigeringen; kildefilen og dens tilhørende ressourcefiler på disken er uændrede.",
-    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} kunne ikke læses i denne computers tegntabel ({1}), så kildefilen blev åbnet byte for byte som vesteuropæisk tekst (Latin-1). Hvis den gemmes uændret, skrives de samme bytes tilbage. Tekst, der er skrevet i en anden tegntabel, kan se forvansket ud, og tegn uden for Latin-1 kan ikke tilføjes til kildefilen.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} kunne ikke læses i denne computers tegntabel ({1}), så kildefilen blev åbnet byte for byte som vesteuropæisk tekst (Latin-1). Hvis den gemmes uændret, skrives de samme bytes tilbage, men tegn uden for Latin-1 kan ikke tilføjes til kildefilen. Tekst, der er skrevet i en anden tegntabel, kan se forvansket ud.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "Disse filer kunne ikke læses i denne computers tegntabel ({1}), så de blev åbnet byte for byte som vesteuropæisk tekst (Latin-1):\n\n{0}\n\nHvis de gemmes uændrede, skrives de samme bytes tilbage, men tegn uden for Latin-1 kan ikke tilføjes til filerne. Tekst, der er skrevet i en anden tegntabel, kan se forvansket ud.",
     "Str.Options.Language.RegionLabel": "_Region:",
     "Str.Options.Language.RegionStandard": "(Standard)",
     "Str.Options.Language.Customize": "_Tilpas oversættelser…",

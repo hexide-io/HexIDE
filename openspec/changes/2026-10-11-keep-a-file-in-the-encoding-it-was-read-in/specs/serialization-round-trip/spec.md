@@ -5,7 +5,7 @@
 The IDE SHALL record, for each VB6 source file it reads (`.vbp`, `.vbg`, `.frm`, `.bas`, `.cls`, `.ctl`,
 `.pag`), the encoding it was read in, and SHALL write the file back in that encoding, including a UTF-8
 byte-order mark when the file had one. It SHALL NOT change a file's encoding to accommodate an edit, and
-SHALL NOT change bytes on lines that were not edited.
+SHALL NOT re-encode text that was not edited.
 
 #### Scenario: Accented bytes that also form valid UTF-8 survive an unrelated edit
 
@@ -32,6 +32,12 @@ reloaded.
 - **GIVEN** a host whose ANSI code page is 932, and a module containing the byte `E9` followed by a line break
 - **WHEN** its project is opened
 - **THEN** the module is part of the project, a warning names it, and saving it unedited writes the same bytes
+
+#### Scenario: A byte-order mark over text that is not UTF-8
+
+- **GIVEN** a module that begins with a UTF-8 byte-order mark followed by Windows-1252 text
+- **WHEN** its project is opened and saved without edits
+- **THEN** the module's header is recognised, and the saved file is byte-identical to the original
 
 #### Scenario: A file recorded as UTF-8 is replaced by an ANSI revision
 

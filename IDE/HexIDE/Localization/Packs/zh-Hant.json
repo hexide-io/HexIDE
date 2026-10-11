@@ -3,7 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Dialog.SourceEncoding.SaveFailed": "{0} 未儲存，因為某項編輯包含無法以其原始程式檔所用字碼頁 ({1}) 儲存的字元。請改用該字碼頁支援的字元，然後再次儲存。您的編輯仍保留在開啟的文件中；原始程式檔及其隨附的資源檔案並未變更。",
-    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} 無法以這台電腦的字碼頁 ({1}) 讀取，因此改以西歐語系 (Latin-1) 文字逐位元組開啟。若未經變更即儲存，會寫回相同的位元組。以其他字碼頁撰寫的文字可能會顯示為亂碼，而且無法在該檔案中加入 Latin-1 以外的字元。",
+    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} 無法以這台電腦的字碼頁 ({1}) 讀取，因此改以西歐語系 (Latin-1) 文字逐位元組開啟。若未經變更即儲存，會寫回相同的位元組，但無法在該檔案中加入 Latin-1 以外的字元。以其他字碼頁撰寫的文字可能會顯示為亂碼。",
+    "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "這些檔案無法以這台電腦的字碼頁 ({1}) 讀取，因此改以西歐語系 (Latin-1) 文字逐位元組開啟：\n\n{0}\n\n若未經變更即儲存，會寫回相同的位元組，但無法在這些檔案中加入 Latin-1 以外的字元。以其他字碼頁撰寫的文字可能會顯示為亂碼。",
     "Str.Options.Language.RegionLabel": "地區:",
     "Str.Options.Language.RegionStandard": "(標準)",
     "Str.Options.Language.Customize": "自訂翻譯…",

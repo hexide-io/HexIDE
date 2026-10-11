@@ -3,7 +3,8 @@
   "direction": "ltr",
   "strings": {
     "Str.Dialog.SourceEncoding.SaveFailed": "{0} ne estis konservita, ĉar redakto enhavas signojn, kiujn la kodpaĝo de ĝia fontkodo ({1}) ne povas enteni. Elektu signojn, kiujn tiu kodpaĝo subtenas, kaj konservu denove. La redakto restas malfermita; la fontdosiero kaj ĝiaj akompanaj rimeddosieroj sur la disko restas neŝanĝitaj.",
-    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} ne povis esti legita laŭ la kodpaĝo de ĉi tiu komputilo ({1}), do ĝi estis malfermita bajton post bajto, kiel okcidenteŭropa (Latin-1) teksto. Konservi ĝin neŝanĝita skribas reen la samajn bajtojn. Teksto skribita en alia kodpaĝo povas aspekti fuŝita, kaj signoj ekster Latin-1 ne povas esti aldonitaj al la fontdosiero.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} ne povis esti legita laŭ la kodpaĝo de ĉi tiu komputilo ({1}), do ĝi estis malfermita bajton post bajto, kiel okcidenteŭropa (Latin-1) teksto. Konservi ĝin neŝanĝita skribas reen la samajn bajtojn, sed signoj ekster Latin-1 ne povas esti aldonitaj al la fontdosiero. Teksto skribita en alia kodpaĝo povas aspekti fuŝita.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "Ĉi tiuj dosieroj ne povis esti legitaj laŭ la kodpaĝo de ĉi tiu komputilo ({1}), do ili estis malfermitaj bajton post bajto, kiel okcidenteŭropa (Latin-1) teksto:\n\n{0}\n\nKonservi ilin neŝanĝitaj skribas reen la samajn bajtojn, sed signoj ekster Latin-1 ne povas esti aldonitaj al la dosieroj. Teksto skribita en alia kodpaĝo povas aspekti fuŝita.",
     "Str.Menu.File": "_Dosiero",
     "Str.Menu.File.NewProject": "_Nova Projekto",
     "Str.Menu.File.OpenProject": "_Malfermi Projekton...",
