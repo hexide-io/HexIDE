@@ -291,6 +291,7 @@ public class SourceEncodingPersistenceTests : IDisposable
     public async Task Saving_an_ASCII_edit_preserves_ANSI_bytes_that_are_also_valid_UTF8()
     {
         var svc = MakeService();
+        svc.HostAnsi = new Vb6TextEncoding(1252);
         var vbp = WriteProject();
         var path = Path.Join(dir, "Module1.bas");
         var original = System.Text.Encoding.Latin1.GetBytes(
@@ -298,6 +299,8 @@ public class SourceEncodingPersistenceTests : IDisposable
         File.WriteAllBytes(path, original);
         await svc.OpenProject(vbp);
         var module = loaded.Single().Modules.Single();
+        // The bytes alone cannot tell: read as UTF-8 they would also be written back unchanged.
+        module.TextEncoding.Should().Be(new Vb6TextEncoding(1252), "nothing above U+00FF, so not an earlier version's UTF-8");
         module.UpdateCode(module.Code.Replace("Original", "Edited", StringComparison.Ordinal));
 
         await svc.SaveModule(module, false);
