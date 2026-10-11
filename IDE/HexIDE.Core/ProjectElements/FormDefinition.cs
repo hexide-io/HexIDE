@@ -1,3 +1,4 @@
+using HexIDE.IDE;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -10,6 +11,9 @@ namespace HexIDE.Runtime.ProjectElements;
 
 public partial class FormDefinition : INotifyPropertyChanged
 {
+    /// <summary>Source encoding retained through saves and path changes.</summary>
+    public Vb6TextEncoding TextEncoding { get; set; } = Vb6TextEncoding.Ansi;
+
     public ProjectDefinition Owner { get; }
 
     /// <summary>
