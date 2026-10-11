@@ -20,6 +20,11 @@ there isn't one yet. Anything may change between 0.x releases.
   newer HexIDE wrote into it is kept, even when both had the project open at once. It goes with the project
   when the project is saved somewhere else, is not created by a save with nothing to record, and is left
   untouched when it cannot be read rather than overwritten.
+- **Saving a file no longer changes text you did not edit.** A file whose accented characters happened to
+  read as valid UTF-8 was decoded that way and written back changed, so one ASCII edit could alter an
+  unrelated comment or string. A file now keeps the encoding it was read in, a UTF-8 byte-order mark
+  included, and an edit its code page cannot hold is refused with a warning rather than silently converting
+  the file to UTF-8.
 
 ## [0.2.0] — 2026-09-24
 
