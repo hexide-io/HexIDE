@@ -5,6 +5,9 @@
 > It is deliberately **not** listed under "Living Documents" in `CLAUDE.md` — that section is for
 > artefacts the build guards, and adding an unguarded one is how `docs/lsp-*.md` drifted into fiction.
 > Citations are file plus symbol rather than line number, for the same reason.
+>
+> The [addendum](#addendum-2026-10-11-what-a-shipped-command-registry-adds) at the end was measured
+> separately, against `f229c8e` on 2026-10-11, and has the same status.
 
 ## The question
 
@@ -214,6 +217,138 @@ offers no project types at all, so its OK button can never enable, while the Sta
 flyout hard-codes all four templates and bypasses the personality entirely. Two surfaces, disagreeing, and
 one of them a dead end.
 
+## Addendum (2026-10-11): what a shipped command registry adds
+
+The five ecosystems above are *contribution* models: they describe how a third party places a command.
+Since this survey, an open-source image editor, PhotoCraft (MIT OR Apache-2.0), has shipped the other
+half. It is an application built outward from its command registry. Each of about 700 commands carries a
+string id, a label, a menu path, a default shortcut, a parameter description, an enablement check and a
+run function. Its menus, shortcuts, command palette, recorded macros, CLI, JSON control channel and MCP
+server all dispatch by id.
+
+It confirms the sequencing above: the registry comes first. It also shows six things the five ecosystems did
+not. Its design was read at `65e8d5f`, and none of its code was carried over.
+
+### The obvious reading is wrong, and the correction is the lesson
+
+Its README says "one registry". The source shows **one id namespace over several tables**:
+
+- the engine's commands;
+- a separate shell table for window and panel commands;
+- a data copy of the target application's whole menu tree.
+
+Holding these together takes work. The check for whether a menu item is live combines a dozen sources. The
+shortcut table merges six, with precedence rules that have needed fixes of their own.
+
+What held together was the **id as the join**, plus tests proving the join holds. That bears directly on
+finding 1's "second resolution path": the routed-versus-ViewModel split here is survivable, provided one id
+space covers both sides and a test proves that every surface reaches the command it shows.
+
+### The difference that decides the transfer: state, not focus
+
+PhotoCraft's commands act on session state, such as the active document or the active layer. Their
+enablement is a pure function of that state.
+
+A HexIDE `RoutedCommand` works differently. It is resolved from the focused element, and `CanExecute` is
+answered by whichever binding the route meets first. Most of the duplication follows from that:
+
+- **View Code has three implementations:** `FormEditViewModel.ViewCode`, `CodeEditorViewModel.ViewCode` and
+  `ProjectToolViewModel.ViewCodeCommand`.
+- **`invoke_menu_item` finds a command through the menu**, by its displayed and localised text
+  (`IDE/HexIDE/Automation/MenuPath.cs`), so whether it works depends on focus
+  ([#678](https://github.com/hexide-io/HexIDE/issues/678)).
+- **MCP tools re-implement the menu's guards** rather than sharing them.
+
+None of this argues for dropping routing. VB6's own IDE is focus-driven, and that is fidelity. But a
+registry entry is the natural place to resolve an explicit target, meaning the active document in the dock
+rather than whatever has keyboard focus. That would give automation and add-ins a path that does not depend
+on focus.
+
+### Six things it adds to the prior art
+
+1. **Enablement returns a reason, not a bool.** A shortcut that hits a disabled command shows the reason on
+   the status bar instead of doing nothing, and a test pins that behaviour. In HexIDE the question "can
+   Start run?" is answered three times:
+   - the menu's predicate, with F5's continue-when-paused semantics;
+   - `run_project`'s own refusal strings;
+   - `IHexIdeHost.RunProject`.
+
+   Commands bound to ViewModel methods have no predicate at all
+   ([#733](https://github.com/hexide-io/HexIDE/issues/733)). One reason-returning predicate per command
+   would give the menu tooltip, the status bar, the MCP refusal and AI Chat the same words. That meets
+   `CLAUDE.md`'s rule that a surprising reply must explain itself, once, at the source.
+2. **One dispatch point carries the cross-cutting policy.** Every caller goes through a single function,
+   which does all of the following:
+   - checks that the id is known and the parameters have the right shape;
+   - applies a permission gate for untrusted sessions, including to commands that other commands run;
+   - refuses while a background job is editing the same document;
+   - catches crashes and reports them as errors, leaving the document unchanged;
+   - writes the macro journal.
+
+   HexIDE has no such point. The menu, each MCP tool and the add-in host make their own checks, and they
+   have already diverged: Set Next Statement is scoped to the running project in the MCP tool but not in
+   the menu ([#734](https://github.com/hexide-io/HexIDE/issues/734)). A per-caller policy would belong at
+   such a point, for add-ins (which run with full trust today) or for the unauthenticated automation server
+   ([#352](https://github.com/hexide-io/HexIDE/issues/352)).
+3. **The automation surface is the registry.** The MCP server offers `command_list` (with live enabled
+   state), `command_run` and `command_batch`. It keeps dedicated tools only for jobs a command cannot do,
+   such as rendering a preview or inspecting the document. That is the `hexide-mcp-server` spec's own
+   authoring policy taken to its conclusion.
+4. **A registry turns "every command" into a loop.** Its tests include:
+   - throwing adversarial parameters at every command and requiring an error rather than a crash;
+   - checking that every shortcut a menu displays fires that item from where focus usually is;
+   - checking that a disabled shortcut says why.
+
+   [#415](https://github.com/hexide-io/HexIDE/issues/415) is HexIDE's first such test. The next would ask
+   every registered command, by name, whether it can run, without throwing. Both have the same shape as the
+   guards this repository already trusts, such as `ProtocolCoverageDocTests` and
+   `CommandLineDocumentationTests`.
+5. **Parity is generated from the target's own menu tree.** Every item in the data copy of the target's
+   menus names a command id. An item is live if that id is registered, and disabled otherwise. A generator
+   writes the parity checklist, and a test stops the live count from falling. Its README is honest that
+   this "measures wiring, not behaviour".
+
+   The HexIDE analogue is VB6's menu tree held as data, generating the IDE-menu rows of
+   `MISSING_FEATURES.md`. It would also collapse the four "present but inert" encodings listed above into
+   one: an id nobody has registered.
+
+   VB6's extensibility model is understood to expose its menus as Office CommandBars, where built-in items
+   carry numeric control ids that an add-in could find, place and execute. If that holds, the tree could be
+   harvested from `vb6.exe` on the oracle VM rather than typed in, and that capability is itself an add-in
+   fidelity gap (finding 3's "two menu anchors"). **Confirm both on the oracle before designing against
+   either.**
+6. **Labels translate by command id.** Menu labels go through a lookup keyed by command id, falling back to
+   the English label. Scripts, the CLI and MCP see only ids, never translated text.
+
+   HexIDE has four keys for Cut: `Str.Menu.Edit.Cut`, `Str.Designer.Context.Cut`,
+   `Str.CodeEditor.Context.Cut` and `Str.Toolbar.Tip.Cut`. Each one costs a translation in every shipped
+   pack. One key per command, with the access-key marker stripped for tooltips, would also remove
+   `invoke_menu_item`'s dependence on displayed text.
+
+It also confirms prior-art point 4 from the other direction. Its displayed shortcuts are derived from the
+live binding table. HexIDE's are copied once, and six are hard-coded literals
+([#732](https://github.com/hexide-io/HexIDE/issues/732)).
+
+### Two things not to copy
+
+- **Free-text parameters.** A command's parameters are described in a hand-written prose string, not a
+  schema, although its own architecture document describes schemas. That falls short of the bar
+  `CLAUDE.md` sets for a tool's generated schema. A HexIDE registry would carry typed parameter records.
+- **Leaving the shell/engine split undecided.** The dozen-source live check and the six-way shortcut merge
+  are what that costs. Decide early whether ViewModel-bound commands join the registry. That is step 1
+  above, unchanged.
+
+### What it changes in the sequencing
+
+The order is unchanged. Step 1 now has a concrete shape:
+
+1. Each entry in `CommandKeyMapping.Table`, or its successor, carries a label key, its gestures, and a
+   function that returns why the command cannot run, or nothing when it can.
+2. Land [#415](https://github.com/hexide-io/HexIDE/issues/415)'s guard.
+3. Have `invoke_menu_item` resolve by command name.
+4. Then retire each MCP tool that only re-implements a command, keeping those the authoring policy
+   justifies on their own.
+
 ## Sources
 
 Findings were produced by two parallel research passes, each followed by an adversarial verification stage
@@ -230,3 +365,20 @@ matters when reading specific claims:**
 Where a claim in this document names a HexIDE file or symbol, it was checked against the tree at
 `75b6517`. Where it describes another product's model, treat it as a design lesson rather than as a
 citation.
+
+**The 2026-10-11 addendum was a single pass, not adversarially verified.**
+
+- **PhotoCraft** was read directly at `65e8d5f` of
+  [storytold/photocraft](https://github.com/storytold/photocraft), in these files:
+  - `crates/engine/src/commands.rs`: `CommandSpec` and the registry;
+  - `crates/engine/src/jobs.rs`: `Session::dispatch`;
+  - `crates/ui-egui/src/menus.rs`, `menu_catalog.rs`, `shortcut_dispatch.rs` and its tests, `parity.rs`, and
+    `i18n/mod.rs`;
+  - `crates/automation`;
+  - `crates/engine/tests/panic_hunt.rs`;
+  - `docs/architecture.md`.
+
+  Where its design document and its code disagree, as with parameter schemas, the code is what the addendum
+  describes.
+- **HexIDE** claims in the addendum were checked against `f229c8e`.
+- **The VB6 CommandBars claim is from memory**, and is marked there as needing the oracle.
