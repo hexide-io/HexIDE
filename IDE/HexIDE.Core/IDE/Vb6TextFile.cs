@@ -21,10 +21,24 @@ public sealed record Vb6TextEncoding(int CodePage, bool Utf8Bom = false)
 {
     // VB6 uses the Windows ANSI code page, not the console/OEM code page or the UI language.
     // Other hosts have no Windows ACP; use Windows-1252 as the deterministic default there.
-    public static Vb6TextEncoding Ansi { get; } = new(
+    public static Vb6TextEncoding Ansi { get; private set; } = new(
         OperatingSystem.IsWindows()
             ? CodePagesEncodingProvider.Instance.GetEncoding(0)?.CodePage ?? 1252
             : 1252);
+
+#if DEBUG
+    /// <summary>
+    /// Debug builds only: treat <paramref name="codePage"/> as this machine's ANSI code page for the rest of
+    /// the session, behind <c>--ansi-code-page</c>. Call it before any project is read: a document takes the
+    /// host code page when it is created.
+    /// </summary>
+    /// <remarks>
+    /// What a file the host cannot read looks like depends on the host. On a Windows-1252 machine every byte
+    /// decodes, so the byte-for-byte path and its notice cannot be reached there at all, and a developer on
+    /// one has no other way to see them.
+    /// </remarks>
+    public static void SimulateHostCodePage(int codePage) => Ansi = new(codePage);
+#endif
 
     public static Vb6TextEncoding Utf8 { get; } = new(65001);
     public static Vb6TextEncoding Utf8WithBom { get; } = new(65001, true);
