@@ -1299,7 +1299,10 @@ public partial class MainViewViewModel : ObservableObject
             // A .frm that will not parse adds nothing at all, rather than a tree node with no form behind it.
             var adopted = await projectService.AddExistingForm(project, path);
             if (adopted.Document is { } form)
+            {
                 editorService.EditForm(form);
+                await ReportReadByteForByte(adopted.ReadByteForByte, path);
+            }
             else
                 await ReportRefusedAdoption(adopted.Refusal, adopted.Name, path);
             return;
@@ -1319,10 +1322,25 @@ public partial class MainViewViewModel : ObservableObject
                 editorService.EditForm(formPart);
             else
                 editorService.EditCode(module);
+            await ReportReadByteForByte(adopted.ReadByteForByte, path);
             return;
         }
 
         editorService.EditRelatedDocument(await projectService.AddExistingRelatedDocument(project, path));
+    }
+
+    /// <summary>
+    /// Tells the developer a file joined the project read byte for byte, because this computer's code page
+    /// could not read it. It saves back unchanged; the warning is about what they see in it.
+    /// </summary>
+    private async Task ReportReadByteForByte(bool readByteForByte, string path)
+    {
+        if (!readByteForByte)
+            return;
+        await windowManager.MessageBox(
+            string.Format(localization.GetString("Str.Dialog.SourceEncoding.ReadByteForByte"),
+                Path.GetFileName(path), Vb6TextEncoding.Ansi.CodePage),
+            icon: MessageBoxIcon.Warning);
     }
 
     /// <summary>

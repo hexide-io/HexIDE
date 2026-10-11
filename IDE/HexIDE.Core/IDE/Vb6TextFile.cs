@@ -22,6 +22,12 @@ public sealed record Vb6TextEncoding(int CodePage, bool Utf8Bom = false)
     public static Vb6TextEncoding Utf8 { get; } = new(65001);
     public static Vb6TextEncoding Utf8WithBom { get; } = new(65001, true);
 
+    /// <summary>
+    /// The last resort when nothing else reads a file. It maps all 256 byte values to characters and back,
+    /// so a file read in it is always written back byte-for-byte, and an edit it cannot hold is refused.
+    /// </summary>
+    public static Vb6TextEncoding Latin1 { get; } = new(28591);
+
     internal Encoding GetEncoding()
     {
         if (Utf8Bom && CodePage != 65001)
@@ -72,18 +78,71 @@ public static class Vb6TextFile
     public static async Task<string> ReadAllTextAsync(string path) =>
         Decode(await File.ReadAllBytesAsync(path));
 
+    /// <summary>
+    /// Reads a document's bytes, deciding their encoding by a chain that cannot fail. A read that throws
+    /// drops a project member, and the next Save Project removes its line from the <c>.vbp</c>; so every
+    /// read ends somewhere, and the last step gives every byte back.
+    /// </summary>
+    /// <remarks>
+    /// In order, the first step that applies:
+    /// <list type="number">
+    /// <item>A UTF-8 byte-order mark declares UTF-8, kept on write.</item>
+    /// <item><paramref name="lastReadIn"/>, on a reload, without its byte-order mark: an external editor
+    /// that removed the mark has not changed what the file is.</item>
+    /// <item><paramref name="ansi"/>, the host's ANSI code page.</item>
+    /// <item><see cref="Vb6TextEncoding.Latin1"/>, which always succeeds; <c>ByteForByte</c> says so, and
+    /// the caller warns.</item>
+    /// </list>
+    /// Each step must decode strictly AND encode back to the same bytes. Strict decoding alone does not
+    /// catch a code page with two byte spellings for one character, whose encoder writes the other one.
+    /// </remarks>
+    public static (string Text, Vb6TextEncoding Encoding, bool ByteForByte) ReadDocument(
+        byte[] bytes, Vb6TextEncoding? lastReadIn = null, Vb6TextEncoding? ansi = null)
+    {
+        if (bytes.AsSpan().StartsWith(Utf8Bom) && TryDecode(bytes, Vb6TextEncoding.Utf8WithBom, out var text))
+            return (text, Vb6TextEncoding.Utf8WithBom, false);
+
+        if (lastReadIn is not null)
+        {
+            var again = lastReadIn with { Utf8Bom = false };
+            if (TryDecode(bytes, again, out text))
+                return (text, again, false);
+        }
+
+        var host = ansi ?? Vb6TextEncoding.Ansi;
+        if (TryDecode(bytes, host, out text))
+            return (text, host, false);
+
+        return (Decode(bytes, Vb6TextEncoding.Latin1), Vb6TextEncoding.Latin1, true);
+    }
+
     /// <summary>Reads text, original bytes for watcher baselines, and encoding for subsequent saves.</summary>
-    public static async Task<(string Text, byte[] Bytes, Vb6TextEncoding Encoding)> ReadDocumentAsync(
-        string path, Vb6TextEncoding? fallback = null)
+    /// <inheritdoc cref="ReadDocument"/>
+    public static async Task<(string Text, byte[] Bytes, Vb6TextEncoding Encoding, bool ByteForByte)> ReadDocumentAsync(
+        string path, Vb6TextEncoding? lastReadIn = null, Vb6TextEncoding? ansi = null)
     {
         var bytes = await File.ReadAllBytesAsync(path);
-        var encoding = DetectEncoding(bytes, fallback);
-        return (Decode(bytes, encoding), bytes, encoding);
+        var (text, encoding, byteForByte) = ReadDocument(bytes, lastReadIn, ansi);
+        return (text, bytes, encoding, byteForByte);
+    }
+
+    private static bool TryDecode(byte[] bytes, Vb6TextEncoding encoding, out string text)
+    {
+        try
+        {
+            text = Decode(bytes, encoding);
+            return true;
+        }
+        catch (Exception e) when (e is DecoderFallbackException or InvalidDataException)
+        {
+            text = "";
+            return false;
+        }
     }
 
     public static async Task<(string Text, byte[] Bytes)> ReadWithBytesAsync(string path)
     {
-        var (text, bytes, _) = await ReadDocumentAsync(path);
+        var (text, bytes, _, _) = await ReadDocumentAsync(path);
         return (text, bytes);
     }
 

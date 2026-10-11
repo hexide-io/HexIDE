@@ -53,6 +53,32 @@ public class ProjectService : IProjectService
         this.localization = localization;
     }
 
+    /// <summary>
+    /// The code page a file without a byte-order mark is read in. The host's, except under test: on a
+    /// Western host every byte decodes, so a file the code page cannot read is only reachable by setting it.
+    /// </summary>
+    internal Vb6TextEncoding HostAnsi { get; set; } = Vb6TextEncoding.Ansi;
+
+    private Task<(string Text, byte[] Bytes, Vb6TextEncoding Encoding, bool ByteForByte)> ReadSourceAsync(
+        string path, Vb6TextEncoding? lastReadIn = null) =>
+        Vb6TextFile.ReadDocumentAsync(path, lastReadIn, HostAnsi);
+
+    private string ReadByteForByteMessage(string file) =>
+        string.Format(localization.GetString("Str.Dialog.SourceEncoding.ReadByteForByte"), file, HostAnsi.CodePage);
+
+    /// <summary>
+    /// The project-file line for a member that did not load, so a save writes it back rather than dropping
+    /// it. In the shape VB6 requires for each kind: <c>Name; File</c> for a module or class, the bare path
+    /// for the designer kinds (see <see cref="ProjectSerializer"/>).
+    /// </summary>
+    private static string ItemLineFor(ModuleKind kind, string name, string relativePath) => kind switch
+    {
+        ModuleKind.ClassModule  => $"{SerializedProject.ClassKey}={name}; {relativePath}",
+        ModuleKind.UserControl  => $"{SerializedProject.UserControlKey}={relativePath}",
+        ModuleKind.PropertyPage => $"{SerializedProject.PropertyPageKey}={relativePath}",
+        _                       => $"{SerializedProject.ModuleKey}={name}; {relativePath}",
+    };
+
     private async Task<IAddinProjectTemplate?> ChooseNewProject()
     {
         var vm = newProjectVm();
@@ -214,7 +240,9 @@ public class ProjectService : IProjectService
         var groupDir = Path.GetDirectoryName(groupPath)!;
         var groupName = Path.GetFileNameWithoutExtension(groupPath);
 
-        var (groupText, _, groupEncoding) = await Vb6TextFile.ReadDocumentAsync(groupPath);
+        var (groupText, _, groupEncoding, groupByteForByte) = await ReadSourceAsync(groupPath);
+        if (groupByteForByte)
+            await windowManager.MessageBox(ReadByteForByteMessage(Path.GetFileName(groupPath)), icon: MessageBoxIcon.Warning);
         var serializedGroup = new GroupDeserializer()
             .Deserialize(groupText);
 
@@ -263,7 +291,9 @@ public class ProjectService : IProjectService
         var formDeserializer = new FormDeserializer();
         var errorSink = new DeserializeErrorSink();
 
-        var (projectText, _, projectEncoding) = await Vb6TextFile.ReadDocumentAsync(projectPath);
+        var (projectText, _, projectEncoding, projectByteForByte) = await ReadSourceAsync(projectPath);
+        if (projectByteForByte)
+            errorSink.LogError(ReadByteForByteMessage(Path.GetFileName(projectPath)));
         var serializedProject = projectDeserializer.Deserialize(projectText, errorSink);
 
         var project = new ProjectDefinition(serializedProject.ProjectType, serializedProject.Name ?? "Project1");
@@ -283,7 +313,9 @@ public class ProjectService : IProjectService
                 module.AbsolutePath = moduleAbsolutePath;
                 if (File.Exists(moduleAbsolutePath))
                 {
-                    var (moduleSource, moduleBytes, moduleEncoding) = await Vb6TextFile.ReadDocumentAsync(moduleAbsolutePath);
+                    var (moduleSource, moduleBytes, moduleEncoding, moduleByteForByte) = await ReadSourceAsync(moduleAbsolutePath);
+                    if (moduleByteForByte)
+                        errorSink.LogError(ReadByteForByteMessage(modulePath));
                     module.TextEncoding = moduleEncoding;
                     baselineStore.Record(moduleAbsolutePath, moduleBytes);
                     var ctxBlobs = await LoadCompanionBlobs(moduleAbsolutePath, moduleSource);
@@ -310,6 +342,9 @@ public class ProjectService : IProjectService
             {
                 Log.Error(ex, "Failed to load module {ModulePath}", modulePath);
                 errorSink.LogError($"Failed to load module {modulePath}: {ex.Message}");
+                // Kept, as a missing file's line is. Not loaded, so a save cannot write its file; dropping the
+                // line would have the next Save Project remove the member from the project instead.
+                project.PreservedItemLines.Add(ItemLineFor(moduleKind, moduleName, modulePath));
             }
         }
 
@@ -333,7 +368,9 @@ public class ProjectService : IProjectService
                 }
 
                 // Form text before companion: the .frm's cited offsets partition the .frx.
-                var (formSource, formBytes, formEncoding) = await Vb6TextFile.ReadDocumentAsync(formAbsolutePath);
+                var (formSource, formBytes, formEncoding, formByteForByte) = await ReadSourceAsync(formAbsolutePath);
+                if (formByteForByte)
+                    errorSink.LogError(ReadByteForByteMessage(formPath));
                 baselineStore.Record(formAbsolutePath, formBytes);
 
                 var frxBlobs = await LoadCompanionBlobs(formAbsolutePath, formSource);
@@ -344,11 +381,18 @@ public class ProjectService : IProjectService
                     form.TextEncoding = formEncoding;
                     project.AddForm(form);
                 }
+                else
+                {
+                    errorSink.LogError($"Failed to load form {formPath}");
+                    project.PreservedItemLines.Add($"{SerializedProject.FormKey}={formPath}");
+                }
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "Failed to load form {FormPath}", formPath);
                 errorSink.LogError($"Failed to load form {formPath}: {ex.Message}");
+                // Kept, as a missing form's line is: see the module passes.
+                project.PreservedItemLines.Add($"{SerializedProject.FormKey}={formPath}");
             }
         }
 
@@ -386,7 +430,9 @@ public class ProjectService : IProjectService
                 module.AbsolutePath = moduleAbsolutePath;
                 if (File.Exists(moduleAbsolutePath))
                 {
-                    var (moduleSource, moduleBytes, moduleEncoding) = await Vb6TextFile.ReadDocumentAsync(moduleAbsolutePath);
+                    var (moduleSource, moduleBytes, moduleEncoding, moduleByteForByte) = await ReadSourceAsync(moduleAbsolutePath);
+                    if (moduleByteForByte)
+                        errorSink.LogError(ReadByteForByteMessage(modulePath));
                     module.TextEncoding = moduleEncoding;
                     baselineStore.Record(moduleAbsolutePath, moduleBytes);
                     // .bas/.cls: strip the VB6 header so Code is the body only (no-op for .pag/.ctl).
@@ -416,6 +462,9 @@ public class ProjectService : IProjectService
             {
                 Log.Error(ex, "Failed to load module {ModulePath}", modulePath);
                 errorSink.LogError($"Failed to load module {modulePath}: {ex.Message}");
+                // Kept, as a missing file's line is. Not loaded, so a save cannot write its file; dropping the
+                // line would have the next Save Project remove the member from the project instead.
+                project.PreservedItemLines.Add(ItemLineFor(moduleKind, moduleName, modulePath));
             }
         }
 
@@ -628,7 +677,9 @@ public class ProjectService : IProjectService
 
         // The designer file is read FIRST: its cited offsets are what partition the companion, so the
         // companion cannot be parsed without it. See FrxDeserializer.
-        var (source, sourceBytes, sourceEncoding) = await Vb6TextFile.ReadDocumentAsync(path, form.TextEncoding);
+        var (source, sourceBytes, sourceEncoding, byteForByte) = await ReadSourceAsync(path, form.TextEncoding);
+        if (byteForByte)
+            Log.Warning("Reload: {Path} could not be read in code page {CodePage}; read byte for byte", path, HostAnsi.CodePage);
         baselineStore.Record(path, sourceBytes);
 
         IReadOnlyDictionary<int, byte[]>? frxBlobs = null;
@@ -660,7 +711,9 @@ public class ProjectService : IProjectService
         if (path is null || !File.Exists(path))
             return false;
 
-        var (source, sourceBytes, sourceEncoding) = await Vb6TextFile.ReadDocumentAsync(path, module.TextEncoding);
+        var (source, sourceBytes, sourceEncoding, byteForByte) = await ReadSourceAsync(path, module.TextEncoding);
+        if (byteForByte)
+            Log.Warning("Reload: {Path} could not be read in code page {CodePage}; read byte for byte", path, HostAnsi.CodePage);
         baselineStore.Record(path, sourceBytes);
         var (preservedHeader, reloadedBody) = ModuleFileFormat.SplitHeader(source, module.Kind);
 
@@ -1059,7 +1112,7 @@ public class ProjectService : IProjectService
 
     public async Task<Adopted<FormDefinition>> AddExistingForm(ProjectDefinition project, string absolutePath)
     {
-        var (source, bytes, sourceEncoding) = await Vb6TextFile.ReadDocumentAsync(absolutePath);
+        var (source, bytes, sourceEncoding, byteForByte) = await ReadSourceAsync(absolutePath);
 
         // Form text before companion: the .frm's cited offsets partition the .frx.
         var blobs = await LoadCompanionBlobs(absolutePath, source);
@@ -1080,13 +1133,13 @@ public class ProjectService : IProjectService
         form.AbsolutePath = absolutePath;
         form.TextEncoding = sourceEncoding;
         project.AddForm(form);
-        return Adopted<FormDefinition>.Added(form, name);
+        return Adopted<FormDefinition>.Added(form, name, byteForByte);
     }
 
     public async Task<Adopted<ModuleDefinition>> AddExistingModule(
         ProjectDefinition project, string absolutePath, ModuleKind kind)
     {
-        var (source, bytes, sourceEncoding) = await Vb6TextFile.ReadDocumentAsync(absolutePath);
+        var (source, bytes, sourceEncoding, byteForByte) = await ReadSourceAsync(absolutePath);
 
         // .bas/.cls: strip the VB6 header so Code is the body only (a no-op for .ctl/.pag).
         var (preservedHeader, body) = ModuleFileFormat.SplitHeader(source, kind);
@@ -1124,7 +1177,7 @@ public class ProjectService : IProjectService
         }
 
         project.AddModule(module);
-        return Adopted<ModuleDefinition>.Added(module, name);
+        return Adopted<ModuleDefinition>.Added(module, name, byteForByte);
     }
 
     public Task<RelatedDocumentDefinition> AddExistingRelatedDocument(

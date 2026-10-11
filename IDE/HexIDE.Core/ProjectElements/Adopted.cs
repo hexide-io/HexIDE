@@ -28,9 +28,15 @@ public enum AdoptionRefusal
 /// Kept even when it was the reason for the refusal, because a refusal that does not say which name it
 /// objected to is not usable: Add File takes several files at once.
 /// </param>
-public sealed record Adopted<T>(T? Document, AdoptionRefusal Refusal, string? Name) where T : class
+/// <param name="ReadByteForByte">
+/// The host's code page could not read the file, so it joined read byte-for-byte, as Latin-1. It saves
+/// back unchanged, but the developer should be told: what they see may not be what its author wrote.
+/// </param>
+public sealed record Adopted<T>(T? Document, AdoptionRefusal Refusal, string? Name, bool ReadByteForByte = false)
+    where T : class
 {
-    public static Adopted<T> Added(T document, string name) => new(document, AdoptionRefusal.None, name);
+    public static Adopted<T> Added(T document, string name, bool readByteForByte = false) =>
+        new(document, AdoptionRefusal.None, name, readByteForByte);
 
     public static Adopted<T> Unreadable() => new(null, AdoptionRefusal.CouldNotRead, null);
 

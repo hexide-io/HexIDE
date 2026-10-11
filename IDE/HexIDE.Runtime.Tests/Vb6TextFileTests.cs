@@ -113,4 +113,93 @@ public class Vb6TextFileTests
 
         Vb6TextFile.Encode(Vb6TextFile.Decode(original)).Should().Equal(original);
     }
+
+    // ── Reading a document: the chain that cannot fail ───────────────────────────────────────────────
+    // A read that throws drops a project member, and the next Save Project removes its line. So every
+    // document read ends somewhere, and the last resort gives every byte back.
+
+    [Fact]
+    public void A_Western_file_the_hosts_double_byte_code_page_cannot_read_is_read_byte_for_byte()
+    {
+        // E9 is a Shift-JIS lead byte, and a line break is not a valid trail byte.
+        var original = Encoding.Latin1.GetBytes("' café\r\nPublic Sub Main()\r\nEnd Sub\r\n");
+
+        var (text, encoding, byteForByte) = Vb6TextFile.ReadDocument(original, ansi: new Vb6TextEncoding(932));
+
+        byteForByte.Should().BeTrue();
+        encoding.Should().Be(Vb6TextEncoding.Latin1);
+        text.Should().Contain("' café");
+        Vb6TextFile.Encode(text, encoding).Should().Equal(original);
+    }
+
+    [Fact]
+    public void A_Shift_JIS_spelling_Windows_would_not_write_is_read_byte_for_byte_rather_than_refused()
+    {
+        // 87 90 is the NEC row-13 spelling of U+2252; Windows writes 81 E0. Strict decoding refuses it.
+        var original = new byte[] { 0x27, 0x20, 0x87, 0x90, 0x0D, 0x0A };
+
+        var (text, encoding, byteForByte) = Vb6TextFile.ReadDocument(original, ansi: new Vb6TextEncoding(932));
+
+        byteForByte.Should().BeTrue();
+        Vb6TextFile.Encode(text, encoding).Should().Equal(original);
+    }
+
+    [Fact]
+    public void Bytes_the_host_code_page_reads_are_read_in_it()
+    {
+        var original = CodePagesEncodingProvider.Instance.GetEncoding(932)!.GetBytes("' こんにちは\r\n");
+
+        var (text, encoding, byteForByte) = Vb6TextFile.ReadDocument(original, ansi: new Vb6TextEncoding(932));
+
+        byteForByte.Should().BeFalse();
+        encoding.Should().Be(new Vb6TextEncoding(932));
+        text.Should().Be("' こんにちは\r\n");
+    }
+
+    [Fact]
+    public void A_document_last_read_as_UTF8_is_read_as_UTF8_again_when_it_still_is()
+    {
+        var original = Encoding.UTF8.GetBytes("' café\r\n");
+
+        var (text, encoding, byteForByte) = Vb6TextFile.ReadDocument(
+            original, lastReadIn: Vb6TextEncoding.Utf8WithBom, ansi: new Vb6TextEncoding(1252));
+
+        byteForByte.Should().BeFalse();
+        encoding.Should().Be(Vb6TextEncoding.Utf8, "the BOM was removed outside the IDE; it stays UTF-8 without one");
+        text.Should().Be("' café\r\n");
+    }
+
+    [Fact]
+    public void A_document_last_read_as_UTF8_falls_through_when_it_has_been_replaced_by_an_ANSI_revision()
+    {
+        var original = Encoding.Latin1.GetBytes("' café\r\n");
+
+        var (text, encoding, byteForByte) = Vb6TextFile.ReadDocument(
+            original, lastReadIn: Vb6TextEncoding.Utf8, ansi: new Vb6TextEncoding(1252));
+
+        byteForByte.Should().BeFalse();
+        encoding.Should().Be(new Vb6TextEncoding(1252));
+        text.Should().Be("' café\r\n");
+    }
+
+    [Fact]
+    public void A_byte_order_mark_declares_UTF8_whatever_the_document_was_last_read_in()
+    {
+        var original = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes("' café\r\n")).ToArray();
+
+        var (text, encoding, _) = Vb6TextFile.ReadDocument(
+            original, lastReadIn: new Vb6TextEncoding(1252), ansi: new Vb6TextEncoding(1252));
+
+        encoding.Should().Be(Vb6TextEncoding.Utf8WithBom);
+        text.Should().Be("' café\r\n");
+        Vb6TextFile.Encode(text, encoding).Should().Equal(original);
+    }
+
+    [Fact]
+    public void Latin1_refuses_an_edit_it_cannot_hold_rather_than_substituting()
+    {
+        Action save = () => Vb6TextFile.Encode("' €\r\n", Vb6TextEncoding.Latin1);
+
+        save.Should().Throw<EncoderFallbackException>();
+    }
 }

@@ -3,6 +3,7 @@
   "direction": "ltr",
   "strings": {
     "Str.Dialog.SourceEncoding.SaveFailed": "{0} was not saved because an edit contains characters that cannot be stored in its source code page ({1}). Choose characters supported by that code page and save again. The edit remains open; the source file and its companion resources were not changed.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} could not be read in this computer's code page ({1}), so it was opened byte for byte, as Western (Latin-1) text. Saving it unchanged writes the same bytes back. Text written in another code page may look garbled, and characters outside Latin-1 cannot be added to it.",
     "Str.Menu.File": "_File",
     "Str.Menu.File.NewProject": "_New Project",
     "Str.Menu.File.OpenProject": "_Open Project...",
