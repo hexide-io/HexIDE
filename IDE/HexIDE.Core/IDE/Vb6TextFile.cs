@@ -10,6 +10,12 @@ namespace HexIDE.IDE;
 /// The encoding of one source document. Keep it with the document across Save As and reloads.
 /// A BOM is an explicit UTF-8 declaration; valid UTF-8 bytes alone are not one.
 /// </summary>
+/// <param name="CodePage">The code page the document's text is read and written in.</param>
+/// <param name="Utf8Bom">
+/// The file begins with the UTF-8 byte-order mark, which is kept on write. Normally with code page 65001.
+/// With any other code page only for a file whose mark does not match its contents: the mark is kept in
+/// front of whatever code page reads the rest, so the file's bytes survive and its first line still parses.
+/// </param>
 public sealed record Vb6TextEncoding(int CodePage, bool Utf8Bom = false)
 {
     // VB6 uses the Windows ANSI code page, not the console/OEM code page or the UI language.
@@ -30,8 +36,6 @@ public sealed record Vb6TextEncoding(int CodePage, bool Utf8Bom = false)
 
     internal Encoding GetEncoding()
     {
-        if (Utf8Bom && CodePage != 65001)
-            throw new ArgumentException("A UTF-8 BOM requires the UTF-8 code page.");
         if (CodePage == 65001)
             return new UTF8Encoding(false, true);
         return CodePagesEncodingProvider.Instance.GetEncoding(
@@ -63,9 +67,9 @@ public static class Vb6TextFile
         var text = codec.GetString(bytes, offset, bytes.Length - offset);
         // Defence, not a case that occurs: with .NET's tables a strict decode always encodes back to the
         // same bytes. Measured 2026-10-11 over every 1- and 2-byte input in code pages 874, 932, 936, 949,
-        // 950 and 1250-1258 -- where a double-byte page spells one character two ways, such as 932's 87 90
-        // beside 81 E0 for U+2252, the strict decoder itself refuses the spelling the encoder does not write. Kept so a provider that maps differently is
-        // refused here rather than written back changed.
+        // 950 and 1250-1258. Where a double-byte page spells one character two ways, such as 932's 87 90
+        // beside 81 E0 for U+2252, the strict decoder itself refuses the spelling the encoder does not
+        // write. Kept so a provider that maps differently is refused here rather than written back changed.
         if (!codec.GetBytes(text).AsSpan().SequenceEqual(bytes.AsSpan(offset)))
             throw new InvalidDataException($"Source bytes cannot round-trip in code page {encoding.CodePage}.");
         return text;
@@ -91,31 +95,36 @@ public static class Vb6TextFile
     /// <list type="number">
     /// <item>A UTF-8 byte-order mark declares UTF-8, kept on write.</item>
     /// <item><paramref name="lastReadIn"/>, on a reload, without its byte-order mark: an external editor
-    /// that removed the mark has not changed what the file is.</item>
+    /// that removed the mark has not changed what the file is. Skipped when the last read was the last
+    /// resort, which would otherwise accept every later version too, however readable.</item>
     /// <item><paramref name="ansi"/>, the host's ANSI code page.</item>
     /// <item><see cref="Vb6TextEncoding.Latin1"/>, which always succeeds; <c>ByteForByte</c> says so, and
     /// the caller warns.</item>
     /// </list>
-    /// Each step must decode strictly and encode back to the same bytes (see <see cref="Decode"/>).
+    /// Each step must decode strictly and encode back to the same bytes (see <see cref="Decode"/>). A
+    /// byte-order mark in front of bytes that are not UTF-8 is kept, and the steps read what follows it:
+    /// decoded as text, the mark would sit in front of the first line and hide the header from the parser.
     /// </remarks>
     public static (string Text, Vb6TextEncoding Encoding, bool ByteForByte) ReadDocument(
         byte[] bytes, Vb6TextEncoding? lastReadIn = null, Vb6TextEncoding? ansi = null)
     {
-        if (bytes.AsSpan().StartsWith(Utf8Bom) && TryDecode(bytes, Vb6TextEncoding.Utf8WithBom, out var text))
+        var marked = bytes.AsSpan().StartsWith(Utf8Bom);
+        if (marked && TryDecode(bytes, Vb6TextEncoding.Utf8WithBom, out var text))
             return (text, Vb6TextEncoding.Utf8WithBom, false);
 
-        if (lastReadIn is not null)
+        if (lastReadIn is not null && lastReadIn.CodePage != Vb6TextEncoding.Latin1.CodePage)
         {
-            var again = lastReadIn with { Utf8Bom = false };
+            var again = lastReadIn with { Utf8Bom = marked };
             if (TryDecode(bytes, again, out text))
                 return (text, again, false);
         }
 
-        var host = ansi ?? Vb6TextEncoding.Ansi;
+        var host = (ansi ?? Vb6TextEncoding.Ansi) with { Utf8Bom = marked };
         if (TryDecode(bytes, host, out text))
             return (text, host, false);
 
-        return (Decode(bytes, Vb6TextEncoding.Latin1), Vb6TextEncoding.Latin1, true);
+        var last = Vb6TextEncoding.Latin1 with { Utf8Bom = marked };
+        return (Decode(bytes, last), last, true);
     }
 
     /// <summary>Reads text, original bytes for watcher baselines, and encoding for subsequent saves.</summary>

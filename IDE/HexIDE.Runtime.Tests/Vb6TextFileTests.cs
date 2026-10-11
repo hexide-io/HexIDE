@@ -196,6 +196,33 @@ public class Vb6TextFileTests
     }
 
     [Fact]
+    public void A_document_last_read_byte_for_byte_is_read_afresh()
+    {
+        // Latin-1 accepts everything, so as the encoding last read in it would stick for good.
+        var original = CodePagesEncodingProvider.Instance.GetEncoding(932)!.GetBytes("' こんにちは\r\n");
+
+        var (text, encoding, byteForByte) = Vb6TextFile.ReadDocument(
+            original, lastReadIn: Vb6TextEncoding.Latin1, ansi: new Vb6TextEncoding(932));
+
+        byteForByte.Should().BeFalse();
+        encoding.Should().Be(new Vb6TextEncoding(932));
+        text.Should().Be("' こんにちは\r\n");
+    }
+
+    [Fact]
+    public void A_byte_order_mark_over_text_that_is_not_UTF8_is_kept_out_of_the_text()
+    {
+        var original = Encoding.UTF8.GetPreamble().Concat(Encoding.Latin1.GetBytes("Attribute VB_Name = \"M\"\r\n' café\r\n")).ToArray();
+
+        var (text, encoding, byteForByte) = Vb6TextFile.ReadDocument(original, ansi: new Vb6TextEncoding(1252));
+
+        byteForByte.Should().BeFalse();
+        encoding.Should().Be(new Vb6TextEncoding(1252, Utf8Bom: true));
+        text.Should().StartWith("Attribute VB_Name", "a mark decoded as text would hide the header line");
+        Vb6TextFile.Encode(text, encoding).Should().Equal(original);
+    }
+
+    [Fact]
     public void Latin1_refuses_an_edit_it_cannot_hold_rather_than_substituting()
     {
         Action save = () => Vb6TextFile.Encode("' €\r\n", Vb6TextEncoding.Latin1);

@@ -1301,7 +1301,7 @@ public partial class MainViewViewModel : ObservableObject
             if (adopted.Document is { } form)
             {
                 editorService.EditForm(form);
-                await ReportReadByteForByte(adopted.ReadByteForByte, path);
+                await ReportReadByteForByte(adopted.UnreadableInCodePage, path);
             }
             else
                 await ReportRefusedAdoption(adopted.Refusal, adopted.Name, path);
@@ -1322,7 +1322,7 @@ public partial class MainViewViewModel : ObservableObject
                 editorService.EditForm(formPart);
             else
                 editorService.EditCode(module);
-            await ReportReadByteForByte(adopted.ReadByteForByte, path);
+            await ReportReadByteForByte(adopted.UnreadableInCodePage, path);
             return;
         }
 
@@ -1333,13 +1333,13 @@ public partial class MainViewViewModel : ObservableObject
     /// Tells the developer a file joined the project read byte for byte, because this computer's code page
     /// could not read it. It saves back unchanged; the warning is about what they see in it.
     /// </summary>
-    private async Task ReportReadByteForByte(bool readByteForByte, string path)
+    private async Task ReportReadByteForByte(int? unreadableInCodePage, string path)
     {
-        if (!readByteForByte)
+        if (unreadableInCodePage is not { } codePage)
             return;
         await windowManager.MessageBox(
             string.Format(localization.GetString("Str.Dialog.SourceEncoding.ReadByteForByte"),
-                Path.GetFileName(path), Vb6TextEncoding.Ansi.CodePage),
+                Path.GetFileName(path), codePage),
             icon: MessageBoxIcon.Warning);
     }
 

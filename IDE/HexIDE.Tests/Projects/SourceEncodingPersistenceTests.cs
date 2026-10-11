@@ -50,6 +50,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         localization.GetString("Str.Dialog.SourceEncoding.SaveFailed")
             .Returns("{0} cannot be saved using source code page {1}. Your edit remains open.");
         localization.GetString("Str.Dialog.SourceEncoding.ReadByteForByte").Returns(ReadByteForByteText);
+        localization.GetString("Str.Dialog.SourceEncoding.ReadByteForByte.Many").Returns(ReadByteForByteManyText);
 
         return new ProjectService(
             () => throw new InvalidOperationException("new-project dialog must not be reached"),
@@ -308,6 +309,16 @@ public class SourceEncodingPersistenceTests : IDisposable
     // ── No member is dropped for its encoding ─────────────────────────────────────────────────────────
 
     private const string ReadByteForByteText = "{0} was read byte for byte; code page {1} could not read it.";
+    private const string ReadByteForByteManyText = "These were read byte for byte; code page {1} could not read them:\n{0}";
+
+    /// <summary>Every message box text shown so far.</summary>
+    private List<string> MessagesShown() => windowManager.ReceivedCalls()
+        .Where(c => c.GetMethodInfo().Name == nameof(IWindowManager.MessageBox))
+        .Select(c => (string)c.GetArguments()[0]!)
+        .ToList();
+
+    private static byte[] ShiftJis(string text) =>
+        System.Text.CodePagesEncodingProvider.Instance.GetEncoding(932)!.GetBytes(text);
 
     private static readonly byte[] WesternModule = System.Text.Encoding.Latin1.GetBytes(
         "Attribute VB_Name = \"Module1\"\r\n' café\r\nPublic Sub Original()\r\nEnd Sub\r\n");
@@ -374,8 +385,124 @@ public class SourceEncodingPersistenceTests : IDisposable
 
         (await svc.ReloadModuleFromDisk(module)).Should().BeTrue();
         module.Code.Should().Contain("' café");
+        module.TextEncoding.Should().Be(new Vb6TextEncoding(1252), "the host code page reads it; Latin-1 is the last resort");
         await svc.SaveModule(module, false);
         File.ReadAllBytes(path).Should().Equal(WesternModule);
+    }
+
+    [Fact]
+    public async Task A_reload_of_a_file_read_byte_for_byte_reads_its_new_bytes_afresh()
+    {
+        var svc = MakeService();
+        svc.HostAnsi = new Vb6TextEncoding(932);
+        var vbp = WriteProject();
+        var path = Path.Join(dir, "Module1.bas");
+        File.WriteAllBytes(path, WesternModule);
+        await svc.OpenProject(vbp);
+        var module = loaded.Single().Modules.Single();
+        module.TextEncoding.Should().Be(Vb6TextEncoding.Latin1);
+
+        // Converted outside the IDE into the host's own code page.
+        File.WriteAllBytes(path, ShiftJis(
+            "Attribute VB_Name = \"Module1\"\r\n' こんにちは\r\nPublic Sub Original()\r\nEnd Sub\r\n"));
+
+        (await svc.ReloadModuleFromDisk(module)).Should().BeTrue();
+        module.TextEncoding.Should().Be(new Vb6TextEncoding(932));
+        module.Code.Should().Contain("' こんにちは");
+    }
+
+    [Fact]
+    public async Task A_reload_that_falls_back_to_reading_byte_for_byte_says_so()
+    {
+        var svc = MakeService();
+        svc.HostAnsi = new Vb6TextEncoding(932);
+        var vbp = WriteProject();
+        var path = Path.Join(dir, "Module1.bas");
+        File.WriteAllBytes(path, ShiftJis(
+            "Attribute VB_Name = \"Module1\"\r\n' こんにちは\r\nPublic Sub Original()\r\nEnd Sub\r\n"));
+        await svc.OpenProject(vbp);
+        var module = loaded.Single().Modules.Single();
+        windowManager.ClearReceivedCalls();
+
+        File.WriteAllBytes(path, WesternModule);
+
+        (await svc.ReloadModuleFromDisk(module)).Should().BeTrue();
+        module.TextEncoding.Should().Be(Vb6TextEncoding.Latin1);
+        MessagesShown().Should().ContainSingle(m => m.Contains("Module1.bas") && m.Contains("932"));
+    }
+
+    [Fact]
+    public async Task Several_members_read_byte_for_byte_get_one_notice_of_their_own()
+    {
+        var svc = MakeService();
+        svc.HostAnsi = new Vb6TextEncoding(932);
+        File.WriteAllBytes(Path.Join(dir, "Module1.bas"), WesternModule);
+        File.WriteAllBytes(Path.Join(dir, "Module2.bas"), System.Text.Encoding.Latin1.GetBytes(
+            "Attribute VB_Name = \"Module2\"\r\n' naïve\r\nPublic Sub Two()\r\nEnd Sub\r\n"));
+        File.WriteAllBytes(Path.Join(dir, "Main.frm"), System.Text.Encoding.Latin1.GetBytes(
+            "VERSION 5.00\r\nBegin VB.Form Main\r\n   Caption         =   \"Café\"\r\nEnd\r\nAttribute VB_Name = \"Main\"\r\n"));
+        var vbp = Path.Join(dir, "Test.vbp");
+        File.WriteAllText(vbp,
+            "Type=Exe\r\nForm=Main.frm\r\nForm=Missing.frm\r\nModule=Module1; Module1.bas\r\nModule=Module2; Module2.bas\r\nName=\"Test\"\r\n");
+
+        await svc.OpenProject(vbp);
+
+        loaded.Single().Forms.Single().TextEncoding.Should().Be(Vb6TextEncoding.Latin1);
+        var shown = MessagesShown();
+        shown.Should().ContainSingle(m => m.StartsWith("These were read byte for byte", StringComparison.Ordinal))
+            .Which.Should().ContainAll("Main.frm", "Module1.bas", "Module2.bas", "932");
+        shown.Should().ContainSingle(m => m.Contains("Missing.frm"))
+            .Which.Should().NotContain("byte for byte", "the load's errors are not where a member that loaded is reported");
+    }
+
+    [Fact]
+    public async Task A_form_that_fails_to_parse_is_not_reported_as_read_byte_for_byte()
+    {
+        var svc = MakeService();
+        svc.HostAnsi = new Vb6TextEncoding(932);
+        File.WriteAllText(Path.Join(dir, "Module1.bas"),
+            "Attribute VB_Name = \"Module1\"\r\nPublic Sub Original()\r\nEnd Sub\r\n");
+        File.WriteAllBytes(Path.Join(dir, "Broken.frm"), System.Text.Encoding.Latin1.GetBytes("Not a form: café\r\n"));
+        var vbp = Path.Join(dir, "Test.vbp");
+        File.WriteAllText(vbp, "Type=Exe\r\nForm=Broken.frm\r\nModule=Module1; Module1.bas\r\nName=\"Test\"\r\n");
+
+        await svc.OpenProject(vbp);
+
+        MessagesShown().Should().NotContain(m => m.Contains("byte for byte"),
+            "a notice that the file will save back unchanged is untrue of a member that did not load");
+    }
+
+    [Fact]
+    public async Task A_byte_order_mark_over_ANSI_text_is_kept_and_the_header_still_parses()
+    {
+        var svc = MakeService();
+        svc.HostAnsi = new Vb6TextEncoding(1252);
+        var vbp = WriteProject();
+        var path = Path.Join(dir, "Module1.bas");
+        var original = new byte[] { 0xEF, 0xBB, 0xBF }.Concat(WesternModule).ToArray();
+        File.WriteAllBytes(path, original);
+
+        await svc.OpenProject(vbp);
+        var module = loaded.Single().Modules.Single();
+        module.Code.Should().NotContain("Attribute VB_Name", "the header was recognised and split off");
+        await svc.SaveProject(loaded.Single(), false);
+
+        File.ReadAllBytes(path).Should().Equal(original);
+    }
+
+    [Fact]
+    public async Task A_group_file_the_hosts_code_page_cannot_read_is_named_in_a_notice()
+    {
+        var svc = MakeService();
+        svc.HostAnsi = new Vb6TextEncoding(932);
+        var vbp = WriteProject();
+        var vbg = Path.Join(dir, "Group.vbg");
+        File.WriteAllBytes(vbg, System.Text.Encoding.Latin1.GetBytes(
+            "VBGROUP 5.0\r\nStartupProject=Test.vbp\r\n' café\r\n"));
+
+        await svc.OpenProject(vbg);
+
+        MessagesShown().Should().Contain(m => m.Contains("Group.vbg") && m.Contains("932"));
     }
 
     [Fact]
@@ -394,7 +521,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         File.ReadAllText(vbp).Should().Contain("Form=Broken.frm");
     }
 
-    [WindowsOnlyFact]
+    [Fact]
     public async Task A_module_whose_load_throws_keeps_its_line_in_the_project_file()
     {
         var svc = MakeService();
@@ -408,7 +535,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         File.ReadAllText(vbp).Should().Contain("Module=Module1; Module1.bas");
     }
 
-    [WindowsOnlyFact]
+    [Fact]
     public async Task A_form_whose_load_throws_keeps_its_line_in_the_project_file()
     {
         var svc = MakeService();
@@ -423,6 +550,41 @@ public class SourceEncodingPersistenceTests : IDisposable
         await svc.SaveProject(loaded.Single(), false);
 
         File.ReadAllText(vbp).Should().Contain("Form=Main.frm");
+    }
+
+    [Theory]
+    [InlineData("Class1.cls", "Class=Class1; Class1.cls", "VERSION 1.0 CLASS\r\nBEGIN\r\n  MultiUse = -1  'True\r\nEND\r\nAttribute VB_Name = \"Class1\"\r\n")]
+    [InlineData("Gauge.ctl", "UserControl=Gauge.ctl", "VERSION 5.00\r\nBegin VB.UserControl Gauge\r\nEnd\r\nAttribute VB_Name = \"Gauge\"\r\n")]
+    [InlineData("Page1.pag", "PropertyPage=Page1.pag", "VERSION 5.00\r\nBegin VB.PropertyPage Page1\r\nEnd\r\nAttribute VB_Name = \"Page1\"\r\n")]
+    public async Task A_member_of_any_kind_whose_load_throws_keeps_its_line_in_VB6s_shape(string file, string line, string content)
+    {
+        var svc = MakeService();
+        var vbp = WriteProject();
+        var member = Path.Join(dir, file);
+        File.WriteAllText(member, content);
+        File.AppendAllText(vbp, line + "\r\n");
+        await using (new FileStream(member, FileMode.Open, FileAccess.Read, FileShare.None))
+            await svc.OpenProject(vbp);
+
+        await svc.SaveProject(loaded.Single(), false);
+
+        File.ReadAllText(vbp).Should().Contain(line + "\r\n");
+    }
+
+    [Fact]
+    public async Task Adding_a_file_whose_line_was_kept_does_not_name_it_twice()
+    {
+        var svc = MakeService();
+        var vbp = WriteProject();
+        var path = Path.Join(dir, "Module1.bas");
+        await using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None))
+            await svc.OpenProject(vbp);
+        var project = loaded.Single();
+
+        (await svc.AddExistingModule(project, path, ModuleKind.StandardModule)).Document.Should().NotBeNull();
+        await svc.SaveProject(project, false);
+
+        System.Text.RegularExpressions.Regex.Matches(File.ReadAllText(vbp), "Module1.bas").Should().ContainSingle();
     }
 
     [Fact]

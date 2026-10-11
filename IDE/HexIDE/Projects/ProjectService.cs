@@ -67,6 +67,57 @@ public class ProjectService : IProjectService
         string.Format(localization.GetString("Str.Dialog.SourceEncoding.ReadByteForByte"), file, HostAnsi.CodePage);
 
     /// <summary>
+    /// One notice for every member a load read byte for byte, shown on its own rather than among the load's
+    /// errors: these members loaded, and listing them under a failure heading hid real errors past its cap.
+    /// </summary>
+    private Task ReportReadByteForByte(IReadOnlyList<string> files) => files.Count switch
+    {
+        0 => Task.CompletedTask,
+        1 => windowManager.MessageBox(ReadByteForByteMessage(files[0]), icon: MessageBoxIcon.Warning),
+        _ => windowManager.MessageBox(
+            string.Format(localization.GetString("Str.Dialog.SourceEncoding.ReadByteForByte.Many"),
+                string.Join("\n", files.Select(f => $"  • {f}")), HostAnsi.CodePage),
+            icon: MessageBoxIcon.Warning),
+    };
+
+    /// <summary>
+    /// A file joining the project that a kept line already names, because it failed to load, takes that
+    /// line's place: kept as well, the project file would name it twice.
+    /// </summary>
+    private static void ForgetKeptLineFor(ProjectDefinition project, string absolutePath)
+    {
+        if (project.AbsolutePath is not { } projectPath)
+            return;
+        var projectDir = Path.GetDirectoryName(projectPath)!;
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        project.PreservedItemLines.RemoveAll(line =>
+            KeptLinePath(line) is { } relative
+            && string.Equals(Path.GetFullPath(Path.Join(projectDir, ToLocalRelativePath(relative))),
+                Path.GetFullPath(absolutePath), comparison));
+    }
+
+    /// <summary>The file a kept member line names, or null for a line that names no member file.</summary>
+    private static string? KeptLinePath(string line)
+    {
+        var eq = line.IndexOf('=');
+        if (eq < 0)
+            return null;
+        var key = line[..eq].Trim();
+        var value = line[(eq + 1)..].Trim();
+        if (key.Equals(SerializedProject.ModuleKey, StringComparison.OrdinalIgnoreCase)
+            || key.Equals(SerializedProject.ClassKey, StringComparison.OrdinalIgnoreCase))
+        {
+            var semi = value.IndexOf(';');
+            return semi < 0 ? value : value[(semi + 1)..].Trim();
+        }
+        return key.Equals(SerializedProject.FormKey, StringComparison.OrdinalIgnoreCase)
+            || key.Equals(SerializedProject.UserControlKey, StringComparison.OrdinalIgnoreCase)
+            || key.Equals(SerializedProject.PropertyPageKey, StringComparison.OrdinalIgnoreCase)
+            ? value
+            : null;
+    }
+
+    /// <summary>
     /// The project-file line for a member that did not load, so a save writes it back rather than dropping
     /// it. In the shape VB6 requires for each kind: <c>Name; File</c> for a module or class, the bare path
     /// for the designer kinds (see <see cref="ProjectSerializer"/>).
@@ -290,10 +341,11 @@ public class ProjectService : IProjectService
         var projectDeserializer = new ProjectDeserializer();
         var formDeserializer = new FormDeserializer();
         var errorSink = new DeserializeErrorSink();
+        var readByteForByte = new List<string>();
 
         var (projectText, _, projectEncoding, projectByteForByte) = await ReadSourceAsync(projectPath);
         if (projectByteForByte)
-            errorSink.LogError(ReadByteForByteMessage(Path.GetFileName(projectPath)));
+            readByteForByte.Add(Path.GetFileName(projectPath));
         var serializedProject = projectDeserializer.Deserialize(projectText, errorSink);
 
         var project = new ProjectDefinition(serializedProject.ProjectType, serializedProject.Name ?? "Project1");
@@ -311,11 +363,11 @@ public class ProjectService : IProjectService
                 var moduleAbsolutePath = Path.Join(Path.GetDirectoryName(projectPath)!, ToLocalRelativePath(modulePath));
                 var module = new ModuleDefinition(project, moduleName, moduleKind);
                 module.AbsolutePath = moduleAbsolutePath;
+                var memberReadByteForByte = false;
                 if (File.Exists(moduleAbsolutePath))
                 {
                     var (moduleSource, moduleBytes, moduleEncoding, moduleByteForByte) = await ReadSourceAsync(moduleAbsolutePath);
-                    if (moduleByteForByte)
-                        errorSink.LogError(ReadByteForByteMessage(modulePath));
+                    memberReadByteForByte = moduleByteForByte;
                     module.TextEncoding = moduleEncoding;
                     baselineStore.Record(moduleAbsolutePath, moduleBytes);
                     var ctxBlobs = await LoadCompanionBlobs(moduleAbsolutePath, moduleSource);
@@ -337,6 +389,10 @@ public class ProjectService : IProjectService
                     }
                 }
                 project.AddModule(module);
+                // Only once it has joined: a notice that the file will save back unchanged is untrue of a
+                // member that then failed to load.
+                if (memberReadByteForByte)
+                    readByteForByte.Add(modulePath);
             }
             catch (Exception ex)
             {
@@ -369,8 +425,6 @@ public class ProjectService : IProjectService
 
                 // Form text before companion: the .frm's cited offsets partition the .frx.
                 var (formSource, formBytes, formEncoding, formByteForByte) = await ReadSourceAsync(formAbsolutePath);
-                if (formByteForByte)
-                    errorSink.LogError(ReadByteForByteMessage(formPath));
                 baselineStore.Record(formAbsolutePath, formBytes);
 
                 var frxBlobs = await LoadCompanionBlobs(formAbsolutePath, formSource);
@@ -380,6 +434,8 @@ public class ProjectService : IProjectService
                     form.AbsolutePath = formAbsolutePath;
                     form.TextEncoding = formEncoding;
                     project.AddForm(form);
+                    if (formByteForByte)
+                        readByteForByte.Add(formPath);
                 }
                 else
                 {
@@ -428,11 +484,11 @@ public class ProjectService : IProjectService
                 var moduleAbsolutePath = Path.Join(Path.GetDirectoryName(projectPath)!, ToLocalRelativePath(modulePath));
                 var module = new ModuleDefinition(project, moduleName, moduleKind);
                 module.AbsolutePath = moduleAbsolutePath;
+                var memberReadByteForByte = false;
                 if (File.Exists(moduleAbsolutePath))
                 {
                     var (moduleSource, moduleBytes, moduleEncoding, moduleByteForByte) = await ReadSourceAsync(moduleAbsolutePath);
-                    if (moduleByteForByte)
-                        errorSink.LogError(ReadByteForByteMessage(modulePath));
+                    memberReadByteForByte = moduleByteForByte;
                     module.TextEncoding = moduleEncoding;
                     baselineStore.Record(moduleAbsolutePath, moduleBytes);
                     // .bas/.cls: strip the VB6 header so Code is the body only (no-op for .pag/.ctl).
@@ -457,6 +513,10 @@ public class ProjectService : IProjectService
                     }
                 }
                 project.AddModule(module);
+                // Only once it has joined: a notice that the file will save back unchanged is untrue of a
+                // member that then failed to load.
+                if (memberReadByteForByte)
+                    readByteForByte.Add(modulePath);
             }
             catch (Exception ex)
             {
@@ -514,6 +574,8 @@ public class ProjectService : IProjectService
                 message += $"\n\n...and {errorSink.Errors.Count - maxShown} more warnings (see log for full list).";
             await windowManager.MessageBox(message, icon: MessageBoxIcon.Warning);
         }
+
+        await ReportReadByteForByte(readByteForByte);
     }
 
     private static IReadOnlyDictionary<string, ComponentBaseClass> BuildUserControlRegistry(
@@ -679,7 +741,10 @@ public class ProjectService : IProjectService
         // companion cannot be parsed without it. See FrxDeserializer.
         var (source, sourceBytes, sourceEncoding, byteForByte) = await ReadSourceAsync(path, form.TextEncoding);
         if (byteForByte)
+        {
             Log.Warning("Reload: {Path} could not be read in code page {CodePage}; read byte for byte", path, HostAnsi.CodePage);
+            await ReportReadByteForByte([Path.GetFileName(path)]);
+        }
         baselineStore.Record(path, sourceBytes);
 
         IReadOnlyDictionary<int, byte[]>? frxBlobs = null;
@@ -713,7 +778,10 @@ public class ProjectService : IProjectService
 
         var (source, sourceBytes, sourceEncoding, byteForByte) = await ReadSourceAsync(path, module.TextEncoding);
         if (byteForByte)
+        {
             Log.Warning("Reload: {Path} could not be read in code page {CodePage}; read byte for byte", path, HostAnsi.CodePage);
+            await ReportReadByteForByte([Path.GetFileName(path)]);
+        }
         baselineStore.Record(path, sourceBytes);
         var (preservedHeader, reloadedBody) = ModuleFileFormat.SplitHeader(source, module.Kind);
 
@@ -1133,7 +1201,8 @@ public class ProjectService : IProjectService
         form.AbsolutePath = absolutePath;
         form.TextEncoding = sourceEncoding;
         project.AddForm(form);
-        return Adopted<FormDefinition>.Added(form, name, byteForByte);
+        ForgetKeptLineFor(project, absolutePath);
+        return Adopted<FormDefinition>.Added(form, name, byteForByte ? HostAnsi.CodePage : null);
     }
 
     public async Task<Adopted<ModuleDefinition>> AddExistingModule(
@@ -1177,7 +1246,8 @@ public class ProjectService : IProjectService
         }
 
         project.AddModule(module);
-        return Adopted<ModuleDefinition>.Added(module, name, byteForByte);
+        ForgetKeptLineFor(project, absolutePath);
+        return Adopted<ModuleDefinition>.Added(module, name, byteForByte ? HostAnsi.CodePage : null);
     }
 
     public Task<RelatedDocumentDefinition> AddExistingRelatedDocument(
