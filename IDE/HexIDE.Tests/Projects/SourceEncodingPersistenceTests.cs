@@ -362,7 +362,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         var adopted = await svc.AddExistingModule(loaded.Single(), path, ModuleKind.StandardModule);
 
         adopted.Document.Should().NotBeNull();
-        adopted.ReadByteForByte.Should().BeTrue();
+        adopted.UnreadableInCodePage.Should().Be(932, "the warning names the code page the read actually tried");
         await svc.SaveModule(adopted.Document!, false);
         File.ReadAllBytes(path).Should().Equal(bytes);
     }
