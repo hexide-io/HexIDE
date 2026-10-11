@@ -8,7 +8,8 @@ namespace HexIDE.IDE;
 
 /// <summary>
 /// The encoding of one source document. Keep it with the document across Save As and reloads.
-/// A BOM is an explicit UTF-8 declaration; valid UTF-8 bytes alone are not one.
+/// A BOM is an explicit UTF-8 declaration. Valid UTF-8 bytes alone are not one, with the one exception
+/// <see cref="Vb6TextFile.ReadDocument"/> describes: what earlier versions of the IDE wrote.
 /// </summary>
 /// <param name="CodePage">The code page the document's text is read and written in.</param>
 /// <param name="Utf8Bom">
@@ -45,10 +46,11 @@ public sealed record Vb6TextEncoding(int CodePage, bool Utf8Bom = false)
 }
 
 /// <summary>
-/// Reads VB6 source as ANSI unless a UTF-8 BOM or an explicit caller selection declares otherwise.
-/// Never guesses an encoding from whether the bytes happen to be valid UTF-8, and never changes the
-/// encoding to accommodate an edit. Unrepresentable edits fail before writing rather than becoming '?'
-/// or silently converting the file into a format VB6 cannot read.
+/// Reads VB6 source as ANSI unless a UTF-8 BOM, an explicit caller selection, or the one signature
+/// earlier versions of the IDE left declares otherwise (see <see cref="ReadDocument"/>). Whether bytes
+/// merely happen to be valid UTF-8 decides nothing, and the encoding never changes to accommodate an edit.
+/// Unrepresentable edits fail before writing rather than becoming '?' or silently converting the file into
+/// a format VB6 cannot read.
 /// </summary>
 public static class Vb6TextFile
 {
@@ -94,6 +96,12 @@ public static class Vb6TextFile
     /// In order, the first step that applies:
     /// <list type="number">
     /// <item>A UTF-8 byte-order mark declares UTF-8, kept on write.</item>
+    /// <item>The signature of a file an earlier version of the IDE wrote: no byte-order mark, valid UTF-8
+    /// throughout, and at least one character above U+00FF. Those versions wrote UTF-8 exactly then, and
+    /// Latin-1 otherwise, so this reads their files as they were written and nothing else: accented text
+    /// whose bytes merely form valid UTF-8 (#728) has no such character. A wrong guess here costs display,
+    /// not bytes, since the file is written back in the encoding it was read in. Before the encoding last
+    /// read in, so that a reload and a fresh open read the same bytes the same way.</item>
     /// <item><paramref name="lastReadIn"/>, on a reload, without its byte-order mark: an external editor
     /// that removed the mark has not changed what the file is. Skipped when the last read was the last
     /// resort, which would otherwise accept every later version too, however readable.</item>
@@ -111,6 +119,10 @@ public static class Vb6TextFile
         var marked = bytes.AsSpan().StartsWith(Utf8Bom);
         if (marked && TryDecode(bytes, Vb6TextEncoding.Utf8WithBom, out var text))
             return (text, Vb6TextEncoding.Utf8WithBom, false);
+
+        // A marked file is settled above either way: valid UTF-8 there, or not valid UTF-8 at all here.
+        if (TryDecode(bytes, Vb6TextEncoding.Utf8, out text) && text.Any(c => c > '\u00FF'))
+            return (text, Vb6TextEncoding.Utf8, false);
 
         if (lastReadIn is not null && lastReadIn.CodePage != Vb6TextEncoding.Latin1.CodePage)
         {

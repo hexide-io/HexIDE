@@ -222,6 +222,66 @@ public class Vb6TextFileTests
         Vb6TextFile.Encode(text, encoding).Should().Equal(original);
     }
 
+    // ── Files earlier versions wrote as UTF-8 ────────────────────────────────────────────────────────
+    // Earlier versions wrote a file as UTF-8, with no byte-order mark, exactly when its text held a
+    // character above U+00FF; otherwise as Latin-1. So that, and only that, is read as UTF-8 now.
+
+    [Fact]
+    public void A_file_an_earlier_version_wrote_as_UTF8_is_read_as_UTF8()
+    {
+        var original = Encoding.UTF8.GetBytes("' “café”\r\n");
+
+        var (text, encoding, byteForByte) = Vb6TextFile.ReadDocument(original, ansi: new Vb6TextEncoding(1252));
+
+        byteForByte.Should().BeFalse();
+        encoding.Should().Be(Vb6TextEncoding.Utf8, "written back as it came: UTF-8 without a byte-order mark");
+        text.Should().Be("' “café”\r\n");
+        Vb6TextFile.Encode(text, encoding).Should().Equal(original);
+    }
+
+    [Fact]
+    public void Accented_text_alone_is_not_taken_as_UTF8_even_when_its_bytes_are()
+    {
+        // The #728 case: C3 A9 is "Ã©" in Windows-1252, and nothing above U+00FF says otherwise.
+        var original = Encoding.UTF8.GetBytes("' café\r\n");
+
+        var (text, encoding, _) = Vb6TextFile.ReadDocument(original, ansi: new Vb6TextEncoding(1252));
+
+        encoding.Should().Be(new Vb6TextEncoding(1252));
+        text.Should().Be("' cafÃ©\r\n");
+    }
+
+    [Fact]
+    public void Plain_ASCII_is_read_in_the_host_code_page_not_as_UTF8()
+    {
+        var (_, encoding, _) = Vb6TextFile.ReadDocument(Encoding.ASCII.GetBytes("' plain\r\n"), ansi: new Vb6TextEncoding(1252));
+
+        encoding.Should().Be(new Vb6TextEncoding(1252), "an edit to it later is written as VB6 would write it");
+    }
+
+    [Fact]
+    public void The_signature_needs_the_whole_file_to_be_UTF8()
+    {
+        var original = Encoding.UTF8.GetBytes("' “x”\r\n").Concat(new byte[] { 0xE9, 0x0D, 0x0A }).ToArray();
+
+        var (_, encoding, _) = Vb6TextFile.ReadDocument(original, ansi: new Vb6TextEncoding(1252));
+
+        encoding.Should().Be(new Vb6TextEncoding(1252));
+    }
+
+    [Fact]
+    public void A_reload_honours_the_signature_over_the_encoding_last_read_in()
+    {
+        // Open and reload agree: a file read as Windows-1252, replaced by one an earlier version wrote.
+        var original = Encoding.UTF8.GetBytes("' “café”\r\n");
+
+        var (text, encoding, _) = Vb6TextFile.ReadDocument(
+            original, lastReadIn: new Vb6TextEncoding(1252), ansi: new Vb6TextEncoding(1252));
+
+        encoding.Should().Be(Vb6TextEncoding.Utf8);
+        text.Should().Be("' “café”\r\n");
+    }
+
     [Fact]
     public void Latin1_refuses_an_edit_it_cannot_hold_rather_than_substituting()
     {

@@ -391,6 +391,27 @@ public class SourceEncodingPersistenceTests : IDisposable
     }
 
     [Fact]
+    public async Task A_module_an_earlier_version_wrote_as_UTF8_opens_as_UTF8_and_saves_back_unchanged()
+    {
+        var svc = MakeService();
+        svc.HostAnsi = new Vb6TextEncoding(1252);
+        var vbp = WriteProject();
+        var path = Path.Join(dir, "Module1.bas");
+        // What an earlier version wrote for text with a character above U+00FF: UTF-8, no byte-order mark.
+        var original = System.Text.Encoding.UTF8.GetBytes(
+            "Attribute VB_Name = \"Module1\"\r\n' “café” — naïve\r\nPublic Sub Original()\r\nEnd Sub\r\n");
+        File.WriteAllBytes(path, original);
+
+        await svc.OpenProject(vbp);
+        var module = loaded.Single().Modules.Single();
+
+        module.Code.Should().Contain("' “café” — naïve");
+        module.TextEncoding.Should().Be(Vb6TextEncoding.Utf8);
+        await svc.SaveModule(module, false);
+        File.ReadAllBytes(path).Should().Equal(original);
+    }
+
+    [Fact]
     public async Task A_reload_of_a_file_read_byte_for_byte_reads_its_new_bytes_afresh()
     {
         var svc = MakeService();

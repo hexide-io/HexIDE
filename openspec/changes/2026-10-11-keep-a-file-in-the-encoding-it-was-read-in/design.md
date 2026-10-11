@@ -6,18 +6,21 @@ Every read of a VB6 source file (project load, Add File, and reload after an ext
 its encoding by the same chain, and stops at the first step that applies:
 
 1. **A UTF-8 byte-order mark** declares UTF-8. It is kept on write.
-2. **The encoding the document was last read in**, on a reload, if the bytes decode in it strictly and
+2. **The signature of a file earlier versions wrote**: valid UTF-8 throughout, with at least one character
+   above U+00FF. Those versions wrote UTF-8, without a byte-order mark, exactly then, and Latin-1 otherwise.
+   Read as UTF-8 and written back the same way. Accented text whose bytes merely form valid UTF-8, the #728
+   case, has no such character and goes on to step 4. It comes before step 3 so that a reload and a fresh
+   open read the same bytes the same way.
+3. **The encoding the document was last read in**, on a reload, if the bytes decode in it strictly and
    encode back to themselves. This is what keeps a file that lost its byte-order mark to an external editor
    in UTF-8. It is skipped when the last read was step 5: Latin-1 accepts anything, so a file once read byte
    for byte would otherwise stay Latin-1 on every reload, however readable its new bytes.
-3. **The signature of a file earlier versions wrote** (phase 2): BOM-less bytes that are valid UTF-8 and
-   decode to at least one character above U+00FF. Read as UTF-8, written back without a byte-order mark.
 4. **The host's ANSI code page** (the Windows ANSI code page; Windows-1252 elsewhere), if the bytes decode
    strictly and encode back to themselves.
 5. **Latin-1**, which maps all 256 byte values to characters and back, so it always succeeds and always
    gives the bytes back. The caller is told this step was reached, and warns.
 
-Step 2 is tried before step 4 and is not final: if a file recorded as UTF-8 is replaced by a revision that
+Step 3 is tried before step 4 and is not final: if a file recorded as UTF-8 is replaced by a revision that
 is not valid UTF-8 (a `git checkout` of an ANSI-era revision, say), the chain falls through rather than
 failing.
 
@@ -29,7 +32,7 @@ spelling the encoder does not write.
 The check stays so that a provider which maps differently is refused rather than written back changed. It
 is the one part of the chain no test can reach.
 
-**A byte-order mark over bytes that are not UTF-8** is kept, and steps 2 to 5 read what follows it. Decoded as
+**A byte-order mark over bytes that are not UTF-8** is kept, and steps 3 to 5 read what follows it. Decoded as
 text, the mark would sit in front of the first line, the header would not be recognised, and an unedited save
 would add a second one. The document's encoding then records the mark beside whichever code page read the
 rest, so the file is written back as it came.
@@ -59,8 +62,11 @@ group file and a reload each show the single-file form of the same notice.
 - **Line endings.** A module saved from LF line endings is written with CRLF, which is VB6's format. That
   changes bytes but re-encodes nothing, and predates this change.
 - **A byte-order mark removed outside the IDE.** The reload keeps the file in UTF-8, as step 2 intends. The
-  next open has no earlier read to consult, so unless the text has a character above U+00FF (phase 2) it
+  next open has no earlier read to consult, so unless the text has a character above U+00FF (step 2) it
   is read in the host's code page. Text typed in between was written as UTF-8 and then shows garbled.
+- **The signature can be wrong, rarely, and only for display.** A Windows-1252 file that happens to hold
+  `â€™` (bytes `E2 80 99`, often itself the trace of an earlier mis-decoding) is valid UTF-8 for `’`, and is
+  read that way. Its bytes still come back unchanged, since it is written back as UTF-8.
 - **Save Project As to another folder** writes a kept member line with its old relative path, as it already
   did for a missing form's line (#737).
 

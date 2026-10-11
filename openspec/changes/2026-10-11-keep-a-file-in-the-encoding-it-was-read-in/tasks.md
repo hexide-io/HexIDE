@@ -12,8 +12,8 @@
 
 ## 2. Files earlier versions wrote as UTF-8
 
-- [ ] 2.1 The signature step: BOM-less, valid UTF-8, at least one character above U+00FF.
-- [ ] 2.2 Tests: such a file reads as UTF-8 and saves back byte-for-byte; a file without a character above
+- [x] 2.1 The signature step: BOM-less, valid UTF-8, at least one character above U+00FF.
+- [x] 2.2 Tests: such a file reads as UTF-8 and saves back byte-for-byte; a file without a character above
   U+00FF still reads as ANSI (the #728 case).
 - [ ] 2.3 The PR description and `Vb6TextFile`'s documentation say the narrowed guess is back, and why.
 
