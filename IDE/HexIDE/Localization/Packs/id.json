@@ -3,6 +3,7 @@
   "direction": "ltr",
   "strings": {
     "Str.Dialog.SourceEncoding.SaveFailed": "{0} tidak disimpan, karena sebuah suntingan berisi karakter yang tidak dapat disimpan dalam halaman kode berkas sumbernya ({1}). Gunakan karakter yang didukung oleh halaman kode tersebut, lalu simpan lagi. Suntingan Anda tetap terbuka; berkas sumber dan sumber daya pendampingnya tidak berubah.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} tidak dapat dibaca dalam halaman kode komputer ini ({1}), sehingga berkas sumber itu dibuka byte demi byte, sebagai teks Eropa Barat (Latin-1). Menyimpannya tanpa perubahan akan menulis kembali byte yang sama. Teks yang ditulis dalam halaman kode lain mungkin tampak kacau, dan karakter di luar Latin-1 tidak dapat ditambahkan ke dalamnya.",
     "Str.Options.Language.RegionLabel": "_Wilayah:",
     "Str.Options.Language.RegionStandard": "(Standar)",
     "Str.Options.Language.Customize": "_Sesuaikan terjemahan…",

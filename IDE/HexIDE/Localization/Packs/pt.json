@@ -3,6 +3,7 @@
   "direction": "ltr",
   "strings": {
     "Str.Dialog.SourceEncoding.SaveFailed": "{0} não foi guardado, porque uma edição contém carateres que não podem ser armazenados na página de códigos do respetivo código-fonte ({1}). Escolha carateres suportados por essa página de códigos e guarde novamente. A edição continua aberta; o ficheiro de origem e os respetivos recursos associados permanecem inalterados no disco.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} não pôde ser lido na página de códigos deste computador ({1}), pelo que foi aberto byte a byte, como texto Europeu Ocidental (Latin-1). Guardá-lo inalterado volta a escrever os mesmos bytes. O texto escrito noutra página de códigos pode aparecer ilegível, e não é possível adicionar-lhe carateres fora do Latin-1.",
     "Str.Options.Language.RegionLabel": "_Região:",
     "Str.Options.Language.RegionStandard": "(Padrão)",
     "Str.Options.Language.Customize": "_Personalizar traduções…",

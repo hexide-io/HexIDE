@@ -3,6 +3,7 @@
   "direction": "ltr",
   "strings": {
     "Str.Dialog.SourceEncoding.SaveFailed": "{0} non è stato salvato perché una modifica contiene caratteri che non possono essere memorizzati nella tabella codici del file sorgente ({1}). Usa caratteri supportati da quella tabella codici e salva di nuovo. Il documento resta aperto con le tue modifiche; il file sorgente e le risorse associate su disco sono invariati.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} non può essere letto con la tabella codici di questo computer ({1}), quindi è stato aperto byte per byte, come testo con codifica Europa occidentale (Latin-1). Salvarlo invariato riscrive gli stessi byte. Il testo scritto con un'altra tabella codici potrebbe risultare incomprensibile e non è possibile aggiungere al file caratteri non presenti in Latin-1.",
     "Str.Options.Language.RegionLabel": "_Area geografica:",
     "Str.Options.Language.RegionStandard": "(Standard)",
     "Str.Options.Language.Customize": "_Personalizza traduzioni…",

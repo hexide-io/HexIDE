@@ -20,9 +20,13 @@ Step 2 is tried before step 4 and is not final: if a file recorded as UTF-8 is r
 is not valid UTF-8 (a `git checkout` of an ANSI-era revision, say), the chain falls through rather than
 failing.
 
-**Why every step checks the round trip.** Strict decoding catches bytes a code page does not define. It does
-not catch a code page with two byte spellings for one character, where the encoder writes back the other
-spelling. A step that cannot give the bytes back is not taken.
+**Every step also checks the round trip, as defence.** With .NET's code page tables it never fires: over
+every 1- and 2-byte input in code pages 874, 932, 936, 949, 950 and 1250 to 1258, every strict decode
+encodes back to the same bytes (measured 2026-10-11). Where a double-byte code page spells one character
+two ways, such as code page 932's `87 90` beside `81 E0` for `≒`, the strict decoder itself refuses the
+spelling the encoder does not write.
+The check stays so that a provider which maps differently is refused rather than written back changed. It
+is the one part of the chain no test can reach.
 
 **Why the chain cannot fail.** Step 5 accepts every input. So decoding never throws during load, Add File or
 reload, and nothing downstream needs to handle a decode failure. `Vb6TextFile.Decode` with an explicit

@@ -233,6 +233,8 @@ public class SourceEncodingPersistenceTests : IDisposable
         File.WriteAllBytes(path, withoutBom);
 
         (await svc.ReloadModuleFromDisk(module)).Should().BeTrue();
+        // The bytes alone cannot tell: read as Windows-1252 they also save back unchanged, as "cafÃ©".
+        module.Code.Should().Contain("' café");
         await svc.SaveModule(module, false);
 
         File.ReadAllBytes(path).Should().Equal(withoutBom);
@@ -404,6 +406,23 @@ public class SourceEncodingPersistenceTests : IDisposable
         await svc.SaveProject(loaded.Single(), false);
 
         File.ReadAllText(vbp).Should().Contain("Module=Module1; Module1.bas");
+    }
+
+    [WindowsOnlyFact]
+    public async Task A_form_whose_load_throws_keeps_its_line_in_the_project_file()
+    {
+        var svc = MakeService();
+        var vbp = WriteProject();
+        var frm = Path.Join(dir, "Main.frm");
+        File.WriteAllText(frm, "VERSION 5.00\r\nBegin VB.Form Main\r\nEnd\r\n");
+        File.WriteAllText(vbp, "Type=Exe\r\nForm=Main.frm\r\nModule=Module1; Module1.bas\r\nName=\"Test\"\r\n");
+        await using (new FileStream(frm, FileMode.Open, FileAccess.Read, FileShare.None))
+            await svc.OpenProject(vbp);
+
+        loaded.Single().Forms.Should().BeEmpty();
+        await svc.SaveProject(loaded.Single(), false);
+
+        File.ReadAllText(vbp).Should().Contain("Form=Main.frm");
     }
 
     [Fact]

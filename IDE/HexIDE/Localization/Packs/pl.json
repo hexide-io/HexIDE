@@ -3,6 +3,7 @@
   "direction": "ltr",
   "strings": {
     "Str.Dialog.SourceEncoding.SaveFailed": "Element {0} nie został zapisany, ponieważ wprowadzona zmiana zawiera znaki, których nie można zapisać w stronie kodowej jego pliku źródłowego ({1}). Użyj znaków obsługiwanych przez tę stronę kodową i zapisz ponownie. Twoje zmiany nadal znajdują się w edytorze; plik źródłowy i powiązane z nim zasoby pozostają niezmienione.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte": "Pliku źródłowego {0} nie udało się odczytać w stronie kodowej tego komputera ({1}), dlatego otwarto go bajt po bajcie jako tekst w kodowaniu zachodnioeuropejskim (Latin-1). Zapisanie go bez zmian zapisze z powrotem te same bajty. Tekst zapisany w innej stronie kodowej może wyglądać na zniekształcony, a znaków spoza Latin-1 nie można dodać do tego pliku.",
     "Str.Options.Language.RegionLabel": "_Region:",
     "Str.Options.Language.RegionStandard": "(Standardowy)",
     "Str.Options.Language.Customize": "_Dostosuj tłumaczenia…",

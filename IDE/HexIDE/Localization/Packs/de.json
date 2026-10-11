@@ -3,6 +3,7 @@
   "direction": "ltr",
   "strings": {
     "Str.Dialog.SourceEncoding.SaveFailed": "{0} wurde nicht gespeichert, weil eine Änderung Zeichen enthält, die sich in der Codepage der Quelldatei ({1}) nicht speichern lassen. Verwenden Sie Zeichen, die von dieser Codepage unterstützt werden, und speichern Sie erneut. Das Dokument bleibt mit der Änderung im Editor geöffnet; die Quelldatei und die zugehörigen Ressourcendateien sind unverändert.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} konnte nicht in der Codepage dieses Computers ({1}) gelesen werden und wurde daher Byte für Byte als westeuropäischer Text (Latin-1) geöffnet. Wird die Quelldatei unverändert gespeichert, werden dieselben Bytes zurückgeschrieben. Text, der in einer anderen Codepage geschrieben wurde, wird möglicherweise verstümmelt dargestellt, und Zeichen außerhalb von Latin-1 können der Quelldatei nicht hinzugefügt werden.",
     "Str.Options.Language.Customize": "Übersetzungen _anpassen…",
     "Str.Options.Language.RegionLabel": "_Region:",
     "Str.Options.Language.RegionStandard": "(Standard)",

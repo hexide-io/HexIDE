@@ -3,6 +3,7 @@
   "direction": "ltr",
   "strings": {
     "Str.Dialog.SourceEncoding.SaveFailed": "Dokument {0} nebyl uložen, protože úprava obsahuje znaky, které nelze uložit ve znakové stránce jeho zdrojového kódu ({1}). Zvolte znaky podporované touto znakovou stránkou a uložte znovu. Vaše úprava je stále v IDE; zdrojový soubor a jeho doprovodné soubory prostředků zůstávají na disku nezměněné.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte": "Zdrojový soubor {0} nebylo možné přečíst ve znakové stránce tohoto počítače ({1}), proto byl otevřen bajt po bajtu jako text v západoevropském kódování (Latin-1). Uložení beze změny zapíše zpět tytéž bajty. Text zapsaný v jiné znakové stránce může vypadat zkomoleně a do souboru nelze přidat znaky mimo Latin-1.",
     "Str.Options.Language.RegionLabel": "_Oblast:",
     "Str.Options.Language.RegionStandard": "(Standardní)",
     "Str.Options.Language.Customize": "_Přizpůsobit překlady…",

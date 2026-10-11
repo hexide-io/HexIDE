@@ -3,6 +3,7 @@
   "direction": "ltr",
   "strings": {
     "Str.Dialog.SourceEncoding.SaveFailed": "{0} n'a pas été enregistré, car une modification contient des caractères qui ne peuvent pas être stockés dans la page de codes de son fichier source ({1}). Utilisez des caractères pris en charge par cette page de codes, puis enregistrez de nouveau. Le document reste ouvert avec vos modifications ; le fichier source et ses ressources associées sur le disque sont inchangés.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} n'a pas pu être lu dans la page de codes de cet ordinateur ({1}) ; il a donc été ouvert octet par octet, comme du texte d'Europe occidentale (Latin-1). L'enregistrer sans le modifier réécrit les mêmes octets. Un texte écrit dans une autre page de codes peut s'afficher de façon illisible, et les caractères absents de Latin-1 ne peuvent pas y être ajoutés.",
     "Str.Options.Language.RegionLabel": "_Région :",
     "Str.Options.Language.RegionStandard": "(Standard)",
     "Str.Options.Language.Customize": "_Personnaliser les traductions…",

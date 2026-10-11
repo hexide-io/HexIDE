@@ -61,8 +61,11 @@ public static class Vb6TextFile
         var offset = encoding.Utf8Bom && bytes.AsSpan().StartsWith(Utf8Bom) ? Utf8Bom.Length : 0;
         var codec = encoding.GetEncoding();
         var text = codec.GetString(bytes, offset, bytes.Length - offset);
-        // Some legacy code pages have multiple byte spellings for one character. Strict fallbacks alone
-        // do not catch that normalization. Refuse the load rather than silently changing such bytes.
+        // Defence, not a case that occurs: with .NET's tables a strict decode always encodes back to the
+        // same bytes. Measured 2026-10-11 over every 1- and 2-byte input in code pages 874, 932, 936, 949,
+        // 950 and 1250-1258 -- where a double-byte page spells one character two ways, such as 932's 87 90
+        // beside 81 E0 for U+2252, the strict decoder itself refuses the spelling the encoder does not write. Kept so a provider that maps differently is
+        // refused here rather than written back changed.
         if (!codec.GetBytes(text).AsSpan().SequenceEqual(bytes.AsSpan(offset)))
             throw new InvalidDataException($"Source bytes cannot round-trip in code page {encoding.CodePage}.");
         return text;
@@ -93,8 +96,7 @@ public static class Vb6TextFile
     /// <item><see cref="Vb6TextEncoding.Latin1"/>, which always succeeds; <c>ByteForByte</c> says so, and
     /// the caller warns.</item>
     /// </list>
-    /// Each step must decode strictly AND encode back to the same bytes. Strict decoding alone does not
-    /// catch a code page with two byte spellings for one character, whose encoder writes the other one.
+    /// Each step must decode strictly and encode back to the same bytes (see <see cref="Decode"/>).
     /// </remarks>
     public static (string Text, Vb6TextEncoding Encoding, bool ByteForByte) ReadDocument(
         byte[] bytes, Vb6TextEncoding? lastReadIn = null, Vb6TextEncoding? ansi = null)

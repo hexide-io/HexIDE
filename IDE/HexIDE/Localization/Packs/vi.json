@@ -3,6 +3,7 @@
   "direction": "ltr",
   "strings": {
     "Str.Dialog.SourceEncoding.SaveFailed": "{0} không được lưu, vì một phần chỉnh sửa có chứa ký tự không thể lưu trong trang mã của tệp nguồn ({1}). Hãy chọn các ký tự được trang mã đó hỗ trợ rồi lưu lại. Phần chỉnh sửa vẫn đang mở; tệp nguồn và các tệp tài nguyên đi kèm của nó trên đĩa vẫn không thay đổi.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} không đọc được bằng trang mã của máy tính này ({1}), nên nó đã được mở theo từng byte một, dưới dạng văn bản Tây Âu (Latin-1). Việc lưu tệp mà không thay đổi sẽ ghi lại đúng các byte ban đầu. Văn bản được viết bằng một trang mã khác có thể hiển thị lộn xộn, và không thể thêm vào tệp này các ký tự nằm ngoài Latin-1.",
     "Str.Options.Language.RegionLabel": "_Khu vực:",
     "Str.Options.Language.RegionStandard": "(Chuẩn)",
     "Str.Options.Language.Customize": "_Tùy chỉnh bản dịch…",

@@ -2,12 +2,12 @@
 
 ## 1. No file is dropped for its encoding
 
-- [ ] 1.1 One decision chain for every read (design.md): byte-order mark, the encoding last read in,
+- [x] 1.1 One decision chain for every read (design.md): byte-order mark, the encoding last read in,
   the host's ANSI code page with a round-trip check, then Latin-1. It reports which step was taken.
-- [ ] 1.2 Project load, Add File and reload all use it, so none of them can fail to decode. A file read
+- [x] 1.2 Project load, Add File and reload all use it, so none of them can fail to decode. A file read
   as Latin-1 is named in a warning, localized into the 29 shipped packs.
-- [ ] 1.3 A form or module that fails to load for any reason keeps its line in the project file.
-- [ ] 1.4 Tests: a Western file on a double-byte host loads and saves back byte-for-byte; a member whose
+- [x] 1.3 A form or module that fails to load for any reason keeps its line in the project file.
+- [x] 1.4 Tests: a Western file on a double-byte host loads and saves back byte-for-byte; a member whose
   load throws keeps its `.vbp` line; a file recorded as UTF-8 and replaced by an ANSI revision reloads.
 
 ## 2. Files earlier versions wrote as UTF-8
