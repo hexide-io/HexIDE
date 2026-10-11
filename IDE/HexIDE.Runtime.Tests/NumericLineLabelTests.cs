@@ -5,9 +5,11 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// Numeric line labels — `10 Debug.Print 1`. Every expectation is oracle-pinned against vb6.exe.
 ///
-/// This was one of only THREE constructs in the whole VB6 language that failed to PARSE (see
-/// docs/MISSING_LANGUAGE.md), which made it the highest-value kind of gap to close: a parse failure takes
-/// the entire module down, so nothing in the file runs and the editor cannot open it usefully.
+/// This was one of only FOUR constructs in the whole VB6 language that failed to PARSE (see
+/// docs/MISSING_LANGUAGE.md, where the count is four again without it: a <c>Function</c> declared with a
+/// type character has since been found to fail the same way), which made it the highest-value kind of gap
+/// to close: a parse failure takes the entire module down, so nothing in the file runs and the editor
+/// cannot open it usefully.
 ///
 /// It was also a disagreement between HexIDE's two halves. The LSP server's grammar already had a
 /// <c>lineNumber</c> rule, so the editor accepted code the interpreter could not parse — a file that
