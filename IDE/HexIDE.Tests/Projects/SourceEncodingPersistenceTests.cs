@@ -51,8 +51,8 @@ public class SourceEncodingPersistenceTests : IDisposable
         sidecar.LoadAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         sidecar.SaveAsync(Arg.Any<ProjectDefinition>()).Returns(Task.CompletedTask);
         var localization = Substitute.For<HexIDE.Localization.ILocalizationService>();
-        localization.GetString("Str.Dialog.SourceEncoding.SaveFailed")
-            .Returns("{0} cannot be saved using source code page {1}. Your edit remains open.");
+        localization.GetString("Str.Dialog.SourceEncoding.NothingWritten")
+            .Returns("Nothing was written: {0}, in code page {1}, cannot hold {2} ({3}), in {4}.");
         localization.GetString("Str.Dialog.SourceEncoding.ReadByteForByte").Returns(ReadByteForByteText);
         localization.GetString("Str.Dialog.SourceEncoding.ReadByteForByte.Many").Returns(ReadByteForByteManyText);
 
@@ -747,7 +747,8 @@ public class SourceEncodingPersistenceTests : IDisposable
         Func<Task> save = () => svc.SaveAllProjects(false);
 
         await save.Should().ThrowAsync<SourceEncodingRefusal>();
-        MessagesShown().Should().ContainSingle().Which.Should().Contain("Module2").And.Contain("1252");
+        MessagesShown().Should().ContainSingle().Which.Should().Contain("Module2").And.Contain("1252")
+            .And.Contain("U+2192").And.Contain("in ' →", "the line that holds it is quoted");
         ShouldBeUnchanged(before);
     }
 
@@ -1104,9 +1105,10 @@ public class SourceEncodingPersistenceTests : IDisposable
         Func<Task> save = () => svc.SaveModule(module, false, interactive: false);
 
         (await save.Should().ThrowAsync<SourceEncodingRefusal>()).Which.Message.Should().Be(
-            "Module1 is kept in code page 1252, which cannot hold '→' (U+2192). Nothing was written. HexIDE keeps "
-            + "a file in the code page it was read or created in rather than convert it, so use characters that "
-            + "code page holds.");
+            "Module1 is kept in code page 1252, which cannot hold '→' (U+2192), found in the line `' →`. Nothing "
+            + "was written. HexIDE keeps a file in the code page it was read or created in rather than convert it, "
+            + "so use characters that code page holds, and where that line names a file or folder, a name it can "
+            + "hold.");
         MessagesShown().Should().BeEmpty();
         File.ReadAllBytes(module.AbsolutePath!).Should().Equal(original);
         module.Code.Should().Contain("' →", "the edit stays in the IDE for the caller to correct");

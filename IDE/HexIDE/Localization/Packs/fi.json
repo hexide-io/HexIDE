@@ -2,7 +2,7 @@
   "name": "Finnish",
   "direction": "ltr",
   "strings": {
-    "Str.Dialog.SourceEncoding.SaveFailed": "Kohdetta {0} ei tallennettu, koska muokkaus sisältää merkkejä, joita ei voi tallentaa sen lähdetiedoston koodisivulla ({1}). Käytä merkkejä, joita kyseinen koodisivu tukee, ja tallenna uudelleen. Muokkaus pysyy auki; lähdetiedosto ja sen oheisresurssit ovat levyllä ennallaan.",
+    "Str.Dialog.SourceEncoding.NothingWritten": "Levylle ei kirjoitettu mitään. Kohteen {0} koodisivu on {1}, eikä se tue merkkiä '{2}' ({3}). Merkki on tällä rivillä:\n\n{4}\n\nHexIDE säilyttää jokaisen tiedoston sillä koodisivulla, jolla se luettiin tai luotiin, eikä muunna sitä. Korvaa kyseinen teksti merkeillä, joita koodisivu tukee, tai jos rivillä on tiedoston tai kansion nimi, valitse nimi, jossa on vain koodisivun tukemia merkkejä. Yritä sitten uudelleen. Muutoksesi ovat yhä auki IDE:ssä.",
     "Str.Dialog.SourceEncoding.ReadByteForByte": "Lähdetiedostoa {0} ei voitu lukea tämän tietokoneen koodisivulla ({1}), joten se avattiin tavu tavulta länsieurooppalaisena (Latin-1) tekstinä. Jos tallennat sen muuttamattomana, levylle kirjoitetaan takaisin samat tavut, mutta tiedostoon ei voi lisätä Latin-1-merkistön ulkopuolisia merkkejä. Muulla koodisivulla kirjoitettu teksti voi näyttää sotkuiselta.",
     "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "Näitä lähdetiedostoja ei voitu lukea tämän tietokoneen koodisivulla ({1}), joten ne avattiin tavu tavulta länsieurooppalaisena (Latin-1) tekstinä:\n\n{0}\n\nJos tallennat ne muuttamattomina, levylle kirjoitetaan takaisin samat tavut, mutta tiedostoihin ei voi lisätä Latin-1-merkistön ulkopuolisia merkkejä. Muulla koodisivulla kirjoitettu teksti voi näyttää sotkuiselta.",
     "Str.Options.Language.RegionLabel": "_Alue:",

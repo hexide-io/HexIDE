@@ -110,7 +110,7 @@ public static class Vb6TextFile
         }
         catch (EncoderFallbackException e)
         {
-            throw new SourceEncodingRefusal(document, encoding, e);
+            throw new SourceEncodingRefusal(document, encoding, e, content);
         }
     }
 

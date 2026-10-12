@@ -676,9 +676,14 @@ public class ProjectService : IProjectService
         {
             Log.Warning("Cannot save {Document} in code page {CodePage}: it holds {CodePoint}",
                 refusal.Document, refusal.CodePage, refusal.CodePoint);
+            // Says that nothing was written, rather than that one document was not: the operation checked every
+            // file before writing any. The line is quoted because the character may not be in anything the
+            // person just edited: a form is written whole, and a project file names its members by file.
             if (interactive)
                 await windowManager.MessageBox(
-                    string.Format(localization.GetString("Str.Dialog.SourceEncoding.SaveFailed"), refusal.Document, refusal.CodePage),
+                    string.Format(localization.GetString("Str.Dialog.SourceEncoding.NothingWritten"),
+                        refusal.Document, refusal.CodePage, refusal.Character, refusal.CodePoint,
+                        refusal.Line.Length > 0 ? refusal.Line : refusal.Character),
                     "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
             throw;
         }

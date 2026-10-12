@@ -301,10 +301,48 @@ public class Vb6TextFileTests
         refusal.Character.Should().Be("→");
         refusal.CodePoint.Should().Be("U+2192");
         refusal.InnerException.Should().BeOfType<EncoderFallbackException>();
+        refusal.Line.Should().Be("' a→b←");
         refusal.Message.Should().Be(
-            "Module1 is kept in code page 1252, which cannot hold '→' (U+2192). Nothing was written. HexIDE keeps "
-            + "a file in the code page it was read or created in rather than convert it, so use characters that "
-            + "code page holds.");
+            "Module1 is kept in code page 1252, which cannot hold '→' (U+2192), found in the line `' a→b←`. Nothing "
+            + "was written. HexIDE keeps a file in the code page it was read or created in rather than convert it, "
+            + "so use characters that code page holds, and where that line names a file or folder, a name it can "
+            + "hold.");
+    }
+
+    [Fact]
+    public void EncodeDocument_quotes_the_line_that_holds_the_character()
+    {
+        // In a form, the character can be in a property the caller never sent, so the line is how it is found.
+        var text = "VERSION 5.00\r\nBegin VB.Form Form1\r\n   Caption         =   \"Go →\"\r\nEnd\r\n";
+
+        Action save = () => Vb6TextFile.EncodeDocument("Form1", text, new Vb6TextEncoding(1252));
+
+        save.Should().Throw<SourceEncodingRefusal>().Which.Line.Should().Be("Caption         =   \"Go →\"");
+    }
+
+    [Fact]
+    public void EncodeDocument_quotes_a_long_line_around_the_character()
+    {
+        var text = "' " + new string('a', 300) + "→" + new string('b', 300) + "\r\n";
+
+        Action save = () => Vb6TextFile.EncodeDocument("Module1", text, new Vb6TextEncoding(1252));
+
+        var line = save.Should().Throw<SourceEncodingRefusal>().Which.Line;
+        line.Should().Contain("→").And.StartWith("…").And.EndWith("…");
+        line.Length.Should().Be(102, "a hundred characters of the line, and an ellipsis at each end");
+    }
+
+    [Fact]
+    public void EncodeDocument_does_not_split_a_surrogate_pair_where_it_shortens_a_line()
+    {
+        // Forty faces, then the lone surrogate UTF-8 refuses. Fifty characters before it is the second half of
+        // a face.
+        var face = char.ConvertFromUtf32(0x1F600);
+        var text = string.Concat(Enumerable.Repeat(face, 40)) + "x" + (char)0xD800 + new string('b', 200);
+
+        Action save = () => Vb6TextFile.EncodeDocument("Module1", text, Vb6TextEncoding.Utf8);
+
+        save.Should().Throw<SourceEncodingRefusal>().Which.Line.Should().StartWith("…" + face);
     }
 
     [Fact]
