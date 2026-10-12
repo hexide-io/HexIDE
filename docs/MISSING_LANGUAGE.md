@@ -110,7 +110,7 @@ on the write path (`obj.a.b = x`, `Set obj.a.b = o`).
 
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Statements | 0 | 0 | 46 | 35 | 0 | 24 | 105 |
+| Statements | 1 | 0 | 46 | 35 | 0 | 23 | 105 |
 | Operators | 0 | 0 | 3 | 18 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 69 | 37 | 1 | 46 | 153 |
 | Keywords and modifiers | 0 | 0 | 11 | 22 | 1 | 17 | 51 |
@@ -118,7 +118,7 @@ on the write path (`obj.a.b = x`, `Set obj.a.b = o`).
 | Compiler directives and options | 0 | 1 | 16 | 9 | 13 | 8 | 47 |
 | In-box objects | 0 | 0 | 98 | 8 | 0 | 17 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **0** | **2** | **258** | **407** | **15** | **500** | **1182** |
+| **Total** | **1** | **2** | **258** | **407** | **15** | **499** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -150,7 +150,11 @@ That is the honest answer to "will my code run?" — the arithmetic will; the pl
 not. The classic file-I/O family is absent as a block, which is the most common way a real program dies
 here, usually within its first few statements.
 
-## Silently wrong — 0 names
+## Silently wrong — 1 name
+
+| Name | Status | Detail | Source |
+|---|---|---|---|
+| `On Error Resume Next` | **Silently wrong** | A statement whose CONDITION raises is skipped whole, where VB6 resumes at the first statement inside it (#839, measured): the Then or ElseIf branch of an If runs, Select Case reaches Case Else, Do While/Until, While and For run their bodies, and `Do ... Loop While` runs once. HexIDE takes neither branch, no Case and no pass, and the program carries on down a path VB6 would not take. Elsewhere it holds: sets errorMode = ErrorMode.ResumeNext, trapped per statement in every nested block (VisitBlock) and at the top-level pc driver. | StatementExecutor.cs |
 
 **Closed by [#191](https://github.com/hexide-io/HexIDE/issues/191).** Eight constructs used to sit here:
 `Shell`, `FreeFile`, `Command`, `CurDir`, `Cls`, `Erl`, `Dir` and `Time = x`. Each parsed, ran, did
@@ -462,10 +466,11 @@ Every name, including the ones that work. Sorted within each table by F5 impact 
 Partial, No-op, Supported — because a reader of a coverage document is looking for what is missing.
 
 
-### Statements — 105 names (46 absent, 35 partial, 24 supported)
+### Statements — 105 names (46 absent, 35 partial, 23 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
+| `On Error Resume Next` | **Silently wrong** | A statement whose CONDITION raises is skipped whole, where VB6 resumes at the first statement inside it (#839, measured): the Then or ElseIf branch of an If runs, Select Case reaches Case Else, Do While/Until, While and For run their bodies, and `Do ... Loop While` runs once. HexIDE takes neither branch, no Case and no pass, and the program carries on down a path VB6 would not take. Elsewhere it holds: sets errorMode = ErrorMode.ResumeNext, trapped per statement in every nested block (VisitBlock) and at the top-level pc driver. | StatementExecutor.cs |
 | `Time` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 | `AppActivate` | **Dies** | throws `"AppActivate not implemented"` — Grammar rule `appActivateStmt : APPACTIVATE WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4); the visitor body is a single throw:… | StatementExecutor.cs |
 | `Close` | **Dies** | `closeStmt : CLOSE (WS valueStmt (WS? COMMA WS? valueStmt)*)?` (Grammar/VB6.g4) and a visitor exists, but its whole body is the throw. Probed both `Close #1` and bare `Close` ->… | StatementExecutor.cs |
@@ -564,7 +569,6 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `Exit Property` | Supported | Returns ControlFlow.ExitProperty (StatementExecutor.cs), which ExecuteProcedureBody treats like every other Exit. Property Get/Let/Set bodies run through the same driver… | StatementExecutor.cs |
 | `Exit Sub` | Supported | Returns ControlFlow.ExitSub (StatementExecutor.cs). Used throughout ErrorHandlingGoToTests to skip past the handler label, which is the canonical VB6 idiom and is confirmed working. | StatementExecutor.cs |
 | `On Error GoTo 0` | Supported | VisitOnErrorStmt compares the target's source text: `if (target == "0") { errorMode = ErrorMode.None; handlerLabel = null; }`. Tested twice -… | StatementExecutor.cs |
-| `On Error Resume Next` | Supported | Sets errorMode = ErrorMode.ResumeNext. Trapped at two levels: per-statement inside every nested block (VisitBlock, StatementExecutor.cs) and at the top-level pc driver (:1901); both call… | StatementExecutor.cs |
 | `On Local Error` | Supported | The lexer emits a single ON_LOCAL_ERROR token accepted in the same production as ON_ERROR (VB6.g4), and VisitOnErrorStmt branches only on RESUME vs GOTO, so both spellings behave… | StatementExecutor.cs |
 | `RaiseEvent` | Supported | VisitRaiseEventStmt resolves Me to the source VbObject, evaluates the args ONCE with Locations so ByRef params alias the raiser's locals and multicast sinks share writes, snapshots… | StatementExecutor.cs |
 | `Randomize` | Supported | VisitRandomizeStmt evaluates the optional seed and calls interpreter.BuiltIns.Reseed(seed); Reseed sets the 24-bit LCG state Rnd consumes: `long bits = number is { } n ?… | StatementExecutor.cs |

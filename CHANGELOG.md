@@ -22,7 +22,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **An object used as a value no longer gives a wrong value.** A class with no default member raises VB6's 438
   wherever a value is wanted, where HexIDE raised 13, printed its CLR type name (`"v=" & k`, `CStr(k)`,
-  `Debug.Print k`), read it as 0 (`Val(k)`, a ByVal Long argument), or matched nothing in `Select Case`. A class
+  `Debug.Print k`), read it as 0 (`Val(k)`, a ByVal Long argument), or matched nothing in `Select Case`. That covers
+  every operator, a Let, a ByVal argument for a typed parameter, every condition and bound, and every built-in
+  function except those that ask what a value is (`TypeName`, `IsObject` and the like). A class
   with a default member, which VB6 reads in all those places, stops the run with a message saying class default
   members are not implemented yet (#174), rather than an error `On Error Resume Next` would step over.
 - **A syntax error when a program starts, or a compile error while it runs, is reported like a run-time error.**

@@ -5138,6 +5138,21 @@ with `TypeName` and `Err.Number`:
 
 `Len(w)` does not compile: "Variable required - can't assign to this expression".
 
+**A second probe, through a Variant.** `o` is a Variant holding the object (`Set o = w`), so `Len` compiles:
+
+| Use | Widget | Plain |
+|---|---|---|
+| `Left(o, 1)`, `InStr(o, "2")`, `Chr(o)`, `Len(o)`, `UCase(o)` | "4", 2, "*", 2, "42" | 438 each |
+| `IIf(o, "t", "f")` | "t" | 438 |
+| `CDate(o)` | 10/02/1900, a Date | 438 |
+| a ByVal Double argument | 42, Double | 438 |
+| `Format(o)`, `Format(o, "0.0")`, `Abs(o)`, `Not o` | **450** each | 438 each |
+
+The last row resisted explanation. 450 is "Wrong number of arguments or invalid property assignment", and these four
+raise it where every other use took the default member. `Value` is a Function rather than a Property Get, and the
+typed `-w` in the first probe gave -42, so the static type and the member's kind both may matter. Not pursued:
+HexIDE refuses all of these, so no answer here can become a wrong value.
+
 **What it says.**
 - An object used as a value is its default member, everywhere: a Let into any scalar or a Variant, an operator, a
   conversion, a condition, a bound, a ByVal scalar argument, `Print #`.
@@ -5146,17 +5161,36 @@ with `TypeName` and `Err.Number`:
   and `Debug.Print k` (#436), 0 for `Val(k)` and a ByVal Long argument, and no error at all for `Select Case k`.
 - Only a ByVal Variant parameter takes the object itself.
 
-**And an overturn about `On Error Resume Next`.** `If k Then`, whose condition raises 438, went on into the Then
+**And an overturn about `On Error Resume Next`.** Measured in the second probe for every statement with a condition,
+with `k` a Plain, so each condition raises 438:
+
+| Statement | What ran |
+|---|---|
+| `If k Then ... Else ... End If` | the Then branch |
+| `If False Then ... ElseIf k Then ... Else ...` | the ElseIf branch |
+| `If k Then c = "Then" Else c = "Else"`, one line | the Then part |
+| `Select Case k`, `Case 1`, `Case Else` | **Case Else** |
+| `Do While k`, `Do Until k`, `While k` | the body, every pass, until the probe's own `Exit` after 3 |
+| `Do ... Loop While k` | the body once, then out |
+| `For i = 1 To k` | the body, every pass, until `Exit For` after 3; `i` was still 0 afterwards |
+
+Resume Next resumes at the statement after the one that raised, and for a block statement that is the first statement
+inside it. A Select Case evidently tries each Case in turn, each raising again, and reaches Case Else. A bottom-tested
+loop's next statement is the one after `Loop`. Why `i` never moved, and why the loop still stopped at 3, is not
+explained: `Next` did not raise visibly, since `Err.Number` after the loop was the For line's 438.
+
+The first probe's finding, in its own words: `If k Then`, whose condition raises 438, went on into the Then
 branch. Resume Next resumes at the next statement, and the next statement after the `If` line is the first one
-inside the block. The obvious reading, that the failed condition skips the block, is wrong. HexIDE skips it.
-Measured for the block form only; the one-line form went unmeasured, because the first probe did not compile for an
-unrelated reason.
+inside the block. The obvious reading, that the failed condition skips the block, is wrong. HexIDE skips it,
+and skips every statement in the table above the same way.
 
 **HexIDE, after #174's refusal (this change).** One rule, `ObjectAsValue`, applied wherever a value is wanted:
 - every binary operator's operands (`GetTwoValues`), negation and `Not`;
 - every text coercion (`VbDisplay.ToText`: concatenation, `CStr`, `Val`, `Str` and the string functions);
 - a Let, a store into a declared scalar (`CoerceOnStore`), a ByVal argument for a declared scalar parameter;
-- `CBool`, `CDate` and the numeric conversions;
+- every built-in function's arguments (`EvaluateBuiltInFunction`), except those that ask what a value is (`TypeName`,
+  `VarType`, the `Is` family) or treat it as an element or an array; and the numeric conversions' own coercion, which a
+  subscript also uses;
 - the conditions of `If`, `ElseIf`, `While` and `Do`, a For bound, `Select Case` and its `Case Is` values;
 - `Debug.Print`.
 

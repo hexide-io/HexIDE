@@ -143,12 +143,7 @@ public class ObjectAsValueTests : BaseVBTestFixture
     public async Task A_built_in_that_asks_what_a_value_is_still_takes_the_object(string cls)
     {
         await RunClasses(
-            $"Dim o As {cls}
-Set o = New {cls}
-Debug.Print TypeName(o)
-Debug.Print IsObject(o)
-Debug.Print IsEmpty(o)
-",
+            $"Dim o As {cls}\nSet o = New {cls}\nDebug.Print TypeName(o)\nDebug.Print IsObject(o)\nDebug.Print IsEmpty(o)\n",
             ("Widget", Widget), ("Plain", Plain));
 
         AssertDebugLog([new Vb6Value(cls), new Vb6Value(true), new Vb6Value(false)]);
