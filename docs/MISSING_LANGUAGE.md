@@ -726,7 +726,7 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `LoadResPicture` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResPicture)". | ExpressionExecutor.cs |
 | `LoadResString` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResString)". | ExpressionExecutor.cs |
 | `Partition` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. `Partition(n, lo, hi, size)` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (Partition)". Named in… | ExpressionExecutor.cs |
-| `QBColor` | Supported | Measured: `QBColor(0)` to `QBColor(15)` is the sixteen-colour table, as a Long. The argument is coerced as CInt does (`QBColor(7.5)` is colour 8); outside 0 to 15 raises 5, Null 94. | VB6BuiltIns.Color.cs |
+| `QBColor` | Supported | Measured: `QBColor(0)` to `QBColor(15)` is the sixteen-colour table, as a Long. The argument is coerced as CInt does (`QBColor(7.5)` is colour 8, `QBColor(40000)` overflows: 6); outside 0 to 15 raises 5, Null 94. | VB6BuiltIns.Color.cs |
 | `RGB` | Supported | Measured: red + 256 green + 65536 blue, as a Long. Each component is coerced as CInt does (banker's rounding, numeric strings, Null 94, "x" 13, outside Integer 6); a negative one raises 5 and one above 255 is 255. | VB6BuiltIns.Color.cs |
 | `Switch` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. `x = Switch(c1, v1, c2, v2)` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (Switch)". Named in… | ExpressionExecutor.cs |
 | `InputBox` | Partial | Implemented, but only the first three arguments are read: `var prompt = args.Count >= 1 ...; var caption = args.Count >= 2 ...; var defaultText = args.Count >= 3 ...` then `await… | VB6BuiltIns.cs |
@@ -1230,19 +1230,22 @@ pass happened to attack, not a real distinction.
 
 A name the IDE describes is not a name the interpreter runs. `VbSignatures.cs` in the LSP server is
 **editor metadata with no execution path**: it feeds signature help and the `vb/builtinSymbols` response
-that populates the Object Browser's VBA library. Nine intrinsics are listed there, offer a full
+that populates the Object Browser's VBA library. Thirteen names are listed there, offer a full
 parameter tooltip, and then fail at run time:
 
-`StrComp`, `CVar`, `CVErr`, `Shell`, `Environ`, `IIf`, `Choose`, `Switch`, `AscW`.
+`StrComp`, `CVar`, `CVErr`, `Shell`, `Environ`, `IIf`, `Choose`, `Switch`, `AscW`, `ChrW`, `CreateObject`,
+`GetObject`, `CLDbl`.
 
-`RGB` and `QBColor` were on this list until they were implemented.
+`CLDbl` is not a VB6 function at all. `Randomize` and `Err` are listed there too, and do work: one is a statement,
+the other an object. `RGB` and `QBColor` were on this list until they were implemented. Counted by comparing that
+file's names with the interpreter's registry, not by hand.
 
 Worse than a plain gap, because the IDE vouches for the call before the user makes it. Closing the gap
 between those two lists — implement it, or stop advertising it — is cheap and disproportionately improves
 how the IDE feels.
 
 **Autocomplete itself is not the culprit**, contrary to an earlier draft of this section. Completion is
-served from a different list (`VbKeywords.All`), and none of the nine appears in it. The trap is
+served from a different list (`VbKeywords.All`), and none of the thirteen appears in it. The trap is
 signature help and the Object Browser, not the completion popup.
 
 ## Not yet enumerated

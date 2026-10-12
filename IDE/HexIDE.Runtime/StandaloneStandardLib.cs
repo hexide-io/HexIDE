@@ -28,7 +28,6 @@ public class StandaloneStandardLib : IBasicStandardLibrary
 
     public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
     {
-        MessageBoxResult result = MessageBoxResult.None;
         var msgBox = new MessageBox { Text = text, Buttons = buttons, Icon = icon };
         var window = new Window
         {
@@ -38,10 +37,7 @@ public class StandaloneStandardLib : IBasicStandardLibrary
             WindowStartupLocation = WindowStartupLocation.CenterOwner,
             CanResize = false
         };
-        msgBox.AcceptRequest += r => { result = r; window.Close(); };
-        msgBox.GuardClose(window);
-        await window.ShowDialog(_parent);
-        return result;
+        return await msgBox.ShowAndWait(window, _parent);
     }
 
     public async Task<string?> InputBox(string prompt, string? title, string defaultText)

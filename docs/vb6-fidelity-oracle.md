@@ -4795,10 +4795,16 @@ fails before the clamp is reached. The result is a **Long** even when small.
 | `RGB("x", -1, 0)` | 13 |
 | `RGB(-1, "x", 0)` | 13 |
 | `RGB(Null, "x", 0)` | **13** |
+| `RGB(0, Null, "x")` | **13** |
+| `RGB(0, "x", Null)` | **94** |
+| `RGB(Null, 0, "x")` | **13** |
 | `RGB(300, -1, 0)` | 5 |
 
-The `Null` row decides the order. Left to right it would be 94, so the second argument was coerced before the
-first, which fits the arguments being converted last first. No other row distinguishes the two orders.
+The rows mixing `Null` with `"x"` decide the order, and every one of them says **last first**:
+- the third argument is coerced before the second (`RGB(0, Null, "x")` is 13, and `RGB(0, "x", Null)` is 94);
+- the second before the first (`RGB(Null, "x", 0)` is 13).
+
+Left to right would give the opposite in each.
 
 ### QBColor
 
@@ -4837,6 +4843,8 @@ colour 3. `QBColor(16)` and `QBColor(-1)` raise 5, and `QBColor(Null)` raises 94
 | `7` | 2 | 1 | Long | |
 
 A second and third probe settled what a style out of range does:
+
+Every answer below is a Long.
 
 | Style | What it holds | Controls found (IDs) | Returned |
 |---|---|---|---|
@@ -4889,16 +4897,29 @@ title-bar close and Alt+F4 send. Both gave the same rows:
 
 | Buttons | Closed? | Returned |
 |---|---|---|
-| vbOKOnly | yes | 1, vbOK |
-| vbOKCancel | yes | 2, vbCancel |
-| vbYesNoCancel | yes | 2, vbCancel |
-| vbRetryCancel | yes | 2, vbCancel |
+| vbOKOnly | yes | 1, vbOK, a Long |
+| vbOKCancel | yes | 2, vbCancel, a Long |
+| vbYesNoCancel | yes | 2, vbCancel, a Long |
+| vbRetryCancel | yes | 2, vbCancel, a Long |
 | vbYesNo | **no, still open** | |
 | vbAbortRetryIgnore | **no, still open** | |
 
 A box with a Cancel button answers vbCancel when closed. OK alone answers vbOK. Yes/No and Abort/Retry/Ignore have
 no close, which is Windows' own rule for a message box. **HexIDE answered vbOK for every kind**, so closing the box
 in `If MsgBox("Delete all?", vbOKCancel) = vbOK Then` took the OK branch.
+
+**Hiding the box's owner does not answer it.** A form Timer set `Me.Visible = False` while a box was open, then
+looked for the box twice before pressing a button:
+
+| Buttons | After `Me.Visible = False` | Pressed | Returned |
+|---|---|---|---|
+| vbYesNo | the box still exists, **not visible** | No | 7, a Long |
+| vbOKCancel | the box still exists, not visible | OK | 1, a Long |
+
+So VB6 hides the box with its owner and keeps `MsgBox` waiting. A person cannot answer a box they cannot see, so in
+practice that program hangs. HexIDE keeps it waiting too, but shows the box again, unowned, so it can still be
+answered, and closes it unanswered if the owner closes. Avalonia hid the box and finished the dialog with no answer,
+which answered Cancel for OK/Cancel and stopped a Yes/No handler in silence.
 
 ### An argument that is not a number
 
@@ -4911,15 +4932,27 @@ member, and `Text1` a TextBox whose `Text` is "12":
 | `o` | 91 | |
 | `va` | 13 | |
 | `k` | 438 | |
+| `k3`, a `Class3` whose `Value` carries `Attribute Value.VB_UserMemId = 0` and returns 42 | | `CInt(k3)` is 42 (Integer), `RGB(k3, 0, 0)` 42 (Long) |
 | `Text1` | | `CInt(Text1)` is 12 (Integer), `RGB(Text1, 0, 0)` is 12 (Long), `QBColor(Text1)` is 255 |
+| an omitted `Optional` Variant, `w` | | `CLng(w)` and `CInt(w)` are **448** |
 
 Each raises before any dialog. A control stands for its default member: `Text1` is `Text1.Text`.
 
-Two forms do not compile at all. `CInt(Nothing)`, with a literal `Nothing`, is a compile error, "Invalid use of
-object". `CInt(a)`, with `a` a fixed Integer array named directly, is a compile error, "Type mismatch". So the run
-time rows above are the variable cases.
+A class or a control with a default member stands for that member, as `Text1` stands for `Text1.Text`.
 
-HexIDE read all four kinds as 0, so `RGB(o, 0, 0)` was black and `CInt(o)` was 0.
+**The omitted argument is the surprise.** It is not 13, and not 0. VB6 passes a missing argument as an error
+value, `DISP_E_PARAMNOTFOUND`, whose VB error number is 448, "Named argument not found". Converted to a number, it is
+that number: `Function Area(Optional w): Area = CLng(w) * 10` called as `Area()` returns 4480. The obvious guess,
+from the same value raising 13 in a concatenation, was 13.
+
+Three forms do not compile at all:
+- `CInt(Nothing)`, with a literal `Nothing`: "Invalid use of object".
+- `CInt(a)`, with `a` a fixed Integer array named directly: "Type mismatch".
+- `CInt(u)`, with `u` a user-defined type: "Type mismatch".
+
+So the run time rows above are the variable cases.
+
+HexIDE read every one of these as 0, so `RGB(o, 0, 0)` was black and `CInt(o)` was 0.
 
 **HexIDE, after this.**
 - The style goes through the same `CLng` narrowing, so the in-box constants select their buttons and icon.
@@ -4929,7 +4962,13 @@ HexIDE read all four kinds as 0, so `RGB(o, 0, 0)` was black and `CInt(o)` was 0
   Yes/No or Abort/Retry/Ignore box. A close HexIDE makes itself, ending the run, still goes through. The statement
   waiting on the box is then abandoned, as the run is.
 - `RGB` and `QBColor` exist, with the coercion, the order of errors, the clamping and the errors above.
-- The numeric conversions raise 91, 13 and 438 as measured. A control or in-box object refuses, untrappably,
-  because its default member is not implemented (#790).
+- The numeric conversions follow the table above:
+  - `Nothing` raises 91, an array 13 and a class with no default member 438;
+  - an omitted argument is 448;
+  - a UDT raises 13, which is VB6's compile-time error raised at run time.
+- A control, an in-box object, or a class with a `VB_UserMemId = 0` member refuses, untrappably, because HexIDE does not
+  read default members yet: #790 for controls, #174 for classes. A trappable error there would let
+  `On Error Resume Next` carry on without the value VB6 gives.
+- A box hidden with its owner keeps waiting, shown again unowned.
 - Still not honoured by the dialog: the default-button, help-button, modality and right-to-left bits, and Escape
   and Enter (#827). Its buttons are in English whatever the language (#828).

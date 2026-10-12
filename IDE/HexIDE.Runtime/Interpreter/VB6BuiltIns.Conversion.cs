@@ -31,6 +31,10 @@ public partial class VB6BuiltIns
     private static Vb6Value NarrowNum(Vb6Value v, VT target)
     {
         if (v.IsNull) throw InvalidUseOfNull();
+        // An omitted Optional Variant is the error value VB6 passes for a missing argument, whose number is 448. Measured:
+        // CLng and CInt of one are both 448, with no error. It read as 0.
+        if (v.IsMissing)
+            v = new Vb6Value(MissingArgumentNumber);
         RefuseNonScalar(v);
         var num = v.Type == VT.String || v.Type == VT.Boolean ? new Vb6Value(ToNum(v)) : v;
         return VbNumeric.Narrow(num, target, null);
@@ -46,26 +50,37 @@ public partial class VB6BuiltIns
     /// the variable's case.</item>
     /// <item>An array is 13. A fixed array named directly is a compile-time "Type mismatch"; one in a Variant raises
     /// it at run time.</item>
+    /// <item>A user-defined type does not compile (measured, "Type mismatch"), so it is 13 here, at run time.</item>
     /// <item>A class instance with no default member is 438.</item>
+    /// <item>A class whose member carries <c>Attribute X.VB_UserMemId = 0</c> stands for that member: measured,
+    /// <c>CInt(k)</c> is 42 where the member returns 42. HexIDE does not call a class's default member yet (#174),
+    /// so it refuses, untrappably. A trappable 438 there would let <c>On Error Resume Next</c> carry on without the
+    /// value VB6 gives.</item>
     /// <item>A control stands for its default member: <c>CInt(Text1)</c> is <c>CInt(Text1.Text)</c>. HexIDE has no
-    /// default members (#790), so it refuses, untrappably, as a Let of one does. A class's own default member is
-    /// part of #790 too, and is 438 until then.</item>
+    /// default members for controls yet (#790), so it refuses, untrappably, as a Let of one does.</item>
     /// </list>
     /// </remarks>
     private static void RefuseNonScalar(Vb6Value v)
     {
-        if (v.Type.IsArray)
+        if (v.Type.IsArray || v.Value is VbUdt)
             throw new VBRunTimeException(VBStandardError.TypeMismatch);
         if (v.Type != VT.Object && v.Type != VT.Control && v.Type != VT.CSharpProxyObject)
             return;
         if (v.Value is null)
             throw new VBRunTimeException(VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
+        if (v.Value is VbObject { ClassDef.PrePass.DeclaresDefaultMember: true } withDefault)
+            throw new NotImplementedException(
+                $"Converting a {withDefault.ClassDef.Name} to a number reads its default member, which is not "
+                + "implemented for a class yet (#174). Name the member instead.");
         if (v.Type == VT.Object)
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         throw new NotImplementedException(
             "Converting a control or object to a number reads its default member, which is not implemented (#790). "
             + "Name the property instead.");
     }
+
+    /// <summary>The number of the error value VB6 passes for an omitted argument (DISP_E_PARAMNOTFOUND): 448, "Named argument not found".</summary>
+    private const long MissingArgumentNumber = 448;
 
     internal static double ToNum(Vb6Value v)
     {

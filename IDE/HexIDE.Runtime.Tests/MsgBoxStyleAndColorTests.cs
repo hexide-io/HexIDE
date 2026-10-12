@@ -1,5 +1,6 @@
 using HexIDE.IDE;
 using HexIDE.Runtime.Interpreter;
+using HexIDE.Runtime.BuiltinTypes;
 
 namespace HexIDE.Runtime.Tests;
 
@@ -126,14 +127,28 @@ public class MsgBoxStyleAndColorTests : BaseVBTestFixture
     [Theory]
     [InlineData("vbYesNo")]
     [InlineData("vbAbortRetryIgnore")]
-    public async Task A_box_with_no_close_that_is_closed_anyway_abandons_the_statement(string style)
+    public async Task A_box_with_no_close_that_goes_away_unanswered_while_the_run_goes_on_is_a_fault(string style)
     {
-        // VB6 offers no close here, and the hosts refuse a person's. So a box closed without an answer was closed by
-        // HexIDE ending the run, and no answer is right: the statement is abandoned, as the run is.
+        // VB6 offers no close here, the hosts refuse a person's, and a box hidden with its owner keeps waiting. A box
+        // that goes away anyway, with the run still going, has no right answer, and carrying on or stopping in silence
+        // would both be wrong. A fault ends the run and says so.
         var run = () => RunMsgBox($"Debug.Print MsgBox(\"probe\", {style}, \"ProbeBox\")\nDebug.Print \"after\"\n",
             MessageBoxResult.None);
 
-        await run.Should().ThrowAsync<OperationCanceledException>();
+        await run.Should().ThrowAsync<InvalidOperationException>();
+    }
+
+    [Theory]
+    [InlineData(VBMsgBoxStyle.vbYesNo)]
+    [InlineData(VBMsgBoxStyle.vbOKCancel)]
+    public async Task A_box_that_goes_away_unanswered_as_the_run_ends_abandons_the_statement(VBMsgBoxStyle style)
+    {
+        // Ending the run closes the box. No answer is right then, and the statement is abandoned, as the run is.
+        var builtIns = new VB6BuiltIns(new Recording(MessageBoxResult.None)) { RunEnding = () => true };
+
+        var call = () => builtIns.EvaluateBuiltInFunction("MsgBox", [new Vb6Value("probe"), new Vb6Value((long)style)]);
+
+        await call.Should().ThrowAsync<OperationCanceledException>();
     }
 
     [Theory]
@@ -176,6 +191,41 @@ public class MsgBoxStyleAndColorTests : BaseVBTestFixture
         await RunClasses($"{NonScalars}Dim c\nc = {expression}\nDebug.Print Err.Number\nDebug.Print IsEmpty(c)\n",
             ("Class1", "Public Tag As Long\n"));
         AssertDebugLog([new Vb6Value(error), new Vb6Value(true)]);
+    }
+
+    [Theory]
+    [InlineData("CInt(u)")]
+    [InlineData("RGB(u, 0, 0)")]
+    [InlineData("MsgBox(\"probe\", u)")]
+    public async Task A_user_defined_type_raises_13_rather_than_reading_as_0(string expression)
+    {
+        // VB6 refuses to compile these ("Type mismatch", measured), so the error comes as the statement runs.
+        await Run($"Type Pt\n    X As Integer\nEnd Type\nDim u As Pt\nOn Error Resume Next\nDim c\nc = {expression}\n"
+                  + "Debug.Print Err.Number\n");
+        AssertDebugLog([new Vb6Value(13L)]);
+    }
+
+    [Theory]
+    [InlineData("CLng")]
+    [InlineData("CInt")]
+    public async Task An_omitted_Optional_argument_converts_to_448(string conversion)
+    {
+        // The error value VB6 passes for a missing argument, whose number is 448 (measured: CLng and CInt of one are
+        // both 448, with no error). It read as 0, so this Area() was 0.
+        await Run($"Function Area(Optional w) As Long\n    Area = {conversion}(w) * 10\nEnd Function\n"
+                  + "Debug.Print Area()\nDebug.Print Area(3)\n");
+        AssertDebugLog([new Vb6Value(4480L), new Vb6Value(30L)]);
+    }
+
+    [Fact]
+    public async Task A_class_with_a_default_member_is_refused_until_class_default_members_exist()
+    {
+        // Measured: CInt(k) is 42 where the class's VB_UserMemId = 0 member returns 42. HexIDE does not call it yet
+        // (#174), and a trappable 438 would let On Error Resume Next carry on without VB6's value.
+        var run = () => RunClasses("Dim k As Answer\nSet k = New Answer\nOn Error Resume Next\nDim c\nc = CInt(k)\n",
+            ("Answer", "Public Function Value() As Long\nAttribute Value.VB_UserMemId = 0\n    Value = 42\nEnd Function\n"));
+
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#174*");
     }
 
     [Theory]

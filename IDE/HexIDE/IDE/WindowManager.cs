@@ -180,14 +180,11 @@ public class WindowManager : IWindowManager
         }
         else if (Application.Current!.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            MessageBoxResult result = MessageBoxResult.None;
+            // A person's close answers as Windows' does, or is refused where the box has none, and a box hidden with
+            // its owner keeps waiting (see ShowAndWait).
             var messageBox = new MessageBox { Text = text, Buttons = buttons, Icon = icon };
             var window = MakeDialogWindow(caption, messageBox);
-            messageBox.AcceptRequest += r => { result = r; window.Close(); };
-            // A Yes/No or Abort/Retry/Ignore box has no close, as in Windows; its caller gets an answer it can act on.
-            messageBox.GuardClose(window);
-            await window.ShowDialog(GetTopWindow(desktop));
-            return result;
+            return await messageBox.ShowAndWait(window, GetTopWindow(desktop));
         }
         else
             throw new NotImplementedException();

@@ -30,7 +30,11 @@ there isn't one yet. Anything may change between 0.x releases.
 - **`CInt`, `CLng` and the other numeric conversions no longer read an object or an array as 0.** `Nothing`
   raises 91, an array 13 and an object 438, as in VB6, and so do `RGB`, `QBColor` and a message box's style. A
   control, which VB6 reads through its default member, stops the run with a message saying default members are not
-  implemented yet (#790).
+  implemented yet (#790), and so does a class with a default member (#174). An omitted `Optional` argument converts to
+  448, as in VB6, where it read as 0.
+- **A message box stays answerable when its form hides.** `Me.Visible = False` while a box was open made the box
+  disappear and answer Cancel, or stopped the code waiting on a Yes/No box. The box now waits for its answer, shown
+  on its own.
 - **A Label's background colour set by a program now shows.** `Label1.BackColor = vbRed` read back red but left
   the label as it was; now it paints, for a label in a control array too. A program can make a transparent Label
   opaque with `BackStyle = 1`. A transparent Label ignores a `BackColor` set while it is transparent, as VB6 does.

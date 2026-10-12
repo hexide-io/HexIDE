@@ -22,8 +22,9 @@ public partial class VB6BuiltIns
         // (RGB(40000, 0, 0)). Only then is a negative component 5, and one above 255 is 255. A Long, not an Integer:
         // TypeName(RGB(1, 0, 0)) is "Long", and new Vb6Value(int) would make it an Integer by magnitude.
         //
-        // All three are coerced before any is range-checked, last first. Measured: RGB(-1, 40000, 0) is 6, not 5, and
-        // RGB(Null, "x", 0) is 13, not 94, so the second argument was coerced before the first.
+        // All three are coerced before any is range-checked, last first. Measured: RGB(-1, 40000, 0) is 6, not 5;
+        // RGB(0, Null, "x") is 13 and RGB(0, "x", Null) 94, so the third goes before the second; and
+        // RGB(Null, "x", 0) is 13, so the second goes before the first.
         d["RGB"] = (_, a, _) =>
         {
             var blue = ColorComponent(a[2]);

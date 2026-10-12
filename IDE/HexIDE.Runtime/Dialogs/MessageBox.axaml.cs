@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -44,13 +45,83 @@ public partial class MessageBox : UserControl
     public static bool RefusesClose(MessageBoxButtons buttons, bool isProgrammatic, WindowCloseReason reason) =>
         AnswerOnClose(buttons) is null && !isProgrammatic && reason == WindowCloseReason.WindowClosing;
 
-    /// <summary>Makes <paramref name="window"/>, which hosts this box, refuse a close the box does not have.</summary>
-    public void GuardClose(Window window) =>
+    /// <summary>
+    /// The box's answer once its window has closed: the button pressed, or what a person's close answers. None when
+    /// HexIDE closed it, or its owner did, without one.
+    /// </summary>
+    public MessageBoxResult Answer { get; private set; } = MessageBoxResult.None;
+
+    /// <summary>
+    /// Shows the box in <paramref name="window"/>, modal over <paramref name="owner"/>, and waits for its answer.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A button answers, and closes the window. A person's close (the title-bar button or Alt+F4) answers as
+    /// <see cref="AnswerOnClose"/> says, or is refused where the box has no close.
+    /// </para>
+    /// <para>
+    /// Hiding the owner, as <c>Me.Visible = False</c> does, hides the box too, and Avalonia then completes the
+    /// dialog with no close at all. VB6 keeps the box waiting, hidden (measured: it still exists, and pressing its
+    /// button afterwards returns that button). A box nobody can see cannot be answered, so it is shown again here,
+    /// unowned, and still waits; it is closed, unanswered, if its owner closes. The program's statement used to
+    /// carry on as though the box had been closed: Cancel answered for OK/Cancel, and a Yes/No handler stopped.
+    /// </para>
+    /// </remarks>
+    public async Task<MessageBoxResult> ShowAndWait(Window window, Window owner)
+    {
+        var current = window;
+        AcceptRequest += r =>
+        {
+            Answer = r;
+            current.Close();
+        };
+
+        var closed = Watch(window);
+        await window.ShowDialog(owner);
+        if (closed.IsCompleted)
+            return Answer;
+
+        // Hidden with its owner. Avalonia keeps an owned window hidden while its owner is, so the box moves to a window
+        // of its own, and the hidden one is closed.
+        window.Content = null;
+        var again = new Window
+        {
+            Title = window.Title,
+            Content = this,
+            SizeToContent = SizeToContent.WidthAndHeight,
+            CanResize = false,
+            WindowStartupLocation = WindowStartupLocation.CenterScreen,
+        };
+        current = again;
+        window.Close();
+        closed = Watch(again);
+        void OnOwnerClosed(object? sender, EventArgs e) => again.Close();
+        owner.Closed += OnOwnerClosed;
+        again.Show();
+        await closed;
+        owner.Closed -= OnOwnerClosed;
+        return Answer;
+    }
+
+    /// <summary>
+    /// Completes when <paramref name="window"/> closes, and makes a person's close of it answer as
+    /// <see cref="AnswerOnClose"/> says, or be refused where the box has no close.
+    /// </summary>
+    private Task Watch(Window window)
+    {
+        var closed = new TaskCompletionSource();
+        window.Closed += (_, _) => closed.TrySetResult();
         window.Closing += (_, e) =>
         {
+            if (Answer != MessageBoxResult.None)
+                return;
             if (RefusesClose(Buttons, e.IsProgrammatic, e.CloseReason))
                 e.Cancel = true;
+            else if (!e.IsProgrammatic && e.CloseReason == WindowCloseReason.WindowClosing)
+                Answer = AnswerOnClose(Buttons) ?? MessageBoxResult.None;
         };
+        return closed.Task;
+    }
 
     public MessageBox()
     {
@@ -60,6 +131,9 @@ public partial class MessageBox : UserControl
 
     private void OnLoaded(object? sender, RoutedEventArgs e)
     {
+        // Built once: a box hidden with its owner moves to a window of its own, and is loaded again there.
+        if (PART_Buttons.Children.Count > 0)
+            return;
         if (Icon != MessageBoxIcon.None)
             PART_Content.Children.Add(BuildIconElement());
 
