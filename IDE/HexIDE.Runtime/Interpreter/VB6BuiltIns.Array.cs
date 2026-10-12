@@ -77,10 +77,12 @@ public partial class VB6BuiltIns
         return result;
     }
 
-    // Join(array, [delimiter=" "]) -> String.
+    // Join(array, [delimiter=" "]) -> String. Anything but an array is 13, as it is for Filter and the bounds: a string,
+    // a number, Empty, Null and any object (measured, native and in the IDE, #840). It raised 5.
     private static Vb6Value Join(IReadOnlyList<Vb6Value> a)
     {
-        if (a.Count < 1 || a[0].Value is not VBArray arr) throw InvalidCall();
+        if (a.Count < 1) throw InvalidCall();
+        if (a[0].Value is not VBArray arr) throw new VBRunTimeException(VBStandardError.TypeMismatch);
         string delim = Supplied(a, 1) ? AsStr(a[1]) : " ";
         var sb = new StringBuilder();
         int lo = arr.LowerBound(1), hi = arr.UpperBound(1);
@@ -95,7 +97,8 @@ public partial class VB6BuiltIns
     // Filter(array, match, [include=True], [compare]) -> a 0-based Variant array of the (non-)matching elements.
     private static Vb6Value Filter(IReadOnlyList<Vb6Value> a)
     {
-        if (a.Count < 2 || a[0].Value is not VBArray arr) throw InvalidCall();
+        if (a.Count < 2) throw InvalidCall();
+        if (a[0].Value is not VBArray arr) throw new VBRunTimeException(VBStandardError.TypeMismatch);
         string match = AsStr(a[1]);
         bool include = !Supplied(a, 2) || AsDouble(a[2]) != 0;
         var cmp = Supplied(a, 3) && AsInt(a[3]) == 1 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;

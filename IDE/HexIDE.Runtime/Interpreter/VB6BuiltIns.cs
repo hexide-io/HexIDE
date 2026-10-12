@@ -76,7 +76,9 @@ public partial class VB6BuiltIns
     /// holds its arguments as elements;</item>
     /// <item><c>VarType</c> and the Is functions read the default member when there is one, and otherwise answer about
     /// the object, with no 438;</item>
-    /// <item>the array that <c>LBound</c>, <c>UBound</c>, <c>Join</c> and <c>Filter</c> take first.</item>
+    /// <item>the array that <c>LBound</c>, <c>UBound</c>, <c>Join</c> and <c>Filter</c> take first. An object there
+    /// is not read at all: each raises 13 for any object, a class whose default member returns an array included
+    /// (measured, native and in the IDE), and the function's own array check raises that 13.</item>
     /// </list>
     /// </summary>
     private static Vb6Value ArgumentAsUsed(string name, int index, Vb6Value arg)

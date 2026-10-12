@@ -288,6 +288,35 @@ public class ObjectAsValueTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(438L), new Vb6Value(true)]);
     }
 
+    [Theory]
+    [InlineData("Widget", "c = UBound(v)")]
+    [InlineData("Widget", "c = LBound(v)")]
+    [InlineData("Widget", "c = Join(v, \"-\")")]
+    [InlineData("Widget", "c = Filter(v, \"b\")")]
+    [InlineData("Plain", "c = UBound(v)")]
+    [InlineData("Plain", "c = LBound(v)")]
+    [InlineData("Plain", "c = Join(v, \"-\")")]
+    [InlineData("Plain", "c = Filter(v, \"b\")")]
+    public async Task An_object_where_an_array_is_wanted_raises_13_default_member_or_not(string cls, string use)
+    {
+        // Measured, native and in the IDE: 13 for any object, even a class whose default member returns an array. The
+        // member is not read there, so a class that has one is not refused. Through a Variant, because a typed object
+        // variable there does not compile ("Expected array").
+        await RunPrinting(cls, "Dim v\nSet v = o\n" + use);
+
+        AssertDebugLog([new Vb6Value(13L)]);
+    }
+
+    [Theory]
+    [InlineData("Err", "ErrObject")]
+    [InlineData("App", "App")]
+    public async Task TypeName_of_an_in_box_object_is_VB6s_name_for_it(string obj, string expected)
+    {
+        await Run($"Debug.Print TypeName({obj})\n");
+
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
     [Fact]
     public async Task Debug_used_as_a_value_is_the_compile_error_VB6_gives()
     {

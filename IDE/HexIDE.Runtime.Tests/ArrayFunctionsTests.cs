@@ -65,6 +65,21 @@ public class ArrayFunctionsTests : BaseVBTestFixture
         AssertDebugLog(["a-b-c", "a b c"]);
     }
 
+    [Theory]
+    [InlineData("v = \"abc\"")]
+    [InlineData("v = 5")]
+    [InlineData("v = Empty")]
+    [InlineData("v = Null")]
+    public async Task Join_Filter_and_UBound_of_anything_but_an_array_raise_13(string setup)
+    {
+        // Measured, native and in the IDE (#840). Join and Filter raised 5.
+        await Run($"Dim v, c\n{setup}\nOn Error Resume Next\n" +
+                  "c = Join(v, \"-\")\nDebug.Print Err.Number\nErr.Clear\n" +
+                  "c = Filter(v, \"b\")\nDebug.Print Err.Number\nErr.Clear\n" +
+                  "c = UBound(v)\nDebug.Print Err.Number\n");
+        AssertDebugLog([new Vb6Value(13L), new Vb6Value(13L), new Vb6Value(13L)]);
+    }
+
     [Fact]
     public async Task Filter_IncludeExclude_And_NoMatch()
     {
