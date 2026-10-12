@@ -28,8 +28,8 @@ To see it for yourself rather than take the screenshot's word for it, launch wit
 [rubberduck-vba/RDCore#260](https://github.com/rubberduck-vba/RDCore/pull/260)** (merged as `0ed29c9`).
 Before it, answering `textDocument/diagnostic` killed the server's entire output channel, so the first pull
 silenced everything after it. From an RDCore checkout at or after that commit, run its `PlatformPublish.ps1`.
-Measured on Windows, over a named pipe — most recently against RDCore `d1c04b5`, which has `0ed29c9` as an
-ancestor.
+Measured on Windows, over a named pipe, against RDCore `d1c04b5`, which has `0ed29c9` as an ancestor, except
+where a section names a later commit.
 
 Two things about the published server are worth knowing before you point HexIDE at it:
 
@@ -100,10 +100,10 @@ acceptance test.** Two things made a real module unusable here, and both are now
   finds a document only by its file path: at first it implemented no document sync and never received the
   text, and now that it accepts an opened document's text it still finds the document again by path. So
   every answer about the `vb6:` name came back empty, with nothing saying why. A document is now named by its
-  file, and this demo is what proved it: measured on the wire, HexIDE sends
+  file, and this demo is what proved it: measured on the wire against `d1c04b5`, HexIDE sends
   `file:///…/demo/spring-tide/TideTable.bas`, and RDCore answers with six folding regions and one
   `VBC00001` — the same answers it gave the carried document. A document with no file yet is named
-  `untitled:`, and RDCore answers that name as it answered `vb6:`, with nothing.
+  `untitled:`, and at `a9a4918` RDCore answered that name as it answered `vb6:`, with nothing.
 - A module opened before its server had initialized never asked for folds
   ([#446](https://github.com/hexide-io/HexIDE/issues/446)), where the carried-document view asked again
   once diagnostics arrived. Fixed independently.

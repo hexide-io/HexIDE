@@ -9,6 +9,7 @@ using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Serialization;
 using Serilog;
 
 namespace HexIDE.IDE;
@@ -314,30 +315,31 @@ public class Vb6ToolchainService : IVb6ToolchainService
     /// and cannot drift from one.
     /// </para>
     /// <para>
-    /// <b>Correct against the buffer as it is today, and the seam phase 3 needs.</b> The editor shows the
-    /// code body: a module's header run is already absent, a form's attribute run is present, and
-    /// procedure-level attributes are present in both. Skipping attribute lines here is right in all three
-    /// cases. When phase 3 composes the whole file into the buffer, the header becomes visible too and
-    /// <see cref="IsHiddenFromVb6LineCount"/> gains the header's lines -- one predicate to extend, rather
-    /// than a per-kind offset that would be wrong the moment the buffer changed.
+    /// <b>The buffer is the whole file (#273 task 3.2), so the header's lines come first.</b> A form's or a
+    /// designer module's designer block, and a module's own header, are all lines VB6 did not count, so the
+    /// walk is over the code and the header's line count is added after. Inside the code a form's
+    /// <c>Attribute</c> run and every procedure-level one are skipped, as VB6 skipped them.
     /// </para>
     /// </remarks>
     internal static int EditorLineOf(DocumentIdentity document, int printedLine)
     {
         var code = document.Module?.Code ?? document.Form?.Code;
-        if (string.IsNullOrEmpty(code)) return Math.Max(printedLine, 0);
+        var header = document.Module is { } module ? FormCodeText.Prefix(module)
+            : document.Form is { } form ? FormCodeText.Prefix(form) : "";
+        var headerLines = header.Count(c => c == '\n');
+        if (string.IsNullOrEmpty(code)) return headerLines + Math.Max(printedLine, 0);
 
         var lines = code.Replace("\r\n", "\n").Split('\n');
         var counted = -1;
         for (var i = 0; i < lines.Length; i++)
         {
             if (IsHiddenFromVb6LineCount(lines[i])) continue;
-            if (++counted == printedLine) return i;
+            if (++counted == printedLine) return headerLines + i;
         }
 
         // Past the end of what we hold. Clamped rather than dropped: the developer is better served by a
         // marker on the last line with the compiler's message than by silence about a build that failed.
-        return Math.Max(lines.Length - 1, 0);
+        return headerLines + Math.Max(lines.Length - 1, 0);
     }
 
     /// <summary>A line the compiler did not count when numbering the code view.</summary>

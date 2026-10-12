@@ -2,6 +2,7 @@ using HexIDE.IDE;
 using HexIDE.Lsp;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Runtime.Serialization;
 
 namespace HexIDE.Tests.IDE;
 
@@ -143,14 +144,41 @@ public class Vb6CompileLogTests
     // ── Which line it lands on ────────────────────────────────────────────────────────────────────────
 
     [Fact]
-    public void LineZeroIsTheFirstLineOfTheBuffer()
+    public void LineZeroIsTheFirstCodeLine()
     {
         // Probe a4: VB6 prints `Line 0` for an error on the first code line, and a6 shows that is a real
-        // index rather than a "no line" sentinel. Read as 1-based it would land above the file.
+        // index rather than a "no line" sentinel. Read as 1-based it would land above the file. The buffer
+        // holds the whole file, so the first code line is buffer line 1, below `Attribute VB_Name`.
         var (project, module) = AModuleWith("Dim\r\nSub Main()\r\nEnd Sub\r\n");
         var log = $"\r\nCompile Error in File '{module.AbsolutePath}', Line 0 : Expected: expression\r\n";
 
-        Vb6ToolchainService.ParseForTests(log, project)[0].diagnostic.Range.Start.Line.Should().Be(0);
+        Vb6ToolchainService.ParseForTests(log, project)[0].diagnostic.Range.Start.Line.Should().Be(1);
+    }
+
+    [Fact]
+    public void AFormsDesignerBlockIsCountedInTheBuffer()
+    {
+        // The designer block is six lines and the Attribute line a seventh, none of them counted by VB6. Its
+        // `Line 1` is the statement under Form_Load, buffer line 8. Mapped against the code alone it landed
+        // on line 2, which is `Caption` in the designer block.
+        var project = TestHelpers.CreateProject("P");
+        var path = Path.Combine(Dir, "Form1.frm");
+        var form = new FormDeserializer().Deserialize(project,
+            "VERSION 5.00\r\n"
+          + "Begin VB.Form Form1 \r\n"
+          + "   Caption         =   \"Form1\"\r\n"
+          + "   ClientHeight    =   3000\r\n"
+          + "   ClientWidth     =   4000\r\n"
+          + "End\r\n"
+          + "Attribute VB_Name = \"Form1\"\r\n"
+          + "Private Sub Form_Load()\r\n"
+          + "    x = \r\n"
+          + "End Sub\r\n", Substitute.For<IDeserializeErrorSink>())!;
+        form.AbsolutePath = path;
+        project.AddForm(form);
+        var log = $"\r\nCompile Error in File '{path}', Line 1 : Expected: expression\r\n";
+
+        Vb6ToolchainService.ParseForTests(log, project)[0].diagnostic.Range.Start.Line.Should().Be(8);
     }
 
     [Fact]
@@ -170,7 +198,8 @@ public class Vb6CompileLogTests
         var log = $"\r\nCompile Error in File '{module.AbsolutePath}', Line 1 : Variable not defined\r\n";
 
         Vb6ToolchainService.ParseForTests(log, project)[0].diagnostic.Range.Start.Line
-            .Should().Be(2, "buffer line 2 is `  x = 1`; line 1 is the attribute VB6 did not count");
+            .Should().Be(3, "buffer line 3 is `  x = 1`, below the module's Attribute VB_Name and the "
+                            + "procedure's attribute, neither of which VB6 counted");
     }
 
     [Fact]

@@ -1153,7 +1153,7 @@
   read-only lines: a sidecar written by `main` counts from the first line of code, so a header test in file
   lines would drop a form's breakpoint on its fifth line of code. That filter belongs after 3.17's migration.
   — **Run To Cursor from the Debug menu is not refused on a header line**: it runs as from any line that
-  never executes. Only the automation tool refuses it. Recorded as D22 in `debugger-vb6-divergences.md`.
+  never executes. Only the automation tool refuses it. Recorded as D24 in `debugger-vb6-divergences.md`.
   — **Mutation: fifteen guards, all caught** — both toggles' refusals and their held-mark exemptions, the
   status message, each gutter and Ctrl+F2 reverted to the store, the edit question asked of a line, the
   automation refusal, its held exemption and its range, the sidecar's range, the model text, and a
@@ -1372,7 +1372,7 @@
   — **Add-in positions were already file lines** (`GetSelection`, `NavigateTo`, `ApplyEdits`, diagnostics) and
   their documentation now says so. **`AddinDocument.Content` is still the code section**, so a line an add-in
   finds by reading it is out by the header; its documentation says that too, and 3.19 changes it.
-  — **Recorded as D21 in `debugger-vb6-divergences.md`**, with VB6's own status-bar numbering left
+  — **Recorded as D23 in `debugger-vb6-divergences.md`**, with VB6's own status-bar numbering left
   unmeasured as the design record has it, rather than guessed.
   — **Verified in the running IDE**: on `frmBillOfFare` the margin runs from `VERSION 5.00` as line 1, and the
   status bar read `Ln 98` with the caret on `Form_Load`'s first statement; on a class added through the IDE

@@ -534,7 +534,7 @@ the contract, or keep 0-based and have the descriptions say the gutter shows N+1
 **Symptom.** `add_file` says, in its own description, "Adds a new form or module to the project, **saves it
 to disk**, and returns the file path." `--newproject` — the flag the documented dev loop uses on every
 launch — goes further and saves the whole project into `%TEMP%` before the first tool call
-(`DesktopStartup.cs:47`). So a caller driving HexIDE through automation never sees a document that has no
+(`DesktopStartup.cs`, the `--newproject` hook's `SaveProjectToDirectory` call). So a caller driving HexIDE through automation never sees a document that has no
 file.
 
 **Why that matters more than it sounds.** #489 measured that in real VB6 a document with no file is the

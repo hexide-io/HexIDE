@@ -339,7 +339,7 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 
 ## Line numbering
 
-### D21. Line numbers count from the top of the file, header included
+### D23. Line numbers count from the top of the file, header included
 - **VB6:** the code window never showed a file's header — a form's designer block, a class's `VERSION`/`BEGIN`
   block, and every `Attribute` line — so nothing the developer saw was numbered from it. VB6's code window had
   no line-number margin; whether its status bar's line position counted the hidden header is **unmeasured**,
@@ -356,7 +356,7 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **Status:** **by design** (#273 tasks 3.6 and 3.16). A sidecar written before the change counts from the
   first line of code; carrying it forward is task 3.17.
 
-### D22. No breakpoint or bookmark on a header line or a member's `Attribute` line
+### D24. No breakpoint or bookmark on a header line or a member's `Attribute` line
 - **VB6:** the case could not arise: those lines were not in the code window.
 - **HexIDE:** F9, Debug ▸ Toggle Breakpoint, Ctrl+F2 and a click in either gutter set no mark on such a line,
   and the status bar says why. A click on a folded header lands on the fold's first line, which is the
