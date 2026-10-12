@@ -20,6 +20,13 @@ namespace HexIDE.Lsp;
 /// </remarks>
 internal sealed class ChannelTapStream(Stream inner, Action<string> note) : Stream
 {
+    // How each note ends, named once. The foreign-server suite reads the record by these to decide whether a server
+    // accepted a request and said nothing (#390), and a reworded note must not quietly turn that decision off.
+    internal const string BeganWritingNote = "bytes to the server";
+    internal const string ReachedChannelNote = "bytes reached the server's channel";
+    internal const string BeganWaitingNote = "began waiting for the server's first bytes";
+    internal const string ArrivedNote = "bytes arrived from the server";
+
     private int _writeStarted;
     private int _writeReached;
     private int _readStarted;
@@ -78,14 +85,14 @@ internal sealed class ChannelTapStream(Stream inner, Action<string> note) : Stre
     private void Starting(int count)
     {
         if (count > 0 && Interlocked.Exchange(ref _writeStarted, 1) == 0)
-            note($"began writing {count} bytes to the server");
+            note($"began writing {count} {BeganWritingNote}");
     }
 
     private void Reached()
     {
         var written = Interlocked.Read(ref _bytesWritten);
         if (written > 0 && Interlocked.Exchange(ref _writeReached, 1) == 0)
-            note($"the first {written} bytes reached the server's channel");
+            note($"the first {written} {ReachedChannelNote}");
     }
 
     // ── reading ──────────────────────────────────────────────────────────────────────────────────
@@ -112,13 +119,13 @@ internal sealed class ChannelTapStream(Stream inner, Action<string> note) : Stre
     private void Waiting()
     {
         if (Interlocked.Exchange(ref _readStarted, 1) == 0)
-            note("began waiting for the server's first bytes");
+            note(BeganWaitingNote);
     }
 
     private int Arrived(int count)
     {
         if (count > 0 && Interlocked.Exchange(ref _readArrived, 1) == 0)
-            note($"the first {count} bytes arrived from the server");
+            note($"the first {count} {ArrivedNote}");
         return count;
     }
 

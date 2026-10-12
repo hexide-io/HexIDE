@@ -226,6 +226,9 @@ public sealed class StdioProcessLspTransport : ILspTransport
     private void NoteChannel(string text) =>
         Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.Lifecycle, text));
 
+    /// <summary>How the record says the process ended. The foreign-server suite reads it by this name (#390).</summary>
+    internal const string ProcessExitedNote = "process exited";
+
     private void OnProcessExited(object? sender, EventArgs e)
     {
         // Read before anything else touches the process: Kill() and Dispose() are both moments after this,
@@ -238,7 +241,7 @@ public sealed class StdioProcessLspTransport : ILspTransport
         // record had stopped accepting entries would be the one fact nobody could see.
         Notice?.Invoke(this, new TransportNotice(
             TransportNoticeKind.Lifecycle,
-            code is null ? "process exited" : $"process exited with code {code}"));
+            code is null ? ProcessExitedNote : $"{ProcessExitedNote} with code {code}"));
 
         Closed?.Invoke(this, EventArgs.Empty);
     }

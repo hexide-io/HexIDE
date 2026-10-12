@@ -168,3 +168,27 @@ Edit the version and the five digests in `ForeignServerAcquisition.cs`. Take eac
 publisher's own checksum file where one exists — never from a file you downloaded yourself, which verifies
 nothing beyond that the download completed. Where the publisher offers none, compute it and leave the
 provenance marked as computed here.
+
+## One restart, on evidence, for a server that accepts `initialize` and never answers
+
+rumdl 0.2.64 intermittently accepts `initialize`, runs its whole handler and never answers, while staying
+alive. It does this with any client: a bare .NET reader, a blocking read on its own thread, Python's `Popen`,
+and a request sent 250 ms after the process starts all hit it, on about 0.3% to 3% of starts depending on the
+runner, and most on loaded macOS runners. The measurements, and everything ruled out, are on
+[#390](https://github.com/hexide-io/HexIDE/issues/390).
+
+So `ForeignServerIntegrationTests` reruns a test once when, and only when, its record shows all of this:
+
+- the handshake **timed out**, rather than failed (a server that exits fails it at once);
+- `initialize` was sent, and the channel tap saw its bytes reach the server's channel;
+- our read was already waiting, and no byte ever came back;
+- the process had not exited by the time the handshake gave up.
+
+Anything less is not the stall, and the failure stands. A rerun is written to the test's output with that
+evidence, and on CI to an annotation and the job summary. More than two in one run fail the test that asked:
+at the measured rate two is already unusual. `SilentServerRestart` holds the rule, and its tests take away
+each piece of evidence in turn and check the gate refuses.
+
+A restart nobody can see is a silently skipped proof, which is what this suite exists to prevent, so do not
+widen the gate to make a red run green. If it starts firing more often, the record it prints is the place to
+start.

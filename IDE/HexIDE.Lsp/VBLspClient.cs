@@ -89,6 +89,13 @@ public sealed class VBLspClient : ILspClient
     /// the client keeps. The stopwatch is per attempt, so a hung handshake reads as the duration it hung
     /// for rather than as a wall-clock timestamp nobody can subtract in their head.
     /// </remarks>
+    /// <summary>
+    /// How a handshake that timed out is recorded, as distinct from one that failed. The foreign-server suite restarts
+    /// a server only on the first (#390): a server that exits fails the handshake at once, and its exit can reach the
+    /// record after that, so the stage alone cannot tell the two apart.
+    /// </summary>
+    internal const string InitializeTimeoutDetail = "the server did not answer initialize within";
+
     private sealed class AttemptRecorder
     {
         private readonly List<LanguageConnectionStep> _steps = [];
@@ -534,7 +541,7 @@ public sealed class VBLspClient : ILspClient
         {
             _attempt = attempt.StoppedAt(
                 LanguageConnectionStage.HandshakeSent,
-                $"the server did not answer initialize within {_initializeTimeout:g}");
+                $"{InitializeTimeoutDetail} {_initializeTimeout:g}");
             AbandonUnansweredHandshake();
             RaiseStateChanged();
             return;
