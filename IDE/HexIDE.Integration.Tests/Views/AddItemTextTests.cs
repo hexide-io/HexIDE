@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Integration.Tests.Views;
 
@@ -33,16 +34,8 @@ public class AddItemTextTests
     public async Task A_list_holds_the_text_CStr_makes_of_the_item(string code, string expected)
     {
         var (_, canvas, ctx, env) = ContainerRuntimeHarness.Spawn(FormWithList);
-        var saved = CultureInfo.CurrentCulture;
-        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-GB");   // the oracle's locale
-        try
-        {
+        using (VbLocale.Use(CultureInfo.GetCultureInfo("en-GB")))   // the oracle's locale
             await ContainerRuntimeHarness.Run(ctx, env, code + "\n");
-        }
-        finally
-        {
-            CultureInfo.CurrentCulture = saved;
-        }
 
         var list = (ItemsControl)ContainerRuntimeHarness.Child(canvas, "List1");
         list.Items.Cast<object?>().Should().Equal([expected]);

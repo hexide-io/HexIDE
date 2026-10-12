@@ -363,13 +363,18 @@ public class VbDisplayTests : BaseVBTestFixture
         texts.Should().Equal("-1,5", "-1,5", "-2,5", "-5", "-5");
     }
 
+    /// <summary>
+    /// Runs <paramref name="action"/> with both the program's locale and the thread's culture set, so a path that read
+    /// either one instead of the culture it was handed would show.
+    /// </summary>
     private static async Task InCulture(Func<Task> action, CultureInfo? culture = null)
     {
         var saved = CultureInfo.CurrentCulture;
         CultureInfo.CurrentCulture = culture ?? EnGb;
         try
         {
-            await action();
+            using (VbLocale.Use(culture ?? EnGb))
+                await action();
         }
         finally
         {
@@ -407,18 +412,14 @@ public class VbDisplayTests : BaseVBTestFixture
         AssertDebugLog([0.4375]);
     }
 
+    /// <summary>
+    /// Runs <paramref name="code"/> in the oracle's locale, en-GB, set as the program's locale only: a site that still
+    /// read the thread's culture would show on a machine whose culture is not en-GB, which CI's is not.
+    /// </summary>
     private async Task<string> Printed(string code)
     {
-        var saved = CultureInfo.CurrentCulture;
-        CultureInfo.CurrentCulture = EnGb;
-        try
-        {
+        using (VbLocale.Use(EnGb))
             await Run(code);
-        }
-        finally
-        {
-            CultureInfo.CurrentCulture = saved;
-        }
         return debug.Should().ContainSingle().Which.Value.Should().BeOfType<string>().Subject;
     }
 }

@@ -10,6 +10,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A running program writes and reads dates and numbers in the user's regional settings**, as VB6 does. The IDE
+  ran every program in the invariant culture, so `CStr(#1/2/2003#)` showed `01/02/2003` on a UK machine, where VB6
+  shows `02/01/2003`, and `CDate("1/2/2003")` was 2 January rather than 1 February. `CStr`, `Format`, the month and
+  day names, `CDate`, `CDbl`, `IsDate`, `IsNumeric` and a two-digit year in `DateSerial` now all follow the user's
+  locale, so text a program wrote reads back as the same value. Source code is still read the same way on every
+  machine, and the IDE's own language changes none of this.
 - **Numbers and dates turn into the text VB6 makes of them.** `CStr`, `&`, a String variable, `MsgBox` and
   `Format` with no mask wrote .NET's text: `CSng(1) / 3` came out as `0.33333334` and `0.1 + 0.2` as
   `0.30000000000000004`, where VB6 writes `0.3333333` and `0.3`. A date came out with a midnight time attached.

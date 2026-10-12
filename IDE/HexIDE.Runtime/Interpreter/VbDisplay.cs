@@ -32,8 +32,8 @@ public static class VbDisplay
     /// <summary>Gregorian date formats for the cultures whose default calendar is another, by culture name.</summary>
     private static readonly ConcurrentDictionary<string, DateTimeFormatInfo> GregorianFormats = new();
 
-    /// <summary>The text VB6 makes of <paramref name="value"/>, in the current culture.</summary>
-    public static string ToText(Vb6Value value) => ToText(value, CultureInfo.CurrentCulture);
+    /// <summary>The text VB6 makes of <paramref name="value"/>, in the running program's locale (<see cref="VbLocale"/>).</summary>
+    public static string ToText(Vb6Value value) => ToText(value, VbLocale.Current);
 
     /// <summary>
     /// As <see cref="ToText(Vb6Value)"/>, but null for a value with nothing in it: an omitted argument, or Empty. The

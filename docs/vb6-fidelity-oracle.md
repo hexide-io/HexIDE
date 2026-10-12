@@ -4038,6 +4038,53 @@ Related: [A `.vbp` item line has two shapes, and the keys do not agree on which
 (2026-09-20)](#a-vbp-item-line-has-two-shapes-and-the-keys-do-not-agree-on-which-2026-09-20), which is the
 other way HexIDE's serializer has emitted a project VB6 reads differently from HexIDE.
 
+## A running program's locale is the user's regional settings (2026-10-12, #777)
+
+Measured to decide which culture the interpreter should format and read text in, and whether a two-digit year is
+a fixed rule or a regional one. Real `vb6.exe` 6.00.8176 (SP6), guest locale **en-GB**, one expression batch
+through `scripts/vb6-oracle.ps1`.
+
+| Expression | Value | Type | Err |
+|---|---|---|---|
+| `CStr(#1/2/2003#)` | `02/01/2003` | String | |
+| `CStr(1.5)` | `1.5` | String | |
+| `CDate(CStr(#1/2/2003#))` | `02/01/2003` | Date | |
+| `CDate("13/1/2003")` / `CDate("1/13/2003")` | `13/01/2003` / `13/01/2003` | Date | |
+| `IsDate("13/1/2003")` | `True` | Boolean | |
+| `CDbl("1.5")` / `CDbl("1,5")` | `1.5` / `15` | Double | |
+| `IsNumeric("1,5")` | `True` | Boolean | |
+| `DateSerial(0, 1, 1)` / `(29, 1, 1)` / `(30, 1, 1)` / `(35, 1, 1)` / `(49, 1, 1)` | `2000`, `2029`, `2030`, `2035`, `2049` (1 January) | Date | |
+| `DateSerial(50, 1, 1)` / `(99, 1, 1)` | `1950`, `1999` (1 January) | Date | |
+| `DateSerial(100, 1, 1)` | `01/01/100` | Date | |
+| `CDate("1/1/29")` / `"1/1/30"` / `"1/1/35"` / `"1/1/49"` / `"1/1/50"` | 2029, 2030, 2035, 2049, 1950 | Date | |
+| `DateValue("1/1/35")` | `01/01/2035` | Date | |
+
+**What this overturned.** The documented rule for a two-digit year in `DateSerial` is fixed: 0 to 29 is the 2000s,
+30 to 99 the 1900s. That was the obvious guess, and the one made while designing this change. It is not what
+vb6.exe does: `DateSerial(30,
+1, 1)` is 2030, and the split falls between 49 and 50, exactly as `CDate` reads a two-digit year. Both follow the
+two-digit-year window in Windows' regional settings, whose default ends in 2049. So a user who has moved that window
+gets a different century from the same program, and HexIDE takes the window from the locale's calendar.
+
+**Also found.** `CDate("1/13/2003")` is 13 January under en-GB: when the locale's order makes an impossible date,
+VB6 tries the other order. .NET's parse does not, so HexIDE raises 13 there (#793). And `CDbl("1,5")` is 15, the
+comma read as a thousands separator, which HexIDE refuses with 13 (#770).
+
+**Not measured: a comma-decimal locale.** The guest is en-GB, whose decimal separator is the invariant one's, so
+nothing here shows a comma. VB6's documentation says `CStr` writes the locale's separator and `Str` and `Val` always
+use a period.
+
+### HexIDE, after #777
+
+`VbLocale` is the interpreter's locale. The IDE sets it from the user's culture on the line before it pins its
+threads to the invariant culture, and Standalone sets it the same way. Everything a program writes as text
+(`CStr`, `&`, a String variable, `Format`, `MonthName`, `WeekdayName`) and everything it reads back from text
+(`CDbl` and a String stored into a number, `CBool`, `CDate`, `IsDate`, `IsNumeric`, the date functions given a
+String) uses it, and so does `DateSerial`'s two-digit-year window. Source literals do not: they stay invariant
+(#781), and so do `Str` and `Val`. So the IDE now shows `CStr(#1/2/2003#)` as the user's short date, and text a
+program wrote reads back as the same value in any locale. `VbLocaleTests` pins the en-GB rows above and the
+round trip under de-DE. A test sets the locale with `VbLocale.Use`, so it no longer depends on the machine's culture.
+
 ## Turning a number or a date into text (2026-10-12, #772, #771)
 
 `CStr`, `&`, storing into a String, `Format` with no mask and `Str` all turn a value into text. Two runs of
@@ -4232,7 +4279,7 @@ shows still breaks. Three things the locale does not supply, deliberately: the c
 VB6's default; the sign, which is always an ASCII `-`; and a value VB6 cannot make, which is spelled `1.#INF`,
 `-1.#INF` or `1.#QNAN` as `Format` already spelled it.
 
-**The running IDE formats in the invariant culture, until #777.** `App.Initialize` pins the invariant culture for
-every thread, so the rules above apply there with the invariant patterns: `CStr(#1/2/2003#)` shows `01/02/2003`
-in the IDE on any machine, where VB6 shows the user's own short date. Digits, E notation, the sign and which half
-of a date is left out are VB6's in every culture.
+**The running IDE formatted in the invariant culture until #777.** `App.Initialize` pins the invariant culture for
+every thread, so `CStr(#1/2/2003#)` showed `01/02/2003` in the IDE on any machine, where VB6 shows the user's own
+short date. Since #777 the interpreter has a locale of its own, taken from the user's culture before the pin; see
+"A running program's locale is the user's regional settings".

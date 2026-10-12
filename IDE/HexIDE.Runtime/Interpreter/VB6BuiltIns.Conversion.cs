@@ -57,7 +57,9 @@ public partial class VB6BuiltIns
                     throw new VBRunTimeException(VBStandardError.TypeMismatch);
                 }
             }
-            return double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var sd)
+            // In the program's locale, as CStr writes, so CDbl(CStr(x)) round-trips in any locale (#777). No
+            // thousands separator: VB6 skips one (`CDbl("1,5")` is 15 under en-GB), which is #770.
+            return double.TryParse(s, NumberStyles.Float, VbLocale.Current, out var sd)
                 ? sd : throw new VBRunTimeException(VBStandardError.TypeMismatch);
         }
         if (Vb6Value.TryNumericToDouble(v, out var d)) return d;   // numeric + Date (via OA serial)
@@ -72,7 +74,7 @@ public partial class VB6BuiltIns
         {
             var s = AsStr(v).Trim();
             if (bool.TryParse(s, out var bb)) return new Vb6Value(bb);
-            if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var sd)) return new Vb6Value(sd != 0);
+            if (double.TryParse(s, NumberStyles.Float, VbLocale.Current, out var sd)) return new Vb6Value(sd != 0);
             throw new VBRunTimeException(VBStandardError.TypeMismatch);
         }
         return new Vb6Value(ToNum(v) != 0);
@@ -83,7 +85,8 @@ public partial class VB6BuiltIns
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is DateTime) return v;
         if (v.Type == VT.String)
-            return DateTime.TryParse(AsStr(v).Trim(), CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault, out var dt)
+            // In the program's locale: `CDate("1/2/2003")` is 1 February under en-GB, and CDate(CStr(d)) is d (#777).
+            return DateTime.TryParse(AsStr(v).Trim(), VbLocale.Current, DateTimeStyles.NoCurrentDateDefault, out var dt)
                 ? new Vb6Value(OnZeroDateIfTimeOnly(dt)) : throw new VBRunTimeException(VBStandardError.TypeMismatch);
         // A serial outside the Date range (about -657434 .. 2958465) is a trappable Overflow (Err 6, oracle-verified);
         // FromOADate would otherwise throw an UNCATCHABLE ArgumentException (AsDate wraps this too, at DateTime.cs).

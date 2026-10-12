@@ -68,7 +68,7 @@ public partial class VB6BuiltIns
     private static DateTime AsDate(Vb6Value v)
     {
         if (v.Value is DateTime dt) return dt;
-        if (v.Value is string s && DateTime.TryParse(s, CultureInfo.CurrentCulture, DateTimeStyles.NoCurrentDateDefault, out var pd))
+        if (v.Value is string s && DateTime.TryParse(s, VbLocale.Current, DateTimeStyles.NoCurrentDateDefault, out var pd))
             return OnZeroDateIfTimeOnly(pd);
         if (Vb6Value.TryNumericToDouble(v, out var oa))
         {
@@ -81,11 +81,12 @@ public partial class VB6BuiltIns
     // 1=Sunday..7=Saturday shifted so the firstDayOfWeek day is 1.
     private static int WeekdayNum(DateTime dt, int fdow) => ((int)dt.DayOfWeek - (fdow - 1) + 7) % 7 + 1;
 
-    // Two-digit years follow the OS/culture window (VB6 reads the same registry setting; .NET's default
-    // TwoDigitYearMax matches — e.g. 30->2030, 75->1975). Four-digit years pass through.
+    // Two-digit years follow the regional window, not a fixed rule (#777, measured): with Windows' default window
+    // ending in 2049, DateSerial(30, 1, 1) is 2030, (49, ...) is 2049 and (50, ...) is 1950, against the documented
+    // 0-29/30-99 split. The locale's calendar carries that window. Four-digit years pass through.
     private static Vb6Value DateSerial(int year, int month, int day)
     {
-        if (year is >= 0 and <= 99) year = CultureInfo.CurrentCulture.Calendar.ToFourDigitYear(year);
+        if (year is >= 0 and <= 99) year = VbLocale.Current.Calendar.ToFourDigitYear(year);
         try { return new Vb6Value(new DateTime(year, 1, 1).AddMonths(month - 1).AddDays(day - 1)); }
         catch (ArgumentOutOfRangeException) { throw InvalidCall(); }
     }
@@ -172,7 +173,7 @@ public partial class VB6BuiltIns
     private static Vb6Value MonthName(int m, bool abbreviate)
     {
         if (m is < 1 or > 12) throw InvalidCall();
-        var dfi = CultureInfo.CurrentCulture.DateTimeFormat;
+        var dfi = VbLocale.Current.DateTimeFormat;
         return new Vb6Value(abbreviate ? dfi.GetAbbreviatedMonthName(m) : dfi.GetMonthName(m));
     }
 
@@ -180,7 +181,7 @@ public partial class VB6BuiltIns
     {
         if (weekday is < 1 or > 7) throw InvalidCall();
         var day = (DayOfWeek)(((fdow - 1) + (weekday - 1)) % 7);
-        var dfi = CultureInfo.CurrentCulture.DateTimeFormat;
+        var dfi = VbLocale.Current.DateTimeFormat;
         return new Vb6Value(abbreviate ? dfi.GetAbbreviatedDayName(day) : dfi.GetDayName(day));
     }
 }
