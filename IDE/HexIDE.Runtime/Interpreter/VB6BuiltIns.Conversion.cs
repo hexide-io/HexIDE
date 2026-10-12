@@ -31,9 +31,60 @@ public partial class VB6BuiltIns
     internal static Vb6Value NarrowNum(Vb6Value v, VT target)
     {
         if (v.IsNull) throw InvalidUseOfNull();
+        // An omitted Optional Variant is the error value VB6 passes for a missing argument, whose number is 448. Measured:
+        // CLng and CInt of one are both 448, with no error. It read as 0.
+        if (v.IsMissing)
+            v = new Vb6Value(MissingArgumentNumber);
+        RefuseNonScalar(v);
         var num = v.Type == VT.String || v.Type == VT.Boolean ? new Vb6Value(ToNum(v)) : v;
         return VbNumeric.Narrow(num, target, null);
     }
+
+    /// <summary>
+    /// Raises for an argument that is not a number, a string or a date, which <see cref="VbNumeric.Narrow"/> would
+    /// otherwise read as 0. Measured on vb6.exe, through CInt, CLng, RGB, QBColor and MsgBox's style alike.
+    /// </summary>
+    /// <remarks>
+    /// <list type="bullet">
+    /// <item><c>Nothing</c> is 91. A literal <c>Nothing</c> is a compile error, "Invalid use of object", so this is
+    /// the variable's case.</item>
+    /// <item>An array is 13. A fixed array named directly is a compile-time "Type mismatch"; one in a Variant raises
+    /// it at run time.</item>
+    /// <item>A user-defined type does not compile (measured, "Type mismatch"), so it is 13 here, at run time.</item>
+    /// <item>A class instance with no default member is 438.</item>
+    /// <item>A class whose member carries <c>Attribute X.VB_UserMemId = 0</c>, or whose Public variable carries
+    /// <c>VB_VarUserMemId = 0</c>, stands for that member: measured, <c>CInt(k)</c> is 42 where the member returns 42,
+    /// including when the attribute sits in the Property Let rather than the Get, and 7 for a variable holding 7.
+    /// HexIDE does not call a class's default member yet (#174),
+    /// so it refuses, untrappably. A trappable 438 there would let <c>On Error Resume Next</c> carry on without the
+    /// value VB6 gives.</item>
+    /// <item>A control stands for its default member: <c>CInt(Text1)</c> is <c>CInt(Text1.Text)</c>. HexIDE has no
+    /// default members for controls yet (#790), so it refuses, untrappably, as a Let of one does.</item>
+    /// </list>
+    /// </remarks>
+    private static void RefuseNonScalar(Vb6Value v)
+    {
+        // An element of an array of a user-defined type that nothing has assigned holds no VbUdt yet, so the type
+        // decides, not the value.
+        if (v.Type.IsArray || v.Type == VT.UserDefinedType || v.Value is VbUdt)
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        if (v.Type != VT.Object && v.Type != VT.Control && v.Type != VT.CSharpProxyObject)
+            return;
+        if (v.Value is null)
+            throw new VBRunTimeException(VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
+        if (v.Value is VbObject { ClassDef.PrePass.DeclaresDefaultMember: true } withDefault)
+            throw new NotImplementedException(
+                $"Converting a {withDefault.ClassDef.Name} to a number reads its default member, which is not "
+                + "implemented for a class yet (#174).");
+        if (v.Type == VT.Object)
+            throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+        throw new NotImplementedException(
+            "Converting a control or object to a number reads its default member, which is not implemented (#790). "
+            + "Name the property instead.");
+    }
+
+    /// <summary>The number of the error value VB6 passes for an omitted argument (DISP_E_PARAMNOTFOUND): 448, "Named argument not found".</summary>
+    private const long MissingArgumentNumber = 448;
 
     internal static double ToNum(Vb6Value v)
     {

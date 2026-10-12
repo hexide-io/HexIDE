@@ -112,13 +112,13 @@ on the write path (`obj.a.b = x`, `Set obj.a.b = o`).
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Statements | 0 | 0 | 46 | 35 | 0 | 24 | 105 |
 | Operators | 0 | 0 | 3 | 18 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 71 | 37 | 1 | 44 | 153 |
+| Intrinsic functions | 0 | 0 | 69 | 37 | 1 | 46 | 153 |
 | Keywords and modifiers | 0 | 0 | 11 | 22 | 1 | 17 | 51 |
 | Literals, types and suffixes | 0 | 1 | 7 | 17 | 0 | 25 | 50 |
 | Compiler directives and options | 0 | 1 | 16 | 9 | 13 | 8 | 47 |
 | In-box objects | 0 | 0 | 98 | 8 | 0 | 17 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **0** | **2** | **260** | **407** | **15** | **498** | **1182** |
+| **Total** | **0** | **2** | **258** | **407** | **15** | **500** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -197,7 +197,7 @@ Worth noting what is *not* here: `#If` parses fine and throws, and so does the n
 | `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 
-## Dies mid-run — 252 names
+## Dies mid-run — 250 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the classic file-I/O family is absent as a block, and so is
@@ -395,13 +395,11 @@ most of the in-box object model.
 | `PSet` | **Dies** | throws `"Only single element supported"` — fails at run time on the coordinate pair, exactly as Circle does. VB6.g4 has no PSET token and no psetStmt rule. `PSet (10, 20), vbRed` parses as a… | ExpressionExecutor.cs |
 | `Put` | **Dies** | `putStmt : PUT WS valueStmt WS? COMMA WS? valueStmt? WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Put #1, 1, v` -> NotImplementedException: "Put not… | StatementExecutor.cs |
 | `PV` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (PV)". Named in the deferral list at docs/interpreter-gaps.md:77. | VB6BuiltIns.cs |
-| `QBColor` | **Dies** | Not in BuildRegistry; the only runtime hit is VbKeywordNormalizer.cs ("RGB", "QBColor") - highlighter metadata with no execution path. Throws VBSubOrFunctionNotDefinedException: "Sub or… | ExpressionExecutor.cs |
 | `Random` | **Dies** | RANDOM is a lexer token and an openStmt mode alternative (Grammar/VB6.g4). Probed `Open "z.txt" For Random Access Read Write Shared As #1 Len = 32` -> NotImplementedException "Open not… | StatementExecutor.cs |
 | `Rate` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (Rate)". Named in the deferral list at… | VB6BuiltIns.cs |
 | `Read` | **Dies** | READ, READ_WRITE, LOCK_READ and LOCK_READ_WRITE are all lexer tokens used by openStmt's Access and lock clauses (Grammar/VB6.g4, 1459-1471). Probed `Open "z.txt" For Random Access Read… | StatementExecutor.cs |
 | `Reset` | **Dies** | `resetStmt : RESET` (Grammar/VB6.g4) - a bare keyword with no operands; the visitor body is the throw. Probed `Reset` -> NotImplementedException: "Reset not implemented". | StatementExecutor.cs |
 | `Return` | **Dies** | throws `"Return not implemented"` — (returnStmt, VB6.g4) and throws at run time. Verbatim: | StatementExecutor.cs |
-| `RGB` | **Dies** | Not in BuildRegistry; the only runtime hit is the highlighter list VbKeywordNormalizer.cs. `Form1.BackColor = RGB(255, 0, 0)` throws VBSubOrFunctionNotDefinedException: "Sub or Function not… | ExpressionExecutor.cs |
 | `RightB` | **Dies** | Not registered (VB6BuiltIns.cs); no occurrence of "RightB" under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (RightB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `RmDir` | **Dies** | `rmdirStmt : RMDIR WS valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `RmDir "zdir"` -> NotImplementedException: "Rmdir not implemented". | StatementExecutor.cs |
 | `RSet` | **Dies** | throws `"Rset not implemented"` — The grammar has the rule — `rsetStmt : RSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt` (VB6.g4), reachable from blockStmt (VB6.g4) — but the… | StatementExecutor.cs, VB6.g4 |
@@ -611,7 +609,7 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `TypeOf ... Is` | Supported | `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the vsIs expression `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (70 absent, 37 partial, 45 supported)
+### Intrinsic functions — 153 names (68 absent, 37 partial, 47 supported)
 
 
 **array** (3)
@@ -728,11 +726,11 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `LoadResPicture` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResPicture)". | ExpressionExecutor.cs |
 | `LoadResString` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. Throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (LoadResString)". | ExpressionExecutor.cs |
 | `Partition` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. `Partition(n, lo, hi, size)` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (Partition)". Named in… | ExpressionExecutor.cs |
-| `QBColor` | **Dies** | Not in BuildRegistry; the only runtime hit is VbKeywordNormalizer.cs ("RGB", "QBColor") - highlighter metadata with no execution path. Throws VBSubOrFunctionNotDefinedException: "Sub or… | ExpressionExecutor.cs |
-| `RGB` | **Dies** | Not in BuildRegistry; the only runtime hit is the highlighter list VbKeywordNormalizer.cs. `Form1.BackColor = RGB(255, 0, 0)` throws VBSubOrFunctionNotDefinedException: "Sub or Function not… | ExpressionExecutor.cs |
+| `QBColor` | Supported | Measured: `QBColor(0)` to `QBColor(15)` is the sixteen-colour table, as a Long. The argument is coerced as CInt does (`QBColor(7.5)` is colour 8, `QBColor(40000)` overflows: 6); outside 0 to 15 raises 5, Null 94. | VB6BuiltIns.Color.cs |
+| `RGB` | Supported | Measured: red + 256 green + 65536 blue, as a Long. Each component is coerced as CInt does (banker's rounding, numeric strings, Null 94, "x" 13, outside Integer 6); a negative one raises 5 and one above 255 is 255. | VB6BuiltIns.Color.cs |
 | `Switch` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. `x = Switch(c1, v1, c2, v2)` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (Switch)". Named in… | ExpressionExecutor.cs |
 | `InputBox` | Partial | Implemented, but only the first three arguments are read: `var prompt = args.Count >= 1 ...; var caption = args.Count >= 2 ...; var defaultText = args.Count >= 3 ...` then `await… | VB6BuiltIns.cs |
-| `MsgBox` | Partial | Implemented and returns the correct VBMsgBoxResult, but the Buttons argument is unboxed with a raw type test: `var style = (VBMsgBoxStyle)(args.Count >= 2 ? args[1].Value as int? ?? 0 :… | VB6BuiltIns.cs |
+| `MsgBox` | Partial | The Buttons argument is read as the Long it is, coerced as CLng does, so an in-box constant shows its buttons and icon (measured: a Long, "4" and 4.5 select Yes/No; Null raises 94 and "abc" 13 before any dialog), and the answer is a Long. Not honoured: the default-button, help-button, modality and right-to-left bits, and the HelpFile and Context arguments. | VB6BuiltIns.cs |
 | `DoEvents` | No-op | Deliberately accepted and ignored. Registered in BuildRegistry with the comment that says why: "DoEvents - a no-op here (the tree-walking interpreter has no message pump). VB6 yields to the… | VB6BuiltIns.cs |
 
 **math** (26)
@@ -1232,17 +1230,22 @@ pass happened to attack, not a real distinction.
 
 A name the IDE describes is not a name the interpreter runs. `VbSignatures.cs` in the LSP server is
 **editor metadata with no execution path**: it feeds signature help and the `vb/builtinSymbols` response
-that populates the Object Browser's VBA library. Eleven intrinsics are listed there, offer a full
+that populates the Object Browser's VBA library. Thirteen names are listed there, offer a full
 parameter tooltip, and then fail at run time:
 
-`StrComp`, `CVar`, `CVErr`, `Shell`, `Environ`, `IIf`, `Choose`, `Switch`, `RGB`, `QBColor`, `AscW`.
+`StrComp`, `CVar`, `CVErr`, `Shell`, `Environ`, `IIf`, `Choose`, `Switch`, `AscW`, `ChrW`, `CreateObject`,
+`GetObject`, `CLDbl`.
+
+`CLDbl` is not a VB6 function at all. `Randomize` and `Err` are listed there too, and do work: one is a statement,
+the other an object. `RGB` and `QBColor` were on this list until they were implemented. Counted by comparing that
+file's names with the interpreter's registry, not by hand.
 
 Worse than a plain gap, because the IDE vouches for the call before the user makes it. Closing the gap
 between those two lists — implement it, or stop advertising it — is cheap and disproportionately improves
 how the IDE feels.
 
 **Autocomplete itself is not the culprit**, contrary to an earlier draft of this section. Completion is
-served from a different list (`VbKeywords.All`), and none of the eleven appears in it. The trap is
+served from a different list (`VbKeywords.All`), and none of the thirteen appears in it. The trap is
 signature help and the Object Browser, not the completion popup.
 
 ## Not yet enumerated
