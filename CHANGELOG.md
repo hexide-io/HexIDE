@@ -10,6 +10,17 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **`End` ends the program.** It used to stop the program with an error saying HexIDE did not implement it, so a
+  `Sub Main` that finished with `End` showed that error. Now the program stops at `End`, as in VB6: nothing after
+  it runs, its forms close without their unload events, and no `Class_Terminate` runs.
+
+- **A program that reaches something HexIDE cannot run yet now says so.** A statement, function or control
+  method the interpreter does not implement used to stop the program without a word: a click handler ended
+  part way while the program carried on, and a `Sub Main` project opened nothing at all. The run now ends,
+  and the runtime-error dialog says HexIDE does not implement it, naming it in most cases; a few still carry no
+  name (#181). An error handler does not swallow it, because carrying on past a statement that never ran would
+  give a wrong answer. An error that ends `Sub Main` now appears in the same dialog as a form's.
+
 - **A language server that orders changes by version no longer ignores the first edit to a file.** That edit repeated the version the file was opened at, so such a server kept analysing the text
   from before it until the next edit.
 - **Bookmarks and breakpoints are no longer lost on the way to their file.** A bookmark set just before

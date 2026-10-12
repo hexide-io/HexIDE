@@ -28,10 +28,20 @@ public interface IProjectRunnerService : INotifyPropertyChanged
     bool IsRunning { get; }
 
     /// <summary>
-    /// A start that never became a run: the startup form could not be built. Raised synchronously, before
-    /// the start call returns, with the text to show. Nothing is running afterwards.
+    /// A start that never became a run: the startup form could not be built, or a Sub Main project's code
+    /// could not be loaded. Raised synchronously, before the start call returns, with the text to show.
+    /// Nothing is running afterwards.
     /// </summary>
     event Action<string>? StartFailed;
+
+    /// <summary>
+    /// A run that did start and was then ended by an error, with the text to show. Either Sub Main stopped on
+    /// a compile or run-time error it did not handle, or the program hit something that is not a VB6 error
+    /// at all: a construct HexIDE does not implement, or a fault in the engine (#754). Raised after the run
+    /// has been torn down, so nothing is running when it arrives. A form's ordinary VB6 run-time error is
+    /// not reported here: it leaves the run going, as VB6's does, until End is pressed.
+    /// </summary>
+    event Action<string>? RunFailed;
 
     /// <summary>The project currently running, or null when nothing is.</summary>
     ProjectDefinition? RunningProject { get; }

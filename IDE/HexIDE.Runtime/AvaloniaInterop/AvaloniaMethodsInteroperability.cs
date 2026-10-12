@@ -27,6 +27,12 @@ public static class AvaloniaMethodsInteroperability
             }
         }
 
-        throw new Exception($"Unknown method {method} on {c}");
+        // A method VB6 has and HexIDE does not, such as Move, Refresh, SetFocus, Cls or a form's Hide. This was a
+        // plain Exception, which the IDE reports as an internal fault. It is HexIDE's gap, not the program's, so
+        // it says so, and it is never trappable: On Error Resume Next stepping over a Move that never happened
+        // would leave the program believing the control had moved (#754). A member VB6 itself lacks is a
+        // trappable 438 in VB6, and telling the two apart needs each control's VB6 method list.
+        var target = VBProps.GetName(c) ?? c.GetType().Name;
+        throw new NotImplementedException($"The {method} method is not implemented for {target}");
     }
 }

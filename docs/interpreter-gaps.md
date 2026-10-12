@@ -87,7 +87,7 @@ _Original per-item findings (retained for detail; dispositions above supersede t
 - **File/directory management** (Kill, Name…As, FileCopy, MkDir, RmDir, SetAttr) — all six throw; VB6 delete/rename/copy/dir/attr with trappable errors (53, 75/76). Covered family-level by the File I/O deferral, though these six are never named individually.
 - **File-related functions** (FreeFile, EOF, LOF, Loc, Seek fn, FileLen, Dir/Dir$, CurDir, GetAttr, FileDateTime, FileAttr, Input$, Spc, Tab) — absent from the builtin registry; companions to the deferred channel statements. Documented family-level (interpreter-core "fidelity roadmap", MISSING_FEATURES.md:504).
 - **Registry settings** (SaveSetting/DeleteSetting statements + GetSetting/GetAllSettings functions) — statements throw (StatementExecutor.cs:161/817), read fns absent; VB6 persists under HKCU\Software\VB and VBA Program Settings. Documented "Missing" at MISSING_FEATURES.md:509.
-- **End** — unhandled; VB6 `End` terminates the program, firing `Class_Terminate`. Deferred to the program-end hook in interpreter-advanced Phase 4. **`Stop` is implemented** (breaks into the debugger in the IDE; raises `StopExecutionSignal` headless) — this row said otherwise until 2026-09-02.
+- **End** — FIXED (#775): it ends the program where it stands. This row used to say VB6's `End` fires `Class_Terminate`; measured on vb6.exe, it fires none, and no form raises QueryUnload, Unload or Terminate either (`vb6-fidelity-oracle.md`, *End*). **`Stop` is implemented** (breaks into the debugger in the IDE; raises `StopExecutionSignal` headless) — this row said otherwise until 2026-09-02.
 - **GoSub/Return, On expr GoTo/GoSub** — all four throw; VB6 legacy in-procedure computed branching. Deferred pending linearized CFG/bytecode: interpreter-core "fidelity roadmap" line 524.
 - **A label sharing its line with a construct TERMINATOR** (`Cont: Next i`, `Fin: End If`, `Alt: Else`) — the construct parses and the module loads, but the name is not a jump target, so a `GoTo` to it raises "Sub or Function not defined". Measured legal in VB6 (corpus `line-labels/label-immediately-before-a-loop-terminator`, `separator-vs-label/label-before-end-if`, `label-before-else`). **This is the tree-walking limit, not the label-registration defect fixed in the line-head work**: a label sharing its line with a STATEMENT now registers correctly, but `Next` is not a statement in the body block — it is the tail of the `forNextStmt` rule — so jumping to it means resuming in the middle of a statement the walk is already inside, which is the same wall as GoSub/Return. Same for `End If` and `Else`. A label ALONE on its line before a terminator works, because there it is a statement of its own. Note the shape of the eventual fix is known and cheap once a position exists: a trailing line head labels the position one past the block's last statement, which the pc loop already treats as "this block is done" — for a `For` body that is exactly the continue semantics.
 - **Date / Time statements** (set system clock) — both throw (StatementExecutor.cs:156, 1010); VB6 sets host clock. Documented "Out of Phase 2" (interpreter-core:336, Time not named).
@@ -215,9 +215,13 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   boundary — a silent wrong answer waiting for arrays-of-UDT to land.
 - **`t.arr(3) = 5` discards the index**, so it would overwrite the whole array slot; the `MemberHasArgs`
   guard is applied in the Object branch and not the `VbUdt` branch.
-- **Several boundary throws carry no message at all**, and nothing in `IDE/` catches
-  `NotImplementedException` — against `interpreter-advanced:70-72`, which requires a boundary construct to
-  *"fail clearly"*.
+- **Several boundary throws carry no message at all** — against `interpreter-advanced:70-72`, which requires a
+  boundary construct to *"fail clearly"*. The dialog then shows .NET's default "The method or operation is not
+  implemented." in place of the construct's name.
+  - ~~**Nothing in `IDE/` catches `NotImplementedException`**~~ — **FIXED (#754).** A form's event procedures
+    and `Sub Main` used to log it and nothing else, so the program stopped part way without a word. The run
+    now ends and the runtime-error dialog says what HexIDE does not implement. It stays untrappable on purpose:
+    an `On Error` handler that saw it could only carry on past a statement that never ran.
 
 ## Partial
 

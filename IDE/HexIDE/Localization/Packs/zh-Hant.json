@@ -681,6 +681,7 @@
     "Str.ProjectRunner.MustHaveStartupForm": "必須有啟動表單或 Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "此動作將重設專案。是否要繼續？",
     "Str.ProjectRunner.StartupFormFailedToLoad": "無法載入表單「{0}」，因此專案未啟動。\n\n{1}",
+    "Str.ProjectRunner.NotImplementedYet": "HexIDE 尚未實作此項目：\n\n{0}",
     "Str.NewProject.Msg.Title": "新增專案",
     "Str.NewProject.Msg.VersionDoesNotSupport": "您的 HexIDE 版本不支援 {0}",
     "Str.NewProject.Msg.FileNotFound": "找不到檔案。請確認所提供的檔案名稱正確。",
