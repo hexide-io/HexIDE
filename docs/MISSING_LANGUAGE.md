@@ -110,7 +110,7 @@ on the write path (`obj.a.b = x`, `Set obj.a.b = o`).
 
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Statements | 0 | 0 | 47 | 35 | 0 | 23 | 105 |
+| Statements | 0 | 0 | 46 | 35 | 0 | 24 | 105 |
 | Operators | 0 | 0 | 3 | 18 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 71 | 37 | 1 | 44 | 153 |
 | Keywords and modifiers | 0 | 0 | 11 | 22 | 1 | 17 | 51 |
@@ -118,7 +118,7 @@ on the write path (`obj.a.b = x`, `Set obj.a.b = o`).
 | Compiler directives and options | 0 | 1 | 16 | 9 | 13 | 8 | 47 |
 | In-box objects | 0 | 0 | 98 | 8 | 0 | 17 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **0** | **2** | **261** | **407** | **15** | **497** | **1182** |
+| **Total** | **0** | **2** | **260** | **407** | **15** | **498** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -197,7 +197,7 @@ Worth noting what is *not* here: `#If` parses fine and throws, and so does the n
 | `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 
-## Dies mid-run — 253 names
+## Dies mid-run — 252 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the classic file-I/O family is absent as a block, and so is
@@ -304,7 +304,6 @@ most of the in-box object model.
 | `DefVar` | **Dies** | throws `"Deftype not implemented"` | StatementExecutor.cs |
 | `DeleteSetting` | **Dies** | throws `"DeleteSetting not implemented"` — Grammar rule `deleteSettingStmt : DELETESETTING WS valueStmt WS? COMMA WS? valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4) with a real DELETESETTING… | StatementExecutor.cs |
 | `Dir` | **Dies** | fails at name resolution: unregistered in every VB6BuiltIns partial. Probed `Debug.Print Dir("*.*")` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined… | ExpressionExecutor.cs |
-| `End` | **Dies** | throws `"End not implemented"` — (endStmt, VB6.g4) and throws at run time. Verbatim: Measured: `Debug.Print 1 / End` -> NotImplementedException: End not implemented. | StatementExecutor.cs |
 | `Environ` | **Dies** | Not in BuildRegistry; the only runtime hit is the highlighter list VbKeywordNormalizer.cs. `Environ("PATH")` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined… | ExpressionExecutor.cs |
 | `EOF` | **Dies** | fails at name resolution: unregistered. Probed `Debug.Print EOF(1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined (EOF)". docs/interpreter-gaps.md:83. | ExpressionExecutor.cs |
 | `Err.HelpContext` | **Dies** | TryGetProperty (VbErr.cs) has cases only for number/description/source; the fall-through in ExpressionExecutor then requires a Control and otherwise throws… | ExpressionExecutor.cs |
@@ -465,7 +464,7 @@ Every name, including the ones that work. Sorted within each table by F5 impact 
 Partial, No-op, Supported — because a reader of a coverage document is looking for what is missing.
 
 
-### Statements — 105 names (47 absent, 35 partial, 23 supported)
+### Statements — 105 names (46 absent, 35 partial, 24 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -486,7 +485,7 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `DefStr` | **Dies** | throws `"Deftype not implemented"` — Measured: `DefStr S` -> that exact message. | StatementExecutor.cs |
 | `DefVar` | **Dies** | throws `"Deftype not implemented"` | StatementExecutor.cs |
 | `DeleteSetting` | **Dies** | throws `"DeleteSetting not implemented"` — Grammar rule `deleteSettingStmt : DELETESETTING WS valueStmt WS? COMMA WS? valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4) with a real DELETESETTING… | StatementExecutor.cs |
-| `End` | **Dies** | throws `"End not implemented"` — (endStmt, VB6.g4) and throws at run time. Verbatim: Measured: `Debug.Print 1 / End` -> NotImplementedException: End not implemented. | StatementExecutor.cs |
+| `End` | Supported | Ends the program where it stands, as VB6 does (measured, #775): nothing after it runs, no form raises QueryUnload, Unload or Terminate, and no Class_Terminate runs. In the IDE it ends the run as the End command does and reports nothing; headless, the interpreter stops and starts nothing again. | StatementExecutor.cs, BasicInterpreter.cs |
 | `FileCopy` | **Dies** | `filecopyStmt : FILECOPY WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `FileCopy "a.txt", "b.txt"` -> NotImplementedException: "Filecopy not… | StatementExecutor.cs |
 | `Get` | **Dies** | `getStmt : GET WS valueStmt WS? COMMA WS? valueStmt? WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Get #1, 1, v` -> NotImplementedException: "Get not… | StatementExecutor.cs |
 | `GoSub...Return` | **Dies** | throws `"GoSub not implemented"` — Both halves parse and both throw. GoSub: (StatementExecutor.cs). Return: `throw new NotImplementedException("Return not implemented")` (:1172)… | StatementExecutor.cs |
