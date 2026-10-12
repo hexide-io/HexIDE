@@ -23,8 +23,13 @@ public partial class VB6BuiltIns
     /// </remarks>
     public Func<string?>? AppTitle { get; set; }
 
-    /// <summary>Whether the run is ending: End was reached, or the debugger is tearing the run down.</summary>
-    public Func<bool>? RunEnding { get; set; }
+    /// <summary>
+    /// Taken when a message box opens: answers, when it closes, whether the run that opened it has ended since. End was
+    /// reached, the debugger is tearing the run down, or a new run has begun. The last is why this is taken at the
+    /// start rather than asked at the end: Restart ends one run and begins the next in a single turn, and the box's
+    /// answer arrives after both, when nothing about the new run says the old one ended.
+    /// </summary>
+    public Func<Func<bool>>? WatchRunEnd { get; set; }
 
     // The 713-entry flat name-to-value table that used to live here is gone. It could not answer VB6
     // correctly: the qualifier SELECTS, so vbCancel is 2 through VBA and 0 through VBRUN, and a
@@ -193,18 +198,21 @@ public partial class VB6BuiltIns
         // empty — see #131 — so this substitutes only for null.
         title ??= AppTitle?.Invoke();
 
+        var runEnded = WatchRunEnd?.Invoke();
         var result = await stdLib.MsgBox(text ?? "", title, buttons, icon);
         // None is a box that went away without an answer. The hosts answer a person's close themselves, as Windows does
         // (measured: OK alone answers vbOK, a box with Cancel answers vbCancel, and Yes/No and Abort/Retry/Ignore
         // have no close), and keep a box waiting when its owner hides. So None means HexIDE closed the box:
-        //  - The run is ending. No answer is right, and the statement is abandoned, as the run is.
+        //  - The run that opened it has ended, or is ending. No answer is right, and the statement is abandoned, as the
+        //    run is. Asked of the run that opened the box, not the one going now: after Restart, the old run's
+        //    statement carried on beside the new run with a Cancel nobody pressed.
         //  - Otherwise, a host or a test that reports a close as None, and the close's own answer stands. It used to be
         //    vbOK for every kind, so closing `If MsgBox("Delete all?", vbOKCancel) = vbOK` deleted all.
         //  - A box with no close has no such answer, and a statement that carried on, or stopped in silence, would be
         //    a wrong result. That is raised as a fault, so the run ends and says why.
         if (result == MessageBoxResult.None)
         {
-            if (RunEnding?.Invoke() == true)
+            if (runEnded?.Invoke() == true)
                 throw new OperationCanceledException("The run ended while a message box was waiting for an answer");
             result = Dialogs.MessageBox.AnswerOnClose(buttons) ?? throw new InvalidOperationException(
                 "A message box with no close went away without an answer, while the run went on");

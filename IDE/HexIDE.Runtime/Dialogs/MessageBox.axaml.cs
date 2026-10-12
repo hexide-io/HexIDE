@@ -76,13 +76,19 @@ public partial class MessageBox : UserControl
             current.Close();
         };
 
-        var closed = Watch(window);
-        await window.ShowDialog(owner);
-        if (closed.IsCompleted)
-            return Answer;
+        if (owner.IsVisible)
+        {
+            var shown = Watch(window);
+            await window.ShowDialog(owner);
+            if (shown.IsCompleted)
+                return Answer;
+            // Hidden with its owner: Avalonia completed the dialog without closing it.
+        }
 
-        // Hidden with its owner. Avalonia keeps an owned window hidden while its owner is, so the box moves to a window
-        // of its own, and the hidden one is closed.
+        // The owner is hidden, before the box opened or while it waited. VB6 keeps the box waiting, out of sight
+        // (measured both ways). A box nobody can see could never be answered, and Avalonia keeps an owned window hidden
+        // while its owner is, and refuses to show a dialog over a hidden owner at all. So the box moves to a window of
+        // its own, and the one it was given is closed.
         window.Content = null;
         var again = new Window
         {
@@ -94,7 +100,7 @@ public partial class MessageBox : UserControl
         };
         current = again;
         window.Close();
-        closed = Watch(again);
+        var closed = Watch(again);
         void OnOwnerClosed(object? sender, EventArgs e) => again.Close();
         owner.Closed += OnOwnerClosed;
         again.Show();

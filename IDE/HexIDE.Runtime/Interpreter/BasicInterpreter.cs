@@ -326,7 +326,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         BuiltIns = new VB6BuiltIns(stdLib)
         {
             AppTitle = () => App.TitleOrNull,
-            RunEnding = () => Ending || DebugController?.IsAborting == true,
+            WatchRunEnd = () =>
+            {
+                var session = DebugController?.Session;
+                return () => Ending || DebugController is { } debug && (debug.IsAborting || debug.Session != session);
+            },
         };
         this.stdLib = stdLib;
         this.rootEnv = rootEnv;

@@ -43,9 +43,11 @@ public class PrePass : VB6BaseVisitor<object?>
     public int ArrayBase { get; private set; } = 0;
 
     /// <summary>
-    /// Whether a procedure here carries <c>Attribute Name.VB_UserMemId = 0</c>, which makes it the class's default
-    /// member. Collected only: HexIDE does not call a default member yet (#174), and refuses to read one as a value
-    /// rather than read 0 or raise a trappable 438.
+    /// Whether a procedure here carries <c>Attribute Name.VB_UserMemId = 0</c>, or a module-level variable
+    /// <c>Attribute Name.VB_VarUserMemId = 0</c>, which makes it the class's default member. VB6 writes the attribute
+    /// into whichever of a property's procedures comes first, the Let or Set as readily as the Get. Collected only:
+    /// HexIDE does not call a default member yet (#174), and refuses to read one as a value rather than read 0 or raise
+    /// a trappable 438.
     /// </summary>
     public bool DeclaresDefaultMember { get; private set; }
 
@@ -54,7 +56,9 @@ public class PrePass : VB6BaseVisitor<object?>
         if (body is null || DeclaresDefaultMember)
             return;
         if (body is VB6Parser.AttributeStmtContext attribute
-            && attribute.implicitCallStmt_InStmt().GetText().EndsWith(".VB_UserMemId", StringComparison.OrdinalIgnoreCase)
+            && attribute.implicitCallStmt_InStmt().GetText() is var name
+            && (name.EndsWith(".VB_UserMemId", StringComparison.OrdinalIgnoreCase)
+                || name.EndsWith(".VB_VarUserMemId", StringComparison.OrdinalIgnoreCase))
             && attribute.literal().Length == 1 && attribute.literal(0).GetText() == "0")
         {
             DeclaresDefaultMember = true;
@@ -74,6 +78,7 @@ public class PrePass : VB6BaseVisitor<object?>
     {
         topLevelBlocks.Add(context.block());
         Visit(context.block());
+        NoteDefaultMember(context.block());   // a Public variable's VB_VarUserMemId follows it here
         return default;
     }
 
@@ -483,6 +488,7 @@ public class PrePass : VB6BaseVisitor<object?>
     {
         var name = context.ambiguousIdentifier().GetText();
         GetOrAddProperty(name).Let = ParsePropertyMutator("Let", name, context.argList(), context.block(), context.visibility());
+        NoteDefaultMember(context.block());
         return default;
     }
 
@@ -490,6 +496,7 @@ public class PrePass : VB6BaseVisitor<object?>
     {
         var name = context.ambiguousIdentifier().GetText();
         GetOrAddProperty(name).Set = ParsePropertyMutator("Set", name, context.argList(), context.block(), context.visibility());
+        NoteDefaultMember(context.block());
         return default;
     }
 

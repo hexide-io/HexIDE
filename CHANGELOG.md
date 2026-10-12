@@ -33,8 +33,10 @@ there isn't one yet. Anything may change between 0.x releases.
   implemented yet (#790), and so does a class with a default member (#174). An omitted `Optional` argument converts to
   448, as in VB6, where it read as 0.
 - **A message box stays answerable when its form hides.** `Me.Visible = False` while a box was open made the box
-  disappear and answer Cancel, or stopped the code waiting on a Yes/No box. The box now waits for its answer, shown
-  on its own.
+  disappear and answer Cancel, or stopped the code waiting on a Yes/No box, and a box opened from a form already
+  hidden ended the run as Internal error 51. The box now waits for its answer, shown on its own.
+- **Restart with a message box open no longer runs the old program on.** The box closed, and the code waiting on it
+  carried on beside the new run with a Cancel nobody pressed, or stopped the new run. It now ends with its run.
 - **A Label's background colour set by a program now shows.** `Label1.BackColor = vbRed` read back red but left
   the label as it was; now it paints, for a label in a control array too. A program can make a transparent Label
   opaque with `BackStyle = 1`. A transparent Label ignores a `BackColor` set while it is transparent, as VB6 does.

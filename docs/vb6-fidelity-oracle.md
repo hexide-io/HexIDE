@@ -4917,7 +4917,25 @@ looked for the box twice before pressing a button:
 | vbOKCancel | the box still exists, not visible | OK | 1, a Long |
 
 So VB6 hides the box with its owner and keeps `MsgBox` waiting. A person cannot answer a box they cannot see, so in
-practice that program hangs. HexIDE keeps it waiting too, but shows the box again, unowned, so it can still be
+practice that program hangs.
+
+**A form hidden before the box opens is the same.** A later probe set `Me.Visible = False` and then called `MsgBox`
+from that form, with the Timer looking twice before pressing:
+
+| Buttons | While open | Pressed | Returned |
+|---|---|---|---|
+| vbYesNo | the box exists, **not visible**; the form stays hidden | No | 7, a Long |
+| vbOKCancel | the box exists, not visible | OK | 1, a Long |
+
+HexIDE's dialog refused a hidden owner outright ("Cannot show window with non-visible owner") and ended the run as
+Internal error 51. It now goes straight to the unowned box.
+
+**Restart is the case that matters for HexIDE, not for VB6.** HexIDE's Restart ends a run and begins the next in
+one turn. The old run's box closes, and its answer arrives after the new run has begun, when nothing about the new
+run says the old one ended. So the old run's statement is abandoned on the strength of the run *it* belonged to:
+the debugger's run generation, taken when the box opened. Read when the answer arrived, the check missed it: an
+OK/Cancel box answered a Cancel nobody pressed and its Form_Load ran on beside the new run, and a Yes/No box
+faulted and stopped the new run. HexIDE keeps it waiting too, but shows the box again, unowned, so it can still be
 answered, and closes it unanswered if the owner closes. Avalonia hid the box and finished the dialog with no answer,
 which answered Cancel for OK/Cancel and stopped a Yes/No handler in silence.
 
@@ -4933,8 +4951,10 @@ member, and `Text1` a TextBox whose `Text` is "12":
 | `va` | 13 | |
 | `k` | 438 | |
 | `k3`, a `Class3` whose `Value` carries `Attribute Value.VB_UserMemId = 0` and returns 42 | | `CInt(k3)` is 42 (Integer), `RGB(k3, 0, 0)` 42 (Long) |
+| `k4`, a `Class4` whose Property **Let** `Value` carries the attribute, written before the Get, which returns 42 | | `CInt(k4)` is 42 (Integer), `CLng(k4)` 42 (Long) |
+| `k5`, a `Class5` whose `Public Value As Long` carries `Attribute Value.VB_VarUserMemId = 0`, set to 7 | | `CInt(k5)` is 7 (Integer) |
 | `Text1` | | `CInt(Text1)` is 12 (Integer), `RGB(Text1, 0, 0)` is 12 (Long), `QBColor(Text1)` is 255 |
-| an omitted `Optional` Variant, `w` | | `CLng(w)` and `CInt(w)` are **448** |
+| an omitted `Optional` Variant, `w` | | `CLng(w)` is **448**, a Long; `CInt(w)` is **448**, an Integer |
 
 Each raises before any dialog. A control stands for its default member: `Text1` is `Text1.Text`.
 
@@ -4943,7 +4963,9 @@ A class or a control with a default member stands for that member, as `Text1` st
 **The omitted argument is the surprise.** It is not 13, and not 0. VB6 passes a missing argument as an error
 value, `DISP_E_PARAMNOTFOUND`, whose VB error number is 448, "Named argument not found". Converted to a number, it is
 that number: `Function Area(Optional w): Area = CLng(w) * 10` called as `Area()` returns 4480. The obvious guess,
-from the same value raising 13 in a concatenation, was 13.
+from the same value raising 13 in a concatenation, was 13. It was measured through `CLng` and `CInt` only, each
+returning its own type with no error. `RGB` and `QBColor` coerce as `CInt` does, so they take 448 by that rule rather
+than by a measurement of their own.
 
 Three forms do not compile at all:
 - `CInt(Nothing)`, with a literal `Nothing`: "Invalid use of object".
@@ -4969,6 +4991,10 @@ HexIDE read every one of these as 0, so `RGB(o, 0, 0)` was black and `CInt(o)` w
 - A control, an in-box object, or a class with a `VB_UserMemId = 0` member refuses, untrappably, because HexIDE does not
   read default members yet: #790 for controls, #174 for classes. A trappable error there would let
   `On Error Resume Next` carry on without the value VB6 gives.
-- A box hidden with its owner keeps waiting, shown again unowned.
+- A box hidden with its owner keeps waiting, shown again unowned, and so does a box whose owner was hidden before it
+  opened. The waiting statement is abandoned only when the run that opened the box has ended, which survives a
+  Restart.
+- A class's default member is found wherever VB6 writes its attribute: a Function, Sub, Property Get, Let or Set, or
+  a Public variable.
 - Still not honoured by the dialog: the default-button, help-button, modality and right-to-left bits, and Escape
   and Enter (#827). Its buttons are in English whatever the language (#828).

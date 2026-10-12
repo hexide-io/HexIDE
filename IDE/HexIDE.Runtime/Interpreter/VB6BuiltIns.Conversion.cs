@@ -52,8 +52,10 @@ public partial class VB6BuiltIns
     /// it at run time.</item>
     /// <item>A user-defined type does not compile (measured, "Type mismatch"), so it is 13 here, at run time.</item>
     /// <item>A class instance with no default member is 438.</item>
-    /// <item>A class whose member carries <c>Attribute X.VB_UserMemId = 0</c> stands for that member: measured,
-    /// <c>CInt(k)</c> is 42 where the member returns 42. HexIDE does not call a class's default member yet (#174),
+    /// <item>A class whose member carries <c>Attribute X.VB_UserMemId = 0</c>, or whose Public variable carries
+    /// <c>VB_VarUserMemId = 0</c>, stands for that member: measured, <c>CInt(k)</c> is 42 where the member returns 42,
+    /// including when the attribute sits in the Property Let rather than the Get, and 7 for a variable holding 7.
+    /// HexIDE does not call a class's default member yet (#174),
     /// so it refuses, untrappably. A trappable 438 there would let <c>On Error Resume Next</c> carry on without the
     /// value VB6 gives.</item>
     /// <item>A control stands for its default member: <c>CInt(Text1)</c> is <c>CInt(Text1.Text)</c>. HexIDE has no
@@ -62,7 +64,9 @@ public partial class VB6BuiltIns
     /// </remarks>
     private static void RefuseNonScalar(Vb6Value v)
     {
-        if (v.Type.IsArray || v.Value is VbUdt)
+        // An element of an array of a user-defined type that nothing has assigned holds no VbUdt yet, so the type
+        // decides, not the value.
+        if (v.Type.IsArray || v.Type == VT.UserDefinedType || v.Value is VbUdt)
             throw new VBRunTimeException(VBStandardError.TypeMismatch);
         if (v.Type != VT.Object && v.Type != VT.Control && v.Type != VT.CSharpProxyObject)
             return;
@@ -71,7 +75,7 @@ public partial class VB6BuiltIns
         if (v.Value is VbObject { ClassDef.PrePass.DeclaresDefaultMember: true } withDefault)
             throw new NotImplementedException(
                 $"Converting a {withDefault.ClassDef.Name} to a number reads its default member, which is not "
-                + "implemented for a class yet (#174). Name the member instead.");
+                + "implemented for a class yet (#174).");
         if (v.Type == VT.Object)
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         throw new NotImplementedException(

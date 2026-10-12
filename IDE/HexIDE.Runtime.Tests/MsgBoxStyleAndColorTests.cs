@@ -144,11 +144,47 @@ public class MsgBoxStyleAndColorTests : BaseVBTestFixture
     public async Task A_box_that_goes_away_unanswered_as_the_run_ends_abandons_the_statement(VBMsgBoxStyle style)
     {
         // Ending the run closes the box. No answer is right then, and the statement is abandoned, as the run is.
-        var builtIns = new VB6BuiltIns(new Recording(MessageBoxResult.None)) { RunEnding = () => true };
+        var builtIns = new VB6BuiltIns(new Recording(MessageBoxResult.None)) { WatchRunEnd = () => () => true };
 
         var call = () => builtIns.EvaluateBuiltInFunction("MsgBox", [new Vb6Value("probe"), new Vb6Value((long)style)]);
 
         await call.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    /// <summary>A host whose box goes away unanswered as a restart ends this run and begins the next.</summary>
+    private sealed class RestartsWhileOpen(Runtime.Debugging.DebugController debug) : IBasicStandardLibrary
+    {
+        public List<Vb6Value> Printed { get; } = [];
+
+        public Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons b, MessageBoxIcon i)
+        {
+            debug.Stop();
+            debug.Reset();
+            return Task.FromResult(MessageBoxResult.None);
+        }
+
+        public Task<string?> InputBox(string p, string? t, string d) => Task.FromResult<string?>("");
+        public void DebugPrint(Vb6Value value) => Printed.Add(value);
+    }
+
+    [Theory]
+    [InlineData("vbOKCancel")]
+    [InlineData("vbYesNo")]
+    public async Task A_box_that_goes_away_as_a_restart_begins_the_next_run_abandons_the_old_runs_statement(string style)
+    {
+        // By the time the answer arrived, the new run's Reset had cleared IsAborting, so nothing said this run had ended.
+        // OK/Cancel answered a Cancel nobody pressed and the old Form_Load ran on beside the new run; Yes/No faulted,
+        // and the fault stopped the new run.
+        var debug = new Runtime.Debugging.DebugController { TimeSliceMs = null };
+        debug.Reset();
+        var lib = new RestartsWhileOpen(debug);
+        var vb = new BasicInterpreter(lib, new ModuleExecutionContext(), new ExecutionEnvironment(),
+            $"Debug.Print MsgBox(\"probe\", {style})\nDebug.Print \"after\"\n") { DebugController = debug };
+
+        var run = () => vb.Execute();
+
+        await run.Should().ThrowAsync<OperationCanceledException>();
+        lib.Printed.Should().BeEmpty("the statement belongs to a run that has ended");
     }
 
     [Theory]
@@ -197,10 +233,13 @@ public class MsgBoxStyleAndColorTests : BaseVBTestFixture
     [InlineData("CInt(u)")]
     [InlineData("RGB(u, 0, 0)")]
     [InlineData("MsgBox(\"probe\", u)")]
+    [InlineData("CInt(a(1))")]
+    [InlineData("RGB(a(1), 0, 0)")]
     public async Task A_user_defined_type_raises_13_rather_than_reading_as_0(string expression)
     {
-        // VB6 refuses to compile these ("Type mismatch", measured), so the error comes as the statement runs.
-        await Run($"Type Pt\n    X As Integer\nEnd Type\nDim u As Pt\nOn Error Resume Next\nDim c\nc = {expression}\n"
+        // VB6 refuses to compile these ("Type mismatch", measured), so the error comes as the statement runs. An element
+        // of `a` that nothing has assigned holds no value yet, and read as 0.
+        await Run($"Type Pt\n    X As Integer\nEnd Type\nDim u As Pt\nDim a(2) As Pt\nOn Error Resume Next\nDim c\nc = {expression}\n"
                   + "Debug.Print Err.Number\n");
         AssertDebugLog([new Vb6Value(13L)]);
     }
@@ -210,20 +249,27 @@ public class MsgBoxStyleAndColorTests : BaseVBTestFixture
     [InlineData("CInt")]
     public async Task An_omitted_Optional_argument_converts_to_448(string conversion)
     {
-        // The error value VB6 passes for a missing argument, whose number is 448 (measured: CLng and CInt of one are
-        // both 448, with no error). It read as 0, so this Area() was 0.
+        // The error value VB6 passes for a missing argument, whose number is 448 (measured: CLng of one is Long 448 and
+        // CInt Integer 448, with no error). It read as 0, so this Area() was 0.
         await Run($"Function Area(Optional w) As Long\n    Area = {conversion}(w) * 10\nEnd Function\n"
                   + "Debug.Print Area()\nDebug.Print Area(3)\n");
         AssertDebugLog([new Vb6Value(4480L), new Vb6Value(30L)]);
     }
 
-    [Fact]
-    public async Task A_class_with_a_default_member_is_refused_until_class_default_members_exist()
+    [Theory]
+    [InlineData("Public Function Value() As Long\nAttribute Value.VB_UserMemId = 0\n    Value = 42\nEnd Function\n")]
+    // VB6 writes the attribute into whichever of a property's procedures comes first.
+    [InlineData("Private mV As Long\nPublic Property Let Value(ByVal v As Long)\nAttribute Value.VB_UserMemId = 0\n"
+                + "    mV = v\nEnd Property\nPublic Property Get Value() As Long\n    Value = 42 + mV\nEnd Property\n")]
+    // A Public variable carrying VB_VarUserMemId is collected too, but its class cannot be created until an Attribute
+    // line among the declarations stops stopping the run (#832), so its case is pinned there.
+    public async Task A_class_with_a_default_member_is_refused_until_class_default_members_exist(string answer)
     {
-        // Measured: CInt(k) is 42 where the class's VB_UserMemId = 0 member returns 42. HexIDE does not call it yet
-        // (#174), and a trappable 438 would let On Error Resume Next carry on without VB6's value.
+        // Measured: CInt(k) is 42 where the member returns 42, whether the Function, the Property Let or a Public
+        // variable carries the attribute (7 for a variable holding 7). HexIDE does not call it yet (#174), and a
+        // trappable 438 would let On Error Resume Next carry on without VB6's value.
         var run = () => RunClasses("Dim k As Answer\nSet k = New Answer\nOn Error Resume Next\nDim c\nc = CInt(k)\n",
-            ("Answer", "Public Function Value() As Long\nAttribute Value.VB_UserMemId = 0\n    Value = 42\nEnd Function\n"));
+            ("Answer", answer));
 
         (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#174*");
     }

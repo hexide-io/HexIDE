@@ -39,6 +39,34 @@ public class MessageBoxHostTests
     [AvaloniaTheory]
     [InlineData(MessageBoxButtons.YesNo, "No", MessageBoxResult.No)]
     [InlineData(MessageBoxButtons.OkCancel, "OK", MessageBoxResult.Ok)]
+    public void A_box_whose_owner_is_already_hidden_is_shown_on_its_own_and_waits_for_its_answer(
+        MessageBoxButtons buttons, string press, MessageBoxResult expected)
+    {
+        // ShowDialog refuses a hidden owner ("Cannot show window with non-visible owner"), which ended the run as
+        // Internal error 51. VB6 shows nothing and keeps waiting (measured), as when the owner hides while it waits.
+        var owner = new Window { Width = 300, Height = 200 };
+        owner.Show();
+        owner.Hide();
+        var box = new MessageBox { Text = "probe", Buttons = buttons };
+        var window = new Window { Content = box, Width = 200, Height = 100 };
+
+        var answer = box.ShowAndWait(window, owner);
+        Dispatcher.UIThread.RunJobs();
+
+        answer.IsCompleted.Should().BeFalse("the box is waiting for an answer");
+        var shownIn = TopLevel.GetTopLevel(box).Should().BeOfType<Window>().Subject;
+        shownIn.IsVisible.Should().BeTrue("a box nobody can see could never be answered");
+        shownIn.Owner.Should().BeNull();
+
+        Press(box, press);
+        answer.IsCompleted.Should().BeTrue();
+        answer.Result.Should().Be(expected);
+        owner.Close();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(MessageBoxButtons.YesNo, "No", MessageBoxResult.No)]
+    [InlineData(MessageBoxButtons.OkCancel, "OK", MessageBoxResult.Ok)]
     public void A_box_hidden_with_its_owner_is_shown_again_and_still_waits_for_its_answer(
         MessageBoxButtons buttons, string press, MessageBoxResult expected)
     {
