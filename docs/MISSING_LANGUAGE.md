@@ -1230,17 +1230,19 @@ pass happened to attack, not a real distinction.
 
 A name the IDE describes is not a name the interpreter runs. `VbSignatures.cs` in the LSP server is
 **editor metadata with no execution path**: it feeds signature help and the `vb/builtinSymbols` response
-that populates the Object Browser's VBA library. Eleven intrinsics are listed there, offer a full
+that populates the Object Browser's VBA library. Nine intrinsics are listed there, offer a full
 parameter tooltip, and then fail at run time:
 
-`StrComp`, `CVar`, `CVErr`, `Shell`, `Environ`, `IIf`, `Choose`, `Switch`, `RGB`, `QBColor`, `AscW`.
+`StrComp`, `CVar`, `CVErr`, `Shell`, `Environ`, `IIf`, `Choose`, `Switch`, `AscW`.
+
+`RGB` and `QBColor` were on this list until they were implemented.
 
 Worse than a plain gap, because the IDE vouches for the call before the user makes it. Closing the gap
 between those two lists — implement it, or stop advertising it — is cheap and disproportionately improves
 how the IDE feels.
 
 **Autocomplete itself is not the culprit**, contrary to an earlier draft of this section. Completion is
-served from a different list (`VbKeywords.All`), and none of the eleven appears in it. The trap is
+served from a different list (`VbKeywords.All`), and none of the nine appears in it. The trap is
 signature help and the Object Browser, not the completion popup.
 
 ## Not yet enumerated

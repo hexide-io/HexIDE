@@ -1490,11 +1490,17 @@ here so the divergence is deliberate and traceable rather than a later "bug".
 ### Note on method
 
 `scripts/vb6-oracle.ps1` covers the compiled column; the design-time column cannot be automated from here.
-A `MsgBox` is modal, so a probe that opens one never writes its file, and reading a caption from outside
-does not work either — a PowerShell Direct session cannot see the guest's interactive desktop and
+A `MsgBox` is modal, so a probe that opens one never writes its file unless something answers it, and reading a
+caption from outside does not work either — a PowerShell Direct session cannot see the guest's interactive desktop and
 enumerates zero windows session-wide. The F5 column was produced by pushing the project into the VM with
 `Copy-Item -ToSession`, having a human press F5, and reading the output file back over the same session.
 That is the pattern for any future design-time question.
+
+**A compiled probe can answer its own `MsgBox` (2026-10-12).** A form `Timer` keeps firing while a `MsgBox` is
+open in a compiled program. So the probe's own timer can find the box with `FindWindow`, read which buttons it
+holds with `GetDlgItem`, and close or answer it with `PostMessage`. That needs no person and no view of the
+desktop. It is how "RGB, QBColor and MsgBox's style" was measured, and its probe is the template. Only the F5
+column still needs a person.
 ## `IsMissing`, and the shape of an omitted argument (2026-09-01)
 
 `IsMissing` only means anything inside a procedure that has an `Optional` parameter, so this needed a probe
@@ -4754,9 +4760,10 @@ is a Long, so `vbYesNo + vbQuestion` showed OK alone with no icon.
 
 **Probe.** A Standard EXE built with `vb6.exe /make` on the Win10 guest (session 0) and run. Each call ran under
 `On Error Resume Next`, logging value, `TypeName` and `Err.Number`. For `MsgBox`, a form Timer found the open
-box by its title, recorded which of the control IDs 1 to 7 (IDOK to IDNO) and 20 (the icon) it held, and posted a
-click on No, else Cancel, else Ignore, else OK. Timers keep running under `MsgBox` in a compiled program, which is
-what makes this possible without a person.
+box by its title, recorded which of the control IDs 1 to 7 (IDOK to IDNO), 10 and 11 (Try Again and Continue)
+and 20 (the icon) it held, and posted a click on No, else Cancel, else Ignore, else OK. For the dismissal rows it
+first posted `WM_CLOSE` or `WM_SYSCOMMAND`/`SC_CLOSE` three times, then reported whether the box was still open.
+Timers keep running under `MsgBox` in a compiled program, which is what makes this possible without a person.
 
 ### RGB
 
@@ -4778,7 +4785,20 @@ So each component is an **Integer, coerced as `CInt` does**: banker's rounding (
 negative component 5 and one above 255 clamped to 255. The overflow is the surprise: 40000 is not clamped, it
 fails before the clamp is reached. The result is a **Long** even when small.
 
-Which argument's error wins when two are bad (say `RGB(-1, 0, 70000)`) was not measured.
+**Which error wins when two arguments are bad.** All three are coerced before any is range-checked:
+
+| Call | Err |
+|---|---|
+| `RGB(-1, 40000, 0)` | 6 |
+| `RGB(40000, -1, 0)` | 6 |
+| `RGB(0, -1, 40000)` | 6 |
+| `RGB("x", -1, 0)` | 13 |
+| `RGB(-1, "x", 0)` | 13 |
+| `RGB(Null, "x", 0)` | **13** |
+| `RGB(300, -1, 0)` | 5 |
+
+The `Null` row decides the order. Left to right it would be 94, so the second argument was coerced before the
+first, which fits the arguments being converted last first. No other row distinguishes the two orders.
 
 ### QBColor
 
@@ -4791,7 +4811,8 @@ Which argument's error wins when two are bad (say `RGB(-1, 0, 70000)`) was not m
 | `QBColor(n)` | 8421504 | 16711680 | 65280 | 16776960 | 255 | 16711935 | 65535 | 16777215 |
 
 All Longs. `QBColor(7.5)` and `QBColor(8.5)` are both colour 8 (banker's rounding), and `QBColor("3")` is
-colour 3. `QBColor(16)` and `QBColor(-1)` raise 5, and `QBColor(Null)` raises 94.
+colour 3. `QBColor(16)` and `QBColor(-1)` raise 5, and `QBColor(Null)` raises 94. `QBColor(40000)` raises
+**6**, not 5: the argument overflows as an Integer before its range is checked.
 
 ### MsgBox's style
 
@@ -4815,18 +4836,100 @@ colour 3. `QBColor(16)` and `QBColor(-1)` raise 5, and `QBColor(Null)` raises 94
 | `-1` | 2 | 1 | Long | |
 | `7` | 2 | 1 | Long | |
 
+A second and third probe settled what a style out of range does:
+
+| Style | What it holds | Controls found (IDs) | Returned |
+|---|---|---|---|
+| `16` | vbCritical | 2, icon | 1 |
+| `17` | vbOKCancel + vbCritical | 1 2, icon | 2 |
+| `6` | Windows' Cancel/Try Again/Continue | 2 | 1 |
+| `8`, `9`, `12`, `13`, `15` | buttons 8 to 15 | 2 | 1 |
+| `22` | 6 + vbCritical | 2, **no icon** | 1 |
+| `38` | 6 + vbQuestion | 2, no icon | 1 |
+| `84` | vbYesNo + icon 80 | 2 | 1 |
+| `116` | vbYesNo + icon 112 | 2 | 1 |
+| `70004` | vbYesNo + 70000 | 2 | 1 |
+| `1028` | vbYesNo + default button 1024 | 2 | 1 |
+| `260` | vbYesNo + vbDefaultButton2 | 6 7 | 7 |
+| `772` | vbYesNo + vbDefaultButton4 | 6 7 | 7 |
+| `4100` | vbYesNo + vbSystemModal | 6 7 | 7 |
+| `65540` | vbYesNo + vbMsgBoxSetForeground | 6 7 | 7 |
+| `524292` | vbYesNo + vbMsgBoxRight | 6 7 | 7 |
+
 **Readings:**
 - **The style is coerced as `CLng` does.** A Long, a numeric string and a Double all work: 4.5 is 4 (Yes/No)
   and 2.5 is 2 (Abort/Retry/Ignore). `Null` and `"abc"` raise before any dialog appears.
-- **The answer is a Long.**
-- **Low bits that name no button set give OK alone:** 70000, -1 and 7. 70000's icon bits (`&H70`) name no
-  icon, and none is shown.
+- **The answer is a Long.** HexIDE returned an Integer. That is the overturn: VB6's `vbYes` and friends are Longs, and
+  so is what `MsgBox` gives back.
+- **Any field out of range makes the whole box a plain OK box, with no icon.** The three fields are:
+  - the buttons, in the low **nibble**, valid 0 to 5;
+  - the icon, valid 0, 16, 32, 48 and 64;
+  - the default button, valid 0, 256, 512 and 768.
+
+  The buttons field is four bits, not three: 12 would be vbYesNo under a three-bit mask, and is OK alone.
+
+  That one rule covers everything earlier rows read as "no button set":
+  - 7 has buttons 7;
+  - 70000 (`&H11170`) has buttons 0 but icon 112;
+  - -1 has buttons 15 and icon 240.
+
+  None of the three is "no button set, so OK". An out-of-range field discards the valid fields beside it: 6 +
+  vbCritical shows no icon, and vbYesNo beside icon 112 shows OK.
+- **Windows' own style 6 is not honoured.** Windows defines 6 as Cancel, Try Again and Continue (`MB_CANCELTRYCONTINUE`). VB6 shows OK
+  alone, so VB6 does not pass the style straight through.
+- **The flags above the default button leave the box alone** where measured: 4096, 65536 and 524288.
 - **An OK-only box's single button has control ID 2, not 1.** Windows gives it IDCANCEL's ID, so Escape closes
   it. Pressing it still returns 1, vbOK. Only the ID differs, and it is recorded so nobody mistakes it for a
   Cancel button.
 
+### Closing a message box without pressing a button
+
+Each kind of box was closed by posting `WM_CLOSE`, and again by `WM_SYSCOMMAND` with `SC_CLOSE`, which is what the
+title-bar close and Alt+F4 send. Both gave the same rows:
+
+| Buttons | Closed? | Returned |
+|---|---|---|
+| vbOKOnly | yes | 1, vbOK |
+| vbOKCancel | yes | 2, vbCancel |
+| vbYesNoCancel | yes | 2, vbCancel |
+| vbRetryCancel | yes | 2, vbCancel |
+| vbYesNo | **no, still open** | |
+| vbAbortRetryIgnore | **no, still open** | |
+
+A box with a Cancel button answers vbCancel when closed. OK alone answers vbOK. Yes/No and Abort/Retry/Ignore have
+no close, which is Windows' own rule for a message box. **HexIDE answered vbOK for every kind**, so closing the box
+in `If MsgBox("Delete all?", vbOKCancel) = vbOK Then` took the OK branch.
+
+### An argument that is not a number
+
+Through `CInt`, `CLng`, `RGB`, `QBColor` and `MsgBox`'s style alike, with `o` an object variable holding
+`Nothing`, `va` a Variant holding an Integer array, `k` an object variable holding a `Class1` with no default
+member, and `Text1` a TextBox whose `Text` is "12":
+
+| Argument | Err | Value |
+|---|---|---|
+| `o` | 91 | |
+| `va` | 13 | |
+| `k` | 438 | |
+| `Text1` | | `CInt(Text1)` is 12 (Integer), `RGB(Text1, 0, 0)` is 12 (Long), `QBColor(Text1)` is 255 |
+
+Each raises before any dialog. A control stands for its default member: `Text1` is `Text1.Text`.
+
+Two forms do not compile at all. `CInt(Nothing)`, with a literal `Nothing`, is a compile error, "Invalid use of
+object". `CInt(a)`, with `a` a fixed Integer array named directly, is a compile error, "Type mismatch". So the run
+time rows above are the variable cases.
+
+HexIDE read all four kinds as 0, so `RGB(o, 0, 0)` was black and `CInt(o)` was 0.
+
 **HexIDE, after this.**
 - The style goes through the same `CLng` narrowing, so the in-box constants select their buttons and icon.
+- A style with any field out of range is a plain OK box, as above.
 - `MsgBox` returns a Long.
-- `RGB` and `QBColor` exist, with the coercion, clamping and errors above.
-- Still not honoured by the dialog: the default-button, help-button, modality and right-to-left bits.
+- A box closed without a button answers as the table above says, and the hosts refuse a person's close of a
+  Yes/No or Abort/Retry/Ignore box. A close HexIDE makes itself, ending the run, still goes through. The statement
+  waiting on the box is then abandoned, as the run is.
+- `RGB` and `QBColor` exist, with the coercion, the order of errors, the clamping and the errors above.
+- The numeric conversions raise 91, 13 and 438 as measured. A control or in-box object refuses, untrappably,
+  because its default member is not implemented (#790).
+- Still not honoured by the dialog: the default-button, help-button, modality and right-to-left bits, and Escape
+  and Enter (#827). Its buttons are in English whatever the language (#828).

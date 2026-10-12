@@ -184,6 +184,8 @@ public class WindowManager : IWindowManager
             var messageBox = new MessageBox { Text = text, Buttons = buttons, Icon = icon };
             var window = MakeDialogWindow(caption, messageBox);
             messageBox.AcceptRequest += r => { result = r; window.Close(); };
+            // A Yes/No or Abort/Retry/Ignore box has no close, as in Windows; its caller gets an answer it can act on.
+            messageBox.GuardClose(window);
             await window.ShowDialog(GetTopWindow(desktop));
             return result;
         }

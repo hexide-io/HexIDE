@@ -4,7 +4,7 @@ using VT = HexIDE.Runtime.Interpreter.Vb6Value.ValueType;
 
 namespace HexIDE.Runtime.Interpreter;
 
-// RGB and QBColor. Every value, type and error below was measured on vb6.exe; the probe is in
+// RGB and QBColor. Every value, type and error below was measured on vb6.exe; the probes are in
 // docs/vb6-fidelity-oracle.md, "RGB, QBColor and MsgBox's style".
 public partial class VB6BuiltIns
 {
@@ -19,17 +19,22 @@ public partial class VB6BuiltIns
     {
         // Each argument is an Integer, coerced as CInt does: banker's rounding (RGB(1.5, 2.5, 0) is 514), a numeric
         // string read as a number, Null 94, a non-numeric string 13, and anything outside Integer's range 6
-        // (RGB(40000, 0, 0)). Then a negative component is 5 and one above 255 is 255. A Long, not an Integer:
+        // (RGB(40000, 0, 0)). Only then is a negative component 5, and one above 255 is 255. A Long, not an Integer:
         // TypeName(RGB(1, 0, 0)) is "Long", and new Vb6Value(int) would make it an Integer by magnitude.
+        //
+        // All three are coerced before any is range-checked, last first. Measured: RGB(-1, 40000, 0) is 6, not 5, and
+        // RGB(Null, "x", 0) is 13, not 94, so the second argument was coerced before the first.
         d["RGB"] = (_, a, _) =>
         {
-            var red = ColorComponent(a[0]);
-            var green = ColorComponent(a[1]);
             var blue = ColorComponent(a[2]);
-            return new Vb6Value(red + 256L * green + 65536L * blue);
+            var green = ColorComponent(a[1]);
+            var red = ColorComponent(a[0]);
+            if (red < 0 || green < 0 || blue < 0)
+                throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
+            return new Vb6Value(Math.Min(red, 255) + 256L * Math.Min(green, 255) + 65536L * Math.Min(blue, 255));
         };
 
-        // QBColor(n) for n in 0 to 15, coerced as CInt does (7.5 is 8), and 5 outside it. A Long, as RGB.
+        // QBColor(n) for n in 0 to 15, coerced as CInt does (7.5 is 8, 40000 is 6), and 5 outside it. A Long, as RGB.
         d["QBColor"] = (_, a, _) =>
         {
             var n = Convert.ToInt32(NarrowNum(a[0], VT.Integer).Value);
@@ -38,10 +43,5 @@ public partial class VB6BuiltIns
         };
     }
 
-    private static long ColorComponent(Vb6Value v)
-    {
-        var n = Convert.ToInt32(NarrowNum(v, VT.Integer).Value);
-        if (n < 0) throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
-        return Math.Min(n, 255);
-    }
+    private static long ColorComponent(Vb6Value v) => Convert.ToInt32(NarrowNum(v, VT.Integer).Value);
 }

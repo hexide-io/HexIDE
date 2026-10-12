@@ -22,7 +22,15 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **A message box shows the buttons and icon it was asked for.** `MsgBox "Sure?", vbYesNo + vbQuestion` showed
   OK alone with no icon, because every in-box constant is a Long and the style was read only as an Integer, so a
-  Yes branch could never run. The answer is a Long, as in VB6.
+  Yes branch could never run. The answer is a Long, as in VB6. A style VB6 does not accept, such as 6 or 12, is a
+  plain OK box, as in VB6.
+- **Closing a message box answers as VB6's does.** It answered OK whatever the buttons, so closing an OK/Cancel
+  box took the program's OK branch. A box with a Cancel button now answers Cancel. A Yes/No or Abort/Retry/Ignore
+  box can no longer be closed without an answer, which is Windows' own rule for those two.
+- **`CInt`, `CLng` and the other numeric conversions no longer read an object or an array as 0.** `Nothing`
+  raises 91, an array 13 and an object 438, as in VB6, and so do `RGB`, `QBColor` and a message box's style. A
+  control, which VB6 reads through its default member, stops the run with a message saying default members are not
+  implemented yet (#790).
 - **A Label's background colour set by a program now shows.** `Label1.BackColor = vbRed` read back red but left
   the label as it was; now it paints, for a label in a control array too. A program can make a transparent Label
   opaque with `BackStyle = 1`. A transparent Label ignores a `BackColor` set while it is transparent, as VB6 does.

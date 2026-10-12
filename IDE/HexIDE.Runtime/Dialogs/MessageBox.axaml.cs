@@ -17,6 +17,41 @@ public partial class MessageBox : UserControl
 
     public event Action<MessageBoxResult>? AcceptRequest;
 
+    /// <summary>
+    /// What closing a box with these buttons answers when no button was pressed, or null where it has no close.
+    /// </summary>
+    /// <remarks>
+    /// Measured on vb6.exe, posting WM_CLOSE and SC_CLOSE to each kind: OK alone answers vbOK; OK/Cancel, Yes/No/Cancel
+    /// and Retry/Cancel answer vbCancel; Yes/No and Abort/Retry/Ignore stay open, because they have no close. That is
+    /// Windows' own message box, and the same holds for every box the IDE shows.
+    /// </remarks>
+    public static MessageBoxResult? AnswerOnClose(MessageBoxButtons buttons) => buttons switch
+    {
+        MessageBoxButtons.Ok => MessageBoxResult.Ok,
+        MessageBoxButtons.OkCancel or MessageBoxButtons.YesNoCancel or MessageBoxButtons.RetryCancel
+            => MessageBoxResult.Cancel,
+        _ => null,
+    };
+
+    /// <summary>
+    /// Whether the window hosting a box should refuse a close, as Windows refuses one for a box with no close.
+    /// </summary>
+    /// <remarks>
+    /// Only a person's close is refused: the title-bar button or Alt+F4. A close HexIDE makes itself still goes
+    /// through, which is how ending the run or shutting down reaches a box that is still open, and so does one
+    /// forced by the owner closing or the session ending.
+    /// </remarks>
+    public static bool RefusesClose(MessageBoxButtons buttons, bool isProgrammatic, WindowCloseReason reason) =>
+        AnswerOnClose(buttons) is null && !isProgrammatic && reason == WindowCloseReason.WindowClosing;
+
+    /// <summary>Makes <paramref name="window"/>, which hosts this box, refuse a close the box does not have.</summary>
+    public void GuardClose(Window window) =>
+        window.Closing += (_, e) =>
+        {
+            if (RefusesClose(Buttons, e.IsProgrammatic, e.CloseReason))
+                e.Cancel = true;
+        };
+
     public MessageBox()
     {
         InitializeComponent();

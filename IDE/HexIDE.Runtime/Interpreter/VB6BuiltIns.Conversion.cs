@@ -31,8 +31,40 @@ public partial class VB6BuiltIns
     private static Vb6Value NarrowNum(Vb6Value v, VT target)
     {
         if (v.IsNull) throw InvalidUseOfNull();
+        RefuseNonScalar(v);
         var num = v.Type == VT.String || v.Type == VT.Boolean ? new Vb6Value(ToNum(v)) : v;
         return VbNumeric.Narrow(num, target, null);
+    }
+
+    /// <summary>
+    /// Raises for an argument that is not a number, a string or a date, which <see cref="VbNumeric.Narrow"/> would
+    /// otherwise read as 0. Measured on vb6.exe, through CInt, CLng, RGB, QBColor and MsgBox's style alike.
+    /// </summary>
+    /// <remarks>
+    /// <list type="bullet">
+    /// <item><c>Nothing</c> is 91. A literal <c>Nothing</c> is a compile error, "Invalid use of object", so this is
+    /// the variable's case.</item>
+    /// <item>An array is 13. A fixed array named directly is a compile-time "Type mismatch"; one in a Variant raises
+    /// it at run time.</item>
+    /// <item>A class instance with no default member is 438.</item>
+    /// <item>A control stands for its default member: <c>CInt(Text1)</c> is <c>CInt(Text1.Text)</c>. HexIDE has no
+    /// default members (#790), so it refuses, untrappably, as a Let of one does. A class's own default member is
+    /// part of #790 too, and is 438 until then.</item>
+    /// </list>
+    /// </remarks>
+    private static void RefuseNonScalar(Vb6Value v)
+    {
+        if (v.Type.IsArray)
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        if (v.Type != VT.Object && v.Type != VT.Control && v.Type != VT.CSharpProxyObject)
+            return;
+        if (v.Value is null)
+            throw new VBRunTimeException(VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
+        if (v.Type == VT.Object)
+            throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+        throw new NotImplementedException(
+            "Converting a control or object to a number reads its default member, which is not implemented (#790). "
+            + "Name the property instead.");
     }
 
     internal static double ToNum(Vb6Value v)

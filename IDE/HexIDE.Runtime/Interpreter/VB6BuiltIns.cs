@@ -138,11 +138,19 @@ public partial class VB6BuiltIns
         // The style is a Long, coerced as CLng does. It was read only when it arrived as an Integer, so every Long
         // was style 0, an OK button and no icon: every in-box constant is a Long, so `vbYesNo + vbQuestion` showed
         // OK alone and its Yes branch could never run. Measured: a Long, "4" and 4.5 (banker's: 4) are all Yes/No;
-        // Empty is OK; Null is 94 and "abc" 13, both before any dialog; 70000 and -1 select no buttons, so OK.
+        // Empty is OK; Null is 94, "abc" 13, Nothing 91 and an array 13, all before any dialog.
         // An omitted style (`MsgBox "x", , "t"`) is Missing, not supplied, and stays 0.
         var style = (VBMsgBoxStyle)(Supplied(args, 1)
             ? (int)Convert.ToInt64(NarrowNum(args[1], Vb6Value.ValueType.Long).Value)
             : 0);
+        // A style with any field out of range is a plain OK box with no icon, whatever its other fields say. Measured:
+        // buttons 6 to 15 (6 + vbCritical shows no icon), an icon of 80 or 112 beside vbYesNo, and a default button of
+        // 1024 beside vbYesNo all give OK alone. So do 70000 and -1, whose icon field is 112 and 240. The flags above
+        // the default button (4096, 65536, 524288) leave vbYesNo as it is.
+        if ((int)(style & VBMsgBoxStyle.ButtonsBits) > (int)VBMsgBoxStyle.vbRetryCancel
+            || (int)(style & VBMsgBoxStyle.IconBits) > (int)VBMsgBoxStyle.vbInformation
+            || (int)(style & VBMsgBoxStyle.DefaultButtonBits) > (int)VBMsgBoxStyle.vbDefaultButton4)
+            style = VBMsgBoxStyle.vbOKOnly;
         var styleIcon = style & VBMsgBoxStyle.IconBits;
         var styleButtons = style & VBMsgBoxStyle.ButtonsBits;
         var icon = default(MessageBoxIcon);
@@ -183,9 +191,16 @@ public partial class VB6BuiltIns
         title ??= AppTitle?.Invoke();
 
         var result = await stdLib.MsgBox(text ?? "", title, buttons, icon);
+        // None is a box closed without a button. Measured, closing each kind with WM_CLOSE and SC_CLOSE: OK alone answers
+        // vbOK, a box with a Cancel button answers vbCancel, and Yes/No and Abort/Retry/Ignore cannot be closed at all.
+        // It used to be vbOK for every kind, so closing `If MsgBox("Delete all?", vbOKCancel) = vbOK` deleted all. The
+        // hosts refuse a person's close of the last two kinds, so None reaches here for them only when HexIDE closed the
+        // box itself, ending the run. No answer is right then, and the statement is abandoned as the run is.
+        if (result == MessageBoxResult.None)
+            result = Dialogs.MessageBox.AnswerOnClose(buttons) ?? throw new OperationCanceledException(
+                "The message box was closed without an answer, which only ending the run does");
         var vbResult = result switch
         {
-            MessageBoxResult.None => VBMsgBoxResult.vbOK,
             MessageBoxResult.Ok => VBMsgBoxResult.vbOK,
             MessageBoxResult.Cancel => VBMsgBoxResult.vbCancel,
             MessageBoxResult.Abort => VBMsgBoxResult.vbAbort,

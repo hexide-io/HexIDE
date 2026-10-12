@@ -39,6 +39,7 @@ public class StandaloneStandardLib : IBasicStandardLibrary
             CanResize = false
         };
         msgBox.AcceptRequest += r => { result = r; window.Close(); };
+        msgBox.GuardClose(window);
         await window.ShowDialog(_parent);
         return result;
     }

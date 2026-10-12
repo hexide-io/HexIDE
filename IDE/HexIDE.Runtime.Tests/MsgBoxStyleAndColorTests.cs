@@ -46,9 +46,30 @@ public class MsgBoxStyleAndColorTests : BaseVBTestFixture
     [InlineData("vbAbortRetryIgnore + vbCritical", MessageBoxButtons.AbortRetryIgnore, MessageBoxIcon.Error)]
     [InlineData("vbYesNoCancel + vbExclamation", MessageBoxButtons.YesNoCancel, MessageBoxIcon.Warning)]
     [InlineData("vbRetryCancel + vbInformation", MessageBoxButtons.RetryCancel, MessageBoxIcon.Information)]
-    [InlineData("70000", MessageBoxButtons.Ok, MessageBoxIcon.None)]
+    [InlineData("16", MessageBoxButtons.Ok, MessageBoxIcon.Error)]
+    [InlineData("17", MessageBoxButtons.OkCancel, MessageBoxIcon.Error)]
+    // Any field out of range is a plain OK box with no icon, whatever the other fields say.
+    [InlineData("70000", MessageBoxButtons.Ok, MessageBoxIcon.None)]      // icon field 112
+    [InlineData("70004", MessageBoxButtons.Ok, MessageBoxIcon.None)]      // vbYesNo beside it
     [InlineData("-1", MessageBoxButtons.Ok, MessageBoxIcon.None)]
+    [InlineData("6", MessageBoxButtons.Ok, MessageBoxIcon.None)]          // Windows' Cancel/Try Again/Continue
     [InlineData("7", MessageBoxButtons.Ok, MessageBoxIcon.None)]
+    [InlineData("8", MessageBoxButtons.Ok, MessageBoxIcon.None)]
+    [InlineData("9", MessageBoxButtons.Ok, MessageBoxIcon.None)]
+    [InlineData("12", MessageBoxButtons.Ok, MessageBoxIcon.None)]         // the low nibble, not 4's Yes/No
+    [InlineData("13", MessageBoxButtons.Ok, MessageBoxIcon.None)]
+    [InlineData("15", MessageBoxButtons.Ok, MessageBoxIcon.None)]
+    [InlineData("22", MessageBoxButtons.Ok, MessageBoxIcon.None)]         // 6 + vbCritical: no icon either
+    [InlineData("38", MessageBoxButtons.Ok, MessageBoxIcon.None)]         // 6 + vbQuestion
+    [InlineData("84", MessageBoxButtons.Ok, MessageBoxIcon.None)]         // vbYesNo with icon 80
+    [InlineData("116", MessageBoxButtons.Ok, MessageBoxIcon.None)]        // vbYesNo with icon 112
+    [InlineData("1028", MessageBoxButtons.Ok, MessageBoxIcon.None)]       // vbYesNo with default button 1024
+    // Within range, the default button and the flags above it leave the buttons alone.
+    [InlineData("260", MessageBoxButtons.YesNo, MessageBoxIcon.None)]     // vbDefaultButton2
+    [InlineData("772", MessageBoxButtons.YesNo, MessageBoxIcon.None)]     // vbDefaultButton4
+    [InlineData("4100", MessageBoxButtons.YesNo, MessageBoxIcon.None)]    // vbSystemModal
+    [InlineData("65540", MessageBoxButtons.YesNo, MessageBoxIcon.None)]   // vbMsgBoxSetForeground
+    [InlineData("524292", MessageBoxButtons.YesNo, MessageBoxIcon.None)]  // vbMsgBoxRight
     public async Task The_style_selects_the_buttons_and_icon_VB6_shows(string style, MessageBoxButtons buttons, MessageBoxIcon icon)
     {
         // A Long style used to be read as 0, so every in-box constant, all of which are Longs, showed OK alone.
@@ -76,14 +97,97 @@ public class MsgBoxStyleAndColorTests : BaseVBTestFixture
         lib.Printed.Should().Equal(new Vb6Value(error));
     }
 
-    [Fact]
-    public async Task The_answer_is_a_Long_and_the_Yes_branch_is_reachable()
+    [Theory]
+    [InlineData(MessageBoxResult.Yes, 6L, "yes branch")]
+    [InlineData(MessageBoxResult.No, 7L, "no branch")]
+    public async Task The_answer_is_a_Long_and_chooses_the_branch(MessageBoxResult answer, long value, string branch)
     {
         var lib = await RunMsgBox(
-            "Dim r\nr = MsgBox(\"probe\", vbYesNo + vbQuestion, \"ProbeBox\")\nDebug.Print TypeName(r)\nIf r = vbYes Then Debug.Print \"yes\"\n",
-            MessageBoxResult.Yes);
+            "Dim r\nr = MsgBox(\"probe\", vbYesNo + vbQuestion, \"ProbeBox\")\nDebug.Print r\nDebug.Print TypeName(r)\n"
+            + "If r = vbYes Then\n    Debug.Print \"yes branch\"\nElse\n    Debug.Print \"no branch\"\nEnd If\n",
+            answer);
 
-        lib.Printed.Should().Equal(new Vb6Value("Long"), new Vb6Value("yes"));
+        lib.Printed.Should().Equal(new Vb6Value(value), new Vb6Value("Long"), new Vb6Value(branch));
+    }
+
+    [Theory]
+    [InlineData("vbOKOnly", 1L)]
+    [InlineData("vbOKCancel", 2L)]
+    [InlineData("vbYesNoCancel", 2L)]
+    [InlineData("vbRetryCancel", 2L)]
+    public async Task A_box_closed_without_a_button_answers_as_VB6s_does(string style, long expected)
+    {
+        // It answered vbOK for every kind, so closing an OK/Cancel box took the program's OK branch.
+        var lib = await RunMsgBox($"Debug.Print MsgBox(\"probe\", {style}, \"ProbeBox\")\n", MessageBoxResult.None);
+
+        lib.Printed.Should().Equal(new Vb6Value(expected));
+    }
+
+    [Theory]
+    [InlineData("vbYesNo")]
+    [InlineData("vbAbortRetryIgnore")]
+    public async Task A_box_with_no_close_that_is_closed_anyway_abandons_the_statement(string style)
+    {
+        // VB6 offers no close here, and the hosts refuse a person's. So a box closed without an answer was closed by
+        // HexIDE ending the run, and no answer is right: the statement is abandoned, as the run is.
+        var run = () => RunMsgBox($"Debug.Print MsgBox(\"probe\", {style}, \"ProbeBox\")\nDebug.Print \"after\"\n",
+            MessageBoxResult.None);
+
+        await run.Should().ThrowAsync<OperationCanceledException>();
+    }
+
+    [Theory]
+    [InlineData(MessageBoxButtons.Ok, false)]
+    [InlineData(MessageBoxButtons.OkCancel, false)]
+    [InlineData(MessageBoxButtons.YesNoCancel, false)]
+    [InlineData(MessageBoxButtons.RetryCancel, false)]
+    [InlineData(MessageBoxButtons.YesNo, true)]
+    [InlineData(MessageBoxButtons.AbortRetryIgnore, true)]
+    public void A_person_cannot_close_a_box_that_has_no_close(MessageBoxButtons buttons, bool refused)
+    {
+        Dialogs.MessageBox.RefusesClose(buttons, isProgrammatic: false, Avalonia.Controls.WindowCloseReason.WindowClosing)
+            .Should().Be(refused);
+        Dialogs.MessageBox.RefusesClose(buttons, isProgrammatic: true, Avalonia.Controls.WindowCloseReason.WindowClosing)
+            .Should().BeFalse("HexIDE's own close, ending the run, always goes through");
+        Dialogs.MessageBox.RefusesClose(buttons, isProgrammatic: false, Avalonia.Controls.WindowCloseReason.ApplicationShutdown)
+            .Should().BeFalse("nor does the session ending");
+    }
+
+    // ── An argument that is not a number ─────────────────────────────────────────────────────────
+
+    private const string NonScalars =
+        "Dim o As Class1\nDim a(2) As Integer\nDim va\nva = a\nDim k As Class1\nSet k = New Class1\nOn Error Resume Next\n";
+
+    [Theory]
+    [InlineData("CInt(o)", 91L)]
+    [InlineData("CLng(o)", 91L)]
+    [InlineData("RGB(o, 0, 0)", 91L)]
+    [InlineData("QBColor(o)", 91L)]
+    [InlineData("MsgBox(\"probe\", o)", 91L)]
+    [InlineData("CInt(va)", 13L)]
+    [InlineData("RGB(va, 0, 0)", 13L)]
+    [InlineData("MsgBox(\"probe\", va)", 13L)]
+    [InlineData("CInt(k)", 438L)]
+    [InlineData("RGB(k, 0, 0)", 438L)]
+    [InlineData("MsgBox(\"probe\", k)", 438L)]
+    public async Task Nothing_an_array_or_an_object_raises_rather_than_reading_as_0(string expression, long error)
+    {
+        // Each read as 0 through the numeric narrowing, so RGB(o, 0, 0) was black and MsgBox "x", o an OK box.
+        await RunClasses($"{NonScalars}Dim c\nc = {expression}\nDebug.Print Err.Number\nDebug.Print IsEmpty(c)\n",
+            ("Class1", "Public Tag As Long\n"));
+        AssertDebugLog([new Vb6Value(error), new Vb6Value(true)]);
+    }
+
+    [Theory]
+    [InlineData("CInt(Err)")]
+    [InlineData("RGB(Err, 0, 0)")]
+    public async Task An_object_standing_for_its_default_member_is_refused_until_default_members_exist(string expression)
+    {
+        // VB6 reads the default member, CInt(Text1) as CInt(Text1.Text). HexIDE has none yet (#790), so it refuses
+        // untrappably rather than read 0.
+        var run = () => Run($"On Error Resume Next\nDim c\nc = {expression}\n");
+
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#790*");
     }
 
     // ── RGB ──────────────────────────────────────────────────────────────────────────────────────
@@ -109,6 +213,14 @@ public class MsgBoxStyleAndColorTests : BaseVBTestFixture
     [InlineData("RGB(3000000000#, 0, 0)", 6L)]
     [InlineData("RGB(\"x\", 0, 0)", 13L)]
     [InlineData("RGB(Null, 0, 0)", 94L)]
+    // All three are coerced before any is range-checked, the last first.
+    [InlineData("RGB(-1, 40000, 0)", 6L)]
+    [InlineData("RGB(40000, -1, 0)", 6L)]
+    [InlineData("RGB(0, -1, 40000)", 6L)]
+    [InlineData("RGB(\"x\", -1, 0)", 13L)]
+    [InlineData("RGB(-1, \"x\", 0)", 13L)]
+    [InlineData("RGB(Null, \"x\", 0)", 13L)]     // not 94: the second argument was coerced first
+    [InlineData("RGB(300, -1, 0)", 5L)]
     public async Task RGB_raises_what_VB6_raises(string expression, long error)
     {
         await Run($"On Error Resume Next\nDim c\nc = {expression}\nDebug.Print Err.Number\n");
@@ -154,6 +266,7 @@ public class MsgBoxStyleAndColorTests : BaseVBTestFixture
     [InlineData("QBColor(16)", 5L)]
     [InlineData("QBColor(-1)", 5L)]
     [InlineData("QBColor(Null)", 94L)]
+    [InlineData("QBColor(40000)", 6L)]            // overflow as an Integer, before the range check
     public async Task QBColor_raises_what_VB6_raises(string expression, long error)
     {
         await Run($"On Error Resume Next\nDim c\nc = {expression}\nDebug.Print Err.Number\n");
