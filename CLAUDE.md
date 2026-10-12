@@ -303,13 +303,20 @@ So, for any tool added here:
 **Record every shortcoming in `docs/mcp-server-gaps.md` AND file it**, exactly as a human-facing defect
 would be. An entry that lives only in that file is a note to self; the surface ships either way.
 
-**A relaunch keeps the tools a session already has; a new or changed tool needs `/mcp`.** The server is
-stateless (#763), so there is no session to go stale and no stream to drop. `shutdown_ide`, rebuild and relaunch
-leave an attached session's tools callable: measured 2026-10-12 across three cycles, one with a rebuild and one
+**A relaunch keeps the tools a session already has. A new tool needs `/mcp`; a changed one that this session
+has already loaded needs a new session.** The server is stateless (#763), so there is no session to go stale
+and no stream to drop. `shutdown_ide`, rebuild and relaunch leave an attached session's tools callable: measured 2026-10-12 across three cycles, one with a rebuild and one
 holding the IDE down for 40 seconds. Nothing re-lists the tools, though, and a tool added in that rebuild did
-not appear. After a rebuild that adds or changes a tool, ask the
-user to run **`/mcp` and reconnect `hexide`**, not for a session restart. A session that started with no IDE
-running has no attachment at all: relaunch, wait for `/health`, then ask for the same reconnect.
+not appear. After a rebuild that adds a tool, ask the user to run **`/mcp` and reconnect `hexide`**, not for
+a session restart. A session that started with no IDE running has no attachment at all: relaunch, wait for
+`/health`, then ask for the same reconnect.
+
+**A tool's schema, once a session has loaded it, stays as loaded: through `/mcp`, through compaction, and in
+the session's subagents.** Measured 2026-10-12: after a rebuild and `/mcp`, a tool whose description changed
+and which the session had not loaded read the new text, while one it had loaded read the old text, and so did
+a fresh subagent asked for it. The tool's *behaviour* is the new build's; only what the session believes about
+it is old. So a changed description or signature cannot be checked in the session that loaded it. Check it in
+a new session or a headless test, and when a signature changed, expect a call built from the old one to fail.
 
 **While the IDE is down, poll `/health` and do not call a hexide tool.** Each refused call counts towards
 Claude Code's limit of three consecutive connection errors. The third closes the transport; the client retries
@@ -407,7 +414,8 @@ When you need to rebuild while HexIDE is running, always follow this cycle — d
    launched** (`Start-Process -PassThru` gives you it; use a loop with 1 s sleep, up to 30 s). A 200 alone is not
    enough: if another HexIDE still holds the port, it answers, and yours exits with code 3 (#53).
 5. **Continue**: the session's existing MCP tools are usable once `/health` returns 200. A tool this build
-   added or changed needs a `/mcp` reconnect first (see the restart note above).
+   added needs a `/mcp` reconnect first; one it changed keeps its old schema in this session if the session
+   has loaded it (see the restart note above).
 
 If `shutdown_ide` is unavailable (MCP disconnected), use PowerShell: `Stop-Process -Name HexIDE.Desktop -ErrorAction SilentlyContinue` then proceed from step 2.
 
@@ -422,8 +430,8 @@ If `shutdown_ide` is unavailable (MCP disconnected), use PowerShell: `Stop-Proce
 
 **MCP session note:** MCP tools are discovered at session start. If HexIDE is not running when a Claude
 Code session starts, the tools will not appear until it is running and `/mcp` reconnects `hexide`. If it *was*
-running, a relaunch keeps the session's existing tools (#763), and a new or changed one needs that reconnect.
-See the restart note above.
+running, a relaunch keeps the session's existing tools (#763). A new one needs that reconnect, and a changed
+one reads fresh only in a session that has not loaded it yet. See the restart note above.
 
 ## Architecture
 
