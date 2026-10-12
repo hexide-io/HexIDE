@@ -97,6 +97,38 @@ public class SyntaxErrorAtStartTests
         AssertAStartThatNeverRan(h).Should().StartWith("Compile error:").And.Contain("in Form1, line ");
     }
 
+    [AvaloniaTheory]
+    [InlineData("    If Then\r\n", false)]
+    [InlineData("", true)]   // the positive control: a clean form is shown, once
+    public void The_single_view_host_parses_a_form_before_it_shows_it(string loadBody, bool shown)
+    {
+        // RunFormInBrowser showed the form's window before parsing its code, so a syntax error left a window behind a
+        // failed start, which nothing would close. It now parses first, as VBLoader.RunForm does.
+        var project = FormProject(loadBody);
+        var h = Runner(project);
+        var wasSingleView = HexIDE.Static.SingleView;
+        HexIDE.Static.SingleView = true;
+        try
+        {
+            h.Runner.RunProject(project);
+        }
+        finally
+        {
+            HexIDE.Static.SingleView = wasSingleView;
+        }
+
+        if (shown)
+        {
+            h.Windows.ReceivedWithAnyArgs(1).ShowManagedWindow(default!);
+            h.Reported.Should().BeEmpty();
+        }
+        else
+        {
+            AssertAStartThatNeverRan(h).Should().StartWith("Compile error:");
+            h.Windows.DidNotReceiveWithAnyArgs().ShowManagedWindow(default!);
+        }
+    }
+
     [AvaloniaFact]
     public void A_syntax_error_in_a_module_on_the_form_path_names_that_module()
     {
