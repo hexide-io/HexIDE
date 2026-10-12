@@ -29,7 +29,8 @@ there isn't one yet. Anything may change between 0.x releases.
   with a default member, which VB6 reads in all those places, stops the run with a message saying class default
   members are not implemented yet (#174), rather than an error `On Error Resume Next` would step over.
 - **`Err` used as a value is its `Number`**, as in VB6: `"Error " & Err`, `x = Err`, `Err + 1`. It was refused. App
-  used as a value raises VB6's 438, where it printed a .NET type name.
+  used as a value raises VB6's 438, where it printed a .NET type name. A control used as a value still does, until
+  #790.
 - **The Immediate window's `? obj` no longer prints the class's name.** A class with no default member is 438, as
   in VB6, and one with a default member says that reading it is not available in break mode.
 - **A syntax error when a program starts, or a compile error while it runs, is reported like a run-time error.**

@@ -54,6 +54,8 @@ public class ImmediateEvalTests : BaseVBTestFixture
     {
         // `? w` prints w's default member in VB6. Reading a class's calls into the program, which break mode refuses as it
         // refuses `?obj.Prop` (D15); a class with none is 438, and Err is its Number. It used to print the class's name.
+        // Inferred, not measured: `Debug.Print k` raises 438 in the IDE (measured), and `?` is the Immediate window's
+        // Print.
         var (vb, dbg) = NewDebuggable(
             "Go\nSub Go()\nDim w As Widget\nSet w = New Widget\nDim k As Plain\nSet k = New Plain\nDebug.Print 1\nEnd Sub\n",
             "Module1",

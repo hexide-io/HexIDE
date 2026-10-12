@@ -4652,6 +4652,10 @@ the control. A Let of a control or of an in-box object (`Err`, `App`, a control 
 are unaffected. `Label1 = "x"` is still a compile error ("Method or data member not found"). `n = Err` reads
 `Err.Number` in VB6 by the documentation; that was not measured.
 
+**Superseded for the in-box objects by #840**, which measured them ("An object used as a value"): `n = Err` stores
+Err.Number, `s = App` raises 438, and `Debug` and a control array used as values are compile errors. The #790
+refusal now covers controls only.
+
 ## A Label's colours, read back and painted (2026-10-12, #795)
 
 Measured to decide what a Label and a TextBox should read back and paint. Real `vb6.exe` 6.00.8176 (SP6), guest
@@ -4989,7 +4993,8 @@ HexIDE read every one of these as 0, so `RGB(o, 0, 0)` was black and `CInt(o)` w
   - an omitted argument is 448;
   - a UDT raises 13, which is VB6's compile-time error raised at run time.
 - A control, an in-box object, or a class with a `VB_UserMemId = 0` member refuses, untrappably, because HexIDE does not
-  read default members yet: #790 for controls, #174 for classes. A trappable error there would let
+  read default members yet: #790 for controls, #174 for classes. (Superseded for the in-box objects by #840: Err used as a
+  value is its Number and App raises 438, as measured there.) A trappable error there would let
   `On Error Resume Next` carry on without the value VB6 gives.
 - A box hidden with its owner keeps waiting, shown again unowned, and so does a box whose owner was hidden before it
   opened. The waiting statement is abandoned only when the run that opened the box has ended, which survives a
@@ -5114,8 +5119,21 @@ does not call a class's default member yet. It raised a trappable 438 or 13 in s
 in others, and a trappable error there lets `On Error Resume Next` carry on without VB6's value.
 
 **Probe.** A Sub Main project built with `vb6.exe /make` and run under `On Error Resume Next`, logging each result
-with `TypeName` and `Err.Number`. The first two probes were native code; the review's probes below ran both native and
-in the IDE (`/runexit`, see "Resume Next into a block"), which agreed except where a row says so.
+with `TypeName` and `Err.Number`. **Every probe here ran both as native code and in the IDE**, and the two agreed on
+every row except where a row says so. The first two probes were native only until the review's second round, which
+ran them in the IDE too: identical, except the Select Case and For rows under Resume Next, where the IDE gives p-code's
+answers (below, and "Resume Next into a block").
+
+**How the IDE runs were made.** `VB6.EXE /runexit probe.vbp` runs a project in the IDE, as F5 does, and closes VB when
+the program ends. It was started in the Win10 guest's session 0 over PowerShell Direct, with the project's files
+copied into a fresh folder first. The program writes its log with `Print #` to a file beside the project, because
+`Debug.Print` output goes to the Immediate window and is gone when VB closes. Three things to know when repeating it:
+- VB exits with 0xC000041D after the program finishes. That is normal.
+- A compile error or an unhandled run-time error leaves a modal dialog that nobody can answer in session 0, so a run
+  still going after a timeout is killed, and its log is missing or incomplete. Every use is therefore made under
+  `On Error Resume Next` or `On Error GoTo`, and a compile error shows up as a missing log.
+- A `probe.exe` left in the folder means the run was a `/make` build, not an IDE run.
+#842 tracks making this, and the native `/make` harness, part of the tree.
 - `w` is a `Widget`, whose `Value` carries `Attribute Value.VB_UserMemId = 0` and returns 42;
 - `k` is a `Plain`, a class with only `Public Tag As Long` and no default member.
 
@@ -5137,8 +5155,11 @@ in the IDE (`/runexit`, see "Resume Next into a block"), which agreed except whe
 | `For i = 40 To w` | 3 passes | 438 at the bound |
 | `Print #f, w` | ` 42 ` | 438, after the text before it was written |
 
-`Debug.Print` cannot be measured this way: its output goes to the Immediate window, which neither a built program
-nor a `/runexit` run leaves anywhere to read. It is taken to follow `Print #`, which it shares its formatting with.
+`Debug.Print`'s output cannot be read this way: it goes to the Immediate window, which neither a built program nor a
+`/runexit` run leaves anywhere to read. Its **error** can be, in the IDE: `Debug.Print k` raises 438 there, and
+`Debug.Print w` raises nothing. A native build removes `Debug.Print` statements altogether, so there both give 0. What
+`Debug.Print w` prints is taken to follow `Print #`, which shares its formatting, and is **inferred**, not measured.
+The Immediate window's `? k` is inferred from `Debug.Print k` the same way.
 
 `Len(w)` does not compile: "Variable required - can't assign to this expression".
 
@@ -5185,10 +5206,10 @@ with `k` a Plain, so each condition raises 438:
 | `If k Then ... Else ... End If` | the Then branch |
 | `If False Then ... ElseIf k Then ... Else ...` | the ElseIf branch |
 | `If k Then c = "Then" Else c = "Else"`, one line | the Then part |
-| `Select Case k`, `Case 1`, `Case Else` | **Case Else** (native code only: see below) |
+| `Select Case k`, `Case 1`, `Case Else` | native: **Case Else**; the IDE: neither (see below) |
 | `Do While k`, `Do Until k`, `While k` | the body, every pass, until the probe's own `Exit` after 3 |
 | `Do ... Loop While k` | the body once, then out |
-| `For i = 1 To k` | the body, every pass, until `Exit For` after 3; `i` was still 0 afterwards (native code only) |
+| `For i = 1 To k` | native: the body, every pass, until `Exit For` after 3, `i` still 0 afterwards; the IDE: one pass, `i` 1 afterwards |
 
 Resume Next resumes at the statement after the one that raised, and for a block statement that is the first statement
 inside it. A bottom-tested loop's next statement is the one after `Loop`.
@@ -5246,7 +5267,18 @@ member returns a value the function would answer about:
 | `Mid(s, sm, 1) = "X"`, `Mid(s, 2, sm) = "XYZ"` on "abcdef" | "aXcdef", "aXYdef" | 438, `s` unchanged |
 | `Mid(s, w, 1) = "X"` | 5, the start past the end | |
 
-**The array functions:** only the array is taken as itself.
+**The array functions.** The array that `LBound`, `UBound`, `Join` and `Filter` take first is not read at all. Any
+object there raises 13, including a class whose default member returns an array, and so does every other value that
+is not an array. Through a Variant `v`, because a typed object variable there does not compile ("Expected array"):
+
+| First argument | `UBound(v)`, `LBound(v)`, `Join(v, "-")`, `Filter(v, "b")` |
+|---|---|
+| a `Widget`, a `Plain`, an `Arr` whose default member returns `Array("a", "b", "c")` | 13 each |
+| `"abc"`, 5, Empty, Null | 13 each |
+
+HexIDE's `Join` and `Filter` raised 5 for each of those, and now raise 13.
+
+Every other argument reads the member:
 
 | Call | `sm` | `k` |
 |---|---|---|
@@ -5264,11 +5296,27 @@ member returns a value the function would answer about:
 | `Debug` | a compile error, "Syntax error" |
 | a control array without an index, `"v=" & Cmd` | a compile error, "Argument not optional" |
 
-`TypeName(Err)` is "ErrObject" and `TypeName(App)` is "App".
+`TypeName` of each: Err "ErrObject", App "App", Screen "Screen", Clipboard "Clipboard", Printer "Printer", and
+Forms **"Object"**. HexIDE gave "VbErr" and "VbApp", its own class names, and now gives VB6's; it has no Screen,
+Clipboard, Printer or Forms yet.
+
+**The rows the review found unprobed,** measured in the second round:
+
+| Use | `w` (42) | `k` |
+|---|---|---|
+| `If False Then ... ElseIf w Then` | the ElseIf branch | 438, and the ElseIf branch runs (#839) |
+| `For i = w To 45`; `For i = 1 To 100 Step w` | 4 passes, `i` 46; 3 passes, `i` 127 | 438 at the bound or the step |
+| `Do ... Loop While w`; `Loop Until w` | loops; leaves after one pass | 438, and leaves after one pass |
+| `c = MsgBox(k)` | | 438, before any box shows |
+| `Debug.Print k`, `Debug.Print "v=" & k` | | 438 in the IDE |
+
+`MsgBox(w)` would show a box, which session 0 cannot dismiss, so it was not run. That it shows "42" is inferred.
 
 **HexIDE, after #174's refusal (this change).** One rule, `ObjectAsValue`, applied wherever a value is wanted:
 - every binary operator's operands (`GetTwoValues`), negation and `Not`;
-- every text coercion (`VbDisplay.ToText`: concatenation, `CStr`, `Val`, `Str` and the string functions);
+- every text coercion (`VbDisplay.ToText`: concatenation, `CStr`, `Val`, `Str` and the string functions), for a class
+  instance and an in-box object. **Not for a control**: `"v=" & Text1`, `CStr(Text1)` and `Debug.Print Text1` still give
+  the control's .NET type name, which is #790's;
 - a Let, a store into a declared scalar (`CoerceOnStore`), a ByVal argument for a declared scalar parameter;
 - every built-in function's arguments (`EvaluateBuiltInFunction`), once the name is found to be a built-in: an
   unknown name stays "Sub or Function not defined" whatever it is given. `TypeName`, `IsObject`, `IsMissing` and `Array`

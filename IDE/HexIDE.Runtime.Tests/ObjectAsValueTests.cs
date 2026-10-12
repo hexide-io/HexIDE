@@ -3,11 +3,11 @@ using HexIDE.Runtime.Interpreter;
 namespace HexIDE.Runtime.Tests;
 
 /// <summary>
-/// A class instance used where a value is wanted (#174). Measured on vb6.exe, with <c>Widget</c>'s <c>Value</c> its
-/// default member returning 42 and <c>Plain</c> a class with none: every use below sees 42 for a Widget and raises 438
-/// for a Plain. HexIDE does not call a class's default member yet, so a Widget is refused untrappably, where it raised a
-/// trappable 438 or 13, or read 0, the CLR type name, or no match at all. A Plain raises VB6's 438, where several of
-/// these raised 13 or gave the type name (#436). The probe is in docs/vb6-fidelity-oracle.md, "An object used as a
+/// A class instance used where a value is wanted (#174). Measured on vb6.exe, native and in the IDE, with
+/// <c>Widget</c>'s <c>Value</c> its default member returning 42 and <c>Plain</c> a class with none: every use below sees
+/// 42 for a Widget and raises 438 for a Plain. HexIDE does not call a class's default member yet, so a Widget is
+/// refused untrappably, where it raised a trappable 438 or 13, or read 0, the CLR type name, or no match at all. A Plain
+/// raises VB6's 438, where several of these raised 13 or gave the type name (#436). The probe is in docs/vb6-fidelity-oracle.md, "An object used as a
 /// value".
 /// </summary>
 public class ObjectAsValueTests : BaseVBTestFixture
@@ -47,7 +47,7 @@ public class ObjectAsValueTests : BaseVBTestFixture
         "c = ByValString(o)",
         "Select Case o\nCase 42\nc = 1\nEnd Select",
         "Dim i As Long\nFor i = 40 To o\nNext",   // no assignment in the body: #839 decides whether it runs
-        "Debug.Print o",
+        "Debug.Print o",   // its 438 measured in the IDE: a native build drops Debug.Print
     };
 
     [Theory]
@@ -80,7 +80,9 @@ public class ObjectAsValueTests : BaseVBTestFixture
     [InlineData("Dim a(1) As Long\na(0) = o")]
     public async Task A_condition_or_a_conversion_of_a_class_with_a_default_member_is_refused(string use)
     {
-        // The same rule: VB6 reads the default member (measured for If; the others follow it).
+        // The same rule: VB6 reads the default member. Measured for If, a Case value, CDate and a Let into a Long; While,
+        // Do While and an array element are inferred from them. `Not o` raises 450 for a Function default member
+        // (measured), which the refusal covers too.
         var run = () => RunWith("Widget", use);
 
         (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#174*");
