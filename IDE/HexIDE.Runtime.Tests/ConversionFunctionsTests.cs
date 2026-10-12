@@ -31,6 +31,7 @@ public class ConversionFunctionsTests : BaseVBTestFixture
     [InlineData("CBool(5)", true)]
     [InlineData("CBool(0)", false)]
     [InlineData("CBool(\"True\")", true)]
+    [InlineData("CBool(Empty)", false)]      // measured: False, no error, as CLng(Empty) is 0
     public async Task CBool_ReturnsBoolean(string expr, bool expected)
     {
         await Run($"Debug.Print {expr}\n");
@@ -75,6 +76,27 @@ public class ConversionFunctionsTests : BaseVBTestFixture
     public async Task Conversion_Overflow_RaisesErr6(string expr)
     {
         Func<Task> act = () => Run($"Debug.Print {expr}\n");
+        (await act.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(6);
+    }
+
+    [Theory]
+    [InlineData("CDbl(\"NaN\")")]
+    [InlineData("CDbl(\"Infinity\")")]
+    [InlineData("CDbl(\"-Infinity\")")]
+    [InlineData("CLng(\"NaN\")")]
+    [InlineData("CBool(\"\")")]
+    public async Task A_string_that_is_not_a_VB6_number_is_a_type_mismatch(string expr)
+    {
+        // Measured on vb6.exe. .NET reads "NaN" and "Infinity" as numbers; VB6 has neither.
+        Func<Task> act = () => Run($"Debug.Print {expr}\n");
+        (await act.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(13);
+    }
+
+    [Fact]
+    public async Task Digits_too_large_for_a_Double_are_an_overflow_not_a_type_mismatch()
+    {
+        // .NET parses "1E+400" to Infinity, as it parses "Infinity". Measured: VB6 raises 6 for it.
+        Func<Task> act = () => Run("Debug.Print CDbl(\"1E+400\")\n");
         (await act.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(6);
     }
 }

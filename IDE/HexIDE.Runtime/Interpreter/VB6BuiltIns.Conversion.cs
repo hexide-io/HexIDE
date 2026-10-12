@@ -57,8 +57,18 @@ public partial class VB6BuiltIns
                     throw new VBRunTimeException(VBStandardError.TypeMismatch);
                 }
             }
-            return double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var sd)
-                ? sd : throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            if (!double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var sd))
+                throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            // .NET reads "NaN", "Infinity" and "-Infinity" as numbers. VB6 has neither, and CDbl of each is 13
+            // (measured). Digits too large for a Double are Infinity to .NET as well, and that one is Overflow:
+            // CDbl("1E+400") is 6 (measured). It used to go through as Infinity.
+            if (double.IsNaN(sd))
+                throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            if (double.IsInfinity(sd))
+                throw new VBRunTimeException(s.AsSpan().ContainsAnyInRange('0', '9')
+                    ? VBStandardError.Overflow
+                    : VBStandardError.TypeMismatch);
+            return sd;
         }
         if (Vb6Value.TryNumericToDouble(v, out var d)) return d;   // numeric + Date (via OA serial)
         throw new VBRunTimeException(VBStandardError.TypeMismatch);
@@ -68,6 +78,8 @@ public partial class VB6BuiltIns
     {
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is bool b) return new Vb6Value(b);
+        // Measured: CBool(Empty) is False, as Empty is 0 to CLng and CDbl. `Enabled = Empty` takes this path.
+        if (v.Type == VT.EmptyVariant) return new Vb6Value(false);
         if (v.Type == VT.String)
         {
             var s = AsStr(v).Trim();

@@ -186,12 +186,29 @@ public static class AvaloniaInteroperability
                 if (!prop.IsValidControl(control))
                     continue;
 
-                prop.SetUntyped(control, ConvertForAssignment(property, value));
+                var converted = ConvertForAssignment(property, value);
+                if (control is VBScrollBar bar && ReferenceEquals(property, VBProperties.ValueProperty) && converted is int position)
+                    CheckScrollBarValue(bar, position);
+                prop.SetUntyped(control, converted);
                 return true;
             }
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// A scroll bar's Value outside its Min..Max is 380 in VB6, from a String too, where Avalonia would clamp it.
+    /// Measured: Min may exceed Max, and the range is checked either way round. HexIDE cannot hold such a bar,
+    /// because Avalonia raises Maximum to Minimum, so a Value set on one would read back clamped (#787).
+    /// </summary>
+    private static void CheckScrollBarValue(VBScrollBar bar, int position)
+    {
+        if (bar.VbMin > bar.VbMax)
+            throw new NotImplementedException(
+                $"A scroll bar whose Min ({bar.VbMin}) exceeds its Max ({bar.VbMax}) is not implemented (#787)");
+        if (position < bar.VbMin || position > bar.VbMax)
+            throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
     }
 
     /// <summary>
@@ -218,26 +235,45 @@ public static class AvaloniaInteroperability
     {
         var type = property.PropertyType;
 
-        // Non-zero is True (0.4 included: it is "non-zero", not "rounds to 1"), "False" and "1" parse, Empty is
-        // False, "banana" is 13 and Null is 94. CBool is the interpreter's own, already pinned, so the boundary
-        // agrees with `CBool(x)` written out longhand.
-        if (type == typeof(bool))
-            return value.Value is bool ? value.Value : VB6BuiltIns.CBool(value).Value;
+        // Tag keeps what it is given, for now. It is a String in VB6 (`Label1.Tag = 5` reads back "5", measured),
+        // but storing it as one here broke two idioms that work today: `If Command1.Tag = 1` needs the String-to-
+        // number comparison #211 has not landed, and `Tag + 1` needs String arithmetic. Tag becomes a String with
+        // #211. An unset Tag reads back "" (TryGet). Null is 94, as for any String property.
+        if (ReferenceEquals(property, VBProperties.TagProperty))
+            return value.IsNull ? throw new VBRunTimeException(VBStandardError.InvalidUseOfNull) : value.Value;
+
+        // A colour read from a control is a Long in VB6, so copying one (`Text1.BackColor = Label1.BackColor`),
+        // restoring one saved in a Variant, or showing one (`Caption = BackColor`) takes it as that Long.
+        if (value.Value is VBColor color)
+            value = new Vb6Value((long)color.ToOle());
 
         // A control, an object or an array on the right is not a value to convert. For a control VB6 reads its
         // default property (`Label1.Caption = Text1` takes Text1.Text), which HexIDE does not implement, and
         // converting the reference itself would store a .NET type name as the caption. So it fails clearly instead
-        // of answering wrong. What VB6 does with each of these was not measured for this change.
+        // of answering wrong, for a Boolean property too: there it used to give a trappable 13, which On Error
+        // Resume Next would step over. What VB6 does with each of these was not measured for this change.
         if (!IsScalar(value))
             throw new NotImplementedException(
                 $"Assigning {value.Type} to the {property.Name} property is not implemented");
 
-        // Tag is a String in VB6, though HexIDE declares it as an object: `Label1.Tag = 5` reads back "5".
-        if (type == typeof(string) || ReferenceEquals(property, VBProperties.TagProperty))
+        // Non-zero is True (0.4 included: it is "non-zero", not "rounds to 1"), "False" and "1" parse, Empty is
+        // False (measured: `Command1.Enabled = Empty` is False, no error), "banana" is 13 and Null is 94. CBool is
+        // the interpreter's own, already pinned, so the boundary agrees with `CBool(x)` written out longhand.
+        if (type == typeof(bool))
+            return value.Value is bool ? value.Value : VB6BuiltIns.CBool(value).Value;
+
+        if (type == typeof(string))
+        {
+            // A Date's text needs the user's locale, which the interpreter does not have yet (#777): in the IDE it
+            // would show month first on every machine. Refused until then, rather than shown wrong.
+            if (value.Value is DateTime)
+                throw new NotImplementedException(
+                    $"Assigning a Date to the {property.Name} property is not implemented: its text needs the user's locale (#777)");
             return VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, null).Value;
+        }
 
         if (type == typeof(VBColor))
-            return value.Value is VBColor ? value.Value : VBColor.FromOle(OleColor(value));
+            return VBColor.FromOle(OleColor(value));
 
         if (type.IsEnum)
             return value.Value?.GetType() == type ? value.Value : Enum.ToObject(type, EnumValue(type, value));
@@ -271,9 +307,11 @@ public static class AvaloniaInteroperability
 
     /// <summary>
     /// The OLE_COLOR a value names, or 380 when VB6 would refuse it. Measured: the high byte selects the kind, and
-    /// each kind has its own range. 0x00 is an RGB value and 0x02 a palette-relative one, any low 24 bits. 0x01 is
-    /// a palette index, 0 to &amp;HFFFF. 0x80 is a system colour, 0 to &amp;H18. Every other high byte is refused,
-    /// and so is a negative number that is not a system colour (`BackColor = True` is -1).
+    /// each kind has its own range. 0x00 is an RGB value, any low 24 bits. 0x80 is a system colour, 0 to &amp;H18:
+    /// &amp;H19 to &amp;H20 were each probed and refused. Every other high byte is refused, and so is a negative
+    /// number that is not a system colour (`BackColor = True` is -1). The palette kinds, 0x01 (an index, 0 to
+    /// &amp;HFFFF) and 0x02 (palette-relative RGB, any), VB6 accepts and keeps as given; HexIDE has no colour that
+    /// can hold one, so they are refused as not implemented rather than stored as the RGB of their low bytes (#786).
     /// </summary>
     private static long OleColor(Vb6Value value)
     {
@@ -282,12 +320,18 @@ public static class AvaloniaInteroperability
         var low = bits & 0xFFFFFF;
         var valid = (bits >> 24) switch
         {
-            0x00 or 0x02 => true,
+            0x00 => true,
             0x01 => low <= 0xFFFF,
+            0x02 => true,
             0x80 => low <= 0x18,
             _ => false,
         };
-        return valid ? ole : throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+        if (!valid)
+            throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+        if ((bits >> 24) is 0x01 or 0x02)
+            throw new NotImplementedException(
+                $"A palette colour (&H{bits:X8}) is not implemented (#786)");
+        return ole;
     }
 
     /// <summary>
@@ -313,7 +357,11 @@ public static class AvaloniaInteroperability
                 if (!prop.IsValidControl(c))
                     continue;
 
-                value = FromObject(prop.GetUntyped(c));
+                var raw = prop.GetUntyped(c);
+                // An unset Tag is "" in VB6, so `X.Tag = Y.Tag` copies an empty string rather than raising 94.
+                value = raw is null && ReferenceEquals(property, VBProperties.TagProperty)
+                    ? new Vb6Value("")
+                    : FromObject(raw);
                 return true;
             }
         }
