@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -23,22 +24,28 @@ namespace HexIDE.Tests.Infrastructure;
 /// </summary>
 /// <remarks>
 /// <para>
-/// It did not. The SDK's Streamable HTTP transport is stateful by default: <c>initialize</c> issues an
-/// <c>Mcp-Session-Id</c>, every later request carries it, and a relaunched process has never heard of it. The
-/// relaunched server answers 404 "Session not found", as the MCP specification requires for an unknown session,
-/// and the SDK's own client does not start a new session on that 404. Its next call hangs. CLAUDE.md said the
-/// transport was stateless ("each call is a fresh POST"). That was never true of the default, and it is how
-/// a dropped attachment after every rebuild came to look like a client quirk.
+/// It did not, through two mechanisms, both of which come from the SDK's default transport being stateful:
+/// </para>
+/// <list type="bullet">
+/// <item><b>The session.</b> <c>initialize</c> issues an <c>Mcp-Session-Id</c> that every later request carries,
+/// and a relaunched process has never heard of it. It answers 404 "Session not found", as the specification
+/// requires. The SDK's own client does not start a new session on that, and its next call hangs. Claude Code
+/// does, so for Claude Code this path recovers.</item>
+/// <item><b>The GET stream.</b> A stateful server also offers a long-lived GET for messages the server starts.
+/// Claude Code holds one open, and from 2.1.282 it counts a refused reconnect of that stream as a terminal
+/// error. When the IDE shuts down within a few minutes of a connect, Claude Code closes the transport, retries
+/// for about sixteen seconds, and gives up until <c>/mcp</c>. A rebuild takes longer than that. This is what
+/// dropped the tools after a <c>shutdown_ide</c>; which attachment the session had was incidental.</item>
+/// </list>
+/// <para>
+/// So the server runs stateless (<see cref="McpTransport"/>). It issues no session and offers no GET stream,
+/// so neither mechanism has anything to act on. Nothing the server does needs either: it answers tool calls,
+/// and sends no notification, sampling, elicitation or roots request of its own.
 /// </para>
 /// <para>
-/// So the server runs stateless (<see cref="McpTransport"/>). Nothing it does needs a session: it answers tool
-/// calls, and sends no notification, sampling, elicitation or roots request of its own, which are what stateless
-/// mode gives up.
-/// </para>
-/// <para>
-/// These run a real server with the same transport configuration under the SDK's real client, and restart it
-/// on the same port. Whether Claude Code's own client then keeps its tools is a separate question that only a
-/// real relaunch answers. This proves only that the server side no longer strands a client.
+/// These run a real server built like the IDE's under the SDK's real client, and restart it on the same port.
+/// What Claude Code does with that is a separate question only a real relaunch answers. These prove the
+/// server side: no session to go stale, no stream to drop, and a failing tool still explained.
 /// </para>
 /// </remarks>
 public class McpRestartTests
@@ -48,6 +55,9 @@ public class McpRestartTests
     {
         [McpServerTool(Name = "echo"), Description("Returns its argument.")]
         public static string Echo(string text) => text;
+
+        [McpServerTool(Name = "fail"), Description("Throws.")]
+        public static string Fail() => throw new InvalidOperationException("the tool broke");
     }
 
     private static int FreePort()
@@ -59,13 +69,20 @@ public class McpRestartTests
         return port;
     }
 
-    /// <summary>A server shaped like the IDE's: Kestrel on loopback, the transport configured as given.</summary>
+    /// <summary>
+    /// A server built as <c>IdeServer</c> builds its own: Kestrel on loopback, the transport configured as given,
+    /// and the filter that explains a failing tool (#603).
+    /// </summary>
     private static async Task<WebApplication> StartAsync(int port, Action<HttpServerTransportOptions> transport)
     {
         var builder = WebApplication.CreateSlimBuilder();
         builder.Logging.ClearProviders();
         builder.WebHost.ConfigureKestrel(o => o.ListenLocalhost(port));
-        builder.Services.AddMcpServer().WithHttpTransport(transport).WithTools<Tools>();
+        builder.Services
+            .AddMcpServer()
+            .WithHttpTransport(transport)
+            .WithTools<Tools>()
+            .WithRequestFilters(filters => filters.AddCallToolFilter(ToolFailures.Filter));
         var app = builder.Build();
         app.MapMcp("/mcp");
         await app.StartAsync(TestContext.Current.CancellationToken);
@@ -86,15 +103,20 @@ public class McpRestartTests
         }),
         cancellationToken: TestContext.Current.CancellationToken);
 
-    /// <summary>Calls the tool, bounded, so a client left hanging fails the test rather than stalling it.</summary>
-    private static async Task<string> EchoAsync(McpClient client, string text)
+    /// <summary>Calls a tool, bounded, so a client left hanging fails the test rather than stalling it.</summary>
+    private static async Task<CallToolResult> CallAsync(McpClient client, string tool, string? text = null)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(TestContext.Current.CancellationToken);
         timeout.CancelAfter(TimeSpan.FromSeconds(20));
-        var result = await client.CallToolAsync("echo", new Dictionary<string, object?> { ["text"] = text },
-            cancellationToken: timeout.Token);
-        return string.Concat(result.Content.OfType<TextContentBlock>().Select(c => c.Text));
+        var arguments = text is null ? new Dictionary<string, object?>() : new() { ["text"] = text };
+        return await client.CallToolAsync(tool, arguments, cancellationToken: timeout.Token);
     }
+
+    private static string TextOf(CallToolResult result) =>
+        string.Concat(result.Content.OfType<TextContentBlock>().Select(c => c.Text));
+
+    private static async Task<string> EchoAsync(McpClient client, string text) =>
+        TextOf(await CallAsync(client, "echo", text));
 
     [Fact]
     public async Task A_client_attached_before_a_restart_is_answered_after_it()
@@ -118,11 +140,56 @@ public class McpRestartTests
     }
 
     [Fact]
-    public async Task Under_the_SDKs_default_a_restart_strands_the_client()
+    public async Task There_is_no_GET_stream_for_a_shutdown_to_drop()
     {
-        // The case the configuration exists for. If a later SDK starts a new session on its own when it meets
-        // the 404, this fails, and the reason for running stateless should be looked at again rather than kept
-        // out of habit.
+        // The mechanism that cost Claude Code its tools. A client asks for the stream with a GET; a server that
+        // offers none answers 405, which the specification names as the way to decline, and a client then holds
+        // no connection between calls. Stateful, the same GET is not refused this way: the endpoint exists.
+        var port = FreePort();
+        var app = await StartAsync(port, McpTransport.Configure);
+        try
+        {
+            using var http = new HttpClient();
+            using var request = new HttpRequestMessage(HttpMethod.Get, $"http://localhost:{port}/mcp");
+            request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
+
+            using var response = await http.SendAsync(request, TestContext.Current.CancellationToken);
+
+            response.StatusCode.Should().Be(HttpStatusCode.MethodNotAllowed);
+        }
+        finally
+        {
+            await StopAsync(app);
+        }
+    }
+
+    [Fact]
+    public async Task A_tool_that_throws_is_still_explained()
+    {
+        // Stateless builds the server afresh for every request, so the filter registered once at startup has to
+        // reach each of those. If it did not, a failing tool would be back to the SDK's bare "An error occurred".
+        var port = FreePort();
+        var app = await StartAsync(port, McpTransport.Configure);
+        try
+        {
+            await using var client = await ConnectAsync(port);
+
+            var result = await CallAsync(client, "fail");
+
+            result.IsError.Should().BeTrue();
+            TextOf(result).Should().Contain("System.InvalidOperationException").And.Contain("the tool broke");
+        }
+        finally
+        {
+            await StopAsync(app);
+        }
+    }
+
+    [Fact]
+    public async Task Under_the_SDKs_default_a_restart_strands_the_SDKs_own_client()
+    {
+        // The session mechanism, kept as a control. If a later SDK starts a new session by itself on the 404, this
+        // fails, and the reasons for running stateless should be looked at again rather than kept out of habit.
         var port = FreePort();
         var first = await StartAsync(port, _ => { });
         await using var client = await ConnectAsync(port);
@@ -149,6 +216,7 @@ public class McpRestartTests
         // above prove the configuration; this proves the server uses it.
         var source = File.ReadAllText(Path.Combine(RepoTree.Root(), "IDE", "HexIDE.Desktop", "Server", "IdeServer.cs"));
 
-        source.Should().Contain(".WithHttpTransport(McpTransport.Configure)");
+        source.Should().Contain(".WithHttpTransport(McpTransport.Configure)")
+            .And.Contain("filters.AddCallToolFilter(ToolFailures.Filter)");
     }
 }

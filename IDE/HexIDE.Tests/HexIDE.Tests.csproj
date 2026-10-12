@@ -39,12 +39,14 @@
     </ItemGroup>
 
     <!-- The automation server's transport, tested by restarting a real server under the SDK's own client
-         (McpRestartTests). No test project references HexIDE.Desktop, so the one file that decides the
-         transport is compiled in here as well; the server and the test cannot then disagree about it. -->
+         (McpRestartTests). No test project references HexIDE.Desktop, so the files that decide the transport
+         and how a failing tool is reported are compiled in here as well; the server and the test cannot then
+         disagree about them. -->
     <ItemGroup>
         <FrameworkReference Include="Microsoft.AspNetCore.App" />
         <PackageReference Include="ModelContextProtocol.AspNetCore" />
         <Compile Include="..\HexIDE.Desktop\Server\McpTransport.cs" Link="Infrastructure\McpTransport.cs" />
+        <Compile Include="..\HexIDE.Desktop\Server\ToolFailures.cs" Link="Infrastructure\ToolFailures.cs" />
     </ItemGroup>
 
 </Project>

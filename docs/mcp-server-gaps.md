@@ -23,11 +23,39 @@ maxDepth: 14)`, not "`dump_visual_tree` returns only the tab chrome".
 
 ## 3. MCP tools drop on IDE shutdown and don't re-attach mid-session
 
-> **The MCP client's behaviour, not a HexIDE defect** (#645). Tool discovery belongs to the client: it keeps
-> a cached schema for a tool name it already knows, and does not attach at all when a session began with no
-> server answering. Measured 2026-09-22 over about a dozen relaunches in one session that began attached:
-> existing tools stayed callable every time, and a changed description was not picked up until a `/mcp`
-> reconnect. Nothing observed points at the server. Kept here for the measurements.
+> **Half of it WAS the server, and the server half is fixed (#763).** Until 2026-10-12 the server ran the
+> SDK's default transport, which is stateful. That gave a relaunch two ways to break an attached client:
+>
+> - **The session.** A relaunched IDE answers the old `Mcp-Session-Id` with 404 "Session not found". Claude
+>   Code recovers from that by re-initialising. The SDK's own client does not.
+> - **The GET stream. This is what dropped the tools.** Claude Code holds a GET open to a stateful server.
+>   From Claude Code **2.1.282**, a refused reconnect of that stream is terminal. A `shutdown_ide` within
+>   about five minutes of a connect therefore makes it close the transport, retry for about sixteen seconds,
+>   and give up until `/mcp`.
+>
+> Claude Code's own MCP logs for `hexide` on the dev machine show the split cleanly. Every log from
+> 2026-09-21 and 09-22 is 2.1.278, with no give-up. The first give-up is on 2.1.282 (09-25), and 2.1.286 and
+> 2.1.296 have more.
+>
+> So the 2026-09-22 measurement below, "existing tools stayed callable every time", was true, and was a
+> property of 2.1.278. The rule CLAUDE.md drew from the 2026-10-05 failure, that a reconnect's attachment
+> does not survive a shutdown, named the wrong variable. The variable is the client version and the age of
+> the GET stream.
+>
+> **The fix:** the server runs stateless (`McpTransport`), so there is no session to go stale and no GET to
+> refuse. `McpRestartTests` proves the server side under the SDK's real client. **Open until a live relaunch
+> confirms it from Claude Code's side**, which a test cannot.
+>
+> **The cost:** a tool added in a rebuild used to arrive through the 404 re-initialise, and it now needs
+> `/mcp`.
+>
+> Unchanged: the client keeps a cached schema for a tool name it already knows, and does not attach at all
+> when a session began with no server answering (#645).
+>
+> What this entry said before, kept for the record: *"The MCP client's behaviour, not a HexIDE defect.
+> Measured 2026-09-22 over about a dozen relaunches in one session that began attached: existing tools stayed
+> callable every time, and a changed description was not picked up until a `/mcp` reconnect. Nothing observed
+> points at the server."*
 
 **Symptom.** MCP tools are discovered at session start. Shutting the IDE down — which is **required** to run
 the `vb6.exe` oracle and for any rebuild that holds file locks on the runtime DLLs — disconnects the `hexide`
@@ -370,6 +398,17 @@ shutdown cannot complete, keep the server alive so the next call can say why.
 
 ## A mid-session relaunch DOES pick up new tools, if the server was attached when the session started
 
+> **Corrected 2026-10-12 (#763): the mechanism was not the attachment, and it no longer applies.**
+>
+> - **How new tools arrived.** A relaunched stateful server answered the session's next call with 404.
+>   Claude Code re-initialised on that 404, and re-listed the tools as part of it.
+> - **"Attached at session start" was incidental.** What mattered was that the session survived the
+>   shutdown at all, which on Claude Code 2.1.282 and later depends on the age of its GET stream (entry 3).
+> - **Now.** The server is stateless, so there is no 404, no re-initialise and no re-list. A tool added in
+>   a rebuild needs a `/mcp` reconnect to appear.
+>
+> The measurements below stand as measurements.
+
 **Measured, and it refines a rule this file and `CLAUDE.md` both state more strongly than is true.** The
 documented rule is that MCP tools are discovered at session start and a schema change needs a session
 restart. Both of these happened in one afternoon:
@@ -452,6 +491,10 @@ by re-reading prose that had just been written. That half is the first-contact e
 ---
 
 ## A relaunch picks up a NEW tool but not a CHANGED one (measured 2026-09-20)
+
+> **Since #763 a relaunch picks up neither.** The server is stateless, so the re-initialise that used to
+> bring a new tool in no longer happens. Both now need `/mcp`. The transferable part below, a nullable
+> parameter with no default being `required` on the wire, is unaffected.
 
 **Symptom.** Four mark tools gained an optional `project` argument. The documented rebuild cycle ran —
 `shutdown_ide`, build, relaunch, `/health` — and the first call to `set_breakpoints` failed with
