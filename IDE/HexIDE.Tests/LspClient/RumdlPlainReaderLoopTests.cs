@@ -11,7 +11,7 @@ namespace HexIDE.Tests.LspClient;
 /// </summary>
 public class RumdlPlainReaderLoopTests
 {
-    private const int Starts = 150;
+    private const int Starts = 300;
     private static readonly TimeSpan Wait = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan Late = TimeSpan.FromSeconds(20);
 
@@ -33,7 +33,7 @@ public class RumdlPlainReaderLoopTests
     private const string FlagsProbe =
         "import fcntl,os; print(' '.join(f'fd{fd}=' + ('NONBLOCK' if fcntl.fcntl(fd, fcntl.F_GETFL) & os.O_NONBLOCK else 'blocking') for fd in (0,1,2)))";
 
-    [Fact]
+    [Fact(Skip = "Settled in run 4: blocking on Linux and macOS, from .NET and from Popen")]
     public async Task The_stdio_a_dotnet_child_inherits_is_blocking()
     {
         Assert.SkipWhen(OperatingSystem.IsWindows(), "fcntl is POSIX");
@@ -68,11 +68,12 @@ public class RumdlPlainReaderLoopTests
 
     public enum Read { Async, BlockingThread }
 
+    // Run 4 settled read mode, stderr and launcher: every variant missed, Python too, rumdl alive and silent after 25 s.
+    // What is left is when the request arrives relative to rumdl's own startup, so this run varies only that.
     [Theory]
-    [InlineData(Read.Async, true)]
-    [InlineData(Read.BlockingThread, true)]
-    [InlineData(Read.Async, false)]
-    public async Task A_bare_dotnet_reader_gets_every_answer(Read how, bool redirectStderr)
+    [InlineData(Read.Async, true, 0)]
+    [InlineData(Read.Async, true, 250)]
+    public async Task A_bare_dotnet_reader_gets_every_answer(Read how, bool redirectStderr, int delayMs)
     {
         var ct = TestContext.Current.CancellationToken;
         var rumdl = ForeignServer.Markdown.Find()!;
@@ -90,6 +91,7 @@ public class RumdlPlainReaderLoopTests
             var drainErr = redirectStderr ? p.StandardError.BaseStream.CopyToAsync(Stream.Null, ct) : Task.CompletedTask;
             var clock = Stopwatch.StartNew();
             var input = p.StandardInput.BaseStream;
+            if (delayMs > 0) await Task.Delay(delayMs, ct);
             await input.WriteAsync(Frame, ct);
             await input.FlushAsync(ct);
 
@@ -118,7 +120,7 @@ public class RumdlPlainReaderLoopTests
         }
 
         times.Sort();
-        var summary = $"bare .NET reader ({how}, stderr {(redirectStderr ? "redirected" : "inherited")}): {missed.Count} of {Starts} "
+        var summary = $"bare .NET reader ({how}, stderr {(redirectStderr ? "redirected" : "inherited")}, written after {delayMs}ms): {missed.Count} of {Starts} "
                     + $"unanswered within {Wait.TotalSeconds:0}s; answered median {(times.Count > 0 ? times[times.Count / 2] : 0):0}ms, "
                     + $"max {(times.Count > 0 ? times[^1] : 0):0}ms. Misses: {string.Join(" | ", missed)}";
         missed.Should().BeEmpty(summary);
@@ -128,7 +130,6 @@ public class RumdlPlainReaderLoopTests
 
     [Theory]
     [InlineData("devnull")]
-    [InlineData("pipe")]
     public async Task A_python_reader_gets_every_answer(string stderrMode)
     {
         var ct = TestContext.Current.CancellationToken;
