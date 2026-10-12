@@ -371,6 +371,7 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 - `--capture-lsp` — arm the protocol capture for every language-server connection **before any is made**, so a conversation is recorded in full from its first handshake. Arming is otherwise session-scoped and the documented rebuild cycle restarts the IDE every iteration, which is what this exists for. **Unlike `--server-port`, this is not DEBUG-only**: the capture ships and the automation server does not
 - `--user-data-dir <path>` — keep this session's settings, layout, recents and `lsp-servers.json` in that directory instead of the user's own. **Use it for any demo or automation run that needs its own configuration**, rather than editing the real one and relying on someone to change it back. Works in Release. A relative path is relative to where HexIDE was started
 - `--developer-mode` — session developer mode; DEBUG-only and inert in a distributed build
+- `--ansi-code-page <n>` — read and write VB6 sources as a machine whose ANSI code page is `n` (e.g. `932`); DEBUG-only. The only way to reach the byte-for-byte read and its notice on a Western machine, where every byte decodes
 - `--personality <vb6|vbaode|vba>` — the IDE personality for the session
 - Positional `.vbp` path — skip the startup dialog and open that project
 
@@ -859,7 +860,7 @@ widening visibility to `public` just for a test. When a new test project needs r
 - **`docs/foreign-language-servers.md`** — the third-party servers the suite drives, why each earns its
   place, how they are obtained, and why a GPL-licensed one is consistent with a 100%-MIT tree. Read it
   before adding a third: the bar is a protocol *shape* nothing else exercises, not another server.
-- **`docs/command-line.md`** — every command-line option HexIDE accepts, what each does, and which two are
+- **`docs/command-line.md`** — every command-line option HexIDE accepts, what each does, and which three are
   inert in a distributed build. The only user-facing account; keep it in step with
   `HexIDE.Desktop/ServerOptions.cs`, which is the parser it describes.
 - **`docs/language-servers.md`** — how a user attaches a language server: where `lsp-servers.json` lives,

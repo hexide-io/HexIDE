@@ -25,7 +25,11 @@ public class ProjectSerializer
         _                     => throw new ArgumentOutOfRangeException(nameof(type), type, null)
     };
 
-    public string Serialize(ProjectDefinition project, string projectPath)
+    /// <param name="pathOf">
+    /// Where a form or module will be when this text is written, for a caller checking a save before it moves
+    /// anything; null for a member staying where it is. Without it, each member is named where it is now.
+    /// </param>
+    public string Serialize(ProjectDefinition project, string projectPath, Func<object, string?>? pathOf = null)
     {
         var writer = new StringWriter { NewLine = "\r\n" };
         // Sort by PositionHint so interleaving is correct even if unknowns were appended out of order
@@ -68,19 +72,19 @@ public class ProjectSerializer
 
         foreach (var form in project.Forms)
         {
-            if (form.AbsolutePath == null)
+            if ((pathOf?.Invoke(form) ?? form.AbsolutePath) is not { } formPath)
                 continue;
             var relativePath = SerializedProject.ToProjectFilePath(
-                Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, form.AbsolutePath));
+                Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, formPath));
             WriteKnownLine($"{SerializedProject.FormKey}={relativePath}");
         }
 
         foreach (var module in project.Modules)
         {
-            if (module.AbsolutePath == null)
+            if ((pathOf?.Invoke(module) ?? module.AbsolutePath) is not { } modulePath)
                 continue;
             var relativePath = SerializedProject.ToProjectFilePath(
-                Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, module.AbsolutePath));
+                Path.GetRelativePath(Path.GetDirectoryName(projectPath)!, modulePath));
             var key = module.Kind switch
             {
                 ModuleKind.ClassModule  => SerializedProject.ClassKey,
