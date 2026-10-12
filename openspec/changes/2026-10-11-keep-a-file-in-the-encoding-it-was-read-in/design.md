@@ -63,7 +63,9 @@ Every save goes through one path, in three steps:
 
 1. **Choose.** Editor buffers are flushed into the model once. Then each file's destination is settled:
    - a document with no file yet, or a Save As, asks the developer;
-   - a document HexIDE cannot reproduce is left out and reported, as before.
+   - a document HexIDE cannot reproduce is left out and reported, as before;
+   - after the last picker, that is decided again. A picker waits on the developer, and the file watcher
+     can reload a document changed on disk meanwhile, so one that passed before a later picker may not now.
 2. **Check.** Every file is rendered as it will be written and encoded in its own code page.
 3. **Write.** Only once every file has passed is the first one written.
 
@@ -79,15 +81,26 @@ A file is checked as it will be at its destination. A form names its companion b
 or group file names its members by where they are going. So Save Project As to another folder is checked
 against the paths the new project file will hold, not the old ones.
 
+A Save As also checks the file that will name the document in its new place, when that file is not part of
+the save: a form or module's project file, or a project's group file. A name that file cannot hold is refused
+then, in that file's name. Before, the document was written and repointed, and every later save of the
+project refused, naming the project rather than the document. A file that cannot be written as it stands is
+left for its own save to refuse; a Save Form As is not stopped for a project file it does not write.
+
 Make checks the files it will package, each in its own code page, before it asks where to put the program. No
 source file's text depends on that answer, and the question is wasted if the answer will not be used. The
-same reasoning keeps the faithful-save refusal above the Save As picker.
+same reasoning keeps the faithful-save refusal above the Save As picker, and puts Make's there too: a form or
+module HexIDE cannot reproduce is refused before the picker, all of them named in one warning.
 
 Adding a new form or module checks two things before a folder is chosen or anything is created: the new
 file itself, and the line the project file will hold for it. A refusal therefore leaves nothing behind.
 
-A refusal names the document, its code page and the first character it cannot hold. A person sees the
-existing source-encoding warning, which names the document and the code page. An automation tool saves with
+A refusal names the document, its code page, the first character it cannot hold and the line of the file
+that holds it. The character is not always in the edit just made: a form is written whole, so it can be in a
+property set earlier, and a project file names its members by file, so it can be in a name. The line says
+which. A person sees a warning that says nothing was written and quotes that line; it replaces one that named
+only the document and the code page, and said that document "was not saved because an edit" held the
+character, which a batch, a path and a Make each made untrue. An automation tool saves with
 `interactive: false`: no dialog is shown, and the refusal comes back in the tool's reply. Before this, the
 reply waited on a dialog nobody could answer (#751). A refusal for a file HexIDE cannot reproduce is quiet
 in the same way.
@@ -99,10 +112,11 @@ Behaviour that changes with it:
   written.
 - **Save Project As** asks where the project file goes before writing any member.
 - **Writing a new project to its folder** now refuses a file HexIDE cannot reproduce before the first file,
-  not after the forms.
+  not after the forms, and announces each form it writes to the language server, as it already did modules.
 - **The sidecar** is saved after the last VB6 file of the operation, not after each project file.
-- **Make** refuses an unencodable document before asking for the program's place, and before checking for
-  the standalone runtime.
+- **Make** refuses an unencodable document, or one HexIDE cannot reproduce, before asking for the program's
+  place, and before checking for the standalone runtime.
+- **Make Project Group** asks for every destination, the group file's included, before writing any project.
 
 Only what can be decided in advance is checked in advance. An I/O failure part-way through still leaves the
 files written before it.

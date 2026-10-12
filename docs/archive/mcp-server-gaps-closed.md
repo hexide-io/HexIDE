@@ -1916,6 +1916,14 @@ undo/redo) MCP-verifiable.
 > After each call, `dump_visual_tree(maxDepth: 1, interactiveOnly: false)` reported the main window, so no
 > dialog was open. The SHA-256 of every file in the project was unchanged, and `add_file` created no file.
 > `get_file_content` showed the refused code still in the IDE, with `hasUnsavedChanges: true`.
+>
+> **The wording above was revised after review, in the same PR, and the revision has not been measured live.**
+> The run above needed the automation port, which was in use elsewhere when the revision landed. Each reply
+> now quotes the line of the file that holds the character, such as `` found in the line `Caption = "Next →"` ``,
+> because the character can be in a property no read tool shows. The prefixes no longer name the new input
+> as the cause (`The new code is in the IDE, but the file was not written.`), since the save writes the whole
+> file. `add_control`'s reply ends by naming the call that writes the form once that text is changed. The
+> replies are built from `SourceEncodingRefusal.Message`, which `Vb6TextFileTests` pins.
 
 **Symptom.** Each of the three write tools saves through `ProjectService.SaveForm` or `SaveModule` on the UI
 thread, and awaits the result. A refused save reported itself in a message box inside that save:
