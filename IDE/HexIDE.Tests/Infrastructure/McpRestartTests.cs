@@ -29,18 +29,20 @@ namespace HexIDE.Tests.Infrastructure;
 /// <list type="bullet">
 /// <item><b>The session.</b> <c>initialize</c> issues an <c>Mcp-Session-Id</c> that every later request carries,
 /// and a relaunched process has never heard of it. It answers 404 "Session not found", as the specification
-/// requires. The SDK's own client does not start a new session on that, and its next call hangs. Claude Code
-/// does, so for Claude Code this path recovers.</item>
+/// requires. The SDK's own client does not start a new session on that: the 404 cancels its connection, and
+/// every call after it fails at once. Claude Code does start a new session, so for Claude Code this path
+/// recovers.</item>
 /// <item><b>The GET stream.</b> A stateful server also offers a long-lived GET for messages the server starts.
 /// Claude Code holds one open, and from 2.1.282 it counts a refused reconnect of that stream as a terminal
-/// error. When the IDE shuts down within a few minutes of a connect, Claude Code closes the transport, retries
-/// for about sixteen seconds, and gives up until <c>/mcp</c>. A rebuild takes longer than that. This is what
+/// error. On the third it closes the transport and retries at 1, 2, 4 and 8 seconds. If the IDE is still down
+/// after about 15 seconds, which it always is during a rebuild, it gives up until <c>/mcp</c>. This is what
 /// dropped the tools after a <c>shutdown_ide</c>; which attachment the session had was incidental.</item>
 /// </list>
 /// <para>
 /// So the server runs stateless (<see cref="McpTransport"/>). It issues no session and offers no GET stream,
 /// so neither mechanism has anything to act on. Nothing the server does needs either: it answers tool calls,
-/// and sends no notification, sampling, elicitation or roots request of its own.
+/// and sends no notification, sampling, elicitation or roots request of its own. What else stateless gives up
+/// is listed on <see cref="McpTransport.Configure"/>.
 /// </para>
 /// <para>
 /// These run a real server built like the IDE's under the SDK's real client, and restart it on the same port.
@@ -95,13 +97,18 @@ public class McpRestartTests
         await app.DisposeAsync();
     }
 
-    private static Task<McpClient> ConnectAsync(int port) => McpClient.CreateAsync(
-        new HttpClientTransport(new HttpClientTransportOptions
+    private static Task<McpClient> ConnectAsync(int port, int? maxReconnectionAttempts = null)
+    {
+        var options = new HttpClientTransportOptions
         {
             Endpoint = new Uri($"http://localhost:{port}/mcp"),
             TransportMode = HttpTransportMode.StreamableHttp,
-        }),
-        cancellationToken: TestContext.Current.CancellationToken);
+        };
+        if (maxReconnectionAttempts is { } attempts)
+            options.MaxReconnectionAttempts = attempts;
+        return McpClient.CreateAsync(new HttpClientTransport(options),
+            cancellationToken: TestContext.Current.CancellationToken);
+    }
 
     /// <summary>Calls a tool, bounded, so a client left hanging fails the test rather than stalling it.</summary>
     private static async Task<CallToolResult> CallAsync(McpClient client, string tool, string? text = null)
@@ -186,17 +193,22 @@ public class McpRestartTests
     }
 
     [Fact]
-    public async Task Under_the_SDKs_default_a_restart_strands_the_SDKs_own_client()
+    public async Task A_stateful_server_strands_the_SDKs_own_client_after_a_restart()
     {
         // The session mechanism, kept as a control. If a later SDK starts a new session by itself on the 404, this
         // fails, and the reasons for running stateless should be looked at again rather than kept out of habit.
+        //
+        // Stateful is set explicitly rather than taken from the SDK's default, which the SDK's 2.x line changes
+        // (#764). And the client is told not to reconnect its GET stream: when the first server stops, the stream
+        // ends and the client tries again a second later with the old session id. If the restart takes longer than
+        // that, the retry meets the 404 first and cancels the connection, so the call below fails differently.
         var port = FreePort();
-        var first = await StartAsync(port, _ => { });
-        await using var client = await ConnectAsync(port);
+        var first = await StartAsync(port, o => o.Stateless = false);
+        await using var client = await ConnectAsync(port, maxReconnectionAttempts: 0);
         (await EchoAsync(client, "before")).Should().Be("before");
 
         await StopAsync(first);
-        var second = await StartAsync(port, _ => { });
+        var second = await StartAsync(port, o => o.Stateless = false);
         try
         {
             var act = () => EchoAsync(client, "after");
@@ -214,7 +226,9 @@ public class McpRestartTests
     {
         // No test project references HexIDE.Desktop, so this reads the source, as ToolSource does. The tests
         // above prove the configuration; this proves the server uses it.
-        var source = File.ReadAllText(Path.Combine(RepoTree.Root(), "IDE", "HexIDE.Desktop", "Server", "IdeServer.cs"));
+        // Without comments, so a line commented out does not count as used.
+        var source = ToolSource.WithoutComments(
+            File.ReadAllText(Path.Combine(RepoTree.Root(), "IDE", "HexIDE.Desktop", "Server", "IdeServer.cs")));
 
         source.Should().Contain(".WithHttpTransport(McpTransport.Configure)")
             .And.Contain("filters.AddCallToolFilter(ToolFailures.Filter)");
