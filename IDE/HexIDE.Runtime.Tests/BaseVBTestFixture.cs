@@ -40,6 +40,10 @@ public abstract class BaseVBTestFixture
                     return Math.Abs(aD - bD) < epsilon ? 0 : aD.CompareTo(bD);
                 if (xVal.Value is float aF && yVal.Value is float bF)
                     return Math.Abs(aF - bF) < epsilon ? 0 : aF.CompareTo(bF);
+                // Ordinal, never string.CompareTo: that compares in the thread's culture, which under ICU ignores
+                // zero-width characters, so a bidi mark before a minus sign or a Chr(0) compared equal to nothing.
+                if (xVal.Value is string aS && yVal.Value is string bS)
+                    return string.CompareOrdinal(aS, bS);
                 if (xVal.Value is IComparable comparable)
                     return comparable.CompareTo(yVal.Value);
                 if (x.Equals(y))

@@ -29,7 +29,7 @@ public partial class VB6BuiltIns
         if (fmt.Length == 0)
             return new Vb6Value(GeneralNumberOrString(v));
 
-        var cc = CultureInfo.CurrentCulture;
+        var cc = VbLocale.Current;
         string fmtKey = fmt.Trim().ToLowerInvariant();
         // Out-of-decimal-range / non-finite magnitudes can't feed the decimal engine; render them in scientific
         // notation for the numeric named formats instead of throwing an uncatchable OverflowException (see
@@ -88,7 +88,7 @@ public partial class VB6BuiltIns
     // General Number: the value's shortest decimal, current-culture decimal point, no grouping.
     private static string GeneralNumber(Vb6Value v) =>
         OutOfDecimalRangeNumeric(v)
-        ?? NumToDecimal(v).ToString("0.#############################", CultureInfo.CurrentCulture);
+        ?? NumToDecimal(v).ToString("0.#############################", VbLocale.Current);
 
     private static string GeneralNumberOrString(Vb6Value v) => v.Value switch
     {
@@ -108,7 +108,7 @@ public partial class VB6BuiltIns
     // 'w' uses the vbSunday base; 'y' alone is the day of the year.
     private static string FormatDate(DateTime dt, string mask)
     {
-        var dfi = CultureInfo.CurrentCulture.DateTimeFormat;
+        var dfi = VbLocale.Current.DateTimeFormat;
         bool ampm = ContainsAmPm(mask);
         var sb = new StringBuilder();
         bool afterHour = false;   // set by h/hh, survives literals — drives the m-is-minute rule
@@ -122,7 +122,7 @@ public partial class VB6BuiltIns
             if (Match(mask, i, "am/pm")) { sb.Append(dt.Hour < 12 ? "am" : "pm"); i += 5; afterHour = false; continue; }
             if (Match(mask, i, "A/P")) { sb.Append(dt.Hour < 12 ? "A" : "P"); i += 3; afterHour = false; continue; }
             if (Match(mask, i, "a/p")) { sb.Append(dt.Hour < 12 ? "a" : "p"); i += 3; afterHour = false; continue; }
-            if (Match(mask, i, "ttttt")) { sb.Append(dt.ToString(dfi.LongTimePattern, CultureInfo.CurrentCulture)); i += 5; continue; }
+            if (Match(mask, i, "ttttt")) { sb.Append(dt.ToString(dfi.LongTimePattern, VbLocale.Current)); i += 5; continue; }
 
             char lc = char.ToLowerInvariant(c);
             int run = RunLength(mask, i, lc);
@@ -275,8 +275,10 @@ public partial class VB6BuiltIns
         sb.Append(overflowSuffix);
 
         string result = sb.ToString();
-        if (IndexOfUnquoted(mask, '>') >= 0) result = result.ToUpper(CultureInfo.CurrentCulture);
-        if (IndexOfUnquoted(mask, '<') >= 0) result = result.ToLower(CultureInfo.CurrentCulture);
+        // Invariant casing, as UCase and LCase have. Whether VB6 cases by the locale (tr-TR's dotted I) is unmeasured
+        // for all four, and they must agree with each other whichever it is (#797).
+        if (IndexOfUnquoted(mask, '>') >= 0) result = result.ToUpperInvariant();
+        if (IndexOfUnquoted(mask, '<') >= 0) result = result.ToLowerInvariant();
         return result;
     }
 
@@ -311,7 +313,7 @@ public partial class VB6BuiltIns
 
     private static string FormatPlainNumeric(decimal value, string fmt)
     {
-        var nf = CultureInfo.CurrentCulture.NumberFormat;
+        var nf = VbLocale.Current.NumberFormat;
         if (fmt.IndexOf('%') >= 0) value *= 100m;
 
         // Split into leading literals / number pattern / trailing literals around the placeholder run.
@@ -398,7 +400,7 @@ public partial class VB6BuiltIns
         string expDigits = Math.Abs(exp).ToString(CultureInfo.InvariantCulture).PadLeft(minExpDigits, '0');
 
         var sb = new StringBuilder();
-        if (negative) sb.Append(CultureInfo.CurrentCulture.NumberFormat.NegativeSign);
+        if (negative) sb.Append(VbLocale.Current.NumberFormat.NegativeSign);
         sb.Append(FormatPlainNumeric(mant, mantMask));
         sb.Append(eChar).Append(expSign).Append(expDigits);
         return sb.ToString();
@@ -409,7 +411,7 @@ public partial class VB6BuiltIns
         if (v.Value is decimal m) return m;
         if (v.Value is bool b) return b ? -1m : 0m;
         if (Vb6Value.TryNumericToDouble(v, out var d)) return (decimal)d;
-        if (v.Value is string s && decimal.TryParse(s, NumberStyles.Any, CultureInfo.CurrentCulture, out var ds)) return ds;
+        if (v.Value is string s && decimal.TryParse(s, NumberStyles.Any, VbLocale.Current, out var ds)) return ds;
         throw new VBRunTimeException(VBStandardError.TypeMismatch);
     }
 
@@ -426,7 +428,7 @@ public partial class VB6BuiltIns
         if (double.IsPositiveInfinity(d)) return "1.#INF";
         if (double.IsNegativeInfinity(d)) return "-1.#INF";
         try { _ = (decimal)d; return null; }   // in decimal range → let the precise engine format it
-        catch (OverflowException) { return d.ToString("G15", CultureInfo.CurrentCulture); }
+        catch (OverflowException) { return d.ToString("G15", VbLocale.Current); }
     }
 
     // ---- mask helpers (quote/escape aware) ----

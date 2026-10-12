@@ -57,7 +57,9 @@ public partial class VB6BuiltIns
                     throw new VBRunTimeException(VBStandardError.TypeMismatch);
                 }
             }
-            if (!double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var sd))
+            // In the program's locale, as CStr writes, so CDbl(CStr(x)) round-trips in any locale (#777). No
+            // thousands separator: VB6 skips one (`CDbl("1,5")` is 15 under en-GB), which is #770.
+            if (!double.TryParse(s, NumberStyles.Float, VbLocale.Current, out var sd))
                 throw new VBRunTimeException(VBStandardError.TypeMismatch);
             return Finite(sd, s);
         }
@@ -91,8 +93,9 @@ public partial class VB6BuiltIns
         {
             var s = AsStr(v).Trim();
             if (bool.TryParse(s, out var bb)) return new Vb6Value(bb);
-            // Otherwise the number CDbl reads, by the same parse (measured): "NaN" and "Infinity" are 13, where
-            // `Enabled = "NaN"` used to be True; "1E+400" is 6; and "&H10" is True, which this used to refuse.
+            // Otherwise the number CDbl reads, by the same parse and in the same locale (measured): "NaN" and
+            // "Infinity" are 13, where `Enabled = "NaN"` used to be True; "1E+400" is 6; and "&H10" is True, which
+            // this used to refuse.
             return new Vb6Value(ToNum(v) != 0);
         }
         return new Vb6Value(ToNum(v) != 0);
@@ -103,7 +106,8 @@ public partial class VB6BuiltIns
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is DateTime) return v;
         if (v.Type == VT.String)
-            return DateTime.TryParse(AsStr(v).Trim(), CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault, out var dt)
+            // In the program's locale: `CDate("1/2/2003")` is 1 February under en-GB, and CDate(CStr(d)) is d (#777).
+            return TryReadDate(AsStr(v).Trim(), out var dt)
                 ? new Vb6Value(OnZeroDateIfTimeOnly(dt)) : throw new VBRunTimeException(VBStandardError.TypeMismatch);
         // A serial outside the Date range (about -657434 .. 2958465) is a trappable Overflow (Err 6, oracle-verified);
         // FromOADate would otherwise throw an UNCATCHABLE ArgumentException (AsDate wraps this too, at DateTime.cs).
