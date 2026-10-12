@@ -18,6 +18,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A syntax error when a program starts, or a compile error while it runs, is reported like a run-time error.**
+  Each was a message box nothing recorded, so a program that never started was reported to automation as having run
+  and ended. Both now appear in the run-time error dialog and are kept for `get_last_runtime_error`, and a syntax
+  error at the start makes `run_project` answer that nothing is running. That answer now starts its own paragraph
+  rather than running on from the error's last word.
 - **A Label's background colour set by a program now shows.** `Label1.BackColor = vbRed` read back red but left
   the label as it was; now it paints, for a label in a control array too. A program can make a transparent Label
   opaque with `BackStyle = 1`. A transparent Label ignores a `BackColor` set while it is transparent, as VB6 does.

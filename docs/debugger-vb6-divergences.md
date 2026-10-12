@@ -309,6 +309,20 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   test of a fault in a raised event passed on an idle machine and failed on a loaded one.
   `DebugController.TimeSliceMs` = -1 reproduces it deterministically.
 
+### D22. A compile error met while a program runs is a run-time error dialog, and the run carries on
+- **VB6:** a compile error found while the program runs, such as a call to a Sub that does not exist, is shown in
+  the compile-error box (OK and Help), and the IDE stops at that line. That is how it is commonly described; it is
+  **not yet measured** on the oracle.
+- **HexIDE:** the error is recorded, so `get_last_runtime_error` returns it, and shown in the run-time error
+  dialog (End and Debug). The event procedure that met it is abandoned and the run carries on, as after a
+  run-time error in an event procedure. A syntax error found before the run begins is a start that never became a
+  run, reported in the same dialog, and nothing runs.
+- **Why:** one route for every error a run meets. Sub Main's compile errors already went through that dialog
+  (#754), and a separate compile-error box would answer the same error two ways. A tree-walker meets a compile error
+  only when it reaches the statement, so stopping before the run began is not possible for it.
+- **Status:** **open**, decided in [#759](https://github.com/hexide-io/HexIDE/issues/759). Breaking at the line
+  instead is a refinement that needs the measurement first.
+
 ---
 
 ## Deferred debugger surfaces (not divergences yet — just not built)
