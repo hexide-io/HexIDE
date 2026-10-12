@@ -633,9 +633,10 @@ public class ProjectService : IProjectService
     /// every refusal in one dialog.
     /// </summary>
     /// <param name="interactive">
-    /// False for an automation caller: no dialog is shown, an unfaithful refusal comes back as
+    /// False for an automation caller: no refusal is shown as a dialog, an unfaithful refusal comes back as
     /// <see langword="false"/>, and an encoding refusal as the <see cref="SourceEncodingRefusal"/>, which
-    /// names the character. A dialog would hold the caller's reply until a person dismissed it.
+    /// names the character. A dialog would hold the caller's reply until a person dismissed it. The picker
+    /// is not suppressed; see <see cref="ScriptedFileDialogs.WouldShowPicker"/>.
     /// </param>
     public async Task<bool> SaveForm(FormDefinition form, bool saveAs, bool interactive = true)
     {
@@ -705,12 +706,15 @@ public class ProjectService : IProjectService
     /// <returns>What was written. A document HexIDE cannot reproduce is left out, and banked for the
     /// caller's <see cref="ReportRefusedSaves"/>.</returns>
     /// <remarks>
-    /// The check and the write agree for three reasons, and each must keep holding:
+    /// The check and the write agree for four reasons, and each must keep holding:
     /// <list type="bullet">
     /// <item>both render through the same helper per kind (<see cref="RenderForm"/>, <see cref="RenderModule"/>,
     /// the project and group serializers);</item>
     /// <item>editor buffers are flushed into the model once, here, and not again by a writer;</item>
-    /// <item>nothing awaits between the check and the last write, so the model cannot change in between.</item>
+    /// <item>which documents may be written is decided again after the last picker. A picker is an await, and
+    /// the file watcher reloads a document changed on disk while one is open, so a document that passed the
+    /// faithful-save gate before a later picker may no longer pass it;</item>
+    /// <item>nothing awaits from that decision to the last write, so the model cannot change in between.</item>
     /// </list>
     /// If one stops holding, each writer's own encode still refuses, but files written before it stay written.
     /// </remarks>
@@ -724,11 +728,17 @@ public class ProjectService : IProjectService
             if (await DestinationOf(document, saveAs) is { } destination)
                 destinations.Add(destination);
 
-        EnsureEncodable(destinations);
-        foreach (var destination in destinations)
-            Write(destination, announceSave);
+        // The gate in DestinationOf keeps a picker from asking about a file that will not be written; this one
+        // keeps a reload during a later picker from slipping a file past it (see the remarks).
+        destinations.RemoveAll(destination => RefusesUnfaithful(destination.Document));
 
+        EnsureEncodable(destinations);
+        var written = new List<Destination>();
         foreach (var destination in destinations)
+            if (Write(destination, announceSave))
+                written.Add(destination);
+
+        foreach (var destination in written)
         {
             if (destination.Document is ProjectGroupDefinition)
                 recentProjects.Add(destination.Path);
@@ -738,7 +748,7 @@ public class ProjectService : IProjectService
                 await sidecar.SaveAsync(project);
             }
         }
-        return destinations;
+        return written;
     }
 
     /// <summary>
@@ -763,12 +773,8 @@ public class ProjectService : IProjectService
                 // because the citations that flagged it are the very thing that went missing. A refusal we can
                 // recover from becomes a file that looks clean and is not, which is the one outcome
                 // docs/serialization-outcomes.md says is never acceptable. (#143)
-                if (!form.CanSaveFaithfully)
-                {
-                    Log.Warning("Refusing to save {Form}: {Reason}", form.Name, form.UnfaithfulSaveReason);
-                    RecordRefusal(form.Name);
+                if (RefusesUnfaithful(form))
                     return null;
-                }
                 return form.AbsolutePath is { } formPath && !saveAs
                     ? new Destination(form, formPath)
                     : new Destination(form, await ChooseFormPath(form), Chosen: true);
@@ -777,12 +783,8 @@ public class ProjectService : IProjectService
                 // Above the picker, as for a form. This used to sit below it, so Save As on an unfaithful
                 // UserControl asked where to put the file and then declined to write it (#147). A brand-new
                 // module has no designer half yet, or a fresh one with no unfaithful causes.
-                if (DesignerPartOf(module) is { CanSaveFaithfully: false } designerPart)
-                {
-                    Log.Warning("Refusing to write {Module}: {Reason}", module.Name, designerPart.UnfaithfulSaveReason);
-                    RecordRefusal(module.Name);
+                if (RefusesUnfaithful(module))
                     return null;
-                }
                 return module.AbsolutePath is { } modulePath && !saveAs
                     ? new Destination(module, modulePath)
                     : new Destination(module, await ChooseModulePath(module), Chosen: true);
@@ -813,6 +815,27 @@ public class ProjectService : IProjectService
         ModuleDefinition module => DesignerPartOf(module) is not { CanSaveFaithfully: false },
         _ => true
     };
+
+    /// <summary>
+    /// Whether HexIDE must refuse to write <paramref name="document"/> because it cannot reproduce it. A
+    /// refusal is logged and banked for the caller's <see cref="ReportRefusedSaves"/>.
+    /// </summary>
+    private bool RefusesUnfaithful(object document)
+    {
+        switch (document)
+        {
+            case FormDefinition { CanSaveFaithfully: false } form:
+                Log.Warning("Refusing to save {Form}: {Reason}", form.Name, form.UnfaithfulSaveReason);
+                RecordRefusal(form.Name);
+                return true;
+            case ModuleDefinition module when DesignerPartOf(module) is { CanSaveFaithfully: false } designerPart:
+                Log.Warning("Refusing to write {Module}: {Reason}", module.Name, designerPart.UnfaithfulSaveReason);
+                RecordRefusal(module.Name);
+                return true;
+            default:
+                return false;
+        }
+    }
 
     private async Task<string> ChooseFormPath(FormDefinition form) =>
         await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions()
@@ -858,8 +881,7 @@ public class ProjectService : IProjectService
     /// <remarks>
     /// Each file is rendered as it will be written, at its destination: a form cites its companion by file
     /// name, and a project or group file names its members by where they are going, not where they are now.
-    /// A document HexIDE cannot reproduce is placed but not checked. It is refused rather than written, and
-    /// an operation that would name it from somewhere it was never written stops before that happens.
+    /// Every caller has already refused a document HexIDE cannot reproduce, so none reaches this.
     /// </remarks>
     private void EnsureEncodable(IReadOnlyList<Destination> destinations)
     {
@@ -868,7 +890,7 @@ public class ProjectService : IProjectService
             going[destination.Document] = destination.Path;
         string? PathOf(object member) => going.GetValueOrDefault(member);
 
-        foreach (var destination in destinations.Where(d => IsWritable(d.Document)))
+        foreach (var destination in destinations)
         {
             var (document, text, encoding) = destination.Document switch
             {
@@ -881,34 +903,107 @@ public class ProjectService : IProjectService
             };
             Vb6TextFile.EncodeDocument(document, text, encoding);
         }
+
+        // A file given a new name is named in turn by the file that holds it: a form or module by its project
+        // file, a project by the group file. When that file is not part of this operation it is rendered with
+        // the new name too, so a Save As to a name the holder's code page cannot hold is refused now, in the
+        // holder's name, rather than written and then refusing every later save of the holder.
+        foreach (var holder in destinations.Where(d => d.Chosen).Select(d => HolderOf(d.Document)).OfType<object>()
+                     .Distinct(ReferenceEqualityComparer.Instance))
+            if (!going.ContainsKey(holder))
+                EnsureHolderEncodable(holder, PathOf);
     }
 
-    /// <summary>Writes one file an operation has already checked, and announces a form or module.</summary>
-    private void Write(Destination destination, bool announceSave)
+    /// <summary>The project a form or module is in, or the open group for a project.</summary>
+    private object? HolderOf(object document) => document switch
+    {
+        FormDefinition form => form.Owner,
+        ModuleDefinition module => module.Owner,
+        ProjectDefinition => projectManager.CurrentGroup,
+        _ => null
+    };
+
+    /// <summary>
+    /// Refuses when <paramref name="holder"/>'s file, rendered with its members where
+    /// <paramref name="pathOf"/> puts them, cannot be written in its code page but could be as it stands.
+    /// </summary>
+    private void EnsureHolderEncodable(object holder, Func<object, string?> pathOf)
+    {
+        string name;
+        Vb6TextEncoding encoding;
+        Func<Func<object, string?>?, string> render;
+        switch (holder)
+        {
+            case ProjectDefinition { AbsolutePath: { } projectPath } project:
+                (name, encoding) = (project.Name, project.TextEncoding);
+                render = of => new ProjectSerializer().Serialize(project, projectPath, of);
+                break;
+            case ProjectGroupDefinition { AbsolutePath: { } groupPath } group:
+                (name, encoding) = (group.Name, group.TextEncoding);
+                render = of => RenderGroup(group, groupPath, of);
+                break;
+            default:
+                // No file yet, so nothing names the new place. Its first save checks it whole.
+                return;
+        }
+
+        try
+        {
+            Vb6TextFile.EncodeDocument(name, render(pathOf), encoding);
+        }
+        catch (SourceEncodingRefusal) when (!Encodes(render(null), encoding))
+        {
+            // Not this operation's doing: the holder cannot be written as it stands either, and its own save
+            // refuses that. A Save Form As is not stopped for a project file it does not write.
+        }
+    }
+
+    private static bool Encodes(string text, Vb6TextEncoding encoding)
+    {
+        try
+        {
+            Vb6TextFile.Encode(text, encoding);
+            return true;
+        }
+        catch (EncoderFallbackException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Writes one file an operation has already checked, and announces a form or module. False when a form's
+    /// own gate refused it, which <see cref="SaveFiles"/> rules out by deciding just before.
+    /// </summary>
+    private bool Write(Destination destination, bool announceSave)
     {
         switch (destination.Document)
         {
             case FormDefinition form:
                 // On success only. A refusal is the opposite of a save, and telling a server a document was
                 // written when it was not would have it re-read a file that still holds the previous content.
-                if (SerializeFormToFile(form, destination.Path) && announceSave)
+                if (!SerializeFormToFile(form, destination.Path))
+                    return false;
+                if (announceSave)
                     eventBus.Publish(new DocumentSavedEvent(form, null));
-                break;
+                return true;
             case ModuleDefinition module:
                 WriteModule(module, destination.Path);
                 if (announceSave)
                     eventBus.Publish(new DocumentSavedEvent(module.FormPart, module));
-                break;
+                return true;
             case ProjectDefinition project:
                 SerializeOnlyProjectToFile(project, destination.Path);
-                break;
+                return true;
             case ProjectGroupDefinition group:
                 var content = RenderGroup(group, destination.Path, pathOf: null);
                 AtomicWriteText(destination.Path, content, Vb6TextFile.EncodeDocument(group.Name, content, group.TextEncoding));
                 group.AbsolutePath = destination.Path;
                 if (destination.Chosen) group.Name = Path.GetFileNameWithoutExtension(destination.Path);
                 Log.Information("ProjectService: Saved group {Path}", group.AbsolutePath);
-                break;
+                return true;
+            default:
+                throw new ArgumentException($"HexIDE does not save a {destination.Document.GetType().Name}.");
         }
     }
 
@@ -1095,6 +1190,16 @@ public class ProjectService : IProjectService
 
         // Named now and created only once there is something to put in it.
         var tempPath = Path.Join(Path.GetTempPath(), "hexide-make-" + Guid.NewGuid().ToString("N"));
+
+        // A form or module HexIDE cannot reproduce is refused before the picker too, as Save As refuses it, and
+        // every one is named at once. The write loop below still refuses one that becomes unfaithful while the
+        // picker is open.
+        if (projectDefinition.Forms.Cast<object>().Concat(projectDefinition.Modules).Where(RefusesUnfaithful).ToList()
+            is { Count: > 0 })
+        {
+            await ReportRefusedSaves();
+            throw new OperationCanceledException();
+        }
 
         // Every file the package will hold is checked against its code page BEFORE the developer is asked
         // where to put the program, for the reason the faithful-save gate sits above the Save As picker: the

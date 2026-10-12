@@ -57,9 +57,11 @@ public interface IProjectService
     /// when HexIDE cannot reproduce it, and nothing was written.
     /// </summary>
     /// <param name="interactive">
-    /// False for an automation caller. No dialog is shown: a refusal comes back as false, or as the
+    /// False for an automation caller. No refusal is shown as a dialog: it comes back as false, or as the
     /// <see cref="HexIDE.IDE.SourceEncodingRefusal"/> when the code page cannot hold the text, which names the
-    /// character. A dialog would hold the caller's reply until a person dismissed it.
+    /// character. A dialog would hold the caller's reply until a person dismissed it. The picker is NOT
+    /// suppressed, so a caller must not ask for one nobody will answer: check
+    /// <see cref="HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker"/> first.
     /// </param>
     /// <exception cref="HexIDE.IDE.SourceEncodingRefusal">The form's code page cannot hold its text. Nothing
     /// was written; a person has been shown the warning unless <paramref name="interactive"/> is false.</exception>

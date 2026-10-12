@@ -30,6 +30,7 @@ public class SourceEncodingPersistenceTests : IDisposable
     private readonly IWindowManager windowManager = Substitute.For<IWindowManager>();
     private readonly IEventBus eventBus = Substitute.For<IEventBus>();
     private readonly IUserSidecarService sidecar = Substitute.For<IUserSidecarService>();
+    private readonly IRecentProjectsService recentProjects = Substitute.For<IRecentProjectsService>();
 
     private ProjectService MakeService(bool userChoosesSave = true)
     {
@@ -60,7 +61,7 @@ public class SourceEncodingPersistenceTests : IDisposable
             windowManager,
             eventBus,
             projectManager,
-            Substitute.For<IRecentProjectsService>(),
+            recentProjects,
             Substitute.For<IReferenceLibraryService>(),
             sidecar,
             new FileBaselineStore(),
@@ -671,6 +672,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         svc.HostAnsi = new Vb6TextEncoding(1252);
         await svc.OpenProject(vbp);
         windowManager.ClearReceivedCalls();
+        recentProjects.ClearReceivedCalls();
         return (svc, loaded.Single());
     }
 
@@ -728,7 +730,151 @@ public class SourceEncodingPersistenceTests : IDisposable
         ShouldBeUnchanged(before);
         eventBus.DidNotReceive().Publish(Arg.Any<DocumentSavedEvent>());
         await sidecar.DidNotReceive().SaveAsync(Arg.Any<ProjectDefinition>());
+        recentProjects.DidNotReceiveWithAnyArgs().Add(default!);
         MessagesShown().Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task The_menus_Save_Project_warns_and_writes_none_of_the_files()
+    {
+        // File > Save Project and the toolbar go through SaveAllProjects. The refusal is a cancellation, which
+        // nothing upstream reports, so without the warning a person would believe the save had happened.
+        var (svc, project) = await OpenInWestern(WriteFormAndModulesProject());
+        Append(project.Modules[0], "' edited");
+        Append(project.Modules[1], "' →");
+        var before = Snapshot();
+
+        Func<Task> save = () => svc.SaveAllProjects(false);
+
+        await save.Should().ThrowAsync<SourceEncodingRefusal>();
+        MessagesShown().Should().ContainSingle().Which.Should().Contain("Module2").And.Contain("1252");
+        ShouldBeUnchanged(before);
+    }
+
+    [Fact]
+    public async Task Writing_a_project_to_a_folder_writes_nothing_when_one_file_cannot_be_held()
+    {
+        var (svc, project) = await OpenInWestern(WriteFormAndModulesProject());
+        Append(project.Modules[1], "' →");
+        var target = Path.Join(dir, "out");
+        var paths = project.Forms.Select(f => f.AbsolutePath).Concat(project.Modules.Select(m => m.AbsolutePath))
+            .Append(project.AbsolutePath).ToList();
+        var before = Snapshot();
+
+        Func<Task> save = () => svc.SaveProjectToDirectory(project, target);
+
+        (await save.Should().ThrowAsync<SourceEncodingRefusal>()).Which.Document.Should().Be("Module2");
+        Directory.Exists(target).Should().BeFalse("nothing is written, so no folder is made for it");
+        ShouldBeUnchanged(before);
+        project.Forms.Select(f => f.AbsolutePath).Concat(project.Modules.Select(m => m.AbsolutePath))
+            .Append(project.AbsolutePath).Should().Equal(paths);
+    }
+
+    /// <summary>A form with no companion, and a UserControl holding a label.</summary>
+    private string WriteFormAndUserControlProject()
+    {
+        File.WriteAllText(Path.Join(dir, "Form1.frm"),
+            "VERSION 5.00\r\nBegin VB.Form Form1\r\n   Caption = \"Form1\"\r\nEnd\r\nAttribute VB_Name = \"Form1\"\r\n");
+        File.WriteAllText(Path.Join(dir, "UserControl1.ctl"),
+            "VERSION 5.00\r\nBegin VB.UserControl UserControl1\r\n   ClientHeight = 3000\r\n"
+            + "   Begin VB.Label Label1\r\n      Caption = \"Label1\"\r\n   End\r\n"
+            + "End\r\nAttribute VB_Name = \"UserControl1\"\r\n");
+        var vbp = Path.Join(dir, "Test.vbp");
+        File.WriteAllText(vbp, "Type=Exe\r\nForm=Form1.frm\r\nUserControl=UserControl1.ctl\r\nName=\"Test\"\r\n");
+        return vbp;
+    }
+
+    [Fact]
+    public async Task Save_Project_checks_a_UserControls_designer_half_before_writing_any_file()
+    {
+        // Form1 is written first, so a check that saw only the control's code would pass it, and Form1 would be
+        // on disk before the control's own write refused.
+        var (svc, project) = await OpenInWestern(WriteFormAndUserControlProject());
+        var form = project.Forms.Single();
+        form.UpdateCode(form.Code + "' edited\r\n");
+        var control = project.Modules.Single();
+        control.FormPart!.Components.Last().SetProperty(VBProperties.CaptionProperty, "Go →");
+        var before = Snapshot();
+
+        Func<Task> save = () => svc.SaveProject(project, false);
+
+        var refusal = (await save.Should().ThrowAsync<SourceEncodingRefusal>()).Which;
+        (refusal.Document, refusal.Character).Should().Be(("UserControl1", "→"));
+        ShouldBeUnchanged(before);
+    }
+
+    [Fact]
+    public async Task An_automation_save_of_a_UserControl_names_the_character_in_its_designer_half()
+    {
+        var (svc, project) = await OpenInWestern(WriteFormAndUserControlProject());
+        var control = project.Modules.Single();
+        control.FormPart!.Components.Last().SetProperty(VBProperties.CaptionProperty, "Go →");
+        var before = Snapshot();
+
+        Func<Task> save = () => svc.SaveModule(control, false, interactive: false);
+
+        var refusal = (await save.Should().ThrowAsync<SourceEncodingRefusal>()).Which;
+        (refusal.Document, refusal.Character).Should().Be(("UserControl1", "→"));
+        MessagesShown().Should().BeEmpty();
+        ShouldBeUnchanged(before);
+    }
+
+    [Fact]
+    public async Task Save_Form_As_to_a_name_the_project_file_cannot_hold_is_refused_in_the_project_files_name()
+    {
+        // The form cites no companion, so its own text does not hold its file name. The project file, which
+        // names it by that file, cannot. Without the check the form was written and repointed, and every
+        // later save of the project refused, naming the project and not the form.
+        var (svc, project) = await OpenInWestern(WriteFormAndUserControlProject());
+        var form = project.Forms.Single();
+        var formPath = form.AbsolutePath;
+        var chosen = Path.Join(dir, "Форма1.frm");
+        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+            .Returns(Task.FromResult<string?>(chosen));
+        var before = Snapshot();
+
+        Func<Task> save = () => svc.SaveForm(form, saveAs: true);
+
+        var refusal = (await save.Should().ThrowAsync<SourceEncodingRefusal>()).Which;
+        (refusal.Document, refusal.Character).Should().Be(("Test", "Ф"));
+        ShouldBeUnchanged(before);
+        form.AbsolutePath.Should().Be(formPath);
+    }
+
+    [Fact]
+    public async Task Save_Form_As_is_not_refused_for_a_project_file_that_cannot_be_written_as_it_stands()
+    {
+        // The project's own name is what its file cannot hold, before and after. That is the project's save to
+        // refuse; this one does not write the project file.
+        var (svc, project) = await OpenInWestern(WriteFormAndUserControlProject());
+        project.Name = "Проект";
+        var chosen = Path.Join(dir, "Form2.frm");
+        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+            .Returns(Task.FromResult<string?>(chosen));
+
+        (await svc.SaveForm(project.Forms.Single(), saveAs: true)).Should().BeTrue();
+        File.Exists(chosen).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Save_Project_As_to_a_name_the_group_file_cannot_hold_is_refused_in_the_group_files_name()
+    {
+        var vbp = WriteProject();
+        var vbg = Path.Join(dir, "Group.vbg");
+        File.WriteAllText(vbg, "VBGROUP 5.0\r\nProject=Test.vbp\r\nStartupProject=Test.vbp\r\n");
+        var svc = MakeService();
+        svc.HostAnsi = new Vb6TextEncoding(1252);
+        await svc.OpenProject(vbg);
+        windowManager.SaveFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerSaveOptions>())
+            .Returns(Task.FromResult<string?>(Path.Join(dir, "Проект.vbp")));
+        var before = Snapshot();
+
+        Func<Task> save = () => svc.SaveProject(loaded.Single(), saveAs: true);
+
+        var refusal = (await save.Should().ThrowAsync<SourceEncodingRefusal>()).Which;
+        (refusal.Document, refusal.Character).Should().Be(("Group", "П"));
+        ShouldBeUnchanged(before);
+        loaded.Single().AbsolutePath.Should().Be(vbp);
     }
 
     [Fact]
@@ -819,6 +965,7 @@ public class SourceEncodingPersistenceTests : IDisposable
 
         var refusal = (await save.Should().ThrowAsync<SourceEncodingRefusal>()).Which;
         (refusal.Document, refusal.Character).Should().Be(("Group", "П"));
+        MessagesShown().Should().ContainSingle().Which.Should().Contain("Group").And.Contain("1252");
         ShouldBeUnchanged(before);
         loaded.Single().AbsolutePath.Should().Be(vbp);
     }
@@ -850,6 +997,7 @@ public class SourceEncodingPersistenceTests : IDisposable
         Func<Task> close = () => svc.UnloadAllProjects();
 
         (await close.Should().ThrowAsync<SourceEncodingRefusal>()).Which.Document.Should().Be("Module2");
+        MessagesShown().Should().ContainSingle().Which.Should().Contain("Module2").And.Contain("1252");
         projectManager.DidNotReceive().UnloadAllProjects();
         ShouldBeUnchanged(before);
     }

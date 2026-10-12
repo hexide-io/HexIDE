@@ -267,6 +267,20 @@ public class UnfaithfulSaveGateTests : IDisposable
     }
 
     [Fact]
+    public async Task Save_as_on_a_form_refuses_before_asking_for_a_destination()
+    {
+        // The form half of the UserControl test below. The tests above hold whether or not the picker opens,
+        // because the gate refuses after it as well.
+        var svc = MakeService();
+        await svc.OpenProject(Stage(NestedContainerForm));
+
+        var written = await svc.SaveForm(loaded.Single().Forms.Single(), saveAs: true);
+
+        written.Should().BeFalse();
+        await lastWindowManager!.DidNotReceive().SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>());
+    }
+
+    [Fact]
     public async Task A_lone_refusal_is_not_replayed_into_the_next_save()
     {
         // The consequence of banking it: a second, unrelated save reported a file it had not been asked
@@ -391,6 +405,77 @@ public class UnfaithfulSaveGateTests : IDisposable
         written.Should().BeTrue();
         warningsShown.Should().Be(0, "nothing was refused");
         File.Exists(Path.Join(dir, "UserControl1.ctl")).Should().BeTrue();
+    }
+
+    // ── A document that changes on disk while a picker is open ──────────────────────────────
+    //
+    // A picker is an await, and the file watcher reloads a document changed outside the IDE while one is
+    // open. Whether a document could be written used to be decided only before an operation's later
+    // pickers, so it could pass the gate, become one HexIDE cannot reproduce, and be written all the same.
+
+    [Fact]
+    public async Task A_UserControl_that_becomes_unfaithful_while_the_project_picker_is_open_is_not_written()
+    {
+        var svc = MakeService();
+        await svc.OpenProject(StageUserControl(FlatUserControl));
+        var project = loaded.Single();
+        var control = project.Modules.Single();
+        var ctlPath = Path.Join(dir, "UserControl1.ctl");
+        var elsewhere = Path.Join(dir, "elsewhere");
+        Directory.CreateDirectory(elsewhere);
+        lastWindowManager!.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(async _ =>
+        {
+            File.WriteAllText(ctlPath, NestedContainerUserControl);
+            await svc.ReloadModuleFromDisk(control);
+            return (string?)Path.Join(elsewhere, "Test.vbp");
+        });
+
+        await svc.SaveProject(project, saveAs: true);
+
+        control.FormPart!.CanSaveFaithfully.Should().BeFalse("the premise: the reload adopted what is now on disk");
+        (await File.ReadAllTextAsync(ctlPath, TestContext.Current.CancellationToken)).Should().Be(
+            NestedContainerUserControl, "a .ctl HexIDE cannot reproduce is not rewritten");
+        warningsShown.Should().Be(1, "and the developer is told");
+    }
+
+    [Fact]
+    public async Task A_form_that_becomes_unfaithful_while_its_picker_is_open_is_reported_as_not_written()
+    {
+        var svc = MakeService();
+        await svc.OpenProject(Stage(FlatForm));
+        var form = loaded.Single().Forms.Single();
+        var copy = Path.Join(dir, "Copy.frm");
+        lastWindowManager!.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(async _ =>
+        {
+            File.WriteAllText(Path.Join(dir, "Form1.frm"), NestedContainerForm);
+            await svc.ReloadFormFromDisk(form);
+            return (string?)copy;
+        });
+
+        var written = await svc.SaveForm(form, saveAs: true);
+
+        form.CanSaveFaithfully.Should().BeFalse("the premise: the reload adopted what is now on disk");
+        written.Should().BeFalse("nothing was written, and an automation caller has no other way to tell");
+        File.Exists(copy).Should().BeFalse();
+        warningsShown.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Make_names_every_member_it_cannot_reproduce_before_asking_where_to_put_the_program()
+    {
+        File.WriteAllText(Path.Join(dir, "Form1.frm"), NestedContainerForm);
+        File.WriteAllText(Path.Join(dir, "UserControl1.ctl"), NestedContainerUserControl);
+        var vbp = Path.Join(dir, "Test.vbp");
+        File.WriteAllText(vbp, "Type=Exe\r\nForm=Form1.frm\r\nUserControl=UserControl1.ctl\r\nName=\"Test\"\r\n");
+        var svc = MakeService();
+        await svc.OpenProject(vbp);
+
+        var make = async () => await svc.MakeProject(loaded.Single());
+
+        (await make.Should().ThrowAsync<OperationCanceledException>()).Which.Should().NotBeOfType<SourceEncodingRefusal>();
+        await lastWindowManager!.DidNotReceive().SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>());
+        warningsShown.Should().Be(1);
+        requestedKeys.Should().Contain("Str.Dialog.UnfaithfulSave.Body.Many", "both are named in the one warning");
     }
 
     // ── #149: a project written elsewhere takes its modules with it ─────────────────────────
