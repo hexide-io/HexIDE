@@ -4745,3 +4745,62 @@ One more `/make` run on the same guest, session 0, nothing set before each read:
 HexIDE had a ListBox's and ComboBox's `ForeColor` default as the button text (`&H80000012`), every other
 control's. It now overrides it to `&H80000008`. A `.frm` carrying `&H80000019&`, or a palette colour, is now kept
 as written and saved back, where it used to be dropped on save; creating a control with the first used to throw.
+
+## Identifier case (2026-10-12, #811)
+
+**The question.** Does a name written in a different case from its declaration reach the same variable, constant,
+procedure, control, property or method? HexIDE's environment and property tables compared ordinally, so `abc`
+after `Dim Abc` was a new implicit variable, and a Function assigning `foo = 7` inside `Function Foo` returned 0.
+
+**Probe.** A Standard EXE with `Module1.bas` and `Form1.frm`, built with `vb6.exe /make` on the Win10 guest
+(session 0) and run, writing each value to a file. Every reference is in a different case from its declaration.
+
+`Module1.bas`:
+```vb
+Option Explicit
+Public Abc As Integer
+Public Const KPI As Integer = 3
+Public Function Foo() As Integer: foo = 7: End Function
+Public Function Bar() As Integer: BAR = 8: bar = bar + 1: End Function
+Public Sub Bump(ByVal Pa As Integer, ByRef Outv As Integer): pa = pa + 1: OUTV = PA: End Sub
+```
+
+`Form1.frm`, under `Option Explicit`, with `Private Xyz As Integer` at module level:
+
+| Statement(s) | Read back | Value |
+|---|---|---|
+| `abc = 5` | `Abc` | 5 |
+| (same) | `module1.abc` | 5 |
+| `Foo()`, assigned as `foo = 7` | | 7 |
+| `bar()`, assigned `BAR = 8` then `bar = bar + 1` | | 9 |
+| `kpi * 2` | | 6 |
+| `bump 10, o` | `o` | 11 |
+| `Sub Shadow: Dim xyz: xyz = 3` | `xyz`, `XYZ` inside it | 3, 3 |
+| `Xyz = 1`, then `Shadow` | `Xyz` after it | 1 |
+| `text1.text = "lower"` | `Text1.Text` | lower |
+| `LABEL1.CAPTION = "UP"` | `Label1.Caption` | UP |
+| `list1.additem "a"`, `LIST1.ADDITEM "b"` | `List1.ListCount` | 2 |
+| `cmd(0).caption = "c0"` | `Cmd(0).Caption` | c0 |
+| `form1.caption = "fc"` | `Me.Caption` | fc |
+| `me.CAPTION = "mc"` | `Form1.Caption` | mc |
+| `err.raise 5` | `ERR.NUMBER` | 5 |
+| `app.title` | | probe |
+| `debug.print "compiles"` | | builds |
+
+**Result.** Case is ignored everywhere, `Option Explicit` included. A local that differs only in case from a
+module variable is a new local that **shadows** it: inside `Shadow`, `xyz` and `XYZ` are both the local, and the
+module's `Xyz` keeps 1.
+
+**And in a `.frm`.** A second probe wrote property names in other cases into the form file itself: `caption`
+and `backcolor` on a Label, `TEXT` on a TextBox. All three load (`lower key`, `255`, `upper key`).
+
+**HexIDE, after #811.** The tables are created case-insensitive: the execution environment (locals,
+parameters, return slots, module variables and constants, controls, the form, `Me`, `Debug`, `Err`, `App`), the
+interpreter's control-property table, and each component's property table, which the `.frm` reader uses.
+`Debug.Print` matches in any case. The first-declared spelling stays the key, which is what Locals shows.
+
+**Not covered by #811, and owned elsewhere.** Three rows above fail in HexIDE in *every* case, so they are
+not about case:
+- `Me` and the form's own name in form code (G2);
+- a write to another module's `Public` variable, qualified or not (G5);
+- `ListCount` (G18).
