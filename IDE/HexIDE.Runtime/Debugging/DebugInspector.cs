@@ -205,8 +205,8 @@ public static class DebugInspector
         //    for that name, or that has no base counterpart. Comparing by SLOT (not name) is what keeps a local /
         //    ByVal param that SHADOWS a module var or instance field visible: AllocVariable overwrote the cloned
         //    base entry with a fresh slot, while the base env keeps the outer slot (shown under the root). A
-        //    name-only subtraction dropped the shadowing local entirely (and mis-dropped across case, since the env
-        //    dictionaries are case-sensitive).
+        //    name-only subtraction dropped the shadowing local entirely. The env dictionaries ignore case (#811), so
+        //    a local differing from a module var only in case is looked up as that name, and its slot decides.
         foreach (var (name, slot) in env.variableToLocation)
         {
             if (Hidden.Contains(name))
