@@ -690,15 +690,25 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
         await sut.OpenDocumentAsync(Uri, "import os\n", TestContext.Current.CancellationToken);
 
         await Until(() => server().TimesAsked >= 3, "the client should have asked on the reopen");
+
+        // The fresh answer only. Whether the stale one is published at all depends on which arrives first, and the
+        // answers to overlapping requests complete on whichever pool threads are free. Stale first: it publishes,
+        // slowly, under the gate, and the fresh one waits its turn. Fresh first: the stale one is discarded on its
+        // check and never published, which is right, and which a wait for both turned into a 30 s timeout on a
+        // macOS runner, failing a correct client. Either way, once the fresh answer is out nothing stale follows it.
         await Until(
             () =>
             {
                 lock (published)
-                    return published.Any(p => p.Diagnostics.Any(d => d.Message.Contains("before the file was closed")))
-                        && published.Any(p => p.Diagnostics.Any(d => d.Message.Contains("after it was opened again")));
+                    return published.Any(p => p.Diagnostics.Any(d => d.Message.Contains("after it was opened again")));
             },
-            "both answers should have been published");
-        await Task.Delay(700, TestContext.Current.CancellationToken);   // past the stale publication's delay
+            "the fresh answer should have been published");
+
+        // Past the stale publication's delay. Without the gate, a stale answer that passed its check before the
+        // fresh one arrived is still sleeping in its publication here, and lands after it: what this test exists to
+        // catch. It can only catch it when the stale answer arrives first, which is the usual order but not a
+        // guaranteed one, so a run where it arrives second passes without exercising the race.
+        await Task.Delay(700, TestContext.Current.CancellationToken);
 
         lock (published)
             published[^1].Diagnostics.Should().Contain(d => d.Message.Contains("after it was opened again"),
