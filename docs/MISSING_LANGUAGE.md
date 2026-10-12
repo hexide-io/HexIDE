@@ -25,7 +25,7 @@ divergence is a footnote.
 |---|---|---|
 | **Silently wrong** | Runs, does nothing, program continues | **Worst of all.** Nothing announces it, so the user debugs their own correct code. |
 | **Won't load** | The module never opens | Nothing runs, and the user cannot even look around. |
-| **Dies** | Parses, then throws partway through | The program gets going and falls off a cliff — but it *tells you*. |
+| **Dies** | Parses, then stops partway through with an error the user sees | The program gets going and falls off a cliff — but it *tells you*. |
 | Partial | Runs, with a real restriction | Fine *if the restriction is written down* — which is what the Detail column is for. |
 | No-op | Accepted and deliberately ignored | Acceptable only where ignoring it cannot mislead. See below. |
 | Supported | Works for the ordinary case | |
@@ -50,6 +50,22 @@ have never heard of still gets VB6's own "Sub or Function not defined".
 The category is kept at zero rather than deleted, because the shape is what matters: **anything that
 fails without saying so belongs here rather than under Dies.** If a construct is found doing that again,
 this is where it goes.
+
+**Until [#754](https://github.com/hexide-io/HexIDE/issues/754), most Dies rows told only the test suite.**
+The classification above was made by running constructs headlessly, where the exception reaches the test.
+In a running IDE, how a row dies decides whether the user hears about it:
+
+- **By `NotImplementedException`, which is most of them, or by any other .NET exception.** A form's event
+  procedures and `Sub Main` both stopped at a catch that only logged, so a click handler ended part way
+  while the program carried on, and F5 on a `Sub Main` project opened nothing. Until #754 these rows were,
+  at the keyboard, Silently wrong. Now the run ends and the runtime-error dialog says what HexIDE does not
+  implement, or reports VB6's Internal error (51) with the .NET exception for the rest. Neither is
+  trappable, because `On Error Resume Next` stepping over a statement that never ran would be a wrong
+  result rather than a late error.
+- **By a VB6-shaped error** (a numbered run-time error, a compile error, or a "Run-time error" with no
+  number). These were already shown. The ones with no number can still be trapped, and under
+  `On Error Resume Next` they are skipped with `Err.Number` left at 0. That is Silently wrong under an
+  error handler, and it is tracked in [#257](https://github.com/hexide-io/HexIDE/issues/257).
 
 **Not every absence is safe to demote into No-op.** `DoEvents` returning 0 without pumping messages
 withholds a behaviour and lies about nothing. `Print #` as a no-op would silently not write the user's
@@ -94,7 +110,7 @@ on the write path (`obj.a.b = x`, `Set obj.a.b = o`).
 
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Statements | 0 | 0 | 47 | 35 | 0 | 23 | 105 |
+| Statements | 0 | 0 | 46 | 35 | 0 | 24 | 105 |
 | Operators | 0 | 0 | 3 | 18 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 71 | 37 | 1 | 44 | 153 |
 | Keywords and modifiers | 0 | 0 | 11 | 22 | 1 | 17 | 51 |
@@ -102,7 +118,7 @@ on the write path (`obj.a.b = x`, `Set obj.a.b = o`).
 | Compiler directives and options | 0 | 1 | 16 | 9 | 13 | 8 | 47 |
 | In-box objects | 0 | 0 | 98 | 8 | 0 | 17 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **0** | **2** | **261** | **407** | **15** | **497** | **1182** |
+| **Total** | **0** | **2** | **260** | **407** | **15** | **498** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -181,7 +197,7 @@ Worth noting what is *not* here: `#If` parses fine and throws, and so does the n
 | `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 
-## Dies mid-run — 253 names
+## Dies mid-run — 252 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the classic file-I/O family is absent as a block, and so is
@@ -288,7 +304,6 @@ most of the in-box object model.
 | `DefVar` | **Dies** | throws `"Deftype not implemented"` | StatementExecutor.cs |
 | `DeleteSetting` | **Dies** | throws `"DeleteSetting not implemented"` — Grammar rule `deleteSettingStmt : DELETESETTING WS valueStmt WS? COMMA WS? valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4) with a real DELETESETTING… | StatementExecutor.cs |
 | `Dir` | **Dies** | fails at name resolution: unregistered in every VB6BuiltIns partial. Probed `Debug.Print Dir("*.*")` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined… | ExpressionExecutor.cs |
-| `End` | **Dies** | throws `"End not implemented"` — (endStmt, VB6.g4) and throws at run time. Verbatim: Measured: `Debug.Print 1 / End` -> NotImplementedException: End not implemented. | StatementExecutor.cs |
 | `Environ` | **Dies** | Not in BuildRegistry; the only runtime hit is the highlighter list VbKeywordNormalizer.cs. `Environ("PATH")` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined… | ExpressionExecutor.cs |
 | `EOF` | **Dies** | fails at name resolution: unregistered. Probed `Debug.Print EOF(1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined (EOF)". docs/interpreter-gaps.md:83. | ExpressionExecutor.cs |
 | `Err.HelpContext` | **Dies** | TryGetProperty (VbErr.cs) has cases only for number/description/source; the fall-through in ExpressionExecutor then requires a Control and otherwise throws… | ExpressionExecutor.cs |
@@ -449,7 +464,7 @@ Every name, including the ones that work. Sorted within each table by F5 impact 
 Partial, No-op, Supported — because a reader of a coverage document is looking for what is missing.
 
 
-### Statements — 105 names (47 absent, 35 partial, 23 supported)
+### Statements — 105 names (46 absent, 35 partial, 24 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -470,7 +485,7 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `DefStr` | **Dies** | throws `"Deftype not implemented"` — Measured: `DefStr S` -> that exact message. | StatementExecutor.cs |
 | `DefVar` | **Dies** | throws `"Deftype not implemented"` | StatementExecutor.cs |
 | `DeleteSetting` | **Dies** | throws `"DeleteSetting not implemented"` — Grammar rule `deleteSettingStmt : DELETESETTING WS valueStmt WS? COMMA WS? valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4) with a real DELETESETTING… | StatementExecutor.cs |
-| `End` | **Dies** | throws `"End not implemented"` — (endStmt, VB6.g4) and throws at run time. Verbatim: Measured: `Debug.Print 1 / End` -> NotImplementedException: End not implemented. | StatementExecutor.cs |
+| `End` | Supported | Ends the program where it stands, as VB6 does (measured, #775): nothing after it runs, no form raises QueryUnload, Unload or Terminate, and no Class_Terminate runs. In the IDE it ends the run as the End command does and reports nothing; headless, the interpreter stops and starts nothing again. | StatementExecutor.cs, BasicInterpreter.cs |
 | `FileCopy` | **Dies** | `filecopyStmt : FILECOPY WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `FileCopy "a.txt", "b.txt"` -> NotImplementedException: "Filecopy not… | StatementExecutor.cs |
 | `Get` | **Dies** | `getStmt : GET WS valueStmt WS? COMMA WS? valueStmt? WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Get #1, 1, v` -> NotImplementedException: "Get not… | StatementExecutor.cs |
 | `GoSub...Return` | **Dies** | throws `"GoSub not implemented"` — Both halves parse and both throw. GoSub: (StatementExecutor.cs). Return: `throw new NotImplementedException("Return not implemented")` (:1172)… | StatementExecutor.cs |
@@ -616,7 +631,7 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `CVErr` | **Dies** | Not registered in BuildRegistry (VB6BuiltIns.cs) or any RegisterXxx partial, so name resolution falls through local arrays and user procedures to the intrinsic registry, gets null back, and… | VB6BuiltIns.cs |
 | `CBool` | Partial | Registered; CBool() maps Null -> Err 94, passes a Boolean through, parses a String via bool.TryParse then a numeric parse (Err 13 on garbage), and otherwise tests ToNum() != 0. Pinned:… | VB6BuiltIns.Conversion.cs |
 | `CCur` | Partial | Registered: NarrowNum(a[0], VT.Currency) -> MakeCurrency, which rounds to 4 dp half-to-even and raises Err 6 outside +/-922337203685477.5807 (VbNumeric.cs). Pinned: CCur(5) yields… | VB6BuiltIns.Conversion.cs |
-| `CDate` | Partial | Registered; Null -> Err 94, a DateTime passes through, a String goes through DateTime.TryParse with InvariantCulture (Err 13 on failure), and a number goes through DateTime.FromOADate with… | VB6BuiltIns.Conversion.cs |
+| `CDate` | Partial | **#771**: a time-only string now lands on the zero date, not today. Registered; Null -> Err 94, a DateTime passes through, a String goes through DateTime.TryParse with InvariantCulture (Err 13 on failure), and a number goes through DateTime.FromOADate with… | VB6BuiltIns.Conversion.cs |
 | `CDec` | Partial | Registered: NarrowNum(a[0], VT.Decimal) -> Vb6Value.NewDecimal(ToDecimal(v)) (VbNumeric.cs). Pinned: CDec(5) yields Vb6Value.NewDecimal(5m) (ConversionFunctionsTests.cs,60). RESTRICTION:… | VB6BuiltIns.Conversion.cs |
 | `Hex` | Partial | Registered; Null in -> Null out; RadixStr picks the width from the operand's declared type — Byte/Integer -> 16-bit two's complement, Long (or a value outside Integer range) -> 32-bit… | VB6BuiltIns.Conversion.cs |
 | `Oct` | Partial | Registered; same RadixStr path as Hex with radix 8 — Null -> Null, 16-bit width for Byte/Integer, 32-bit for Long. Pinned: Oct(8)="10", Oct(-1)="177777" (ConversionFunctionsTests.cs). | VB6BuiltIns.Conversion.cs |
@@ -625,8 +640,8 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `CInt` | Supported | Registered: NarrowNum(a[0], VT.Integer) — half-to-even rounding then a 16-bit range check raising Err 6. Pinned: CInt("42")=42 Integer, CInt(40000) -> Err 6 (ConversionFunctionsTests.cs,74). | VB6BuiltIns.Conversion.cs |
 | `CLng` | Supported | Registered: NarrowNum(a[0], VT.Long) — half-to-even rounding then a 32-bit range check raising Err 6 (VbNumeric.NarrowLong). Pinned: CLng(5) yields Vb6Value(5L), and… | VB6BuiltIns.Conversion.cs |
 | `CSng` | Supported | Registered: NarrowNum(a[0], VT.Single) -> NarrowDouble(..., VT.Single), which range-checks into Single and maps NaN -> Err 5 / Infinity -> Err 6. Pinned: CSng(2.5) yields Vb6Value(2.5f)… | VB6BuiltIns.Conversion.cs |
-| `CStr` | Supported | Registered: "a[0].IsNull ? throw InvalidUseOfNull() : new Vb6Value(AsStr(a[0]))" with the trailing comment "// no leading space" — Null raises Err 94, everything else stringifies with no… | VB6BuiltIns.Conversion.cs |
-| `Str` | Supported | Registered; Null -> Null, otherwise StrFn: "Str returns the number as text with a leading space for non-negatives (CStr has none)" (VB6BuiltIns.Strings.cs). Tested: Str(5)=" 5"… | VB6BuiltIns.Strings.cs |
+| `CStr` | Supported | In the running IDE the locale is the invariant culture until #777, so a date shows month first on every machine. **Text fixed by #772/#771** — a Single, Double, Currency, Decimal or Date used to come out in .NET's form (`CSng(1) / 3` as `0.33333334`, `0.1 + 0.2` as `0.30000000000000004`, `-0#` as `-0`, `CCur(1.5) * 2` as `3.0`, a date with `00:00:00`); now VB6's, through `VbDisplay.ToText`, as are `&` and storing into a String (oracle: *Turning a number or a date into text*). Registered: "a[0].IsNull ? throw InvalidUseOfNull() : new Vb6Value(AsStr(a[0]))" with the trailing comment "// no leading space" — Null raises Err 94, everything else stringifies with no… | VB6BuiltIns.Conversion.cs |
+| `Str` | Supported | **Fixed by #772** — now CStr's digits without the `0` before the point (`Str(0.5)` is ` .5`, measured). Registered; Null -> Null, otherwise StrFn: "Str returns the number as text with a leading space for non-negatives (CStr has none)" (VB6BuiltIns.Strings.cs). Tested: Str(5)=" 5"… | VB6BuiltIns.Strings.cs |
 | `Val` | Supported | Registered; leading-numeric parse returning a Double. Comment: "Leading-numeric parse: ignores embedded whitespace, honours &H/&O, stops at the first non-numeric char." Tested:… | VB6BuiltIns.Strings.cs |
 
 **date/time** (19)
@@ -776,14 +791,14 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `InStr` | Partial | Registered as `d["InStr"] = (_, a, _) => InStr(a);`. Supports InStr([start,] string1, string2[, compare]) with 1-based results, Null propagation, start<1 raising Err 5, and start past the… | VB6BuiltIns.Strings.cs |
 | `InStrRev` | Partial | Registered as `d["InStrRev"] = (_, a, _) => InStrRev(a);`. Supports InStrRev(string1, string2[, start[, compare]]) with Null propagation and a default start of -1. Restrictions: (i)… | VB6BuiltIns.Strings.cs |
 | `LCase` | Partial | Registered as `d["LCase"] = (_, a, _) => NullOrStr(a[0], s => s.ToLowerInvariant());`. Null propagates to Null. Restriction: casing is INVARIANT, not the current locale, so locale-specific… | VB6BuiltIns.Strings.cs |
-| `Len` | Partial | Registered as `d["Len"] = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(AsStr(a[0]).Length);`. Restriction: it is the CHARACTER COUNT OF THE STRING FORM ONLY. `AsStr` is… | VB6BuiltIns.Strings.cs |
+| `Len` | Partial | **#780**: measured, `Len` of a numeric variable is its size in bytes (Single 4, Double 8, Currency 8, Integer 2, Date 8), and `Len` of a numeric expression does not compile; HexIDE gives the text length for both. Registered as `d["Len"] = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(AsStr(a[0]).Length);`. Restriction: it is the CHARACTER COUNT OF THE STRING FORM ONLY. `AsStr` is… | VB6BuiltIns.Strings.cs |
 | `Mid` | Partial | Registered as `d["Mid"] = (_, a, _) => NullOrStr(a[0], s => Mid(s, AsInt(a[1]), a.Count >= 3 ? AsInt(a[2]) : (int?)null));`. Null propagates; start<1 raises Err 5; start past the end… | VB6BuiltIns.Strings.cs |
 | `Replace` | Partial | Registered as `d["Replace"] = (_, a, _) => new Vb6Value(Replace(a));`. Implements Replace(expression, find, replace[, start[, count[, compare]]]) including the VB6 rule that the result… | VB6BuiltIns.Strings.cs |
 | `Space` | Partial | Registered as `d["Space"] = (_, a, _) => new Vb6Value(new string(' ', Math.Max(0, AsInt(a[0]))));`. Restriction: a NEGATIVE count is clamped to zero by `Math.Max(0, ...)` and returns "", so… | VB6BuiltIns.Strings.cs |
 | `Split` | Partial | Registered as `d["Split"] = (_, a, _) => Split(a);`. Split(expr, [delimiter], [limit], [compare]) returning a 0-based String array. The VB6 defaults are honoured and stated as… | VB6BuiltIns.Array.cs |
 | `String` | Partial | Registered as `d["String"] = (_, a, _) => new Vb6Value(new string(CharArg(a[1]), Math.Max(0, AsInt(a[0]))));`. Both argument forms work — String(n, "*") and String(n, 65) — via `CharArg`… | VB6BuiltIns.Strings.cs |
 | `UCase` | Partial | Registered as `d["UCase"] = (_, a, _) => NullOrStr(a[0], s => s.ToUpperInvariant());`. Null propagates — asserted by StringFunctionsTests.cs NullArgument_Propagates. Restriction: casing is… | VB6BuiltIns.Strings.cs |
-| `Format` | Supported | Registered as `d["Format"] = (_, a, _) => FormatValue(a);`. Covers the named numeric formats (General Number / Fixed / Standard / Percent / Scientific / Currency), the named date/time… | VB6BuiltIns.Format.cs |
+| `Format` | Supported | **No-mask fixed by #772/#771** — `Format(x)` with no mask writes what CStr writes for a Single, Double or Date (measured); it used the decimal engine and `DateTime.ToString`. Registered as `d["Format"] = (_, a, _) => FormatValue(a);`. Covers the named numeric formats (General Number / Fixed / Standard / Percent / Scientific / Currency), the named date/time… | VB6BuiltIns.Format.cs |
 | `Join` | Supported | Registered as `d["Join"] = (_, a, _) => Join(a);`. Join(array, [delimiter]) with the VB6 default delimiter of a single SPACE (not a comma); the file header states this was pinned against… | VB6BuiltIns.Array.cs |
 | `Left` | Supported | Registered as `d["Left"] = (_, a, _) => NullOrStr(a[0], s => Left(s, AsInt(a[1])));`. Null propagates; n<0 raises Err 5 (`if (n < 0) throw InvalidCall();`); n beyond the length returns the… | VB6BuiltIns.Strings.cs |
 | `LTrim` | Supported | Registered as `d["LTrim"] = (_, a, _) => NullOrStr(a[0], s => s.TrimStart(' '));`. Trims only U+0020 (VB6's space-only trim, not .NET's default whitespace set); Null propagates. Tested:… | VB6BuiltIns.Strings.cs |
@@ -886,7 +901,7 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `Byte` | Supported | `if (baseType.BYTE() != null) return Vb6Value.ValueType.Byte;`; the declared type is recorded on the slot so later stores run `VbNumeric.CoerceOnStore`. Measured `Dim b As Byte : b = 5` ->… | BaseTypeMapper.cs |
 | `Currency` | Supported | `if (baseType.CURRENCY() != null) return Vb6Value.ValueType.Currency;` — a fixed 4-decimal-place decimal, banker's-rounded at construction, rank 4 on the widening ladder. Measured `Dim c As… | BaseTypeMapper.cs |
 | `Date` | Supported | `if (baseType.DATE() != null) return Vb6Value.ValueType.Date;`; Date is special-cased throughout VbNumeric — "Date + anything -> Date (adds serial days)", "Date - Date -> Double (day… | BaseTypeMapper.cs |
-| `DateLiteral` | Supported | `DATELITERAL : HASH (~ [#\r\n])* HASH`; the visitor strips the hashes and parses invariantly — "VB6 date literals are culture-independent, US month/day/year — parse invariantly." `return… | ExpressionExecutor.cs |
+| `DateLiteral` | Supported | **#771**: a time-only literal (`#10:30:00 AM#`) is now that time on the zero date; it used to land on today, so `CDbl` of it was today's serial plus the time. `DATELITERAL : HASH (~ [#\r\n])* HASH`; the visitor strips the hashes and parses invariantly — "VB6 date literals are culture-independent, US month/day/year — parse invariantly." `return… | ExpressionExecutor.cs |
 | `DecimalIntegerLiteral` | Supported | `ClassifyIntegerLiteral`: Integer when the value fits Int16, else Long when it fits Int32, else Double — "otherwise Integer if it fits Int16, else Long if it fits Int32, else Double."… | ExpressionExecutor.cs |
 | `Double` | Supported | `if (baseType.DOUBLE() != null) return Vb6Value.ValueType.Double;`. Measured `Dim d As Double : d = 1.5` -> Double 1.5. Tests: DeclaredTypeTests. | BaseTypeMapper.cs |
 | `Empty` | Supported | `EMPTY_` is a real lexer token and the visitor returns `new Vb6Value(Vb6Value.ValueType.EmptyVariant)`. The comment records why it is a keyword: "It is a keyword, not a constant: `Dim Empty… | ExpressionExecutor.cs |

@@ -152,7 +152,7 @@ public class VbApp(AppInfo info) : ICSharpProxy, ICSharpPropertyBag
     {
         if (!string.Equals(name, "Title", System.StringComparison.OrdinalIgnoreCase))
             return false;
-        title = value.Value?.ToString() ?? "";
+        title = VbDisplay.ToText(value);
         return true;
     }
 }

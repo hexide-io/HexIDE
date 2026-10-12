@@ -10,6 +10,24 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Numbers and dates turn into the text VB6 makes of them.** `CStr`, `&`, a String variable, `MsgBox` and
+  `Format` with no mask wrote .NET's text: `CSng(1) / 3` came out as `0.33333334` and `0.1 + 0.2` as
+  `0.30000000000000004`, where VB6 writes `0.3333333` and `0.3`. A date came out with a midnight time attached.
+  Now a Single has seven significant digits and a Double fifteen, with E notation where VB6 uses it, and a date
+  leaves out a midnight time or the zero date. A time written on its own, `#10:30:00 AM#`, is now that time on
+  VB6's zero date rather than on today's date.
+
+- **`End` ends the program.** It used to stop the program with an error saying HexIDE did not implement it, so a
+  `Sub Main` that finished with `End` showed that error. Now the program stops at `End`, as in VB6: nothing after
+  it runs, its forms close without their unload events, and no `Class_Terminate` runs.
+
+- **A program that reaches something HexIDE cannot run yet now says so.** A statement, function or control
+  method the interpreter does not implement used to stop the program without a word: a click handler ended
+  part way while the program carried on, and a `Sub Main` project opened nothing at all. The run now ends,
+  and the runtime-error dialog says HexIDE does not implement it, naming it in most cases; a few still carry no
+  name (#181). An error handler does not swallow it, because carrying on past a statement that never ran would
+  give a wrong answer. An error that ends `Sub Main` now appears in the same dialog as a form's.
+
 - **A language server that orders changes by version no longer ignores the first edit to a file.** That edit repeated the version the file was opened at, so such a server kept analysing the text
   from before it until the next edit.
 - **Bookmarks and breakpoints are no longer lost on the way to their file.** A bookmark set just before

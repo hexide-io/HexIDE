@@ -75,7 +75,14 @@ public sealed record CallStackFrame(string ProcName, string Module, int Line);
 /// UDT watch expands like Locals), <see cref="Truthy"/> is the VB6 Boolean coercion (for a "Break When True" watch),
 /// and <see cref="Ok"/> distinguishes a real value from an evaluation error (so a condition tells False from an
 /// error). On error, <see cref="Display"/> carries the VB6-style message and <see cref="TypeName"/> is empty.</summary>
-public sealed record DebugEvalResult(bool Ok, string Display, string TypeName, bool Truthy, DebugNode Node);
+public sealed record DebugEvalResult(bool Ok, string Display, string TypeName, bool Truthy, DebugNode Node)
+{
+    /// <summary>
+    /// What "Break When Value Changes" compares, where it differs from <see cref="Display"/>: the value in full, with
+    /// its type. VB6's text has 7 or 15 significant digits, so a change below them would not show in it (#772).
+    /// </summary>
+    public string? ChangeKey { get; init; }
+}
 
 /// <summary>A paused activation, able to hand the debugger its Locals on demand. Implemented by the interpreter's
 /// per-activation <c>StatementExecutor</c> and captured by the controller at a break (read lazily while paused).</summary>

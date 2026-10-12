@@ -769,30 +769,19 @@ public partial class MainViewViewModel : ObservableObject
 
         VBWindowContext.RunTimeError += (form, e) =>
         {
-            // Sliced from the context's OWN input stream, not from form.Code.
-            //
-            // Two bugs in one line, both reachable the moment a form can call into a .bas (#220). The
-            // offsets belong to whichever module raised, so indexing the FORM's source threw
-            // ArgumentOutOfRangeException inside this handler — which meant no dialog at all: a runtime
-            // error inside a module vanished silently and the program appeared to carry on. And the length
-            // was `Stop - Start`, but ANTLR's StopIndex is INCLUSIVE, so every message lost its last
-            // character ("NoSuchSub" rendered as "NoSuchSu").
-            //
-            // GetText takes an inclusive interval, so it fixes the truncation as well as the source.
-            var at = e.Context is { Start: { InputStream: { } input } start, Stop: { } stop }
-                  && stop.StopIndex >= start.StartIndex
-                ? "\n\nat " + input.GetText(new Antlr4.Runtime.Misc.Interval(start.StartIndex, stop.StopIndex))
-                : "";   // built-in errors carry no parse context
-            var message = e.Message + at;
             // Recorded BEFORE the dialog, and deliberately not tied to its lifetime: stop_project and
             // shutdown_ide both close open dialogs, so anything that only exists while the modal is up is
             // gone by the time a caller looks. (docs/mcp-server-gaps.md)
-            ReportRuntimeError(message);
+            ReportRuntimeError(RunErrorText.For(e));
         };
 
         // A startup form that cannot be built is reported the way a runtime error is, so the person sees it and
         // get_last_runtime_error returns it. It used to reach only the log, while F5 appeared to do nothing (#590).
-        projectRunnerService.StartFailed += ReportRuntimeError;
+        projectRunnerService.StartFailed += ReportEndedRun;
+
+        // So is a run that something ended: a construct HexIDE does not implement, a fault in the engine, or an
+        // error Sub Main did not handle. Those reached only the log or an unrecorded message box (#754).
+        projectRunnerService.RunFailed += ReportEndedRun;
 
         void ReportRuntimeError(string message)
         {
@@ -800,9 +789,18 @@ public partial class MainViewViewModel : ObservableObject
             EndIfAsked(new RuntimeErrorViewModel(message)).ListenErrors();
         }
 
+        // Nothing of a run that failed to start, or that something ended, is still running when it is reported.
+        // So End on its dialog has nothing to end, and its answer is not acted on. Acting on it would end whatever
+        // run is live when the dialog closes, which can be a later one started meanwhile by run_project.
+        void ReportEndedRun(string message)
+        {
+            RuntimeErrors.Record(message);
+            windowManager.ShowDialog(new RuntimeErrorViewModel(message)).ListenErrors();
+        }
+
         // End on this dialog ends the run, as VB6's does. It used to close the dialog and leave the program
-        // running (#600). The dialog answers true only for End. A start that failed has nothing to end, so
-        // the runner is asked first.
+        // running (#600). The dialog answers true only for End. The run may have ended while the dialog was up,
+        // so the runner is asked first.
         async Task EndIfAsked(RuntimeErrorViewModel vm)
         {
             if (await windowManager.ShowDialog(vm) && projectRunnerService.CanEndProject)
@@ -1689,63 +1687,4 @@ public partial class MainViewViewModel : ObservableObject
 
     private bool IsToolInLayout(Tool tool) =>
         FindDock<IDockable>(x => ReferenceEquals(x, tool)) is not null;
-}
-
-public class VBMDIWindow : MDIWindow, IModuleExecutionRoot
-{
-    protected override Type StyleKeyOverride => typeof(MDIWindow);
-
-    public IReadOnlyList<PropertyClass> AccessibleProperties { get; } = [VBProperties.CaptionProperty];
-
-    private BasicInterpreter? interpreter;
-
-    public ModuleExecutionContext ExecutionContext { get; } = new();
-
-    public ExecutionEnvironment Environment { get; } = new();
-
-    public void SetCode(string code)
-    {
-        interpreter = new BasicInterpreter(new StandaloneStandardLib(this), ExecutionContext, Environment, code);
-    }
-
-    public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
-    {
-        interpreter!.ExecuteSub(name, args is null ? null : new List<Vb6Value>(args), true);
-    }
-
-    public Vb6Value? GetPropertyValue(PropertyClass property)
-    {
-        if (property == VBProperties.CaptionProperty)
-            return Title;
-        return null;
-    }
-
-    public void SetPropertyValue(PropertyClass property, Vb6Value value)
-    {
-        if (property == VBProperties.CaptionProperty)
-            Title = value.Value?.ToString() ?? "";
-    }
-
-    public class StandaloneStandardLib : IBasicStandardLibrary
-    {
-        private readonly VBMDIWindow form;
-
-        public StandaloneStandardLib(VBMDIWindow form)
-        {
-            this.form = form;
-        }
-
-        public async Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon)
-        {
-            return default;
-            //return await MessageBox.ShowDialog(form, text, caption, buttons, icon);
-        }
-
-        public async Task<string?> InputBox(string prompt, string? title, string defaultText)
-        {
-            return default;
-        }
-
-        public void DebugPrint(Vb6Value value) => VBDebugConsole.Emit(value);
-    }
 }

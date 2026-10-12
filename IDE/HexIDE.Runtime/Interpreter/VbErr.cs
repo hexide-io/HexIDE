@@ -57,8 +57,8 @@ public class VbErr : ICSharpProxy, ICSharpPropertyBag
                 if (args.Count < 1)
                     throw new VBRunTimeException(VBStandardError.InvalidProcedureCall);
                 Raise(ToLong(args[0]),
-                    args.Count >= 2 ? args[1].Value?.ToString() : null,
-                    args.Count >= 3 ? args[2].Value?.ToString() : null);
+                    args.Count >= 2 ? VbDisplay.ToTextOrNull(args[1]) : null,
+                    args.Count >= 3 ? VbDisplay.ToTextOrNull(args[2]) : null);
                 break;
             default:
                 throw new VBRunTimeException(VBStandardError.MethodOrDataMemberNotFound, "Err." + method);
@@ -82,8 +82,8 @@ public class VbErr : ICSharpProxy, ICSharpPropertyBag
         switch (name.ToLowerInvariant())
         {
             case "number":      Number = ToLong(value); return true;
-            case "description": Description = value.Value?.ToString() ?? ""; return true;
-            case "source":      Source = value.Value?.ToString() ?? ""; return true;
+            case "description": Description = VbDisplay.ToText(value); return true;
+            case "source":      Source = VbDisplay.ToText(value); return true;
         }
         return false;
     }

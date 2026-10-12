@@ -684,6 +684,7 @@
     "Str.ProjectRunner.MustHaveStartupForm": "Käynnistyslomake tai Sub Main() on pakollinen",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Tämä toiminto nollaa projektin. Haluatko jatkaa?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Lomaketta '{0}' ei voitu ladata, joten projektia ei käynnistetty.\n\n{1}",
+    "Str.ProjectRunner.NotImplementedYet": "HexIDE ei vielä toteuta tätä:\n\n{0}",
     "Str.NewProject.Msg.Title": "Uusi projekti",
     "Str.NewProject.Msg.VersionDoesNotSupport": "HexIDE-versiosi ei tue kohdetta {0}",
     "Str.NewProject.Msg.FileNotFound": "Tiedostoa ei löytynyt. Varmista, että tiedostonimi on oikein.",
