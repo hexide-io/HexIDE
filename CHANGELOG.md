@@ -8,8 +8,39 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ## [Unreleased]
 
+### Added
+
+- **The protocol inspector says when a server's bytes actually moved**, not only when a message was prepared. For
+  a server started over standard input and output or a named pipe, the timeline now shows when the first message
+  began to be written, when it was handed to the server, when the IDE began waiting for a reply, and when the
+  server's first bytes arrived. A server that seems to ignore the IDE can now be told apart from a message that
+  never reached it.
+
 ### Fixed
 
+- **A Label's background colour set by a program now shows.** `Label1.BackColor = vbRed` read back red but left
+  the label as it was; now it paints, for a label in a control array too. A program can make a transparent Label
+  opaque with `BackStyle = 1`. A transparent Label ignores a `BackColor` set while it is transparent, as VB6 does.
+- **Every control's colour reads back as VB6's number**, `255` rather than `&H000000FF&`, so `If Text1.BackColor
+  = vbRed` is True and `Debug.Print` shows what VB6 shows. A Label's `ForeColor` and a TextBox's colours from the
+  form read back at all, where they used to read as black; a TextBox now keeps the colours a form gives it. A
+  ListBox's and ComboBox's text colour defaults to the window text colour, as in VB6.
+- **A form keeps a property value HexIDE cannot read yet**, such as a palette colour, and saves it back as it was
+  written. It used to be dropped from the file on the next save.
+- **A running program writes and reads dates and numbers in the user's regional settings**, as VB6 does. The IDE
+  ran every program in the invariant culture, so `CStr(#1/2/2003#)` showed `01/02/2003` on a UK machine, where VB6
+  shows `02/01/2003`, and `CDate("1/2/2003")` was 2 January rather than 1 February. `CStr`, `Format`, the month and
+  day names, `CDate`, `CDbl`, `IsDate`, `IsNumeric` and a two-digit year in `DateSerial` now follow the user's
+  separators, date order and names, so text a program wrote reads back as the same value. Two things stay VB6's own
+  whatever the locale: a date is Gregorian, so a Thai, Persian or Saudi machine still counts 2003 as 2003, and a minus
+  sign is a plain `-`. A date the locale's order cannot make is read the other way round, as in VB6: `CDate("1/13/2003")`
+  is 13 January on a UK machine. The IDE's own language changes none of this. The numbers written in the source
+  itself are a separate matter, still read in the machine's culture in a made EXE (#781).
+- **`s = Text1` no longer stores a .NET type name.** In VB6 a control where a value is wanted stands for
+  its default property, so `s = Text1` reads its text. HexIDE does not implement that yet, and the assignment
+  stored `HexIDE.Runtime.BuiltinControls.VBTextBox` in the String, or the control itself in a Variant, without a
+  word. It now stops the program and says so, until default properties land (#790). `Set`, `For Each` and
+  passing a control to a procedure are unaffected.
 - **Numbers and dates turn into the text VB6 makes of them.** `CStr`, `&`, a String variable, `MsgBox` and
   `Format` with no mask wrote .NET's text: `CSng(1) / 3` came out as `0.33333334` and `0.1 + 0.2` as
   `0.30000000000000004`, where VB6 writes `0.3333333` and `0.3`. A date came out with a midnight time attached.
@@ -27,6 +58,22 @@ there isn't one yet. Anything may change between 0.x releases.
   and the runtime-error dialog says HexIDE does not implement it, naming it in most cases; a few still carry no
   name (#181). An error handler does not swallow it, because carrying on past a statement that never ran would
   give a wrong answer. An error that ends `Sub Main` now appears in the same dialog as a form's.
+
+- **`Label1.Caption = 5` sets the caption to "5".** A value of another type assigned to a control property is
+  converted to the property's type, as VB6 does, instead of stopping the program. That covers a number into a
+  caption or text, a string into a position, `Timer.Interval`, a scroll bar's `Value` or a list's `ListIndex`, a
+  number into a check box's `Value`, a string into a colour, and a colour copied from one control to another. A
+  value VB6 refuses raises VB6's own error, which an error handler can trap: Type mismatch for text that is not a
+  number, Invalid use of Null, Overflow, and Invalid property value for one outside the property's range
+  (`Check1.Value = 3`, `HScroll1.Value = 150`, `List1.ListIndex = 3` on a three-item list). `Tag` takes `Empty`
+  as `""`, and reads `""` before anything is put in it. A date into a caption is written in the user's date
+  format, as `CStr` writes it. Where HexIDE cannot give VB6's answer yet, the program stops and says so rather than
+  carry on with a wrong one: a palette colour; a scroll bar whose `Min` is above its `Max`; a control on the right of any
+  property, `Tag` and `Enabled` included.
+- **`Command1.Enabled = Empty` disables the button**, as `CBool(Empty)` is False. It raised Type mismatch.
+  `CDbl("NaN")`, `CDbl("Infinity")` and `CBool("NaN")` raise Type mismatch, and `CDbl("1E+400")` raises
+  Overflow; .NET's spellings of those used to get through as numbers, so `Enabled = "NaN"` enabled the button.
+  `CBool("&H10")` is True, as in VB6; it raised Type mismatch.
 
 - **A language server that orders changes by version no longer ignores the first edit to a file.** That edit repeated the version the file was opened at, so such a server kept analysing the text
   from before it until the next edit.

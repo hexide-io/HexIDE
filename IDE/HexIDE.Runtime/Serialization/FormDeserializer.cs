@@ -211,6 +211,9 @@ public class FormDeserializer
             double? rootScaleWidth = null;
             double? rootScaleHeight = null;
 
+            // Known properties whose value could not be read, kept as raw lines below.
+            var unparsedKnownNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
             foreach (var serializedProperty in serializedComponent.Properties)
             {
                 var propertyName = serializedProperty.Key;
@@ -282,7 +285,13 @@ public class FormDeserializer
                     continue; // unknown property — preserved verbatim by OrderedRawProperties loop below
 
                 var val = serializedProperty.Value;
-                void InvalidValue() => errorSink.LogError($"Property {serializedProperty.Key} in {serializedComponent.Name} had an invalid value.");
+                void InvalidValue()
+                {
+                    errorSink.LogError($"Property {serializedProperty.Key} in {serializedComponent.Name} had an invalid value.");
+                    // Kept as written, so a save puts it back rather than losing it: a palette colour
+                    // (&H02C0C0C0&) is a value VB6 accepts that HexIDE cannot hold yet (#786).
+                    unparsedKnownNames.Add(serializedProperty.Key);
+                }
                 if (propertyClass.PropertyType == typeof(string))
                 {
                     if (val is not string)
@@ -460,11 +469,13 @@ public class FormDeserializer
                 form.Scale = new RootScale(
                     rootScaleMode ?? (int)VBScaleMode.Twip, rootScaleWidth, rootScaleHeight);
 
-            // Collect unknown raw property lines for round-trip preservation
+            // Collect unknown raw property lines for round-trip preservation, and the lines of known properties whose
+            // value could not be read. Dropping those lost them on the next save: a palette colour on a TextBox, the
+            // moment TextBox modelled BackColor (#795).
             var knownNames = BuildKnownPropertyNames(componentClass, includeFormLevelNames: parent is null);
             foreach (var (name, rawLines) in serializedComponent.OrderedRawProperties)
             {
-                if (knownNames.Contains(name))
+                if (knownNames.Contains(name) && !unparsedKnownNames.Contains(name))
                     continue;
                 if (rawLines.Any(l => FrxDeserializer.IsFrxReference(l)))
                 {

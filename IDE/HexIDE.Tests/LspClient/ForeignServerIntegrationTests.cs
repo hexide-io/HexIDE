@@ -185,6 +185,30 @@ public class ForeignServerIntegrationTests : IAsyncDisposable
     }
 
     [ForeignServerFact]
+    public async Task TheRecordSaysWhenTheHandshakesBytesReachedTheServerAndCameBack()
+    {
+        // "Sent" in the record is when a message was serialized. These four say when its bytes reached a real
+        // server's stdin and when the server's first bytes came back, which is what tells a server that never
+        // answered from a message that never left (#390).
+        var sut = ForeignMarkdownRegistry();
+        await sut.OpenDocumentAsync(MarkdownUri, SloppyMarkdown);
+        await _capture.DrainAsync();
+
+        var notes = _capture.Snapshot("foreign.markdown")
+            .Where(e => e.Kind == ConversationEntryKind.Lifecycle)
+            .Select(e => e.Detail ?? "")
+            .ToList();
+
+        notes.Should().ContainMatch("began writing * bytes to the server");
+        notes.Should().ContainMatch("the first * bytes reached the server's channel");
+        notes.Should().Contain("began waiting for the server's first bytes");
+        notes.Should().ContainMatch("the first * bytes arrived from the server");
+        notes.FindIndex(n => n.EndsWith("reached the server's channel", StringComparison.Ordinal))
+            .Should().BeLessThan(notes.FindIndex(n => n.EndsWith("arrived from the server", StringComparison.Ordinal)),
+                "the server answers what it has received");
+    }
+
+    [ForeignServerFact]
     public async Task AVb6DocumentIsNotRoutedToTheMarkdownServer()
     {
         // Routing is only meaningful if it EXCLUDES. Without this the suite would pass with a registry

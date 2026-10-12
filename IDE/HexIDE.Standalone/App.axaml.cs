@@ -16,6 +16,9 @@ public partial class App : Application
 {
     public override void Initialize()
     {
+        // The user's regional settings, as the IDE takes them (#777). This host pins no culture of its own, so the
+        // thread's culture would give the same answer today; set explicitly, so the two hosts cannot drift apart.
+        VbLocale.Default = System.Globalization.CultureInfo.CurrentCulture;
         AvaloniaXamlLoader.Load(this);
     }
 

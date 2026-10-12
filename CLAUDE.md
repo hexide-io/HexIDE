@@ -259,7 +259,7 @@ HexIDE is a visual tool used by humans. Visual verification is not optional.
 - Treat every UI feature as incomplete until verified against the running IDE: `take_snapshot` for rendering/layout, and `dump_visual_tree` / `inspect_element` for **structured** assertions (a control exists, is enabled, has the expected value / selection / toggle state / providers) — which often replace a pixel snapshot.
 - Discover and drive UI with the generic trio — `dump_visual_tree` to find a control, `interact` to navigate and act (select a page, click a button, toggle, type, open a dialog), `inspect_element` to confirm — plus `add_control` / `activate_document_tab` / `view_designer` for designer/tab setup. Set up required state autonomously; never ask the user to do something a tool can do.
 - Build a **new** dedicated MCP tool only when the generic trio genuinely can't reach a surface **and** the tool-authoring policy in `openspec/specs/hexide-mcp-server/spec.md` justifies it (reads a model the tree can't see, persists/transacts, or beats path addressing). Otherwise, `interact` is the tool.
-- **Record every MCP dev-server shortcoming you hit** — a surface it can't observe (e.g. a runtime modal layered over a running form), a property it can't set (e.g. an enum/colour), a lifecycle gotcha (e.g. tools dropping on `shutdown_ide`) — in [`docs/mcp-server-gaps.md`](docs/mcp-server-gaps.md), with symptom → workaround → suggested fix, so the tooling is improved deliberately instead of re-worked around each session. **State the exact call it failed with, arguments included** — a gap concluded from `dump_visual_tree`'s default `interactiveOnly: true` once recorded readable content as unreadable, and stood for weeks because nobody could tell the defaults had been used (#362).
+- **Record every MCP dev-server shortcoming you hit** — a surface it can't observe (e.g. a runtime modal layered over a running form), a property it can't set (e.g. an enum/colour), a lifecycle gotcha (e.g. tools dropping after refused calls while the IDE is down) — in [`docs/mcp-server-gaps.md`](docs/mcp-server-gaps.md), with symptom → workaround → suggested fix, so the tooling is improved deliberately instead of re-worked around each session. **State the exact call it failed with, arguments included** — a gap concluded from `dump_visual_tree`'s default `interactiveOnly: true` once recorded readable content as unreadable, and stood for weeks because nobody could tell the defaults had been used (#362).
 
 **MUST NOT:**
 - Assume AXAML renders as expected — Avalonia has rendering quirks invisible to tests
@@ -303,24 +303,31 @@ So, for any tool added here:
 **Record every shortcoming in `docs/mcp-server-gaps.md` AND file it**, exactly as a human-facing defect
 would be. An entry that lives only in that file is a note to self; the surface ships either way.
 
-**A new tool needs a session restart only if the MCP server was NOT attached when the session started.**
-Measured, both ways, in one afternoon:
+**A relaunch keeps the tools a session already has; a new or changed tool needs `/mcp`.** The server is
+stateless (#763), so there is no session to go stale and no stream to drop. `shutdown_ide`, rebuild and relaunch
+leave an attached session's tools callable: measured 2026-10-12 across three cycles, one with a rebuild and one
+holding the IDE down for 40 seconds. Nothing re-lists the tools, though, and a tool added in that rebuild did
+not appear. After a rebuild that adds or changes a tool, ask the
+user to run **`/mcp` and reconnect `hexide`**, not for a session restart. A session that started with no IDE
+running has no attachment at all: relaunch, wait for `/health`, then ask for the same reconnect.
 
-- Four tools were added while **no IDE was running**. Building and launching did not surface them; a
-  session restart was needed. The server had never attached, so there was nothing to re-list from.
-- A fifth was added with the IDE **running and attached since session start**. `shutdown_ide`, rebuild,
-  relaunch — and it arrived as a deferred tool and worked on the first call, with no restart.
+**While the IDE is down, poll `/health` and do not call a hexide tool.** Each refused call counts towards
+Claude Code's limit of three consecutive connection errors. The third closes the transport; the client retries
+for about 15 seconds, gives up, and the tools stay gone after the relaunch until `/mcp` (measured 2026-10-12,
+Claude Code 2.1.296). Three calls issued together in one turn are enough. A single one is harmless, and the count
+resets at the next success.
 
-So the condition is the state of the attachment when the session began, not whether the process has
-restarted since. **If the IDE was up and answering at session start, do the rebuild cycle and try the tool
-before asking.** If it was not, stop and ask for a resume.
+**A build from before #763 brings the old failure back with it.** Several worktrees here predate it. A
+stateful build holds a GET stream open, and from Claude Code 2.1.282 a shutdown that refuses that stream makes the
+client give up on `hexide` unless the next build answers within about 15 seconds of the transport closing. The
+2026-10-12 switch-over survived on its last retry, 18 seconds after the shutdown, because the build being launched was already compiled. So when swapping
+to or from an old build, build the incoming worktree before shutting the outgoing one down, and if the tools are
+gone afterwards, or the first call answers 400, ask for `/mcp`.
+Before #763, whether a session survived a relaunch depended on the client version and the stream's age, not on how
+the session attached; `docs/mcp-server-gaps.md` entry 3 has the measurements.
 
 **Never reach for raw HTTP either way.** That rule is unchanged and is not about schemas: a bypass proves
 nothing about the surface a real caller uses.
-
-This entry used to say a restart was always required. That is the cautious direction and it is not free —
-it costs a round trip through the user every time a tool is added, and the whole point of stopping to ask
-is that it is reserved for when it is genuinely needed.
 
 HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The MCP server is a dev/automation tool and is `#if DEBUG`-compiled out of Release builds** — the `Server/` folder and the AspNetCore framework dependency are excluded from Release, so a distributed binary opens no port and `--server-port` is inert. The dev loop below uses Debug builds, so this does not affect it. With HexIDE running (Debug), Claude Code connects automatically via `.mcp.json` at the repo root and has access to these tools:
 
@@ -399,7 +406,8 @@ When you need to rebuild while HexIDE is running, always follow this cycle — d
 4. **Wait for ready**: poll `http://localhost:5123/health` until HTTP 200 **whose `pid` is the process you just
    launched** (`Start-Process -PassThru` gives you it; use a loop with 1 s sleep, up to 30 s). A 200 alone is not
    enough: if another HexIDE still holds the port, it answers, and yours exits with code 3 (#53).
-5. **Continue**: MCP tools are immediately usable once `/health` returns 200
+5. **Continue**: the session's existing MCP tools are usable once `/health` returns 200. A tool this build
+   added or changed needs a `/mcp` reconnect first (see the restart note above).
 
 If `shutdown_ide` is unavailable (MCP disconnected), use PowerShell: `Stop-Process -Name HexIDE.Desktop -ErrorAction SilentlyContinue` then proceed from step 2.
 
@@ -413,11 +421,9 @@ If `shutdown_ide` is unavailable (MCP disconnected), use PowerShell: `Stop-Proce
 4. Use MCP tools to inspect and interact with the running IDE
 
 **MCP session note:** MCP tools are discovered at session start. If HexIDE is not running when a Claude
-Code session starts, the tools will not appear **and relaunching it will not make them appear** — that
-session has no attachment, and only a resume creates one. If HexIDE *was* running at session start, the
-attachment survives a relaunch: existing schemas stay usable (Streamable HTTP is stateless — each call is
-a fresh POST) **and newly added tools are picked up**, which is measured rather than assumed. See the
-restart note above.
+Code session starts, the tools will not appear until it is running and `/mcp` reconnects `hexide`. If it *was*
+running, a relaunch keeps the session's existing tools (#763), and a new or changed one needs that reconnect.
+See the restart note above.
 
 ## Architecture
 

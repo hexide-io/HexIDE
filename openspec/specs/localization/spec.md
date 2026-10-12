@@ -48,10 +48,14 @@ IDE.
 Choosing a language SHALL select a set of strings and nothing more, and SHALL NOT alter the culture used for
 parsing or formatting numbers, dates or currency.
 
-The interpreter's correctness depends on it. VB6 parses and formats numbers by fixed rules, so the runtime
-deliberately pins an invariant culture; a localization mechanism that changed the thread's culture would
-alter how a running VB6 program interprets its own numeric literals as a side effect of the IDE's menu
-language. Keeping the two orthogonal means translating the IDE cannot change what a program computes.
+The interpreter's correctness depends on it. A VB6 program's source literals are read by a fixed rule, always
+with a point, and the IDE pins its threads to an invariant culture so that this holds; a localization
+mechanism that changed the thread's culture would alter how a running VB6 program interprets its own numeric
+literals as a side effect of the IDE's menu language. What a program writes and reads at run time (`CStr`,
+`Format`, `CDate`, a String stored into a number) follows the user's regional settings instead, as VB6's does.
+The interpreter takes those as its own locale at startup, before the pin, rather than from the thread
+(`VbLocale`, #777). So the IDE's language, the user's regional locale and the culture of the IDE's threads are
+three separate things, and translating the IDE cannot change what a program computes.
 
 #### Scenario: Running a program with a non-English IDE language
 - **WHEN** the IDE language is changed and a VB6 program is run
