@@ -435,6 +435,7 @@ public class PropertyAssignmentTests
     [InlineData("Label1.Caption = Text1", "Caption")]
     [InlineData("Command1.Enabled = Text1", "Enabled")]      // ahead of CBool, whose 13 Resume Next would step over
     [InlineData("Label1.Left = Text1", "Left")]
+    [InlineData("Label1.Tag = Text1", "Tag")]                // Tag keeps what it is given, but not a reference
     [InlineData("Dim a(2) As Integer\r\nLabel1.Caption = a", "Caption")]
     public async Task A_control_an_array_or_an_object_on_the_right_is_not_converted(string code, string property)
     {

@@ -235,13 +235,6 @@ public static class AvaloniaInteroperability
     {
         var type = property.PropertyType;
 
-        // Tag keeps what it is given, for now. It is a String in VB6 (`Label1.Tag = 5` reads back "5", measured),
-        // but storing it as one here broke two idioms that work today: `If Command1.Tag = 1` needs the String-to-
-        // number comparison #211 has not landed, and `Tag + 1` needs String arithmetic. Tag becomes a String with
-        // #211. An unset Tag reads back "" (TryGet). Null is 94, as for any String property.
-        if (ReferenceEquals(property, VBProperties.TagProperty))
-            return value.IsNull ? throw new VBRunTimeException(VBStandardError.InvalidUseOfNull) : value.Value;
-
         // A colour read from a control is a Long in VB6, so copying one (`Text1.BackColor = Label1.BackColor`),
         // restoring one saved in a Variant, or showing one (`Caption = BackColor`) takes it as that Long.
         if (value.Value is VBColor color)
@@ -255,6 +248,14 @@ public static class AvaloniaInteroperability
         if (!IsScalar(value))
             throw new NotImplementedException(
                 $"Assigning {value.Type} to the {property.Name} property is not implemented");
+
+        // Tag keeps what it is given, for now. It is a String in VB6 (`Label1.Tag = 5` reads back "5", measured),
+        // but storing it as one here broke two idioms that work today: `If Command1.Tag = 1` needs the String-to-
+        // number comparison #211 has not landed, and `Tag + 1` needs String arithmetic. Tag becomes a String with
+        // #211. An unset Tag reads back "" (TryGet). Null is 94, as for any String property. It comes after the
+        // guard, so a control is refused here too rather than stored as a reference that reads as a type name.
+        if (ReferenceEquals(property, VBProperties.TagProperty))
+            return value.IsNull ? throw new VBRunTimeException(VBStandardError.InvalidUseOfNull) : value.Value;
 
         // Non-zero is True (0.4 included: it is "non-zero", not "rounds to 1"), "False" and "1" parse, Empty is
         // False (measured: `Command1.Enabled = Empty` is False, no error), "banana" is 13 and Null is 94. CBool is

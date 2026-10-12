@@ -1075,10 +1075,16 @@ The OLE_COLOR range, probed byte by byte:
 | `&H00` (RGB) | any | |
 | `&H01` (palette index) | `&H000000` to `&H00FFFF` | `&H010000` and above (`&H1010000`, `&H1FFFFFF`) |
 | `&H02` (palette-relative RGB) | any (`&H2000000`, `&H2000001`, `&H2FFFFFF`) | |
-| `&H80` (system colour) | `&H00` to `&H18` | `&H80000019`, `&H80000030`, `&H80000100` |
+| `&H80` (system colour) | `&H00` to `&H18` | each of `&H80000019` to `&H80000020` (probed one by one for #774), `&H80000030`, `&H80000100` |
 | `&H03`, `&H04`, `&H7F`, `&HC0`, `&HFF` | | all (`&H3000000`, `&H4000000`, `&H7FFFFFFF`, `&HC0000000`, `&HFF000000`) |
 
-That is OLE's own colour validation, as far as it was probed.
+That is OLE's own colour validation, as far as it was probed. `&H18` is `COLOR_INFOBK`, the last entry of the
+table VB6 exposes; the refusal from `&H19` on is measured, not inferred from Windows' `COLOR_*` numbering, which
+has a hole at `&H19` and goes on past it.
+
+**A palette colour is kept as given** (measured for #774): `&H1000001` reads back `16777217`, `&H100000F`
+`16777231`, `&H100FFFF` `16842751`, `&H2000001` `33554433` and `&H2FFFFFF` `50331647`, each the same Long that was
+assigned. What it paints as was not measured.
 
 ### The rule
 
@@ -1100,19 +1106,131 @@ conversion comes before the range check. Nothing is changed when either step ref
 - **`MousePointer` 4, 5, 13 and 14 are accepted.** `VBCursorType`'s comment called them gaps in VB6's numbering.
   They are not (#120).
 - **`Tag` is a String.** HexIDE declared it as an object and stored whatever it was given.
-- **`CStr` of a Date leaves out what is zero.** A midnight date has no time, and a time has no date. HexIDE writes
-  both (#771). A Single shows seven significant digits and a Double fifteen. HexIDE shows more (#772).
+- **`CStr` of a Date leaves out what is zero.** A midnight date has no time, and a time has no date. HexIDE wrote
+  both (#771). A Single shows seven significant digits and a Double fifteen. HexIDE showed more (#772). Both were
+  fixed by #779; see "Turning a number or a date into text".
 
-### HexIDE, after #768
+### Measured for the review of #774
+
+The same harness, three more `/make` runs, with an `HScrollBar` added (Min 0, Max 100, and a second set in the
+`.frm` to Min 100, Max 0).
+
+**A scroll bar's `Value` is range-checked, from a String too, and either way round:**
+
+| Assignment (Min 0, Max 100, reset to 10) | Reads back | Err |
+|---|---|---|
+| `HScroll1.Value = "50"` / `= 100` / `= "100"` | `50` / `100` / `100` | 0 |
+| `= 101` / `= 150` / `= "150"` / `= -1` / `= "-1"` | `10`, **unchanged** | **380** |
+
+| Assignment (Min 100, Max 0, reset to 100) | Reads back | Err |
+|---|---|---|
+| (as loaded) `Min`, `Max` | `100`, `0` | 0 |
+| `Value = 50` / `= 0` / `= 100` / `= "50"` | `50` / `0` / `100` / `50` | 0 |
+| `= 150` / `= -1` / `= True` | unchanged | **380** |
+| `= "abc"` | unchanged | 13 |
+| `= Empty` | `0` | 0 |
+| `= 2.5` / `= 99.5` | `2` / `100` (half to even) | 0 |
+
+So a bar whose Min exceeds its Max is legal, and the range check takes the two either way.
+
+**A Boolean property is CBool**, and CBool of Empty is False:
+
+| Expression or assignment | Value | Err |
+|---|---|---|
+| `CBool(Empty)` | `False` | 0 |
+| `CLng(Empty)` / `CDbl(Empty)` | `0` (Long) / `0` (Double) | 0 |
+| `CBool("")` | | 13 |
+| `Command1.Enabled = Empty` / `= 0` (reset to True) | `False` / `False` | 0 |
+| `Command1.Enabled = Null` / `= ""` | `True`, **unchanged** | **94** / **13** |
+
+**.NET's NaN and Infinity are not VB6 numbers:**
+
+| Expression or assignment | Value | Err |
+|---|---|---|
+| `CDbl("NaN")`, `CDbl("Infinity")`, `CDbl("-Infinity")`, `CLng("NaN")` | | **13** |
+| `CDbl("1E+400")` | | **6** |
+| `Label1.Left = "NaN"` / `"Infinity"` / `"-Infinity"` / `"1.#INF"` / `"1.#QNAN"` | unchanged | **13** |
+| `Val("NaN")` | `0` (Double) | 0 |
+
+**A hex String wraps at the target's width, and a trailing `&` in it is refused:**
+
+| Expression | Value | Err |
+|---|---|---|
+| `CLng("&H8000000F")` / `CDbl("&H8000000F")` / `Val("&H8000000F")` | `-2147483633` (Long / Double / Double) | 0 |
+| `CLng("&HFFFFFFFF")` / `CLng("&O37777777777")` | `-1` | 0 |
+| `CLng("&H100000000")` | | 6 |
+| `CDbl("&H100000000")` | `4294967296` | 0 |
+| `CLng("&HFFFF")` / `CLng("&H8000")` / `CLng("&H10000")` | `65535` / `32768` / `65536` | 0 |
+| `CInt("&HFFFF")` | `-1` (Integer) | 0 |
+| `CDbl("&H10&")`, `CLng("&HFFFF&")`, `CLng("&H8000000F&")` | | **13** |
+| `Text1.BackColor = "&H8000000F"` / `= "-2147483633"` | `-2147483633` (Long), a system colour | 0 |
+| `Text1.BackColor = "&H8000000F&"` | unchanged | 13 |
+
+**A colour reads back as its Long, and a hex literal is typed by its digits:**
+
+| Statement, after `Text1.BackColor = &HFF` | Value | Err |
+|---|---|---|
+| `Text1.BackColor` | `255` (Long) | 0 |
+| `Text1.BackColor = 255` / `Text1.BackColor = vbRed` | `True` / `True` | 0 |
+| `Text1.BackColor + 1` | `256` (Long) | 0 |
+| `Text1.BackColor = &HFF00` | unchanged | **380** |
+
+**A control where a value is wanted is its default property:**
+
+| Statement | Result | Err |
+|---|---|---|
+| `s = Text1` / `s = Label1` (s As String) | `"Text1"` / `"Label1"`, the Text and the Caption | 0 |
+| `v = Text1` / `v = Command1` / `v = Check1` (v As Variant) | `"Text1"` String / `False` Boolean / `0` Integer | 0 |
+| `Label1 = "x"` / `Text1 = "y"` / `Check1 = 1` | Caption `x` / Text `y` / Value `1` | 0 |
+
+### What the review's measurements overturned
+
+- **`&HFF00` is not a green.** A test written for #774 restored `&HFF00` through a Variant and expected it back.
+  VB6 refuses it with 380, because four hex digits make an Integer literal, and `&HFF00` is -256, which is no
+  colour. The Long `&HFF00&` is the green. That was our own expectation, and it was wrong.
+- **A trailing `&` belongs to the literal, not to a String.** HexIDE trimmed it from `"&H10&"`; VB6 raises 13.
+- **The width a hex String wraps at follows the target.** `CLng("&HFFFF")` is 65535, and `CInt("&HFFFF")` is -1.
+  Whether `CInt` wraps at 16 bits for more than four digits was not measured.
+- **`CDbl("1E+400")` was Infinity in HexIDE**, where VB6 raises 6. .NET parses it to Infinity without complaint,
+  exactly as it parses the word `"Infinity"`.
+- **`Enabled = Empty` is False with no error.** HexIDE raised 13, because its CBool sent Empty through the
+  String-to-number parse. The code comment beside it already said False.
+
+### HexIDE, after #774
 
 Property assignment goes through `VbNumeric.CoerceOnStore` and the measured range checks above, in
-`AvaloniaInteroperability.ConvertForAssignment`. `HexIDE.Integration.Tests` `PropertyAssignmentTests` pins every
-row HexIDE matches. Where HexIDE does not match yet:
+`AvaloniaInteroperability.ConvertForAssignment` (and `CheckScrollBarValue` for a scroll bar's `Value`).
+`HexIDE.Integration.Tests` `PropertyAssignmentTests` covers, through real controls and the interpreter:
+- the String-property rows, the Single, Double, Currency and Decimal ones included, since #779;
+- the position, `Interval`, scroll bar `Value`, `Enabled`, `CheckBox.Value`, `MousePointer` (error only, #769) and
+  `BackColor` rows, the colour checked as stored and as left unchanged;
+- copying a colour from one control to another, through a Variant, and into a caption;
+- Null into `Tag`, and the two `Tag` idioms below.
 
-- **Positions are not rounded to whole twips.** HexIDE checks the Long range but keeps the fraction, because its
-  runtime positions are not twips.
-- **A palette colour (`&H01`/`&H02`) reads back wrong.** It is accepted, but stored as the RGB of its low bytes.
-- **The display divergences** above: #770, #771 and #772.
+`ConversionFunctionsTests` covers CBool of Empty, the NaN and Infinity spellings, and `CDbl("1E+400")`.
+
+**Refused with `NotImplementedException`, rather than answered wrong:**
+- **A Date into a String property** (#777). VB6 writes it in the system's regional format, and the IDE runs in the
+  invariant culture, so it would put the month first on every machine.
+- **A palette colour** (#786), from any type. HexIDE has no colour that holds one.
+- **`Value` on a scroll bar whose Min exceeds its Max** (#787). Avalonia raises Maximum to Minimum, so the value
+  would read back clamped.
+- **A control, an array or an object on the right** of a property assignment. For a control, VB6 reads its default
+  property (#790).
+
+**Where HexIDE still differs:**
+- **`Tag` holds what it is given**, not a String: `Tag = 5` reads back the Integer 5, where VB6 has `"5"`. Making
+  it a String waits on #211, because `If Tag = 1` and `Tag + 1` rely on it. An unset `Tag` reads back `""`, and
+  Null is 94, as in VB6.
+- **Positions are not rounded to whole twips** (#791). HexIDE checks the Long range but keeps the fraction.
+- **A comma in a numeric String** (#770).
+- **A hex String** (#788): `BackColor = "&H8000000F"` is an Overflow, and `"&H8000000F&"` is accepted.
+- **A colour read in code** is HexIDE's colour value, not the Long (#789), so `If Text1.BackColor = vbRed` raises 13.
+- **Reading a control as a value** outside a property assignment (`s = Text1`) gives a .NET type name (#790).
+- **Not measured:** the Integer-typed properties (`ListIndex`, a scroll bar's `Value`) convert as a Long, so
+  40000 gets past the conversion where VB6 may raise 6; a scroll bar then refuses it with 380. And
+  `Label1.Caption = o` with `o` set to `Nothing` never reaches the conversion in HexIDE; what VB6 raises there is
+  unmeasured.
 
 
 ## Out of stack space — Error 28 (2026-08-22, #80)

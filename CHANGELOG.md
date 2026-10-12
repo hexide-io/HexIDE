@@ -30,10 +30,15 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **`Label1.Caption = 5` sets the caption to "5".** A value of another type assigned to a control property is
   converted to the property's type, as VB6 does, instead of stopping the program. That covers a number into a
-  caption or text, a string into a position or `Timer.Interval`, a number or `True` into a check box's `Value`,
-  and a string into a colour. A value VB6 refuses raises VB6's own error, which an error handler can trap: Type
-  mismatch for text that is not a number, Invalid use of Null, Overflow, and Invalid property value for one
-  outside the property's range (`Check1.Value = 3`).
+  caption or text, a string into a position, `Timer.Interval` or a scroll bar's `Value`, a number into a check
+  box's `Value`, a string into a colour, and a colour copied from one control to another. A value VB6 refuses
+  raises VB6's own error, which an error handler can trap: Type mismatch for text that is not a number, Invalid
+  use of Null, Overflow, and Invalid property value for one outside the property's range (`Check1.Value = 3`,
+  `HScroll1.Value = 150`). A date into a caption stops the program and says so, until HexIDE knows the user's
+  date format; so does a palette colour.
+- **`Command1.Enabled = Empty` disables the button**, as `CBool(Empty)` is False. It raised Type mismatch.
+  `CDbl("NaN")` and `CDbl("Infinity")` raise Type mismatch, and `CDbl("1E+400")` raises Overflow; .NET's
+  spellings of those used to get through as numbers.
 
 - **A language server that orders changes by version no longer ignores the first edit to a file.** That edit repeated the version the file was opened at, so such a server kept analysing the text
   from before it until the next edit.
