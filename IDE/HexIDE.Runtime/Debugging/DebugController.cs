@@ -70,6 +70,7 @@ public sealed class DebugController : IDebugController
     public DebugState State => _state;
     public bool IsAborting => _isAborting;
     public bool IsSessionActive => _sessionActive;
+    public int Session => _session;
     public StoppedInfo? CurrentStop => _currentStop;
 
     public event Action<StoppedInfo>? Stopped;
