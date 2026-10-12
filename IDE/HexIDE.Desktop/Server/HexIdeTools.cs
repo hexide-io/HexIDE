@@ -292,6 +292,9 @@ internal sealed class HexIdeTools(IdeContext ctx)
         if (error is not null)
             return new MutateResult(false, error);
 
+        // Before the save, which may take an armed cancel: that is the route the refusal above offers, and its
+        // outcome is the document kept without a file, not a failure (#755).
+        var cancel = HexIDE.IDE.ScriptedFileDialogs.WatchForCancel(form is not null ? form.AbsolutePath : module?.AbsolutePath);
         try
         {
             // The result is honoured rather than assumed. A refusal used to come back as
@@ -319,6 +322,14 @@ internal sealed class HexIdeTools(IdeContext ctx)
                         : ""))
                 : new MutateResult(false, "HexIDE cannot reproduce this file faithfully, so it was not "
                                         + "written and the copy on disk is unchanged.");
+        }
+        catch (OperationCanceledException) when (cancel.Cancelled)
+        {
+            var kind = form is not null ? "Form" : "Module";
+            return new MutateResult(true, null,
+                $"The new code is in the IDE. {kind} '{form?.Name ?? module!.Name}' still has no file: the armed answer "
+                + "cancelled the save picker, so nothing was written. To write it, arm answer_next_file_dialog with a "
+                + "path and call set_file_content again.");
         }
         catch (Exception ex)
         {
@@ -528,6 +539,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
         if (error is not null)
             return new MutateResult(false, error);
 
+        // Before the save: an armed cancel keeps the document without a file, as the refusal offers (#755).
+        var cancel = HexIDE.IDE.ScriptedFileDialogs.WatchForCancel(ownerModule is not null ? ownerModule.AbsolutePath : form!.AbsolutePath);
         try
         {
             bool written;
@@ -547,6 +560,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 ? new MutateResult(true, null, stored)
                 : new MutateResult(false, "HexIDE cannot reproduce this file faithfully, so it was not "
                                         + "written and the copy on disk is unchanged.");
+        }
+        catch (OperationCanceledException) when (cancel.Cancelled)
+        {
+            return new MutateResult(true, null,
+                $"'{property}' is set in the IDE. {(ownerModule is not null ? "UserControl" : "Form")} '{formName}' still "
+                + "has no file: the armed answer cancelled the save picker, so nothing was written. To write it, arm "
+                + "answer_next_file_dialog with a path and set a property again.");
         }
         catch (Exception ex)
         {
@@ -1105,6 +1125,10 @@ internal sealed class HexIdeTools(IdeContext ctx)
         // On the UI thread: a save first publishes ApplyAllUnsavedChangesEvent, whose handler reads
         // AvaloniaEdit's Document.Text and throws off it, leaving the previous content to be written and
         // reported as success. (#334)
+        // Before the save: an armed cancel is the route add_control's description offers for keeping the form
+        // without a file, so a save it cancels is that outcome, not a failed save (#755).
+        var cancel = HexIDE.IDE.ScriptedFileDialogs.WatchForCancel(
+            OwnerModuleOf(spawned.Form)?.AbsolutePath ?? spawned.Form.AbsolutePath);
         try
         {
             // Through the owning module for a UserControl or PropertyPage, as set_control_property does. (#539)
@@ -1122,6 +1146,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
                     $"'{spawned.ControlName}' was added to the designer but NOT written: HexIDE cannot reproduce "
                     + "this form faithfully, so the copy on disk is unchanged. Undo the add or the designer "
                     + "and the file will stay out of step.");
+        }
+        catch (OperationCanceledException) when (cancel.Cancelled)
+        {
+            var kept = $"{spawned.Form.Name} still has no file: the armed answer cancelled the save picker, so nothing "
+                       + "was written. To write it, arm answer_next_file_dialog with a path and save the form, or make "
+                       + "any other change that saves it, such as set_control_property.";
+            return spawned with { Form = null, Note = spawned.Note is null ? kept : spawned.Note + " " + kept };
         }
         catch (Exception ex)
         {
@@ -1806,7 +1837,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "take_snapshot")]
-    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. inspect_element's 'boundingRect' is in the window's device-independent units measured from its top-left, which is the image's top-left, so multiply it by 'scale' to find the control in the image. If a modal dialog is open it is captured in preference to the main window (its title is reported in 'activeDialog'); otherwise the main window is captured. 'window' selects which top-level window to address: \"auto\" (default) is the frontmost one, which while a VB6 program runs — INCLUDING while it is paused at a breakpoint — is the program's form, not the IDE; pass \"ide\" to address the IDE itself in that state.")]
+    [Description("Captures the current HexIDE window as a PNG and returns the file path so the caller can read the image, with its size in pixels ('width', 'height') and its 'scale', the pixels per device-independent unit. inspect_element's 'boundingRect' is in the window's device-independent units measured from its top-left, which is the image's top-left, so multiply it by 'scale' to find the control in the image. If a modal dialog is open it is captured in preference to the main window (its title is reported in 'activeDialog'); otherwise the main window is captured. 'window' selects which top-level window to address: \"auto\" (default) is the frontmost one, which while a VB6 program runs — INCLUDING while it is paused at a breakpoint — is the program's form, not the IDE; pass \"ide\" to address the IDE itself in that state. Each call writes a new file and returns its path; earlier captures are left in place, so a path from an earlier call still holds that image, and nothing deletes them.")]
     public async Task<SnapshotResult> TakeSnapshotAsync(
         string? window = null, CancellationToken ct = default)
     {
@@ -1828,7 +1859,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (bitmap is null)
                 return new SnapshotResult(null, "Window has no size", activeDialog);
 
-            var path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "hexide_snapshot.png");
+            // A file per capture, so the path an earlier call returned still holds its image (#756).
+            var path = HexIDE.Automation.SnapshotComposer.NewCapturePath(System.IO.Path.GetTempPath(), DateTime.Now);
             bitmap.Save(path);
 
             // The composer renders at the window's desktop scaling, with the window at the image's origin. (#646)
