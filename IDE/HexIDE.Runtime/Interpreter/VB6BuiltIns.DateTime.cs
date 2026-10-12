@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Text.RegularExpressions;
 
 namespace HexIDE.Runtime.Interpreter;
 
@@ -64,11 +65,40 @@ public partial class VB6BuiltIns
     internal static DateTime OnZeroDateIfTimeOnly(DateTime parsed)
         => parsed.Date == DateTime.MinValue ? Epoch + parsed.TimeOfDay : parsed;
 
+    // The first two numbers of a date, when they could be a day and a month: one or two digits each, separated by
+    // what VB6 reads between them. A dot is not among them: under en-GB, "1.2.2003" is not a date at all (measured).
+    private static readonly Regex LeadingDayAndMonth = new(@"^(\s*)(\d{1,2})([/\- ]+)(\d{1,2})(?!\d)", RegexOptions.CultureInvariant);
+
+    /// <summary>
+    /// Text a program reads as a date, in its locale (#777). When the locale's order makes an impossible date, VB6
+    /// reads the first two numbers the other way round, and so does this (#793).
+    /// </summary>
+    /// <remarks>
+    /// Measured under en-GB, which puts the day first: <c>CDate("1/13/2003")</c> is 13 January 2003, with or without
+    /// a time after it, with dashes, spaces or mixed separators, and with a two-digit year (<c>"1/13/30"</c> is 2030)
+    /// or none (<c>"1/13"</c> is 13 January this year). <c>"12/1/2003"</c> is still 12 January: the swap happens only
+    /// when the locale's order fails. It does not rescue a date impossible both ways round (<c>"31/2/2003"</c>,
+    /// <c>"13/13/2003"</c>), a year first (<c>"2003/13/1"</c>), or a month and a year (<c>"13/2003"</c>): each is Type
+    /// mismatch. A locale that puts the month first is taken to swap the same way, which is not measured.
+    /// </remarks>
+    internal static bool TryReadDate(string text, out DateTime result)
+    {
+        var culture = VbLocale.Current;
+        if (DateTime.TryParse(text, culture, DateTimeStyles.NoCurrentDateDefault, out result))
+            return true;
+        var leading = LeadingDayAndMonth.Match(text);
+        if (!leading.Success)
+            return false;
+        var swapped = leading.Groups[1].Value + leading.Groups[4].Value + leading.Groups[3].Value + leading.Groups[2].Value
+                      + text[leading.Length..];
+        return DateTime.TryParse(swapped, culture, DateTimeStyles.NoCurrentDateDefault, out result);
+    }
+
     // VB6 date serial (OLE Automation) — accepts a Date, a numeric serial, or a parseable string.
     private static DateTime AsDate(Vb6Value v)
     {
         if (v.Value is DateTime dt) return dt;
-        if (v.Value is string s && DateTime.TryParse(s, VbLocale.Current, DateTimeStyles.NoCurrentDateDefault, out var pd))
+        if (v.Value is string s && TryReadDate(s, out var pd))
             return OnZeroDateIfTimeOnly(pd);
         if (Vb6Value.TryNumericToDouble(v, out var oa))
         {
@@ -83,10 +113,12 @@ public partial class VB6BuiltIns
 
     // Two-digit years follow the regional window, not a fixed rule (#777, measured): with Windows' default window
     // ending in 2049, DateSerial(30, 1, 1) is 2030, (49, ...) is 2049 and (50, ...) is 1950, against the documented
-    // 0-29/30-99 split. The locale's calendar carries that window. Four-digit years pass through.
+    // 0-29/30-99 split. The locale's calendar carries that window: its DateTimeFormat's, which is Gregorian for a
+    // program, not CultureInfo.Calendar, which under th-TH would put 30 in the Buddhist year 2530. Four-digit years
+    // pass through.
     private static Vb6Value DateSerial(int year, int month, int day)
     {
-        if (year is >= 0 and <= 99) year = VbLocale.Current.Calendar.ToFourDigitYear(year);
+        if (year is >= 0 and <= 99) year = VbLocale.Current.DateTimeFormat.Calendar.ToFourDigitYear(year);
         try { return new Vb6Value(new DateTime(year, 1, 1).AddMonths(month - 1).AddDays(day - 1)); }
         catch (ArgumentOutOfRangeException) { throw InvalidCall(); }
     }

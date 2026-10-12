@@ -151,4 +151,188 @@ public class VbLocaleTests : BaseVBTestFixture
 
         AssertDebugLog([new Vb6Value(expected)]);
     }
+
+    // ── what the program takes from the locale, and what stays VB6's own ───────────────────────────
+
+    /// <summary>A bidi mark before the minus sign, as ICU writes it for 43 cultures.</summary>
+    private static readonly string BidiMinus = char.ConvertFromUtf32(0x200E) + "-";
+
+    [Theory]
+    [InlineData("th-TH", false)]   // the Buddhist era: 2003 is 2546, and 30 would be 2530
+    [InlineData("fa-IR", true)]    // the Persian calendar: 2003 is 1381, and January is not its first month
+    [InlineData("ar-SA", true)]    // Umm al-Qura, which cannot reach the zero date at all
+    public async Task A_date_is_Gregorian_whatever_the_locales_own_calendar(string name, bool monthsDiffer)
+    {
+        // CStr writes a Gregorian date (#779), so everything that reads one, or names a month, must be Gregorian too.
+        var culture = CultureInfo.GetCultureInfo(name);
+
+        await RunWith(culture, CultureInfo.InvariantCulture,
+            "Debug.Print CDate(CStr(#1/2/2003#))\n" +
+            "Debug.Print DateSerial(30, 1, 1)\n" +
+            "Debug.Print IsDate(CStr(#1/2/2003#))\n" +
+            "Debug.Print CStr(Year(CStr(#1/2/2003#)))\n" +
+            "Debug.Print Format(#1/2/2003#, \"yyyy\")\n" +
+            "Debug.Print InStr(Format(0, \"Short Date\"), \"1899\") > 0\n" +
+            "Debug.Print InStr(Format(#1/2/2003#, \"Long Date\"), \"2003\") > 0\n" +
+            "Debug.Print MonthName(1) = Format(#1/2/2003#, \"mmmm\")\n" +
+            "Debug.Print MonthName(1)\n");
+
+        debug.Take(8).Should().Equal(
+            new Vb6Value(new DateTime(2003, 1, 2)),
+            new Vb6Value(new DateTime(2030, 1, 1)),
+            new Vb6Value(true),
+            new Vb6Value("2003"),
+            new Vb6Value("2003"),
+            new Vb6Value(true),
+            new Vb6Value(true),
+            new Vb6Value(true));
+        if (monthsDiffer)
+            debug[8].Value.Should().NotBe(culture.DateTimeFormat.GetMonthName(1), "that is the first month of the locale's own calendar");
+    }
+
+    [Fact]
+    public async Task A_sign_is_an_ASCII_minus_however_the_locale_writes_its_own()
+    {
+        var bidi = (CultureInfo)DeDe.Clone();
+        bidi.NumberFormat.NegativeSign = BidiMinus;
+
+        await RunWith(bidi, CultureInfo.InvariantCulture,
+            "Debug.Print IsNumeric(\"-5\")\n" +
+            "Debug.Print CDbl(CStr(-1.5))\n" +
+            "Debug.Print CBool(\"-1\")\n" +
+            "Debug.Print CStr(-1.5)\n" +
+            "Debug.Print Format(-1.5, \"0.0\")\n");
+
+        AssertDebugLog([new Vb6Value(true), new Vb6Value(-1.5), new Vb6Value(true), new Vb6Value("-1,5"), new Vb6Value("-1,5")]);
+    }
+
+    [Theory]
+    [InlineData("ar-SA")]
+    [InlineData("fa-IR")]
+    [InlineData("he-IL")]
+    public async Task A_negative_number_reads_back_in_a_locale_whose_own_minus_carries_a_bidi_mark(string name)
+    {
+        await RunWith(CultureInfo.GetCultureInfo(name), CultureInfo.InvariantCulture,
+            "Debug.Print IsNumeric(\"-5\")\n" +
+            "Debug.Print CDbl(CStr(-1.5)) = -1.5\n" +
+            "Debug.Print CBool(\"-1\")\n" +
+            "Debug.Print Left(CStr(-1.5), 1) = \"-\"\n" +
+            "Debug.Print Left(Format(-1.5, \"0.0\"), 1) = \"-\"\n");
+
+        AssertDebugLog([new Vb6Value(true), new Vb6Value(true), new Vb6Value(true), new Vb6Value(true), new Vb6Value(true)]);
+    }
+
+    // ── a date impossible in the locale's order is read the other way round (#793) ───────────────────
+
+    [Theory]
+    [InlineData("CDate(\"1/13/2003\")", 2003, 1, 13, 0)]
+    [InlineData("CDate(\"1/13/2003 10:30\")", 2003, 1, 13, 10)]
+    [InlineData("CDate(\"1-13-2003\")", 2003, 1, 13, 0)]
+    [InlineData("CDate(\"1 13 2003\")", 2003, 1, 13, 0)]
+    [InlineData("CDate(\"1/13-2003\")", 2003, 1, 13, 0)]
+    [InlineData("CDate(\"1/13/30\")", 2030, 1, 13, 0)]
+    [InlineData("CDate(\"1/13/12\")", 2012, 1, 13, 0)]
+    [InlineData("DateValue(\"1/13/2003\")", 2003, 1, 13, 0)]
+    [InlineData("CDate(\"12/1/2003\")", 2003, 1, 12, 0)]   // possible in the locale's order, so read in it
+    [InlineData("CDate(\"13/1/2003\")", 2003, 1, 13, 0)]
+    public async Task A_date_impossible_in_the_locales_order_is_read_the_other_way_round(string expression, int year, int month, int day, int hour)
+    {
+        // Measured under en-GB, day first (oracle, "A date the locale's order cannot make").
+        await RunWith(EnGb, CultureInfo.InvariantCulture, $"Debug.Print {expression}\n");
+
+        AssertDebugLog([new Vb6Value(new DateTime(year, month, day, hour, hour == 0 ? 0 : 30, 0))]);
+    }
+
+    [Theory]
+    [InlineData("CDate(\"1/13\") = DateSerial(Year(Date), 1, 13)")]   // two parts: this year
+    [InlineData("CDate(\"13/1\") = DateSerial(Year(Date), 1, 13)")]
+    [InlineData("CDate(\"1/12\") = DateSerial(Year(Date), 12, 1)")]   // possible as it stands: 1 December
+    [InlineData("IsDate(\"1/13/2003\")")]
+    [InlineData("CStr(Day(\"1/13/2003\")) = \"13\"")]
+    [InlineData("CStr(Month(\"1/13/2003\")) = \"1\"")]
+    public async Task The_other_order_reaches_every_reader_of_a_date(string expression)
+    {
+        await RunWith(EnGb, CultureInfo.InvariantCulture, $"Debug.Print {expression}\n");
+
+        AssertDebugLog([new Vb6Value(true)]);
+    }
+
+    [Theory]
+    [InlineData("CDate(\"31/2/2003\")")]    // impossible both ways round
+    [InlineData("CDate(\"2/31/2003\")")]
+    [InlineData("CDate(\"30/2/2003\")")]
+    [InlineData("CDate(\"13/13/2003\")")]
+    [InlineData("CDate(\"0/13/2003\")")]
+    [InlineData("CDate(\"32/1/2003\")")]
+    [InlineData("CDate(\"2003/13/1\")")]    // a year first is not swapped
+    [InlineData("CDate(\"13/2003\")")]      // nor a month and a year
+    [InlineData("CDate(\"1.13.2003\")")]    // and a dot is not a date separator here at all
+    public async Task A_date_impossible_either_way_round_is_still_Type_mismatch(string expression)
+    {
+        await RunWith(EnGb, CultureInfo.InvariantCulture,
+            $"On Error Resume Next\nDim d\nd = {expression}\nDebug.Print Err.Number\n");
+
+        AssertDebugLog([new Vb6Value(13L)]);
+    }
+
+    [Theory]
+    [InlineData("IsDate(\"13/13/2003\")")]
+    [InlineData("IsDate(\"31/2/2003\")")]
+    public async Task IsDate_is_False_for_a_date_impossible_either_way_round(string expression)
+    {
+        await RunWith(EnGb, CultureInfo.InvariantCulture, $"Debug.Print {expression}\n");
+
+        AssertDebugLog([new Vb6Value(false)]);
+    }
+
+    // ── each place Format reads the locale, told apart from the thread's culture ─────────────────────
+
+    [Theory]
+    [InlineData("Format(CCur(1.5))", "1,5")]                                           // General Number of an exact value
+    [InlineData("Format(#1/2/2003#, \"dddd d mmmm\")", "Donnerstag 2 Januar")]        // a date mask's names
+    [InlineData("Format(\"1,5\", \"0.00\")", "1,50")]                                  // a String read as a number
+    [InlineData("Format(1.5E+30, \"General Number\")", "1,5E+30")]                     // beyond the decimal engine
+    [InlineData("Format(1234.5, \"#,##0.00\")", "1.234,50")]                           // grouping
+    [InlineData("Format(#1/2/2003#, \"Long Date\")", "Donnerstag, 2. Januar 2003")]  // a named date format
+    public async Task Each_Format_site_reads_the_programs_locale(string expression, string expected)
+    {
+        await RunWith(DeDe, CultureInfo.InvariantCulture, $"Debug.Print {expression}\n");
+
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    [Fact]
+    public async Task Formats_Currency_takes_the_locales_symbol()
+    {
+        // Where VB6 puts the symbol under de-DE is not measured, so only its presence is pinned.
+        await RunWith(DeDe, CultureInfo.InvariantCulture, "Debug.Print InStr(Format(1.5, \"Currency\"), \"€\") > 0\n");
+
+        AssertDebugLog([new Vb6Value(true)]);
+    }
+
+    [Fact]
+    public async Task Formats_ttttt_is_the_locales_long_time()
+    {
+        // A pattern of its own, because de-DE's long time is the invariant one and could not tell the two apart.
+        var dotted = (CultureInfo)DeDe.Clone();
+        dotted.DateTimeFormat.LongTimePattern = "HH.mm.ss";
+
+        await RunWith(dotted, CultureInfo.InvariantCulture, "Debug.Print Format(#10:30:00 PM#, \"ttttt\")\n");
+
+        AssertDebugLog([new Vb6Value("22.30.00")]);
+    }
+
+    [Fact]
+    public async Task Formats_scientific_sign_is_ASCII_and_not_the_threads()
+    {
+        // The thread carries the bidi minus, so a site that read the thread's culture would write it. The value is
+        // computed, not written as -1.5: the source's literals are read in the thread's culture (#781), which here
+        // would not read its own minus sign.
+        var bidiThread = (CultureInfo)CultureInfo.InvariantCulture.Clone();
+        bidiThread.NumberFormat.NegativeSign = BidiMinus;
+
+        await RunWith(DeDe, bidiThread, "Debug.Print Format(0 - 1.5, \"0.00E+00\")\n");
+
+        AssertDebugLog([new Vb6Value("-1,50E+00")]);
+    }
 }

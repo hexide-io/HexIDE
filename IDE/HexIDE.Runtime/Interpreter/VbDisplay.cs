@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Globalization;
 using System.Numerics;
 
@@ -28,9 +27,6 @@ namespace HexIDE.Runtime.Interpreter;
 public static class VbDisplay
 {
     private static readonly DateTime ZeroDate = new(1899, 12, 30);
-
-    /// <summary>Gregorian date formats for the cultures whose default calendar is another, by culture name.</summary>
-    private static readonly ConcurrentDictionary<string, DateTimeFormatInfo> GregorianFormats = new();
 
     /// <summary>The text VB6 makes of <paramref name="value"/>, in the running program's locale (<see cref="VbLocale"/>).</summary>
     public static string ToText(Vb6Value value) => ToText(value, VbLocale.Current);
@@ -157,7 +153,7 @@ public static class VbDisplay
     /// </summary>
     private static string Date(DateTime value, CultureInfo culture)
     {
-        var format = Gregorian(culture);
+        var format = VbLocale.ForProgram(culture).DateTimeFormat;
         var time = value.ToString(format.LongTimePattern, format);
         if (value.Date == ZeroDate)
             return time;
@@ -166,29 +162,5 @@ public static class VbDisplay
             datePattern = datePattern.Replace("yyyy", "'" + value.Year.ToString(CultureInfo.InvariantCulture) + "'");
         var date = value.ToString(datePattern, format);
         return value.TimeOfDay == TimeSpan.Zero ? date : date + " " + time;
-    }
-
-    /// <summary>
-    /// The culture's date formats, in the Gregorian calendar. A culture whose default calendar is another writes a
-    /// Persian, Hijri or Buddhist year, and ar-SA and fa-IR throw on valid VB6 dates their calendar cannot reach. Such
-    /// a culture offers Gregorian as an optional calendar; if one ever does not, the invariant formats are used.
-    /// </summary>
-    private static DateTimeFormatInfo Gregorian(CultureInfo culture)
-    {
-        if (culture.DateTimeFormat.Calendar is GregorianCalendar)
-            return culture.DateTimeFormat;
-        return GregorianFormats.GetOrAdd(culture.Name, _ =>
-        {
-            foreach (var calendar in culture.OptionalCalendars)
-            {
-                if (calendar is GregorianCalendar)
-                {
-                    var format = (DateTimeFormatInfo)culture.DateTimeFormat.Clone();
-                    format.Calendar = calendar;
-                    return DateTimeFormatInfo.ReadOnly(format);
-                }
-            }
-            return CultureInfo.InvariantCulture.DateTimeFormat;
-        });
     }
 }

@@ -275,8 +275,10 @@ public partial class VB6BuiltIns
         sb.Append(overflowSuffix);
 
         string result = sb.ToString();
-        if (IndexOfUnquoted(mask, '>') >= 0) result = result.ToUpper(VbLocale.Current);
-        if (IndexOfUnquoted(mask, '<') >= 0) result = result.ToLower(VbLocale.Current);
+        // Invariant casing, as UCase and LCase have. Whether VB6 cases by the locale (tr-TR's dotted I) is unmeasured
+        // for all four, and they must agree with each other whichever it is (#797).
+        if (IndexOfUnquoted(mask, '>') >= 0) result = result.ToUpperInvariant();
+        if (IndexOfUnquoted(mask, '<') >= 0) result = result.ToLowerInvariant();
         return result;
     }
 

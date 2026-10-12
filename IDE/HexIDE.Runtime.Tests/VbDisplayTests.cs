@@ -413,13 +413,24 @@ public class VbDisplayTests : BaseVBTestFixture
     }
 
     /// <summary>
-    /// Runs <paramref name="code"/> in the oracle's locale, en-GB, set as the program's locale only: a site that still
-    /// read the thread's culture would show on a machine whose culture is not en-GB, which CI's is not.
+    /// Runs <paramref name="code"/> in the oracle's locale, en-GB, set as the program's locale only, with the thread
+    /// pinned to the invariant culture as the IDE pins it. The source's literals are read in the thread's culture
+    /// (#781), so without the pin a host whose culture writes a decimal comma would change the program itself. A site
+    /// that still read the thread's culture shows as a month-first date.
     /// </summary>
     private async Task<string> Printed(string code)
     {
-        using (VbLocale.Use(EnGb))
-            await Run(code);
+        var saved = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+        try
+        {
+            using (VbLocale.Use(EnGb))
+                await Run(code);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = saved;
+        }
         return debug.Should().ContainSingle().Which.Value.Should().BeOfType<string>().Subject;
     }
 }

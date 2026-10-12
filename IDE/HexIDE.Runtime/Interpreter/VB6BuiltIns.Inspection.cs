@@ -155,7 +155,7 @@ public partial class VB6BuiltIns
     {
         if (v.Type == VT.Date) return true;
         if (v.Value is string s)
-            return DateTime.TryParse(s, VbLocale.Current, DateTimeStyles.NoCurrentDateDefault, out _);
+            return TryReadDate(s, out _);
         return false;
     }
 
