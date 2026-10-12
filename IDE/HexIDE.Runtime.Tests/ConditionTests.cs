@@ -143,13 +143,73 @@ public class ConditionTests : BaseVBTestFixture
     }
 
     [Fact]
-    public async Task A_condition_of_Err_waits_for_Err_to_be_its_Number()
+    public async Task A_condition_of_Err_is_refused_until_Err_is_its_Number()
     {
-        // VB6 reads `If Err Then` as `If Err.Number Then` (measured: Then after an error, Else after Clear). Err used as
-        // a value is #840's, which makes it its Number; until then CBool of it raises 13. Whichever of the two merges
-        // second turns this into the measured answer.
-        var run = () => Run("Err.Number = 11\nIf Err Then Debug.Print 1\n");
+        // Pending #840. VB6 reads `If Err Then` as `If Err.Number Then` (measured: Then after an error, Else after Clear).
+        // Err used as a value is #840's, which makes it its Number. Until then it is refused, untrappably, as every
+        // conversion refuses it, rather than a trappable 13 that overwrote Err.Number and ran neither branch. Whichever
+        // of the two merges second turns this into the measured answer.
+        var run = () => Run("On Error Resume Next\nErr.Raise 53\nIf Err Then Debug.Print 1\n");
 
-        await run.Should().ThrowAsync<VBRunTimeException>();
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#790*");
+    }
+
+    private const string Plain = "Public Tag As Long\n";
+    private const string Widget = "Public Function Value() As Long\nAttribute Value.VB_UserMemId = 0\n    Value = 42\nEnd Function\n";
+
+    public static TheoryData<string> EveryForm => new()
+    {
+        "If v Then c = 1",
+        "If v Then\nc = 1\nEnd If",
+        "If False Then\nc = 0\nElseIf v Then\nc = 1\nEnd If",
+        "While v\nc = 1\nWend",
+        "Do While v\nc = 1\nLoop",
+        "Do Until v\nc = 1\nLoop",
+        "Do\nc = 1\nLoop While v",
+        "Do\nc = 1\nLoop Until v",
+    };
+
+    [Theory]
+    [MemberData(nameof(EveryForm))]
+    public async Task An_object_with_no_default_member_raises_438(string form)
+    {
+        // Measured, native and in the IDE, for If and Do While. It was a trappable 13.
+        var run = () => RunClasses($"Dim v, c\nSet v = New Plain\n{form}\n", ("Plain", Plain));
+
+        (await run.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(438);
+    }
+
+    [Theory]
+    [MemberData(nameof(EveryForm))]
+    public async Task Nothing_raises_91(string form)
+    {
+        // Measured, native and in the IDE, for a Variant set to Nothing and an Object variable never set. It was 13.
+        var run = () => Run($"Dim v, c\nSet v = Nothing\n{form}\n");
+
+        (await run.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(91);
+    }
+
+    [Theory]
+    [MemberData(nameof(EveryForm))]
+    public async Task A_class_with_a_default_member_is_refused(string form)
+    {
+        // VB6 reads the member (measured for If). HexIDE does not call it yet (#174), so it refuses, untrappably.
+        var run = () => RunClasses($"Dim v, c\nSet v = New Widget\nOn Error Resume Next\n{form}\n", ("Widget", Widget));
+
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#174*");
+    }
+
+    [Theory]
+    [MemberData(nameof(EveryForm))]
+    public async Task An_error_in_a_condition_names_its_statement(string form)
+    {
+        // CBool has no statement of its own, so the condition's is attached, for the run-time error dialog and
+        // get_last_runtime_error. The old Boolean-only checks raised with it.
+        var run = () => Run($"Dim v, c\nv = \"abc\"\n{form}\n");
+
+        var thrown = (await run.Should().ThrowAsync<VBRunTimeException>()).Which;
+        thrown.Error.ErrNo.Should().Be(13);
+        thrown.Context.Should().NotBeNull();
+        thrown.Context!.GetText().Should().Contain("v");
     }
 }

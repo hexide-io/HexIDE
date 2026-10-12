@@ -505,7 +505,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     return result;
             }
 
-            var conditionMet = await ConditionHolds(context.valueStmt());
+            var conditionMet = await ConditionHolds(context.valueStmt(), context);
 
             if (until && conditionMet)
                 return ControlFlow.Nothing;
@@ -520,7 +520,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var until = context.UNTIL() != null;
         while (true)
         {
-            var conditionMet = await ConditionHolds(context.valueStmt());
+            var conditionMet = await ConditionHolds(context.valueStmt(), context);
 
             if (until && conditionMet)
                 return ControlFlow.Nothing;
@@ -771,24 +771,34 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// in the IDE (#847): <c>If Len(s) Then</c>, <c>If InStr(s, "x") Then</c> and <c>If flags And 4 Then</c> are ordinary
     /// VB6, and HexIDE refused all of them.
     /// </summary>
-    private async Task<bool> ConditionHolds(Antlr4.Runtime.Tree.IParseTree condition)
+    private async Task<bool> ConditionHolds(Antlr4.Runtime.Tree.IParseTree condition, Antlr4.Runtime.ParserRuleContext statement)
     {
         var value = await expressionExecutor.EvaluateValue(condition);
+        // Null is False, where CBool raises 94 (measured). Empty is False to CBool already; it is named here because it
+        // is half of the measured rule.
         if (value.IsNull || value.Type == Vb6Value.ValueType.EmptyVariant)
             return false;
-        return VB6BuiltIns.CBool(value).Value is true;
+        try
+        {
+            return VB6BuiltIns.CBool(value).Value is true;
+        }
+        catch (VBRunTimeException ex)
+        {
+            // CBool has no statement to name; the condition's does, for the error dialog and get_last_runtime_error.
+            throw ex.At(statement);
+        }
     }
 
     public override async Task<ControlFlow> VisitBlockIfThenElse(VB6Parser.BlockIfThenElseContext context)
     {
-        if (await ConditionHolds(context.ifBlockStmt().ifConditionStmt().valueStmt()))
+        if (await ConditionHolds(context.ifBlockStmt().ifConditionStmt().valueStmt(), context))
             return await Visit(context.ifBlockStmt().block());
         else
         {
             bool matched = false;
             foreach (var elseIf in context.ifElseIfBlockStmt())
             {
-                if (await ConditionHolds(elseIf.ifConditionStmt().valueStmt()))
+                if (await ConditionHolds(elseIf.ifConditionStmt().valueStmt(), context))
                 {
                     return await Visit(elseIf.block());
                 }
@@ -808,7 +818,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitInlineIfThenElse(VB6Parser.InlineIfThenElseContext context)
     {
-        var conditionMet = await ConditionHolds(context.ifConditionStmt());
+        var conditionMet = await ConditionHolds(context.ifConditionStmt(), context);
 
         // A branch is a colon-joined RUN of statements, not one statement. Measured: `If False Then A : B`
         // runs neither — the whole tail belongs to the Then. Running only the first and letting the rest
@@ -1740,7 +1750,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // control flow (Exit Sub/Function/Property) propagates straight out. The grammar exposes `block*`.
         while (true)
         {
-            var conditionMet = await ConditionHolds(context.valueStmt());
+            var conditionMet = await ConditionHolds(context.valueStmt(), context);
 
             if (!conditionMet)
                 return ControlFlow.Nothing;

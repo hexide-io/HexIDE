@@ -137,6 +137,9 @@ public partial class VB6BuiltIns
     internal static Vb6Value CBool(Vb6Value v)
     {
         if (v.IsNull) throw InvalidUseOfNull();
+        // An object, a control, an in-box object or Nothing, as for every other conversion. CBool was the one that never
+        // asked, so each fell through ToNum to a trappable 13 (#847's review).
+        RefuseNonScalar(v);
         if (v.Value is bool b) return new Vb6Value(b);
         // Measured: CBool(Empty) is False, as Empty is 0 to CLng and CDbl. `Enabled = Empty` takes this path.
         if (v.Type == VT.EmptyVariant) return new Vb6Value(false);
