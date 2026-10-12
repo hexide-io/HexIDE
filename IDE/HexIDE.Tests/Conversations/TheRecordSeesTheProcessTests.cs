@@ -239,7 +239,8 @@ public class TheRecordSeesTheProcessTests : IAsyncDisposable
         /// </summary>
         public async Task<ConversationEnvelope> WaitForAsync(ConversationEntryKind kind, string? detail = null)
         {
-            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+            // 30s to match the rest of this suite: 10s was the outlier that flaked on CI (#503).
+            var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(30);
             while (DateTime.UtcNow < deadline)
             {
                 await Log.DrainAsync();

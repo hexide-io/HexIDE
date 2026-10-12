@@ -8,6 +8,14 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ## [Unreleased]
 
+### Added
+
+- **The protocol inspector says when a server's bytes actually moved**, not only when a message was prepared. For
+  a server started over standard input and output or a named pipe, the timeline now shows when the first message
+  began to be written, when it was handed to the server, when the IDE began waiting for a reply, and when the
+  server's first bytes arrived. A server that seems to ignore the IDE can now be told apart from a message that
+  never reached it.
+
 ### Fixed
 
 - **A Label's background colour set by a program now shows.** `Label1.BackColor = vbRed` read back red but left
