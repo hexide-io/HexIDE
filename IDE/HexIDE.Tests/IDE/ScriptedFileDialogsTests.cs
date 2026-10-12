@@ -94,4 +94,63 @@ public class ScriptedFileDialogsTests
         ScriptedFileDialogs.WouldShowPicker(null).Should().BeFalse();
         ScriptedFileDialogs.Pending.Should().Be(1, "asking must not spend the answer the save is about to take");
     }
+
+    // ── Whether a save was the armed cancel the tools offer (#755) ─────────────────────────────────────────
+
+    [Fact]
+    public void A_save_of_a_document_without_a_file_that_takes_the_armed_cancel_was_cancelled()
+    {
+        ScriptedFileDialogs.AnswerNextWith(null);
+        var watch = ScriptedFileDialogs.WatchForCancel(absolutePath: null);
+        watch.Cancelled.Should().BeFalse("nothing has taken the answer yet");
+
+        ScriptedFileDialogs.TryTake(out _);   // the save's picker
+
+        watch.Cancelled.Should().BeTrue();
+    }
+
+    [Fact]
+    public void A_save_refused_before_its_picker_was_not_cancelled()
+    {
+        // A save can stop before it asks for a path, for a document HexIDE cannot reproduce. It takes no answer,
+        // so the armed cancel is still waiting, and the save failed for another reason.
+        ScriptedFileDialogs.AnswerNextWith(null);
+        var watch = ScriptedFileDialogs.WatchForCancel(absolutePath: null);
+
+        watch.Cancelled.Should().BeFalse();
+        ScriptedFileDialogs.Pending.Should().Be(1, "watching must not spend the answer either");
+    }
+
+    [Fact]
+    public void A_save_answered_with_an_armed_path_was_not_cancelled()
+    {
+        ScriptedFileDialogs.AnswerNextWith(@"C:\x\Form1.frm");
+        var watch = ScriptedFileDialogs.WatchForCancel(absolutePath: null);
+
+        ScriptedFileDialogs.TryTake(out _);
+
+        watch.Cancelled.Should().BeFalse("an armed path is a save, and a failure after it is a real failure");
+    }
+
+    [Fact]
+    public void A_document_with_a_file_was_not_cancelled_even_if_a_cancel_was_armed_and_taken()
+    {
+        // It saves without a picker. A cancel something else takes in the meantime is not its outcome.
+        ScriptedFileDialogs.AnswerNextWith(null);
+        var watch = ScriptedFileDialogs.WatchForCancel(@"C:\x\Form1.frm");
+
+        ScriptedFileDialogs.TryTake(out _);
+
+        watch.Cancelled.Should().BeFalse();
+    }
+
+    [Fact]
+    public void With_nothing_armed_a_save_was_not_cancelled()
+    {
+        var watch = ScriptedFileDialogs.WatchForCancel(absolutePath: null);
+
+        ScriptedFileDialogs.TryTake(out _).Should().BeFalse();
+
+        watch.Cancelled.Should().BeFalse();
+    }
 }
