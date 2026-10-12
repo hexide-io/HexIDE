@@ -32,6 +32,6 @@
 
 ## 5. Record
 
-- [ ] 5.1 File an issue for what "ANSI" should mean on Windows set to UTF-8, needing the oracle.
-- [ ] 5.2 CHANGELOG, and the PR description brought up to date.
-- [ ] 5.3 Validate strictly, archive, and check the merged spec's Purpose.
+- [x] 5.1 File an issue for what "ANSI" should mean on Windows set to UTF-8, needing the oracle.
+- [x] 5.2 CHANGELOG, and the PR description brought up to date.
+- [x] 5.3 Validate strictly, archive, and check the merged spec's Purpose.

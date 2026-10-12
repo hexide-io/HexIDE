@@ -17,6 +17,8 @@ there isn't one yet. Anything may change between 0.x releases.
   began to be written, when it was handed to the server, when the IDE began waiting for a reply, and when the
   server's first bytes arrived. A server that seems to ignore the IDE can now be told apart from a message that
   never reached it.
+- **`--ansi-code-page <n>`, in Debug builds**, reads and writes VB6 sources as a machine whose ANSI code page is
+  `n` would, so a file from, say, a Japanese machine can be checked on a Western one.
 
 ### Fixed
 
@@ -126,8 +128,27 @@ there isn't one yet. Anything may change between 0.x releases.
 - **Saving a file no longer changes text you did not edit.** A file whose accented characters happened to
   read as valid UTF-8 was decoded that way and written back changed, so one ASCII edit could alter an
   unrelated comment or string. A file now keeps the encoding it was read in, a UTF-8 byte-order mark
-  included, and an edit its code page cannot hold is refused with a warning rather than silently converting
-  the file to UTF-8.
+  included. A file an earlier HexIDE saved as UTF-8 still opens as UTF-8.
+- **A source file is read in the machine's own code page, as VB6 reads it.** A file without a byte-order mark
+  was shown as Latin-1, so a Western file's curly quotes and euro sign appeared as control characters, and a
+  Japanese file on a Japanese machine as mojibake. A file that code page cannot read still opens, read byte for
+  byte, and HexIDE now says which files it read that way. Each saves back unchanged.
+- **An edit a file's code page cannot hold is refused, and nothing is written.** Such an edit used to turn the
+  whole file into UTF-8, which VB6 does not read as UTF-8. Now a warning names the file, its code page, the
+  character, and the line it is in, which matters when the character is in a property or a file name rather than
+  the code just typed. A save of several files checks every one before it writes the first, so one such character
+  leaves them all as they were. That covers Save Project, Save All, the save offered when a project closes, Make
+  Project Group, and writing a new project to its folder. Make refuses before it asks where to put the program. A
+  new form or module whose name the code page cannot hold is refused before anything is created.
+- **Dismissing a file picker part-way through a save leaves every file as it was.** Saving a project with two
+  new files asked where to put each in turn and wrote as it went, so cancelling the second left the first
+  written. Every picker an operation needs is now answered before anything is written, Make Project Group's
+  included.
+- **A form or module that fails to load keeps its line in the project file.** The next Save Project removed the
+  line from the `.vbp`, so the file dropped out of the project in VB6 too.
+- **A save HexIDE refuses no longer leaves an automation tool waiting.** `set_file_content`,
+  `set_control_property` and `add_control` waited for someone to close a dialog. They now reply at once with
+  the refusal, and the change stays in the IDE.
 
 ## [0.2.0] — 2026-09-24
 
