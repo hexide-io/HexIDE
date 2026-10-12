@@ -678,7 +678,6 @@
     "Str.Vb6Toolchain.CompilationFailed": "VB6-kompileringen misslyckades:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Bygget lyckades men den körbara filen hittades inte på:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Körningen misslyckades",
-    "Str.ProjectRunner.MustHaveStartupForm": "Måste ha ett startformulär eller Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Den här åtgärden återställer projektet. Vill du fortsätta?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Formuläret '{0}' kunde inte läsas in, så projektet startades inte.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE har ännu inte stöd för detta:\n\n{0}",

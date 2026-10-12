@@ -678,7 +678,6 @@
     "Str.Vb6Toolchain.CompilationFailed": "VB6 编译失败：\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "生成成功，但未在以下位置找到可执行文件：\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "运行失败",
-    "Str.ProjectRunner.MustHaveStartupForm": "必须具有启动窗体或 Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "此操作将重置工程。是否继续？",
     "Str.ProjectRunner.StartupFormFailedToLoad": "无法加载窗体“{0}”，因此项目未启动。\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE 尚未实现此功能：\n\n{0}",
