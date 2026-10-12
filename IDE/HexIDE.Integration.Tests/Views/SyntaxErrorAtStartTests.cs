@@ -23,7 +23,8 @@ public class SyntaxErrorAtStartTests
         public void LogError(string _) { }
     }
 
-    private const string MustHaveStartupForm = "Must have startup form or Sub Main()";
+    // VB6's own words, as a compile error, whichever path finds it.
+    private const string MustHaveStartupForm = "Compile error:\n\nMust have startup form or Sub Main()";
 
     private static string FormWithLoad(string body) =>
         "VERSION 5.00\r\n"
@@ -47,7 +48,9 @@ public class SyntaxErrorAtStartTests
         var projects = Substitute.For<IProjectManager>();
         projects.StartupProject.Returns(project);
         var localization = Substitute.For<ILocalizationService>();
-        localization.GetString("Str.ProjectRunner.MustHaveStartupForm").Returns(MustHaveStartupForm);
+        localization.GetString("Str.ProjectRunner.StartupFormFailedToLoad")
+            .Returns("Form '{0}' could not be loaded, so the project did not start.\n\n{1}");
+        localization.GetString("Str.ProjectRunner.NotImplementedYet").Returns("HexIDE does not implement this yet:\n\n{0}");
         var runner = new ProjectRunnerService(
             Substitute.For<IEventBus>(), windows, projects, localization, controller, Substitute.For<IBreakpointService>(),
             new WatchService(), new RunScope());
@@ -171,6 +174,28 @@ public class SyntaxErrorAtStartTests
         h.Runner.RunProject(project);
 
         AssertAStartThatNeverRan(h).Should().EndWith(error);
+    }
+
+    [AvaloniaFact]
+    public void A_declaration_HexIDE_cannot_load_is_described_the_same_way_on_both_paths()
+    {
+        // The form path gave the raw exception message after the form's name, and Sub Main said HexIDE does not
+        // implement it. Both now describe it as a fault in a run would be, and the form path names the form.
+        const string module = "Dim Fixed As String * 5\r\nSub Main()\r\nEnd Sub\r\n";
+        var formProject = FormProject();
+        AddModule(formProject, "Module1", ModuleKind.StandardModule, module);
+        var subMainProject = SubMainProject();
+        AddModule(subMainProject, "Module1", ModuleKind.StandardModule, module);
+        var viaForm = Runner(formProject);
+        var viaSubMain = Runner(subMainProject);
+
+        viaForm.Runner.RunProject(formProject);
+        viaSubMain.Runner.RunProject(subMainProject);
+
+        var described = AssertAStartThatNeverRan(viaSubMain);
+        described.Should().StartWith("HexIDE does not implement this yet:");
+        AssertAStartThatNeverRan(viaForm).Should()
+            .Be("Form 'Form1' could not be loaded, so the project did not start.\n\n" + described);
     }
 
     [AvaloniaFact]

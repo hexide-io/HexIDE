@@ -678,7 +678,6 @@
     "Str.Vb6Toolchain.CompilationFailed": "کامپایل VB6 شکست خورد:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "ساخت با موفقیت انجام شد اما فایل اجرایی در این مسیر یافت نشد:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "اجرا ناموفق بود",
-    "Str.ProjectRunner.MustHaveStartupForm": "باید یک فرم آغازین یا Sub Main() داشته باشد",
     "Str.ProjectRunner.EditWhileRunningConfirm": "این عمل پروژه شما را بازنشانی می‌کند. آیا می‌خواهید ادامه دهید؟",
     "Str.ProjectRunner.StartupFormFailedToLoad": "فرم '{0}' بارگذاری نشد، بنابراین پروژه اجرا نشد.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE هنوز این را پیاده‌سازی نکرده است:\n\n{0}",

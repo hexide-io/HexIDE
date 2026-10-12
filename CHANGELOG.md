@@ -23,6 +23,14 @@ there isn't one yet. Anything may change between 0.x releases.
   and ended. Both now appear in the run-time error dialog and are kept for `get_last_runtime_error`, and a syntax
   error at the start makes `run_project` answer that nothing is running. That answer now starts its own paragraph
   rather than running on from the error's last word.
+- **Every start that never becomes a run is reported as one.** A project with no startup form, and a Sub Main project
+  with no usable `Main` or with two, were a message box, or a run that ended, and `run_project` answered success.
+  Each is now a failed start, in VB6's words, recorded for `get_last_runtime_error`.
+- **A syntax error names the module it is in.** One in a `.bas` or `.cls` was blamed on the startup form.
+- **A declaration HexIDE cannot load is described the same way whichever startup object the project has.** The form
+  path gave the raw exception after the form's name.
+- **Run To Cursor from design mode no longer leaves its target behind when the start fails.** After fixing the error,
+  a plain F5 paused at that line as though at a breakpoint.
 - **A Label's background colour set by a program now shows.** `Label1.BackColor = vbRed` read back red but left
   the label as it was; now it paints, for a label in a control array too. A program can make a transparent Label
   opaque with `BackStyle = 1`. A transparent Label ignores a `BackColor` set while it is transparent, as VB6 does.

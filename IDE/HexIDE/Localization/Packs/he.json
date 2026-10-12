@@ -678,7 +678,6 @@
     "Str.Vb6Toolchain.CompilationFailed": "הקומפילציה של VB6 נכשלה:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "הבנייה הצליחה אך קובץ ההפעלה לא נמצא ב:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "ההרצה נכשלה",
-    "Str.ProjectRunner.MustHaveStartupForm": "חייב להיות טופס פתיחה או Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "פעולה זו תאפס את הפרויקט שלך. האם ברצונך להמשיך?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "לא ניתן היה לטעון את הטופס '{0}', ולכן הפרויקט לא הופעל.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "הדבר הבא עדיין אינו ממומש ב-HexIDE:\n\n{0}",
