@@ -777,11 +777,11 @@ public partial class MainViewViewModel : ObservableObject
 
         // A startup form that cannot be built is reported the way a runtime error is, so the person sees it and
         // get_last_runtime_error returns it. It used to reach only the log, while F5 appeared to do nothing (#590).
-        projectRunnerService.StartFailed += ReportRuntimeError;
+        projectRunnerService.StartFailed += ReportEndedRun;
 
         // So is a run that something ended: a construct HexIDE does not implement, a fault in the engine, or an
         // error Sub Main did not handle. Those reached only the log or an unrecorded message box (#754).
-        projectRunnerService.RunFailed += ReportRuntimeError;
+        projectRunnerService.RunFailed += ReportEndedRun;
 
         void ReportRuntimeError(string message)
         {
@@ -789,9 +789,18 @@ public partial class MainViewViewModel : ObservableObject
             EndIfAsked(new RuntimeErrorViewModel(message)).ListenErrors();
         }
 
+        // Nothing of a run that failed to start, or that something ended, is still running when it is reported.
+        // So End on its dialog has nothing to end, and its answer is not acted on. Acting on it would end whatever
+        // run is live when the dialog closes, which can be a later one started meanwhile by run_project.
+        void ReportEndedRun(string message)
+        {
+            RuntimeErrors.Record(message);
+            windowManager.ShowDialog(new RuntimeErrorViewModel(message)).ListenErrors();
+        }
+
         // End on this dialog ends the run, as VB6's does. It used to close the dialog and leave the program
-        // running (#600). The dialog answers true only for End. A start that failed has nothing to end, so
-        // the runner is asked first.
+        // running (#600). The dialog answers true only for End. The run may have ended while the dialog was up,
+        // so the runner is asked first.
         async Task EndIfAsked(RuntimeErrorViewModel vm)
         {
             if (await windowManager.ShowDialog(vm) && projectRunnerService.CanEndProject)

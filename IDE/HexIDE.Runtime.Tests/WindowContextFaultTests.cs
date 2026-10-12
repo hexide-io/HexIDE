@@ -104,4 +104,18 @@ public class WindowContextFaultTests
         raised.Faults.Should().BeEmpty();
         raised.RunTimeErrors.Should().BeEmpty();
     }
+
+    [Fact]
+    public void The_Immediate_window_refusing_an_event_procedure_is_not_a_fault()
+    {
+        // While paused, `Text1.Text = "x"` typed into the Immediate window raises Text1_Change, which the
+        // interpreter refuses to run in break mode with an ImmediateEvalException. That is the Immediate window's
+        // answer to what was typed. Raised as a fault, it would tear down the run the developer is inspecting.
+        // RunFaultTests drives the real path; this pins the boundary's own rule.
+        var raised = Execute("Private Sub Command1_Click()\n    MsgBox \"hello\"\nEnd Sub\n", "Command1_Click",
+            () => throw new Debugging.ImmediateEvalException("can't call a procedure here"));
+
+        raised.Faults.Should().BeEmpty();
+        raised.RunTimeErrors.Should().BeEmpty();
+    }
 }

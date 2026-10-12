@@ -101,7 +101,11 @@ public class RunFaultTests
         localization.GetString("Str.ProjectRunner.NotImplementedYet").Returns("Not implemented yet: {0}");
 
         var windowManager = Substitute.For<IWindowManager>();
-        var controller = new DebugController();
+        // Time-slicing off. None of these tests is about it, and a yield landing inside an event procedure that
+        // another statement raised lets that statement run on before the procedure has finished (#766). Whether
+        // one lands depends on how loaded the machine is, which made the nested-event test below fail on a busy
+        // box and pass on an idle one.
+        var controller = new DebugController { TimeSliceMs = null };
         var runner = new ProjectRunnerService(
             Substitute.For<IEventBus>(), windowManager, Substitute.For<IProjectManager>(),
             localization, controller, Substitute.For<IBreakpointService>(), new WatchService(), new RunScope());
@@ -205,16 +209,22 @@ public class RunFaultTests
         }
     }
 
-    [AvaloniaFact]
-    public void A_fault_in_an_event_another_procedure_raised_stops_that_procedure_too()
+    [AvaloniaTheory]
+    [InlineData("    Text1.Text = \"x\"\r\n    Debug.Print \"the click carried on\"\r\n")]
+    // A joined single-line If tail gets no pause-gate per statement, so it needs its own abort check.
+    [InlineData("    If True Then Text1.Text = \"x\": Debug.Print \"the click carried on\"\r\n")]
+    public void A_fault_in_an_event_another_procedure_raised_stops_that_procedure_too(string click)
     {
         // Setting Text1.Text raises Text1_Change there and then, and its fault is caught where Text1_Change was
         // dispatched, not in Command1_Click. Unless the whole run is stopped, the click carries on past a
         // statement whose effects never happened.
+        //
+        // That holds only while Text1_Change has not yielded its time slice before faulting. If it has, the
+        // setter returned and the click ran to its end before the fault arrived, so there was nothing left to
+        // stop (#766). Build turns time-slicing off for this class.
         var run = FormProject(
             "Private Sub Command1_Click()\r\n"
-          + "    Text1.Text = \"x\"\r\n"
-          + "    Debug.Print \"the click carried on\"\r\n"
+          + click
           + "End Sub\r\n"
           + "\r\n"
           + ReachesGoSub("Text1_Change"),
@@ -230,6 +240,53 @@ public class RunFaultTests
             printed.Should().NotContain("the click carried on", "the click must stop with the event it raised");
             run.RunFailed.Should().ContainSingle().Which.Should().Contain("GoSub");
             AssertNothingIsRunning(run);
+        }
+        finally
+        {
+            VBDebugConsole.Output -= sink;
+            run.Runner.EndProject();
+        }
+    }
+
+    [AvaloniaFact]
+    public void A_property_set_in_the_Immediate_window_while_paused_leaves_the_run_paused()
+    {
+        // Paused at Stop, the developer types `Text1.Text = "x"` into the Immediate window. That raises Text1_Change,
+        // which the interpreter refuses to run in break mode. The refusal is the Immediate window's answer, not a
+        // fault in the run, and must not tear down the run the developer is inspecting.
+        var run = FormProject(
+            "Private Sub Command1_Click()\r\n"
+          + "    Stop\r\n"
+          + "    Debug.Print \"the click finished\"\r\n"
+          + "End Sub\r\n"
+          + "\r\n"
+          + "Private Sub Text1_Change()\r\n"
+          + "    Debug.Print \"changed\"\r\n"
+          + "End Sub\r\n",
+            FormWithButtonAndTextBox);
+        var printed = Printed(out var sink);
+        VBDebugConsole.Output += sink;
+        try
+        {
+            var window = Start(run, printed);
+            var closed = false;
+            window.Closed += (_, _) => closed = true;
+            Click(window);
+            run.Controller.State.Should().Be(DebugState.Paused, "the click stops at Stop");
+
+            var evaluated = run.Controller.EvaluateAsync("Text1.Text = \"x\"");
+            Pump();
+
+            evaluated.IsCompleted.Should().BeTrue();
+            run.RunFailed.Should().BeEmpty("refusing to run Text1_Change in break mode is not a fault");
+            closed.Should().BeFalse();
+            run.Controller.State.Should().Be(DebugState.Paused, "the run is still there to inspect");
+            run.Runner.IsRunning.Should().BeTrue();
+
+            run.Controller.Continue();
+            Pump();
+
+            printed.Should().Equal(["the click finished"], "the run carries on from where it was paused");
         }
         finally
         {
@@ -381,12 +438,16 @@ public class RunFaultTests
         var run = SubMainProject("Dim s As String * 10\r\n\r\nSub Main()\r\n    Debug.Print \"never\"\r\nEnd Sub\r\n");
 
         run.Runner.RunProject(run.Project);
-        Pump();
 
+        // Before pumping: run_project reads StartFailed as raised before the start call returns, so a report that
+        // arrived on a later dispatcher pass would leave it answering that the program ran.
         run.StartFailed.Should().ContainSingle("reported before the start call returns, as the form path does")
             .Which.Should().StartWith("Not implemented yet: ").And.Contain("fieldLength");
-        run.RunFailed.Should().BeEmpty("nothing ran");
         AssertNothingIsRunning(run);
+
+        Pump();
+        run.StartFailed.Should().ContainSingle();
+        run.RunFailed.Should().BeEmpty("nothing ran");
     }
 
     [AvaloniaTheory]

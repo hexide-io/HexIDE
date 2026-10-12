@@ -210,7 +210,9 @@ public partial class ProjectRunnerService : IProjectRunnerService
                     // Abort first, as EndProject does. A fault is caught where its own event procedure was
                     // dispatched, so a procedure that raised that event (a Click that set Text1.Text, firing
                     // Text1_Change) would otherwise carry on past the statement, and so would any other walk
-                    // still running. Stopping the controller ends each of them at its next statement.
+                    // still running. Stopping the controller ends each of them at its next statement. That covers
+                    // the raiser only while it is still waiting on the event: if Text1_Change yielded its time
+                    // slice before faulting, the setter had already returned and the click had run on (#766).
                     debugController.Stop();
                     // Then close the form. Posted, because a fault can arrive while RunForm is still showing the
                     // form, and a window closed before the run-task watches for it closing would leave the run
@@ -375,12 +377,14 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 RunHandle = new ActionDisposable(() => debugController.Stop());
                 await interpreter.RunStartupSubMain();
             }
-            catch (Exception e) when (e is not OperationCanceledException)
+            catch (Exception e) when (e is not (OperationCanceledException or ImmediateEvalException))
             {
                 // "Must have startup form or Sub Main()" and "Ambiguous name detected: Main" arrive here as
                 // compile errors. VB6 reports both while building; a tree-walker can only raise them as the run
                 // begins, which is the translation interpreter-core:40-42 prescribes. A cancellation is left
-                // alone: it is how a statement still waiting on a dialog learns that the run was ended.
+                // alone: it is how a statement still waiting on a dialog learns that the run was ended. So is the
+                // Immediate window refusing an event procedure while paused, as at the form boundary
+                // (VBWindowContext): that is its answer to what was typed, not a fault in the run.
                 if (e is not (VBCompileErrorException or VBRunTimeException))
                     Serilog.Log.Error(e, "Sub Main stopped on a fault");
                 failure = Describe(e);

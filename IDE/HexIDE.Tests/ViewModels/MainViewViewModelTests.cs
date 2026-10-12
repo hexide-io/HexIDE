@@ -448,13 +448,17 @@ public class MainViewViewModelTests
     [AvaloniaTheory]
     [InlineData(true, true, true)]     // End pressed while a run is going: the run ends
     [InlineData(false, true, false)]   // closed any other way: nothing ends
-    [InlineData(true, false, false)]   // End after a start that failed: nothing to end
+    [InlineData(true, false, false)]   // End after the run has ended some other way: nothing to end
     public void The_runtime_error_dialog_ends_the_run_only_through_End(bool answer, bool canEnd, bool ends)
     {
         _windowManager.ShowDialog(Arg.Any<IDialog>()).Returns(answer);
         _runnerService.CanEndProject.Returns(canEnd);
 
-        _runnerService.StartFailed += Raise.Event<System.Action<string>>("Form 'Form1' could not be loaded");
+        // A VB6 run-time error in an event procedure, which leaves the run going: the one dialog whose End has a
+        // run to end. A run that failed or never started has its own test below.
+        var form = new HexIDE.Runtime.VBWindowContext(Substitute.For<HexIDE.Runtime.Interpreter.IBasicStandardLibrary>());
+        form.SetCode("Private Sub Command1_Click()\n    Error 5\nEnd Sub\n", "Form1");
+        form.ExecuteSub("Command1_Click");
 
         if (ends)
             _runnerService.Received(1).EndProject();
@@ -480,21 +484,32 @@ public class MainViewViewModelTests
 
     // --- A run that something ended (#754) ---
 
-    [AvaloniaFact]
-    public void A_run_that_something_ended_is_recorded_and_shown_in_the_runtime_error_dialog()
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_run_that_ended_or_never_started_is_shown_and_End_on_its_dialog_ends_no_later_run(bool runFailed)
     {
         const string text = "HexIDE does not implement this yet:\n\nGoSub not implemented";
-        // End pressed on the dialog. The run has already ended, so there is nothing for it to end, and a stale
-        // EndProject must not reach whatever runs next.
-        _windowManager.ShowDialog(Arg.Any<IDialog>()).Returns(true);
+        var dialog = new TaskCompletionSource<bool>();
+        _windowManager.ShowDialog(Arg.Any<IDialog>()).Returns(dialog.Task);
         _runnerService.CanEndProject.Returns(false);
 
-        _runnerService.RunFailed += Raise.Event<System.Action<string>>(text);
+        if (runFailed)
+            _runnerService.RunFailed += Raise.Event<System.Action<string>>(text);
+        else
+            _runnerService.StartFailed += Raise.Event<System.Action<string>>(text);
 
         _sut.RuntimeErrors.Last.Should().NotBeNull();
         _sut.RuntimeErrors.Last!.Value.Message.Should().Be(text);
         _windowManager.Received(1).ShowDialog(
             Arg.Is<HexIDE.Forms.ViewModels.RuntimeErrorViewModel>(vm => vm.ErrorText == text));
+
+        // While the dialog is up, a later run starts, as run_project can do. End on the stale dialog must not end it:
+        // nothing of the run the dialog is about is still running.
+        _runnerService.CanEndProject.Returns(true);
+        dialog.SetResult(true);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
         _runnerService.DidNotReceive().EndProject();
     }
 

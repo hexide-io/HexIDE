@@ -10,12 +10,24 @@ of a full language engine behind the replaceable backend seam. What it is, withi
 genuinely faithful rather than approximate, because a runtime that is *nearly* right about arithmetic is
 worse than one that is obviously incomplete.
 
-> **Known divergences.** The requirements below state intended behaviour. One is not fully met: an unimplemented
-> member reached on a value that is not a control (`Clipboard.SetText`, `Collection.Remove`) raises a run-time
-> error with no number, which an error handler can trap. Under `On Error Resume Next` it is then skipped with
-> `Err.Number` left at 0, contrary to "Unimplemented language surface SHALL fail clearly". Tracked in
-> [#257](https://github.com/hexide-io/HexIDE/issues/257). It is stated as intended rather than written down to
-> match the code, because the code is wrong here, not the intent.
+> **Known divergences.** The requirements below state intended behaviour. "Unimplemented language surface SHALL
+> fail clearly" is not fully met. In each of the cases below, something HexIDE lacks is raised as an error a
+> handler can trap, so under `On Error Resume Next` the statement is skipped and the program carries on:
+>
+> - **A member on a value that is not a control.** `Clipboard.SetText` and `Collection.Remove` raise a run-time
+>   error with no number, and `Err.Number` is left at 0. Tracked in
+>   [#257](https://github.com/hexide-io/HexIDE/issues/257).
+> - **A member VB6 has, raised as VB6's own error.** `App.LogEvent` and `App.StartLogging` raise 438, which reads
+>   as though VB6 had no such member.
+> - **`For Each` over anything but an array,** a control array included, raises Type mismatch (13).
+> - **A `Class_Terminate` that raises while the failure unwinds** replaces it with its own error
+>   ([#767](https://github.com/hexide-io/HexIDE/issues/767)).
+>
+> Separately, some of the engine's own failures carry no message. Such a run does end, and its dialog says that
+> HexIDE does not implement something, but not what ([#181](https://github.com/hexide-io/HexIDE/issues/181)).
+>
+> The requirement is stated as intended rather than written down to match the code, because the code is wrong
+> here, not the intent.
 
 ## Requirements
 
@@ -190,7 +202,7 @@ silently did nothing (hexide-io/HexIDE#754).
 
 #### Scenario: In a running IDE
 - **WHEN** a program running in the IDE reaches an unimplemented feature, in an event procedure or in Sub Main
-- **THEN** the run ends and the developer is shown which feature it was
+- **THEN** the run ends and the developer is shown that the engine does not implement what the program reached
 
 #### Scenario: A deliberate approximation
 - **WHEN** the engine answers with an approximation because the real behaviour is unavailable to it

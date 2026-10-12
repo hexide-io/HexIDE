@@ -28,7 +28,7 @@ silently did nothing (hexide-io/HexIDE#754).
 
 #### Scenario: In a running IDE
 - **WHEN** a program running in the IDE reaches an unimplemented feature, in an event procedure or in Sub Main
-- **THEN** the run ends and the developer is shown which feature it was
+- **THEN** the run ends and the developer is shown that the engine does not implement what the program reached
 
 #### Scenario: A deliberate approximation
 - **WHEN** the engine answers with an approximation because the real behaviour is unavailable to it

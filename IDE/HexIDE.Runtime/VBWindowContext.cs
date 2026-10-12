@@ -108,9 +108,12 @@ public class VBWindowContext : IModuleExecutionRoot
             catch (Exception e)
             {
                 Log.Error(e, "Unhandled exception during form execution");
-                // A cancellation is how a run being torn down reaches a statement still waiting on it, such
-                // as a MsgBox. That is the end of the run, not a fault in it.
-                if (e is not OperationCanceledException)
+                // Neither of these is a fault in the run. A cancellation is how a run being torn down reaches a
+                // statement still waiting on it, such as a MsgBox. An ImmediateEvalException is the Immediate
+                // window refusing to run an event procedure while paused: `Text1.Text = "x"` typed there raises
+                // Text1_Change, which cannot run in break mode. The refusal is the Immediate window's answer, and
+                // the paused run carries on.
+                if (e is not (OperationCanceledException or Debugging.ImmediateEvalException))
                     Faulted?.Invoke(this, e);
             }
             finally
