@@ -21,6 +21,9 @@ public class DebugProxy(IBasicStandardLibrary stdLib) : ICSharpProxy
             // a bare `Debug.Print` with no argument prints a blank line.
             stdLib.DebugPrint(args.Count > 0 ? args[0] : new Vb6Value(""));
         else
-            throw new Exception("No method named " + method);
+            // Debug.Assert and anything else VB6's Debug object has. A NotImplementedException so a run that reaches
+            // one says HexIDE does not implement it, rather than reporting an internal error (#754). The match on
+            // "Print" is exact-case, so `debug.print` lands here too; that is a separate fix.
+            throw new NotImplementedException($"Debug.{method} is not implemented");
     }
 }

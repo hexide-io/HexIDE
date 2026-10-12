@@ -295,6 +295,20 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **Status:** **unmeasured**, recorded on [#656](https://github.com/hexide-io/HexIDE/issues/656). Not a
   divergence until the oracle says VB6 stops there.
 
+### D21. The time slice is an implicit `DoEvents` every 15 ms
+- **VB6:** a running program gives up the thread only at `DoEvents`, a modal dialog or the end of an event
+  procedure. An event that a statement raises (`Text1.Text = "x"` raising `Text1_Change`) runs to completion
+  before that statement finishes, and no other event procedure runs inside one that has not finished. This is
+  the single-threaded message loop as documented, not yet measured on the oracle.
+- **HexIDE:** `DebugController` yields the UI thread whenever 15 ms have passed since the last yield, so that
+  Ctrl+Break can land. That yield is effectively a `DoEvents`. If it lands at the first statement of a raised
+  event's handler, the setter returns and the raiser runs on before the handler has finished. While any walk is
+  yielded, a Timer tick or a click can start another event procedure inside it.
+- **Why:** the program and the IDE share one UI thread, and Break has to be able to reach a tight loop.
+- **Status:** **open**, [#766](https://github.com/hexide-io/HexIDE/issues/766). Found in the #762 review, where a
+  test of a fault in a raised event passed on an idle machine and failed on a loaded one.
+  `DebugController.TimeSliceMs` = -1 reproduces it deterministically.
+
 ---
 
 ## Deferred debugger surfaces (not divergences yet — just not built)
