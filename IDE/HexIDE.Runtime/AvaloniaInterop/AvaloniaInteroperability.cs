@@ -107,6 +107,9 @@ public static class AvaloniaInteroperability
         Register<Control, bool>(VBProperties.VisibleProperty, VBVisibility.Get, VBVisibility.Set);
         Register<Control, bool>(VBProperties.EnabledProperty, InputElement.IsEnabledProperty);
         Register<Control, object?>(VBProperties.TagProperty, Control.TagProperty);
+        // A Label paints its own BackColor (VBLabel.Render), not the attached one every other control's template
+        // draws, so it is bound first: a run-time assignment then paints, and a read gives the form's colour (#795).
+        Register<VBLabel, VBColor>(VBProperties.BackColorProperty, VBLabel.BackColorProperty);
         Register<TemplatedControl, VBColor, VBColor?>(VBProperties.BackColorProperty, AttachedProperties.BackColorProperty, x => x, x=> x ?? default);
         Register<TemplatedControl, VBColor, VBColor?>(VBProperties.ForeColorProperty, AttachedProperties.ForeColorProperty, x => x, x=> x ?? default);
         Register<TemplatedControl, VBFont, VBFont?>(VBProperties.FontProperty, AttachedProperties.FontProperty, x => x, x=> x ?? default);
@@ -203,6 +206,12 @@ public static class AvaloniaInteroperability
                 else if (value.Value is bool flag && IsNumeric(property.PropertyType))
                     raw = System.Convert.ChangeType(flag ? -1 : 0, property.PropertyType);
 
+                // A transparent Label keeps the BackColor it has: VB6 drops one assigned at run time, without an
+                // error, so it reads back the old colour and shows that colour if the label is later made opaque
+                // (measured, #795). Only once the label is opaque does an assignment take.
+                if (control is VBLabel { BackStyle: BackStyles.Transparent } && ReferenceEquals(property, VBProperties.BackColorProperty))
+                    return true;
+
                 prop.SetUntyped(control, raw);
                 return true;
             }
@@ -220,7 +229,10 @@ public static class AvaloniaInteroperability
                 if (!prop.IsValidControl(c))
                     continue;
 
-                value = FromObject(prop.GetUntyped(c));
+                var raw = prop.GetUntyped(c);
+                // A colour is a Long to a VB6 program (measured: `Text1.BackColor` reads back 255, TypeName Long), so
+                // it prints as a number and compares with one: `If Label1.BackColor = vbRed` is True (#789).
+                value = raw is VBColor colour ? new Vb6Value((long)colour.ToOle()) : FromObject(raw);
                 return true;
             }
         }
