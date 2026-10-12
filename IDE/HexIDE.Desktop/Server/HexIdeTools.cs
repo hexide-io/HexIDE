@@ -726,7 +726,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "run_project")]
-    [Description("Starts running the current VB6 project in the IDE. Returns an error if no project is loaded, if it is already running, or if its startup form cannot be built or, for a Sub Main project, a declaration in its code cannot be loaded — in that last case nothing is running, the IDE has opened a runtime-error dialog, and get_last_runtime_error returns the same text. step_into, step_over, step_out and run_to_cursor report a failed start from idle the same way. The reply's 'note' says, after up to 2 s, whether it paused (at a breakpoint or Stop, with where), is running, or ended, and names any run-time error it raised, including reaching a construct HexIDE does not implement, which ends the run.")]
+    [Description("Starts running the current VB6 project in the IDE. Returns an error if no project is loaded, if it is already running, or if the start never becomes a run: a syntax error in the startup form or in any standard or class module (the error names the module), no startup form, a Sub Main project with no usable or with two Sub Mains, a startup form that cannot be built, or a declaration that cannot be loaded — in those cases nothing is running, the IDE has opened a runtime-error dialog, and get_last_runtime_error returns the same text. step_into, step_over, step_out and run_to_cursor report a failed start from idle the same way. The reply's 'note' says, after up to 2 s, whether it paused (at a breakpoint or Stop, with where), is running, or ended, and names any run-time error it raised, including reaching a construct HexIDE does not implement, which ends the run.")]
     public async Task<MutateResult> RunProjectAsync(CancellationToken ct)
     {
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
@@ -760,7 +760,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     /// reported by the time the call returns. Every tool that can start a run from idle used to answer success
     /// regardless, while nothing ran and the error reached only the log (#590). A Sub Main project's
     /// declarations are loaded synchronously in the same way, and a failure there is reported the same way
-    /// (#754). A syntax error at the start is not yet: it is still a message box (#759).
+    /// (#754), and so is a syntax error found before the run begins (#759).
     /// </remarks>
     private MutateResult? StartFailure(Action start)
     {
@@ -777,13 +777,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
         }
         return failure is null
             ? null
-            : new MutateResult(false, failure
-                + " Nothing is running. The IDE showed this in a runtime-error dialog, which is still open, and"
-                + " get_last_runtime_error returns it.");
+            : new MutateResult(false, HexIDE.IDE.MessageText.StartFailedReply(failure));
     }
 
     [McpServerTool(Name = "get_last_runtime_error")]
-    [Description("Returns the last runtime error the running program raised, WITH ITS TEXT, and keeps it after the error dialog has been dismissed. Use it after any run that might raise: stop_project and shutdown_ide both close open dialogs, so a run whose form silently did nothing is otherwise indistinguishable from a run whose error dialog was dismissed a moment earlier. run_project clears the message first, so a result here belongs to the most recent run. 'sequence' only ever increases and is not cleared — compare it across runs to tell 'no error' from 'the same error again', which message text cannot do. Returns raised:false when the current run has raised nothing.")]
+    [Description("Returns the last runtime error the running program raised, WITH ITS TEXT, and keeps it after the error dialog has been dismissed. That includes a compile error met while it ran, and the reason a start never became a run. Use it after any run that might raise: stop_project and shutdown_ide both close open dialogs, so a run whose form silently did nothing is otherwise indistinguishable from a run whose error dialog was dismissed a moment earlier. run_project clears the message first, so a result here belongs to the most recent run. 'sequence' only ever increases and is not cleared — compare it across runs to tell 'no error' from 'the same error again', which message text cannot do. Returns raised:false when the current run has raised nothing.")]
     public async Task<RuntimeErrorResult> GetLastRuntimeErrorAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>

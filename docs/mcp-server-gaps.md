@@ -589,3 +589,53 @@ the write did not use the answer.
 **Suggested fix.** When a write tool finishes with an answer armed before the call still pending, say so in its
 note, naming why (the document already had a file) and that `clear_file_dialog_answers` discards it.
 [#810](https://github.com/hexide-io/HexIDE/issues/810).
+
+## No tool can close a window as a person does
+
+**Symptom.** Verifying #820, a program's Yes/No message box had to be closed the way a person closes it, to show
+that it refuses. Nothing on the surface does that:
+
+```
+dump_visual_tree {}
+→ {"window":"YesNoBox","root":{"path":"Window", ... "children":[{"path":"Window/Custom", ... Button[Yes], Button[No]}]}}
+interact {"target":"Window","action":"close"}      no such action
+press_key {"target":"Window/Custom/Button[No]","key":"F4","modifiers":"Alt"}
+```
+
+The title bar is the platform's chrome, outside the control tree, and Alt+F4 is handled by Windows before
+Avalonia raises a key, so a key event on a control closes nothing. `stop_project` and `shutdown_ide` close a dialog
+programmatically, which is the close a guard deliberately lets through, so they cannot stand in for a person's.
+
+**Workaround.** From PowerShell, find the window by title with `FindWindow` (passing `[NullString]::Value` as the
+class: PowerShell turns `$null` into `""`, which matches nothing), check with `GetWindowThreadProcessId` that it
+belongs to the IDE's process, and post `WM_SYSCOMMAND` with `SC_CLOSE`, which is what the title-bar button sends.
+Windows only, and outside the surface a caller has.
+
+**Suggested fix.** An `interact` action, `close`, on a top-level window, raising the platform's close for a person
+(`WindowCloseReason.WindowClosing`, not programmatic), and replying whether the window is still open.
+[#829](https://github.com/hexide-io/HexIDE/issues/829).
+
+## A context-menu action bound to a method cannot be driven
+
+**Symptom.** Live-checking #831 needed a project with no startup form, so Form1 had to be removed. Both of the UI's
+routes are out of reach:
+
+```
+invoke_menu_item {"path":"Project/Remove Form1"}
+→ {"success":false,"error":"'Project/Remove Form1' is a submenu or has no command"}
+interact {"target":".../Pane[Project Group - Group1]/Custom/Tree/Pane/TreeItem[Project1 (Project1.vbp)]/TreeItem[Form1 (Form1.frm)]","action":"select"}
+→ {"success":true, ... "selected 'Form1 (Form1.frm)'"}
+interact {"target":".../Pane[Project Group - Group1]/Custom","action":"invoke_command","value":"DeleteForm"}
+→ {"success":false,"mechanism":"reflection","error":"no public property 'DeleteForm' on ProjectToolViewModel"}
+```
+
+The Project menu's item is inert, which is a product defect (#835). The Project Explorer's context menu binds
+**Remove Form1** to a method, `ProjectToolViewModel.DeleteForm()`, rather than to an `ICommand`. So `inspect_element`
+does not list it and `invoke_command` cannot reach it. No tool opens a context menu, so its items never enter the
+tree. The refusal also names a *property* when a command was asked for.
+
+**Workaround.** Load a `.vbp` whose `Startup` names no form in the project, by passing it as the positional argument
+at launch.
+
+**Suggested fix.** An `interact` action that opens a control's context menu, or `invoke_command` falling back to a
+public parameterless method, listed by `inspect_element`. [#836](https://github.com/hexide-io/HexIDE/issues/836).

@@ -681,7 +681,6 @@
     "Str.Vb6Toolchain.CompilationFailed": "فشلت ترجمة VB6:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "نجح الإنشاء لكن لم يتم العثور على الملف التنفيذي في:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "فشل التشغيل",
-    "Str.ProjectRunner.MustHaveStartupForm": "يجب وجود نموذج بدء التشغيل أو Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "سيؤدي هذا الإجراء إلى إعادة تعيين المشروع. هل تريد المتابعة؟",
     "Str.ProjectRunner.StartupFormFailedToLoad": "تعذّر تحميل النموذج '{0}'، لذلك لم يبدأ المشروع.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "لا يدعم HexIDE هذا حتى الآن:\n\n{0}",

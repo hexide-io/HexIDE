@@ -430,6 +430,26 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new NotImplementedException("Const type hints not supported");
             var name = sub.ambiguousIdentifier().GetText();
             var value = await expressionExecutor.EvaluateValue(sub.valueStmt());
+
+            // Inside a procedure a Const is the procedure's own, and shadows a module variable or Const it shares a
+            // name with, in any case. Measured: `Const LIMIT = 10` in a Sub reads 10 there and leaves the module's
+            // `Limit` at 1, and the same holds over a module Const. Updating whatever slot the name found wrote
+            // through the procedure's clone of the module scope into the module's slot, so the value outlived the
+            // call (#819). Allocated once per activation, as a Dim is; only a procedure's executor owns slots.
+            if (ownedSlots != null)
+            {
+                if (declaredLocals.Add(name))
+                {
+                    interpreter.ExecutionContext.AllocVariable(currentEnv, name, value);
+                    if (currentEnv.TryGetVariableLocation(name, out var slot))
+                        ownedSlots.Add(slot);
+                }
+                else
+                    interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, value);
+                continue;
+            }
+
+            // At module level the name was hoisted by the pre-pass, so this fills that slot.
             if (!interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, value))
                 interpreter.ExecutionContext.AllocVariable(currentEnv, name, value);
         }

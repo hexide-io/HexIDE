@@ -681,7 +681,6 @@
     "Str.Vb6Toolchain.CompilationFailed": "Kompilace VB6 selhala:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Sestavení proběhlo úspěšně, ale spustitelný soubor nebyl nalezen na:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Spuštění selhalo",
-    "Str.ProjectRunner.MustHaveStartupForm": "Musí existovat spouštěcí formulář nebo Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Tato akce resetuje projekt. Chcete pokračovat?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Formulář '{0}' nelze načíst, projekt proto nebyl spuštěn.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE toto zatím neimplementuje:\n\n{0}",

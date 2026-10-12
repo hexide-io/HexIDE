@@ -681,7 +681,6 @@
     "Str.Vb6Toolchain.CompilationFailed": "Компіляцію VB6 не виконано:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Збірку виконано успішно, але виконуваний файл не знайдено за шляхом:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Запуск не виконано",
-    "Str.ProjectRunner.MustHaveStartupForm": "Має бути стартова форма або Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Ця дія скине проєкт. Продовжити?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Не вдалося завантажити форму '{0}', тому проєкт не було запущено.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE ще не підтримує цього:\n\n{0}",

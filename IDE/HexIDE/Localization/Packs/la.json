@@ -681,7 +681,6 @@
     "Str.Vb6Toolchain.CompilationFailed": "Compilatio VB6 defecit:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Constructio successit sed exsecutabile non inventum est apud:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Exsecutio Defecit",
-    "Str.ProjectRunner.MustHaveStartupForm": "Forma initialis aut Sub Main() habenda est",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Haec actio inceptum tuum restituet. Visne pergere?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Forma '{0}' onerari non potuit, itaque inceptum non est incohatum.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE hoc nondum sustinet:\n\n{0}",

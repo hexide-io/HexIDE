@@ -681,7 +681,6 @@
     "Str.Vb6Toolchain.CompilationFailed": "Compilazione VB6 non riuscita:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Compilazione riuscita ma l'eseguibile non è stato trovato in:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Esecuzione non riuscita",
-    "Str.ProjectRunner.MustHaveStartupForm": "È necessario un form di avvio o Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Questa azione reimposterà il progetto. Vuoi continuare?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Impossibile caricare il form '{0}', quindi il progetto non è stato avviato.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE non implementa ancora quanto segue:\n\n{0}",
