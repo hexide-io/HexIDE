@@ -8,9 +8,10 @@ namespace HexIDE.Runtime.Tests;
 /// <para>
 /// If <c>On Error Resume Next</c> stepped over an unimplemented statement, the program would carry on as
 /// though the statement had worked. That is a wrong result, not a late error, and CLAUDE.md's guardrail
-/// allows the one and never the other. Only <see cref="VBRunTimeException"/> is trapped, at both trap sites
-/// (the plain block walk and the label-addressed one a procedure gets once it has a label); these pin it,
-/// because the IDE now reports the untrapped exception and would report nothing if a trap swallowed it.
+/// allows the one and never the other. Only <see cref="VBRunTimeException"/> is trapped, at each of the three
+/// trap sites: a procedure body's own statements (<c>ExecuteProcedureBody</c>, one catch for Resume Next and
+/// one for a handler) and the statements of a block nested inside it (<c>VisitBlock</c>). These pin all
+/// three, because the IDE now reports the untrapped exception and would report nothing if a trap swallowed it.
 /// </para>
 ///
 /// <para>
@@ -22,10 +23,11 @@ namespace HexIDE.Runtime.Tests;
 public class UnimplementedIsNotTrappableTests : BaseVBTestFixture
 {
     [Theory]
-    // No label in the procedure: the plain block walk, whose trap is StatementExecutor's per-block catch.
+    // A statement of the procedure body itself: ExecuteProcedureBody's Resume Next catch.
     [InlineData("AppActivate \"Notepad\"", "AppActivate", "")]
-    // A label makes the procedure use the label-addressed walk, which has a trap of its own.
     [InlineData("GoSub Later", "GoSub", "    Exit Sub\nLater:\n    Return\n")]
+    // A statement inside a nested block: VisitBlock's per-block catch, a different trap.
+    [InlineData("If True Then\n        AppActivate \"Notepad\"\n    End If", "AppActivate", "")]
     public async Task On_Error_Resume_Next_does_not_step_over_an_unimplemented_statement(
         string statement, string construct, string tail)
     {

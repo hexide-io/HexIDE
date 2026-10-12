@@ -25,7 +25,7 @@ divergence is a footnote.
 |---|---|---|
 | **Silently wrong** | Runs, does nothing, program continues | **Worst of all.** Nothing announces it, so the user debugs their own correct code. |
 | **Won't load** | The module never opens | Nothing runs, and the user cannot even look around. |
-| **Dies** | Parses, then stops partway through; the run ends with a dialog naming what HexIDE does not implement | The program gets going and falls off a cliff — but it *tells you*. |
+| **Dies** | Parses, then stops partway through with an error the user sees | The program gets going and falls off a cliff — but it *tells you*. |
 | Partial | Runs, with a real restriction | Fine *if the restriction is written down* — which is what the Detail column is for. |
 | No-op | Accepted and deliberately ignored | Acceptable only where ignoring it cannot mislead. See below. |
 | Supported | Works for the ordinary case | |
@@ -51,14 +51,21 @@ The category is kept at zero rather than deleted, because the shape is what matt
 fails without saying so belongs here rather than under Dies.** If a construct is found doing that again,
 this is where it goes.
 
-**Until [#754](https://github.com/hexide-io/HexIDE/issues/754), every Dies row told only the test suite.**
+**Until [#754](https://github.com/hexide-io/HexIDE/issues/754), most Dies rows told only the test suite.**
 The classification above was made by running constructs headlessly, where the exception reaches the test.
-In a running IDE it did not reach the user. A form's event procedures and `Sub Main` both stopped at a
-catch that only logged, so a click handler ended part way while the program carried on, and F5 on a
-`Sub Main` project opened nothing and said nothing. Every Dies row was, at the keyboard, Silently wrong.
-Now the run ends, and the runtime-error dialog names what HexIDE does not implement. It is never trappable:
-`On Error Resume Next` stepping over a statement that never ran would be a wrong result rather than a late
-error, so a Dies row stays a Dies row under an error handler too.
+In a running IDE, how a row dies decides whether the user hears about it:
+
+- **By `NotImplementedException`, which is most of them, or by any other .NET exception.** A form's event
+  procedures and `Sub Main` both stopped at a catch that only logged, so a click handler ended part way
+  while the program carried on, and F5 on a `Sub Main` project opened nothing. Until #754 these rows were,
+  at the keyboard, Silently wrong. Now the run ends and the runtime-error dialog says what HexIDE does not
+  implement, or reports VB6's Internal error (51) with the .NET exception for the rest. Neither is
+  trappable, because `On Error Resume Next` stepping over a statement that never ran would be a wrong
+  result rather than a late error.
+- **By a VB6-shaped error** (a numbered run-time error, a compile error, or a "Run-time error" with no
+  number). These were already shown. The ones with no number can still be trapped, and under
+  `On Error Resume Next` they are skipped with `Err.Number` left at 0. That is Silently wrong under an
+  error handler, and it is tracked in [#257](https://github.com/hexide-io/HexIDE/issues/257).
 
 **Not every absence is safe to demote into No-op.** `DoEvents` returning 0 without pumping messages
 withholds a behaviour and lies about nothing. `Print #` as a no-op would silently not write the user's

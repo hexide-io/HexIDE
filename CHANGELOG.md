@@ -10,12 +10,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
-- **A program that reaches something HexIDE cannot run yet now says so.** A statement or function the
-  interpreter does not implement used to stop the program without a word: a click handler ended part way
-  while the program carried on, and a `Sub Main` project opened nothing at all. The run now ends, and the
-  runtime-error dialog names what HexIDE does not implement. An error handler does not swallow it, because
-  carrying on past a statement that never ran would give a wrong answer. An error that ends `Sub Main` is
-  shown in the same dialog, with the statement that raised it.
+- **A program that reaches something HexIDE cannot run yet now says so.** A statement, function or control
+  method the interpreter does not implement used to stop the program without a word: a click handler ended
+  part way while the program carried on, and a `Sub Main` project opened nothing at all. The run now ends,
+  and the runtime-error dialog names what HexIDE does not implement. An error handler does not swallow it,
+  because carrying on past a statement that never ran would give a wrong answer. An error that ends
+  `Sub Main` now appears in the same dialog as a form's.
 
 - **A language server that orders changes by version no longer ignores the first edit to a file.** That edit repeated the version the file was opened at, so such a server kept analysing the text
   from before it until the next edit.

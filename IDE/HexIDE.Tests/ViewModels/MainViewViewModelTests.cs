@@ -484,6 +484,10 @@ public class MainViewViewModelTests
     public void A_run_that_something_ended_is_recorded_and_shown_in_the_runtime_error_dialog()
     {
         const string text = "HexIDE does not implement this yet:\n\nGoSub not implemented";
+        // End pressed on the dialog. The run has already ended, so there is nothing for it to end, and a stale
+        // EndProject must not reach whatever runs next.
+        _windowManager.ShowDialog(Arg.Any<IDialog>()).Returns(true);
+        _runnerService.CanEndProject.Returns(false);
 
         _runnerService.RunFailed += Raise.Event<System.Action<string>>(text);
 

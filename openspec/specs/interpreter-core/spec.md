@@ -10,6 +10,13 @@ of a full language engine behind the replaceable backend seam. What it is, withi
 genuinely faithful rather than approximate, because a runtime that is *nearly* right about arithmetic is
 worse than one that is obviously incomplete.
 
+> **Known divergences.** The requirements below state intended behaviour. One is not fully met: an unimplemented
+> member reached on a value that is not a control (`Clipboard.SetText`, `Collection.Remove`) raises a run-time
+> error with no number, which an error handler can trap. Under `On Error Resume Next` it is then skipped with
+> `Err.Number` left at 0, contrary to "Unimplemented language surface SHALL fail clearly". Tracked in
+> [#257](https://github.com/hexide-io/HexIDE/issues/257). It is stated as intended rather than written down to
+> match the code, because the code is wrong here, not the intent.
+
 ## Requirements
 
 ### Requirement: One engine SHALL serve every execution path

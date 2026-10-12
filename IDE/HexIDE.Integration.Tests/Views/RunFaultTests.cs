@@ -62,6 +62,16 @@ public class RunFaultTests
       + "End\r\n"
       + "Attribute VB_Name = \"Form1\"\r\n";
 
+    private static readonly string FormWithButtonAndTextBox = FormWithButton.Replace(
+        "End\r\nAttribute",
+        "   Begin VB.TextBox Text1 \r\n"
+      + "      Height          =   375\r\n"
+      + "      Left            =   120\r\n"
+      + "      Top             =   840\r\n"
+      + "      Width           =   1215\r\n"
+      + "   End\r\n"
+      + "End\r\nAttribute");
+
     /// <summary>Reaches GoSub with an error trap set, so a trap that swallowed it would print "after".</summary>
     private static string ReachesGoSub(string procedure) =>
         $"Private Sub {procedure}()\r\n"
@@ -101,10 +111,10 @@ public class RunFaultTests
         return run;
     }
 
-    private static Run FormProject(string code)
+    private static Run FormProject(string code, string? frm = null)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
-        var form = new FormDeserializer().Deserialize(project, FormWithButton, NullSink.Instance)!;
+        var form = new FormDeserializer().Deserialize(project, frm ?? FormWithButton, NullSink.Instance)!;
         form.UpdateCode(code);
         project.AddForm(form);
         return Build(project);
@@ -196,10 +206,43 @@ public class RunFaultTests
     }
 
     [AvaloniaFact]
+    public void A_fault_in_an_event_another_procedure_raised_stops_that_procedure_too()
+    {
+        // Setting Text1.Text raises Text1_Change there and then, and its fault is caught where Text1_Change was
+        // dispatched, not in Command1_Click. Unless the whole run is stopped, the click carries on past a
+        // statement whose effects never happened.
+        var run = FormProject(
+            "Private Sub Command1_Click()\r\n"
+          + "    Text1.Text = \"x\"\r\n"
+          + "    Debug.Print \"the click carried on\"\r\n"
+          + "End Sub\r\n"
+          + "\r\n"
+          + ReachesGoSub("Text1_Change"),
+            FormWithButtonAndTextBox);
+        var printed = Printed(out var sink);
+        VBDebugConsole.Output += sink;
+        try
+        {
+            var window = Start(run, printed);
+
+            Click(window);
+
+            printed.Should().NotContain("the click carried on", "the click must stop with the event it raised");
+            run.RunFailed.Should().ContainSingle().Which.Should().Contain("GoSub");
+            AssertNothingIsRunning(run);
+        }
+        finally
+        {
+            VBDebugConsole.Output -= sink;
+            run.Runner.EndProject();
+        }
+    }
+
+    [AvaloniaFact]
     public void A_fault_in_Form_Load_ends_the_run_too()
     {
-        // Form_Load runs while the form is still being shown, which is the case the run-task's late
-        // cancellation exists for. The demo that found this failed in exactly this place.
+        // Form_Load is where a program's first statements run, so it is where most programs will meet a gap
+        // first. The run must end and its form close, rather than leave an empty form standing.
         var run = FormProject(ReachesGoSub("Form_Load"));
         var printed = Printed(out var sink);
         VBDebugConsole.Output += sink;
@@ -279,7 +322,9 @@ public class RunFaultTests
         run.Runner.EndProject();
         Pump();
 
-        // A fault from a context outside any run, raised once nothing is running.
+        // A fault from a context outside any run, raised once nothing is running. What keeps it unreported is
+        // that a run reports at most once, as it ends. The run also stops listening then, but that is housekeeping:
+        // a leaked listener would stop an already stopped controller, and this test could not tell the difference.
         var stray = new VBWindowContext(Substitute.For<IBasicStandardLibrary>());
         stray.SetCode(ReachesGoSub("Command1_Click"), "Form1");
         var faults = new List<Exception>();

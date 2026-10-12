@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Labs.Input;
 using Avalonia.Platform;
+using Avalonia.Threading;
 using HexIDE.Controls;
 using HexIDE.Debugging;
 using HexIDE.Events;
@@ -201,14 +202,20 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 // (#754). Listened for only while this run is live, so a fault from a run that has already
                 // ended is logged and nothing else.
                 Exception? fault = null;
-                var started = false;
                 void OnFaulted(VBWindowContext _, Exception e)
                 {
                     if (fault is not null)
                         return;   // the first fault ends the run; any after it come from the same collapse
                     fault = e;
-                    if (started)
-                        tokenSource.Cancel();
+                    // Abort first, as EndProject does. A fault is caught where its own event procedure was
+                    // dispatched, so a procedure that raised that event (a Click that set Text1.Text, firing
+                    // Text1_Change) would otherwise carry on past the statement, and so would any other walk
+                    // still running. Stopping the controller ends each of them at its next statement.
+                    debugController.Stop();
+                    // Then close the form. Posted, because a fault can arrive while RunForm is still showing the
+                    // form, and a window closed before the run-task watches for it closing would leave the run
+                    // waiting forever. A second cancel, after End has already cancelled, does nothing.
+                    Dispatcher.UIThread.Post(() => tokenSource.Cancel());
                 }
 
                 VBWindowContext.Faulted += OnFaulted;
@@ -242,12 +249,6 @@ public partial class ProjectRunnerService : IProjectRunnerService
                     }
 
                     RunHandle = new ActionDisposable(() => tokenSource.Cancel());
-                    // A fault raised while the form was still being shown is acted on only now. Cancelling
-                    // inside RunForm would close the window before the run-task watches for it closing, and
-                    // the run would never end.
-                    started = true;
-                    if (fault is not null)
-                        tokenSource.Cancel();
                     await task;
                 }
                 finally
