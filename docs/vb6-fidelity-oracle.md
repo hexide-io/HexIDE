@@ -5106,3 +5106,155 @@ about case:
 
 `Me` and the form's own name do resolve in any case on that path, where `VBLoader.RunForm` binds them, and are
 tested there.
+
+## Subscripts, bounds, and a method called from Class_Initialize (2026-10-12, #760, #849, #850)
+
+**The questions.**
+- What VB6 does with a subscript or an array bound that is not an Integer. HexIDE accepted only an Integer, a
+  Byte or an integral string, and stopped the run on anything else with an untrappable "Type mismatch", so `a(i)`
+  with `i` a Long, and `a(UBound(a))`, both died.
+- Whether a call from `Class_Initialize` to one of the object's own methods can terminate it. In HexIDE it did.
+
+**Probe.** A Standard EXE with a form, a module and two classes, built with `vb6.exe /make` on the Win10 guest
+(session 0) and run, logging each value with `TypeName` and `Err.Number` under `On Error Resume Next`. `a` is
+`Dim a(5) As Integer` holding `a(j) = j * 10`.
+
+Each probe was built as native code, the harness's default, and also run in the IDE with `VB6.EXE /runexit` (see
+"Resume Next into a block" and #842). Every line of all three logs was identical in the two modes.
+
+### Subscripts
+
+| Expression | Value | Err |
+|---|---|---|
+| `a(CLng(2))`, `a(2&)` | 20 | |
+| sum of `a(i)` over `i` a Long, 0 to `UBound(a)` | 150 | |
+| `a(UBound(a))` | 50 | |
+| `a(1.5)`, `a(2.5)`, `a(2.4)` | 20 | |
+| `a(2.6)` | 30 | |
+| `a("3")`, `a(" 3 ")` | 30 | |
+| `a("2.5")` | 20 | |
+| `a(Empty)`, `a(False)` | 0 | |
+| `a(CCur(2.5))`, `a(CDate(2))` | 20 | |
+| `a(CSng(3.5))` | 40 | |
+| `a("x")` | | 13 |
+| `a(Null)` | | 94 |
+| `a(True)`, `a(-1)`, `a(6)`, `a(40000)` | | 9 |
+| `a(3000000000#)` | | 6 |
+| `a(2.5) = 99`, then `a(2)` | 99 | |
+| `a(3.5) = 77`, then `a(4)` | 77 | |
+| `m(1.5, 0.5)` and `m(CLng(2), CLng(1))` of a `Dim m(2, 2)` | `m(2, 0)` and `m(2, 1)` | |
+
+**A subscript is a Long, coerced exactly as `CLng` coerces it**, and only then checked against the bounds:
+- banker's rounding (2.5 and 1.5 are both 2, 3.5 is 4), also through Currency, Single, a Date and a numeric
+  string;
+- `True` is -1, so out of bounds; `Empty` and `False` are 0;
+- `Null` is 94 and a non-numeric string 13;
+- 40000 is out of bounds (9) rather than an overflow, because it is a Long, not an Integer;
+- beyond a Long, 6.
+
+A write finds its element the same way, and so does every subscript of a two-dimensional array.
+
+### Bounds
+
+| Statement | Then | Err |
+|---|---|---|
+| `ReDim b(CLng(3))` | `UBound(b)` 3 | |
+| `ReDim b(2.5)` | `UBound(b)` 2 | |
+| `ReDim b(3.5)` | `UBound(b)` 4 | |
+| `ReDim b(1.5 To 3.5)` | `LBound(b)` 2, `UBound(b)` 4 | |
+| `ReDim b("4")` | `UBound(b)` 4 | |
+| `ReDim b(i)`, `i` a Long 4 | `UBound(b)` 4 | |
+| `ReDim b(1)`, then `ReDim b("x")` | `UBound(b)` still 1 | 13 |
+| `ReDim b(1)`, then `ReDim b(Null)` | `UBound(b)` still 1 | 94 |
+| `ReDim b(1)`, then `ReDim b(3000000000#)` | `UBound(b)` still 1 | 6 |
+| `ReDim b(1)`, then `ReDim b(-1)`, `ReDim b(5 To 2)` or `ReDim b(0 To -1)` | `UBound(b)` raises 9 | 9 |
+| `Dim d(N)`, with `Const N As Long = 3` | `UBound(d)` 3 | |
+| `Dim d2(-2& To 2&)` | `LBound(d2)` -2 | |
+
+Every bound goes through the same coercion. The two kinds of failure leave the array differently:
+- **A bound that cannot be coerced** raises before anything changes, and `b` keeps its old bounds.
+- **An upper bound below its lower** raises 9 and leaves `b` **erased**, so `UBound(b)` raises 9 too.
+
+`ReDim b(0 To -1)`, an empty range, is refused. HexIDE keeps such an array internally for `Split` and friends, so
+the refusal belongs to `ReDim` itself, not to the array.
+
+`UBound` and `LBound` are Longs throughout.
+
+**A bound that is a constant expression** is coerced the same way. A third probe declared these on a form, under
+`Private Const N = 2.5`, `M = 3.5` and `GRID_MAX = 9`, and in `Form_Load` under `Const P = 2.5`:
+
+| Declaration | Bounds |
+|---|---|
+| module `Private mA(N)` | 0 To 2 |
+| module `Private mB(M)` | 0 To 4 |
+| module `Private mC(&HA)` | 0 To 10 |
+| module `Private mD(8 + 1)` | 0 To 9 |
+| module `Private mH(N - 1)`, which is 1.5 | 0 To 2 |
+| module `Private mF(0 To GRID_MAX, 0 To GRID_MAX)` | 0 To 9, 0 To 9 |
+| module `Private mG(1.5 To M)` | 2 To 4 |
+| procedure `Dim pA(P)` | 0 To 2 |
+| procedure `Dim pB(P + 1)`, which is 3.5 | 0 To 4 |
+
+Banker's rounding again: 2.5 is 2, and 3.5 and 1.5 round up to 4 and 2.
+
+### A control-array index
+
+On a form with `Cmd(0)` and `Cmd(1)`:
+- `Cmd(CLng(1))`, `Cmd(0.6)` and `Cmd("1")` are all `Cmd(1)`;
+- `Cmd(1.5)` raises 340, "Control array element doesn't exist", because 1.5 rounds to 2.
+
+So an index is coerced exactly as a subscript is.
+
+### A method called from Class_Initialize
+
+`Class1`'s `Class_Initialize` calls a `Private Sub` and a `Public Sub` of its own. `Class2`'s stores `Me` in a module
+variable `gKeep`, then calls a method of its own. Logged in order:
+
+```
+-- New Class1
+C1 Initialize: start
+C1 Reset (private sibling)
+C1 Bump (public sibling) 1
+C1 Initialize: end, Count 1
+after New Class1, Count 1
+C1 Terminate, Count 1          <- at Set k = Nothing
+after Set k = Nothing
+-- New Class2
+C2 Initialize: stores Me in gKeep
+C2 Touch (sibling)
+after New Class2
+after Set k2 = Nothing         <- no Terminate: gKeep still holds it
+C2 Terminate                   <- at Set gKeep = Nothing
+after Set gKeep = Nothing
+-- New Class1 inside a Sub, held only by a local
+C1 Initialize: start ... C1 Initialize: end, Count 1
+inside NewAndDrop, Count 1
+C1 Terminate, Count 1          <- at End Sub
+```
+
+Nothing called from `Class_Initialize` terminates the object. It terminates when its last reference goes, and a
+reference `Initialize` makes itself counts.
+
+**HexIDE got this wrong.** The object stood at a count of 0 while `Class_Initialize` ran. A method call counts `Me`
+for its duration, so the first call took the object to 1 and back to 0, and fired `Class_Terminate` before
+construction finished. The object was then marked terminated and never counted again. `New` now holds the object
+while `Class_Initialize` runs, and hands it back at whatever count `Initialize` left.
+
+**Two by-products.**
+- **A Sub can be named `Reset`.** The probe's private sibling is called `Reset`, which is also a VB6 statement.
+  vb6.exe compiled it and called the Sub. HexIDE parses the call as the `Reset` statement, which it does not
+  implement (#851).
+- **`mE` is `Me`.** The constant-bound probe first declared `Private mE(N - 1)`, and vb6.exe refused it: "Expected:
+  identifier". Identifiers are matched without regard to case (#811), and so are reserved words, so `mE` is the
+  reserved word `Me`. The row was renamed `mH`.
+
+**HexIDE, after this.**
+- Every subscript, control-array index and `Dim`/`ReDim` bound is coerced as above.
+- `ReDim` with an upper bound below its lower raises 9 and erases the array.
+- A module-level `Dim` bounded by anything but a plain integer, such as `Dim d(N)` or `Dim d(2&)`, loads. Its bounds
+  were parsed as integers before the module ran, so either one threw and the module failed to load.
+- A procedure's `Const`s are declared at its entry, ahead of its `Dim`s. HexIDE declares a procedure's `Dim`s when
+  the procedure is entered, so `Dim pA(P)` under `Const P = 2.5` was sized while `P` was still Empty, not as VB6's
+  `pA(0 To 2)`. G40's module-level fix needed this too: without it, the same bound inside a procedure was sized
+  from Empty rather than refused.
+- `New` holds the object while `Class_Initialize` runs.

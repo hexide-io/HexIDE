@@ -20,6 +20,18 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A subscript, a control-array index or an array bound may be any number** (#849). Only an Integer, a Byte or
+  an integral string was accepted, so `a(i)` with `i` a Long, `a(UBound(a))` and `ReDim b(n)` stopped the run.
+  Each is now coerced as VB6 coerces it, as `CLng` does: `a(2.5)` is `a(2)`, Null raises 94 and `"x"` 13.
+  `ReDim` with an upper bound below its lower raises 9 and erases the array, as in VB6.
+
+- **A module-level array sized by a `Const` loads** (#760). `Private mGrid(0 To GRID_MAX)` made the whole module
+  fail to load; so did a typed literal such as `Dim d(2&)`. A procedure's `Const`s are declared before its
+  `Dim`s, so `Dim a(P)` inside a procedure sees `P` too.
+
+- **A method called from `Class_Initialize` no longer terminates the object** (#850). The call fired
+  `Class_Terminate` in the middle of `New`, and the real `Class_Terminate` never ran afterwards.
+
 - **A message box shows the buttons and icon it was asked for.** `MsgBox "Sure?", vbYesNo + vbQuestion` showed
   OK alone with no icon, because every in-box constant is a Long and the style was read only as an Integer, so a
   Yes branch could never run. The answer is a Long, as in VB6. A style VB6 does not accept, such as 6 or 12, is a
