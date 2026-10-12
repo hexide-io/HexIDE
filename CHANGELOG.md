@@ -23,10 +23,15 @@ there isn't one yet. Anything may change between 0.x releases.
 - **An object used as a value no longer gives a wrong value.** A class with no default member raises VB6's 438
   wherever a value is wanted, where HexIDE raised 13, printed its CLR type name (`"v=" & k`, `CStr(k)`,
   `Debug.Print k`), read it as 0 (`Val(k)`, a ByVal Long argument), or matched nothing in `Select Case`. That covers
-  every operator, a Let, a ByVal argument for a typed parameter, every condition and bound, and every built-in
-  function except those that ask what a value is (`TypeName`, `IsObject` and the like). A class
+  every operator, a Let, a ByVal argument for a typed parameter, every condition, bound and Case, `Randomize`,
+  `Err.Raise`, `Error`, `ChDir`, `ChDrive`, the Mid statement, and every built-in function's value arguments.
+  `TypeName` and `IsObject` still take the object, and `VarType` and the Is functions answer about it. A class
   with a default member, which VB6 reads in all those places, stops the run with a message saying class default
   members are not implemented yet (#174), rather than an error `On Error Resume Next` would step over.
+- **`Err` used as a value is its `Number`**, as in VB6: `"Error " & Err`, `x = Err`, `Err + 1`. It was refused. App
+  used as a value raises VB6's 438, where it printed a .NET type name.
+- **The Immediate window's `? obj` no longer prints the class's name.** A class with no default member is 438, as
+  in VB6, and one with a default member says that reading it is not available in break mode.
 - **A syntax error when a program starts, or a compile error while it runs, is reported like a run-time error.**
   Each was a message box nothing recorded, so a program that never started was reported to automation as having run
   and ended. Both now appear in the run-time error dialog and are kept for `get_last_runtime_error`, and a syntax

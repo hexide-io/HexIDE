@@ -170,7 +170,7 @@ public class ObjectAsValueTests : BaseVBTestFixture
     public static TheoryData<string> FoundInReview => new()
     {
         "If False Then\nc = 0\nElseIf o Then\nc = 1\nEnd If",
-        "Select Case 42\nCase Is = o\nc = 1\nEnd Select",
+        "Select Case 43\nCase Is > o\nc = 1\nEnd Select",   // ">", not "=": "=" also goes through CoerceOnStore
         "Select Case 42\nCase 40 To o\nc = 1\nEnd Select",
         "Select Case 42\nCase o To 50\nc = 1\nEnd Select",
         "Select Case Empty\nCase o\nc = 1\nEnd Select",

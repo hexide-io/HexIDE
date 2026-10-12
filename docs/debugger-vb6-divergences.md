@@ -211,8 +211,9 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 ### D15. All user-code invocation is rejected in the Immediate window (v1)
 - **VB6:** you can call user procedures (and `New` objects) from the Immediate window, with their side effects.
 - **HexIDE:** any user-code invocation in an Immediate expression is rejected — a bare call, an instance method
-  (`?obj.Method()`), a **Property Get** (`?obj.Prop`), a Module-qualified call (`?Module1.Foo()`), and `New`
-  (`?New Thing`). Intrinsics (`Len`, `Mid`, `UCase`, …) and direct field reads (`?obj.Field`) still work.
+  (`?obj.Method()`), a **Property Get** (`?obj.Prop`), an object's **default member** (`?obj`, #840), a
+  Module-qualified call (`?Module1.Foo()`), and `New` (`?New Thing`). An object with no default member is 438, as in
+  VB6, and `?Err` is Err.Number. Intrinsics (`Len`, `Mid`, `UCase`, …) and direct field reads (`?obj.Field`) still work.
 - **Why:** the interpreter runs on the UI thread and is parked at the paused statement gate; running any user
   statements would hit that same gate on the same thread — a **deadlock** — and mutate program state mid-debug.
 - **Status:** **by design** (v1). The `SuppressUserProcedureCalls` guard sits at the two sinks EVERY user body flows

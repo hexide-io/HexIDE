@@ -52,4 +52,39 @@ public class ObjectAsListItemTests
         (await run.Should().ThrowAsync<VBRunTimeException>()).Which.Message.Should().Contain("438");
         ((ItemsControl)ContainerRuntimeHarness.Child(canvas, "List1")).Items.Cast<object?>().Should().BeEmpty();
     }
+
+    private const string FormWithControlArray = """
+        VERSION 5.00
+        Begin VB.Form Form1
+           Begin VB.CommandButton Cmd
+              Caption         =   "c0"
+              Index           =   0
+              Left            =   120
+              Top             =   120
+              Width           =   1200
+              Height          =   375
+           End
+           Begin VB.CommandButton Cmd
+              Caption         =   "c1"
+              Index           =   1
+              Left            =   120
+              Top             =   600
+              Width           =   1200
+              Height          =   375
+           End
+        End
+        Attribute VB_Name = "Form1"
+        """;
+
+    [AvaloniaFact]
+    public async Task A_control_array_without_an_index_used_as_a_value_is_the_compile_error_VB6_gives()
+    {
+        // Measured: `c = "v=" & Cmd` does not compile, "Argument not optional". Raised here as the statement runs; it
+        // used to concatenate a .NET type name (#436).
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(FormWithControlArray);
+
+        var run = () => ContainerRuntimeHarness.Run(ctx, env, "Dim c\nOn Error Resume Next\nc = \"v=\" & Cmd\n");
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Argument not optional*");
+    }
 }

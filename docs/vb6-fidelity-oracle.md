@@ -5114,16 +5114,17 @@ does not call a class's default member yet. It raised a trappable 438 or 13 in s
 in others, and a trappable error there lets `On Error Resume Next` carry on without VB6's value.
 
 **Probe.** A Sub Main project built with `vb6.exe /make` and run under `On Error Resume Next`, logging each result
-with `TypeName` and `Err.Number`:
+with `TypeName` and `Err.Number`. The first two probes were native code; the review's probes below ran both native and
+in the IDE (`/runexit`, see "Resume Next into a block"), which agreed except where a row says so.
 - `w` is a `Widget`, whose `Value` carries `Attribute Value.VB_UserMemId = 0` and returns 42;
 - `k` is a `Plain`, a class with only `Public Tag As Long` and no default member.
 
 | Use | `w` | `k` |
 |---|---|---|
 | `x = w`, `x` a Long | 42, Long | 438, `x` unchanged |
-| `s = w`, `s` a String | "42", String | |
-| `d = w`, `d` a Double | 42, Double | |
-| `b = w`, `b` a Boolean | True | |
+| `s = w`, `s` a String | "42", String | 438, `s` unchanged |
+| `d = w`, `d` a Double | 42, Double | 438, `d` unchanged |
+| `b = w`, `b` a Boolean | True | 438, `b` unchanged |
 | `vv = w`, `vv` a Variant, no `Set` | 42, **Long** | 438, `vv` still Empty |
 | `w + 1`, `w * 2`, `-w`, `w \ 5` | 43, 84, -42, 8, all Long | `k + 1`: **438** |
 | `w = 42`, `w > 41`, `w = "42"` | True, True, True | `k = 1`: 438 |
@@ -5132,9 +5133,12 @@ with `TypeName` and `Err.Number`:
 | a ByVal Long argument, a ByVal String argument | 42 Long, "42" | 438 |
 | a ByVal **Variant** argument | the object itself: `TypeName` "Widget" | the object |
 | `If w Then` | the Then branch runs | 438, **and the Then branch runs** |
-| `Select Case w` … `Case 42` | matches | |
-| `For i = 40 To w` | 3 passes | |
+| `Select Case w` … `Case 42` | matches | 438 at the selector |
+| `For i = 40 To w` | 3 passes | 438 at the bound |
 | `Print #f, w` | ` 42 ` | 438, after the text before it was written |
+
+`Debug.Print` cannot be measured this way: its output goes to the Immediate window, which neither a built program
+nor a `/runexit` run leaves anywhere to read. It is taken to follow `Print #`, which it shares its formatting with.
 
 `Len(w)` does not compile: "Variable required - can't assign to this expression".
 
@@ -5148,14 +5152,26 @@ with `TypeName` and `Err.Number`:
 | a ByVal Double argument | 42, Double | 438 |
 | `Format(o)`, `Format(o, "0.0")`, `Abs(o)`, `Not o` | **450** each | 438 each |
 
-The last row resisted explanation. 450 is "Wrong number of arguments or invalid property assignment", and these four
-raise it where every other use took the default member. `Value` is a Function rather than a Property Get, and the
-typed `-w` in the first probe gave -42, so the static type and the member's kind both may matter. Not pursued:
-HexIDE refuses all of these, so no answer here can become a wrong value.
+The last row resisted explanation until #840's review, which measured the same uses against a class whose default
+member is a **Property Get** rather than a Function:
+
+| Through a Variant | Function default member | Property Get default member |
+|---|---|---|
+| `Format(o)` | 450 | "42" |
+| `Abs(o)` | 450 | 42, Long |
+| `Not o` | 450 | -43, Long |
+| `wp + 1`, `"v=" & wp`, typed | | 43, "v=42" |
+
+So 450, "Wrong number of arguments or invalid property assignment", is what a Function default member gives on the
+paths that ask for the member **as a property**. A Property Get is one and answers 42; a Function is not one. Most
+paths ask in a way a Function satisfies, which is why only these few showed it. The IDE adds one such path: a Case value
+compared with an Empty or Null selector (below). HexIDE refuses every one of them, so no answer here can become a
+wrong value, and a default member that HexIDE later calls (#174) must reproduce the 450 for a Function there.
 
 **What it says.**
 - An object used as a value is its default member, everywhere: a Let into any scalar or a Variant, an operator, a
-  conversion, a condition, a bound, a ByVal scalar argument, `Print #`.
+  conversion, a condition, a bound, a ByVal scalar argument, `Print #`. The one exception is the 450 above, which a
+  Function default member gives on a few paths.
 - An object with no default member raises **438 in every one of those places**. HexIDE raised 13 for `k + 1`,
   `-k`, a comparison, `CBool(k)`, `If k Then` and a For bound. It gave the CLR type name for `"v=" & k`, `CStr(k)`
   and `Debug.Print k` (#436), 0 for `Val(k)` and a ByVal Long argument, and no error at all for `Select Case k`.
@@ -5188,17 +5204,83 @@ The earlier reading here, that each Case raised in turn, was wrong.
 
 The first probe's finding, in its own words: `If k Then`, whose condition raises 438, went on into the Then
 branch. Resume Next resumes at the next statement, and the next statement after the `If` line is the first one
-inside the block. The obvious reading, that the failed condition skips the block, is wrong. HexIDE skips it,
-and skips every statement in the table above the same way.
+inside the block. The obvious reading, that the failed condition skips the block, is wrong. HexIDE skips it, and
+does the same for every statement in the table except `Do ... Loop While`, where it already runs the body once and
+leaves, as VB6 does. #839 has the rest.
+
+### Found in #840's review (2026-10-12)
+
+The review found routes that still read an object as a value, and measured several; each answer was measured again
+here, native and in the IDE, with `sm` a class whose default member returns 2. `w` and `k` are as above.
+
+**`VarType` and the Is functions read the default member, and `TypeName` and `IsObject` do not.** Classes whose default
+member returns a value the function would answer about:
+
+| Call | Native and IDE |
+|---|---|
+| `VarType(w)`, `IsNumeric(w)` | 3, True |
+| `IsEmpty`, `IsNull`, `IsDate`, `IsNumeric`, `IsArray`, `IsError` of a class whose member returns Empty, Null, a Date, "12", an array, `CVErr(5)` | True for each |
+| `VarType` of those | 0, 1, 7, 8, 8204, 10 |
+| `TypeName(w)`, `IsObject(w)`, `TypeName` of those | "Widget", True, the class's name |
+| `VarType(k)`, and each Is function of `k` | 9, and False, **with no error**: a class with no default member answers about the object |
+
+**Select Case:**
+
+| Statement | Native | IDE |
+|---|---|---|
+| `Select Case 42`, `Case 40 To w`; `Case w To 50` | matches | matches |
+| `Select Case 42`, `Case 40 To k` | 438 | 438 |
+| `Select Case 43`, `Case Is > w`; `Select Case 41`, `Case Is < w` | matches | matches |
+| `Select Case 43`, `Case Is > k` | 438 | 438 |
+| `Select Case Empty` or `Null`, `Case w` | Case Else, no error | **450**, then `Case w`'s body: a Function default member, as above |
+| the same with a Property Get default member | Case Else | Case Else |
+| `Select Case Empty` or `Null`, `Case k` | 438 | 438 |
+
+**Statements:**
+
+| Statement | `w` (42) or `sm` (2) | `k` |
+|---|---|---|
+| `Randomize w` | the same first `Rnd` as `Randomize 42` | 438 |
+| `Err.Raise w`, `Error sm` | error 42, error 2 | 438 |
+| `ChDir w`, `ChDrive w` | 76 and 5: it tried "42" | 438 |
+| `Mid(s, sm, 1) = "X"`, `Mid(s, 2, sm) = "XYZ"` on "abcdef" | "aXcdef", "aXYdef" | 438, `s` unchanged |
+| `Mid(s, w, 1) = "X"` | 5, the start past the end | |
+
+**The array functions:** only the array is taken as itself.
+
+| Call | `sm` | `k` |
+|---|---|---|
+| `UBound(m, sm)`, `LBound(m, sm)` of `m(1 To 3, 5 To 9)` | 9, 5 | 438 |
+| `Split("a,b,c", ",", sm)`, `Split(w)` | two elements, `"42"` | 438 |
+| `Join(arrS, sm)`, `Filter(arrS, "a", sm)` | "2" as the delimiter, an include of True | 438 |
+
+**The in-box objects:**
+
+| Used as a value | VB6 |
+|---|---|
+| `Err` | its `Number`: `"v=" & Err` is "v=0" or "v=11", `If Err Then` takes the Then branch after an error, `x = Err` stores 11, `Err + 1` is 12, `VarType(Err)` is 3, `Print #f, Err` writes 11 |
+| `App`, `Screen`, `Clipboard` | 438: none has a default member |
+| `Forms` | 450: its default member, `Item`, needs an argument |
+| `Debug` | a compile error, "Syntax error" |
+| a control array without an index, `"v=" & Cmd` | a compile error, "Argument not optional" |
+
+`TypeName(Err)` is "ErrObject" and `TypeName(App)` is "App".
 
 **HexIDE, after #174's refusal (this change).** One rule, `ObjectAsValue`, applied wherever a value is wanted:
 - every binary operator's operands (`GetTwoValues`), negation and `Not`;
 - every text coercion (`VbDisplay.ToText`: concatenation, `CStr`, `Val`, `Str` and the string functions);
 - a Let, a store into a declared scalar (`CoerceOnStore`), a ByVal argument for a declared scalar parameter;
-- every built-in function's arguments (`EvaluateBuiltInFunction`), except those that ask what a value is (`TypeName`,
-  `VarType`, the `Is` family) or treat it as an element or an array; and the numeric conversions' own coercion, which a
-  subscript also uses;
-- the conditions of `If`, `ElseIf`, `While` and `Do`, a For bound, `Select Case` and its `Case Is` values;
-- `Debug.Print`.
+- every built-in function's arguments (`EvaluateBuiltInFunction`), once the name is found to be a built-in: an
+  unknown name stays "Sub or Function not defined" whatever it is given. `TypeName`, `IsObject`, `IsMissing` and `Array`
+  take the argument itself, and so does the array that `LBound`, `UBound`, `Join` and `Filter` take first. `VarType` and
+  the Is functions refuse a class with a default member and answer about one without;
+- the numeric conversions' own coercion, which subscripts will use once G39-41 lands; nothing reaches it before the
+  dispatcher yet;
+- the conditions of `If`, `ElseIf`, `While` and `Do`, a For bound and step, `Select Case`, a Case value, a range's
+  bounds and a `Case Is` value;
+- `Debug.Print`, `Randomize`, `Err.Raise`, `Error`, `ChDir`, `ChDrive`, and the Mid statement's start and length;
+- the Immediate window's `? x`: a class with a default member is refused as a call into the program, as `? obj.Prop`
+  is (D15), and one with none is 438. It used to print the class's name.
 
-A class with a default member is refused, untrappably, naming #174. One with none raises 438.
+A class with a default member is refused, untrappably, naming #174. One with none raises 438. Err stands for its
+Number, App raises 438, and `Debug` and a control array used as values are the compile errors VB6 gives.
