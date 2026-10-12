@@ -25,6 +25,19 @@ there isn't one yet. Anything may change between 0.x releases.
   `Debug.Print k`), read it as 0 (`Val(k)`, a ByVal Long argument), or matched nothing in `Select Case`. A class
   with a default member, which VB6 reads in all those places, stops the run with a message saying class default
   members are not implemented yet (#174), rather than an error `On Error Resume Next` would step over.
+- **A syntax error when a program starts, or a compile error while it runs, is reported like a run-time error.**
+  Each was a message box nothing recorded, so a program that never started was reported to automation as having run
+  and ended. Both now appear in the run-time error dialog and are kept for `get_last_runtime_error`, and a syntax
+  error at the start makes `run_project` answer that nothing is running. That answer now starts its own paragraph
+  rather than running on from the error's last word.
+- **Every start that never becomes a run is reported as one.** A project with no startup form, and a Sub Main project
+  with no usable `Main` or with two, were a message box, or a run that ended, and `run_project` answered success.
+  Each is now a failed start, in VB6's words, recorded for `get_last_runtime_error`.
+- **A syntax error names the module it is in.** One in a `.bas` or `.cls` was blamed on the startup form.
+- **A declaration HexIDE cannot load is described the same way whichever startup object the project has.** The form
+  path gave the raw exception after the form's name.
+- **Run To Cursor from design mode no longer leaves its target behind when the start fails.** After fixing the error,
+  a plain F5 paused at that line as though at a breakpoint.
 - **A message box shows the buttons and icon it was asked for.** `MsgBox "Sure?", vbYesNo + vbQuestion` showed
   OK alone with no icon, because every in-box constant is a Long and the style was read only as an Integer, so a
   Yes branch could never run. The answer is a Long, as in VB6. A style VB6 does not accept, such as 6 or 12, is a

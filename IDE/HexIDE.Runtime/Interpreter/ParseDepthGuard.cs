@@ -21,15 +21,25 @@ internal sealed class ParseDepthGuard : IParseTreeListener
     internal const int DefaultMaxDepth = 300;
 
     private readonly int _maxDepth;
+    private readonly string? _moduleName;
     private int _depth;
 
-    public ParseDepthGuard(int maxDepth = DefaultMaxDepth) => _maxDepth = maxDepth;
+    /// <param name="moduleName">The module being parsed, named in the error as a syntax error names it, so the person
+    /// fixes the right file. Null where there is no module, as for an Immediate-window entry.</param>
+    public ParseDepthGuard(int maxDepth = DefaultMaxDepth, string? moduleName = null)
+    {
+        _maxDepth = maxDepth;
+        _moduleName = moduleName;
+    }
 
     public void EnterEveryRule(ParserRuleContext ctx)
     {
         if (++_depth > _maxDepth)
-            throw new VBCompileErrorException(
-                $"Expression or block nesting too deep (exceeds {_maxDepth} levels)") { Line = ctx.Start?.Line ?? 0 };
+        {
+            var line = ctx.Start?.Line ?? 0;
+            throw new VBCompileErrorException($"Expression or block nesting too deep (exceeds {_maxDepth} levels)"
+                + (_moduleName is null ? "" : $" in {_moduleName}, line {line}")) { Line = line };
+        }
     }
 
     public void ExitEveryRule(ParserRuleContext ctx) => _depth--;

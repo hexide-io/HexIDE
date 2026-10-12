@@ -678,7 +678,6 @@
     "Str.Vb6Toolchain.CompilationFailed": "VB6 compilation failed:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Build succeeded but the executable was not found at:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Run Failed",
-    "Str.ProjectRunner.MustHaveStartupForm": "Must have a startup form or Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "This action will reset your project. Do you want to continue?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Form '{0}' could not be loaded, so the project did not start.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE does not implement this yet:\n\n{0}",
