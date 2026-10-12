@@ -5169,15 +5169,22 @@ with `k` a Plain, so each condition raises 438:
 | `If k Then ... Else ... End If` | the Then branch |
 | `If False Then ... ElseIf k Then ... Else ...` | the ElseIf branch |
 | `If k Then c = "Then" Else c = "Else"`, one line | the Then part |
-| `Select Case k`, `Case 1`, `Case Else` | **Case Else** |
+| `Select Case k`, `Case 1`, `Case Else` | **Case Else** (native code only: see below) |
 | `Do While k`, `Do Until k`, `While k` | the body, every pass, until the probe's own `Exit` after 3 |
 | `Do ... Loop While k` | the body once, then out |
-| `For i = 1 To k` | the body, every pass, until `Exit For` after 3; `i` was still 0 afterwards |
+| `For i = 1 To k` | the body, every pass, until `Exit For` after 3; `i` was still 0 afterwards (native code only) |
 
 Resume Next resumes at the statement after the one that raised, and for a block statement that is the first statement
-inside it. A Select Case evidently tries each Case in turn, each raising again, and reaches Case Else. A bottom-tested
-loop's next statement is the one after `Loop`. Why `i` never moved, and why the loop still stopped at 3, is not
-explained: `Next` did not raise visibly, since `Err.Number` after the loop was the For line's 438.
+inside it. A bottom-tested loop's next statement is the one after `Loop`.
+
+The Select Case and For rows are native code's, and #839 explains them ("Resume Next into a block"). This harness
+builds native code unless a `.vbp` says otherwise, and p-code answers both differently:
+- **Select Case:** native code tests its Cases against a selector it never computed, which is Empty, so `Case 1` fails
+  and Case Else runs. P-code skips the statement.
+- **For:** native code steps by a step it never computed, 0, so `i` stays 0 and the loop runs until the probe's own
+  `Exit For`. P-code leaves after one pass.
+
+The earlier reading here, that each Case raised in turn, was wrong.
 
 The first probe's finding, in its own words: `If k Then`, whose condition raises 438, went on into the Then
 branch. Resume Next resumes at the next statement, and the next statement after the `If` line is the first one
