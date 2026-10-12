@@ -22,6 +22,18 @@ public class VBWindowContext : IModuleExecutionRoot
 
     public static event Action<VBWindowContext, VBCompileErrorException>? CompileError;
 
+    /// <summary>
+    /// An event procedure stopped on an exception that is not a VB6 error: a construct HexIDE does not
+    /// implement (<see cref="NotImplementedException"/>), or a fault in the engine itself. Neither is
+    /// trappable, so <c>On Error</c> never sees it and the procedure stops at that statement.
+    /// </summary>
+    /// <remarks>
+    /// This used to reach only the log. The handler stopped part way and the program carried on, so
+    /// nothing told the user that a statement had not run (#754). Whoever owns the run decides what a fault
+    /// means for it. With nobody listening, it is logged and nothing else.
+    /// </remarks>
+    public static event Action<VBWindowContext, Exception>? Faulted;
+
     public VBWindowContext(IBasicStandardLibrary standardLibrary)
     {
         this.standardLibrary = standardLibrary;
@@ -96,6 +108,13 @@ public class VBWindowContext : IModuleExecutionRoot
             catch (Exception e)
             {
                 Log.Error(e, "Unhandled exception during form execution");
+                // Neither of these is a fault in the run. A cancellation is how a run being torn down reaches a
+                // statement still waiting on it, such as a MsgBox. An ImmediateEvalException is the Immediate
+                // window refusing to run an event procedure while paused: `Text1.Text = "x"` typed there raises
+                // Text1_Change, which cannot run in break mode. The refusal is the Immediate window's answer, and
+                // the paused run carries on.
+                if (e is not (OperationCanceledException or Debugging.ImmediateEvalException))
+                    Faulted?.Invoke(this, e);
             }
             finally
             {

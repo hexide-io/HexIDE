@@ -46,6 +46,37 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// StatementExecutor's pause-gate. Null ⇒ zero debug overhead (the gate is skipped entirely).</summary>
     public Debugging.IDebugController? DebugController { get; set; }
 
+    /// <summary>
+    /// Set by <c>End</c>, and never cleared: the program is over. Every walk of this interpreter stops at its next
+    /// statement, a procedure started later (a Timer tick or a click already queued) runs none of its own, and no
+    /// <c>Class_Terminate</c> runs (#775).
+    /// </summary>
+    /// <remarks>
+    /// Checked here as well as through the debugger's abort, because a host with no debugger (a test, the Standalone
+    /// runner) has nothing else to stop the walks. Measured on vb6.exe: after <c>End</c> nothing else runs, no form
+    /// raises QueryUnload, Unload or Terminate, and no Class_Terminate runs, whether it was reached from an event
+    /// procedure, from Form_Load or from Sub Main.
+    /// </remarks>
+    public bool Ending { get; private set; }
+
+    /// <summary>
+    /// Raised when a program reaches <c>End</c>, so whoever owns the run ends it: closes its forms, and stops the walks
+    /// of any other interpreter in the run. Static, as <see cref="VBWindowContext.Faulted"/> is, because a run's
+    /// interpreters are built in more than one place; an owner listens only while its run is live.
+    /// </summary>
+    public static event Action<BasicInterpreter>? EndReached;
+
+    /// <summary>
+    /// <c>End</c>: mark the program over, tell the host, and unwind this walk. The unwind is
+    /// <see cref="Debugging.StopExecutionSignal"/>, which every entry point already swallows as a clean stop.
+    /// </summary>
+    internal Debugging.StopExecutionSignal End()
+    {
+        Ending = true;
+        EndReached?.Invoke(this);
+        return new Debugging.StopExecutionSignal();
+    }
+
     /// <summary>While set (AND the debugger is Paused), <see cref="RunProcedure"/> and <see cref="NewObject"/> refuse
     /// to run USER code (any Sub/Function/Property-Get body, or <c>New</c> construction) — used by Immediate-window
     /// evaluation, where running user statements would hit the paused gate on this (UI) thread (deadlock) and mutate
@@ -211,8 +242,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         // A debugger reset (Stop) unwinds the walk via StopExecutionSignal, which runs this refcount teardown in
         // RunProcedure's finally — but VB6 `End` fires NO Class_Terminate (oracle-verified), so suppress it while
-        // the debugger is aborting.
-        if (o.Terminated || DebugController?.IsAborting == true)
+        // the debugger is aborting, and once the program itself has reached End.
+        if (o.Terminated || Ending || DebugController?.IsAborting == true)
             return;
         o.Terminated = true;
         if (o.ClassDef.PrePass.Procedures.TryGetValue("Class_Terminate", out var term))
@@ -292,7 +323,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         IReadOnlyList<(string Name, string Code)>? classModules = null)
     {
         ExecutionContext = executionContext;
-        BuiltIns = new VB6BuiltIns(stdLib) { AppTitle = () => App.TitleOrNull };
+        BuiltIns = new VB6BuiltIns(stdLib)
+        {
+            AppTitle = () => App.TitleOrNull,
+            WatchRunEnd = () =>
+            {
+                var session = DebugController?.Session;
+                return () => Ending || DebugController is { } debug && (debug.IsAborting || debug.Session != session);
+            },
+        };
         this.stdLib = stdLib;
         this.rootEnv = rootEnv;
         this.code = code;
@@ -368,11 +407,14 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     private ModuleInfo BuildModule(string name, InterpreterModuleKind kind, string moduleCode, ExecutionEnvironment env)
     {
         var pp = new PrePass(env, ExecutionContext.State);
-        pp.Visit(Parse(moduleCode));
+        pp.Visit(Parse(moduleCode, name));
         return new ModuleInfo(name, kind, pp, env);
     }
 
-    private Antlr4.Runtime.Tree.IParseTree Parse(string source)
+    // The module being parsed, named in a syntax error's message so the person fixes the right file (#759).
+    private string? parsingModule;
+
+    private Antlr4.Runtime.Tree.IParseTree Parse(string source, string moduleName)
     {
         var lexer = new VB6Lexer(new AntlrInputStream(new StringReader(source)));
         var parser = new VB6Parser(new CommonTokenStream(lexer));
@@ -380,9 +422,21 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         parser.RemoveErrorListeners();
         lexer.AddErrorListener(this);
         parser.AddErrorListener(this);
-        parser.AddParseListener(new ParseDepthGuard());   // reject pathological nesting as a compile error, not a crash
-        return parser.startRule();
+        // Reject pathological nesting as a compile error, not a crash, naming the module as a syntax error does.
+        parser.AddParseListener(new ParseDepthGuard(moduleName: moduleName));
+        parsingModule = moduleName;
+        try
+        {
+            return parser.startRule();
+        }
+        finally
+        {
+            parsingModule = null;
+        }
     }
+
+    private string SyntaxErrorAt(int line, int column) =>
+        $"in {(parsingModule is null ? "" : parsingModule + ", ")}line {line}:{column}";
 
     /// <summary>Parse a standalone VB6 expression (an Immediate-window entry) into a value-statement tree. Uses the
     /// interpreter's throwing error listener, so a syntax error surfaces as <c>VBCompileErrorException</c>. Requires
@@ -499,33 +553,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     ///   parameter is <c>Optional</c>. Both give "Must have startup form or Sub Main()".</item>
     /// </list>
     /// <para>
-    /// Both errors are VB6 compile errors; here they arrive as the run begins, which is the translation
-    /// <c>interpreter-core:40-42</c> prescribes. Class modules are excluded: a class member is not a
-    /// project startup, and searching every module indiscriminately would find one.
+    /// Both errors are VB6 compile errors. <see cref="FindStartupSubMain"/> raises them from the pre-pass tables, so
+    /// the IDE asks it before the run begins and reports either as a start that never became a run (#759). Class
+    /// modules are excluded: a class member is not a project startup, and searching every module indiscriminately
+    /// would find one.
     /// </para>
     /// </remarks>
     public async Task RunStartupSubMain()
     {
-        var declared = new List<(ModuleInfo Module, ProcedureInfo Proc)>();
-        foreach (var m in Modules.All)
-        {
-            if (m.Kind != InterpreterModuleKind.Standard) continue;
-            if (m.PrePass.Procedures.TryGetValue("Main", out var proc))
-                declared.Add((m, proc));
-        }
-
-        // Ambiguity is checked before suitability: VB6 reports two Mains as ambiguous rather than looking
-        // past an unsuitable one to find a usable partner.
-        if (declared.Count > 1)
-            throw new VBCompileErrorException("Ambiguous name detected: Main");
-
-        var startup = declared.Count == 1 && !declared[0].Proc.IsFunction
-                      && declared[0].Proc.Parameters.Count == 0
-            ? declared[0]
-            : default;
-
-        if (startup.Proc is null)
-            throw new VBCompileErrorException("Must have startup form or Sub Main()");
+        var startup = FindStartupSubMain();
 
         try
         {
@@ -550,6 +586,39 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         {
             // A debugger reset (Stop) unwound the walk cleanly — swallowed exactly as Execute() does.
         }
+    }
+
+    /// <summary>VB6's compile error for a project with no startup form and no usable <c>Sub Main</c>.</summary>
+    public const string NoStartupObject = "Must have startup form or Sub Main()";
+
+    /// <summary>
+    /// The project's <c>Sub Main</c>, or the compile error VB6 gives for its absence: "Ambiguous name detected:
+    /// Main" for two, and "Must have startup form or Sub Main()" for none or for one that is not a parameterless
+    /// Sub. Read from the tables the pre-pass already collected, so it can be asked before the run begins.
+    /// </summary>
+    public (ModuleInfo Module, ProcedureInfo Proc) FindStartupSubMain()
+    {
+        var declared = new List<(ModuleInfo Module, ProcedureInfo Proc)>();
+        foreach (var m in Modules.All)
+        {
+            if (m.Kind != InterpreterModuleKind.Standard) continue;
+            if (m.PrePass.Procedures.TryGetValue("Main", out var proc))
+                declared.Add((m, proc));
+        }
+
+        // Ambiguity is checked before suitability: VB6 reports two Mains as ambiguous rather than looking
+        // past an unsuitable one to find a usable partner.
+        if (declared.Count > 1)
+            throw new VBCompileErrorException("Ambiguous name detected: Main");
+
+        var startup = declared.Count == 1 && !declared[0].Proc.IsFunction
+                      && declared[0].Proc.Parameters.Count == 0
+            ? declared[0]
+            : default;
+
+        if (startup.Proc is null)
+            throw new VBCompileErrorException(NoStartupObject);
+        return startup;
     }
 
     /// <summary>True if this project has a usable <c>Sub Main</c> startup object — the same rules as
@@ -718,6 +787,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             if (!completed && proc.IsFunction && ExecutionContext.TryGetVariable(callee, proc.Name, out var orphan))
                 await ReleaseRef(orphan);
         }
+        // A procedure whose last statement raised an event that reached End, or faulted, has no statement left for
+        // a gate to stop: the event's boundary took the unwind as a clean stop, so the statement simply returned.
+        // Without this the caller went on with the result: `Debug.Print "got " & Fn()` printed after End (#775),
+        // and after a fault that had ended the run (#762).
+        if (Ending || DebugController?.IsAborting == true)
+            throw new Debugging.StopExecutionSignal();
         // Transfer the return object's hold to the CALLER's current statement frame (flushed at the caller's
         // statement end): a discarded result terminates then, an assigned one is out-lived by the store's AddRef.
         AdoptReturn(ret, callerFrames);
@@ -951,12 +1026,13 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     public void SyntaxError(TextWriter output, IRecognizer recognizer, IToken offendingSymbol, int line, int charPositionInLine,
         string msg, RecognitionException e)
     {
-        throw new VBCompileErrorException($"{msg} in line {line}:{charPositionInLine}\nOffending symbol: {offendingSymbol.Text}");
+        throw new VBCompileErrorException($"{msg} {SyntaxErrorAt(line, charPositionInLine)}\nOffending symbol: {offendingSymbol.Text}")
+            { Line = line };
     }
 
     public void SyntaxError(TextWriter output, IRecognizer recognizer, int offendingSymbol, int line, int charPositionInLine,
         string msg, RecognitionException e)
     {
-        throw new VBCompileErrorException($"{msg} in line {line}:{charPositionInLine}");
+        throw new VBCompileErrorException($"{msg} {SyntaxErrorAt(line, charPositionInLine)}") { Line = line };
     }
 }

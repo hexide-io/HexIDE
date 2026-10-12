@@ -5,7 +5,9 @@ namespace HexIDE.Runtime.Components;
 
 public static class VBProperties
 {
-    public static Dictionary<string, List<PropertyClass>> PropertiesByName { get; } = new();
+    // Case-insensitive: `text1.text` is Text1.Text in VB6 (#811). No two property names differ only in case, so
+    // this merges nothing that was apart.
+    public static Dictionary<string, List<PropertyClass>> PropertiesByName { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     public static PropertyClass<string> NameProperty = new PropertyClass<string>("(Name)", "The identifier used to refer to this object in code.", PropertyCategory.Misc);
 

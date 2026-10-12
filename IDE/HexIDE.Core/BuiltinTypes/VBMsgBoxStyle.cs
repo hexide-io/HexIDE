@@ -26,6 +26,9 @@ public enum VBMsgBoxStyle
     vbMsgBoxRight = 524288,
     vbMsgBoxRtlReading = 1048576,
 
-    ButtonsBits = 0b0111,
-    IconBits = 0b1110000
+    // The three fields VB6 validates, measured: a value outside the defined ones in any of them makes the whole box
+    // a plain OK box with no icon. Buttons is the low nibble, not three bits: 12 is OK alone, not 4's Yes/No.
+    ButtonsBits = 0xF,
+    IconBits = 0xF0,
+    DefaultButtonBits = 0xF00
 }

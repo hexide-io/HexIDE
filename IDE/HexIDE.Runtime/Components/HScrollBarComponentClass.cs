@@ -29,6 +29,8 @@ public abstract class ScrollBarComponentClass : ComponentBaseClass
             Orientation = Orientation,
             Minimum = instance.GetPropertyOrDefault(MinProperty),
             Maximum = instance.GetPropertyOrDefault(MaxProperty),
+            VbMin = instance.GetPropertyOrDefault(MinProperty),
+            VbMax = instance.GetPropertyOrDefault(MaxProperty),
             Value = instance.GetPropertyOrDefault(ValueProperty),
             LargeChange = instance.GetPropertyOrDefault(LargeChangeProperty),
             SmallChange = instance.GetPropertyOrDefault(SmallChangeProperty),

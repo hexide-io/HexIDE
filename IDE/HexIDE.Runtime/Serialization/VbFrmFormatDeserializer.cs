@@ -104,7 +104,10 @@ public class VbFrmFormatDeserializer
                     if (braceIdx > 0)
                         property = property[..braceIdx].TrimEnd();
 
-                    var block = new OpenBlock(property, new List<string> { rawLine }, new Dictionary<string, object>());
+                    // Its fields in any case, as VB6 reads them: a Font block written `name = "Arial"` and
+                    // `size = 12` loads as Arial 12 (measured, #819).
+                    var block = new OpenBlock(property, new List<string> { rawLine },
+                        new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase));
 
                     // Nest into the enclosing bag when there is one, so an inner block does not overwrite
                     // its parent's entry on the component.

@@ -68,15 +68,14 @@ public class DebuggerLinesAreFileLinesTests
             Substitute.For<IEventBus>(), windowManager, Substitute.For<IProjectManager>(),
             Substitute.For<ILocalizationService>(), new DebugController(), Substitute.For<IBreakpointService>(),
             new WatchService(), new RunScope());
+        // A syntax error at start is a start that never became a run, reported through StartFailed (#759).
+        var reported = new List<string>();
+        runner.StartFailed += reported.Add;
 
         runner.RunProject(form.Owner);
 
-        var message = windowManager.ReceivedCalls()
-            .Where(c => c.GetMethodInfo().Name == nameof(IWindowManager.MessageBox))
-            .Select(c => (string)c.GetArguments()[0]!)
-            .Should().ContainSingle().Subject;
-        message.Should().Contain("in line 9:", "the incomplete assignment is on line 9 of the file; given the "
-            + "code section alone the parser called it line 3");
+        reported.Should().ContainSingle().Which.Should().Contain("line 9:", "the incomplete assignment is on line 9 "
+            + "of the file; given the code section alone the parser called it line 3");
     }
 
     [AvaloniaFact]

@@ -422,7 +422,9 @@ colour property is converted at the property boundary (`VBColor.FromOle`), not a
 draws: `0.7055475, 0.533424, 0.5795186` (state after draw 1 = `11837123`, and `11837123 / 2^24 = 0.7055475`
 bit-exact). `Rnd(0)` returns the last value **without advancing**; `Rnd(<0)` reseeds from the argument.
 `Randomize [n]` only varies the starting seed — our reseed fold is deterministic-but-not-bit-identical to VB6's
-(documented divergence; the fixed-seed sequence itself *is* bit-exact).
+(documented divergence; the fixed-seed sequence itself *is* bit-exact). **Later measurement, 2026-10-12:**
+`Randomize n` does not *restart* the sequence either. The same `n` twice gives two different draws in VB6, and
+only `Rnd(-1)` beforehand makes it repeat; see "A form-based game's runtime surface".
 
 ### Inspection intrinsics (interpreter-core Phase 3.4)
 
@@ -735,6 +737,28 @@ Verified: a module-level object held live, then `End` — the class's `Class_Ter
 `Unload`/`QueryUnload`). So the debugger's reset ("Stop") must unwind the walk **without** firing `Class_Terminate`
 — the interpreter suppresses it via an aborting-guard on `FireTerminate` while `IDebugController.IsAborting` is set.
 
+### `End` itself, from three places (2026-10-12, #775)
+
+The section above measured one object at module level, and stated the form events without measuring them. Three
+probes now cover both. Each is a Standard EXE with a `Class1` whose `Class_Terminate` logs, and forms whose
+`QueryUnload`, `Unload` and `Terminate` log. Every log line is written by opening, appending and closing the file,
+so nothing waits in a buffer that `End` could discard. Real `vb6.exe` 6.00.8176 (SP6), run in session 0.
+
+| Probe | Log |
+|---|---|
+| `Form1_Load` creates objects at module and form level and shows `Form2`; a 300 ms Timer creates a local object, logs `tick`, then `End`, then logs `after End` | `Form1_Load`, `Form2_Load`, `tick` |
+| `End` inside `Form1_Load`, with a module-level and a local object live, then logs `after End` | `Form1_Load` |
+| `Sub Main` creates a module-level and a local object, shows `Form1`, then `End`, then logs `after End` | `Main`, `Form1_Load` |
+
+In every case the exe exited with code 0, and **nothing else was logged**:
+- no line after `End`;
+- no `QueryUnload`, `Unload` or `Terminate` from either form;
+- no `Class_Terminate` for the module-level, the form-level or the local object.
+
+So `End` is the same wherever it is reached, and it is not an unload. HexIDE's `End` (#775) stops the program at
+the statement, suppresses `Class_Terminate` through its own `Ending` flag (which also works with no debugger
+attached), and in the IDE ends the run as the End command does, reporting nothing.
+
 ## Relational comparison + `ChDir`/`ChDrive` (2026-08-03 gap-audit fixes)
 
 **String relational comparison** (`< <= > >=`), verified against `vb6.exe`:
@@ -806,6 +830,11 @@ is passed as that leading argument. Harness + files were under a scratch dir (ne
 So `Load` = clone the lowest-index element's props but force `Visible=False`; the three failure modes are distinct
 codes (360 already-loaded, 362 can't-unload-design-time, 340 missing).
 
+**Later measurement, 2026-10-12:** the rows above used an element nobody had changed, so they cannot tell the
+`.frm` values from the element's current ones. With element 0's `Caption` and `BackColor` changed at run time,
+the loaded element took the *changed* values: `Load` clones the lowest-index element's **runtime** state. See
+"A form-based game's runtime surface".
+
 
 ## Option buttons — `Value` is a Boolean, and the group can be empty (2026-08-22, #95)
 
@@ -868,6 +897,368 @@ in #95 on the strength of this measurement rather than on that assumption.
 `Err 380` (Invalid property value), and the value is left unchanged. A check box's `Value` is 0..2 and −1 is
 outside it. This is the sharpest evidence that the two controls' `Value` properties cannot share a type: the
 literal that *selects* an option button is *refused* by a check box.
+
+
+## A form-based game's runtime surface (2026-10-12)
+
+Measured to decide what a form front end for `demo/battleship` may rely on. Real `vb6.exe` 6.00.8176 (SP6).
+One Standard EXE, `Startup="Form1"`, with a `.bas` (`Public Const K = 5`, `Public G As Long`, a logging
+`Sub L` that opens `App.Path & "\log.txt"` For Append per line so nothing is lost to buffering) and a `Source`
+class raising `Event ResultV(ByVal r As Integer)` and `Event ResultR(r As Integer)`. Form1 holds `Label1`
+(`.frm` Left 240, Top 360), a Label array `lblCell(0)`/`lblCell(1)` (BackColor white), `lblStatus`, `Check1`,
+`List1`, `Command1` (no `Style` line, BackColor `&H000000FF&`), `Command2` (`Style = 1 'Graphical`, same
+BackColor), `Picture1` and a 1000 ms `Timer1`. `Form_Load` runs every probe under `On Error Resume Next` and
+logs `Err.Number`; tick 1 of the timer sends synthetic mouse messages and reads pixels with
+`GetDC`/`GetPixel` on each window's own DC; tick 3 does `Unload Me`.
+
+`/make` ran headless over PowerShell Direct. The **exe ran in the guest's interactive console session**
+(through the long-lived agent's `exec:` action described above), because painting, `Form_Activate` and
+`Form_Paint` need a real desktop; a screenshot taken mid-run confirms the pixel rows visually.
+
+| Probe | `vb6.exe` result |
+|---|---|
+| `Label1.Left` (`.frm` 240) / `TypeName` | `240` / **`Single`** |
+| `Label1.Top` (`.frm` 360) | `360` |
+| `Label1.Left = 1200`, then read | `1200` — read and written in **twips** at the default ScaleMode |
+| `Me.ScaleMode = 3`, then `Label1.Left` / `Me.ScaleWidth` | `80` / `400` — pixels once ScaleMode is pixels |
+| `Screen.TwipsPerPixelX` | `15` |
+| `Label1.Move 0, 0` | Err 0, Left `0`, Top `0` |
+| `lblCell(0).BackColor` read, never written (`.frm` `&H00FFFFFF&`) | `16777215` / **`Long`** |
+| `lblCell(0).BackColor = vbRed`, then `If lblCell(0).BackColor = vbRed` | **`eq`**, Err 0 |
+| ...and on screen (form DC inside the label) | `GetPixel` = `FF` — **red is painted** (a Label is windowless; VB draws it on the form) |
+| `lblCell(0).Caption = "changed"` + `BackColor = vbRed`, then `Load lblCell(5)` | lblCell(5) Caption **`changed`**, BackColor **`255`**, Visible `False`, Left `840` |
+| `lblCell(1) = "D"` (default member) | Caption `D`; `TypeName(lblCell(1))` still **`Label`** |
+| `lblcell(0).caption = "x"`, read `LBLCELL(0).CAPTION` (Option Explicit) | compiles; `x` |
+| `Dim Abc As Integer`, `abc = 1`, read `ABC` / `TypeName(ABC)` (Option Explicit) | compiles; `1` / `Integer` |
+| `Controls.Count` / `Controls("lblStatus").Caption` | `11` / `Ready` |
+| `For Each c In lblCell` (elements 0, 1, 5) | 3 iterations, Err 0 |
+| `For i = lblCell.LBound To lblCell.UBound`, `lblCell(i).Tag = "t"` | i = 0, 1, 5 Err 0; i = 2, 3, 4 **Err 340** |
+| `Module1.K` / unqualified `K` from the form | `5` / `5` |
+| `Module1.G = 8` (qualified write) | Err 0, `Module1.G` = 8 |
+| `G = 7` (unqualified write, Option Explicit) | Err 0, `Module1.G` = 7 — it IS the module's variable |
+| `Private Const N = 10` + `Private a(0 To N - 1) As Integer` (form level) | compiles; `a(9) = 3` works, `UBound(a)` = 9 |
+| bare `Print "hello"` in `Form_Load` | compiles, Err 0 |
+| `Check1.Value = 1` | **`Check1_Click` fires once** (Value already 1 inside it) |
+| `Check1.Value = 1` again | no Click |
+| `List1.ListIndex = 2` | **`List1_Click` fires**, ListIndex 2 inside it |
+| `List1.AddItem "z", 0` (after a, b, c with c selected) | `List(0)` = `z`, ListCount 4, **ListIndex 3** — the selection follows its item |
+| form `Private WithEvents mSrc As Source`, `RaiseEvent ResultV(x)` with x = 3, handler sets `r = 99` | handler got `3`; raiser's `x` still **3** |
+| same, `ResultR(x)` (ByRef) | handler got `3`; raiser's `x` **99** |
+| `Private Static Sub Bump()` with `Dim n As Integer: n = n + 1`, called twice | `1`, `2` — a Static **Sub** makes its locals static too |
+| `Randomize 42: r1 = Rnd: Randomize 42: r2 = Rnd` | `0.3391077`, `0.2562481` — **not** equal |
+| `r = Rnd(-1): Randomize 42: r1 = Rnd`, twice | `0.9078093` both times — only `Rnd(-1)` first makes it repeat |
+| `App.Path` | `C:\zzprobe\main` — no trailing separator |
+| `lblCell(5).Index` | `5` |
+| `Command1.Style` / `Command1.BackColor` / `Command2.Style` | `0` / `255` / `1` |
+| `Command1` (Style 0) pixels at (6,6) and (20,20) | **`F0F0F0`** — button face; BackColor is **not painted** |
+| `Command2` (Style 1) pixels at (6,6) and (20,20) | **`FF`** — red |
+| `WM_LBUTTONDOWN`/`UP` sent to `Picture1` at client (10, 5) px | `MouseDown Button=1 Shift=0 X=150 Y=75`, `MouseUp X=150 Y=75` — **twips**, the container's ScaleMode |
+| `WM_RBUTTONDOWN`/`UP` at the same point | `MouseDown Button=2 ...` |
+| event order on show | `Form_Initialize`, `Form_Load`, `Form_Resize`, `Form_Activate`, `Form_Paint` |
+| `Unload Me` from the timer | `Form_QueryUnload` UnloadMode **1** (vbFormCode), `Form_Unload`, `Form_Terminate`; the program ends |
+
+A compile-only pair settled one more question. A class whose method calls a form's `Public Sub ShowResult`
+**unqualified** fails `/make`: `Compile Error in File '...\Class1.cls', Line 3 : Sub or Function not defined`
+(Line 3 is the call, 0-based in the code view, as the section on `/out` describes). `Form1.ShowResult 1` builds.
+
+A Single's display width was measured with `scripts/vb6-oracle.ps1` (the `CByte` sanity pair reproduced
+first): `CStr(CSng(0.76414126))` = `0.7641413`, `CSng(0.76414126)` = `0.7641413 | Single`,
+`CStr(CSng(1) / 3)` = `0.3333333`, `CStr(CSng(0.1) + CSng(0.2))` = `0.3`, `CStr(CSng(123456.78))` =
+`123456.8`. **Seven significant digits.** The full rule, with where E notation starts, how a tie rounds,
+and the other types, is in [Turning a number or a date into text](#turning-a-number-or-a-date-into-text-2026-10-12-772-771).
+
+### What this overturned
+
+- **Load clones runtime state, not the `.frm`.** The control-arrays section above says `Load` clones "the
+  lowest-index element's properties", measured on an element nobody had changed. With a changed element the
+  answer is its *current* Caption and BackColor. Only `Visible` is forced (to `False`).
+- **`Randomize n` is not a restart.** The plausible reading of `Randomize 42` is "seed the generator with
+  42". The same argument twice gave two different draws, and only `Rnd(-1)` beforehand made it repeat —
+  consistent with the argument being folded into part of the *current* seed rather than replacing it (the
+  mechanism is inferred; the two rows above are what was measured). The oracle's Rnd row already said
+  HexIDE's fold is not bit-identical; this is a different, larger point: in HexIDE `Randomize 42` twice gives
+  the *same* draw.
+- **A Style 0 CommandButton ignores BackColor on screen while still reporting it.** `Command1.BackColor`
+  reads 255 and the button paints button-face grey. The value is stored, not drawn.
+
+### What resisted explanation
+
+The synthetic `WM_LBUTTONDOWN`/`WM_LBUTTONUP` pair raised `MouseDown` and `MouseUp` but **no
+`Picture1_Click`**. A PictureBox does have a Click event, so this is most likely about how VB6 synthesises
+Click (capture, or the cursor's real position) rather than about Click itself — but that is a guess, and no
+real-input click was measured here. It means this probe says nothing either way about whether a
+right-button release raises Click.
+
+### Two harness lessons
+
+- `Bump: Bump: Bump` on one line made **two** calls, not three: a leading `Bump:` is a **line label**. The
+  probe logged `n=1`, `n=2`, which looked at first like a missing call.
+- A fixed `Start-Sleep` before the agent's screenshot missed the window entirely (the exe took several seconds
+  to appear). Poll for a non-zero `MainWindowHandle` first, then shoot.
+
+
+## Assigning to a control property (2026-10-12, #768)
+
+Measured to decide what `Label1.Caption = 5` stores, and what every other property does with a value of another
+type. Real `vb6.exe` 6.00.8176 (SP6), guest locale **en-GB** (decimal point `.`, thousands separator `,`).
+
+**Harness.** One Standard EXE, `Startup="Form1"`, with `Label1`, `Text1`, `Command1`, `Check1` and a disabled
+`Timer1` (Interval 500). Four `/make` runs over PowerShell Direct, each `Form_Load` writing a log and ending
+with `End`. The exe ran in the guest's session 0. Nothing here needs painting, so the interactive-session rig was
+not needed. Every probe is one line under `On Error Resume Next`:
+
+```vb
+Label1.Caption = "(unset)": Err.Clear: Label1.Caption = 5: e = Err.Number: W "Label.Caption = 5", e, Label1.Caption
+```
+
+So each row resets the property first, and a refused assignment shows as the reset value, unchanged. `W` logs
+the value read back, its `TypeName`, and the `Err.Number` the assignment raised.
+
+### A String property takes CStr of anything
+
+| Assignment | Reads back | Err |
+|---|---|---|
+| `Label1.Caption = 5` / `= -7` / `= Variant 42` | `5` / `-7` / `42` | 0 |
+| `= 1.5` | `1.5` (the locale's decimal separator) | 0 |
+| `= CSng(1) / 3` | `0.3333333` | 0 |
+| `= 1E+20` / `= 12345678901234#` / `= CCur(2.5)` | `1E+20` / `12345678901234` / `2.5` | 0 |
+| `= 0.1 + 0.2` / `= CSng(1E+7)` | `0.3` / `1E+07` | 0 |
+| `= True` / `= False` | `True` / `False` | 0 |
+| `= Empty` | (empty string) | 0 |
+| `= #1/2/2003#` / `= #10:30:00 AM#` / `= #1/2/2003 10:30:00 AM#` | `02/01/2003` / `10:30:00` / `02/01/2003 10:30:00` | 0 |
+| `= Null` | `(unset)`, **unchanged** | **94** |
+| `Text1.Text`, `Command1.Caption`, `Check1.Caption`, `Me.Caption` `= 5` | `5` | 0 |
+| `Text1.Text = Null`, `Me.Caption = Null` | unchanged | **94** |
+| `Label1.Tag = 5` / `= True` / `= CSng(1) / 3` | `5` / `True` / `0.3333333`, **`TypeName` String** | 0 |
+| `Label1.Tag = Null` | unchanged | **94** |
+
+**This is coercion-on-store, exactly** (see that section): a String property behaves as `Dim s As String : s = x`,
+Null included. And **`Tag` is a String**, not a Variant: `TypeName(Label1.Tag)` is `String` after `Tag = 5`.
+
+### A numeric property converts, and refuses what it cannot convert before changing
+
+| Assignment | Reads back | Err |
+|---|---|---|
+| `Label1.Left = "300"` | `300` (`Single`) | 0 |
+| `Label1.Left = "abc"` / `= ""` | unchanged | **13** |
+| `Label1.Left = Null` | unchanged | **94** |
+| `Label1.Left = Empty` / `= True` | `0` / `-1` | 0 |
+| `Label1.Left = 1.5` / `= "1.5"` / `= 2.5` / `= 2.4` | **`2`** / **`2`** / **`2`** / `2` | 0 |
+| `Label1.Left = "1,5"` | **`15`** | 0 |
+| `Label1.Left = 1E+20` | unchanged | **6** |
+| `Timer1.Interval = "1000"` / `= 2.5` / `= 3.5` | `1000` / `2` / `4` (`Long`) | 0 |
+| `Timer1.Interval = "abc"` / `= Null` / `= 3000000000#` | unchanged | 13 / 94 / **6** |
+| `Timer1.Interval = 65535` | `65535` | 0 |
+| `Timer1.Interval = 65536` / `= True` | unchanged | **380** |
+
+### An enum or colour property converts, then range-checks with 380
+
+| Assignment | Reads back | Err |
+|---|---|---|
+| `Check1.Value = 1` / `= "1"` / `= 2` | `1` / `1` / `2` (`Integer`) | 0 |
+| `Check1.Value = 1.5` / `= 1.6` / `= 2.5` | `2` / `2` / `2` | 0 |
+| `Check1.Value = 2.6` / `= 3` / `= -1` / `= True` | unchanged | **380** |
+| `Check1.Value = "abc"` / `= ""` / `= Null` / `= 40000` | unchanged | 13 / 13 / 94 / **6** |
+| `Label1.MousePointer = n`, n from 0 to 15, and 99 | `n` | 0 |
+| `Label1.MousePointer = -1`, `16`, `17`, `98`, `True` | unchanged | **380** |
+| `Label1.MousePointer = "2"` / `= 40000` | `2` / unchanged | 0 / 6 |
+| `Check1.Appearance = 0` / `= 1` | `0` / `1` | 0 |
+| `Check1.Appearance = -1`, `2`, `3`, `True` | unchanged | **380** |
+| `Label1.BackColor = "255"` / `= 255.6` / `= "&HFF"` | `255` / `256` / `255` (`Long`) | 0 |
+| `Label1.BackColor = True` / `= -2` | unchanged | **380** |
+| `Label1.BackColor = 1E+20` / `= Null` | unchanged | 6 / 94 |
+
+The OLE_COLOR range, probed byte by byte:
+
+| High byte | Low 24 bits accepted | Refused (380) |
+|---|---|---|
+| `&H00` (RGB) | any | |
+| `&H01` (palette index) | `&H000000` to `&H00FFFF` | `&H010000` and above (`&H1010000`, `&H1FFFFFF`) |
+| `&H02` (palette-relative RGB) | any (`&H2000000`, `&H2000001`, `&H2FFFFFF`) | |
+| `&H80` (system colour) | `&H00` to `&H18` | each of `&H80000019` to `&H80000020` (probed one by one for #774), `&H80000030`, `&H80000100` |
+| `&H03`, `&H04`, `&H7F`, `&HC0`, `&HFF` | | all (`&H3000000`, `&H4000000`, `&H7FFFFFFF`, `&HC0000000`, `&HFF000000`) |
+
+That is OLE's own colour validation, as far as it was probed. `&H18` is `COLOR_INFOBK`, the last entry of the
+table VB6 exposes; the refusal from `&H19` on is measured, not inferred from Windows' `COLOR_*` numbering, which
+has a hole at `&H19` and goes on past it.
+
+**A palette colour is kept as given** (measured for #774): `&H1000001` reads back `16777217`, `&H100000F`
+`16777231`, `&H100FFFF` `16842751`, `&H2000001` `33554433` and `&H2FFFFFF` `50331647`, each the same Long that was
+assigned. What it paints as was not measured.
+
+### The rule
+
+**A property assignment is coercion-on-store into the property's type, plus a range check that a declared variable
+does not have.** The conversion raises 13, 94 or 6 exactly as `Dim x As T : x = value` would. A value that converts
+but is not one the property accepts is **380, Invalid property value**, and that is how `True` fails for an enum:
+it converts to -1. The order matters and is measured: `Check1.Value = 40000` is **6**, not 380, so the Integer
+conversion comes before the range check. Nothing is changed when either step refuses.
+
+### What this overturned, or found
+
+- **`Left` is not a Single inside, though it reads back as one.** `Left = 1.5` reads back 2, and so does 2.5
+  (half to even). `Left = 1E+20`, which a Single holds easily, is Overflow. A position is held as a whole number
+  of twips in a Long. That twips are the unit is inferred from the default ScaleMode, since the probe did not
+  change it.
+- **`"1,5"` is fifteen**, not one and a half, and not an error: in the en-GB locale the comma is a thousands
+  separator, and VB6 skips it. HexIDE's string-to-number rule allows none and raises 13 (#770). Not probed: a
+  locale whose decimal separator is the comma.
+- **`MousePointer` 4, 5, 13 and 14 are accepted.** `VBCursorType`'s comment called them gaps in VB6's numbering.
+  They are not (#120).
+- **`Tag` is a String.** HexIDE declared it as an object and stored whatever it was given.
+- **`CStr` of a Date leaves out what is zero.** A midnight date has no time, and a time has no date. HexIDE wrote
+  both (#771). A Single shows seven significant digits and a Double fifteen. HexIDE showed more (#772). Both were
+  fixed by #779; see "Turning a number or a date into text".
+
+### Measured for the review of #774
+
+The same harness, three more `/make` runs, with an `HScrollBar` added (Min 0, Max 100, and a second set in the
+`.frm` to Min 100, Max 0).
+
+**A scroll bar's `Value` is range-checked, from a String too, and either way round:**
+
+| Assignment (Min 0, Max 100, reset to 10) | Reads back | Err |
+|---|---|---|
+| `HScroll1.Value = "50"` / `= 100` / `= "100"` | `50` / `100` / `100` | 0 |
+| `= 101` / `= 150` / `= "150"` / `= -1` / `= "-1"` | `10`, **unchanged** | **380** |
+
+| Assignment (Min 100, Max 0, reset to 100) | Reads back | Err |
+|---|---|---|
+| (as loaded) `Min`, `Max` | `100`, `0` | 0 |
+| `Value = 50` / `= 0` / `= 100` / `= "50"` | `50` / `0` / `100` / `50` | 0 |
+| `= 150` / `= -1` / `= True` | unchanged | **380** |
+| `= "abc"` | unchanged | 13 |
+| `= Empty` | `0` | 0 |
+| `= 2.5` / `= 99.5` | `2` / `100` (half to even) | 0 |
+
+So a bar whose Min exceeds its Max is legal, and the range check takes the two either way.
+
+**A Boolean property is CBool**, and CBool of Empty is False:
+
+| Expression or assignment | Value | Err |
+|---|---|---|
+| `CBool(Empty)` | `False` | 0 |
+| `CLng(Empty)` / `CDbl(Empty)` | `0` (Long) / `0` (Double) | 0 |
+| `CBool("")` | | 13 |
+| `Command1.Enabled = Empty` / `= 0` (reset to True) | `False` / `False` | 0 |
+| `Command1.Enabled = Null` / `= ""` | `True`, **unchanged** | **94** / **13** |
+
+**.NET's NaN and Infinity are not VB6 numbers:**
+
+| Expression or assignment | Value | Err |
+|---|---|---|
+| `CDbl("NaN")`, `CDbl("Infinity")`, `CDbl("-Infinity")`, `CLng("NaN")` | | **13** |
+| `CDbl("1E+400")` | | **6** |
+| `Label1.Left = "NaN"` / `"Infinity"` / `"-Infinity"` / `"1.#INF"` / `"1.#QNAN"` | unchanged | **13** |
+| `Val("NaN")` | `0` (Double) | 0 |
+
+**A hex String wraps at the target's width, and a trailing `&` in it is refused:**
+
+| Expression | Value | Err |
+|---|---|---|
+| `CLng("&H8000000F")` / `CDbl("&H8000000F")` / `Val("&H8000000F")` | `-2147483633` (Long / Double / Double) | 0 |
+| `CLng("&HFFFFFFFF")` / `CLng("&O37777777777")` | `-1` | 0 |
+| `CLng("&H100000000")` | | 6 |
+| `CDbl("&H100000000")` | `4294967296` | 0 |
+| `CLng("&HFFFF")` / `CLng("&H8000")` / `CLng("&H10000")` | `65535` / `32768` / `65536` | 0 |
+| `CInt("&HFFFF")` | `-1` (Integer) | 0 |
+| `CDbl("&H10&")`, `CLng("&HFFFF&")`, `CLng("&H8000000F&")` | | **13** |
+| `Text1.BackColor = "&H8000000F"` / `= "-2147483633"` | `-2147483633` (Long), a system colour | 0 |
+| `Text1.BackColor = "&H8000000F&"` | unchanged | 13 |
+
+**A colour reads back as its Long, and a hex literal is typed by its digits:**
+
+| Statement, after `Text1.BackColor = &HFF` | Value | Err |
+|---|---|---|
+| `Text1.BackColor` | `255` (Long) | 0 |
+| `Text1.BackColor = 255` / `Text1.BackColor = vbRed` | `True` / `True` | 0 |
+| `Text1.BackColor + 1` | `256` (Long) | 0 |
+| `Text1.BackColor = &HFF00` | unchanged | **380** |
+
+**A control where a value is wanted is its default property:**
+
+| Statement | Result | Err |
+|---|---|---|
+| `s = Text1` / `s = Label1` (s As String) | `"Text1"` / `"Label1"`, the Text and the Caption | 0 |
+| `v = Text1` / `v = Command1` / `v = Check1` (v As Variant) | `"Text1"` String / `False` Boolean / `0` Integer | 0 |
+| `Label1 = "x"` / `Text1 = "y"` / `Check1 = 1` | Caption `x` / Text `y` / Value `1` | 0 |
+
+**`ListIndex` is an Integer with a range of -1 to ListCount - 1**, the same in a ListBox and a ComboBox (one more
+`/make` run, three items added in `Form_Load`, and an empty ListBox beside them):
+
+| Assignment (three items, reset to 0) | Reads back | Err |
+|---|---|---|
+| `List1.ListIndex = 2` / `= -1` / `= "1"` | `2` / `-1` / `1` | 0 |
+| `= True` / `= Empty` | `-1` / `0` | 0 |
+| `= 1.5` / `= 2.5` | `2` / `2` (half to even) | 0 |
+| `= 3` / `= "3"` / `= -2` | `0`, **unchanged** | **380** |
+| `= 40000` | unchanged | **6**: an Integer overflows before the range is checked |
+| `= Null` / `= "abc"` | unchanged | 94 / 13 |
+| `Combo1.ListIndex = 2` / `= "1"` / `= -1` | `2` / `1` / `-1` | 0 |
+| `Combo1.ListIndex = 3` / `= -2` | unchanged | 380 |
+| `List2.ListIndex = -1`, empty list | `-1` | 0 |
+| `List2.ListIndex = 0` / `= -2`, empty list | `-1`, unchanged | 380 |
+
+**`CBool` reads a number in a String as `CDbl` does** (one more expression batch): `CBool("NaN")`,
+`CBool("Infinity")`, `CBool("-Infinity")` and `CBool("1.#INF")` are 13, `CBool("1E+400")` is 6, and `CBool("&H10")`
+is `True`. `CStr(Empty)` is `""`.
+
+### What the review's measurements overturned
+
+- **`&HFF00` is not a green.** A test written for #774 restored `&HFF00` through a Variant and expected it back.
+  VB6 refuses it with 380, because four hex digits make an Integer literal, and `&HFF00` is -256, which is no
+  colour. The Long `&HFF00&` is the green. That was our own expectation, and it was wrong.
+- **A trailing `&` belongs to the literal, not to a String.** HexIDE trimmed it from `"&H10&"`; VB6 raises 13.
+- **The width a hex String wraps at follows the target.** `CLng("&HFFFF")` is 65535, and `CInt("&HFFFF")` is -1.
+  Whether `CInt` wraps at 16 bits for more than four digits was not measured.
+- **`CDbl("1E+400")` was Infinity in HexIDE**, where VB6 raises 6. .NET parses it to Infinity without complaint,
+  exactly as it parses the word `"Infinity"`.
+- **`Enabled = Empty` is False with no error.** HexIDE raised 13, because its CBool sent Empty through the
+  String-to-number parse. The code comment beside it already said False.
+
+### HexIDE, after #774
+
+Property assignment goes through `VbNumeric.CoerceOnStore` and the measured range checks above, in
+`AvaloniaInteroperability.ConvertForAssignment` (and `CheckScrollBarValue` for a scroll bar's `Value`).
+`HexIDE.Integration.Tests` `PropertyAssignmentTests` covers, through real controls and the interpreter:
+- the String-property rows, the Single, Double, Currency and Decimal ones included, since #779;
+- the position, `Interval`, scroll bar `Value`, `Enabled`, `CheckBox.Value`, `MousePointer` (error only, #769) and
+  `BackColor` rows, the colour checked as stored and as left unchanged;
+- copying a colour from one control to another, through a Variant, and into a caption;
+- Null into `Tag`, and the two `Tag` idioms below.
+
+`ConversionFunctionsTests` covers CBool of Empty, the NaN and Infinity spellings, and `CDbl("1E+400")`.
+
+`ListIndex` is range-checked as measured, and it and a scroll bar's `Value` convert as an Integer, so
+`ListIndex = 40000` is 6. That the scroll bar's `Value` is 6 there too is inferred from its `TypeName`, Integer, and
+was not measured. `Tag = Empty` stores `""`; it used to end the run as Internal error 51. `CBool` reads its number
+through `CDbl`'s parse.
+
+A Date into a String property is written as `CStr` writes it, in the program's locale: `Label1.Caption = #1/2/2003#`
+reads back `02/01/2003` under en-GB, as measured above. It was refused until the interpreter had the user's locale
+(#777, #794), because before that it would have put the month first on every machine.
+
+**Refused with `NotImplementedException`, rather than answered wrong:**
+- **A palette colour** (#786), from any type. HexIDE has no colour that holds one.
+- **`Value` on a scroll bar whose Min exceeds its Max** (#787). Avalonia raises Maximum to Minimum, so the value
+  would read back clamped.
+- **A control, an array or an object on the right** of a property assignment. For a control, VB6 reads its default
+  property (#790).
+- **A colour read from a Timer or a scroll bar** (#801). VB6 gives neither control a colour, but both bind one as
+  every templated control does, so the read would give black. Until #795 a Label's and a TextBox's colours were
+  refused here too, because neither loaded them where a read could find them; both read back now, as measured
+  under "A Label's colours, read back and painted".
+
+**Where HexIDE still differs:**
+- **`Tag` holds what it is given**, not a String: `Tag = 5` reads back the Integer 5, where VB6 has `"5"`. Making
+  it a String waits on #211, because `If Tag = 1` and `Tag + 1` rely on it. An unset `Tag` reads back `""`, and
+  Null is 94, as in VB6.
+- **Positions are not rounded to whole twips** (#791). HexIDE checks the Long range but keeps the fraction.
+- **A comma in a numeric String** (#770).
+- **A hex String** (#788): `BackColor = "&H8000000F"` is an Overflow, and `"&H8000000F&"` is accepted.
+- **Reading a control as a value** outside a property assignment (`s = Text1`) gives a .NET type name (#790).
+- **Not measured:** `Label1.Caption = o` with `o` set to `Nothing` never reaches the conversion in HexIDE; what
+  VB6 raises there is unmeasured.
 
 
 ## Out of stack space — Error 28 (2026-08-22, #80)
@@ -1099,11 +1490,17 @@ here so the divergence is deliberate and traceable rather than a later "bug".
 ### Note on method
 
 `scripts/vb6-oracle.ps1` covers the compiled column; the design-time column cannot be automated from here.
-A `MsgBox` is modal, so a probe that opens one never writes its file, and reading a caption from outside
-does not work either — a PowerShell Direct session cannot see the guest's interactive desktop and
+A `MsgBox` is modal, so a probe that opens one never writes its file unless something answers it, and reading a
+caption from outside does not work either — a PowerShell Direct session cannot see the guest's interactive desktop and
 enumerates zero windows session-wide. The F5 column was produced by pushing the project into the VM with
 `Copy-Item -ToSession`, having a human press F5, and reading the output file back over the same session.
 That is the pattern for any future design-time question.
+
+**A compiled probe can answer its own `MsgBox` (2026-10-12).** A form `Timer` keeps firing while a `MsgBox` is
+open in a compiled program. So the probe's own timer can find the box with `FindWindow`, read which buttons it
+holds with `GetDlgItem`, and close or answer it with `PostMessage`. That needs no person and no view of the
+desktop. It is how "RGB, QBColor and MsgBox's style" was measured, and its probe is the template. Only the F5
+column still needs a person.
 ## `IsMissing`, and the shape of an omitted argument (2026-09-01)
 
 `IsMissing` only means anything inside a procedure that has an `Optional` parameter, so this needed a probe
@@ -3926,3 +4323,802 @@ VB6's own save is atomic across the pickers.
 Related: [A `.vbp` item line has two shapes, and the keys do not agree on which
 (2026-09-20)](#a-vbp-item-line-has-two-shapes-and-the-keys-do-not-agree-on-which-2026-09-20), which is the
 other way HexIDE's serializer has emitted a project VB6 reads differently from HexIDE.
+
+## A running program's locale is the user's regional settings (2026-10-12, #777)
+
+Measured to decide which culture the interpreter should format and read text in, and whether a two-digit year is
+a fixed rule or a regional one. Real `vb6.exe` 6.00.8176 (SP6), guest locale **en-GB**, one expression batch
+through `scripts/vb6-oracle.ps1`.
+
+| Expression | Value | Type | Err |
+|---|---|---|---|
+| `CStr(#1/2/2003#)` | `02/01/2003` | String | |
+| `CStr(1.5)` | `1.5` | String | |
+| `CDate(CStr(#1/2/2003#))` | `02/01/2003` | Date | |
+| `CDate("13/1/2003")` / `CDate("1/13/2003")` | `13/01/2003` / `13/01/2003` | Date | |
+| `IsDate("13/1/2003")` | `True` | Boolean | |
+| `CDbl("1.5")` / `CDbl("1,5")` | `1.5` / `15` | Double | |
+| `IsNumeric("1,5")` | `True` | Boolean | |
+| `DateSerial(0, 1, 1)` / `(29, 1, 1)` / `(30, 1, 1)` / `(35, 1, 1)` / `(49, 1, 1)` | `2000`, `2029`, `2030`, `2035`, `2049` (1 January) | Date | |
+| `DateSerial(50, 1, 1)` / `(99, 1, 1)` | `1950`, `1999` (1 January) | Date | |
+| `DateSerial(100, 1, 1)` | `01/01/100` | Date | |
+| `CDate("1/1/29")` / `"1/1/30"` / `"1/1/35"` / `"1/1/49"` / `"1/1/50"` | 2029, 2030, 2035, 2049, 1950 | Date | |
+| `DateValue("1/1/35")` | `01/01/2035` | Date | |
+
+**What this overturned.** The documented rule for a two-digit year in `DateSerial` is fixed: 0 to 29 is the 2000s,
+30 to 99 the 1900s. That was the obvious guess, and the one made while designing this change. It is not what
+vb6.exe does: `DateSerial(30,
+1, 1)` is 2030, and the split falls between 49 and 50, exactly as `CDate` reads a two-digit year. Both follow the
+default two-digit-year window in Windows' regional settings, which ends in 2049. **Only that default was measured.**
+Windows lets a user move the window, and VB6 presumably follows a moved one, since it gets the window from the same
+place; but no run here had it moved, so that half is unmeasured. HexIDE takes the window from the locale's calendar,
+so it would follow a moved window too.
+
+**Also found.** `CDate("1/13/2003")` is 13 January under en-GB: when the locale's order makes an impossible date,
+VB6 tries the other order (#793, measured further below). And `CDbl("1,5")` is 15, the comma read as a thousands
+separator, which HexIDE refuses with 13 (#770).
+
+**Not measured: a comma-decimal locale.** The guest is en-GB, whose decimal separator is the invariant one's, so
+nothing here shows a comma. VB6's documentation says `CStr` writes the locale's separator and `Str` and `Val` always
+use a period.
+
+### HexIDE, after #777
+
+`VbLocale` is the interpreter's locale. The IDE sets it from the user's culture on the line before it pins its
+threads to the invariant culture, and Standalone sets it the same way. Everything a program writes as text
+(`CStr`, `&`, a String variable, `Format`, `MonthName`, `WeekdayName`) and everything it reads back from text
+(`CDbl` and a String stored into a number, `CBool`, `CDate`, `IsDate`, `IsNumeric`, the date functions given a
+String) uses it, and so does `DateSerial`'s two-digit-year window. Source literals do not: they stay invariant
+(#781), and so do `Str` and `Val`. So the IDE now shows `CStr(#1/2/2003#)` as the user's short date, and text a
+program wrote reads back as the same value in any locale. `VbLocaleTests` pins the en-GB rows above and the
+round trip under de-DE. A test sets the locale with `VbLocale.Use`, so it no longer depends on the machine's culture.
+
+Two parts of the user's culture are not used, because #779 had already kept them out of writing, and reading must
+agree with writing. `VbLocale.ForProgram` gives the program the user's culture with both replaced:
+
+- **The calendar is always Gregorian.** th-TH counts in the Buddhist era, fa-IR in the Persian calendar, ar-SA in
+  Umm al-Qura. Read with the culture's own calendar:
+  - `CDate(CStr(#1/2/2003#))` under th-TH was the year 1460, with no error;
+  - `DateSerial(30, 1, 1)` was 2530;
+  - ar-SA raised a CLR exception no handler could trap on the zero date.
+
+  ar-SA's Gregorian date pattern also ends in an era that ICU writes as U+0645, which is also its PM designator. So
+  a written date read back as noon until the era was dropped from the patterns. This is ICU's data, not VB6's, and
+  nothing here measured VB6 under a non-Gregorian locale.
+- **A sign is always ASCII.** ICU puts a bidi mark before the minus sign for 43 cultures, so `IsNumeric("-5")` was
+  False there. Windows' locale data, which VB6 reads, has no such mark.
+
+`Format`'s `>` and `<` case with invariant rules, as `UCase` and `LCase` do. Whether VB6 cases by the locale under
+tr-TR is unmeasured for all four (#797).
+
+### A date the locale's order cannot make (2026-10-12, #793)
+
+`scripts/vb6-oracle.ps1`, two batches, guest locale **en-GB** (day first). Every Date shown is how vb6.exe printed
+it. The guest's clock was in 2026.
+
+| Expression | Value | Err |
+|---|---|---|
+| `CDate("13/1/2003")` | `13/01/2003` | |
+| `CDate("1/13/2003")` | `13/01/2003`: month 13 is impossible, so read month first | |
+| `CDate("12/1/2003")` | `12/01/2003`: possible as it stands, so not swapped | |
+| `CDate("12/13/2003")` | `13/12/2003` | |
+| `IsDate("1/13/2003")` | `True` | |
+| `CDate("13/1")` / `CDate("1/13")` | `13/01/2026` / `13/01/2026` | |
+| `CDate("1/12")` | `01/12/2026`: 1 December | |
+| `CDate("1/13/2003 10:30")` | `13/01/2003 10:30:00` | |
+| `CDate("1/13/03")` / `"1/13/30"` / `"1/13/12"` | `13/01/2003` / `13/01/2030` / `13/01/2012` | |
+| `CDate("1/13/203")` | `13/01/203` | |
+| `CDate("1-13-2003")` / `"13-1-2003"` | `13/01/2003` / `13/01/2003` | |
+| `CDate("1 13 2003")` / `"1/13-2003"` | `13/01/2003` / `13/01/2003` | |
+| `DateValue("1/13/2003")` / `CVDate("1/13/2003")` | `13/01/2003` / `13/01/2003` | |
+| `Day("1/13/2003")` / `Month("1/13/2003")` | `13` / `1` (Integer) | |
+| `CDate("Jan 13 2003")` | `13/01/2003` | |
+| `CDate("2003/1/13")` | `13/01/2003` | |
+| `CDate("13/13/2003")` | | 13 |
+| `IsDate("13/13/2003")` | `False` | |
+| `CDate("31/2/2003")` / `"2/31/2003"` / `"30/2/2003"` | | 13 / 13 / 13 |
+| `IsDate("31/2/2003")` | `False` | |
+| `CDate("2003/13/1")` | | 13 |
+| `CDate("13/2003")` | | 13 |
+| `CDate("0/13/2003")` / `"32/1/2003"` | | 13 / 13 |
+| `CDate("1.13.2003")` / `"13.1.2003"` / `"1.2.2003"` | | 13 / 13 / 13 |
+
+So the first two numbers are read the other way round when the locale's order fails and the other order succeeds.
+The separator between them can be `/`, `-`, a space or a mix. A time or a two-digit year after them does not matter,
+and neither does whether a year is there at all. It never rescues a date impossible both ways, a year written
+first, or a month and a year.
+
+**A dot is not a date separator under en-GB at all**, not even for a date possible as it stands: `CDate("1.2.2003")`
+is Type mismatch. .NET reads it as 1 February, so HexIDE does too. That predates #777 and is #800.
+
+**Not measured:** a month-first locale. HexIDE swaps the same way under one, which is the obvious reading of the
+rule but has not been run.
+
+**HexIDE.** `VB6BuiltIns.TryReadDate` tries the locale's order, then the first two numbers swapped, for `CDate`,
+`DateValue`, `IsDate` and the date functions given a String. `VbLocaleTests` pins the rows above.
+
+## Turning a number or a date into text (2026-10-12, #772, #771)
+
+`CStr`, `&`, storing into a String, `Format` with no mask and `Str` all turn a value into text. Two runs of
+`scripts/vb6-oracle.ps1` measured them, about 110 rows, on vb6.exe 6.00.8176 (SP6) in an **en-GB** guest
+(decimal point `.`, short date `dd/MM/yyyy`, long time `HH:mm:ss`). Each row is `CStr(...)` unless it says
+otherwise, and every one came back a String. `CSng(x)` rounds a Double literal to a Single, as written.
+
+**A Single: seven significant digits.**
+
+| Probe | Result | Probe | Result |
+|---|---|---|---|
+| `CSng(1234567)` | `1234567` | `CSng(0.1)` | `0.1` |
+| `CSng(12345678)` | `1.234568E+07` | `CSng(0.0001)` | `0.0001` |
+| `CSng(1000000)` | `1000000` | `CSng(0.00001)` | `0.00001` |
+| `CSng(10000000)` | `1E+07` | `CSng(0.000012345)` | `1.2345E-05` |
+| `CSng(99999990)` | `9.999999E+07` | `CSng(1.5E-10)` | `1.5E-10` |
+| `CSng(15000000)` | `1.5E+07` | `CSng(1E-38)` | `9.999999E-39` |
+| `CSng(1E+15)` / `CSng(1E+38)` | `1E+15` / `1E+38` | `CSng(-1) / 3` | `-0.3333333` |
+| `CSng(123456.78)` | `123456.8` | `CSng(2) / 3` | `0.6666667` |
+| `CSng(9999999.5)` | `1E+07` | `CSng(0.5)` / `CSng(100)` | `0.5` / `100` |
+
+| Below 1, where E notation starts | Result | Digits after the point, written fixed |
+|---|---|---|
+| `CSng(0.0000001)` | `0.0000001` | 7 |
+| `CSng(0.00000001)` | `1E-08` | 8 |
+| `CSng(0.0000015)` | `0.0000015` | 7 |
+| `CSng(0.00000015)` | `1.5E-07` | 8 |
+| `CSng(0.0012345)` | `0.0012345` | 7 |
+| `CSng(0.00012345)` | `1.2345E-04` | 8 |
+| `CSng(0.1234567)` | `0.1234567` | 7 |
+| `CSng(0.01234567)` | `1.234567E-02` | 8 |
+
+| Ties and carries | Result |
+|---|---|
+| `CSng(1234566.5)` (an exact tie; half-to-even gives 1234566) | `1234567` |
+| `CSng(1234567.5)` | `1234568` |
+| `CSng(999999.95)` (stored as 999999.9375) | `999999.9` |
+| `CSng(1.0000005)` | `1` |
+
+**A Double: fifteen.**
+
+| Probe | Result | Probe | Result |
+|---|---|---|---|
+| `0.1 + 0.2` | `0.3` | `0.0001` / `0.00001` | `0.0001` / `0.00001` |
+| `1 / 3` | `0.333333333333333` | `0.000012345` | `0.000012345` |
+| `2 / 3` | `0.666666666666667` | `0.00001 / 3` | `3.33333333333333E-06` |
+| `123456789012345#` | `123456789012345` | `1E-100` | `1E-100` |
+| `1234567890123456#` | `1.23456789012346E+15` | `4.94065645841247E-324` | `4.94065645841247E-324` |
+| `1E+14` | `100000000000000` | `-0.1 - 0.2` | `-0.3` |
+| `1E+15` / `1E+16` | `1E+15` / `1E+16` | `100#` / `1.5` | `100` / `1.5` |
+| `999999999999999#` | `999999999999999` | `1 / 7` | `0.142857142857143` |
+| `9999999999999999#` | `1E+16` | `22 / 7 * 1000000#` | `3142857.14285714` |
+| `2 ^ 53` | `9.00719925474099E+15` | `1.5E+15` / `-1E+15` | `1.5E+15` / `-1E+15` |
+| `1E+21` / `1E+100` | `1E+21` / `1E+100` | `1.79769313486231E+308` | `1.79769313486231E+308` |
+
+| Below 1, against fifteen | Result |
+|---|---|
+| `0.000000000000001` | `0.000000000000001` |
+| `0.0000000000000001` | `1E-16` |
+| `0.000000000000015` | `0.000000000000015` |
+| `0.0000000000000015` | `1.5E-15` |
+| `0.123456789012345` | `0.123456789012345` |
+| `0.0123456789012345` | `1.23456789012345E-02` |
+| `-0.00000015` | `-0.00000015` |
+
+| Ties | Result |
+|---|---|
+| `1234567890123445#` (an exact tie; half-to-even gives ...44) | `1.23456789012345E+15` |
+| `1234567890123455#` | `1.23456789012346E+15` |
+
+**Negative zero, Currency, Decimal.**
+
+| Probe | Result |
+|---|---|
+| `-0#`, `0# * -1`, `CSng(0) * -1` | `0` |
+| `-1E-200 * 1E-200` (underflow; no error) | `0` |
+| `CCur(1.5)`, `CCur(100)`, `CCur(-2.5)` | `1.5`, `100`, `-2.5` |
+| `CCur(1234567.8912)`, `CCur(0.0001)` | `1234567.8912`, `0.0001` |
+| `CCur("922337203685477.5807")` | `922337203685477.5807` |
+| `CCur(1.5) * 2`, `CCur(1.25) + CCur(1.25)`, `CCur("1.50")`, `CCur(0) * -1` | `3`, `2.5`, `1.5`, `0` |
+| `CDec("1.10")`, `CDec("1.10") * 1`, `CDec("100.00")` | `1.1`, `1.1`, `100` |
+| `CDec(1) / 3` | `0.3333333333333333333333333333` |
+| `CDec("0.00000000000000000001")` | `0.00000000000000000001` |
+| `CDec("79228162514264337593543950335")` | `79228162514264337593543950335` |
+
+**A Date.**
+
+| Probe | Result |
+|---|---|
+| `#1/2/2003#` | `02/01/2003` |
+| `#1/2/2003 10:30:00 AM#` / `... 10:30:05 PM#` | `02/01/2003 10:30:00` / `02/01/2003 22:30:05` |
+| `#1/2/2003 12:00:01 AM#` / `... 12:00:00 PM#` | `02/01/2003 00:00:01` / `02/01/2003 12:00:00` |
+| `#1/2/2003 12:00:00 AM#` | `02/01/2003` |
+| `#10:30:00 AM#` | `10:30:00` |
+| `#12:00:00 AM#`, `CDate(0)`, `#12/30/1899#` | `00:00:00` |
+| `CDate(0.5)`, `CDate(1 / 86400)` | `12:00:00`, `00:00:01` |
+| `#12/30/1899 10:30:00 AM#` | `10:30:00` |
+| `CDate(-1)`, `CDate(-1.5)` | `29/12/1899`, `29/12/1899 12:00:00` |
+| `#1/1/100#`, `DateSerial(100, 1, 1)` | `01/01/100` |
+| `DateSerial(999, 12, 31)` | `31/12/999` |
+| `#12/31/9999 11:59:59 PM#` | `31/12/9999 23:59:59` |
+
+**The other paths.**
+
+| Probe | Result |
+|---|---|
+| `"[" & CSng(1) / 3 & "]"`, `"[" & (0.1 + 0.2) & "]"`, `"[" & 1E+15 & "]"` | `[0.3333333]`, `[0.3]`, `[1E+15]` |
+| `"[" & #1/2/2003# & "]"`, `"[" & #10:30:00 AM# & "]"`, `"[" & CCur(1.5) & "]"` | `[02/01/2003]`, `[10:30:00]`, `[1.5]` |
+| `Format(CSng(1) / 3)`, `Format(1E+15)`, `Format(CSng(0.000012345))`, `Format(0.1 + 0.2)` | `0.3333333`, `1E+15`, `1.2345E-05`, `0.3` |
+| `Format(#1/2/2003#)`, `Format(#10:30:00 AM#)`, `Format(#1/2/2003 10:30:00 AM#)` | `02/01/2003`, `10:30:00`, `02/01/2003 10:30:00` |
+| `Str(0.5)`, `Str(-0.5)`, `Str(0)` | ` .5`, `-.5`, ` 0` |
+| `Str(CSng(1) / 3)`, `Str(1E+15)`, `Str(0.00000015)`, `Str(CSng(10000000))` | ` .3333333`, ` 1E+15`, ` .00000015`, ` 1E+07` |
+| `Str(CCur(1.5))` | ` 1.5` |
+| `CStr(True)` | `True` |
+
+### The rule
+
+- **Single and Double.** Take the exact binary value to 7 (Single) or 15 (Double) significant digits, rounding
+  an exact tie **away from zero**, and drop trailing zeros. Write it in fixed notation unless that needs more
+  digits than the precision allows, either before the point (the exponent is at least 7 or 15) or after it (the
+  zeros after the point plus the significant digits exceed 7 or 15). Otherwise write `d.dddE±xx`: the exponent
+  always signed and at least two digits. So *where* E notation starts below 1 depends on how many digits the
+  number has: `0.0012345` but `1.2345E-04`.
+- **Negative zero** is `0`.
+- **Currency and Decimal**: every digit held, no trailing zeros, never E notation.
+- **A Date**: the locale's short date, a space, and its long time. The time is left out at midnight and the date
+  is left out on the zero date (30/12/1899), so the zero date at midnight is `00:00:00`. A year below 1000 is
+  not padded.
+- **`&`, storing into a String, and `Format` with no mask** write exactly what `CStr` writes.
+- **`Str`** writes the same digits without the `0` before the point, and puts a space where a non-negative
+  number's sign would be.
+
+### What this overturned
+
+- **The tie rule.** VB6's numeric conversions round half to even (`CInt(2.5)` is 2), and .NET's `"E"` format
+  also rounds an exact tie to even. The display rounds it away: the only rows that failed against an
+  implementation built on .NET's format were the two ties.
+- **E notation below 1 is not C's `%G`.** `%G` switches when the exponent is below -4, so it would write
+  `0.00001` as `1E-05` and `0.01234567` as `0.01234567`; VB6 writes the first fixed and the second as
+  `1.234567E-02`. The threshold counts digits, not the exponent.
+- **The year is not zero-padded**, although the en-GB pattern is `yyyy`: `01/01/100`, not `01/01/0100`.
+- The earlier note in *A form-based game's runtime surface* measured five Single rows and concluded "seven
+  significant digits". That held; it did not reach E notation, ties or the other types.
+
+### Not measured
+
+- Another locale. Every row is en-GB, whose decimal point is `.`; that `CStr` takes the point and the date
+  patterns from the locale is VB6's documented behaviour, not something these runs show. `Str` always using a
+  period is documented likewise.
+- `Str` of a Currency below 1, or of a Date. `Debug.Print`'s own spacing, which the documentation gives as a
+  space in place of a positive number's sign and one after every number, is a different dialect and was not
+  probed here.
+
+### Measured for the review of #779
+
+A third run, same guest and locale.
+
+| Probe | Result |
+|---|---|
+| `Format(#1/2/2003#, "General Date")`, `... #10:30:00 AM# ...`, `... #1/2/2003 10:30:00 AM# ...` | `02/01/2003`, `10:30:00`, `02/01/2003 10:30:00` |
+| `Format(CDate(0), "General Date")` | `00:00:00` |
+| `Format(x, "c")` for the same three dates | the same three texts |
+| `Format(CSng(1) / 3, "General Number")`, `Format(1 / 3, "General Number")` | `0.3333333`, `0.333333333333333` |
+| `Format(1E+15, ...)`, `Format(0.1 + 0.2, ...)`, `Format(CSng(0.000012345), ...)`, `Format(CCur(1.5) * 2, ...)`, all `"General Number"` | `1E+15`, `0.3`, `1.2345E-05`, `3` |
+| `Left(CSng(1) / 3, 20)`, `Mid(1 / 3, 1)`, `Left(#1/2/2003#, 20)` | `0.3333333`, `0.333333333333333`, `02/01/2003` |
+| `Len(1 / 3)`, or `Len` of any numeric expression | does not compile: "Variable required - can't assign to this expression" |
+| `Len(v)` for `v` declared Single, Double, Currency, Integer, Date; an Empty Variant | `4`, `8`, `8`, `2`, `8`; `0` (Integer, Long for the Variant) |
+| `CStr(CDate("10:30:00"))`, `CDbl(#10:30:00 AM#)`, `CDbl(CDate("10:30:00"))` | `10:30:00`, `0.4375`, `0.4375` |
+| `CStr(CDate("2003-01-02"))` | `02/01/2003` |
+| `CStr(CDate(0.5 + n / 86400))` for n = 0.4, 0.5, 0.6, 1.5, 2.5 | `12:00:00`, `12:00:01`, `12:00:01`, `12:00:01`, `12:00:03` |
+| `Second(...)` for n = 0.6 and 0.5 | `1`, `1` |
+| `CStr(CDate(1 - 0.4 / 86400))` (23:59:59.6 on the zero date) | `31/12/1899` |
+| `CDbl("1E+400")`, `Val("1E+400")`, `CSng("1E+39")` | Err 6 each |
+
+- **"General Date", the `c` token and "General Number" write exactly what `CStr` writes.** The named formats were never different paths.
+- **`Len` is not a string function on a number.** It measures a numeric variable's storage and refuses a numeric expression outright (#780). So the earlier draft's `Len(CSng(1) / 3)` row, which HexIDE answered 9, was not valid VB6.
+- **A fraction of a second rounds to the nearest second; it is not cut off** (#783). The rounding can carry into the next day. Of the halves, 0.5 and 2.5 s round up and 1.5 s rounds down. That fits rounding the serial's exact binary value, where `0.5 + 1.5 / 86400` falls just short of the half. I would not call it a tie rule from three rows.
+- **A string too large for a Double is an Overflow**, not infinity (#782).
+
+### HexIDE, after #772 and #771
+
+`VbDisplay.ToText` implements the rule, and `CStr`, `&`, storing into a String, the string functions, `MsgBox`,
+`InputBox`, `Err` and `App.Title`, the Immediate window's text, and `Format` with no mask all go through it.
+`Str` uses it too, then drops the leading zero. It takes the locale from `CultureInfo.CurrentCulture`. Every row
+above is a test, asserted in en-GB explicitly (`VbDisplayTests`). A time-only literal, and `CDate` of a
+time-only string, used to land on today's date rather than the zero date, so `CDbl(#10:30:00 AM#)` was
+today's serial plus 0.4375 rather than 0.4375; both now land on the zero date.
+
+After the review: `Format`'s "General Date", "General Number" and `c` token, `AddItem`, and Break When Value
+Changes' display also go through `VbDisplay`; the watch compares the full value, so a change below the digits it
+shows still breaks. Three things the locale does not supply, deliberately: the calendar, which is always Gregorian,
+VB6's default; the sign, which is always an ASCII `-`; and a value VB6 cannot make, which is spelled `1.#INF`,
+`-1.#INF` or `1.#QNAN` as `Format` already spelled it.
+
+**The running IDE formatted in the invariant culture until #777.** `App.Initialize` pins the invariant culture for
+every thread, so `CStr(#1/2/2003#)` showed `01/02/2003` in the IDE on any machine, where VB6 shows the user's own
+short date. Since #777 the interpreter has a locale of its own, taken from the user's culture before the pin; see
+"A running program's locale is the user's regional settings".
+
+## A control where a value is wanted is its default member (2026-10-12, #790)
+
+Measured to decide what HexIDE should do with `s = Text1` until it has default members. Real `vb6.exe` 6.00.8176
+(SP6), guest locale en-GB. Two `/make` runs of a form holding `Text1`, `Label1`, `Command1` and `Check1`, each
+statement under `On Error Resume Next`, with the value, its `TypeName` and `Err.Number` logged.
+
+| Statement | Result | Err |
+|---|---|---|
+| `s = Text1` / `s = Label1` (s As String) | `"Text1"` / `"Label1"`: the Text and the Caption | 0 |
+| `v = Text1` (v As Variant) | `"Text1"`, String | 0 |
+| `v = Command1` / `v = Check1` | `False`, Boolean / `0`, Integer: the Value | 0 |
+| `n = Check1` (n As Long) | `0` | 0 |
+| `n = Text1` (n As Long), Text1 holding `"Text1"` | unchanged | 13 |
+| `i = Text1` / `d = Text1` (Integer / Double), Text1 holding `"42"` | `42` / `42` | 0 |
+| `s = Command1` / `b = Command1` (String / Boolean) | `"False"` / `False` | 0 |
+| `Set o = Text1 : s = o` (o As Object) | `"42"` | 0 |
+| `v = o` | `"42"`, String | 0 |
+| `Set v2 = Text1` | `TypeName(v2)` is `TextBox` | 0 |
+| `v2 = Text1` after that Set (a Let) | `TypeName(v2)` is `String` | 0 |
+| `Label1 = "x"` / `Text1 = "y"` / `Check1 = 1` | Caption `x` / Text `y` / Value `1` | 0 |
+
+So a Let never stores the reference: the right-hand side is read through its default member, then converted to the
+target's type as any value is (`n = Text1` is 13 because `"Text1"` is not a number). Only `Set` stores the
+reference. The last row is the Let side: assigning to a control assigns its default member.
+
+**HexIDE, after #790's guardrail.** HexIDE has no default members yet. It used to store the reference, which
+answered wrong without a word: `s = Text1` held `"HexIDE.Runtime.BuiltinControls.VBTextBox"` and `v = Text1` kept
+the control. A Let of a control or of an in-box object (`Err`, `App`, a control array) now stops the run with
+`NotImplementedException` naming #790, whatever its target. `Set`, `For Each` and passing a control as an argument
+are unaffected. `Label1 = "x"` is still a compile error ("Method or data member not found"). `n = Err` reads
+`Err.Number` in VB6 by the documentation; that was not measured.
+
+## A Label's colours, read back and painted (2026-10-12, #795)
+
+Measured to decide what a Label and a TextBox should read back and paint. Real `vb6.exe` 6.00.8176 (SP6), guest
+locale en-GB. Two `/make` runs of a form whose own BackColor is light yellow, `&H00C0FFFF&`, so a transparent
+label shows. Each run was made twice:
+- once in session 0, which logs the read-backs, and where `GetPixel` returns `&HFFFFFFFF` for every point,
+  because nothing is drawn there;
+- once in the guest's interactive console session, through the agent described in "Reaching the VB6 *IDE*, not just the compiler" above.
+
+In the console session, a timer reads `GetPixel` on the form's own DC 1.5 seconds after load, at a point inside
+each label clear of its caption, and at the first three pixels of its left edge. A screenshot of the same moment
+agrees with every pixel row.
+
+**Defaults and read-backs:**
+
+| Expression | Value | Type |
+|---|---|---|
+| `Text1.BackColor` / `Text1.ForeColor`, nothing set | `-2147483643` / `-2147483640` (`&H80000005` / `&H80000008`) | Long |
+| `Label1.BackColor` / `Label1.ForeColor`, nothing set | `-2147483633` / `-2147483630` (`&H8000000F` / `&H80000012`) | Long |
+| A transparent label's `BackColor` from the form (`&H000000FF&`) | `255` | Long |
+| `LblRunBlue.BackColor = vbBlue`, then read | `16711680` | Long |
+| `Arr(1).BackColor = vbGreen`, a control-array label; then `Arr(0).BackColor` | `65280`; `-2147483633`, unchanged | Long |
+| `LblRunBlue.BackColor = vbBlue` compared with `vbBlue` | `True` | Boolean |
+| `LblOpaqueRed.ForeColor = vbWhite`, then read | `16777215` | Long |
+
+**What paints** (`GetPixel` is `&H00BBGGRR`):
+
+| Label | Pixel | Shows |
+|---|---|---|
+| opaque, `BackColor` red from the form | `&HFF` | red |
+| transparent, `BackColor` red from the form | `&HC0FFFF` | the form |
+| opaque, `BackColor = vbBlue` at run time | `&HFF0000` | blue |
+| transparent from the form, `BackStyle = 1` at run time, `BackColor` green from the form | `&HFF00` | green |
+| control array: `Arr(1).BackColor = vbGreen`; `Arr(0)` untouched | `&HFF00`; `&HF0F0F0` | green; the button face |
+| `ForeColor = vbWhite` at run time | white text in the screenshot | |
+
+**A transparent label drops a `BackColor` set at run time.** No error, and nothing changes:
+
+| Statements, on a transparent label whose `BackColor` is red from the form | `BackColor` reads | Pixel |
+|---|---|---|
+| `BackColor = vbBlue` | `255`, unchanged | the form |
+| then `BackStyle = 1` | `255` | `&HFF`, red |
+| `BackStyle = 1` first, then `BackColor = vbBlue` | `16711680` | `&HFF0000`, blue |
+
+The same on a label with the default colour: after `BackColor = vbBlue` while transparent, it still reads
+`-2147483633`, and its `BackStyle` is still 0.
+
+**Setting `Appearance` at run time resets `BackColor`.** VB6 accepts the assignment, with no error, and it
+replaces `BackColor` with that appearance's default. The border is redrawn to match.
+
+| Label, `BackColor` white and `BorderStyle` 1 from the form | `BackColor` after | Left edge, pixels 0, 1, 2 |
+|---|---|---|
+| `Appearance` 0 (flat), untouched | white | `&H646464`, `&HFFFFFF`, `&HFFFFFF`: one dark line |
+| `Appearance` 1 (3D), untouched | white | `&HA0A0A0`, `&H696969`, `&HFFFFFF`: sunken |
+| flat, then `Appearance = 1` | `-2147483633`, the button face | `&HA0A0A0`, `&H696969`, `&HF0F0F0`: sunken |
+| 3D, then `Appearance = 0` | `-2147483643`, the window colour | `&H646464`, `&HFFFFFF`, `&HFFFFFF`: flat |
+
+### What this overturned, or found
+
+- **A transparent label drops a run-time `BackColor`; it does not store it for later.** Our own expectation, going
+  in, was that the colour would be stored and simply not painted until the label became opaque. The probe row was
+  written to read it back blue. It read back the old colour, measured twice: on a colour from the form, and on the
+  default. This rule is easy to "fix" by accident.
+- **`Appearance` is not a pure border change.** It was probed only because the first run's flat label, made 3D at
+  run time, painted the button face rather than the white the form gave it. Our expectation had been a new border
+  around the same white. The second run confirmed the reset in both directions, with the read-back to match.
+
+### HexIDE, after #795
+
+- A Label's `BackColor` binds to `VBLabel.BackColor`, the property `VBLabel.Render` paints. A run-time assignment
+  used to write the attached property every other control's template draws, so it read back but never painted.
+- `ForeColor` loads through the attached property, so it reads back and repaints.
+- TextBox models `BackColor` and `ForeColor`, with the defaults above, and loads them. They were not modelled,
+  so a form's text box colours were lost.
+- A colour reads as its Long (#789).
+- A transparent label drops a run-time `BackColor`, as above.
+- `LabelColourTests` pins the read-backs and reads the painting from a real Skia frame, a control-array label
+  among them.
+- A Label's `BackStyle` can be set at run time, so both orders in the table above behave as measured, and
+  `BackStyle = 2` is 380 (measured, below).
+- **Refused, as not implemented:** setting a Label's `Appearance`, because VB6 resets `BackColor` with it (#796).
+  It is refused untrappably: a trappable error swallowed by `On Error Resume Next` would leave the old `BackColor`,
+  a wrong value. Reading it works.
+
+### Measured with it: defaults, BackStyle 2, and a system colour past the palette (2026-10-12, #802)
+
+One more `/make` run on the same guest, session 0, nothing set before each read:
+
+| Expression | Value | Type | Err |
+|---|---|---|---|
+| `List1.ForeColor` / `List1.BackColor` | `-2147483640` / `-2147483643` (`&H80000008` / `&H80000005`) | Long | |
+| `Combo1.ForeColor` / `Combo1.BackColor` | `-2147483640` / `-2147483643` | Long | |
+| `LblT.BackStyle = 2`, on a transparent label; then `BackStyle` | `0`, unchanged | Integer | 380 |
+| `LblT.BackStyle = 1`, then `LblT.BackColor = vbBlue` | `16711680` | Long | |
+| `LblBad.BackColor = &H80000019` (past the last system colour) | `-2147483633`, unchanged | Long | 380 |
+
+HexIDE had a ListBox's and ComboBox's `ForeColor` default as the button text (`&H80000012`), every other
+control's. It now overrides it to `&H80000008`. A `.frm` carrying `&H80000019&`, or a palette colour, is now kept
+as written and saved back, where it used to be dropped on save; creating a control with the first used to throw.
+
+## RGB, QBColor and MsgBox's style (2026-10-12)
+
+**The questions.** What `RGB` and `QBColor` return, and of what type, at their edges. And what `MsgBox` does with a
+style that is not an Integer. HexIDE read the style only when it arrived as an Integer, and every in-box constant
+is a Long, so `vbYesNo + vbQuestion` showed OK alone with no icon.
+
+**Probe.** A Standard EXE built with `vb6.exe /make` on the Win10 guest (session 0) and run. Each call ran under
+`On Error Resume Next`, logging value, `TypeName` and `Err.Number`. For `MsgBox`, a form Timer found the open
+box by its title, recorded which of the control IDs 1 to 7 (IDOK to IDNO), 10 and 11 (Try Again and Continue)
+and 20 (the icon) it held, and posted a click on No, else Cancel, else Ignore, else OK. For the dismissal rows it
+first posted `WM_CLOSE` or `WM_SYSCOMMAND`/`SC_CLOSE` three times, then reported whether the box was still open.
+Timers keep running under `MsgBox` in a compiled program, which is what makes this possible without a person.
+
+### RGB
+
+| Call | Value | Type | Err |
+|---|---|---|---|
+| `RGB(1, 0, 0)` | 1 | Long | |
+| `RGB(255, 255, 255)` | 16777215 | Long | |
+| `RGB(256, 0, 0)` | 255 | Long | |
+| `RGB(1.5, 2.5, 0)` | 514 | Long | |
+| `RGB("10", 0, 0)` | 10 | Long | |
+| `RGB(Empty, 0, 0)` | 0 | Long | |
+| `RGB(-1, 0, 0)`, `RGB(0, -1, 0)` | | | 5 |
+| `RGB(40000, 0, 0)`, `RGB(300, 1000, 70000)`, `RGB(3000000000#, 0, 0)` | | | 6 |
+| `RGB("x", 0, 0)` | | | 13 |
+| `RGB(Null, 0, 0)` | | | 94 |
+
+So each component is an **Integer, coerced as `CInt` does**: banker's rounding (1.5 and 2.5 are both 2, so
+514), a numeric string read, `Null` 94, a non-numeric string 13, and outside Integer's range 6. Only then is a
+negative component 5 and one above 255 clamped to 255. The overflow is the surprise: 40000 is not clamped, it
+fails before the clamp is reached. The result is a **Long** even when small.
+
+**Which error wins when two arguments are bad.** All three are coerced before any is range-checked:
+
+| Call | Err |
+|---|---|
+| `RGB(-1, 40000, 0)` | 6 |
+| `RGB(40000, -1, 0)` | 6 |
+| `RGB(0, -1, 40000)` | 6 |
+| `RGB("x", -1, 0)` | 13 |
+| `RGB(-1, "x", 0)` | 13 |
+| `RGB(Null, "x", 0)` | **13** |
+| `RGB(0, Null, "x")` | **13** |
+| `RGB(0, "x", Null)` | **94** |
+| `RGB(Null, 0, "x")` | **13** |
+| `RGB(300, -1, 0)` | 5 |
+
+The rows mixing `Null` with `"x"` decide the order, and every one of them says **last first**:
+- the third argument is coerced before the second (`RGB(0, Null, "x")` is 13, and `RGB(0, "x", Null)` is 94);
+- the second before the first (`RGB(Null, "x", 0)` is 13).
+
+Left to right would give the opposite in each.
+
+### QBColor
+
+| n | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+|---|---|---|---|---|---|---|---|---|
+| `QBColor(n)` | 0 | 8388608 | 32768 | 8421376 | 128 | 8388736 | 32896 | 12632256 |
+
+| n | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 |
+|---|---|---|---|---|---|---|---|---|
+| `QBColor(n)` | 8421504 | 16711680 | 65280 | 16776960 | 255 | 16711935 | 65535 | 16777215 |
+
+All Longs. `QBColor(7.5)` and `QBColor(8.5)` are both colour 8 (banker's rounding), and `QBColor("3")` is
+colour 3. `QBColor(16)` and `QBColor(-1)` raise 5, and `QBColor(Null)` raises 94. `QBColor(40000)` raises
+**6**, not 5: the argument overflows as an Integer before its range is checked.
+
+### MsgBox's style
+
+| Style | Controls found (IDs) | Returned | Type | Err |
+|---|---|---|---|---|
+| `vbYesNo + vbQuestion` | 6 7, icon | 7 | Long | |
+| `vbOKCancel` | 1 2 | 2 | Long | |
+| `vbOKOnly` | 2 | 1 | Long | |
+| `4&` | 6 7 | 7 | Long | |
+| `36` | 6 7, icon | 7 | Long | |
+| `"4"` | 6 7 | 7 | Long | |
+| `4.5` | 6 7 | 7 | Long | |
+| `2.5` | 3 4 5 | 5 | Long | |
+| `Empty` | 2 | 1 | Long | |
+| `Null` | no dialog | | | 94 |
+| `"abc"` | no dialog | | | 13 |
+| `vbAbortRetryIgnore + vbCritical` | 3 4 5, icon | 5 | Long | |
+| `vbYesNoCancel + vbExclamation` | 2 6 7, icon | 7 | Long | |
+| `vbRetryCancel + vbInformation` | 2 4, icon | 2 | Long | |
+| `70000` | 2 | 1 | Long | |
+| `-1` | 2 | 1 | Long | |
+| `7` | 2 | 1 | Long | |
+
+A second and third probe settled what a style out of range does:
+
+Every answer below is a Long.
+
+| Style | What it holds | Controls found (IDs) | Returned |
+|---|---|---|---|
+| `16` | vbCritical | 2, icon | 1 |
+| `17` | vbOKCancel + vbCritical | 1 2, icon | 2 |
+| `6` | Windows' Cancel/Try Again/Continue | 2 | 1 |
+| `8`, `9`, `12`, `13`, `15` | buttons 8 to 15 | 2 | 1 |
+| `22` | 6 + vbCritical | 2, **no icon** | 1 |
+| `38` | 6 + vbQuestion | 2, no icon | 1 |
+| `84` | vbYesNo + icon 80 | 2 | 1 |
+| `116` | vbYesNo + icon 112 | 2 | 1 |
+| `70004` | vbYesNo + 70000 | 2 | 1 |
+| `1028` | vbYesNo + default button 1024 | 2 | 1 |
+| `260` | vbYesNo + vbDefaultButton2 | 6 7 | 7 |
+| `772` | vbYesNo + vbDefaultButton4 | 6 7 | 7 |
+| `4100` | vbYesNo + vbSystemModal | 6 7 | 7 |
+| `65540` | vbYesNo + vbMsgBoxSetForeground | 6 7 | 7 |
+| `524292` | vbYesNo + vbMsgBoxRight | 6 7 | 7 |
+
+**Readings:**
+- **The style is coerced as `CLng` does.** A Long, a numeric string and a Double all work: 4.5 is 4 (Yes/No)
+  and 2.5 is 2 (Abort/Retry/Ignore). `Null` and `"abc"` raise before any dialog appears.
+- **The answer is a Long.** HexIDE returned an Integer. That is the overturn: VB6's `vbYes` and friends are Longs, and
+  so is what `MsgBox` gives back.
+- **Any field out of range makes the whole box a plain OK box, with no icon.** The three fields are:
+  - the buttons, in the low **nibble**, valid 0 to 5;
+  - the icon, valid 0, 16, 32, 48 and 64;
+  - the default button, valid 0, 256, 512 and 768.
+
+  The buttons field is four bits, not three: 12 would be vbYesNo under a three-bit mask, and is OK alone.
+
+  That one rule covers everything earlier rows read as "no button set":
+  - 7 has buttons 7;
+  - 70000 (`&H11170`) has buttons 0 but icon 112;
+  - -1 has buttons 15 and icon 240.
+
+  None of the three is "no button set, so OK". An out-of-range field discards the valid fields beside it: 6 +
+  vbCritical shows no icon, and vbYesNo beside icon 112 shows OK.
+- **Windows' own style 6 is not honoured.** Windows defines 6 as Cancel, Try Again and Continue (`MB_CANCELTRYCONTINUE`). VB6 shows OK
+  alone, so VB6 does not pass the style straight through.
+- **The flags above the default button leave the box alone** where measured: 4096, 65536 and 524288.
+- **An OK-only box's single button has control ID 2, not 1.** Windows gives it IDCANCEL's ID, so Escape closes
+  it. Pressing it still returns 1, vbOK. Only the ID differs, and it is recorded so nobody mistakes it for a
+  Cancel button.
+
+### Closing a message box without pressing a button
+
+Each kind of box was closed by posting `WM_CLOSE`, and again by `WM_SYSCOMMAND` with `SC_CLOSE`, which is what the
+title-bar close and Alt+F4 send. Both gave the same rows:
+
+| Buttons | Closed? | Returned |
+|---|---|---|
+| vbOKOnly | yes | 1, vbOK, a Long |
+| vbOKCancel | yes | 2, vbCancel, a Long |
+| vbYesNoCancel | yes | 2, vbCancel, a Long |
+| vbRetryCancel | yes | 2, vbCancel, a Long |
+| vbYesNo | **no, still open** | |
+| vbAbortRetryIgnore | **no, still open** | |
+
+A box with a Cancel button answers vbCancel when closed. OK alone answers vbOK. Yes/No and Abort/Retry/Ignore have
+no close, which is Windows' own rule for a message box. **HexIDE answered vbOK for every kind**, so closing the box
+in `If MsgBox("Delete all?", vbOKCancel) = vbOK Then` took the OK branch.
+
+**Hiding the box's owner does not answer it.** A form Timer set `Me.Visible = False` while a box was open, then
+looked for the box twice before pressing a button:
+
+| Buttons | After `Me.Visible = False` | Pressed | Returned |
+|---|---|---|---|
+| vbYesNo | the box still exists, **not visible** | No | 7, a Long |
+| vbOKCancel | the box still exists, not visible | OK | 1, a Long |
+
+So VB6 hides the box with its owner and keeps `MsgBox` waiting. A person cannot answer a box they cannot see, so in
+practice that program hangs.
+
+**A form hidden before the box opens is the same.** A later probe set `Me.Visible = False` and then called `MsgBox`
+from that form, with the Timer looking twice before pressing:
+
+| Buttons | While open | Pressed | Returned |
+|---|---|---|---|
+| vbYesNo | the box exists, **not visible**; the form stays hidden | No | 7, a Long |
+| vbOKCancel | the box exists, not visible | OK | 1, a Long |
+
+HexIDE's dialog refused a hidden owner outright ("Cannot show window with non-visible owner") and ended the run as
+Internal error 51. It now goes straight to the unowned box.
+
+**Restart is the case that matters for HexIDE, not for VB6.** HexIDE's Restart ends a run and begins the next in
+one turn. The old run's box closes, and its answer arrives after the new run has begun, when nothing about the new
+run says the old one ended. So the old run's statement is abandoned on the strength of the run *it* belonged to:
+the debugger's run generation, taken when the box opened. Read when the answer arrived, the check missed it: an
+OK/Cancel box answered a Cancel nobody pressed and its Form_Load ran on beside the new run, and a Yes/No box
+faulted and stopped the new run. HexIDE keeps it waiting too, but shows the box again, unowned, so it can still be
+answered, and closes it unanswered if the owner closes. Avalonia hid the box and finished the dialog with no answer,
+which answered Cancel for OK/Cancel and stopped a Yes/No handler in silence.
+
+### An argument that is not a number
+
+Through `CInt`, `CLng`, `RGB`, `QBColor` and `MsgBox`'s style alike, with `o` an object variable holding
+`Nothing`, `va` a Variant holding an Integer array, `k` an object variable holding a `Class1` with no default
+member, and `Text1` a TextBox whose `Text` is "12":
+
+| Argument | Err | Value |
+|---|---|---|
+| `o` | 91 | |
+| `va` | 13 | |
+| `k` | 438 | |
+| `k3`, a `Class3` whose `Value` carries `Attribute Value.VB_UserMemId = 0` and returns 42 | | `CInt(k3)` is 42 (Integer), `RGB(k3, 0, 0)` 42 (Long) |
+| `k4`, a `Class4` whose Property **Let** `Value` carries the attribute, written before the Get, which returns 42 | | `CInt(k4)` is 42 (Integer), `CLng(k4)` 42 (Long) |
+| `k5`, a `Class5` whose `Public Value As Long` carries `Attribute Value.VB_VarUserMemId = 0`, set to 7 | | `CInt(k5)` is 7 (Integer) |
+| `Text1` | | `CInt(Text1)` is 12 (Integer), `RGB(Text1, 0, 0)` is 12 (Long), `QBColor(Text1)` is 255 |
+| an omitted `Optional` Variant, `w` | | `CLng(w)` is **448**, a Long; `CInt(w)` is **448**, an Integer |
+
+Each raises before any dialog. A control stands for its default member: `Text1` is `Text1.Text`.
+
+A class or a control with a default member stands for that member, as `Text1` stands for `Text1.Text`.
+
+**The omitted argument is the surprise.** It is not 13, and not 0. VB6 passes a missing argument as an error
+value, `DISP_E_PARAMNOTFOUND`, whose VB error number is 448, "Named argument not found". Converted to a number, it is
+that number: `Function Area(Optional w): Area = CLng(w) * 10` called as `Area()` returns 4480. The obvious guess,
+from the same value raising 13 in a concatenation, was 13. It was measured through `CLng` and `CInt` only, each
+returning its own type with no error. `RGB` and `QBColor` coerce as `CInt` does, so they take 448 by that rule rather
+than by a measurement of their own.
+
+Three forms do not compile at all:
+- `CInt(Nothing)`, with a literal `Nothing`: "Invalid use of object".
+- `CInt(a)`, with `a` a fixed Integer array named directly: "Type mismatch".
+- `CInt(u)`, with `u` a user-defined type: "Type mismatch".
+
+So the run time rows above are the variable cases.
+
+HexIDE read every one of these as 0, so `RGB(o, 0, 0)` was black and `CInt(o)` was 0.
+
+**HexIDE, after this.**
+- The style goes through the same `CLng` narrowing, so the in-box constants select their buttons and icon.
+- A style with any field out of range is a plain OK box, as above.
+- `MsgBox` returns a Long.
+- A box closed without a button answers as the table above says, and the hosts refuse a person's close of a
+  Yes/No or Abort/Retry/Ignore box. A close HexIDE makes itself, ending the run, still goes through. The statement
+  waiting on the box is then abandoned, as the run is.
+- `RGB` and `QBColor` exist, with the coercion, the order of errors, the clamping and the errors above.
+- The numeric conversions follow the table above:
+  - `Nothing` raises 91, an array 13 and a class with no default member 438;
+  - an omitted argument is 448;
+  - a UDT raises 13, which is VB6's compile-time error raised at run time.
+- A control, an in-box object, or a class with a `VB_UserMemId = 0` member refuses, untrappably, because HexIDE does not
+  read default members yet: #790 for controls, #174 for classes. A trappable error there would let
+  `On Error Resume Next` carry on without the value VB6 gives.
+- A box hidden with its owner keeps waiting, shown again unowned, and so does a box whose owner was hidden before it
+  opened. The waiting statement is abandoned only when the run that opened the box has ended, which survives a
+  Restart.
+- A class's default member is found wherever VB6 writes its attribute: a Function, Sub, Property Get, Let or Set, or
+  a Public variable.
+- Still not honoured by the dialog: the default-button, help-button, modality and right-to-left bits, and Escape
+  and Enter (#827). Its buttons are in English whatever the language (#828).
+
+## Identifier case (2026-10-12, #811)
+
+**The question.** Does a name written in a different case from its declaration reach the same variable, constant,
+procedure, control, property or method? HexIDE's environment and property tables compared ordinally, so `abc`
+after `Dim Abc` was a new implicit variable, and a Function assigning `foo = 7` inside `Function Foo` returned 0.
+
+**Probe.** A Standard EXE with `Module1.bas` and `Form1.frm`, built with `vb6.exe /make` on the Win10 guest
+(session 0) and run, writing each value to a file. Every reference is in a different case from its declaration.
+
+`Module1.bas`:
+```vb
+Option Explicit
+Public Abc As Integer
+Public Const KPI As Integer = 3
+Public Function Foo() As Integer: foo = 7: End Function
+Public Function Bar() As Integer: BAR = 8: bar = bar + 1: End Function
+Public Sub Bump(ByVal Pa As Integer, ByRef Outv As Integer): pa = pa + 1: OUTV = PA: End Sub
+```
+
+`Form1.frm`, under `Option Explicit`, with `Private Xyz As Integer` at module level. Each value was written with
+`TypeName` beside it:
+
+| Statement(s) | Read back | Value | Type |
+|---|---|---|---|
+| `abc = 5` | `Abc` | 5 | Integer |
+| (same) | `module1.abc` | 5 | Integer |
+| `Foo()`, assigned as `foo = 7` | | 7 | Integer |
+| `bar()`, assigned `BAR = 8` then `bar = bar + 1` | | 9 | Integer |
+| `kpi * 2` | | 6 | Integer |
+| `bump 10, o` | `o` | 11 | Integer |
+| `Sub Shadow: Dim xyz: xyz = 3` | `xyz`, `XYZ` inside it | 3, 3 | Integer |
+| `Xyz = 1`, then `Shadow` | `Xyz` after it | 1 | Integer |
+| `text1.text = "lower"` | `Text1.Text` | lower | String |
+| `LABEL1.CAPTION = "UP"` | `Label1.Caption` | UP | String |
+| `list1.additem "a"`, `LIST1.ADDITEM "b"` | `List1.ListCount` | 2 | Integer |
+| `cmd(0).caption = "c0"` | `Cmd(0).Caption` | c0 | String |
+| `form1.caption = "fc"` | `Me.Caption` | fc | String |
+| `me.CAPTION = "mc"` | `Form1.Caption` | mc | String |
+| `err.raise 5` | `ERR.NUMBER` | 5 | Long |
+| then `err.clear` | `Err.Number` | 0 | Long |
+| `app.title` | | probe | String |
+| `debug.print`, `DEBUG.PRINT` and `Debug.print` | | all three compile | |
+
+**Result.** Case is ignored everywhere, `Option Explicit` included. A local that differs only in case from a
+module variable is a new local that **shadows** it: inside `Shadow`, `xyz` and `XYZ` are both the local, and the
+module's `Xyz` keeps 1.
+
+**A procedure's `Const` shadows too.** A third probe declared `Private Limit As Integer` and
+`Private Const Lim2 As Integer = 5` in the form, set `Limit = 1`, and called four Subs, each declaring a `Const`
+over one of them:
+
+| Sub declares | Read inside it | Module's value after it |
+|---|---|---|
+| `Const LIMIT As Integer = 10` | `LIMIT` 10, `limit` 10 | `Limit` 1 |
+| `Const Limit As Integer = 20` | `Limit` 20 | `Limit` 1 |
+| `Const lim2 As Integer = 7` | `lim2` 7 | `Lim2` 5 |
+| `Const Lim2 As Integer = 8` | `Lim2` 8 | `Lim2` 5 |
+
+Every value is an Integer, and calling the first Sub a second time gives the same rows. So a procedure's `Const`
+is the procedure's own, in any case, over a module variable or a module `Const`. **HexIDE got this wrong before
+#811 and worse during it:** a `Const` updated whatever slot its name found, and a procedure's scope is a copy of
+its module's. So the same-case form wrote the module's `Limit` and left it at 20 after the call. Once lookup
+ignored case, so did every other spelling. A `Const` inside a procedure now gets its own slot, as a `Dim` does.
+
+**And in a `.frm`.** A second probe wrote property names in other cases into the form file itself: `caption`
+and `backcolor` on a Label, `TEXT` on a TextBox. All three load (`lower key`, `255`, `upper key`).
+
+A fourth wrote the form's **own** properties in lowercase: `caption`, `clientheight` 3000, `clientleft`,
+`clienttop`, `clientwidth` 4000, `scaleheight` 3000, `scalewidth` 4000, and a Font block of `name` "Arial",
+`size` 12, `weight` 700 and the rest. Everything loads:
+
+| Read in `Form_Load` | Value | Type |
+|---|---|---|
+| `Me.Caption` | Probe | String |
+| `Me.ScaleWidth` | 4005 | Single |
+| `Me.ScaleHeight` | 3000 | Single |
+| `Me.Width` | 4125 | Single |
+| `Me.Height` | 3405 | Single |
+| `Me.Font.Name` | Arial | String |
+| `Me.Font.Size` | 12 | **Currency** |
+| `Me.Font.Bold` | True | Boolean |
+
+4005 rather than 4000 is the client width rounded up to whole pixels at 15 twips a pixel (267 pixels), so the
+lowercase `clientwidth` was applied. The outer width adds the frame: 4125. `Font.Size` is a Currency, not a
+Single or Double. That is VB6's own type for it, recorded here because a program that asks `TypeName` gets it.
+
+**HexIDE, after #811.**
+- **The tables are created case-insensitive:**
+  - the execution environment: locals, parameters, return slots, module variables and constants, controls, the
+    form, `Me`, `Debug`, `Err` and `App`;
+  - the interpreter's control-property table;
+  - each component's property table, which the `.frm` reader uses.
+- **`Debug.Print`** matches in any case.
+- **Locals** shows the first-declared spelling, which stays the key.
+- **The `.frm` reader** maps each property name to its canonical spelling before anything compares it. Without
+  that, a lowercase outer `width` on the root missed the branch that records the outer rectangle, and was
+  applied as the client width. A Font block's fields are read in any case.
+
+**Owned elsewhere.** Two rows above fail in HexIDE in *every* case on the form path F5 takes, so they are not
+about case:
+- **Reading or writing another module's `Public` variable or `Const` from a form (#256).** `kpi * 2` read from
+  the form reads Empty, and a write to `module1.abc` does not reach it. The tests read and write within one
+  module instead.
+- **`ListCount` (#821).** The tests read the list's items instead.
+
+`Me` and the form's own name do resolve in any case on that path, where `VBLoader.RunForm` binds them, and are
+tested there.

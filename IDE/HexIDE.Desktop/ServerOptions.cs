@@ -87,6 +87,21 @@ internal static class ServerOptions
     /// <summary><c>--help</c>: print the usage banner and exit without starting the IDE.</summary>
     public static bool HelpRequested { get; private set; }
 
+    /// <summary><c>--ansi-code-page</c>: the code page to treat as this machine's ANSI one. Null when the flag
+    /// was not given.</summary>
+    public static int? AnsiCodePage { get; private set; }
+
+    /// <summary>
+    /// <c>--ansi-code-page</c> was given with something that is not a code page this platform can read (the
+    /// text, or empty when nothing followed); null when the flag was absent or valid.
+    /// </summary>
+    /// <remarks>
+    /// Refused rather than skipped, for the reason <see cref="ServerPortInvalid"/> is: the flag is given in
+    /// order to see how a file reads on another machine, and ignoring it would show how it reads on this one
+    /// while looking as though it had worked.
+    /// </remarks>
+    public static string? AnsiCodePageInvalid { get; private set; }
+
     /// <summary>
     /// Every option the IDE accepts, in the order <c>--help</c> lists them.
     /// </summary>
@@ -171,6 +186,24 @@ internal static class ServerOptions
         new("developer-mode", null,
             "Turn on session developer mode. Debug builds only.",
             _ => { DeveloperMode = true; return false; }),
+
+        // <n>, not <codepage>: the value column is the longest spelling in the list, and anything wider than
+        // --user-data-dir <path> pushes the longest summary past the 94-column budget.
+        new("ansi-code-page", "<n>",
+            "Read sources as if the ANSI code page were n. Debug builds only.",
+            value =>
+            {
+                if (value is not null && value.StartsWith("--", StringComparison.Ordinal))
+                    value = null;
+                // 65001 is refused with the rest: the provider has no table for it, and what VB6 does on a
+                // Windows set to UTF-8 is itself an open question.
+                if (int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var codePage)
+                    && Vb6TextEncoding.HasTable(codePage))
+                    AnsiCodePage = codePage;
+                else
+                    AnsiCodePageInvalid = value ?? "";
+                return value is not null;
+            }),
     ];
 
     /// <param name="args">The command line.</param>

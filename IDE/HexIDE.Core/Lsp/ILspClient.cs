@@ -124,10 +124,12 @@ public interface ILspClient : IAsyncDisposable
 
     Task StartAsync(CancellationToken cancellationToken = default);
     Task StopAsync();
+    /// <summary>Opens a document at <see cref="LspDocumentVersion.Opening"/>.</summary>
     Task OpenDocumentAsync(string uri, string text, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Opens a document, stating whether it belongs to a VB6 project.
+    /// Opens a document at <see cref="LspDocumentVersion.Opening"/>, stating whether it belongs to a VB6
+    /// project.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -151,6 +153,12 @@ public interface ILspClient : IAsyncDisposable
     /// </remarks>
     Task OpenDocumentAsync(
         string uri, string text, bool isProjectMember, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Sends a document's whole new text. <paramref name="version"/> must be later than the version of the
+    /// last message about the document, beginning with <see cref="LspDocumentVersion.Opening"/>, or a server
+    /// that orders by version may discard the text as stale.
+    /// </summary>
     Task ChangeDocumentAsync(string uri, int version, string text, CancellationToken cancellationToken = default);
     Task CloseDocumentAsync(string uri, CancellationToken cancellationToken = default);
 

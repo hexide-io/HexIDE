@@ -29,6 +29,11 @@ public interface IDebugController
     /// the project runner (which would cycle through the editor factory).</summary>
     bool IsSessionActive { get; }
 
+    /// <summary>The run's generation, which <see cref="Reset"/> advances. Code of a run that has ended can resume
+    /// after the next run has begun, by which time <see cref="IsAborting"/> has been cleared again; a generation
+    /// taken while the run was live tells it the run it belongs to has gone.</summary>
+    int Session { get; }
+
     /// <summary>Where the walk is paused (module + 1-based line + reason), or null when not paused.</summary>
     StoppedInfo? CurrentStop { get; }
 

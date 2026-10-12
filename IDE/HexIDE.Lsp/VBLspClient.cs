@@ -705,8 +705,8 @@ public sealed class VBLspClient : ILspClient
     {
         // Tracked BEFORE the gate, deliberately: a document opened while no server is up must still be
         // replayed when one arrives, which is what makes lazy start and reconnect work at all.
-        _openDocuments[uri] = new TrackedDocument(1, text);
-        await SendDidOpenAsync(uri, 1, text);
+        _openDocuments[uri] = new TrackedDocument(LspDocumentVersion.Opening, text);
+        await SendDidOpenAsync(uri, LspDocumentVersion.Opening, text);
         PullDiagnosticsInBackground(uri);
     }
 
@@ -776,6 +776,21 @@ public sealed class VBLspClient : ILspClient
     private readonly ConcurrentDictionary<string, int> _pullShown = new();
 
     /// <summary>
+    /// Held while an answer is checked and published, and while a close clears what was published.
+    /// </summary>
+    /// <remarks>
+    /// <b>The check and the publication are one step, or the check means nothing.</b> An answer used to claim its
+    /// slot in <see cref="_pullShown"/> and then parse and publish, so a stale answer that had passed its check
+    /// could still be publishing when a newer one checked, won and published, and the stale one then landed last
+    /// and stayed on screen, the exact outcome the counters exist to prevent. Answers to overlapping requests
+    /// complete on whichever pool threads are free, so on a loaded machine the interleave happened on its own: a
+    /// test guarding this failed on CI at any deadline (hexide-io/HexIDE#503). A close is a publication too, of an
+    /// empty set, and an answer that had passed its "still open" check used to be able to put marks back after it.
+    /// One gate for every document: what it guards is a parse and an event, and contention is not the risk here.
+    /// </remarks>
+    private readonly object _pullPublishGate = new();
+
+    /// <summary>
     /// True when this connection's diagnostics come from asking, so anything it publishes is redundant.
     /// </summary>
     internal bool IgnoresPublicationsFromThisServer() => CanServeQuietly("diagnosticProvider");
@@ -827,13 +842,16 @@ public sealed class VBLspClient : ILspClient
         // higher number — outranks every fresh answer that follows it, and the reopened document shows
         // pre-close diagnostics until the counter climbs back past it. Monotonic per document for the life
         // of the connection costs two integers per file ever opened and has no such window.
-        _pullResultIds.TryRemove(uri, out _);
+        lock (_pullPublishGate)
+        {
+            _pullResultIds.TryRemove(uri, out _);
 
-        // Nothing else would. A push server clears a document by publishing an empty set for it, and a
-        // server that only answers when asked has no way to say anything about a document we have stopped
-        // asking about — so the marks would outlive the editor that showed them.
-        if (CanServeQuietly("diagnosticProvider"))
-            RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, new PublishDiagnosticsParams(uri, []));
+            // Nothing else would. A push server clears a document by publishing an empty set for it, and a
+            // server that only answers when asked has no way to say anything about a document we have stopped
+            // asking about — so the marks would outlive the editor that showed them.
+            if (CanServeQuietly("diagnosticProvider"))
+                RaisePublishDiagnostics(DiagnosticOwner.LanguageServer, new PublishDiagnosticsParams(uri, []));
+        }
     }
 
     /// <summary>
@@ -885,18 +903,23 @@ public sealed class VBLspClient : ILspClient
             return;
         }
 
-        // Closed while we were asking. Nothing may be published for a document the editor has let go — the
-        // close already cleared it, and putting marks back afterwards would leave them with nothing that
-        // could ever remove them.
-        if (!_openDocuments.ContainsKey(uri)) return;
+        // Checked and published under one gate, or a newer answer can publish between the two and this one land
+        // on top of it (#503). See _pullPublishGate.
+        lock (_pullPublishGate)
+        {
+            // Closed while we were asking. Nothing may be published for a document the editor has let go — the
+            // close already cleared it, and putting marks back afterwards would leave them with nothing that
+            // could ever remove them.
+            if (!_openDocuments.ContainsKey(uri)) return;
 
-        // Already overtaken: something newer is on screen, so this answer describes text nobody is looking
-        // at. Claiming this slot and finding we did not win is the whole check — see _pullShown for why it
-        // is measured against what has been shown rather than against what has been asked.
-        if (_pullShown.AddOrUpdate(uri, generation, (_, shown) => Math.Max(shown, generation)) != generation)
-            return;
+            // Already overtaken: something newer is on screen, so this answer describes text nobody is looking
+            // at. Claiming this slot and finding we did not win is the whole check — see _pullShown for why it
+            // is measured against what has been shown rather than against what has been asked.
+            if (_pullShown.AddOrUpdate(uri, generation, (_, shown) => Math.Max(shown, generation)) != generation)
+                return;
 
-        ApplyDiagnosticReport(uri, raw);
+            ApplyDiagnosticReport(uri, raw);
+        }
     }
 
     /// <summary>

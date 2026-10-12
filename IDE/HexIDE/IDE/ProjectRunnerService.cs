@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Labs.Input;
 using Avalonia.Platform;
+using Avalonia.Threading;
 using HexIDE.Controls;
 using HexIDE.Debugging;
 using HexIDE.Events;
@@ -47,6 +48,9 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
     /// <inheritdoc />
     public event Action<string>? StartFailed;
+
+    /// <inheritdoc />
+    public event Action<string>? RunFailed;
 
     /// <summary>
     /// The project currently running, or null when nothing is.
@@ -150,9 +154,15 @@ public partial class ProjectRunnerService : IProjectRunnerService
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
+        // An idle Run To Cursor's target belongs to this start alone. Taken here, so a start that fails leaves
+        // nothing armed: it used to stay set when a syntax error stopped the start, and the next plain run paused at
+        // that line as though at a breakpoint.
+        var runTo = _pendingRunTo;
+        _pendingRunTo = null;
+
         if (projectDefinition.StartsAtSubMain)
         {
-            RunSubMain(projectDefinition, stepInto);
+            RunSubMain(projectDefinition, stepInto, runTo);
             return;
         }
 
@@ -162,16 +172,6 @@ public partial class ProjectRunnerService : IProjectRunnerService
             {
                 var tokenSource = new CancellationTokenSource();
 
-                var syntaxChecker = new SyntaxChecker();
-                try
-                {
-                    syntaxChecker.Run(FormCodeText.WholeFile(form));
-                }
-                catch (VBCompileErrorException error)
-                {
-                    await windowManager.MessageBox(error.Message, icon: MessageBoxIcon.Warning);
-                    throw new OperationCanceledException();
-                }
 
                 // Claimed before anything can execute, not once the task is in hand: a breakpoint on the
                 // first statement of Form_Load breaks while the form is still being loaded, and an editor
@@ -183,66 +183,134 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 debugController.Reset();
                 ApplyBreakpoints(projectDefinition);
                 ApplyWatchBreaks();   // push Break-When-True/Changed watches so the run can break on them from line 1
-                if (_pendingRunTo is { } rt)   // an idle Run-To-Cursor: arm the target now that Reset has cleared it
-                {
+                if (runTo is { } rt)   // an idle Run-To-Cursor: arm the target now that Reset has cleared it
                     debugController.RunToCursor(rt.Document.Name, rt.Line);
-                    _pendingRunTo = null;
-                }
                 // F8-from-idle: arm step BEFORE the first statement runs, so the run breaks at line 1 (VB6
                 // start-and-step). Arming while Running (fresh Reset) simply sets the flag; the first gate breaks.
                 if (stepInto)
                     debugController.StepInto();
 
-                Task task;
-                try
+                // The run's first fault, from an event procedure in any of its forms. A fault cannot be
+                // trapped, so the procedure it hit stopped at that statement, and carrying on would run the
+                // rest of the program as though the statement had worked. The run ends instead, and says why
+                // (#754). Listened for only while this run is live, so a fault from a run that has already
+                // ended is logged and nothing else.
+                Exception? fault = null;
+                void OnFaulted(VBWindowContext _, Exception e)
                 {
-                    if (Static.SingleView)
-                    {
-                        task = RunFormInBrowser(form, tokenSource.Token, out _, debugController);
-                    }
-                    else
-                    {
-                        task = VBLoader.RunForm(form, tokenSource.Token, out var window, debugController);
-                        window.Show();
-                    }
-                }
-                catch (Exception e)
-                {
-                    // The form could not be built, so the run never began, but Reset() above had already
-                    // put the controller in Running and the project was claimed. Both used to stay that way,
-                    // the error went only to the log, and the start was reported as having worked (#590).
-                    // Torn down here, before RunHandle exists, so nothing ever reads as running.
-                    Serilog.Log.Error(e, "The startup form {Form} failed to load", form.Name);
+                    if (fault is not null)
+                        return;   // the first fault ends the run; any after it come from the same collapse
+                    fault = e;
+                    // Abort first, as EndProject does. A fault is caught where its own event procedure was
+                    // dispatched, so a procedure that raised that event (a Click that set Text1.Text, firing
+                    // Text1_Change) would otherwise carry on past the statement, and so would any other walk
+                    // still running. Stopping the controller ends each of them at its next statement. That covers
+                    // the raiser only while it is still waiting on the event: if Text1_Change yielded its time
+                    // slice before faulting, the setter had already returned and the click had run on (#766).
                     debugController.Stop();
-                    RunningProject = null;
-                    StartFailed?.Invoke(string.Format(
-                        localization.GetString("Str.ProjectRunner.StartupFormFailedToLoad"), form.Name, e.Message));
-                    return;
+                    // Then close the form. Posted, because a fault can arrive while RunForm is still showing the
+                    // form, and a window closed before the run-task watches for it closing would leave the run
+                    // waiting forever. A second cancel, after End has already cancelled, does nothing.
+                    Dispatcher.UIThread.Post(() => tokenSource.Cancel());
                 }
 
-                RunHandle = new ActionDisposable(() => tokenSource.Cancel());
+                // End in any of the run's procedures ends the run, closing the form as the End command does, and
+                // reports nothing: ending is not an error (#775). The close is posted for the same reason as the
+                // fault's. Unlike a fault, End needs no Stop() here: the interpreter's own Ending flag already stops
+                // every walk of it, ahead of the debugger's gate, and a run has one interpreter today. The finally
+                // below stops the controller once the form has closed.
+                void OnEndReached(BasicInterpreter _) => Dispatcher.UIThread.Post(() => tokenSource.Cancel());
+
+                VBWindowContext.Faulted += OnFaulted;
+                BasicInterpreter.EndReached += OnEndReached;
                 try
                 {
+                    Task task;
+                    try
+                    {
+                        if (Static.SingleView)
+                        {
+                            task = RunFormInBrowser(form, tokenSource.Token, out _, debugController);
+                        }
+                        else
+                        {
+                            task = VBLoader.RunForm(form, tokenSource.Token, out var window, debugController);
+                            window.Show();
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        // The form could not be built, so the run never began, but Reset() above had already
+                        // put the controller in Running and the project was claimed. Both used to stay that way,
+                        // the error went only to the log, and the start was reported as having worked (#590).
+                        // Torn down here, before RunHandle exists, so nothing ever reads as running.
+                        //
+                        // Building the form parses every module the run loads, so a syntax error in any of them
+                        // arrives here, naming its module. It was a message box that nothing recorded, so run_project
+                        // said the program had run and ended (#759). Raised before the first await, so StartFailed
+                        // comes before the start call returns, as its contract says.
+                        debugController.Stop();
+                        RunningProject = null;
+                        StartFailed?.Invoke(DescribeFailedStart(e, form.Name));
+                        return;
+                    }
+
+                    RunHandle = new ActionDisposable(() => tokenSource.Cancel());
                     await task;
                 }
                 finally
                 {
-                    // The run ended by ANY route — ran to completion, the user closed the running form, or End was
-                    // pressed. Tear the debug session down so a walk paused at a breakpoint is unwound and the
-                    // controller (and the editor's current-statement bar) return to a clean state. Idempotent with
-                    // EndProject's own Stop(); on the plain window-close path this is the ONLY teardown.
+                    // The run ended by ANY route — ran to completion, the user closed the running form, End was
+                    // pressed, or a fault ended it. Tear the debug session down so a walk paused at a breakpoint is
+                    // unwound and the controller (and the editor's current-statement bar) return to a clean state.
+                    // Idempotent with EndProject's own Stop(); on the plain window-close path this is the ONLY
+                    // teardown.
+                    VBWindowContext.Faulted -= OnFaulted;
+                    BasicInterpreter.EndReached -= OnEndReached;
                     debugController.Stop();
                     RunHandle = null;
                     RunningProject = null;
                 }
+
+                // Reported once the run is over, so the dialog never appears beside a run that still looks live.
+                if (fault is not null)
+                    RunFailed?.Invoke(RunErrorText.ForFault(fault, localization));
             }
             WindowTask().ListenErrors();
         }
         else
         {
-            windowManager.MessageBox(localization.GetString("Str.ProjectRunner.MustHaveStartupForm"), icon: MessageBoxIcon.Error);
+            // A start that never became a run, reported as one, in VB6's words. It was a message box nothing
+            // recorded (#759).
+            StartFailed?.Invoke(new VBCompileErrorException(BasicInterpreter.NoStartupObject).Message);
         }
     }
+
+    /// <summary>
+    /// What a start that never became a run says, the same way on both paths (#759). A compile error is the program's
+    /// and is given as it is. Anything else is described as a fault in a run would be, with the startup form named
+    /// where there is one, since the person did not ask for that form and may not know it was being loaded.
+    /// </summary>
+    private string DescribeFailedStart(Exception e, string? formName)
+    {
+        if (e is VBCompileErrorException)
+            return e.Message;
+        Serilog.Log.Error(e, "The project failed to load, at {Form}", formName ?? "Sub Main");
+        var described = Describe(e);
+        return formName is null
+            ? described
+            : string.Format(localization.GetString("Str.ProjectRunner.StartupFormFailedToLoad"), formName, described);
+    }
+
+    private string Describe(Exception e) => e switch
+    {
+        VBRunTimeException runTime => RunErrorText.For(runTime),
+        VBCompileErrorException compile => compile.Message,
+        _ => RunErrorText.ForFault(e, localization),
+    };
+
+    /// <summary>Whether an idle Run To Cursor is still waiting for a start. For tests.</summary>
+    internal bool HasPendingRunToCursor => _pendingRunTo is not null;
 
     /// <summary>
     /// Run a project whose startup object is <c>Sub Main</c> — a code-only Standard EXE, which has no
@@ -263,7 +331,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
     /// library the MDI runtime uses.
     /// </para>
     /// </remarks>
-    private void RunSubMain(ProjectDefinition projectDefinition, bool stepInto)
+    private void RunSubMain(ProjectDefinition projectDefinition, bool stepInto,
+        (DocumentIdentity Document, int Line)? runTo)
     {
         // Shared with the form paths, so the same project sees the same modules whichever startup object it
         // has. Sub Main previously answered this question here and the form paths not at all (#220).
@@ -271,26 +340,13 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
         if (modules.Count == 0)
         {
-            windowManager.MessageBox(localization.GetString("Str.ProjectRunner.MustHaveStartupForm"),
-                icon: MessageBoxIcon.Error);
+            // A start that never became a run (#759), as on the startup-form path.
+            StartFailed?.Invoke(new VBCompileErrorException(BasicInterpreter.NoStartupObject).Message);
             return;
         }
 
         async Task MainTask()
         {
-            var syntaxChecker = new SyntaxChecker();
-            foreach (var (_, code) in modules)
-            {
-                try
-                {
-                    syntaxChecker.Run(code);
-                }
-                catch (VBCompileErrorException error)
-                {
-                    await windowManager.MessageBox(error.Message, icon: MessageBoxIcon.Warning);
-                    return;
-                }
-            }
 
             // Claimed before anything can execute — see the same line on the startup-form path.
             RunningProject = projectDefinition;
@@ -298,40 +354,63 @@ public partial class ProjectRunnerService : IProjectRunnerService
             debugController.Reset();
             ApplyBreakpoints(projectDefinition);
             ApplyWatchBreaks();
-            if (_pendingRunTo is { } rt)
-            {
+            if (runTo is { } rt)
                 debugController.RunToCursor(rt.Document.Name, rt.Line);
-                _pendingRunTo = null;
-            }
             if (stepInto)
                 debugController.StepInto();
 
-            var context = new VBWindowContext(new MDIStandaloneStandardLib(windowManager));
-            var interpreter = new BasicInterpreter(
-                new MDIStandaloneStandardLib(windowManager), context.ExecutionContext, context.RootEnv,
-                modules[0].Code, modules[0].Name,
-                modules.Count > 1 ? modules.Skip(1).ToList() : null,
-                classModules)
-            {
-                DebugController = debugController,
-            };
-            interpreter.SetAppInfo(AppInfo.FromProject(projectDefinition));
-
-            RunHandle = new ActionDisposable(() => debugController.Stop());
+            // What ended the run, if anything did. Reported only once the run is torn down, so nothing reads
+            // as running while the dialog is up. These used to be MessageBox calls of their own, which no
+            // record kept, so get_last_runtime_error never saw an error from Sub Main (#754).
+            string? failure = null;
             try
             {
+                BasicInterpreter interpreter;
+                try
+                {
+                    // Building the interpreter parses every module and runs the pre-pass over it, which throws for a
+                    // syntax error, naming its module, and for a declaration it cannot take. It used to sit outside this try, after Reset() and the claim
+                    // above, so a throw here left the debugger Running and the project claimed with nothing
+                    // running, as #590 did on the form path. It is a start that never became a run, and is
+                    // reported the way that path reports one.
+                    var context = new VBWindowContext(new MDIStandaloneStandardLib(windowManager));
+                    interpreter = new BasicInterpreter(
+                        new MDIStandaloneStandardLib(windowManager), context.ExecutionContext, context.RootEnv,
+                        modules[0].Code, modules[0].Name,
+                        modules.Count > 1 ? modules.Skip(1).ToList() : null,
+                        classModules)
+                    {
+                        DebugController = debugController,
+                    };
+                    interpreter.SetAppInfo(AppInfo.FromProject(projectDefinition));
+                    // A missing or ambiguous Main is found here, before anything runs, so it too is a start that
+                    // never became a run. It used to be raised as the run began, and arrived as a run that ended,
+                    // which run_project answered as a success (#759).
+                    interpreter.FindStartupSubMain();
+                }
+                catch (Exception e)
+                {
+                    debugController.Stop();
+                    RunningProject = null;
+                    StartFailed?.Invoke(DescribeFailedStart(e, formName: null));
+                    return;
+                }
+
+                RunHandle = new ActionDisposable(() => debugController.Stop());
+                // End in Sub Main unwinds it, and RunStartupSubMain takes that as a clean stop (#775). Sub Main cannot
+                // show a form yet, so no other interpreter can reach End during this run; when it can, this run will
+                // need to listen for EndReached as the form run does.
                 await interpreter.RunStartupSubMain();
             }
-            catch (VBCompileErrorException error)
+            catch (Exception e) when (e is not (OperationCanceledException or ImmediateEvalException))
             {
-                // "Must have startup form or Sub Main()" and "Ambiguous name detected: Main" arrive here.
-                // VB6 reports both while building; a tree-walker can only raise them as the run begins,
-                // which is the translation interpreter-core:40-42 prescribes.
-                await windowManager.MessageBox(error.Message, icon: MessageBoxIcon.Error);
-            }
-            catch (VBRunTimeException error)
-            {
-                await windowManager.MessageBox(error.Message, icon: MessageBoxIcon.Error);
+                // A compile error the run meets as it goes arrives here; a missing or ambiguous Main no longer does,
+                // since FindStartupSubMain asks before the run begins. A cancellation is left alone: it is how a statement still waiting on a dialog learns that the run was ended. So is the
+                // Immediate window refusing an event procedure while paused, as at the form boundary
+                // (VBWindowContext): that is its answer to what was typed, not a fault in the run.
+                if (e is not (VBCompileErrorException or VBRunTimeException))
+                    Serilog.Log.Error(e, "Sub Main stopped on a fault");
+                failure = Describe(e);
             }
             finally
             {
@@ -339,6 +418,9 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 RunHandle = null;
                 RunningProject = null;
             }
+
+            if (failure is not null)
+                RunFailed?.Invoke(failure);
         }
 
         MainTask().ListenErrors();
@@ -484,13 +566,15 @@ public partial class ProjectRunnerService : IProjectRunnerService
             window.Context.ExecutionContext.AllocVariable(window.Context.RootEnv, "Me", new Vb6Value(window));
         }
 
-        var task = windowManager.ShowManagedWindow(window);
         window.Content = VBLoader.SpawnComponents(element, window.Context.ExecutionContext, window.Context.RootEnv);
 
+        // Parsed before the window is shown, as VBLoader.RunForm does, so a syntax error fails the start without
+        // leaving a window behind that nothing would close.
         var (standardModules, classModules) = VBLoader.InterpreterModules(element.Owner);
         window.Context.SetCode(code: FormCodeText.WholeFile(element), moduleName: formName ?? "Module1", debugController: debugController,
             appInfo: HexIDE.Runtime.Interpreter.AppInfo.FromProject(element.Owner),
             additionalModules: standardModules, classModules: classModules);
+        var task = windowManager.ShowManagedWindow(window);
         token.Register((state, _) =>
         {
             (state as MDIWindow)!.CloseCommand.Execute(null);

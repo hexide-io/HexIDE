@@ -74,6 +74,12 @@ records an absolute path to the local Office install's `VBE7.DLL`, and an empty 
 same folds and diagnostics without tying the file to one machine. Keys are PascalCase; a camelCase file loads
 without complaint and lists no modules.
 
+Since RDCore began accepting opened documents, a missing `.rdproj` does leave a trace in the protocol
+inspector: an error-level `window/logMessage` saying that `textDocument/didOpen` failed with
+`The path is empty. (Parameter 'relativeTo')`. It does not mention `.rdproj`. The sentence that does,
+`No .rdproj was found under the workspace root.`, goes only to the server's standard output, which HexIDE
+does not read ([#724](https://github.com/hexide-io/HexIDE/issues/724)).
+
 **`Module=`, and note the shape.** `SpringTide.vbp` carries `TideTable.bas` as an ordinary module:
 
 ```
@@ -83,32 +89,31 @@ Module=TideTable; TideTable.bas
 `Module=` requires `Name; File` and a bare path is rejected — `Module=TideTable.bas` makes `vb6.exe` report
 that *the project file is corrupt*, naming no line. That is measured, along with the other four item keys,
 which do **not** all agree: see *A `.vbp` item line has two shapes* in
-[`docs/vb6-fidelity-oracle.md`](../../docs/vb6-fidelity-oracle.md).
+[`docs/vb6-fidelity-oracle.md`](../../docs/vb6-fidelity-oracle.md). Keep `TideTable.bas` listed in `.rdproj`
+too: a file opened but not listed still gets folds and syntax errors, but not RDCore's semantic checks.
 
 **It used to be `RelatedDoc=`, as a workaround, and that is worth recording because it was the demo's own
 acceptance test.** Two things made a real module unusable here, and both are now closed:
 
 - As a module, HexIDE named the file to servers as `vb6://module/TideTable`
   ([#273](https://github.com/hexide-io/HexIDE/issues/273)) — a scheme HexIDE invented for itself. RDCore
-  implements no document sync, never receives the text, and knows a file only by its `file:` path, so every
-  answer about the `vb6:` name came back empty. A document is now named by its file, and this demo is what
-  proved it: measured on the wire, HexIDE sends
+  finds a document only by its file path: at first it implemented no document sync and never received the
+  text, and now that it accepts an opened document's text it still finds the document again by path. So
+  every answer about the `vb6:` name came back empty, with nothing saying why. A document is now named by its
+  file, and this demo is what proved it: measured on the wire, HexIDE sends
   `file:///…/demo/spring-tide/TideTable.bas`, and RDCore answers with six folding regions and one
-  `VBC00001` — the same answers it gave the carried document.
+  `VBC00001` — the same answers it gave the carried document. A document with no file yet is named
+  `untitled:`, and RDCore answers that name as it answered `vb6:`, with nothing.
 - A module opened before its server had initialized never asked for folds
   ([#446](https://github.com/hexide-io/HexIDE/issues/446)), where the carried-document view asked again
   once diagnostics arrived. Fixed independently.
 
-**No `didOpen` is sent, and that is correct — at `d1c04b5`.** At that commit RDCore registers three
-handlers and advertises no `textDocumentSync`, so HexIDE tells it nothing about the buffer and it reads the
-file from disk. If you are looking at the Protocol Inspector expecting an open notification, its absence is
-the server's stated capabilities being honoured rather than a document that failed to open.
-
-Stated against the commit rather than as a property of the server, because it is a registration away from
-changing: the open, change and close handlers are written and wired, just not yet passed to
-`WithHandler<>()`. HexIDE needs no change when they are — it gates every lifecycle notification on the
-advertised capability — but the trace you see here will gain three notifications, so check the commit before
-concluding the client has started doing something new.
+**Whether a `didOpen` is sent depends on RDCore's commit.** At `d1c04b5` RDCore advertised no
+`textDocumentSync`, so HexIDE told it nothing about the buffer and it read the file from disk. It has since
+registered its open, change and close handlers (see *Against RDCore's current `main`* below), and HexIDE
+sends all three with no change of its own, because it gates every lifecycle notification on what the server
+advertises. If the Protocol Inspector shows no open notification, check the commit before concluding that a
+document failed to open.
 
 **The error is after the last member, not inside one.** RDCore's parser does not recover after a syntax
 error: everything below the first one gets no folds and no diagnostics, and the member containing it is cut
@@ -118,3 +123,33 @@ after the last `End Function`, every fold above it is whole.
 
 **The squiggle is one character wide.** RDCore's diagnostic ranges are zero-width (`start` equals `end`);
 HexIDE widens a zero-width range to a single character so it can be seen at all.
+
+## Against RDCore's current `main`
+
+Measured on 2026-10-05 against RDCore `a9a4918`, published locally and attached through this profile. The
+screenshot predates it.
+
+**Folds follow your edits now, and the squiggle may not.** RDCore receives the text of an opened document,
+and the change after each edit, so its folds track what you type. Its diagnostics stop. Line 17,
+`Private mSamples(0 To 11) As Reading`, is a declaration carrying a literal value. Such a declaration makes
+RDCore's language server fail to send its own environment host a message, and from then on every diagnostic
+request that needs RDCore's semantics waits until the next edit cancels it. An array bound, a `Const` value
+and an `Optional` default each do it. What you see in HexIDE:
+- the squiggle on line 48 appears on some launches and not others, because the first request races the
+  failure;
+- after an edit, the squiggles no longer change.
+
+Nothing reports the failure itself: not on the wire, not on standard output and not in RDCore's own log files.
+To see the demo as intended until RDCore fixes it, change line 17 to `Private mSamples() As Reading`; nothing
+here runs, so nothing breaks. HexIDE's own defect on this path, a first edit that repeated the opening
+document version, is fixed ([#470](https://github.com/hexide-io/HexIDE/issues/470)); before that fix, RDCore
+ignored the first edit outright.
+
+**With that line changed, a second squiggle appears.** RDCore reports `VBC09310` "Type mismatch" on line 35,
+`Swing = high - low`, where both are `Single`. That is a false positive in RDCore, and it comes only from a
+module listed in `.rdproj`.
+
+**`--language vb6` changes nothing you can see here.** RDCore defaults to VBA. Asked for VB6, it changes only
+the wording of one diagnostic's detail, so the profile does not pass it. An option the server does not know
+makes it exit at once, before its pipe exists, with the reason on standard error. HexIDE records both the exit
+and that output for a pipe server it launched ([#403](https://github.com/hexide-io/HexIDE/issues/403)).

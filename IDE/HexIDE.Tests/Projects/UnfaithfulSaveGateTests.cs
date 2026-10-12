@@ -268,6 +268,20 @@ public class UnfaithfulSaveGateTests : IDisposable
     }
 
     [Fact]
+    public async Task Save_as_on_a_form_refuses_before_asking_for_a_destination()
+    {
+        // The form half of the UserControl test below. The tests above hold whether or not the picker opens,
+        // because the gate refuses after it as well.
+        var svc = MakeService();
+        await svc.OpenProject(Stage(NestedContainerForm));
+
+        var written = await svc.SaveForm(loaded.Single().Forms.Single(), saveAs: true);
+
+        written.Should().BeFalse();
+        await lastWindowManager!.DidNotReceive().SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>());
+    }
+
+    [Fact]
     public async Task A_lone_refusal_is_not_replayed_into_the_next_save()
     {
         // The consequence of banking it: a second, unrelated save reported a file it had not been asked
@@ -394,6 +408,77 @@ public class UnfaithfulSaveGateTests : IDisposable
         File.Exists(Path.Join(dir, "UserControl1.ctl")).Should().BeTrue();
     }
 
+    // ── A document that changes on disk while a picker is open ──────────────────────────────
+    //
+    // A picker is an await, and the file watcher reloads a document changed outside the IDE while one is
+    // open. Whether a document could be written used to be decided only before an operation's later
+    // pickers, so it could pass the gate, become one HexIDE cannot reproduce, and be written all the same.
+
+    [Fact]
+    public async Task A_UserControl_that_becomes_unfaithful_while_the_project_picker_is_open_is_not_written()
+    {
+        var svc = MakeService();
+        await svc.OpenProject(StageUserControl(FlatUserControl));
+        var project = loaded.Single();
+        var control = project.Modules.Single();
+        var ctlPath = Path.Join(dir, "UserControl1.ctl");
+        var elsewhere = Path.Join(dir, "elsewhere");
+        Directory.CreateDirectory(elsewhere);
+        lastWindowManager!.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(async _ =>
+        {
+            File.WriteAllText(ctlPath, NestedContainerUserControl);
+            await svc.ReloadModuleFromDisk(control);
+            return (string?)Path.Join(elsewhere, "Test.vbp");
+        });
+
+        await svc.SaveProject(project, saveAs: true);
+
+        control.FormPart!.CanSaveFaithfully.Should().BeFalse("the premise: the reload adopted what is now on disk");
+        (await File.ReadAllTextAsync(ctlPath, TestContext.Current.CancellationToken)).Should().Be(
+            NestedContainerUserControl, "a .ctl HexIDE cannot reproduce is not rewritten");
+        warningsShown.Should().Be(1, "and the developer is told");
+    }
+
+    [Fact]
+    public async Task A_form_that_becomes_unfaithful_while_its_picker_is_open_is_reported_as_not_written()
+    {
+        var svc = MakeService();
+        await svc.OpenProject(Stage(FlatForm));
+        var form = loaded.Single().Forms.Single();
+        var copy = Path.Join(dir, "Copy.frm");
+        lastWindowManager!.SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>()).Returns(async _ =>
+        {
+            File.WriteAllText(Path.Join(dir, "Form1.frm"), NestedContainerForm);
+            await svc.ReloadFormFromDisk(form);
+            return (string?)copy;
+        });
+
+        var written = await svc.SaveForm(form, saveAs: true);
+
+        form.CanSaveFaithfully.Should().BeFalse("the premise: the reload adopted what is now on disk");
+        written.Should().BeFalse("nothing was written, and an automation caller has no other way to tell");
+        File.Exists(copy).Should().BeFalse();
+        warningsShown.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Make_names_every_member_it_cannot_reproduce_before_asking_where_to_put_the_program()
+    {
+        File.WriteAllText(Path.Join(dir, "Form1.frm"), NestedContainerForm);
+        File.WriteAllText(Path.Join(dir, "UserControl1.ctl"), NestedContainerUserControl);
+        var vbp = Path.Join(dir, "Test.vbp");
+        File.WriteAllText(vbp, "Type=Exe\r\nForm=Form1.frm\r\nUserControl=UserControl1.ctl\r\nName=\"Test\"\r\n");
+        var svc = MakeService();
+        await svc.OpenProject(vbp);
+
+        var make = async () => await svc.MakeProject(loaded.Single());
+
+        (await make.Should().ThrowAsync<OperationCanceledException>()).Which.Should().NotBeOfType<SourceEncodingRefusal>();
+        await lastWindowManager!.DidNotReceive().SaveFilePickerAsync(Arg.Any<FilePickerSaveOptions>());
+        warningsShown.Should().Be(1);
+        requestedKeys.Should().Contain("Str.Dialog.UnfaithfulSave.Body.Many", "both are named in the one warning");
+    }
+
     // ── #149: a project written elsewhere takes its modules with it ─────────────────────────
     //
     // Forms and the .vbp were written; modules were not. And because every item is recorded in the .vbp by
@@ -462,5 +547,44 @@ public class UnfaithfulSaveGateTests : IDisposable
         await act.Should().ThrowAsync<InvalidOperationException>();
         File.Exists(Path.Join(target, "Test.vbp")).Should()
             .BeFalse("no project file may name a control that was refused");
+    }
+    [Fact]
+    public async Task A_refused_directory_save_writes_nothing_at_all()
+    {
+        // Refused before the first file rather than after the forms: a directory holding some of a project
+        // and no project file is not one anybody asked for.
+        File.WriteAllText(Path.Join(dir, "Form2.frm"), FlatForm.Replace("Form1", "Form2"));
+        File.WriteAllText(Path.Join(dir, "UserControl1.ctl"), NestedContainerUserControl);
+        var vbp = Path.Join(dir, "Test.vbp");
+        File.WriteAllText(vbp, "Type=Exe\r\nForm=Form2.frm\r\nUserControl=UserControl1.ctl\r\nName=\"Test\"\r\n");
+
+        var svc = MakeService();
+        await svc.OpenProject(vbp);
+        var target = Path.Join(dir, "out");
+
+        var act = async () => await svc.SaveProjectToDirectory(loaded.Single(), target);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        Directory.Exists(target).Should().BeFalse("nothing is written, so no directory is made for it");
+    }
+
+    [Fact]
+    public async Task An_automation_save_HexIDE_refuses_shows_no_dialog_and_is_not_reported_by_the_next_save()
+    {
+        // A dialog would hold an automation caller's reply until a person closed it. The refusal is in the
+        // result instead, and it is not left banked for the next save to report under another name.
+        File.WriteAllText(Path.Join(dir, "Form1.frm"), NestedContainerForm);
+        File.WriteAllText(Path.Join(dir, "Module1.bas"), "Attribute VB_Name = \"Module1\"\r\nPublic Sub One()\r\nEnd Sub\r\n");
+        var vbp = Path.Join(dir, "Test.vbp");
+        File.WriteAllText(vbp, "Type=Exe\r\nForm=Form1.frm\r\nModule=Module1; Module1.bas\r\nName=\"Test\"\r\n");
+        var svc = MakeService();
+        await svc.OpenProject(vbp);
+        var project = loaded.Single();
+
+        (await svc.SaveForm(project.Forms.Single(), false, interactive: false)).Should().BeFalse();
+        warningsShown.Should().Be(0);
+
+        (await svc.SaveModule(project.Modules.Single(), false)).Should().BeTrue();
+        warningsShown.Should().Be(0, "Form1 was not part of this save");
     }
 }

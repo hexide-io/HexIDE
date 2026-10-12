@@ -664,6 +664,59 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task AStaleAnswerThatIsSlowToPublishDoesNotEndOnScreen()
+    {
+        // The race behind #503. An answer is checked against what has been shown and THEN parsed and published,
+        // so a stale answer that passed its check could still be publishing when the fresh one checked, won and
+        // published, and the stale one then landed last and stayed. The scripted server sends the two answers
+        // back to back, and on a loaded CI runner that interleave happened on its own, failing the test above
+        // at any deadline. Here the stale publication is made slow on purpose, which is the same interleave
+        // every time.
+        var (sut, server) = ClientTalkingToAScriptedServer(stream => new StaleAcrossReopenServer(stream));
+        var published = new List<PublishDiagnosticsParams>();
+        sut.DiagnosticsPublished += (_, p) =>
+        {
+            if (p.Diagnostics.Any(d => d.Message.Contains("before the file was closed")))
+                Thread.Sleep(500);
+            lock (published) published.Add(p);
+        };
+
+        await sut.StartAsync(TestContext.Current.CancellationToken);
+        await sut.OpenDocumentAsync(Uri, "import os\n", TestContext.Current.CancellationToken);
+        await Until(() => server().TimesAsked >= 1, "the client should have asked on open");
+        await sut.ChangeDocumentAsync(Uri, 2, "import os\n\n", TestContext.Current.CancellationToken);
+        await Until(() => server().TimesAsked >= 2, "the client should have asked again after the change");
+        await sut.CloseDocumentAsync(Uri, TestContext.Current.CancellationToken);
+        await sut.OpenDocumentAsync(Uri, "import os\n", TestContext.Current.CancellationToken);
+
+        await Until(() => server().TimesAsked >= 3, "the client should have asked on the reopen");
+
+        // The fresh answer only. Whether the stale one is published at all depends on which arrives first, and the
+        // answers to overlapping requests complete on whichever pool threads are free. Stale first: it publishes,
+        // slowly, under the gate, and the fresh one waits its turn. Fresh first: the stale one is discarded on its
+        // check and never published, which is right, and which a wait for both turned into a 30 s timeout on a
+        // macOS runner, failing a correct client. Either way, once the fresh answer is out nothing stale follows it.
+        await Until(
+            () =>
+            {
+                lock (published)
+                    return published.Any(p => p.Diagnostics.Any(d => d.Message.Contains("after it was opened again")));
+            },
+            "the fresh answer should have been published");
+
+        // Past the stale publication's delay. Without the gate, a stale answer that passed its check before the
+        // fresh one arrived is still sleeping in its publication here, and lands after it: what this test exists to
+        // catch. It can only catch it when the stale answer arrives first, which is the usual order but not a
+        // guaranteed one, so a run where it arrives second passes without exercising the race.
+        await Task.Delay(700, TestContext.Current.CancellationToken);
+
+        lock (published)
+            published[^1].Diagnostics.Should().Contain(d => d.Message.Contains("after it was opened again"),
+                "the fresh answer was the newer one, so it is what must be left on screen; the publications were: "
+              + string.Join(" | ", published.Select(p => string.Join("; ", p.Diagnostics.Select(d => d.Message)))));
+    }
+
+    [Fact]
     public async Task AServerThatDidNotOfferToAnswerIsNotAsked()
     {
         // Gating must EXCLUDE, or this would pass with a client that asks everybody — and asking a server
@@ -731,17 +784,15 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
     /// </param>
     /// <remarks>
     /// <para>
-    /// <b>Thirty seconds, matching every other polling deadline in this suite.</b> It was ten, and ten is
-    /// roughly 4x what these tests take locally — which a loaded CI runner ate, twice, on commits that
-    /// touched nothing near this code (hexide-io/HexIDE#503). A generous deadline costs a passing run
-    /// nothing, because this returns the moment the condition holds.
+    /// <b>Thirty seconds, matching every other polling deadline in this suite.</b> It was ten. A generous deadline
+    /// costs a passing run nothing, because this returns the moment the condition holds.
     /// </para>
     /// <para>
-    /// <b>A timeout says so, in those words.</b> On expiry the old message rendered as
-    /// "it settled on: from before the file was closed" — a verbatim description of the very defect these
-    /// tests guard against, produced by an answer that had simply not arrived yet. Anyone reading it went
-    /// hunting a counter-monotonicity bug that was not there. "The wrong answer won" and "no answer
-    /// arrived" want opposite investigations, so they must not share a message.
+    /// <b>A timeout says so, in those words.</b> On expiry the old message rendered as "it settled on: from before
+    /// the file was closed", a verbatim description of the defect these tests guard against, whether the wrong
+    /// answer had won or the right one had simply not arrived. Those want opposite investigations. In #503 it was
+    /// the first after all: a stale answer could publish after a fresh one, which no deadline would have cured
+    /// (see AStaleAnswerThatIsSlowToPublishDoesNotEndOnScreen).
     /// </para>
     /// </remarks>
     private static async Task Until(Func<bool> condition, string what, Func<string>? extra = null)
@@ -754,10 +805,8 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
 
         var detail = extra is null ? what : $"{what} — {extra()}";
         throw new TimeoutException(
-            $"Timed out after {limit.TotalSeconds:0}s waiting for a condition this test needs the server "
-          + $"to reach. THIS IS A TIMEOUT, not the condition being evaluated and found false: the last "
-          + $"observed state below is what had arrived so far, which on a slow machine is simply the "
-          + $"previous answer rather than the wrong one winning. {detail}");
+            $"Timed out after {limit.TotalSeconds:0}s: {detail}. The state shown is what had been published when time "
+          + "ran out. It is the wrong answer winning only if nothing newer was still on its way.");
     }
 
     [Fact]

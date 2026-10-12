@@ -49,10 +49,12 @@ public class HexColorInteropTests
         AvaloniaInteroperability.TrySet(label, VBProperties.BackColorProperty, new Vb6Value(0xFF))
             .Should().BeTrue();
 
+        // A program reads the colour back as VB6's Long, 255 (#789)...
         AvaloniaInteroperability.TryGet(label, VBProperties.BackColorProperty, out var readBack)
             .Should().BeTrue();
-        readBack.Value.Should().BeOfType<VBColor>();
-        var color = (VBColor)readBack.Value!;
+        readBack.Value.Should().Be(255L);
+        // ...and the label paints it: VBLabel draws its own BackColor, which the assignment now writes (#795).
+        var color = ((HexIDE.Runtime.BuiltinControls.VBLabel)label).BackColor;
         (color.R, color.G, color.B).Should().Be(((byte)255, (byte)0, (byte)0));   // &HFF -> red
     }
 }
