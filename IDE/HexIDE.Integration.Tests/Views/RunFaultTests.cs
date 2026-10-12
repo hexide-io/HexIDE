@@ -248,6 +248,51 @@ public class RunFaultTests
         }
     }
 
+    [AvaloniaTheory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void A_function_whose_last_statement_raised_the_ending_event_hands_its_caller_nothing(bool end)
+    {
+        // Fn's last statement raises Text1_Change, which reaches End or faults. The event's boundary takes that as a
+        // clean stop, so the setter returns and Fn has no statement left to gate. Unless Fn's return stops it, the
+        // click's own expression carries on with Fn's result (#775 for End, #762 for a fault).
+        var change = end
+            ? "Private Sub Text1_Change()\r\n    End\r\nEnd Sub\r\n"
+            : ReachesGoSub("Text1_Change");
+        var run = FormProject(
+            "Private Function Fn() As String\r\n"
+          + "    Fn = \"result\"\r\n"
+          + "    Text1.Text = \"x\"\r\n"
+          + "End Function\r\n"
+          + "\r\n"
+          + "Private Sub Command1_Click()\r\n"
+          + "    Debug.Print \"got \" & Fn()\r\n"
+          + "End Sub\r\n"
+          + "\r\n"
+          + change,
+            FormWithButtonAndTextBox);
+        var printed = Printed(out var sink);
+        VBDebugConsole.Output += sink;
+        try
+        {
+            var window = Start(run, printed);
+
+            Click(window);
+
+            printed.Should().NotContain("got result", "the caller must stop with the event its callee raised");
+            if (end)
+                run.RunFailed.Should().BeEmpty("ending is not an error");
+            else
+                run.RunFailed.Should().ContainSingle().Which.Should().Contain("GoSub");
+            AssertNothingIsRunning(run);
+        }
+        finally
+        {
+            VBDebugConsole.Output -= sink;
+            run.Runner.EndProject();
+        }
+    }
+
     [AvaloniaFact]
     public void A_property_set_in_the_Immediate_window_while_paused_leaves_the_run_paused()
     {

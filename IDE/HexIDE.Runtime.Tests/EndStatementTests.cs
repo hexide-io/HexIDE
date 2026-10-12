@@ -8,6 +8,11 @@ namespace HexIDE.Runtime.Tests;
 /// Class_Terminate runs, for an object held at module, form or procedure level. These pin the interpreter's half;
 /// the End section of RunFaultTests pins what the IDE does with the run.
 /// </summary>
+/// <remarks>
+/// End unwinds the walk that reached it by throwing, so a test of that walk alone cannot tell whether anything else
+/// stops it. Each check that stops some OTHER walk has a test of its own below, in which only that check stands
+/// between End and a statement that would otherwise run.
+/// </remarks>
 public class EndStatementTests : BaseVBTestFixture
 {
     private const string Ob =
@@ -52,9 +57,9 @@ public class EndStatementTests : BaseVBTestFixture
     }
 
     [Fact]
-    public async Task No_Class_Terminate_runs_after_End()
+    public async Task Without_End_leaving_a_procedure_terminates_its_local()
     {
-        // The control: leaving the procedure releases its local, which terminates it.
+        // The control for the next test: leaving the procedure releases its local, which terminates it.
         await RunClasses(
             "Sub Use()\nDim local As Ob\nSet local = New Ob\nlocal.Id = \"local\"\nEnd Sub\nUse\nDebug.Print \"done\"\n",
             ("Ob", Ob));
@@ -64,7 +69,8 @@ public class EndStatementTests : BaseVBTestFixture
     [Fact]
     public async Task End_runs_no_Class_Terminate_for_a_module_level_or_a_local_object()
     {
-        debug.Clear();
+        // What stops the local's Class_Terminate here is the statement gate, at its first statement; the guard that
+        // keeps it from being entered at all is pinned by After_End_releasing_an_object_never_enters_its_Class_Terminate.
         await RunClasses(
             "Dim held As Ob\n" +
             "Sub Quit()\nDim local As Ob\nSet local = New Ob\nlocal.Id = \"local\"\nEnd\nEnd Sub\n" +
@@ -75,7 +81,7 @@ public class EndStatementTests : BaseVBTestFixture
     }
 
     [Fact]
-    public async Task After_End_the_program_starts_nothing_again_and_says_it_ended()
+    public async Task After_End_a_procedure_started_later_runs_none_of_its_statements_and_the_host_is_told_once()
     {
         // A Timer tick or a click queued behind the statement that reached End finds the program over.
         var vb = new BasicInterpreter(new StdLib(debug), context, rootEnv,
@@ -103,15 +109,19 @@ public class EndStatementTests : BaseVBTestFixture
         AssertDebugLog([]);
     }
 
-    [Fact]
-    public async Task A_procedure_waiting_on_a_MsgBox_when_another_reaches_End_does_not_carry_on()
+    // A walk suspended on a dialog when another reaches End must not run its next statement when the dialog
+    // answers. With no debugger attached, the interpreter's own Ending flag is all that can stop it, and each
+    // place a statement can come next is checked separately: a procedure's top level, a nested block, and the
+    // statements joined to a single-line If, which have no gate of their own.
+    [Theory]
+    [InlineData("MsgBox \"sure?\"\nDebug.Print \"after the dialog\"\n")]
+    [InlineData("If True Then\nMsgBox \"sure?\"\nDebug.Print \"after the dialog\"\nEnd If\n")]
+    [InlineData("If True Then MsgBox \"sure?\": Debug.Print \"after the dialog\"\n")]
+    public async Task A_procedure_waiting_on_a_MsgBox_when_another_reaches_End_does_not_carry_on(string body)
     {
-        // Two walks of one interpreter: the first is suspended on a dialog when a second procedure reaches End.
-        // When the dialog answers, the first must find the program over rather than run its next statement. With
-        // no debugger attached, the interpreter's own Ending flag is all that can stop it.
         var dialog = new TaskCompletionSource<HexIDE.IDE.MessageBoxResult>();
         var vb = new BasicInterpreter(new StdLib(debug, () => dialog.Task), context, rootEnv,
-            "Sub Ask()\nMsgBox \"sure?\"\nDebug.Print \"after the dialog\"\nEnd Sub\n" +
+            "Sub Ask()\n" + body + "End Sub\n" +
             "Sub Quit()\nEnd\nEnd Sub\n");
         await vb.Execute();
 
@@ -121,6 +131,39 @@ public class EndStatementTests : BaseVBTestFixture
         dialog.SetResult(HexIDE.IDE.MessageBoxResult.Ok);
         await asking;
 
+        AssertDebugLog([]);
+    }
+
+    [Fact]
+    public async Task After_End_a_breakpoint_on_a_later_statement_is_never_hit()
+    {
+        // The Ending check comes before the debugger's gate. After it, a breakpoint on a statement that would have
+        // run broke into the debugger after the program had ended.
+        var (vb, dbg) = NewDebuggable("Sub Later()\nDebug.Print \"later\"\nEnd Sub\nEnd\n", "M");
+        dbg.SetBreakpoints("M", new[] { 2 });
+        await vb.Execute().Guarded();
+
+        await vb.ExecuteSub("Later").Guarded();
+
+        dbg.State.Should().Be(HexIDE.Runtime.Debugging.DebugState.Running, "nothing broke into the debugger");
+        AssertDebugLog([]);
+    }
+
+    [Fact]
+    public async Task After_End_releasing_an_object_never_enters_its_Class_Terminate()
+    {
+        // The statement gate would stop Class_Terminate's body at its first statement anyway, so no output can
+        // show this guard. What it does is keep the procedure from being entered at all, as VB6 runs none: the
+        // object is never marked terminated, and nothing is thrown out of the release.
+        var vb = new BasicInterpreter(new StdLib(debug), context, rootEnv,
+            "Sub Quit()\nEnd\nEnd Sub\n", "Module1", null, [("Ob", Ob)]);
+        await vb.Execute();
+        var instance = await vb.NewObject("Ob");
+        await vb.ExecuteSub("Quit");
+
+        await vb.FireTerminate(instance);
+
+        instance.Terminated.Should().BeFalse();
         AssertDebugLog([]);
     }
 

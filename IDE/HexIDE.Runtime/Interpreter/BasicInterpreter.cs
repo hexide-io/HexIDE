@@ -48,7 +48,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     /// <summary>
     /// Set by <c>End</c>, and never cleared: the program is over. Every walk of this interpreter stops at its next
-    /// statement, nothing starts on it again, and no <c>Class_Terminate</c> runs (#775).
+    /// statement, a procedure started later (a Timer tick or a click already queued) runs none of its own, and no
+    /// <c>Class_Terminate</c> runs (#775).
     /// </summary>
     /// <remarks>
     /// Checked here as well as through the debugger's abort, because a host with no debugger (a test, the Standalone
@@ -602,9 +603,6 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     // args or none). Enters at the primary (form) module's scope. Delegates to CallProcedure; return discarded.
     public async Task ExecuteSub(string name, List<Vb6Value>? args = null, bool ignoreMissing = false)
     {
-        // After End nothing starts again: a Timer tick or a click already queued finds the program over.
-        if (Ending)
-            return;
         var callArgs = new List<CallArg>();
         if (args != null)
             foreach (var value in args)
@@ -751,6 +749,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             if (!completed && proc.IsFunction && ExecutionContext.TryGetVariable(callee, proc.Name, out var orphan))
                 await ReleaseRef(orphan);
         }
+        // A procedure whose last statement raised an event that reached End, or faulted, has no statement left for
+        // a gate to stop: the event's boundary took the unwind as a clean stop, so the statement simply returned.
+        // Without this the caller went on with the result: `Debug.Print "got " & Fn()` printed after End (#775),
+        // and after a fault that had ended the run (#762).
+        if (Ending || DebugController?.IsAborting == true)
+            throw new Debugging.StopExecutionSignal();
         // Transfer the return object's hold to the CALLER's current statement frame (flushed at the caller's
         // statement end): a discarded result terminates then, an assigned one is out-lived by the store's AddRef.
         AdoptReturn(ret, callerFrames);

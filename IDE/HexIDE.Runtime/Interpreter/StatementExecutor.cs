@@ -272,14 +272,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // Debugger pause-gate (before the temp-frame push, so a suspended break / reset never parks a
             // half-open frame). Null controller ⇒ skipped entirely (zero overhead headless/tests).
             currentLine = stmt.Start.Line;   // track for the Call Stack (this frame's current line)
+            // After End nothing more runs, with or without a debugger (#775). Ahead of the debugger's gate, so a
+            // breakpoint on a statement that would run after End is never hit.
+            if (interpreter.Ending)
+                throw new Debugging.StopExecutionSignal();
             if (interpreter.DebugController is { } dbg)
             {
                 _suspendedAtTopLevel = false;   // a pause here is inside a nested block — Set Next Statement is refused
                 await dbg.OnStatementAsync(currentLine, currentModule.Name, this);
             }
-            // After End nothing more runs, with or without a debugger (#775). After the gate, which may have yielded.
-            if (interpreter.Ending)
-                throw new Debugging.StopExecutionSignal();
 
             ControlFlow ret;
             try
@@ -2019,14 +2020,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // Debugger pause-gate (before the temp-frame push). Sees every top-level statement; a StopExecutionSignal
             // it raises falls through all four catches below (none match) and unwinds via RunProcedure's finally.
             currentLine = stmts[pc].Start.Line;   // track for the Call Stack
+            // After End nothing more runs, with or without a debugger (#775). Ahead of the debugger's gate, so a
+            // breakpoint on a statement that would run after End is never hit.
+            if (interpreter.Ending)
+                throw new Debugging.StopExecutionSignal();
             if (interpreter.DebugController is { } dbg)
             {
                 _suspendedAtTopLevel = true;   // a pause here is at a top-level statement — Set Next Statement is valid
                 await dbg.OnStatementAsync(currentLine, currentModule.Name, this);
             }
-            // After End nothing more runs, with or without a debugger (#775). After the gate, which may have yielded.
-            if (interpreter.Ending)
-                throw new Debugging.StopExecutionSignal();
             // Set Next Statement (P7b): apply a pc repoint requested while paused at this top-level gate, so the
             // resumed walk executes from the target instead of the paused statement.
             if (_setNextTargetPc is { } snt) { pc = snt; _setNextTargetPc = null; currentLine = stmts[pc].Start.Line; }
