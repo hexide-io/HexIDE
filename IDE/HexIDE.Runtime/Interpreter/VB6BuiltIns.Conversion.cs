@@ -72,7 +72,9 @@ public partial class VB6BuiltIns
             return;
         if (v.Value is null)
             throw new VBRunTimeException(VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
-        ObjectAsValue.Refuse(v, null);
+        v = ObjectAsValue.Scalar(v, null);
+        if (v.Type != VT.Object && v.Type != VT.Control && v.Type != VT.CSharpProxyObject)
+            return;
         if (v.Type == VT.Object)
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         throw new NotImplementedException(

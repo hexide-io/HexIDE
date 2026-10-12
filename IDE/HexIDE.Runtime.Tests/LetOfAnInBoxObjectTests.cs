@@ -5,22 +5,29 @@ using HexIDE.Runtime.Interpreter;
 namespace HexIDE.Runtime.Tests;
 
 /// <summary>
-/// An in-box object on the right of a Let, like a control, stands for its default member in VB6 (<c>n = Err</c> reads
-/// Err.Number, per the documentation; not measured). HexIDE has no default members yet (#790), so a Let of one is
-/// refused rather than storing the reference. The controls' half is in
-/// <c>HexIDE.Integration.Tests</c> <c>LetOfAReferenceTests</c>, which needs a form.
+/// An in-box object on the right of a Let stands for its default member in VB6. Measured (#840's review, native and in
+/// the IDE): <c>n = Err</c> stores Err.Number, and App, which has no default member, raises 438 (ObjectAsValue). A
+/// control does the same, and is #790's: its half is in <c>HexIDE.Integration.Tests</c> <c>LetOfAReferenceTests</c>,
+/// which needs a form.
 /// </summary>
 public class LetOfAnInBoxObjectTests : BaseVBTestFixture
 {
     [Theory]
-    [InlineData("x = Err")]
-    [InlineData("Dim n As Long\nn = Err")]
-    [InlineData("Dim s As String\ns = App")]
-    public async Task A_Let_of_an_in_box_object_is_refused_until_default_members_are_implemented(string code)
+    [InlineData("x = Err\nDebug.Print x")]
+    [InlineData("Dim n As Long\nn = Err\nDebug.Print n")]
+    public async Task A_Let_of_Err_stores_its_Number(string code)
     {
-        Func<Task> act = () => Run("On Error Resume Next\n" + code + "\n");
+        await Run("On Error Resume Next\nErr.Raise 11\n" + code + "\n");
 
-        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Contain("#790");
+        AssertDebugLog([new Vb6Value(11L)]);
+    }
+
+    [Fact]
+    public async Task A_Let_of_App_raises_438()
+    {
+        await Run("Dim s As String\ns = \"pre\"\nOn Error Resume Next\ns = App\nDebug.Print Err.Number\nDebug.Print s\n");
+
+        AssertDebugLog([new Vb6Value(438L), new Vb6Value("pre")]);
     }
 
     [Fact]

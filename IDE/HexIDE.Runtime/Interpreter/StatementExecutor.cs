@@ -114,7 +114,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // adopted into / terminated by the PAUSED statement's frame.
             var evaluator = new ExpressionExecutor(interpreter, currentEnv, currentModule, withTargets);
             var result = await evaluator.EvaluateValue(tree);
-            return FormatEvalResult(result);
+            return FormatEvalResult(ImmediateValue(result));
         }
         catch (Debugging.ImmediateEvalException ex) { return ex.Message; }        // user-call / New rejection
         catch (VBRunTimeException ex) { return FlattenError(ex.Message); }        // VB6 runtime error (e.g. Error 91)
@@ -242,6 +242,19 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // Format an Immediate result the VB6 way where it's cheap: strings verbatim, True/False, numbers; Nothing/Empty/
     // Null explicitly; objects/arrays/UDTs/controls by their type name (VB6 `?obj` without a default property is an
     // error, so a type name is a sane, non-crashing approximation rather than the raw CLR type).
+    /// <summary>
+    /// What <c>? x</c> prints for an object: its default member, as Print does everywhere. Reading a class's is a call
+    /// into the program, refused here as D15 refuses <c>? obj.Prop</c>; one with none is 438, and Err is its Number
+    /// (ObjectAsValue). A control, a control array and Nothing print as they did.
+    /// </summary>
+    private static Vb6Value ImmediateValue(Vb6Value v) => v.Value switch
+    {
+        VbObject obj when obj.ClassDef.PrePass.DeclaresDefaultMember => throw new Debugging.ImmediateEvalException(
+            "Reading an object's default member calls into the program, which is not available in the Immediate window."),
+        VbObject or VbErr or VbApp => ObjectAsValue.Scalar(v, null),
+        _ => v,
+    };
+
     private static string FormatEvalResult(Vb6Value v)
     {
         if (v.Type == Vb6Value.ValueType.Null) return "Null";
@@ -387,8 +400,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // (bad/empty/nonexistent path, incl. a coerced number that isn't a real path) is Path Not Found (76) —
         // oracle-verified: valid→ok, bad→76, `ChDir 5`→76, `ChDir ""`→76. (VB6 changes the current dir without
         // changing the default DRIVE — .NET CurrentDirectory changes both; a minor, documented divergence.)
-        var dir = await expressionExecutor.EvaluateValue(context.valueStmt());
-        var path = dir.Value?.ToString() ?? "";
+        var path = VbDisplay.ToText(await expressionExecutor.EvaluateScalar(context.valueStmt()));
         try { Environment.CurrentDirectory = path; }
         catch (Exception ex) when (ex is System.IO.DirectoryNotFoundException or System.IO.FileNotFoundException or ArgumentException or System.IO.IOException)
         { throw new VBRunTimeException(context, VBStandardError.PathNotFound); }
@@ -401,8 +413,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // `ChDrive ""`→no-op, `ChDrive "C"`→ok, a non-drive-letter first char (e.g. `ChDrive 5`→'5')→Invalid
         // Procedure Call (5), a valid letter whose drive is unavailable (`ChDrive "Q"`)→Device Unavailable (68).
         // (The old code stored the bare arg as a relative path — always broke.)
-        var drive = await expressionExecutor.EvaluateValue(context.valueStmt());
-        var s = drive.Value?.ToString() ?? "";
+        var s = VbDisplay.ToText(await expressionExecutor.EvaluateScalar(context.valueStmt()));
         if (s.Length == 0)
             return ControlFlow.Nothing;                         // no-op, not an error
         var c = char.ToUpperInvariant(s[0]);
@@ -586,7 +597,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     public override async Task<ControlFlow> VisitErrorStmt(VB6Parser.ErrorStmtContext context)
     {
         // Legacy `Error n` statement — equivalent to Err.Raise n.
-        var number = await expressionExecutor.EvaluateValue(context.valueStmt());
+        var number = await expressionExecutor.EvaluateScalar(context.valueStmt());
         if (!Vb6Value.TryNumericToDouble(number, out var d))
             throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
         interpreter.Err.Raise((long)d);
@@ -871,7 +882,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         // A Let of an object stores its default member's value, into a Variant as readily as into a Long (measured): a
         // class instance is refused or 438 (ObjectAsValue). `Nothing` stays 438.
-        ObjectAsValue.Refuse(value, context);
+        value = ObjectAsValue.Scalar(value, context);
         if (value.Type == Vb6Value.ValueType.Object)
             throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
 
@@ -1020,8 +1031,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 var targetName = midArgs[0].valueStmt().GetText();
                 if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, targetName, out var midTarget))
                     throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Variable " + targetName + " is not declared");
-                var startVal = await expressionExecutor.EvaluateValue(midArgs[1].valueStmt());
-                Vb6Value? lenVal = midArgs.Length >= 3 ? (Vb6Value?)await expressionExecutor.EvaluateValue(midArgs[2].valueStmt()) : null;
+                var startVal = await expressionExecutor.EvaluateScalar(midArgs[1].valueStmt());
+                Vb6Value? lenVal = midArgs.Length >= 3 ? (Vb6Value?)await expressionExecutor.EvaluateScalar(midArgs[2].valueStmt()) : null;
                 interpreter.ExecutionContext.TryUpdateVariable(currentEnv, targetName,
                     VB6BuiltIns.MidStatementReplace(midTarget, startVal, lenVal, value));
                 return default;
@@ -1213,7 +1224,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         double? seed = null;
         if (context.valueStmt() is { } vs)
         {
-            var v = await expressionExecutor.EvaluateValue(vs);
+            var v = await expressionExecutor.EvaluateScalar(vs);
             seed = Vb6Value.TryNumericToDouble(v, out var d) ? d : 0;
         }
         interpreter.BuiltIns.Reseed(seed);
@@ -1331,14 +1342,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     }
                     else if (subCond is VB6Parser.CaseCondExprValueContext caseCondExpr)
                     {
-                        var val = await expressionExecutor.EvaluateValue(caseCondExpr.valueStmt());
+                        var val = await expressionExecutor.EvaluateScalar(caseCondExpr.valueStmt());
                         if (CaseMatches(value, val, caseCondExpr))
                             return await RunCaseBody(@case);
                     }
                     else if (subCond is VB6Parser.CaseCondExprToContext caseTo)
                     {
-                        var from = await expressionExecutor.EvaluateValue(caseTo.valueStmt(0));
-                        var to = await expressionExecutor.EvaluateValue(caseTo.valueStmt(1));
+                        var from = await expressionExecutor.EvaluateScalar(caseTo.valueStmt(0));
+                        var to = await expressionExecutor.EvaluateScalar(caseTo.valueStmt(1));
                         if (value.TryCompareTo(from) is >= 0 && value.TryCompareTo(to) is <= 0)
                         {
                             return await RunCaseBody(@case);

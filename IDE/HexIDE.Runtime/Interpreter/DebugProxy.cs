@@ -20,8 +20,8 @@ public class DebugProxy(IBasicStandardLibrary stdLib) : ICSharpProxy
         {
             // An object prints its default member, and one with none is 438 (ObjectAsValue). Refused here, in the run,
             // rather than when the host formats the line, which is outside it.
-            foreach (var arg in args)
-                ObjectAsValue.Refuse(arg, null);
+            for (var i = 0; i < args.Count; i++)
+                args[i] = ObjectAsValue.Scalar(args[i], null);
             // args[0] preserves the typed value (so tests keep asserting on the real Vb6Value);
             // a bare `Debug.Print` with no argument prints a blank line.
             stdLib.DebugPrint(args.Count > 0 ? args[0] : new Vb6Value(""));

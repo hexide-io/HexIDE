@@ -46,7 +46,7 @@ public class ObjectAsValueTests : BaseVBTestFixture
         "c = ByValLong(o)",
         "c = ByValString(o)",
         "Select Case o\nCase 42\nc = 1\nEnd Select",
-        "Dim i As Long\nFor i = 40 To o\nc = i\nNext",
+        "Dim i As Long\nFor i = 40 To o\nNext",   // no assignment in the body: #839 decides whether it runs
         "Debug.Print o",
     };
 
@@ -143,10 +143,10 @@ public class ObjectAsValueTests : BaseVBTestFixture
     public async Task A_built_in_that_asks_what_a_value_is_still_takes_the_object(string cls)
     {
         await RunClasses(
-            $"Dim o As {cls}\nSet o = New {cls}\nDebug.Print TypeName(o)\nDebug.Print IsObject(o)\nDebug.Print IsEmpty(o)\n",
+            $"Dim o As {cls}\nSet o = New {cls}\nDebug.Print TypeName(o)\nDebug.Print IsObject(o)\n",
             ("Widget", Widget), ("Plain", Plain));
 
-        AssertDebugLog([new Vb6Value(cls), new Vb6Value(true), new Vb6Value(false)]);
+        AssertDebugLog([new Vb6Value(cls), new Vb6Value(true)]);
     }
 
     [Fact]
@@ -157,5 +157,142 @@ public class ObjectAsValueTests : BaseVBTestFixture
             ("Widget", Widget));
 
         AssertDebugLog([new Vb6Value(true), new Vb6Value(true)]);
+    }
+
+    // ---- From #840's review: the routes that still read an object as a value, each measured on vb6.exe, native and in
+    // ---- the IDE (docs/vb6-fidelity-oracle.md, "An object used as a value").
+
+    private Task RunPrinting(string cls, string use) => RunClasses(
+        $"Dim o As {cls}\nSet o = New {cls}\nDim c\nOn Error Resume Next\n{use}\nDebug.Print Err.Number\n" + Helpers,
+        ("Widget", Widget), ("Plain", Plain));
+
+    // Every one of these reads the default member in VB6: 42 for a Widget, 438 for a Plain.
+    public static TheoryData<string> FoundInReview => new()
+    {
+        "If False Then\nc = 0\nElseIf o Then\nc = 1\nEnd If",
+        "Select Case 42\nCase Is = o\nc = 1\nEnd Select",
+        "Select Case 42\nCase 40 To o\nc = 1\nEnd Select",
+        "Select Case 42\nCase o To 50\nc = 1\nEnd Select",
+        "Select Case Empty\nCase o\nc = 1\nEnd Select",
+        "Select Case Null\nCase o\nc = 1\nEnd Select",
+        "Dim i As Long\nFor i = o To 50\nNext",
+        "Dim i As Long\nFor i = 1 To 3 Step o\nNext",
+        "Do\nc = 1\nLoop While o",
+        "Do\nc = 1\nLoop Until o",
+        "Randomize o",
+        "Err.Raise o",
+        "Error o",
+        "ChDir o",
+        "ChDrive o",
+        "Dim s As String\ns = \"abcdef\"\nMid(s, o, 1) = \"X\"",
+        "Dim s As String\ns = \"abcdef\"\nMid(s, 2, o) = \"X\"",
+        "Dim m(1 To 3, 5 To 9)\nc = UBound(m, o)",
+        "Dim m(1 To 3, 5 To 9)\nc = LBound(m, o)",
+        "c = Split(\"a,b,c\", \",\", o)",
+        "c = Split(o)",
+        "Dim a(1) As String\nc = Join(a, o)",
+        "Dim a(1) As String\nc = Filter(a, \"a\", o)",
+        "c = MsgBox(o)",
+    };
+
+    [Theory]
+    [MemberData(nameof(FoundInReview))]
+    public async Task A_class_with_a_default_member_is_refused_here_too(string use)
+    {
+        var run = () => RunPrinting("Widget", use);
+
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*Widget*#174*");
+    }
+
+    [Theory]
+    [MemberData(nameof(FoundInReview))]
+    public async Task A_class_with_no_default_member_raises_438_here_too(string use)
+    {
+        // Only the error is asserted: where a Case test raises, #839 decides what runs next.
+        await RunPrinting("Plain", use);
+
+        AssertDebugLog([new Vb6Value(438L)]);
+    }
+
+    [Theory]
+    [InlineData("c = Frobnicate(o)")]                 // neither a built-in nor a procedure
+    [InlineData("c = CallByName(o, \"Tag\", 2)")]    // a built-in HexIDE does not have
+    public async Task A_name_that_is_no_built_in_is_still_reported_when_given_an_object(string use)
+    {
+        // The refusal used to run before the lookup, so each was a trappable 438 that Resume Next stepped over.
+        var run = () => RunPrinting("Plain", use);
+
+        await run.Should().ThrowAsync<VBCompileErrorException>();
+    }
+
+    [Theory]
+    [InlineData("VarType")]
+    [InlineData("IsNumeric")]
+    [InlineData("IsEmpty")]
+    [InlineData("IsNull")]
+    [InlineData("IsDate")]
+    [InlineData("IsError")]
+    [InlineData("IsArray")]
+    public async Task VarType_and_the_Is_functions_read_a_default_member(string function)
+    {
+        // Measured: VarType(w) is 3, IsNumeric(w) True, and IsEmpty of a class whose member returns Empty is True.
+        var run = () => RunPrinting("Widget", $"c = {function}(o)");
+
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#174*");
+    }
+
+    [Theory]
+    [InlineData("VarType", "9")]
+    [InlineData("IsNumeric", "False")]
+    [InlineData("IsEmpty", "False")]
+    [InlineData("IsNull", "False")]
+    [InlineData("IsDate", "False")]
+    [InlineData("IsError", "False")]
+    [InlineData("IsArray", "False")]
+    public async Task VarType_and_the_Is_functions_answer_about_an_object_with_no_default_member(string function, string expected)
+    {
+        await RunPrinting("Plain", $"Debug.Print CStr({function}(o))");
+
+        AssertDebugLog([new Vb6Value(expected), new Vb6Value(0L)]);
+    }
+
+    [Fact]
+    public async Task Err_used_as_a_value_is_its_Number()
+    {
+        await Run("""
+            Dim x As Long
+            On Error Resume Next
+            Err.Raise 11
+            Debug.Print "v=" & Err
+            x = Err
+            Debug.Print CStr(x)
+            Debug.Print CStr(Err + 1)
+            Debug.Print CStr(Err)
+            Debug.Print CStr(VarType(Err))
+            Debug.Print Err
+            Err.Clear
+            Debug.Print "v=" & Err
+            """);
+
+        // `If Err Then` is measured too, and needs a condition that is not a Boolean, which is #839's.
+        AssertDebugLog([new Vb6Value("v=11"), new Vb6Value("11"), new Vb6Value("12"), new Vb6Value("11"), new Vb6Value("3"),
+            new Vb6Value(11L), new Vb6Value("v=0")]);
+    }
+
+    [Fact]
+    public async Task App_used_as_a_value_raises_438()
+    {
+        // Measured for App, Screen and Clipboard: none has a default member.
+        await Run("Dim c\nOn Error Resume Next\nc = \"v=\" & App\nDebug.Print Err.Number\nDebug.Print IsEmpty(c)\n");
+
+        AssertDebugLog([new Vb6Value(438L), new Vb6Value(true)]);
+    }
+
+    [Fact]
+    public async Task Debug_used_as_a_value_is_the_compile_error_VB6_gives()
+    {
+        var run = () => Run("Dim c\nOn Error Resume Next\nc = \"v=\" & Debug\n");
+
+        await run.Should().ThrowAsync<VBCompileErrorException>();
     }
 }

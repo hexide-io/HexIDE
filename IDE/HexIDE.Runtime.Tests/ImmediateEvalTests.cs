@@ -50,6 +50,30 @@ public class ImmediateEvalTests : BaseVBTestFixture
     }
 
     [Fact]
+    public async Task Evaluate_an_object_prints_its_default_member_or_says_why_not()
+    {
+        // `? w` prints w's default member in VB6. Reading a class's calls into the program, which break mode refuses as it
+        // refuses `?obj.Prop` (D15); a class with none is 438, and Err is its Number. It used to print the class's name.
+        var (vb, dbg) = NewDebuggable(
+            "Go\nSub Go()\nDim w As Widget\nSet w = New Widget\nDim k As Plain\nSet k = New Plain\nDebug.Print 1\nEnd Sub\n",
+            "Module1",
+            ("Widget", "Public Function Value() As Long\nAttribute Value.VB_UserMemId = 0\n    Value = 42\nEnd Function\n"),
+            ("Plain", "Public Tag As Long\n"));
+        dbg.SetBreakpoints("Module1", new[] { 7 });
+        var stop = NextStop(dbg);
+        var run = vb.Execute();
+        await stop.Guarded();
+
+        (await dbg.EvaluateAsync("?w")).Should().Contain("Immediate");
+        (await dbg.EvaluateAsync("?k")).Should().Contain("438");
+        (await dbg.EvaluateAsync("?Err")).Should().Be("0");
+        (await dbg.EvaluateAsync("?TypeName(w)")).Should().Be("Widget");
+
+        dbg.Stop();
+        await run.Guarded();
+    }
+
+    [Fact]
     public async Task Evaluate_UserProcedureCall_IsRejected()
     {
         var (_, dbg, run) = await BreakWithLocals();
@@ -87,7 +111,7 @@ public class ImmediateEvalTests : BaseVBTestFixture
         await stop.Guarded();
 
         (await dbg.EvaluateAsync("?s.Health")).Should().Be("100");                  // field read — not a call
-        (await dbg.EvaluateAsync("?s")).Should().Be("Ship");                        // object -> class name
+        (await dbg.EvaluateAsync("?s")).Should().Contain("438");                    // no default member: 438, as in VB6
         (await dbg.EvaluateAsync("?s.Hit()")).Should().Contain("Immediate");        // instance METHOD call rejected
         (await dbg.EvaluateAsync("?s.HalfHealth")).Should().Contain("Immediate");   // PROPERTY GET rejected
         (await dbg.EvaluateAsync("?New Ship")).Should().Contain("Immediate");       // NEW rejected

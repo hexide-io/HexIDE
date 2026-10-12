@@ -41,9 +41,9 @@ public static class VbDisplay
     public static string ToText(Vb6Value value, CultureInfo culture) => value.Value switch
     {
         null => "",
-        // An object stands for its default member, and one with none is 438 (ObjectAsValue). Its CLR type name, which
-        // the last arm gave, is never right (#436).
-        VbObject => RefuseObject(value),
+        // An object stands for its default member: Err its Number, and one with none is 438 (ObjectAsValue). Its CLR
+        // type name, which the last arm gave, is never right (#436).
+        VbObject or ICSharpProxy => ToText(ObjectAsValue.Scalar(value, null), culture),
         string s => s,
         float f => Floating(f, 7, culture),
         double d => Floating(d, 15, culture),
@@ -53,12 +53,6 @@ public static class VbDisplay
         byte or short or int or long => ((IFormattable)value.Value).ToString(null, CultureInfo.InvariantCulture),
         _ => value.Value.ToString() ?? "",
     };
-
-    private static string RefuseObject(Vb6Value value)
-    {
-        ObjectAsValue.Refuse(value, null);
-        return "";   // not reached: Refuse throws for every class instance
-    }
 
     /// <summary>
     /// A Single (7 significant digits) or a Double (15). Rounded half away from zero: measured on a tie each way

@@ -990,11 +990,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     // A UDT arg is deep-copied so the callee's mutations don't touch the caller's value. An object
                     // passed to a declared scalar parameter stands for its default member (ObjectAsValue); a Variant
                     // or object parameter takes the object itself (measured).
-                    if (p.DeclaredType is { } declared && VbNumeric.IsDeclarableScalar(declared))
-                        ObjectAsValue.Refuse(arg.Value, proc.Body as Antlr4.Runtime.ParserRuleContext);
+                    var passed = p.DeclaredType is { } declared && VbNumeric.IsDeclarableScalar(declared)
+                        ? ObjectAsValue.Scalar(arg.Value, proc.Body as Antlr4.Runtime.ParserRuleContext)
+                        : arg.Value;
                     var stored = p.DeclaredType is { } dt && VbNumeric.IsCoreNumeric(dt) && proc.Body is { } body
-                        ? VbNumeric.Narrow(arg.Value, dt, body)
-                        : CopyIfValueType(arg.Value);
+                        ? VbNumeric.Narrow(passed, dt, body)
+                        : CopyIfValueType(passed);
                     ExecutionContext.AllocVariable(callee, p.Name, stored);
                     // A ByVal object param is a counted hold for the call's duration (so a `New T` passed straight
                     // into a call terminates right after the call, per the oracle); release it at scope-exit.

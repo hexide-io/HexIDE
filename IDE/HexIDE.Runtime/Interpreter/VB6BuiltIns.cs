@@ -48,30 +48,54 @@ public partial class VB6BuiltIns
 
     public async Task<Vb6Value?> EvaluateBuiltInFunction(string name, List<Vb6Value> args)
     {
-        // A built-in given an object takes its default member, as every other value use does (measured for Left, InStr,
-        // Chr, Len, UCase, CDate, the conversions and more), and raises 438 for an object with none, which every one
-        // measured did. Only the functions that look at what a value is, rather than use it, take the object itself.
-        if (!InspectsItsArgument.Contains(name))
-            foreach (var arg in args)
-                ObjectAsValue.Refuse(arg, null);
+        // An unknown name is not a built-in, and its callers say so loudly ("Sub or Function not defined", or not
+        // implemented). Found first, so that an object argument cannot turn that into a trappable 438.
+        BuiltinFn? fn = null;
+        var isAsync = string.Equals(name, "msgbox", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "inputbox", StringComparison.OrdinalIgnoreCase);
+        if (!isAsync && !Builtins.TryGetValue(name, out fn))
+            return null;
+
+        for (var i = 0; i < args.Count; i++)
+            args[i] = ArgumentAsUsed(name, i, args[i]);
 
         // The two async builtins await the standard library; every other builtin is in the sync registry.
         if (string.Equals(name, "msgbox", StringComparison.OrdinalIgnoreCase))
             return await MsgBox(args);
         if (string.Equals(name, "inputbox", StringComparison.OrdinalIgnoreCase))
             return await InputBox(args);
-        return Builtins.TryGetValue(name, out var fn) ? fn(this, args, null) : (Vb6Value?)null;
+        return fn!(this, args, null);
     }
 
     /// <summary>
-    /// The built-ins that take an object as itself: they ask what a value is (<c>TypeName</c>, <c>VarType</c>, the
-    /// <c>Is</c> family) or treat it as an element or an array. Every other built-in wants a value.
+    /// A built-in's argument as that function uses it. An object stands for its default member wherever a value is
+    /// wanted (ObjectAsValue), which is almost everywhere: measured for the conversions, the string functions, Split,
+    /// a UBound dimension, a Join delimiter and a Filter switch. The exceptions, all measured:
+    /// <list type="bullet">
+    /// <item><c>TypeName</c>, <c>IsObject</c> and <c>IsMissing</c> ask about the argument itself, and <c>Array</c>
+    /// holds its arguments as elements;</item>
+    /// <item><c>VarType</c> and the Is functions read the default member when there is one, and otherwise answer about
+    /// the object, with no 438;</item>
+    /// <item>the array that <c>LBound</c>, <c>UBound</c>, <c>Join</c> and <c>Filter</c> take first.</item>
+    /// </list>
     /// </summary>
-    private static readonly HashSet<string> InspectsItsArgument = new(StringComparer.OrdinalIgnoreCase)
+    private static Vb6Value ArgumentAsUsed(string name, int index, Vb6Value arg)
     {
-        "TypeName", "VarType", "IsObject", "IsEmpty", "IsNull", "IsMissing", "IsError", "IsArray", "IsNumeric", "IsDate",
-        "Array", "LBound", "UBound", "Join", "Filter", "Split",
-    };
+        if (TakesTheArgumentItself.Contains(name) || (index == 0 && TakesAnArrayFirst.Contains(name)))
+            return arg;
+        if (ReadsADefaultMemberIfAny.Contains(name))
+            return ObjectAsValue.DefaultMemberIfAny(arg);
+        return ObjectAsValue.Scalar(arg, null);
+    }
+
+    private static readonly HashSet<string> TakesTheArgumentItself = new(StringComparer.OrdinalIgnoreCase)
+        { "TypeName", "IsObject", "IsMissing", "Array" };
+
+    private static readonly HashSet<string> ReadsADefaultMemberIfAny = new(StringComparer.OrdinalIgnoreCase)
+        { "VarType", "IsNumeric", "IsEmpty", "IsNull", "IsDate", "IsError", "IsArray" };
+
+    private static readonly HashSet<string> TakesAnArrayFirst = new(StringComparer.OrdinalIgnoreCase)
+        { "LBound", "UBound", "Join", "Filter" };
 
     // ---- Built-in function registry ----
     // Per-group partial files (VB6BuiltIns.Strings.cs, .Math.cs, …) register into this table. It is consulted

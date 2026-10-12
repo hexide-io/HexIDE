@@ -183,9 +183,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// </summary>
     public async Task<Vb6Value> EvaluateScalar(IParseTree arg)
     {
-        var value = await EvaluateValue(arg);
-        ObjectAsValue.Refuse(value, arg as Antlr4.Runtime.ParserRuleContext);
-        return value;
+        return ObjectAsValue.Scalar(await EvaluateValue(arg), arg as Antlr4.Runtime.ParserRuleContext);
     }
 
     /// <summary>
