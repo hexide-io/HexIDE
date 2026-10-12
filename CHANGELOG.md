@@ -20,6 +20,21 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Under On Error Resume Next, a block whose condition or header raises now runs, as VB6's does.** HexIDE skipped
+  the whole statement, so the program carried on down a path VB6 would not take, with no error. VB6 goes on at the
+  first statement inside the block. Measured on vb6.exe, as native code, as p-code and in the IDE:
+  - an If or ElseIf runs the branch whose condition raised;
+  - a Case test runs its own Case;
+  - Do While, Do Until and While run the body, asking again each time round, and a Loop While or Until ends the loop;
+  - With runs its body with no object;
+  - For and For Each run the body once, and then carry on as the IDE does.
+- **A condition is read as VB6 reads it.** `If 5 Then` raised "IF doesn't contain a bool expression", and a one-line
+  `If 0.5 Then` or `Do While 0.5` raised a type mismatch. A number now holds when it is not 0, a string when it reads
+  as True or as such a number, and Null and Empty do not.
+- **For Each over something it cannot walk raises VB6's error.** An unallocated array ran no passes and said nothing;
+  it now raises 92. Nothing raises 424 and any other value 13. Over an object, which HexIDE cannot walk yet, it now
+  says so rather than raising an error On Error Resume Next stepped over. A For with a fractional start, limit or step
+  is refused the same way.
 - **A syntax error when a program starts, or a compile error while it runs, is reported like a run-time error.**
   Each was a message box nothing recorded, so a program that never started was reported to automation as having run
   and ended. Both now appear in the run-time error dialog and are kept for `get_last_runtime_error`, and a syntax
