@@ -664,6 +664,49 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task AStaleAnswerThatIsSlowToPublishDoesNotEndOnScreen()
+    {
+        // The race behind #503. An answer is checked against what has been shown and THEN parsed and published,
+        // so a stale answer that passed its check could still be publishing when the fresh one checked, won and
+        // published, and the stale one then landed last and stayed. The scripted server sends the two answers
+        // back to back, and on a loaded CI runner that interleave happened on its own, failing the test above
+        // at any deadline. Here the stale publication is made slow on purpose, which is the same interleave
+        // every time.
+        var (sut, server) = ClientTalkingToAScriptedServer(stream => new StaleAcrossReopenServer(stream));
+        var published = new List<PublishDiagnosticsParams>();
+        sut.DiagnosticsPublished += (_, p) =>
+        {
+            if (p.Diagnostics.Any(d => d.Message.Contains("before the file was closed")))
+                Thread.Sleep(500);
+            lock (published) published.Add(p);
+        };
+
+        await sut.StartAsync(TestContext.Current.CancellationToken);
+        await sut.OpenDocumentAsync(Uri, "import os\n", TestContext.Current.CancellationToken);
+        await Until(() => server().TimesAsked >= 1, "the client should have asked on open");
+        await sut.ChangeDocumentAsync(Uri, 2, "import os\n\n", TestContext.Current.CancellationToken);
+        await Until(() => server().TimesAsked >= 2, "the client should have asked again after the change");
+        await sut.CloseDocumentAsync(Uri, TestContext.Current.CancellationToken);
+        await sut.OpenDocumentAsync(Uri, "import os\n", TestContext.Current.CancellationToken);
+
+        await Until(() => server().TimesAsked >= 3, "the client should have asked on the reopen");
+        await Until(
+            () =>
+            {
+                lock (published)
+                    return published.Any(p => p.Diagnostics.Any(d => d.Message.Contains("before the file was closed")))
+                        && published.Any(p => p.Diagnostics.Any(d => d.Message.Contains("after it was opened again")));
+            },
+            "both answers should have been published");
+        await Task.Delay(700, TestContext.Current.CancellationToken);   // past the stale publication's delay
+
+        lock (published)
+            published[^1].Diagnostics.Should().Contain(d => d.Message.Contains("after it was opened again"),
+                "the fresh answer was the newer one, so it is what must be left on screen; the publications were: "
+              + string.Join(" | ", published.Select(p => string.Join("; ", p.Diagnostics.Select(d => d.Message)))));
+    }
+
+    [Fact]
     public async Task AServerThatDidNotOfferToAnswerIsNotAsked()
     {
         // Gating must EXCLUDE, or this would pass with a client that asks everybody — and asking a server
@@ -729,11 +772,31 @@ public class PullDiagnosticsReportKindTests : IAsyncDisposable
     /// never happened" is the same message whether the client ignored something or the server fell over —
     /// this is where the second case gets to say so.
     /// </param>
+    /// <remarks>
+    /// <para>
+    /// <b>Thirty seconds, matching every other polling deadline in this suite.</b> It was ten. A generous deadline
+    /// costs a passing run nothing, because this returns the moment the condition holds.
+    /// </para>
+    /// <para>
+    /// <b>A timeout says so, in those words.</b> On expiry the old message rendered as "it settled on: from before
+    /// the file was closed", a verbatim description of the defect these tests guard against, whether the wrong
+    /// answer had won or the right one had simply not arrived. Those want opposite investigations. In #503 it was
+    /// the first after all: a stale answer could publish after a fresh one, which no deadline would have cured
+    /// (see AStaleAnswerThatIsSlowToPublishDoesNotEndOnScreen).
+    /// </para>
+    /// </remarks>
     private static async Task Until(Func<bool> condition, string what, Func<string>? extra = null)
     {
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(10);
+        var limit = TimeSpan.FromSeconds(30);
+        var deadline = DateTime.UtcNow + limit;
         while (!condition() && DateTime.UtcNow < deadline) await Task.Delay(25);
-        condition().Should().BeTrue("{0}", extra is null ? what : $"{what} — {extra()}");
+
+        if (condition()) return;
+
+        var detail = extra is null ? what : $"{what} — {extra()}";
+        throw new TimeoutException(
+            $"Timed out after {limit.TotalSeconds:0}s: {detail}. The state shown is what had been published when time "
+          + "ran out. It is the wrong answer winning only if nothing newer was still on its way.");
     }
 
     [Fact]
