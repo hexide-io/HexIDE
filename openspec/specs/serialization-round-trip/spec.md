@@ -15,9 +15,10 @@ twenty-year-old file format achieves that on the first pass. It is that the IDE 
 cannot reproduce. Preservation where it understands the content, and refusal where it does not.
 
 The text is content in the same sense. VB6 source declares no encoding: it is in the code page of the
-machine that wrote it. So the IDE keeps each file in the encoding it was read in, and refuses an edit that
-encoding cannot hold rather than converting the file. A file in a code page this machine cannot read is
-still loaded, byte for byte, rather than dropped from the project.
+machine that wrote it. So the IDE keeps each source file of a project in the encoding it was read in, and
+refuses an edit that encoding cannot hold rather than converting the file. A file in a code page this machine
+cannot read is still loaded, byte for byte, rather than dropped from the project. A file the project only
+carries is not held to this yet ([#745](https://github.com/hexide-io/HexIDE/issues/745)).
 
 > **Known divergence — this capability is not met today.** The requirements below state the intended
 > contract. Against VB6's own shipped sample projects, no file currently survives a save byte-identically,

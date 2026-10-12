@@ -198,7 +198,7 @@ internal static class ServerOptions
                 // 65001 is refused with the rest: the provider has no table for it, and what VB6 does on a
                 // Windows set to UTF-8 is itself an open question.
                 if (int.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var codePage)
-                    && System.Text.CodePagesEncodingProvider.Instance.GetEncoding(codePage) is not null)
+                    && Vb6TextEncoding.HasTable(codePage))
                     AnsiCodePage = codePage;
                 else
                     AnsiCodePageInvalid = value ?? "";

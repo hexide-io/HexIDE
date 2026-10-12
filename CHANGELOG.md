@@ -125,16 +125,19 @@ there isn't one yet. Anything may change between 0.x releases.
   newer HexIDE wrote into it is kept, even when both had the project open at once. It goes with the project
   when the project is saved somewhere else, is not created by a save with nothing to record, and is left
   untouched when it cannot be read rather than overwritten.
-- **Saving a file no longer changes text you did not edit.** A file whose accented characters happened to
-  read as valid UTF-8 was decoded that way and written back changed, so one ASCII edit could alter an
-  unrelated comment or string. A file now keeps the encoding it was read in, a UTF-8 byte-order mark
-  included. A file an earlier HexIDE saved as UTF-8 still opens as UTF-8.
-- **A source file is read in the machine's own code page, as VB6 reads it.** A file without a byte-order mark
-  was shown as Latin-1, so a Western file's curly quotes and euro sign appeared as control characters, and a
-  Japanese file on a Japanese machine as mojibake. A file that code page cannot read still opens, read byte for
-  byte, and HexIDE now says which files it read that way. Each saves back unchanged.
-- **An edit a file's code page cannot hold is refused, and nothing is written.** Such an edit used to turn the
-  whole file into UTF-8, which VB6 does not read as UTF-8. Now a warning names the file, its code page, the
+- **Saving a VB6 source file no longer changes text you did not edit.** A file whose accented characters
+  happened to read as valid UTF-8 was decoded that way and written back changed, so one ASCII edit could alter
+  an unrelated comment or string. A file now keeps the encoding it was read in, a UTF-8 byte-order mark
+  included. A file an earlier HexIDE saved as UTF-8 still opens as UTF-8. A file the project only carries, such
+  as a README, is not covered yet: its editor still rewrites any byte that is not valid UTF-8 (#745).
+- **On Windows a source file is read in the machine's own code page, as VB6 reads it.** A file without a
+  byte-order mark was shown as Latin-1, so a Western file's curly quotes and euro sign appeared as control
+  characters, and a Japanese file on a Japanese machine as mojibake. A file that code page cannot read still
+  opens, read byte for byte, and HexIDE now says which files it read that way. Each saves back unchanged. On
+  macOS and Linux, which have no such code page, a file is read as Windows-1252, so curly quotes show there too.
+- **An edit a file's code page cannot hold is refused, and nothing is written.** Such an edit used to be written
+  anyway, in bytes VB6 on that machine reads differently. A character beyond Latin-1 turned the whole file into
+  UTF-8, and one within it became its Latin-1 byte. Now a warning names the file, its code page, the
   character, and the line it is in, which matters when the character is in a property or a file name rather than
   the code just typed. A save of several files checks every one before it writes the first, so one such character
   leaves them all as they were. That covers Save Project, Save All, the save offered when a project closes, Make

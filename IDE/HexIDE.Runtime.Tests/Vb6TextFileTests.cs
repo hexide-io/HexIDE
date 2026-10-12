@@ -16,6 +16,21 @@ namespace HexIDE.Runtime.Tests;
 /// </summary>
 public class Vb6TextFileTests
 {
+    /// <summary>
+    /// What <c>--ansi-code-page</c> accepts. 0 is the case that matters: on Windows the provider answers it with
+    /// this machine's table, so a check for any table at all let it through to run as this machine.
+    /// </summary>
+    [Theory]
+    [InlineData(932, true)]
+    [InlineData(1250, true)]
+    [InlineData(0, false)]
+    [InlineData(65001, false)]
+    [InlineData(42, false)]
+    public void Only_a_code_page_with_a_table_of_its_own_can_stand_for_a_machines(int codePage, bool accepted)
+    {
+        Vb6TextEncoding.HasTable(codePage).Should().Be(accepted);
+    }
+
     [Fact]
     public void Western_ANSI_displays_smart_quotes_and_the_euro_sign()
     {

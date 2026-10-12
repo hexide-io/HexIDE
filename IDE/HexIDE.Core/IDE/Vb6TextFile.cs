@@ -40,6 +40,14 @@ public sealed record Vb6TextEncoding(int CodePage, bool Utf8Bom = false)
     public static void SimulateHostCodePage(int codePage) => Ansi = new(codePage);
 #endif
 
+    /// <summary>
+    /// Whether <paramref name="codePage"/> has a table of its own here, as a machine's ANSI code page must. The
+    /// provider answers 0 with this machine's table, so the check is that the table is the one asked for: 0
+    /// accepted would run as this machine. 65001 has none, since .NET has UTF-8 built in.
+    /// </summary>
+    public static bool HasTable(int codePage) =>
+        CodePagesEncodingProvider.Instance.GetEncoding(codePage) is { } table && table.CodePage == codePage;
+
     public static Vb6TextEncoding Utf8 { get; } = new(65001);
     public static Vb6TextEncoding Utf8WithBom { get; } = new(65001, true);
 
