@@ -93,7 +93,9 @@ public partial class VB6BuiltIns
     {
         string s => s,
         bool b => b ? "True" : "False",
-        DateTime dt => dt.ToString(CultureInfo.CurrentCulture),   // General Date
+        // With no mask, a Single, a Double and a Date come out exactly as CStr makes them (measured): 7 or 15
+        // significant digits, E notation where CStr uses it, and a date without a midnight time (#772, #771).
+        float or double or DateTime => VbDisplay.ToText(v),
         _ => GeneralNumber(v),
     };
 

@@ -22,5 +22,5 @@ public static class VBDebugConsole
     // Matches how the interpreter stringifies for '&' concatenation (the boxed CLR value's ToString):
     // strings print verbatim, Boolean as True/False, numbers via invariant ToString. Public so the Immediate
     // window's `?expr` result formats identically to Debug.Print (same buffer, same conventions).
-    public static string Format(Vb6Value value) => value.Value?.ToString() ?? "";
+    public static string Format(Vb6Value value) => VbDisplay.ToText(value);
 }
