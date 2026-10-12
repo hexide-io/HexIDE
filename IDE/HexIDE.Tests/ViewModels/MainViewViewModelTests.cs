@@ -443,6 +443,24 @@ public class MainViewViewModelTests
         _projectService.DidNotReceive().CreateNewProject();
     }
 
+    // --- A compile error met mid-run (#759) ---
+
+    [AvaloniaFact]
+    public void A_compile_error_met_while_a_form_runs_is_recorded_and_shown_as_a_run_time_error_is()
+    {
+        _windowManager.ShowDialog(Arg.Any<IDialog>()).Returns(false);
+
+        // A call to a Sub that does not exist, reached from a click: the compile error a tree-walker meets mid-run.
+        var form = new HexIDE.Runtime.VBWindowContext(Substitute.For<HexIDE.Runtime.Interpreter.IBasicStandardLibrary>());
+        form.SetCode("Private Sub Command1_Click()\n    NoSuchSub\nEnd Sub\n", "Form1");
+        form.ExecuteSub("Command1_Click");
+
+        _sut.RuntimeErrors.Last.Should().NotBeNull("it used to be a message box that nothing recorded");
+        _sut.RuntimeErrors.Last!.Value.Message.Should().Contain("Sub or Function not defined");
+        _windowManager.Received(1).ShowDialog(Arg.Any<HexIDE.Forms.ViewModels.RuntimeErrorViewModel>());
+        _windowManager.DidNotReceiveWithAnyArgs().MessageBox(default!, default, default, default);
+    }
+
     // --- The runtime-error dialog (#600) ---
 
     [AvaloniaTheory]

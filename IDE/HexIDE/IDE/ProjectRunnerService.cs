@@ -165,6 +165,10 @@ public partial class ProjectRunnerService : IProjectRunnerService
             {
                 var tokenSource = new CancellationTokenSource();
 
+                // A syntax error is a start that never became a run, so it is reported as one: recorded, shown in
+                // the run-time error dialog, and answered by run_project as a failure. It was a message box that
+                // nothing recorded, so run_project said the program had run and ended (#759). Checked before the
+                // first await, so StartFailed is raised before the start call returns, as its contract says.
                 var syntaxChecker = new SyntaxChecker();
                 try
                 {
@@ -172,8 +176,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 }
                 catch (VBCompileErrorException error)
                 {
-                    await windowManager.MessageBox(error.Message, icon: MessageBoxIcon.Warning);
-                    throw new OperationCanceledException();
+                    StartFailed?.Invoke(error.Message);
+                    return;
                 }
 
                 // Claimed before anything can execute, not once the task is in hand: a breakpoint on the
@@ -321,6 +325,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
         async Task MainTask()
         {
+            // As on the startup-form path: a syntax error is a start that never became a run (#759).
             var syntaxChecker = new SyntaxChecker();
             foreach (var (_, code) in modules)
             {
@@ -330,7 +335,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 }
                 catch (VBCompileErrorException error)
                 {
-                    await windowManager.MessageBox(error.Message, icon: MessageBoxIcon.Warning);
+                    StartFailed?.Invoke(error.Message);
                     return;
                 }
             }

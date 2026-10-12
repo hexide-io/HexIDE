@@ -807,12 +807,13 @@ public partial class MainViewViewModel : ObservableObject
                 projectRunnerService.EndProject();
         }
 
-        VBWindowContext.CompileError += (form, e) =>
-        {
-            //var line = form.Code.Substring(e.Context.Start.StartIndex, e.Context.Stop.StopIndex - e.Context.Start.StartIndex);
-            //var vm = new RuntimeErrorViewModel(e.Message + "\n\nat " + line);
-            windowManager.MessageBox(e.Message, "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
-        };
+        // A compile error met while a form runs, such as a call to a Sub that does not exist, reached from a click.
+        // Reported as a run-time error is: recorded, so get_last_runtime_error sees it, and shown in the dialog
+        // whose End ends the run. It was a message box nothing recorded (#759). One route for every error a run
+        // meets, rather than VB6's separate compile-error box with OK and Help, because #754 already sends Sub
+        // Main's compile errors through this dialog and two routes would answer the same error differently.
+        // The run carries on, with the handler abandoned, as it does after a run-time error.
+        VBWindowContext.CompileError += (_, e) => ReportRuntimeError(e.Message);
 
         // Route `Debug.Print` output from the running program into the Immediate pane (VB6's Immediate window).
         VBDebugConsole.Output += text =>

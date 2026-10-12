@@ -28,8 +28,9 @@ public interface IProjectRunnerService : INotifyPropertyChanged
     bool IsRunning { get; }
 
     /// <summary>
-    /// A start that never became a run: the startup form could not be built, or a Sub Main project's code
-    /// could not be loaded. Raised synchronously, before the start call returns, with the text to show.
+    /// A start that never became a run: the code has a syntax error, the startup form could not be built, or a
+    /// Sub Main project's code could not be loaded. Raised synchronously, before the start call returns, with the
+    /// text to show.
     /// Nothing is running afterwards.
     /// </summary>
     event Action<string>? StartFailed;
