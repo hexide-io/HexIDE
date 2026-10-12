@@ -28,7 +28,8 @@ namespace HexIDE.Runtime.Interpreter;
 /// it refuses, untrappably: a trappable error would let <c>On Error Resume Next</c> carry on without the value VB6
 /// gives. An object with no default member raises VB6's 438, which a program may trap.</para>
 /// <para>The in-box objects, measured the same way: Err stands for its Number; App, Screen and Clipboard have no default
-/// member, so 438; <c>Debug</c> used as a value and a control array without an index are compile errors.</para>
+/// member, so 438; <c>Debug</c> used as a value and a control array without an index are compile errors (read from
+/// <c>/make</c>, since a project that does not compile leaves no log in an IDE run).</para>
 /// <para>Controls stand for their default property too, and are #790's. <c>Nothing</c> is left to each caller.</para>
 /// </remarks>
 internal static class ObjectAsValue

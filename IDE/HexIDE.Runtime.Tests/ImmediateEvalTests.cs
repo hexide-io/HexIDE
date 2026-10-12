@@ -113,7 +113,7 @@ public class ImmediateEvalTests : BaseVBTestFixture
         await stop.Guarded();
 
         (await dbg.EvaluateAsync("?s.Health")).Should().Be("100");                  // field read — not a call
-        (await dbg.EvaluateAsync("?s")).Should().Contain("438");                    // no default member: 438, as in VB6
+        (await dbg.EvaluateAsync("?s")).Should().Contain("438");                    // no default member: 438 (inferred)
         (await dbg.EvaluateAsync("?s.Hit()")).Should().Contain("Immediate");        // instance METHOD call rejected
         (await dbg.EvaluateAsync("?s.HalfHealth")).Should().Contain("Immediate");   // PROPERTY GET rejected
         (await dbg.EvaluateAsync("?New Ship")).Should().Contain("Immediate");       // NEW rejected

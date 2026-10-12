@@ -1243,7 +1243,9 @@ reads back `02/01/2003` under en-GB, as measured above. It was refused until the
 - **`Value` on a scroll bar whose Min exceeds its Max** (#787). Avalonia raises Maximum to Minimum, so the value
   would read back clamped.
 - **A control, an array or an object on the right** of a property assignment. For a control, VB6 reads its default
-  property (#790).
+  property (#790). (Superseded for a class instance and the in-box objects by #840, "An object used as a value": a
+  class with no default member raises 438, one with a default member is refused naming #174, and Err stands for its
+  Number. A control and an array are still refused here.)
 - **A colour read from a Timer or a scroll bar** (#801). VB6 gives neither control a colour, but both bind one as
   every templated control does, so the read would give black. Until #795 a Label's and a TextBox's colours were
   refused here too, because neither loaded them where a read could find them; both read back now, as measured
@@ -5522,8 +5524,7 @@ in others, and a trappable error there lets `On Error Resume Next` carry on with
 **Probe.** A Sub Main project built with `vb6.exe /make` and run under `On Error Resume Next`, logging each result
 with `TypeName` and `Err.Number`. **Every probe here ran both as native code and in the IDE**, and the two agreed on
 every row except where a row says so. The first two probes were native only until the review's second round, which
-ran them in the IDE too: identical, except the Select Case and For rows under Resume Next, where the IDE gives p-code's
-answers (below, and "Resume Next into a block").
+ran them in the IDE too: identical, except the Select Case and For rows under Resume Next (below).
 
 **How the IDE runs were made.** `VB6.EXE /runexit probe.vbp` runs a project in the IDE, as F5 does, and closes VB when
 the program ends. It was started in the Win10 guest's session 0 over PowerShell Direct, with the project's files
@@ -5562,7 +5563,8 @@ copied into a fresh folder first. The program writes its log with `Print #` to a
 `Debug.Print w` prints is taken to follow `Print #`, which shares its formatting, and is **inferred**, not measured.
 The Immediate window's `? k` is inferred from `Debug.Print k` the same way.
 
-`Len(w)` does not compile: "Variable required - can't assign to this expression".
+`Len(w)` does not compile: "Variable required - can't assign to this expression". (Every compile error in this section
+was read from `/make`. An IDE run of a project that does not compile leaves no log, so those rows are native only.)
 
 **A second probe, through a Variant.** `o` is a Variant holding the object (`Set o = w`), so `Len` compiles:
 
@@ -5615,12 +5617,9 @@ with `k` a Plain, so each condition raises 438:
 Resume Next resumes at the statement after the one that raised, and for a block statement that is the first statement
 inside it. A bottom-tested loop's next statement is the one after `Loop`.
 
-The Select Case and For rows are native code's, and #839 explains them ("Resume Next into a block"). This harness
-builds native code unless a `.vbp` says otherwise, and p-code answers both differently:
-- **Select Case:** native code tests its Cases against a selector it never computed, which is Empty, so `Case 1` fails
-  and Case Else runs. P-code skips the statement.
-- **For:** native code steps by a step it never computed, 0, so `i` stays 0 and the loop runs until the probe's own
-  `Exit For`. P-code leaves after one pass.
+The Select Case and For rows are the two where native code and the IDE disagree, and the table gives each answer.
+They are one probe shape apiece (`Case 1` then `Case Else`; `For i = 1 To k`), so nothing more general is claimed
+here. Why they differ, and the other shapes, are #839's.
 
 The earlier reading here, that each Case raised in turn, was wrong.
 
@@ -5670,14 +5669,25 @@ member returns a value the function would answer about:
 
 **The array functions.** The array that `LBound`, `UBound`, `Join` and `Filter` take first is not read at all. Any
 object there raises 13, including a class whose default member returns an array, and so does every other value that
-is not an array. Through a Variant `v`, because a typed object variable there does not compile ("Expected array"):
+is not an array. Through a Variant `v`, because a typed object variable there does not compile ("Expected array",
+from `/make`):
 
 | First argument | `UBound(v)`, `LBound(v)`, `Join(v, "-")`, `Filter(v, "b")` |
 |---|---|
 | a `Widget`, a `Plain`, an `Arr` whose default member returns `Array("a", "b", "c")` | 13 each |
 | `"abc"`, 5, Empty, Null | 13 each |
 
-HexIDE's `Join` and `Filter` raised 5 for each of those, and now raise 13.
+HexIDE's `Join` and `Filter` raised 5 for each of those, and now raise 13. **Nothing is 13 here too**, not the 91 every
+conversion gives: `Join(v, "-")`, `Filter(v, "a")` and `UBound(v)` with `v` set to Nothing (round three).
+
+**An array never allocated** (`Dim ds() As String`, `Dim dv()`), measured in round three, both modes:
+
+| Call | VB6 |
+|---|---|
+| `Join(ds, "-")`, `Join(dv, "-")`, and through a Variant holding `ds` | `""`, no error |
+| `Filter(ds, "a")`, `Filter(dv, "a")` | no error: an unallocated **String** array (VarType 8200) for both, whose `LBound` and `UBound` raise 9 |
+
+HexIDE indexed a bounds list that was not there, an exception no On Error could trap, and now gives both answers.
 
 Every other argument reads the member:
 
@@ -5694,12 +5704,14 @@ Every other argument reads the member:
 | `Err` | its `Number`: `"v=" & Err` is "v=0" or "v=11", `If Err Then` takes the Then branch after an error, `x = Err` stores 11, `Err + 1` is 12, `VarType(Err)` is 3, `Print #f, Err` writes 11 |
 | `App`, `Screen`, `Clipboard` | 438: none has a default member |
 | `Forms` | 450: its default member, `Item`, needs an argument |
-| `Debug` | a compile error, "Syntax error" |
+| `Debug` | a compile error, "Syntax error" (`/make` only, as is the next row) |
 | a control array without an index, `"v=" & Cmd` | a compile error, "Argument not optional" |
 
 `TypeName` of each: Err "ErrObject", App "App", Screen "Screen", Clipboard "Clipboard", Printer "Printer", and
 Forms **"Object"**. HexIDE gave "VbErr" and "VbApp", its own class names, and now gives VB6's; it has no Screen,
-Clipboard, Printer or Forms yet.
+Clipboard, Printer or Forms yet. Round three, on a form with a control array `Cmd`: `TypeName(Cmd)` is "Object" and
+`TypeName(Cmd(0))` "CommandButton"; `TypeName` of `Dim wa(1) As Widget`, and of an unallocated `Dim wd() As Widget`, is
+**"Object()"**, not "Widget()", with VarType 8201. `TypeName(Debug)` does not compile ("Syntax error", `/make`).
 
 **The rows the review found unprobed,** measured in the second round:
 

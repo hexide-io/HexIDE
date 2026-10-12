@@ -78,11 +78,14 @@ public partial class VB6BuiltIns
     }
 
     // Join(array, [delimiter=" "]) -> String. Anything but an array is 13, as it is for Filter and the bounds: a string,
-    // a number, Empty, Null and any object (measured, native and in the IDE, #840). It raised 5.
+    // a number, Empty, Null, Nothing and any other object (measured, native and in the IDE, #840). It raised 5. An array
+    // never allocated, `Dim d() As String`, joins to "" with no error (measured); it indexed a bounds list that was not
+    // there, an exception no On Error could trap.
     private static Vb6Value Join(IReadOnlyList<Vb6Value> a)
     {
         if (a.Count < 1) throw InvalidCall();
         if (a[0].Value is not VBArray arr) throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        if (arr.Rank == 0) return new Vb6Value("");
         string delim = Supplied(a, 1) ? AsStr(a[1]) : " ";
         var sb = new StringBuilder();
         int lo = arr.LowerBound(1), hi = arr.UpperBound(1);
@@ -99,6 +102,9 @@ public partial class VB6BuiltIns
     {
         if (a.Count < 2) throw InvalidCall();
         if (a[0].Value is not VBArray arr) throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        // An array never allocated gives back an unallocated String array with no error, whatever the array's own type
+        // (measured: VarType 8200 for a String and a Variant array alike, and LBound and UBound of it raise 9).
+        if (arr.Rank == 0) return new Vb6Value(new Vb6Value.ValueType(Vb6Value.ValueType.String, true));
         string match = AsStr(a[1]);
         bool include = !Supplied(a, 2) || AsDouble(a[2]) != 0;
         var cmp = Supplied(a, 3) && AsInt(a[3]) == 1 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;

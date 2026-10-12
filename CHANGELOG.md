@@ -31,10 +31,14 @@ there isn't one yet. Anything may change between 0.x releases.
   with a default member, which VB6 reads in all those places, stops the run with a message saying class default
   members are not implemented yet (#174), rather than an error `On Error Resume Next` would step over.
 - **`Err` used as a value is its `Number`**, as in VB6: `"Error " & Err`, `x = Err`, `Err + 1`. It was refused. App
-  used as a value raises VB6's 438, where it printed a .NET type name. A control used as a value still does, until
-  #790.
+  used as a value raises VB6's 438, where it printed a .NET type name. A control still gives its .NET type name in
+  `"v=" & Text1`, `CStr(Text1)` and `Debug.Print Text1`, until #790.
+- **`TypeName(Err)` is "ErrObject" and `TypeName(App)` is "App"**, as in VB6. They were HexIDE's own class names.
+- **`Join` and `Filter` of something that is not an array raise 13**, as in VB6, where they raised 5. Of an array
+  never allocated, `Join` gives `""` and `Filter` an empty String array, where both stopped the run with an error no
+  `On Error` could trap.
 - **The Immediate window's `? obj` no longer prints the class's name.** A class with no default member is 438, as
-  in VB6, and one with a default member says that reading it is not available in break mode.
+  `Debug.Print` of one is in VB6, and one with a default member says that reading it is not available in break mode.
 - **A syntax error when a program starts, or a compile error while it runs, is reported like a run-time error.**
   Each was a message box nothing recorded, so a program that never started was reported to automation as having run
   and ended. Both now appear in the run-time error dialog and are kept for `get_last_runtime_error`, and a syntax

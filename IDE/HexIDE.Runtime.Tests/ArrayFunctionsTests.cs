@@ -70,6 +70,7 @@ public class ArrayFunctionsTests : BaseVBTestFixture
     [InlineData("v = 5")]
     [InlineData("v = Empty")]
     [InlineData("v = Null")]
+    [InlineData("Set v = Nothing")]   // 13, not the 91 the conversions give (measured)
     public async Task Join_Filter_and_UBound_of_anything_but_an_array_raise_13(string setup)
     {
         // Measured, native and in the IDE (#840). Join and Filter raised 5.
@@ -78,6 +79,21 @@ public class ArrayFunctionsTests : BaseVBTestFixture
                   "c = Filter(v, \"b\")\nDebug.Print Err.Number\nErr.Clear\n" +
                   "c = UBound(v)\nDebug.Print Err.Number\n");
         AssertDebugLog([new Vb6Value(13L), new Vb6Value(13L), new Vb6Value(13L)]);
+    }
+
+    [Theory]
+    [InlineData("Dim d() As String")]
+    [InlineData("Dim d()")]
+    public async Task Join_and_Filter_of_an_array_never_allocated_do_not_raise(string declaration)
+    {
+        // Measured, native and in the IDE: Join gives "", and Filter an unallocated String array (VarType 8200, whose
+        // bounds raise 9), whatever the array's own type. Both indexed a bounds list that was not there, an exception
+        // no On Error could trap.
+        await Run($"{declaration}\nDim c\nOn Error Resume Next\n" +
+                  "c = Join(d, \"-\")\nDebug.Print \"[\" & c & \"]\"\nDebug.Print Err.Number\n" +
+                  "c = Filter(d, \"a\")\nDebug.Print Err.Number\nDebug.Print VarType(c)\n" +
+                  "Dim n\nn = UBound(c)\nDebug.Print Err.Number\n");
+        AssertDebugLog(["[]", new Vb6Value(0L), new Vb6Value(0L), new Vb6Value(8200L), new Vb6Value(9L)]);
     }
 
     [Fact]
