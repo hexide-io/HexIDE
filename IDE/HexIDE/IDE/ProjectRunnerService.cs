@@ -220,7 +220,18 @@ public partial class ProjectRunnerService : IProjectRunnerService
                     Dispatcher.UIThread.Post(() => tokenSource.Cancel());
                 }
 
+                // End in any of the run's procedures ends the run as the End command does, and reports nothing:
+                // ending is not an error (#775). The walk that reached it has already unwound; stopping the
+                // controller ends every other walk at its next statement, and the close is posted for the same
+                // reason as the fault's.
+                void OnEndReached(BasicInterpreter _)
+                {
+                    debugController.Stop();
+                    Dispatcher.UIThread.Post(() => tokenSource.Cancel());
+                }
+
                 VBWindowContext.Faulted += OnFaulted;
+                BasicInterpreter.EndReached += OnEndReached;
                 try
                 {
                     Task task;
@@ -261,6 +272,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
                     // Idempotent with EndProject's own Stop(); on the plain window-close path this is the ONLY
                     // teardown.
                     VBWindowContext.Faulted -= OnFaulted;
+                    BasicInterpreter.EndReached -= OnEndReached;
                     debugController.Stop();
                     RunHandle = null;
                     RunningProject = null;
@@ -375,7 +387,19 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 }
 
                 RunHandle = new ActionDisposable(() => debugController.Stop());
-                await interpreter.RunStartupSubMain();
+                // End in Sub Main itself unwinds it, and RunStartupSubMain takes that as a clean stop. End in a
+                // form it showed belongs to that form's interpreter, so this stops Sub Main's walk as well, if it
+                // is still going (#775).
+                void OnEndReached(BasicInterpreter _) => debugController.Stop();
+                BasicInterpreter.EndReached += OnEndReached;
+                try
+                {
+                    await interpreter.RunStartupSubMain();
+                }
+                finally
+                {
+                    BasicInterpreter.EndReached -= OnEndReached;
+                }
             }
             catch (Exception e) when (e is not (OperationCanceledException or ImmediateEvalException))
             {

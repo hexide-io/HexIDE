@@ -46,6 +46,36 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// StatementExecutor's pause-gate. Null ⇒ zero debug overhead (the gate is skipped entirely).</summary>
     public Debugging.IDebugController? DebugController { get; set; }
 
+    /// <summary>
+    /// Set by <c>End</c>, and never cleared: the program is over. Every walk of this interpreter stops at its next
+    /// statement, nothing starts on it again, and no <c>Class_Terminate</c> runs (#775).
+    /// </summary>
+    /// <remarks>
+    /// Checked here as well as through the debugger's abort, because a host with no debugger (a test, the Standalone
+    /// runner) has nothing else to stop the walks. Measured on vb6.exe: after <c>End</c> nothing else runs, no form
+    /// raises QueryUnload, Unload or Terminate, and no Class_Terminate runs, whether it was reached from an event
+    /// procedure, from Form_Load or from Sub Main.
+    /// </remarks>
+    public bool Ending { get; private set; }
+
+    /// <summary>
+    /// Raised when a program reaches <c>End</c>, so whoever owns the run ends it: closes its forms, and stops the walks
+    /// of any other interpreter in the run. Static, as <see cref="VBWindowContext.Faulted"/> is, because a run's
+    /// interpreters are built in more than one place; an owner listens only while its run is live.
+    /// </summary>
+    public static event Action<BasicInterpreter>? EndReached;
+
+    /// <summary>
+    /// <c>End</c>: mark the program over, tell the host, and unwind this walk. The unwind is
+    /// <see cref="Debugging.StopExecutionSignal"/>, which every entry point already swallows as a clean stop.
+    /// </summary>
+    internal Debugging.StopExecutionSignal End()
+    {
+        Ending = true;
+        EndReached?.Invoke(this);
+        return new Debugging.StopExecutionSignal();
+    }
+
     /// <summary>While set (AND the debugger is Paused), <see cref="RunProcedure"/> and <see cref="NewObject"/> refuse
     /// to run USER code (any Sub/Function/Property-Get body, or <c>New</c> construction) — used by Immediate-window
     /// evaluation, where running user statements would hit the paused gate on this (UI) thread (deadlock) and mutate
@@ -211,8 +241,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         // A debugger reset (Stop) unwinds the walk via StopExecutionSignal, which runs this refcount teardown in
         // RunProcedure's finally — but VB6 `End` fires NO Class_Terminate (oracle-verified), so suppress it while
-        // the debugger is aborting.
-        if (o.Terminated || DebugController?.IsAborting == true)
+        // the debugger is aborting, and once the program itself has reached End.
+        if (o.Terminated || Ending || DebugController?.IsAborting == true)
             return;
         o.Terminated = true;
         if (o.ClassDef.PrePass.Procedures.TryGetValue("Class_Terminate", out var term))
@@ -572,6 +602,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     // args or none). Enters at the primary (form) module's scope. Delegates to CallProcedure; return discarded.
     public async Task ExecuteSub(string name, List<Vb6Value>? args = null, bool ignoreMissing = false)
     {
+        // After End nothing starts again: a Timer tick or a click already queued finds the program over.
+        if (Ending)
+            return;
         var callArgs = new List<CallArg>();
         if (args != null)
             foreach (var value in args)

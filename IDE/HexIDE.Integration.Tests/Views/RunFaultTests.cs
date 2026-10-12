@@ -465,4 +465,78 @@ public class RunFaultTests
         _ = run.WindowManager.DidNotReceiveWithAnyArgs().MessageBox(default!);
         AssertNothingIsRunning(run);
     }
+
+    // ── End, which used to be one of these, is the program ending and nothing else (#775) ─────────
+
+    [AvaloniaTheory]
+    [InlineData("Command1_Click")]
+    [InlineData("Form_Load")]
+    public void End_in_an_event_procedure_ends_the_run_and_reports_nothing(string procedure)
+    {
+        var run = FormProject(
+            $"Private Sub {procedure}()\r\n"
+          + "    Debug.Print \"before\"\r\n"
+          + "    End\r\n"
+          + "    Debug.Print \"after\"\r\n"
+          + "End Sub\r\n");
+        var printed = Printed(out var sink);
+        VBDebugConsole.Output += sink;
+        try
+        {
+            VBFormRuntime? window = null;
+            using var opened = Window.WindowOpenedEvent.AddClassHandler<VBFormRuntime>((w, _) =>
+            {
+                if (w.Title == Caption)
+                    window = w;
+            });
+            var closed = false;
+            using var closing = Window.WindowClosedEvent.AddClassHandler<VBFormRuntime>((w, _) =>
+            {
+                if (w.Title == Caption)
+                    closed = true;
+            });
+
+            run.Runner.RunProject(run.Project);
+            Pump();
+            if (procedure == "Command1_Click")
+            {
+                window.Should().NotBeNull();
+                Click(window!);
+            }
+
+            printed.Should().Equal(["before"]);
+            closed.Should().BeTrue("End closes the program's form, as the End command does");
+            run.RunFailed.Should().BeEmpty("ending is not an error");
+            run.StartFailed.Should().BeEmpty();
+            AssertNothingIsRunning(run);
+        }
+        finally
+        {
+            VBDebugConsole.Output -= sink;
+            run.Runner.EndProject();
+        }
+    }
+
+    [AvaloniaFact]
+    public void End_in_Sub_Main_ends_the_run_and_reports_nothing()
+    {
+        // A Sub Main ending with End used to show a "does not implement End" dialog once #754 surfaced faults.
+        var run = SubMainProject("Sub Main()\r\n    Debug.Print \"before\"\r\n    End\r\n    Debug.Print \"after\"\r\nEnd Sub\r\n");
+        var printed = Printed(out var sink);
+        VBDebugConsole.Output += sink;
+        try
+        {
+            run.Runner.RunProject(run.Project);
+            Pump();
+
+            printed.Should().Equal(["before"]);
+            run.RunFailed.Should().BeEmpty("ending is not an error");
+            _ = run.WindowManager.DidNotReceiveWithAnyArgs().MessageBox(default!);
+            AssertNothingIsRunning(run);
+        }
+        finally
+        {
+            VBDebugConsole.Output -= sink;
+        }
+    }
 }
