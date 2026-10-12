@@ -57,23 +57,46 @@ public partial class VB6BuiltIns
                     throw new VBRunTimeException(VBStandardError.TypeMismatch);
                 }
             }
-            return double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var sd)
-                ? sd : throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            // In the program's locale, as CStr writes, so CDbl(CStr(x)) round-trips in any locale (#777). No
+            // thousands separator: VB6 skips one (`CDbl("1,5")` is 15 under en-GB), which is #770.
+            if (!double.TryParse(s, NumberStyles.Float, VbLocale.Current, out var sd))
+                throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            return Finite(sd, s);
         }
         if (Vb6Value.TryNumericToDouble(v, out var d)) return d;   // numeric + Date (via OA serial)
         throw new VBRunTimeException(VBStandardError.TypeMismatch);
+    }
+
+    /// <summary>
+    /// A number .NET parsed from <paramref name="text"/>, or the error VB6 raises for it. .NET reads "NaN",
+    /// "Infinity" and "-Infinity" as numbers; VB6 has neither, and CDbl of each is 13 (measured). Digits too large
+    /// for a Double are Infinity to .NET as well, and that one is Overflow: CDbl("1E+400") is 6 (measured).
+    /// </summary>
+    private static double Finite(double parsed, string text)
+    {
+        if (double.IsNaN(parsed))
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        if (double.IsInfinity(parsed))
+            throw new VBRunTimeException(text.AsSpan().ContainsAnyInRange('0', '9')
+                ? VBStandardError.Overflow
+                : VBStandardError.TypeMismatch);
+        return parsed;
     }
 
     internal static Vb6Value CBool(Vb6Value v)
     {
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is bool b) return new Vb6Value(b);
+        // Measured: CBool(Empty) is False, as Empty is 0 to CLng and CDbl. `Enabled = Empty` takes this path.
+        if (v.Type == VT.EmptyVariant) return new Vb6Value(false);
         if (v.Type == VT.String)
         {
             var s = AsStr(v).Trim();
             if (bool.TryParse(s, out var bb)) return new Vb6Value(bb);
-            if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var sd)) return new Vb6Value(sd != 0);
-            throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            // Otherwise the number CDbl reads, by the same parse and in the same locale (measured): "NaN" and
+            // "Infinity" are 13, where `Enabled = "NaN"` used to be True; "1E+400" is 6; and "&H10" is True, which
+            // this used to refuse.
+            return new Vb6Value(ToNum(v) != 0);
         }
         return new Vb6Value(ToNum(v) != 0);
     }
@@ -83,7 +106,8 @@ public partial class VB6BuiltIns
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is DateTime) return v;
         if (v.Type == VT.String)
-            return DateTime.TryParse(AsStr(v).Trim(), CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault, out var dt)
+            // In the program's locale: `CDate("1/2/2003")` is 1 February under en-GB, and CDate(CStr(d)) is d (#777).
+            return TryReadDate(AsStr(v).Trim(), out var dt)
                 ? new Vb6Value(OnZeroDateIfTimeOnly(dt)) : throw new VBRunTimeException(VBStandardError.TypeMismatch);
         // A serial outside the Date range (about -657434 .. 2958465) is a trappable Overflow (Err 6, oracle-verified);
         // FromOADate would otherwise throw an UNCATCHABLE ArgumentException (AsDate wraps this too, at DateTime.cs).

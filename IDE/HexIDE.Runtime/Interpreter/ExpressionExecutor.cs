@@ -685,6 +685,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
         foreach (var prop in props)
         {
+            // A Timer's or scroll bar's colour, which VB6 does not have and which would read as black. Refused until
+            // #801 resolves a property the control does not declare, rather than read wrong.
+            if (AvaloniaInteroperability.IsUnsetColour(control, prop))
+                throw new NotImplementedException(
+                    $"Reading {memberIdentifier} from this control is not implemented: VB6 gives it no {memberIdentifier} (#801)");
             if (AvaloniaInteroperability.TryGet(control, prop, out var value))
                 return value;
         }
