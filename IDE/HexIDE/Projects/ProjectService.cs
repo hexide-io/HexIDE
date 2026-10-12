@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Avalonia.Platform.Storage;
 using AvaloniaEdit.Utils;
@@ -51,6 +52,83 @@ public class ProjectService : IProjectService
         this.baselineStore = baselineStore;
         this.localization = localization;
     }
+
+    /// <summary>
+    /// The code page a file without a byte-order mark is read in. The host's, except under test: on a
+    /// Western host every byte decodes, so a file the code page cannot read is only reachable by setting it.
+    /// </summary>
+    internal Vb6TextEncoding HostAnsi { get; set; } = Vb6TextEncoding.Ansi;
+
+    private Task<(string Text, byte[] Bytes, Vb6TextEncoding Encoding, bool ByteForByte)> ReadSourceAsync(
+        string path, Vb6TextEncoding? lastReadIn = null) =>
+        Vb6TextFile.ReadDocumentAsync(path, lastReadIn, HostAnsi);
+
+    private string ReadByteForByteMessage(string file) =>
+        string.Format(localization.GetString("Str.Dialog.SourceEncoding.ReadByteForByte"), file, HostAnsi.CodePage);
+
+    /// <summary>
+    /// One notice for every member a load read byte for byte, shown on its own rather than among the load's
+    /// errors: these members loaded, and listing them under a failure heading hid real errors past its cap.
+    /// </summary>
+    private Task ReportReadByteForByte(IReadOnlyList<string> files) => files.Count switch
+    {
+        0 => Task.CompletedTask,
+        1 => windowManager.MessageBox(ReadByteForByteMessage(files[0]), icon: MessageBoxIcon.Warning),
+        _ => windowManager.MessageBox(
+            string.Format(localization.GetString("Str.Dialog.SourceEncoding.ReadByteForByte.Many"),
+                string.Join("\n", files.Select(f => $"  • {f}")), HostAnsi.CodePage),
+            icon: MessageBoxIcon.Warning),
+    };
+
+    /// <summary>
+    /// A file joining the project that a kept line already names, because it failed to load, takes that
+    /// line's place: kept as well, the project file would name it twice.
+    /// </summary>
+    private static void ForgetKeptLineFor(ProjectDefinition project, string absolutePath)
+    {
+        if (project.AbsolutePath is not { } projectPath)
+            return;
+        var projectDir = Path.GetDirectoryName(projectPath)!;
+        var comparison = OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        project.PreservedItemLines.RemoveAll(line =>
+            KeptLinePath(line) is { } relative
+            && string.Equals(Path.GetFullPath(Path.Join(projectDir, ToLocalRelativePath(relative))),
+                Path.GetFullPath(absolutePath), comparison));
+    }
+
+    /// <summary>The file a kept member line names, or null for a line that names no member file.</summary>
+    private static string? KeptLinePath(string line)
+    {
+        var eq = line.IndexOf('=');
+        if (eq < 0)
+            return null;
+        var key = line[..eq].Trim();
+        var value = line[(eq + 1)..].Trim();
+        if (key.Equals(SerializedProject.ModuleKey, StringComparison.OrdinalIgnoreCase)
+            || key.Equals(SerializedProject.ClassKey, StringComparison.OrdinalIgnoreCase))
+        {
+            var semi = value.IndexOf(';');
+            return semi < 0 ? value : value[(semi + 1)..].Trim();
+        }
+        return key.Equals(SerializedProject.FormKey, StringComparison.OrdinalIgnoreCase)
+            || key.Equals(SerializedProject.UserControlKey, StringComparison.OrdinalIgnoreCase)
+            || key.Equals(SerializedProject.PropertyPageKey, StringComparison.OrdinalIgnoreCase)
+            ? value
+            : null;
+    }
+
+    /// <summary>
+    /// The project-file line for a member that did not load, so a save writes it back rather than dropping
+    /// it. In the shape VB6 requires for each kind: <c>Name; File</c> for a module or class, the bare path
+    /// for the designer kinds (see <see cref="ProjectSerializer"/>).
+    /// </summary>
+    private static string ItemLineFor(ModuleKind kind, string name, string relativePath) => kind switch
+    {
+        ModuleKind.ClassModule  => $"{SerializedProject.ClassKey}={name}; {relativePath}",
+        ModuleKind.UserControl  => $"{SerializedProject.UserControlKey}={relativePath}",
+        ModuleKind.PropertyPage => $"{SerializedProject.PropertyPageKey}={relativePath}",
+        _                       => $"{SerializedProject.ModuleKey}={name}; {relativePath}",
+    };
 
     private async Task<IAddinProjectTemplate?> ChooseNewProject()
     {
@@ -213,8 +291,11 @@ public class ProjectService : IProjectService
         var groupDir = Path.GetDirectoryName(groupPath)!;
         var groupName = Path.GetFileNameWithoutExtension(groupPath);
 
+        var (groupText, _, groupEncoding, groupByteForByte) = await ReadSourceAsync(groupPath);
+        if (groupByteForByte)
+            await windowManager.MessageBox(ReadByteForByteMessage(Path.GetFileName(groupPath)), icon: MessageBoxIcon.Warning);
         var serializedGroup = new GroupDeserializer()
-            .Deserialize(await Vb6TextFile.ReadAllTextAsync(groupPath));
+            .Deserialize(groupText);
 
         foreach (var relPath in serializedGroup.ProjectRelativePaths)
         {
@@ -231,7 +312,7 @@ public class ProjectService : IProjectService
                     p.AbsolutePath, startupAbs, StringComparison.OrdinalIgnoreCase));
         }
 
-        var group = new ProjectGroupDefinition(groupName) { AbsolutePath = groupPath };
+        var group = new ProjectGroupDefinition(groupName) { AbsolutePath = groupPath, TextEncoding = groupEncoding };
         group.UnknownLines.AddRange(serializedGroup.UnknownLines);
         projectManager.CurrentGroup = group;
         recentProjects.Add(groupPath);
@@ -260,11 +341,16 @@ public class ProjectService : IProjectService
         var projectDeserializer = new ProjectDeserializer();
         var formDeserializer = new FormDeserializer();
         var errorSink = new DeserializeErrorSink();
+        var readByteForByte = new List<string>();
 
-        var serializedProject = projectDeserializer.Deserialize(await Vb6TextFile.ReadAllTextAsync(projectPath), errorSink);
+        var (projectText, _, projectEncoding, projectByteForByte) = await ReadSourceAsync(projectPath);
+        if (projectByteForByte)
+            readByteForByte.Add(Path.GetFileName(projectPath));
+        var serializedProject = projectDeserializer.Deserialize(projectText, errorSink);
 
         var project = new ProjectDefinition(serializedProject.ProjectType, serializedProject.Name ?? "Project1");
         project.AbsolutePath = projectPath;
+        project.TextEncoding = projectEncoding;
 
         // Pass 1: .ctl files — load UserControls first so FormParts are available when building the registry
         foreach (var (moduleName, modulePath, moduleKind) in serializedProject.RelativeModulePaths)
@@ -277,15 +363,19 @@ public class ProjectService : IProjectService
                 var moduleAbsolutePath = Path.Join(Path.GetDirectoryName(projectPath)!, ToLocalRelativePath(modulePath));
                 var module = new ModuleDefinition(project, moduleName, moduleKind);
                 module.AbsolutePath = moduleAbsolutePath;
+                var memberReadByteForByte = false;
                 if (File.Exists(moduleAbsolutePath))
                 {
-                    var (moduleSource, moduleBytes) = await Vb6TextFile.ReadWithBytesAsync(moduleAbsolutePath);
+                    var (moduleSource, moduleBytes, moduleEncoding, moduleByteForByte) = await ReadSourceAsync(moduleAbsolutePath);
+                    memberReadByteForByte = moduleByteForByte;
+                    module.TextEncoding = moduleEncoding;
                     baselineStore.Record(moduleAbsolutePath, moduleBytes);
                     var ctxBlobs = await LoadCompanionBlobs(moduleAbsolutePath, moduleSource);
                     var formPart = formDeserializer.Deserialize(project, moduleSource, errorSink, ctxBlobs);
                     if (formPart != null)
                     {
                         formPart.AbsolutePath = moduleAbsolutePath;
+                        formPart.TextEncoding = moduleEncoding;
                         module.UpdateFormPart(formPart);
                         // Body only. FormSerializer regenerates the Begin..End header and then appends Code
                         // verbatim, so storing the whole file here emits the header twice on every save.
@@ -299,11 +389,18 @@ public class ProjectService : IProjectService
                     }
                 }
                 project.AddModule(module);
+                // Only once it has joined: a notice that the file will save back unchanged is untrue of a
+                // member that then failed to load.
+                if (memberReadByteForByte)
+                    readByteForByte.Add(modulePath);
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "Failed to load module {ModulePath}", modulePath);
                 errorSink.LogError($"Failed to load module {modulePath}: {ex.Message}");
+                // Kept, as a missing file's line is. Not loaded, so a save cannot write its file; dropping the
+                // line would have the next Save Project remove the member from the project instead.
+                project.PreservedItemLines.Add(ItemLineFor(moduleKind, moduleName, modulePath));
             }
         }
 
@@ -327,7 +424,7 @@ public class ProjectService : IProjectService
                 }
 
                 // Form text before companion: the .frm's cited offsets partition the .frx.
-                var (formSource, formBytes) = await Vb6TextFile.ReadWithBytesAsync(formAbsolutePath);
+                var (formSource, formBytes, formEncoding, formByteForByte) = await ReadSourceAsync(formAbsolutePath);
                 baselineStore.Record(formAbsolutePath, formBytes);
 
                 var frxBlobs = await LoadCompanionBlobs(formAbsolutePath, formSource);
@@ -335,13 +432,23 @@ public class ProjectService : IProjectService
                 if (form != null)
                 {
                     form.AbsolutePath = formAbsolutePath;
+                    form.TextEncoding = formEncoding;
                     project.AddForm(form);
+                    if (formByteForByte)
+                        readByteForByte.Add(formPath);
+                }
+                else
+                {
+                    errorSink.LogError($"Failed to load form {formPath}");
+                    project.PreservedItemLines.Add($"{SerializedProject.FormKey}={formPath}");
                 }
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "Failed to load form {FormPath}", formPath);
                 errorSink.LogError($"Failed to load form {formPath}: {ex.Message}");
+                // Kept, as a missing form's line is: see the module passes.
+                project.PreservedItemLines.Add($"{SerializedProject.FormKey}={formPath}");
             }
         }
 
@@ -377,9 +484,12 @@ public class ProjectService : IProjectService
                 var moduleAbsolutePath = Path.Join(Path.GetDirectoryName(projectPath)!, ToLocalRelativePath(modulePath));
                 var module = new ModuleDefinition(project, moduleName, moduleKind);
                 module.AbsolutePath = moduleAbsolutePath;
+                var memberReadByteForByte = false;
                 if (File.Exists(moduleAbsolutePath))
                 {
-                    var (moduleSource, moduleBytes) = await Vb6TextFile.ReadWithBytesAsync(moduleAbsolutePath);
+                    var (moduleSource, moduleBytes, moduleEncoding, moduleByteForByte) = await ReadSourceAsync(moduleAbsolutePath);
+                    memberReadByteForByte = moduleByteForByte;
+                    module.TextEncoding = moduleEncoding;
                     baselineStore.Record(moduleAbsolutePath, moduleBytes);
                     // .bas/.cls: strip the VB6 header so Code is the body only (no-op for .pag/.ctl).
                     var (preservedHeader, moduleBody) = ModuleFileFormat.SplitHeader(moduleSource, moduleKind);
@@ -394,6 +504,7 @@ public class ProjectService : IProjectService
                         if (formPart != null)
                         {
                             formPart.AbsolutePath = moduleAbsolutePath;
+                            formPart.TextEncoding = moduleEncoding;
                             module.UpdateFormPart(formPart);
                             // StripHeader above is a no-op for .pag, so Code still holds the whole file —
                             // replace it with the body only or the next save writes the header twice.
@@ -402,11 +513,18 @@ public class ProjectService : IProjectService
                     }
                 }
                 project.AddModule(module);
+                // Only once it has joined: a notice that the file will save back unchanged is untrue of a
+                // member that then failed to load.
+                if (memberReadByteForByte)
+                    readByteForByte.Add(modulePath);
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "Failed to load module {ModulePath}", modulePath);
                 errorSink.LogError($"Failed to load module {modulePath}: {ex.Message}");
+                // Kept, as a missing file's line is. Not loaded, so a save cannot write its file; dropping the
+                // line would have the next Save Project remove the member from the project instead.
+                project.PreservedItemLines.Add(ItemLineFor(moduleKind, moduleName, modulePath));
             }
         }
 
@@ -456,6 +574,8 @@ public class ProjectService : IProjectService
                 message += $"\n\n...and {errorSink.Errors.Count - maxShown} more warnings (see log for full list).";
             await windowManager.MessageBox(message, icon: MessageBoxIcon.Warning);
         }
+
+        await ReportReadByteForByte(readByteForByte);
     }
 
     private static IReadOnlyDictionary<string, ComponentBaseClass> BuildUserControlRegistry(
@@ -509,84 +629,405 @@ public class ProjectService : IProjectService
     }
 
     /// <summary>
-    /// Save one form on its own. A refusal is reported at the moment it happens — unlike
-    /// <see cref="SaveFormCore"/>, which the project-wide batch uses so that N refusals produce one dialog
-    /// rather than N.
+    /// Save one form on its own. A refusal is reported at the moment it happens, where a batch reports
+    /// every refusal in one dialog.
     /// </summary>
-    public async Task<bool> SaveForm(FormDefinition form, bool saveAs)
+    /// <param name="interactive">
+    /// False for an automation caller: no refusal is shown as a dialog, an unfaithful refusal comes back as
+    /// <see langword="false"/>, and an encoding refusal as the <see cref="SourceEncodingRefusal"/>, which
+    /// names the character. A dialog would hold the caller's reply until a person dismissed it. The picker
+    /// is not suppressed; see <see cref="ScriptedFileDialogs.WouldShowPicker"/>.
+    /// </param>
+    public async Task<bool> SaveForm(FormDefinition form, bool saveAs, bool interactive = true)
     {
-        var written = await SaveFormCore(form, saveAs);
-        // Without this a lone refusal did not merely go unreported: the entry SURVIVED in refusedThisSave
-        // and surfaced during the next unrelated Save Project, naming a file that was not in that batch.
-        await ReportRefusedSaves();
-        // Returned so a non-interactive caller can tell a refusal from a save. The MCP write tools reported
-        // success unconditionally, which told an agent a file had been written when it had not — and an
-        // agent, unlike a developer, has no dialog to read and will build on the answer.
-        return written;
+        try
+        {
+            // Returned so a non-interactive caller can tell a refusal from a save. The MCP write tools reported
+            // success unconditionally, which told an agent a file had been written when it had not — and an
+            // agent, unlike a developer, has no dialog to read and will build on the answer.
+            return (await WithEncodingError(() => SaveFiles([(form, saveAs)]), interactive)).Count > 0;
+        }
+        finally
+        {
+            // Without this a lone refusal did not merely go unreported: the entry SURVIVED in refusedThisSave
+            // and surfaced during the next unrelated Save Project, naming a file that was not in that batch.
+            await ReportRefusedSaves(interactive);
+        }
     }
 
-    /// <summary>Returns false when the form was refused and nothing was written.</summary>
     /// <summary>
-    /// Writes a form and, if it was written, says so.
-    ///
-    /// <para>
-    /// One announcement point rather than one per success return, and a wrapper rather than a flag
-    /// threaded through the body: whether a save happened is exactly what this method already returns, so
-    /// there is nothing to decide here that the inner method has not decided.
-    /// </para>
+    /// Runs a save, and reports a refusal the code page forces: to a person as the source-encoding warning,
+    /// to an automation caller only by the <see cref="SourceEncodingRefusal"/>, which is rethrown either way.
     /// </summary>
-    private async Task<bool> SaveFormCore(FormDefinition form, bool saveAs, bool announceSave = true)
+    /// <remarks>
+    /// Wrapped around each operation once, at its entry point, rather than around each file it writes. An
+    /// operation checks every file before writing any, so one refusal ends it; and by the time the warning
+    /// shows, everything the operation moved in the model has been put back.
+    /// Rethrown rather than turned into false: a close-time save that carried on would unload the project and
+    /// discard the edit the developer had just asked to keep.
+    /// </remarks>
+    private async Task<T> WithEncodingError<T>(Func<Task<T>> operation, bool interactive = true)
     {
-        var written = await WriteFormToDisk(form, saveAs);
-
-        // On success only. A refusal is the opposite of a save, and telling a server a document was
-        // written when it was not would have it re-read a file that still holds the previous content.
-        if (written && announceSave) eventBus.Publish(new DocumentSavedEvent(form, null));
-        return written;
+        try
+        {
+            return await operation();
+        }
+        catch (SourceEncodingRefusal refusal)
+        {
+            Log.Warning("Cannot save {Document} in code page {CodePage}: it holds {CodePoint}",
+                refusal.Document, refusal.CodePage, refusal.CodePoint);
+            // Says that nothing was written, rather than that one document was not: the operation checked every
+            // file before writing any. The line is quoted because the character may not be in anything the
+            // person just edited: a form is written whole, and a project file names its members by file.
+            if (interactive)
+                await windowManager.MessageBox(
+                    string.Format(localization.GetString("Str.Dialog.SourceEncoding.NothingWritten"),
+                        refusal.Document, refusal.CodePage, refusal.Character, refusal.CodePoint,
+                        refusal.Line.Length > 0 ? refusal.Line : refusal.Character),
+                    "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
+            throw;
+        }
     }
 
-    private async Task<bool> WriteFormToDisk(FormDefinition form, bool saveAs)
+    /// <inheritdoc cref="WithEncodingError{T}"/>
+    private Task WithEncodingError(Func<Task> operation, bool interactive = true) =>
+        WithEncodingError(async () =>
+        {
+            await operation();
+            return true;
+        }, interactive);
+
+    // ── Saving: every file chosen and checked before any is written ─────────────────────────────────
+
+    /// <summary>One file an operation writes, and where.</summary>
+    /// <param name="Chosen">The developer picked <paramref name="Path"/> during this operation.</param>
+    private readonly record struct Destination(object Document, string Path, bool Chosen = false);
+
+    /// <summary>
+    /// Saves forms, modules, projects and the group as one operation, in the order given. Every destination
+    /// is chosen, and every file checked against its code page, before the first is written. So a refusal,
+    /// or a picker dismissed part-way, leaves every file as it was.
+    /// </summary>
+    /// <returns>What was written. A document HexIDE cannot reproduce is left out, and banked for the
+    /// caller's <see cref="ReportRefusedSaves"/>.</returns>
+    /// <remarks>
+    /// The check and the write agree for four reasons, and each must keep holding:
+    /// <list type="bullet">
+    /// <item>both render through the same helper per kind (<see cref="RenderForm"/>, <see cref="RenderModule"/>,
+    /// the project and group serializers);</item>
+    /// <item>editor buffers are flushed into the model once, here, and not again by a writer;</item>
+    /// <item>which documents may be written is decided again after the last picker. A picker is an await, and
+    /// the file watcher reloads a document changed on disk while one is open, so a document that passed the
+    /// faithful-save gate before a later picker may no longer pass it;</item>
+    /// <item>nothing awaits from that decision to the last write, so the model cannot change in between.</item>
+    /// </list>
+    /// If one stops holding, each writer's own encode still refuses, but files written before it stay written.
+    /// </remarks>
+    private async Task<IReadOnlyList<Destination>> SaveFiles(
+        IReadOnlyList<(object Document, bool SaveAs)> files, bool announceSave = true)
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
-        // Writing this form would not reproduce it. Refusing is the honest move: the original stays intact
-        // and the developer finds out now rather than the next time they open the project in VB6.
-        //
-        // Save As is refused TOO, and refused HERE — above the file picker, so the developer is not asked
-        // for a destination that will never be written.
-        //
-        // It used to be exempt, on the reasoning that "the original file is not at risk". True of the
-        // original, and silent about the copy. WriteCompanionBinary can only protect a companion that
-        // already EXISTS, so at a new path the blobs are dropped — and the copy then reopens as FAITHFUL,
-        // because the citations that flagged it are the very thing that went missing. A refusal we can
-        // recover from becomes a file that looks clean and is not, which is the one outcome
-        // docs/serialization-outcomes.md says is never acceptable. (#143)
-        if (!form.CanSaveFaithfully)
+        var destinations = new List<Destination>();
+        foreach (var (document, saveAs) in files)
+            if (await DestinationOf(document, saveAs) is { } destination)
+                destinations.Add(destination);
+
+        // The gate in DestinationOf keeps a picker from asking about a file that will not be written; this one
+        // keeps a reload during a later picker from slipping a file past it (see the remarks).
+        destinations.RemoveAll(destination => RefusesUnfaithful(destination.Document));
+
+        EnsureEncodable(destinations);
+        var written = new List<Destination>();
+        foreach (var destination in destinations)
+            if (Write(destination, announceSave))
+                written.Add(destination);
+
+        foreach (var destination in written)
         {
-            Log.Warning("Refusing to save {Form}: {Reason}", form.Name, form.UnfaithfulSaveReason);
-            RecordRefusal(form.Name);
-            return false;
+            if (destination.Document is ProjectGroupDefinition)
+                recentProjects.Add(destination.Path);
+            else if (destination.Document is ProjectDefinition project)
+            {
+                recentProjects.Add(destination.Path);
+                await sidecar.SaveAsync(project);
+            }
+        }
+        return written;
+    }
+
+    /// <summary>
+    /// Where <paramref name="document"/> will be written, asking the developer when it has nowhere yet or
+    /// <paramref name="saveAs"/> is set. Null when HexIDE cannot reproduce it, which is banked as a refusal.
+    /// </summary>
+    /// <exception cref="OperationCanceledException">A picker was dismissed.</exception>
+    private async Task<Destination?> DestinationOf(object document, bool saveAs)
+    {
+        switch (document)
+        {
+            case FormDefinition form:
+                // Writing this form would not reproduce it. Refusing is the honest move: the original stays intact
+                // and the developer finds out now rather than the next time they open the project in VB6.
+                //
+                // Save As is refused TOO, and refused HERE — above the file picker, so the developer is not asked
+                // for a destination that will never be written.
+                //
+                // It used to be exempt, on the reasoning that "the original file is not at risk". True of the
+                // original, and silent about the copy. WriteCompanionBinary can only protect a companion that
+                // already EXISTS, so at a new path the blobs are dropped — and the copy then reopens as FAITHFUL,
+                // because the citations that flagged it are the very thing that went missing. A refusal we can
+                // recover from becomes a file that looks clean and is not, which is the one outcome
+                // docs/serialization-outcomes.md says is never acceptable. (#143)
+                if (RefusesUnfaithful(form))
+                    return null;
+                return form.AbsolutePath is { } formPath && !saveAs
+                    ? new Destination(form, formPath)
+                    : new Destination(form, await ChooseFormPath(form), Chosen: true);
+
+            case ModuleDefinition module:
+                // Above the picker, as for a form. This used to sit below it, so Save As on an unfaithful
+                // UserControl asked where to put the file and then declined to write it (#147). A brand-new
+                // module has no designer half yet, or a fresh one with no unfaithful causes.
+                if (RefusesUnfaithful(module))
+                    return null;
+                return module.AbsolutePath is { } modulePath && !saveAs
+                    ? new Destination(module, modulePath)
+                    : new Destination(module, await ChooseModulePath(module), Chosen: true);
+
+            case ProjectDefinition project:
+                return project.AbsolutePath is { } projectPath && !saveAs
+                    ? new Destination(project, projectPath)
+                    : new Destination(project, await ChooseProjectPath(project), Chosen: true);
+
+            case ProjectGroupDefinition group:
+                return group.AbsolutePath is { } groupPath && !saveAs
+                    ? new Destination(group, groupPath)
+                    : new Destination(group, await ChooseGroupPath(group), Chosen: true);
+
+            default:
+                throw new ArgumentException($"HexIDE does not save a {document?.GetType().Name ?? "null"}.", nameof(document));
+        }
+    }
+
+    /// <summary>The designer half a UserControl or PropertyPage is written from; null for any other module.</summary>
+    private static FormDefinition? DesignerPartOf(ModuleDefinition module) =>
+        module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage ? module.FormPart : null;
+
+    /// <summary>Whether a save may write <paramref name="document"/>: the writers' own faithful-save gates.</summary>
+    private static bool IsWritable(object document) => document switch
+    {
+        FormDefinition form => form.CanSaveFaithfully,
+        ModuleDefinition module => DesignerPartOf(module) is not { CanSaveFaithfully: false },
+        _ => true
+    };
+
+    /// <summary>
+    /// Whether HexIDE must refuse to write <paramref name="document"/> because it cannot reproduce it. A
+    /// refusal is logged and banked for the caller's <see cref="ReportRefusedSaves"/>.
+    /// </summary>
+    private bool RefusesUnfaithful(object document)
+    {
+        switch (document)
+        {
+            case FormDefinition { CanSaveFaithfully: false } form:
+                Log.Warning("Refusing to save {Form}: {Reason}", form.Name, form.UnfaithfulSaveReason);
+                RecordRefusal(form.Name);
+                return true;
+            case ModuleDefinition module when DesignerPartOf(module) is { CanSaveFaithfully: false } designerPart:
+                Log.Warning("Refusing to write {Module}: {Reason}", module.Name, designerPart.UnfaithfulSaveReason);
+                RecordRefusal(module.Name);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private async Task<string> ChooseFormPath(FormDefinition form) =>
+        await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions()
+        {
+            DefaultExtension = "frm",
+            SuggestedFileName = form.Name + ".frm",
+            FileTypeChoices = [new("Form Files") { Patterns = ["*.frm"] }, new("All Files") { Patterns = ["*.*"] }]
+        }) ?? throw new OperationCanceledException();
+
+    private async Task<string> ChooseModulePath(ModuleDefinition module)
+    {
+        var ext = ModuleExtension(module.Kind);
+        return await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions()
+        {
+            DefaultExtension = ext,
+            SuggestedFileName = module.Name + "." + ext,
+            FileTypeChoices = [new("Module Files") { Patterns = [$"*.{ext}"] }, new("All Files") { Patterns = ["*.*"] }]
+        }) ?? throw new OperationCanceledException();
+    }
+
+    private async Task<string> ChooseProjectPath(ProjectDefinition project) =>
+        await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions()
+        {
+            DefaultExtension = "vbp",
+            SuggestedFileName = project.Name + ".vbp",
+            FileTypeChoices = [new("Project Files") { Patterns = ["*.vbp"] }, new("All Files") { Patterns = ["*.*"] }]
+        }) ?? throw new OperationCanceledException();
+
+    private async Task<string> ChooseGroupPath(ProjectGroupDefinition group) =>
+        await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Save Project Group As",
+            DefaultExtension = "vbg",
+            FileTypeChoices = [new FilePickerFileType("Project Group") { Patterns = ["*.vbg"] }],
+            SuggestedFileName = group.Name
+        }) ?? throw new OperationCanceledException();
+
+    /// <summary>
+    /// Refuses, with a <see cref="SourceEncodingRefusal"/> for the first file in order, unless every file
+    /// in <paramref name="destinations"/> can be written in its own code page. Writes nothing and changes
+    /// nothing in the model.
+    /// </summary>
+    /// <remarks>
+    /// Each file is rendered as it will be written, at its destination: a form cites its companion by file
+    /// name, and a project or group file names its members by where they are going, not where they are now.
+    /// Every caller has already refused a document HexIDE cannot reproduce, so none reaches this.
+    /// </remarks>
+    private void EnsureEncodable(IReadOnlyList<Destination> destinations)
+    {
+        var going = new Dictionary<object, string>(ReferenceEqualityComparer.Instance);
+        foreach (var destination in destinations)
+            going[destination.Document] = destination.Path;
+        string? PathOf(object member) => going.GetValueOrDefault(member);
+
+        foreach (var destination in destinations)
+        {
+            var (document, text, encoding) = destination.Document switch
+            {
+                FormDefinition form => (form.Name, RenderForm(form, destination.Path).Text, form.TextEncoding),
+                ModuleDefinition module => (module.Name, RenderModule(module, destination.Path).Text, module.TextEncoding),
+                ProjectDefinition project => (project.Name,
+                    new ProjectSerializer().Serialize(project, destination.Path, PathOf), project.TextEncoding),
+                ProjectGroupDefinition group => (group.Name, RenderGroup(group, destination.Path, PathOf), group.TextEncoding),
+                _ => throw new ArgumentException($"HexIDE does not save a {destination.Document.GetType().Name}.")
+            };
+            Vb6TextFile.EncodeDocument(document, text, encoding);
         }
 
-        var formPath = form.AbsolutePath;
-        if (formPath == null || saveAs)
-        {
-            formPath = await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions()
-            {
-                DefaultExtension = "frm",
-                SuggestedFileName = form.Name + ".frm",
-                FileTypeChoices = [new("Form Files") { Patterns = ["*.frm"] }, new("All Files") { Patterns = ["*.*"] }]
-            });
-            if (formPath == null)
-                throw new OperationCanceledException();
-        }
-        // The return is deliberately not banked here. The refusal above already covers this path — and it
-        // sits above the picker on purpose, so the developer is never asked for a destination that will not
-        // be written. The check inside SerializeFormToFile is the write-site backstop for the paths that do
-        // NOT come through here (Save Project's batch, Make EXE, Save-to-directory). Two checks, two jobs;
-        // collapsing them into one would either reinstate the picker prompt or leave those paths ungated.
-        return SerializeFormToFile(form, formPath);
+        // A file given a new name is named in turn by the file that holds it: a form or module by its project
+        // file, a project by the group file. When that file is not part of this operation it is rendered with
+        // the new name too, so a Save As to a name the holder's code page cannot hold is refused now, in the
+        // holder's name, rather than written and then refusing every later save of the holder.
+        foreach (var holder in destinations.Where(d => d.Chosen).Select(d => HolderOf(d.Document)).OfType<object>()
+                     .Distinct(ReferenceEqualityComparer.Instance))
+            if (!going.ContainsKey(holder))
+                EnsureHolderEncodable(holder, PathOf);
     }
+
+    /// <summary>The project a form or module is in, or the open group for a project.</summary>
+    private object? HolderOf(object document) => document switch
+    {
+        FormDefinition form => form.Owner,
+        ModuleDefinition module => module.Owner,
+        ProjectDefinition => projectManager.CurrentGroup,
+        _ => null
+    };
+
+    /// <summary>
+    /// Refuses when <paramref name="holder"/>'s file, rendered with its members where
+    /// <paramref name="pathOf"/> puts them, cannot be written in its code page but could be as it stands.
+    /// </summary>
+    private void EnsureHolderEncodable(object holder, Func<object, string?> pathOf)
+    {
+        string name;
+        Vb6TextEncoding encoding;
+        Func<Func<object, string?>?, string> render;
+        switch (holder)
+        {
+            case ProjectDefinition { AbsolutePath: { } projectPath } project:
+                (name, encoding) = (project.Name, project.TextEncoding);
+                render = of => new ProjectSerializer().Serialize(project, projectPath, of);
+                break;
+            case ProjectGroupDefinition { AbsolutePath: { } groupPath } group:
+                (name, encoding) = (group.Name, group.TextEncoding);
+                render = of => RenderGroup(group, groupPath, of);
+                break;
+            default:
+                // No file yet, so nothing names the new place. Its first save checks it whole.
+                return;
+        }
+
+        try
+        {
+            Vb6TextFile.EncodeDocument(name, render(pathOf), encoding);
+        }
+        catch (SourceEncodingRefusal) when (!Encodes(render(null), encoding))
+        {
+            // Not this operation's doing: the holder cannot be written as it stands either, and its own save
+            // refuses that. A Save Form As is not stopped for a project file it does not write.
+        }
+    }
+
+    private static bool Encodes(string text, Vb6TextEncoding encoding)
+    {
+        try
+        {
+            Vb6TextFile.Encode(text, encoding);
+            return true;
+        }
+        catch (EncoderFallbackException)
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Writes one file an operation has already checked, and announces a form or module. False when a form's
+    /// own gate refused it, which <see cref="SaveFiles"/> rules out by deciding just before.
+    /// </summary>
+    private bool Write(Destination destination, bool announceSave)
+    {
+        switch (destination.Document)
+        {
+            case FormDefinition form:
+                // On success only. A refusal is the opposite of a save, and telling a server a document was
+                // written when it was not would have it re-read a file that still holds the previous content.
+                if (!SerializeFormToFile(form, destination.Path))
+                    return false;
+                if (announceSave)
+                    eventBus.Publish(new DocumentSavedEvent(form, null));
+                return true;
+            case ModuleDefinition module:
+                WriteModule(module, destination.Path);
+                if (announceSave)
+                    eventBus.Publish(new DocumentSavedEvent(module.FormPart, module));
+                return true;
+            case ProjectDefinition project:
+                SerializeOnlyProjectToFile(project, destination.Path);
+                return true;
+            case ProjectGroupDefinition group:
+                var content = RenderGroup(group, destination.Path, pathOf: null);
+                AtomicWriteText(destination.Path, content, Vb6TextFile.EncodeDocument(group.Name, content, group.TextEncoding));
+                group.AbsolutePath = destination.Path;
+                if (destination.Chosen) group.Name = Path.GetFileNameWithoutExtension(destination.Path);
+                Log.Information("ProjectService: Saved group {Path}", group.AbsolutePath);
+                return true;
+            default:
+                throw new ArgumentException($"HexIDE does not save a {destination.Document.GetType().Name}.");
+        }
+    }
+
+    private static (string Text, byte[]? Companion) RenderForm(FormDefinition form, string path) =>
+        new FormSerializer().Serialize(form, Path.GetFileName(path));
+
+    /// <summary>
+    /// A module's file as it would be written at <paramref name="path"/>. A UserControl or PropertyPage
+    /// is a designer file with a companion; a <c>.bas</c> or <c>.cls</c> gets the canonical VB6 header
+    /// (<see cref="ModuleFileFormat"/>) in front of its body, so vb6.exe can load it.
+    /// </summary>
+    private static (string Text, byte[]? Companion) RenderModule(ModuleDefinition module, string path) =>
+        DesignerPartOf(module) is { } designerPart
+            ? new FormSerializer().Serialize(designerPart, module.Code, Path.GetFileName(path))
+            : (ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind, module.OriginalHeader), null);
+
+    private string RenderGroup(ProjectGroupDefinition group, string path, Func<object, string?>? pathOf) =>
+        new GroupSerializer().Serialize(path, projectManager.LoadedProjects, projectManager.StartupProject,
+            group.UnknownLines, pathOf);
 
     public async Task<bool> ReloadFormFromDisk(FormDefinition form)
     {
@@ -600,7 +1041,12 @@ public class ProjectService : IProjectService
 
         // The designer file is read FIRST: its cited offsets are what partition the companion, so the
         // companion cannot be parsed without it. See FrxDeserializer.
-        var (source, sourceBytes) = await Vb6TextFile.ReadWithBytesAsync(path);
+        var (source, sourceBytes, sourceEncoding, byteForByte) = await ReadSourceAsync(path, form.TextEncoding);
+        if (byteForByte)
+        {
+            Log.Warning("Reload: {Path} could not be read in code page {CodePage}; read byte for byte", path, HostAnsi.CodePage);
+            await ReportReadByteForByte([Path.GetFileName(path)]);
+        }
         baselineStore.Record(path, sourceBytes);
 
         IReadOnlyDictionary<int, byte[]>? frxBlobs = null;
@@ -616,6 +1062,7 @@ public class ProjectService : IProjectService
         if (fresh is null)
             return false;
 
+        form.TextEncoding = sourceEncoding;
         form.UpdateCode(fresh.Code);
         form.UpdateComponents(fresh.Components);
         // The verdict comes from the file too. Adopting only code and components left the banner describing
@@ -631,10 +1078,16 @@ public class ProjectService : IProjectService
         if (path is null || !File.Exists(path))
             return false;
 
-        var (source, sourceBytes) = await Vb6TextFile.ReadWithBytesAsync(path);
+        var (source, sourceBytes, sourceEncoding, byteForByte) = await ReadSourceAsync(path, module.TextEncoding);
+        if (byteForByte)
+        {
+            Log.Warning("Reload: {Path} could not be read in code page {CodePage}; read byte for byte", path, HostAnsi.CodePage);
+            await ReportReadByteForByte([Path.GetFileName(path)]);
+        }
         baselineStore.Record(path, sourceBytes);
         var (preservedHeader, reloadedBody) = ModuleFileFormat.SplitHeader(source, module.Kind);
 
+        module.TextEncoding = sourceEncoding;
         module.RecordOriginalHeader(preservedHeader);
 
         module.UpdateCode(reloadedBody);
@@ -653,6 +1106,7 @@ public class ProjectService : IProjectService
                 {
                     // Update the existing FormPart in place so an open designer's reference stays valid
                     // (the designer's FormEditViewModel.FormDefinition points at this instance).
+                    existing.TextEncoding = sourceEncoding;
                     existing.UpdateCode(fresh.Code);
                     existing.UpdateComponents(fresh.Components);
                     existing.AdoptFidelityState(fresh);
@@ -660,6 +1114,7 @@ public class ProjectService : IProjectService
                 else
                 {
                     fresh.AbsolutePath = path;
+                    fresh.TextEncoding = sourceEncoding;
                     module.UpdateFormPart(fresh);
                 }
             }
@@ -712,7 +1167,10 @@ public class ProjectService : IProjectService
     {
         try
         {
-            await MakeProjectInternal(projectDefinition);
+            // The warning every other save shows. The refusal is an OperationCanceledException, so it then leaves
+            // through the cancellation arm below. A form or the project file used to reach the fatal-error box
+            // instead, with .NET's message in place of the document and the code page.
+            await WithEncodingError(() => MakeProjectInternal(projectDefinition));
         }
         catch (OperationCanceledException)
         {
@@ -732,6 +1190,36 @@ public class ProjectService : IProjectService
             await windowManager.MessageBox("Can't make project in a browser!", icon: MessageBoxIcon.Information);
             throw new OperationCanceledException();
         }
+
+        eventBus.Publish(new ApplyAllUnsavedChangesEvent());
+
+        // Named now and created only once there is something to put in it.
+        var tempPath = Path.Join(Path.GetTempPath(), "hexide-make-" + Guid.NewGuid().ToString("N"));
+
+        // A form or module HexIDE cannot reproduce is refused before the picker too, as Save As refuses it, and
+        // every one is named at once. The write loop below still refuses one that becomes unfaithful while the
+        // picker is open.
+        if (projectDefinition.Forms.Cast<object>().Concat(projectDefinition.Modules).Where(RefusesUnfaithful).ToList()
+            is { Count: > 0 })
+        {
+            await ReportRefusedSaves();
+            throw new OperationCanceledException();
+        }
+
+        // Every file the package will hold is checked against its code page BEFORE the developer is asked
+        // where to put the program, for the reason the faithful-save gate sits above the Save As picker: the
+        // question is wasted if the answer will never be used. No source file's content depends on where the
+        // program goes. Above the standalone-runtime check too, which also makes this reachable in a test.
+        //
+        // Each is checked in its OWN encoding, which is what the loop below writes it in. The project file's
+        // own name is not in its text, so the name the program will give it is not needed yet.
+        EnsureEncodable([
+            .. projectDefinition.Forms.Select(form =>
+                new Destination(form, Path.Join(tempPath, Path.ChangeExtension(form.Name, "frm")))),
+            .. projectDefinition.Modules.Select(module =>
+                new Destination(module, Path.Join(tempPath, module.Name + "." + ModuleExtension(module.Kind)))),
+            new Destination(projectDefinition, Path.Join(tempPath, projectDefinition.Name + ".vbp"))
+        ]);
 
         var exePath = await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions()
         {
@@ -789,10 +1277,7 @@ public class ProjectService : IProjectService
         var exeDir = Path.GetDirectoryName(exePath);
         var exeFileName = Path.GetFileNameWithoutExtension(exePath);
 
-        var tempPath = Path.GetTempFileName();
-        File.Delete(tempPath);
         Directory.CreateDirectory(tempPath);
-        eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
         var originalAbsolutePath = projectDefinition.AbsolutePath;
         var originalFormPaths = projectDefinition.Forms.Select(x => (x, x.AbsolutePath)).ToList();
@@ -872,23 +1357,13 @@ public class ProjectService : IProjectService
 
     public async Task SaveProject(ProjectDefinition project, bool saveAs)
     {
-        eventBus.Publish(new ApplyAllUnsavedChangesEvent());
-        // try/finally so the drain runs even when the batch is abandoned part-way. SaveOnlyProject and
-        // SaveModule both throw OperationCanceledException when their picker is dismissed, which skipped the
-        // report and left every refusal banked — to surface during the next unrelated save, naming files
-        // that were not in it. That is the leak #145 fixed for the lone path and left open here.
+        // try/finally so the drain runs even when the batch is abandoned part-way. A dismissed picker throws
+        // OperationCanceledException, which skipped the report and left every refusal banked — to surface
+        // during the next unrelated save, naming files that were not in it. That is the leak #145 fixed for
+        // the lone path and left open here.
         try
         {
-            foreach (var form in project.Forms)
-            {
-                await SaveFormCore(form, false);
-            }
-            foreach (var module in project.Modules)
-            {
-                await SaveModuleCore(module, false);
-            }
-
-            await SaveOnlyProject(project, saveAs);
+            await WithEncodingError(() => SaveFiles([.. FilesOf(project, saveAs)]));
         }
         finally
         {
@@ -896,102 +1371,121 @@ public class ProjectService : IProjectService
         }
     }
 
-    public async Task SaveProjectToDirectory(ProjectDefinition project, string directory)
+    /// <summary>A project's files in the order Save Project writes them: forms, modules, then the project file.</summary>
+    private static IEnumerable<(object Document, bool SaveAs)> FilesOf(ProjectDefinition project, bool saveAs) =>
+    [
+        .. project.Forms.Select(form => ((object)form, false)),
+        .. project.Modules.Select(module => ((object)module, false)),
+        (project, saveAs)
+    ];
+
+    public Task SaveProjectToDirectory(ProjectDefinition project, string directory) => WithEncodingError(() =>
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
-        Directory.CreateDirectory(directory);
 
-        // Reported here rather than banked. This method has no drain of its own, so a refusal added to the
-        // shared list would sit there and surface during the next unrelated Save Project, naming a file
-        // that was not part of it. Throwing keeps the report attached to the operation that caused it, and
-        // stops a .vbp being written that names forms which are not beside it. (#148)
-        var refused = new List<string>();
-        foreach (var form in project.Forms)
-            if (!SerializeFormToFile(form, Path.Join(directory, form.Name + ".frm")))
-                refused.Add(form.Name);
+        // Refused before anything is written, and reported here rather than banked. This method has no drain
+        // of its own, so a refusal added to the shared list would sit there and surface during the next
+        // unrelated Save Project, naming a file that was not part of it. Throwing keeps the report attached
+        // to the operation that caused it, and stops a .vbp being written that names forms which are not
+        // beside it. (#148)
+        var refused = project.Forms.Where(form => !IsWritable(form)).Select(form => form.Name)
+            .Concat(project.Modules.Where(module => !IsWritable(module)).Select(module => module.Name))
+            .ToList();
+        if (refused.Count > 0)
+            throw new InvalidOperationException(
+                $"Cannot write this project to {directory}: HexIDE cannot reproduce "
+              + $"{string.Join(", ", refused)}, so nothing was written.");
 
         // Modules as well. Writing the forms and the .vbp but not the modules produced a directory whose
         // project file named .bas, .cls and .ctl files that were not in it — and, because every item is
         // recorded by AbsolutePath, named them by a path back to wherever they had been. (#149)
         //
-        // The repointing here is permanent, unlike Make's: this is "write the project to this directory",
-        // so the project genuinely lives there afterwards, which is already how the forms above behave.
-        foreach (var module in project.Modules)
+        // Each file is repointed as it is written, and permanently, unlike Make's: this is "write the project
+        // to this directory", so the project genuinely lives there afterwards.
+        List<Destination> files =
+        [
+            .. project.Forms.Select(form => new Destination(form, Path.Join(directory, form.Name + ".frm"))),
+            .. project.Modules.Select(module =>
+                new Destination(module, Path.Join(directory, module.Name + "." + ModuleExtension(module.Kind)))),
+            new Destination(project, Path.Join(directory, project.Name + ".vbp"))
+        ];
+        EnsureEncodable(files);
+        Directory.CreateDirectory(directory);
+        foreach (var file in files)
+            Write(file, announceSave: true);
+        return Task.CompletedTask;
+    });
+
+    public Task<FormDefinition> AddNewForm(ProjectDefinition project, string name, bool interactive = true) =>
+        WithEncodingError(() =>
         {
-            module.AbsolutePath = Path.Join(directory, module.Name + "." + ModuleExtension(module.Kind));
-            if (!await SaveModuleCore(module, saveAs: false))
-                refused.Add(module.Name);
-        }
+            var form = new FormDefinition(project, FormComponentClass.Instance, name) { TextEncoding = HostAnsi };
+            EnsureNewMemberEncodable(project, form, name + ".frm");
+            var dir = ProjectFilesDirectory(project);
+            Directory.CreateDirectory(dir);
+            // A brand new form has no unfaithful causes and cites no companion, so this cannot refuse. Asserted
+            // rather than ignored: if it ever did, the form would be added to the project with no file behind
+            // it, and the .vbp would name a path that does not exist.
+            if (!SerializeFormToFile(form, Path.Join(dir, name + ".frm")))
+                throw new InvalidOperationException($"A new form ({name}) could not be written.");
+            project.AddForm(form);
+            return Task.FromResult(form);
+        }, interactive);
 
-        if (refused.Count > 0)
-            throw new InvalidOperationException(
-                $"Cannot write this project to {directory}: HexIDE cannot reproduce "
-              + $"{string.Join(", ", refused)}, so no project file was written.");
+    public Task<ModuleDefinition> AddNewModule(ProjectDefinition project, string name, ModuleKind kind,
+        bool interactive = true) =>
+        WithEncodingError(() => Task.FromResult(
+            AddNewModuleFile(project, new ModuleDefinition(project, name, kind) { TextEncoding = HostAnsi })), interactive);
 
-        SerializeOnlyProjectToFile(project, Path.Join(directory, project.Name + ".vbp"));
-    }
+    public Task<ModuleDefinition> AddNewUserControl(ProjectDefinition project, string name, bool interactive = true) =>
+        AddNewDesignerModule(project, name, ModuleKind.UserControl, "VB.UserControl", interactive);
 
-    public Task<FormDefinition> AddNewForm(ProjectDefinition project, string name)
+    public Task<ModuleDefinition> AddNewPropertyPage(ProjectDefinition project, string name, bool interactive = true) =>
+        AddNewDesignerModule(project, name, ModuleKind.PropertyPage, "VB.PropertyPage", interactive);
+
+    private Task<ModuleDefinition> AddNewDesignerModule(
+        ProjectDefinition project, string name, ModuleKind kind, string rootTypeName, bool interactive) =>
+        WithEncodingError(() =>
+        {
+            var module = new ModuleDefinition(project, name, kind) { TextEncoding = HostAnsi };
+            var formPart = new FormDefinition(project, FormComponentClass.Instance, name) { TextEncoding = HostAnsi };
+            formPart.UpdateRootTypeName(rootTypeName);
+            module.UpdateFormPart(formPart);
+            return Task.FromResult(AddNewModuleFile(project, module));
+        }, interactive);
+
+    /// <summary>Writes the file of a module just created, then adds the module to the project.</summary>
+    private ModuleDefinition AddNewModuleFile(ProjectDefinition project, ModuleDefinition module)
     {
-        var form = new FormDefinition(project, FormComponentClass.Instance, name);
+        var fileName = module.Name + "." + ModuleExtension(module.Kind);
+        EnsureNewMemberEncodable(project, module, fileName);
         var dir = ProjectFilesDirectory(project);
         Directory.CreateDirectory(dir);
-        // A brand new form has no unfaithful causes and cites no companion, so this cannot refuse. Asserted
-        // rather than ignored: if it ever did, the form would be added to the project with no file behind
-        // it, and the .vbp would name a path that does not exist.
-        if (!SerializeFormToFile(form, Path.Join(dir, name + ".frm")))
-            throw new InvalidOperationException($"A new form ({name}) could not be written.");
-        project.AddForm(form);
-        return Task.FromResult(form);
-    }
-
-    public Task<ModuleDefinition> AddNewModule(ProjectDefinition project, string name, ModuleKind kind)
-    {
-        var module = new ModuleDefinition(project, name, kind);
-        var ext = kind == ModuleKind.ClassModule ? "cls" : "bas";
-        var dir = ProjectFilesDirectory(project);
-        Directory.CreateDirectory(dir);
-        module.AbsolutePath = Path.Join(dir, name + "." + ext);
-        // Write the VB6 file header + (empty) body; the editor still shows only the body.
-        var diskContent = ModuleFileFormat.ToFileContent(module.Code, name, kind, module.OriginalHeader);
-        Vb6TextFile.WriteAllText(module.AbsolutePath, diskContent);
-        baselineStore.Record(module.AbsolutePath, Vb6TextFile.Encode(diskContent));
+        module.AbsolutePath = Path.Join(dir, fileName);
+        // The VB6 file header and an empty body; the editor still shows only the body.
+        var bytes = Vb6TextFile.EncodeDocument(
+            module.Name, RenderModule(module, module.AbsolutePath).Text, module.TextEncoding);
+        File.WriteAllBytes(module.AbsolutePath, bytes);
+        baselineStore.Record(module.AbsolutePath, bytes);
         project.AddModule(module);
-        return Task.FromResult(module);
+        return module;
     }
 
-    public Task<ModuleDefinition> AddNewUserControl(ProjectDefinition project, string name)
+    /// <summary>
+    /// Refuses a new member whose name its code page cannot hold, before a folder is chosen, a directory
+    /// created or anything added, so a refused name leaves nothing behind.
+    /// </summary>
+    /// <param name="fileName">The file the member will be written to. Its own text depends on nothing else
+    /// about where that is.</param>
+    private void EnsureNewMemberEncodable(ProjectDefinition project, object member, string fileName)
     {
-        var module = new ModuleDefinition(project, name, ModuleKind.UserControl);
-        var formPart = new FormDefinition(project, FormComponentClass.Instance, name);
-        formPart.UpdateRootTypeName("VB.UserControl");
-        module.UpdateFormPart(formPart);
-        var dir = ProjectFilesDirectory(project);
-        Directory.CreateDirectory(dir);
-        module.AbsolutePath = Path.Join(dir, name + ".ctl");
-        var serializer = new FormSerializer();
-        var (ctl, _) = serializer.Serialize(formPart, module.Code, name + ".ctl");
-        Vb6TextFile.WriteAllText(module.AbsolutePath, ctl);
-        baselineStore.Record(module.AbsolutePath, Vb6TextFile.Encode(ctl));
-        project.AddModule(module);
-        return Task.FromResult(module);
-    }
-
-    public Task<ModuleDefinition> AddNewPropertyPage(ProjectDefinition project, string name)
-    {
-        var module = new ModuleDefinition(project, name, ModuleKind.PropertyPage);
-        var formPart = new FormDefinition(project, FormComponentClass.Instance, name);
-        formPart.UpdateRootTypeName("VB.PropertyPage");
-        module.UpdateFormPart(formPart);
-        var dir = ProjectFilesDirectory(project);
-        Directory.CreateDirectory(dir);
-        module.AbsolutePath = Path.Join(dir, name + ".pag");
-        var serializer = new FormSerializer();
-        var (pag, _) = serializer.Serialize(formPart, module.Code, name + ".pag");
-        Vb6TextFile.WriteAllText(module.AbsolutePath, pag);
-        baselineStore.Record(module.AbsolutePath, Vb6TextFile.Encode(pag));
-        project.AddModule(module);
-        return Task.FromResult(module);
+        // Rendered whole, in the encoding it will be written in: the name reaches the Begin line, the
+        // Attribute VB_Name line and a new form's Caption.
+        EnsureEncodable([new Destination(member, fileName)]);
+        // The next Save Project names it in the project file too, as `Module=Name; Name.bas` or
+        // `Form=Name.frm`, in the project's code page. That file is the one that cannot hold it then, so the
+        // refusal names the project.
+        Vb6TextFile.EncodeDocument(project.Name, fileName, project.TextEncoding);
     }
 
     /// <summary>
@@ -1009,7 +1503,7 @@ public class ProjectService : IProjectService
 
     public async Task<Adopted<FormDefinition>> AddExistingForm(ProjectDefinition project, string absolutePath)
     {
-        var (source, bytes) = await Vb6TextFile.ReadWithBytesAsync(absolutePath);
+        var (source, bytes, sourceEncoding, byteForByte) = await ReadSourceAsync(absolutePath);
 
         // Form text before companion: the .frm's cited offsets partition the .frx.
         var blobs = await LoadCompanionBlobs(absolutePath, source);
@@ -1028,14 +1522,16 @@ public class ProjectService : IProjectService
         // the dirty check answering about a file the project does not carry.
         baselineStore.Record(absolutePath, bytes);
         form.AbsolutePath = absolutePath;
+        form.TextEncoding = sourceEncoding;
         project.AddForm(form);
-        return Adopted<FormDefinition>.Added(form, name);
+        ForgetKeptLineFor(project, absolutePath);
+        return Adopted<FormDefinition>.Added(form, name, byteForByte ? HostAnsi.CodePage : null);
     }
 
     public async Task<Adopted<ModuleDefinition>> AddExistingModule(
         ProjectDefinition project, string absolutePath, ModuleKind kind)
     {
-        var (source, bytes) = await Vb6TextFile.ReadWithBytesAsync(absolutePath);
+        var (source, bytes, sourceEncoding, byteForByte) = await ReadSourceAsync(absolutePath);
 
         // .bas/.cls: strip the VB6 header so Code is the body only (a no-op for .ctl/.pag).
         var (preservedHeader, body) = ModuleFileFormat.SplitHeader(source, kind);
@@ -1050,6 +1546,7 @@ public class ProjectService : IProjectService
         var module = new ModuleDefinition(project, name, kind)
         {
             AbsolutePath = absolutePath,
+            TextEncoding = sourceEncoding,
         };
         module.RecordOriginalHeader(preservedHeader);
         module.UpdateCode(body);
@@ -1063,6 +1560,7 @@ public class ProjectService : IProjectService
             if (formPart != null)
             {
                 formPart.AbsolutePath = absolutePath;
+                formPart.TextEncoding = sourceEncoding;
                 module.UpdateFormPart(formPart);
                 // SplitHeader is a no-op for .ctl/.pag, so Code still holds the whole file — replace it
                 // with the body only, or the next save emits the Begin..End header twice.
@@ -1071,7 +1569,8 @@ public class ProjectService : IProjectService
         }
 
         project.AddModule(module);
-        return Adopted<ModuleDefinition>.Added(module, name);
+        ForgetKeptLineFor(project, absolutePath);
+        return Adopted<ModuleDefinition>.Added(module, name, byteForByte ? HostAnsi.CodePage : null);
     }
 
     public Task<RelatedDocumentDefinition> AddExistingRelatedDocument(
@@ -1179,14 +1678,12 @@ public class ProjectService : IProjectService
         // skip the drain and leave refusals banked for the next unrelated save.
         try
         {
-            foreach (var selected in changedFilesVm.SelectedFiles.Where(f => f.Form != null))
-                await SaveFormCore(selected.Form!, false);
-
-            foreach (var selected in changedFilesVm.SelectedFiles.Where(f => f.Module != null))
-                await SaveModuleCore(selected.Module!, false);
-
-            foreach (var selected in changedFilesVm.SelectedFiles.Where(f => f.Project != null))
-                await SaveOnlyProject(selected.Project!, false);
+            await WithEncodingError(() => SaveFiles(
+            [
+                .. changedFilesVm.SelectedFiles.Where(f => f.Form != null).Select(f => ((object)f.Form!, false)),
+                .. changedFilesVm.SelectedFiles.Where(f => f.Module != null).Select(f => ((object)f.Module!, false)),
+                .. changedFilesVm.SelectedFiles.Where(f => f.Project != null).Select(f => ((object)f.Project!, false))
+            ]));
         }
         finally
         {
@@ -1199,7 +1696,9 @@ public class ProjectService : IProjectService
     /// Silence here would be the worst of both worlds — the file is protected but the user believes their
     /// edit was persisted.
     /// </summary>
-    private async Task ReportRefusedSaves()
+    /// <param name="interactive">False for an automation caller, which learns of each refusal from the
+    /// save's result instead. The list is still cleared, so the next save does not report it.</param>
+    private async Task ReportRefusedSaves(bool interactive = true)
     {
         if (refusedThisSave.Count == 0)
             return;
@@ -1217,28 +1716,10 @@ public class ProjectService : IProjectService
             ? "Str.Dialog.UnfaithfulSave.Body.One"
             : "Str.Dialog.UnfaithfulSave.Body.Many");
 
-        await windowManager.MessageBox(
-            string.Format(body, names),
-            "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
-    }
-
-    private async Task SaveOnlyProject(ProjectDefinition project, bool saveAs)
-    {
-        var projectPath = project.AbsolutePath;
-        if (projectPath == null || saveAs)
-        {
-            projectPath = await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions()
-            {
-                DefaultExtension = "vbp",
-                SuggestedFileName = project.Name + ".vbp",
-                FileTypeChoices = [new("Project Files") { Patterns = ["*.vbp"] }, new("All Files") { Patterns = ["*.*"] }]
-            });
-            if (projectPath == null)
-                throw new OperationCanceledException();
-        }
-        SerializeOnlyProjectToFile(project, projectPath);
-        recentProjects.Add(projectPath);
-        await sidecar.SaveAsync(project);
+        if (interactive)
+            await windowManager.MessageBox(
+                string.Format(body, names),
+                "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
     }
 
     public async Task MakeProjectGroup()
@@ -1246,44 +1727,34 @@ public class ProjectService : IProjectService
         if (projectManager.LoadedProjects.Count == 0)
             return;
         EnsureGroupIfMultiple();
-        foreach (var project in projectManager.LoadedProjects)
-            await SaveProject(project, false);
-        await SaveGroupFile(true);
+        // CurrentGroup is null with one project loaded and no group open. SaveFiles throws on it before
+        // anything is written; what the command should do then is #746.
+        await SaveAll([.. projectManager.LoadedProjects.SelectMany(project => FilesOf(project, false)),
+            (projectManager.CurrentGroup!, true)]);
     }
 
-    public async Task SaveAllProjects(bool saveAs)
+    public Task SaveAllProjects(bool saveAs)
     {
-        foreach (var project in projectManager.LoadedProjects)
-        {
-            await SaveProject(project, saveAs);
-        }
-
-        if (projectManager.CurrentGroup != null)
-            await SaveGroupFile(saveAs);
+        var files = projectManager.LoadedProjects.SelectMany(project => FilesOf(project, saveAs)).ToList();
+        if (projectManager.CurrentGroup is { } group)
+            files.Add((group, saveAs));
+        return SaveAll(files);
     }
 
-    private async Task SaveGroupFile(bool saveAs)
+    /// <summary>
+    /// Every project at once, as one operation: one refusal leaves every project and the group as they
+    /// were, and the refusals HexIDE cannot reproduce are reported in one dialog rather than one per project.
+    /// </summary>
+    private async Task SaveAll(IReadOnlyList<(object Document, bool SaveAs)> files)
     {
-        var group = projectManager.CurrentGroup!;
-        if (saveAs || group.AbsolutePath == null)
+        try
         {
-            var path = await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions
-            {
-                Title = "Save Project Group As",
-                DefaultExtension = "vbg",
-                FileTypeChoices = [new FilePickerFileType("Project Group") { Patterns = ["*.vbg"] }],
-                SuggestedFileName = group.Name
-            });
-            if (path == null) throw new OperationCanceledException();
-            group.AbsolutePath = path;
-            group.Name = Path.GetFileNameWithoutExtension(path);
-            recentProjects.Add(path);
+            await WithEncodingError(() => SaveFiles(files));
         }
-        var content = new GroupSerializer().Serialize(
-            group.AbsolutePath!, projectManager.LoadedProjects, projectManager.StartupProject,
-            group.UnknownLines);
-        AtomicWriteText(group.AbsolutePath!, content);
-        Log.Information("ProjectService: Saved group {Path}", group.AbsolutePath);
+        finally
+        {
+            await ReportRefusedSaves();
+        }
     }
 
     /// <summary>
@@ -1316,12 +1787,11 @@ public class ProjectService : IProjectService
             return false;
         }
 
-        var serializer = new FormSerializer();
-        var (frmText, frxContent) = serializer.Serialize(form, Path.GetFileName(formPath));
+        var (frmText, frxContent) = RenderForm(form, formPath);
 
-        // Below the decision. A refused Save As must not leave the model pointing at a path that was never
-        // written — the .vbp records forms by AbsolutePath, so it would name a file that does not exist.
-        form.AbsolutePath = formPath;
+        // Encoded before either half of the pair changes. An operation has checked this already; this is the
+        // backstop for a path that did not.
+        var encodedText = Vb6TextFile.EncodeDocument(form.Name, frmText, form.TextEncoding);
 
         // COMPANION FIRST, and the order is load-bearing.
         //
@@ -1338,7 +1808,8 @@ public class ProjectService : IProjectService
         //
         // Neither is correct, but a crash should fail towards the one the developer is told about.
         WriteCompanionBinary(formPath, frxContent, form);
-        AtomicWriteText(formPath, frmText);
+        AtomicWriteText(formPath, frmText, encodedText);
+        form.AbsolutePath = formPath;
         return true;
     }
 
@@ -1422,7 +1893,10 @@ public class ProjectService : IProjectService
     // content immediately — well before the resulting FileSystemWatcher event is processed (it is
     // debounced) — is the primary self-write-suppression mechanism for the file watcher: the watcher
     // re-hashes the file, sees it matches the baseline, and ignores the IDE's own save.
-    private void AtomicWriteText(string targetPath, string content)
+    //
+    // Takes the encoded bytes rather than encoding them itself, so no write can encode without naming its
+    // document (Vb6TextFile.EncodeDocument) and every refusal names it.
+    private void AtomicWriteText(string targetPath, string content, byte[] bytes)
     {
         var tmp = targetPath + ".tmp";
         try
@@ -1431,7 +1905,6 @@ public class ProjectService : IProjectService
             // which stopped matching the file the moment VB6 source began being written as ANSI — the
             // watcher would re-hash from disk, see a different hash, and report every save as an external
             // change. Recording the actual bytes keeps self-write suppression correct.
-            var bytes = Vb6TextFile.Encode(content);
             File.WriteAllBytes(tmp, bytes);
             File.Move(tmp, targetPath, overwrite: true);
             baselineStore.Record(targetPath, bytes);
@@ -1477,19 +1950,22 @@ public class ProjectService : IProjectService
     /// <c>refusedThisSave</c> and surfaces during the next unrelated save, naming a file that was not in
     /// that batch. Returns false when the module was refused and nothing was written.
     /// </summary>
-    public async Task<bool> SaveModule(ModuleDefinition module, bool saveAs)
+    /// <inheritdoc cref="SaveForm" path="/param[@name='interactive']"/>
+    public async Task<bool> SaveModule(ModuleDefinition module, bool saveAs, bool interactive = true)
     {
-        var written = await SaveModuleCore(module, saveAs);
-        await ReportRefusedSaves();
-        return written;
+        try
+        {
+            return await WithEncodingError(() => SaveModuleCore(module, saveAs), interactive);
+        }
+        finally
+        {
+            await ReportRefusedSaves(interactive);
+        }
     }
 
     /// <summary>
-    /// The batch-safe half: refusals are banked, not reported, so N of them produce one dialog rather
-    /// than N. Callers that are not part of a batch use <see cref="SaveModule"/>.
-    /// </summary>
-    /// <summary>
-    /// Writes a module and, if it was written, says so. See <see cref="SaveFormCore"/> for the shape.
+    /// Writes a module and, if it was written, says so, banking a refusal rather than reporting it: Make
+    /// reports every refusal in one dialog.
     /// </summary>
     /// <remarks>
     /// <c>internal</c> rather than private so a test can reach the <paramref name="announceSave"/> flag.
@@ -1497,79 +1973,29 @@ public class ProjectService : IProjectService
     /// without a published standalone runtime — so without this the one exclusion in "which writes count
     /// as a save" would have no test at all, which mutation testing confirmed.
     /// </remarks>
-    internal async Task<bool> SaveModuleCore(ModuleDefinition module, bool saveAs, bool announceSave = true)
+    internal async Task<bool> SaveModuleCore(ModuleDefinition module, bool saveAs, bool announceSave = true) =>
+        (await SaveFiles([(module, saveAs)], announceSave)).Count > 0;
+
+    /// <summary>Writes a module the caller has decided HexIDE can reproduce, and repoints it there.</summary>
+    private void WriteModule(ModuleDefinition module, string modulePath)
     {
-        var written = await WriteModuleToDisk(module, saveAs);
-        if (written && announceSave) eventBus.Publish(new DocumentSavedEvent(module.FormPart, module));
-        return written;
-    }
-
-    private async Task<bool> WriteModuleToDisk(ModuleDefinition module, bool saveAs)
-    {
-        eventBus.Publish(new ApplyAllUnsavedChangesEvent());
-
-        // ABOVE the picker, for the reason SaveFormCore gives: the developer must not be asked for a
-        // destination that will never be written. This used to sit below it, so Save As on an unfaithful
-        // UserControl asked where to put the file and then declined to write it — which is the behaviour
-        // #145 removed for forms and left in place here, and which the merged requirement rules out in
-        // terms ("no destination is asked for"). Nothing in the predicate depends on the picker's result,
-        // so hoisting it is a pure statement move. (#147)
-        //
-        // A brand-new module is unaffected: it has no designer half yet, or a fresh one with no unfaithful
-        // causes, so the gate does not fire before its first save.
-        var designerPart = module.Kind is ModuleKind.UserControl or ModuleKind.PropertyPage
-            ? module.FormPart
-            : null;
-
-        if (designerPart is not null && !designerPart.CanSaveFaithfully)
-        {
-            Log.Warning("Refusing to write {Module}: {Reason}", module.Name, designerPart.UnfaithfulSaveReason);
-            RecordRefusal(module.Name);
-            return false;
-        }
-
-        var modulePath = module.AbsolutePath;
-        if (modulePath == null || saveAs)
-        {
-            var ext = ModuleExtension(module.Kind);
-            modulePath = await windowManager.SaveFilePickerAsync(new FilePickerSaveOptions()
-            {
-                DefaultExtension = ext,
-                SuggestedFileName = module.Name + "." + ext,
-                FileTypeChoices = [new("Module Files") { Patterns = [$"*.{ext}"] }, new("All Files") { Patterns = ["*.*"] }]
-            });
-            if (modulePath == null)
-                throw new OperationCanceledException();
-        }
-        // Repointed only now the destination is known and the write is going to happen. (#148)
+        var (text, companion) = RenderModule(module, modulePath);
+        // Encoded before anything is written, and the module repointed only once everything is.
+        var encodedText = Vb6TextFile.EncodeDocument(module.Name, text, module.TextEncoding);
+        // Companion first — see SerializeFormToFile for why the order is the difference between a crash
+        // leaving a laundered file and a crash leaving a refused one.
+        if (DesignerPartOf(module) is { } designerPart)
+            WriteCompanionBinary(modulePath, companion, designerPart);
+        AtomicWriteText(modulePath, text, encodedText);
         module.AbsolutePath = modulePath;
-
-        if (designerPart is not null)
-        {
-            var serializer = new FormSerializer();
-            var fileName = Path.GetFileName(modulePath);
-            var (text, binary) = serializer.Serialize(designerPart, module.Code, fileName);
-            // Companion first — see SerializeFormToFile for why the order is the difference between a
-            // crash leaving a laundered file and a crash leaving a refused one.
-            WriteCompanionBinary(modulePath, binary, designerPart);
-            AtomicWriteText(modulePath, text);
-            return true;
-        }
-
-        // .bas/.cls: prepend the canonical VB6 header (ModuleFileFormat) so vb6.exe can load it; Code itself
-        // is body-only. (Unmanaged kinds return Code unchanged.)
-        AtomicWriteText(modulePath, ModuleFileFormat.ToFileContent(module.Code, module.Name, module.Kind, module.OriginalHeader));
-        return true;
     }
 
     private void SerializeOnlyProjectToFile(ProjectDefinition definition, string projectPath)
     {
+        var serialized = new ProjectSerializer().Serialize(definition, projectPath);
+        AtomicWriteText(projectPath, serialized,
+            Vb6TextFile.EncodeDocument(definition.Name, serialized, definition.TextEncoding));
         definition.AbsolutePath = projectPath;
-
-        var serializer = new ProjectSerializer();
-        var serialized = serializer.Serialize(definition, projectPath);
-
-        AtomicWriteText(projectPath, serialized);
     }
 
     // ── Dirty detection ───────────────────────────────────────────────────────────────────────

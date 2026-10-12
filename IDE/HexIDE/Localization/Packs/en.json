@@ -2,6 +2,9 @@
   "name": "English",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.NothingWritten": "Nothing was written. {0} is kept in code page {1}, which cannot hold '{2}' ({3}). It is in this line:\n\n{4}\n\nHexIDE keeps each file in the code page it was read or created in, rather than converting it. Change that text to characters the code page holds, or, where the line names a file or folder, choose a name it can hold. Then try again. Your changes are still open in the IDE.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} could not be read in this computer's code page ({1}), so it was opened byte for byte, as Western (Latin-1) text. Saving it unchanged writes the same bytes back, but characters outside Latin-1 cannot be added to it. Text written in another code page may look garbled.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "These files could not be read in this computer's code page ({1}), so they were opened byte for byte, as Western (Latin-1) text:\n\n{0}\n\nSaving them unchanged writes the same bytes back, but characters outside Latin-1 cannot be added to them. Text written in another code page may look garbled.",
     "Str.Menu.File": "_File",
     "Str.Menu.File.NewProject": "_New Project",
     "Str.Menu.File.OpenProject": "_Open Project...",

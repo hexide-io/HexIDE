@@ -131,6 +131,46 @@ public class MainViewViewModelTests
             Substitute.For<HexIDE.Runtime.Debugging.IDebugController>());
     }
 
+    // --- Add File: a file that joined read byte for byte ---
+
+    private ProjectDefinition PickToAdd(string path, Adopted<ModuleDefinition> adopted)
+    {
+        var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
+        _projectManager.StartupProject.Returns(project);
+        _windowManager.OpenFilePickerAsync(Arg.Any<Avalonia.Platform.Storage.FilePickerOpenOptions>())
+            .Returns(Task.FromResult<IReadOnlyList<string>?>([path]));
+        _projectService.AddExistingModule(project, path, ModuleKind.StandardModule).Returns(Task.FromResult(adopted));
+        return project;
+    }
+
+    [AvaloniaFact]
+    public void Add_File_warns_when_the_file_joined_read_byte_for_byte()
+    {
+        var path = System.IO.Path.Join(System.IO.Path.GetTempPath(), "Western.bas");
+        var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
+        PickToAdd(path, Adopted<ModuleDefinition>.Added(
+            new ModuleDefinition(project, "Western", ModuleKind.StandardModule), "Western", unreadableInCodePage: 932));
+
+        _sut.AddFileCommand.Execute(null);
+
+        _windowManager.Received(1).MessageBox(
+            Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), MessageBoxIcon.Warning);
+    }
+
+    [AvaloniaFact]
+    public void Add_File_says_nothing_when_the_file_was_read_normally()
+    {
+        var path = System.IO.Path.Join(System.IO.Path.GetTempPath(), "Plain.bas");
+        var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
+        PickToAdd(path, Adopted<ModuleDefinition>.Added(
+            new ModuleDefinition(project, "Plain", ModuleKind.StandardModule), "Plain"));
+
+        _sut.AddFileCommand.Execute(null);
+
+        _windowManager.DidNotReceive().MessageBox(
+            Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<MessageBoxButtons>(), Arg.Any<MessageBoxIcon>());
+    }
+
     // --- Title ---
 
     [AvaloniaFact]

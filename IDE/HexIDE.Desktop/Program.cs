@@ -47,6 +47,16 @@ sealed class Program
             Environment.ExitCode = 2;
             return;
         }
+
+        if (ServerOptions.AnsiCodePageInvalid is { } badCodePage)
+        {
+            ConsoleOutput.Write(
+                $"--ansi-code-page needs a Windows code page number after it, such as 932, and got '{badCodePage}'. "
+              + "HexIDE has not started: reading files in this machine's own code page instead would look as "
+              + "though the flag had worked." + Environment.NewLine);
+            Environment.ExitCode = 2;
+            return;
+        }
 #endif
 
         // Before anything else starts: UserDataPath refuses a redirect once any per-user file has been looked up.
