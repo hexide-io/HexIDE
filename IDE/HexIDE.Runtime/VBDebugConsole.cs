@@ -19,8 +19,8 @@ public static class VBDebugConsole
     /// <summary>Format a value the way <c>Debug.Print</c> displays it and raise <see cref="Output"/>.</summary>
     public static void Emit(Vb6Value value) => Output?.Invoke(Format(value));
 
-    // Matches how the interpreter stringifies for '&' concatenation (the boxed CLR value's ToString):
-    // strings print verbatim, Boolean as True/False, numbers via invariant ToString. Public so the Immediate
-    // window's `?expr` result formats identically to Debug.Print (same buffer, same conventions).
+    // The text CStr and '&' make of the value (VbDisplay): VB6's digits, E notation and date halves, in the current
+    // culture. Not Print's own spacing, which pads a number with a space for its sign and one after it; that is not
+    // implemented. Public so the Immediate window's `?expr` result formats identically to Debug.Print.
     public static string Format(Vb6Value value) => VbDisplay.ToText(value);
 }

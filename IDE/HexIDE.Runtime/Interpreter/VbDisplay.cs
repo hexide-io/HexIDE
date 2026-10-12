@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using System.Numerics;
 
@@ -18,12 +19,18 @@ namespace HexIDE.Runtime.Interpreter;
 /// <para>
 /// The locale supplies the decimal separator and the date and time patterns, as it does for VB6 and for
 /// <c>Format</c> here. Everything else is VB6's own: the significant digits, where E notation starts, its spelling,
-/// and which half of a date is left out.
+/// and which half of a date is left out. Two things the locale does NOT supply, although .NET would take them from
+/// it: the sign is always an ASCII <c>-</c> (ICU gives some locales U+2212, or bidi marks, which Windows' own locale
+/// data does not, and which <c>Val</c> cannot read back), and a date is always in the Gregorian calendar, VB6's
+/// default (<c>Calendar = vbCalHijri</c> is a separate feature HexIDE lacks).
 /// </para>
 /// </remarks>
 public static class VbDisplay
 {
     private static readonly DateTime ZeroDate = new(1899, 12, 30);
+
+    /// <summary>Gregorian date formats for the cultures whose default calendar is another, by culture name.</summary>
+    private static readonly ConcurrentDictionary<string, DateTimeFormatInfo> GregorianFormats = new();
 
     /// <summary>The text VB6 makes of <paramref name="value"/>, in the current culture.</summary>
     public static string ToText(Vb6Value value) => ToText(value, CultureInfo.CurrentCulture);
@@ -43,6 +50,8 @@ public static class VbDisplay
         double d => Floating(d, 15, culture),
         decimal m => Exact(m, culture),
         DateTime dt => Date(dt, culture),
+        // The integer types have no separator to take from the locale, only a sign, which is always ASCII.
+        byte or short or int or long => ((IFormattable)value.Value).ToString(null, CultureInfo.InvariantCulture),
         _ => value.Value.ToString() ?? "",
     };
 
@@ -62,11 +71,15 @@ public static class VbDisplay
     {
         if (value == 0)
             return "0";   // negative zero too: VB6 writes 0 (measured for a Single, a Double and an underflow)
-        if (!double.IsFinite(value))
-            return value.ToString(culture);   // VB6 cannot make one; it raises 6 or 11 first
+        // VB6 raises 6 or 11 rather than make one of these, but HexIDE can still reach one, and Format already spells
+        // them this way (OutOfDecimalRangeNumeric), so every path agrees. Not measured.
+        if (double.IsNaN(value))
+            return "1.#QNAN";
+        if (double.IsInfinity(value))
+            return value > 0 ? "1.#INF" : "-1.#INF";
 
         var (digits, exponent) = SignificantDigits(Math.Abs(value), precision);
-        var sign = value < 0 ? culture.NumberFormat.NegativeSign : "";
+        var sign = value < 0 ? "-" : "";
         var point = culture.NumberFormat.NumberDecimalSeparator;
 
         if (exponent >= precision || (exponent < 0 && -exponent - 1 + digits.Length > precision))
@@ -135,7 +148,7 @@ public static class VbDisplay
     /// <c>CDec("0.00000000000000000001")</c> is written out in full (all measured).
     /// </summary>
     private static string Exact(decimal value, CultureInfo culture)
-        => value == 0 ? "0" : value.ToString("0.############################", culture);
+        => value == 0 ? "0" : (value < 0 ? "-" : "") + Math.Abs(value).ToString("0.############################", culture);
 
     /// <summary>
     /// A Date in the locale's short date and long time, leaving out a midnight time and the zero date: a date only
@@ -144,14 +157,38 @@ public static class VbDisplay
     /// </summary>
     private static string Date(DateTime value, CultureInfo culture)
     {
-        var format = culture.DateTimeFormat;
-        var time = value.ToString(format.LongTimePattern, culture);
+        var format = Gregorian(culture);
+        var time = value.ToString(format.LongTimePattern, format);
         if (value.Date == ZeroDate)
             return time;
         var datePattern = format.ShortDatePattern;
         if (value.Year < 1000)
             datePattern = datePattern.Replace("yyyy", "'" + value.Year.ToString(CultureInfo.InvariantCulture) + "'");
-        var date = value.ToString(datePattern, culture);
+        var date = value.ToString(datePattern, format);
         return value.TimeOfDay == TimeSpan.Zero ? date : date + " " + time;
+    }
+
+    /// <summary>
+    /// The culture's date formats, in the Gregorian calendar. A culture whose default calendar is another writes a
+    /// Persian, Hijri or Buddhist year, and ar-SA and fa-IR throw on valid VB6 dates their calendar cannot reach. Such
+    /// a culture offers Gregorian as an optional calendar; if one ever does not, the invariant formats are used.
+    /// </summary>
+    private static DateTimeFormatInfo Gregorian(CultureInfo culture)
+    {
+        if (culture.DateTimeFormat.Calendar is GregorianCalendar)
+            return culture.DateTimeFormat;
+        return GregorianFormats.GetOrAdd(culture.Name, _ =>
+        {
+            foreach (var calendar in culture.OptionalCalendars)
+            {
+                if (calendar is GregorianCalendar)
+                {
+                    var format = (DateTimeFormatInfo)culture.DateTimeFormat.Clone();
+                    format.Calendar = calendar;
+                    return DateTimeFormatInfo.ReadOnly(format);
+                }
+            }
+            return CultureInfo.InvariantCulture.DateTimeFormat;
+        });
     }
 }

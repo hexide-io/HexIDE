@@ -64,6 +64,30 @@ public class WatchBreakTests : BaseVBTestFixture
     }
 
     [Fact]
+    public async Task BreakWhenChanged_SeesAChangeBelowTheDigitsTheValueIsShownWith()
+    {
+        // Line 5 moves x by two units in the last place, which its 15-digit text does not show (#772). The watch is
+        // about the value, so it must still break.
+        var (vb, dbg) = NewDebuggable(
+            "Go\nSub Go()\nDim x As Double\nx = 1 / 3\nx = x + 1E-16\nDebug.Print \"end\"\nEnd Sub\n", "M");
+        dbg.SetWatchBreaks(new[] { new WatchBreakSpec("x", BreakOnChange: true) });
+
+        var first = NextStop(dbg);
+        var run = vb.Execute();
+        (await first.Guarded()).Line.Should().Be(5);   // 0 -> 1/3
+        var second = NextStop(dbg);
+        dbg.Continue();
+        var info = await second.Guarded();
+
+        info.Reason.Should().Be(StopReason.Watch);
+        info.Line.Should().Be(6);   // 1/3 -> 1/3 + 1E-16, both shown as 0.333333333333333
+
+        dbg.SetWatchBreaks(Array.Empty<WatchBreakSpec>());
+        dbg.Continue();
+        await run.Guarded();
+    }
+
+    [Fact]
     public async Task BreakWhenTrue_NeverTrue_RunsToCompletion()
     {
         var (vb, dbg) = NewDebuggable(

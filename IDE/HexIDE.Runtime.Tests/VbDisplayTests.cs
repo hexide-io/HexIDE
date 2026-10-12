@@ -4,10 +4,12 @@ using HexIDE.Runtime.Interpreter;
 namespace HexIDE.Runtime.Tests;
 
 /// <summary>
-/// The text VB6 makes of a Single, a Double, a Currency, a Decimal and a Date (#772, #771). Every expectation is a
-/// row measured on vb6.exe under an en-GB locale (docs/vb6-fidelity-oracle.md, "Turning a number or a date into
-/// text"), so each is asserted in en-GB explicitly: CI runs in the invariant culture and a developer may run in
-/// any, and the date patterns differ between them.
+/// The text VB6 makes of a Single, a Double, a Currency, a Decimal and a Date (#772, #771). Unless a test says
+/// otherwise, every expectation is a row measured on vb6.exe under an en-GB locale (docs/vb6-fidelity-oracle.md,
+/// "Turning a number or a date into text"), so each is asserted in en-GB explicitly: CI runs in the invariant
+/// culture and a developer may run in any, and the date patterns differ between them. The tests that are not
+/// measurements are the ones about what the oracle cannot show: values VB6 cannot make, and locales other than
+/// en-GB. Each says so.
 /// </summary>
 public class VbDisplayTests : BaseVBTestFixture
 {
@@ -162,11 +164,18 @@ public class VbDisplayTests : BaseVBTestFixture
         => Text(new Vb6Value(probe)).Should().Be(expected);
 
     [Fact]
-    public void An_omitted_argument_has_no_text_and_an_empty_string_has_empty_text()
+    public async Task An_omitted_argument_has_no_text_and_an_empty_string_has_empty_text()
     {
+        // ToTextOrNull reads the current culture, so the culture is pinned for the one row that depends on it.
         VbDisplay.ToTextOrNull(Vb6Value.Missing).Should().BeNull();
         VbDisplay.ToTextOrNull(new Vb6Value("")).Should().Be("");
-        VbDisplay.ToTextOrNull(new Vb6Value(0.5)).Should().Be("0.5");
+        string? half = null;
+        await InCulture(() =>
+        {
+            half = VbDisplay.ToTextOrNull(new Vb6Value(0.5));
+            return Task.CompletedTask;
+        });
+        half.Should().Be("0.5");
     }
 
     // ── Through the interpreter: each path that turns a value into text ──────────────────────────────────
@@ -198,13 +207,186 @@ public class VbDisplayTests : BaseVBTestFixture
     [InlineData("Str(CSng(10000000))", " 1E+07")]
     [InlineData("Str(CCur(1.5))", " 1.5")]
     [InlineData("Str(0)", " 0")]
-    [InlineData("Len(CSng(1) / 3) & \"\"", "9")]
+    // A string function given a number. Not Len: VB6 refuses Len of a numeric expression at compile time
+    // ("Variable required"), and Len of a numeric variable is its size in bytes, not its text (#780).
+    [InlineData("Left(CSng(1) / 3, 20)", "0.3333333")]
+    [InlineData("Mid(1 / 3, 1)", "0.333333333333333")]
+    [InlineData("Left(#1/2/2003#, 20)", "02/01/2003")]
+    // The named formats that write what CStr writes.
+    [InlineData("Format(#1/2/2003#, \"General Date\")", "02/01/2003")]
+    [InlineData("Format(#10:30:00 AM#, \"General Date\")", "10:30:00")]
+    [InlineData("Format(#1/2/2003 10:30:00 AM#, \"General Date\")", "02/01/2003 10:30:00")]
+    [InlineData("Format(CDate(0), \"General Date\")", "00:00:00")]
+    [InlineData("Format(#1/2/2003#, \"c\")", "02/01/2003")]
+    [InlineData("Format(#10:30:00 AM#, \"c\")", "10:30:00")]
+    [InlineData("Format(#1/2/2003 10:30:00 AM#, \"c\")", "02/01/2003 10:30:00")]
+    [InlineData("Format(CSng(1) / 3, \"General Number\")", "0.3333333")]
+    [InlineData("Format(1 / 3, \"General Number\")", "0.333333333333333")]
+    [InlineData("Format(1E+15, \"General Number\")", "1E+15")]
+    [InlineData("Format(0.1 + 0.2, \"General Number\")", "0.3")]
+    [InlineData("Format(CSng(0.000012345), \"General Number\")", "1.2345E-05")]
+    [InlineData("Format(CCur(1.5) * 2, \"General Number\")", "3")]
     public async Task Each_path_to_text_writes_what_VB6_writes(string expression, string expected)
         => (await Printed($"Debug.Print {expression}\n")).Should().Be(expected);
 
+    // Storing into a String is CStr: the property-store measurement for #768 found that, and this asserts the
+    // text through a declared String variable rather than measuring it again.
     [Fact]
     public async Task Storing_into_a_String_variable_writes_the_same_text()
         => (await Printed("Dim s As String\ns = CSng(1) / 3\nDebug.Print s\n")).Should().Be("0.3333333");
+
+    // ── The routed sites that are not an expression's value: one test each ───────────────────────────────
+
+    [Fact]
+    public async Task MsgBox_and_InputBox_show_the_text_of_their_arguments()
+    {
+        var lib = new CaptureLib(debug);
+        await InCulture(() => new BasicInterpreter(lib, context, rootEnv,
+            "MsgBox CSng(1) / 3, , CSng(2) / 3\nDim r As Variant\nr = InputBox(1 / 3, 0.1 + 0.2, #1/2/2003#)\n").Execute());
+
+        lib.Shown.Should().Equal(
+            "MsgBox 0.3333333 | 0.6666667",
+            "InputBox 0.333333333333333 | 0.3 | 02/01/2003");
+    }
+
+    [Fact]
+    public async Task Err_keeps_the_text_of_its_source_and_description()
+    {
+        await InCulture(() => Run(
+            "On Error Resume Next\nErr.Raise 5, CSng(1) / 3, 0.1 + 0.2\nDebug.Print Err.Source\nDebug.Print Err.Description\n" +
+            "Err.Description = CSng(2) / 3\nDebug.Print Err.Description\n"));
+
+        AssertDebugLog(["0.3333333", "0.3", "0.6666667"]);
+    }
+
+    [Fact]
+    public async Task App_Title_keeps_the_text_of_what_is_assigned()
+    {
+        await InCulture(() => Run("App.Title = CSng(1) / 3\nDebug.Print App.Title\n"));
+
+        AssertDebugLog(["0.3333333"]);
+    }
+
+    [Fact]
+    public async Task The_Immediate_window_shows_the_same_text()
+    {
+        // `?expr` in the Immediate window, evaluated against a paused frame.
+        var (vb, dbg) = NewDebuggable("Go\nSub Go()\nDebug.Print \"here\"\nEnd Sub\n", "M");
+        dbg.SetBreakpoints("M", new[] { 3 });
+        var paused = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        dbg.Stopped += _ => paused.TrySetResult();
+        var run = vb.Execute();
+        await paused.Task.Guarded();
+
+        string? single = null, date = null;
+        await InCulture(async () =>
+        {
+            single = await dbg.EvaluateAsync("?CSng(1) / 3");
+            date = await dbg.EvaluateAsync("?#1/2/2003#");
+        });
+        dbg.Continue();
+        await run.Guarded();
+
+        single.Should().Be("0.3333333");
+        date.Should().Be("02/01/2003");
+    }
+
+    [Fact]
+    public async Task Debug_Print_in_the_IDE_shows_the_same_text()
+    {
+        // The IDE's Debug.Print goes to the Immediate window through VBDebugConsole, not the test's capture.
+        var lines = new List<string>();
+        void Collect(string line) => lines.Add(line);
+        VBDebugConsole.Output += Collect;
+        try
+        {
+            await InCulture(() =>
+            {
+                VBDebugConsole.Emit(new Vb6Value(1f / 3));
+                VBDebugConsole.Emit(new Vb6Value(new DateTime(2003, 1, 2)));
+                return Task.CompletedTask;
+            });
+        }
+        finally
+        {
+            VBDebugConsole.Output -= Collect;
+        }
+
+        lines.Should().Equal("0.3333333", "02/01/2003");
+    }
+
+    // ── What the oracle cannot show ───────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public void A_value_VB6_cannot_make_is_spelled_as_Format_spells_it()
+    {
+        // VB6 raises 6 or 11 rather than make these, so there is nothing to measure. HexIDE can still reach one, and
+        // Format already wrote these spellings, so every path now agrees with it.
+        Text(new Vb6Value(double.PositiveInfinity)).Should().Be("1.#INF");
+        Text(new Vb6Value(double.NegativeInfinity)).Should().Be("-1.#INF");
+        Text(new Vb6Value(double.NaN)).Should().Be("1.#QNAN");
+    }
+
+    [Theory]
+    [InlineData("ar-SA")]
+    [InlineData("fa-IR")]
+    [InlineData("th-TH")]
+    public void A_date_is_in_the_Gregorian_calendar_whatever_the_culture_defaults_to(string culture)
+    {
+        // Not measured in these locales. VB6's default calendar is Gregorian; these cultures default to Hijri,
+        // Persian and Buddhist calendars, and ar-SA and fa-IR used to throw on a date their calendar cannot reach.
+        var text = VbDisplay.ToText(new Vb6Value(new DateTime(2003, 1, 2)), CultureInfo.GetCultureInfo(culture));
+        text.Should().Contain("2003");
+        VbDisplay.ToText(new Vb6Value(new DateTime(100, 1, 1)), CultureInfo.GetCultureInfo(culture))
+            .Should().Contain("100");
+    }
+
+    [Fact]
+    public void The_sign_is_an_ASCII_hyphen_whatever_the_culture_says()
+    {
+        // Not measured in this locale. ICU gives sv-SE a U+2212 minus, which Windows' own locale data does not, and
+        // which Val could not read back; the decimal separator still comes from the culture.
+        var swedish = CultureInfo.GetCultureInfo("sv-SE");
+        VbDisplay.ToText(new Vb6Value(-1.5), swedish).Should().Be("-1,5");
+        VbDisplay.ToText(new Vb6Value(-1.5f), swedish).Should().Be("-1,5");
+        VbDisplay.ToText(Vb6Value.NewCurrency(-2.5m), swedish).Should().Be("-2,5");
+        VbDisplay.ToText(new Vb6Value(-5), swedish).Should().Be("-5");
+        VbDisplay.ToText(new Vb6Value(-5L), swedish).Should().Be("-5");
+    }
+
+    private static async Task InCulture(Func<Task> action)
+    {
+        var saved = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = EnGb;
+        try
+        {
+            await action();
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = saved;
+        }
+    }
+
+    private sealed class CaptureLib(List<Vb6Value> debug) : IBasicStandardLibrary
+    {
+        public readonly List<string> Shown = new();
+
+        public Task<HexIDE.IDE.MessageBoxResult> MsgBox(string text, string? caption, HexIDE.IDE.MessageBoxButtons buttons,
+            HexIDE.IDE.MessageBoxIcon icon)
+        {
+            Shown.Add($"MsgBox {text} | {caption}");
+            return Task.FromResult(HexIDE.IDE.MessageBoxResult.Ok);
+        }
+
+        public Task<string?> InputBox(string prompt, string? title, string defaultText)
+        {
+            Shown.Add($"InputBox {prompt} | {title} | {defaultText}");
+            return Task.FromResult<string?>("");
+        }
+
+        public void DebugPrint(Vb6Value value) => debug.Add(value);
+    }
 
     [Theory]
     [InlineData("CDbl(#10:30:00 AM#)")]

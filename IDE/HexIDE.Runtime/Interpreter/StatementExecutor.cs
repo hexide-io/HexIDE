@@ -146,7 +146,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return new Debugging.DebugEvalResult(
                 true, FormatEvalResult(result), VB6BuiltIns.DebugTypeName(result),
                 Debugging.DebugInspector.IsTruthy(result),
-                Debugging.DebugInspector.NodeFor(expr, result, interpreter.ExecutionContext));
+                Debugging.DebugInspector.NodeFor(expr, result, interpreter.ExecutionContext))
+            {
+                ChangeKey = ChangeKeyOf(result),
+            };
         }
         catch (Debugging.ImmediateEvalException ex) { return EvalErr(expr, ex.Message); }
         catch (VBRunTimeException ex) { return EvalErr(expr, FlattenError(ex.Message)); }
@@ -247,6 +250,22 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (v.Value is VbUdt || v.Type.IsArray || v.Value is Avalonia.Controls.Control || v.Value is ICSharpProxy)
             return VB6BuiltIns.DebugTypeName(v);
         return VBDebugConsole.Format(v);
+    }
+
+    // The value in full, for "Break When Value Changes": its display rounds a Single or Double to VB6's 7 or 15
+    // significant digits, so comparing displays would miss a change below them. Null where the display is already
+    // the whole value.
+    private static string? ChangeKeyOf(Vb6Value v)
+    {
+        var full = v.Value switch
+        {
+            double d => d.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
+            float f => f.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
+            decimal m => m.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            DateTime dt => dt.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            _ => null,
+        };
+        return full is null ? null : v.Type + ":" + full;
     }
 
     private static string FlattenError(string message) => message.Replace("\r", " ").Replace("\n", " ").Trim();

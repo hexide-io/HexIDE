@@ -39,7 +39,8 @@ public partial class VB6BuiltIns
             return new Vb6Value(sciNamed);
         switch (fmtKey)
         {
-            case "general number": return new Vb6Value(GeneralNumber(v));
+            // "General Number", "General Date" and the c token write exactly what CStr writes (measured, #772).
+            case "general number": return new Vb6Value(v.Value is float or double ? VbDisplay.ToText(v) : GeneralNumber(v));
             case "fixed":          return new Vb6Value(FormatPlainNumeric(NumToDecimal(v), "0.00"));
             case "standard":       return new Vb6Value(FormatPlainNumeric(NumToDecimal(v), "#,##0.00"));
             case "percent":        return new Vb6Value(FormatPlainNumeric(NumToDecimal(v), "0.00%"));
@@ -47,7 +48,7 @@ public partial class VB6BuiltIns
             case "currency":       return new Vb6Value(FormatPlainNumeric(NumToDecimal(v),
                                         cc.NumberFormat.CurrencySymbol + "#,##0.00"));
             // Named date/time formats resolve through the current culture's patterns (locale-dependent).
-            case "general date":   return new Vb6Value(AsDate(v).ToString(cc));
+            case "general date":   return new Vb6Value(VbDisplay.ToText(new Vb6Value(AsDate(v))));
             case "long date":      return new Vb6Value(AsDate(v).ToString("D", cc));
             case "medium date":    return new Vb6Value(AsDate(v).ToString("dd-MMM-yy", cc));
             case "short date":     return new Vb6Value(AsDate(v).ToString("d", cc));
@@ -159,7 +160,7 @@ public partial class VB6BuiltIns
                     sb.Append(((dt.Month - 1) / 3 + 1).ToString());
                     afterHour = false; break;
                 case 'c':
-                    sb.Append(dt.ToString(CultureInfo.CurrentCulture));
+                    sb.Append(VbDisplay.ToText(new Vb6Value(dt)));   // as General Date and CStr (measured)
                     afterHour = false; break;
                 default:
                     sb.Append(c); i++; continue;   // literal char (separators etc.) — preserves afterHour
