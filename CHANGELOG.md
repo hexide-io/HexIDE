@@ -16,6 +16,11 @@ there isn't one yet. Anything may change between 0.x releases.
   day names, `CDate`, `CDbl`, `IsDate`, `IsNumeric` and a two-digit year in `DateSerial` now all follow the user's
   locale, so text a program wrote reads back as the same value. Source code is still read the same way on every
   machine, and the IDE's own language changes none of this.
+- **`s = Text1` no longer stores a .NET type name.** In VB6 a control where a value is wanted stands for
+  its default property, so `s = Text1` reads its text. HexIDE does not implement that yet, and the assignment
+  stored `HexIDE.Runtime.BuiltinControls.VBTextBox` in the String, or the control itself in a Variant, without a
+  word. It now stops the program and says so, until default properties land (#790). `Set`, `For Each` and
+  passing a control to a procedure are unaffected.
 - **Numbers and dates turn into the text VB6 makes of them.** `CStr`, `&`, a String variable, `MsgBox` and
   `Format` with no mask wrote .NET's text: `CSng(1) / 3` came out as `0.33333334` and `0.1 + 0.2` as
   `0.30000000000000004`, where VB6 writes `0.3333333` and `0.3`. A date came out with a midnight time attached.
