@@ -18,6 +18,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Calling a procedure that carries an `Attribute` line no longer stops the run.** VB6 writes these inside a
+  procedure for a default member (`VB_UserMemId`), a description from Tools → Procedure Attributes
+  (`VB_Description`), a property category (`VB_ProcData`) and more, and after a module-level variable for its
+  description. Each stopped the run with "Attribute not implemented". They are metadata, and now run as nothing,
+  as in VB6. Stepping passes over them too. A default member is still not used as one (#174).
 - **A name in a different case is the same name, as in VB6.** `abc = 5` after `Dim Abc` used to make a new
   variable and leave `Abc` as it was, and `foo = 7` inside `Function Foo` returned 0. Variables, constants,
   parameters, a Function's return value, controls, properties and `Debug.Print` now match in any case, and so do

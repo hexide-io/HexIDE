@@ -340,10 +340,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         throw new NotImplementedException("AppActivate not implemented");
     }
 
-    public override async Task<ControlFlow> VisitAttributeStmt(VB6Parser.AttributeStmtContext context)
-    {
-        throw new NotImplementedException("Attribute not implemented");
-    }
+    // An Attribute line inside a procedure (VB_UserMemId, VB_Description, VB_ProcData, VB_HelpID, VB_MemberFlags) is
+    // metadata about the procedure, not a statement, and running it does nothing. It threw "Attribute not
+    // implemented", so calling any procedure that carried one stopped the run (#832). Measured: a Function with
+    // VB_UserMemId = 0 returns its value, a Property Get with VB_Description and VB_ProcData lines and its Let both
+    // work, and so does a Function with VB_Description, VB_HelpID and VB_MemberFlags. ExecuteProcedureBody, which also
+    // runs a module's declarations where `Attribute Name.VB_VarDescription` follows a Public variable, does not stop the
+    // debugger on these lines either, so a step never lands on one: VB6's code window does not show them.
+    public override Task<ControlFlow> VisitAttributeStmt(VB6Parser.AttributeStmtContext context) =>
+        Task.FromResult(ControlFlow.Nothing);
 
     public override async Task<ControlFlow> VisitBeepStmt(VB6Parser.BeepStmtContext context)
     {
@@ -2075,7 +2080,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // breakpoint on a statement that would run after End is never hit.
             if (interpreter.Ending)
                 throw new Debugging.StopExecutionSignal();
-            if (interpreter.DebugController is { } dbg)
+            // An Attribute line is metadata, so the debugger never stops on one (see VisitAttributeStmt).
+            if (interpreter.DebugController is { } dbg && stmts[pc].attributeStmt() == null)
             {
                 _suspendedAtTopLevel = true;   // a pause here is at a top-level statement — Set Next Statement is valid
                 await dbg.OnStatementAsync(currentLine, currentModule.Name, this);

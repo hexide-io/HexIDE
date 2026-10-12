@@ -4853,3 +4853,40 @@ about case:
 
 `Me` and the form's own name do resolve in any case on that path, where `VBLoader.RunForm` binds them, and are
 tested there.
+
+## Attribute lines inside a procedure (2026-10-12, #832)
+
+**The question.** VB6 writes `Attribute` lines in two places past a module's header. One is inside a procedure,
+right after its first line: a default member (`VB_UserMemId`), a description from Tools → Procedure Attributes
+(`VB_Description`), a property category (`VB_ProcData`), a help context (`VB_HelpID`) and flags (`VB_MemberFlags`).
+The other is after a module-level variable, for its description and help context. Does any of them do anything
+when the procedure is called, or when the module's declarations are run?
+
+**The probe.** A Sub Main project, compiled with `/make` and run, writing each answer to a log file:
+
+- `Module1.bas`: `Function Described() As Long` carrying a `VB_Description` line, returning 7.
+- `Widget.cls`:
+  - `Public Tag As String`, followed by `VB_VarDescription` and `VB_VarHelpID` lines;
+  - `Function Value() As Long` with `VB_UserMemId = 0`, returning 42;
+  - `Property Get Caption` with `VB_Description` and `VB_ProcData.VB_Invoke_Property = ";Appearance"` lines, and
+    `Property Let Caption` with a `VB_Description` line;
+  - `Function Note() As String` with `VB_Description`, `VB_HelpID = 12` and `VB_MemberFlags = "40"` lines.
+
+| Read | Logged |
+|---|---|
+| `Described()` | 7 |
+| `w.Value` | 42 |
+| `w.Caption` | `cap:` |
+| `w.Caption` after `w.Caption = "set"` | `cap:set` |
+| `w.Note` | `noted` |
+| `w` as a value, in `"..." & w` | 42 |
+| `w.Tag` after `w.Tag = "tagged"` | `tagged` |
+
+**The answer.** Every procedure and variable behaves as if its attribute lines were not there. The one attribute
+that does something at run time is `VB_UserMemId = 0`, and what it does is make `Value` the default member. The
+line itself does nothing when `Value` runs.
+
+**HexIDE, after #832.** It threw "Attribute not implemented" for each of these lines, so calling the procedure
+stopped the run. An attribute line is now metadata: running it does nothing, and the debugger's gate skips it, so
+a step goes from a procedure's first line to its first statement, as VB6's code window, which hides these lines,
+does. The default member is still not used as one, and that is #174.

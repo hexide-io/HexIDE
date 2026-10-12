@@ -244,6 +244,31 @@ public class DebuggerTests : BaseVBTestFixture
     }
 
     [Fact]
+    public async Task StepInto_a_procedure_passes_over_its_Attribute_lines()
+    {
+        // VB6's code window does not show a procedure's Attribute lines, so a step never stops on one (#832).
+        var (vb, dbg) = NewDebuggable(
+            "Debug.Print Answer()\n" +
+            "Function Answer()\nAttribute Answer.VB_Description = \"x\"\nAttribute Answer.VB_UserMemId = 0\n" +
+            "Answer = 42\nEnd Function\n", "M");
+        dbg.SetBreakpoints("M", new[] { 1 });
+
+        var stop = NextStop(dbg);
+        var run = vb.Execute();
+        (await stop.Guarded()).Line.Should().Be(1);
+
+        var s2 = NextStop(dbg);
+        dbg.StepInto();
+        var inAnswer = await s2.Guarded();
+        inAnswer.Line.Should().Be(5, "the first statement, after the two attribute lines");
+        inAnswer.Reason.Should().Be(StopReason.Step);
+
+        dbg.Continue();
+        await run.Guarded();
+        AssertDebugLog([42]);
+    }
+
+    [Fact]
     public async Task Continue_FromStepBreak_RunsFree_NoFurtherStepBreaks()
     {
         var (vb, dbg) = NewDebuggable("Debug.Print \"a\"\nDebug.Print \"b\"\nDebug.Print \"c\"\n", "M");
