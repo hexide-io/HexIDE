@@ -128,22 +128,22 @@ internal static class ForeignServerAcquisition
     /// </summary>
     public static readonly ForeignServerSource Markdown = new(
         Key: "markdown",
-        Version: "0.2.64",
+        Version: "0.2.79",
         ExecutableName: "rumdl",
         ReleaseUrlFormat: "https://github.com/rvben/rumdl/releases/download/v{0}/{1}",
         Provenance: DigestProvenance.Publisher,
         Assets:
         [
-            new("win-x64", "rumdl-v0.2.64-x86_64-pc-windows-msvc.zip",
-                "ADF3EC6D49C3308D080A01B75E82FBF8D1AEFED00CAA80D4E7E63C6DAF67231C"),
-            new("linux-x64", "rumdl-v0.2.64-x86_64-unknown-linux-musl.tar.gz",
-                "f08ac2f6b0e512f2fc53e33f8d3168471bf3ba9f0e41be978c495ef371987fac"),
-            new("linux-arm64", "rumdl-v0.2.64-aarch64-unknown-linux-musl.tar.gz",
-                "1f5cfe7963ce2c0cfe03168bf7e848bcdacc264f3c5348fba34a41c3316b68a1"),
-            new("osx-x64", "rumdl-v0.2.64-x86_64-apple-darwin.tar.gz",
-                "6e0b97487425f66702e801bf5dbb1293d5b52977d856887ca66fbc269949c74e"),
-            new("osx-arm64", "rumdl-v0.2.64-aarch64-apple-darwin.tar.gz",
-                "0bc09741ad3e4caccbe88c97601e6b093391d476323fd3f44cb5c57157fa209e"),
+            new("win-x64", "rumdl-v0.2.79-x86_64-pc-windows-msvc.zip",
+                "07D12118C143976FADAAF7D053AC6BE328798CE3B59B3F774572AC946B123672"),
+            new("linux-x64", "rumdl-v0.2.79-x86_64-unknown-linux-musl.tar.gz",
+                "a85ae77c6880616118e10dda1e36292df59815bcfbf767201736ff6971213cf3"),
+            new("linux-arm64", "rumdl-v0.2.79-aarch64-unknown-linux-musl.tar.gz",
+                "f2ccb236a6b62b9980711a2f54c1e0d8d91ceaea5d7313d0b1a615237b3130bf"),
+            new("osx-x64", "rumdl-v0.2.79-x86_64-apple-darwin.tar.gz",
+                "09cca63968f9a3f35faab71ac8d09bda1a96ba4e0e38cac54bfb7b544523075f"),
+            new("osx-arm64", "rumdl-v0.2.79-aarch64-apple-darwin.tar.gz",
+                "8c0ecf93a61bf612df5f6c6f22813d066a6f51a5680f3c12da49b93ed892aebb"),
         ]);
 
     /// <summary>
