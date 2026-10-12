@@ -886,14 +886,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (value.Type == Vb6Value.ValueType.Object)
             throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
 
-        // A control, or an in-box object such as Err or a control array, on the right of a Let stands for its
-        // default member in VB6: `s = Text1` reads Text1.Text, `v = Command1` reads its Value, `n = Check1` its
-        // Value (all measured). HexIDE has no default members yet (#790), and storing the reference gave a wrong
-        // value: a String took the .NET type name, a Variant kept the control. So a Let of one is refused until
-        // #790, whatever the target. A Let never stores a reference in VB6, even into an object variable, where it
-        // assigns that object's default member. Set, For Each and argument passing do not come here.
-        if ((value.Type == Vb6Value.ValueType.Control || value.Type == Vb6Value.ValueType.CSharpProxyObject)
-            && value.Value is not null)
+        // A control on the right of a Let stands for its default member in VB6: `s = Text1` reads Text1.Text,
+        // `v = Command1` reads its Value, `n = Check1` its Value (all measured). HexIDE has no default members for
+        // controls yet (#790), and storing the reference gave a wrong value: a String took the .NET type name, a
+        // Variant kept the control. So a Let of one is refused until #790, whatever the target. A Let never stores a
+        // reference in VB6, even into an object variable, where it assigns that object's default member. Set, For
+        // Each and argument passing do not come here. The in-box objects (Err, App, Debug, a control array) were
+        // settled by ObjectAsValue above, and controls are the one kind it leaves alone.
+        if (value.Type == Vb6Value.ValueType.Control && value.Value is not null)
             throw new NotImplementedException(
                 $"`{context.implicitCallStmt_InStmt().GetText()} = {context.valueStmt().GetText()}` reads a default "
                 + "member, which is not implemented (#790). Name the property, or use Set to keep the reference.");
