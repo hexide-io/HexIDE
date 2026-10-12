@@ -21,8 +21,29 @@ maxDepth: 14)`, not "`dump_visual_tree` returns only the tab chrome".
 
 ---
 
-## 3. MCP tools drop on IDE shutdown and don't re-attach mid-session
+## 3. Three tool calls while the IDE is down drop the tools until `/mcp` (narrowed 2026-10-12)
 
+> **What remains is the client's, and it is narrower.** With the server stateless (#763), a shutdown no longer
+> drops anything by itself. Tool calls made while the IDE is down still can:
+>
+> ```
+> shutdown_ide {}                  → requested; process exited 13:39:49 UTC
+> get_project_info {}              → ECONNREFUSED   (log: "Terminal connection error 1/3")
+> get_project_info {}              → ECONNREFUSED   (log: "Terminal connection error 2/3")
+> get_project_info {}              → "MCP server \"hexide\" is not connected"
+>                                    (log: "3/3", "Closing transport (max consecutive terminal errors)")
+> ```
+>
+> The client then retried at 1, 2, 4 and 8 seconds and logged "Max reconnection attempts (5) reached, giving
+> up". The IDE answered again about 35 seconds after the process exited, and every `mcp__hexide__*` tool stayed gone until `/mcp`.
+> The three calls were issued together in one turn. A single refused call is harmless, and the count resets at
+> the next success (measured on the earlier cycles the same day); two in a row were not measured. Claude Code
+> 2.1.296.
+>
+> **Workaround:** while the IDE is down, poll `/health`, not a tool. No server-side fix exists: nothing
+> answers for a server that is not running. Retiring this needs a client that re-attaches a stateless server
+> once it answers again.
+>
 > **Half of it was the server, and that half is fixed by #763.** Until 2026-10-12 the server ran the SDK's
 > default transport, which is stateful. That gave a relaunch two ways to break an attached client:
 >
@@ -31,7 +52,7 @@ maxDepth: 14)`, not "`dump_visual_tree` returns only the tab chrome".
 > - **The GET stream. This is what dropped the tools.** Claude Code holds a GET open to a stateful server, and
 >   a shutdown refuses its reconnects. From Claude Code **2.1.282**, three refused reconnects make it close the
 >   transport ("Closing transport (max consecutive terminal errors)") and retry at 1, 2, 4 and 8 seconds. If
->   the IDE is still down after about 15 seconds, it logs "Max reconnection attempts (5) reached, giving up"
+>   the IDE is still down about 15 seconds after the transport closed, it logs "Max reconnection attempts (5) reached, giving up"
 >   and stays down until `/mcp`. A Debug rebuild always takes longer than that. The stream lives about five
 >   minutes after each connect, so only a shutdown inside that window meets it.
 >
@@ -41,7 +62,7 @@ maxDepth: 14)`, not "`dump_visual_tree` returns only the tab chrome".
 >   times (265 in one session), and the counter never reached 3/3. So shutdowns did happen inside the window,
 >   and none was fatal.
 > - **From 2.1.282:** every "3/3" is followed by the closing-transport line. The first give-up was observed on
->   2.1.282, on 2026-09-27.
+>   2.1.282, on 2026-09-25.
 > - **2.1.283, 2.1.286 and 2.1.296** all show the same.
 >
 > So the measurements below that relaunches were survived (2026-09-08, 09-11 and 09-22) were true, and were a
@@ -50,18 +71,36 @@ maxDepth: 14)`, not "`dump_visual_tree` returns only the tab chrome".
 > age of the GET stream.
 >
 > **The fix:** the server runs stateless (`McpTransport`), so there is no session to go stale and no stream to
-> refuse. `McpRestartTests` proves the server side under the SDK's real client. **Open until a live relaunch
-> confirms it from Claude Code's side**, which a test cannot. The checks owed are in #765.
+> refuse. `McpRestartTests` proves the server side under the SDK's real client.
 >
-> **The cost:** a tool added or changed in a rebuild used to arrive through the 404's re-initialise. It now
-> needs a `/mcp` reconnect.
+> **Confirmed live on 2026-10-12** (main a816e0d, Claude Code 2.1.296). Three `shutdown_ide` and relaunch
+> cycles: two within a minute of a connect, one of them holding the IDE down for 40 seconds, and a third, 6
+> minutes 41 seconds after it, that rebuilt with a throwaway extra tool. The tools survived every one. The
+> added tool did not appear without `/mcp`: ToolSearch found nothing, while the running DLL contained it.
+> A single `get_project_info` call made while the IDE was down answered `ECONNREFUSED`,
+> logged as "Terminal connection error 1/3", and the count reset at the next successful call. Three such calls
+> in a row are the narrower gap at the top of this entry.
+>
+> **The cost:** a tool added in a rebuild used to arrive through the 404's re-initialise; a changed one never
+> did (the 2026-09-20 entry, now archived). Both now need a `/mcp` reconnect, measured above for an added tool.
 >
 > **A 400 at every switch-over, in both directions.** A session attached to a build from before #765 holds a
 > session id, and a build from after it answers that id with 400 ("Mcp-Session-Id header is not supported in
 > stateless mode"). The other way round, a session that never received an id meets a stateful build that
 > answers 400 to any request but `initialize` without one. So it recurs whenever an older and a newer build
-> are swapped on port 5123, and several worktrees here predate #765. What Claude Code does with a 400 has not
-> been observed; `/mcp` clears it.
+> are swapped on port 5123, and several worktrees here predate #765.
+>
+> **Not met on the one switch-over measured, stateful to stateless on 2026-10-12, and the client's log says
+> why.** The old build's session had expired while idle (the SDK's default idle timeout is two hours, and it
+> had been idle for eleven), so the `shutdown_ide` call got the 404 and Claude Code re-initialised against the build it was about to shut down. That new session's GET stream then met the
+> shutdown: three refused reconnects, "Closing transport (max consecutive terminal errors)", and retries at 1,
+> 2, 4 and 8 seconds. The fifth attempt, 15 seconds after the transport closed and 18 after the shutdown,
+> reached the stateless build, which had been compiled
+> beforehand in another worktree. So the session crossed over by a fresh connect, with no id to refuse. It
+> survived only because the last retry landed: a switch-over that waits on a build loses the tools until
+> `/mcp`. How the client handles the 400 itself is still unobserved, and the idle timeout narrows when it can
+> occur at all: only within about two hours of a stateful build's last request. After a quiet spell, a
+> switch-over takes the 404 path instead.
 >
 > Unchanged: the client keeps a cached schema for a tool name it already knows, and does not attach at all
 > when a session began with no server answering (#645).
@@ -92,11 +131,11 @@ Whether the session attached at its start or by `/mcp` played no part in either.
 
 **Workaround now.** After a rebuild that adds or changes a tool, have the user run `/mcp` and reconnect
 `hexide`. Headless integration tests (`HexIDE.Integration.Tests`) remain the better check for anything that
-does not strictly need the live IDE.
+does not strictly need the live IDE. While the IDE is down, poll `/health` rather
+than calling a tool: three refused calls in a row drop the tools until `/mcp`.
 
-**Retiring this entry** needs the live checks #765 lists: two shutdown, rebuild and relaunch cycles inside
-five minutes of a connect with the tools surviving, a tool call made while the IDE is down, and the 400 at the
-switch-over observed. Move it to the archive once they pass.
+**Retiring this entry** needs the client change named at the top. Everything #765 asked to be checked live has
+been, except what the client does with a 400, which no switch-over has produced yet.
 
 ---
 
@@ -385,35 +424,6 @@ shutdown cannot complete, keep the server alive so the next call can say why.
 
 ---
 
-## A mid-session relaunch DOES pick up new tools, if the server was attached when the session started
-
-> **Corrected 2026-10-12 (#763): the mechanism was not the attachment, and it no longer applies.**
->
-> - **How new tools arrived.** A relaunched stateful server answered the session's next call with 404.
->   Claude Code re-initialised on that 404, and re-listed the tools as part of it.
-> - **"Attached at session start" was incidental.** What mattered was that the session survived the
->   shutdown at all, which on Claude Code 2.1.282 and later depends on the age of its GET stream (entry 3).
-> - **Now.** The server is stateless, so there is no 404, no re-initialise and no re-list. A tool added in
->   a rebuild needs a `/mcp` reconnect to appear.
->
-> The measurements below stand as measurements.
-
-**Measured, and it refines a rule this file and `CLAUDE.md` both state more strongly than is true.** The
-documented rule is that MCP tools are discovered at session start and a schema change needs a session
-restart. Both of these happened in one afternoon:
-
-- Four new tools were added while **no IDE was running**. Building and launching did not surface them, and
-  a session restart was needed. Consistent with the rule.
-- A fifth was added later, with the IDE **running and attached since session start**. Shutting it down,
-  rebuilding and relaunching surfaced the new tool immediately, as a deferred-tool notification, and it
-  worked on the first call.
-
-**What it concluded, now superseded.** "The distinguishing condition is whether the server was attached
-when the session began", with the advice to try the relaunch before asking. Since #763 a relaunch brings in
-no new tool, attached or not. After a rebuild that adds one, ask for a `/mcp` reconnect straight away.
-
----
-
 ## An empty reply that does not say why is a defect, not a null result
 
 **The standing bar for this surface, recorded because it was stated as a correction.** The automation
@@ -470,35 +480,6 @@ by re-reading prose that had just been written. That half is the first-contact e
 
 ---
 
-## A relaunch picks up a NEW tool but not a CHANGED one (measured 2026-09-20)
-
-> **Since #763 a relaunch picks up neither.** The server is stateless, so the re-initialise that used to
-> bring a new tool in no longer happens. Both now need `/mcp`. The transferable part below, a nullable
-> parameter with no default being `required` on the wire, is unaffected.
-
-**Symptom.** Four mark tools gained an optional `project` argument. The documented rebuild cycle ran —
-`shutdown_ide`, build, relaunch, `/health` — and the first call to `set_breakpoints` failed with
-`An error occurred invoking 'set_breakpoints'.` and nothing else. The session's cached schema still carried
-the old parameter list, so the request it built no longer matched what the server accepted.
-
-**What this narrows.** The entry above records that a mid-session relaunch **does** pick up a tool that did
-not exist before, measured both ways. This is the other half: a tool whose *signature* changed keeps the
-schema the session already has. Added tools yes; changed tools no. The failure is a bare invocation error,
-which reads as a broken tool rather than as a stale schema.
-
-**The actual defect underneath it, which is the transferable part.** `string? project` with **no default
-value** is `required` in the generated schema — a nullable C# parameter is not an optional JSON one. So the
-new argument was mandatory on the wire and every existing caller broke, cached schema or not. Giving all six
-`= null` made them genuinely optional, and the same call then worked on the first try after a rebuild.
-
-**How to avoid paying for it again.** Read the generated schema's `required` array, not the C# signature —
-this file and CLAUDE.md both say so, and it still cost a cycle. And when a *signature* changes rather than a
-tool being added, expect the first call to fail against a stale schema and do not diagnose the server.
-
-**Since #603.** A throw inside a tool is now reported with its exception type and message rather than the bare
-line. Not re-measured for this case: a call that does not match the tool's parameters may fail in the SDK's
-own argument binding, which can report through `McpException`, and #603 leaves that as the SDK reports it.
-
 ## The bookmark tools count lines from 0; every other line-taking tool, and the gutter, count from 1
 
 **Symptom.** `set_bookmarks {"name":"Module1","lines":[1]}` (`project` left at null) answers `Carried/Module1
@@ -554,86 +535,25 @@ disk reads `false`.
 document is written, or keep new documents unsaved on purpose and say so in `get_file_content`'s
 description.
 
-## add_control calls an armed cancel a failed save, though its description offers the cancel
+## A write tool that needed no picker leaves an armed file-dialog answer pending, and says nothing
 
-> **A fix is in review (#755), not yet checked against the running IDE.** `add_control`, `set_file_content`
-> and `set_control_property` now report a save that the armed cancel answered as `success:true`, with a note
-> saying the document still has no file and how to write it. Whether it *was* that cancel is decided from the
-> dialog's state: `ScriptedFileDialogs.WatchForCancel` is taken before the save, and says afterwards whether a
-> picker took the armed cancel. It is not decided from the exception, which an encoding refusal shares (#751).
-> That decision is tested in `ScriptedFileDialogsTests`; the three replies are not, because no test project
-> references `HexIDE.Desktop`. **Retire this entry** once the three calls below, on a rebuilt IDE, each answer
-> `success:true` with that note, and `get_form_controls` still lists one control:
-> `answer_next_file_dialog {}` before each of `add_control {"formName":"Form1","type":"CommandButton",...}`,
-> `set_control_property {"formName":"Form1","controlName":"Command0","property":"Caption","value":"x"}` and
-> `set_file_content {"name":"Form1","content":"..."}`.
-
-**Symptom.** On a new Standard EXE project from File > New Project, so `Form1` has no file:
+**Symptom.** On the project `--newproject` creates, Project > Add Form adds `Form2` with a file already, because
+that project lives in a temp folder:
 
 ```
-view_designer {"name":"Form1"}
 answer_next_file_dialog {}
-add_control {"formName":"Form1","type":"CommandButton","x":20,"y":20,"width":81,"height":33}
-→ {"success":false,"controlName":"Command0","error":"'Command0' was added to the designer but the save failed: The operation was canceled."}
-get_form_controls {"formName":"Form1"}
-→ lists Command0 at 20,20, 81 × 33
+add_control {"formName":"Form2","type":"CommandButton","x":20,"y":20,"width":81,"height":33}
+→ {"success":true,"controlName":"Command0","note":"Command0 is at Left 20, Top 20, Width 81, Height 33, in pixels."}
+clear_file_dialog_answers {}
+→ {"success":true,"pending":0,"note":"Discarded 1 armed answer(s); the next file dialog will be shown for real."}
 ```
 
-`add_control`'s description says to "arm it with no path to keep the form without a file".
-`ScriptedFileDialogs.PickerRefusal`, the refusal `add_control`, `set_file_content` and
-`set_control_property` all give for a pathless document, gives the same advice. The call did exactly
-that: the control is placed and the form still has no file. The reply says `success:false` and "the
-save failed", so a caller cannot tell whether to retry, and a retry adds `Command1` beside `Command0`.
+The save wrote the form's file and never opened a picker, so the cancel armed for it is still pending. The next
+dialog to open takes it, however much later and whatever it is for. Only `clear_file_dialog_answers` showed it.
 
-`set_file_content` in the same state answered:
+**Workaround.** After any write that was armed for, call `clear_file_dialog_answers`. A count above zero means
+the write did not use the answer.
 
-```
-{"success":false,"error":"The new code is in the IDE but was not written: The operation was canceled."}
-```
-
-That wording is better, because it says where the edit is. It is still `success:false` for the outcome
-the caller asked for.
-
-**Which contract is intended.** The description's. The description, `PickerRefusal`, the comment over
-`add_control`'s refusal and `WouldShowPicker`'s remarks all present an armed cancel as the way to keep a
-document without a file, and the spec's *Driving a cancellation* scenario has the flow proceed as though
-the dialog was cancelled. The reply comes from the write tools' catch-all, which predates that advice and
-reports any exception as a failure, including the bare `OperationCanceledException` the save throws when
-its picker returns no path. `set_control_property` has the same catch, read in code and not measured.
-
-**Workaround.** After arming a cancel for a pathless document, read `success:false` ending "The operation
-was canceled." as the requested outcome: the edit is in the IDE and the document still has no file.
-Confirm with `get_form_controls` or `get_file_content`, and do not retry.
-
-**Suggested fix.** In those three tools, answer `success:true` with a note giving the state, for
-example that the control is in the designer and the form still has no file because the armed answer
-cancelled the picker. Decide that it is the cancel before the save, from the document being pathless and
-the next armed answer being a cancel. Do not decide it from the exception: #729 adds an encoding refusal
-that is also an `OperationCanceledException`, and that one must stay a failure.
-[#755](https://github.com/hexide-io/HexIDE/issues/755).
-
-## take_snapshot writes every capture to the same file
-
-> **A fix is in review (#756), not yet checked against the running IDE.** Each capture is written to a file of
-> its own, `hexide_snapshot_<yyyyMMdd-HHmmss-fff>_<n>.png` in the temp folder, and the description says so.
-> The naming is tested in `SnapshotCapturePathTests`. **Retire this entry** once two `take_snapshot` calls on
-> a rebuilt IDE return two paths, each still holding its own image. `export_lsp_conversation`'s fixed name is
-> not part of the fix.
-
-**Symptom.** With a program running:
-
-```
-take_snapshot {}                → "path": "<user temp>\\hexide_snapshot.png"   (the running program's form)
-take_snapshot {"window":"ide"}  → "path": "<user temp>\\hexide_snapshot.png"   (the IDE)
-```
-
-The file name is fixed in `TakeSnapshotAsync`, so the second capture replaced the first. A caller taking
-a before/after pair, or the form and then the IDE, loses the first image, and neither the description nor
-the reply says the next call reuses the path. `export_lsp_conversation` writes a fixed name too, read in
-code and not measured.
-
-**Workaround.** Read or copy each snapshot away before the next `take_snapshot` call.
-
-**Suggested fix.** Write each capture to its own file, named from a timestamp and a per-process counter,
-and say in the description that earlier captures are left in place.
-[#756](https://github.com/hexide-io/HexIDE/issues/756).
+**Suggested fix.** When a write tool finishes with an answer armed before the call still pending, say so in its
+note, naming why (the document already had a file) and that `clear_file_dialog_answers` discards it.
+[#810](https://github.com/hexide-io/HexIDE/issues/810).
