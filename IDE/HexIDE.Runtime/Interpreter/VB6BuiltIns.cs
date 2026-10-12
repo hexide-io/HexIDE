@@ -48,6 +48,13 @@ public partial class VB6BuiltIns
 
     public async Task<Vb6Value?> EvaluateBuiltInFunction(string name, List<Vb6Value> args)
     {
+        // A built-in given an object takes its default member, as every other value use does (measured for Left, InStr,
+        // Chr, Len, UCase, CDate, the conversions and more), and raises 438 for an object with none, which every one
+        // measured did. Only the functions that look at what a value is, rather than use it, take the object itself.
+        if (!InspectsItsArgument.Contains(name))
+            foreach (var arg in args)
+                ObjectAsValue.Refuse(arg, null);
+
         // The two async builtins await the standard library; every other builtin is in the sync registry.
         if (string.Equals(name, "msgbox", StringComparison.OrdinalIgnoreCase))
             return await MsgBox(args);
@@ -55,6 +62,16 @@ public partial class VB6BuiltIns
             return await InputBox(args);
         return Builtins.TryGetValue(name, out var fn) ? fn(this, args, null) : (Vb6Value?)null;
     }
+
+    /// <summary>
+    /// The built-ins that take an object as itself: they ask what a value is (<c>TypeName</c>, <c>VarType</c>, the
+    /// <c>Is</c> family) or treat it as an element or an array. Every other built-in wants a value.
+    /// </summary>
+    private static readonly HashSet<string> InspectsItsArgument = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "TypeName", "VarType", "IsObject", "IsEmpty", "IsNull", "IsMissing", "IsError", "IsArray", "IsNumeric", "IsDate",
+        "Array", "LBound", "UBound", "Join", "Filter", "Split",
+    };
 
     // ---- Built-in function registry ----
     // Per-group partial files (VB6BuiltIns.Strings.cs, .Math.cs, …) register into this table. It is consulted

@@ -12,7 +12,9 @@ namespace HexIDE.Runtime.Interpreter;
 /// <list type="bullet">
 /// <item>a Let into a Long, String, Double, Boolean or Variant;</item>
 /// <item>arithmetic, negation, a comparison, concatenation;</item>
-/// <item><c>CStr</c>, <c>CDbl</c>, <c>CBool</c>, <c>Val</c>;</item>
+/// <item><c>CStr</c>, <c>CDbl</c>, <c>CBool</c>, <c>Val</c>, and through a Variant <c>Left</c>, <c>InStr</c>, <c>Chr</c>,
+/// <c>Len</c>, <c>UCase</c> and <c>CDate</c>, while <c>Format</c>, <c>Abs</c> and <c>Not</c> raise 450 there (measured, and
+/// unexplained);</item>
 /// <item>a ByVal Long or String argument;</item>
 /// <item><c>If w Then</c>, <c>Select Case w</c>, a For bound, and <c>Print #</c>.</item>
 /// </list>

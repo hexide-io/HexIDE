@@ -86,6 +86,46 @@ public class ObjectAsValueTests : BaseVBTestFixture
         (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#174*");
     }
 
+    // Through a Variant holding the object, so Len compiles. Measured: with a default member, Left, InStr, Chr, Len,
+    // UCase, CDate and a ByVal Double argument see 42, and Format, Abs and Not raise 450; with none, every one is 438.
+    public static TheoryData<string> MeasuredThroughAVariant => new()
+    {
+        "c = Left(v, 1)",
+        "c = InStr(v, \"2\")",
+        "c = Chr(v)",
+        "c = Format(v)",
+        "c = Format(v, \"0.0\")",
+        "c = Len(v)",
+        "c = UCase(v)",
+        "c = Abs(v)",
+        "c = ByValDouble(v)",
+        "c = Not v",
+        "c = CDate(v)",
+    };
+
+    private Task RunThroughAVariant(string cls, string use) => RunClasses(
+        $"Dim v\nSet v = New {cls}\nDim c\nOn Error Resume Next\n{use}\nDebug.Print Err.Number\nDebug.Print IsEmpty(c)\n"
+        + "Function ByValDouble(ByVal d As Double)\n    ByValDouble = d\nEnd Function\n",
+        ("Widget", Widget), ("Plain", Plain));
+
+    [Theory]
+    [MemberData(nameof(MeasuredThroughAVariant))]
+    public async Task A_built_in_given_a_class_with_a_default_member_refuses(string use)
+    {
+        var run = () => RunThroughAVariant("Widget", use);
+
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#174*");
+    }
+
+    [Theory]
+    [MemberData(nameof(MeasuredThroughAVariant))]
+    public async Task A_built_in_given_a_class_with_no_default_member_raises_438(string use)
+    {
+        await RunThroughAVariant("Plain", use);
+
+        AssertDebugLog([new Vb6Value(438L), new Vb6Value(true)]);
+    }
+
     [Theory]
     [InlineData("Widget")]
     [InlineData("Plain")]
@@ -95,6 +135,23 @@ public class ObjectAsValueTests : BaseVBTestFixture
         await RunWith(cls, "c = ByValVariant(o)\nDebug.Print c");
 
         AssertDebugLog([new Vb6Value(cls), new Vb6Value(0L), new Vb6Value(false)]);
+    }
+
+    [Theory]
+    [InlineData("Widget")]
+    [InlineData("Plain")]
+    public async Task A_built_in_that_asks_what_a_value_is_still_takes_the_object(string cls)
+    {
+        await RunClasses(
+            $"Dim o As {cls}
+Set o = New {cls}
+Debug.Print TypeName(o)
+Debug.Print IsObject(o)
+Debug.Print IsEmpty(o)
+",
+            ("Widget", Widget), ("Plain", Plain));
+
+        AssertDebugLog([new Vb6Value(cls), new Vb6Value(true), new Vb6Value(false)]);
     }
 
     [Fact]

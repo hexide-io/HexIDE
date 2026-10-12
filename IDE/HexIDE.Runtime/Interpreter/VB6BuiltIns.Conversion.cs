@@ -133,7 +133,6 @@ public partial class VB6BuiltIns
 
     internal static Vb6Value CBool(Vb6Value v)
     {
-        ObjectAsValue.Refuse(v, null);
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is bool b) return new Vb6Value(b);
         // Measured: CBool(Empty) is False, as Empty is 0 to CLng and CDbl. `Enabled = Empty` takes this path.
@@ -152,7 +151,6 @@ public partial class VB6BuiltIns
 
     private static Vb6Value CDate(Vb6Value v)
     {
-        ObjectAsValue.Refuse(v, null);
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is DateTime) return v;
         if (v.Type == VT.String)
