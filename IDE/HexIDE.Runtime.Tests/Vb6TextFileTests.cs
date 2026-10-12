@@ -289,4 +289,51 @@ public class Vb6TextFileTests
 
         save.Should().Throw<EncoderFallbackException>();
     }
+
+    [Fact]
+    public void EncodeDocument_names_the_first_character_a_code_page_cannot_hold()
+    {
+        Action save = () => Vb6TextFile.EncodeDocument("Module1", "' a→b←\r\n", new Vb6TextEncoding(1252));
+
+        var refusal = save.Should().Throw<SourceEncodingRefusal>().Which;
+        refusal.Document.Should().Be("Module1");
+        refusal.CodePage.Should().Be(1252);
+        refusal.Character.Should().Be("→");
+        refusal.CodePoint.Should().Be("U+2192");
+        refusal.InnerException.Should().BeOfType<EncoderFallbackException>();
+        refusal.Message.Should().Be(
+            "Module1 is kept in code page 1252, which cannot hold '→' (U+2192). Nothing was written. HexIDE keeps "
+            + "a file in the code page it was read or created in rather than convert it, so use characters that "
+            + "code page holds.");
+    }
+
+    [Fact]
+    public void EncodeDocument_names_a_character_outside_the_basic_plane_whole()
+    {
+        var face = char.ConvertFromUtf32(0x1F600);
+        Action save = () => Vb6TextFile.EncodeDocument("Form1", "Caption = \"" + face + "\"", new Vb6TextEncoding(1252));
+
+        var refusal = save.Should().Throw<SourceEncodingRefusal>().Which;
+        refusal.Character.Should().Be(face);
+        refusal.CodePoint.Should().Be("U+1F600");
+    }
+
+    [Fact]
+    public void EncodeDocument_names_a_lone_surrogate_by_its_code_unit()
+    {
+        Action save = () => Vb6TextFile.EncodeDocument("Module1", "x" + (char)0xD800 + "y", Vb6TextEncoding.Utf8);
+
+        var refusal = save.Should().Throw<SourceEncodingRefusal>().Which;
+        refusal.Character.Should().Be(((char)0xD800).ToString());
+        refusal.CodePoint.Should().Be("U+D800");
+    }
+
+    [Fact]
+    public void EncodeDocument_returns_the_same_bytes_as_Encode_when_the_text_fits()
+    {
+        var encoding = new Vb6TextEncoding(1252) { Utf8Bom = true };
+
+        Vb6TextFile.EncodeDocument("Module1", "' café\r\n", encoding)
+            .Should().Equal(Vb6TextFile.Encode("' café\r\n", encoding));
+    }
 }

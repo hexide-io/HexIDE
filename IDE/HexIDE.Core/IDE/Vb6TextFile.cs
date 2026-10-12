@@ -98,6 +98,22 @@ public static class Vb6TextFile
         return encoding.Utf8Bom ? Utf8Bom.Concat(bytes).ToArray() : bytes;
     }
 
+    /// <summary>
+    /// <see cref="Encode"/> for a document about to be written, refusing text <paramref name="encoding"/>
+    /// cannot hold with a <see cref="SourceEncodingRefusal"/> that names <paramref name="document"/>.
+    /// </summary>
+    public static byte[] EncodeDocument(string document, string content, Vb6TextEncoding encoding)
+    {
+        try
+        {
+            return Encode(content, encoding);
+        }
+        catch (EncoderFallbackException e)
+        {
+            throw new SourceEncodingRefusal(document, encoding, e);
+        }
+    }
+
     public static async Task<string> ReadAllTextAsync(string path) =>
         Decode(await File.ReadAllBytesAsync(path));
 
