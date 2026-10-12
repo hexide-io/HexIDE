@@ -66,10 +66,17 @@ public class ShutdownWireShapeTests : IAsyncDisposable
     /// <summary>Every request and notification the client sent, in order, as raw JSON.</summary>
     private readonly List<JsonDocument> _received = [];
 
-    private JsonElement FrameFor(string method) =>
-        _received
-            .Select(d => d.RootElement)
-            .FirstOrDefault(e => e.TryGetProperty("method", out var m) && m.GetString() == method);
+    // Under the same lock the server loop appends under. ExitArrivedAsync only says `exit` was read; the loop goes on
+    // running after it, and enumerating the list while it appends threw "Collection was modified" (#565).
+    private JsonElement FrameFor(string method)
+    {
+        lock (_received)
+        {
+            return _received
+                .Select(d => d.RootElement)
+                .FirstOrDefault(e => e.TryGetProperty("method", out var m) && m.GetString() == method);
+        }
+    }
 
     private async Task<VBLspClient> ConnectedAsync()
     {

@@ -32,6 +32,7 @@ public static class ScriptedFileDialogs
 {
     private static readonly object Lock = new();
     private static readonly Queue<string?> Answers = new();
+    private static long _cancelsTaken;
 
     /// <summary>How many answers are queued, for a tool that has to report what it armed.</summary>
     public static int Pending { get { lock (Lock) return Answers.Count; } }
@@ -79,6 +80,42 @@ public static class ScriptedFileDialogs
         "until a person closes it. Nothing was changed. Arm answer_next_file_dialog first: with a path to " +
         "save it there, or with none to answer the picker as cancelled and leave the document without a file.";
 
+    /// <summary>
+    /// Taken just before a save of a document. After the save, <see cref="CancelWatch.Cancelled"/> says whether
+    /// the save's picker was answered with an armed cancel.
+    /// </summary>
+    /// <remarks>
+    /// An armed cancel is a route the tools offer (<see cref="PickerRefusal"/>): it keeps a document without a file.
+    /// So a save it cancels is that outcome, not a failure, and a tool reports it as one (#755). The decision comes
+    /// from the dialog's state rather than from the exception the cancelled save throws, because that exception is
+    /// not specific to it: a save refused for an encoding its code page cannot hold throws the same kind and must
+    /// stay a failure (#751), and a save refused before its picker opens takes no answer at all.
+    /// </remarks>
+    public static CancelWatch WatchForCancel(string? absolutePath)
+    {
+        // Only a document without a file opens a picker. Which answer the picker takes needs no peek: only a
+        // cancel moves the count.
+        lock (Lock)
+            return new CancelWatch(absolutePath is null, _cancelsTaken);
+    }
+
+    /// <summary>Whether a save was answered by the armed cancel that was next when it began.</summary>
+    public readonly struct CancelWatch(bool armed, long takenBefore)
+    {
+        /// <summary>
+        /// True when the document had no file and a picker has taken an armed cancel since
+        /// <see cref="WatchForCancel"/>.
+        /// </summary>
+        public bool Cancelled
+        {
+            get
+            {
+                lock (Lock)
+                    return armed && _cancelsTaken > takenBefore;
+            }
+        }
+    }
+
     /// <summary>Takes the next armed answer, if there is one. False means show the real dialog.</summary>
     public static bool TryTake(out string? path)
     {
@@ -91,6 +128,8 @@ public static class ScriptedFileDialogs
             }
 
             path = Answers.Dequeue();
+            if (path is null)
+                _cancelsTaken++;
             return true;
         }
     }

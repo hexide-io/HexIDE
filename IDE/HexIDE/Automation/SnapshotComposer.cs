@@ -21,6 +21,24 @@ namespace HexIDE.Automation;
 /// </summary>
 public static class SnapshotComposer
 {
+    private static int _captures;
+
+    /// <summary>
+    /// Where the next capture is written: a file of its own in <paramref name="folder"/>, named for
+    /// <paramref name="now"/> and a per-process count, so a path a caller was given keeps meaning that capture.
+    /// </summary>
+    /// <remarks>
+    /// Every capture used to go to one <c>hexide_snapshot.png</c>, so the next call overwrote the image the last
+    /// one had returned, and a before/after pair read the "after" twice (#756). The count separates two captures
+    /// inside one millisecond. Nothing deletes the files: they are in the temp folder, where the OS expects them.
+    /// </remarks>
+    public static string NewCapturePath(string folder, DateTime now)
+    {
+        var count = Interlocked.Increment(ref _captures);
+        return System.IO.Path.Combine(folder,
+            $"hexide_snapshot_{now.ToString("yyyyMMdd-HHmmss-fff", System.Globalization.CultureInfo.InvariantCulture)}_{count}.png");
+    }
+
     /// <summary>
     /// Renders <paramref name="window"/> with every open popup drawn in its real position.
     /// Returns null when the window has no area to capture.
