@@ -5106,3 +5106,58 @@ about case:
 
 `Me` and the form's own name do resolve in any case on that path, where `VBLoader.RunForm` binds them, and are
 tested there.
+
+## An object used as a value (2026-10-12, #174)
+
+**The question.** What a class instance gives where a value is wanted, with and without a default member. HexIDE
+does not call a class's default member yet. It raised a trappable 438 or 13 in some places and gave a wrong value
+in others, and a trappable error there lets `On Error Resume Next` carry on without VB6's value.
+
+**Probe.** A Sub Main project built with `vb6.exe /make` and run under `On Error Resume Next`, logging each result
+with `TypeName` and `Err.Number`:
+- `w` is a `Widget`, whose `Value` carries `Attribute Value.VB_UserMemId = 0` and returns 42;
+- `k` is a `Plain`, a class with only `Public Tag As Long` and no default member.
+
+| Use | `w` | `k` |
+|---|---|---|
+| `x = w`, `x` a Long | 42, Long | 438, `x` unchanged |
+| `s = w`, `s` a String | "42", String | |
+| `d = w`, `d` a Double | 42, Double | |
+| `b = w`, `b` a Boolean | True | |
+| `vv = w`, `vv` a Variant, no `Set` | 42, **Long** | 438, `vv` still Empty |
+| `w + 1`, `w * 2`, `-w`, `w \ 5` | 43, 84, -42, 8, all Long | `k + 1`: **438** |
+| `w = 42`, `w > 41`, `w = "42"` | True, True, True | `k = 1`: 438 |
+| `"v=" & w` | "v=42" | **438** |
+| `CStr(w)`, `CDbl(w)`, `CBool(w)`, `CVar(w)`, `Val(w)` | "42", 42 Double, True, 42 Long, 42 Double | `CStr(k)`: 438 |
+| a ByVal Long argument, a ByVal String argument | 42 Long, "42" | 438 |
+| a ByVal **Variant** argument | the object itself: `TypeName` "Widget" | the object |
+| `If w Then` | the Then branch runs | 438, **and the Then branch runs** |
+| `Select Case w` … `Case 42` | matches | |
+| `For i = 40 To w` | 3 passes | |
+| `Print #f, w` | ` 42 ` | 438, after the text before it was written |
+
+`Len(w)` does not compile: "Variable required - can't assign to this expression".
+
+**What it says.**
+- An object used as a value is its default member, everywhere: a Let into any scalar or a Variant, an operator, a
+  conversion, a condition, a bound, a ByVal scalar argument, `Print #`.
+- An object with no default member raises **438 in every one of those places**. HexIDE raised 13 for `k + 1`,
+  `-k`, a comparison, `CBool(k)`, `If k Then` and a For bound. It gave the CLR type name for `"v=" & k`, `CStr(k)`
+  and `Debug.Print k` (#436), 0 for `Val(k)` and a ByVal Long argument, and no error at all for `Select Case k`.
+- Only a ByVal Variant parameter takes the object itself.
+
+**And an overturn about `On Error Resume Next`.** `If k Then`, whose condition raises 438, went on into the Then
+branch. Resume Next resumes at the next statement, and the next statement after the `If` line is the first one
+inside the block. The obvious reading, that the failed condition skips the block, is wrong. HexIDE skips it.
+Measured for the block form only; the one-line form went unmeasured, because the first probe did not compile for an
+unrelated reason.
+
+**HexIDE, after #174's refusal (this change).** One rule, `ObjectAsValue`, applied wherever a value is wanted:
+- every binary operator's operands (`GetTwoValues`), negation and `Not`;
+- every text coercion (`VbDisplay.ToText`: concatenation, `CStr`, `Val`, `Str` and the string functions);
+- a Let, a store into a declared scalar (`CoerceOnStore`), a ByVal argument for a declared scalar parameter;
+- `CBool`, `CDate` and the numeric conversions;
+- the conditions of `If`, `ElseIf`, `While` and `Do`, a For bound, `Select Case` and its `Case Is` values;
+- `Debug.Print`.
+
+A class with a default member is refused, untrappably, naming #174. One with none raises 438.

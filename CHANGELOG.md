@@ -20,6 +20,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **An object used as a value no longer gives a wrong value.** A class with no default member raises VB6's 438
+  wherever a value is wanted, where HexIDE raised 13, printed its CLR type name (`"v=" & k`, `CStr(k)`,
+  `Debug.Print k`), read it as 0 (`Val(k)`, a ByVal Long argument), or matched nothing in `Select Case`. A class
+  with a default member, which VB6 reads in all those places, stops the run with a message saying class default
+  members are not implemented yet (#174), rather than an error `On Error Resume Next` would step over.
 - **A message box shows the buttons and icon it was asked for.** `MsgBox "Sure?", vbYesNo + vbQuestion` showed
   OK alone with no icon, because every in-box constant is a Long and the style was read only as an Integer, so a
   Yes branch could never run. The answer is a Long, as in VB6. A style VB6 does not accept, such as 6 or 12, is a

@@ -72,10 +72,7 @@ public partial class VB6BuiltIns
             return;
         if (v.Value is null)
             throw new VBRunTimeException(VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
-        if (v.Value is VbObject { ClassDef.PrePass.DeclaresDefaultMember: true } withDefault)
-            throw new NotImplementedException(
-                $"Converting a {withDefault.ClassDef.Name} to a number reads its default member, which is not "
-                + "implemented for a class yet (#174).");
+        ObjectAsValue.Refuse(v, null);
         if (v.Type == VT.Object)
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         throw new NotImplementedException(
@@ -136,6 +133,7 @@ public partial class VB6BuiltIns
 
     internal static Vb6Value CBool(Vb6Value v)
     {
+        ObjectAsValue.Refuse(v, null);
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is bool b) return new Vb6Value(b);
         // Measured: CBool(Empty) is False, as Empty is 0 to CLng and CDbl. `Enabled = Empty` takes this path.
@@ -154,6 +152,7 @@ public partial class VB6BuiltIns
 
     private static Vb6Value CDate(Vb6Value v)
     {
+        ObjectAsValue.Refuse(v, null);
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is DateTime) return v;
         if (v.Type == VT.String)

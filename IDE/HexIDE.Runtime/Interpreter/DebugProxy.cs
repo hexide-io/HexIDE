@@ -17,9 +17,15 @@ public class DebugProxy(IBasicStandardLibrary stdLib) : ICSharpProxy
     public void Call(string method, List<Vb6Value> args)
     {
         if (string.Equals(method, "Print", StringComparison.OrdinalIgnoreCase))   // `debug.print` too (#811)
+        {
+            // An object prints its default member, and one with none is 438 (ObjectAsValue). Refused here, in the run,
+            // rather than when the host formats the line, which is outside it.
+            foreach (var arg in args)
+                ObjectAsValue.Refuse(arg, null);
             // args[0] preserves the typed value (so tests keep asserting on the real Vb6Value);
             // a bare `Debug.Print` with no argument prints a blank line.
             stdLib.DebugPrint(args.Count > 0 ? args[0] : new Vb6Value(""));
+        }
         else
             // Debug.Assert and anything else VB6's Debug object has. A NotImplementedException so a run that reaches
             // one says HexIDE does not implement it, rather than reporting an internal error (#754).

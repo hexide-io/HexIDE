@@ -505,7 +505,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     return result;
             }
 
-            var condition = await expressionExecutor.EvaluateValue(context.valueStmt());
+            var condition = await expressionExecutor.EvaluateScalar(context.valueStmt());
             bool conditionMet;
             if (TryUnpack(condition, out bool b))
                 conditionMet = b;
@@ -529,7 +529,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var until = context.UNTIL() != null;
         while (true)
         {
-            var condition = await expressionExecutor.EvaluateValue(context.valueStmt());
+            var condition = await expressionExecutor.EvaluateScalar(context.valueStmt());
             bool conditionMet;
             if (TryUnpack(condition, out bool b))
                 conditionMet = b;
@@ -716,10 +716,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw new NotImplementedException("TypeHints not implemented");
         if (context.asTypeClause() != null)
             throw new NotImplementedException("asTypeClause not implemented");
-        var from = await expressionExecutor.EvaluateValue(context.valueStmt(0));
-        var to = await expressionExecutor.EvaluateValue(context.valueStmt(1));
+        var from = await expressionExecutor.EvaluateScalar(context.valueStmt(0));
+        var to = await expressionExecutor.EvaluateScalar(context.valueStmt(1));
         var step = context.valueStmt(2) is { } stepStmt ?
-            await expressionExecutor.EvaluateValue(stepStmt)
+            await expressionExecutor.EvaluateScalar(stepStmt)
             : new Vb6Value(1);
 
         // Read the bounds through the catch-all numeric rung (double) so a Long limit like `To 50000` is accepted —
@@ -784,7 +784,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitBlockIfThenElse(VB6Parser.BlockIfThenElseContext context)
     {
-        var val = await expressionExecutor.EvaluateValue(context.ifBlockStmt().ifConditionStmt().valueStmt());
+        var val = await expressionExecutor.EvaluateScalar(context.ifBlockStmt().ifConditionStmt().valueStmt());
         if (val.Type != Vb6Value.ValueType.Boolean)
             throw new VBRunTimeException(context, "IF doesn't contain a bool expression");
         if (val.Value is true)
@@ -794,7 +794,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             bool matched = false;
             foreach (var elseIf in context.ifElseIfBlockStmt())
             {
-                val = await expressionExecutor.EvaluateValue(elseIf.ifConditionStmt().valueStmt());
+                val = await expressionExecutor.EvaluateScalar(elseIf.ifConditionStmt().valueStmt());
                 if (val.Type != Vb6Value.ValueType.Boolean)
                     throw new VBRunTimeException(context, "IF doesn't contain a bool expression");
                 if (val.Value is true)
@@ -817,7 +817,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitInlineIfThenElse(VB6Parser.InlineIfThenElseContext context)
     {
-        var condition = await expressionExecutor.EvaluateValue(context.ifConditionStmt());
+        var condition = await expressionExecutor.EvaluateScalar(context.ifConditionStmt());
         if (!TryUnpack(condition, out bool conditionMet))
             throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
 
@@ -869,8 +869,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (context.PLUS_EQ() != null || context.MINUS_EQ() != null)
             throw new NotImplementedException("+-/-= not implemented in variable assignment");
 
-        // Objects are reference types: a plain `x = obj` (Let, not Set) is an error — object assignment requires
-        // Set. (Default-property assignment is deferred; the exact Err number is oracle-pending.)
+        // A Let of an object stores its default member's value, into a Variant as readily as into a Long (measured): a
+        // class instance is refused or 438 (ObjectAsValue). `Nothing` stays 438.
+        ObjectAsValue.Refuse(value, context);
         if (value.Type == Vb6Value.ValueType.Object)
             throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
 
@@ -1272,7 +1273,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitSelectCaseStmt(VB6Parser.SelectCaseStmtContext context)
     {
-        var value = await expressionExecutor.EvaluateValue(context.valueStmt());
+        var value = await expressionExecutor.EvaluateScalar(context.valueStmt());
         foreach (var @case in context.sC_Case())
         {
             var cond = @case.sC_Cond();
@@ -1286,7 +1287,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 {
                     if (subCond is VB6Parser.CaseCondExprIsContext caseIs)
                     {
-                        var val = await expressionExecutor.EvaluateValue(caseIs.valueStmt());
+                        var val = await expressionExecutor.EvaluateScalar(caseIs.valueStmt());
                         if (caseIs.comparisonOperator().LT() != null)
                         {
                             if (value.TryCompareTo(val) is < 0)
@@ -1751,7 +1752,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // control flow (Exit Sub/Function/Property) propagates straight out. The grammar exposes `block*`.
         while (true)
         {
-            var condition = await expressionExecutor.EvaluateValue(context.valueStmt());
+            var condition = await expressionExecutor.EvaluateScalar(context.valueStmt());
             bool conditionMet;
             if (TryUnpack(condition, out bool b))
                 conditionMet = b;

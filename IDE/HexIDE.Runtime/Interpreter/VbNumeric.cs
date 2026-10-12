@@ -211,6 +211,8 @@ public static class VbNumeric
     {
         if (v.Type == target)
             return v;
+        // A declared scalar slot takes an object's default member (ObjectAsValue).
+        ObjectAsValue.Refuse(v, ctx);
         // Before every branch, including String: `Dim s As String : s = Null` is Err 94, not "".
         if (v.IsNull)
             throw new VBRunTimeException(ctx, VBStandardError.InvalidUseOfNull);
