@@ -192,9 +192,11 @@ public sealed class StdioProcessLspTransport : ILspTransport
             return Task.FromResult<IJsonRpcMessageHandler?>(null);
         }
 
+        // Tapped, so the record can say when the first bytes actually reached the server and came back, not only
+        // when a message was serialized (#390).
         var handler = new HeaderDelimitedMessageHandler(
-            _process.StandardInput.BaseStream,
-            _process.StandardOutput.BaseStream,
+            new ChannelTapStream(_process.StandardInput.BaseStream, NoteChannel),
+            new ChannelTapStream(_process.StandardOutput.BaseStream, NoteChannel),
             formatter);
 
         return Task.FromResult<IJsonRpcMessageHandler?>(handler);
@@ -220,6 +222,9 @@ public sealed class StdioProcessLspTransport : ILspTransport
     /// </summary>
     private string WorkingDirectory() =>
         LspLaunchDirectory.For(_serverInfo.WorkingDirectory, _workspace, _logger);
+
+    private void NoteChannel(string text) =>
+        Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.Lifecycle, text));
 
     private void OnProcessExited(object? sender, EventArgs e)
     {
