@@ -322,8 +322,9 @@ public static class AvaloniaInteroperability
     /// <summary>
     /// The OLE_COLOR a value names, or 380 when VB6 would refuse it. Measured: the high byte selects the kind, and
     /// each kind has its own range. 0x00 is an RGB value, any low 24 bits. 0x80 is a system colour, 0 to &amp;H18:
-    /// &amp;H19 to &amp;H20 were each probed and refused. Every other high byte is refused, and so is a negative
-    /// number that is not a system colour (`BackColor = True` is -1). The palette kinds, 0x01 (an index, 0 to
+    /// &amp;H19 to &amp;H20 were each probed and refused. Every other high byte is refused here; five were probed,
+    /// &amp;H03, &amp;H04, &amp;H7F, &amp;HC0 and &amp;HFF, and VB6 refused each, so the rest are inferred. A negative
+    /// number that is not a system colour is refused too (`BackColor = True` is -1). The palette kinds, 0x01 (an index, 0 to
     /// &amp;HFFFF) and 0x02 (palette-relative RGB, any), VB6 accepts and keeps as given; HexIDE has no colour that
     /// can hold one, so they are refused as not implemented rather than stored as the RGB of their low bytes (#786).
     /// </summary>

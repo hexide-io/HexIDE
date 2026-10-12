@@ -16,10 +16,23 @@ namespace HexIDE.Integration.Tests.Views;
 /// exception, which the event dispatch swallowed, so the handler stopped there without a word.
 ///
 /// <para>
-/// Every expectation is <c>vb6.exe</c> output, recorded under <i>Assigning to a control property</i> in
+/// The expectations are <c>vb6.exe</c> output, recorded under <i>Assigning to a control property</i> in
 /// <c>docs/vb6-fidelity-oracle.md</c>: a real form, each assignment under <c>On Error Resume Next</c>, the value
 /// read back and <c>Err.Number</c> logged. Each case resets the property first, so a refused assignment shows as
 /// the reset value unchanged. The oracle machine is en-GB, and every case runs in that locale.
+/// </para>
+///
+/// <para>
+/// Not every case runs on the control it was measured on:
+/// <list type="bullet">
+/// <item>the OLE colour range was measured on <c>Label1.BackColor</c>, and pinned on <c>Text1</c>; the system colours
+/// past <c>&amp;H18</c> and the hex strings were measured on <c>Text1</c> itself;</item>
+/// <item>a colour's read-back as a Long was measured on <c>Text1</c>, and the copies here read it from a
+/// PictureBox, because a Label's or a TextBox's form colour cannot be read yet (#795);</item>
+/// <item><c>ListIndex</c> was measured on a ListBox and a ComboBox, as here.</item>
+/// </list>
+/// Pinned at HexIDE's behaviour rather than at a measurement: the refusals that name an issue, and the two
+/// <c>Tag</c> idioms, which hold until #211 makes <c>Tag</c> a String.
 /// </para>
 ///
 /// <para>

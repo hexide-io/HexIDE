@@ -1183,6 +1183,26 @@ So a bar whose Min exceeds its Max is legal, and the range check takes the two e
 | `v = Text1` / `v = Command1` / `v = Check1` (v As Variant) | `"Text1"` String / `False` Boolean / `0` Integer | 0 |
 | `Label1 = "x"` / `Text1 = "y"` / `Check1 = 1` | Caption `x` / Text `y` / Value `1` | 0 |
 
+**`ListIndex` is an Integer with a range of -1 to ListCount - 1**, the same in a ListBox and a ComboBox (one more
+`/make` run, three items added in `Form_Load`, and an empty ListBox beside them):
+
+| Assignment (three items, reset to 0) | Reads back | Err |
+|---|---|---|
+| `List1.ListIndex = 2` / `= -1` / `= "1"` | `2` / `-1` / `1` | 0 |
+| `= True` / `= Empty` | `-1` / `0` | 0 |
+| `= 1.5` / `= 2.5` | `2` / `2` (half to even) | 0 |
+| `= 3` / `= "3"` / `= -2` | `0`, **unchanged** | **380** |
+| `= 40000` | unchanged | **6**: an Integer overflows before the range is checked |
+| `= Null` / `= "abc"` | unchanged | 94 / 13 |
+| `Combo1.ListIndex = 2` / `= "1"` / `= -1` | `2` / `1` / `-1` | 0 |
+| `Combo1.ListIndex = 3` / `= -2` | unchanged | 380 |
+| `List2.ListIndex = -1`, empty list | `-1` | 0 |
+| `List2.ListIndex = 0` / `= -2`, empty list | `-1`, unchanged | 380 |
+
+**`CBool` reads a number in a String as `CDbl` does** (one more expression batch): `CBool("NaN")`,
+`CBool("Infinity")`, `CBool("-Infinity")` and `CBool("1.#INF")` are 13, `CBool("1E+400")` is 6, and `CBool("&H10")`
+is `True`. `CStr(Empty)` is `""`.
+
 ### What the review's measurements overturned
 
 - **`&HFF00` is not a green.** A test written for #774 restored `&HFF00` through a Variant and expected it back.
@@ -1209,6 +1229,11 @@ Property assignment goes through `VbNumeric.CoerceOnStore` and the measured rang
 
 `ConversionFunctionsTests` covers CBool of Empty, the NaN and Infinity spellings, and `CDbl("1E+400")`.
 
+`ListIndex` is range-checked as measured, and it and a scroll bar's `Value` convert as an Integer, so
+`ListIndex = 40000` is 6. That the scroll bar's `Value` is 6 there too is inferred from its `TypeName`, Integer, and
+was not measured. `Tag = Empty` stores `""`; it used to end the run as Internal error 51. `CBool` reads its number
+through `CDbl`'s parse.
+
 **Refused with `NotImplementedException`, rather than answered wrong:**
 - **A Date into a String property** (#777). VB6 writes it in the system's regional format, and the IDE runs in the
   invariant culture, so it would put the month first on every machine.
@@ -1217,6 +1242,10 @@ Property assignment goes through `VbNumeric.CoerceOnStore` and the measured rang
   would read back clamped.
 - **A control, an array or an object on the right** of a property assignment. For a control, VB6 reads its default
   property (#790).
+- **A colour a running program has not set, read from a Label or a TextBox** (#795). Neither sets the attached colour
+  properties when it loads, so the read would give black: `Label1.Caption = Text1.BackColor` showed `0` where VB6
+  shows `-2147483643`. Every other control sets them, so its form colour reads back, and a colour the program has
+  set reads back as set. The debugger's Locals window still shows black for one.
 
 **Where HexIDE still differs:**
 - **`Tag` holds what it is given**, not a String: `Tag = 5` reads back the Integer 5, where VB6 has `"5"`. Making
@@ -1227,10 +1256,8 @@ Property assignment goes through `VbNumeric.CoerceOnStore` and the measured rang
 - **A hex String** (#788): `BackColor = "&H8000000F"` is an Overflow, and `"&H8000000F&"` is accepted.
 - **A colour read in code** is HexIDE's colour value, not the Long (#789), so `If Text1.BackColor = vbRed` raises 13.
 - **Reading a control as a value** outside a property assignment (`s = Text1`) gives a .NET type name (#790).
-- **Not measured:** the Integer-typed properties (`ListIndex`, a scroll bar's `Value`) convert as a Long, so
-  40000 gets past the conversion where VB6 may raise 6; a scroll bar then refuses it with 380. And
-  `Label1.Caption = o` with `o` set to `Nothing` never reaches the conversion in HexIDE; what VB6 raises there is
-  unmeasured.
+- **Not measured:** `Label1.Caption = o` with `o` set to `Nothing` never reaches the conversion in HexIDE; what
+  VB6 raises there is unmeasured.
 
 
 ## Out of stack space — Error 28 (2026-08-22, #80)
