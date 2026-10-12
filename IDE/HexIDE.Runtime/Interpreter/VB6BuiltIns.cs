@@ -75,7 +75,7 @@ public partial class VB6BuiltIns
     }
 
     // ---- shared coercion helpers (the VB6Visitor.TryUnpack ones aren't reachable here) ----
-    private static string AsStr(Vb6Value v) => v.Value?.ToString() ?? "";
+    private static string AsStr(Vb6Value v) => VbDisplay.ToText(v);
 
     /// <summary>
     /// Was argument <paramref name="i"/> actually supplied at the call site?
@@ -121,19 +121,19 @@ public partial class VB6BuiltIns
 
     private async Task<Vb6Value> InputBox(List<Vb6Value> args)
     {
-        var prompt = args.Count >= 1 ? args[0].Value?.ToString() : "";
+        var prompt = args.Count >= 1 ? VbDisplay.ToTextOrNull(args[0]) : "";
         // InputBox(Prompt, [Title], [Default], ...) — the Title was read, but an omitted one arrived as
         // "" and so could never take the application-name default. Same null-vs-empty rule as MsgBox.
-        var caption = args.Count >= 2 ? args[1].Value?.ToString() : null;
+        var caption = args.Count >= 2 ? VbDisplay.ToTextOrNull(args[1]) : null;
         caption ??= AppTitle?.Invoke();
-        var defaultText = args.Count >= 3 ? args[2].Value?.ToString() : "";
+        var defaultText = args.Count >= 3 ? VbDisplay.ToTextOrNull(args[2]) : "";
         var result = await stdLib.InputBox(prompt ?? "", caption, defaultText ?? "");
         return (result ?? "");
     }
 
     private async Task<Vb6Value> MsgBox(List<Vb6Value> args)
     {
-        var text = args.Count >= 1 ? args[0].Value?.ToString() : "";
+        var text = args.Count >= 1 ? VbDisplay.ToTextOrNull(args[0]) : "";
         var style = (VBMsgBoxStyle)(args.Count >= 2 ? args[1].Value as int? ?? 0 : 0);
         var styleIcon = style & VBMsgBoxStyle.IconBits;
         var styleButtons = style & VBMsgBoxStyle.ButtonsBits;
@@ -169,7 +169,7 @@ public partial class VB6BuiltIns
         // was OMITTED. Collapsing the two would make `MsgBox "x", 0, ""` sprout a caption the author
         // deliberately suppressed. Supplying the omitted-case default is the caller's job — and properly
         // it is App.Title, which does not exist yet (#136).
-        var title = args.Count >= 3 ? args[2].Value?.ToString() : null;
+        var title = args.Count >= 3 ? VbDisplay.ToTextOrNull(args[2]) : null;
         // Omitted (null) takes App.Title, as in VB6. An explicitly empty title is NOT omitted and stays
         // empty — see #131 — so this substitutes only for null.
         title ??= AppTitle?.Invoke();

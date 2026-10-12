@@ -287,9 +287,10 @@ public sealed class DebugController : IDebugController
                 continue;
             if (w.BreakOnChange)
             {
-                if (w.HasBaseline && !string.Equals(r.Display, w.LastValue, StringComparison.Ordinal))
+                var value = r.ChangeKey ?? r.Display;
+                if (w.HasBaseline && !string.Equals(value, w.LastValue, StringComparison.Ordinal))
                     tripped = true;
-                w.LastValue = r.Display;
+                w.LastValue = value;
                 w.HasBaseline = true;
             }
             else if (r.Truthy)

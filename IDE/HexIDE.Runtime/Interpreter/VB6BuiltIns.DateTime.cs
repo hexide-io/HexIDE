@@ -55,12 +55,21 @@ public partial class VB6BuiltIns
         return f == 0 ? 1 : f;
     }
 
+    /// <summary>
+    /// A time written without a date is that time on the zero date, 30 December 1899, which is what lets
+    /// <c>CStr(#10:30:00 AM#)</c> leave the date out and <c>CDbl</c> of it be 0.4375. Parsed with
+    /// <see cref="DateTimeStyles.NoCurrentDateDefault"/>, .NET puts such a time on 1 January 0001, which no VB6 date
+    /// can be (its range starts in the year 100); without it, on today's date, which is what the literal used to get.
+    /// </summary>
+    internal static DateTime OnZeroDateIfTimeOnly(DateTime parsed)
+        => parsed.Date == DateTime.MinValue ? Epoch + parsed.TimeOfDay : parsed;
+
     // VB6 date serial (OLE Automation) — accepts a Date, a numeric serial, or a parseable string.
     private static DateTime AsDate(Vb6Value v)
     {
         if (v.Value is DateTime dt) return dt;
         if (v.Value is string s && DateTime.TryParse(s, CultureInfo.CurrentCulture, DateTimeStyles.NoCurrentDateDefault, out var pd))
-            return pd;
+            return OnZeroDateIfTimeOnly(pd);
         if (Vb6Value.TryNumericToDouble(v, out var oa))
         {
             try { return DateTime.FromOADate(oa); }
