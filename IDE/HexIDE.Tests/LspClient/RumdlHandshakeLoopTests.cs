@@ -14,6 +14,11 @@ public class RumdlHandshakeLoopTests
 {
     private const string MarkdownUri = "file:///c:/proj/notes/README.md";
 
+    // rumdl logs its own startup to standard error under RUST_LOG, and the record keeps standard error with its
+    // time, so a stall shows the last thing rumdl did. The first loop run showed the request reaching rumdl's stdin
+    // within 66 ms and nothing coming back.
+    static RumdlHandshakeLoopTests() => Environment.SetEnvironmentVariable("RUST_LOG", "debug");
+
     public static TheoryData<int> Iterations()
     {
         var data = new TheoryData<int>();
