@@ -1490,11 +1490,17 @@ here so the divergence is deliberate and traceable rather than a later "bug".
 ### Note on method
 
 `scripts/vb6-oracle.ps1` covers the compiled column; the design-time column cannot be automated from here.
-A `MsgBox` is modal, so a probe that opens one never writes its file, and reading a caption from outside
-does not work either — a PowerShell Direct session cannot see the guest's interactive desktop and
+A `MsgBox` is modal, so a probe that opens one never writes its file unless something answers it, and reading a
+caption from outside does not work either — a PowerShell Direct session cannot see the guest's interactive desktop and
 enumerates zero windows session-wide. The F5 column was produced by pushing the project into the VM with
 `Copy-Item -ToSession`, having a human press F5, and reading the output file back over the same session.
 That is the pattern for any future design-time question.
+
+**A compiled probe can answer its own `MsgBox` (2026-10-12).** A form `Timer` keeps firing while a `MsgBox` is
+open in a compiled program. So the probe's own timer can find the box with `FindWindow`, read which buttons it
+holds with `GetDlgItem`, and close or answer it with `PostMessage`. That needs no person and no view of the
+desktop. It is how "RGB, QBColor and MsgBox's style" was measured, and its probe is the template. Only the F5
+column still needs a person.
 ## `IsMissing`, and the shape of an omitted argument (2026-09-01)
 
 `IsMissing` only means anything inside a procedure that has an `Optional` parameter, so this needed a probe
@@ -4745,3 +4751,358 @@ One more `/make` run on the same guest, session 0, nothing set before each read:
 HexIDE had a ListBox's and ComboBox's `ForeColor` default as the button text (`&H80000012`), every other
 control's. It now overrides it to `&H80000008`. A `.frm` carrying `&H80000019&`, or a palette colour, is now kept
 as written and saved back, where it used to be dropped on save; creating a control with the first used to throw.
+
+## RGB, QBColor and MsgBox's style (2026-10-12)
+
+**The questions.** What `RGB` and `QBColor` return, and of what type, at their edges. And what `MsgBox` does with a
+style that is not an Integer. HexIDE read the style only when it arrived as an Integer, and every in-box constant
+is a Long, so `vbYesNo + vbQuestion` showed OK alone with no icon.
+
+**Probe.** A Standard EXE built with `vb6.exe /make` on the Win10 guest (session 0) and run. Each call ran under
+`On Error Resume Next`, logging value, `TypeName` and `Err.Number`. For `MsgBox`, a form Timer found the open
+box by its title, recorded which of the control IDs 1 to 7 (IDOK to IDNO), 10 and 11 (Try Again and Continue)
+and 20 (the icon) it held, and posted a click on No, else Cancel, else Ignore, else OK. For the dismissal rows it
+first posted `WM_CLOSE` or `WM_SYSCOMMAND`/`SC_CLOSE` three times, then reported whether the box was still open.
+Timers keep running under `MsgBox` in a compiled program, which is what makes this possible without a person.
+
+### RGB
+
+| Call | Value | Type | Err |
+|---|---|---|---|
+| `RGB(1, 0, 0)` | 1 | Long | |
+| `RGB(255, 255, 255)` | 16777215 | Long | |
+| `RGB(256, 0, 0)` | 255 | Long | |
+| `RGB(1.5, 2.5, 0)` | 514 | Long | |
+| `RGB("10", 0, 0)` | 10 | Long | |
+| `RGB(Empty, 0, 0)` | 0 | Long | |
+| `RGB(-1, 0, 0)`, `RGB(0, -1, 0)` | | | 5 |
+| `RGB(40000, 0, 0)`, `RGB(300, 1000, 70000)`, `RGB(3000000000#, 0, 0)` | | | 6 |
+| `RGB("x", 0, 0)` | | | 13 |
+| `RGB(Null, 0, 0)` | | | 94 |
+
+So each component is an **Integer, coerced as `CInt` does**: banker's rounding (1.5 and 2.5 are both 2, so
+514), a numeric string read, `Null` 94, a non-numeric string 13, and outside Integer's range 6. Only then is a
+negative component 5 and one above 255 clamped to 255. The overflow is the surprise: 40000 is not clamped, it
+fails before the clamp is reached. The result is a **Long** even when small.
+
+**Which error wins when two arguments are bad.** All three are coerced before any is range-checked:
+
+| Call | Err |
+|---|---|
+| `RGB(-1, 40000, 0)` | 6 |
+| `RGB(40000, -1, 0)` | 6 |
+| `RGB(0, -1, 40000)` | 6 |
+| `RGB("x", -1, 0)` | 13 |
+| `RGB(-1, "x", 0)` | 13 |
+| `RGB(Null, "x", 0)` | **13** |
+| `RGB(0, Null, "x")` | **13** |
+| `RGB(0, "x", Null)` | **94** |
+| `RGB(Null, 0, "x")` | **13** |
+| `RGB(300, -1, 0)` | 5 |
+
+The rows mixing `Null` with `"x"` decide the order, and every one of them says **last first**:
+- the third argument is coerced before the second (`RGB(0, Null, "x")` is 13, and `RGB(0, "x", Null)` is 94);
+- the second before the first (`RGB(Null, "x", 0)` is 13).
+
+Left to right would give the opposite in each.
+
+### QBColor
+
+| n | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+|---|---|---|---|---|---|---|---|---|
+| `QBColor(n)` | 0 | 8388608 | 32768 | 8421376 | 128 | 8388736 | 32896 | 12632256 |
+
+| n | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 |
+|---|---|---|---|---|---|---|---|---|
+| `QBColor(n)` | 8421504 | 16711680 | 65280 | 16776960 | 255 | 16711935 | 65535 | 16777215 |
+
+All Longs. `QBColor(7.5)` and `QBColor(8.5)` are both colour 8 (banker's rounding), and `QBColor("3")` is
+colour 3. `QBColor(16)` and `QBColor(-1)` raise 5, and `QBColor(Null)` raises 94. `QBColor(40000)` raises
+**6**, not 5: the argument overflows as an Integer before its range is checked.
+
+### MsgBox's style
+
+| Style | Controls found (IDs) | Returned | Type | Err |
+|---|---|---|---|---|
+| `vbYesNo + vbQuestion` | 6 7, icon | 7 | Long | |
+| `vbOKCancel` | 1 2 | 2 | Long | |
+| `vbOKOnly` | 2 | 1 | Long | |
+| `4&` | 6 7 | 7 | Long | |
+| `36` | 6 7, icon | 7 | Long | |
+| `"4"` | 6 7 | 7 | Long | |
+| `4.5` | 6 7 | 7 | Long | |
+| `2.5` | 3 4 5 | 5 | Long | |
+| `Empty` | 2 | 1 | Long | |
+| `Null` | no dialog | | | 94 |
+| `"abc"` | no dialog | | | 13 |
+| `vbAbortRetryIgnore + vbCritical` | 3 4 5, icon | 5 | Long | |
+| `vbYesNoCancel + vbExclamation` | 2 6 7, icon | 7 | Long | |
+| `vbRetryCancel + vbInformation` | 2 4, icon | 2 | Long | |
+| `70000` | 2 | 1 | Long | |
+| `-1` | 2 | 1 | Long | |
+| `7` | 2 | 1 | Long | |
+
+A second and third probe settled what a style out of range does:
+
+Every answer below is a Long.
+
+| Style | What it holds | Controls found (IDs) | Returned |
+|---|---|---|---|
+| `16` | vbCritical | 2, icon | 1 |
+| `17` | vbOKCancel + vbCritical | 1 2, icon | 2 |
+| `6` | Windows' Cancel/Try Again/Continue | 2 | 1 |
+| `8`, `9`, `12`, `13`, `15` | buttons 8 to 15 | 2 | 1 |
+| `22` | 6 + vbCritical | 2, **no icon** | 1 |
+| `38` | 6 + vbQuestion | 2, no icon | 1 |
+| `84` | vbYesNo + icon 80 | 2 | 1 |
+| `116` | vbYesNo + icon 112 | 2 | 1 |
+| `70004` | vbYesNo + 70000 | 2 | 1 |
+| `1028` | vbYesNo + default button 1024 | 2 | 1 |
+| `260` | vbYesNo + vbDefaultButton2 | 6 7 | 7 |
+| `772` | vbYesNo + vbDefaultButton4 | 6 7 | 7 |
+| `4100` | vbYesNo + vbSystemModal | 6 7 | 7 |
+| `65540` | vbYesNo + vbMsgBoxSetForeground | 6 7 | 7 |
+| `524292` | vbYesNo + vbMsgBoxRight | 6 7 | 7 |
+
+**Readings:**
+- **The style is coerced as `CLng` does.** A Long, a numeric string and a Double all work: 4.5 is 4 (Yes/No)
+  and 2.5 is 2 (Abort/Retry/Ignore). `Null` and `"abc"` raise before any dialog appears.
+- **The answer is a Long.** HexIDE returned an Integer. That is the overturn: VB6's `vbYes` and friends are Longs, and
+  so is what `MsgBox` gives back.
+- **Any field out of range makes the whole box a plain OK box, with no icon.** The three fields are:
+  - the buttons, in the low **nibble**, valid 0 to 5;
+  - the icon, valid 0, 16, 32, 48 and 64;
+  - the default button, valid 0, 256, 512 and 768.
+
+  The buttons field is four bits, not three: 12 would be vbYesNo under a three-bit mask, and is OK alone.
+
+  That one rule covers everything earlier rows read as "no button set":
+  - 7 has buttons 7;
+  - 70000 (`&H11170`) has buttons 0 but icon 112;
+  - -1 has buttons 15 and icon 240.
+
+  None of the three is "no button set, so OK". An out-of-range field discards the valid fields beside it: 6 +
+  vbCritical shows no icon, and vbYesNo beside icon 112 shows OK.
+- **Windows' own style 6 is not honoured.** Windows defines 6 as Cancel, Try Again and Continue (`MB_CANCELTRYCONTINUE`). VB6 shows OK
+  alone, so VB6 does not pass the style straight through.
+- **The flags above the default button leave the box alone** where measured: 4096, 65536 and 524288.
+- **An OK-only box's single button has control ID 2, not 1.** Windows gives it IDCANCEL's ID, so Escape closes
+  it. Pressing it still returns 1, vbOK. Only the ID differs, and it is recorded so nobody mistakes it for a
+  Cancel button.
+
+### Closing a message box without pressing a button
+
+Each kind of box was closed by posting `WM_CLOSE`, and again by `WM_SYSCOMMAND` with `SC_CLOSE`, which is what the
+title-bar close and Alt+F4 send. Both gave the same rows:
+
+| Buttons | Closed? | Returned |
+|---|---|---|
+| vbOKOnly | yes | 1, vbOK, a Long |
+| vbOKCancel | yes | 2, vbCancel, a Long |
+| vbYesNoCancel | yes | 2, vbCancel, a Long |
+| vbRetryCancel | yes | 2, vbCancel, a Long |
+| vbYesNo | **no, still open** | |
+| vbAbortRetryIgnore | **no, still open** | |
+
+A box with a Cancel button answers vbCancel when closed. OK alone answers vbOK. Yes/No and Abort/Retry/Ignore have
+no close, which is Windows' own rule for a message box. **HexIDE answered vbOK for every kind**, so closing the box
+in `If MsgBox("Delete all?", vbOKCancel) = vbOK Then` took the OK branch.
+
+**Hiding the box's owner does not answer it.** A form Timer set `Me.Visible = False` while a box was open, then
+looked for the box twice before pressing a button:
+
+| Buttons | After `Me.Visible = False` | Pressed | Returned |
+|---|---|---|---|
+| vbYesNo | the box still exists, **not visible** | No | 7, a Long |
+| vbOKCancel | the box still exists, not visible | OK | 1, a Long |
+
+So VB6 hides the box with its owner and keeps `MsgBox` waiting. A person cannot answer a box they cannot see, so in
+practice that program hangs.
+
+**A form hidden before the box opens is the same.** A later probe set `Me.Visible = False` and then called `MsgBox`
+from that form, with the Timer looking twice before pressing:
+
+| Buttons | While open | Pressed | Returned |
+|---|---|---|---|
+| vbYesNo | the box exists, **not visible**; the form stays hidden | No | 7, a Long |
+| vbOKCancel | the box exists, not visible | OK | 1, a Long |
+
+HexIDE's dialog refused a hidden owner outright ("Cannot show window with non-visible owner") and ended the run as
+Internal error 51. It now goes straight to the unowned box.
+
+**Restart is the case that matters for HexIDE, not for VB6.** HexIDE's Restart ends a run and begins the next in
+one turn. The old run's box closes, and its answer arrives after the new run has begun, when nothing about the new
+run says the old one ended. So the old run's statement is abandoned on the strength of the run *it* belonged to:
+the debugger's run generation, taken when the box opened. Read when the answer arrived, the check missed it: an
+OK/Cancel box answered a Cancel nobody pressed and its Form_Load ran on beside the new run, and a Yes/No box
+faulted and stopped the new run. HexIDE keeps it waiting too, but shows the box again, unowned, so it can still be
+answered, and closes it unanswered if the owner closes. Avalonia hid the box and finished the dialog with no answer,
+which answered Cancel for OK/Cancel and stopped a Yes/No handler in silence.
+
+### An argument that is not a number
+
+Through `CInt`, `CLng`, `RGB`, `QBColor` and `MsgBox`'s style alike, with `o` an object variable holding
+`Nothing`, `va` a Variant holding an Integer array, `k` an object variable holding a `Class1` with no default
+member, and `Text1` a TextBox whose `Text` is "12":
+
+| Argument | Err | Value |
+|---|---|---|
+| `o` | 91 | |
+| `va` | 13 | |
+| `k` | 438 | |
+| `k3`, a `Class3` whose `Value` carries `Attribute Value.VB_UserMemId = 0` and returns 42 | | `CInt(k3)` is 42 (Integer), `RGB(k3, 0, 0)` 42 (Long) |
+| `k4`, a `Class4` whose Property **Let** `Value` carries the attribute, written before the Get, which returns 42 | | `CInt(k4)` is 42 (Integer), `CLng(k4)` 42 (Long) |
+| `k5`, a `Class5` whose `Public Value As Long` carries `Attribute Value.VB_VarUserMemId = 0`, set to 7 | | `CInt(k5)` is 7 (Integer) |
+| `Text1` | | `CInt(Text1)` is 12 (Integer), `RGB(Text1, 0, 0)` is 12 (Long), `QBColor(Text1)` is 255 |
+| an omitted `Optional` Variant, `w` | | `CLng(w)` is **448**, a Long; `CInt(w)` is **448**, an Integer |
+
+Each raises before any dialog. A control stands for its default member: `Text1` is `Text1.Text`.
+
+A class or a control with a default member stands for that member, as `Text1` stands for `Text1.Text`.
+
+**The omitted argument is the surprise.** It is not 13, and not 0. VB6 passes a missing argument as an error
+value, `DISP_E_PARAMNOTFOUND`, whose VB error number is 448, "Named argument not found". Converted to a number, it is
+that number: `Function Area(Optional w): Area = CLng(w) * 10` called as `Area()` returns 4480. The obvious guess,
+from the same value raising 13 in a concatenation, was 13. It was measured through `CLng` and `CInt` only, each
+returning its own type with no error. `RGB` and `QBColor` coerce as `CInt` does, so they take 448 by that rule rather
+than by a measurement of their own.
+
+Three forms do not compile at all:
+- `CInt(Nothing)`, with a literal `Nothing`: "Invalid use of object".
+- `CInt(a)`, with `a` a fixed Integer array named directly: "Type mismatch".
+- `CInt(u)`, with `u` a user-defined type: "Type mismatch".
+
+So the run time rows above are the variable cases.
+
+HexIDE read every one of these as 0, so `RGB(o, 0, 0)` was black and `CInt(o)` was 0.
+
+**HexIDE, after this.**
+- The style goes through the same `CLng` narrowing, so the in-box constants select their buttons and icon.
+- A style with any field out of range is a plain OK box, as above.
+- `MsgBox` returns a Long.
+- A box closed without a button answers as the table above says, and the hosts refuse a person's close of a
+  Yes/No or Abort/Retry/Ignore box. A close HexIDE makes itself, ending the run, still goes through. The statement
+  waiting on the box is then abandoned, as the run is.
+- `RGB` and `QBColor` exist, with the coercion, the order of errors, the clamping and the errors above.
+- The numeric conversions follow the table above:
+  - `Nothing` raises 91, an array 13 and a class with no default member 438;
+  - an omitted argument is 448;
+  - a UDT raises 13, which is VB6's compile-time error raised at run time.
+- A control, an in-box object, or a class with a `VB_UserMemId = 0` member refuses, untrappably, because HexIDE does not
+  read default members yet: #790 for controls, #174 for classes. A trappable error there would let
+  `On Error Resume Next` carry on without the value VB6 gives.
+- A box hidden with its owner keeps waiting, shown again unowned, and so does a box whose owner was hidden before it
+  opened. The waiting statement is abandoned only when the run that opened the box has ended, which survives a
+  Restart.
+- A class's default member is found wherever VB6 writes its attribute: a Function, Sub, Property Get, Let or Set, or
+  a Public variable.
+- Still not honoured by the dialog: the default-button, help-button, modality and right-to-left bits, and Escape
+  and Enter (#827). Its buttons are in English whatever the language (#828).
+
+## Identifier case (2026-10-12, #811)
+
+**The question.** Does a name written in a different case from its declaration reach the same variable, constant,
+procedure, control, property or method? HexIDE's environment and property tables compared ordinally, so `abc`
+after `Dim Abc` was a new implicit variable, and a Function assigning `foo = 7` inside `Function Foo` returned 0.
+
+**Probe.** A Standard EXE with `Module1.bas` and `Form1.frm`, built with `vb6.exe /make` on the Win10 guest
+(session 0) and run, writing each value to a file. Every reference is in a different case from its declaration.
+
+`Module1.bas`:
+```vb
+Option Explicit
+Public Abc As Integer
+Public Const KPI As Integer = 3
+Public Function Foo() As Integer: foo = 7: End Function
+Public Function Bar() As Integer: BAR = 8: bar = bar + 1: End Function
+Public Sub Bump(ByVal Pa As Integer, ByRef Outv As Integer): pa = pa + 1: OUTV = PA: End Sub
+```
+
+`Form1.frm`, under `Option Explicit`, with `Private Xyz As Integer` at module level. Each value was written with
+`TypeName` beside it:
+
+| Statement(s) | Read back | Value | Type |
+|---|---|---|---|
+| `abc = 5` | `Abc` | 5 | Integer |
+| (same) | `module1.abc` | 5 | Integer |
+| `Foo()`, assigned as `foo = 7` | | 7 | Integer |
+| `bar()`, assigned `BAR = 8` then `bar = bar + 1` | | 9 | Integer |
+| `kpi * 2` | | 6 | Integer |
+| `bump 10, o` | `o` | 11 | Integer |
+| `Sub Shadow: Dim xyz: xyz = 3` | `xyz`, `XYZ` inside it | 3, 3 | Integer |
+| `Xyz = 1`, then `Shadow` | `Xyz` after it | 1 | Integer |
+| `text1.text = "lower"` | `Text1.Text` | lower | String |
+| `LABEL1.CAPTION = "UP"` | `Label1.Caption` | UP | String |
+| `list1.additem "a"`, `LIST1.ADDITEM "b"` | `List1.ListCount` | 2 | Integer |
+| `cmd(0).caption = "c0"` | `Cmd(0).Caption` | c0 | String |
+| `form1.caption = "fc"` | `Me.Caption` | fc | String |
+| `me.CAPTION = "mc"` | `Form1.Caption` | mc | String |
+| `err.raise 5` | `ERR.NUMBER` | 5 | Long |
+| then `err.clear` | `Err.Number` | 0 | Long |
+| `app.title` | | probe | String |
+| `debug.print`, `DEBUG.PRINT` and `Debug.print` | | all three compile | |
+
+**Result.** Case is ignored everywhere, `Option Explicit` included. A local that differs only in case from a
+module variable is a new local that **shadows** it: inside `Shadow`, `xyz` and `XYZ` are both the local, and the
+module's `Xyz` keeps 1.
+
+**A procedure's `Const` shadows too.** A third probe declared `Private Limit As Integer` and
+`Private Const Lim2 As Integer = 5` in the form, set `Limit = 1`, and called four Subs, each declaring a `Const`
+over one of them:
+
+| Sub declares | Read inside it | Module's value after it |
+|---|---|---|
+| `Const LIMIT As Integer = 10` | `LIMIT` 10, `limit` 10 | `Limit` 1 |
+| `Const Limit As Integer = 20` | `Limit` 20 | `Limit` 1 |
+| `Const lim2 As Integer = 7` | `lim2` 7 | `Lim2` 5 |
+| `Const Lim2 As Integer = 8` | `Lim2` 8 | `Lim2` 5 |
+
+Every value is an Integer, and calling the first Sub a second time gives the same rows. So a procedure's `Const`
+is the procedure's own, in any case, over a module variable or a module `Const`. **HexIDE got this wrong before
+#811 and worse during it:** a `Const` updated whatever slot its name found, and a procedure's scope is a copy of
+its module's. So the same-case form wrote the module's `Limit` and left it at 20 after the call. Once lookup
+ignored case, so did every other spelling. A `Const` inside a procedure now gets its own slot, as a `Dim` does.
+
+**And in a `.frm`.** A second probe wrote property names in other cases into the form file itself: `caption`
+and `backcolor` on a Label, `TEXT` on a TextBox. All three load (`lower key`, `255`, `upper key`).
+
+A fourth wrote the form's **own** properties in lowercase: `caption`, `clientheight` 3000, `clientleft`,
+`clienttop`, `clientwidth` 4000, `scaleheight` 3000, `scalewidth` 4000, and a Font block of `name` "Arial",
+`size` 12, `weight` 700 and the rest. Everything loads:
+
+| Read in `Form_Load` | Value | Type |
+|---|---|---|
+| `Me.Caption` | Probe | String |
+| `Me.ScaleWidth` | 4005 | Single |
+| `Me.ScaleHeight` | 3000 | Single |
+| `Me.Width` | 4125 | Single |
+| `Me.Height` | 3405 | Single |
+| `Me.Font.Name` | Arial | String |
+| `Me.Font.Size` | 12 | **Currency** |
+| `Me.Font.Bold` | True | Boolean |
+
+4005 rather than 4000 is the client width rounded up to whole pixels at 15 twips a pixel (267 pixels), so the
+lowercase `clientwidth` was applied. The outer width adds the frame: 4125. `Font.Size` is a Currency, not a
+Single or Double. That is VB6's own type for it, recorded here because a program that asks `TypeName` gets it.
+
+**HexIDE, after #811.**
+- **The tables are created case-insensitive:**
+  - the execution environment: locals, parameters, return slots, module variables and constants, controls, the
+    form, `Me`, `Debug`, `Err` and `App`;
+  - the interpreter's control-property table;
+  - each component's property table, which the `.frm` reader uses.
+- **`Debug.Print`** matches in any case.
+- **Locals** shows the first-declared spelling, which stays the key.
+- **The `.frm` reader** maps each property name to its canonical spelling before anything compares it. Without
+  that, a lowercase outer `width` on the root missed the branch that records the outer rectangle, and was
+  applied as the client width. A Font block's fields are read in any case.
+
+**Owned elsewhere.** Two rows above fail in HexIDE in *every* case on the form path F5 takes, so they are not
+about case:
+- **Reading or writing another module's `Public` variable or `Const` from a form (#256).** `kpi * 2` read from
+  the form reads Empty, and a write to `module1.abc` does not reach it. The tests read and write within one
+  module instead.
+- **`ListCount` (#821).** The tests read the list's items instead.
+
+`Me` and the form's own name do resolve in any case on that path, where `VBLoader.RunForm` binds them, and are
+tested there.

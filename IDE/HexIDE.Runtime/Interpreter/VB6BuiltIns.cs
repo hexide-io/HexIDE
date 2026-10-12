@@ -23,6 +23,14 @@ public partial class VB6BuiltIns
     /// </remarks>
     public Func<string?>? AppTitle { get; set; }
 
+    /// <summary>
+    /// Taken when a message box opens: answers, when it closes, whether the run that opened it has ended since. End was
+    /// reached, the debugger is tearing the run down, or a new run has begun. The last is why this is taken at the
+    /// start rather than asked at the end: Restart ends one run and begins the next in a single turn, and the box's
+    /// answer arrives after both, when nothing about the new run says the old one ended.
+    /// </summary>
+    public Func<Func<bool>>? WatchRunEnd { get; set; }
+
     // The 713-entry flat name-to-value table that used to live here is gone. It could not answer VB6
     // correctly: the qualifier SELECTS, so vbCancel is 2 through VBA and 0 through VBRUN, and a
     // library-blind map has to be wrong about one of them. It also built every value through
@@ -67,6 +75,7 @@ public partial class VB6BuiltIns
         RegisterInspection(d);
         RegisterDateTime(d);
         RegisterFormat(d);
+        RegisterColor(d);
         // DoEvents — a no-op here (the tree-walking interpreter has no message pump). VB6 yields to the message queue
         // and returns the open-form count; returning Integer 0 lets both `DoEvents` and `x = DoEvents` run without
         // crashing (documented approximation).
@@ -134,7 +143,22 @@ public partial class VB6BuiltIns
     private async Task<Vb6Value> MsgBox(List<Vb6Value> args)
     {
         var text = args.Count >= 1 ? VbDisplay.ToTextOrNull(args[0]) : "";
-        var style = (VBMsgBoxStyle)(args.Count >= 2 ? args[1].Value as int? ?? 0 : 0);
+        // The style is a Long, coerced as CLng does. It was read only when it arrived as an Integer, so every Long
+        // was style 0, an OK button and no icon: every in-box constant is a Long, so `vbYesNo + vbQuestion` showed
+        // OK alone and its Yes branch could never run. Measured: a Long, "4" and 4.5 (banker's: 4) are all Yes/No;
+        // Empty is OK; Null is 94, "abc" 13, Nothing 91 and an array 13, all before any dialog.
+        // An omitted style (`MsgBox "x", , "t"`) is Missing, not supplied, and stays 0.
+        var style = (VBMsgBoxStyle)(Supplied(args, 1)
+            ? (int)Convert.ToInt64(NarrowNum(args[1], Vb6Value.ValueType.Long).Value)
+            : 0);
+        // A style with any field out of range is a plain OK box with no icon, whatever its other fields say. Measured:
+        // buttons 6 to 15 (6 + vbCritical shows no icon), an icon of 80 or 112 beside vbYesNo, and a default button of
+        // 1024 beside vbYesNo all give OK alone. So do 70000 and -1, whose icon field is 112 and 240. The flags above
+        // the default button (4096, 65536, 524288) leave vbYesNo as it is.
+        if ((int)(style & VBMsgBoxStyle.ButtonsBits) > (int)VBMsgBoxStyle.vbRetryCancel
+            || (int)(style & VBMsgBoxStyle.IconBits) > (int)VBMsgBoxStyle.vbInformation
+            || (int)(style & VBMsgBoxStyle.DefaultButtonBits) > (int)VBMsgBoxStyle.vbDefaultButton4)
+            style = VBMsgBoxStyle.vbOKOnly;
         var styleIcon = style & VBMsgBoxStyle.IconBits;
         var styleButtons = style & VBMsgBoxStyle.ButtonsBits;
         var icon = default(MessageBoxIcon);
@@ -174,10 +198,27 @@ public partial class VB6BuiltIns
         // empty — see #131 — so this substitutes only for null.
         title ??= AppTitle?.Invoke();
 
+        var runEnded = WatchRunEnd?.Invoke();
         var result = await stdLib.MsgBox(text ?? "", title, buttons, icon);
+        // None is a box that went away without an answer. The hosts answer a person's close themselves, as Windows does
+        // (measured: OK alone answers vbOK, a box with Cancel answers vbCancel, and Yes/No and Abort/Retry/Ignore
+        // have no close), and keep a box waiting when its owner hides. So None means HexIDE closed the box:
+        //  - The run that opened it has ended, or is ending. No answer is right, and the statement is abandoned, as the
+        //    run is. Asked of the run that opened the box, not the one going now: after Restart, the old run's
+        //    statement carried on beside the new run with a Cancel nobody pressed.
+        //  - Otherwise, a host or a test that reports a close as None, and the close's own answer stands. It used to be
+        //    vbOK for every kind, so closing `If MsgBox("Delete all?", vbOKCancel) = vbOK` deleted all.
+        //  - A box with no close has no such answer, and a statement that carried on, or stopped in silence, would be
+        //    a wrong result. That is raised as a fault, so the run ends and says why.
+        if (result == MessageBoxResult.None)
+        {
+            if (runEnded?.Invoke() == true)
+                throw new OperationCanceledException("The run ended while a message box was waiting for an answer");
+            result = Dialogs.MessageBox.AnswerOnClose(buttons) ?? throw new InvalidOperationException(
+                "A message box with no close went away without an answer, while the run went on");
+        }
         var vbResult = result switch
         {
-            MessageBoxResult.None => VBMsgBoxResult.vbOK,
             MessageBoxResult.Ok => VBMsgBoxResult.vbOK,
             MessageBoxResult.Cancel => VBMsgBoxResult.vbCancel,
             MessageBoxResult.Abort => VBMsgBoxResult.vbAbort,
@@ -189,7 +230,8 @@ public partial class VB6BuiltIns
             MessageBoxResult.Continue => VBMsgBoxResult.vbOK,
             _ => throw new ArgumentOutOfRangeException()
         };
-        return (int)vbResult;
+        // A Long: TypeName(MsgBox(...)) is "Long", measured.
+        return new Vb6Value((long)vbResult);
     }
 
     // Mid / UCase / LCase moved to VB6BuiltIns.Strings.cs; LBound / UBound to VB6BuiltIns.Array.cs.

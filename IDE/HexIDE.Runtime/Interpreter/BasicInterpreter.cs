@@ -323,7 +323,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         IReadOnlyList<(string Name, string Code)>? classModules = null)
     {
         ExecutionContext = executionContext;
-        BuiltIns = new VB6BuiltIns(stdLib) { AppTitle = () => App.TitleOrNull };
+        BuiltIns = new VB6BuiltIns(stdLib)
+        {
+            AppTitle = () => App.TitleOrNull,
+            WatchRunEnd = () =>
+            {
+                var session = DebugController?.Session;
+                return () => Ending || DebugController is { } debug && (debug.IsAborting || debug.Session != session);
+            },
+        };
         this.stdLib = stdLib;
         this.rootEnv = rootEnv;
         this.code = code;

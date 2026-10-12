@@ -10,6 +10,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **`RGB` and `QBColor`.** They stopped a run with "Sub or Function not defined"; both now return VB6's Long,
+  with its rounding, clamping and errors, measured.
 - **The protocol inspector says when a server's bytes actually moved**, not only when a message was prepared. For
   a server started over standard input and output or a named pipe, the timeline now shows when the first message
   began to be written, when it was handed to the server, when the IDE began waiting for a reply, and when the
@@ -31,6 +33,29 @@ there isn't one yet. Anything may change between 0.x releases.
   path gave the raw exception after the form's name.
 - **Run To Cursor from design mode no longer leaves its target behind when the start fails.** After fixing the error,
   a plain F5 paused at that line as though at a breakpoint.
+- **A message box shows the buttons and icon it was asked for.** `MsgBox "Sure?", vbYesNo + vbQuestion` showed
+  OK alone with no icon, because every in-box constant is a Long and the style was read only as an Integer, so a
+  Yes branch could never run. The answer is a Long, as in VB6. A style VB6 does not accept, such as 6 or 12, is a
+  plain OK box, as in VB6.
+- **Closing a message box answers as VB6's does.** It answered OK whatever the buttons, so closing an OK/Cancel
+  box took the program's OK branch. A box with a Cancel button now answers Cancel. A Yes/No or Abort/Retry/Ignore
+  box can no longer be closed without an answer, which is Windows' own rule for those two.
+- **`CInt`, `CLng` and the other numeric conversions no longer read an object or an array as 0.** `Nothing`
+  raises 91, an array 13 and an object 438, as in VB6, and so do `RGB`, `QBColor` and a message box's style. A
+  control, which VB6 reads through its default member, stops the run with a message saying default members are not
+  implemented yet (#790), and so does a class with a default member (#174). An omitted `Optional` argument converts to
+  448, as in VB6, where it read as 0.
+- **A message box stays answerable when its form hides.** `Me.Visible = False` while a box was open made the box
+  disappear and answer Cancel, or stopped the code waiting on a Yes/No box, and a box opened from a form already
+  hidden ended the run as Internal error 51. The box now waits for its answer, shown on its own.
+- **Restart with a message box open no longer runs the old program on.** The box closed, and the code waiting on it
+  carried on beside the new run with a Cancel nobody pressed, or stopped the new run. It now ends with its run.
+- **A name in a different case is the same name, as in VB6.** `abc = 5` after `Dim Abc` used to make a new
+  variable and leave `Abc` as it was, and `foo = 7` inside `Function Foo` returned 0. Variables, constants,
+  parameters, a Function's return value, controls, properties and `Debug.Print` now match in any case, and so do
+  property names in a `.frm`, a form's own included, and the fields of its Font block.
+- **A `Const` inside a procedure no longer overwrites a module variable or `Const` of the same name.** It is the
+  procedure's own, as in VB6, and the module's value is unchanged after the call.
 - **A Label's background colour set by a program now shows.** `Label1.BackColor = vbRed` read back red but left
   the label as it was; now it paints, for a label in a control array too. A program can make a transparent Label
   opaque with `BackStyle = 1`. A transparent Label ignores a `BackColor` set while it is transparent, as VB6 does.

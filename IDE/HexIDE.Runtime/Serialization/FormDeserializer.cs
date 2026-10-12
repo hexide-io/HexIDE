@@ -216,7 +216,12 @@ public class FormDeserializer
 
             foreach (var serializedProperty in serializedComponent.Properties)
             {
-                var propertyName = serializedProperty.Key;
+                // One spelling, before anything compares it. VB6 reads a property name in any case: measured,
+                // `caption`, `TEXT` and `backcolor` on controls, and on a form's own root `clientwidth`,
+                // `scalewidth` and a Font block's `name` and `size`, all load. The special cases below compare
+                // exact spellings, so a lowercase `width` on the root used to miss the outer-rectangle branch and
+                // bind as the client width once property lookup ignored case (#819).
+                var propertyName = CanonicalPropertyName(serializedProperty.Key, componentClass);
 
                 // The two rectangles. A designer root records its CLIENT rectangle as Client*, and may
                 // record its OUTER window rectangle beside it as the plain four — Dialog.frm is the file
@@ -563,6 +568,27 @@ public class FormDeserializer
         if (includeFormLevelNames)
             names.UnionWith(SpecialCasedPropertyNames);
         return names;
+    }
+
+    /// <summary>The names the loop special-cases, each in the spelling it compares against.</summary>
+    private static readonly string[] SpecialCaseSpellings =
+    [
+        "ClientLeft", "ClientTop", "ClientWidth", "ClientHeight", "Left", "Top", "Width", "Height",
+        "ScaleMode", "ScaleHeight", "ScaleWidth", "LockControls",
+    ];
+
+    /// <summary>
+    /// A property name as the model spells it: a special-cased name first, then one of this component's
+    /// properties, and otherwise as written, so an unknown name is preserved exactly.
+    /// </summary>
+    private static string CanonicalPropertyName(string name, ComponentBaseClass componentClass)
+    {
+        foreach (var spelling in SpecialCaseSpellings)
+        {
+            if (string.Equals(name, spelling, StringComparison.OrdinalIgnoreCase))
+                return spelling;
+        }
+        return componentClass.PropertiesByName.TryGetValue(name, out var property) ? property.Name : name;
     }
 
     /// <summary>

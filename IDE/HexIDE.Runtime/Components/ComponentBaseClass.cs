@@ -24,7 +24,7 @@ public abstract class ComponentBaseClass : IComponentClass
             VisibleProperty,
             TagProperty
         };
-        PropertiesByName = Properties.ToDictionary(p => p.Name, p => p);
+        PropertiesByName = Properties.ToDictionary(p => p.Name, p => p, StringComparer.OrdinalIgnoreCase);   // #811
         Events = events ?? [];
     }
 
