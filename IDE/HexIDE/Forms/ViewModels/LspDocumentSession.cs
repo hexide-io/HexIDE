@@ -258,7 +258,8 @@ internal sealed class LspDocumentSession : IDisposable
             var old = Uri;
             await client.CloseDocumentForRenameAsync(old, cancellationToken);
             Uri = newUri;
-            version = 1;
+            // The reopen is a new document to the server, so its versions start again where an open's do.
+            version = LspDocumentVersion.Opening;
             await client.OpenDocumentAsync(newUri, document.Text, isProjectMember, cancellationToken);
         }
         finally
