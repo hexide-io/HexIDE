@@ -107,10 +107,22 @@ public class LabelColourTests
             : Color.FromRgb(At(0), At(1), At(2));
     }
 
-    /// <summary>The form's own surface, beside the controls: what a transparent label lets through.</summary>
-    private static Color FormSurface(Window window, Canvas canvas) =>
-        PaintedAt(window, canvas.TranslatePoint(new Point(2, canvas.Bounds.Height - 2), window)
-                          ?? throw new InvalidOperationException("the form is not in the window"));
+    /// <summary>
+    /// A colour nothing else on the form uses, painted behind the controls. The harness does not draw the form's own
+    /// BackColor, so without this a transparent label "showed the form" by being white on white.
+    /// </summary>
+    private static readonly Color Backdrop = Color.FromRgb(255, 0, 255);
+
+    private static (Canvas canvas, Window window, ModuleExecutionContext ctx, ExecutionEnvironment env) LaidOnBackdrop()
+    {
+        var laid = ContainerRuntimeHarness.Laid(Form);
+        laid.canvas.Background = new SolidColorBrush(Backdrop);
+        return laid;
+    }
+
+    /// <summary>The colour a system colour index resolves to here, as the label paints it.</summary>
+    private static Color SystemColour(VbSystemColor index) =>
+        ((ISolidColorBrush)VBColor.FromSystemColor(index).ToBrush()).Color;
 
     private static VBLabel Label(Canvas canvas, string name, int? index = null)
     {
@@ -152,10 +164,10 @@ public class LabelColourTests
     [AvaloniaFact]
     public async Task A_Label_paints_its_form_colour_and_a_transparent_one_shows_the_form()
     {
-        var (canvas, window, _, _) = ContainerRuntimeHarness.Laid(Form);
+        var (canvas, window, _, _) = LaidOnBackdrop();
 
         PaintedNearBottomLeft(window, Label(canvas, "Label1")).Should().Be(Red);
-        PaintedNearBottomLeft(window, Label(canvas, "LblTrans")).Should().Be(FormSurface(window, canvas),
+        PaintedNearBottomLeft(window, Label(canvas, "LblTrans")).Should().Be(Backdrop,
             "a transparent label paints nothing of its own, red BackColor or not");
         await Task.CompletedTask;
     }
@@ -184,7 +196,8 @@ public class LabelColourTests
         debug[0].Should().Be(new Vb6Value(65280L));
         debug[1].Should().Be(new Vb6Value(-2147483633L));
         PaintedNearBottomLeft(window, Label(canvas, "Arr", 1)).Should().Be(Green);
-        PaintedNearBottomLeft(window, Label(canvas, "Arr", 0)).Should().NotBe(Green);
+        PaintedNearBottomLeft(window, Label(canvas, "Arr", 0)).Should().Be(SystemColour(VbSystemColor.Btnface),
+            "the element nobody touched keeps its default, the button face");
     }
 
     [AvaloniaFact]
@@ -192,13 +205,102 @@ public class LabelColourTests
     {
         // Measured: VB6 drops the assignment without an error, so the old colour reads back, and is the one shown
         // if the label is later made opaque.
-        var (canvas, window, ctx, env) = ContainerRuntimeHarness.Laid(Form);
+        var (canvas, window, ctx, env) = LaidOnBackdrop();
 
         var debug = await ContainerRuntimeHarness.Run(ctx, env, "LblTrans.BackColor = vbBlue\r\nDebug.Print LblTrans.BackColor\r\n");
 
         debug[0].Should().Be(new Vb6Value(255L));
         Label(canvas, "LblTrans").BackColor.Should().Be(VBColor.FromOle(255));
-        PaintedNearBottomLeft(window, Label(canvas, "LblTrans")).Should().Be(FormSurface(window, canvas));
+        PaintedNearBottomLeft(window, Label(canvas, "LblTrans")).Should().Be(Backdrop);
+    }
+
+    [AvaloniaFact]
+    public async Task A_form_colour_outside_the_palette_loads_the_default_rather_than_failing()
+    {
+        // &H80000019& is past the last system colour. It used to reach the system-colour lookup as the control was
+        // made, and throw. It now does not parse, so the control takes its default and the line is kept for a save.
+        const string outside = """
+            VERSION 5.00
+            Begin VB.Form Form1
+               Caption         =   "Form1"
+               Begin VB.TextBox Text1
+                  BackColor       =   &H80000019&
+                  Left            =   120
+                  Top             =   120
+                  Width           =   1200
+                  Height          =   375
+               End
+               Begin VB.Label Label1
+                  BackColor       =   &H80000019&
+                  Left            =   120
+                  Top             =   600
+                  Width           =   1200
+                  Height          =   375
+               End
+            End
+            Attribute VB_Name = "Form1"
+            """;
+        var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(outside);
+
+        var debug = await ContainerRuntimeHarness.Run(ctx, env, "Debug.Print Text1.BackColor\r\nDebug.Print Label1.BackColor\r\n");
+
+        debug[0].Should().Be(new Vb6Value(-2147483643L));
+        debug[1].Should().Be(new Vb6Value(-2147483633L));
+    }
+
+    // ── BackStyle and Appearance at run time ──────────────────────────────────────────────────────
+
+    [AvaloniaFact]
+    public async Task A_transparent_Label_made_opaque_first_takes_the_BackColor_that_follows()
+    {
+        // The measured row 3: BackStyle = 1, then BackColor = vbBlue, reads 16711680 and paints blue.
+        var (canvas, window, ctx, env) = LaidOnBackdrop();
+
+        var debug = await ContainerRuntimeHarness.Run(ctx, env,
+            "LblTrans.BackStyle = 1\r\nLblTrans.BackColor = vbBlue\r\nDebug.Print LblTrans.BackStyle\r\nDebug.Print LblTrans.BackColor\r\n");
+
+        debug[0].Value.Should().Be(1);
+        debug[1].Should().Be(new Vb6Value(16711680L));
+        PaintedNearBottomLeft(window, Label(canvas, "LblTrans")).Should().Be(Blue);
+    }
+
+    [AvaloniaFact]
+    public async Task A_transparent_Label_made_opaque_after_shows_the_BackColor_it_kept()
+    {
+        // The measured row 2: BackColor = vbBlue while transparent is dropped, so BackStyle = 1 shows the red it kept.
+        var (canvas, window, ctx, env) = LaidOnBackdrop();
+
+        var debug = await ContainerRuntimeHarness.Run(ctx, env,
+            "LblTrans.BackColor = vbBlue\r\nLblTrans.BackStyle = 1\r\nDebug.Print LblTrans.BackColor\r\n");
+
+        debug[0].Should().Be(new Vb6Value(255L));
+        PaintedNearBottomLeft(window, Label(canvas, "LblTrans")).Should().Be(Red);
+    }
+
+    [AvaloniaFact]
+    public async Task A_BackStyle_VB6_does_not_have_is_Invalid_property_value()
+    {
+        // Measured: LblT.BackStyle = 2 is 380 and leaves it transparent.
+        var (_, _, ctx, env) = LaidOnBackdrop();
+
+        var debug = await ContainerRuntimeHarness.Run(ctx, env,
+            "On Error Resume Next\r\nLblTrans.BackStyle = 2\r\nDebug.Print Err.Number\r\nDebug.Print LblTrans.BackStyle\r\n");
+
+        debug[0].Value.Should().Be(380);
+        debug[1].Value.Should().Be(0);
+    }
+
+    [AvaloniaFact]
+    public async Task A_Labels_Appearance_reads_back_and_setting_it_is_refused_even_under_On_Error()
+    {
+        // VB6 resets BackColor with Appearance (measured); until #796 that is refused, and untrappably, because a
+        // trappable error swallowed by On Error Resume Next would leave the old BackColor, a wrong value.
+        var (_, _, ctx, env) = LaidOnBackdrop();
+        (await ContainerRuntimeHarness.Run(ctx, env, "Debug.Print Label1.Appearance\r\n"))[0].Value.Should().Be(1);
+
+        var (_, _, ctx2, env2) = LaidOnBackdrop();
+        var act = () => ContainerRuntimeHarness.Run(ctx2, env2, "On Error Resume Next\r\nLabel1.Appearance = 0\r\n");
+        (await act.Should().ThrowAsync<Exception>()).Which.ToString().Should().Contain("#796");
     }
 
     [AvaloniaFact]

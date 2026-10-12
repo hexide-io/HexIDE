@@ -4724,5 +4724,24 @@ replaces `BackColor` with that appearance's default. The border is redrawn to ma
 - A transparent label drops a run-time `BackColor`, as above.
 - `LabelColourTests` pins the read-backs and reads the painting from a real Skia frame, a control-array label
   among them.
-- **Not done:** a Label's `BackStyle` and `Appearance` cannot be set at run time in HexIDE yet. Each is refused,
-  and `Appearance`'s reset of `BackColor` comes with it (#796).
+- A Label's `BackStyle` can be set at run time, so both orders in the table above behave as measured, and
+  `BackStyle = 2` is 380 (measured, below).
+- **Refused, as not implemented:** setting a Label's `Appearance`, because VB6 resets `BackColor` with it (#796).
+  It is refused untrappably: a trappable error swallowed by `On Error Resume Next` would leave the old `BackColor`,
+  a wrong value. Reading it works.
+
+### Measured with it: defaults, BackStyle 2, and a system colour past the palette (2026-10-12, #802)
+
+One more `/make` run on the same guest, session 0, nothing set before each read:
+
+| Expression | Value | Type | Err |
+|---|---|---|---|
+| `List1.ForeColor` / `List1.BackColor` | `-2147483640` / `-2147483643` (`&H80000008` / `&H80000005`) | Long | |
+| `Combo1.ForeColor` / `Combo1.BackColor` | `-2147483640` / `-2147483643` | Long | |
+| `LblT.BackStyle = 2`, on a transparent label; then `BackStyle` | `0`, unchanged | Integer | 380 |
+| `LblT.BackStyle = 1`, then `LblT.BackColor = vbBlue` | `16711680` | Long | |
+| `LblBad.BackColor = &H80000019` (past the last system colour) | `-2147483633`, unchanged | Long | 380 |
+
+HexIDE had a ListBox's and ComboBox's `ForeColor` default as the button text (`&H80000012`), every other
+control's. It now overrides it to `&H80000008`. A `.frm` carrying `&H80000019&`, or a palette colour, is now kept
+as written and saved back, where it used to be dropped on save; creating a control with the first used to throw.

@@ -559,6 +559,10 @@ public class PropertyAssignmentTests
     [InlineData("Label1.Caption = Text1.ForeColor", "-2147483640")]
     [InlineData("Label1.Caption = Label1.BackColor", "65280")]        // from the form
     [InlineData("Label1.Caption = Label1.ForeColor", "-2147483630")]  // a Label's default, measured
+    [InlineData("Label1.Caption = List1.ForeColor", "-2147483640")]   // a list's: the window text, measured
+    [InlineData("Label1.Caption = List1.BackColor", "-2147483643")]
+    [InlineData("Label1.Caption = Combo1.ForeColor", "-2147483640")]
+    [InlineData("Label1.Caption = Combo1.BackColor", "-2147483643")]
     public async Task A_Labels_or_TextBoxs_colour_from_the_form_reads_back_as_its_Long(string assignment, string expected)
     {
         // These were refused until #795, because neither control held its form colours where a read could find them.
