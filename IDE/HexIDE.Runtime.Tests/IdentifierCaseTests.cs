@@ -4,8 +4,8 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// VB6 identifiers are case-insensitive: <c>abc</c> after <c>Dim Abc</c> is the same variable (#811). Every expected
-/// value below was measured on vb6.exe; the probe and its output are in docs/vb6-fidelity-oracle.md, "Identifier
-/// case".
+/// value and its type below was measured on vb6.exe; the probes and their output are in docs/vb6-fidelity-oracle.md,
+/// "Identifier case".
 /// </summary>
 public class IdentifierCaseTests : BaseVBTestFixture
 {
@@ -42,6 +42,8 @@ public class IdentifierCaseTests : BaseVBTestFixture
     [Fact]
     public async Task A_constant_is_read_in_another_case()
     {
+        // Measured from a form against a .bas `Public Const`. On HexIDE's form path that reads Empty in every case
+        // (#256), so this reads it within one module.
         await Run("Const KPI As Integer = 3\nDebug.Print kpi * 2\n");
         AssertDebugLog([new Vb6Value(6)]);
     }
@@ -84,12 +86,60 @@ public class IdentifierCaseTests : BaseVBTestFixture
     [Fact]
     public async Task A_module_its_procedure_and_its_variable_are_reached_in_another_case()
     {
-        // Measured with the variable written from the form, which HexIDE cannot do yet in any case: a write to
-        // another module's Public variable, qualified or not, is G5's. So the module writes its own variable here,
-        // and the call and the qualified read cross the modules in other cases.
+        // Measured with the variable written from the form, which HexIDE cannot do yet in any case: reaching
+        // another module's Public variable from a form is #256. So the module writes its own variable here, and the
+        // call and the qualified read cross the modules in other cases.
         await RunModules("module2.setit\nDebug.Print MODULE2.abc\n",
             ("Module2", "Public Abc As Integer\nPublic Sub SetIt()\n    abc = 5\nEnd Sub\n"));
         AssertDebugLog([new Vb6Value(5)]);
+    }
+
+    [Fact]
+    public async Task A_procedures_Const_shadows_a_module_name_in_any_case_and_leaves_it_alone()
+    {
+        // Measured: inside each Sub its Const is its own, and after it the module's Limit is still 1 and its Lim2
+        // still 5. A Const used to update whatever slot its name found, which through a case-insensitive scope was
+        // the module's, so the value outlived the call (#819). The same-case form was already wrong on main.
+        await Run("""
+            Dim Limit As Integer
+            Const Lim2 As Integer = 5
+            Sub OtherCase()
+                Const LIMIT As Integer = 10
+                Debug.Print LIMIT
+                Debug.Print limit
+            End Sub
+            Sub SameCase()
+                Const Limit As Integer = 20
+                Debug.Print Limit
+            End Sub
+            Sub OverConstOtherCase()
+                Const lim2 As Integer = 7
+                Debug.Print lim2
+            End Sub
+            Sub OverConstSameCase()
+                Const Lim2 As Integer = 8
+                Debug.Print Lim2
+            End Sub
+            Limit = 1
+            OtherCase
+            Debug.Print Limit
+            SameCase
+            Debug.Print Limit
+            OverConstOtherCase
+            Debug.Print Lim2
+            OverConstSameCase
+            Debug.Print Lim2
+            OtherCase
+            Debug.Print Limit
+
+            """.Replace("\r\n", "\n"));
+        AssertDebugLog([
+            new Vb6Value(10), new Vb6Value(10), new Vb6Value(1),
+            new Vb6Value(20), new Vb6Value(1),
+            new Vb6Value(7), new Vb6Value(5),
+            new Vb6Value(8), new Vb6Value(5),
+            new Vb6Value(10), new Vb6Value(10), new Vb6Value(1),
+        ]);
     }
 
     [Theory]

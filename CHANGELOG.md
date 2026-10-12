@@ -21,7 +21,9 @@ there isn't one yet. Anything may change between 0.x releases.
 - **A name in a different case is the same name, as in VB6.** `abc = 5` after `Dim Abc` used to make a new
   variable and leave `Abc` as it was, and `foo = 7` inside `Function Foo` returned 0. Variables, constants,
   parameters, a Function's return value, controls, properties and `Debug.Print` now match in any case, and so do
-  property names in a `.frm`.
+  property names in a `.frm`, a form's own included, and the fields of its Font block.
+- **A `Const` inside a procedure no longer overwrites a module variable or `Const` of the same name.** It is the
+  procedure's own, as in VB6, and the module's value is unchanged after the call.
 - **A Label's background colour set by a program now shows.** `Label1.BackColor = vbRed` read back red but left
   the label as it was; now it paints, for a label in a control array too. A program can make a transparent Label
   opaque with `BackStyle = 1`. A transparent Label ignores a `BackColor` set while it is transparent, as VB6 does.
