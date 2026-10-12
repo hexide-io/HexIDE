@@ -242,10 +242,10 @@ public class VbDisplayTests : BaseVBTestFixture
     {
         var lib = new CaptureLib(debug);
         await InCulture(() => new BasicInterpreter(lib, context, rootEnv,
-            "MsgBox CSng(1) / 3, , CSng(2) / 3\nDim r As Variant\nr = InputBox(1 / 3, 0.1 + 0.2, #1/2/2003#)\n").Execute());
+            "MsgBox CSng(1) / 3, , 0.1 + 0.2\nDim r As Variant\nr = InputBox(1 / 3, 0.1 + 0.2, #1/2/2003#)\n").Execute());
 
         lib.Shown.Should().Equal(
-            "MsgBox 0.3333333 | 0.6666667",
+            "MsgBox 0.3333333 | 0.3",
             "InputBox 0.333333333333333 | 0.3 | 02/01/2003");
     }
 
@@ -254,9 +254,10 @@ public class VbDisplayTests : BaseVBTestFixture
     {
         await InCulture(() => Run(
             "On Error Resume Next\nErr.Raise 5, CSng(1) / 3, 0.1 + 0.2\nDebug.Print Err.Source\nDebug.Print Err.Description\n" +
-            "Err.Description = CSng(2) / 3\nDebug.Print Err.Description\n"));
+            "Err.Description = CSng(1) / 3\nDebug.Print Err.Description\n"));
 
-        AssertDebugLog(["0.3333333", "0.3", "0.6666667"]);
+        // CSng(1) / 3 rather than, say, CSng(2) / 3, whose .NET text is also 0.6666667 and so tells nothing.
+        AssertDebugLog(["0.3333333", "0.3", "0.3333333"]);
     }
 
     [Fact]
@@ -342,22 +343,30 @@ public class VbDisplayTests : BaseVBTestFixture
     }
 
     [Fact]
-    public void The_sign_is_an_ASCII_hyphen_whatever_the_culture_says()
+    public async Task The_sign_is_an_ASCII_hyphen_whatever_the_culture_says()
     {
         // Not measured in this locale. ICU gives sv-SE a U+2212 minus, which Windows' own locale data does not, and
-        // which Val could not read back; the decimal separator still comes from the culture.
+        // which Val could not read back; the decimal separator still comes from the culture. Run with sv-SE as the
+        // current culture as well as passed in, because an integer's text once came from the current culture.
         var swedish = CultureInfo.GetCultureInfo("sv-SE");
-        VbDisplay.ToText(new Vb6Value(-1.5), swedish).Should().Be("-1,5");
-        VbDisplay.ToText(new Vb6Value(-1.5f), swedish).Should().Be("-1,5");
-        VbDisplay.ToText(Vb6Value.NewCurrency(-2.5m), swedish).Should().Be("-2,5");
-        VbDisplay.ToText(new Vb6Value(-5), swedish).Should().Be("-5");
-        VbDisplay.ToText(new Vb6Value(-5L), swedish).Should().Be("-5");
+        var texts = new List<string>();
+        await InCulture(() =>
+        {
+            texts.Add(VbDisplay.ToText(new Vb6Value(-1.5), swedish));
+            texts.Add(VbDisplay.ToText(new Vb6Value(-1.5f), swedish));
+            texts.Add(VbDisplay.ToText(Vb6Value.NewCurrency(-2.5m), swedish));
+            texts.Add(VbDisplay.ToText(new Vb6Value(-5), swedish));
+            texts.Add(VbDisplay.ToText(new Vb6Value(-5L), swedish));
+            return Task.CompletedTask;
+        }, swedish);
+
+        texts.Should().Equal("-1,5", "-1,5", "-2,5", "-5", "-5");
     }
 
-    private static async Task InCulture(Func<Task> action)
+    private static async Task InCulture(Func<Task> action, CultureInfo? culture = null)
     {
         var saved = CultureInfo.CurrentCulture;
-        CultureInfo.CurrentCulture = EnGb;
+        CultureInfo.CurrentCulture = culture ?? EnGb;
         try
         {
             await action();

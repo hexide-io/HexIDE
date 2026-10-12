@@ -4169,6 +4169,32 @@ otherwise, and every one came back a String. `CSng(x)` rounds a Double literal t
   space in place of a positive number's sign and one after every number, is a different dialect and was not
   probed here.
 
+### Measured for the review of #779
+
+A third run, same guest and locale.
+
+| Probe | Result |
+|---|---|
+| `Format(#1/2/2003#, "General Date")`, `... #10:30:00 AM# ...`, `... #1/2/2003 10:30:00 AM# ...` | `02/01/2003`, `10:30:00`, `02/01/2003 10:30:00` |
+| `Format(CDate(0), "General Date")` | `00:00:00` |
+| `Format(x, "c")` for the same three dates | the same three texts |
+| `Format(CSng(1) / 3, "General Number")`, `Format(1 / 3, "General Number")` | `0.3333333`, `0.333333333333333` |
+| `Format(1E+15, ...)`, `Format(0.1 + 0.2, ...)`, `Format(CSng(0.000012345), ...)`, `Format(CCur(1.5) * 2, ...)`, all `"General Number"` | `1E+15`, `0.3`, `1.2345E-05`, `3` |
+| `Left(CSng(1) / 3, 20)`, `Mid(1 / 3, 1)`, `Left(#1/2/2003#, 20)` | `0.3333333`, `0.333333333333333`, `02/01/2003` |
+| `Len(1 / 3)`, or `Len` of any numeric expression | does not compile: "Variable required - can't assign to this expression" |
+| `Len(v)` for `v` declared Single, Double, Currency, Integer, Date; an Empty Variant | `4`, `8`, `8`, `2`, `8`; `0` (Integer, Long for the Variant) |
+| `CStr(CDate("10:30:00"))`, `CDbl(#10:30:00 AM#)`, `CDbl(CDate("10:30:00"))` | `10:30:00`, `0.4375`, `0.4375` |
+| `CStr(CDate("2003-01-02"))` | `02/01/2003` |
+| `CStr(CDate(0.5 + n / 86400))` for n = 0.4, 0.5, 0.6, 1.5, 2.5 | `12:00:00`, `12:00:01`, `12:00:01`, `12:00:01`, `12:00:03` |
+| `Second(...)` for n = 0.6 and 0.5 | `1`, `1` |
+| `CStr(CDate(1 - 0.4 / 86400))` (23:59:59.6 on the zero date) | `31/12/1899` |
+| `CDbl("1E+400")`, `Val("1E+400")`, `CSng("1E+39")` | Err 6 each |
+
+- **"General Date", the `c` token and "General Number" write exactly what `CStr` writes.** The named formats were never different paths.
+- **`Len` is not a string function on a number.** It measures a numeric variable's storage and refuses a numeric expression outright (#780). So the earlier draft's `Len(CSng(1) / 3)` row, which HexIDE answered 9, was not valid VB6.
+- **A fraction of a second rounds to the nearest second; it is not cut off** (#783). The rounding can carry into the next day. Of the halves, 0.5 and 2.5 s round up and 1.5 s rounds down. That fits rounding the serial's exact binary value, where `0.5 + 1.5 / 86400` falls just short of the half. I would not call it a tie rule from three rows.
+- **A string too large for a Double is an Overflow**, not infinity (#782).
+
 ### HexIDE, after #772 and #771
 
 `VbDisplay.ToText` implements the rule, and `CStr`, `&`, storing into a String, the string functions, `MsgBox`,
@@ -4177,3 +4203,14 @@ otherwise, and every one came back a String. `CSng(x)` rounds a Double literal t
 above is a test, asserted in en-GB explicitly (`VbDisplayTests`). A time-only literal, and `CDate` of a
 time-only string, used to land on today's date rather than the zero date, so `CDbl(#10:30:00 AM#)` was
 today's serial plus 0.4375 rather than 0.4375; both now land on the zero date.
+
+After the review: `Format`'s "General Date", "General Number" and `c` token, `AddItem`, and Break When Value
+Changes' display also go through `VbDisplay`; the watch compares the full value, so a change below the digits it
+shows still breaks. Three things the locale does not supply, deliberately: the calendar, which is always Gregorian,
+VB6's default; the sign, which is always an ASCII `-`; and a value VB6 cannot make, which is spelled `1.#INF`,
+`-1.#INF` or `1.#QNAN` as `Format` already spelled it.
+
+**The running IDE formats in the invariant culture, until #777.** `App.Initialize` pins the invariant culture for
+every thread, so the rules above apply there with the invariant patterns: `CStr(#1/2/2003#)` shows `01/02/2003`
+in the IDE on any machine, where VB6 shows the user's own short date. Digits, E notation, the sign and which half
+of a date is left out are VB6's in every culture.
