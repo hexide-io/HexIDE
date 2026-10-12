@@ -1885,3 +1885,56 @@ the designer's selection/delete/undo aren't exposed as `ICommand`s reachable via
 existing `invoke_designer_undo` — plus surfacing each canvas control as a `dump_visual_tree` node with its name, so
 `interact` can click/rubber-band it. That would make the whole designer edit loop (add → select → move → delete →
 undo/redo) MCP-verifiable.
+
+## A save the code page or the serializer refuses held the tool's reply on a dialog — **CLOSED** (#751, by #729, 2026-10-12)
+
+> **Fixed.** `set_file_content`, `set_control_property`, `add_control` and `add_file` now save with
+> `interactive: false`. No dialog is shown. A save the code page refuses comes back in the reply, naming
+> the document, the code page and the first character it cannot hold, and the change stays in the IDE. A
+> save HexIDE refuses because it cannot reproduce the file comes back as the existing "cannot reproduce
+> this file faithfully" reply, and is no longer reported again by the next save.
+> `AutomationSaveRefusalTests` fails the build if a tool calls a save without `interactive: false`.
+>
+> Verified live on 2026-10-12, in a Debug build of #729 with `--ansi-code-page 1252`, on a project of
+> ASCII files. Replies are shown decoded; the server escapes `'`, `+` and non-ASCII characters in its JSON.
+>
+> ```
+> set_file_content {"name":"Module1","content":"Public Sub One()\n    Debug.Print \"Go → there\"\nEnd Sub\n"}
+> → {"success":false,"error":"The new code is in the IDE but was not written: Module1 is kept in code page 1252,
+>    which cannot hold '→' (U+2192). Nothing was written. HexIDE keeps a file in the code page it was read or
+>    created in rather than convert it, so use characters that code page holds."}
+> set_control_property {"formName":"Form1","controlName":"Command1","property":"Caption","value":"Next →"}
+> → {"success":false,"error":"'Caption' is set in the IDE but was not written: Form1 is kept in code page 1252,
+>    which cannot hold '→' (U+2192). …"}
+> add_control {"formName":"Form1","type":"Label","x":20,"y":80,"width":80,"height":20}   (caption still unsaved)
+> → {"success":false,"controlName":"Label0","error":"'Label0' was added to the designer but NOT written: Form1 is
+>    kept in code page 1252, which cannot hold '→' (U+2192). …"}
+> add_file {"name":"Ж1","type":"Module"}
+> → {"success":false,"error":"'Ж1' was not added: Ж1 is kept in code page 1252, which cannot hold 'Ж' (U+0416). …"}
+> ```
+>
+> After each call, `dump_visual_tree(maxDepth: 1, interactiveOnly: false)` reported the main window, so no
+> dialog was open. The SHA-256 of every file in the project was unchanged, and `add_file` created no file.
+> `get_file_content` showed the refused code still in the IDE, with `hasUnsavedChanges: true`.
+
+**Symptom.** Each of the three write tools saves through `ProjectService.SaveForm` or `SaveModule` on the UI
+thread, and awaits the result. A refused save reported itself in a message box inside that save:
+
+- `Str.Dialog.SourceEncoding.SaveFailed` when the code page could not hold a character;
+- `Str.Dialog.UnfaithfulSave.Body.One` when HexIDE could not reproduce the file.
+
+Nothing answers a message box for an automation caller (`ScriptedFileDialogs` covers the two file pickers
+only), so the request stayed open until a person closed the dialog. When the reply did come, the encoding case
+read `The new code is in the IDE but was not written: Source encoding cannot represent the edit.` It named no
+document, code page or character.
+
+`add_file` had the encoding case in another form. A name the code page cannot hold reached the encoder
+unguarded. The reply was .NET's own message, naming the character's escape and an index into the file, and
+by then the project's scratch folder had already been created.
+
+**Not the same as #681.** That one is about tools acting behind a dialog that is already open. Here the tool
+itself opened the dialog, and then waited on it.
+
+**Still not covered.** A save started by `invoke_menu_item`, `press_key` or `interact` is a UI command. Its
+reply says `Invoked` before the save finishes, and a refusal is shown to a person as a dialog, as it is for
+a click.
