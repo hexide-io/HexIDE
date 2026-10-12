@@ -78,6 +78,14 @@ public readonly struct VBColor : IEquatable<VBColor>
         return FromColor((byte)(u & 0xFF), (byte)((u >> 8) & 0xFF), (byte)((u >> 16) & 0xFF));   // 0x00BBGGRR
     }
 
+    /// <summary>
+    /// The OLE_COLOR this colour is, as VB6's Long: <c>&amp;H8000000F</c> (negative) for a system colour, and
+    /// <c>&amp;H00BBGGRR</c> for an RGB one. The inverse of <see cref="FromOle"/>.
+    /// </summary>
+    public int ToOle() => Type == ColorType.SystemColor
+        ? unchecked((int)(0x80000000u | R))
+        : (B << 16) | (G << 8) | R;
+
     public enum ColorType
     {
         Raw = 0,

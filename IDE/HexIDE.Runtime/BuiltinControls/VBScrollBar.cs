@@ -10,6 +10,15 @@ public class VBScrollBar : ScrollBar
 {
     protected override Type StyleKeyOverride => typeof(ScrollBar);
 
+    /// <summary>
+    /// VB6's Min and Max, as the form set them. They can differ from <see cref="RangeBase.Minimum"/> and
+    /// <see cref="RangeBase.Maximum"/>: VB6 lets Min exceed Max, and Avalonia raises Maximum to Minimum (#787).
+    /// </summary>
+    public int VbMin { get; init; }
+
+    /// <inheritdoc cref="VbMin"/>
+    public int VbMax { get; init; }
+
     public VBScrollBar()
     {
         ValueChanged += OnValueChanged;

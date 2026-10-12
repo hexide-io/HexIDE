@@ -6,8 +6,9 @@ namespace HexIDE.Runtime.BuiltinTypes;
 /// The names are VB6's own, as it writes them in the comment beside the value — <c>99  'Custom</c> is the
 /// corpus case, on the splitter bar in <c>Treeview Listview Splitter.frm</c>.
 ///
-/// Deliberately not contiguous: 4, 5, 13 and 14 are gaps in VB6's own numbering, and 15 is the last of the
-/// standard set before the jump to 99. Filling them in would invent values VB6 does not have.
+/// Not contiguous, and that is HexIDE's gap rather than VB6's: VB6 accepts 4, 5, 13 and 14 at run time as well
+/// (measured, #120), but their display names have not been measured, so they have no members here yet. 15 is the
+/// last of the standard set before the jump to 99. Assignment checks the measured set, not this enum (#768).
 /// </summary>
 public enum VBCursorType
 {

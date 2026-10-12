@@ -42,6 +42,22 @@ there isn't one yet. Anything may change between 0.x releases.
   name (#181). An error handler does not swallow it, because carrying on past a statement that never ran would
   give a wrong answer. An error that ends `Sub Main` now appears in the same dialog as a form's.
 
+- **`Label1.Caption = 5` sets the caption to "5".** A value of another type assigned to a control property is
+  converted to the property's type, as VB6 does, instead of stopping the program. That covers a number into a
+  caption or text, a string into a position, `Timer.Interval`, a scroll bar's `Value` or a list's `ListIndex`, a
+  number into a check box's `Value`, a string into a colour, and a colour copied from one control to another. A
+  value VB6 refuses raises VB6's own error, which an error handler can trap: Type mismatch for text that is not a
+  number, Invalid use of Null, Overflow, and Invalid property value for one outside the property's range
+  (`Check1.Value = 3`, `HScroll1.Value = 150`, `List1.ListIndex = 3` on a three-item list). `Tag` takes `Empty`
+  as `""`, and reads `""` before anything is put in it. A date into a caption is written in the user's date
+  format, as `CStr` writes it. Where HexIDE cannot give VB6's answer yet, the program stops and says so rather than
+  carry on with a wrong one: a palette colour; a scroll bar whose `Min` is above its `Max`; a control on the right of any
+  property, `Tag` and `Enabled` included; and a Label's or TextBox's colour from the form, which read as black.
+- **`Command1.Enabled = Empty` disables the button**, as `CBool(Empty)` is False. It raised Type mismatch.
+  `CDbl("NaN")`, `CDbl("Infinity")` and `CBool("NaN")` raise Type mismatch, and `CDbl("1E+400")` raises
+  Overflow; .NET's spellings of those used to get through as numbers, so `Enabled = "NaN"` enabled the button.
+  `CBool("&H10")` is True, as in VB6; it raised Type mismatch.
+
 - **A language server that orders changes by version no longer ignores the first edit to a file.** That edit repeated the version the file was opened at, so such a server kept analysing the text
   from before it until the next edit.
 - **Bookmarks and breakpoints are no longer lost on the way to their file.** A bookmark set just before

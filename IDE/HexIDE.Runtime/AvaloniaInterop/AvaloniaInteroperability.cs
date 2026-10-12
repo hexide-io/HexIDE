@@ -186,30 +186,187 @@ public static class AvaloniaInteroperability
                 if (!prop.IsValidControl(control))
                     continue;
 
-                var raw = value.Value;
-                // VB6 assigns colours as a numeric OLE_COLOR (&HFF0000); convert at the colour-property boundary.
-                if (property is PropertyClass<VBColor> && value.Value is int or long)
-                    raw = VBColor.FromOle(System.Convert.ToInt64(value.Value));
-                // A number or a string into a Boolean property — `Command1.Enabled = 0`, `Option1.Value = 1` —
-                // is ordinary VB6 assignment, not a special case, and it was throwing a bare CLR exception for
-                // EVERY boolean property on every control. CBool is the interpreter's own already-oracle-pinned
-                // implementation of the rule, so the boundary agrees with `CBool(x)` written out longhand rather
-                // than growing a second opinion: non-zero is True (0.4 included — it is "non-zero", not
-                // "rounds to 1"), "False"/"1" parse, Empty is False, "banana" is a trappable Err 13 that leaves
-                // the property untouched, and Null is Err 94.
-                else if (property.PropertyType == typeof(bool) && value.Value is not bool)
-                    raw = VB6BuiltIns.CBool(value).Value;
-                // And the reverse crossing, which VB6 also allows: `Command1.Left = True` sets Left to -1.
-                else if (value.Value is bool flag && IsNumeric(property.PropertyType))
-                    raw = System.Convert.ChangeType(flag ? -1 : 0, property.PropertyType);
-
-                prop.SetUntyped(control, raw);
+                var converted = ConvertForAssignment(property, value);
+                if (control is VBScrollBar bar && ReferenceEquals(property, VBProperties.ValueProperty) && converted is int position)
+                    CheckScrollBarValue(bar, position);
+                // ListIndex takes -1 (nothing selected) to ListCount - 1, and 380 outside it, from a String too, in a
+                // ListBox and a ComboBox alike (measured). Avalonia would drop the value instead.
+                if (control is ItemsControl items && ReferenceEquals(property, VBProperties.ListIndexProperty)
+                    && converted is int index && (index < -1 || index >= items.ItemCount))
+                    throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+                prop.SetUntyped(control, converted);
                 return true;
             }
         }
 
         return false;
     }
+
+    /// <summary>
+    /// A scroll bar's Value outside its Min..Max is 380 in VB6, from a String too, where Avalonia would clamp it.
+    /// Measured: Min may exceed Max, and the range is checked either way round. HexIDE cannot hold such a bar,
+    /// because Avalonia raises Maximum to Minimum, so a Value set on one would read back clamped (#787).
+    /// </summary>
+    private static void CheckScrollBarValue(VBScrollBar bar, int position)
+    {
+        if (bar.VbMin > bar.VbMax)
+            throw new NotImplementedException(
+                $"A scroll bar whose Min ({bar.VbMin}) exceeds its Max ({bar.VbMax}) is not implemented (#787)");
+        if (position < bar.VbMin || position > bar.VbMax)
+            throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+    }
+
+    /// <summary>
+    /// What an assignment to <paramref name="property"/> stores: the right-hand side converted to the property's
+    /// VB6 type, by the rule that converts a value stored into a declared variable of that type.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Measured on vb6.exe (docs/vb6-fidelity-oracle.md, "Assigning to a control property"). A String property
+    /// takes CStr of anything (<c>Label1.Caption = 5</c> is "5", <c>= True</c> is "True", Empty is ""). A numeric
+    /// property parses a String and raises 13 when it cannot, and rounds half to even. Null raises 94 everywhere.
+    /// Each of these raises before the property changes. That is exactly <see cref="VbNumeric.CoerceOnStore"/>,
+    /// so the boundary uses it rather than growing a second opinion. Before, a number into a String property threw
+    /// a plain CLR exception, which ended the run as an internal error (#754) and was silent before that (#768).
+    /// </para>
+    /// <para>
+    /// What a declared variable does not do is the range check. An enum or colour property, and
+    /// <c>Timer.Interval</c>, raises 380 for a value VB6 refuses, which is <c>Check1.Value = True</c> as much as
+    /// <c>Check1.Value = 3</c>: True is -1. The value is first converted as an Integer or a Long, so a value too
+    /// big for that is Overflow (6), and garbage is Type mismatch (13), before the range is looked at.
+    /// </para>
+    /// </remarks>
+    internal static object? ConvertForAssignment(PropertyClass property, Vb6Value value)
+    {
+        var type = property.PropertyType;
+
+        // A colour read from a control is a Long in VB6, so copying one (`Text1.BackColor = Label1.BackColor`),
+        // restoring one saved in a Variant, or showing one (`Caption = BackColor`) takes it as that Long.
+        if (value.Value is VBColor color)
+            value = new Vb6Value((long)color.ToOle());
+
+        // A control, an object or an array on the right is not a value to convert. For a control VB6 reads its
+        // default property (`Label1.Caption = Text1` takes Text1.Text), which HexIDE does not implement, and
+        // converting the reference itself would store a .NET type name as the caption. So it fails clearly instead
+        // of answering wrong, for a Boolean property too: there it used to give a trappable 13, which On Error
+        // Resume Next would step over. What VB6 does with each of these was not measured for this change.
+        if (!IsScalar(value))
+            throw new NotImplementedException(
+                $"Assigning {value.Type} to the {property.Name} property is not implemented");
+
+        // Tag keeps what it is given, for now. It is a String in VB6 (`Label1.Tag = 5` reads back "5", measured),
+        // but storing it as one here broke two idioms that work today: `If Command1.Tag = 1` needs the String-to-
+        // number comparison #211 has not landed, and `Tag + 1` needs String arithmetic. Tag becomes a String with
+        // #211. An unset Tag reads back "" (TryGet). Null is 94, as for any String property. It comes after the
+        // guard, so a control is refused here too rather than stored as a reference that reads as a type name.
+        if (ReferenceEquals(property, VBProperties.TagProperty))
+            return value.IsNull ? throw new VBRunTimeException(VBStandardError.InvalidUseOfNull)
+                // Empty, or a Variant never assigned, is "" to a String, which Tag is in VB6. Passed through, its
+                // missing value reached the binding and ended the run as Internal error 51.
+                : value.Type == Vb6Value.ValueType.EmptyVariant ? ""
+                : value.Value;
+
+        // Non-zero is True (0.4 included: it is "non-zero", not "rounds to 1"), "False" and "1" parse, Empty is
+        // False (measured: `Command1.Enabled = Empty` is False, no error), "banana" is 13 and Null is 94. CBool is
+        // the interpreter's own, already pinned, so the boundary agrees with `CBool(x)` written out longhand.
+        if (type == typeof(bool))
+            return value.Value is bool ? value.Value : VB6BuiltIns.CBool(value).Value;
+
+        // As CStr writes it: a Date in the program's locale, day first under en-GB (#777).
+        if (type == typeof(string))
+            return VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, null).Value;
+
+        if (type == typeof(VBColor))
+            return VBColor.FromOle(OleColor(value));
+
+        if (type.IsEnum)
+            return value.Value?.GetType() == type ? value.Value : Enum.ToObject(type, EnumValue(type, value));
+
+        if (type == typeof(double))
+        {
+            // Measured: VB6 holds a position or size as a whole number of twips in a Long, though it reads back as
+            // a Single. So `Left = 1.5` reads back 2, and `Left = 1E+20`, which a Single could hold, is Overflow (6).
+            // The check here is that Long. The value itself is kept as given, because HexIDE does not hold
+            // positions in twips; the rounding is recorded as a divergence in docs/vb6-fidelity-oracle.md.
+            Coerce(value, Vb6Value.ValueType.Long);
+            return System.Convert.ToDouble(Coerce(value, Vb6Value.ValueType.Double));
+        }
+
+        if (type == typeof(int))
+        {
+            // ListIndex and a scroll bar's Value are Integers in VB6 (each reads back with TypeName Integer, measured),
+            // so a value past 32767 is Overflow, 6, before any range check: `ListIndex = 40000` is 6, measured. The
+            // rest of the int properties are Longs, `Interval` among them.
+            var integer = ReferenceEquals(property, VBProperties.ListIndexProperty) || ReferenceEquals(property, VBProperties.ValueProperty);
+            var number = System.Convert.ToInt32(Coerce(value, integer ? Vb6Value.ValueType.Integer : Vb6Value.ValueType.Long));
+            if (ReferenceEquals(property, VBProperties.IntervalProperty) && number is < 0 or > 65535)
+                throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+            return number;
+        }
+
+        return value.Value;
+    }
+
+    private static bool IsScalar(Vb6Value value) =>
+        value.Type == Vb6Value.ValueType.EmptyVariant || value.IsNull || VbNumeric.IsDeclarableScalar(value.Type);
+
+    private static object Coerce(Vb6Value value, Vb6Value.ValueType target) =>
+        VbNumeric.CoerceOnStore(value, target, null).Value!;
+
+    /// <summary>
+    /// The OLE_COLOR a value names, or 380 when VB6 would refuse it. Measured: the high byte selects the kind, and
+    /// each kind has its own range. 0x00 is an RGB value, any low 24 bits. 0x80 is a system colour, 0 to &amp;H18:
+    /// &amp;H19 to &amp;H20 were each probed and refused. Every other high byte is refused here; five were probed,
+    /// &amp;H03, &amp;H04, &amp;H7F, &amp;HC0 and &amp;HFF, and VB6 refused each, so the rest are inferred. A negative
+    /// number that is not a system colour is refused too (`BackColor = True` is -1). The palette kinds, 0x01 (an index, 0 to
+    /// &amp;HFFFF) and 0x02 (palette-relative RGB, any), VB6 accepts and keeps as given; HexIDE has no colour that
+    /// can hold one, so they are refused as not implemented rather than stored as the RGB of their low bytes (#786).
+    /// </summary>
+    private static long OleColor(Vb6Value value)
+    {
+        var ole = System.Convert.ToInt64(Coerce(value, Vb6Value.ValueType.Long));
+        var bits = (uint)ole;
+        var low = bits & 0xFFFFFF;
+        var valid = (bits >> 24) switch
+        {
+            0x00 => true,
+            0x01 => low <= 0xFFFF,
+            0x02 => true,
+            0x80 => low <= 0x18,
+            _ => false,
+        };
+        if (!valid)
+            throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+        if ((bits >> 24) is 0x01 or 0x02)
+            throw new NotImplementedException(
+                $"A palette colour (&H{bits:X8}) is not implemented (#786)");
+        return ole;
+    }
+
+    /// <summary>
+    /// The enum value a value names, converted as an Integer, or 380 when it is not one of the property's values.
+    /// </summary>
+    private static int EnumValue(Type type, Vb6Value value)
+    {
+        var number = System.Convert.ToInt32(Coerce(value, Vb6Value.ValueType.Integer));
+        // MousePointer accepts every value from 0 to 15, and 99 (measured). VBCursorType leaves out 4, 5, 13 and 14
+        // (#120), so its own members cannot say which are valid.
+        var valid = type == typeof(VBCursorType)
+            ? number is >= 0 and <= 15 or 99
+            : Enum.IsDefined(type, number);
+        return valid ? number : throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+    }
+
+    /// <summary>
+    /// Whether <paramref name="property"/> is a colour <paramref name="control"/> holds nowhere a read can find. Most
+    /// controls set the attached colour properties as they load. A Label keeps its form colours on VBLabel instead,
+    /// and a TextBox does not load them at all (#795), so their attached properties stay null until the program sets
+    /// one, and the binding would read that null as black.
+    /// </summary>
+    internal static bool IsUnsetColour(Control control, PropertyClass property) =>
+        control is TemplatedControl templated
+        && ((ReferenceEquals(property, VBProperties.BackColorProperty) && AttachedProperties.GetBackColor(templated) is null)
+            || (ReferenceEquals(property, VBProperties.ForeColorProperty) && AttachedProperties.GetForeColor(templated) is null));
 
     public static bool TryGet(Control c, PropertyClass property, out Vb6Value value)
     {
@@ -220,7 +377,11 @@ public static class AvaloniaInteroperability
                 if (!prop.IsValidControl(c))
                     continue;
 
-                value = FromObject(prop.GetUntyped(c));
+                var raw = prop.GetUntyped(c);
+                // An unset Tag is "" in VB6, so `X.Tag = Y.Tag` copies an empty string rather than raising 94.
+                value = raw is null && ReferenceEquals(property, VBProperties.TagProperty)
+                    ? new Vb6Value("")
+                    : FromObject(raw);
                 return true;
             }
         }
