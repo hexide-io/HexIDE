@@ -49,6 +49,8 @@ public class ComboBoxComponentClass : ComponentBaseClass
     static ComboBoxComponentClass()
     {
         BackColorProperty.OverrideDefault<ComboBoxComponentClass>(VBColor.FromSystemColor(VbSystemColor.Window));
+        // The window's text colour, not the button text every other control defaults to (measured: -2147483640).
+        ForeColorProperty.OverrideDefault<ComboBoxComponentClass>(VBColor.FromSystemColor(VbSystemColor.Windowtext));
     }
 
     public static ComponentBaseClass Instance { get; } = new ComboBoxComponentClass();

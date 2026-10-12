@@ -8,7 +8,112 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ## [Unreleased]
 
+### Added
+
+- **`RGB` and `QBColor`.** They stopped a run with "Sub or Function not defined"; both now return VB6's Long,
+  with its rounding, clamping and errors, measured.
+- **The protocol inspector says when a server's bytes actually moved**, not only when a message was prepared. For
+  a server started over standard input and output or a named pipe, the timeline now shows when the first message
+  began to be written, when it was handed to the server, when the IDE began waiting for a reply, and when the
+  server's first bytes arrived. A server that seems to ignore the IDE can now be told apart from a message that
+  never reached it.
+- **`--ansi-code-page <n>`, in Debug builds**, reads and writes VB6 sources as a machine whose ANSI code page is
+  `n` would, so a file from, say, a Japanese machine can be checked on a Western one.
+
 ### Fixed
+
+- **A syntax error when a program starts, or a compile error while it runs, is reported like a run-time error.**
+  Each was a message box nothing recorded, so a program that never started was reported to automation as having run
+  and ended. Both now appear in the run-time error dialog and are kept for `get_last_runtime_error`, and a syntax
+  error at the start makes `run_project` answer that nothing is running. That answer now starts its own paragraph
+  rather than running on from the error's last word.
+- **Every start that never becomes a run is reported as one.** A project with no startup form, and a Sub Main project
+  with no usable `Main` or with two, were a message box, or a run that ended, and `run_project` answered success.
+  Each is now a failed start, in VB6's words, recorded for `get_last_runtime_error`.
+- **A syntax error names the module it is in.** One in a `.bas` or `.cls` was blamed on the startup form.
+- **A declaration HexIDE cannot load is described the same way whichever startup object the project has.** The form
+  path gave the raw exception after the form's name.
+- **Run To Cursor from design mode no longer leaves its target behind when the start fails.** After fixing the error,
+  a plain F5 paused at that line as though at a breakpoint.
+- **A message box shows the buttons and icon it was asked for.** `MsgBox "Sure?", vbYesNo + vbQuestion` showed
+  OK alone with no icon, because every in-box constant is a Long and the style was read only as an Integer, so a
+  Yes branch could never run. The answer is a Long, as in VB6. A style VB6 does not accept, such as 6 or 12, is a
+  plain OK box, as in VB6.
+- **Closing a message box answers as VB6's does.** It answered OK whatever the buttons, so closing an OK/Cancel
+  box took the program's OK branch. A box with a Cancel button now answers Cancel. A Yes/No or Abort/Retry/Ignore
+  box can no longer be closed without an answer, which is Windows' own rule for those two.
+- **`CInt`, `CLng` and the other numeric conversions no longer read an object or an array as 0.** `Nothing`
+  raises 91, an array 13 and an object 438, as in VB6, and so do `RGB`, `QBColor` and a message box's style. A
+  control, which VB6 reads through its default member, stops the run with a message saying default members are not
+  implemented yet (#790), and so does a class with a default member (#174). An omitted `Optional` argument converts to
+  448, as in VB6, where it read as 0.
+- **A message box stays answerable when its form hides.** `Me.Visible = False` while a box was open made the box
+  disappear and answer Cancel, or stopped the code waiting on a Yes/No box, and a box opened from a form already
+  hidden ended the run as Internal error 51. The box now waits for its answer, shown on its own.
+- **Restart with a message box open no longer runs the old program on.** The box closed, and the code waiting on it
+  carried on beside the new run with a Cancel nobody pressed, or stopped the new run. It now ends with its run.
+- **A name in a different case is the same name, as in VB6.** `abc = 5` after `Dim Abc` used to make a new
+  variable and leave `Abc` as it was, and `foo = 7` inside `Function Foo` returned 0. Variables, constants,
+  parameters, a Function's return value, controls, properties and `Debug.Print` now match in any case, and so do
+  property names in a `.frm`, a form's own included, and the fields of its Font block.
+- **A `Const` inside a procedure no longer overwrites a module variable or `Const` of the same name.** It is the
+  procedure's own, as in VB6, and the module's value is unchanged after the call.
+- **A Label's background colour set by a program now shows.** `Label1.BackColor = vbRed` read back red but left
+  the label as it was; now it paints, for a label in a control array too. A program can make a transparent Label
+  opaque with `BackStyle = 1`. A transparent Label ignores a `BackColor` set while it is transparent, as VB6 does.
+- **Every control's colour reads back as VB6's number**, `255` rather than `&H000000FF&`, so `If Text1.BackColor
+  = vbRed` is True and `Debug.Print` shows what VB6 shows. A Label's `ForeColor` and a TextBox's colours from the
+  form read back at all, where they used to read as black; a TextBox now keeps the colours a form gives it. A
+  ListBox's and ComboBox's text colour defaults to the window text colour, as in VB6.
+- **A form keeps a property value HexIDE cannot read yet**, such as a palette colour, and saves it back as it was
+  written. It used to be dropped from the file on the next save.
+- **A running program writes and reads dates and numbers in the user's regional settings**, as VB6 does. The IDE
+  ran every program in the invariant culture, so `CStr(#1/2/2003#)` showed `01/02/2003` on a UK machine, where VB6
+  shows `02/01/2003`, and `CDate("1/2/2003")` was 2 January rather than 1 February. `CStr`, `Format`, the month and
+  day names, `CDate`, `CDbl`, `IsDate`, `IsNumeric` and a two-digit year in `DateSerial` now follow the user's
+  separators, date order and names, so text a program wrote reads back as the same value. Two things stay VB6's own
+  whatever the locale: a date is Gregorian, so a Thai, Persian or Saudi machine still counts 2003 as 2003, and a minus
+  sign is a plain `-`. A date the locale's order cannot make is read the other way round, as in VB6: `CDate("1/13/2003")`
+  is 13 January on a UK machine. The IDE's own language changes none of this. The numbers written in the source
+  itself are a separate matter, still read in the machine's culture in a made EXE (#781).
+- **`s = Text1` no longer stores a .NET type name.** In VB6 a control where a value is wanted stands for
+  its default property, so `s = Text1` reads its text. HexIDE does not implement that yet, and the assignment
+  stored `HexIDE.Runtime.BuiltinControls.VBTextBox` in the String, or the control itself in a Variant, without a
+  word. It now stops the program and says so, until default properties land (#790). `Set`, `For Each` and
+  passing a control to a procedure are unaffected.
+- **Numbers and dates turn into the text VB6 makes of them.** `CStr`, `&`, a String variable, `MsgBox` and
+  `Format` with no mask wrote .NET's text: `CSng(1) / 3` came out as `0.33333334` and `0.1 + 0.2` as
+  `0.30000000000000004`, where VB6 writes `0.3333333` and `0.3`. A date came out with a midnight time attached.
+  Now a Single has seven significant digits and a Double fifteen, with E notation where VB6 uses it, and a date
+  leaves out a midnight time or the zero date. A time written on its own, `#10:30:00 AM#`, is now that time on
+  VB6's zero date rather than on today's date.
+
+- **`End` ends the program.** It used to stop the program with an error saying HexIDE did not implement it, so a
+  `Sub Main` that finished with `End` showed that error. Now the program stops at `End`, as in VB6: nothing after
+  it runs, its forms close without their unload events, and no `Class_Terminate` runs.
+
+- **A program that reaches something HexIDE cannot run yet now says so.** A statement, function or control
+  method the interpreter does not implement used to stop the program without a word: a click handler ended
+  part way while the program carried on, and a `Sub Main` project opened nothing at all. The run now ends,
+  and the runtime-error dialog says HexIDE does not implement it, naming it in most cases; a few still carry no
+  name (#181). An error handler does not swallow it, because carrying on past a statement that never ran would
+  give a wrong answer. An error that ends `Sub Main` now appears in the same dialog as a form's.
+
+- **`Label1.Caption = 5` sets the caption to "5".** A value of another type assigned to a control property is
+  converted to the property's type, as VB6 does, instead of stopping the program. That covers a number into a
+  caption or text, a string into a position, `Timer.Interval`, a scroll bar's `Value` or a list's `ListIndex`, a
+  number into a check box's `Value`, a string into a colour, and a colour copied from one control to another. A
+  value VB6 refuses raises VB6's own error, which an error handler can trap: Type mismatch for text that is not a
+  number, Invalid use of Null, Overflow, and Invalid property value for one outside the property's range
+  (`Check1.Value = 3`, `HScroll1.Value = 150`, `List1.ListIndex = 3` on a three-item list). `Tag` takes `Empty`
+  as `""`, and reads `""` before anything is put in it. A date into a caption is written in the user's date
+  format, as `CStr` writes it. Where HexIDE cannot give VB6's answer yet, the program stops and says so rather than
+  carry on with a wrong one: a palette colour; a scroll bar whose `Min` is above its `Max`; a control on the right of any
+  property, `Tag` and `Enabled` included.
+- **`Command1.Enabled = Empty` disables the button**, as `CBool(Empty)` is False. It raised Type mismatch.
+  `CDbl("NaN")`, `CDbl("Infinity")` and `CBool("NaN")` raise Type mismatch, and `CDbl("1E+400")` raises
+  Overflow; .NET's spellings of those used to get through as numbers, so `Enabled = "NaN"` enabled the button.
+  `CBool("&H10")` is True, as in VB6; it raised Type mismatch.
 
 - **A language server that orders changes by version no longer ignores the first edit to a file.** That edit repeated the version the file was opened at, so such a server kept analysing the text
   from before it until the next edit.
@@ -20,6 +125,33 @@ there isn't one yet. Anything may change between 0.x releases.
   newer HexIDE wrote into it is kept, even when both had the project open at once. It goes with the project
   when the project is saved somewhere else, is not created by a save with nothing to record, and is left
   untouched when it cannot be read rather than overwritten.
+- **Saving a VB6 source file no longer changes text you did not edit.** A file whose accented characters
+  happened to read as valid UTF-8 was decoded that way and written back changed, so one ASCII edit could alter
+  an unrelated comment or string. A file now keeps the encoding it was read in, a UTF-8 byte-order mark
+  included. A file an earlier HexIDE saved as UTF-8 still opens as UTF-8. A file the project only carries, such
+  as a README, is not covered yet: its editor still rewrites any byte that is not valid UTF-8 (#745).
+- **On Windows a source file is read in the machine's own code page, as VB6 reads it.** A file without a
+  byte-order mark was shown as Latin-1, so a Western file's curly quotes and euro sign appeared as control
+  characters, and a Japanese file on a Japanese machine as mojibake. A file that code page cannot read still
+  opens, read byte for byte, and HexIDE now says which files it read that way. Each saves back unchanged. On
+  macOS and Linux, which have no such code page, a file is read as Windows-1252, so curly quotes show there too.
+- **An edit a file's code page cannot hold is refused, and nothing is written.** Such an edit used to be written
+  anyway, in bytes VB6 on that machine reads differently. A character beyond Latin-1 turned the whole file into
+  UTF-8, and one within it became its Latin-1 byte. Now a warning names the file, its code page, the
+  character, and the line it is in, which matters when the character is in a property or a file name rather than
+  the code just typed. A save of several files checks every one before it writes the first, so one such character
+  leaves them all as they were. That covers Save Project, Save All, the save offered when a project closes, Make
+  Project Group, and writing a new project to its folder. Make refuses before it asks where to put the program. A
+  new form or module whose name the code page cannot hold is refused before anything is created.
+- **Dismissing a file picker part-way through a save leaves every file as it was.** Saving a project with two
+  new files asked where to put each in turn and wrote as it went, so cancelling the second left the first
+  written. Every picker an operation needs is now answered before anything is written, Make Project Group's
+  included.
+- **A form or module that fails to load keeps its line in the project file.** The next Save Project removed the
+  line from the `.vbp`, so the file dropped out of the project in VB6 too.
+- **A save HexIDE refuses no longer leaves an automation tool waiting.** `set_file_content`,
+  `set_control_property` and `add_control` waited for someone to close a dialog. They now reply at once with
+  the refusal, and the change stays in the IDE.
 
 ## [0.2.0] — 2026-09-24
 

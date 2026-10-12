@@ -80,10 +80,14 @@ internal static class ConnectionDiagnostics
             return text.ToString();
         }
 
-        text.Append("\n  the wire, as recorded:");
+        // Each entry's time from the first, which is what tells "it never answered" from "it died at once", and a
+        // server that woke when the connection was torn down from one that was dead all along (#390).
+        text.Append("\n  the wire, as recorded (time from the first entry):");
+        var first = envelopes[0].Timestamp;
         foreach (var envelope in envelopes)
         {
-            text.Append("\n  - ").Append(envelope.Direction).Append(' ').Append(envelope.Kind);
+            text.Append($"\n  - +{(envelope.Timestamp - first).TotalMilliseconds:F0}ms ")
+                .Append(envelope.Direction).Append(' ').Append(envelope.Kind);
             if (envelope.Method is { } method) text.Append(' ').Append(method);
             if (envelope.Outcome != ConversationOutcome.None) text.Append(" [").Append(envelope.Outcome).Append(']');
             if (envelope.Elapsed is { } elapsed) text.Append($" after {elapsed.TotalMilliseconds:F0}ms");

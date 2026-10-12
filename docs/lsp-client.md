@@ -361,8 +361,20 @@ The inspector reads strictly more, and the difference is not one of convenience:
 | Requests never sent | invisible: nothing crossed the wire | recorded, with the capability that declined them |
 | A message this client could not serialize | invisible for the same reason | recorded as never sent |
 | Standard error and the exit code | its own stderr, mixed with the frames | on the same timeline, attributed per connection |
+| When bytes actually reached the server | seen, as it sat on the bytes | `stdio` and named pipes: when the first write began and was flushed through, when the first read began waiting, and when the first bytes came back |
 | Several servers at once | one proxy per server, one log each | one timeline, filterable |
 | Output | a text log to read by eye | a grid, a redacted export, and an automation surface |
+
+**"Sent" is when a message was serialized, not when its bytes reached the server.** Between the two sit
+StreamJsonRpc's pipe writer and the loop that copies it into the channel, and a message held anywhere there
+looks, from the timeline, exactly like a server that received it and said nothing. So the `stdio` and
+named-pipe transports tap their channel and add four lifecycle entries, once each per connection: `began
+writing N bytes to the server`, `the first N bytes reached the server's channel` (the write's flush returned),
+`began waiting for the server's first bytes`, and `the first N bytes arrived from the server`. They carry their
+times like every entry, so `list_lsp_messages` shows them. A server that answered nothing to `initialize`, then
+died of SIGPIPE the moment the connection was torn down, is the case they were written for (#390): the four
+say whether the request left this process and whether anything came back. `websocket` frames whole messages
+and has no such gap to observe.
 
 The one thing the proxy could do that the inspector cannot is observe a client so broken it never reaches
 its own serializer — a failure outside the process is immune to a tap inside it. That was worth one

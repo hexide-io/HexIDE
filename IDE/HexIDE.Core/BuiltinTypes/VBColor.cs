@@ -53,6 +53,13 @@ public readonly struct VBColor : IEquatable<VBColor>
             !byte.TryParse(str[8..10], NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var red))
             return false;
 
+        // A system colour is an index into the system palette, &H80000000 to &H80000018. Anything else under that
+        // type byte is no colour: a program assigning one gets 380 (measured), and creating a control with one threw
+        // in the system-colour lookup. Refused here, so a .frm carrying one keeps the line instead (see
+        // FormDeserializer) and the control takes its default.
+        if (type == (int)ColorType.SystemColor && (blue != 0 || green != 0 || red > (int)VbSystemColor.Infobk))
+            return false;
+
         result = new VBColor((ColorType)type, red, green, blue);
         return true;
     }
@@ -77,6 +84,14 @@ public readonly struct VBColor : IEquatable<VBColor>
             return FromSystemColor((VbSystemColor)(byte)(u & 0xFF));
         return FromColor((byte)(u & 0xFF), (byte)((u >> 8) & 0xFF), (byte)((u >> 16) & 0xFF));   // 0x00BBGGRR
     }
+
+    /// <summary>
+    /// The OLE_COLOR this colour is, as VB6's Long: <c>&amp;H8000000F</c> (negative) for a system colour, and
+    /// <c>&amp;H00BBGGRR</c> for an RGB one. The inverse of <see cref="FromOle"/>.
+    /// </summary>
+    public int ToOle() => Type == ColorType.SystemColor
+        ? unchecked((int)(0x80000000u | R))
+        : (B << 16) | (G << 8) | R;
 
     public enum ColorType
     {

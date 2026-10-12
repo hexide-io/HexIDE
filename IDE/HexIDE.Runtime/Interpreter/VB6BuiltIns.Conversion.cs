@@ -31,9 +31,60 @@ public partial class VB6BuiltIns
     private static Vb6Value NarrowNum(Vb6Value v, VT target)
     {
         if (v.IsNull) throw InvalidUseOfNull();
+        // An omitted Optional Variant is the error value VB6 passes for a missing argument, whose number is 448. Measured:
+        // CLng and CInt of one are both 448, with no error. It read as 0.
+        if (v.IsMissing)
+            v = new Vb6Value(MissingArgumentNumber);
+        RefuseNonScalar(v);
         var num = v.Type == VT.String || v.Type == VT.Boolean ? new Vb6Value(ToNum(v)) : v;
         return VbNumeric.Narrow(num, target, null);
     }
+
+    /// <summary>
+    /// Raises for an argument that is not a number, a string or a date, which <see cref="VbNumeric.Narrow"/> would
+    /// otherwise read as 0. Measured on vb6.exe, through CInt, CLng, RGB, QBColor and MsgBox's style alike.
+    /// </summary>
+    /// <remarks>
+    /// <list type="bullet">
+    /// <item><c>Nothing</c> is 91. A literal <c>Nothing</c> is a compile error, "Invalid use of object", so this is
+    /// the variable's case.</item>
+    /// <item>An array is 13. A fixed array named directly is a compile-time "Type mismatch"; one in a Variant raises
+    /// it at run time.</item>
+    /// <item>A user-defined type does not compile (measured, "Type mismatch"), so it is 13 here, at run time.</item>
+    /// <item>A class instance with no default member is 438.</item>
+    /// <item>A class whose member carries <c>Attribute X.VB_UserMemId = 0</c>, or whose Public variable carries
+    /// <c>VB_VarUserMemId = 0</c>, stands for that member: measured, <c>CInt(k)</c> is 42 where the member returns 42,
+    /// including when the attribute sits in the Property Let rather than the Get, and 7 for a variable holding 7.
+    /// HexIDE does not call a class's default member yet (#174),
+    /// so it refuses, untrappably. A trappable 438 there would let <c>On Error Resume Next</c> carry on without the
+    /// value VB6 gives.</item>
+    /// <item>A control stands for its default member: <c>CInt(Text1)</c> is <c>CInt(Text1.Text)</c>. HexIDE has no
+    /// default members for controls yet (#790), so it refuses, untrappably, as a Let of one does.</item>
+    /// </list>
+    /// </remarks>
+    private static void RefuseNonScalar(Vb6Value v)
+    {
+        // An element of an array of a user-defined type that nothing has assigned holds no VbUdt yet, so the type
+        // decides, not the value.
+        if (v.Type.IsArray || v.Type == VT.UserDefinedType || v.Value is VbUdt)
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        if (v.Type != VT.Object && v.Type != VT.Control && v.Type != VT.CSharpProxyObject)
+            return;
+        if (v.Value is null)
+            throw new VBRunTimeException(VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
+        if (v.Value is VbObject { ClassDef.PrePass.DeclaresDefaultMember: true } withDefault)
+            throw new NotImplementedException(
+                $"Converting a {withDefault.ClassDef.Name} to a number reads its default member, which is not "
+                + "implemented for a class yet (#174).");
+        if (v.Type == VT.Object)
+            throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+        throw new NotImplementedException(
+            "Converting a control or object to a number reads its default member, which is not implemented (#790). "
+            + "Name the property instead.");
+    }
+
+    /// <summary>The number of the error value VB6 passes for an omitted argument (DISP_E_PARAMNOTFOUND): 448, "Named argument not found".</summary>
+    private const long MissingArgumentNumber = 448;
 
     internal static double ToNum(Vb6Value v)
     {
@@ -57,23 +108,46 @@ public partial class VB6BuiltIns
                     throw new VBRunTimeException(VBStandardError.TypeMismatch);
                 }
             }
-            return double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var sd)
-                ? sd : throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            // In the program's locale, as CStr writes, so CDbl(CStr(x)) round-trips in any locale (#777). No
+            // thousands separator: VB6 skips one (`CDbl("1,5")` is 15 under en-GB), which is #770.
+            if (!double.TryParse(s, NumberStyles.Float, VbLocale.Current, out var sd))
+                throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            return Finite(sd, s);
         }
         if (Vb6Value.TryNumericToDouble(v, out var d)) return d;   // numeric + Date (via OA serial)
         throw new VBRunTimeException(VBStandardError.TypeMismatch);
+    }
+
+    /// <summary>
+    /// A number .NET parsed from <paramref name="text"/>, or the error VB6 raises for it. .NET reads "NaN",
+    /// "Infinity" and "-Infinity" as numbers; VB6 has neither, and CDbl of each is 13 (measured). Digits too large
+    /// for a Double are Infinity to .NET as well, and that one is Overflow: CDbl("1E+400") is 6 (measured).
+    /// </summary>
+    private static double Finite(double parsed, string text)
+    {
+        if (double.IsNaN(parsed))
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        if (double.IsInfinity(parsed))
+            throw new VBRunTimeException(text.AsSpan().ContainsAnyInRange('0', '9')
+                ? VBStandardError.Overflow
+                : VBStandardError.TypeMismatch);
+        return parsed;
     }
 
     internal static Vb6Value CBool(Vb6Value v)
     {
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is bool b) return new Vb6Value(b);
+        // Measured: CBool(Empty) is False, as Empty is 0 to CLng and CDbl. `Enabled = Empty` takes this path.
+        if (v.Type == VT.EmptyVariant) return new Vb6Value(false);
         if (v.Type == VT.String)
         {
             var s = AsStr(v).Trim();
             if (bool.TryParse(s, out var bb)) return new Vb6Value(bb);
-            if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var sd)) return new Vb6Value(sd != 0);
-            throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            // Otherwise the number CDbl reads, by the same parse and in the same locale (measured): "NaN" and
+            // "Infinity" are 13, where `Enabled = "NaN"` used to be True; "1E+400" is 6; and "&H10" is True, which
+            // this used to refuse.
+            return new Vb6Value(ToNum(v) != 0);
         }
         return new Vb6Value(ToNum(v) != 0);
     }
@@ -83,8 +157,9 @@ public partial class VB6BuiltIns
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is DateTime) return v;
         if (v.Type == VT.String)
-            return DateTime.TryParse(AsStr(v).Trim(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt)
-                ? new Vb6Value(dt) : throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            // In the program's locale: `CDate("1/2/2003")` is 1 February under en-GB, and CDate(CStr(d)) is d (#777).
+            return TryReadDate(AsStr(v).Trim(), out var dt)
+                ? new Vb6Value(OnZeroDateIfTimeOnly(dt)) : throw new VBRunTimeException(VBStandardError.TypeMismatch);
         // A serial outside the Date range (about -657434 .. 2958465) is a trappable Overflow (Err 6, oracle-verified);
         // FromOADate would otherwise throw an UNCATCHABLE ArgumentException (AsDate wraps this too, at DateTime.cs).
         try { return new Vb6Value(DateTime.FromOADate(ToNum(v))); }

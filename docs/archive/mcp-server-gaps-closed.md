@@ -1885,3 +1885,243 @@ the designer's selection/delete/undo aren't exposed as `ICommand`s reachable via
 existing `invoke_designer_undo` — plus surfacing each canvas control as a `dump_visual_tree` node with its name, so
 `interact` can click/rubber-band it. That would make the whole designer edit loop (add → select → move → delete →
 undo/redo) MCP-verifiable.
+
+## A save the code page or the serializer refuses held the tool's reply on a dialog — **CLOSED** (#751, by #729, 2026-10-12)
+
+> **Fixed.** `set_file_content`, `set_control_property`, `add_control` and `add_file` now save with
+> `interactive: false`. No dialog is shown. A save the code page refuses comes back in the reply, naming
+> the document, the code page and the first character it cannot hold, and the change stays in the IDE. A
+> save HexIDE refuses because it cannot reproduce the file comes back as the existing "cannot reproduce
+> this file faithfully" reply, and is no longer reported again by the next save.
+> `AutomationSaveRefusalTests` fails the build if a tool calls a save without `interactive: false`.
+>
+> Verified live on 2026-10-12, in a Debug build of #729 with `--ansi-code-page 1252`, on a project of
+> ASCII files. Replies are shown decoded; the server escapes `'`, `+` and non-ASCII characters in its JSON.
+>
+> ```
+> set_file_content {"name":"Module1","content":"Public Sub One()\n    Debug.Print \"Go → there\"\nEnd Sub\n"}
+> → {"success":false,"error":"The new code is in the IDE but was not written: Module1 is kept in code page 1252,
+>    which cannot hold '→' (U+2192). Nothing was written. HexIDE keeps a file in the code page it was read or
+>    created in rather than convert it, so use characters that code page holds."}
+> set_control_property {"formName":"Form1","controlName":"Command1","property":"Caption","value":"Next →"}
+> → {"success":false,"error":"'Caption' is set in the IDE but was not written: Form1 is kept in code page 1252,
+>    which cannot hold '→' (U+2192). …"}
+> add_control {"formName":"Form1","type":"Label","x":20,"y":80,"width":80,"height":20}   (caption still unsaved)
+> → {"success":false,"controlName":"Label0","error":"'Label0' was added to the designer but NOT written: Form1 is
+>    kept in code page 1252, which cannot hold '→' (U+2192). …"}
+> add_file {"name":"Ж1","type":"Module"}
+> → {"success":false,"error":"'Ж1' was not added: Ж1 is kept in code page 1252, which cannot hold 'Ж' (U+0416). …"}
+> ```
+>
+> After each call, `dump_visual_tree(maxDepth: 1, interactiveOnly: false)` reported the main window, so no
+> dialog was open. The SHA-256 of every file in the project was unchanged, and `add_file` created no file.
+> `get_file_content` showed the refused code still in the IDE, with `hasUnsavedChanges: true`.
+>
+> **The wording above was revised after review, in the same PR, and measured again live the same day.** Each
+> reply now quotes the line of the file that holds the character, because the character can be in a property
+> no read tool shows. The prefixes no longer name the new input as the cause, since the save writes the whole
+> file. `add_control`'s reply ends by naming the call that writes the form once that text is changed. The
+> replies are built from `SourceEncodingRefusal.Message`, which `Vb6TextFileTests` pins.
+>
+> Measured in a Debug build of #729 with main merged (`e999170`), without `--ansi-code-page`, the host's being
+> 1252, on a project of ASCII files. Replies decoded as before:
+>
+> ```
+> set_file_content {"name":"Module1","content":"Sub Main()\n    MsgBox \"Привет\"\nEnd Sub\n"}
+> → {"success":false,"error":"The new code is in the IDE, but the file was not written. Module1 is kept in code
+>    page 1252, which cannot hold 'П' (U+041F), found in the line `MsgBox "Привет"`. Nothing was written.
+>    HexIDE keeps a file in the code page it was read or created in rather than convert it, so use characters
+>    that code page holds, and where that line names a file or folder, a name it can hold."}
+> set_control_property {"formName":"Form1","controlName":"Form1","property":"Caption","value":"Привет"}
+> → {"success":false,"error":"'Caption' is set in the IDE, but the file was not written. Form1 is kept in code
+>    page 1252, which cannot hold 'П' (U+041F), found in the line `Caption         =   "Привет"`. …"}
+> add_control {"formName":"Form1","type":"CommandButton","x":20,"y":20,"width":81,"height":33}   (caption still unsaved)
+> → {"success":false,"controlName":"Command0","error":"'Command0' was added to the designer, but the file was
+>    NOT written. Form1 is kept in code page 1252, … found in the line `Caption         =   "Привет"`. …
+>    Once that text is changed, set_control_property or set_file_content writes the file, 'Command0' included."}
+> add_file {"name":"Ж1","type":"Module"}
+> → {"success":false,"error":"'Ж1' was not added: Ж1 is kept in code page 1252, which cannot hold 'Ж' (U+0416),
+>    found in the line `Attribute VB_Name = "Ж1"`. …"}
+> ```
+>
+> `add_control`'s last sentence holds. `set_control_property` then set the caption back to `Hello` and answered
+> success, and `Form1.frm` on disk held `Caption = "Hello"` and `Command0`. `add_file` created no file, and
+> `dump_visual_tree(maxDepth: 1, interactiveOnly: false)` after it reported the main window.
+>
+> The warning a person sees was measured in the same run. With `Module1`'s refused code still in the IDE,
+> `invoke_menu_item {"path":"File/Save Project1"}` opened one message box, read with
+> `dump_visual_tree(interactiveOnly: false)` and checked in a `take_snapshot`, nothing clipped:
+>
+> ```
+> Nothing was written. Module1 is kept in code page 1252, which cannot hold 'П' (U+041F). It is in this line:
+>
+> MsgBox "Привет"
+>
+> HexIDE keeps each file in the code page it was read or created in, rather than converting it. Change that
+> text to characters the code page holds, or, where the line names a file or folder, choose a name it can hold.
+> Then try again. Your changes are still open in the IDE.
+> ```
+>
+> `Module1.bas` on disk was unchanged afterwards.
+
+**Symptom.** Each of the three write tools saves through `ProjectService.SaveForm` or `SaveModule` on the UI
+thread, and awaits the result. A refused save reported itself in a message box inside that save:
+
+- `Str.Dialog.SourceEncoding.SaveFailed` when the code page could not hold a character;
+- `Str.Dialog.UnfaithfulSave.Body.One` when HexIDE could not reproduce the file.
+
+Nothing answers a message box for an automation caller (`ScriptedFileDialogs` covers the two file pickers
+only), so the request stayed open until a person closed the dialog. When the reply did come, the encoding case
+read `The new code is in the IDE but was not written: Source encoding cannot represent the edit.` It named no
+document, code page or character.
+
+`add_file` had the encoding case in another form. A name the code page cannot hold reached the encoder
+unguarded. The reply was .NET's own message, naming the character's escape and an index into the file, and
+by then the project's scratch folder had already been created.
+
+**Not the same as #681.** That one is about tools acting behind a dialog that is already open. Here the tool
+itself opened the dialog, and then waited on it.
+
+**Still not covered.** A save started by `invoke_menu_item`, `press_key` or `interact` is a UI command. Its
+reply says `Invoked` before the save finishes, and a refusal is shown to a person as a dialog, as it is for
+a click.
+
+## add_control calls an armed cancel a failed save, though its description offers the cancel — **CLOSED** (#784 for #755, 2026-10-12)
+
+> **Fixed by #784, verified live on main a816e0d.** On a never-saved Standard EXE from File > New Project,
+> with `answer_next_file_dialog {}` armed before each call, `add_control {"formName":"Form1","type":"CommandButton","x":20,"y":20,"width":81,"height":33}`,
+> `set_control_property {"formName":"Form1","controlName":"Command0","property":"Caption","value":"x"}` and
+> `set_file_content {"name":"Form1","content":"..."}` each answered `success:true`, with a note saying the form
+> still has no file and how to write it. `get_form_controls` then listed one control. The cancel is recognised
+> from the dialog's state (`ScriptedFileDialogs.WatchForCancel`), not from the exception, which an encoding
+> refusal shares (#751). `ScriptedFileDialogsTests` covers that decision.
+>
+> **Checking it needs a form with no file, and Project > Add Form does not give one** on the project
+> `--newproject` creates, because that project already lives in a temp folder. There the save needs no
+> picker, the armed cancel is left pending, and the reply does not say so (#810, still open).
+
+**Symptom.** On a new Standard EXE project from File > New Project, so `Form1` has no file:
+
+```
+view_designer {"name":"Form1"}
+answer_next_file_dialog {}
+add_control {"formName":"Form1","type":"CommandButton","x":20,"y":20,"width":81,"height":33}
+→ {"success":false,"controlName":"Command0","error":"'Command0' was added to the designer but the save failed: The operation was canceled."}
+get_form_controls {"formName":"Form1"}
+→ lists Command0 at 20,20, 81 × 33
+```
+
+`add_control`'s description says to "arm it with no path to keep the form without a file".
+`ScriptedFileDialogs.PickerRefusal`, the refusal `add_control`, `set_file_content` and
+`set_control_property` all give for a pathless document, gives the same advice. The call did exactly
+that: the control is placed and the form still has no file. The reply says `success:false` and "the
+save failed", so a caller cannot tell whether to retry, and a retry adds `Command1` beside `Command0`.
+
+`set_file_content` in the same state answered:
+
+```
+{"success":false,"error":"The new code is in the IDE but was not written: The operation was canceled."}
+```
+
+That wording is better, because it says where the edit is. It is still `success:false` for the outcome
+the caller asked for.
+
+**Which contract is intended.** The description's. The description, `PickerRefusal`, the comment over
+`add_control`'s refusal and `WouldShowPicker`'s remarks all present an armed cancel as the way to keep a
+document without a file, and the spec's *Driving a cancellation* scenario has the flow proceed as though
+the dialog was cancelled. The reply comes from the write tools' catch-all, which predates that advice and
+reports any exception as a failure, including the bare `OperationCanceledException` the save throws when
+its picker returns no path. `set_control_property` has the same catch, read in code and not measured.
+
+**Workaround.** After arming a cancel for a pathless document, read `success:false` ending "The operation
+was canceled." as the requested outcome: the edit is in the IDE and the document still has no file.
+Confirm with `get_form_controls` or `get_file_content`, and do not retry.
+
+**Suggested fix.** In those three tools, answer `success:true` with a note giving the state, for
+example that the control is in the designer and the form still has no file because the armed answer
+cancelled the picker. Decide that it is the cancel before the save, from the document being pathless and
+the next armed answer being a cancel. Do not decide it from the exception: #729 adds an encoding refusal
+that is also an `OperationCanceledException`, and that one must stay a failure.
+[#755](https://github.com/hexide-io/HexIDE/issues/755).
+
+## take_snapshot writes every capture to the same file — **CLOSED** (#784 for #756, 2026-10-12)
+
+> **Fixed by #784, verified live on main a816e0d.** Two `take_snapshot {}` calls, with the Immediate window
+> shown between them, returned `hexide_snapshot_20261012-142646-333_1.png` and
+> `hexide_snapshot_20261012-142648-443_2.png`. Both files remained, with different sizes and hashes, and the
+> second showed the change. The naming is tested in `SnapshotCapturePathTests`. `export_lsp_conversation`'s
+> fixed name was not part of the fix.
+
+**Symptom.** With a program running:
+
+```
+take_snapshot {}                → "path": "<user temp>\\hexide_snapshot.png"   (the running program's form)
+take_snapshot {"window":"ide"}  → "path": "<user temp>\\hexide_snapshot.png"   (the IDE)
+```
+
+The file name is fixed in `TakeSnapshotAsync`, so the second capture replaced the first. A caller taking
+a before/after pair, or the form and then the IDE, loses the first image, and neither the description nor
+the reply says the next call reuses the path. `export_lsp_conversation` writes a fixed name too, read in
+code and not measured.
+
+**Workaround.** Read or copy each snapshot away before the next `take_snapshot` call.
+
+**Suggested fix.** Write each capture to its own file, named from a timestamp and a per-process counter,
+and say in the description that earlier captures are left in place.
+[#756](https://github.com/hexide-io/HexIDE/issues/756).
+
+## A mid-session relaunch DOES pick up new tools, if the server was attached when the session started — **CLOSED** (superseded by #763, 2026-10-12)
+
+> **Corrected 2026-10-12 (#763): the mechanism was not the attachment, and it no longer applies.**
+>
+> - **How new tools arrived.** A relaunched stateful server answered the session's next call with 404.
+>   Claude Code re-initialised on that 404, and re-listed the tools as part of it.
+> - **"Attached at session start" was incidental.** What mattered was that the session survived the
+>   shutdown at all, which on Claude Code 2.1.282 and later depends on the age of its GET stream (entry 3).
+> - **Now.** The server is stateless, so there is no 404, no re-initialise and no re-list. A tool added in
+>   a rebuild needs a `/mcp` reconnect to appear.
+>
+> The measurements below stand as measurements.
+
+**Measured, and it refines a rule this file and `CLAUDE.md` both state more strongly than is true.** The
+documented rule is that MCP tools are discovered at session start and a schema change needs a session
+restart. Both of these happened in one afternoon:
+
+- Four new tools were added while **no IDE was running**. Building and launching did not surface them, and
+  a session restart was needed. Consistent with the rule.
+- A fifth was added later, with the IDE **running and attached since session start**. Shutting it down,
+  rebuilding and relaunching surfaced the new tool immediately, as a deferred-tool notification, and it
+  worked on the first call.
+
+**What it concluded, now superseded.** "The distinguishing condition is whether the server was attached
+when the session began", with the advice to try the relaunch before asking. Since #763 a relaunch brings in
+no new tool, attached or not. After a rebuild that adds one, ask for a `/mcp` reconnect straight away.
+
+## A relaunch picks up a NEW tool but not a CHANGED one (measured 2026-09-20) — **CLOSED** (superseded by #763, 2026-10-12)
+
+> **Since #763 a relaunch picks up neither.** The server is stateless, so the re-initialise that used to
+> bring a new tool in no longer happens. Both now need `/mcp`. The transferable part below, a nullable
+> parameter with no default being `required` on the wire, is unaffected.
+
+**Symptom.** Four mark tools gained an optional `project` argument. The documented rebuild cycle ran —
+`shutdown_ide`, build, relaunch, `/health` — and the first call to `set_breakpoints` failed with
+`An error occurred invoking 'set_breakpoints'.` and nothing else. The session's cached schema still carried
+the old parameter list, so the request it built no longer matched what the server accepted.
+
+**What this narrows.** The entry above records that a mid-session relaunch **does** pick up a tool that did
+not exist before, measured both ways. This is the other half: a tool whose *signature* changed keeps the
+schema the session already has. Added tools yes; changed tools no. The failure is a bare invocation error,
+which reads as a broken tool rather than as a stale schema.
+
+**The actual defect underneath it, which is the transferable part.** `string? project` with **no default
+value** is `required` in the generated schema — a nullable C# parameter is not an optional JSON one. So the
+new argument was mandatory on the wire and every existing caller broke, cached schema or not. Giving all six
+`= null` made them genuinely optional, and the same call then worked on the first try after a rebuild.
+
+**How to avoid paying for it again.** Read the generated schema's `required` array, not the C# signature —
+this file and CLAUDE.md both say so, and it still cost a cycle. And when a *signature* changes rather than a
+tool being added, expect the first call to fail against a stale schema and do not diagnose the server.
+
+**Since #603.** A throw inside a tool is now reported with its exception type and message rather than the bare
+line. Not re-measured for this case: a call that does not match the tool's parameters may fail in the SDK's
+own argument binding, which can report through `McpException`, and #603 leaves that as the SDK reports it.

@@ -139,7 +139,7 @@ public partial class VB6BuiltIns
         const NumberStyles styles = NumberStyles.AllowLeadingSign | NumberStyles.AllowDecimalPoint
             | NumberStyles.AllowThousands | NumberStyles.AllowExponent
             | NumberStyles.AllowLeadingWhite | NumberStyles.AllowTrailingWhite;
-        return double.TryParse(s, styles, CultureInfo.InvariantCulture, out _);
+        return double.TryParse(s, styles, VbLocale.Current, out _);   // the locale CDbl reads in (#777)
     }
 
     private static bool AllChars(string s, int from, Func<char, bool> pred)
@@ -155,7 +155,7 @@ public partial class VB6BuiltIns
     {
         if (v.Type == VT.Date) return true;
         if (v.Value is string s)
-            return DateTime.TryParse(s, CultureInfo.CurrentCulture, DateTimeStyles.NoCurrentDateDefault, out _);
+            return TryReadDate(s, out _);
         return false;
     }
 

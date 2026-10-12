@@ -146,7 +146,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             return new Debugging.DebugEvalResult(
                 true, FormatEvalResult(result), VB6BuiltIns.DebugTypeName(result),
                 Debugging.DebugInspector.IsTruthy(result),
-                Debugging.DebugInspector.NodeFor(expr, result, interpreter.ExecutionContext));
+                Debugging.DebugInspector.NodeFor(expr, result, interpreter.ExecutionContext))
+            {
+                ChangeKey = ChangeKeyOf(result),
+            };
         }
         catch (Debugging.ImmediateEvalException ex) { return EvalErr(expr, ex.Message); }
         catch (VBRunTimeException ex) { return EvalErr(expr, FlattenError(ex.Message)); }
@@ -249,6 +252,22 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return VBDebugConsole.Format(v);
     }
 
+    // The value in full, for "Break When Value Changes": its display rounds a Single or Double to VB6's 7 or 15
+    // significant digits, so comparing displays would miss a change below them. Null where the display is already
+    // the whole value.
+    private static string? ChangeKeyOf(Vb6Value v)
+    {
+        var full = v.Value switch
+        {
+            double d => d.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
+            float f => f.ToString("R", System.Globalization.CultureInfo.InvariantCulture),
+            decimal m => m.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            DateTime dt => dt.Ticks.ToString(System.Globalization.CultureInfo.InvariantCulture),
+            _ => null,
+        };
+        return full is null ? null : v.Type + ":" + full;
+    }
+
     private static string FlattenError(string message) => message.Replace("\r", " ").Replace("\n", " ").Trim();
 
     // Strip an Immediate print prefix: "?" / "Print " / "Debug.Print " (case-insensitive). A bare expression is
@@ -272,6 +291,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // Debugger pause-gate (before the temp-frame push, so a suspended break / reset never parks a
             // half-open frame). Null controller ⇒ skipped entirely (zero overhead headless/tests).
             currentLine = stmt.Start.Line;   // track for the Call Stack (this frame's current line)
+            // After End nothing more runs, with or without a debugger (#775). Ahead of the debugger's gate, so a
+            // breakpoint on a statement that would run after End is never hit.
+            if (interpreter.Ending)
+                throw new Debugging.StopExecutionSignal();
             if (interpreter.DebugController is { } dbg)
             {
                 _suspendedAtTopLevel = false;   // a pause here is inside a nested block — Set Next Statement is refused
@@ -407,6 +430,26 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new NotImplementedException("Const type hints not supported");
             var name = sub.ambiguousIdentifier().GetText();
             var value = await expressionExecutor.EvaluateValue(sub.valueStmt());
+
+            // Inside a procedure a Const is the procedure's own, and shadows a module variable or Const it shares a
+            // name with, in any case. Measured: `Const LIMIT = 10` in a Sub reads 10 there and leaves the module's
+            // `Limit` at 1, and the same holds over a module Const. Updating whatever slot the name found wrote
+            // through the procedure's clone of the module scope into the module's slot, so the value outlived the
+            // call (#819). Allocated once per activation, as a Dim is; only a procedure's executor owns slots.
+            if (ownedSlots != null)
+            {
+                if (declaredLocals.Add(name))
+                {
+                    interpreter.ExecutionContext.AllocVariable(currentEnv, name, value);
+                    if (currentEnv.TryGetVariableLocation(name, out var slot))
+                        ownedSlots.Add(slot);
+                }
+                else
+                    interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, value);
+                continue;
+            }
+
+            // At module level the name was hoisted by the pre-pass, so this fills that slot.
             if (!interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, value))
                 interpreter.ExecutionContext.AllocVariable(currentEnv, name, value);
         }
@@ -517,10 +560,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
     }
 
-    public override async Task<ControlFlow> VisitEndStmt(VB6Parser.EndStmtContext context)
-    {
-        throw new NotImplementedException("End not implemented");
-    }
+    public override Task<ControlFlow> VisitEndStmt(VB6Parser.EndStmtContext context)
+        // The program is over: no further statement, no Class_Terminate, no form events (#775).
+        => throw interpreter.End();
 
     public override async Task<ControlFlow> VisitEraseStmt(VB6Parser.EraseStmtContext context)
     {
@@ -792,6 +834,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     {
         foreach (var stmt in body.blockStmt())
         {
+            // The statements of a joined tail get no pause-gate of their own, so this is the only point at which
+            // an abort can reach them. Without it, `If True Then Text1.Text = "x": Label1.Caption = "Saved"` set the
+            // caption after Text1_Change had faulted and ended the run.
+            if (interpreter.Ending || interpreter.DebugController is { IsAborting: true })
+                throw new Debugging.StopExecutionSignal();
             var flow = await Visit(stmt);
             if (flow != ControlFlow.Nothing)
                 return flow;
@@ -826,6 +873,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // Set. (Default-property assignment is deferred; the exact Err number is oracle-pending.)
         if (value.Type == Vb6Value.ValueType.Object)
             throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+
+        // A control, or an in-box object such as Err or a control array, on the right of a Let stands for its
+        // default member in VB6: `s = Text1` reads Text1.Text, `v = Command1` reads its Value, `n = Check1` its
+        // Value (all measured). HexIDE has no default members yet (#790), and storing the reference gave a wrong
+        // value: a String took the .NET type name, a Variant kept the control. So a Let of one is refused until
+        // #790, whatever the target. A Let never stores a reference in VB6, even into an object variable, where it
+        // assigns that object's default member. Set, For Each and argument passing do not come here.
+        if ((value.Type == Vb6Value.ValueType.Control || value.Type == Vb6Value.ValueType.CSharpProxyObject)
+            && value.Value is not null)
+            throw new NotImplementedException(
+                $"`{context.implicitCallStmt_InStmt().GetText()} = {context.valueStmt().GetText()}` reads a default "
+                + "member, which is not implemented (#790). Name the property, or use Set to keep the reference.");
 
         if (context.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } varOrProcCall)
         {
@@ -2012,6 +2071,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // Debugger pause-gate (before the temp-frame push). Sees every top-level statement; a StopExecutionSignal
             // it raises falls through all four catches below (none match) and unwinds via RunProcedure's finally.
             currentLine = stmts[pc].Start.Line;   // track for the Call Stack
+            // After End nothing more runs, with or without a debugger (#775). Ahead of the debugger's gate, so a
+            // breakpoint on a statement that would run after End is never hit.
+            if (interpreter.Ending)
+                throw new Debugging.StopExecutionSignal();
             if (interpreter.DebugController is { } dbg)
             {
                 _suspendedAtTopLevel = true;   // a pause here is at a top-level statement — Set Next Statement is valid

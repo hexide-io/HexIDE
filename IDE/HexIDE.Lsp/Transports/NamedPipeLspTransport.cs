@@ -267,7 +267,12 @@ public sealed class NamedPipeLspTransport : ILspTransport
         // Same stream both ways — a named pipe opened InOut is duplex. The 3-arg ctor is required:
         // the shorter overloads default to the Newtonsoft formatter, bypassing the shared AOT-safe
         // SystemTextJsonFormatter + LspJsonContext.
-        return new HeaderDelimitedMessageHandler(_pipe!, _pipe!, formatter);
+        //
+        // Tapped, so the record can say when the first bytes actually reached the server and came back, not only
+        // when a message was serialized (#390). One tap for both directions, as the pipe is one stream.
+        var tapped = new ChannelTapStream(_pipe!,
+            text => Notice?.Invoke(this, new TransportNotice(TransportNoticeKind.Lifecycle, text)));
+        return new HeaderDelimitedMessageHandler(tapped, tapped, formatter);
     }
 
     /// <summary>

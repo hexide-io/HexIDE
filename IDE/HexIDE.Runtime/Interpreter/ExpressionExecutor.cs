@@ -367,9 +367,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         }
         if (literalContext.literal().DATELITERAL() is { } dateliteral)
         {
-            // VB6 date literals are culture-independent, US month/day/year — parse invariantly.
+            // VB6 date literals are culture-independent, US month/day/year — parse invariantly. A time-only literal is
+            // that time on the zero date, not today (#771).
             var inner = dateliteral.GetText().Trim('#');
-            return new Vb6Value(DateTime.Parse(inner, System.Globalization.CultureInfo.InvariantCulture));
+            return new Vb6Value(VB6BuiltIns.OnZeroDateIfTimeOnly(DateTime.Parse(inner,
+                System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.NoCurrentDateDefault)));
         }
         if (literalContext.literal().HEXLITERAL() is { } hexliteral)
             return ClassifyRadixLiteral(hexliteral.GetText(), 16);   // VB6 &H is numeric, not a colour
@@ -683,6 +685,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
         foreach (var prop in props)
         {
+            // A Timer's or scroll bar's colour, which VB6 does not have and which would read as black. Refused until
+            // #801 resolves a property the control does not declare, rather than read wrong.
+            if (AvaloniaInteroperability.IsUnsetColour(control, prop))
+                throw new NotImplementedException(
+                    $"Reading {memberIdentifier} from this control is not implemented: VB6 gives it no {memberIdentifier} (#801)");
             if (AvaloniaInteroperability.TryGet(control, prop, out var value))
                 return value;
         }
@@ -901,7 +908,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return new Vb6Value(AmpString(leftValue) + AmpString(rightValue));
     }
 
-    private static string AmpString(Vb6Value v) => v.Value?.ToString() ?? "";
+    private static string AmpString(Vb6Value v) => VbDisplay.ToText(v);
 
     public override async Task<object?> VisitVsAdd(VB6Parser.VsAddContext context)
     {

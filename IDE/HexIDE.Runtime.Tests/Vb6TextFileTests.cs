@@ -16,13 +16,54 @@ namespace HexIDE.Runtime.Tests;
 /// </summary>
 public class Vb6TextFileTests
 {
+    /// <summary>
+    /// What <c>--ansi-code-page</c> accepts. 0 is the case that matters: on Windows the provider answers it with
+    /// this machine's table, so a check for any table at all let it through to run as this machine.
+    /// </summary>
+    [Theory]
+    [InlineData(932, true)]
+    [InlineData(1250, true)]
+    [InlineData(0, false)]
+    [InlineData(65001, false)]
+    [InlineData(42, false)]
+    public void Only_a_code_page_with_a_table_of_its_own_can_stand_for_a_machines(int codePage, bool accepted)
+    {
+        Vb6TextEncoding.HasTable(codePage).Should().Be(accepted);
+    }
+
+    [Fact]
+    public void Western_ANSI_displays_smart_quotes_and_the_euro_sign()
+    {
+        var encoding = new Vb6TextEncoding(1252);
+        byte[] bytes = [0x80, 0x93, 0x94];
+        Vb6TextFile.Decode(bytes, encoding).Should().Be("€“”");
+        Vb6TextFile.Encode("€“”", encoding).Should().Equal(bytes);
+    }
+
+    [Fact]
+    public void Japanese_source_uses_its_selected_ANSI_code_page()
+    {
+        var encoding = new Vb6TextEncoding(932);
+        byte[] bytes = [0x82, 0xB1, 0x82, 0xF1, 0x82, 0xC9, 0x82, 0xBF, 0x82, 0xCD];
+        Vb6TextFile.Decode(bytes, encoding).Should().Be("こんにちは");
+        Vb6TextFile.Encode("こんにちは", encoding).Should().Equal(bytes);
+    }
+
+    [Fact]
+    public void Invalid_multibyte_source_is_refused_instead_of_replaced()
+    {
+        Action read = () => Vb6TextFile.Decode([0x82], new Vb6TextEncoding(932));
+        read.Should().Throw<DecoderFallbackException>();
+    }
+
     [Fact]
     public void Ansi_bytes_survive_a_decode_encode_round_trip()
     {
-        // Every byte value, which is the property Latin-1 buys and the system codepage does not.
+        // Test an explicit Western code page independently of the host's Windows ACP.
         var original = Enumerable.Range(0, 256).Select(i => (byte)i).ToArray();
 
-        Vb6TextFile.Encode(Vb6TextFile.Decode(original)).Should().Equal(original);
+        var encoding = new Vb6TextEncoding(1252);
+        Vb6TextFile.Encode(Vb6TextFile.Decode(original, encoding), encoding).Should().Equal(original);
     }
 
     [Theory]
@@ -34,19 +75,21 @@ public class Vb6TextFileTests
     {
         var original = new byte[] { (byte)'x', b, (byte)'y' };
 
-        var text = Vb6TextFile.Decode(original);
+        var encoding = new Vb6TextEncoding(1252);
+        var text = Vb6TextFile.Decode(original, encoding);
         text.Should().NotContain("\uFFFD", "U+FFFD means the byte was already lost");
-        Vb6TextFile.Encode(text).Should().Equal(original);
+        Vb6TextFile.Encode(text, encoding).Should().Equal(original);
     }
 
     [Fact]
-    public void Utf8_content_HexIDE_wrote_earlier_is_still_read_correctly()
+    public void Bomless_UTF8_requires_an_explicit_selection()
     {
-        // Migration case: before this fix HexIDE wrote UTF-8, so "café" is C3 A9. Strict-decoding as UTF-8
-        // succeeds, so it must be read as UTF-8 rather than shown as "cafÃ©".
+        // BOM-less UTF-8 and ANSI overlap. Migration requires explicit selection, never guessing.
         var utf8 = new UTF8Encoding(false).GetBytes("café");
 
-        Vb6TextFile.Decode(utf8).Should().Be("café");
+        Vb6TextFile.Decode(utf8, new Vb6TextEncoding(1252)).Should().Be("cafÃ©");
+        Vb6TextFile.Decode(utf8, Vb6TextEncoding.Utf8).Should().Be("café");
+        Vb6TextFile.Encode("café", Vb6TextEncoding.Utf8).Should().Equal(utf8);
     }
 
     [Fact]
@@ -58,14 +101,10 @@ public class Vb6TextFileTests
     }
 
     [Fact]
-    public void Content_that_cannot_be_ansi_is_written_as_utf8_rather_than_lost()
+    public void Content_outside_the_selected_ANSI_code_page_is_refused()
     {
-        // Genuine CJK typed into HexIDE cannot be represented in Latin-1. Writing something VB6 did not
-        // expect beats dropping the characters.
-        var text = "こんにちは";
-
-        var bytes = Vb6TextFile.Encode(text);
-        new UTF8Encoding(false).GetString(bytes).Should().Be(text);
+        Action save = () => Vb6TextFile.Encode("こんにちは", new Vb6TextEncoding(1252));
+        save.Should().Throw<EncoderFallbackException>();
     }
 
     [Fact]
@@ -88,5 +127,266 @@ public class Vb6TextFileTests
         original.Any(b => b >= 0x80).Should().BeTrue("this fixture is chosen for its high bytes");
 
         Vb6TextFile.Encode(Vb6TextFile.Decode(original)).Should().Equal(original);
+    }
+
+    // ── Reading a document: the chain that cannot fail ───────────────────────────────────────────────
+    // A read that throws drops a project member, and the next Save Project removes its line. So every
+    // document read ends somewhere, and the last resort gives every byte back.
+
+    [Fact]
+    public void A_Western_file_the_hosts_double_byte_code_page_cannot_read_is_read_byte_for_byte()
+    {
+        // E9 is a Shift-JIS lead byte, and a line break is not a valid trail byte.
+        var original = Encoding.Latin1.GetBytes("' café\r\nPublic Sub Main()\r\nEnd Sub\r\n");
+
+        var (text, encoding, byteForByte) = Vb6TextFile.ReadDocument(original, ansi: new Vb6TextEncoding(932));
+
+        byteForByte.Should().BeTrue();
+        encoding.Should().Be(Vb6TextEncoding.Latin1);
+        text.Should().Contain("' café");
+        Vb6TextFile.Encode(text, encoding).Should().Equal(original);
+    }
+
+    [Fact]
+    public void A_Shift_JIS_spelling_Windows_would_not_write_is_read_byte_for_byte_rather_than_refused()
+    {
+        // 87 90 is the NEC row-13 spelling of U+2252; Windows writes 81 E0. Strict decoding refuses it.
+        var original = new byte[] { 0x27, 0x20, 0x87, 0x90, 0x0D, 0x0A };
+
+        var (text, encoding, byteForByte) = Vb6TextFile.ReadDocument(original, ansi: new Vb6TextEncoding(932));
+
+        byteForByte.Should().BeTrue();
+        Vb6TextFile.Encode(text, encoding).Should().Equal(original);
+    }
+
+    [Fact]
+    public void Bytes_the_host_code_page_reads_are_read_in_it()
+    {
+        var original = CodePagesEncodingProvider.Instance.GetEncoding(932)!.GetBytes("' こんにちは\r\n");
+
+        var (text, encoding, byteForByte) = Vb6TextFile.ReadDocument(original, ansi: new Vb6TextEncoding(932));
+
+        byteForByte.Should().BeFalse();
+        encoding.Should().Be(new Vb6TextEncoding(932));
+        text.Should().Be("' こんにちは\r\n");
+    }
+
+    [Fact]
+    public void A_document_last_read_as_UTF8_is_read_as_UTF8_again_when_it_still_is()
+    {
+        var original = Encoding.UTF8.GetBytes("' café\r\n");
+
+        var (text, encoding, byteForByte) = Vb6TextFile.ReadDocument(
+            original, lastReadIn: Vb6TextEncoding.Utf8WithBom, ansi: new Vb6TextEncoding(1252));
+
+        byteForByte.Should().BeFalse();
+        encoding.Should().Be(Vb6TextEncoding.Utf8, "the BOM was removed outside the IDE; it stays UTF-8 without one");
+        text.Should().Be("' café\r\n");
+    }
+
+    [Fact]
+    public void A_document_last_read_as_UTF8_falls_through_when_it_has_been_replaced_by_an_ANSI_revision()
+    {
+        var original = Encoding.Latin1.GetBytes("' café\r\n");
+
+        var (text, encoding, byteForByte) = Vb6TextFile.ReadDocument(
+            original, lastReadIn: Vb6TextEncoding.Utf8, ansi: new Vb6TextEncoding(1252));
+
+        byteForByte.Should().BeFalse();
+        encoding.Should().Be(new Vb6TextEncoding(1252));
+        text.Should().Be("' café\r\n");
+    }
+
+    [Fact]
+    public void A_byte_order_mark_declares_UTF8_whatever_the_document_was_last_read_in()
+    {
+        var original = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes("' café\r\n")).ToArray();
+
+        var (text, encoding, _) = Vb6TextFile.ReadDocument(
+            original, lastReadIn: new Vb6TextEncoding(1252), ansi: new Vb6TextEncoding(1252));
+
+        encoding.Should().Be(Vb6TextEncoding.Utf8WithBom);
+        text.Should().Be("' café\r\n");
+        Vb6TextFile.Encode(text, encoding).Should().Equal(original);
+    }
+
+    [Fact]
+    public void A_document_last_read_byte_for_byte_is_read_afresh()
+    {
+        // Latin-1 accepts everything, so as the encoding last read in it would stick for good.
+        var original = CodePagesEncodingProvider.Instance.GetEncoding(932)!.GetBytes("' こんにちは\r\n");
+
+        var (text, encoding, byteForByte) = Vb6TextFile.ReadDocument(
+            original, lastReadIn: Vb6TextEncoding.Latin1, ansi: new Vb6TextEncoding(932));
+
+        byteForByte.Should().BeFalse();
+        encoding.Should().Be(new Vb6TextEncoding(932));
+        text.Should().Be("' こんにちは\r\n");
+    }
+
+    [Fact]
+    public void A_byte_order_mark_over_text_that_is_not_UTF8_is_kept_out_of_the_text()
+    {
+        var original = Encoding.UTF8.GetPreamble().Concat(Encoding.Latin1.GetBytes("Attribute VB_Name = \"M\"\r\n' café\r\n")).ToArray();
+
+        var (text, encoding, byteForByte) = Vb6TextFile.ReadDocument(original, ansi: new Vb6TextEncoding(1252));
+
+        byteForByte.Should().BeFalse();
+        encoding.Should().Be(new Vb6TextEncoding(1252, Utf8Bom: true));
+        text.Should().StartWith("Attribute VB_Name", "a mark decoded as text would hide the header line");
+        Vb6TextFile.Encode(text, encoding).Should().Equal(original);
+    }
+
+    // ── Files earlier versions wrote as UTF-8 ────────────────────────────────────────────────────────
+    // Earlier versions wrote a file as UTF-8, with no byte-order mark, exactly when its text held a
+    // character above U+00FF; otherwise as Latin-1. So that, and only that, is read as UTF-8 now.
+
+    [Fact]
+    public void A_file_an_earlier_version_wrote_as_UTF8_is_read_as_UTF8()
+    {
+        var original = Encoding.UTF8.GetBytes("' “café”\r\n");
+
+        var (text, encoding, byteForByte) = Vb6TextFile.ReadDocument(original, ansi: new Vb6TextEncoding(1252));
+
+        byteForByte.Should().BeFalse();
+        encoding.Should().Be(Vb6TextEncoding.Utf8, "written back as it came: UTF-8 without a byte-order mark");
+        text.Should().Be("' “café”\r\n");
+        Vb6TextFile.Encode(text, encoding).Should().Equal(original);
+    }
+
+    [Fact]
+    public void Accented_text_alone_is_not_taken_as_UTF8_even_when_its_bytes_are()
+    {
+        // The #728 case: C3 A9 is "Ã©" in Windows-1252, and nothing above U+00FF says otherwise.
+        var original = Encoding.UTF8.GetBytes("' café\r\n");
+
+        var (text, encoding, _) = Vb6TextFile.ReadDocument(original, ansi: new Vb6TextEncoding(1252));
+
+        encoding.Should().Be(new Vb6TextEncoding(1252));
+        text.Should().Be("' cafÃ©\r\n");
+    }
+
+    [Fact]
+    public void Plain_ASCII_is_read_in_the_host_code_page_not_as_UTF8()
+    {
+        var (_, encoding, _) = Vb6TextFile.ReadDocument(Encoding.ASCII.GetBytes("' plain\r\n"), ansi: new Vb6TextEncoding(1252));
+
+        encoding.Should().Be(new Vb6TextEncoding(1252), "an edit to it later is written as VB6 would write it");
+    }
+
+    [Fact]
+    public void The_signature_needs_the_whole_file_to_be_UTF8()
+    {
+        var original = Encoding.UTF8.GetBytes("' “x”\r\n").Concat(new byte[] { 0xE9, 0x0D, 0x0A }).ToArray();
+
+        var (_, encoding, _) = Vb6TextFile.ReadDocument(original, ansi: new Vb6TextEncoding(1252));
+
+        encoding.Should().Be(new Vb6TextEncoding(1252));
+    }
+
+    [Fact]
+    public void A_reload_honours_the_signature_over_the_encoding_last_read_in()
+    {
+        // Open and reload agree: a file read as Windows-1252, replaced by one an earlier version wrote.
+        var original = Encoding.UTF8.GetBytes("' “café”\r\n");
+
+        var (text, encoding, _) = Vb6TextFile.ReadDocument(
+            original, lastReadIn: new Vb6TextEncoding(1252), ansi: new Vb6TextEncoding(1252));
+
+        encoding.Should().Be(Vb6TextEncoding.Utf8);
+        text.Should().Be("' “café”\r\n");
+    }
+
+    [Fact]
+    public void Latin1_refuses_an_edit_it_cannot_hold_rather_than_substituting()
+    {
+        Action save = () => Vb6TextFile.Encode("' €\r\n", Vb6TextEncoding.Latin1);
+
+        save.Should().Throw<EncoderFallbackException>();
+    }
+
+    [Fact]
+    public void EncodeDocument_names_the_first_character_a_code_page_cannot_hold()
+    {
+        Action save = () => Vb6TextFile.EncodeDocument("Module1", "' a→b←\r\n", new Vb6TextEncoding(1252));
+
+        var refusal = save.Should().Throw<SourceEncodingRefusal>().Which;
+        refusal.Document.Should().Be("Module1");
+        refusal.CodePage.Should().Be(1252);
+        refusal.Character.Should().Be("→");
+        refusal.CodePoint.Should().Be("U+2192");
+        refusal.InnerException.Should().BeOfType<EncoderFallbackException>();
+        refusal.Line.Should().Be("' a→b←");
+        refusal.Message.Should().Be(
+            "Module1 is kept in code page 1252, which cannot hold '→' (U+2192), found in the line `' a→b←`. Nothing "
+            + "was written. HexIDE keeps a file in the code page it was read or created in rather than convert it, "
+            + "so use characters that code page holds, and where that line names a file or folder, a name it can "
+            + "hold.");
+    }
+
+    [Fact]
+    public void EncodeDocument_quotes_the_line_that_holds_the_character()
+    {
+        // In a form, the character can be in a property the caller never sent, so the line is how it is found.
+        var text = "VERSION 5.00\r\nBegin VB.Form Form1\r\n   Caption         =   \"Go →\"\r\nEnd\r\n";
+
+        Action save = () => Vb6TextFile.EncodeDocument("Form1", text, new Vb6TextEncoding(1252));
+
+        save.Should().Throw<SourceEncodingRefusal>().Which.Line.Should().Be("Caption         =   \"Go →\"");
+    }
+
+    [Fact]
+    public void EncodeDocument_quotes_a_long_line_around_the_character()
+    {
+        var text = "' " + new string('a', 300) + "→" + new string('b', 300) + "\r\n";
+
+        Action save = () => Vb6TextFile.EncodeDocument("Module1", text, new Vb6TextEncoding(1252));
+
+        var line = save.Should().Throw<SourceEncodingRefusal>().Which.Line;
+        line.Should().Contain("→").And.StartWith("…").And.EndWith("…");
+        line.Length.Should().Be(102, "a hundred characters of the line, and an ellipsis at each end");
+    }
+
+    [Fact]
+    public void EncodeDocument_does_not_split_a_surrogate_pair_where_it_shortens_a_line()
+    {
+        // Forty faces, then the lone surrogate UTF-8 refuses. Fifty characters before it is the second half of
+        // a face.
+        var face = char.ConvertFromUtf32(0x1F600);
+        var text = string.Concat(Enumerable.Repeat(face, 40)) + "x" + (char)0xD800 + new string('b', 200);
+
+        Action save = () => Vb6TextFile.EncodeDocument("Module1", text, Vb6TextEncoding.Utf8);
+
+        save.Should().Throw<SourceEncodingRefusal>().Which.Line.Should().StartWith("…" + face);
+    }
+
+    [Fact]
+    public void EncodeDocument_names_a_character_outside_the_basic_plane_whole()
+    {
+        var face = char.ConvertFromUtf32(0x1F600);
+        Action save = () => Vb6TextFile.EncodeDocument("Form1", "Caption = \"" + face + "\"", new Vb6TextEncoding(1252));
+
+        var refusal = save.Should().Throw<SourceEncodingRefusal>().Which;
+        refusal.Character.Should().Be(face);
+        refusal.CodePoint.Should().Be("U+1F600");
+    }
+
+    [Fact]
+    public void EncodeDocument_names_a_lone_surrogate_by_its_code_unit()
+    {
+        Action save = () => Vb6TextFile.EncodeDocument("Module1", "x" + (char)0xD800 + "y", Vb6TextEncoding.Utf8);
+
+        var refusal = save.Should().Throw<SourceEncodingRefusal>().Which;
+        refusal.Character.Should().Be(((char)0xD800).ToString());
+        refusal.CodePoint.Should().Be("U+D800");
+    }
+
+    [Fact]
+    public void EncodeDocument_returns_the_same_bytes_as_Encode_when_the_text_fits()
+    {
+        var encoding = new Vb6TextEncoding(1252) { Utf8Bom = true };
+
+        Vb6TextFile.EncodeDocument("Module1", "' café\r\n", encoding)
+            .Should().Equal(Vb6TextFile.Encode("' café\r\n", encoding));
     }
 }
