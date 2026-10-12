@@ -32,6 +32,23 @@ public class VbLocaleTests : BaseVBTestFixture
         }
     }
 
+    /// <summary>As <see cref="RunWith"/>, but a program that fails says <paramref name="shown"/> as well.</summary>
+    private async Task RunShowing(string shown, CultureInfo program, CultureInfo thread, string code)
+    {
+        try
+        {
+            await RunWith(program, thread, code);
+        }
+        catch (Exception e)
+        {
+            throw new InvalidOperationException($"{e.Message} ({shown})", e);
+        }
+    }
+
+    /// <summary>Each character of <paramref name="text"/> as itself if it is printable ASCII, else as U+XXXX.</summary>
+    private static string CodePoints(string text) => string.Join(" ",
+        text.Select(c => c is >= ' ' and <= '~' && c != '{' && c != '}' ? c.ToString() : $"U+{(int)c:X4}"));
+
     // ── the program's locale, not the thread's culture ─────────────────────────────────────────────
 
     [Fact]
@@ -165,8 +182,15 @@ public class VbLocaleTests : BaseVBTestFixture
     {
         // CStr writes a Gregorian date (#779), so everything that reads one, or names a month, must be Gregorian too.
         var culture = CultureInfo.GetCultureInfo(name);
+        // What CStr writes, and the patterns it writes with, spelled out by code point: the ICU data differs between
+        // platforms (macOS's could not read its own ar-SA date back), so a failure on CI must show what was written.
+        var program = VbLocale.ForProgram(culture).DateTimeFormat;
+        var written = VbDisplay.ToText(new Vb6Value(new DateTime(2003, 1, 2)), culture);
+        var shown = $"CStr wrote {CodePoints(written)}; short date {CodePoints(program.ShortDatePattern)}, "
+                    + $"long time {CodePoints(program.LongTimePattern)}, AM {CodePoints(program.AMDesignator)}, "
+                    + $"PM {CodePoints(program.PMDesignator)}, calendar {program.Calendar.GetType().Name}";
 
-        await RunWith(culture, CultureInfo.InvariantCulture,
+        await RunShowing(shown, culture, CultureInfo.InvariantCulture,
             "Debug.Print CDate(CStr(#1/2/2003#))\n" +
             "Debug.Print DateSerial(30, 1, 1)\n" +
             "Debug.Print IsDate(CStr(#1/2/2003#))\n" +
@@ -177,7 +201,7 @@ public class VbLocaleTests : BaseVBTestFixture
             "Debug.Print MonthName(1) = Format(#1/2/2003#, \"mmmm\")\n" +
             "Debug.Print MonthName(1)\n");
 
-        debug.Take(8).Should().Equal(
+        debug.Take(8).Should().Equal([
             new Vb6Value(new DateTime(2003, 1, 2)),
             new Vb6Value(new DateTime(2030, 1, 1)),
             new Vb6Value(true),
@@ -185,9 +209,34 @@ public class VbLocaleTests : BaseVBTestFixture
             new Vb6Value("2003"),
             new Vb6Value(true),
             new Vb6Value(true),
-            new Vb6Value(true));
+            new Vb6Value(true)], shown);
         if (monthsDiffer)
             debug[8].Value.Should().NotBe(culture.DateTimeFormat.GetMonthName(1), "that is the first month of the locale's own calendar");
+    }
+
+    [Fact]
+    public void Every_culture_reads_back_the_dates_CStr_writes_in_it()
+    {
+        // The property the locale exists for, over every culture this platform's ICU knows rather than a chosen few:
+        // macOS's data differs from Windows' and Linux's, and it was there that ar-SA could not read back its own date.
+        DateTime[] dates =
+        [
+            new(2003, 1, 2), new(2003, 12, 31, 23, 59, 59), new(2003, 1, 2, 10, 30, 0), new(1899, 12, 30, 10, 30, 0),
+            new(1999, 2, 28, 0, 0, 1), new(2049, 6, 15, 12, 0, 0),
+        ];
+        var failures = new List<string>();
+        foreach (var culture in CultureInfo.GetCultures(CultureTypes.SpecificCultures))
+        {
+            using var _ = VbLocale.Use(culture);
+            foreach (var date in dates)
+            {
+                var written = VbDisplay.ToText(new Vb6Value(date));
+                if (!VB6BuiltIns.TryReadDate(written, out var read) || VB6BuiltIns.OnZeroDateIfTimeOnly(read) != date)
+                    failures.Add($"{culture.Name}: {date:s} wrote {CodePoints(written)}");
+            }
+        }
+
+        failures.Should().BeEmpty();
     }
 
     [Fact]

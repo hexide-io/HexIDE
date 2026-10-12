@@ -86,6 +86,13 @@ public partial class VB6BuiltIns
         var culture = VbLocale.Current;
         if (DateTime.TryParse(text, culture, DateTimeStyles.NoCurrentDateDefault, out result))
             return true;
+        // Text in exactly the shapes CStr writes always reads back. The lenient parse above does not guarantee it:
+        // on macOS, whose ICU data differs, it could not read the date CStr had just written under ar-SA.
+        var format = culture.DateTimeFormat;
+        if (DateTime.TryParseExact(text.Trim(),
+                [format.ShortDatePattern + " " + format.LongTimePattern, format.ShortDatePattern, format.LongTimePattern],
+                format, DateTimeStyles.NoCurrentDateDefault, out result))
+            return true;
         var leading = LeadingDayAndMonth.Match(text);
         if (!leading.Success)
             return false;
