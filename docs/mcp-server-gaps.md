@@ -556,6 +556,18 @@ description.
 
 ## add_control calls an armed cancel a failed save, though its description offers the cancel
 
+> **A fix is in review (#755), not yet checked against the running IDE.** `add_control`, `set_file_content`
+> and `set_control_property` now report a save that the armed cancel answered as `success:true`, with a note
+> saying the document still has no file and how to write it. Whether it *was* that cancel is decided from the
+> dialog's state: `ScriptedFileDialogs.WatchForCancel` is taken before the save, and says afterwards whether a
+> picker took the armed cancel. It is not decided from the exception, which an encoding refusal shares (#751).
+> That decision is tested in `ScriptedFileDialogsTests`; the three replies are not, because no test project
+> references `HexIDE.Desktop`. **Retire this entry** once the three calls below, on a rebuilt IDE, each answer
+> `success:true` with that note, and `get_form_controls` still lists one control:
+> `answer_next_file_dialog {}` before each of `add_control {"formName":"Form1","type":"CommandButton",...}`,
+> `set_control_property {"formName":"Form1","controlName":"Command0","property":"Caption","value":"x"}` and
+> `set_file_content {"name":"Form1","content":"..."}`.
+
 **Symptom.** On a new Standard EXE project from File > New Project, so `Form1` has no file:
 
 ```
@@ -601,6 +613,12 @@ that is also an `OperationCanceledException`, and that one must stay a failure.
 [#755](https://github.com/hexide-io/HexIDE/issues/755).
 
 ## take_snapshot writes every capture to the same file
+
+> **A fix is in review (#756), not yet checked against the running IDE.** Each capture is written to a file of
+> its own, `hexide_snapshot_<yyyyMMdd-HHmmss-fff>_<n>.png` in the temp folder, and the description says so.
+> The naming is tested in `SnapshotCapturePathTests`. **Retire this entry** once two `take_snapshot` calls on
+> a rebuilt IDE return two paths, each still holding its own image. `export_lsp_conversation`'s fixed name is
+> not part of the fix.
 
 **Symptom.** With a program running:
 
