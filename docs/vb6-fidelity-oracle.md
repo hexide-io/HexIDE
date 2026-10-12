@@ -5106,3 +5106,46 @@ about case:
 
 `Me` and the form's own name do resolve in any case on that path, where `VBLoader.RunForm` binds them, and are
 tested there.
+
+## What a condition is (2026-10-12, #847)
+
+**The question.** What every statement with a condition makes of a value that is not a Boolean. HexIDE accepted only
+a Boolean in a block `If` or `ElseIf`, and raised "IF doesn't contain a bool expression" for anything else, an error
+whose Number was 0. A one-line `If` raised 13 for anything but a Boolean, and the loops accepted a Boolean, an Integer
+or Null. So `If Len(s) Then`, `If InStr(s, "x") Then` and `If flags And 4 Then` stopped the run, and under
+`On Error Resume Next` the block form skipped its body with nothing in Err.
+
+**Probe.** A Sub Main project with no `On Error Resume Next`: a function `P(form, v)` traps with `On Error GoTo` and
+tests a Variant `v` in one of eight forms. The loops count their passes up to a limit of their own: 2 for a
+pre-tested loop, 3 for a post-tested one, so a loop that holds shows its limit. Built as native code and also run in
+the IDE (`/runexit`); **every line was identical in the two modes**.
+
+| `v` | one-line If | block If | ElseIf | While | Do While | Do Until | Loop While | Loop Until |
+|---|---|---|---|---|---|---|---|---|
+| 5, 0.5, -1@, `#1/1/2000#`, `CLng(11)` | Then | Then | Then | 2 | 2 | 0 | 3 | 1 |
+| `"True"`, `"1"`, `" 5 "`, `"&H10"` | Then | Then | Then | 2 | 2 | 0 | 3 | 1 |
+| 0, `CByte(0)`, `"False"`, `"0"` | Else | Else | Else | 0 | 0 | 2 | 1 | 3 |
+| **Null, Empty** | Else | Else | Else | 0 | 0 | **2** | 1 | **3** |
+| `"abc"`, `""`, `CVErr(5)` | 13 | 13 | 13 | 13 | 13 | 13 | 13 | 13 |
+
+**Typed values and the idioms,** each in a one-line and a block `If`, which agreed on every row:
+
+| Condition | Holds |
+|---|---|
+| a Long 11, a Double 0.5, a String `"-1"` | yes |
+| an Integer 0, a Variant holding a Long 0 | no |
+| `Len(s)` with `s` "abc"; with `s` "" | yes; no |
+| `InStr("abc", "b")`; `InStr("abc", "x")` | yes; no |
+| `x And 4`, `x And 1`, with `x` a Long 6 | yes; no |
+| `Err` and `Err.Number`, after `Err.Number = 11` | yes, both |
+| `Err` after `Err.Clear` | no |
+| the literal `Null` | no |
+| a String `"abc"` | 13 |
+
+**What it says.** Every form reads its condition as `CBool` reads it, except that Null is False where `CBool` raises
+94 for Null (measured alongside, both modes: `CBool(Null)` raises 94, `CBool(Empty)` is False with no error). The Null row is the one worth a second look: Null is not a third state that makes every
+condition fail. It is plain False, so `Do Until Null` runs and `Loop Until Null` does not end the loop.
+
+**HexIDE, after this.** One reading, `ConditionHolds`, used by the block `If`, `ElseIf`, the one-line `If`, `While`,
+and both `Do` forms. `If Err Then` follows Err used as a value, which #840 makes its Number. `CVErr` does not exist in
+HexIDE yet.

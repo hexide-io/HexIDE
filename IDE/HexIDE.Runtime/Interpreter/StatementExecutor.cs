@@ -505,16 +505,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     return result;
             }
 
-            var condition = await expressionExecutor.EvaluateValue(context.valueStmt());
-            bool conditionMet;
-            if (TryUnpack(condition, out bool b))
-                conditionMet = b;
-            else if (TryUnpack(condition, out int i))
-                conditionMet = i != 0;
-            else if (condition.IsNull)
-                conditionMet = false;
-            else
-                throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
+            var conditionMet = await ConditionHolds(context.valueStmt());
 
             if (until && conditionMet)
                 return ControlFlow.Nothing;
@@ -529,16 +520,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var until = context.UNTIL() != null;
         while (true)
         {
-            var condition = await expressionExecutor.EvaluateValue(context.valueStmt());
-            bool conditionMet;
-            if (TryUnpack(condition, out bool b))
-                conditionMet = b;
-            else if (TryUnpack(condition, out int i))
-                conditionMet = i != 0;
-            else if (condition.IsNull)
-                conditionMet = false;
-            else
-                throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
+            var conditionMet = await ConditionHolds(context.valueStmt());
 
             if (until && conditionMet)
                 return ControlFlow.Nothing;
@@ -782,22 +764,31 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         throw new GoToSignal(context.valueStmt().GetText(), context);
     }
 
+    /// <summary>
+    /// Whether the condition of an <c>If</c>, <c>ElseIf</c>, <c>While</c> or <c>Do</c> holds. Null and Empty do not; any
+    /// other value is read as <c>CBool</c> reads it, so a number holds when it is not 0, a string when it reads as True or
+    /// as a number that is not 0, and any other string, or an Error value, raises 13. Measured for every form, native and
+    /// in the IDE (#847): <c>If Len(s) Then</c>, <c>If InStr(s, "x") Then</c> and <c>If flags And 4 Then</c> are ordinary
+    /// VB6, and HexIDE refused all of them.
+    /// </summary>
+    private async Task<bool> ConditionHolds(Antlr4.Runtime.Tree.IParseTree condition)
+    {
+        var value = await expressionExecutor.EvaluateValue(condition);
+        if (value.IsNull || value.Type == Vb6Value.ValueType.EmptyVariant)
+            return false;
+        return VB6BuiltIns.CBool(value).Value is true;
+    }
+
     public override async Task<ControlFlow> VisitBlockIfThenElse(VB6Parser.BlockIfThenElseContext context)
     {
-        var val = await expressionExecutor.EvaluateValue(context.ifBlockStmt().ifConditionStmt().valueStmt());
-        if (val.Type != Vb6Value.ValueType.Boolean)
-            throw new VBRunTimeException(context, "IF doesn't contain a bool expression");
-        if (val.Value is true)
+        if (await ConditionHolds(context.ifBlockStmt().ifConditionStmt().valueStmt()))
             return await Visit(context.ifBlockStmt().block());
         else
         {
             bool matched = false;
             foreach (var elseIf in context.ifElseIfBlockStmt())
             {
-                val = await expressionExecutor.EvaluateValue(elseIf.ifConditionStmt().valueStmt());
-                if (val.Type != Vb6Value.ValueType.Boolean)
-                    throw new VBRunTimeException(context, "IF doesn't contain a bool expression");
-                if (val.Value is true)
+                if (await ConditionHolds(elseIf.ifConditionStmt().valueStmt()))
                 {
                     return await Visit(elseIf.block());
                 }
@@ -817,9 +808,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitInlineIfThenElse(VB6Parser.InlineIfThenElseContext context)
     {
-        var condition = await expressionExecutor.EvaluateValue(context.ifConditionStmt());
-        if (!TryUnpack(condition, out bool conditionMet))
-            throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
+        var conditionMet = await ConditionHolds(context.ifConditionStmt());
 
         // A branch is a colon-joined RUN of statements, not one statement. Measured: `If False Then A : B`
         // runs neither — the whole tail belongs to the Then. Running only the first and letting the rest
@@ -1751,16 +1740,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // control flow (Exit Sub/Function/Property) propagates straight out. The grammar exposes `block*`.
         while (true)
         {
-            var condition = await expressionExecutor.EvaluateValue(context.valueStmt());
-            bool conditionMet;
-            if (TryUnpack(condition, out bool b))
-                conditionMet = b;
-            else if (TryUnpack(condition, out int i))
-                conditionMet = i != 0;
-            else if (condition.IsNull)
-                conditionMet = false;
-            else
-                throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
+            var conditionMet = await ConditionHolds(context.valueStmt());
 
             if (!conditionMet)
                 return ControlFlow.Nothing;

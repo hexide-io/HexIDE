@@ -20,6 +20,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A condition is read as VB6 reads it** (#847). `If Len(s) Then`, `If InStr(s, "x") Then`, `If flags And 4 Then`
+  and `Do While n` stopped the run unless the condition was a Boolean, and under On Error Resume Next a block `If`
+  skipped its body with nothing in Err. Every form now reads its condition as `CBool` does: a number holds when it
+  is not 0, a string when it reads as True or as such a number, and Null and Empty do not.
+
 - **A syntax error when a program starts, or a compile error while it runs, is reported like a run-time error.**
   Each was a message box nothing recorded, so a program that never started was reported to automation as having run
   and ended. Both now appear in the run-time error dialog and are kept for `get_last_runtime_error`, and a syntax
