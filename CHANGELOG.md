@@ -18,6 +18,15 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A Label's background colour set by a program now shows.** `Label1.BackColor = vbRed` read back red but left
+  the label as it was; now it paints, for a label in a control array too. A program can make a transparent Label
+  opaque with `BackStyle = 1`. A transparent Label ignores a `BackColor` set while it is transparent, as VB6 does.
+- **Every control's colour reads back as VB6's number**, `255` rather than `&H000000FF&`, so `If Text1.BackColor
+  = vbRed` is True and `Debug.Print` shows what VB6 shows. A Label's `ForeColor` and a TextBox's colours from the
+  form read back at all, where they used to read as black; a TextBox now keeps the colours a form gives it. A
+  ListBox's and ComboBox's text colour defaults to the window text colour, as in VB6.
+- **A form keeps a property value HexIDE cannot read yet**, such as a palette colour, and saves it back as it was
+  written. It used to be dropped from the file on the next save.
 - **A running program writes and reads dates and numbers in the user's regional settings**, as VB6 does. The IDE
   ran every program in the invariant culture, so `CStr(#1/2/2003#)` showed `01/02/2003` on a UK machine, where VB6
   shows `02/01/2003`, and `CDate("1/2/2003")` was 2 January rather than 1 February. `CStr`, `Format`, the month and
@@ -60,7 +69,7 @@ there isn't one yet. Anything may change between 0.x releases.
   as `""`, and reads `""` before anything is put in it. A date into a caption is written in the user's date
   format, as `CStr` writes it. Where HexIDE cannot give VB6's answer yet, the program stops and says so rather than
   carry on with a wrong one: a palette colour; a scroll bar whose `Min` is above its `Max`; a control on the right of any
-  property, `Tag` and `Enabled` included; and a Label's or TextBox's colour from the form, which read as black.
+  property, `Tag` and `Enabled` included.
 - **`Command1.Enabled = Empty` disables the button**, as `CBool(Empty)` is False. It raised Type mismatch.
   `CDbl("NaN")`, `CDbl("Infinity")` and `CBool("NaN")` raise Type mismatch, and `CDbl("1E+400")` raises
   Overflow; .NET's spellings of those used to get through as numbers, so `Enabled = "NaN"` enabled the button.

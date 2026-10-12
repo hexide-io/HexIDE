@@ -107,12 +107,21 @@ public static class AvaloniaInteroperability
         Register<Control, bool>(VBProperties.VisibleProperty, VBVisibility.Get, VBVisibility.Set);
         Register<Control, bool>(VBProperties.EnabledProperty, InputElement.IsEnabledProperty);
         Register<Control, object?>(VBProperties.TagProperty, Control.TagProperty);
+        // A Label paints its own BackColor (VBLabel.Render), not the attached one every other control's template
+        // draws, so it is bound first: a run-time assignment then paints, and a read gives the form's colour (#795).
+        Register<VBLabel, VBColor>(VBProperties.BackColorProperty, VBLabel.BackColorProperty);
         Register<TemplatedControl, VBColor, VBColor?>(VBProperties.BackColorProperty, AttachedProperties.BackColorProperty, x => x, x=> x ?? default);
         Register<TemplatedControl, VBColor, VBColor?>(VBProperties.ForeColorProperty, AttachedProperties.ForeColorProperty, x => x, x=> x ?? default);
         Register<TemplatedControl, VBFont, VBFont?>(VBProperties.FontProperty, AttachedProperties.FontProperty, x => x, x=> x ?? default);
         Register<Window, string>(VBProperties.CaptionProperty, (window) => window.Title ?? "", (window, value) => window.Title = value);
 
         Register<VBCheckBox, VBAppearance>(VBProperties.AppearanceProperty, VBCheckBox.AppearanceProperty);
+        // A Label's BackStyle can be set by a program, as VB6 measured (#795): opaque, then a BackColor paints. Bound,
+        // because without it the assignment was a trappable 461 that On Error Resume Next swallowed, and the
+        // transparent-Label rule then dropped the BackColor that followed, a wrong value with no error.
+        Register<VBLabel, BackStyles>(VBProperties.BackStyleProperty, VBLabel.BackStyleProperty);
+        // Appearance reads back. Setting it is refused in TrySet: VB6 resets BackColor with it, which is #796.
+        Register<VBLabel, VBAppearance>(VBProperties.AppearanceProperty, VBLabel.AppearanceProperty);
         Register<VBCheckBox, VBCheckValue>(VBProperties.CheckValueProperty, VBCheckBox.ValueProperty);
 
         // The registration whose absence was #95: without a line here `Option1.Value` resolves to nothing and
@@ -179,6 +188,13 @@ public static class AvaloniaInteroperability
 
     public static bool TrySet(Control control, PropertyClass property, Vb6Value value)
     {
+        // VB6 accepts this and resets BackColor to the appearance's default (measured, #795). Setting the property
+        // alone would leave the old BackColor, a wrong value; failing to find it would be a trappable 461 that On
+        // Error Resume Next swallows into the same wrong value. So it is refused, untrappably, until #796.
+        if (control is VBLabel && ReferenceEquals(property, VBProperties.AppearanceProperty))
+            throw new NotImplementedException(
+                "Setting a Label's Appearance at run time is not implemented: VB6 resets its BackColor with it (#796)");
+
         if (bindingsByProperty.TryGetValue(property, out var props))
         {
             foreach (var prop in props)
@@ -194,6 +210,12 @@ public static class AvaloniaInteroperability
                 if (control is ItemsControl items && ReferenceEquals(property, VBProperties.ListIndexProperty)
                     && converted is int index && (index < -1 || index >= items.ItemCount))
                     throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+                // A transparent Label keeps the BackColor it has: VB6 drops one assigned at run time, without an
+                // error, so it reads back the old colour and shows that colour if the label is later made opaque
+                // (measured, #795). Only once the label is opaque does an assignment take. The value is converted
+                // first, so one VB6 refuses is still refused.
+                if (control is VBLabel { BackStyle: BackStyles.Transparent } && ReferenceEquals(property, VBProperties.BackColorProperty))
+                    return true;
                 prop.SetUntyped(control, converted);
                 return true;
             }
@@ -358,13 +380,14 @@ public static class AvaloniaInteroperability
     }
 
     /// <summary>
-    /// Whether <paramref name="property"/> is a colour <paramref name="control"/> holds nowhere a read can find. Most
-    /// controls set the attached colour properties as they load. A Label keeps its form colours on VBLabel instead,
-    /// and a TextBox does not load them at all (#795), so their attached properties stay null until the program sets
-    /// one, and the binding would read that null as black.
+    /// Whether <paramref name="property"/> is a colour <paramref name="control"/> has nowhere, so the binding would read
+    /// its null as black. Every control with colours loads them as it is made, a Label's BackColor onto VBLabel's own
+    /// property, which is bound ahead of the attached one (#795). A Timer and the scroll bars have no colours in VB6,
+    /// but bind them as every templated control does, so a read of one is refused (#801).
     /// </summary>
     internal static bool IsUnsetColour(Control control, PropertyClass property) =>
         control is TemplatedControl templated
+        && !(templated is VBLabel && ReferenceEquals(property, VBProperties.BackColorProperty))
         && ((ReferenceEquals(property, VBProperties.BackColorProperty) && AttachedProperties.GetBackColor(templated) is null)
             || (ReferenceEquals(property, VBProperties.ForeColorProperty) && AttachedProperties.GetForeColor(templated) is null));
 
@@ -378,10 +401,15 @@ public static class AvaloniaInteroperability
                     continue;
 
                 var raw = prop.GetUntyped(c);
-                // An unset Tag is "" in VB6, so `X.Tag = Y.Tag` copies an empty string rather than raising 94.
-                value = raw is null && ReferenceEquals(property, VBProperties.TagProperty)
-                    ? new Vb6Value("")
-                    : FromObject(raw);
+                // A colour is a Long to a VB6 program (measured: `Text1.BackColor` reads back 255, TypeName Long), so
+                // it prints as a number and compares with one: `If Label1.BackColor = vbRed` is True (#789). An unset
+                // Tag is "" in VB6, so `X.Tag = Y.Tag` copies an empty string rather than raising 94.
+                value = raw switch
+                {
+                    VBColor colour => new Vb6Value((long)colour.ToOle()),
+                    null when ReferenceEquals(property, VBProperties.TagProperty) => new Vb6Value(""),
+                    _ => FromObject(raw),
+                };
                 return true;
             }
         }

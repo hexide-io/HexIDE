@@ -252,7 +252,7 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
     not implemented rather than answered wrong: a palette colour (#786); `Value` on a scroll bar whose Min exceeds its Max, which Avalonia cannot hold
     (#787); and a control, array or object on the right, where VB6 reads a control's default property (#790). Still
     different: `Tag` holds what it is given until #211; a comma in a numeric String (#770); a hex String's width and
-    trailing `&` (#788); a colour read in code is not a Long (#789); positions keep their fraction (#791). Detail
+    trailing `&` (#788); positions keep their fraction (#791). A colour read in code is the Long, since #789. Detail
     and measurements: `vb6-fidelity-oracle.md`, "HexIDE, after #774".
   - ~~**A running form's `Me.Tag` leaked the runtime's internal show-completion object**~~ — **FIXED 2026-08-10.** `VBLoader.RunForm` used to park its show-completion `TaskCompletionSource` in the form window's Avalonia `Control.Tag`, which backs the VB6 `Tag` property, so `Me.Tag` (and the Locals property surface, D7) read back `"System.Threading.Tasks.TaskCompletionSource"`. The handler now captures the `tcs` in its closure (recovering the window from `sender`, since the `out` window can't be captured) instead of round-tripping through `Tag`. Surfaced by the P8/D7 Locals property surface; live-verified (run → stop → re-run cycle intact, `Me.Tag` now reads the interpreter's Tag default). **Residual, since fixed (#774):** an unset `Tag` read back `Null`, not VB6's `""`, for forms and child controls alike. A running program now reads `""`; the slot itself is still null, so the debugger's Locals window shows it as such.
 

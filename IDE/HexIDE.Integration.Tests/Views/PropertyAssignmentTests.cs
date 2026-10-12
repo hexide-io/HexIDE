@@ -28,7 +28,7 @@ namespace HexIDE.Integration.Tests.Views;
 /// <item>the OLE colour range was measured on <c>Label1.BackColor</c>, and pinned on <c>Text1</c>; the system colours
 /// past <c>&amp;H18</c> and the hex strings were measured on <c>Text1</c> itself;</item>
 /// <item>a colour's read-back as a Long was measured on <c>Text1</c>, and the copies here read it from a
-/// PictureBox, because a Label's or a TextBox's form colour cannot be read yet (#795);</item>
+/// PictureBox, a Label and a TextBox;</item>
 /// <item><c>ListIndex</c> was measured on a ListBox and a ComboBox, as here.</item>
 /// </list>
 /// Pinned at HexIDE's behaviour rather than at a measurement: the refusals that name an issue, and the two
@@ -188,9 +188,10 @@ public class PropertyAssignmentTests
     /// <summary>The colour a control holds, read from the control rather than through VB6 code.</summary>
     private static VBColor ColourOf(Avalonia.Controls.Canvas canvas, string control, PropertyClass? property = null)
     {
+        // A program reads a colour as its Long (#789), so this turns the Long back into the colour it names.
         AvaloniaInteroperability.TryGet(ContainerRuntimeHarness.Child(canvas, control), property ?? VBProperties.BackColorProperty, out var read)
             .Should().BeTrue();
-        return read.Value.Should().BeOfType<VBColor>().Subject;
+        return VBColor.FromOle(read.Value.Should().BeOfType<long>().Subject);
     }
 
     // ── a String property takes CStr of anything; Null is 94 and changes nothing ─────────────────
@@ -520,14 +521,18 @@ public class PropertyAssignmentTests
         (await Refusal($"Text1.BackColor = {value}")).Should().Contain("#786");
     }
 
-    // The source colours below come from the .frm, with nothing assigned at run time first: a run-time assignment
-    // would hide a colour the control holds somewhere a read cannot find (#795).
+    // The source colours below come from the .frm, or are the control's default, with nothing assigned at run time
+    // first: a run-time assignment would hide a colour the control failed to load. A Label's and a TextBox's did,
+    // until #795.
 
     [AvaloniaTheory]
     [InlineData("Text1.BackColor = Picture1.BackColor", "Text1", "BackColor", 0xFF)]
     [InlineData("Text1.BackColor = Picture2.BackColor", "Text1", "BackColor", unchecked((int)0x8000000F))]
     [InlineData("Text1.ForeColor = Picture1.ForeColor", "Text1", "ForeColor", 0xFF0000)]
     [InlineData("Dim saved As Variant\r\nsaved = Picture1.BackColor\r\nPicture1.BackColor = 0\r\nPicture1.BackColor = saved", "Picture1", "BackColor", 0xFF)]
+    [InlineData("Picture1.BackColor = Label1.BackColor", "Picture1", "BackColor", 0xFF00)]
+    [InlineData("Picture1.BackColor = Text1.BackColor", "Picture1", "BackColor", unchecked((int)0x80000005))]
+    [InlineData("Text1.ForeColor = Label1.ForeColor", "Text1", "ForeColor", unchecked((int)0x80000012))]
     public async Task A_colour_from_the_form_can_be_copied_or_saved_and_restored(string code, string target, string property, int expectedOle)
     {
         var (_, canvas, ctx, env) = ContainerRuntimeHarness.Spawn(Form);
@@ -550,13 +555,29 @@ public class PropertyAssignmentTests
     }
 
     [AvaloniaTheory]
-    [InlineData("Label1.Caption = Text1.BackColor")]      // a TextBox does not load its colours
-    [InlineData("Dim c\r\nc = Label1.BackColor")]          // a Label keeps them where this read cannot see
-    [InlineData("Text1.ForeColor = Label1.ForeColor")]
-    public async Task A_colour_the_program_has_not_set_on_a_Label_or_TextBox_is_refused_rather_than_read_as_black(string code)
+    [InlineData("Label1.Caption = Text1.BackColor", "-2147483643")]   // a TextBox's default, measured
+    [InlineData("Label1.Caption = Text1.ForeColor", "-2147483640")]
+    [InlineData("Label1.Caption = Label1.BackColor", "65280")]        // from the form
+    [InlineData("Label1.Caption = Label1.ForeColor", "-2147483630")]  // a Label's default, measured
+    [InlineData("Label1.Caption = List1.ForeColor", "-2147483640")]   // a list's: the window text, measured
+    [InlineData("Label1.Caption = List1.BackColor", "-2147483643")]
+    [InlineData("Label1.Caption = Combo1.ForeColor", "-2147483640")]
+    [InlineData("Label1.Caption = Combo1.BackColor", "-2147483643")]
+    public async Task A_Labels_or_TextBoxs_colour_from_the_form_reads_back_as_its_Long(string assignment, string expected)
     {
-        // VB6 reads the form's colour: Text1.BackColor is -2147483643 by default. HexIDE would read black (#795).
-        (await Refusal(code)).Should().Contain("#795");
+        // These were refused until #795, because neither control held its form colours where a read could find them.
+        var (value, err) = await Assign("Label1.Caption = \"\"", assignment, "Label1.Caption");
+
+        err.Should().Be(0);
+        value.Should().Be(expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Dim c\r\nc = Timer1.BackColor")]
+    [InlineData("Dim c\r\nc = HScroll1.ForeColor")]
+    public async Task A_colour_on_a_control_VB6_gives_none_is_refused_rather_than_read_as_black(string code)
+    {
+        (await Refusal(code)).Should().Contain("#801");
     }
 
     [AvaloniaFact]
