@@ -32,7 +32,8 @@ internal static class IdeServer
         builder.Services.AddSingleton(context);
         builder.Services
             .AddMcpServer()
-            .WithHttpTransport()
+            // Stateless, so a client attached before a relaunch is still answered after it. See McpTransport.
+            .WithHttpTransport(McpTransport.Configure)
             .WithTools<HexIdeTools>()
             // An exception a tool did not catch is reported with its type and message rather than the SDK's
             // bare "An error occurred invoking" (#603).

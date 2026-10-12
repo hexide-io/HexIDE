@@ -38,4 +38,13 @@
         <ProjectReference Include="..\HexIDE.AddinPacker\HexIDE.AddinPacker.csproj" />
     </ItemGroup>
 
+    <!-- The automation server's transport, tested by restarting a real server under the SDK's own client
+         (McpRestartTests). No test project references HexIDE.Desktop, so the one file that decides the
+         transport is compiled in here as well; the server and the test cannot then disagree about it. -->
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+        <PackageReference Include="ModelContextProtocol.AspNetCore" />
+        <Compile Include="..\HexIDE.Desktop\Server\McpTransport.cs" Link="Infrastructure\McpTransport.cs" />
+    </ItemGroup>
+
 </Project>
