@@ -428,27 +428,16 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             if (sub.typeHint() != null)
                 throw new NotImplementedException("Const type hints not supported");
-            var name = sub.ambiguousIdentifier().GetText();
-            var value = await expressionExecutor.EvaluateValue(sub.valueStmt());
-
-            // Inside a procedure a Const is the procedure's own, and shadows a module variable or Const it shares a
-            // name with, in any case. Measured: `Const LIMIT = 10` in a Sub reads 10 there and leaves the module's
-            // `Limit` at 1, and the same holds over a module Const. Updating whatever slot the name found wrote
-            // through the procedure's clone of the module scope into the module's slot, so the value outlived the
-            // call (#819). Allocated once per activation, as a Dim is; only a procedure's executor owns slots.
+            // Inside a procedure the Const was declared at entry (HoistDeclaredLocals), so the statement has nothing
+            // left to do when execution reaches it.
             if (ownedSlots != null)
             {
-                if (declaredLocals.Add(name))
-                {
-                    interpreter.ExecutionContext.AllocVariable(currentEnv, name, value);
-                    if (currentEnv.TryGetVariableLocation(name, out var slot))
-                        ownedSlots.Add(slot);
-                }
-                else
-                    interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, value);
+                await DeclareLocalConst(sub);
                 continue;
             }
 
+            var name = sub.ambiguousIdentifier().GetText();
+            var value = await expressionExecutor.EvaluateValue(sub.valueStmt());
             // At module level the name was hoisted by the pre-pass, so this fills that slot.
             if (!interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, value))
                 interpreter.ExecutionContext.AllocVariable(currentEnv, name, value);
@@ -1027,7 +1016,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             }
 
             var indexes = await expressionExecutor.EvaluateCallArgs(procedureOrArrayCall.argsCall(0));
-            var indexesAsInt = AsType<int>(indexes);
+            var indexesAsInt = Subscripts(indexes);
 
             if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out var array))
                 throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Variable " + identifier + " is not declared");
@@ -1083,7 +1072,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, name, out var target) || target.Value is not ControlArrayGroup group)
             throw new NotImplementedException($"{verb} is only supported for control arrays; '{name}' is not one");
         var idxArgs = await expressionExecutor.EvaluateCallArgs(poac.argsCall(0));
-        return (group, AsType<int>(idxArgs[0]));
+        return (group, Subscript(idxArgs[0]));
     }
 
     // First iCS_S_ProcedureOrArrayCall in pre-order (the outer Command1(i), not a nested call inside the index).
@@ -1512,7 +1501,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             var identifier = arrCall.ambiguousIdentifier().GetText()
                 ?? throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Null array name");
-            var indexes = AsType<int>(await expressionExecutor.EvaluateCallArgs(arrCall.argsCall(0)));
+            var indexes = Subscripts(await expressionExecutor.EvaluateCallArgs(arrCall.argsCall(0)));
             if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out var arrayVal))
                 throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Variable " + identifier + " is not declared");
             if (!arrayVal.Type.IsArray || arrayVal.Value is not VBArray arr)
@@ -1587,6 +1576,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
             if (dimensions == null)
                 throw new VBCompileErrorException("Dimensions required");
+
+            // An upper bound below its lower raises 9, and the array is left erased, not as it was. Measured:
+            // ReDim b(-1), b(5 To 2) and b(0 To -1) each raise 9, and UBound(b) then raises 9 too. A bound that fails
+            // to coerce ("x", Null, beyond a Long) raises before this and leaves b alone, which ExtractDimensions does.
+            if (dimensions.Exists(d => d.Item2 < d.Item1))
+            {
+                interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variableName, new Vb6Value(type));
+                throw new VBRunTimeException(context, VBStandardError.SubscriptOutOfRange);
+            }
 
             interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variableName, new Vb6Value(type, dimensions));
         }
@@ -1710,8 +1708,32 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// </summary>
     internal async Task HoistDeclaredLocals(ProcedureInfo proc)
     {
+        // Consts first, in declaration order, because a Dim's bounds may name one (measured: `Const P = 2.5` then
+        // `Dim a(P)` is a(0 To 2)).
+        foreach (var constSub in proc.DeclaredConsts)
+            await DeclareLocalConst(constSub);
         foreach (var subStmt in proc.DeclaredLocals)
             await DeclareLocal(subStmt);
+    }
+
+    /// <summary>
+    /// A procedure's own Const, once per activation. It shadows a module variable or Const it shares a name with,
+    /// in any case: measured, <c>Const LIMIT = 10</c> in a Sub reads 10 there and leaves the module's
+    /// <c>Limit</c> at 1, and the same holds over a module Const. Updating whatever slot the name found wrote
+    /// through the procedure's copy of the module scope into the module's slot, so the value outlived the call
+    /// (#819).
+    /// </summary>
+    private async Task DeclareLocalConst(VB6Parser.ConstSubStmtContext sub)
+    {
+        if (sub.typeHint() != null)
+            throw new NotImplementedException("Const type hints not supported");
+        var name = sub.ambiguousIdentifier().GetText();
+        if (!declaredLocals.Add(name))
+            return;
+        var value = await expressionExecutor.EvaluateValue(sub.valueStmt());
+        interpreter.ExecutionContext.AllocVariable(currentEnv, name, value);
+        if (ownedSlots != null && currentEnv.TryGetVariableLocation(name, out var slot))
+            ownedSlots.Add(slot);
     }
 
     private async Task<List<(int, int)>?> ExtractDimensions(VB6Parser.SubscriptsContext? subscripts)
@@ -1727,13 +1749,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 var size = dimension.valueStmt();
                 if (size.Length == 2)
                 {
-                    arrayLowerBound = AsType<int>(await expressionExecutor.EvaluateValue(size[0]));
-                    arrayUpperBound = AsType<int>(await expressionExecutor.EvaluateValue(size[1]));
+                    arrayLowerBound = Subscript(await expressionExecutor.EvaluateValue(size[0]));
+                    arrayUpperBound = Subscript(await expressionExecutor.EvaluateValue(size[1]));
                 }
                 else if (size.Length == 1)
                 {
                     arrayLowerBound = currentModule.PrePass.ArrayBase;   // Option Base is per-module
-                    arrayUpperBound = AsType<int>(await expressionExecutor.EvaluateValue(size[0]));
+                    arrayUpperBound = Subscript(await expressionExecutor.EvaluateValue(size[0]));
                 }
                 else
                     throw new VBCompileErrorException("Either specify upper bound or lower and upper bound");

@@ -18,6 +18,22 @@ public abstract class VB6Visitor<T> : VB6BaseVisitor<T>
         return indexes.Select(AsType<TT>).ToList();
     }
 
+    /// <summary>
+    /// A subscript or an array bound, coerced to a Long as <c>CLng</c> coerces it. Measured on vb6.exe, for an
+    /// element, a control-array index and a ReDim bound alike: banker's rounding (<c>a(2.5)</c> is <c>a(2)</c>,
+    /// <c>a(3.5)</c> is <c>a(4)</c>), a numeric string read (<c>a(" 3 ")</c>), <c>True</c> -1, <c>Empty</c> 0,
+    /// <c>Null</c> 94, <c>"x"</c> 13, and beyond a Long 6, all before the bounds are checked.
+    /// </summary>
+    /// <remarks>
+    /// It accepted only an Integer, a Byte or an integral string, and refused anything else as an untrappable
+    /// "Type mismatch", so <c>a(i)</c> with <c>i</c> a Long, and <c>a(UBound(a))</c>, stopped the run.
+    /// </remarks>
+    public static int Subscript(Vb6Value value) =>
+        Convert.ToInt32(VB6BuiltIns.NarrowNum(value, Vb6Value.ValueType.Long).Value);
+
+    /// <summary>Each of <paramref name="values"/> as a <see cref="Subscript"/>.</summary>
+    public static List<int> Subscripts(IReadOnlyList<Vb6Value> values) => values.Select(Subscript).ToList();
+
     public bool TryUnpack<TT>(Vb6Value val, out TT tout)
     {
         tout = default!;

@@ -131,6 +131,26 @@ public class ControlArrayTests
         Convert.ToInt64(debug[0].Value).Should().Be(340);
     }
 
+    [AvaloniaTheory]
+    [InlineData("Command1(CLng(1))")]
+    [InlineData("Command1(0.6)")]          // banker's rounding: 1
+    [InlineData("Command1(\"1\")")]
+    public async Task An_index_is_coerced_as_CLng_does(string element)
+    {
+        // Measured on vb6.exe, as an array subscript is. A Long index stopped the run with "Type mismatch".
+        var debug = await Run(TwoButtonArray, $"Debug.Print {element}.Caption\r\n");
+        debug.Should().Equal(new Vb6Value("B"));
+    }
+
+    [AvaloniaFact]
+    public async Task An_index_that_rounds_past_the_last_element_Yields340()
+    {
+        // 1.5 rounds to 2, which does not exist (measured).
+        var debug = await Run(TwoButtonArray,
+            "On Error Resume Next\r\nDim s\r\ns = Command1(1.5).Caption\r\nDebug.Print Err.Number\r\n");
+        Convert.ToInt64(debug[0].Value).Should().Be(340);
+    }
+
     [AvaloniaFact]
     public async Task MissingElement_Write_Yields340()
     {

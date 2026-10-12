@@ -113,27 +113,27 @@ public class PrePass : VB6BaseVisitor<object?>
                 if (subStmt.LPAREN() != null && subStmt.RPAREN() != null) // array
                 {
                     isArray = true;
+                    // Bounds written as plain integers are read here. Anything else, such as a constant
+                    // (`Dim d(N)`) or a typed literal (`Dim d(2&)`), is left to the Dim statement, which allocates
+                    // the array again when the module's declarations run and evaluates its bounds there. They
+                    // were parsed as integers here regardless, so either one threw a FormatException and the
+                    // whole module failed to load. The name is still hoisted, as an undimensioned placeholder.
                     if (subStmt.subscripts() != null)
                     {
                         dimensions = new List<(int, int)>();
-                        int arrayLowerBound;
-                        int arrayUpperBound;
                         foreach (var dimension in subStmt.subscripts().subscript())
                         {
                             var size = dimension.valueStmt();
-                            if (size.Length == 2)
-                            {
-                                arrayLowerBound = int.Parse(size[0].GetText());
-                                arrayUpperBound = int.Parse(size[1].GetText());
-                            }
-                            else if (size.Length == 1)
-                            {
-                                arrayLowerBound = ArrayBase;
-                                arrayUpperBound = int.Parse(size[0].GetText());
-                            }
-                            else
+                            if (size.Length is not (1 or 2))
                                 throw new VBCompileErrorException("Either specify upper bound or lower and upper bound");
-                            dimensions.Add((arrayLowerBound, arrayUpperBound));
+                            var lower = ArrayBase;
+                            if ((size.Length == 2 && !TryReadLiteralBound(size[0], out lower))
+                                || !TryReadLiteralBound(size[^1], out var upper))
+                            {
+                                dimensions = null;
+                                break;
+                            }
+                            dimensions.Add((lower, upper));
                         }
                     }
                 }
@@ -172,6 +172,10 @@ public class PrePass : VB6BaseVisitor<object?>
 
         return default;
     }
+
+    private static bool TryReadLiteralBound(VB6Parser.ValueStmtContext bound, out int value) =>
+        int.TryParse(bound.GetText(), System.Globalization.NumberStyles.AllowLeadingSign,
+            System.Globalization.CultureInfo.InvariantCulture, out value);
 
     public override object? VisitConstStmt(VB6Parser.ConstStmtContext context)
     {

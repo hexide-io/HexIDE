@@ -202,16 +202,32 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             await new StatementExecutor(this, instanceEnv, classDef).Execute(block);
         var instance = new VbObject(classDef, instanceEnv);
         if (classDef.PrePass.Procedures.TryGetValue("Class_Initialize", out var init))
-            await RunProcedure(classDef, init, [], instanceEnv, Vb6Value.NewObject(instance));
+        {
+            // The object under construction is held while Class_Initialize runs, as the New expression holds it in
+            // VB6. Without the hold it stood at 0, so a call from Class_Initialize to one of the object's own
+            // methods, which counts Me, took it to 1 and back to 0 on return and fired Class_Terminate before
+            // construction had finished (measured: VB6 runs Initialize, then both siblings, then nothing until the
+            // last reference goes). The hold is dropped without the zero check, so the object is handed back at
+            // whatever Initialize left it: 0 for the caller's Set to count, or more if Initialize stored Me.
+            instance.RefCount++;
+            try
+            {
+                await RunProcedure(classDef, init, [], instanceEnv, Vb6Value.NewObject(instance));
+            }
+            finally
+            {
+                instance.RefCount--;
+            }
+        }
         return instance;
     }
 
     // ---- Class_Terminate reference counting (interpreter-advanced Phase 4.2) ----
     // Real slot-based refcounting: named-storage + transient holders are counted on the VbObject; Terminate fires
     // at zero. Runtime execution machinery (in-bounds), not a scan of ExecutionState (unsound under E2). A `New`
-    // object starts at 0 and is AddRef'd by whatever first stores it (Set / ByVal param); there is no construction
-    // guard because Class_Initialize's Me is NOT counted (a lifecycle hook — see RunProcedure), so the hook can't
-    // terminate the half-built instance.
+    // object is handed back at 0 and is AddRef'd by whatever first stores it (Set / ByVal param). While it is being
+    // built, NewObject holds it, so a method Class_Initialize calls on it cannot take it to 0. Class_Initialize's
+    // own Me is not counted either (a lifecycle hook — see RunProcedure).
 
     /// <summary>Increment the reference count if <paramref name="v"/> is a live class instance (no-op for
     /// Nothing / controls / proxies / value types). Callers do AddRef(new) BEFORE Release(old) at every store, so
