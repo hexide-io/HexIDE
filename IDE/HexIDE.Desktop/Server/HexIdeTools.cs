@@ -9,6 +9,7 @@ using HexIDE.Conversations;
 using HexIDE.Lsp;
 using HexIDE.Redaction;
 using HexIDE.Forms.ViewModels;
+using HexIDE.IDE;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.ProjectElements;
@@ -216,7 +217,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             .FirstOrDefault(d => d.FormDefinition == form);
 
     [McpServerTool(Name = "set_file_content")]
-    [Description("Replaces the VB6 source code of a named form or module and saves to disk. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. Pass the CODE SECTION, not a whole file: a .frm's VERSION/Begin designer block is refused (it describes controls, which this tool does not apply), and a .bas/.cls header is stripped. A form's leading 'Attribute VB_*' block is its identity; the editor shows it, but content composed rather than round-tripped rarely carries it -- if yours omits it the existing one is kept and the result says so, so a body that leaves it out can no longer destroy VB_Name. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' names the file written and how many lines, and says whether the document is open in an editor, since only open documents are analysed for get_diagnostics.")]
+    [Description("Replaces the VB6 source code of a named form or module and saves to disk. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. Pass the CODE SECTION, not a whole file: a .frm's VERSION/Begin designer block is refused (it describes controls, which this tool does not apply), and a .bas/.cls header is stripped. A form's leading 'Attribute VB_*' block is its identity; the editor shows it, but content composed rather than round-tripped rarely carries it -- if yours omits it the existing one is kept and the result says so, so a body that leaves it out can no longer destroy VB_Name. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' names the file written and how many lines, and says whether the document is open in an editor, since only open documents are analysed for get_diagnostics. The save writes the whole file, so text set earlier and not yet saved, such as a form's captions, counts too: when the document's code page cannot hold a character anywhere in it, nothing is written and no dialog is shown, the code stays in the IDE, and the reply names the document, the code page, the character and the line that holds it.")]
     public async Task<MutateResult> SetFileContentAsync(string name, string content, string? project = null, CancellationToken ct = default)
     {
         var restoredHeader = false;
@@ -306,9 +307,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // EventBus logs that and carries on, so the flush silently does nothing and the PREVIOUS text
             // is serialized -- a file with a fresh timestamp, stale contents, and a success returned to a
             // caller who cannot see the log. Awaiting the save here left this method on a pool thread.
-            var written = await Dispatcher.UIThread.InvokeAsync(async () => form is not null
-                ? await ctx.ProjectService.SaveForm(form, false)
-                : module is not null && await ctx.ProjectService.SaveModule(module, false));
+            var (written, refused) = await SaveQuietlyAsync(() => form is not null
+                ? ctx.ProjectService.SaveForm(form, false, interactive: false)
+                : module is not null ? ctx.ProjectService.SaveModule(module, false, interactive: false) : Task.FromResult(false));
+            if (refused is not null)
+                // Not "the new code was refused": the character can be anywhere in the file. The message quotes its line.
+                return new MutateResult(false, $"The new code is in the IDE, but the file was not written. {refused.Message}");
             return written
                 ? new MutateResult(true, null, WrittenNote(form?.Name ?? module!.Name, writtenPath, writtenText, openInEditor)
                     + (restoredHeader
@@ -350,13 +354,36 @@ internal sealed class HexIdeTools(IdeContext ctx)
                      + "get_diagnostics.");
     }
 
+    /// <summary>
+    /// Runs a save that shows no dialog, and hands back an encoding refusal as a value. A dialog would hold
+    /// the reply until a person dismissed it, and the refusal's message, which names the document, the code
+    /// page and the character, is the reply.
+    /// </summary>
+    /// <remarks>
+    /// Caught on the UI thread rather than after the hop back: the refusal derives from
+    /// <see cref="OperationCanceledException"/>, and an exception of that kind need not leave
+    /// <c>Dispatcher.InvokeAsync</c> as itself.
+    /// </remarks>
+    private static Task<(bool Written, SourceEncodingRefusal? Refused)> SaveQuietlyAsync(Func<Task<bool>> save) =>
+        Dispatcher.UIThread.InvokeAsync(async () =>
+        {
+            try
+            {
+                return (await save(), (SourceEncodingRefusal?)null);
+            }
+            catch (SourceEncodingRefusal refusal)
+            {
+                return (false, refusal);
+            }
+        });
+
     private static readonly HashSet<string> KnownFileTypes = ["form", "module", "classmodule", "usercontrol", "propertypage"];
 
     [McpServerTool(Name = "add_file")]
-    [Description("Adds a new form or module to the startup project, saves the new file to disk, and returns its path. type must be 'Form', 'Module', 'ClassModule', 'UserControl', or 'PropertyPage'. name must be a VB6 name (a letter, then letters, digits and underscores) not already used by a form, module or class in the project; anything else is refused before a file is written. The project file itself is NOT saved, as in VB6: the note says so, and says when the file went to the project's temporary folder because it has not been saved anywhere of the user's choosing.")]
+    [Description("Adds a new form or module to the startup project, saves the new file to disk, and returns its path. type must be 'Form', 'Module', 'ClassModule', 'UserControl', or 'PropertyPage'. name must be a VB6 name (a letter, then letters, digits and underscores) not already used by a form, module or class in the project; anything else is refused before a file is written, as is a name the new file's code page, or the project file's, cannot hold. The project file itself is NOT saved, as in VB6: the note says so, and says when the file went to the project's temporary folder because it has not been saved anywhere of the user's choosing.")]
     public async Task<AddFileResult> AddFileAsync(string name, string type, CancellationToken ct)
     {
-        return await Dispatcher.UIThread.InvokeAsync(() =>
+        return await Dispatcher.UIThread.InvokeAsync(async () =>
         {
             var project = ctx.ProjectManager.StartupProject;
             if (project is null)
@@ -390,14 +417,19 @@ internal sealed class HexIdeTools(IdeContext ctx)
             {
                 string? path = type.ToLowerInvariant() switch
                 {
-                    "form" => ctx.ProjectService.AddNewForm(project, name).GetAwaiter().GetResult().AbsolutePath,
-                    "module" => ctx.ProjectService.AddNewModule(project, name, ModuleKind.StandardModule).GetAwaiter().GetResult().AbsolutePath,
-                    "classmodule" => ctx.ProjectService.AddNewModule(project, name, ModuleKind.ClassModule).GetAwaiter().GetResult().AbsolutePath,
-                    "usercontrol" => ctx.ProjectService.AddNewUserControl(project, name).GetAwaiter().GetResult().AbsolutePath,
-                    "propertypage" => ctx.ProjectService.AddNewPropertyPage(project, name).GetAwaiter().GetResult().AbsolutePath,
+                    "form" => (await ctx.ProjectService.AddNewForm(project, name, interactive: false)).AbsolutePath,
+                    "module" => (await ctx.ProjectService.AddNewModule(project, name, ModuleKind.StandardModule, interactive: false)).AbsolutePath,
+                    "classmodule" => (await ctx.ProjectService.AddNewModule(project, name, ModuleKind.ClassModule, interactive: false)).AbsolutePath,
+                    "usercontrol" => (await ctx.ProjectService.AddNewUserControl(project, name, interactive: false)).AbsolutePath,
+                    "propertypage" => (await ctx.ProjectService.AddNewPropertyPage(project, name, interactive: false)).AbsolutePath,
                     _ => throw new System.Diagnostics.UnreachableException(),
                 };
                 return new AddFileResult(true, path, null, Note(path));
+            }
+            // Caught here, on the UI thread, for the reason SaveQuietlyAsync gives.
+            catch (SourceEncodingRefusal refusal)
+            {
+                return new AddFileResult(false, null, $"'{name}' was not added: {refusal.Message}");
             }
             catch (Exception ex)
             {
@@ -462,7 +494,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "set_control_property")]
-    [Description("Sets a named property on a form or UserControl control and saves the file. The value is written as the Properties window shows it: text, a number with '.' for decimals, True or False, a colour literal such as &H00C0FFC0&, or an enum by number, by name, or as '1 - Opaque'; a refused value's reply lists what that property takes. Use get_form_controls to see available controls and properties. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A refused rename changes nothing. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' gives the value the property now holds, which can differ from the text sent.")]
+    [Description("Sets a named property on a form or UserControl control and saves the file. The value is written as the Properties window shows it: text, a number with '.' for decimals, True or False, a colour literal such as &H00C0FFC0&, or an enum by number, by name, or as '1 - Opaque'; a refused value's reply lists what that property takes. Use get_form_controls to see available controls and properties. A property is matched by the name the Properties window shows, without regard to case and to its parentheses, so 'Name' reaches '(Name)'. Setting Name renames the control under the rules the Properties window applies, whether or not the designer is open: not empty, and unique on the form; for the form itself also a valid VB6 name that no other form or module of the project has, because it renames the document. A rename the naming rules refuse changes nothing. The save writes the whole file, so text set earlier and not yet saved counts too: when the file's code page cannot hold a character anywhere in it, the value is set in the IDE but nothing is written and no dialog is shown, and the reply names the document, the code page, the character and the line that holds it. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' gives the value the property now holds, which can differ from the text sent.")]
     public async Task<MutateResult> SetControlPropertyAsync(
         string formName, string controlName, string property, string value, CancellationToken ct)
     {
@@ -543,18 +575,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
         var cancel = HexIDE.IDE.ScriptedFileDialogs.WatchForCancel(ownerModule is not null ? ownerModule.AbsolutePath : form!.AbsolutePath);
         try
         {
-            bool written;
-            if (ownerModule is not null)
-            {
-                written = await Dispatcher.UIThread.InvokeAsync(
-                    async () => await ctx.ProjectService.SaveModule(ownerModule, false));
-            }
-            else
-            {
-                // Same UI-thread requirement as the other write tool, and for the same reason. (#334)
-                written = await Dispatcher.UIThread.InvokeAsync(
-                    async () => await ctx.ProjectService.SaveForm(form!, false));
-            }
+            // Same UI-thread requirement as the other write tool, and for the same reason. (#334)
+            var (written, refused) = await SaveQuietlyAsync(() => ownerModule is not null
+                ? ctx.ProjectService.SaveModule(ownerModule, false, interactive: false)
+                : ctx.ProjectService.SaveForm(form!, false, interactive: false));
+            if (refused is not null)
+                return new MutateResult(false, $"'{property}' is set in the IDE, but the file was not written. {refused.Message}");
             // See the note on the other write tool: a refusal must not come back as success. (#147)
             return written
                 ? new MutateResult(true, null, stored)
@@ -700,7 +726,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "run_project")]
-    [Description("Starts running the current VB6 project in the IDE. Returns an error if no project is loaded, if it is already running, or if its startup form cannot be built or, for a Sub Main project, a declaration in its code cannot be loaded — in that last case nothing is running, the IDE has opened a runtime-error dialog, and get_last_runtime_error returns the same text. step_into, step_over, step_out and run_to_cursor report a failed start from idle the same way. The reply's 'note' says, after up to 2 s, whether it paused (at a breakpoint or Stop, with where), is running, or ended, and names any run-time error it raised, including reaching a construct HexIDE does not implement, which ends the run.")]
+    [Description("Starts running the current VB6 project in the IDE. Returns an error if no project is loaded, if it is already running, or if the start never becomes a run: a syntax error in the startup form or in any standard or class module (the error names the module), no startup form, a Sub Main project with no usable or with two Sub Mains, a startup form that cannot be built, or a declaration that cannot be loaded — in those cases nothing is running, the IDE has opened a runtime-error dialog, and get_last_runtime_error returns the same text. step_into, step_over, step_out and run_to_cursor report a failed start from idle the same way. The reply's 'note' says, after up to 2 s, whether it paused (at a breakpoint or Stop, with where), is running, or ended, and names any run-time error it raised, including reaching a construct HexIDE does not implement, which ends the run.")]
     public async Task<MutateResult> RunProjectAsync(CancellationToken ct)
     {
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
@@ -734,7 +760,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     /// reported by the time the call returns. Every tool that can start a run from idle used to answer success
     /// regardless, while nothing ran and the error reached only the log (#590). A Sub Main project's
     /// declarations are loaded synchronously in the same way, and a failure there is reported the same way
-    /// (#754). A syntax error at the start is not yet: it is still a message box (#759).
+    /// (#754), and so is a syntax error found before the run begins (#759).
     /// </remarks>
     private MutateResult? StartFailure(Action start)
     {
@@ -751,13 +777,11 @@ internal sealed class HexIdeTools(IdeContext ctx)
         }
         return failure is null
             ? null
-            : new MutateResult(false, failure
-                + " Nothing is running. The IDE showed this in a runtime-error dialog, which is still open, and"
-                + " get_last_runtime_error returns it.");
+            : new MutateResult(false, HexIDE.IDE.MessageText.StartFailedReply(failure));
     }
 
     [McpServerTool(Name = "get_last_runtime_error")]
-    [Description("Returns the last runtime error the running program raised, WITH ITS TEXT, and keeps it after the error dialog has been dismissed. Use it after any run that might raise: stop_project and shutdown_ide both close open dialogs, so a run whose form silently did nothing is otherwise indistinguishable from a run whose error dialog was dismissed a moment earlier. run_project clears the message first, so a result here belongs to the most recent run. 'sequence' only ever increases and is not cleared — compare it across runs to tell 'no error' from 'the same error again', which message text cannot do. Returns raised:false when the current run has raised nothing.")]
+    [Description("Returns the last runtime error the running program raised, WITH ITS TEXT, and keeps it after the error dialog has been dismissed. That includes a compile error met while it ran, and the reason a start never became a run. Use it after any run that might raise: stop_project and shutdown_ide both close open dialogs, so a run whose form silently did nothing is otherwise indistinguishable from a run whose error dialog was dismissed a moment earlier. run_project clears the message first, so a result here belongs to the most recent run. 'sequence' only ever increases and is not cleared — compare it across runs to tell 'no error' from 'the same error again', which message text cannot do. Returns raised:false when the current run has raised nothing.")]
     public async Task<RuntimeErrorResult> GetLastRuntimeErrorAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1055,7 +1079,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "add_control")]
-    [Description("Places a control of the given type on a named form's designer canvas at the given position and size, and SAVES the form. x, y, width and height are in PIXELS, as the designer draws and get_form_controls reports: a .frm and VB6's Properties window use twips, 15 to a pixel, so VB6's default CommandButton (1215 × 495 twips) is 81 × 33 here. The reply's 'note' gives where the control landed, and says when it lies outside the form. The form must be open in the visual designer (call view_designer first if needed). Returns the auto-generated control name (e.g. 'Command1'). A refusal to write (an unfaithful form) comes back as success:false naming the control that is in the designer but not on disk. A form with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything is placed unless answer_next_file_dialog has been armed first; arm it with no path to keep the form without a file.")]
+    [Description("Places a control of the given type on a named form's designer canvas at the given position and size, and SAVES the form. x, y, width and height are in PIXELS, as the designer draws and get_form_controls reports: a .frm and VB6's Properties window use twips, 15 to a pixel, so VB6's default CommandButton (1215 × 495 twips) is 81 × 33 here. The reply's 'note' gives where the control landed, and says when it lies outside the form. The form must be open in the visual designer (call view_designer first if needed). Returns the auto-generated control name (e.g. 'Command1'). A form with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything is placed unless answer_next_file_dialog has been armed first; arm it with no path to keep the form without a file. Two refusals come AFTER the control is placed, and each comes back as success:false naming the control, which is then in the designer but not on disk: HexIDE cannot reproduce the form faithfully, or the form's code page cannot hold a character in text written earlier and not yet saved. The second shows no dialog, and the reply names the document, the code page, the character and the line that holds it; once that text is changed, set_control_property or set_file_content writes the form, the new control included.")]
     public async Task<AddControlResult> AddControlAsync(
         string formName, string type,
         double x, double y, double width, double height,
@@ -1132,10 +1156,17 @@ internal sealed class HexIdeTools(IdeContext ctx)
         try
         {
             // Through the owning module for a UserControl or PropertyPage, as set_control_property does. (#539)
-            var written = await Dispatcher.UIThread.InvokeAsync(async () =>
+            var (written, refused) = await SaveQuietlyAsync(() =>
                 OwnerModuleOf(spawned.Form) is { } owner
-                    ? await ctx.ProjectService.SaveModule(owner, false)
-                    : await ctx.ProjectService.SaveForm(spawned.Form, false));
+                    ? ctx.ProjectService.SaveModule(owner, false, interactive: false)
+                    : ctx.ProjectService.SaveForm(spawned.Form, false, interactive: false));
+            // The character is in text written earlier and never saved, since a new control brings none of its
+            // own: the message quotes the line that holds it, which no read tool might otherwise show.
+            if (refused is not null)
+                return new AddControlResult(false, spawned.ControlName,
+                    $"'{spawned.ControlName}' was added to the designer, but the file was NOT written. {refused.Message} "
+                    + "Once that text is changed, set_control_property or set_file_content writes the file, "
+                    + $"'{spawned.ControlName}' included.");
 
             // A refusal must not come back as success. (#147) The control is real and in the designer --
             // saying otherwise would be its own wrong answer -- but the file on disk does not have it, and

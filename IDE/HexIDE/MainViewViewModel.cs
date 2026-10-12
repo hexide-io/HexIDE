@@ -807,12 +807,13 @@ public partial class MainViewViewModel : ObservableObject
                 projectRunnerService.EndProject();
         }
 
-        VBWindowContext.CompileError += (form, e) =>
-        {
-            //var line = form.Code.Substring(e.Context.Start.StartIndex, e.Context.Stop.StopIndex - e.Context.Start.StartIndex);
-            //var vm = new RuntimeErrorViewModel(e.Message + "\n\nat " + line);
-            windowManager.MessageBox(e.Message, "HexIDE", MessageBoxButtons.Ok, MessageBoxIcon.Warning);
-        };
+        // A compile error met while a form runs, such as a call to a Sub that does not exist, reached from a click.
+        // Reported as a run-time error is: recorded, so get_last_runtime_error sees it, and shown in the dialog
+        // whose End ends the run. It was a message box nothing recorded (#759). One route for every error a run
+        // meets, rather than VB6's separate compile-error box with OK and Help, because #754 already sends Sub
+        // Main's compile errors through this dialog and two routes would answer the same error differently.
+        // The run carries on, with the handler abandoned, as it does after a run-time error.
+        VBWindowContext.CompileError += (_, e) => ReportRuntimeError(e.Message);
 
         // Route `Debug.Print` output from the running program into the Immediate pane (VB6's Immediate window).
         VBDebugConsole.Output += text =>
@@ -1297,7 +1298,10 @@ public partial class MainViewViewModel : ObservableObject
             // A .frm that will not parse adds nothing at all, rather than a tree node with no form behind it.
             var adopted = await projectService.AddExistingForm(project, path);
             if (adopted.Document is { } form)
+            {
                 editorService.EditForm(form);
+                await ReportReadByteForByte(adopted.UnreadableInCodePage, path);
+            }
             else
                 await ReportRefusedAdoption(adopted.Refusal, adopted.Name, path);
             return;
@@ -1317,10 +1321,25 @@ public partial class MainViewViewModel : ObservableObject
                 editorService.EditForm(formPart);
             else
                 editorService.EditCode(module);
+            await ReportReadByteForByte(adopted.UnreadableInCodePage, path);
             return;
         }
 
         editorService.EditRelatedDocument(await projectService.AddExistingRelatedDocument(project, path));
+    }
+
+    /// <summary>
+    /// Tells the developer a file joined the project read byte for byte, because this computer's code page
+    /// could not read it. It saves back unchanged; the warning is about what they see in it.
+    /// </summary>
+    private async Task ReportReadByteForByte(int? unreadableInCodePage, string path)
+    {
+        if (unreadableInCodePage is not { } codePage)
+            return;
+        await windowManager.MessageBox(
+            string.Format(localization.GetString("Str.Dialog.SourceEncoding.ReadByteForByte"),
+                Path.GetFileName(path), codePage),
+            icon: MessageBoxIcon.Warning);
     }
 
     /// <summary>

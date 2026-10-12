@@ -2,6 +2,9 @@
   "name": "Turkish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.NothingWritten": "Hiçbir şey yazılmadı. {0}, {1} kod sayfasında tutuluyor ve '{2}' ({3}) karakteri bu kod sayfasında saklanamaz. Karakter şu satırda geçiyor:\n\n{4}\n\nHexIDE her dosyayı dönüştürmek yerine, okunduğu veya oluşturulduğu kod sayfasında tutar. O metni bu kod sayfasında saklanabilen karakterlerle değiştirin ya da satırda bir dosya veya klasör adı geçiyorsa bu kod sayfasında saklanabilen bir ad seçin. Ardından yeniden deneyin. Değişiklikleriniz IDE'de hâlâ açık.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} bu bilgisayarın kod sayfasında ({1}) okunamadı, bu yüzden bayt bayt, Batı Avrupa (Latin-1) metni olarak açıldı. Değiştirilmeden kaydedilmesi aynı baytları geri yazar, ancak bu dosyaya Latin-1 dışındaki karakterler eklenemez. Başka bir kod sayfasında yazılmış metin bozuk görünebilir.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "Aşağıdaki dosyalar bu bilgisayarın kod sayfasında ({1}) okunamadı, bu yüzden bayt bayt, Batı Avrupa (Latin-1) metni olarak açıldı:\n\n{0}\n\nDeğiştirilmeden kaydedilmeleri aynı baytları geri yazar, ancak bu dosyalara Latin-1 dışındaki karakterler eklenemez. Başka bir kod sayfasında yazılmış metin bozuk görünebilir.",
     "Str.Options.Language.RegionLabel": "_Bölge:",
     "Str.Options.Language.RegionStandard": "(Standart)",
     "Str.Options.Language.Customize": "Çevirileri _özelleştir…",
@@ -678,7 +681,6 @@
     "Str.Vb6Toolchain.CompilationFailed": "VB6 derlemesi başarısız oldu:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Derleme başarılı oldu ancak yürütülebilir dosya şurada bulunamadı:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Çalıştırma Başarısız",
-    "Str.ProjectRunner.MustHaveStartupForm": "Bir başlangıç formu veya Sub Main() bulunmalıdır",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Bu işlem projenizi sıfırlayacak. Devam etmek istiyor musunuz?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "'{0}' formu yüklenemediği için proje başlatılmadı.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE şunu henüz desteklemiyor:\n\n{0}",
