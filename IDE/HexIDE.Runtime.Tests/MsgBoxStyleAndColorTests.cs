@@ -261,8 +261,8 @@ public class MsgBoxStyleAndColorTests : BaseVBTestFixture
     // VB6 writes the attribute into whichever of a property's procedures comes first.
     [InlineData("Private mV As Long\nPublic Property Let Value(ByVal v As Long)\nAttribute Value.VB_UserMemId = 0\n"
                 + "    mV = v\nEnd Property\nPublic Property Get Value() As Long\n    Value = 42 + mV\nEnd Property\n")]
-    // A Public variable carrying VB_VarUserMemId is collected too, but its class cannot be created until an Attribute
-    // line among the declarations stops stopping the run (#832), so its case is pinned there.
+    // A Public variable carries VB_VarUserMemId, on an Attribute line among the declarations that runs as nothing (#832).
+    [InlineData("Public Value As Long\nAttribute Value.VB_VarUserMemId = 0\n")]
     public async Task A_class_with_a_default_member_is_refused_until_class_default_members_exist(string answer)
     {
         // Measured: CInt(k) is 42 where the member returns 42, whether the Function, the Property Let or a Public

@@ -75,7 +75,7 @@ public partial class VB6BuiltIns
         if (v.Value is VbObject { ClassDef.PrePass.DeclaresDefaultMember: true } withDefault)
             throw new NotImplementedException(
                 $"Converting a {withDefault.ClassDef.Name} to a number reads its default member, which is not "
-                + "implemented for a class yet (#174).");
+                + "implemented for a class yet (#174). Name the member instead.");
         if (v.Type == VT.Object)
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         throw new NotImplementedException(
