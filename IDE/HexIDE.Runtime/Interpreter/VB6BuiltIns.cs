@@ -67,6 +67,7 @@ public partial class VB6BuiltIns
         RegisterInspection(d);
         RegisterDateTime(d);
         RegisterFormat(d);
+        RegisterColor(d);
         // DoEvents — a no-op here (the tree-walking interpreter has no message pump). VB6 yields to the message queue
         // and returns the open-form count; returning Integer 0 lets both `DoEvents` and `x = DoEvents` run without
         // crashing (documented approximation).
@@ -134,7 +135,14 @@ public partial class VB6BuiltIns
     private async Task<Vb6Value> MsgBox(List<Vb6Value> args)
     {
         var text = args.Count >= 1 ? VbDisplay.ToTextOrNull(args[0]) : "";
-        var style = (VBMsgBoxStyle)(args.Count >= 2 ? args[1].Value as int? ?? 0 : 0);
+        // The style is a Long, coerced as CLng does. It was read only when it arrived as an Integer, so every Long
+        // was style 0, an OK button and no icon: every in-box constant is a Long, so `vbYesNo + vbQuestion` showed
+        // OK alone and its Yes branch could never run. Measured: a Long, "4" and 4.5 (banker's: 4) are all Yes/No;
+        // Empty is OK; Null is 94 and "abc" 13, both before any dialog; 70000 and -1 select no buttons, so OK.
+        // An omitted style (`MsgBox "x", , "t"`) is Missing, not supplied, and stays 0.
+        var style = (VBMsgBoxStyle)(Supplied(args, 1)
+            ? (int)Convert.ToInt64(NarrowNum(args[1], Vb6Value.ValueType.Long).Value)
+            : 0);
         var styleIcon = style & VBMsgBoxStyle.IconBits;
         var styleButtons = style & VBMsgBoxStyle.ButtonsBits;
         var icon = default(MessageBoxIcon);
@@ -189,7 +197,8 @@ public partial class VB6BuiltIns
             MessageBoxResult.Continue => VBMsgBoxResult.vbOK,
             _ => throw new ArgumentOutOfRangeException()
         };
-        return (int)vbResult;
+        // A Long: TypeName(MsgBox(...)) is "Long", measured.
+        return new Vb6Value((long)vbResult);
     }
 
     // Mid / UCase / LCase moved to VB6BuiltIns.Strings.cs; LBound / UBound to VB6BuiltIns.Array.cs.

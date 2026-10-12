@@ -4745,3 +4745,88 @@ One more `/make` run on the same guest, session 0, nothing set before each read:
 HexIDE had a ListBox's and ComboBox's `ForeColor` default as the button text (`&H80000012`), every other
 control's. It now overrides it to `&H80000008`. A `.frm` carrying `&H80000019&`, or a palette colour, is now kept
 as written and saved back, where it used to be dropped on save; creating a control with the first used to throw.
+
+## RGB, QBColor and MsgBox's style (2026-10-12)
+
+**The questions.** What `RGB` and `QBColor` return, and of what type, at their edges. And what `MsgBox` does with a
+style that is not an Integer. HexIDE read the style only when it arrived as an Integer, and every in-box constant
+is a Long, so `vbYesNo + vbQuestion` showed OK alone with no icon.
+
+**Probe.** A Standard EXE built with `vb6.exe /make` on the Win10 guest (session 0) and run. Each call ran under
+`On Error Resume Next`, logging value, `TypeName` and `Err.Number`. For `MsgBox`, a form Timer found the open
+box by its title, recorded which of the control IDs 1 to 7 (IDOK to IDNO) and 20 (the icon) it held, and posted a
+click on No, else Cancel, else Ignore, else OK. Timers keep running under `MsgBox` in a compiled program, which is
+what makes this possible without a person.
+
+### RGB
+
+| Call | Value | Type | Err |
+|---|---|---|---|
+| `RGB(1, 0, 0)` | 1 | Long | |
+| `RGB(255, 255, 255)` | 16777215 | Long | |
+| `RGB(256, 0, 0)` | 255 | Long | |
+| `RGB(1.5, 2.5, 0)` | 514 | Long | |
+| `RGB("10", 0, 0)` | 10 | Long | |
+| `RGB(Empty, 0, 0)` | 0 | Long | |
+| `RGB(-1, 0, 0)`, `RGB(0, -1, 0)` | | | 5 |
+| `RGB(40000, 0, 0)`, `RGB(300, 1000, 70000)`, `RGB(3000000000#, 0, 0)` | | | 6 |
+| `RGB("x", 0, 0)` | | | 13 |
+| `RGB(Null, 0, 0)` | | | 94 |
+
+So each component is an **Integer, coerced as `CInt` does**: banker's rounding (1.5 and 2.5 are both 2, so
+514), a numeric string read, `Null` 94, a non-numeric string 13, and outside Integer's range 6. Only then is a
+negative component 5 and one above 255 clamped to 255. The overflow is the surprise: 40000 is not clamped, it
+fails before the clamp is reached. The result is a **Long** even when small.
+
+Which argument's error wins when two are bad (say `RGB(-1, 0, 70000)`) was not measured.
+
+### QBColor
+
+| n | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+|---|---|---|---|---|---|---|---|---|
+| `QBColor(n)` | 0 | 8388608 | 32768 | 8421376 | 128 | 8388736 | 32896 | 12632256 |
+
+| n | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 |
+|---|---|---|---|---|---|---|---|---|
+| `QBColor(n)` | 8421504 | 16711680 | 65280 | 16776960 | 255 | 16711935 | 65535 | 16777215 |
+
+All Longs. `QBColor(7.5)` and `QBColor(8.5)` are both colour 8 (banker's rounding), and `QBColor("3")` is
+colour 3. `QBColor(16)` and `QBColor(-1)` raise 5, and `QBColor(Null)` raises 94.
+
+### MsgBox's style
+
+| Style | Controls found (IDs) | Returned | Type | Err |
+|---|---|---|---|---|
+| `vbYesNo + vbQuestion` | 6 7, icon | 7 | Long | |
+| `vbOKCancel` | 1 2 | 2 | Long | |
+| `vbOKOnly` | 2 | 1 | Long | |
+| `4&` | 6 7 | 7 | Long | |
+| `36` | 6 7, icon | 7 | Long | |
+| `"4"` | 6 7 | 7 | Long | |
+| `4.5` | 6 7 | 7 | Long | |
+| `2.5` | 3 4 5 | 5 | Long | |
+| `Empty` | 2 | 1 | Long | |
+| `Null` | no dialog | | | 94 |
+| `"abc"` | no dialog | | | 13 |
+| `vbAbortRetryIgnore + vbCritical` | 3 4 5, icon | 5 | Long | |
+| `vbYesNoCancel + vbExclamation` | 2 6 7, icon | 7 | Long | |
+| `vbRetryCancel + vbInformation` | 2 4, icon | 2 | Long | |
+| `70000` | 2 | 1 | Long | |
+| `-1` | 2 | 1 | Long | |
+| `7` | 2 | 1 | Long | |
+
+**Readings:**
+- **The style is coerced as `CLng` does.** A Long, a numeric string and a Double all work: 4.5 is 4 (Yes/No)
+  and 2.5 is 2 (Abort/Retry/Ignore). `Null` and `"abc"` raise before any dialog appears.
+- **The answer is a Long.**
+- **Low bits that name no button set give OK alone:** 70000, -1 and 7. 70000's icon bits (`&H70`) name no
+  icon, and none is shown.
+- **An OK-only box's single button has control ID 2, not 1.** Windows gives it IDCANCEL's ID, so Escape closes
+  it. Pressing it still returns 1, vbOK. Only the ID differs, and it is recorded so nobody mistakes it for a
+  Cancel button.
+
+**HexIDE, after this.**
+- The style goes through the same `CLng` narrowing, so the in-box constants select their buttons and icon.
+- `MsgBox` returns a Long.
+- `RGB` and `QBColor` exist, with the coercion, clamping and errors above.
+- Still not honoured by the dialog: the default-button, help-button, modality and right-to-left bits.

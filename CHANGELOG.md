@@ -10,6 +10,8 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Added
 
+- **`RGB` and `QBColor`.** They stopped a run with "Sub or Function not defined"; both now return VB6's Long,
+  with its rounding, clamping and errors, measured.
 - **The protocol inspector says when a server's bytes actually moved**, not only when a message was prepared. For
   a server started over standard input and output or a named pipe, the timeline now shows when the first message
   began to be written, when it was handed to the server, when the IDE began waiting for a reply, and when the
@@ -18,6 +20,9 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A message box shows the buttons and icon it was asked for.** `MsgBox "Sure?", vbYesNo + vbQuestion` showed
+  OK alone with no icon, because every in-box constant is a Long and the style was read only as an Integer, so a
+  Yes branch could never run. The answer is a Long, as in VB6.
 - **A Label's background colour set by a program now shows.** `Label1.BackColor = vbRed` read back red but left
   the label as it was; now it paints, for a label in a control array too. A program can make a transparent Label
   opaque with `BackStyle = 1`. A transparent Label ignores a `BackColor` set while it is transparent, as VB6 does.
