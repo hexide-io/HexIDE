@@ -792,6 +792,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     {
         foreach (var stmt in body.blockStmt())
         {
+            // The statements of a joined tail get no pause-gate of their own, so this is the only point at which
+            // an abort can reach them. Without it, `If True Then Text1.Text = "x": Label1.Caption = "Saved"` set the
+            // caption after Text1_Change had faulted and ended the run.
+            if (interpreter.DebugController is { IsAborting: true })
+                throw new Debugging.StopExecutionSignal();
             var flow = await Visit(stmt);
             if (flow != ControlFlow.Nothing)
                 return flow;

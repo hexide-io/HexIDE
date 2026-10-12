@@ -10,7 +10,27 @@ of a full language engine behind the replaceable backend seam. What it is, withi
 genuinely faithful rather than approximate, because a runtime that is *nearly* right about arithmetic is
 worse than one that is obviously incomplete.
 
+> **Known divergences.** The requirements below state intended behaviour. "Unimplemented language surface SHALL
+> fail clearly" is not fully met. In each of the cases below, something HexIDE lacks is raised as an error a
+> handler can trap, so under `On Error Resume Next` the statement is skipped and the program carries on:
+>
+> - **A member on a value that is not a control.** `Clipboard.SetText` and `Collection.Remove` raise a run-time
+>   error with no number, and `Err.Number` is left at 0. Tracked in
+>   [#257](https://github.com/hexide-io/HexIDE/issues/257).
+> - **A member VB6 has, raised as VB6's own error.** `App.LogEvent` and `App.StartLogging` raise 438, which reads
+>   as though VB6 had no such member.
+> - **`For Each` over anything but an array,** a control array included, raises Type mismatch (13).
+> - **A `Class_Terminate` that raises while the failure unwinds** replaces it with its own error
+>   ([#767](https://github.com/hexide-io/HexIDE/issues/767)).
+>
+> Separately, some of the engine's own failures carry no message. Such a run does end, and its dialog says that
+> HexIDE does not implement something, but not what ([#181](https://github.com/hexide-io/HexIDE/issues/181)).
+>
+> The requirement is stated as intended rather than written down to match the code, because the code is wrong
+> here, not the intent.
+
 ## Requirements
+
 ### Requirement: One engine SHALL serve every execution path
 Running from the IDE, running under automation, and running in tests SHALL all execute through the same
 interpreter, and there SHALL NOT be a separate simplified engine for any of them.
@@ -156,7 +176,8 @@ program that never fails.
 
 ### Requirement: Unimplemented language surface SHALL fail clearly
 Where the engine does not implement part of the language, it SHALL fail in a way that identifies what is
-missing, and SHALL NOT silently substitute different behaviour.
+missing, and SHALL NOT silently substitute different behaviour. The failure SHALL reach the developer, and an
+error handler in the program SHALL NOT be able to trap it.
 
 The engine is deliberately incomplete, so meeting its edge is a normal outcome rather than an exceptional
 one. A clear stop tells the developer they have found the boundary and lets them decide what to do; a silent
@@ -164,9 +185,24 @@ approximation tells them the feature works and lets them build on an answer that
 approximation genuinely is the best available option, it is documented as one rather than presented as
 fidelity.
 
+A handler must not see the failure, because all a handler could do with it is carry on past a statement that
+never ran, which is the silent substitution this requirement forbids. The failure is a fact about the engine,
+not about the program, so it carries no VB6 error number for the program to branch on. And it has to reach the
+person running the program: a failure that only the engine's log records is, at the keyboard, a statement that
+silently did nothing (hexide-io/HexIDE#754).
+
 #### Scenario: Using a feature the engine does not implement
 - **WHEN** a program uses a language feature the engine does not implement
 - **THEN** it stops with an error identifying the unimplemented feature
+
+#### Scenario: Under an error handler
+- **WHEN** a program that has asked to continue at the next statement on error, or that has a handler active,
+  uses a language feature the engine does not implement
+- **THEN** it stops just the same, neither skipping the statement nor entering the handler
+
+#### Scenario: In a running IDE
+- **WHEN** a program running in the IDE reaches an unimplemented feature, in an event procedure or in Sub Main
+- **THEN** the run ends and the developer is shown that the engine does not implement what the program reached
 
 #### Scenario: A deliberate approximation
 - **WHEN** the engine answers with an approximation because the real behaviour is unavailable to it
