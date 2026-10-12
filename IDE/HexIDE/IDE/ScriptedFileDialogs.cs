@@ -81,8 +81,8 @@ public static class ScriptedFileDialogs
         "save it there, or with none to answer the picker as cancelled and leave the document without a file.";
 
     /// <summary>
-    /// Taken just before a save: whether that save's picker is about to be answered with an armed cancel. After
-    /// the save, <see cref="CancelWatch.Cancelled"/> says whether it was.
+    /// Taken just before a save of a document. After the save, <see cref="CancelWatch.Cancelled"/> says whether
+    /// the save's picker was answered with an armed cancel.
     /// </summary>
     /// <remarks>
     /// An armed cancel is a route the tools offer (<see cref="PickerRefusal"/>): it keeps a document without a file.
@@ -93,16 +93,18 @@ public static class ScriptedFileDialogs
     /// </remarks>
     public static CancelWatch WatchForCancel(string? absolutePath)
     {
+        // Only a document without a file opens a picker. Which answer the picker takes needs no peek: only a
+        // cancel moves the count.
         lock (Lock)
-            return new CancelWatch(absolutePath is null && Answers.Count > 0 && Answers.Peek() is null, _cancelsTaken);
+            return new CancelWatch(absolutePath is null, _cancelsTaken);
     }
 
     /// <summary>Whether a save was answered by the armed cancel that was next when it began.</summary>
     public readonly struct CancelWatch(bool armed, long takenBefore)
     {
         /// <summary>
-        /// True when the document had no file, the next armed answer was a cancel, and a picker has taken a cancel
-        /// since <see cref="WatchForCancel"/>.
+        /// True when the document had no file and a picker has taken an armed cancel since
+        /// <see cref="WatchForCancel"/>.
         /// </summary>
         public bool Cancelled
         {
