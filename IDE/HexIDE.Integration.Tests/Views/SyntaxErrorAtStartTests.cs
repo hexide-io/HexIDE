@@ -136,6 +136,24 @@ public class SyntaxErrorAtStartTests
         AssertAStartThatNeverRan(h).Should().Contain("in Widget, line 2");
     }
 
+    [AvaloniaTheory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Nesting_too_deep_names_its_module_on_both_paths(bool subMain)
+    {
+        // The depth guard raises its own compile error rather than going through the parser's listener, so it named no
+        // module while a syntax error did.
+        var project = subMain ? SubMainProject() : FormProject();
+        AddModule(project, "Deep", ModuleKind.StandardModule,
+            "Sub Main()\r\n    y = " + new string('(', 400) + "1" + new string(')', 400) + "\r\nEnd Sub\r\n");
+        var h = Runner(project);
+
+        h.Runner.RunProject(project);
+
+        AssertAStartThatNeverRan(h).Should().StartWith("Compile error:").And.Contain("nesting too deep")
+            .And.Contain("in Deep, line 2");
+    }
+
     [AvaloniaFact]
     public void A_project_with_no_startup_form_is_a_failed_start()
     {

@@ -565,13 +565,15 @@ public partial class ProjectRunnerService : IProjectRunnerService
             window.Context.ExecutionContext.AllocVariable(window.Context.RootEnv, "Me", new Vb6Value(window));
         }
 
-        var task = windowManager.ShowManagedWindow(window);
         window.Content = VBLoader.SpawnComponents(element, window.Context.ExecutionContext, window.Context.RootEnv);
 
+        // Parsed before the window is shown, as VBLoader.RunForm does, so a syntax error fails the start without
+        // leaving a window behind that nothing would close.
         var (standardModules, classModules) = VBLoader.InterpreterModules(element.Owner);
         window.Context.SetCode(code: element.Code, moduleName: formName ?? "Module1", debugController: debugController,
             appInfo: HexIDE.Runtime.Interpreter.AppInfo.FromProject(element.Owner),
             additionalModules: standardModules, classModules: classModules);
+        var task = windowManager.ShowManagedWindow(window);
         token.Register((state, _) =>
         {
             (state as MDIWindow)!.CloseCommand.Execute(null);

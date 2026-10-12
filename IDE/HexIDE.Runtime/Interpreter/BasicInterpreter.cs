@@ -422,7 +422,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         parser.RemoveErrorListeners();
         lexer.AddErrorListener(this);
         parser.AddErrorListener(this);
-        parser.AddParseListener(new ParseDepthGuard());   // reject pathological nesting as a compile error, not a crash
+        // Reject pathological nesting as a compile error, not a crash, naming the module as a syntax error does.
+        parser.AddParseListener(new ParseDepthGuard(moduleName: moduleName));
         parsingModule = moduleName;
         try
         {
@@ -587,14 +588,14 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         }
     }
 
+    /// <summary>VB6's compile error for a project with no startup form and no usable <c>Sub Main</c>.</summary>
+    public const string NoStartupObject = "Must have startup form or Sub Main()";
+
     /// <summary>
     /// The project's <c>Sub Main</c>, or the compile error VB6 gives for its absence: "Ambiguous name detected:
     /// Main" for two, and "Must have startup form or Sub Main()" for none or for one that is not a parameterless
     /// Sub. Read from the tables the pre-pass already collected, so it can be asked before the run begins.
     /// </summary>
-    /// <summary>VB6's compile error for a project with no startup form and no usable <c>Sub Main</c>.</summary>
-    public const string NoStartupObject = "Must have startup form or Sub Main()";
-
     public (ModuleInfo Module, ProcedureInfo Proc) FindStartupSubMain()
     {
         var declared = new List<(ModuleInfo Module, ProcedureInfo Proc)>();
