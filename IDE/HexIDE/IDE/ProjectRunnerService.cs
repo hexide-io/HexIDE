@@ -220,7 +220,15 @@ public partial class ProjectRunnerService : IProjectRunnerService
                     Dispatcher.UIThread.Post(() => tokenSource.Cancel());
                 }
 
+                // End in any of the run's procedures ends the run, closing the form as the End command does, and
+                // reports nothing: ending is not an error (#775). The close is posted for the same reason as the
+                // fault's. Unlike a fault, End needs no Stop() here: the interpreter's own Ending flag already stops
+                // every walk of it, ahead of the debugger's gate, and a run has one interpreter today. The finally
+                // below stops the controller once the form has closed.
+                void OnEndReached(BasicInterpreter _) => Dispatcher.UIThread.Post(() => tokenSource.Cancel());
+
                 VBWindowContext.Faulted += OnFaulted;
+                BasicInterpreter.EndReached += OnEndReached;
                 try
                 {
                     Task task;
@@ -261,6 +269,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
                     // Idempotent with EndProject's own Stop(); on the plain window-close path this is the ONLY
                     // teardown.
                     VBWindowContext.Faulted -= OnFaulted;
+                    BasicInterpreter.EndReached -= OnEndReached;
                     debugController.Stop();
                     RunHandle = null;
                     RunningProject = null;
@@ -375,6 +384,9 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 }
 
                 RunHandle = new ActionDisposable(() => debugController.Stop());
+                // End in Sub Main unwinds it, and RunStartupSubMain takes that as a clean stop (#775). Sub Main cannot
+                // show a form yet, so no other interpreter can reach End during this run; when it can, this run will
+                // need to listen for EndReached as the form run does.
                 await interpreter.RunStartupSubMain();
             }
             catch (Exception e) when (e is not (OperationCanceledException or ImmediateEvalException))

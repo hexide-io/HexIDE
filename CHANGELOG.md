@@ -17,6 +17,10 @@ there isn't one yet. Anything may change between 0.x releases.
   leaves out a midnight time or the zero date. A time written on its own, `#10:30:00 AM#`, is now that time on
   VB6's zero date rather than on today's date.
 
+- **`End` ends the program.** It used to stop the program with an error saying HexIDE did not implement it, so a
+  `Sub Main` that finished with `End` showed that error. Now the program stops at `End`, as in VB6: nothing after
+  it runs, its forms close without their unload events, and no `Class_Terminate` runs.
+
 - **A program that reaches something HexIDE cannot run yet now says so.** A statement, function or control
   method the interpreter does not implement used to stop the program without a word: a click handler ended
   part way while the program carried on, and a `Sub Main` project opened nothing at all. The run now ends,
