@@ -215,7 +215,7 @@ public static class VbNumeric
         if (v.IsNull)
             throw new VBRunTimeException(ctx, VBStandardError.InvalidUseOfNull);
         if (target == VT.String)
-            return new Vb6Value(v.Value?.ToString() ?? "");
+            return new Vb6Value(VbDisplay.ToText(v));
         if (target == VT.Boolean)
             return VB6BuiltIns.CBool(v);
         // Narrow's ToDouble answers 0.0 for a String rather than parsing it, so `Dim i As Integer : i = "12"`

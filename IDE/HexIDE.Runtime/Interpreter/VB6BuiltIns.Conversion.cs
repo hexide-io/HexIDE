@@ -83,8 +83,8 @@ public partial class VB6BuiltIns
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is DateTime) return v;
         if (v.Type == VT.String)
-            return DateTime.TryParse(AsStr(v).Trim(), CultureInfo.InvariantCulture, DateTimeStyles.None, out var dt)
-                ? new Vb6Value(dt) : throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            return DateTime.TryParse(AsStr(v).Trim(), CultureInfo.InvariantCulture, DateTimeStyles.NoCurrentDateDefault, out var dt)
+                ? new Vb6Value(OnZeroDateIfTimeOnly(dt)) : throw new VBRunTimeException(VBStandardError.TypeMismatch);
         // A serial outside the Date range (about -657434 .. 2958465) is a trappable Overflow (Err 6, oracle-verified);
         // FromOADate would otherwise throw an UNCATCHABLE ArgumentException (AsDate wraps this too, at DateTime.cs).
         try { return new Vb6Value(DateTime.FromOADate(ToNum(v))); }

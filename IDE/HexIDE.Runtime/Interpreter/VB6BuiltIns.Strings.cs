@@ -157,9 +157,15 @@ public partial class VB6BuiltIns
 
     private static string StrFn(Vb6Value v)
     {
-        // Str returns the number as text with a leading space for non-negatives (CStr has none).
+        // Str returns the number as text with a leading space for non-negatives (CStr has none). The digits are
+        // CStr's, without the zero before the point: Str(0.5) is " .5" and Str(-0.5) is "-.5" (measured). The point
+        // is always a period, which is documented rather than measured: the oracle's locale already uses one.
         double d = AsDouble(v);
-        string s = AsStr(v);
+        string s = v.Value is DateTime ? AsStr(v) : VbDisplay.ToText(v, CultureInfo.InvariantCulture);
+        if (s.StartsWith("0.", StringComparison.Ordinal))
+            s = s.Substring(1);
+        else if (s.StartsWith("-0.", StringComparison.Ordinal))
+            s = "-" + s.Substring(2);
         return d >= 0 ? " " + s : s;
     }
 
