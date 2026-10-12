@@ -10,6 +10,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A Label's colour set by a program now shows.** `Label1.BackColor = vbRed` read back red but left the label
+  as it was; now it paints, for a label in a control array too, and so does `ForeColor`. A Label's or TextBox's
+  colours from the form read back as VB6's number, `255` rather than `&H000000FF&`, so `If Label1.BackColor =
+  vbRed` is True and `Debug.Print` shows what VB6 shows. A TextBox keeps the colours a form gives it, which it
+  used to drop. A transparent Label ignores a `BackColor` set while it is transparent, as VB6 does.
 - **`s = Text1` no longer stores a .NET type name.** In VB6 a control where a value is wanted stands for
   its default property, so `s = Text1` reads its text. HexIDE does not implement that yet, and the assignment
   stored `HexIDE.Runtime.BuiltinControls.VBTextBox` in the String, or the control itself in a Variant, without a
