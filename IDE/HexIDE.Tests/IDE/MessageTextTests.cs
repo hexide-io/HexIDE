@@ -22,6 +22,16 @@ public class MessageTextTests
         joined.Should().StartWith(message.TrimEnd(), "the message is kept as it was worded");
     }
 
+    [Fact]
+    public void A_failed_starts_reply_keeps_the_error_and_says_nothing_is_running_in_a_paragraph_of_its_own()
+    {
+        // The reply run_project, the step tools and run_to_cursor give, as sent.
+        MessageText.StartFailedReply("HexIDE does not implement this yet:\n\nfieldLength as type not implemented")
+            .Should().Be("HexIDE does not implement this yet:\n\nfieldLength as type not implemented\n\n"
+                         + "Nothing is running. The IDE showed this in a runtime-error dialog, which is still open, and "
+                         + "get_last_runtime_error returns it.");
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("  \n")]

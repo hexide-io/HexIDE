@@ -17,4 +17,9 @@ public static class MessageText
     /// </remarks>
     public static string ThenSay(string message, string sentence) =>
         message.TrimEnd() is { Length: > 0 } text ? $"{text}\n\n{sentence}" : sentence;
+
+    /// <summary>What a tool that starts a run answers when the start never became a run.</summary>
+    public static string StartFailedReply(string failure) => ThenSay(failure,
+        "Nothing is running. The IDE showed this in a runtime-error dialog, which is still open, and"
+        + " get_last_runtime_error returns it.");
 }

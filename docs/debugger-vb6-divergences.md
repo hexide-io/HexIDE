@@ -314,14 +314,16 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   the compile-error box (OK and Help), and the IDE stops at that line. That is how it is commonly described; it is
   **not yet measured** on the oracle.
 - **HexIDE:** the error is recorded, so `get_last_runtime_error` returns it, and shown in the run-time error
-  dialog (End and Debug). The event procedure that met it is abandoned and the run carries on, as after a
-  run-time error in an event procedure. A syntax error found before the run begins is a start that never became a
-  run, reported in the same dialog, and nothing runs.
+  dialog. End is enabled; Continue, Debug and Help are not. End ends the run. Closed any other way, the dialog
+  leaves the run going, with the event procedure that met the error abandoned, as after a run-time error in an
+  event procedure. A syntax error found before the run begins is a start that never became a run: it is reported in
+  the same dialog, with the module it is in named, and nothing runs.
 - **Why:** one route for every error a run meets. Sub Main's compile errors already went through that dialog
   (#754), and a separate compile-error box would answer the same error two ways. A tree-walker meets a compile error
   only when it reaches the statement, so stopping before the run began is not possible for it.
-- **Status:** **open**, decided in [#759](https://github.com/hexide-io/HexIDE/issues/759). Breaking at the line
-  instead is a refinement that needs the measurement first.
+- **Status:** **open**. The one-dialog route was decided in [#759](https://github.com/hexide-io/HexIDE/issues/759);
+  the measurement, and whether to break at the line instead, is
+  [#833](https://github.com/hexide-io/HexIDE/issues/833).
 
 ---
 

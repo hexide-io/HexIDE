@@ -537,26 +537,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// </remarks>
     public async Task RunStartupSubMain()
     {
-        var declared = new List<(ModuleInfo Module, ProcedureInfo Proc)>();
-        foreach (var m in Modules.All)
-        {
-            if (m.Kind != InterpreterModuleKind.Standard) continue;
-            if (m.PrePass.Procedures.TryGetValue("Main", out var proc))
-                declared.Add((m, proc));
-        }
-
-        // Ambiguity is checked before suitability: VB6 reports two Mains as ambiguous rather than looking
-        // past an unsuitable one to find a usable partner.
-        if (declared.Count > 1)
-            throw new VBCompileErrorException("Ambiguous name detected: Main");
-
-        var startup = declared.Count == 1 && !declared[0].Proc.IsFunction
-                      && declared[0].Proc.Parameters.Count == 0
-            ? declared[0]
-            : default;
-
-        if (startup.Proc is null)
-            throw new VBCompileErrorException("Must have startup form or Sub Main()");
+        var startup = FindStartupSubMain();
 
         try
         {
@@ -581,6 +562,36 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         {
             // A debugger reset (Stop) unwound the walk cleanly — swallowed exactly as Execute() does.
         }
+    }
+
+    /// <summary>
+    /// The project's <c>Sub Main</c>, or the compile error VB6 gives for its absence: "Ambiguous name detected:
+    /// Main" for two, and "Must have startup form or Sub Main()" for none or for one that is not a parameterless
+    /// Sub. Read from the tables the pre-pass already collected, so it can be asked before the run begins.
+    /// </summary>
+    public (ModuleInfo Module, ProcedureInfo Proc) FindStartupSubMain()
+    {
+        var declared = new List<(ModuleInfo Module, ProcedureInfo Proc)>();
+        foreach (var m in Modules.All)
+        {
+            if (m.Kind != InterpreterModuleKind.Standard) continue;
+            if (m.PrePass.Procedures.TryGetValue("Main", out var proc))
+                declared.Add((m, proc));
+        }
+
+        // Ambiguity is checked before suitability: VB6 reports two Mains as ambiguous rather than looking
+        // past an unsuitable one to find a usable partner.
+        if (declared.Count > 1)
+            throw new VBCompileErrorException("Ambiguous name detected: Main");
+
+        var startup = declared.Count == 1 && !declared[0].Proc.IsFunction
+                      && declared[0].Proc.Parameters.Count == 0
+            ? declared[0]
+            : default;
+
+        if (startup.Proc is null)
+            throw new VBCompileErrorException("Must have startup form or Sub Main()");
+        return startup;
     }
 
     /// <summary>True if this project has a usable <c>Sub Main</c> startup object — the same rules as

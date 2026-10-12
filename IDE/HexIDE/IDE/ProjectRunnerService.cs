@@ -153,9 +153,15 @@ public partial class ProjectRunnerService : IProjectRunnerService
     {
         eventBus.Publish(new ApplyAllUnsavedChangesEvent());
 
+        // An idle Run To Cursor's target belongs to this start alone. Taken here, so a start that fails leaves
+        // nothing armed: it used to stay set when a syntax error stopped the start, and the next plain run paused at
+        // that line as though at a breakpoint.
+        var runTo = _pendingRunTo;
+        _pendingRunTo = null;
+
         if (projectDefinition.StartsAtSubMain)
         {
-            RunSubMain(projectDefinition, stepInto);
+            RunSubMain(projectDefinition, stepInto, runTo);
             return;
         }
 
@@ -167,16 +173,13 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
                 // A syntax error is a start that never became a run, so it is reported as one: recorded, shown in
                 // the run-time error dialog, and answered by run_project as a failure. It was a message box that
-                // nothing recorded, so run_project said the program had run and ended (#759). Checked before the
-                // first await, so StartFailed is raised before the start call returns, as its contract says.
-                var syntaxChecker = new SyntaxChecker();
-                try
+                // nothing recorded, so run_project said the program had run and ended (#759). Every module the run
+                // loads is checked, and the error names the one it is in. Checked before the first await, so
+                // StartFailed is raised before the start call returns, as its contract says.
+                var (standard, classes) = VBLoader.InterpreterModules(projectDefinition);
+                if (SyntaxErrorIn([(form.Name, form.Code), .. standard, .. classes]) is { } syntaxError)
                 {
-                    syntaxChecker.Run(form.Code);
-                }
-                catch (VBCompileErrorException error)
-                {
-                    StartFailed?.Invoke(error.Message);
+                    StartFailed?.Invoke(syntaxError);
                     return;
                 }
 
@@ -190,11 +193,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 debugController.Reset();
                 ApplyBreakpoints(projectDefinition);
                 ApplyWatchBreaks();   // push Break-When-True/Changed watches so the run can break on them from line 1
-                if (_pendingRunTo is { } rt)   // an idle Run-To-Cursor: arm the target now that Reset has cleared it
-                {
+                if (runTo is { } rt)   // an idle Run-To-Cursor: arm the target now that Reset has cleared it
                     debugController.RunToCursor(rt.Document.Name, rt.Line);
-                    _pendingRunTo = null;
-                }
                 // F8-from-idle: arm step BEFORE the first statement runs, so the run breaks at line 1 (VB6
                 // start-and-step). Arming while Running (fresh Reset) simply sets the flag; the first gate breaks.
                 if (stepInto)
@@ -287,9 +287,32 @@ public partial class ProjectRunnerService : IProjectRunnerService
         }
         else
         {
-            windowManager.MessageBox(localization.GetString("Str.ProjectRunner.MustHaveStartupForm"), icon: MessageBoxIcon.Error);
+            // A start that never became a run, reported as one. It was a message box nothing recorded (#759).
+            StartFailed?.Invoke(localization.GetString("Str.ProjectRunner.MustHaveStartupForm"));
         }
     }
+
+    /// <summary>
+    /// The first syntax error in <paramref name="modules"/>, naming the module, or null when they all parse.
+    /// </summary>
+    private static string? SyntaxErrorIn(IEnumerable<(string Name, string Code)> modules)
+    {
+        foreach (var (name, code) in modules)
+        {
+            try
+            {
+                new SyntaxChecker().Run(code, name);
+            }
+            catch (VBCompileErrorException error)
+            {
+                return error.Message;
+            }
+        }
+        return null;
+    }
+
+    /// <summary>Whether an idle Run To Cursor is still waiting for a start. For tests.</summary>
+    internal bool HasPendingRunToCursor => _pendingRunTo is not null;
 
     /// <summary>
     /// Run a project whose startup object is <c>Sub Main</c> — a code-only Standard EXE, which has no
@@ -310,7 +333,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
     /// library the MDI runtime uses.
     /// </para>
     /// </remarks>
-    private void RunSubMain(ProjectDefinition projectDefinition, bool stepInto)
+    private void RunSubMain(ProjectDefinition projectDefinition, bool stepInto,
+        (DocumentIdentity Document, int Line)? runTo)
     {
         // Shared with the form paths, so the same project sees the same modules whichever startup object it
         // has. Sub Main previously answered this question here and the form paths not at all (#220).
@@ -318,26 +342,19 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
         if (modules.Count == 0)
         {
-            windowManager.MessageBox(localization.GetString("Str.ProjectRunner.MustHaveStartupForm"),
-                icon: MessageBoxIcon.Error);
+            // A start that never became a run (#759), as on the startup-form path.
+            StartFailed?.Invoke(localization.GetString("Str.ProjectRunner.MustHaveStartupForm"));
             return;
         }
 
         async Task MainTask()
         {
-            // As on the startup-form path: a syntax error is a start that never became a run (#759).
-            var syntaxChecker = new SyntaxChecker();
-            foreach (var (_, code) in modules)
+            // As on the startup-form path: a syntax error in any module the run loads is a start that never became
+            // a run, named by its module (#759).
+            if (SyntaxErrorIn([.. modules, .. classModules]) is { } syntaxError)
             {
-                try
-                {
-                    syntaxChecker.Run(code);
-                }
-                catch (VBCompileErrorException error)
-                {
-                    StartFailed?.Invoke(error.Message);
-                    return;
-                }
+                StartFailed?.Invoke(syntaxError);
+                return;
             }
 
             // Claimed before anything can execute — see the same line on the startup-form path.
@@ -346,11 +363,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
             debugController.Reset();
             ApplyBreakpoints(projectDefinition);
             ApplyWatchBreaks();
-            if (_pendingRunTo is { } rt)
-            {
+            if (runTo is { } rt)
                 debugController.RunToCursor(rt.Document.Name, rt.Line);
-                _pendingRunTo = null;
-            }
             if (stepInto)
                 debugController.StepInto();
 
@@ -378,6 +392,10 @@ public partial class ProjectRunnerService : IProjectRunnerService
                         DebugController = debugController,
                     };
                     interpreter.SetAppInfo(AppInfo.FromProject(projectDefinition));
+                    // A missing or ambiguous Main is found here, before anything runs, so it too is a start that
+                    // never became a run. It used to be raised as the run began, and arrived as a run that ended,
+                    // which run_project answered as a success (#759).
+                    interpreter.FindStartupSubMain();
                 }
                 catch (Exception e)
                 {

@@ -461,6 +461,24 @@ public class MainViewViewModelTests
         _windowManager.DidNotReceiveWithAnyArgs().MessageBox(default!, default, default, default);
     }
 
+    [AvaloniaTheory]
+    [InlineData(true, true)]     // End pressed while the run goes on: it ends
+    [InlineData(false, false)]   // closed any other way: the run carries on
+    public void End_on_a_mid_run_compile_errors_dialog_ends_the_run(bool answer, bool ends)
+    {
+        _windowManager.ShowDialog(Arg.Any<IDialog>()).Returns(answer);
+        _runnerService.CanEndProject.Returns(true);
+
+        var form = new HexIDE.Runtime.VBWindowContext(Substitute.For<HexIDE.Runtime.Interpreter.IBasicStandardLibrary>());
+        form.SetCode("Private Sub Command1_Click()\n    NoSuchSub\nEnd Sub\n", "Form1");
+        form.ExecuteSub("Command1_Click");
+
+        if (ends)
+            _runnerService.Received(1).EndProject();
+        else
+            _runnerService.DidNotReceive().EndProject();
+    }
+
     // --- The runtime-error dialog (#600) ---
 
     [AvaloniaTheory]
