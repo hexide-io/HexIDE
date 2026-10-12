@@ -29,7 +29,8 @@ there isn't one yet. Anything may change between 0.x releases.
   - With runs its body with no object;
   - For and For Each run the body once, and then carry on as the IDE does.
 - **A condition is read as VB6 reads it.** `If 5 Then` raised "IF doesn't contain a bool expression", and a one-line
-  `If 0.5 Then` or `Do While 0.5` raised a type mismatch. A number now holds when it is not 0, a string when it reads
+  `If 0.5 Then` or `Do While 0.5` raised a type mismatch. Under On Error Resume Next the block form was silently
+  wrong: `If Len(s) Then` skipped its body with no error. A number now holds when it is not 0, a string when it reads
   as True or as such a number, and Null and Empty do not.
 - **For Each over something it cannot walk raises VB6's error.** An unallocated array ran no passes and said nothing;
   it now raises 92. Nothing raises 424 and any other value 13. Over an object, which HexIDE cannot walk yet, it now
