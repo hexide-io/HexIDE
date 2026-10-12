@@ -46,6 +46,37 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// StatementExecutor's pause-gate. Null ⇒ zero debug overhead (the gate is skipped entirely).</summary>
     public Debugging.IDebugController? DebugController { get; set; }
 
+    /// <summary>
+    /// Set by <c>End</c>, and never cleared: the program is over. Every walk of this interpreter stops at its next
+    /// statement, a procedure started later (a Timer tick or a click already queued) runs none of its own, and no
+    /// <c>Class_Terminate</c> runs (#775).
+    /// </summary>
+    /// <remarks>
+    /// Checked here as well as through the debugger's abort, because a host with no debugger (a test, the Standalone
+    /// runner) has nothing else to stop the walks. Measured on vb6.exe: after <c>End</c> nothing else runs, no form
+    /// raises QueryUnload, Unload or Terminate, and no Class_Terminate runs, whether it was reached from an event
+    /// procedure, from Form_Load or from Sub Main.
+    /// </remarks>
+    public bool Ending { get; private set; }
+
+    /// <summary>
+    /// Raised when a program reaches <c>End</c>, so whoever owns the run ends it: closes its forms, and stops the walks
+    /// of any other interpreter in the run. Static, as <see cref="VBWindowContext.Faulted"/> is, because a run's
+    /// interpreters are built in more than one place; an owner listens only while its run is live.
+    /// </summary>
+    public static event Action<BasicInterpreter>? EndReached;
+
+    /// <summary>
+    /// <c>End</c>: mark the program over, tell the host, and unwind this walk. The unwind is
+    /// <see cref="Debugging.StopExecutionSignal"/>, which every entry point already swallows as a clean stop.
+    /// </summary>
+    internal Debugging.StopExecutionSignal End()
+    {
+        Ending = true;
+        EndReached?.Invoke(this);
+        return new Debugging.StopExecutionSignal();
+    }
+
     /// <summary>While set (AND the debugger is Paused), <see cref="RunProcedure"/> and <see cref="NewObject"/> refuse
     /// to run USER code (any Sub/Function/Property-Get body, or <c>New</c> construction) — used by Immediate-window
     /// evaluation, where running user statements would hit the paused gate on this (UI) thread (deadlock) and mutate
@@ -211,8 +242,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     {
         // A debugger reset (Stop) unwinds the walk via StopExecutionSignal, which runs this refcount teardown in
         // RunProcedure's finally — but VB6 `End` fires NO Class_Terminate (oracle-verified), so suppress it while
-        // the debugger is aborting.
-        if (o.Terminated || DebugController?.IsAborting == true)
+        // the debugger is aborting, and once the program itself has reached End.
+        if (o.Terminated || Ending || DebugController?.IsAborting == true)
             return;
         o.Terminated = true;
         if (o.ClassDef.PrePass.Procedures.TryGetValue("Class_Terminate", out var term))
@@ -718,6 +749,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             if (!completed && proc.IsFunction && ExecutionContext.TryGetVariable(callee, proc.Name, out var orphan))
                 await ReleaseRef(orphan);
         }
+        // A procedure whose last statement raised an event that reached End, or faulted, has no statement left for
+        // a gate to stop: the event's boundary took the unwind as a clean stop, so the statement simply returned.
+        // Without this the caller went on with the result: `Debug.Print "got " & Fn()` printed after End (#775),
+        // and after a fault that had ended the run (#762).
+        if (Ending || DebugController?.IsAborting == true)
+            throw new Debugging.StopExecutionSignal();
         // Transfer the return object's hold to the CALLER's current statement frame (flushed at the caller's
         // statement end): a discarded result terminates then, an assigned one is out-lived by the store's AddRef.
         AdoptReturn(ret, callerFrames);
