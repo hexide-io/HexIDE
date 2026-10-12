@@ -10,6 +10,15 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A running program writes and reads dates and numbers in the user's regional settings**, as VB6 does. The IDE
+  ran every program in the invariant culture, so `CStr(#1/2/2003#)` showed `01/02/2003` on a UK machine, where VB6
+  shows `02/01/2003`, and `CDate("1/2/2003")` was 2 January rather than 1 February. `CStr`, `Format`, the month and
+  day names, `CDate`, `CDbl`, `IsDate`, `IsNumeric` and a two-digit year in `DateSerial` now follow the user's
+  separators, date order and names, so text a program wrote reads back as the same value. Two things stay VB6's own
+  whatever the locale: a date is Gregorian, so a Thai, Persian or Saudi machine still counts 2003 as 2003, and a minus
+  sign is a plain `-`. A date the locale's order cannot make is read the other way round, as in VB6: `CDate("1/13/2003")`
+  is 13 January on a UK machine. The IDE's own language changes none of this. The numbers written in the source
+  itself are a separate matter, still read in the machine's culture in a made EXE (#781).
 - **`s = Text1` no longer stores a .NET type name.** In VB6 a control where a value is wanted stands for
   its default property, so `s = Text1` reads its text. HexIDE does not implement that yet, and the assignment
   stored `HexIDE.Runtime.BuiltinControls.VBTextBox` in the String, or the control itself in a Variant, without a

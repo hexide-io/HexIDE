@@ -363,13 +363,18 @@ public class VbDisplayTests : BaseVBTestFixture
         texts.Should().Equal("-1,5", "-1,5", "-2,5", "-5", "-5");
     }
 
+    /// <summary>
+    /// Runs <paramref name="action"/> with both the program's locale and the thread's culture set, so a path that read
+    /// either one instead of the culture it was handed would show.
+    /// </summary>
     private static async Task InCulture(Func<Task> action, CultureInfo? culture = null)
     {
         var saved = CultureInfo.CurrentCulture;
         CultureInfo.CurrentCulture = culture ?? EnGb;
         try
         {
-            await action();
+            using (VbLocale.Use(culture ?? EnGb))
+                await action();
         }
         finally
         {
@@ -407,13 +412,20 @@ public class VbDisplayTests : BaseVBTestFixture
         AssertDebugLog([0.4375]);
     }
 
+    /// <summary>
+    /// Runs <paramref name="code"/> in the oracle's locale, en-GB, set as the program's locale only, with the thread
+    /// pinned to the invariant culture as the IDE pins it. The source's literals are read in the thread's culture
+    /// (#781), so without the pin a host whose culture writes a decimal comma would change the program itself. A site
+    /// that still read the thread's culture shows as a month-first date.
+    /// </summary>
     private async Task<string> Printed(string code)
     {
         var saved = CultureInfo.CurrentCulture;
-        CultureInfo.CurrentCulture = EnGb;
+        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
         try
         {
-            await Run(code);
+            using (VbLocale.Use(EnGb))
+                await Run(code);
         }
         finally
         {

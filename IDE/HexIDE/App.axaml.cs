@@ -25,6 +25,10 @@ public partial class App : Application
 
     public override void Initialize()
     {
+        // A running program formats and reads text in the user's regional settings, as VB6 does (#777). Taken on
+        // the line before the pin below, because from that line on the main thread's culture reads as invariant.
+        // The pin stays: it keeps the IDE's language out of what a program computes, and source literals rely on it.
+        VbLocale.Default = CultureInfo.CurrentCulture;
         CultureInfo.DefaultThreadCurrentCulture = CultureInfo.InvariantCulture;
         CultureInfo.DefaultThreadCurrentUICulture = CultureInfo.InvariantCulture;
         AvaloniaXamlLoader.Load(this);

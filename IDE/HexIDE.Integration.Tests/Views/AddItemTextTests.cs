@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Integration.Tests.Views;
 
@@ -33,11 +34,14 @@ public class AddItemTextTests
     public async Task A_list_holds_the_text_CStr_makes_of_the_item(string code, string expected)
     {
         var (_, canvas, ctx, env) = ContainerRuntimeHarness.Spawn(FormWithList);
+        // The program in the oracle's locale, and the thread pinned to invariant as the IDE pins it: the source's
+        // literals are read in the thread's culture (#781), so a host writing a decimal comma would change `0.1`.
         var saved = CultureInfo.CurrentCulture;
-        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-GB");   // the oracle's locale
+        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
         try
         {
-            await ContainerRuntimeHarness.Run(ctx, env, code + "\n");
+            using (VbLocale.Use(CultureInfo.GetCultureInfo("en-GB")))
+                await ContainerRuntimeHarness.Run(ctx, env, code + "\n");
         }
         finally
         {
