@@ -14,10 +14,14 @@ public interface IProjectService
     Task SaveProject(ProjectDefinition project, bool saveAs);
     Task SaveProjectToDirectory(ProjectDefinition project, string directory);
     Task SaveAllProjects(bool saveAs);
-    Task<FormDefinition> AddNewForm(ProjectDefinition project, string name);
-    Task<ModuleDefinition> AddNewModule(ProjectDefinition project, string name, ModuleKind kind);
-    Task<ModuleDefinition> AddNewUserControl(ProjectDefinition project, string name);
-    Task<ModuleDefinition> AddNewPropertyPage(ProjectDefinition project, string name);
+    /// <summary>Writes a new form's file and adds the form to <paramref name="project"/>.</summary>
+    /// <param name="interactive">As for <see cref="SaveForm"/>.</param>
+    /// <exception cref="HexIDE.IDE.SourceEncodingRefusal">The new file's code page, or the project file's, cannot
+    /// hold <paramref name="name"/>. Nothing was created and nothing was added.</exception>
+    Task<FormDefinition> AddNewForm(ProjectDefinition project, string name, bool interactive = true);
+    Task<ModuleDefinition> AddNewModule(ProjectDefinition project, string name, ModuleKind kind, bool interactive = true);
+    Task<ModuleDefinition> AddNewUserControl(ProjectDefinition project, string name, bool interactive = true);
+    Task<ModuleDefinition> AddNewPropertyPage(ProjectDefinition project, string name, bool interactive = true);
 
     /// <summary>
     /// Adds a <c>.frm</c> that already exists on disk.
@@ -48,8 +52,22 @@ public interface IProjectService
     /// document is a path and a name, and the editor reads it on demand.
     /// </summary>
     Task<RelatedDocumentDefinition> AddExistingRelatedDocument(ProjectDefinition project, string absolutePath);
-    Task<bool> SaveForm(FormDefinition form, bool saveAs);
-    Task<bool> SaveModule(ModuleDefinition module, bool saveAs);
+    /// <summary>
+    /// Saves one form, asking where when it has no file yet or <paramref name="saveAs"/> is set. Returns false
+    /// when HexIDE cannot reproduce it, and nothing was written.
+    /// </summary>
+    /// <param name="interactive">
+    /// False for an automation caller. No dialog is shown: a refusal comes back as false, or as the
+    /// <see cref="HexIDE.IDE.SourceEncodingRefusal"/> when the code page cannot hold the text, which names the
+    /// character. A dialog would hold the caller's reply until a person dismissed it.
+    /// </param>
+    /// <exception cref="HexIDE.IDE.SourceEncodingRefusal">The form's code page cannot hold its text. Nothing
+    /// was written; a person has been shown the warning unless <paramref name="interactive"/> is false.</exception>
+    Task<bool> SaveForm(FormDefinition form, bool saveAs, bool interactive = true);
+
+    /// <summary>Saves one module, as <see cref="SaveForm"/> saves a form.</summary>
+    /// <param name="interactive">As for <see cref="SaveForm"/>.</param>
+    Task<bool> SaveModule(ModuleDefinition module, bool saveAs, bool interactive = true);
 
     /// <summary>
     /// Re-reads <paramref name="form"/>'s <c>.frm</c> (and companion <c>.frx</c>) from disk and updates the

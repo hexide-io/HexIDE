@@ -462,4 +462,43 @@ public class UnfaithfulSaveGateTests : IDisposable
         File.Exists(Path.Join(target, "Test.vbp")).Should()
             .BeFalse("no project file may name a control that was refused");
     }
+    [Fact]
+    public async Task A_refused_directory_save_writes_nothing_at_all()
+    {
+        // Refused before the first file rather than after the forms: a directory holding some of a project
+        // and no project file is not one anybody asked for.
+        File.WriteAllText(Path.Join(dir, "Form2.frm"), FlatForm.Replace("Form1", "Form2"));
+        File.WriteAllText(Path.Join(dir, "UserControl1.ctl"), NestedContainerUserControl);
+        var vbp = Path.Join(dir, "Test.vbp");
+        File.WriteAllText(vbp, "Type=Exe\r\nForm=Form2.frm\r\nUserControl=UserControl1.ctl\r\nName=\"Test\"\r\n");
+
+        var svc = MakeService();
+        await svc.OpenProject(vbp);
+        var target = Path.Join(dir, "out");
+
+        var act = async () => await svc.SaveProjectToDirectory(loaded.Single(), target);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        Directory.Exists(target).Should().BeFalse("nothing is written, so no directory is made for it");
+    }
+
+    [Fact]
+    public async Task An_automation_save_HexIDE_refuses_shows_no_dialog_and_is_not_reported_by_the_next_save()
+    {
+        // A dialog would hold an automation caller's reply until a person closed it. The refusal is in the
+        // result instead, and it is not left banked for the next save to report under another name.
+        File.WriteAllText(Path.Join(dir, "Form1.frm"), NestedContainerForm);
+        File.WriteAllText(Path.Join(dir, "Module1.bas"), "Attribute VB_Name = \"Module1\"\r\nPublic Sub One()\r\nEnd Sub\r\n");
+        var vbp = Path.Join(dir, "Test.vbp");
+        File.WriteAllText(vbp, "Type=Exe\r\nForm=Form1.frm\r\nModule=Module1; Module1.bas\r\nName=\"Test\"\r\n");
+        var svc = MakeService();
+        await svc.OpenProject(vbp);
+        var project = loaded.Single();
+
+        (await svc.SaveForm(project.Forms.Single(), false, interactive: false)).Should().BeFalse();
+        warningsShown.Should().Be(0);
+
+        (await svc.SaveModule(project.Modules.Single(), false)).Should().BeTrue();
+        warningsShown.Should().Be(0, "Form1 was not part of this save");
+    }
 }

@@ -19,10 +19,10 @@
 
 ## 3. Every save refuses an unencodable edit the same way
 
-- [ ] 3.1 Make Project refuses through the same warning as Save, for forms and the project file.
-- [ ] 3.2 Adding a new form or module whose name the code page cannot hold is refused the same way.
-- [ ] 3.3 A save of several files checks that every one encodes before writing any.
-- [ ] 3.4 An automation save returns the refusal in its reply, naming the document, the code page and the
+- [x] 3.1 Make Project refuses through the same warning as Save, for forms and the project file.
+- [x] 3.2 Adding a new form or module whose name the code page cannot hold is refused the same way.
+- [x] 3.3 A save of several files checks that every one encodes before writing any.
+- [x] 3.4 An automation save returns the refusal in its reply, naming the document, the code page and the
   first character it cannot hold, and shows no dialog.
 
 ## 4. Tidying

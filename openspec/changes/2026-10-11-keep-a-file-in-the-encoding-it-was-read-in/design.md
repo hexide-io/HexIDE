@@ -57,6 +57,56 @@ of them would push a real error past its cap. A member is listed only once it ha
 notice says the file will save back unchanged, which is untrue of one that then failed to load. Add File, a
 group file and a reload each show the single-file form of the same notice.
 
+## How a save refuses
+
+Every save goes through one path, in three steps:
+
+1. **Choose.** Editor buffers are flushed into the model once. Then each file's destination is settled:
+   - a document with no file yet, or a Save As, asks the developer;
+   - a document HexIDE cannot reproduce is left out and reported, as before.
+2. **Check.** Every file is rendered as it will be written and encoded in its own code page.
+3. **Write.** Only once every file has passed is the first one written.
+
+So one character a code page cannot hold leaves every file of the operation as it was. This holds for:
+
+- Save and Save As;
+- Save Project and Save All;
+- Make Project Group;
+- the save offered when a project closes;
+- writing a new project to its folder.
+
+A file is checked as it will be at its destination. A form names its companion by file name, and a project
+or group file names its members by where they are going. So Save Project As to another folder is checked
+against the paths the new project file will hold, not the old ones.
+
+Make checks the files it will package, each in its own code page, before it asks where to put the program. No
+source file's text depends on that answer, and the question is wasted if the answer will not be used. The
+same reasoning keeps the faithful-save refusal above the Save As picker.
+
+Adding a new form or module checks two things before a folder is chosen or anything is created: the new
+file itself, and the line the project file will hold for it. A refusal therefore leaves nothing behind.
+
+A refusal names the document, its code page and the first character it cannot hold. A person sees the
+existing source-encoding warning, which names the document and the code page. An automation tool saves with
+`interactive: false`: no dialog is shown, and the refusal comes back in the tool's reply. Before this, the
+reply waited on a dialog nobody could answer (#751). A refusal for a file HexIDE cannot reproduce is quiet
+in the same way.
+
+Behaviour that changes with it:
+
+- **Pickers come first.** Every picker an operation needs is answered before anything is written.
+  Dismissing one part-way now leaves every file as it was; before, the files saved ahead of it stayed
+  written.
+- **Save Project As** asks where the project file goes before writing any member.
+- **Writing a new project to its folder** now refuses a file HexIDE cannot reproduce before the first file,
+  not after the forms.
+- **The sidecar** is saved after the last VB6 file of the operation, not after each project file.
+- **Make** refuses an unencodable document before asking for the program's place, and before checking for
+  the standalone runtime.
+
+Only what can be decided in advance is checked in advance. An I/O failure part-way through still leaves the
+files written before it.
+
 ## Limits this does not change
 
 - **Line endings.** A module saved from LF line endings is written with CRLF, which is VB6's format. That
@@ -69,6 +119,8 @@ group file and a reload each show the single-file form of the same notice.
   read that way. Its bytes still come back unchanged, since it is written back as UTF-8.
 - **Save Project As to another folder** writes a kept member line with its old relative path, as it already
   did for a missing form's line (#737).
+- **A carried file's editor** writes outside this path, as UTF-8, and rewrites any byte that is not valid
+  UTF-8 even when nothing was edited (#745).
 
 ## Testing on a single-byte host
 
