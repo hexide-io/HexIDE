@@ -38,6 +38,15 @@ public class MainViewViewModelTests
         _projectManager.LoadedProjects.Returns(new List<ProjectDefinition>());
         _settingsService.IsStandardToolbarVisible.Returns(true);
 
+        _sut = Build(_runnerService);
+    }
+
+    /// <summary>
+    /// The view model over the given runner. A substitute serves most tests; a real runner lets a test start
+    /// where F5 does and end at what the user is shown.
+    /// </summary>
+    private MainViewViewModel Build(IProjectRunnerService runner)
+    {
         var mockDocDock = Substitute.For<IDocumentDockService>();
         var loc = Substitute.For<ILocalizationService>();
         loc.ActiveLanguage.Returns("en");
@@ -78,7 +87,7 @@ public class MainViewViewModelTests
             protocolInspector,
             windowStateService);
 
-        _sut = new MainViewViewModel(
+        return new MainViewViewModel(
             _windowManager,
             toolBox,
             properties,
@@ -99,7 +108,7 @@ public class MainViewViewModelTests
             editorService,
             mockDocDock,
             dockFactory,
-            _runnerService,
+            runner,
             _eventBus,
             _vb6Toolchain,
             _recentProjects,
@@ -467,5 +476,49 @@ public class MainViewViewModelTests
         vm.Help();
 
         answers.Should().Equal(false, true, false, false);
+    }
+
+    // --- A run that something ended (#754) ---
+
+    [AvaloniaFact]
+    public void A_run_that_something_ended_is_recorded_and_shown_in_the_runtime_error_dialog()
+    {
+        const string text = "HexIDE does not implement this yet:\n\nGoSub not implemented";
+
+        _runnerService.RunFailed += Raise.Event<System.Action<string>>(text);
+
+        _sut.RuntimeErrors.Last.Should().NotBeNull();
+        _sut.RuntimeErrors.Last!.Value.Message.Should().Be(text);
+        _windowManager.Received(1).ShowDialog(
+            Arg.Is<HexIDE.Forms.ViewModels.RuntimeErrorViewModel>(vm => vm.ErrorText == text));
+        _runnerService.DidNotReceive().EndProject();
+    }
+
+    [AvaloniaFact]
+    public void F5_on_a_Sub_Main_that_reaches_something_unimplemented_shows_the_person_why()
+    {
+        // From the start call to what the person is shown, with a real runner between them. Before #754 this
+        // run ended in the log: no dialog, and nothing for get_last_runtime_error to return.
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var module = new ModuleDefinition(project, "Module1", ModuleKind.StandardModule);
+        module.UpdateCode("Sub Main()\r\n    GoSub Later\r\n    Exit Sub\r\nLater:\r\n    Return\r\nEnd Sub\r\n");
+        project.AddModule(module);
+        project.StartsAtSubMain = true;
+        var localization = Substitute.For<ILocalizationService>();
+        localization.GetString("Str.ProjectRunner.NotImplementedYet").Returns("Not implemented yet: {0}");
+        var runner = new ProjectRunnerService(_eventBus, _windowManager, _projectManager, localization,
+            new HexIDE.Runtime.Debugging.DebugController(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
+            new HexIDE.Debugging.WatchService(), new HexIDE.Debugging.RunScope());
+        var sut = Build(runner);
+
+        runner.RunProject(project);
+        Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+        var recorded = sut.RuntimeErrors.Last;
+        recorded.Should().NotBeNull("get_last_runtime_error reads this");
+        recorded!.Value.Message.Should().StartWith("Not implemented yet: ").And.Contain("GoSub");
+        _windowManager.Received(1).ShowDialog(
+            Arg.Is<HexIDE.Forms.ViewModels.RuntimeErrorViewModel>(vm => vm.ErrorText == recorded.Value.Message));
+        runner.IsRunning.Should().BeFalse();
     }
 }

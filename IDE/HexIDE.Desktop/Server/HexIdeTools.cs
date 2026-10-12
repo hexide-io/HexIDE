@@ -680,7 +680,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "run_project")]
-    [Description("Starts running the current VB6 project in the IDE. Returns an error if no project is loaded, if it is already running, or if its startup form cannot be built — in that last case nothing is running, the IDE has opened a runtime-error dialog, and get_last_runtime_error returns the same text. step_into, step_over, step_out and run_to_cursor report a failed start from idle the same way. The reply's 'note' says, after up to 2 s, whether it paused (at a breakpoint or Stop, with where), is running, or ended, and names any run-time error it raised.")]
+    [Description("Starts running the current VB6 project in the IDE. Returns an error if no project is loaded, if it is already running, or if its startup form cannot be built or, for a Sub Main project, its code cannot be loaded — in that last case nothing is running, the IDE has opened a runtime-error dialog, and get_last_runtime_error returns the same text. step_into, step_over, step_out and run_to_cursor report a failed start from idle the same way. The reply's 'note' says, after up to 2 s, whether it paused (at a breakpoint or Stop, with where), is running, or ended, and names any run-time error it raised, including reaching a construct HexIDE does not implement, which ends the run.")]
     public async Task<MutateResult> RunProjectAsync(CancellationToken ct)
     {
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
@@ -712,7 +712,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
     /// <remarks>
     /// A startup form is built synchronously inside the start call, so a form that cannot be built has been
     /// reported by the time the call returns. Every tool that can start a run from idle used to answer success
-    /// regardless, while nothing ran and the error reached only the log (#590).
+    /// regardless, while nothing ran and the error reached only the log (#590). A Sub Main project's code is
+    /// loaded synchronously in the same way, and a load failure is reported the same way (#754).
     /// </remarks>
     private MutateResult? StartFailure(Action start)
     {

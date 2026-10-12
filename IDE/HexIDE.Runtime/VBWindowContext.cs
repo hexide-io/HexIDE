@@ -22,6 +22,18 @@ public class VBWindowContext : IModuleExecutionRoot
 
     public static event Action<VBWindowContext, VBCompileErrorException>? CompileError;
 
+    /// <summary>
+    /// An event procedure stopped on an exception that is not a VB6 error: a construct HexIDE does not
+    /// implement (<see cref="NotImplementedException"/>), or a fault in the engine itself. Neither is
+    /// trappable, so <c>On Error</c> never sees it and the procedure stops at that statement.
+    /// </summary>
+    /// <remarks>
+    /// This used to reach only the log. The handler stopped part way and the program carried on, so
+    /// nothing told the user that a statement had not run (#754). Whoever owns the run decides what a fault
+    /// means for it. With nobody listening, it is logged and nothing else.
+    /// </remarks>
+    public static event Action<VBWindowContext, Exception>? Faulted;
+
     public VBWindowContext(IBasicStandardLibrary standardLibrary)
     {
         this.standardLibrary = standardLibrary;
@@ -96,6 +108,10 @@ public class VBWindowContext : IModuleExecutionRoot
             catch (Exception e)
             {
                 Log.Error(e, "Unhandled exception during form execution");
+                // A cancellation is how a run being torn down reaches a statement still waiting on it, such
+                // as a MsgBox. That is the end of the run, not a fault in it.
+                if (e is not OperationCanceledException)
+                    Faulted?.Invoke(this, e);
             }
             finally
             {

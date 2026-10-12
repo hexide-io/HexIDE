@@ -215,9 +215,13 @@ Now **Deferred**, with the real work named. None needs a bound AST; each is unim
   boundary — a silent wrong answer waiting for arrays-of-UDT to land.
 - **`t.arr(3) = 5` discards the index**, so it would overwrite the whole array slot; the `MemberHasArgs`
   guard is applied in the Object branch and not the `VbUdt` branch.
-- **Several boundary throws carry no message at all**, and nothing in `IDE/` catches
-  `NotImplementedException` — against `interpreter-advanced:70-72`, which requires a boundary construct to
-  *"fail clearly"*.
+- **Several boundary throws carry no message at all** — against `interpreter-advanced:70-72`, which requires a
+  boundary construct to *"fail clearly"*. The dialog then shows .NET's default "The method or operation is not
+  implemented." in place of the construct's name.
+  - ~~**Nothing in `IDE/` catches `NotImplementedException`**~~ — **FIXED (#754).** A form's event procedures
+    and `Sub Main` used to log it and nothing else, so the program stopped part way without a word. The run
+    now ends and the runtime-error dialog says what HexIDE does not implement. It stays untrappable on purpose:
+    an `On Error` handler that saw it could only carry on past a statement that never ran.
 
 ## Partial
 
