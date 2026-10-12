@@ -747,8 +747,8 @@ so nothing waits in a buffer that `End` could discard. Real `vb6.exe` 6.00.8176 
 | Probe | Log |
 |---|---|
 | `Form1_Load` creates objects at module and form level and shows `Form2`; a 300 ms Timer creates a local object, logs `tick`, then `End`, then logs `after End` | `Form1_Load`, `Form2_Load`, `tick` |
-| `End` inside `Form1_Load`, with a module-level and a local object live | `Form1_Load` |
-| `Sub Main` creates a module-level and a local object, shows `Form1`, then `End` | `Main`, `Form1_Load` |
+| `End` inside `Form1_Load`, with a module-level and a local object live, then logs `after End` | `Form1_Load` |
+| `Sub Main` creates a module-level and a local object, shows `Form1`, then `End`, then logs `after End` | `Main`, `Form1_Load` |
 
 In every case the exe exited with code 0, and **nothing else was logged**:
 - no line after `End`;
