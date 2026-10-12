@@ -5519,7 +5519,16 @@ or Null. So `If Len(s) Then`, `If InStr(s, "x") Then` and `If flags And 4 Then` 
 **Probe.** A Sub Main project with no `On Error Resume Next`: a function `P(form, v)` traps with `On Error GoTo` and
 tests a Variant `v` in one of eight forms. The loops count their passes up to a limit of their own: 2 for a
 pre-tested loop, 3 for a post-tested one, so a loop that holds shows its limit. Built as native code and also run in
-the IDE (`/runexit`); **every line was identical in the two modes**.
+the IDE; **every line was identical in the two modes**.
+
+**How the IDE runs were made.** `VB6.EXE /runexit probe.vbp` runs a project in the IDE, as F5 does, and closes VB when
+the program ends. It was started in the Win10 guest's session 0 over PowerShell Direct, with the project's files
+copied into a fresh folder first. The program writes its log with `Print #` to a file beside the project, because
+`Debug.Print` output goes to the Immediate window and is gone when VB closes. VB exits with 0xC000041D after the
+program finishes, which is normal. A compile error or an unhandled run-time error leaves a modal dialog nobody can
+answer in session 0, so a run still going after a timeout is killed and its log is missing or incomplete; every use is
+made under `On Error GoTo` for that reason. A `probe.exe` left in the folder means the run was a `/make` build, not an
+IDE run. #842 tracks making this, and the native `/make` harness, part of the tree.
 
 | `v` | one-line If | block If | ElseIf | While | Do While | Do Until | Loop While | Loop Until |
 |---|---|---|---|---|---|---|---|---|
@@ -5547,6 +5556,18 @@ the IDE (`/runexit`); **every line was identical in the two modes**.
 94 for Null (measured alongside, both modes: `CBool(Null)` raises 94, `CBool(Empty)` is False with no error). The Null row is the one worth a second look: Null is not a third state that makes every
 condition fail. It is plain False, so `Do Until Null` runs and `Loop Until Null` does not end the loop.
 
+**An object in a condition,** measured in a second probe, native and in the IDE, with a one-line `If` and `Do While`:
+
+| `v` | VB6 |
+|---|---|
+| a Variant set to `Nothing`; an `Object` variable never set | 91 |
+| a Variant holding a class with no default member | 438 |
+
+So a condition refuses an object as every conversion does. `CBool` alone in HexIDE did not ask: each of these, and a
+class with a default member, a control and `Err`, fell through to a trappable 13.
+
 **HexIDE, after this.** One reading, `ConditionHolds`, used by the block `If`, `ElseIf`, the one-line `If`, `While`,
-and both `Do` forms. `If Err Then` follows Err used as a value, which #840 makes its Number. `CVErr` does not exist in
-HexIDE yet.
+and both `Do` forms. `CBool` now refuses what every conversion refuses: Nothing is 91, a class with no default member
+438, and a class with a default member, a control and `Err` are refused, untrappably, naming #174, #790 or #840. An
+error `CBool` raises in a condition names the condition's statement. `If Err Then` follows Err used as a value, which
+#840 makes its Number. `CVErr` does not exist in HexIDE yet.

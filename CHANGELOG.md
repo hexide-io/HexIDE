@@ -22,10 +22,14 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
-- **A condition is read as VB6 reads it** (#847). `If Len(s) Then`, `If InStr(s, "x") Then`, `If flags And 4 Then`
-  and `Do While n` stopped the run unless the condition was a Boolean, and under On Error Resume Next a block `If`
-  skipped its body with nothing in Err. Every form now reads its condition as `CBool` does: a number holds when it
-  is not 0, a string when it reads as True or as such a number, and Null and Empty do not.
+- **A condition is read as VB6 reads it** (#847). A block `If` or `ElseIf` refused anything but a Boolean with an
+  error numbered 0, so under On Error Resume Next it skipped its body with nothing in Err. A one-line `If` raised 13
+  for anything but a Boolean, and the loops raised 13 for a Long, a Double, Empty or most strings. So
+  `If Len(s) Then`, `If InStr(s, "x") Then`, `If flags And 4 Then` and `Do While n` with a Long `n` stopped the run.
+  Every form now reads its condition as `CBool` does: a number holds when it is not 0, a string when it reads as True
+  or as such a number, and Null and Empty do not. An object in a condition raises VB6's 438 and Nothing 91, where
+  each was a trappable 13; a class with a default member, a control and `Err` are refused until #174, #790 and
+  #840.
 
 - **A syntax error when a program starts, or a compile error while it runs, is reported like a run-time error.**
   Each was a message box nothing recorded, so a program that never started was reported to automation as having run
