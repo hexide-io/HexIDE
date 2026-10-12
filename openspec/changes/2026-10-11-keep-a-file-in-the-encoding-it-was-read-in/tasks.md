@@ -27,8 +27,8 @@
 
 ## 4. Tidying
 
-- [ ] 4.1 A designer module keeps one encoding, not one on the module and another on its designer part.
-- [ ] 4.2 Readers with no callers left are removed.
+- [x] 4.1 A designer module keeps one encoding, not one on the module and another on its designer part.
+- [x] 4.2 Readers with no callers left are removed.
 
 ## 5. Record
 

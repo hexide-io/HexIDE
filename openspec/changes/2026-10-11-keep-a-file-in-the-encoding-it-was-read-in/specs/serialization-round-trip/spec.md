@@ -19,6 +19,12 @@ SHALL NOT re-encode text that was not edited.
 - **WHEN** it is edited and saved
 - **THEN** the saved file still begins with the byte-order mark
 
+#### Scenario: A UserControl keeps its encoding whichever half is saved
+
+- **GIVEN** a `.ctl` that begins with a UTF-8 byte-order mark
+- **WHEN** it is saved from its designer, or with its project
+- **THEN** the saved file still begins with the byte-order mark
+
 ### Requirement: A file the host's code page cannot read SHALL still load and save back unchanged
 
 When a source file's bytes cannot be decoded in the host's ANSI code page, or would not encode back to the
