@@ -174,6 +174,32 @@ public class SourceEncodingPersistenceTests : IDisposable
         utf8.GetString(bytes.AsSpan(3)).Should().Contain("café");
     }
 
+    /// <summary>
+    /// The designer saves the half it shows rather than the module, so this is the save that reads the half's
+    /// encoding.
+    /// </summary>
+    [Theory]
+    [InlineData("ctl", "VB.UserControl", "UserControl")]
+    [InlineData("pag", "VB.PropertyPage", "PropertyPage")]
+    public async Task The_designers_Save_Form_keeps_a_designer_files_UTF8_BOM(string extension, string rootType, string itemKey)
+    {
+        var svc = MakeService();
+        var path = Path.Join(dir, "Designer1." + extension);
+        var utf8 = new System.Text.UTF8Encoding(true);
+        var text = $"VERSION 5.00\r\nBegin {rootType} Designer1\r\n   Caption = \"café\"\r\nEnd\r\nAttribute VB_Name = \"Designer1\"\r\n' café\r\n";
+        File.WriteAllBytes(path, utf8.GetPreamble().Concat(utf8.GetBytes(text)).ToArray());
+        var vbp = Path.Join(dir, "Test.vbp");
+        File.WriteAllText(vbp, $"Type=Exe\r\n{itemKey}=Designer1.{extension}\r\nName=\"Test\"\r\n");
+        await svc.OpenProject(vbp);
+        var half = loaded.Single().Modules.Single().FormPart!;
+
+        (await svc.SaveForm(half, false)).Should().BeTrue();
+
+        var bytes = File.ReadAllBytes(path);
+        bytes.Take(3).Should().Equal(utf8.GetPreamble());
+        utf8.GetString(bytes.AsSpan(3)).Should().Contain("café");
+    }
+
     [Fact]
     public async Task An_encoding_failure_leaves_both_halves_of_a_form_untouched()
     {
@@ -264,6 +290,43 @@ public class SourceEncodingPersistenceTests : IDisposable
         await svc.SaveModule(module, false);
 
         File.ReadAllBytes(path).Should().Equal(bytes);
+    }
+
+    [Fact]
+    public async Task A_reload_that_finds_a_UserControl_in_another_encoding_reaches_its_designer_half()
+    {
+        var (svc, project) = await OpenInWestern(WriteFormAndUserControlProject());
+        var control = project.Modules.Single();
+        var path = control.AbsolutePath!;
+        var utf8 = new System.Text.UTF8Encoding(true);
+        var bytes = utf8.GetPreamble().Concat(utf8.GetBytes(File.ReadAllText(path))).ToArray();
+        File.WriteAllBytes(path, bytes);
+
+        (await svc.ReloadModuleFromDisk(control)).Should().BeTrue();
+
+        control.FormPart!.TextEncoding.Should().Be(Vb6TextEncoding.Utf8WithBom);
+        (await svc.SaveForm(control.FormPart, false)).Should().BeTrue();
+        File.ReadAllBytes(path).Take(3).Should().Equal(utf8.GetPreamble());
+    }
+
+    /// <summary>
+    /// The reload records the module's encoding before it parses the designer half. When the new text no longer
+    /// parses, the half is kept as it was, and it used to keep its own copy of the old encoding too.
+    /// </summary>
+    [Fact]
+    public async Task A_reload_whose_new_text_does_not_parse_still_moves_the_designer_half_to_the_files_encoding()
+    {
+        var (svc, project) = await OpenInWestern(WriteFormAndUserControlProject());
+        var control = project.Modules.Single();
+        var half = control.FormPart!;
+        var utf8 = new System.Text.UTF8Encoding(true);
+        File.WriteAllBytes(control.AbsolutePath!,
+            utf8.GetPreamble().Concat(utf8.GetBytes("VERSION 5.00\r\nBegin VB.Label UserControl1\r\nEnd\r\n")).ToArray());
+
+        (await svc.ReloadModuleFromDisk(control)).Should().BeTrue();
+
+        control.FormPart.Should().BeSameAs(half, "a designer file that does not parse leaves the half as it was");
+        half.TextEncoding.Should().Be(Vb6TextEncoding.Utf8WithBom);
     }
 
     [Fact]

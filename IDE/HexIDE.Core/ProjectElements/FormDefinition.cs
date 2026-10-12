@@ -11,8 +11,27 @@ namespace HexIDE.Runtime.ProjectElements;
 
 public partial class FormDefinition : INotifyPropertyChanged
 {
+    private Vb6TextEncoding textEncoding = Vb6TextEncoding.Ansi;
+
     /// <summary>Source encoding retained through saves and path changes.</summary>
-    public Vb6TextEncoding TextEncoding { get; set; } = Vb6TextEncoding.Ansi;
+    /// <remarks>
+    /// A designer half has none of its own. A <c>.ctl</c> or <c>.pag</c> is one file in one encoding, and the
+    /// module holds it, as it holds the identity: read or set here, it is the module's, so the designer's Save
+    /// Form and the module's own save write the file the same way. Each half used to hold a copy, and a reload
+    /// whose new text did not parse as a designer file set only the module's, so the designer's Save Form then
+    /// wrote the file in the encoding it had before.
+    /// </remarks>
+    public Vb6TextEncoding TextEncoding
+    {
+        get => OwningModule?.TextEncoding ?? textEncoding;
+        set
+        {
+            if (OwningModule is { } module)
+                module.TextEncoding = value;
+            else
+                textEncoding = value;
+        }
+    }
 
     public ProjectDefinition Owner { get; }
 
@@ -59,7 +78,13 @@ public partial class FormDefinition : INotifyPropertyChanged
     /// </remarks>
     public ModuleDefinition? OwningModule { get; private set; }
 
-    internal void SetOwningModule(ModuleDefinition? module) => OwningModule = module;
+    internal void SetOwningModule(ModuleDefinition? module)
+    {
+        // A half let go keeps the file's encoding, not whatever it held before it was joined.
+        if (module is null && OwningModule is { } previous)
+            textEncoding = previous.TextEncoding;
+        OwningModule = module;
+    }
 
     public string? AbsolutePath
     {

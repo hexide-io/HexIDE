@@ -114,9 +114,6 @@ public static class Vb6TextFile
         }
     }
 
-    public static async Task<string> ReadAllTextAsync(string path) =>
-        Decode(await File.ReadAllBytesAsync(path));
-
     /// <summary>
     /// Reads a document's bytes, deciding their encoding by a chain that cannot fail. A read that throws
     /// drops a project member, and the next Save Project removes its line from the <c>.vbp</c>; so every
@@ -193,14 +190,5 @@ public static class Vb6TextFile
         }
     }
 
-    public static async Task<(string Text, byte[] Bytes)> ReadWithBytesAsync(string path)
-    {
-        var (text, bytes, _, _) = await ReadDocumentAsync(path);
-        return (text, bytes);
-    }
-
     public static string ReadAllText(string path) => Decode(File.ReadAllBytes(path));
-
-    public static void WriteAllText(string path, string content, Vb6TextEncoding? encoding = null) =>
-        File.WriteAllBytes(path, Encode(content, encoding));
 }

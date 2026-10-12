@@ -375,7 +375,6 @@ public class ProjectService : IProjectService
                     if (formPart != null)
                     {
                         formPart.AbsolutePath = moduleAbsolutePath;
-                        formPart.TextEncoding = moduleEncoding;
                         module.UpdateFormPart(formPart);
                         // Body only. FormSerializer regenerates the Begin..End header and then appends Code
                         // verbatim, so storing the whole file here emits the header twice on every save.
@@ -504,7 +503,6 @@ public class ProjectService : IProjectService
                         if (formPart != null)
                         {
                             formPart.AbsolutePath = moduleAbsolutePath;
-                            formPart.TextEncoding = moduleEncoding;
                             module.UpdateFormPart(formPart);
                             // StripHeader above is a no-op for .pag, so Code still holds the whole file —
                             // replace it with the body only or the next save writes the header twice.
@@ -1106,7 +1104,6 @@ public class ProjectService : IProjectService
                 {
                     // Update the existing FormPart in place so an open designer's reference stays valid
                     // (the designer's FormEditViewModel.FormDefinition points at this instance).
-                    existing.TextEncoding = sourceEncoding;
                     existing.UpdateCode(fresh.Code);
                     existing.UpdateComponents(fresh.Components);
                     existing.AdoptFidelityState(fresh);
@@ -1114,7 +1111,6 @@ public class ProjectService : IProjectService
                 else
                 {
                     fresh.AbsolutePath = path;
-                    fresh.TextEncoding = sourceEncoding;
                     module.UpdateFormPart(fresh);
                 }
             }
@@ -1448,7 +1444,7 @@ public class ProjectService : IProjectService
         WithEncodingError(() =>
         {
             var module = new ModuleDefinition(project, name, kind) { TextEncoding = HostAnsi };
-            var formPart = new FormDefinition(project, FormComponentClass.Instance, name) { TextEncoding = HostAnsi };
+            var formPart = new FormDefinition(project, FormComponentClass.Instance, name);
             formPart.UpdateRootTypeName(rootTypeName);
             module.UpdateFormPart(formPart);
             return Task.FromResult(AddNewModuleFile(project, module));
@@ -1560,7 +1556,6 @@ public class ProjectService : IProjectService
             if (formPart != null)
             {
                 formPart.AbsolutePath = absolutePath;
-                formPart.TextEncoding = sourceEncoding;
                 module.UpdateFormPart(formPart);
                 // SplitHeader is a no-op for .ctl/.pag, so Code still holds the whole file — replace it
                 // with the body only, or the next save emits the Begin..End header twice.
