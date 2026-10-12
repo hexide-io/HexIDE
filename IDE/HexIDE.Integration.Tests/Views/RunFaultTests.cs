@@ -220,6 +220,31 @@ public class RunFaultTests
     }
 
     [AvaloniaFact]
+    public void A_control_method_HexIDE_lacks_is_reported_as_not_implemented_rather_than_as_an_internal_error()
+    {
+        // VB6 controls have methods HexIDE does not, such as Move, Refresh, SetFocus and ShowWhatsThis. One
+        // reached through a control used to throw a plain Exception, which this change would otherwise have
+        // reported as VB6's Internal error (51). ShowWhatsThis stands for the set, as the least likely to be
+        // implemented soon.
+        var run = FormProject("Private Sub Command1_Click()\r\n    Command1.ShowWhatsThis\r\nEnd Sub\r\n");
+        try
+        {
+            var window = Start(run, []);
+
+            Click(window);
+
+            run.RunFailed.Should().ContainSingle()
+                .Which.Should().StartWith("Not implemented yet: ").And.Contain("ShowWhatsThis")
+                .And.NotContain("Internal error");
+            AssertNothingIsRunning(run);
+        }
+        finally
+        {
+            run.Runner.EndProject();
+        }
+    }
+
+    [AvaloniaFact]
     public void A_VB6_runtime_error_in_a_click_handler_still_leaves_the_run_going()
     {
         // The control, and #607's ground: a VB6 error is the runtime-error dialog's business, and the run
