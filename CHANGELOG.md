@@ -49,9 +49,9 @@ there isn't one yet. Anything may change between 0.x releases.
   value VB6 refuses raises VB6's own error, which an error handler can trap: Type mismatch for text that is not a
   number, Invalid use of Null, Overflow, and Invalid property value for one outside the property's range
   (`Check1.Value = 3`, `HScroll1.Value = 150`, `List1.ListIndex = 3` on a three-item list). `Tag` takes `Empty`
-  as `""`, and reads `""` before anything is put in it. Where HexIDE cannot give VB6's answer yet, the program
-  stops and says so rather than carry on with a wrong one: a date into a caption, until HexIDE knows the user's
-  date format; a palette colour; a scroll bar whose `Min` is above its `Max`; a control on the right of any
+  as `""`, and reads `""` before anything is put in it. A date into a caption is written in the user's date
+  format, as `CStr` writes it. Where HexIDE cannot give VB6's answer yet, the program stops and says so rather than
+  carry on with a wrong one: a palette colour; a scroll bar whose `Min` is above its `Max`; a control on the right of any
   property, `Tag` and `Enabled` included; and a Label's or TextBox's colour from the form, which read as black.
 - **`Command1.Enabled = Empty` disables the button**, as `CBool(Empty)` is False. It raised Type mismatch.
   `CDbl("NaN")`, `CDbl("Infinity")` and `CBool("NaN")` raise Type mismatch, and `CDbl("1E+400")` raises

@@ -140,15 +140,20 @@ public class PropertyAssignmentTests
         Attribute VB_Name = "Form1"
         """;
 
-    /// <summary>Runs code in the oracle's locale, en-GB, and returns what it printed.</summary>
+    /// <summary>
+    /// Runs code in the oracle's locale, en-GB, as the program's locale, and returns what it printed. The thread is
+    /// pinned to the invariant culture, as the IDE pins it: the source's literals are read in the thread's culture
+    /// (#781), and a site still reading the thread's culture would then show as a month-first date.
+    /// </summary>
     private static async Task<System.Collections.Generic.List<Vb6Value>> RunInOracleLocale(
         ModuleExecutionContext ctx, ExecutionEnvironment env, string code)
     {
         var saved = CultureInfo.CurrentCulture;
-        CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-GB");
+        CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
         try
         {
-            return await ContainerRuntimeHarness.Run(ctx, env, code);
+            using (VbLocale.Use(CultureInfo.GetCultureInfo("en-GB")))
+                return await ContainerRuntimeHarness.Run(ctx, env, code);
         }
         finally
         {
@@ -219,14 +224,18 @@ public class PropertyAssignmentTests
     }
 
     [AvaloniaTheory]
-    [InlineData("Label1.Caption = #1/2/2003#")]
-    [InlineData("Label1.Caption = #2:33:12 PM#")]
-    [InlineData("Text1.Text = Now")]
-    public async Task A_Date_into_a_String_property_is_refused_until_the_interpreter_has_the_users_locale(string assignment)
+    [InlineData("Label1.Caption", "#1/2/2003#", "02/01/2003")]
+    [InlineData("Label1.Caption", "#10:30:00 AM#", "10:30:00")]
+    [InlineData("Label1.Caption", "#1/2/2003 10:30:00 AM#", "02/01/2003 10:30:00")]
+    [InlineData("Text1.Text", "#1/2/2003#", "02/01/2003")]
+    public async Task A_Date_into_a_String_property_is_written_as_CStr_writes_it_in_the_users_locale(
+        string target, string literal, string expected)
     {
-        // VB6 writes a Date in the system's regional format. The IDE runs in the invariant culture, so the
-        // conversion would put the month first on every machine; it is refused until #777 rather than shown wrong.
-        (await Refusal(assignment)).Should().Contain("Date").And.Contain("#777");
+        // VB6 writes a Date in the system's regional format, as CStr does: day first under en-GB (measured, #777).
+        var (value, err) = await Assign($"{target} = \"(unset)\"", $"{target} = {literal}", target);
+
+        err.Should().Be(0);
+        value.Should().Be(expected);
     }
 
     [AvaloniaTheory]

@@ -272,15 +272,9 @@ public static class AvaloniaInteroperability
         if (type == typeof(bool))
             return value.Value is bool ? value.Value : VB6BuiltIns.CBool(value).Value;
 
+        // As CStr writes it: a Date in the program's locale, day first under en-GB (#777).
         if (type == typeof(string))
-        {
-            // A Date's text needs the user's locale, which the interpreter does not have yet (#777): in the IDE it
-            // would show month first on every machine. Refused until then, rather than shown wrong.
-            if (value.Value is DateTime)
-                throw new NotImplementedException(
-                    $"Assigning a Date to the {property.Name} property is not implemented: its text needs the user's locale (#777)");
             return VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, null).Value;
-        }
 
         if (type == typeof(VBColor))
             return VBColor.FromOle(OleColor(value));

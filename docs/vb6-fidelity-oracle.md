@@ -1234,9 +1234,11 @@ Property assignment goes through `VbNumeric.CoerceOnStore` and the measured rang
 was not measured. `Tag = Empty` stores `""`; it used to end the run as Internal error 51. `CBool` reads its number
 through `CDbl`'s parse.
 
+A Date into a String property is written as `CStr` writes it, in the program's locale: `Label1.Caption = #1/2/2003#`
+reads back `02/01/2003` under en-GB, as measured above. It was refused until the interpreter had the user's locale
+(#777, #794), because before that it would have put the month first on every machine.
+
 **Refused with `NotImplementedException`, rather than answered wrong:**
-- **A Date into a String property** (#777). VB6 writes it in the system's regional format, and the IDE runs in the
-  invariant culture, so it would put the month first on every machine.
 - **A palette colour** (#786), from any type. HexIDE has no colour that holds one.
 - **`Value` on a scroll bar whose Min exceeds its Max** (#787). Avalonia raises Maximum to Minimum, so the value
   would read back clamped.
