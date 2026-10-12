@@ -17,6 +17,13 @@ there isn't one yet. Anything may change between 0.x releases.
   name (#181). An error handler does not swallow it, because carrying on past a statement that never ran would
   give a wrong answer. An error that ends `Sub Main` now appears in the same dialog as a form's.
 
+- **`Label1.Caption = 5` sets the caption to "5".** A value of another type assigned to a control property is
+  converted to the property's type, as VB6 does, instead of stopping the program. That covers a number into a
+  caption or text, a string into a position or `Timer.Interval`, a number or `True` into a check box's `Value`,
+  and a string into a colour. A value VB6 refuses raises VB6's own error, which an error handler can trap: Type
+  mismatch for text that is not a number, Invalid use of Null, Overflow, and Invalid property value for one
+  outside the property's range (`Check1.Value = 3`).
+
 - **A language server that orders changes by version no longer ignores the first edit to a file.** That edit repeated the version the file was opened at, so such a server kept analysing the text
   from before it until the next edit.
 - **Bookmarks and breakpoints are no longer lost on the way to their file.** A bookmark set just before

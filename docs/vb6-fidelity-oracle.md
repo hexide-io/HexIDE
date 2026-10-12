@@ -974,6 +974,124 @@ right-button release raises Click.
   to appear). Poll for a non-zero `MainWindowHandle` first, then shoot.
 
 
+## Assigning to a control property (2026-10-12, #768)
+
+Measured to decide what `Label1.Caption = 5` stores, and what every other property does with a value of another
+type. Real `vb6.exe` 6.00.8176 (SP6), guest locale **en-GB** (decimal point `.`, thousands separator `,`).
+
+**Harness.** One Standard EXE, `Startup="Form1"`, with `Label1`, `Text1`, `Command1`, `Check1` and a disabled
+`Timer1` (Interval 500). Four `/make` runs over PowerShell Direct, each `Form_Load` writing a log and ending
+with `End`. The exe ran in the guest's session 0. Nothing here needs painting, so the interactive-session rig was
+not needed. Every probe is one line under `On Error Resume Next`:
+
+```vb
+Label1.Caption = "(unset)": Err.Clear: Label1.Caption = 5: e = Err.Number: W "Label.Caption = 5", e, Label1.Caption
+```
+
+So each row resets the property first, and a refused assignment shows as the reset value, unchanged. `W` logs
+the value read back, its `TypeName`, and the `Err.Number` the assignment raised.
+
+### A String property takes CStr of anything
+
+| Assignment | Reads back | Err |
+|---|---|---|
+| `Label1.Caption = 5` / `= -7` / `= Variant 42` | `5` / `-7` / `42` | 0 |
+| `= 1.5` | `1.5` (the locale's decimal separator) | 0 |
+| `= CSng(1) / 3` | `0.3333333` | 0 |
+| `= 1E+20` / `= 12345678901234#` / `= CCur(2.5)` | `1E+20` / `12345678901234` / `2.5` | 0 |
+| `= 0.1 + 0.2` / `= CSng(1E+7)` | `0.3` / `1E+07` | 0 |
+| `= True` / `= False` | `True` / `False` | 0 |
+| `= Empty` | (empty string) | 0 |
+| `= #1/2/2003#` / `= #10:30:00 AM#` / `= #1/2/2003 10:30:00 AM#` | `02/01/2003` / `10:30:00` / `02/01/2003 10:30:00` | 0 |
+| `= Null` | `(unset)`, **unchanged** | **94** |
+| `Text1.Text`, `Command1.Caption`, `Check1.Caption`, `Me.Caption` `= 5` | `5` | 0 |
+| `Text1.Text = Null`, `Me.Caption = Null` | unchanged | **94** |
+| `Label1.Tag = 5` / `= True` / `= CSng(1) / 3` | `5` / `True` / `0.3333333`, **`TypeName` String** | 0 |
+| `Label1.Tag = Null` | unchanged | **94** |
+
+**This is coercion-on-store, exactly** (see that section): a String property behaves as `Dim s As String : s = x`,
+Null included. And **`Tag` is a String**, not a Variant: `TypeName(Label1.Tag)` is `String` after `Tag = 5`.
+
+### A numeric property converts, and refuses what it cannot convert before changing
+
+| Assignment | Reads back | Err |
+|---|---|---|
+| `Label1.Left = "300"` | `300` (`Single`) | 0 |
+| `Label1.Left = "abc"` / `= ""` | unchanged | **13** |
+| `Label1.Left = Null` | unchanged | **94** |
+| `Label1.Left = Empty` / `= True` | `0` / `-1` | 0 |
+| `Label1.Left = 1.5` / `= "1.5"` / `= 2.5` / `= 2.4` | **`2`** / **`2`** / **`2`** / `2` | 0 |
+| `Label1.Left = "1,5"` | **`15`** | 0 |
+| `Label1.Left = 1E+20` | unchanged | **6** |
+| `Timer1.Interval = "1000"` / `= 2.5` / `= 3.5` | `1000` / `2` / `4` (`Long`) | 0 |
+| `Timer1.Interval = "abc"` / `= Null` / `= 3000000000#` | unchanged | 13 / 94 / **6** |
+| `Timer1.Interval = 65535` | `65535` | 0 |
+| `Timer1.Interval = 65536` / `= True` | unchanged | **380** |
+
+### An enum or colour property converts, then range-checks with 380
+
+| Assignment | Reads back | Err |
+|---|---|---|
+| `Check1.Value = 1` / `= "1"` / `= 2` | `1` / `1` / `2` (`Integer`) | 0 |
+| `Check1.Value = 1.5` / `= 1.6` / `= 2.5` | `2` / `2` / `2` | 0 |
+| `Check1.Value = 2.6` / `= 3` / `= -1` / `= True` | unchanged | **380** |
+| `Check1.Value = "abc"` / `= ""` / `= Null` / `= 40000` | unchanged | 13 / 13 / 94 / **6** |
+| `Label1.MousePointer = n`, n from 0 to 15, and 99 | `n` | 0 |
+| `Label1.MousePointer = -1`, `16`, `17`, `98`, `True` | unchanged | **380** |
+| `Label1.MousePointer = "2"` / `= 40000` | `2` / unchanged | 0 / 6 |
+| `Check1.Appearance = 0` / `= 1` | `0` / `1` | 0 |
+| `Check1.Appearance = -1`, `2`, `3`, `True` | unchanged | **380** |
+| `Label1.BackColor = "255"` / `= 255.6` / `= "&HFF"` | `255` / `256` / `255` (`Long`) | 0 |
+| `Label1.BackColor = True` / `= -2` | unchanged | **380** |
+| `Label1.BackColor = 1E+20` / `= Null` | unchanged | 6 / 94 |
+
+The OLE_COLOR range, probed byte by byte:
+
+| High byte | Low 24 bits accepted | Refused (380) |
+|---|---|---|
+| `&H00` (RGB) | any | |
+| `&H01` (palette index) | `&H000000` to `&H00FFFF` | `&H010000` and above (`&H1010000`, `&H1FFFFFF`) |
+| `&H02` (palette-relative RGB) | any (`&H2000000`, `&H2000001`, `&H2FFFFFF`) | |
+| `&H80` (system colour) | `&H00` to `&H18` | `&H80000019`, `&H80000030`, `&H80000100` |
+| `&H03`, `&H04`, `&H7F`, `&HC0`, `&HFF` | | all (`&H3000000`, `&H4000000`, `&H7FFFFFFF`, `&HC0000000`, `&HFF000000`) |
+
+That is OLE's own colour validation, as far as it was probed.
+
+### The rule
+
+**A property assignment is coercion-on-store into the property's type, plus a range check that a declared variable
+does not have.** The conversion raises 13, 94 or 6 exactly as `Dim x As T : x = value` would. A value that converts
+but is not one the property accepts is **380, Invalid property value**, and that is how `True` fails for an enum:
+it converts to -1. The order matters and is measured: `Check1.Value = 40000` is **6**, not 380, so the Integer
+conversion comes before the range check. Nothing is changed when either step refuses.
+
+### What this overturned, or found
+
+- **`Left` is not a Single inside, though it reads back as one.** `Left = 1.5` reads back 2, and so does 2.5
+  (half to even). `Left = 1E+20`, which a Single holds easily, is Overflow. A position is held as a whole number
+  of twips in a Long. That twips are the unit is inferred from the default ScaleMode, since the probe did not
+  change it.
+- **`"1,5"` is fifteen**, not one and a half, and not an error: in the en-GB locale the comma is a thousands
+  separator, and VB6 skips it. HexIDE's string-to-number rule allows none and raises 13 (#770). Not probed: a
+  locale whose decimal separator is the comma.
+- **`MousePointer` 4, 5, 13 and 14 are accepted.** `VBCursorType`'s comment called them gaps in VB6's numbering.
+  They are not (#120).
+- **`Tag` is a String.** HexIDE declared it as an object and stored whatever it was given.
+- **`CStr` of a Date leaves out what is zero.** A midnight date has no time, and a time has no date. HexIDE writes
+  both (#771). A Single shows seven significant digits and a Double fifteen. HexIDE shows more (#772).
+
+### HexIDE, after #768
+
+Property assignment goes through `VbNumeric.CoerceOnStore` and the measured range checks above, in
+`AvaloniaInteroperability.ConvertForAssignment`. `HexIDE.Integration.Tests` `PropertyAssignmentTests` pins every
+row HexIDE matches. Where HexIDE does not match yet:
+
+- **Positions are not rounded to whole twips.** HexIDE checks the Long range but keeps the fraction, because its
+  runtime positions are not twips.
+- **A palette colour (`&H01`/`&H02`) reads back wrong.** It is accepted, but stored as the RGB of its low bytes.
+- **The display divergences** above: #770, #771 and #772.
+
+
 ## Out of stack space — Error 28 (2026-08-22, #80)
 
 Verified with a `Sub Main` probe (`/make`, run, append each line to a log so nothing is lost to buffering).

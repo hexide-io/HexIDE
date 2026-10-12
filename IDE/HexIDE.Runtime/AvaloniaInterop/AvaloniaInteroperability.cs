@@ -186,29 +186,122 @@ public static class AvaloniaInteroperability
                 if (!prop.IsValidControl(control))
                     continue;
 
-                var raw = value.Value;
-                // VB6 assigns colours as a numeric OLE_COLOR (&HFF0000); convert at the colour-property boundary.
-                if (property is PropertyClass<VBColor> && value.Value is int or long)
-                    raw = VBColor.FromOle(System.Convert.ToInt64(value.Value));
-                // A number or a string into a Boolean property — `Command1.Enabled = 0`, `Option1.Value = 1` —
-                // is ordinary VB6 assignment, not a special case, and it was throwing a bare CLR exception for
-                // EVERY boolean property on every control. CBool is the interpreter's own already-oracle-pinned
-                // implementation of the rule, so the boundary agrees with `CBool(x)` written out longhand rather
-                // than growing a second opinion: non-zero is True (0.4 included — it is "non-zero", not
-                // "rounds to 1"), "False"/"1" parse, Empty is False, "banana" is a trappable Err 13 that leaves
-                // the property untouched, and Null is Err 94.
-                else if (property.PropertyType == typeof(bool) && value.Value is not bool)
-                    raw = VB6BuiltIns.CBool(value).Value;
-                // And the reverse crossing, which VB6 also allows: `Command1.Left = True` sets Left to -1.
-                else if (value.Value is bool flag && IsNumeric(property.PropertyType))
-                    raw = System.Convert.ChangeType(flag ? -1 : 0, property.PropertyType);
-
-                prop.SetUntyped(control, raw);
+                prop.SetUntyped(control, ConvertForAssignment(property, value));
                 return true;
             }
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// What an assignment to <paramref name="property"/> stores: the right-hand side converted to the property's
+    /// VB6 type, by the rule that converts a value stored into a declared variable of that type.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Measured on vb6.exe (docs/vb6-fidelity-oracle.md, "Assigning to a control property"). A String property
+    /// takes CStr of anything (<c>Label1.Caption = 5</c> is "5", <c>= True</c> is "True", Empty is ""). A numeric
+    /// property parses a String and raises 13 when it cannot, and rounds half to even. Null raises 94 everywhere.
+    /// Each of these raises before the property changes. That is exactly <see cref="VbNumeric.CoerceOnStore"/>,
+    /// so the boundary uses it rather than growing a second opinion. Before, a number into a String property threw
+    /// a plain CLR exception, which ended the run as an internal error (#754) and was silent before that (#768).
+    /// </para>
+    /// <para>
+    /// What a declared variable does not do is the range check. An enum or colour property, and
+    /// <c>Timer.Interval</c>, raises 380 for a value VB6 refuses, which is <c>Check1.Value = True</c> as much as
+    /// <c>Check1.Value = 3</c>: True is -1. The value is first converted as an Integer or a Long, so a value too
+    /// big for that is Overflow (6), and garbage is Type mismatch (13), before the range is looked at.
+    /// </para>
+    /// </remarks>
+    internal static object? ConvertForAssignment(PropertyClass property, Vb6Value value)
+    {
+        var type = property.PropertyType;
+
+        // Non-zero is True (0.4 included: it is "non-zero", not "rounds to 1"), "False" and "1" parse, Empty is
+        // False, "banana" is 13 and Null is 94. CBool is the interpreter's own, already pinned, so the boundary
+        // agrees with `CBool(x)` written out longhand.
+        if (type == typeof(bool))
+            return value.Value is bool ? value.Value : VB6BuiltIns.CBool(value).Value;
+
+        // A control, an object or an array on the right is not a value to convert. For a control VB6 reads its
+        // default property (`Label1.Caption = Text1` takes Text1.Text), which HexIDE does not implement, and
+        // converting the reference itself would store a .NET type name as the caption. So it fails clearly instead
+        // of answering wrong. What VB6 does with each of these was not measured for this change.
+        if (!IsScalar(value))
+            throw new NotImplementedException(
+                $"Assigning {value.Type} to the {property.Name} property is not implemented");
+
+        // Tag is a String in VB6, though HexIDE declares it as an object: `Label1.Tag = 5` reads back "5".
+        if (type == typeof(string) || ReferenceEquals(property, VBProperties.TagProperty))
+            return VbNumeric.CoerceOnStore(value, Vb6Value.ValueType.String, null).Value;
+
+        if (type == typeof(VBColor))
+            return value.Value is VBColor ? value.Value : VBColor.FromOle(OleColor(value));
+
+        if (type.IsEnum)
+            return value.Value?.GetType() == type ? value.Value : Enum.ToObject(type, EnumValue(type, value));
+
+        if (type == typeof(double))
+        {
+            // Measured: VB6 holds a position or size as a whole number of twips in a Long, though it reads back as
+            // a Single. So `Left = 1.5` reads back 2, and `Left = 1E+20`, which a Single could hold, is Overflow (6).
+            // The check here is that Long. The value itself is kept as given, because HexIDE does not hold
+            // positions in twips; the rounding is recorded as a divergence in docs/vb6-fidelity-oracle.md.
+            Coerce(value, Vb6Value.ValueType.Long);
+            return System.Convert.ToDouble(Coerce(value, Vb6Value.ValueType.Double));
+        }
+
+        if (type == typeof(int))
+        {
+            var number = System.Convert.ToInt32(Coerce(value, Vb6Value.ValueType.Long));
+            if (ReferenceEquals(property, VBProperties.IntervalProperty) && number is < 0 or > 65535)
+                throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+            return number;
+        }
+
+        return value.Value;
+    }
+
+    private static bool IsScalar(Vb6Value value) =>
+        value.Type == Vb6Value.ValueType.EmptyVariant || value.IsNull || VbNumeric.IsDeclarableScalar(value.Type);
+
+    private static object Coerce(Vb6Value value, Vb6Value.ValueType target) =>
+        VbNumeric.CoerceOnStore(value, target, null).Value!;
+
+    /// <summary>
+    /// The OLE_COLOR a value names, or 380 when VB6 would refuse it. Measured: the high byte selects the kind, and
+    /// each kind has its own range. 0x00 is an RGB value and 0x02 a palette-relative one, any low 24 bits. 0x01 is
+    /// a palette index, 0 to &amp;HFFFF. 0x80 is a system colour, 0 to &amp;H18. Every other high byte is refused,
+    /// and so is a negative number that is not a system colour (`BackColor = True` is -1).
+    /// </summary>
+    private static long OleColor(Vb6Value value)
+    {
+        var ole = System.Convert.ToInt64(Coerce(value, Vb6Value.ValueType.Long));
+        var bits = (uint)ole;
+        var low = bits & 0xFFFFFF;
+        var valid = (bits >> 24) switch
+        {
+            0x00 or 0x02 => true,
+            0x01 => low <= 0xFFFF,
+            0x80 => low <= 0x18,
+            _ => false,
+        };
+        return valid ? ole : throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
+    }
+
+    /// <summary>
+    /// The enum value a value names, converted as an Integer, or 380 when it is not one of the property's values.
+    /// </summary>
+    private static int EnumValue(Type type, Vb6Value value)
+    {
+        var number = System.Convert.ToInt32(Coerce(value, Vb6Value.ValueType.Integer));
+        // MousePointer accepts every value from 0 to 15, and 99 (measured). VBCursorType leaves out 4, 5, 13 and 14
+        // (#120), so its own members cannot say which are valid.
+        var valid = type == typeof(VBCursorType)
+            ? number is >= 0 and <= 15 or 99
+            : Enum.IsDefined(type, number);
+        return valid ? number : throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
     }
 
     public static bool TryGet(Control c, PropertyClass property, out Vb6Value value)
