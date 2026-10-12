@@ -59,19 +59,26 @@ public partial class VB6BuiltIns
             }
             if (!double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var sd))
                 throw new VBRunTimeException(VBStandardError.TypeMismatch);
-            // .NET reads "NaN", "Infinity" and "-Infinity" as numbers. VB6 has neither, and CDbl of each is 13
-            // (measured). Digits too large for a Double are Infinity to .NET as well, and that one is Overflow:
-            // CDbl("1E+400") is 6 (measured). It used to go through as Infinity.
-            if (double.IsNaN(sd))
-                throw new VBRunTimeException(VBStandardError.TypeMismatch);
-            if (double.IsInfinity(sd))
-                throw new VBRunTimeException(s.AsSpan().ContainsAnyInRange('0', '9')
-                    ? VBStandardError.Overflow
-                    : VBStandardError.TypeMismatch);
-            return sd;
+            return Finite(sd, s);
         }
         if (Vb6Value.TryNumericToDouble(v, out var d)) return d;   // numeric + Date (via OA serial)
         throw new VBRunTimeException(VBStandardError.TypeMismatch);
+    }
+
+    /// <summary>
+    /// A number .NET parsed from <paramref name="text"/>, or the error VB6 raises for it. .NET reads "NaN",
+    /// "Infinity" and "-Infinity" as numbers; VB6 has neither, and CDbl of each is 13 (measured). Digits too large
+    /// for a Double are Infinity to .NET as well, and that one is Overflow: CDbl("1E+400") is 6 (measured).
+    /// </summary>
+    private static double Finite(double parsed, string text)
+    {
+        if (double.IsNaN(parsed))
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        if (double.IsInfinity(parsed))
+            throw new VBRunTimeException(text.AsSpan().ContainsAnyInRange('0', '9')
+                ? VBStandardError.Overflow
+                : VBStandardError.TypeMismatch);
+        return parsed;
     }
 
     internal static Vb6Value CBool(Vb6Value v)
@@ -84,8 +91,9 @@ public partial class VB6BuiltIns
         {
             var s = AsStr(v).Trim();
             if (bool.TryParse(s, out var bb)) return new Vb6Value(bb);
-            if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out var sd)) return new Vb6Value(sd != 0);
-            throw new VBRunTimeException(VBStandardError.TypeMismatch);
+            // Otherwise the number CDbl reads, by the same parse (measured): "NaN" and "Infinity" are 13, where
+            // `Enabled = "NaN"` used to be True; "1E+400" is 6; and "&H10" is True, which this used to refuse.
+            return new Vb6Value(ToNum(v) != 0);
         }
         return new Vb6Value(ToNum(v) != 0);
     }

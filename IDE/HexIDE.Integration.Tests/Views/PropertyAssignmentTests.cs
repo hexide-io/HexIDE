@@ -82,7 +82,41 @@ public class PropertyAssignmentTests
               Width           =   1215
               Height          =   375
            End
+           Begin VB.ComboBox Combo1
+              Left            =   2400
+              Top             =   2300
+              Width           =   1815
+              Height          =   315
+           End
+           Begin VB.ListBox List2
+              Left            =   4000
+              Top             =   1200
+              Width           =   1815
+              Height          =   645
+           End
+           Begin VB.ListBox List1
+              Left            =   4000
+              Top             =   120
+              Width           =   1815
+              Height          =   645
+           End
+           Begin VB.PictureBox Picture2
+              BackColor       =   &H8000000F&
+              Left            =   2400
+              Top             =   1200
+              Width           =   1215
+              Height          =   975
+           End
+           Begin VB.PictureBox Picture1
+              BackColor       =   &H000000FF&
+              ForeColor       =   &H00FF0000&
+              Left            =   2400
+              Top             =   120
+              Width           =   1215
+              Height          =   975
+           End
            Begin VB.Label Label1
+              BackColor       =   &H0000FF00&
               Caption         =   "Label1"
               Left            =   120
               Top             =   120
@@ -134,9 +168,9 @@ public class PropertyAssignmentTests
     }
 
     /// <summary>The colour a control holds, read from the control rather than through VB6 code.</summary>
-    private static VBColor ColourOf(Avalonia.Controls.Canvas canvas, string control)
+    private static VBColor ColourOf(Avalonia.Controls.Canvas canvas, string control, PropertyClass? property = null)
     {
-        AvaloniaInteroperability.TryGet(ContainerRuntimeHarness.Child(canvas, control), VBProperties.BackColorProperty, out var read)
+        AvaloniaInteroperability.TryGet(ContainerRuntimeHarness.Child(canvas, control), property ?? VBProperties.BackColorProperty, out var read)
             .Should().BeTrue();
         return read.Value.Should().BeOfType<VBColor>().Subject;
     }
@@ -213,6 +247,20 @@ public class PropertyAssignmentTests
 
         err.Should().Be(0);
         value.Should().Be("6");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Label1.Tag = Empty")]
+    [InlineData("Dim never\r\nLabel1.Tag = never")]
+    public async Task Empty_into_Tag_is_an_empty_String(string assignment)
+    {
+        // Empty is "" to a String, which Tag is in VB6 (CStr(Empty) is "", measured). It used to end the run as
+        // Internal error 51.
+        var (value, err) = await Assign("Label1.Tag = \"(unset)\"", assignment,
+            "TypeName(Label1.Tag) & \"=[\" & Label1.Tag & \"]\"");
+
+        err.Should().Be(0);
+        value.Should().Be("String=[]");
     }
 
     [AvaloniaFact]
@@ -298,6 +346,50 @@ public class PropertyAssignmentTests
         (await Refusal("HScroll2.Value = 50")).Should().Contain("#787");
     }
 
+    private const string ThreeItems = "List1.AddItem \"a\"\r\nList1.AddItem \"b\"\r\nList1.AddItem \"c\"\r\n"
+                                      + "Combo1.AddItem \"a\"\r\nCombo1.AddItem \"b\"\r\nCombo1.AddItem \"c\"\r\n";
+
+    [AvaloniaTheory]
+    [InlineData("List1.ListIndex = 2", "2", 0)]
+    [InlineData("List1.ListIndex = -1", "-1", 0)]                // nothing selected
+    [InlineData("List1.ListIndex = \"1\"", "1", 0)]
+    [InlineData("List1.ListIndex = True", "-1", 0)]              // True is -1, which is in range
+    [InlineData("List1.ListIndex = Empty", "0", 0)]
+    [InlineData("List1.ListIndex = 1.5", "2", 0)]
+    [InlineData("List1.ListIndex = 2.5", "2", 0)]
+    [InlineData("List1.ListIndex = 3", "0", 380)]
+    [InlineData("List1.ListIndex = \"3\"", "0", 380)]
+    [InlineData("List1.ListIndex = -2", "0", 380)]
+    [InlineData("List1.ListIndex = 40000", "0", 6)]              // an Integer, so Overflow before the range
+    [InlineData("List1.ListIndex = Null", "0", 94)]
+    [InlineData("List1.ListIndex = \"abc\"", "0", 13)]
+    [InlineData("Combo1.ListIndex = 2", "2", 0)]
+    [InlineData("Combo1.ListIndex = 3", "0", 380)]
+    [InlineData("Combo1.ListIndex = -2", "0", 380)]
+    [InlineData("Combo1.ListIndex = \"1\"", "1", 0)]
+    public async Task ListIndex_converts_as_an_Integer_and_refuses_what_is_not_an_item(string assignment, string expected, int expectedErr)
+    {
+        // Three items in each, reset to the first. Avalonia would drop an index past the end rather than refuse it.
+        var target = assignment[..assignment.IndexOf(" =", StringComparison.Ordinal)];
+
+        var (value, err) = await Assign(ThreeItems + target + " = 0", assignment, target);
+
+        err.Should().Be(expectedErr);
+        value.Should().Be(expected);
+    }
+
+    [AvaloniaTheory]
+    [InlineData("0", 380)]
+    [InlineData("-1", 0)]
+    [InlineData("-2", 380)]
+    public async Task An_empty_list_takes_only_minus_one(string index, int expectedErr)
+    {
+        var (value, err) = await Assign("Err.Clear", $"List2.ListIndex = {index}", "List2.ListIndex");
+
+        err.Should().Be(expectedErr);
+        value.Should().Be("-1");
+    }
+
     // ── a Boolean property converts as CBool does ─────────────────────────────────────────────────
 
     [AvaloniaTheory]
@@ -305,6 +397,7 @@ public class PropertyAssignmentTests
     [InlineData("Command1.Enabled = 0", "False", 0)]
     [InlineData("Command1.Enabled = Null", "True", 94)]
     [InlineData("Command1.Enabled = \"\"", "True", 13)]
+    [InlineData("Command1.Enabled = \"NaN\"", "True", 13)]      // CBool("NaN") is 13, measured; it used to be True
     public async Task Enabled_converts_as_CBool(string assignment, string expected, int expectedErr)
     {
         var (value, err) = await Assign("Command1.Enabled = True", assignment, "Command1.Enabled");
@@ -405,28 +498,52 @@ public class PropertyAssignmentTests
         (await Refusal($"Text1.BackColor = {value}")).Should().Contain("#786");
     }
 
+    // The source colours below come from the .frm, with nothing assigned at run time first: a run-time assignment
+    // would hide a colour the control holds somewhere a read cannot find (#795).
+
     [AvaloniaTheory]
-    [InlineData("Label1.BackColor = &HFF\r\nText1.BackColor = Label1.BackColor", 0xFF)]
-    [InlineData("Label1.BackColor = &H8000000F\r\nText1.BackColor = Label1.BackColor", unchecked((int)0x8000000F))]
-    [InlineData("Text1.BackColor = &HFF00&\r\nDim saved As Variant\r\nsaved = Text1.BackColor\r\nText1.BackColor = 0\r\nText1.BackColor = saved", 0xFF00)]
-    public async Task A_colour_read_from_a_control_can_be_stored_again(string code, int expectedOle)
+    [InlineData("Text1.BackColor = Picture1.BackColor", "Text1", "BackColor", 0xFF)]
+    [InlineData("Text1.BackColor = Picture2.BackColor", "Text1", "BackColor", unchecked((int)0x8000000F))]
+    [InlineData("Text1.ForeColor = Picture1.ForeColor", "Text1", "ForeColor", 0xFF0000)]
+    [InlineData("Dim saved As Variant\r\nsaved = Picture1.BackColor\r\nPicture1.BackColor = 0\r\nPicture1.BackColor = saved", "Picture1", "BackColor", 0xFF)]
+    public async Task A_colour_from_the_form_can_be_copied_or_saved_and_restored(string code, string target, string property, int expectedOle)
     {
         var (_, canvas, ctx, env) = ContainerRuntimeHarness.Spawn(Form);
 
         var debug = await RunInOracleLocale(ctx, env, "On Error Resume Next\r\n" + code + "\r\nDebug.Print Err.Number\r\n");
 
         debug[0].Value.Should().Be(0);
-        ColourOf(canvas, "Text1").Should().Be(VBColor.FromOle(expectedOle));
+        ColourOf(canvas, target, property == "ForeColor" ? VBProperties.ForeColorProperty : null)
+            .Should().Be(VBColor.FromOle(expectedOle));
     }
 
     [AvaloniaFact]
     public async Task A_colour_shown_as_text_is_its_Long()
     {
         // Measured: a system colour reads back as a negative Long, and CStr of it is that number.
-        var (value, err) = await Assign("Text1.BackColor = &H8000000F", "Label1.Caption = Text1.BackColor", "Label1.Caption");
+        var (value, err) = await Assign("Label1.Caption = \"\"", "Label1.Caption = Picture2.BackColor", "Label1.Caption");
 
         err.Should().Be(0);
         value.Should().Be("-2147483633");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Label1.Caption = Text1.BackColor")]      // a TextBox does not load its colours
+    [InlineData("Dim c\r\nc = Label1.BackColor")]          // a Label keeps them where this read cannot see
+    [InlineData("Text1.ForeColor = Label1.ForeColor")]
+    public async Task A_colour_the_program_has_not_set_on_a_Label_or_TextBox_is_refused_rather_than_read_as_black(string code)
+    {
+        // VB6 reads the form's colour: Text1.BackColor is -2147483643 by default. HexIDE would read black (#795).
+        (await Refusal(code)).Should().Contain("#795");
+    }
+
+    [AvaloniaFact]
+    public async Task A_colour_the_program_has_set_reads_back_as_set()
+    {
+        var (value, err) = await Assign("Text1.BackColor = &HFF&", "Label1.Caption = Text1.BackColor", "Label1.Caption");
+
+        err.Should().Be(0);
+        value.Should().Be("255");
     }
 
     // ── what is not a value to convert fails clearly rather than storing something wrong ──────────

@@ -189,6 +189,11 @@ public static class AvaloniaInteroperability
                 var converted = ConvertForAssignment(property, value);
                 if (control is VBScrollBar bar && ReferenceEquals(property, VBProperties.ValueProperty) && converted is int position)
                     CheckScrollBarValue(bar, position);
+                // ListIndex takes -1 (nothing selected) to ListCount - 1, and 380 outside it, from a String too, in a
+                // ListBox and a ComboBox alike (measured). Avalonia would drop the value instead.
+                if (control is ItemsControl items && ReferenceEquals(property, VBProperties.ListIndexProperty)
+                    && converted is int index && (index < -1 || index >= items.ItemCount))
+                    throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
                 prop.SetUntyped(control, converted);
                 return true;
             }
@@ -255,7 +260,11 @@ public static class AvaloniaInteroperability
         // #211. An unset Tag reads back "" (TryGet). Null is 94, as for any String property. It comes after the
         // guard, so a control is refused here too rather than stored as a reference that reads as a type name.
         if (ReferenceEquals(property, VBProperties.TagProperty))
-            return value.IsNull ? throw new VBRunTimeException(VBStandardError.InvalidUseOfNull) : value.Value;
+            return value.IsNull ? throw new VBRunTimeException(VBStandardError.InvalidUseOfNull)
+                // Empty, or a Variant never assigned, is "" to a String, which Tag is in VB6. Passed through, its
+                // missing value reached the binding and ended the run as Internal error 51.
+                : value.Type == Vb6Value.ValueType.EmptyVariant ? ""
+                : value.Value;
 
         // Non-zero is True (0.4 included: it is "non-zero", not "rounds to 1"), "False" and "1" parse, Empty is
         // False (measured: `Command1.Enabled = Empty` is False, no error), "banana" is 13 and Null is 94. CBool is
@@ -291,7 +300,11 @@ public static class AvaloniaInteroperability
 
         if (type == typeof(int))
         {
-            var number = System.Convert.ToInt32(Coerce(value, Vb6Value.ValueType.Long));
+            // ListIndex and a scroll bar's Value are Integers in VB6 (each reads back with TypeName Integer, measured),
+            // so a value past 32767 is Overflow, 6, before any range check: `ListIndex = 40000` is 6, measured. The
+            // rest of the int properties are Longs, `Interval` among them.
+            var integer = ReferenceEquals(property, VBProperties.ListIndexProperty) || ReferenceEquals(property, VBProperties.ValueProperty);
+            var number = System.Convert.ToInt32(Coerce(value, integer ? Vb6Value.ValueType.Integer : Vb6Value.ValueType.Long));
             if (ReferenceEquals(property, VBProperties.IntervalProperty) && number is < 0 or > 65535)
                 throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
             return number;
@@ -348,6 +361,17 @@ public static class AvaloniaInteroperability
             : Enum.IsDefined(type, number);
         return valid ? number : throw new VBRunTimeException(VBStandardError.InvalidPropertyValue);
     }
+
+    /// <summary>
+    /// Whether <paramref name="property"/> is a colour <paramref name="control"/> holds nowhere a read can find. Most
+    /// controls set the attached colour properties as they load. A Label keeps its form colours on VBLabel instead,
+    /// and a TextBox does not load them at all (#795), so their attached properties stay null until the program sets
+    /// one, and the binding would read that null as black.
+    /// </summary>
+    internal static bool IsUnsetColour(Control control, PropertyClass property) =>
+        control is TemplatedControl templated
+        && ((ReferenceEquals(property, VBProperties.BackColorProperty) && AttachedProperties.GetBackColor(templated) is null)
+            || (ReferenceEquals(property, VBProperties.ForeColorProperty) && AttachedProperties.GetForeColor(templated) is null));
 
     public static bool TryGet(Control c, PropertyClass property, out Vb6Value value)
     {

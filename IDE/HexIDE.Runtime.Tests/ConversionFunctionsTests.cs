@@ -85,6 +85,10 @@ public class ConversionFunctionsTests : BaseVBTestFixture
     [InlineData("CDbl(\"-Infinity\")")]
     [InlineData("CLng(\"NaN\")")]
     [InlineData("CBool(\"\")")]
+    [InlineData("CBool(\"NaN\")")]
+    [InlineData("CBool(\"Infinity\")")]
+    [InlineData("CBool(\"-Infinity\")")]
+    [InlineData("CBool(\"1.#INF\")")]
     public async Task A_string_that_is_not_a_VB6_number_is_a_type_mismatch(string expr)
     {
         // Measured on vb6.exe. .NET reads "NaN" and "Infinity" as numbers; VB6 has neither.
@@ -92,11 +96,21 @@ public class ConversionFunctionsTests : BaseVBTestFixture
         (await act.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(13);
     }
 
-    [Fact]
-    public async Task Digits_too_large_for_a_Double_are_an_overflow_not_a_type_mismatch()
+    [Theory]
+    [InlineData("CDbl(\"1E+400\")")]
+    [InlineData("CBool(\"1E+400\")")]
+    public async Task Digits_too_large_for_a_Double_are_an_overflow_not_a_type_mismatch(string expr)
     {
-        // .NET parses "1E+400" to Infinity, as it parses "Infinity". Measured: VB6 raises 6 for it.
-        Func<Task> act = () => Run("Debug.Print CDbl(\"1E+400\")\n");
+        // .NET parses "1E+400" to Infinity, as it parses "Infinity". Measured: VB6 raises 6 for both.
+        Func<Task> act = () => Run($"Debug.Print {expr}\n");
         (await act.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(6);
+    }
+
+    [Fact]
+    public async Task CBool_reads_a_hex_string_as_the_number_it_is()
+    {
+        // Measured: CBool("&H10") is True. CBool had a parse of its own that knew no &H.
+        await Run("Debug.Print CBool(\"&H10\")\n");
+        AssertDebugLog([new Vb6Value(true)]);
     }
 }
