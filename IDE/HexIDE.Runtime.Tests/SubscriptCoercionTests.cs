@@ -207,7 +207,7 @@ public class SubscriptCoercionTests : BaseVBTestFixture
     [InlineData("ReDim b(2147483647)")]
     [InlineData("ReDim b(1 To 2147483647)")]
     [InlineData("ReDim b(-2147483648# To 2147483647)")]   // VB6 wraps this to no elements and raises nothing: a defect
-    public async Task More_elements_than_a_Long_counts_is_7_and_erases_the_array(string redim)
+    public async Task An_array_too_big_to_allocate_is_7_Out_of_memory_and_erases_the_array(string redim)
     {
         // Measured, native and in the IDE, bar the full range. 0 To 2147483647 raised 9: the count wrapped in an int.
         await Run($"Dim b() As Long\nReDim b(2)\nOn Error Resume Next\n{redim}\nDebug.Print Err.Number\n" +

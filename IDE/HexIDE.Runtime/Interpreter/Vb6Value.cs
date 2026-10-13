@@ -392,8 +392,9 @@ public class VBArray
 
     public VBArray(Vb6Value.ValueType innerType, IReadOnlyList<(int lowerBound, int upperBound)> bounds)
     {
-        // An array of more elements than an int counts is 7, Out of memory (measured: ReDim b(2147483647) and
-        // b(1 To 2147483647)). The count is taken as a long: as an int, 0 To 2147483647 wrapped negative and raised 9.
+        // An array too big to allocate is 7, Out of memory (measured for ReDim b(2147483647) and b(1 To 2147483647), which
+        // is all those rows say: 8 GB fails in a 32-bit process anyway). The count is taken as a long: as an int,
+        // 0 To 2147483647 wrapped negative and raised 9.
         // VB6's own count wraps too, so its full range, -2147483648 To 2147483647, wraps to no elements and raises
         // nothing, leaving an array whose bounds claim four billion elements and hold none. That is a defect, not a
         // behaviour to reproduce, so here it is 7 like the rest.
