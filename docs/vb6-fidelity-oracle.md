@@ -5595,7 +5595,10 @@ Number and is no longer refused. Measured again for the loops, native and in the
 | `Do Until Err`, entered with no error, raising 53 in the body | one pass |
 | `Do ... Loop While Err`, with no error | one pass |
 
-A class with a default member and a control are still refused, naming #174 and #790.
+A class with a default member and a control are still refused, naming #174 and #790. HexIDE answers every row but the
+`While` one, which stops with "Sub or Function not defined (Err)". Measuring it found #882: a member call such as
+`Err.Clear` or `Debug.Print` inside `While...Wend` parses as two statements, and the condition has nothing to do
+with it.
 
 ## A typed parameter given a value of another type (2026-10-13, #874)
 
