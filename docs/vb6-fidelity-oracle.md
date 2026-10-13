@@ -6232,14 +6232,14 @@ its array unsorted), the copy did not count the objects it held, `v(1) = v` then
 element Let and a For Each still shared. All of that, with every row above, is #970. Here:
 - An array Let shares the array again, as on main. The copy rows above are #970's to reproduce.
 - Fixedness is the declaring slot's: `Dim a(N)` marks its slot (`ExecutionState.MarkFixedArray`), at module and
-  procedure level and in each class instance. So `d = fx` then `ReDim d(10)` works again, giving `d` an array of its
-  own, and a ByRef parameter that shares the caller's slot reaches the caller's mark: 10, through `b() As Long` or an
-  untyped `v`.
+  procedure level; a class's fields are declared through the procedure path, `DeclareLocal`, for each instance. So
+  `d = fx` then `ReDim d(10)` works again, giving `d` an array of its own, and a ByRef parameter that shares the
+  caller's slot reaches the caller's mark: 10, through `b() As Long` or an untyped `v`.
 - A `v As Variant` parameter has a slot of its own, so its ReDim of a fixed array is not refused yet (#970).
 - `Sub S3(v As Variant): v(0) = 33` writes the caller's array again (33 for each of the review's four shapes), and is
   pinned, so #970's copy cannot break it unseen.
 
-Round six measured four more programs, native and in the IDE alike, with `buf` a `Dim buf(3) As Byte` holding 9 at
+Round six measured three more programs, five rows here, native and in the IDE alike, with `buf` a `Dim buf(3) As Byte` holding 9 at
 `buf(1)` and the caller under `On Error Resume Next`:
 
 | Program | VB6 | HexIDE |
@@ -6247,7 +6247,7 @@ Round six measured four more programs, native and in the IDE alike, with `buf` a
 | `Sub GP(v)`: `ReDim Preserve v(10)`; `Sub GPA(b() As Byte)`: the same | 10 each, `buf` kept | refused: `ReDim Preserve` is not implemented |
 | `Sub GA(v As Variant)`: `ReDim v(10)`, given `buf` | 10, `buf` kept | no error, `buf` kept: the ReDim replaces the parameter's own slot (#970) |
 | `Sub GW(v As Variant)`: `v(1) = 5`, given `buf` | `buf(1)` 5 | `buf(1)` 5 |
-| `GA dyn`, `dyn` a `Dim dyn() As Byte` ReDimmed to 3 | no error, `dyn` 0 To 10 | no error, `dyn` 0 To 3: silently wrong, as on main (#970) |
+| `GA dyn`, `dyn` a `Dim dyn() As Byte` ReDimmed to 3 | no error, `dyn` 0 To 10 | no error, `dyn` 0 To 3: silently wrong, by a path this PR does not change (#970) |
 | module-level `Private mdyn() As Byte`: `ReDim mdyn(10)` in a procedure, then `Grow mdyn` with `ReDim b(12)`; `Private mvar`, `ReDim mvar(4)` | 10, then 12; 4 | the same, and pinned: only `Dim a(N)` marks a slot fixed |
 
 So a `v As Variant` parameter shares the caller's array as an untyped one does, for a ReDim too, and HexIDE does not

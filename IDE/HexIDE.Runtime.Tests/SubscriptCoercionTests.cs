@@ -351,8 +351,8 @@ public class SubscriptCoercionTests : BaseVBTestFixture
     public async Task A_ByVal_Variant_parameter_can_ReDim_without_touching_the_callers_array()
     {
         // Measured, native: the callee's ReDim gives it 0 To 10, and the caller's array is untouched. VB6 passes a copy;
-        // HexIDE passes the caller's array, which an element write would reach (#970), and the ReDim replaces only the
-        // parameter's own slot.
+        // HexIDE passes the caller's array (read from the code: an element write would reach it, #970), and the ReDim
+        // replaces only the parameter's own slot.
         await Run("On Error Resume Next\nDim buf(3) As Byte\nbuf(1) = 9\nGV buf\nDebug.Print Err.Number\n" +
                   "Debug.Print UBound(buf)\nDebug.Print CLng(buf(1))\n" +
                   "Sub GV(ByVal v)\n    ReDim v(10)\n    Debug.Print UBound(v)\nEnd Sub\n");
