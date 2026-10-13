@@ -20,6 +20,7 @@ public class ConstAsTypeTests : BaseVBTestFixture
     [InlineData("Const C As String = 5", "5", "String")]
     [InlineData("Const C As Boolean = \"True\"", "True", "Boolean")]
     [InlineData("Const C As Currency = 1.23456", "1.2346", "Currency")]
+    [InlineData("Const C As Single = 1.23456789", "1.234568", "Single")]
     [InlineData("Const C As Variant = 2.5", "2.5", "Double")]               // a Variant keeps what it is given
     public async Task A_module_Const_holds_its_value_as_its_As_type(string declaration, string text, string typeName)
     {
