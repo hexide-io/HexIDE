@@ -1747,7 +1747,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     public override async Task<ControlFlow> VisitWhileWendStmt(VB6Parser.WhileWendStmtContext context)
     {
         // While…Wend is a pre-tested loop. VB6 has no `Exit While`/`Continue While`, so any non-Nothing
-        // control flow (Exit Sub/Function/Property) propagates straight out. The grammar exposes `block*`.
+        // control flow (Exit Sub/Function/Property) propagates straight out. The body is one optional block, as a
+        // Do loop's is; it was `block*`, which split `k.Bump` into a call of k and a With member call (#882).
         while (true)
         {
             var conditionMet = await ConditionHolds(context.valueStmt(), context);
@@ -1755,7 +1756,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (!conditionMet)
                 return ControlFlow.Nothing;
 
-            foreach (var block in context.block())
+            if (context.block() is { } block)
             {
                 var result = await Visit(block);
                 if (result != ControlFlow.Nothing)

@@ -59,6 +59,7 @@ something this project can offer outward rather than something it must ask for.
 | 5 | `D`-exponent doubles (`1.5D10`, `2.5D-5`) | lexer | `DOUBLELITERAL` exponent `'E'` → `('E' | 'D')` |
 | 6 | Hex / octal `%` suffix (`&H1F%`) | lexer | add `PERCENT` to `COLORLITERAL` (hex) and `OCTALLITERAL` suffixes |
 | 7 | Trailing comment after a header or designer property value (`MultiUse = -1  'True`, `Enabled = 0   'False`) | parser | add `WS?` before `NEWLINE` in `moduleConfigElement` and `cp_SingleProperty` |
+| 8 | A member call in a `While...Wend` body (`k.Bump`, `Debug.Print x`) | parser | `whileWendStmt`'s body `block* NEWLINE*` → `(block blockSep)?`, as `doLoopStmt` has it |
 
 Provenance: VB6 Language Reference ("Line numbers", "If…Then…Else", "Type Declaration Characters"), each
 verified against `vb6.exe`; deliberately divergent from the Rubberduck grammar.
@@ -80,6 +81,15 @@ now asks the whole-file question, and hexide-io/HexIDE#273 is why it is being as
 
 This one is worth upstreaming ahead of the others: it is two optional tokens, it cannot change what the
 grammar accepts anywhere else, and without it the grammar cannot read the files its own subject produces.
+
+**Fix 8 is an ambiguity, not a rejection (2026-10-13).** `block*` let two blocks sit side by side with no
+separator, so `k.Bump` had two parses: one statement, or a call of a procedure named `k` followed by `.Bump`,
+a leading-dot With member call. ANTLR took the second. The grammar accepted the text either way, so the LSP
+server reported nothing; the interpreter, which shares the rule's shape, executed the wrong tree and raised
+"Sub or Function not defined (k)" (hexide-io/HexIDE#882). `doLoopStmt` already took one optional block
+followed by a separator, and never had the problem. Provenance: the VB6 Language Reference's `While...Wend`
+syntax (a condition, optional statements, `Wend`), and `vb6.exe`, native and in the IDE, running each
+member-call shape in a `While` body, one-line and nested forms included.
 
 ## Open gaps (found, not yet fixed)
 
