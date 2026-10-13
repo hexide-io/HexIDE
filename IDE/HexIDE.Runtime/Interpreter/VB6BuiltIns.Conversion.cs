@@ -156,7 +156,7 @@ public partial class VB6BuiltIns
         return new Vb6Value(ToNum(v) != 0);
     }
 
-    internal static Vb6Value CDate(Vb6Value v)
+    private static Vb6Value CDate(Vb6Value v)
     {
         if (v.IsNull) throw InvalidUseOfNull();
         if (v.Value is DateTime) return v;

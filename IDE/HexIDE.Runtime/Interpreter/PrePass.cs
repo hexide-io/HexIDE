@@ -176,6 +176,10 @@ public class PrePass : VB6BaseVisitor<object?>
                                 DeferredArrays.Add(subStmt.ambiguousIdentifier().GetText());
                                 break;
                             }
+                            // A literal range with no values does not compile (measured: `Dim d(5 To 2)`, `d(0 To -5)`
+                            // and `d(1, 5 To 2)` at module level and in a class). Built here, its allocation raised 9.
+                            if (upper < lower)
+                                throw new VBCompileErrorException("Range has no values");
                             dimensions.Add((lower, upper));
                         }
                     }

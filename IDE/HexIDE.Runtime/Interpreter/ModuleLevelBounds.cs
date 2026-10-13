@@ -296,6 +296,14 @@ internal sealed class ModuleLevelBounds
               || literal.literal().DATELITERAL() != null ? false
             : null,
         VB6Parser.VsAmpContext => true,
+        // A String added to a String is a String, and to a number it is not (measured: `Len("ab" + "c")` sizes 0 To 3,
+        // and `Len("ab" + 1)` is "Variable required").
+        VB6Parser.VsAddContext add => (IsString(add.valueStmt(0), position), IsString(add.valueStmt(1), position)) switch
+        {
+            (true, true) => true,
+            (not null, not null) => false,
+            _ => null,
+        },
         VB6Parser.VsStructContext group when group.valueStmt().Length == 1 => IsString(group.valueStmt(0), position),
         VB6Parser.VsICSContext ics => ics.implicitCallStmt_InStmt() switch
         {

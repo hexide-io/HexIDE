@@ -120,6 +120,9 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     /// <summary>This reference as read through <paramref name="declaredClass"/> (null = through a Variant).</summary>
     public Vb6Value ViewedAs(string? declaredClass) => new Vb6Value(Type, Value, HasFixedType, declaredClass);
 
+    /// <summary>This value with <paramref name="array"/> in place of the array it holds, keeping its type and flags.</summary>
+    internal Vb6Value WithArray(VBArray array) => new Vb6Value(Type, array, HasFixedType, DeclaredAs);
+
     private Vb6Value(ValueType type, object? value, bool hasFixedType = false, string? declaredAs = null)
     {
         Type = type;
@@ -416,6 +419,28 @@ public class VBArray
             // Fewer elements than that can still be more than this process can hold, as 1 To 2147483647 is.
             throw new VBRunTimeException(VBStandardError.OutOfMemory);
         }
+    }
+
+    /// <summary>
+    /// The copy an assignment makes. VB6 copies an array on Let (measured, #873: after <c>d = f</c>, <c>d(1) = 99</c>
+    /// leaves <c>f(1)</c> as it was, and the same for a Variant <c>v = f</c>), where HexIDE shared it. The copy is
+    /// dynamic, because only a dynamic array or a Variant can be assigned one, so it can be ReDimmed although the
+    /// original is fixed (measured). Each element is copied as a Let copies it: a UDT deeply, an object by reference.
+    /// </summary>
+    public VBArray CopyForLet() => new()
+    {
+        IsDynamic = true,
+        bounds = new List<(int lbound, int ubound)>(bounds),
+        elementType = elementType,
+        array = CopyLevel(array),
+    };
+
+    private static object[] CopyLevel(object[] level)
+    {
+        var copy = new object[level.Length];
+        for (int i = 0; i < level.Length; i++)
+            copy[i] = level[i] is object[] inner ? CopyLevel(inner) : BasicInterpreter.CopyIfValueType((Vb6Value)level[i]);
+        return copy;
     }
 
     /// <summary>Erase of a DYNAMIC array: free it → undimensioned. Subsequent LBound/UBound/element access raise

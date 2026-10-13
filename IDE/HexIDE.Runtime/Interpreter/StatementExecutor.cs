@@ -1614,14 +1614,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (dimensions == null)
                 throw new VBCompileErrorException("Dimensions required");
 
-            // A fixed array reached through an array parameter is 10, "This array is fixed or temporarily locked", and
-            // is left as it was: measured for a local and a module-level fixed array, a typed and an untyped
-            // parameter, ReDim Preserve, and the same bounds again. Its bounds are converted first (`ReDim b("x")` is
-            // 13), and the 10 comes before an inverted range's 9 (`ReDim b(5 To 2)` is 10). Named directly, a local or a
-            // module-level one, it does not compile: "Array already dimensioned" (measured). It was silently replaced.
+            // A fixed array reached through a parameter is 10, "This array is fixed or temporarily locked", and is left
+            // as it was: measured for a local and a module-level fixed array, a typed and an untyped array parameter, a
+            // Variant parameter, ReDim Preserve, and the same bounds again. Its bounds are converted first (`ReDim
+            // b("x")` is 13), and the 10 comes before an inverted range's 9 (`ReDim b(5 To 2)` is 10). Named directly, a
+            // local or a module-level one, it does not compile: "Array already dimensioned" (measured). It was silently
+            // replaced. Only a fixed declaration holds a fixed array, because a Let copies one as a dynamic array.
             if (!variant && value.Value is VBArray { IsDynamic: false })
             {
-                if (currentEnv.ArrayParameters.Contains(variableName))
+                if (currentEnv.Parameters.Contains(variableName))
                     throw new VBRunTimeException(context, VBStandardError.ThisArrayIsFixedOrTemporarilyLocked);
                 throw new VBCompileErrorException("Array already dimensioned");
             }
@@ -1840,6 +1841,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 $"Const {sub.ambiguousIdentifier().GetText()} As {asType.type()?.GetText()} is not supported.");
         if (type == Vb6Value.ValueType.EmptyVariant)
             return value;
+        // A store of a String into a Date reads it through ToNum, which takes a serial such as "36526" but no date
+        // string. VB6 reads it as CDate does, with a numeric fallback, and HexIDE's CDate has none (#967). So a Const
+        // that would need that is refused, rather than given either rule's answer.
+        if (type == Vb6Value.ValueType.Date && value.Type == Vb6Value.ValueType.String)
+            throw new NotImplementedException(
+                $"Const {sub.ambiguousIdentifier().GetText()} As Date is given a String, which HexIDE does not read as VB6 " +
+                "reads a date string yet (#967). Write it as a date literal, such as #1/2/2003#.");
         try
         {
             return VbNumeric.CoerceOnStore(value, type, sub);
@@ -1851,6 +1859,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         catch (VBRunTimeException ex) when (ex.Error.ErrNo == VBStandardError.TypeMismatch.ErrNo)
         {
             throw new VBCompileErrorException("Type mismatch");
+        }
+        // Measured: `Const C As Integer = Null`, `As String = Null` and a procedure's `Const P As Integer = Null` do not
+        // compile; `As Variant = Null` and an untyped `Const C = Null` are Null.
+        catch (VBRunTimeException ex) when (ex.Error.ErrNo == VBStandardError.InvalidUseOfNull.ErrNo)
+        {
+            throw new VBCompileErrorException("Invalid use of Null");
         }
     }
 

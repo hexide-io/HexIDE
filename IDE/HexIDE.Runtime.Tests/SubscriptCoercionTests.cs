@@ -308,6 +308,85 @@ public class SubscriptCoercionTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(10L), new Vb6Value(3L)]);
     }
 
+    [Theory]
+    [InlineData("Dim d() As Long\nd = fx")]       // a dynamic array
+    [InlineData("Dim d\nd = fx")]                 // a Variant
+    public async Task An_array_Let_copies_the_array(string assignment)
+    {
+        // Measured: after the copy, d(1) = 99 leaves fx(1) at 7, for a dynamic array and a Variant alike. HexIDE shared the
+        // array, so fx(1) read 99.
+        await Run($"Dim fx(3) As Long\nfx(1) = 7\n{assignment}\nd(1) = 99\nDebug.Print fx(1)\nDebug.Print d(1)\n");
+
+        AssertDebugLog([new Vb6Value(7L), new Vb6Value(99L)]);
+    }
+
+    [Theory]
+    [InlineData("Dim fx(3) As Long, d() As Long\nfx(1) = 7\nd = fx\nReDim d(10)", "")]
+    [InlineData("Dim fx(3) As Long, d\nfx(1) = 7\nd = fx\nReDim d(10)", "")]                      // into a Variant
+    [InlineData("Private fx(3) As Long, d() As Long\nfx(1) = 7\nd = fx\nReDim d(10)", "")]         // at module level
+    [InlineData("Dim fx(3) As Long, d() As Long\nfx(1) = 7\nd = fx\nGrow d", "Sub Grow(b() As Long)\n    ReDim b(10)\nEnd Sub\n")]
+    public async Task A_copy_of_a_fixed_array_can_be_ReDimmed(string setup, string subs)
+    {
+        // Measured: the first two here, natively; the first, third and fourth by #873's review. The copy is dynamic, and
+        // the fixed original keeps its bounds and its element. Sharing the array made the copy fixed, so it was "Array
+        // already dimensioned", or a 10 through the parameter.
+        await Run($"{setup}\nDebug.Print UBound(d)\nDebug.Print UBound(fx)\nDebug.Print fx(1)\n{subs}");
+
+        AssertDebugLog([new Vb6Value(10L), new Vb6Value(3L), new Vb6Value(7L)]);
+    }
+
+    [Fact]
+    public async Task A_Variant_parameter_holding_a_fixed_array_ReDimmed_is_10_and_kept()
+    {
+        // Measured, native: a ByRef Variant parameter shares the caller's fixed array, so its ReDim is 10, "This array is
+        // fixed or temporarily locked", and the array keeps its bounds and its element. It was the compile error "Array
+        // already dimensioned", which VB6 cannot give: what a Variant holds is not known until it runs.
+        await Run("On Error Resume Next\nDim buf(3) As Byte\nbuf(1) = 9\nG buf\nDebug.Print Err.Number\n" +
+                  "Debug.Print UBound(buf)\nDebug.Print CLng(buf(1))\nSub G(v)\n    ReDim v(10)\nEnd Sub\n");
+
+        AssertDebugLog([new Vb6Value(10L), new Vb6Value(3L), new Vb6Value(9L)]);
+    }
+
+    [Fact]
+    public async Task A_ByVal_Variant_parameter_gets_a_copy_it_can_ReDim()
+    {
+        // Measured, native: the callee's ReDim gives it 0 To 10, and the caller's array is untouched.
+        await Run("On Error Resume Next\nDim buf(3) As Byte\nbuf(1) = 9\nGV buf\nDebug.Print Err.Number\n" +
+                  "Debug.Print UBound(buf)\nDebug.Print CLng(buf(1))\n" +
+                  "Sub GV(ByVal v)\n    ReDim v(10)\n    Debug.Print UBound(v)\nEnd Sub\n");
+
+        AssertDebugLog([new Vb6Value(10L), new Vb6Value(0L), new Vb6Value(3L), new Vb6Value(9L)]);
+    }
+
+    private const string Plain = "Public Tag As Long\n";
+    private const string Widget = "Public Function Value() As Long\nAttribute Value.VB_UserMemId = 0\n    Value = 2\nEnd Function\n";
+
+    [Theory]
+    [InlineData("x = a(k)", 438L)]   // an object with no default member
+    [InlineData("x = a(n)", 91L)]    // Nothing
+    public async Task An_object_as_a_subscript_is_VB6s_error(string use, long error)
+    {
+        // Measured, native: 438 and 91, and x keeps its value.
+        await RunClasses("Dim a(5) As Long, x As Long\na(2) = 7\nDim k As Plain\nSet k = New Plain\nDim n As Plain\n" +
+                         $"On Error Resume Next\nx = -1\n{use}\nDebug.Print x\nDebug.Print Err.Number\n", ("Plain", Plain));
+
+        AssertDebugLog([new Vb6Value(-1L), new Vb6Value(error)]);
+    }
+
+    [Theory]
+    [InlineData("x = a(w)")]
+    [InlineData("a(w) = 5")]
+    public async Task An_object_with_a_default_member_as_a_subscript_is_refused_until_174(string use)
+    {
+        // Measured, native: VB6 reads Widget's default member, 2, so a(w) is 7 and a(w) = 5 writes a(2). HexIDE cannot read
+        // a class's default member yet, so it refuses, untrappably: under On Error Resume Next a trappable error would
+        // leave x, or a(2), as it was.
+        var run = () => RunClasses("Dim a(5) As Long, x As Long\na(2) = 7\nDim w As Widget\nSet w = New Widget\n" +
+                                   $"On Error Resume Next\n{use}\n", ("Widget", Widget));
+
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#174*");
+    }
+
     [Fact]
     public async Task A_dynamic_array_ReDimmed_through_a_parameter_is_resized()
     {
