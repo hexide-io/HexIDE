@@ -5543,14 +5543,37 @@ when the procedure is called, or when the module's declarations are run?
 | `w` as a value, in `"..." & w` | 42 |
 | `w.Tag` after `w.Tag = "tagged"` | `tagged` |
 
-**The answer.** Every procedure and variable behaves as if its attribute lines were not there. The one attribute
-that does something at run time is `VB_UserMemId = 0`, and what it does is make `Value` the default member. The
-line itself does nothing when `Value` runs.
+**Measured again for the review** (`a01`, `a02`, native and in the IDE, identical), each value written with its
+`TypeName`. `Widget` also had `Public Flagged As Long` followed by `Attribute Flagged.VB_VarMemberFlags = "40"`, and
+`a02` was a `.bas` alone:
+
+| Read | VB6 |
+|---|---|
+| `Described()` | 7, Long |
+| `w.Value` | 42, Long |
+| `w.Caption`; after `w.Caption = "set"` | `cap:`; `cap:set`, String |
+| `w.Note` | `noted`, String |
+| `"v=" & w` | `v=42`, String |
+| `x = w`, `x` a Variant | 42, Long |
+| `w + 1` | 43, Long |
+| `Print #f, w` | ` 42 `, as Print writes a number, with Err 0 |
+| `w.Tag` after `w.Tag = "tagged"` | `tagged`, String |
+| `w.Flagged` after `w.Flagged = 5` | 5, Long |
+| `a02`: `Public Counter As Long` then `Attribute Counter.VB_VarDescription = "How many"` in Module1.bas; `Counter = 3` | builds; 3, Long, Err 0 |
+
+**The answer.** Every procedure and variable behaves as if its attribute lines were not there. Of those probed, the
+attribute that does something at run time is `VB_UserMemId = 0`, and what it does is make `Value` the default
+member, so `w` used as a value is 42. The line itself does nothing when `Value` runs. `VB_VarUserMemId = 0` does the
+same for a variable (#820's `k5` row, in "RGB, QBColor and MsgBox's style"); it was not among these probes.
 
 **HexIDE, after #832.** It threw "Attribute not implemented" for each of these lines, so calling the procedure
-stopped the run. An attribute line is now metadata: running it does nothing, and the debugger's gate skips it, so
-a step goes from a procedure's first line to its first statement, as VB6's code window, which hides these lines,
-does. The default member is still not used as one, and that is #174.
+stopped the run. An attribute line is now metadata: running it does nothing. The debugger treats it as it treats a
+blank line: a step goes from a procedure's first line to its first statement, and passes over one nested in a block
+too; Set Next Statement onto one is refused; and a breakpoint or Run To Cursor on one is never reached, because
+neither checks its line. VB6's code window hides these lines, so that has no VB6 counterpart; HexIDE's shows them,
+and #273 makes each run read-only and folds it into the line it describes. The default member is not used as one
+yet: since #840, a use of `w` itself as a value (`"v=" & w`, `x = w`, `w + 1`, `Print #f, w`) is refused, untrappably,
+naming #174.
 
 ## What a condition is (2026-10-12, #847)
 

@@ -269,6 +269,29 @@ public class DebuggerTests : BaseVBTestFixture
     }
 
     [Fact]
+    public async Task StepInto_passes_over_an_Attribute_line_nested_in_a_block()
+    {
+        // Only a hand-edited file puts one there, but a step still treats it as metadata, not a statement.
+        var (vb, dbg) = NewDebuggable(
+            "Go\nSub Go()\nIf True Then\nAttribute Go.VB_Description = \"x\"\nDebug.Print 1\nEnd If\nEnd Sub\n", "M");
+        dbg.SetBreakpoints("M", new[] { 3 });
+
+        var stop = NextStop(dbg);
+        var run = vb.Execute();
+        (await stop.Guarded()).Line.Should().Be(3);
+
+        var s2 = NextStop(dbg);
+        dbg.StepInto();
+        var inBlock = await s2.Guarded();
+        inBlock.Line.Should().Be(5, "the If's first statement, after its Attribute line");
+        inBlock.Reason.Should().Be(StopReason.Step);
+
+        dbg.Continue();
+        await run.Guarded();
+        AssertDebugLog([1]);
+    }
+
+    [Fact]
     public async Task Continue_FromStepBreak_RunsFree_NoFurtherStepBreaks()
     {
         var (vb, dbg) = NewDebuggable("Debug.Print \"a\"\nDebug.Print \"b\"\nDebug.Print \"c\"\n", "M");

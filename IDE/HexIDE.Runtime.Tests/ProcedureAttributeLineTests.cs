@@ -4,8 +4,8 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// An <c>Attribute</c> line inside a procedure is metadata, and the procedure runs as if it were not there (#832).
-/// Calling one stopped the run with "Attribute not implemented". Every expectation was measured on vb6.exe; the probe
-/// is in docs/vb6-fidelity-oracle.md, "Attribute lines inside a procedure".
+/// Calling one stopped the run with "Attribute not implemented". Every expectation was measured on vb6.exe, native and
+/// in the IDE; the probes are in docs/vb6-fidelity-oracle.md, "Attribute lines inside a procedure".
 /// </summary>
 public class ProcedureAttributeLineTests : BaseVBTestFixture
 {
@@ -14,6 +14,8 @@ public class ProcedureAttributeLineTests : BaseVBTestFixture
         Public Tag As String
         Attribute Tag.VB_VarDescription = "A tag"
         Attribute Tag.VB_VarHelpID = 5
+        Public Flagged As Long
+        Attribute Flagged.VB_VarMemberFlags = "40"
         Public Function Value() As Long
         Attribute Value.VB_UserMemId = 0
             Value = 42
@@ -49,10 +51,12 @@ public class ProcedureAttributeLineTests : BaseVBTestFixture
             Debug.Print w.Note
             w.Tag = "tagged"
             Debug.Print w.Tag
+            w.Flagged = 5
+            Debug.Print w.Flagged
 
             """.Replace("\r\n", "\n"), ("Widget", Widget.Replace("\r\n", "\n")));
         AssertDebugLog([new Vb6Value(42L), new Vb6Value("cap:"), new Vb6Value("cap:set"), new Vb6Value("noted"),
-            new Vb6Value("tagged")]);
+            new Vb6Value("tagged"), new Vb6Value(5L)]);
     }
 
     [Fact]
