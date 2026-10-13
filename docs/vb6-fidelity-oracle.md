@@ -5859,9 +5859,10 @@ In a procedure, `Dim a(N)` before `Const N = 3` is a compile error too, "Variabl
 That is narrower than CLAUDE.md's pre-pass paragraph implies: it reasons from order-independent Const evaluation, as
 though `Const A = B + 1` before `Const B` were valid VB6. Within one module it is not.
 
-**Across modules, list order does not matter, but the modules' Consts must not form a cycle.** Measured by hexide-7b's
-review with `vb6.exe /make`, two measurers working independently, identical in every row; the rows and the probe
-sources are in that review's measurement record (2026-10-13):
+**Across modules, list order does not matter, but the modules' Consts must not form a cycle.** Measured for #873's
+review with `vb6.exe /make` (2026-10-13), by two measurers working independently, identical in every row. Each row is
+one project: the program column is all of each module's declarations, Sub Main sits in Module1 and prints each
+value, and a project that built was run:
 
 | Program | VB6 |
 |---|---|
