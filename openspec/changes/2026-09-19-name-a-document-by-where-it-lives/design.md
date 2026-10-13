@@ -973,27 +973,52 @@ what happened.
 
 ## Settled before building phase 4
 
-Decided on 2026-10-13 from a survey of every phase-4 task against the code at `ce02d65`. Where a rule turns on
-what VB6 itself writes or keeps, it is marked **(oracle)**: phase 4 measures it on the oracle guest's VB6 IDE as
-it builds, records the measurement in `docs/vb6-fidelity-oracle.md`, and revises the rule here if the
-measurement disagrees.
+Decided on 2026-10-13 from a survey of every phase-4 task against the code at `ce02d65`, and **revised the same
+day** on the oracle's measurements: 165 headless `/make` builds read back through their type libraries, and a
+session in the VB6 IDE itself that wrote attributes through Tools > Procedure Attributes, loaded hand-written
+shapes and saved them, and edited described members in the code window. Both are recorded in
+`docs/vb6-fidelity-oracle.md` under "Member attributes". The paragraphs below are the revised rules; where the
+first draft was overturned, it says so.
 
-**What a run is, and what it describes (4.1).** A member run is a maximal block of consecutive `Attribute
-<name> = …` lines below the header, as `ReadOnlyRegions.Of` finds today. Each line's *qualifier* is its name up
-to the first `.`; a dotless line has none. The run's *described line* is the logical line directly above it:
-the physical line above, and the lines before that it continues with ` _`, read back to the first. The run
-**describes a member** when that logical line lexically declares the qualifier of every line in the run,
-compared without case. Declarations are read lexically and line-locally, the same kind of read as
-`DeclaredNames`: `[Public|Private|Friend|Global|Static] Sub|Function|Property Get|Let|Set|Event <name>`,
-`[Public|Private] Declare Sub|Function <name>`, and variable declarators
-`[Public|Private|Global|Dim|Static] [WithEvents] <name>[(…)] [As …][, <name> …]`. This is collection, not
-binding: it compares a qualifier with a name written on the adjacent line, and relates nothing else in the
-module. It errs towards *describes*, because a miss there costs protection, never text.
+**What a run is, and what it describes (4.1).** A member run is a maximal block of consecutive logical lines below
+the header whose first word is `Attribute`, in any case and at any indent, each with the physical lines it
+continues into with ` _`. A physical line that continues the line above it is never an attribute line: it is part
+of that line's statement, or of its comment (p07, p07c), and `Attribute` is a reserved word in code (p07e). Each
+line's *qualifier* is its name up to the first `.`; a dotless line has none. The run's *described line* is the
+logical line directly above it: the physical line above, and the lines before that it continues with ` _`, read
+back to the first.
+
+VB6 attaches the two kinds of member attribute in opposite ways, and nothing in the first draft anticipated it:
+
+- **A procedure attribute** (any dotted name not starting `VB_Var`) goes to the procedure declared on the line
+  directly above it, **whatever its qualifier names** (p04, p05a, p05b, p12). Away from that line, under a blank
+  line, a comment, a statement or `End Sub`, it reaches nothing, even naming a real procedure (p01 to p03, p05e).
+- **A variable attribute** (`VB_Var…`) goes to the module-level variable its qualifier names, **wherever** it sits
+  after that declaration (p09e, p09g, p09h, p09j), and to nothing when it comes first or names nothing (p09l, p09f).
+- **A dotless line below code** is a module attribute (p06a to p06c).
+
+So a run **describes a member**, and is a read-only region, exactly when it sits directly under a declaration and
+VB6 reads every line of it as that declaration's:
+
+- under a procedure's declaration (`Sub`, `Function`, `Property Get|Let|Set`, `Event` or `Declare`, with any
+  modifiers), when every line is a dotted procedure attribute. The run describes that procedure, and its
+  qualifiers are not consulted;
+- under a module-level variable declaration, when every line is a `VB_Var…` line naming a variable that line
+  declares, compared without case. Every statement on the line counts, `:`-separated ones included, because VB6's
+  own dialog writes a run under `Public A As Long: Public B As Long` for `B` (IDE probe E). `Const`, `Enum` and
+  `Type` declare no variable.
+
+Declarations are read lexically and line-locally, the same kind of read as `DeclaredNames`. This is collection, not
+binding: it compares a qualifier with a name written on the adjacent line, and relates nothing else in the module.
+The first draft's rule, that every qualifier must name the member declared above, orphaned a procedure run VB6
+honours whenever its qualifier differed, which a rename leaves behind (below).
 
 A run's **key**, wherever state has to outlive its offsets (fold expansion, matching runs between two texts), is
-its first qualifier without case plus its ordinal among runs with that qualifier, since a property's Get and Let
-may each carry one. The data travels beside `TextRegion` as a separate record rather than widening it, because
-`TextRegion`'s positional equality is pinned by tests and a list field in a record struct compares by reference.
+the name of the member it describes, as the declaration spells it (for a variable run, the first variable it
+names), without case, plus its ordinal among runs with that key, because a property's Get and Let may each carry
+one and both survive a save (IDE probes A and B2). The data travels beside `TextRegion` as a separate record rather
+than widening it, because `TextRegion`'s positional equality is pinned by tests and a list field in a record
+struct compares by reference.
 
 *Settled while building 4.1.* `ReadOnlyRegions.MemberRuns` reports every run, orphans included, as a `MemberRun`
 from the same scan as `Of`, which keeps only the runs that describe a member. What the paragraphs above left open:
@@ -1004,11 +1029,13 @@ from the same scan as `Of`, which keeps only the runs that describe a member. Wh
   aside. Not `VbAutoCloseProvider.IsContinuationLine`, which also takes an identifier ending in `_` for one; 4.5,
   which reads the same lines for Enter, should use this rule or say why not.
 - *Only the first statement on the described line is read*: a `:` ends it, as a comment does. `Public A As Long:
-  Public B As Long` declares `A` alone here. VB6 writes no such line under an attribute run that anyone has seen.
+  Public B As Long` declares `A` alone here. **Overturned by the oracle**: VB6's dialog writes `B`'s run under
+  that very line (IDE probe E), so every statement on the line is read.
 - *VBA7's `Declare PtrSafe` is read as `Declare`*, for the VBA personalities. `Const`, `Enum` and `Type` declare
   nothing a run can describe.
-- *A blank line inside one member's run leaves the half after it an orphan*, because a blank line ends a run. That
-  is the **(oracle)** question above, unchanged.
+- *A blank line inside one member's run leaves the half after it an orphan*, because a blank line ends a run.
+  **Measured since**: VB6 reaches nothing with that half either, and drops it at its next save (IDE probe B,
+  SplitRun).
 - *An orphan is the server's ordinary text too*: it is formatted as code, and the grammar reads it as an attribute
   statement anywhere a statement goes, so a well-formed one raises nothing and a damaged one is reported. Seen
   while building: the bundled grammar takes `WithEvents` once per declaration, so `Public WithEvents A As T,
@@ -1017,15 +1044,21 @@ from the same scan as `Of`, which keeps only the runs that describe a member. Wh
 
 **A run that describes nothing is inert text, not a region.** The code-editor requirement defines a read-only
 region as the header or "a run of attribute lines describing a member", and says an attribute line left
-describing nothing is preserved as inert text. So a run whose logical line above does not declare its
-qualifiers is an *orphan*: a run under a blank line, a comment, a body statement or another member, or under a
-declaration renamed by typing. An orphan is **not** read-only, greyed or folded, and nothing the IDE does removes
-or moves it. It is text the developer can see and change, which is the only way to repair one, since there is no
-Procedure Attributes dialog (#62). A dotless `Attribute` line below code describes nothing either. Protection
-changes for orphans only, so the server's port (`VbProtectedRegions`), the sidecar's read-only drop and the mark
-rules change with it, kept in step by `BundledServerRespectsTheIdesRegionsTests`. **(oracle)** whether VB6
-honours, keeps or drops a run separated from its member by a blank line or a comment: if it honours one, the
-described line widens to the previous non-blank, non-comment line.
+describing nothing is preserved as inert text. So a run that does not describe a member as above is an *orphan*:
+not read-only, greyed or folded, and kept byte for byte. That covers a run under a blank line, a comment, a
+statement or a `Const`; a dotless line below code; a `VB_Var…` line away from its variable; a run mixing the two
+kinds; and a variable's run left naming a name the line no longer declares. Protection changes for orphans only,
+so the server's port (`VbProtectedRegions`), the sidecar's read-only drop and the mark rules change with it, kept
+in step by `BundledServerRespectsTheIdesRegionsTests`.
+
+**This is a deliberate divergence, and the oracle shows its size.** VB6 hides every `Attribute` line, attached or
+not, says nothing when it loads a misplaced one, and at its next save **drops** a procedure attribute that reaches
+nothing, **moves** a variable attribute under its variable and **moves** a dotless line into the header (IDE probe
+B). HexIDE does not rewrite text the developer cannot see, so it shows what VB6 would silently discard or move,
+where it can be repaired by hand. While there is no Procedure Attributes dialog (#62), that is the only way to
+repair one. A file HexIDE saves with an orphan in it is the same text VB6 would have loaded, so VB6 reads it the
+same way. The first draft's open question, whether the described line should widen past a blank line or a
+comment, is answered: VB6 does not honour such a run (p01, p02), so it does not widen.
 
 **Folds (4.3).** Every run that describes a member is folded by default, from its anchor (the described line's
 content end) to the content end of its last line, so the line after the run stays a line of its own. The fold
@@ -1045,15 +1078,22 @@ to the first, or past the run to the next line when it came from the first. So t
 bar all see the end of the declaration the developer sees. This is measured headlessly before it is relied on,
 as 3.14 did for the header.
 
-**Renames (4.4).** A rename carries a run's qualifiers with it exactly when the rename changes the declaration
-the run describes. `ApplyRename` permits a qualifier edit only on a run describing a member whose declaration
-the same answer renames. Where a server's answer renamed the declaration but left the qualifier, the IDE adds
-the qualifier edit itself, taking the new spelling from the server's edit to the declaration. That covers a
-server that does not know VB6's attribute lines, which would otherwise orphan the run. A new name that is not a
-VB6 identifier is refused before the request, with a reason (a new string), and the bundled server answers
-nothing for one. A rename the developer makes by retyping the declaration gets no fix-up: it leaves an orphan,
-which is visible and editable. **(oracle)** whether VB6 carries a description across a name retyped on its
-declaration line.
+**Renames (4.4).** A procedure's run follows its procedure by position, so no rename separates them. What a rename
+leaves behind is the qualifiers, and VB6 rewrites those **at every save**: to the procedure's name as declared,
+in its declared casing, after a name retyped on the declaration, after Replace All, after the whole declaration
+retyped over a selection, and for a loaded run whose qualifier names nothing, another member, or the member in
+the wrong case (IDE probes C2, C3, C8 and B). HexIDE does the same, as an owner write when it saves a document it
+changed, in the same step as the save's header: every run describing a procedure has its qualifiers set to the
+declared name. So a rename by a server that does not know attribute lines, by Replace, by an add-in, by AI Chat or
+by retyping ends with the qualifiers VB6 would write, and nothing has to fix them up at the moment of the edit.
+`ApplyRename` lets a server's qualifier edits through on any run describing a procedure the same answer renames,
+whatever the qualifier said, and refuses every other edit to a run, as now. A variable's run binds by name, so a
+variable renamed by retyping leaves its run an orphan, visible and editable. **(oracle, pending)** what VB6 does
+with a variable renamed by retyping: if it carries the description, as it does a procedure's, the save's re-write
+extends to a variable run whose line declares one variable and whose qualifiers all name one name that line does
+not. A new name that is not a VB6 identifier is refused before the request, with a reason (a new string), and the
+bundled server answers nothing for one. The first draft said a rename by retyping leaves an orphan with no fix-up;
+VB6 carries the description across all three kinds of rename, so that is overturned.
 
 **Enter, and a line break at an anchor (4.5).** A line break inserted at a described line's anchor goes after
 the run, as a line of its own, in the document's newline. That covers Enter and Shift+Enter, a multi-line paste,
@@ -1065,24 +1105,34 @@ break at an anchor is refused, like any edit that would separate a run from its 
 Backspace, Cut or Ctrl+D, removes its run with it as one undo step, and a cut puts both on the clipboard. The
 window widens the request before the library asks the provider, because the provider can only narrow. Retyping
 over a selected declaration is a replacement, not a deletion: the run stays, and describes whatever the new line
-declares. Automation's `press_key` judges a deletion by the same rule, so it does what a person's key does. A
-drag-move that would carve a run stays a copy, as the library makes it today.
+declares, which is what VB6 does (IDE probe C8). Automation's `press_key` judges a deletion by the same rule, so
+it does what a person's key does. A drag-move that would carve a run stays a copy, as the library makes it today.
+
+VB6 removes the description with the declaration line or the whole procedure, as here (IDE probes C4a, C9a). It
+then loses it for good: Undo restores the text and not the description, and a cut puts only the visible text on
+the clipboard, so a pasted procedure arrives undescribed (C5, C6). HexIDE's undo restores both and its cut carries
+the run, a deliberate divergence: losing a description to Undo is the kind of VB6 defect the Fidelity Principle
+says not to reproduce. **(oracle, pending)** what VB6 does when such text is pasted into its own code window.
 
 **Whole replacements (4.5b).** `GuardedContent.Replace` compares the runs that describe members, keyed by
-member, between the document and the composed result:
+member, between the document and the composed result, reading a procedure run's lines without their qualifiers,
+since the save re-writes those:
 
-- a run may move with its member;
+- a run may move with its member, or be renamed with it;
 - a run may disappear only together with its member's declaration;
-- a run may change only its qualifier, and only as a rename that also renamed its declaration.
+- a run's lines may not otherwise change.
 
 Any other change, addition or loss is refused, with a reason naming each member. Orphans are inert text and
 free. The add-in contract, `set_file_content`'s description and AI Chat's prompt say so, and `ApplyEdits` names
 the member in its refusal too.
 
 **The corpus (4.6).** The fixtures carrying member attributes are written by the VB6 IDE on the oracle guest,
-through Tools > Procedure Attributes, so the shapes the lanes check are VB6's own. They live under
-`corpus/member-attributes/` with a project of their own, and every lane that walks the repository's corpora
-walks it.
+through Tools > Procedure Attributes, so the shapes the lanes check are VB6's own: procedure, property, event and
+variable runs, a run under a continued declaration, a comma list and a colon-separated line, `WithEvents` with the
+`VB_VarHelpID = -1` line VB6 adds by itself, a standard module, a form and a UserControl, and every option the
+dialog offers. They live under `corpus/member-attributes/` with a project of their own, and every lane that walks
+the repository's corpora walks it. The hand-written load shapes and VB6's saved output for each are kept beside
+them as the evidence for the orphan rules above, not as round-trip fixtures, since VB6 rewrote them.
 
 ## When a document gets its file (#489, settled 2026-09-20)
 
