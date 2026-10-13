@@ -5571,10 +5571,10 @@ stopped the run. An attribute line is now metadata: running it does nothing. The
 blank line: a step goes from a procedure's first line to its first statement, and passes over one nested in a block
 too; Set Next Statement onto one is refused; and a breakpoint or Run To Cursor on one is accepted and never
 reached, because neither checks its line. VB6's code window hides these lines, so that has no VB6 counterpart.
-HexIDE's shows them, and #273 makes each run read-only, folds it into the line it describes, and refuses a breakpoint
-on it. The default member is not used as one
-yet: since #840, a use of `w` itself as a value (`"v=" & w`, `x = w`, `w + 1`, `Print #f, w`) is refused, untrappably,
-naming #174.
+HexIDE's shows them until #273, which makes each run read-only, folds it into the line it describes, and refuses a
+breakpoint on it. The default member is not used as one
+yet: since #840, a use of `w` itself as a value (`"v=" & w`, `x = w`, `w + 1`) is refused, untrappably, naming #174.
+`Print #f, w` stops before it gets there, at `Open`, which HexIDE does not implement yet.
 
 ## What a condition is (2026-10-12, #847)
 

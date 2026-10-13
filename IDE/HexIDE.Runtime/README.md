@@ -67,13 +67,13 @@ interpreter. They are principled walls, not backlog:
 | **Type/Enum scoping** | `Private Type` / `Private Enum` isolation (all aggregate program-wide) |
 | **`LSet` / `RSet`** | Record/string block assignment |
 | **COM / OLE automation** | `CreateObject`, `GetObject`, and the wider automation surface |
+| **OS automation** | `AppActivate`, `SendKeys` |
 
 **Default members are not among them**, though this table used to list them. A class's default member is declared by
 an `Attribute` line the pre-pass collects (`VB_UserMemId`, `VB_VarUserMemId`), and reading it is a call made as the
 program runs, which needs no binding. It is not implemented yet: #174 for a class, #790 for a control. Until then a
 class's default member used as a value is refused, untrappably, naming #174, and a class with none raises 438, as in
 VB6. A control is refused in a Let and in a numeric conversion, and still gives its .NET type name in a concatenation.
-| **OS automation** | `AppActivate`, `SendKeys` |
 
 ## What is still being filled in (deferred, *not* walls)
 

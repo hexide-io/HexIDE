@@ -1075,7 +1075,7 @@ happened. The second is the main window with no `activeDialog`, and the box is n
 `window: "ide"` is the documented way to reach the IDE while a program is paused, and the tool's description
 says an open modal is captured in preference to the main window. Only the default window finds it. #681
 measured the first half with Tools/Add Procedure left open; this is a modal raised by the action itself, which
-its second comment describes.
+[its Linux comment](https://github.com/hexide-io/HexIDE/issues/681#issuecomment-6146516046) describes.
 
 **Workaround.** After any action that might open a dialog, `dump_visual_tree {}` and read its `window`. A
 `take_snapshot {}` with no `window` captures the dialog.

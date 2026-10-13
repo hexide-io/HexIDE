@@ -61,5 +61,5 @@ internal static class ObjectAsValue
     };
 
     private static NotImplementedException DefaultMemberRefused(VbObject obj) =>
-        new($"Using a {obj.ClassDef.Name} as a value reads its default member, which is not implemented for a class yet (#174).");
+        new($"Using a {obj.ClassDef.Name} as a value reads its default member, which is not implemented for a class yet (#174). Name the member instead.");
 }
