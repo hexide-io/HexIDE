@@ -7023,3 +7023,30 @@ code generator and linker are in the copy.
 
 Not measured: where in the command lines VB6 inserts each value, whether `C2Switches` applies to every module,
 and whether LINK 6 accepts `/DYNAMICBASE`, `/NXCOMPAT` or `/LARGEADDRESSAWARE`.
+
+## A Function that returns an array (2026-10-13, #975)
+
+**The question.** A Function or Property Get declared `As Long()`: what does it return? HexIDE read the declaration as
+its element type, so the array the body stored was narrowed into a Long on the way out: `x = RetFixed()` gave
+`TypeName` "Long", 0, with no error, and `d = RetFixed()` left a `Dim d() As Long` a scalar.
+
+**The probe.** One Sub Main project, built as native code and as p-code, the two agreeing on every row. `modArr` is a
+module-level `Dim modArr(3) As Long` with `modArr(1) = 7`, and `RetFixed = modArr`:
+
+| Program | VB6 |
+|---|---|
+| `x = RetFixed()` | `TypeName` "Long()", `UBound` 3, `x(1)` 7, no error |
+| `TypeName(RetFixed())` | "Long()" |
+| `d = RetFixed()`, `d` a `Dim d() As Long` | `UBound` 3, `d(1)` 7 |
+| `Function RetEmpty() As Long()`, which never assigns its name: `TypeName(RetEmpty())` | "Long()" |
+| `x = RetEmpty()`, then `UBound(x)` | 9 |
+| `Function RetStr() As String()` returning `Split("a,b,c", ",")` | "String()", `UBound` 2, `x(2)` "c" |
+| `Function RetVar() As Variant()` returning a `Variant` array holding "x" and 2 | "Variant()", "x", and `TypeName(x(1))` "Integer" |
+| a standard module's `Property Get PG() As Long()`, `x = PG` | "Long()", `x(1)` 7 |
+| a class's `Public Property Get Items() As Long()`, `x = o.Items` (a second probe) | "Long()", `UBound` 3, `x(1)` 7 |
+
+**HexIDE, after #975.** The pre-pass reads a Function's or Property Get's `As T()` as the array type, so the return slot
+starts as an empty array of it and the array the body stores comes back as it is. Every row is pinned except the
+standard module's Property Get, which HexIDE does not reach by name at all: a bare `PG`, or a scalar `PS`, reads Empty
+with no error, and `PG()` is "Sub or Function not defined" (#977, found here). Whether the caller gets a copy of the
+array is #970's.
