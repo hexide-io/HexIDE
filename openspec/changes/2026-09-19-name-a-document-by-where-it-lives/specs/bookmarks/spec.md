@@ -4,9 +4,12 @@
 **Reason**: The code window now holds each file's header and member attribute lines, read-only. "Any line"
 would include lines the developer cannot edit and, folded, cannot see; a mark there lands on a line other than the
 one clicked. The requirement is restated below, limited to editable lines, with its other content unchanged.
-**Migration**: None for developers. Bookmarks set before this change were counted from the first line the code
-window showed, and the sidecar migration moves each one down by however many lines are now shown above that
-line, so every bookmark stays on the line it was set on and none lands in the header.
+**Migration**: Bookmarks set before this change were counted from the first line the code window showed, and the
+sidecar migration moves each one down by however many lines are now shown above that line, so a bookmark stays
+on the line it was set on and none lands in the header. The exception is a bookmark the old code window allowed
+on a line that is now read-only: one of a form's leading `Attribute` lines, which it showed as the first lines of
+code, or an `Attribute` line describing a member. That bookmark is dropped as the project opens, and the log says
+so, because the line it was on can no longer take one.
 
 ## ADDED Requirements
 

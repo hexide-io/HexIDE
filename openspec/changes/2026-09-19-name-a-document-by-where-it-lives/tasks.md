@@ -689,11 +689,12 @@
   render gates, both shift bases in both directions, the no-op guards on the shift and on the re-head, the
   caret carry, the bus subscription, the prefix tracking on both write paths, the save's recording and its
   slice, and each of the four undo-stack hooks. Twenty-two mutations; all of them redden.
-  — **Left standing, and it belongs to 3.17:** an external change the dirty detector calls a Conflict is
-  not applied, so its header delta never reaches the stores — and when the project is next opened the
-  sidecar restores the marks in the numbering of the file as it was before that change. Seen during the live
-  verification, where the first external edit landed while the designer had an undo history and was
-  therefore classified as a conflict; the reload that followed a restart shifted correctly.
+  — **Left standing, and it belongs to an issue filed from the 3.17 review:** an external change the dirty
+  detector calls a Conflict is not applied, so its header delta never reaches the stores — and when the
+  project is next opened the sidecar restores the marks in the numbering of the file as it was before that
+  change. Seen during the live verification, where the first external edit landed while the designer had an
+  undo history and was therefore classified as a conflict; the reload that followed a restart shifted
+  correctly.
 - [x] 3.4 Header render for a form with no file uses `<Name>.frx`. A form held read-only is never re-rendered.
   — **The read-only half was already done, and saying why is the deliverable.** Being unable to reproduce a
   form is the ONLY thing in the tree that holds one read-only: both `IsReadOnly` properties that can be
@@ -726,8 +727,9 @@
   — **What this task does NOT close, recorded in `design.md` as an open question of this phase**: a created
   form that is opened and never touched still shows no header, while the code-editor delta says a document
   with no file shall hold the header its first save will write. It needs a trigger the design record does
-  not have, and it cannot be settled apart from 3.17 — a header appearing at open has no previous header to
-  measure a mark shift against, and the sidecar's own numbering may already count it.
+  not have, and it cannot be settled apart from the sidecar's numbering, which is an issue filed from the 3.17
+  review — a header appearing at open has no previous header to measure a mark shift against, and the
+  sidecar's own numbering may already count it.
   — **Verified in the running IDE** on a `File > New Project` Standard EXE, whose `Form1` genuinely has no
   file: the code window opened with no header, and adding a control in the designer put the whole designer
   block in front of `Option Explicit`.
@@ -1419,13 +1421,25 @@
   inside the prefix, which the read-only drop then removes. A load that never wrote its migration first passed
   the second-opening test, which read the same earlier file twice; that test now checks the file the first
   opening left before opening it again.
+  — **The review's mutation pass found four more that passed, and each now reddens a test**: an old-key entry
+  subtracted by its key alone rather than while it is exactly what the load moved
+  (`AnEarlierBuildsLaterWriteUnderAMigratedKeyIsKeptForTheNextOpening`); a name shared with a document whose
+  file is missing placed rather than carried (`ANameSharedWithADocumentWhoseFileIsMissingIsCarried`); an entry
+  consumed only when a line of it was placed (`AnEarlierSidecarsEntryWhoseEveryLineIsPastTheEndLeavesTheFile`,
+  and the read-only test now checks the old keys are gone); and a carried entry's lines dropped where this
+  session has marks under its name (`AMarkSetWhereAnEntryIsCarriedIsWrittenBesideIt`). The design record had said
+  a drop writes nothing at load, which was true only of the new keys, and now says so. Also added: a later
+  opening that finds the missing file migrates the carried entry, and the missing-file theory covers a
+  PropertyPage. `OnlyNamesTheProjectLackedWhenItOpenedAreCarried` lost a third assertion that could not fail.
   — **Fixtures revised, not weakened**: `"version": 2` meant "a newer build" in seven tests and now means this
   build, so those say 3; the four that asserted version 1 assert 2; reads of what this build writes read the new
   keys; four fixtures written in this build's numbering under the old keys moved to the new ones; and a test
   that set a document's path with no file behind it now writes the file, since a path naming nothing is a missing
   file. `AMarkOnAFormsLastLineOfCodeIsKeptAtLoad` no longer keeps a header-line mark, which its own remark had
   said was the migration's call.
-  — **Not closed: the conflicted external change parked under 3.3b**, for the reason the design record gives.
+  — **Not closed: the conflicted external change parked under 3.3b**, for the reason the design record gives,
+  **nor 3.4's header that appears at open**, which version 2 cannot tell apart from a header its marks already
+  count. Each is an issue filed from the 3.17 review.
   `debugger-vb6-divergences.md` D23's status now says the migration is done. D24, and the remark on
   `CodeEditorViewModel.ToggleBreakpoint`, still say only an older sidecar can leave a mark on a read-only line,
   which the load now drops; 5.5 and 5.7 rewrite them.
@@ -1489,10 +1503,15 @@
 - [ ] 5.4 `docs/mcp-server-gaps.md`: every automation contract change, recorded and filed.
 - [ ] 5.5 `docs/debugger-vb6-divergences.md`: the visible header, file-counted line numbers, and designer
   changes exempt from the reset prompt.
+  — **And D24's sentence "A mark already on one, which only an older sidecar can have left there, can still be
+  removed"**, which 3.17 made wrong: the load now drops such a mark from any sidecar, in either format. D24 has
+  to say where one can still come from, if anywhere, and go on saying that one already there can be removed.
 - [ ] 5.6 `docs/MISSING_FEATURES.md` and `docs/MISSING_LANGUAGE.md`: line numbers, folding, rename, Find and
   the Procedure Attributes row (#62). The attribute rows whose mechanism text says "stripped from the body".
 - [ ] 5.7 Comments that describe the old model: `FormCodeText`, `ModuleFileFormat`, `ModuleDefinition`,
   `DirtyDetector`, the redactor and disclosure, `DocumentSavedEvent`, `IBreakpointService`, the automation
   tool descriptions.
+  — **And the remark on `CodeEditorViewModel.ToggleBreakpoint`**, which says, as D24 does, that only an older
+  sidecar can have left a breakpoint on a read-only line. It is rewritten to agree with what 5.5 makes D24 say.
 - [ ] 5.8 Validate and archive; rewrite the Purpose of each spec the archive touched if the CLI replaces it,
   and fill in the new capabilities' Purpose.

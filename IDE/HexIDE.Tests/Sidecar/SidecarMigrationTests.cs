@@ -269,12 +269,15 @@ public sealed class SidecarMigrationTests : IDisposable
     /// A module whose file is missing is still loaded, empty, so the code window shows the header it would have:
     /// one line for a <c>.bas</c>, thirteen for a <c>.cls</c>. Its LOW lines are what catch an entry being placed
     /// rather than carried, because they are lines of that empty composition and would pass a range check. A
-    /// UserControl is the kind whose missing file leaves no trace on the model at all, so it is here as well.
+    /// UserControl is the kind whose missing file leaves no trace on the model at all, so it is here as well. A
+    /// PropertyPage is loaded by the same pass as a <c>.bas</c> and a <c>.cls</c> but has no header to put in
+    /// front of its code, so it is the kind a placed entry would not even move.
     /// </remarks>
     [Theory]
     [InlineData("Module=Gone; Gone.bas")]
     [InlineData("Class=Gone; Gone.cls")]
     [InlineData("UserControl=Gone.ctl")]
+    [InlineData("PropertyPage=Gone.pag")]
     public async Task AnEntryForAFileThatIsMissing(string vbpLine)
     {
         var vbp = Stage(vbpLine);
@@ -305,6 +308,116 @@ public sealed class SidecarMigrationTests : IDisposable
         JsonNode.DeepEquals(written["bookmarks"], original["bookmarks"]).Should().BeTrue();
         Lines(written, "fileBreakpoints", "Gone").Should().Equal(2, 5);
         Lines(written, "fileBreakpoints", "Utils").Should().Equal(6);
+    }
+
+    /// <summary>
+    /// The entry for a file that was missing is migrated by a later opening that finds the file, as the ADDED
+    /// requirement says an unmeasurable entry SHALL be "once it can be".
+    /// </summary>
+    /// <remarks>
+    /// The first session also rewrites the sidecar, with a mark set elsewhere, so the later opening reads a file
+    /// this build wrote, holding the carried entry under the old keys beside its own under the new ones. That is
+    /// the file a developer actually has when a missing module comes back.
+    /// </remarks>
+    [Fact]
+    public async Task AnEntryForAFileThatIsMissingIsMigratedOnceTheFileIsFound()
+    {
+        var vbp = Stage("Module=Gone; Gone.bas");
+        var goneBas = Crlf(
+            "Attribute VB_Name = \"Gone\"",
+            "Option Explicit",
+            "",
+            "Public Sub Go()",
+            "    Debug.Print 1",
+            "End Sub");
+        var oldLine = OldLineOf(goneBas, ModuleKind.StandardModule, "    Debug.Print 1");
+        oldLine.Should().BeGreaterThan(0, "the statement is in the fixture's code");
+        File.WriteAllText(SidecarPath, $$"""{ "version": 1, "breakpoints": { "Gone": [{{oldLine}}] } }""");
+
+        var first = await Open(vbp);
+        first.Breakpoints.GetBreakpoints(Doc(first.Project, "Gone")).Should().BeEmpty("its file is missing");
+        first.Breakpoints.SetDocument(Doc(first.Project, "Utils"), [6]);
+        await first.Sidecar.SaveAsync(first.Project);
+        Close(first.Project);
+
+        var between = ReadJson(SidecarPath);
+        between["version"]!.GetValue<int>().Should().Be(2, "this build rewrote the file");
+        Lines(between, "breakpoints", "Gone").Should().Equal([oldLine], "the entry was carried as it was");
+
+        File.WriteAllText(Path.Join(dir, "Gone.bas"), goneBas);
+        var second = await Open(vbp);
+
+        var gone = Doc(second.Project, "Gone");
+        var breakpoint = second.Breakpoints.GetBreakpoints(gone).Should().ContainSingle().Subject;
+        LineOf(gone, breakpoint).Should().Be("    Debug.Print 1", "the mark is on the statement it was set on");
+        var written = ReadJson(SidecarPath);
+        Lines(written, "fileBreakpoints", "Gone").Should().Equal(breakpoint);
+        Lines(written, "fileBreakpoints", "Utils").Should().Equal(6);
+        written.ContainsKey("breakpoints").Should().BeFalse("the entry left the old keys once it was migrated");
+    }
+
+    /// <summary>
+    /// Where a document whose file is missing shares its name with one that is present, as a project written
+    /// elsewhere can, the entry under that name is carried for both rather than placed in either: it is one entry,
+    /// and half of it cannot be measured.
+    /// </summary>
+    /// <remarks>
+    /// The form is the document that could take the marks, so it is the one that shows a regression. Placed, the
+    /// entry would also be consumed, and the next opening could never migrate it into the module once its
+    /// <c>.bas</c> is restored. Both formats are here, since the old keys are migrated and the new ones gathered.
+    /// </remarks>
+    [Fact]
+    public async Task ANameSharedWithADocumentWhoseFileIsMissingIsCarried()
+    {
+        var vbp = Stage("Module=Orders; Missing.bas");
+        var formOld = OldLineOf(OrdersFrm, null, "    total = 12.5 * 3");
+        var text = $$"""
+            {
+              "version": 1,
+              "breakpoints": { "Orders": [{{formOld}}] },
+              "fileBookmarks": { "Orders": [29] }
+            }
+            """;
+        File.WriteAllText(SidecarPath, text);
+
+        var opened = await Open(vbp);
+
+        var named = DocumentLookup.DocumentsOf(opened.Project).Where(d => d.Name == "Orders").ToList();
+        named.Should().HaveCount(2, "a form and a module share the name");
+        named.Should().ContainSingle(d => d.Form != null);
+        named.Single(d => d.Module != null).AbsolutePath.Should().NotBeNull();
+        File.Exists(named.Single(d => d.Module != null).AbsolutePath!).Should().BeFalse("the module's file is missing");
+        foreach (var document in named)
+        {
+            opened.Breakpoints.GetBreakpoints(document).Should().BeEmpty($"{document.Display} cannot take half an entry");
+            opened.Bookmarks.GetBookmarks(document).Should().BeEmpty();
+        }
+        File.ReadAllText(SidecarPath).Should().Be(text, "nothing was placed, so nothing was migrated or written");
+    }
+
+    /// <summary>
+    /// A mark set this session in a document whose entry is being carried is written beside that entry, not over
+    /// it: the next opening that can measure the entry joins the two.
+    /// </summary>
+    /// <remarks>
+    /// The document's file is missing, so its entry under the new keys is carried from the file, and the code
+    /// window still shows it, header and an empty line, so a breakpoint can be set in it. Writing the stores' marks
+    /// alone under that name would delete the carried one for good.
+    /// </remarks>
+    [Fact]
+    public async Task AMarkSetWhereAnEntryIsCarriedIsWrittenBesideIt()
+    {
+        var vbp = Stage("Module=Gone; Gone.bas");
+        File.WriteAllText(SidecarPath, """{ "version": 2, "fileBreakpoints": { "Gone": [5] } }""");
+
+        var opened = await Open(vbp);
+        var gone = Doc(opened.Project, "Gone");
+        opened.Breakpoints.GetBreakpoints(gone).Should().BeEmpty("its file is missing, so its entry is carried");
+
+        opened.Breakpoints.SetDocument(gone, [2]);
+        await opened.Sidecar.SaveAsync(opened.Project);
+
+        Lines(ReadJson(SidecarPath), "fileBreakpoints", "Gone").Should().Equal(2, 5);
     }
 
     /// <summary>
@@ -422,7 +535,8 @@ public sealed class SidecarMigrationTests : IDisposable
     /// The old window showed a form's leading <c>Attribute</c> lines and a member's <c>Attribute</c> line as
     /// editable code, so a mark could be set there. Moved to the top of the file, the first is in the header and
     /// the second describes a procedure; neither ever runs. The next save is the one the migration makes as the
-    /// project opens.
+    /// project opens. An entry every line of which is dropped has still been migrated, so it leaves the old keys
+    /// with the rest: left there, it would be dropped again at every opening and never leave the file.
     /// </remarks>
     [Fact]
     public async Task AnEarlierSidecarsMarkThatLandsOnAReadOnlyLine()
@@ -458,6 +572,36 @@ public sealed class SidecarMigrationTests : IDisposable
         Lines(written, "fileBreakpoints", "Orders").Should().Equal(breakpoint);
         written["fileBreakpoints"]!.AsObject().ContainsKey("Utils").Should().BeFalse();
         written.ContainsKey("fileBookmarks").Should().BeFalse();
+        written.ContainsKey("breakpoints").Should().BeFalse(
+            "Utils' entry was migrated although its only line was dropped, so it is not left in the old keys");
+        written.ContainsKey("bookmarks").Should().BeFalse("nor is the form's bookmark, every line of which was dropped");
+    }
+
+    /// <summary>
+    /// The user-sidecar scenario "A sidecar naming lines past the end of its document", for an earlier sidecar: an
+    /// entry whose every line is past the end is migrated all the same, so the file is rewritten without it as the
+    /// project opens, though no mark moved.
+    /// </summary>
+    /// <remarks>
+    /// Nothing else in the file is migrated, so this entry alone is what makes the write. Left under the old keys
+    /// it would be dropped and logged at every opening and never written out of the file, which is what the
+    /// requirement's "the next save does not write it" rules out.
+    /// </remarks>
+    [Fact]
+    public async Task AnEarlierSidecarsEntryWhoseEveryLineIsPastTheEndLeavesTheFile()
+    {
+        var vbp = Stage();
+        File.WriteAllText(SidecarPath, """{ "version": 1, "breakpoints": { "Utils": [99] } }""");
+        using var log = new CapturedLog();
+
+        var opened = await Open(vbp);
+
+        opened.Breakpoints.GetBreakpoints(Doc(opened.Project, "Utils")).Should().BeEmpty();
+        log.Messages.Should().Contain(m => m.Contains("Dropped breakpoints on") && m.Contains("99"));
+        var written = ReadJson(SidecarPath);
+        written["version"]!.GetValue<int>().Should().Be(2, "the file was rewritten as the project opened");
+        written.ContainsKey("breakpoints").Should().BeFalse();
+        written.ContainsKey("fileBreakpoints").Should().BeFalse("nothing was left to place");
     }
 
     /// <summary>
@@ -639,6 +783,43 @@ public sealed class SidecarMigrationTests : IDisposable
     }
 
     /// <summary>
+    /// While the migration's write is still to land, an earlier build that rewrites a migrated entry under the old
+    /// keys keeps what it wrote: only an entry that is still exactly what the load moved is left out of the file,
+    /// and the next opening migrates the rest.
+    /// </summary>
+    /// <remarks>
+    /// The file stays in the old format while another program holds it, so a build without the migration, with the
+    /// #466 fix, can open the project meanwhile and add a breakpoint under the key this one migrated. Subtracting
+    /// the key whatever it holds would delete that breakpoint at the next save, unseen.
+    /// </remarks>
+    [Fact]
+    public async Task AnEarlierBuildsLaterWriteUnderAMigratedKeyIsKeptForTheNextOpening()
+    {
+        var vbp = Stage();
+        File.WriteAllText(SidecarPath, """{ "version": 1, "breakpoints": { "Ledger": [3] } }""");
+        Directory.CreateDirectory(SidecarPath + ".tmp");
+
+        var opened = await Open(vbp);
+        ReadJson(SidecarPath)["version"]!.GetValue<int>().Should().Be(1, "the migration's write could not be made");
+
+        // The earlier build's save: its own marks, in its own numbering, under the key this one migrated.
+        File.WriteAllText(SidecarPath, """{ "version": 1, "breakpoints": { "Ledger": [3, 4] } }""");
+        Directory.Delete(SidecarPath + ".tmp");
+        await opened.Sidecar.SaveAsync(opened.Project);
+
+        var written = ReadJson(SidecarPath);
+        Lines(written, "fileBreakpoints", "Ledger").Should().Equal(16);
+        written.ContainsKey("breakpoints").Should().BeTrue("the entry is no longer what the load moved");
+        Lines(written, "breakpoints", "Ledger").Should().Equal([3, 4], "it is kept as the earlier build wrote it");
+        Close(opened.Project);
+
+        var again = await Open(vbp);
+        var ledger = Doc(again.Project, "Ledger");
+        again.Breakpoints.GetBreakpoints(ledger).Should().Equal(16, 17);
+        LineOf(ledger, 17).Should().Be("    mBalance = mBalance + amount", "the earlier build's mark, on its statement");
+    }
+
+    /// <summary>
     /// A file from a newer build keeps its version, and the version-1 keys in it are migrated all the same: those
     /// keys are counted the old way whatever the file's version says.
     /// </summary>
@@ -698,10 +879,16 @@ public sealed class SidecarMigrationTests : IDisposable
     }
 
     /// <summary>
-    /// The three ways the obvious carry rule — keep every entry naming no current document — fails, each pinned:
-    /// a renamed document's old entry is not kept beside its new one, a mark removed while it was renamed does not
-    /// come back with the name, and a later document of the old name inherits nothing.
+    /// Two of the ways the obvious carry rule — keep every entry naming no current document — fails, each pinned: a
+    /// renamed document's old entry is not kept beside its new one, and a mark removed while it was renamed does not
+    /// come back with the name.
     /// </summary>
+    /// <remarks>
+    /// The third way, a later document of the old name inheriting the renamed one's marks, is not pinned apart from
+    /// the first, because it cannot happen apart from it. The names a session carries are fixed as the project
+    /// opens, so a name it owned is never carried, and the only way this session can leave an entry under the old
+    /// name for a newcomer to inherit is the first failure: the renamed document's old entry kept.
+    /// </remarks>
     [Fact]
     public async Task OnlyNamesTheProjectLackedWhenItOpenedAreCarried()
     {
@@ -723,13 +910,5 @@ public sealed class SidecarMigrationTests : IDisposable
         await sidecar.SaveAsync(project);
         ReadJson(SidecarOf(project)).ContainsKey("fileBreakpoints").Should().BeFalse(
             "the mark removed while it was renamed does not come back with the name");
-
-        utils.Module!.Name = "Helpers";
-        var newcomer = new ModuleDefinition(project, "Utils", ModuleKind.StandardModule);
-        project.AddModule(newcomer);
-        await sidecar.SaveAsync(project);
-        breakpoints.GetBreakpoints(DocumentIdentity.For(newcomer)).Should().BeEmpty();
-        ReadJson(SidecarOf(project)).ContainsKey("fileBreakpoints").Should().BeFalse(
-            "a later document of the old name inherits nothing");
     }
 }

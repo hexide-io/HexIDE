@@ -234,8 +234,9 @@ It is not a gap to patch with a fourth trigger, for two reasons that have to be 
   marks would never move at all. Whatever supplies the first header has to store it.
 - **It collides with the sidecar's numbering.** Marks restored from the sidecar are numbered against the
   buffer as it stood when they were written. If a header appears at open and the marks then shift, a
-  document whose sidecar already counted the header is shifted twice. That is task 3.17's question and it
-  cannot be answered separately from this one.
+  document whose sidecar already counted the header is shifted twice. That question belongs to an issue
+  filed from the 3.17 review, which built the migration without settling it, and it cannot be answered
+  separately from this one.
 
 And #500 raises the stakes rather than lowering them: it implements what #489 decided, which is that a new
 document gets no file until the project is saved — so after it, *every* newly created document is in this
@@ -714,9 +715,12 @@ remedy.
   stores put under the new keys, and the next one carries only what the file holds beyond that. A line in both is
   taken as this session's, since it is the side that can say the line is gone. Memory is used to subtract, never
   to supply, so a deleted sidecar still stays deleted.
-- **"Changed" means an old-key entry was placed.** That alone triggers the write at load, through the owed write
-  `LoadAsync` already makes for a change held back during the read. A mark dropped for its range or for a read-only
-  line is not a migration and writes nothing by itself; the next save leaves it out, as the live requirement says.
+- **"Changed" means an old-key entry was consumed**: one naming a document the session owns, which leaves the old
+  keys whatever becomes of its lines. That alone triggers the write at load, through the owed write `LoadAsync`
+  already makes for a change held back during the read, and it does so even when every line of the entry was
+  dropped, for its range or for a read-only line. Left in the old keys, such an entry would be dropped and logged
+  at every opening and never leave the file, where the live requirement says the next save does not write it.
+  A mark dropped under the new keys is not a migration and writes nothing by itself; the next save leaves it out.
 - **Until that write lands, every save subtracts what the load placed from the old keys.** Every save takes the
   old keys from the file as it is, and the file holds the placed entries until a write lands — including the
   migration's own write, which reads the file it is about to replace, and any save after a migration write that
@@ -736,7 +740,14 @@ remedy.
 calls a Conflict is not applied, so its header delta never reaches the stores and the sidecar records the marks
 in the numbering of the file as it was. Version 2 records no header length, so a later opening has nothing to
 measure the difference against. Recording each document's prefix line count beside its marks would let it; that
-is a format change of its own and is not made here.
+is a format change of its own and is not made here. It is an issue filed from the 3.17 review.
+
+**Nor 3.4's header that appears at open**, which the open question of where a created form's first header comes
+from said could not be answered apart from 3.17. It was not answered by it. Version 2 counts a document's lines
+from the top of the file as the code window showed it when the marks were written, and a created form shows no
+header until its first designer commit, save or reload, so a sidecar cannot say whether a document's marks
+already count a header that a fourth trigger would then add. The prefix line count above would answer this too.
+It is an issue filed from the 3.17 review, beside the conflicted change.
 
 **`get_file_content` returns the whole file, and `hasUnsavedChanges` still compares the code section.**
 Comparing the whole buffer against `Code` would mark every open document unsaved, which is the trap 3.2a
