@@ -22,6 +22,15 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A condition is read as VB6 reads it** (#847). A block `If` or `ElseIf` refused anything but a Boolean with an
+  error numbered 0, so under On Error Resume Next it skipped its body with nothing in Err. A one-line `If` raised 13
+  for anything but a Boolean, and the loops raised 13 for a Long, a Double, Empty or most strings. So
+  `If Len(s) Then`, `If InStr(s, "x") Then`, `If flags And 4 Then` and `Do While n` with a Long `n` stopped the run.
+  Every form now reads its condition as `CBool` does: a number holds when it is not 0, a string when it reads as True
+  or as such a number, and Null and Empty do not. An object in a condition raises VB6's 438 and Nothing 91, where
+  each was a trappable 13, or in a block `If` or `ElseIf` the error numbered 0. `If Err Then` reads Err's Number
+  (#840), and a class with a default member and a control are refused until #174 and #790.
+
 - **An object used as a value no longer gives a wrong value.** A class with no default member raises VB6's 438
   wherever a value is wanted, where HexIDE raised 13, printed its CLR type name (`"v=" & k`, `CStr(k)`,
   `Debug.Print k`), read it as 0 (`Val(k)`, a ByVal Long argument), or matched nothing in `Select Case`. That covers

@@ -105,4 +105,17 @@ public class LetOfAReferenceTests
 
         debug[0].Value.Should().Be("renamed");
     }
+
+    [AvaloniaTheory]
+    [InlineData("If Check1 Then c = 1")]
+    [InlineData("If Check1 Then\r\nc = 1\r\nEnd If")]
+    [InlineData("Do While Check1\r\nc = 1\r\nExit Do\r\nLoop")]
+    public async Task A_control_as_a_condition_is_refused_until_default_members_are_implemented(string code)
+    {
+        // VB6 reads the default member, Check1.Value. A condition used to give a trappable 13, which On Error Resume
+        // Next stepped over, so the statement silently did nothing (#847's review).
+        var act = () => Run("Dim c\r\nOn Error Resume Next\r\n" + code + "\r\n");
+
+        (await act.Should().ThrowAsync<NotImplementedException>()).Which.Message.Should().Contain("#790");
+    }
 }
