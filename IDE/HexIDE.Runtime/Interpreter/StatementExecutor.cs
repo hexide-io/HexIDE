@@ -1495,9 +1495,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     public override async Task<ControlFlow> VisitSelectCaseStmt(VB6Parser.SelectCaseStmtContext context)
     {
         // A selector that raises under Resume Next skips the whole statement, through the per-statement trap. That is
-        // what p-code does every time, and what native code does when the Cases are constants. Native code with a Case
-        // that must be evaluated goes on to test the Cases against a selector it never computed (measured, #839), which
-        // is not something to reproduce.
+        // what p-code does every time, and what native code does for a numeric selector whose Cases are constants. Native
+        // code otherwise goes on to test the Cases against a selector it never computed, or reaches Case Else for an
+        // object selector (measured, #839), which is not something to reproduce.
         var value = await expressionExecutor.EvaluateScalar(context.valueStmt());
         foreach (var @case in context.sC_Case())
         {

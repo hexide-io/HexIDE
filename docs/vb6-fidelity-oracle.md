@@ -5526,7 +5526,9 @@ inside it. So the block runs.
 
 ### A new axis: native code and p-code
 
-Every probe in this file before this one was built as **native code**, and none was run in the IDE. `/make` honours the project's `CompilationType`,
+Every probe in this file before this one was built as **native code**, and several were also run in the IDE (the App
+section, #174's and #840's, #847's, #874's, #882's and the Join and Filter rounds). What is new here is the p-code
+build. `/make` honours the project's `CompilationType`,
 and a `.vbp` with no `CompilationType` line builds native code with VB6's default optimisations: overflow checks on.
 Five probes here were each built several ways, and for the first time the two compiled forms give different answers.
 
@@ -5649,10 +5651,12 @@ probe's guard ended the loop after 4 passes:
 3. The result is tested against the limit: to stay at or below it when the step is 0 or more, at or above it otherwise.
 4. A limit or step that was not evaluated is the value the statement last had in this call, or 0 if it has not run
    before. So a raised step is a `Step 0`, which loops for ever while the counter is within the limit.
-5. Without a Step clause the step is 1.
+5. Without a Step clause the step is 1 for an Integer or Long counter. Any other counter's implied step is kept as an
+   evaluated one is, so before the statement has run it is 0 (review round one, below).
 
-Native code fits the same model with two differences. It evaluates the limit and step before the start, and it keeps a
-step of 1 even without a Step clause, which an unevaluated step leaves at 0.
+Native code fits the same model with two differences. It evaluates the limit and step before the start, and it has no
+implied step: an unevaluated step is 0, with or without a Step clause, for every counter type. So `1 To Boom()` with the
+counter at 0 loops for ever natively, and runs once in p-code.
 
 "Last had in this call" is measured. In each case below, one For statement ran twice in one procedure; the first run
 was normal and the second raised. All three modes agreed:
@@ -5688,8 +5692,10 @@ matches the model above, and holds in both builds. HexIDE does not do this, whic
 | control: a two-item Collection | none | `a`, `b` | Empty |
 
 The body runs once with the element as it was, then `Next` raises 92 and the loop ends. Whether `Next` empties the
-element depends on how the collection is **declared**, not on what it holds. An array-typed collection leaves the
-element alone; a Variant or an object empties it.
+element depends on whether the collection is an array. A declared array leaves the element alone, and so does a Variant
+holding one (`v = dyn`, then `For Each x In v`, measured by #971's review in both modes). A Variant holding anything
+else, or an object, empties it. Where the collection itself raised, nothing arrived, and its declared type decides: a
+Function `As Long()` keeps the element and a Variant Function empties it.
 
 **Nothing raises 424, "Object required", not 91.** 91 was our expectation.
 
@@ -5736,7 +5742,9 @@ does not raise. HexIDE raised it anyway (#211), so the tests passed while pinnin
   otherwise.
 - **#174's probe said `Select Case k` reaches Case Else.** That is native code's answer only. Its explanation, that
   each Case raised in turn, was wrong: no Case was tested against `k` at all. P-code and the IDE run nothing.
-- **This file's first #839 probe said a raised selector runs nothing.** True only for constant Cases in native code.
+- **This file's first #839 probe said a raised selector runs nothing.** True in p-code and the IDE always, and in
+  native code only for a numeric selector with constant Cases: an object selector reaches Case Else there even with
+  constant Cases.
 - **That one oracle build speaks for VB6.** The For evaluation order differs between the compiled forms with no error
   anywhere. The harness's default, native code, is the one that differs from the IDE.
 - **For Each over Nothing raises 424, not 91.**
@@ -5746,12 +5754,80 @@ does not raise. HexIDE raised it anyway (#211), so the tests passed while pinnin
 Nothing in the p-code columns. The native columns follow from the model above with the native order and a kept step,
 but that was checked row by row, not proved.
 
+### Review round one (2026-10-13)
+
+#971's review measured four more axes, and each was then measured here with `/make`, one project built twice, as native
+code and as p-code (each with the tells above); the p-code projects were then run in the IDE too, which matched p-code on
+every line. The counter ran from 7, or 0, with the trail and a guard of four passes as above. Unless a column says
+otherwise, native code and p-code agree.
+
+**The counter's type decides the implied step.** `For c = 1 To Boom()`, no Step clause:
+
+| Counter | from 7 | from 0 |
+|---|---|---|
+| Integer, Long | p-code `1: 7:8`; native `1: 7:7` | p-code `1: 0:1`; native for ever at 0 |
+| Byte, Single, Double, Date | `1: 7:7` | for ever at 0 |
+| Currency | p-code `1: 7:7`; native **for ever at 7** | for ever at 0 |
+
+`For c = Boom() To 3` gives the same split: Integer and Long step by 1 in p-code, and the other types by 0, so a Byte
+from 0 loops for ever in p-code where native code counts 0 to 3. After a normal run of the same statement in the same
+call, every type keeps that run's limit and step, the implied 1 included: `For c = 1 To Lim(k)`, raising on the second
+run with `c` at 0, counts 0 1 2 3 for a Byte as for a Long, and `For c = 1 To 5 Step St(k)` counts 0 2 4.
+
+**A typed parameter is a typed counter.** `Function P(ByVal i As Long)` with `For i = 1 To Boom()`: `P(7)` is p-code
+`1: 7:8`, native `1: 7:7`; `P(-5)` counts -5 -4 -3 -2 up in p-code and stays at -5 natively. The same for a ByRef `i As
+Long` given a literal and for `Optional i As Long = 7`; a `ByVal b As Byte` is a Byte (`P(0)` loops for ever). The
+parameter keeps its type for a store too: `Optional i As Long = 7` is `Long 7`, `i = 2.5` into `ByVal i As Long` is
+`Long 2`, and `b = 300` into a `ByVal b As Byte` raises 6 and keeps 7.
+
+**The bounds convert into the counter's type, in the header.** Through variables, so nothing is folded:
+
+| Counter, header | VB6 |
+|---|---|
+| Byte, `s0 To l0` with 300 To 400; `1 To l0` with 300; `1 To 3 Step st` with 300 | 6, then the raised header: `1: 7:7`, and from 0 for ever |
+| Byte, `3 To 1 Step st` with -1; `0 To 0 Step st` with -1; `3 To 1 Step -1`, a literal | 6, the same |
+| Integer, `s0 To l0` with 40000; `1 To l0` with 40000 | 6; p-code `1: 7:8` and `1: 0:1`, native `1: 7:7` and for ever |
+| Integer, `1 To 3 Step st` with 40000 | 6; `1: 7:7`, and from 0 for ever |
+| Integer, `1 To 3 Step st` with 0.5 | 1 for ever: 0.5 is 0 |
+| Integer, `Step st` with 1.5; with 2.5 | 1 3 5; 1 3 5 7: 1.5 is 2, and 2.5 is 2 too |
+| Integer, `s0 To 4` with 1.5; with 2.5 | 2 3 4, both |
+| Integer, `1 To l0` with 2.5; with 3.5 | 1 2; 1 2 3 4 |
+| Long, `Step st` with 1.5 | 1 3 5 |
+| Single and Currency, `1 To 2 Step st` with 0.5 | 1 1.5 2, then 2.5 |
+| Integer, `1 To l0` with `"3"`; with `"x"` | 1 2 3; 13, then the raised header |
+
+So each of start, limit and step is converted as a store into the counter would convert it (banker's rounding, 6 on
+overflow, 13 for text that is not a number) as it is evaluated, and a conversion that raises is a raised header. A
+Byte counter cannot step down at all.
+
+**A Case Is or To value converts into the selector's type**, as an equality Case's does (see *Select Case matching*):
+
+| Selector | Case | VB6 |
+|---|---|---|
+| 5 | `Is > "abc"`; `"a" To "z"`; `1 To "x"`; `Is = "abc"`; `Is > v`, `v` a Variant holding `"abc"` | that Case, Err 13 |
+| 5 | `Is > "3"` | that Case |
+| `"abc"`, a String variable or a Variant holding it | `Is > 5` | that Case: 5 becomes `"5"` |
+| `"10"`; a String `"9"` | `Is > 9`; `Is < 10` | Case Else: text against text |
+| 2 | `Is < 2.4`; `Is < 2.6`; `1.6 To 1.9`; `2.6 To 3` | Else; that Case; that Case; Else |
+| a Currency 2 | `Is < 2.00004` | Case Else |
+| 2 | `Is > 40000` | that Case, Err 6 |
+| Null | `Is > "abc"` | Case Else |
+| Empty | `Is > "abc"`; `Is < 1` | Case Else; that Case |
+
+**An empty branch.** `If Boom() > 0 Then` with an empty Then and an Else, and the same for an empty ElseIf after
+`If False`: neither branch runs, Err 11.
+
+**Resisted explanation.** Natively, a Currency counter's `1 To Boom()` from 7 loops for ever at 7, where every other type
+stops after one pass. An unevaluated limit of 0 explains the others; this one behaves as if the limit were at least 7.
+P-code does not do it, and HexIDE follows p-code.
+
 ### HexIDE, after #839
 
 **Conditions.** If, ElseIf, one-line If, Do and While read a condition through `ConditionMet`, which wraps main's
 `ConditionHolds` (#847, #840) and adds only what Resume Next needs.
 - A condition that raises under Resume Next is recorded in `Err` and enters its block: the branch, or a pre-tested
-  loop's body, asked again next time round. A post-tested loop ends.
+  loop's body, asked again next time round. A post-tested loop ends. An empty branch runs nothing (review round one);
+  it crashed, visiting a block the grammar does not give it.
 - The reading is `ConditionHolds`'s: `CBool`'s rule, Null and Empty False, an object read as an operand is. This branch
   first wrote the same reading itself, and #847 landed it on main first, so the merge kept main's. An untrappable
   refusal, such as a class's default member (#174), still stops the run under Resume Next, because it is not a run-time
@@ -5759,24 +5835,33 @@ but that was checked row by row, not proved.
 
 **Select Case.**
 - A Case test that raises runs its own Case's body.
-- A selector that raises skips the statement, which is the IDE's and p-code's answer, and native code's for constant
-  Cases.
+- A selector that raises skips the statement, which is the IDE's and p-code's answer, and native code's for a numeric
+  selector with constant Cases.
+- A `Case Is` or `To` value converts into the selector's type before it is compared (review round one), so a value it
+  cannot convert raises, and runs its own Case under Resume Next. It was compared as it was, and matched nothing.
 
 **For.**
 - A header that raises runs the body once, then carries on by the p-code model above. A Variant counter raises 92 at
   `Next` instead.
-- Each call keeps the limit and step each For statement last evaluated.
+- Each call keeps the limit and step each For statement last evaluated, a missing Step clause's 1 included.
 - The infinite loops are reproduced: a raised step is a `Step 0`.
-- A fractional start, limit or step is now refused as not implemented. It used to raise a trappable 13, which Resume
-  Next stepped over, skipping the loop without a word.
+- Review round one: without a Step clause a raised header steps by 1 only for an Integer or Long counter, and by the
+  kept step for a Byte, Single, Double, Currency or Date one. A String or Boolean counter is refused, since none was
+  measured.
+- Review round one: each bound converts into a numeric counter's type as it is evaluated, through the conversion a
+  store uses, so an overflow or a text that is not a number is a raised header, and a fractional bound rounds into an
+  Integer or Long counter. A typed parameter's slot now records its numeric type, as a Dim's does, so it is a typed
+  counter and a store into it converts.
+- A fractional start, limit or step for a Single, Double or Currency counter is refused as not implemented. It used to
+  raise a trappable 13, which Resume Next stepped over, skipping the loop without a word.
 
 **For Each.**
 - An unallocated array raises 92, Nothing 424, and any other non-object value 13, each at the statement. The first used
   to run no passes and say nothing. The others used to raise 13 with a note that Collections were not implemented.
-- Under Resume Next, the body runs once and `Next` raises 92, emptying the element unless the collection is declared as
-  an array.
+- Under Resume Next, the body runs once and `Next` raises 92, emptying the element unless the collection is an array.
 - Where the collection itself raised, HexIDE cannot see its declared type without its value. It answers that only for a
-  call of one of the project's own Functions, from that Function's declaration. Anything else is refused, naming #969.
+  call of one of the project's own Functions, from that Function's declaration, and not where a variable in scope
+  shadows the Function's name (review round one). Anything else is refused, naming #969.
 - For Each over an object is refused as not implemented, where it used to raise a trappable 13.
 
 **With.** A target that raises leaves the body with no object, so each leading-dot member raises 91.
@@ -6115,7 +6200,7 @@ inside the block. The obvious reading, that the failed condition skips the block
 does the same for every statement in the table except `Do ... Loop While`, where it already runs the body once and
 leaves, as VB6 does. #839 has the rest.
 
-**HexIDE, since #839** (merged after this section was written): every row above goes on into the block as VB6 does.
+**HexIDE, since #839** (merged after this section was written): every row above gives VB6's answer.
 Where native code and the IDE differ, Select Case and For, HexIDE gives the IDE's answer, because it follows p-code.
 "Resume Next into a block" has the measurements behind that, and what each statement does.
 

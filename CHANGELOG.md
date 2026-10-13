@@ -31,9 +31,21 @@ there isn't one yet. Anything may change between 0.x releases.
   - With runs its body with no object;
   - For and For Each run the body once, and then carry on as the IDE does.
 - **For Each over something it cannot walk raises VB6's error** (#839). An unallocated array ran no passes and said nothing;
-  it now raises 92. Nothing raises 424 and any other value 13. Over an object, which HexIDE cannot walk yet, it now
-  says so rather than raising an error On Error Resume Next stepped over. A For with a fractional start, limit or step
-  is refused the same way.
+  it now raises 92. Nothing raises 424 and any other non-object value 13. Over an object, which HexIDE cannot walk yet,
+  it now says so rather than raising an error On Error Resume Next stepped over. A For Each whose collection itself
+  raises now stops the run unless the collection is a call of one of the project's own Functions (#969), where before
+  it ran on.
+- **A For converts its start, limit and step into its counter's type** (#839), as VB6 does. A Byte counter's
+  `Step -1` is an Overflow, and so is any bound its type cannot hold, raised at the For statement. A fractional bound
+  rounds half to even into an Integer or Long counter, so `For i = 1 To 2.5` runs to 2. Each was read as a Double, and
+  a fractional one was refused; it still is for a Single, Double or Currency counter.
+- **A typed parameter keeps its type** (#839), as a variable declared with it does. `Optional i As Long = 7` holds a
+  Long, a store of 2.5 into a `ByVal i As Long` gives 2, and a store of 300 into a `ByVal b As Byte` raises Overflow.
+  The parameter's slot recorded no type, so each held whatever was stored into it. For the numeric types only; a String,
+  Boolean or Date parameter is still not converted (#874).
+- **`Case Is` and `Case x To y` convert their values into the selector's type** (#839), as an equality Case does.
+  Against 5, `Case Is > "abc"` and `Case "a" To "z"` raise Type mismatch, where they matched nothing; against 2,
+  `Case Is < 2.4` does not match, because 2.4 becomes 2.
 
 - **Calling a procedure that carries an `Attribute` line no longer stops the run.** VB6 writes these inside a
   procedure for a default member (`VB_UserMemId`), a description from Tools → Procedure Attributes
