@@ -48,13 +48,63 @@ public partial class VB6BuiltIns
 
     public async Task<Vb6Value?> EvaluateBuiltInFunction(string name, List<Vb6Value> args)
     {
+        // An unknown name is not a built-in, and its callers say so loudly ("Sub or Function not defined", or not
+        // implemented). Found first, so that an object argument cannot turn that into a trappable 438.
+        BuiltinFn? fn = null;
+        var isAsync = string.Equals(name, "msgbox", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(name, "inputbox", StringComparison.OrdinalIgnoreCase);
+        if (!isAsync && !Builtins.TryGetValue(name, out fn))
+            return null;
+
+        for (var i = 0; i < args.Count; i++)
+            args[i] = ArgumentAsUsed(name, i, args[i]);
+
         // The two async builtins await the standard library; every other builtin is in the sync registry.
         if (string.Equals(name, "msgbox", StringComparison.OrdinalIgnoreCase))
             return await MsgBox(args);
         if (string.Equals(name, "inputbox", StringComparison.OrdinalIgnoreCase))
             return await InputBox(args);
-        return Builtins.TryGetValue(name, out var fn) ? fn(this, args, null) : (Vb6Value?)null;
+        return fn!(this, args, null);
     }
+
+    /// <summary>
+    /// A built-in's argument as that function uses it. An object stands for its default member wherever a value is
+    /// wanted (ObjectAsValue), which is almost everywhere: measured for the conversions, the string functions, Split,
+    /// a UBound dimension, a Join delimiter and a Filter switch. The exceptions, all measured:
+    /// <list type="bullet">
+    /// <item><c>TypeName</c>, <c>IsObject</c> and <c>IsMissing</c> ask about the argument itself, and <c>Array</c>
+    /// holds its arguments as elements;</item>
+    /// <item><c>VarType</c> and the Is functions read the default member when there is one, and otherwise answer about
+    /// the object, with no 438;</item>
+    /// <item>the array that <c>LBound</c>, <c>UBound</c>, <c>Join</c> and <c>Filter</c> take first. An object there
+    /// is not read at all: each raises 13 for any object, a class whose default member returns an array included
+    /// (measured, native and in the IDE), and the function's own array check raises that 13;</item>
+    /// <item><c>Join</c>'s delimiter, which VB6 reads only when the array has an element (measured: <c>Join(Array(), k)</c>
+    /// is "" with no 438). <c>Join</c> reads it itself, after that check.</item>
+    /// <item><c>Filter</c>'s match, switch and compare, which VB6 reads one at a time, right to left, each as it is
+    /// converted (measured: <c>Filter(d, k, "x")</c> is the switch's 13, not k's 438). Read here, every object would come
+    /// before every value. <c>Filter</c> reads them itself.</item>
+    /// </list>
+    /// </summary>
+    private static Vb6Value ArgumentAsUsed(string name, int index, Vb6Value arg)
+    {
+        if (TakesTheArgumentItself.Contains(name) || (index == 0 && TakesAnArrayFirst.Contains(name))
+            || (index == 1 && string.Equals(name, "Join", StringComparison.OrdinalIgnoreCase))
+            || string.Equals(name, "Filter", StringComparison.OrdinalIgnoreCase))
+            return arg;
+        if (ReadsADefaultMemberIfAny.Contains(name))
+            return ObjectAsValue.DefaultMemberIfAny(arg);
+        return ObjectAsValue.Scalar(arg, null);
+    }
+
+    private static readonly HashSet<string> TakesTheArgumentItself = new(StringComparer.OrdinalIgnoreCase)
+        { "TypeName", "IsObject", "IsMissing", "Array" };
+
+    private static readonly HashSet<string> ReadsADefaultMemberIfAny = new(StringComparer.OrdinalIgnoreCase)
+        { "VarType", "IsNumeric", "IsEmpty", "IsNull", "IsDate", "IsError", "IsArray" };
+
+    private static readonly HashSet<string> TakesAnArrayFirst = new(StringComparer.OrdinalIgnoreCase)
+        { "LBound", "UBound", "Join", "Filter" };
 
     // ---- Built-in function registry ----
     // Per-group partial files (VB6BuiltIns.Strings.cs, .Math.cs, …) register into this table. It is consulted

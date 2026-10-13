@@ -1041,10 +1041,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 else
                 {
                     // ByVal / rvalue: copy, coerced to the parameter's declared type (banker's round + range-check).
-                    // A UDT arg is deep-copied so the callee's mutations don't touch the caller's value.
+                    // A UDT arg is deep-copied so the callee's mutations don't touch the caller's value. An object
+                    // passed to a declared scalar parameter stands for its default member (ObjectAsValue); a Variant
+                    // or object parameter takes the object itself (measured).
+                    var passed = p.DeclaredType is { } declared && VbNumeric.IsDeclarableScalar(declared)
+                        ? ObjectAsValue.Scalar(arg.Value, proc.Body as Antlr4.Runtime.ParserRuleContext)
+                        : arg.Value;
                     var stored = p.DeclaredType is { } dt && VbNumeric.IsCoreNumeric(dt) && proc.Body is { } body
-                        ? VbNumeric.Narrow(arg.Value, dt, body)
-                        : CopyIfValueType(arg.Value);
+                        ? VbNumeric.Narrow(passed, dt, body)
+                        : CopyIfValueType(passed);
                     ExecutionContext.AllocVariable(callee, p.Name, stored);
                     MarkParameterSlot(p, callee);
                     // A ByVal object param is a counted hold for the call's duration (so a `New T` passed straight
