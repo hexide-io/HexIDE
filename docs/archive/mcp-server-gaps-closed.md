@@ -1257,6 +1257,16 @@ open_file {"name":"Nope"}                     → No form, module or carried fil
 **Since closed.** `get_project_info` reported only the startup project, which left a refusal as the only
 reply that showed the whole group; it now lists every loaded project in `projects` (#581).
 
+**Three tools this did not reach, closed 2026-10-13 (#273).** `set_control_property` still looked in the
+startup project only. `move_control` and `add_control` matched the open designers by name and took the first,
+so with a group holding two `Form1`s they acted on whichever designer happened to be found first, and never
+refused. All three now resolve a name as the five above do, take the same optional `project`, and refuse an
+ambiguous name with the candidates listed. `move_control` and `add_control` then look for the designer open on
+the document the name resolved to, so a bare `Form1` that used to work while only one of two was open is now
+refused, as it is everywhere else. `add_file` takes `project` too, naming the project to add to. The rule moved
+out of the tool bodies into `NamedDocuments` in the IDE assembly, where `NamedDocumentsTests` covers the
+refusals quoted above.
+
 ---
 
 ## A mark tool accepted lines the document does not have, and persisted them — **CLOSED** (#569, 2026-09-22)
@@ -1821,6 +1831,22 @@ and is fixed with the rest.
 Where a tool normalises what it was given — a name matched without regard to case is exactly that — the
 reply must carry the **normalised** form, because the difference between the two is the whole of what the
 caller cannot otherwise see.
+
+**"Every tool" was not yet true, corrected 2026-10-13 (#273).** The fix above says every tool that names a
+document searches every loaded project, and that replies carry `project` and `document`. Neither held
+everywhere. `set_control_property`, `move_control` and `add_control` still resolved a form their own way (see
+the #575 entry for what that did). Of the replies, only `get_bookmarks` and `get_breakpoints` carried the names.
+Now every tool that takes a form, module or class by name resolves it through one rule. Every reply about one
+document carries `project` and `document` as the IDE spells them: the content, designer and mark tools,
+`run_to_cursor`, `set_next_statement`, `add_file`, and each `get_diagnostics` item. On a diagnostic they sit
+beside the server's `uri` and are absent when that names nothing loaded. `get_debug_state` and
+`get_call_stack` carry the running `project` beside their bare module names. `uri` is now explained where it is
+returned (`get_bookmarks`, `get_breakpoints`, `get_diagnostics`): it is the name a language server knows the
+document by, its `file:` URI, or `untitled:<project>/<name>.<ext>` before it has a file. Until now its only
+explanation was a code comment, which no caller can read. The delta's scenario, a breakpoint set in `form1` of a
+project holding `Form1`, is `BreakpointByNameTests.SettingABreakpointByNameInTheWrongCase`. It checks that the
+code window's gutter draws the breakpoint, a run stops on it, and the sidecar records it under `Form1`. Each of
+the three fails when the breakpoint is keyed under the caller's spelling instead.
 
 ## 2. `set_control_property` only handles string / number / bool — **CLOSED** (#641, 2026-09-22)
 

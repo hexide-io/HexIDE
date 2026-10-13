@@ -1411,6 +1411,26 @@
   comparisons behind `hasUnsavedChanges` are against the model's `Code`, so both sides of each are the code
   section. Anything written against main between now and this task carries the same trap; the general rule
   is that on this branch `Document.Text` answers "the file" and never "the code".
+  — **The naming half was finished after this task, against the hexide-mcp-server delta rather than a task
+  line of its own.** Inventoried first: eleven tools already resolved a name through `DocumentLookup` across
+  every loaded project, case-insensitively, with `project` and the ambiguity refusal. They were the two content
+  tools, `open_file`, `view_designer`, `get_form_controls`, the four mark tools, `run_to_cursor` and
+  `set_next_statement`. Three did not. `set_control_property` looked in the startup project only, and
+  `move_control` and `add_control` matched open designers by name and took the first. They now resolve as the
+  rest do and take `project`, and so does `add_file`, which now takes `project` to name where it adds. The rule
+  moved out of the tool bodies into `NamedDocuments` (`HexIDE/IDE`), beside `MarkLineRules` and
+  `DocumentContent`, and `NamedDocumentsTests` covers its refusals. Every reply about one document carries
+  `project` and `document`: `MutateResult`, `FileContentResult`, `FormControlsResult`, `AddControlResult`,
+  `AddFileResult`, and each `get_diagnostics` item through a reverse lookup of its `uri`.
+  `get_debug_state` and `get_call_stack` carry the running `project`. `uri` is now described as the name a
+  language server knows the document by in `get_bookmarks`, `get_breakpoints` and `get_diagnostics`. The
+  scenario *Setting a breakpoint by name in the wrong case* is
+  `BreakpointByNameTests.SettingABreakpointByNameInTheWrongCase`, in the integration suite because it renders
+  the gutter and runs the project. Its three outcomes (the dot in `Form1`'s gutter, a run stopping on the line,
+  the sidecar naming `Form1`) each failed when the breakpoint was keyed under a second definition called
+  `form1`. Recorded in `docs/archive/mcp-server-gaps-closed.md`, under the #467 and #575 entries whose "every
+  tool" this makes true, and in the CHANGELOG. Not live-verified; that belongs with 3.22's pass through the
+  running IDE.
 - [ ] 3.19 Add-ins: content is the whole file; positions from the top of the file; `SetContent` refused if the
   header changes. The AI Chat add-in's prompt and apply paths updated.
 - [ ] 3.20 New strings (refusal reasons, the reworded read-only banner) added to `en` and every shipped pack in

@@ -79,6 +79,16 @@ there isn't one yet. Anything may change between 0.x releases.
   reply now counts the lines the document holds from the top of the file. `hasUnsavedChanges` means what it
   did. A client that edits what it read and sends it back needs no change; one that searched `content` for
   line numbers now finds them counted from the top of the file.
+- **For automation clients: every tool that takes a form, module or class by name finds it the same way** -
+  in any loaded project, without regard to case, with an optional `project` for when a group holds two of one
+  name. Without `project`, such a name is refused and the refusal lists both. `set_control_property`,
+  `move_control` and `add_control` were the exceptions: the first looked only in the startup project, and the
+  other two used whichever open designer of that name came first. So with a group open, a bare name those two
+  accepted may now be refused as ambiguous; pass `project`. `add_file` takes `project` too, for the project to
+  add to. A reply about one document now names it in `project` and `document`, spelled as the IDE spells them,
+  and so does each `get_diagnostics` item. Where a reply also carries a `uri`, the tool's description now says
+  what it is: the name the language server knows the document by. `get_debug_state` and `get_call_stack` name
+  the running project.
 
 ### Fixed
 

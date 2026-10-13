@@ -729,6 +729,25 @@ thing with nothing failing. **A fold's label is the fold's first line**, as the 
 header fold has no string of its own. **Find and Replace explaining what they left in the header is #705**,
 outside this change: 3.22 checks that Replace All leaves the header alone, not that it says so.
 
+**Automation's naming half: the parameters keep their names, and the replies gain `project` and `document`.**
+"The shipped surfaces" says tools *take* and return `project` and `document`. They take `project`, and keep
+the name parameter they had: `name`, `formName` or `module`. Renaming a parameter would break every caller that
+passes it, to gain a spelling, while the reply is where a caller needs the normalised name. Every reply about one
+document carries both as optional trailing fields. The MCP SDK's serializer omits nulls (its options say
+`WhenWritingNull`, and the replies recorded in the gaps archive show it), so the tools that name no document
+reply exactly as before. A carried file is named the same way, by its project and its own name.
+A `get_diagnostics` item gets its names by resolving its `uri` back to a loaded document through the wire name,
+as `EditorService` resolves a server's reply. When the `uri` names nothing loaded the fields are absent, not
+guessed. `get_debug_state` and `get_call_stack` keep `module`, a bare name, and gain the running `project`
+beside it, since a run is one project. `add_file` takes `project` to say where to add. That is a capability
+rather than a rename, and without it a group's other projects could not be added to at all.
+
+**The resolution rule lives in `HexIDE`, as `NamedDocuments`, for the reason `DocumentContent` does.** The tools
+keep only what needs the running IDE: which designer or editor is open on the resolved document, the save and
+the reply. `move_control` and `add_control` now resolve the name to a document first and then find the designer
+open on it by reference. So a module is refused as having no designer rather than as "not open", and a name two
+projects share is refused rather than answered with whichever designer was found first.
+
 ## When a document gets its file (#489, settled 2026-09-20)
 
 Task 2.1 names a document `untitled:` when it has no path, which presumes a document can *have* no path.
