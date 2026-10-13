@@ -1546,9 +1546,34 @@
   could not. AI Chat's `get_diagnostics` refuses an unknown or ambiguous name, replies use one spelling, and blank
   `apply_edit` content is refused. An `ApplyEdits` refusal names the edit by its index and the positions sent.
   `TheFileListCoversEveryLoadedProject` fails under the review's missed mutation (`GetProjects().Take(1)`).
-- [ ] 3.20 New strings (refusal reasons, the reworded read-only banner) added to `en` and every shipped pack in
+- [x] 3.20 New strings (refusal reasons, the reworded read-only banner) added to `en` and every shipped pack in
   the same change. A fold's label is its first line, so the header fold has no string of its own (settled in
   design.md, "Settled while building phase 3").
+  — **Fold labels: no key.** The header fold's label is its first line (`VERSION 5.00`, `VERSION 1.0 CLASS`), as
+  every server fold's is, so there is nothing to translate. Phase 4's attribute folds decide their own.
+  — **Refusal reasons landed with the code that shows them**, each in `en` and all 29 packs in its own commit:
+  `Str.CodeEditor.Msg.RenameTouchesReadOnly` and `Str.CodeEditor.Dialog.InsertFileTitle` under 3.9 (52ff9d0),
+  `Str.CodeEditor.Msg.NoMarkOnReadOnlyLine` under 3.12 (0b5aa6f). Nothing was owed for them here.
+  — **The banner changed key here**: `Str.CodeEditor.ReadOnly.Banner` is gone from `en` and every pack, and the
+  code window binds `Str.CodeEditor.FileNotSaved.Banner`: "This file will not be saved — HexIDE cannot yet
+  reproduce it faithfully, so saving it would change it. Its code is part of the file, so typing in this window
+  is refused." It speaks of the whole file, so it cannot be read as the header's grey lines, and claims only the
+  two things enforced. It no longer says the code "cannot be edited", which #701 shows is untrue of Replace All,
+  formatting, rename, add-ins and automation. "This form" became "this file" too: a UserControl's or
+  PropertyPage's code window shows the same banner. Translated into all 29 packs; `en-GB` needs no override.
+  — **Audited by script** against the merge base with `upstream/main` (994f1a8): the branch adds four keys to
+  `en` (the three above and the banner's), removes one (the old banner's), and rewords none under an existing
+  key. All four are in all 29 shipped packs, none equals the English, `{0}` survives in every
+  `NoMarkOnReadOnlyLine`, no pack (nor `en-GB`, `zz`, `zz-ZZ`) keeps the removed key, and every `Str.*` key on
+  an added code line is in `en`. Tasks 3.17 to 3.19 added no literal a person sees in IDE chrome: no `.axaml`
+  changed, and every added literal is an automation or add-in reply, a log line, or AI Chat's own text. Add-in
+  replies and AI Chat are English by design (design.md, "Settled while building phase 3": "The reasons are the
+  ones automation gives, and are English", and the AI Chat `project` paragraph).
+  — **Test:** `ReadOnlyBannerIntegrationTests.CodeEditor_ForAnUnfaithfulForm_TheBannerSaysTheFileWillNotBeSaved`
+  supplies the `en` text under the new key on the view and asserts the rendered banner shows it, and that the
+  text does not say "cannot be edited". `LocalizationCoverageTests` passes for any key `en` has, the designer
+  banner's included, so it could not pin which key the banner binds. Binding the designer's key fails it.
+  — **Not yet seen running**: the banner needs a form HexIDE cannot save, so it is added to 3.22's live check.
 - [x] 3.21 Tests, one per scenario in the deltas this phase implements, named after the scenario, plus: buffer equals the file on open; an unchanged save writes the buffer; formatting leaves the
   header; Replace All does not touch a control's `Begin` line; a designer move is not undone by code-window
   undo; the header stays folded after formatting; a migrated sidecar keeps marks on their statements and is
@@ -1617,6 +1642,8 @@
   why is #705); confirm the margin
   and status bar count from the top of the file; confirm a designer move updates the header with the code
   window open. UI work is not complete until it is seen running.
+  From 3.20: open a form HexIDE cannot save (one whose `.frx` is missing) and snapshot its code window's banner,
+  which should read "This file will not be saved", in English and under Pseudo (LTR), where it is bracketed.
   From 3.19, in the AI Chat panel, its transcript driven through `ChatViewModel.Say` and the reply's Apply button
   through `interact`: an approved whole-file Apply of a form's own content, unchanged, is accepted and says so; an
   Apply whose designer block has one caption changed is refused, with the reason visible in the transcript, and

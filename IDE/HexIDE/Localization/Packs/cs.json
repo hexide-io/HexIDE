@@ -314,7 +314,7 @@
     "Str.Designer.Context.ViewCode": "Zobrazit kód",
     "Str.Designer.Context.AlignToGrid": "Zarovnat k mřížce",
     "Str.Designer.Context.Properties": "Vlastnosti",
-    "Str.CodeEditor.ReadOnly.Banner": "Jen pro čtení — HexIDE zatím nedokáže tento formulář věrně reprodukovat, takže uložení by jej změnilo. Jeho kód nelze upravovat, dokud to nebude opraveno.",
+    "Str.CodeEditor.FileNotSaved.Banner": "Tento soubor nebude uložen — HexIDE jej zatím nedokáže věrně reprodukovat, takže uložení by jej změnilo. Jeho kód je součástí souboru, proto se psaní v tomto okně odmítá.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Přejmenování nebylo provedeno, protože by změnilo záhlaví tohoto souboru nebo řádky Attribute některého člena, které spravuje IDE.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Řádek {0} patří do záhlaví tohoto souboru nebo k řádkům Attribute některého člena, které se nikdy nespouštějí, takže na něj nelze umístit zarážku ani záložku.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Vložit soubor",

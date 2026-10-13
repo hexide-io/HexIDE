@@ -107,6 +107,36 @@ public class ReadOnlyBannerIntegrationTests
             .Should().BeTrue("silent read-only would be worse than either alternative");
     }
 
+    /// <summary>
+    /// The banner shows the whole-file key, whose words claim only what is enforced (#273 task 3.20). Its
+    /// predecessor said the form's code "cannot be edited", which read like the header's read-only lines and
+    /// was untrue of Replace All and the other programmatic writers (#701). The key was renamed rather than
+    /// reworded, because pack parity checks only that a key is present; so the binding is pinned here by
+    /// name, which neither parity nor <c>LocalizationCoverageTests</c> does: both pass for any key that
+    /// exists, the designer's banner included.
+    /// </summary>
+    [AvaloniaFact]
+    public void CodeEditor_ForAnUnfaithfulForm_TheBannerSaysTheFileWillNotBeSaved()
+    {
+        const string key = "Str.CodeEditor.FileNotSaved.Banner";
+        var english = new LocalizationService().GetString(key);
+        english.Should().NotBe(key, "the key must be in the canonical pack");
+        english.Should().NotContainEquivalentOf("cannot be edited",
+            "Replace All, formatting, rename, add-ins and automation can still change the code (#701)");
+
+        var vm = MakeCodeEditorViewModel();
+        vm.Initialize(MakeForm(faithful: false));
+        var view = new CodeEditorView { DataContext = vm };
+        // The pack's own text, supplied where the binding looks first: the headless app merges no language
+        // dictionary, and applying one would change it for every test after this one.
+        view.Resources[key] = english;
+        Render(view);
+
+        var banner = view.FindControl<Border>("ReadOnlyBanner")!;
+        banner.IsVisible.Should().BeTrue();
+        banner.Child.Should().BeOfType<TextBlock>().Which.Text.Should().Be(english);
+    }
+
     [AvaloniaFact]
     public void CodeEditor_ForAnOrdinaryForm_StaysEditableWithNoBanner()
     {

@@ -314,7 +314,7 @@
     "Str.Designer.Context.ViewCode": "檢視程式碼",
     "Str.Designer.Context.AlignToGrid": "對齊格線",
     "Str.Designer.Context.Properties": "屬性",
-    "Str.CodeEditor.ReadOnly.Banner": "唯讀 — HexIDE 目前尚無法忠實地重現此表單，儲存將會改變它。在此問題修正之前，無法編輯其程式碼。",
+    "Str.CodeEditor.FileNotSaved.Banner": "此檔案不會被儲存 — HexIDE 目前尚無法忠實地重現它，儲存將會改變它。其程式碼是檔案的一部分，因此在此視窗中的輸入會被拒絕。",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "未執行重新命名，因為這會變更此檔案的標頭或某個成員的 Attribute 行，而這些內容由 IDE 維護。",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "第 {0} 行屬於此檔案的標頭或某個成員的 Attribute 行，這些行永遠不會執行，因此無法在此設定中斷點或書籤。",
     "Str.CodeEditor.Dialog.InsertFileTitle": "插入檔案",

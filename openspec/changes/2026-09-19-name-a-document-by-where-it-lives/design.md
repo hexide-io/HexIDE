@@ -788,7 +788,13 @@ refusal (3.19 review).
 
 **The read-only banner gets a new key rather than new words under the old one.** Shipped-pack parity checks
 only that a key is present, so rewording under the same key would leave every translation saying the old
-thing with nothing failing. **A fold's label is the fold's first line**, as the code-editor delta says, so the
+thing with nothing failing. The key is `Str.CodeEditor.FileNotSaved.Banner` (3.20), and its words follow two
+rules. They are about the whole file, and do not say "read-only", so they cannot be taken for the header's grey
+lines. And they claim only what is enforced today: the file is not saved, and typing in the window is refused.
+They do not say the code cannot be changed, because until #701 lands Replace All, formatting, rename, add-ins
+and automation still change it. "This form" became "this file", since a UserControl or PropertyPage shows the
+same banner. When #701 makes every writer refuse, the banner may say more, and the new words take a new key
+again. **A fold's label is the fold's first line**, as the code-editor delta says, so the
 header fold has no string of its own. **Find and Replace explaining what they left in the header is #705**,
 outside this change: 3.22 checks that Replace All leaves the header alone, not that it says so.
 
