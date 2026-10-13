@@ -134,7 +134,8 @@ public partial class VB6BuiltIns
     }
 
     // A compare argument read as a Long, as CLng reads it (banker's rounding, so 1.5 is 2 and 0.5 is 0): Null is 94, and
-    // a string that is not a number, or an array, is 13 (measured for Filter).
+    // a string that is not a number is 13 (measured for Filter). An array is 13 as well, as a store of one into a Long is;
+    // that is not measured for Filter.
     private static long CompareArgument(Vb6Value compare)
     {
         if (RefuseNull(compare).Value is VBArray) throw new VBRunTimeException(VBStandardError.TypeMismatch);
