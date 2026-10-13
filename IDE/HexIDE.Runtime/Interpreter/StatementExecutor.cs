@@ -226,15 +226,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     /// <summary>Set Next Statement (P7b) — repoint execution to <paramref name="line"/>, TOP-LEVEL-BODY granularity
     /// only. Returns false (refused) when this frame isn't paused at a top-level statement (e.g. inside a nested
-    /// If/For/Do block), or the target line isn't a top-level statement of this procedure (nested, blank, End Sub, or
-    /// elsewhere). On success the pending repoint is applied by <c>ExecuteProcedureBody</c>'s loop when the walk
+    /// If/For/Do block), or the target line isn't a top-level statement of this procedure (nested, blank, End Sub, an
+    /// Attribute line, or elsewhere). On success the pending repoint is applied by <c>ExecuteProcedureBody</c>'s loop when the walk
     /// resumes; the next Step/Continue executes from there.</summary>
     bool Debugging.IDebugFrame.SetNextStatement(int line)
     {
         if (!_suspendedAtTopLevel || _bodyStmts is null)
             return false;
         for (int i = 0; i < _bodyStmts.Length; i++)
-            if (_bodyStmts[i].Start.Line == line)
+            if (_bodyStmts[i].Start.Line == line && _bodyStmts[i].attributeStmt() == null)
             {
                 _setNextTargetPc = i;
                 currentLine = line;   // the Call Stack + the moved arrow reflect the new next-statement line
@@ -312,7 +312,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // breakpoint on a statement that would run after End is never hit.
             if (interpreter.Ending)
                 throw new Debugging.StopExecutionSignal();
-            if (interpreter.DebugController is { } dbg)
+            // An Attribute line is metadata, so the debugger never stops on one, nested or not (see VisitAttributeStmt).
+            if (interpreter.DebugController is { } dbg && stmt.attributeStmt() == null)
             {
                 _suspendedAtTopLevel = false;   // a pause here is inside a nested block — Set Next Statement is refused
                 await dbg.OnStatementAsync(currentLine, currentModule.Name, this);
@@ -357,10 +358,20 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         throw new NotImplementedException("AppActivate not implemented");
     }
 
-    public override async Task<ControlFlow> VisitAttributeStmt(VB6Parser.AttributeStmtContext context)
-    {
-        throw new NotImplementedException("Attribute not implemented");
-    }
+    // An Attribute line inside a procedure (VB_UserMemId, VB_Description, VB_ProcData, VB_HelpID, VB_MemberFlags) is
+    // metadata about the procedure, not a statement, and running it does nothing. It threw "Attribute not
+    // implemented", so calling any procedure that carried one stopped the run (#832). Measured: a Function with
+    // VB_UserMemId = 0 returns its value, a Property Get with VB_Description and VB_ProcData lines and its Let both
+    // work, and so does a Function with VB_Description, VB_HelpID and VB_MemberFlags.
+    //
+    // The debugger treats the line as it treats a blank one. A step never stops on it: ExecuteProcedureBody, which also
+    // runs a module's declarations where `Attribute Name.VB_VarDescription` follows a Public variable, and VisitBlock,
+    // for one nested in a block, both skip it. Set Next Statement onto it is refused. A breakpoint or Run To Cursor on
+    // it is accepted and never reached, as on a blank or comment line, because neither checks its line. VB6's code
+    // window hides these lines, so none of that can be asked of it there. HexIDE's shows them until #273, which makes
+    // each run read-only, folds it into the line it describes, and refuses a breakpoint on it.
+    public override Task<ControlFlow> VisitAttributeStmt(VB6Parser.AttributeStmtContext context) =>
+        Task.FromResult(ControlFlow.Nothing);
 
     public override async Task<ControlFlow> VisitBeepStmt(VB6Parser.BeepStmtContext context)
     {
@@ -2273,7 +2284,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // breakpoint on a statement that would run after End is never hit.
             if (interpreter.Ending)
                 throw new Debugging.StopExecutionSignal();
-            if (interpreter.DebugController is { } dbg)
+            // An Attribute line is metadata, so the debugger never stops on one (see VisitAttributeStmt).
+            if (interpreter.DebugController is { } dbg && stmts[pc].attributeStmt() == null)
             {
                 _suspendedAtTopLevel = true;   // a pause here is at a top-level statement — Set Next Statement is valid
                 await dbg.OnStatementAsync(currentLine, currentModule.Name, this);

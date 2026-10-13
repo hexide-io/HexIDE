@@ -35,6 +35,13 @@ there isn't one yet. Anything may change between 0.x releases.
   says so rather than raising an error On Error Resume Next stepped over. A For with a fractional start, limit or step
   is refused the same way.
 
+- **Calling a procedure that carries an `Attribute` line no longer stops the run.** VB6 writes these inside a
+  procedure for a default member (`VB_UserMemId`), a description from Tools → Procedure Attributes
+  (`VB_Description`), a property category (`VB_ProcData`) and more, and after a module-level variable for its
+  description. Each stopped the run with "Attribute not implemented". They are metadata, and now run as nothing,
+  as in VB6. The debugger treats them as blank lines: a step passes over them, and Set Next Statement refuses one.
+  A default member they declare is not read yet, so a use of the object as a value is refused naming #174.
+
 - **A member call inside `While...Wend` runs** (#882). `Debug.Print x`, `Err.Clear` or `rs.MoveNext` in a
   `While` body stopped the run with "Sub or Function not defined", naming the object, so the common
   `While Not rs.EOF ... rs.MoveNext ... Wend` loop could not run at all. `Do While` was unaffected.
