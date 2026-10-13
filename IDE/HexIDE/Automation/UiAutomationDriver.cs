@@ -1144,10 +1144,11 @@ public static class UiAutomationDriver
                 return new InteractOutcome(false, TypedMechanism, null,
                     $"'{control.GetType().Name}' has no text surface (TextEditor/TextArea/TextBox) to type into");
 
-            // The protected-region check runs first because it is the more specific of the two: it names the
-            // header and gives the nearest offset that can be edited, where WhyNotTypable can only say
-            // "is read-only". It returns null for every surface that is not a code window, so the general
-            // check below still covers a disabled control, a read-only TextBox and a wholly read-only editor.
+            // The code window's check runs first because it is the more specific of the two: it names the
+            // header and gives the nearest offset that can be edited, or says why the whole file refuses typing,
+            // where WhyNotTypable can only say "is read-only". It returns null for every surface that is not a
+            // code window, so the general check below still covers a disabled control, a read-only TextBox and
+            // any other wholly read-only editor.
             if (AreaOf(surface) is { } typedInto
                 && RefusedInReadOnlyRegion(typedInto, (typedInto.Caret.Offset, 0), "type_text", TypedMechanism) is { } refused)
                 return refused;
@@ -1294,7 +1295,8 @@ public static class UiAutomationDriver
 
     /// <summary>
     /// A refusal, when <paramref name="span"/> is in a region of a code window only the IDE may change
-    /// (#273 task 3.9). Null when the write may go ahead.
+    /// (#273 task 3.9), or anywhere in a code window whose file is held read-only as a whole. Null when the
+    /// write may go ahead.
     /// </summary>
     /// <remarks>
     /// The reply says where the code starts, because a caller that has just been refused needs to know where
@@ -1307,7 +1309,20 @@ public static class UiAutomationDriver
     /// </param>
     private static InteractOutcome? RefusedInReadOnlyRegion(TextArea area, (int Offset, int Length) span, string tool, string mechanism = "keyboard")
     {
-        if (CodeWindowOf(area) is not { } editor || !editor.IsReadOnlyRegion(span.Offset, span.Length))
+        if (CodeWindowOf(area) is not { } editor)
+            return null;
+
+        // Asked first, because no offset helps: the window's banner says typing is refused anywhere in it.
+        // Without this a press_key Enter reported "pressed" and its tunnel handler then wrote nothing, which
+        // reads as a key that went astray rather than one that was refused.
+        if (editor.IsReadOnly)
+            return new InteractOutcome(false, mechanism, null,
+                $"{tool} refused: this file will not be saved, because HexIDE cannot yet reproduce it faithfully"
+              + (editor.ReadOnlyReason is { Length: > 0 } why ? $" ({why})" : string.Empty)
+              + ". Its code is part of the file, so typing in its code window is refused anywhere, as the "
+              + "window's banner says. Nothing was written.");
+
+        if (!editor.IsReadOnlyRegion(span.Offset, span.Length))
             return null;
 
         var past = editor.PastReadOnlyRegion(span.Offset);

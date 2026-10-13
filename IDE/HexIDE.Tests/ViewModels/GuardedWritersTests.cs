@@ -94,6 +94,18 @@ public class GuardedWritersTests : IDisposable
     private CodeEditorViewModel OpenForm() =>
         NewEditor().Initialize(new FormDeserializer().Deserialize(Project, Frm, NullSink.Instance)!);
 
+    /// <summary>
+    /// The same form, held read-only as a whole: marked as one whose .frx content HexIDE cannot re-emit,
+    /// before the window opens, as the deserializer marks it.
+    /// </summary>
+    private CodeEditorViewModel OpenFormHeldReadOnly()
+    {
+        var form = new FormDeserializer().Deserialize(Project, Frm, NullSink.Instance)!;
+        form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreproducibleBinaryContent,
+            "it references companion binary content HexIDE cannot re-emit (0 of 1 blob(s) reached the model)");
+        return NewEditor().Initialize(form);
+    }
+
     private CodeEditorViewModel OpenClass()
     {
         var module = TestHelpers.CreateModule(name: "Order", kind: ModuleKind.ClassModule);
@@ -449,7 +461,7 @@ public class GuardedWritersTests : IDisposable
         var area = new TextArea { Document = vm.Document };
         var inHeader = before.IndexOf("Caption", StringComparison.Ordinal);
 
-        new VbCompletionData(new CompletionItem("CaptionText", CompletionItemKind.Variable), vm.IsReadOnlyRegion)
+        new VbCompletionData(new CompletionItem("CaptionText", CompletionItemKind.Variable), vm.RefusesTyping)
             .Complete(area, new TextSegment { StartOffset = inHeader, Length = 7 }, EventArgs.Empty);
 
         vm.Document.Text.Should().Be(before);
@@ -462,9 +474,26 @@ public class GuardedWritersTests : IDisposable
         var area = new TextArea { Document = vm.Document };
         var inCode = vm.Document.Text.IndexOf("Enabled", StringComparison.Ordinal);
 
-        new VbCompletionData(new CompletionItem("Visible", CompletionItemKind.Variable), vm.IsReadOnlyRegion)
+        new VbCompletionData(new CompletionItem("Visible", CompletionItemKind.Variable), vm.RefusesTyping)
             .Complete(area, new TextSegment { StartOffset = inCode, Length = 7 }, EventArgs.Empty);
 
         vm.Document.Text.Should().Contain("Command1.Visible = False");
+    }
+
+    [AvaloniaFact]
+    public void ACompletionCommittedInAFileHeldReadOnlyAsAWholeWritesNothing()
+    {
+        // The window's banner says typing is refused anywhere in such a file, and a completion's commit is
+        // typing that writes the document itself. The same span is applied in a file that can be saved.
+        var vm = OpenFormHeldReadOnly();
+        vm.IsReadOnly.Should().BeTrue();
+        var before = vm.Document.Text;
+        var area = new TextArea { Document = vm.Document };
+        var inCode = before.IndexOf("Enabled", StringComparison.Ordinal);
+
+        new VbCompletionData(new CompletionItem("Visible", CompletionItemKind.Variable), vm.RefusesTyping)
+            .Complete(area, new TextSegment { StartOffset = inCode, Length = 7 }, EventArgs.Empty);
+
+        vm.Document.Text.Should().Be(before);
     }
 }

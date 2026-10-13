@@ -156,8 +156,11 @@ public class Vb6CompileLogTests
     }
 
     [Fact]
-    public void AFormsDesignerBlockIsCountedInTheBuffer()
+    public void ACompileErrorFromVb6()
     {
+        // The code-editor delta's scenario, on the case it exists for: a form's designer block, which VB6
+        // does not count and the buffer holds.
+        //
         // The designer block is six lines and the Attribute line a seventh, none of them counted by VB6. Its
         // `Line 1` is the statement under Form_Load, buffer line 8. Mapped against the code alone it landed
         // on line 2, which is `Caption` in the designer block.

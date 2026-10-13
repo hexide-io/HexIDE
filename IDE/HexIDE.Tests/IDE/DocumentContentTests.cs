@@ -167,8 +167,9 @@ public class DocumentContentTests : IDisposable
     {
         // A form VB6 wrote, read the way get_file_content reads it, written back the way set_file_content
         // writes it, and saved as that tool always saves. "Unchanged" is asserted on the bytes on disk, which is
-        // only meaningful for a form the serializer reproduces exactly; BillOfFare is one of the corpus forms
-        // SerializationCorpusTests holds to that.
+        // only meaningful for a form the serializer reproduces exactly. BillOfFare is one, and this assertion is
+        // what holds it there: SerializationCorpusTests counts everything under demo/ as HexIDE's own and does
+        // not hold that bucket to zero differences.
         var vbp = Stage(Path.Join(FindUpwards("demo")!, "bill-of-fare"));
         var service = MakeService();
         await service.OpenProject(vbp);

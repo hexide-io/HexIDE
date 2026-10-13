@@ -113,7 +113,9 @@ public class ReadOnlyBannerIntegrationTests
     /// was untrue of Replace All and the other programmatic writers (#701). The key was renamed rather than
     /// reworded, because pack parity checks only that a key is present; so the binding is pinned here by
     /// name, which neither parity nor <c>LocalizationCoverageTests</c> does: both pass for any key that
-    /// exists, the designer's banner included.
+    /// exists, the designer's banner included. The words are held to design.md's rules too ("Settled while
+    /// building phase 3"): they say the file will not be saved, speak of the file rather than the form, and do
+    /// not say "read-only", which is what the header's grey lines are.
     /// </summary>
     [AvaloniaFact]
     public void CodeEditor_ForAnUnfaithfulForm_TheBannerSaysTheFileWillNotBeSaved()
@@ -123,6 +125,11 @@ public class ReadOnlyBannerIntegrationTests
         english.Should().NotBe(key, "the key must be in the canonical pack");
         english.Should().NotContainEquivalentOf("cannot be edited",
             "Replace All, formatting, rename, add-ins and automation can still change the code (#701)");
+        english.Should().Contain("will not be saved", "that is the one thing every writer is held to");
+        english.Should().NotContainEquivalentOf("read-only",
+            "the header's grey lines are read-only; this is about the whole file, and must not read as them");
+        english.Should().NotContainEquivalentOf("this form",
+            "a UserControl's or a PropertyPage's code window shows the same banner");
 
         var vm = MakeCodeEditorViewModel();
         vm.Initialize(MakeForm(faithful: false));
@@ -134,7 +141,13 @@ public class ReadOnlyBannerIntegrationTests
 
         var banner = view.FindControl<Border>("ReadOnlyBanner")!;
         banner.IsVisible.Should().BeTrue();
-        banner.Child.Should().BeOfType<TextBlock>().Which.Text.Should().Be(english);
+        var text = banner.Child.Should().BeOfType<TextBlock>().Which;
+        text.Text.Should().Be(english);
+
+        // And it follows the resource, so it is a binding: English written into the AXAML would match the line
+        // above as well, and leave every other language's IDE showing English.
+        view.Resources[key] = "a sentinel no pack holds";
+        text.Text.Should().Be("a sentinel no pack holds", "the banner must follow the language pack, not hold its own text");
     }
 
     [AvaloniaFact]

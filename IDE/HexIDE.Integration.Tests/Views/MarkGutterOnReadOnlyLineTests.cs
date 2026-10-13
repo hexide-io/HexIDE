@@ -290,14 +290,14 @@ public class MarkGutterOnReadOnlyLineTests : IDisposable
     [AvaloniaFact]
     public void TogglingABreakpointOnTheCaretLine()
     {
-        // The interpreter-debugger delta's scenario. F9 and Debug > Toggle Breakpoint toggle the caret's line
-        // through the window's own toggle (MainViewViewModelTests holds the main window to that); a click in the
-        // gutter beside the line does the same. Set one way and cleared the other, with a dark-red dot drawn on
-        // the line while it carries a breakpoint and gone once it does not.
+        // The interpreter-debugger delta's scenario, its drawn half. F9 and Debug > Toggle Breakpoint resolve the
+        // caret's line and hand it to the window's own toggle, which is called here with that line; that the
+        // caret's line is the one handed over is MainViewViewModelTests.TogglingABreakpointOnTheCaretLine's to
+        // show. A click in the gutter beside the line does the same. Set one way and cleared the other, with a
+        // dark-red dot drawn on the line while it carries a breakpoint and gone once it does not.
         var vm = OpenForm();
         var (window, editor) = Show(vm);
-        editor.CaretOffset = editor.Document.GetLineByNumber(HeaderLines + 4).Offset + 4;
-        var line = editor.Document.GetLineByOffset(editor.CaretOffset).LineNumber;
+        var line = HeaderLines + 4;
 
         vm.ToggleBreakpoint(line).Should().BeTrue();
 

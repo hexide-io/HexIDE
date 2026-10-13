@@ -306,19 +306,41 @@ public class FindReplaceViewModelTests
         public void LogError(string _) { }
     }
 
+    /// <summary>
+    /// <see cref="FormWithCommand1"/> with a blank line after <c>VERSION</c>. The deserializer reads it, and the
+    /// window's header is the designer block it read. A header found from the text alone stops at the blank
+    /// line, taking <c>VERSION 5.00</c> for the whole of it, so this is a form on which the two ways of finding
+    /// the header disagree.
+    /// </summary>
+    private const string FormWithCommand1AndABlankLine =
+        "VERSION 5.00\r\n" +
+        "\r\n" +
+        "Begin VB.Form Form1 \r\n" +
+        "   Begin VB.CommandButton Command1 \r\n" +
+        "      Caption         =   \"Command1\"\r\n" +
+        "   End\r\n" +
+        "End\r\n" +
+        "Attribute VB_Name = \"Form1\"\r\n" +
+        "Private Sub Command1_Click()\r\n" +
+        "    Command1.Enabled = False\r\n" +
+        "End Sub\r\n";
+
     [AvaloniaFact]
     public void ReplaceAllDoesNotTouchAControlsBeginLine()
     {
         // Task 3.21's case, in the window as the IDE opens one: a form read by the deserializer and composed with
         // its designer block in front of its code. ReplaceAll_ReplacingTextThatAlsoAppearsInTheHeader assigns its
         // text to a window that was never given a form, so its header is found from the text alone; here the
-        // header is the prefix the window was opened with, which is the path every real form takes.
+        // header is the prefix the window was opened with, which is the path every real form takes. The form is
+        // one the text alone misreads (FormWithCommand1AndABlankLine), so a window that stopped using its prefix
+        // would let the replacement into the Begin line, and this test would say so.
+        const string file = FormWithCommand1AndABlankLine;
         var form = new HexIDE.Runtime.Serialization.FormDeserializer()
-            .Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), FormWithCommand1, NullSink.Instance)!;
+            .Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), file, NullSink.Instance)!;
         var editor = CreateMockEditor("");
         editor.Initialize(form);
         editor.CaretOffset = 0;
-        editor.Document.Text.Should().Be(FormWithCommand1, "the premise: the window holds the form's file");
+        editor.Document.Text.Should().Be(file, "the premise: the window holds the form's file");
         SetActiveEditor(editor);
         var sut = CreateSut();
         sut.SearchText = "Command1";
@@ -328,9 +350,9 @@ public class FindReplaceViewModelTests
 
         editor.Document.Text.Should().Contain("   Begin VB.CommandButton Command1 \r\n", "the control's Begin line is untouched")
             .And.Contain("      Caption         =   \"Command1\"\r\n", "and so is everything else in the designer block");
-        var codeStart = FormWithCommand1.IndexOf("Private Sub", StringComparison.Ordinal);
+        var codeStart = file.IndexOf("Private Sub", StringComparison.Ordinal);
         editor.Document.Text.Should().Be(
-            FormWithCommand1[..codeStart] + FormWithCommand1[codeStart..].Replace("Command1", "cmdOK"));
+            file[..codeStart] + file[codeStart..].Replace("Command1", "cmdOK"));
         editor.BufferBody.Should().Be(form.Code.Replace("Command1", "cmdOK"), "the code is what changed");
         editor.Dispose();
     }

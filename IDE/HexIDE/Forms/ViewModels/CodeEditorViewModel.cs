@@ -1186,6 +1186,20 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     public bool IsReadOnlyRegion(int offset, int length) =>
         ReadOnlyRegions.Changes(ReadOnlyRegionsNow, offset, length);
 
+    /// <summary>
+    /// Whether a keystroke's write at this span is refused: the whole file is held read-only
+    /// (<see cref="IsReadOnly"/>), or the span changes a read-only region. This is the question the section
+    /// provider answers for AvaloniaEdit's own typing, asked by the window's keys that write the document
+    /// themselves (Enter's auto-close and auto-indent, a completion's commit), so the banner's "typing in this
+    /// window is refused" holds for them too.
+    /// </summary>
+    /// <remarks>
+    /// The programmatic writers (Replace All, formatting, rename, Insert File, add-ins, automation's whole
+    /// replacement) still ask <see cref="IsReadOnlyRegion"/> alone; giving them the whole-file verdict is #701.
+    /// </remarks>
+    public bool RefusesTyping(int offset, int length) =>
+        IsReadOnly || IsReadOnlyRegion(offset, length);
+
     /// <inheritdoc/>
     public Func<int, int, bool> SnapshotReadOnlyRegions()
     {

@@ -1071,10 +1071,11 @@ public partial class CodeEditorView : UserControl
             var caret = TextEditor.TextArea.Caret;
             var caretOffset = caret.Offset;
 
-            // Enter inside the header or a member's attribute lines writes nothing (#273 task 3.9). It is
-            // taken here, ahead of AvaloniaEdit's own Enter, so no read-only section provider would ever see
+            // Enter inside the header or a member's attribute lines writes nothing (#273 task 3.9), and nor
+            // does Enter anywhere in a file held read-only as a whole, whose banner says typing is refused. It
+            // is taken here, ahead of AvaloniaEdit's own Enter, so no read-only section provider would ever see
             // it; and there is no "after the region" a line break could sensibly go to instead.
-            if (DataContext is CodeEditorViewModel guarded && guarded.IsReadOnlyRegion(caretOffset, 0))
+            if (DataContext is CodeEditorViewModel guarded && guarded.RefusesTyping(caretOffset, 0))
                 return true;
 
             var currentLineNumber = doc.GetLineByOffset(caretOffset).LineNumber;
@@ -1248,7 +1249,7 @@ public partial class CodeEditorView : UserControl
                 _completionWindow = new CompletionWindow(TextEditor.TextArea);
                 var data = _completionWindow.CompletionList.CompletionData;
                 foreach (var item in items)
-                    data.Add(new VbCompletionData(item, vm.IsReadOnlyRegion));
+                    data.Add(new VbCompletionData(item, vm.RefusesTyping));
 
                 _completionWindow.Closed += (_, _) => _completionWindow = null;
                 _completionWindow.Show();
@@ -1577,7 +1578,8 @@ internal sealed class VbCompletionData(CompletionItem item, Func<int, int, bool>
 
     public void Complete(AvaloniaEdit.Editing.TextArea textArea, ISegment completionSegment, EventArgs e)
     {
-        // Nothing is written into a region. A completion belongs to the word at the caret, so there is no
+        // Nothing is written into a region, nor into a file held read-only as a whole (the view passes
+        // CodeEditorViewModel.RefusesTyping). A completion belongs to the word at the caret, so there is no
         // "after the region" to move it to that would still mean anything: it is simply not applied.
         if (isReadOnlyRegion(completionSegment.Offset, completionSegment.Length))
             return;

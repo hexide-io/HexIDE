@@ -791,8 +791,11 @@ only that a key is present, so rewording under the same key would leave every tr
 thing with nothing failing. The key is `Str.CodeEditor.FileNotSaved.Banner` (3.20), and its words follow two
 rules. They are about the whole file, and do not say "read-only", so they cannot be taken for the header's grey
 lines. And they claim only what is enforced today: the file is not saved, and typing in the window is refused.
-They do not say the code cannot be changed, because until #701 lands Replace All, formatting, rename, add-ins
-and automation still change it. "This form" became "this file", since a UserControl or PropertyPage shows the
+That second claim holds for every key, not only the ones AvaloniaEdit's own typing takes: the 3.20 review found
+Enter and a completion's commit wrote the document themselves past the section provider, as #701 had listed, so
+both now ask `CodeEditorViewModel.RefusesTyping`, and automation's `type_text` and `press_key` refuse such a file
+with the reason. They do not say the code cannot be changed, because until #701 lands Replace All, formatting,
+rename, Insert File, undo and redo, add-ins and automation's whole replacement still change it. "This form" became "this file", since a UserControl or PropertyPage shows the
 same banner. When #701 makes every writer refuse, the banner may say more, and the new words take a new key
 again. **A fold's label is the fold's first line**, as the code-editor delta says, so the
 header fold has no string of its own. **Find and Replace explaining what they left in the header is #705**,
@@ -942,9 +945,14 @@ what happened.
   where it named the buffer position, which differs for a column past a line's end.
 
 **Settled while building 3.21.** What "a test per scenario" and two of the task's own cases came to.
-- *A restated scenario counts.* The bookmarks and interpreter-debugger deltas remove a requirement and add it back
-  narrowed, so their carried-over scenarios ("Toggling a bookmark", "Clearing every breakpoint in the project") are
-  scenarios of this change and get tests by their names, like the new ones.
+- *A restated scenario counts where this change narrowed what it claims.* The bookmarks delta removes a requirement
+  and adds it back narrowed, and the interpreter-debugger delta modifies one to the same effect, so their
+  carried-over scenarios ("Toggling a bookmark", "Clearing every breakpoint in the project") are scenarios of this
+  change and get tests by their names, like the new ones. The lsp-client delta modifies its first requirement too,
+  but 3.14 only added to it: the paragraph on folds the editor makes itself, and "No server is attached", which has
+  its test. Its two older scenarios, "Adding a feature that needs language data" and "Replacing the backend",
+  say what they said before this change, and are claims about how the code is built rather than behaviour a test
+  drives, so they got no tests by their names here.
 - *A test already proving a scenario was renamed to it, unless something outside the test file cites its name.*
   `MarksOnLinesTheDocumentDoesNotHaveAreDroppedAtLoad_AndNotWrittenBack` is cited by the archived change that
   introduced the sidecar's range drop, and an archive is a record rather than a document to keep in step, so the

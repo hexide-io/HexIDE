@@ -65,10 +65,12 @@ there isn't one yet. Anything may change between 0.x releases.
   before asking for a new name: rename it in the Properties window. Another language server still gets the
   code window's protection.
 - **The warning above the code of a form HexIDE cannot save now says what it means**: the file will not be
-  saved, its code included, so typing in that window is refused. It used to say the code could not be edited,
-  which read like the header's read-only lines and was not true: Replace All, formatting, a rename, an add-in
-  or an automation client can still change the code there, and nothing they change is saved
-  ([#701](https://github.com/hexide-io/HexIDE/issues/701)).
+  saved, its code included, so typing in that window is refused. Typing now is refused everywhere in it:
+  Enter, and accepting a completion, used to write a line break or a word there despite it, and an automation
+  client's `type_text` and `press_key` are refused with the reason. It used to say the code could not be edited,
+  which read like the header's read-only lines and was not true: Replace All, formatting, a rename, Insert File,
+  undo and redo, an add-in or an automation client's `set_file_content` can still change the code there, and
+  nothing they change is saved ([#701](https://github.com/hexide-io/HexIDE/issues/701)).
 - **No breakpoint or bookmark can be set on a file's header or a procedure's `Attribute` lines**, by F9,
   Ctrl+F2, a click in either margin or an automation client; the status bar says why. Those lines never run.
   One already there can still be removed, and one found there among a project's saved marks is dropped as the

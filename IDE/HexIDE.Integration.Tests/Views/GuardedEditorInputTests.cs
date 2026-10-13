@@ -68,7 +68,7 @@ public class GuardedEditorInputTests : IDisposable
         "    Unload Me\r\n" +
         "End Sub\r\n";
 
-    private CodeEditorViewModel OpenForm()
+    private CodeEditorViewModel OpenForm(bool heldReadOnly = false)
     {
         var eventBus = Substitute.For<IEventBus>();
         eventBus.Subscribe<CreateOrNavigateToSubEvent>(Arg.Any<Action<CreateOrNavigateToSubEvent>>()).Returns(Substitute.For<IDisposable>());
@@ -89,7 +89,12 @@ public class GuardedEditorInputTests : IDisposable
             Substitute.For<ILocalizationService>());
         made.Add(vm);
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
-        return vm.Initialize(new FormDeserializer().Deserialize(project, Frm, NullSink.Instance)!);
+        var form = new FormDeserializer().Deserialize(project, Frm, NullSink.Instance)!;
+        // Held read-only as a whole, as the deserializer holds a form whose .frx content did not all arrive.
+        if (heldReadOnly)
+            form.MarkUnfaithfulToSave(UnfaithfulSaveCause.UnreproducibleBinaryContent,
+                "it references companion binary content HexIDE cannot re-emit (0 of 1 blob(s) reached the model)");
+        return vm.Initialize(form);
     }
 
     private (Window Window, TextEditor Editor) Show(CodeEditorViewModel vm)
@@ -180,7 +185,43 @@ public class GuardedEditorInputTests : IDisposable
         vm.Document.Text[..InHeader(vm)].Should().Be(before[..InHeader(vm)]);
     }
 
+    [AvaloniaFact]
+    public void EnterInAFileHeldReadOnlyAsAWholeWritesNothing()
+    {
+        // The banner says typing is refused anywhere in such a file. The section provider refuses AvaloniaEdit's
+        // own typing, but Enter is taken by the tunnel handler first and wrote the line break and indent itself.
+        var vm = OpenForm(heldReadOnly: true);
+        vm.IsReadOnly.Should().BeTrue();
+        var (_, editor) = Show(vm);
+        var before = vm.Document.Text;
+        editor.TextArea.Caret.Offset = InCode(vm);
+
+        PressEnter(editor);
+        Dispatcher.UIThread.RunJobs();
+
+        vm.Document.Text.Should().Be(before, "the file will not be saved, so a line break typed into it would be lost");
+    }
+
     // ── Automation: type_text and press_key ─────────────────────────────────────────────────────────────
+
+    [AvaloniaFact]
+    public void TypeTextAndPressKeyInAFileHeldReadOnlyAsAWholeAreRefusedAndSayWhy()
+    {
+        var vm = OpenForm(heldReadOnly: true);
+        var (_, editor) = Show(vm);
+        var before = vm.Document.Text;
+        editor.TextArea.Caret.Offset = InCode(vm);
+
+        var typed = UiAutomationDriver.TypeText(editor, "x");
+        var pressed = UiAutomationDriver.PressKey(editor, "Enter", null);
+
+        typed.Success.Should().BeFalse();
+        typed.Error.Should().Contain("will not be saved").And.Contain("companion binary content");
+        pressed.Success.Should().BeFalse("before, the key was reported as pressed and its handler wrote the line break");
+        pressed.Error.Should().Contain("will not be saved");
+        vm.Document.Text.Should().Be(before);
+        UiAutomationDriver.PressKey(editor, "Down", null).Success.Should().BeTrue("moving the caret edits nothing");
+    }
 
     [AvaloniaFact]
     public void TypeTextWithTheCaretInTheHeaderIsRefusedAndSaysWhereTheCodeStarts()

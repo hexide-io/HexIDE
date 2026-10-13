@@ -1530,7 +1530,8 @@
   the add-in to reporting a refused change.
   — **Tests:** `AddinWholeFileTests` carries the addin-system delta's four scenarios, "an add-in replacement that
   changes the header is refused" with its reason, the line-and-column refusal, out-of-range positions, a round trip
-  of `BillOfFare.frm` and `Game.cls` through the surface, the six shipped signatures, and a v0.2.0-shaped host
+  of `BillOfFare.frm` and of `Game.cls` with the Class Builder's header lines added (since 3.21's review: without
+  them its header is the one HexIDE writes, and the trip could not tell the two apart) through the surface, the six shipped signatures, and a v0.2.0-shaped host
   answering the new members. `AIChatWholeFileTests` carries the ai-chat delta's two scenarios and the prompt,
   description, navigation and notice cases.
   — **Not done:** AI Chat's `get_file_content` still reads through navigate-then-active-document and needs a
@@ -1574,6 +1575,15 @@
   text does not say "cannot be edited". `LocalizationCoverageTests` passes for any key `en` has, the designer
   banner's included, so it could not pin which key the banner binds. Binding the designer's key fails it.
   — **Not yet seen running**: the banner needs a form HexIDE cannot save, so it is added to 3.22's live check.
+  — **Review.** The banner said typing was refused, and Enter and a completion's commit still wrote the code: both
+  write the document themselves, past the section provider. Both now ask `CodeEditorViewModel.RefusesTyping`, the
+  whole-file verdict as well as the regions, and automation's `type_text` and `press_key` refuse such a file and
+  say why rather than report a key pressed (`GuardedEditorInputTests.EnterInAFileHeldReadOnlyAsAWholeWritesNothing`,
+  `TypeTextAndPressKeyInAFileHeldReadOnlyAsAWholeAreRefusedAndSayWhy`,
+  `GuardedWritersTests.ACompletionCommittedInAFileHeldReadOnlyAsAWholeWritesNothing`). That is the keystroke half
+  of #701; the programmatic writers are the rest of it. The banner test now holds the words to design.md's rules
+  (they say "will not be saved", and neither "read-only" nor "this form") and checks the text follows the resource,
+  so English written into the AXAML fails it. Each of the four was reverted once and its test went red.
 - [x] 3.21 Tests, one per scenario in the deltas this phase implements, named after the scenario, plus: buffer equals the file on open; an unchanged save writes the buffer; formatting leaves the
   header; Replace All does not touch a control's `Begin` line; a designer move is not undone by code-window
   undo; the header stays folded after formatting; a migrated sidecar keeps marks on their statements and is
@@ -1610,13 +1620,15 @@
   — **The extra cases**: (1) `TheBufferIsTheFileOnOpenForEveryKind`, every document in `demo/` and
   `corpus/designer/` opened from disk in a code window; (2) `AnUnchangedSaveWritesTheBuffer`, on two render-stable
   fixtures with that premise checked first; (3) `FormattingAClass`; (4) `FindReplaceViewModelTests.ReplaceAllDoesNotTouchAControlsBeginLine`,
-  in a window opened with the form's prefix, where the scenario's own test finds the header from the text alone;
+  in a window opened with the form's prefix, on a form the text alone misreads (since the review), where the
+  scenario's own test finds the header from the text alone;
   (5) `MovingAControlWithTheCodeWindowOpen`; (6) `ReformattingADocumentWhoseHeaderIsFolded`; (7) 3.17's
   `SidecarMigrationTests.AMigratedSidecarKeepsEachMarkOnItsStatement` and `OpeningAnAlreadyMigratedSidecarAgain`,
   run green here; (8) 3.19's `AddinWholeFileTests.AnAddinReplacementThatChangesTheHeaderIsRefused`.
   — **The add-in scenario 3.19 left unmet is met**: `IDiagnosticsAccess.TryGetFor` says why a name found no single
   document, where `GetFor` answers an empty list (design.md, "Not done here, and why").
-  — **Left as they are**: "A compile error from VB6" is 2.9's (`Vb6CompileLogTests.AFormsDesignerBlockIsCountedInTheBuffer`);
+  — **Left as they are**: "A compile error from VB6" was built under 2.9, and its test is now named after it
+  (`Vb6CompileLogTests.ACompileErrorFromVb6`, with `ProcedureAttributeLinesAreSkippedWhenCounting` beside it);
   the document-identity scenarios are phase 1's, and three of them have no test by their name; "A procedure with a
   description" and "Deleting a described procedure" are phase 4's. The code-editor requirement "A document with no
   file yet SHALL hold the header its first save will write" has no scenario and is still unmet at open (#885).
@@ -1635,6 +1647,20 @@
   mutation reddens it. The one-line-header mutation reddened `OpeningAStandardModule` on its greying first, so a
   provider-only mutation was added to show the new "cannot be edited" assertions bite on their own. The server's
   "Opening a form" was checked as design.md records: green with either layer broken, red with both.
+  — **Review.** `ReplaceAllDoesNotTouchAControlsBeginLine` could not tell the window's prefix from the text walk,
+  since on a well-formed form the two find the same header: a window made to ignore its prefix passed every IDE
+  test. Its form now has a blank line after `VERSION`, which the deserializer reads and the text walk takes for
+  the end of the header, and that mutation reddens it. The gutter's `TogglingABreakpointOnTheCaretLine` set a
+  caret it never read; it now hands the window its line and says the caret half is `MainViewViewModelTests`'.
+  The key gestures, and the main window's `CommandBinding`s that F9, Ctrl+Shift+F9 and the two Debug menu items
+  go through, are still pinned by no test: driving them needs `MainView` over a real `MainViewViewModel`, which
+  no harness here builds. "A compile error from VB6" has its test by its name. design.md's rule for restated
+  scenarios misdescribed the interpreter-debugger delta and did not say why the lsp-client delta's two older
+  scenarios have none; both corrected. `AddinWholeFileTests`' class round trip now adds the Class Builder's lines,
+  for the same reason `OpeningAClassModule` does, and is renamed for what it opens. Not taken on: three phase-1
+  document-identity scenarios ("Renaming a document with breakpoints on it", "Naming a document through
+  automation", "A name that is not a VB6 name") have no test by their name; phase 1 is closed, and they are left
+  to that delta's archive check.
 
 - [ ] 3.22 Verify in the running IDE, through the automation tools rather than by asking anyone to click:
   open a VB6-authored `.frm`, `.cls` and `.bas`; snapshot the header folded and greyed under a light and a

@@ -396,18 +396,37 @@ public class AddinWholeFileTests : IDisposable
     public async Task AFormVb6WroteReadsAsItsFileAndTakesItBackUnchanged()
         => await RoundTrip("bill-of-fare", "frmBillOfFare", "BillOfFare.frm");
 
+    /// <summary>
+    /// A class whose header carries the two lines VB6's Class Builder adds. <c>Game.cls</c> as the repository
+    /// holds it has exactly the header HexIDE writes for a new class, so read as it is it could not tell the
+    /// file's header from one HexIDE made up; with these lines only the file can supply it.
+    /// </summary>
     [AvaloniaFact]
-    public async Task AClassVb6WroteReadsAsItsFileAndTakesItBackUnchanged()
-        => await RoundTrip("battleship", "Game", "Game.cls");
+    public async Task AClassWithTheClassBuildersHeaderReadsAsItsFileAndTakesItBackUnchanged()
+        => await RoundTrip("battleship", "Game", "Game.cls", text => text.Replace(
+            "Attribute VB_Exposed = False\r\n",
+            "Attribute VB_Exposed = False\r\n"
+          + "Attribute VB_Ext_KEY = \"SavedWithClassBuilder6\" ,\"Yes\"\r\n"
+          + "Attribute VB_Ext_KEY = \"Top_Level\" ,\"Yes\"\r\n"));
 
     /// <summary>
-    /// A document VB6 wrote, opened in a code window, read through the add-in surface and written straight back.
-    /// The read's header is found from the text and the document's from the prefix it was composed with, so a
-    /// disagreement between the two on a real file would refuse an unchanged echo.
+    /// A document in VB6's format, opened in a code window, read through the add-in surface and written straight
+    /// back. The read's header is found from the text and the document's from the prefix it was composed with,
+    /// so a disagreement between the two on a real file would refuse an unchanged echo.
     /// </summary>
-    private async Task RoundTrip(string demo, string name, string file)
+    /// <param name="edit">A change made to the staged file before it is opened, when the file as held is not enough.</param>
+    private async Task RoundTrip(string demo, string name, string file, Func<string, string>? edit = null)
     {
-        await MakeService().OpenProject(Stage(Path.Join(FindUpwards("demo")!, demo)));
+        var vbp = Stage(Path.Join(FindUpwards("demo")!, demo));
+        if (edit is not null)
+        {
+            var staged = Path.Join(Path.GetDirectoryName(vbp)!, file);
+            var original = File.ReadAllText(staged);
+            var changed = edit(original);
+            changed.Should().NotBe(original, "the premise: the edit found what it changes");
+            File.WriteAllText(staged, changed);
+        }
+        await MakeService().OpenProject(vbp);
         var document = DocumentLookup.Find(loaded, name, null).Single();
         var editor = Show(document.Module is { } module ? NewEditor().Initialize(module) : NewEditor().Initialize(document.Form!));
         var bytes = await File.ReadAllBytesAsync(document.AbsolutePath!, TestContext.Current.CancellationToken);
