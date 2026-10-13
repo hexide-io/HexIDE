@@ -333,6 +333,25 @@ public class ObjectAsValueTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(error), new Vb6Value(error != 0)]);
     }
 
+    [Theory]
+    [InlineData("c = Filter(d, k, \"x\")", 13L)]            // the switch's 13 before k's 438
+    [InlineData("c = Filter(d, k, Null)", 94L)]
+    [InlineData("c = Filter(d, \"a\", k, Null)", 94L)]       // the compare's 94 before the switch's 438
+    [InlineData("c = Filter(d, \"a\", k, \"x\")", 13L)]
+    [InlineData("c = Filter(d, k, True, o)", 91L)]          // a Nothing compare
+    [InlineData("c = Filter(d, w, \"x\")", 13L)]            // w is never read, so no refusal
+    public async Task Filter_reads_each_object_argument_only_as_its_turn_comes(string call, long error)
+    {
+        // Measured, native and in the IDE, with k a class with no default member and w one whose default member is a
+        // Function. Each object was read before any argument was converted, so each was k's 438, or w's refusal (#174).
+        await RunClasses(
+            $"Dim d(1) As String, k, w, o, c\nSet k = New Plain\nSet w = New Widget\nSet o = Nothing\nd(0) = \"pear\"\n" +
+            $"On Error Resume Next\n{call}\nDebug.Print Err.Number\n",
+            ("Plain", Plain), ("Widget", Widget));
+
+        AssertDebugLog([new Vb6Value(error)]);
+    }
+
     [Fact]
     public async Task Filter_reads_an_object_switch_before_an_object_match()
     {

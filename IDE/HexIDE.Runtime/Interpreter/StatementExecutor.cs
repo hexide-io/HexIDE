@@ -785,18 +785,22 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// </summary>
     private async Task<bool> ConditionHolds(Antlr4.Runtime.Tree.IParseTree condition, Antlr4.Runtime.ParserRuleContext statement)
     {
-        var value = await expressionExecutor.EvaluateScalar(condition);
-        // Null is False, where CBool raises 94 (measured). Empty is False to CBool already; it is named here because it
-        // is half of the measured rule.
-        if (value.IsNull || value.Type == Vb6Value.ValueType.EmptyVariant)
-            return false;
+        var operand = await expressionExecutor.EvaluateValue(condition);
         try
         {
+            // An object is read here rather than by EvaluateScalar, so that its 438 names the statement as the 13 and
+            // 91 below do, not the operand.
+            var value = ObjectAsValue.Scalar(operand, null);
+            // Null is False, where CBool raises 94 (measured). Empty is False to CBool already; it is named here because
+            // it is half of the measured rule.
+            if (value.IsNull || value.Type == Vb6Value.ValueType.EmptyVariant)
+                return false;
             return VB6BuiltIns.CBool(value).Value is true;
         }
         catch (VBRunTimeException ex)
         {
-            // CBool has no statement to name; the condition's does, for the error dialog and get_last_runtime_error.
+            // CBool and Scalar have no statement to name; the condition's does, for the error dialog and
+            // get_last_runtime_error.
             throw ex.At(statement);
         }
     }

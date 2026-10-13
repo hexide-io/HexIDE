@@ -5768,7 +5768,7 @@ with `k` a Plain, so each condition raises 438:
 | `Do ... Loop While k` | the body once, then out |
 | `For i = 1 To k` | native: the body, every pass, until `Exit For` after 3, `i` still 0 afterwards; the IDE: one pass, `i` 1 afterwards |
 
-So for most of these, Resume Next goes on into the block, as if the condition had held: the first statement inside it.
+So for most of these, Resume Next goes on into the block, at the first statement inside it.
 A bottom-tested loop's next statement is the one after `Loop`. Select Case and For are the exceptions, and differ by
 mode.
 
@@ -5835,6 +5835,14 @@ from `/make`):
 HexIDE's `Join` and `Filter` raised 5 for each of those, and now raise 13. **Nothing is 13 here too**, not the 91 every
 conversion gives: `Join(v, "-")`, `Filter(v, "a")` and `UBound(v)` with `v` set to Nothing (round three).
 
+Every other argument reads the member:
+
+| Call | `sm` | `k` |
+|---|---|---|
+| `UBound(m, sm)`, `LBound(m, sm)` of `m(1 To 3, 5 To 9)` | 9, 5 | 438 |
+| `Split("a,b,c", ",", sm)`, `Split(w)` | two elements, `"42"` | 438 |
+| `Join(arrS, sm)`, `Filter(arrS, "a", sm)` | "2" as the delimiter, an include of True | 438 |
+
 **An array never allocated** (`Dim ds() As String`, `Dim dv()`), measured in round three, both modes:
 
 | Call | VB6 |
@@ -5877,7 +5885,8 @@ HexIDE returned the unallocated result before reading the match and the switch, 
 no error for `ds`. Its `Filter(d1, Null)` gave no error either, and its result was a Variant array whenever the input
 was allocated. All three now answer as above.
 
-An allocated array that is not a 1-D String or Variant array. HexIDE still gives a value for each of these (#875):
+An allocated array that is not a 1-D String or Variant array. HexIDE still joins and filters the Long array `al` as
+if it held strings, and raises a trappable 9, Subscript out of range, for the 2-D array `m` (#875):
 
 | Call | VB6 |
 |---|---|
@@ -5954,7 +5963,8 @@ a text compare". **Round six overturned that** (below): 5 is a text compare only
 identifier. Filter checks every argument for Null before it looks at the array, so a Null match beside a string is 94;
 Join looks at the array first, so a Null delimiter beside a string is 13. HexIDE read both as plain numbers, so an
 Empty switch or compare raised 13 and only 1 was a text compare; its Null compare was 13, and `Filter("abc", Null)`
-was 13. All now answer as above.
+was 13. All now answer as above, except the compare of 5: round six found it a locale identifier, which HexIDE
+refuses (#881).
 
 **Filter's compare, and the order of its conversions, round six.** Measured as native code and in the IDE (`p24`, a
 Sub Main project), identical on every row. `d1` holds "Apple" and "pear", so a binary compare for "a" keeps only
@@ -5971,9 +5981,10 @@ Sub Main project), identical on every row. `d1` holds "Apple" and "pear", so a b
 | 2, -1, 3000 or 1033, with `ds` never allocated, or with `Array()` | no error, an unallocated String array |
 
 So the compare is read as a Long, with banker's rounding. 0 is binary and 1 text. 2 is `vbDatabaseCompare`, which
-needs an Access database, and is 5, and so is any negative value. 3 and above are taken as a Windows locale
-identifier: a valid one compares as text in that locale, and an invalid one is 5. None of that is checked when the
-array has no element. And `Filter(Array(), "a")`, an allocated array of no elements, gives back an **unallocated**
+needs an Access database, and is 5, and so is any negative value. From 3 up, the rows are consistent with a Windows
+locale identifier: valid ones compare as text, and invalid ones are 5. Whether a valid one compares in that locale, or
+simply as text, is not measured; nothing here tells the two apart. None of that is checked when the array has no
+element, nor, round seven found, whenever no comparison is made. And `Filter(Array(), "a")`, an allocated array of no elements, gives back an **unallocated**
 String array, not 0 To -1, though a match that keeps nothing from an array that has elements is 0 To -1 (above).
 
 | Call | VB6 |
@@ -5985,9 +5996,11 @@ String array, not 0 To -1, though a match that keeps nothing from an array that 
 | `Filter("abc", "a", True, 3000)` | 13: the array check before the compare's |
 
 So Filter converts its arguments right to left: the compare, then the switch, then the match, each Null 94 and each
-non-number 13. Then it checks the array, and only after that whether the compare is one it accepts.
+non-number 13. Then it checks the array. Round six read the rest as "and only after that whether the compare is one it
+accepts"; round seven (below) found that Filter converts every element next, and checks the compare only when it
+compares an element with the match.
 
-**Nothing**, both modes: `Filter(Array("ab", Nothing), "zz", False)`, `Join(Array("ab", Nothing), "-")`,
+**Nothing**, both modes (`p24`): `Filter(Array("ab", Nothing), "zz", False)`, `Join(Array("ab", Nothing), "-")`,
 `Join(d1, o)` and `Filter(d1, o)`, with `o` Nothing, each raise 91. `Join(ds, o)` with `ds` never allocated is `""`.
 
 **HexIDE, after round six.**
@@ -6001,11 +6014,92 @@ non-number 13. Then it checks the array, and only after that whether the compare
 
 **The other functions' compare** (`p24`, both modes): `InStr` and `StrComp` raise 5 for 2, while `Split` and
 `Replace` take 2 as text. All four raise 5 for -1 and 3000, and take 1033 as text. HexIDE reads all of them as
-"1 is text, anything else binary". That's #881.
+"1 is text, anything else binary" in `InStr`, `InStrRev`, `Split` and `Replace`; `StrComp` is not implemented. That's
+#881.
+
+**Filter's compare, round seven.** Measured as native code and in the IDE (`p41`, a Sub Main project), identical on
+every row. `s` is `Split("apple pear")`, so a binary compare for "A" keeps nothing and a text compare keeps both:
+
+| Compare | VB6 |
+|---|---|
+| 0.6 | text: it rounds to 1 |
+| 4096, 1033 | text |
+| 4095, 32767, 65536, 3000, -2 | 5 |
+| 3E+10 | 6 |
+| `Array(1)` | 13 |
+
+So 4096 is accepted and 4095 is not, as 1033 is and 3000 is not. That is still consistent with a locale identifier, and
+still not proof of one.
+
+**When the compare is checked, round seven.** Measured as native code and in the IDE (`p40` and `p41`), identical on
+every row:
+
+| Call | VB6 |
+|---|---|
+| `Filter(Array("x", Null), "a", True, 2)` | 94 |
+| `Filter(Array(Array(1)), "a", True, 2)` | 13 |
+| `Filter(Array("x", Null), "")` | 94 |
+| `Filter(Array("x"), "", True, Null)`; with `"zz"` as the compare | 94; 13 |
+| `Filter(Array("x"), "", True, 2)`; with 3000 as the compare | bounds 0..0, no error |
+| `Filter(Array("x", "y"), "", True, -1)` | 0..1 |
+| `Filter(Array("x"), "", False, 2)` | 0..-1 |
+| `Filter(Array(""), "a", True, 2)` | 0..-1 |
+| `Filter(Array(""), "")`; with `True, 2` | 0..0 |
+| `Filter(Array(""), "", False)` | 0..-1 |
+| `Filter(Array("", "x"), "", True, 2)`; with `False, 2` | 0..1; 0..-1 |
+| `Filter(Array("x"), "xyz", True, 2)` | 5 |
+
+So Filter converts every element before it compares any, and checks the compare only when it compares an element
+with the match. An empty match is in every element, an empty one included, and an empty element holds no other match,
+so neither needs a comparison: `Filter(list, "", True, 2)` is the whole list. The compare itself is still converted
+first, so a Null or a non-number there raises whatever else happens.
+
+**Each object argument is read as its turn comes, round seven** (`p41`, both modes). `d1` holds "apple" and "pear",
+`k` and `w` are the classes above, `o` is Nothing and `ds` is never allocated:
+
+| Call | VB6 |
+|---|---|
+| `Filter(d1, k, "x")`, `Filter(d1, "a", k, "x")` | 13 |
+| `Filter(d1, k, Null)`, `Filter(d1, "a", k, Null)` | 94 |
+| `Filter(d1, k, True, o)` | 91 |
+| `Filter(d1, w, "x")` | 13: `w` is never read |
+| `Filter(d1, "a", True, o)`, `Filter(ds, "a", True, o)` | 91 |
+
+**Err as an argument** (`p40`, both modes), with `s` holding "Apple", "pear" and "plum":
+- as the compare, with Err.Number 1, `Filter(s, "a", True, Err)` is a text compare, keeping "Apple" and "pear"; with 0,
+  binary, keeping "pear";
+- as the switch, 5 includes and 0 excludes;
+- as the match, with Err.Number 1, it is "1", which nothing holds.
+
+None raised; Err.Number was unchanged after each.
+
+**Other built-ins show the same order** (`p41`, both modes):
+
+| Call | VB6 |
+|---|---|
+| `Left(k, "x")`, `Mid(k, "x")`, `Replace(k, "a", "b", "x")`, `Split(k, ",", "x")`, `InStr(1, k, "a", "x")`, `Left(w, "x")` | 13 |
+| `Left(k, Null)` | 94 |
+| `Left(k, 1)` | 438 |
+| `Left(w, 1)` | "4" |
+
+So VB6 converts a typed value argument before it reads an object in a Variant or String slot. HexIDE reads every
+object first, so each of the first rows is 438, or the refusal naming #174 for `w` (#959).
+
+**HexIDE, after round seven.**
+- Filter converts every element first, and checks the compare only when it compares: an empty search returns the
+  whole list, where it raised 5.
+- It reads its match, switch and compare itself, each as its turn comes, rather than letting the dispatcher read every
+  object first: `Filter(d1, k, "x")` is 13, where it was 438.
+- A Nothing compare is 91, where it read as 0, a binary compare.
+- Err as the compare or the switch is its Number, where it reached the conversion as an object.
+- The other built-ins still read every object first (#959).
 
 **A default member on a typed variable, round five.** With `w` declared `As Widget`, whose default member is a
 Function returning 42, both modes: `Not w` is -43, a Long, and `CDate(w)` is 10/02/1900 (an en-GB guest). Through a
-Variant, `Not` of the same object raises 450 (above). So the 450 belongs to the Variant path, not to the Function.
+Variant, `Not` of the same object raises 450 (above). So neither alone gives the 450. It needs a Function default
+member, since a Property Get default member through the same Variant answers 42 and -43; and it needs a path that asks
+for the member as a property: through a Variant here, since the typed `w` answers, or in the IDE a Case value compared
+with an Empty or Null selector, where the typed `w` gives it too (above).
 
 **A Let of App into a typed target, round five.** Both modes, under Resume Next, with each target holding a value
 first:
@@ -6030,13 +6124,16 @@ emptied all four of these.
 | a helper whose first line is `On Error Resume Next`, called after `Err.Raise 6` | the helper reads 0, and so does the caller after it returns |
 | `Err.Raise 7`, then `On Error GoTo 0` | 0 |
 
-Every other argument reads the member:
+**An array used as text, found on the way** (#879; `p19`, both modes, and the last row from `p42`, by `/make`):
 
-| Call | `sm` | `k` |
-|---|---|---|
-| `UBound(m, sm)`, `LBound(m, sm)` of `m(1 To 3, 5 To 9)` | 9, 5 | 438 |
-| `Split("a,b,c", ",", sm)`, `Split(w)` | two elements, `"42"` | 438 |
-| `Join(arrS, sm)`, `Filter(arrS, "a", sm)` | "2" as the delimiter, an include of True | 438 |
+| Use | VB6 |
+|---|---|
+| `c = "v=" & Array(1)`, `c = CStr(Array(1))`, `c = Len(Array(1))`, `c = UCase(Array(1))`, `Print #f, Array(1)` | 13 |
+| `s = Array(1)`, `s` a String | 13, `s` unchanged |
+| `c = "v=" & a`, with `Dim a(1) As Long` | does not compile: "Type mismatch" |
+
+HexIDE's text conversion has no arm for an array, so the code gives its CLR type name for these, except where #840
+raises 13 for an element of Join or Filter. That HexIDE side is read from the code, not run (#879).
 
 **The in-box objects:**
 
@@ -6076,7 +6173,7 @@ Clipboard, Printer or Forms yet. Round three, on a form with a control array `Cm
   unknown name stays "Sub or Function not defined" whatever it is given. `TypeName`, `IsObject`, `IsMissing` and `Array`
   take the argument itself, and so does the array that `LBound`, `UBound`, `Join` and `Filter` take first. `VarType` and
   the Is functions refuse a class with a default member and answer about one without;
-- the numeric conversions' own coercion, which subscripts will use once G39-41 lands; nothing reaches it before the
+- the numeric conversions' own coercion, which subscripts will use once #873 lands; nothing reaches it before the
   dispatcher yet;
 - the conditions of `If`, `ElseIf`, `While` and `Do`, a For bound and step, `Select Case`, a Case value, a range's
   bounds and a `Case Is` value;

@@ -225,11 +225,55 @@ public class ArrayFunctionsTests : BaseVBTestFixture
     [InlineData("Filter(d, \"a\", \"x\", Null)", 94L)]     // the compare before the switch
     [InlineData("Filter(d, Null, True, 3000)", 94L)]
     [InlineData("Filter(\"abc\", \"a\", True, 3000)", 13L)]   // the array check before the compare's
-    public async Task Filter_converts_its_arguments_right_to_left_and_checks_the_compare_last(string call, long error)
+    [InlineData("Filter(d, \"a\", True, o)", 91L)]         // a Nothing compare, which read as 0, a binary compare
+    [InlineData("Filter(u, \"a\", True, o)", 91L)]         // before the array is looked at, so for no element too
+    public async Task Filter_converts_its_arguments_right_to_left_before_it_looks_at_the_array(string call, long error)
     {
         // Measured, native and in the IDE.
-        await Run($"Dim d(1) As String, c\nd(0) = \"Apple\"\nOn Error Resume Next\nc = {call}\nDebug.Print Err.Number\n");
+        await Run($"Dim d(1) As String, u() As String, c, o\nSet o = Nothing\nd(0) = \"Apple\"\nOn Error Resume Next\n" +
+                  $"c = {call}\nDebug.Print Err.Number\n");
         AssertDebugLog([new Vb6Value(error)]);
+    }
+
+    [Theory]
+    [InlineData("Filter(Array(\"x\", Null), \"a\", True, 2)", 94L, -2L)]   // every element converts first
+    [InlineData("Filter(Array(Array(1)), \"a\", True, 2)", 13L, -2L)]
+    [InlineData("Filter(Array(\"x\", Null), \"\")", 94L, -2L)]             // with nothing to compare, too
+    [InlineData("Filter(Array(\"x\"), \"\", True, Null)", 94L, -2L)]       // the compare still converts
+    [InlineData("Filter(Array(\"x\"), \"\", True, \"zz\")", 13L, -2L)]
+    [InlineData("Filter(Array(\"x\"), \"\", True, 2)", 0L, 0L)]            // an empty match is in every element
+    [InlineData("Filter(Array(\"x\"), \"\", False, 2)", 0L, -1L)]
+    [InlineData("Filter(Array(\"x\", \"y\"), \"\", True, -1)", 0L, 1L)]
+    [InlineData("Filter(Array(\"x\"), \"\", True, 3000)", 0L, 0L)]         // not refused (#881): no comparison
+    [InlineData("Filter(Array(\"\"), \"a\", True, 2)", 0L, -1L)]           // an empty element holds no other match
+    [InlineData("Filter(Array(\"\"), \"\")", 0L, 0L)]
+    [InlineData("Filter(Array(\"\"), \"\", False)", 0L, -1L)]
+    [InlineData("Filter(Array(\"\"), \"\", True, 2)", 0L, 0L)]
+    [InlineData("Filter(Array(\"\", \"x\"), \"\", True, 2)", 0L, 1L)]
+    [InlineData("Filter(Array(\"\", \"x\"), \"\", False, 2)", 0L, -1L)]
+    [InlineData("Filter(Array(\"x\"), \"xyz\", True, 2)", 5L, -2L)]        // a comparison, so the compare is checked
+    public async Task Filter_checks_its_compare_only_when_it_compares(string call, long error, long upper)
+    {
+        // Measured, native and in the IDE. Each 5 was raised before an element was converted, and for an empty match or
+        // element, where VB6 makes no comparison and returns the whole list. -2 stands for no result.
+        await Run($"Dim r\nr = CLng(-2)\nOn Error Resume Next\nr = {call}\nDebug.Print Err.Number\n" +
+                  "If IsArray(r) Then Debug.Print UBound(r) Else Debug.Print r\n");
+        AssertDebugLog([new Vb6Value(error), new Vb6Value(upper)]);
+    }
+
+    [Theory]
+    [InlineData("Err.Number = 1\nr = Filter(s, \"a\", True, Err)", 1L, 1L)]   // a text compare: Apple and pear
+    [InlineData("Err.Number = 0\nr = Filter(s, \"a\", True, Err)", 0L, 0L)]   // binary: pear
+    [InlineData("Err.Number = 5\nr = Filter(s, \"a\", Err)", 5L, 0L)]         // include: pear
+    [InlineData("r = Filter(s, \"a\", Err)", 0L, 1L)]                         // exclude: Apple and plum
+    [InlineData("Err.Number = 1\nr = Filter(s, Err)", 1L, -1L)]               // the match "1"
+    public async Task Filter_reads_Err_as_its_Number_in_each_argument(string call, long error, long upper)
+    {
+        // Measured, native and in the IDE. Err.Number is unchanged after each, so none raised. As the compare and switch,
+        // Err reached the conversion as an object, past the check that reads it as its Number.
+        await Run($"Dim r, s\ns = Split(\"Apple pear plum\")\nOn Error Resume Next\n{call}\nDebug.Print Err.Number\n" +
+                  "Debug.Print UBound(r)\n");
+        AssertDebugLog([new Vb6Value(error), new Vb6Value(upper)]);
     }
 
     [Theory]

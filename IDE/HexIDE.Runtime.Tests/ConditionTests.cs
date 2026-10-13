@@ -236,4 +236,28 @@ public class ConditionTests : BaseVBTestFixture
         thrown.Context.Should().NotBeNull();
         thrown.Context!.Start.Line.Should().Be(line);
     }
+
+    [Theory]
+    [InlineData("If v Then c = 1")]
+    [InlineData("If v Then\nc = 1\nEnd If")]
+    [InlineData("If False Then\nc = 0\nElseIf v Then\nc = 1\nEnd If")]
+    [InlineData("While v\nc = 1\nWend")]
+    [InlineData("Do While v\nc = 1\nLoop")]
+    [InlineData("Do Until v\nc = 1\nLoop")]
+    [InlineData("Do\nc = 1\nLoop While v")]
+    [InlineData("Do\nc = 1\nLoop Until v")]
+    public async Task An_objects_438_in_a_condition_names_the_statement_its_13_names(string form)
+    {
+        // The object was read outside the block that attaches the statement, so its 438 named the operand, v (#840's
+        // review). Most forms put v on the statement's own line, so the kind of context is compared as well as the line.
+        var thirteen = () => RunClasses($"Dim v, c\nv = \"abc\"\n{form}\n", ("Plain", Plain));
+        var objects = () => RunClasses($"Dim v, c\nSet v = New Plain\n{form}\n", ("Plain", Plain));
+
+        var expected = (await thirteen.Should().ThrowAsync<VBRunTimeException>()).Which.Context!;
+        var thrown = (await objects.Should().ThrowAsync<VBRunTimeException>()).Which;
+        thrown.Error.ErrNo.Should().Be(438);
+        thrown.Context.Should().NotBeNull();
+        thrown.Context!.GetType().Should().Be(expected.GetType());
+        thrown.Context.Start.Line.Should().Be(expected.Start.Line);
+    }
 }

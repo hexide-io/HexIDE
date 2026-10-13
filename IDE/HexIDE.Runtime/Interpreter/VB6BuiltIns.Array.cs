@@ -105,47 +105,57 @@ public partial class VB6BuiltIns
     // Filter(array, match, [include=True], [compare]) -> a 0-based String array of the (non-)matching elements. Always a
     // String array (measured: VarType 8200 for a String input, a Variant input and no match alike); it was a Variant
     // array. All measured, native and in the IDE:
-    // - The arguments convert right to left, compare, then switch, then match, before the array is looked at: a Null one
-    //   is 94, and `Filter(d, Null, "x")` is the switch's 13. So `Filter("abc", Null)` is 94, not 13.
+    // - The arguments convert right to left, compare, then switch, then match, before the array is looked at, and an
+    //   object among them is read only as its turn comes: a Null one is 94, `Filter(d, Null, "x")` is the switch's 13,
+    //   and `Filter(d, k, "x")` is 13 too, where k is an object with no default member. So `Filter("abc", Null)` is 94,
+    //   not 13. The dispatcher leaves Filter's arguments to it for that reason.
     // - The switch reads as CBool reads it: Empty and "False" exclude, "True" and 2 include, "x" is 13.
     // - An array with no element, never allocated, erased or 0 To -1, gives back an unallocated String array, with no
-    //   error, and its compare is not checked.
-    // - Otherwise the compare is checked (see CompareMode).
+    //   error.
+    // - Every element converts before any is compared: `Filter(Array("x", Null), "a", True, 2)` is the element's 94, not
+    //   the compare's 5.
+    // - The compare is checked only when a comparison is made, which an empty match or an empty element never needs
+    //   (see CompareMode): `Filter(list, "", True, 2)` is the whole list.
     private static Vb6Value Filter(IReadOnlyList<Vb6Value> a)
     {
         if (a.Count < 2) throw InvalidCall();
         long compare = Supplied(a, 3) ? CompareArgument(a[3]) : 0;
+        // Each conversion reads an object as it converts it: NarrowNum and CBool through RefuseNonScalar, after the Null
+        // check, and ArgumentText through VbDisplay.ToText.
         bool include = !Supplied(a, 2) || CBool(RefuseNull(a[2])).Value is true;
         string match = ArgumentText(a[1]);
         if (a[0].Value is not VBArray arr) throw new VBRunTimeException(VBStandardError.TypeMismatch);
         if (arr.Rank == 0 || arr.UpperBound(1) < arr.LowerBound(1))
             return new Vb6Value(new Vb6Value.ValueType(Vb6Value.ValueType.String, true));
-        var cmp = CompareMode(compare);
 
-        var items = new List<Vb6Value>();
+        var elements = new List<string>();
         int lo = arr.LowerBound(1), hi = arr.UpperBound(1);
         for (int i = lo; i <= hi; i++)
+            elements.Add(ElementText(arr.GetValue(new[] { i })));
+
+        StringComparison? cmp = null;
+        var items = new List<Vb6Value>();
+        foreach (var element in elements)
         {
-            var element = ElementText(arr.GetValue(new[] { i }));
-            bool contains = element.IndexOf(match, cmp) >= 0;
+            // An empty match is in every element, and an empty element holds no other match, without a comparison.
+            bool contains = match.Length == 0
+                || (element.Length > 0 && element.IndexOf(match, cmp ??= CompareMode(compare)) >= 0);
             if (contains == include) items.Add(new Vb6Value(element));
         }
         return MakeArray(Vb6Value.ValueType.String, items);
     }
 
-    // A compare argument read as a Long, as CLng reads it (banker's rounding, so 1.5 is 2 and 0.5 is 0): Null is 94, and
-    // a string that is not a number is 13 (measured for Filter). An array is 13 as well, as a store of one into a Long is;
-    // that is not measured for Filter.
-    private static long CompareArgument(Vb6Value compare)
-    {
-        if (RefuseNull(compare).Value is VBArray) throw new VBRunTimeException(VBStandardError.TypeMismatch);
-        return Convert.ToInt64(VbNumeric.CoerceOnStore(compare, Vb6Value.ValueType.Long, null).Value ?? 0L);
-    }
+    // A compare argument read as CLng reads it (banker's rounding, so 1.5 is 2 and 0.5 is 0), all measured for Filter:
+    // Null is 94, Nothing 91, an array and a string that is not a number 13, and 3E+10 is 6. An object is read as it is
+    // converted. Nothing read as 0, a binary compare, and Err as an object.
+    private static long CompareArgument(Vb6Value compare) =>
+        Convert.ToInt64(NarrowNum(compare, Vb6Value.ValueType.Long).Value);
 
     // Filter's compare, measured: 0 is binary and 1 text. 2 (vbDatabaseCompare, which needs a database), any negative
-    // value and True are 5. 3 and above are taken as a Windows locale identifier: a valid one (3, 4, 5, 1033, 2057)
-    // compares as text in that locale, and an invalid one (3000, 65535) is 5. HexIDE cannot tell which identifiers
-    // Windows accepts, and compares text without a locale, so it refuses those loudly rather than guess (#881).
+    // value and True are 5. From 3 up, the rows are consistent with a Windows locale identifier: valid ones (3, 4, 5,
+    // 1033, 2057, 4096) compare as text, and invalid ones (3000, 4095, 32767, 65536) are 5. Whether a valid one compares
+    // in that locale, or simply as text, is not measured. HexIDE cannot tell which identifiers Windows accepts, so it
+    // refuses those loudly rather than guess (#881).
     private static StringComparison CompareMode(long compare) => compare switch
     {
         0 => StringComparison.Ordinal,

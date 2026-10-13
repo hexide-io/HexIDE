@@ -56,14 +56,8 @@ public partial class VB6BuiltIns
         if (!isAsync && !Builtins.TryGetValue(name, out fn))
             return null;
 
-        // Filter reads its arguments right to left (measured: `Filter(d, Null, "x")` is the switch's 13, not the match's
-        // 94), so an object among them is read in that order too.
-        if (string.Equals(name, "Filter", StringComparison.OrdinalIgnoreCase))
-            for (var i = args.Count - 1; i >= 0; i--)
-                args[i] = ArgumentAsUsed(name, i, args[i]);
-        else
-            for (var i = 0; i < args.Count; i++)
-                args[i] = ArgumentAsUsed(name, i, args[i]);
+        for (var i = 0; i < args.Count; i++)
+            args[i] = ArgumentAsUsed(name, i, args[i]);
 
         // The two async builtins await the standard library; every other builtin is in the sync registry.
         if (string.Equals(name, "msgbox", StringComparison.OrdinalIgnoreCase))
@@ -87,12 +81,16 @@ public partial class VB6BuiltIns
     /// (measured, native and in the IDE), and the function's own array check raises that 13;</item>
     /// <item><c>Join</c>'s delimiter, which VB6 reads only when the array has an element (measured: <c>Join(Array(), k)</c>
     /// is "" with no 438). <c>Join</c> reads it itself, after that check.</item>
+    /// <item><c>Filter</c>'s match, switch and compare, which VB6 reads one at a time, right to left, each as it is
+    /// converted (measured: <c>Filter(d, k, "x")</c> is the switch's 13, not k's 438). Read here, every object would come
+    /// before every value. <c>Filter</c> reads them itself.</item>
     /// </list>
     /// </summary>
     private static Vb6Value ArgumentAsUsed(string name, int index, Vb6Value arg)
     {
         if (TakesTheArgumentItself.Contains(name) || (index == 0 && TakesAnArrayFirst.Contains(name))
-            || (index == 1 && string.Equals(name, "Join", StringComparison.OrdinalIgnoreCase)))
+            || (index == 1 && string.Equals(name, "Join", StringComparison.OrdinalIgnoreCase))
+            || string.Equals(name, "Filter", StringComparison.OrdinalIgnoreCase))
             return arg;
         if (ReadsADefaultMemberIfAny.Contains(name))
             return ObjectAsValue.DefaultMemberIfAny(arg);

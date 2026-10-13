@@ -55,9 +55,12 @@ there isn't one yet. Anything may change between 0.x releases.
 - **`Filter` always gives a String array**, as in VB6, where it gave a Variant array for any allocated input. A Null
   match, switch or compare is 94, even for an array never allocated, and even beside something that is not an array.
   The switch reads as `CBool` does, so an Empty one no longer raises 13. The compare is 0 for binary and 1 for text;
-  2 and negative values raise 5, where every value but 1 was binary; and 3 and above, which VB6 reads as a Windows
-  locale, are refused (#881). `Filter` of an array with no element gives an unallocated String array without
-  checking its compare.
+  2 and negative values raise 5, where every value but 1 was binary; and 3 and above, which VB6's answers are
+  consistent with reading as a Windows locale identifier, are refused (#881). A Nothing compare is 91, where it read as
+  0, a binary compare. `Filter` converts every element first, and checks its compare only when it compares an element
+  with the match: of an array with no element it gives an unallocated String array, and an empty match keeps every
+  element, so `Filter(list, "", True, 2)` is the whole list where it raised 5. An object among its match, switch and
+  compare is read only as its turn comes, so `Filter(d, k, "x")` is the switch's 13 where it was k's 438.
 - **`Join` and `Filter` convert each element as a store into a String does**, as in VB6: a Null element is 94 and an
   array 13, and Nothing 91, where they read as `""`, the CLR type name and `""`. `Join` of an array with no element
   gives `""` without reading its delimiter; with one, a Null delimiter is 94 and a Nothing one 91, where both read as
