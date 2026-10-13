@@ -438,6 +438,195 @@ public class ResumeNextIntoABlockTests : BaseVBTestFixture
         AssertLog(expected);
     }
 
+    // ---- #971's review: what a raised header does depends on the counter's type, and the bounds convert into it. Measured
+    // ---- on vb6.exe, native and p-code (docs/vb6-fidelity-oracle.md, "Resume Next into a block", "Review round one").
+
+    public static TheoryData<string, string, string[]> CounterTypes => new()
+    {
+        { "a Byte counter steps by 0 without a Step clause", "Dim i As Byte\ni = 7\nFor i = 1 To Boom()\n" + ForLoopTail, ["1: 7:7|11"] },
+        { "so a Byte counter at 0 loops for ever", "Dim i As Byte\ni = 0\nFor i = 1 To Boom()\n" + ForLoopTail, ["4: 0 0 0 0:0|11"] },
+        { "a Byte counter whose start raised", "Dim i As Byte\ni = 0\nFor i = Boom() To 3\n" + ForLoopTail, ["4: 0 0 0 0:0|11"] },
+        { "a Single counter", "Dim i As Single\ni = 7\nFor i = 1 To Boom()\n" + ForLoopTail, ["1: 7:7|11"] },
+        { "a Double counter at 0", "Dim i As Double\ni = 0\nFor i = 1 To Boom()\n" + ForLoopTail, ["4: 0 0 0 0:0|11"] },
+        { "a Currency counter (p-code; native loops for ever at 7)", "Dim i As Currency\ni = 7\nFor i = 1 To Boom()\n" + ForLoopTail, ["1: 7:7|11"] },
+        { "a Date counter", "Dim i As Date\ni = 7\nFor i = 1 To Boom()\n" + ForLoopTail.Replace(" & i", " & CDbl(i)"), ["1: 7:7|11"] },
+        { "an Integer counter steps by 1 (p-code)", "Dim i As Integer\ni = 7\nFor i = 1 To Boom()\n" + ForLoopTail, ["1: 7:8|11"] },
+    };
+
+    [Theory]
+    [MemberData(nameof(CounterTypes))]
+    public async Task A_raised_header_steps_by_1_without_a_Step_clause_only_for_an_Integer_or_Long_counter(string shape, string body, string[] expected)
+    {
+        // HexIDE stepped every typed counter by 1.
+        _ = shape;
+        await RunResumingNext(body);
+        AssertLog(expected);
+    }
+
+    [Theory]
+    [InlineData("1 To Lim(k)", new[] { "3: 1 2 3:4|0", "4: 0 1 2 3:3|11" })]
+    [InlineData("1 To 5 Step St(k)", new[] { "3: 1 3 5:7|0", "3: 0 2 4:6|11" })]
+    public async Task A_raised_header_steps_by_what_the_statement_last_evaluated_in_this_call(string header, string[] expected)
+    {
+        // A Byte counter, both builds alike: after a normal pass, the second pass's raised limit or step keeps the first's,
+        // a step of 1 with no Step clause included.
+        await RunResumingNext($"""
+            Dim i As Byte, k As Long
+            For k = 1 To 2
+                n = 0: trail = "": i = 0: Err.Clear
+                For i = {header}
+                    n = n + 1
+                    trail = trail & " " & i
+                    If n >= 4 Then Exit For
+                Next
+                Debug.Print n & ":" & trail & ":" & i & "|" & Err.Number
+            Next
+            Function Lim(ByVal k As Long) As Long
+                If k = 2 Then Lim = 1 / 0 Else Lim = 3
+            End Function
+            Function St(ByVal k As Long) As Long
+                If k = 2 Then St = 1 / 0 Else St = 2
+            End Function
+            """);
+        AssertLog(expected);
+    }
+
+    [Theory]
+    [InlineData("Function P(ByVal i As Long) As String", "P(7)", "1: 7:8|11")]
+    [InlineData("Function P(ByVal i As Long) As String", "P(-5)", "4: -5 -4 -3 -2:-2|11")]
+    [InlineData("Function P(i As Long) As String", "P(7)", "1: 7:8|11")]                   // ByRef, given a literal
+    [InlineData("Function P(Optional i As Long = 7) As String", "P()", "1: 7:8|11")]
+    [InlineData("Function P(ByVal i As Byte) As String", "P(0)", "4: 0 0 0 0:0|11")]
+    public async Task A_typed_parameter_is_a_typed_counter(string signature, string call, string expected)
+    {
+        // P-code; native steps the Long ones by 0. HexIDE took each for a Variant counter, so Next raised 92.
+        await RunResumingNext($"""
+            Debug.Print {call}
+            {signature}
+                On Error Resume Next
+                Dim n As Long, trail As String
+                For i = 1 To Boom()
+                    n = n + 1
+                    trail = trail & " " & i
+                    If n >= 4 Then Exit For
+                Next
+                P = n & ":" & trail & ":" & i & "|" & Err.Number
+            End Function
+            """);
+        AssertLog([expected]);
+    }
+
+    [Theory]
+    [InlineData("Function F(Optional i As Long = 7) As String\n    F = TypeName(i) & \" \" & i", "F()", "Long 7")]
+    [InlineData("Function F(Optional b As Byte = 7) As String\n    F = TypeName(b) & \" \" & b", "F()", "Byte 7")]
+    [InlineData("Function F(ByVal i As Long) As String\n    i = 2.5\n    F = TypeName(i) & \" \" & i", "F(7)", "Long 2")]
+    [InlineData("Function F(ByVal b As Byte) As String\n    On Error Resume Next\n    b = 300\n    F = TypeName(b) & \" \" & b & \" \" & Err.Number", "F(7)", "Byte 7 6")]
+    public async Task A_typed_parameter_keeps_its_type_as_a_Dim_does(string function, string call, string expected)
+    {
+        // Measured, native and p-code. HexIDE's parameter slot recorded no type, so an Optional default stayed an Integer
+        // and a store into the parameter replaced it: "Integer 7", "Double 2.5", "Integer 300 0".
+        await RunResumingNext($"Debug.Print {call}\n{function}\nEnd Function\n");
+        AssertLog([expected]);
+    }
+
+    public static TheoryData<string, string, string[]> BoundConversions => new()
+    {
+        // A bound that its counter's type cannot hold raises 6 in the header, which then runs as any raised header does.
+        { "a Byte counter's limit of 300", "Dim i As Byte, l0 As Integer\nl0 = 300\ni = 7\nFor i = 1 To l0\n" + ForLoopTail, ["1: 7:7|6"] },
+        { "a Byte counter's Step -1", "Dim i As Byte, st As Integer\nst = -1\ni = 7\nFor i = 3 To 1 Step st\n" + ForLoopTail, ["1: 7:7|6"] },
+        { "an Integer counter's start of 40000 (p-code)", "Dim i As Integer, s0 As Long\ns0 = 40000\ni = 0\nFor i = s0 To 40001\n" + ForLoopTail, ["1: 0:1|6"] },
+        { "an Integer counter's step of 40000", "Dim i As Integer, st As Long\nst = 40000\ni = 0\nFor i = 1 To 3 Step st\n" + ForLoopTail, ["4: 0 0 0 0:0|6"] },
+        { "a limit of \"x\" (p-code)", "Dim i As Integer, l0 As String\nl0 = \"x\"\ni = 7\nFor i = 1 To l0\n" + ForLoopTail, ["1: 7:8|13"] },
+        // A fractional bound rounds into an Integer or Long counter, half to even, and the loop then runs on whole numbers.
+        { "a step of 1.5 is 2", "Dim i As Integer, st As Double\nst = 1.5\nFor i = 1 To 6 Step st\n" + ForLoopTail, ["3: 1 3 5:7|0"] },
+        { "a step of 2.5 is 2", "Dim i As Integer, st As Double\nst = 2.5\nFor i = 1 To 9 Step st\n" + ForLoopTail, ["4: 1 3 5 7:7|0"] },
+        { "a step of 0.5 is 0, for ever", "Dim i As Integer, st As Double\nst = 0.5\nFor i = 1 To 3 Step st\n" + ForLoopTail, ["4: 1 1 1 1:1|0"] },
+        { "a start of 2.5 is 2", "Dim i As Integer, s0 As Double\ns0 = 2.5\nFor i = s0 To 4\n" + ForLoopTail, ["3: 2 3 4:5|0"] },
+        { "a limit of 2.5 is 2", "Dim i As Integer, l0 As Double\nl0 = 2.5\nFor i = 1 To l0\n" + ForLoopTail, ["2: 1 2:3|0"] },
+        { "a Long counter's step of 1.5", "Dim i As Long, st As Double\nst = 1.5\nFor i = 1 To 6 Step st\n" + ForLoopTail, ["3: 1 3 5:7|0"] },
+        { "a limit of \"3\"", "Dim i As Integer, l0 As String\nl0 = \"3\"\nFor i = 1 To l0\n" + ForLoopTail, ["3: 1 2 3:4|0"] },
+    };
+
+    [Theory]
+    [MemberData(nameof(BoundConversions))]
+    public async Task A_For_converts_its_bounds_into_the_counters_type_in_the_header(string shape, string body, string[] expected)
+    {
+        // Both builds, except where marked. HexIDE read each as a Double, and range-checked only as it assigned the counter.
+        _ = shape;
+        await RunResumingNext(body);
+        AssertLog(expected);
+    }
+
+    [Fact]
+    public async Task A_raised_header_with_an_unmeasured_counter_type_is_refused()
+    {
+        var run = () => RunResumingNext("Dim i As String\nFor i = 1 To Boom()\nNext\n");
+
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*String counter*");
+    }
+
+    [Theory]
+    [InlineData("If Boom() > 0 Then\nElse\n    c = \"Else\"\nEnd If")]
+    [InlineData("If False Then\n    c = \"Then\"\nElseIf Boom() > 0 Then\nElse\n    c = \"Else\"\nEnd If")]
+    public async Task A_raised_condition_enters_an_empty_branch_and_runs_nothing(string statement)
+    {
+        // Measured, native and p-code: none|11. HexIDE visited the empty branch's missing block and crashed.
+        await RunResumingNext($"c = \"none\"\n{statement}\nDebug.Print c & \"|\" & Err.Number\n");
+        AssertLog(["none|11"]);
+    }
+
+    [Fact]
+    public async Task A_raised_For_Each_collection_named_by_a_variable_that_shadows_a_Function_is_refused()
+    {
+        // The local array, not the Function, is what `Items(5)` reached, so the Function's declared type says nothing.
+        var run = () => RunResumingNext("""
+            Go
+            Sub Go()
+                On Error Resume Next
+                Dim Items(1)
+                For Each x In Items(5)
+                Next
+            End Sub
+            Function Items() As Long()
+                Dim r() As Long
+                Items = r
+            End Function
+            """);
+
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#969*");
+    }
+
+    [Theory]
+    [InlineData("5", "Is > \"abc\"", "case|13")]
+    [InlineData("5", "\"a\" To \"z\"", "case|13")]
+    [InlineData("5", "1 To \"x\"", "case|13")]
+    [InlineData("5", "Is > v", "case|13")]          // v a Variant holding "abc"
+    [InlineData("5", "Is > \"3\"", "case|0")]
+    [InlineData("\"abc\"", "Is > 5", "case|0")]       // a number becomes text against a String selector
+    [InlineData("s", "Is > 5", "case|0")]
+    [InlineData("\"10\"", "Is > 9", "else|0")]
+    [InlineData("2", "Is < 2.4", "else|0")]          // 2.4 becomes the Integer 2
+    [InlineData("2", "Is < 2.6", "case|0")]
+    [InlineData("2", "1.6 To 1.9", "case|0")]
+    [InlineData("2", "2.6 To 3", "else|0")]
+    [InlineData("2", "Is > 40000", "case|6")]
+    [InlineData("Null", "Is > \"abc\"", "else|0")]
+    public async Task A_Case_Is_or_To_converts_its_value_into_the_selectors_type(string selector, string test, string expected)
+    {
+        // Measured, native and p-code alike. HexIDE compared without converting, so a String against a number matched
+        // nothing and raised nothing, and 2.4 was above 2.
+        await RunResumingNext($"v = \"abc\"\nc = \"none\"\nSelect Case {selector}\nCase {test}\n    c = \"case\"\nCase Else\n    c = \"else\"\nEnd Select\nDebug.Print c & \"|\" & Err.Number\n");
+        AssertLog([expected]);
+    }
+
+    [Fact]
+    public async Task A_Case_Is_that_cannot_convert_raises_13_without_a_handler()
+    {
+        var run = () => Run("Select Case 5\nCase Is > \"abc\"\nEnd Select\n");
+
+        (await run.Should().ThrowAsync<VBRunTimeException>()).Which.Error.ErrNo.Should().Be(13);
+    }
+
     // One For statement run twice in one call: what a raising header's Next uses is what the statement last evaluated
     // (measured in both builds).
     private const string RunTwice = """
@@ -576,7 +765,8 @@ public class ResumeNextIntoABlockTests : BaseVBTestFixture
     [InlineData("For i = 1 To 2.5 Step Boom()")]   // the limit is kept, then the raised step sends it to Next
     public async Task A_fractional_For_is_refused_rather_than_stepped_over(string header)
     {
-        var run = () => RunResumingNext($"Dim i As Long\n{header}\nNext\n");
+        // A Double counter: an Integer or Long one rounds its bounds into its type, so they are no longer fractional.
+        var run = () => RunResumingNext($"Dim i As Double\n{header}\nNext\n");
 
         (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*fractional*");
     }

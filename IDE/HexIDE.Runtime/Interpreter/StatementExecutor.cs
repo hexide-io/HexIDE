@@ -755,22 +755,31 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             throw new NotImplementedException("TypeHints not implemented");
         if (context.asTypeClause() != null)
             throw new NotImplementedException("asTypeClause not implemented");
-        // Start, limit and step, in that order, each read as a number as soon as it is evaluated, so one that raises stops
-        // the rest. The limit and step are kept as this activation's loop state (forState).
+        // Start, limit and step, in that order, each converted into the counter's type as soon as it is evaluated, so one
+        // that raises, an overflow among them, stops the rest (measured: a Byte counter's `Step -1` is 6, and `1 To 2.5`
+        // is `1 To 2` for an Integer one). The limit and step are kept as this activation's loop state (forState). With
+        // no Step clause the step is 1, and is kept as if it had been evaluated.
+        var counterType = currentEnv.TryGetVariableLocation(variable, out var counterLoc)
+            ? interpreter.ExecutionContext.State.DeclaredTypeOf(counterLoc)
+            : null;
         var state = forState.GetValueOrDefault(context);
         double fromD, toD, stepD;
         try
         {
-            fromD = await ForBound(context.valueStmt(0), context);
-            toD = state.Limit = await ForBound(context.valueStmt(1), context);
+            fromD = await ForBound(context.valueStmt(0), context, counterType);
+            toD = state.Limit = await ForBound(context.valueStmt(1), context, counterType);
             forState[context] = state;
-            stepD = context.valueStmt(2) is { } stepStmt ? state.Step = await ForBound(stepStmt, context) : 1;
+            stepD = state.Step = context.valueStmt(2) is { } stepStmt ? await ForBound(stepStmt, context, counterType) : 1;
             forState[context] = state;
         }
         catch (VBRunTimeException ex) when (errorMode == ErrorMode.ResumeNext)
         {
             interpreter.Err.Capture(ex);
-            return await RunUninitialisedFor(context, variable, state.Limit, context.valueStmt(2) is null ? 1 : state.Step);
+            // In p-code a header that raised still steps by 1 when there is no Step clause, but only for an Integer or
+            // Long counter. Every other type steps by the step it last evaluated, 0 before it has (measured).
+            var impliedStep = context.valueStmt(2) is null
+                && (counterType == Vb6Value.ValueType.Integer || counterType == Vb6Value.ValueType.Long);
+            return await RunUninitialisedFor(context, variable, counterType, state.Limit, impliedStep ? 1 : state.Step);
         }
 
         // Integral counters only for now: a fractional start, limit or step is a gap, so it is refused rather than raised
@@ -803,12 +812,19 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         return default;
     }
 
-    /// <summary>A For loop's start, limit or step, read as a number through the catch-all numeric rung (double), so a Long
-    /// limit like <c>To 50000</c> is accepted: the old TryUnpack&lt;int&gt; rejected any Long.</summary>
-    private async Task<double> ForBound(VB6Parser.ValueStmtContext bound, VB6Parser.ForNextStmtContext context) =>
-        expressionExecutor.TryUnpack(await expressionExecutor.EvaluateScalar(bound), out double d)
+    /// <summary>A For loop's start, limit or step, converted into a numeric counter's declared type as a store into it
+    /// would convert (banker's rounding, 6 on overflow, 13 for text that is not a number), then read as a number through
+    /// the catch-all numeric rung (double), so a Long limit like <c>To 50000</c> is accepted. A Variant or other counter's
+    /// bounds are read as they are.</summary>
+    private async Task<double> ForBound(VB6Parser.ValueStmtContext bound, VB6Parser.ForNextStmtContext context, Vb6Value.ValueType? counterType)
+    {
+        var value = await expressionExecutor.EvaluateScalar(bound);
+        if (counterType is { } type && VbNumeric.IsCoreNumeric(type))
+            value = VbNumeric.CoerceOnStore(value, type, context);
+        return expressionExecutor.TryUnpack(value, out double d)
             ? d
             : throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
+    }
 
     private static NotImplementedException FractionalForRefused() =>
         new("A For loop with a fractional start, limit or step is not supported yet: only whole numbers are.");
@@ -824,23 +840,35 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// A typed counter's Next carries on with loop state that was never set this time: the counter as the body left it,
     /// plus the step, tested against the limit. A limit or step not evaluated is the value this statement last had in
     /// this call, or 0 if it has not run before. So a raised step is a <c>Step 0</c>, which loops for ever while the
-    /// counter is within the limit; both compiled forms do that, and so does this. Without a Step clause the step is 1.
+    /// counter is within the limit; both compiled forms do that, and so does this. Without a Step clause the step is 1 for
+    /// an Integer or Long counter. A Byte, Single, Double, Currency or Date counter takes the step this statement last
+    /// evaluated, which is 1 after an earlier pass and 0 before one, so `For b = 1 To Boom()` with a Byte `b` at 0 loops
+    /// for ever (measured, p-code). A counter of any other type is refused: none was measured.
     /// </para>
     /// <para>
     /// That is p-code's behaviour. HexIDE follows it because it evaluates the three in p-code's order, and because the
-    /// VB6 IDE runs a program as p-code. Native code evaluates the limit and step before the start, and keeps a step even
-    /// without the clause, so it differs where the start or limit raised. Wherever the two compiled forms agree, this
-    /// agrees with both.
+    /// VB6 IDE runs a program as p-code. Native code evaluates the limit and step before the start, and steps by 0 for any
+    /// counter whose step was not evaluated, so it differs where the start or limit raised. Wherever the two compiled
+    /// forms agree, this agrees with both.
     /// </para>
     /// </summary>
-    private async Task<ControlFlow> RunUninitialisedFor(VB6Parser.ForNextStmtContext context, string counter, double limit, double step)
+    private async Task<ControlFlow> RunUninitialisedFor(VB6Parser.ForNextStmtContext context, string counter,
+        Vb6Value.ValueType? counterType, double limit, double step)
     {
         var block = context.block();
-        if (!interpreter.ExecutionContext.HasDeclaredType(currentEnv, counter))
+        if (counterType is null)
         {
             if (await RunLoopBodyOnce(block) is { } left)
                 return left;
             throw new VBRunTimeException(context, VBStandardError.ForLoopNotInitialized);
+        }
+        if (!VbNumeric.IsCoreNumeric(counterType) && counterType != Vb6Value.ValueType.Date)
+        {
+            // Only a String or a Boolean can be declared and reach here.
+            var typeName = counterType == Vb6Value.ValueType.String ? "String" : "Boolean";
+            throw new NotImplementedException(
+                $"A For whose header raised under On Error Resume Next, with a {typeName} counter, is not supported: " +
+                "what VB6 does then was measured for numeric and Date counters only.");
         }
         if (limit != Math.Truncate(limit) || step != Math.Truncate(step))
             throw FractionalForRefused();
@@ -894,7 +922,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// Whether a For Each collection that raised is declared as something other than an array, which decides whether its
     /// Next empties the element. Only a call of one of the project's own Functions can be answered, from that Function's
     /// declaration: it is the procedure the call reached, found as the call found it. Null for anything else, whose
-    /// declared type HexIDE cannot know without the value.
+    /// declared type HexIDE cannot know without the value, and for a name a variable in scope shadows, which the call
+    /// reached instead of the Function.
     /// </summary>
     private bool? DeclaredOtherThanAnArray(VB6Parser.ValueStmtContext collection)
     {
@@ -902,6 +931,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var name = call?.iCS_S_VariableOrProcedureCall()?.ambiguousIdentifier()?.GetText()
                    ?? call?.iCS_S_ProcedureOrArrayCall()?.ambiguousIdentifier()?.GetText();
         if (name is null
+            || interpreter.ExecutionContext.TryGetVariable(currentEnv, name, out _)
             || !interpreter.TryResolveProcedure(name, currentModule, out _, out var proc)
             || proc.Body?.Parent is not VB6Parser.FunctionStmtContext function)
             return null;
@@ -966,19 +996,24 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         // A condition that raised under Resume Next enters its own branch, the Then or the ElseIf it was testing (null; see
         // ConditionMet).
         if (await ConditionMet(context.ifBlockStmt().ifConditionStmt().valueStmt(), context) is not false)
-            return await Visit(context.ifBlockStmt().block());
+            return await VisitBranch(context.ifBlockStmt().block());
 
         foreach (var elseIf in context.ifElseIfBlockStmt())
         {
             if (await ConditionMet(elseIf.ifConditionStmt().valueStmt(), elseIf) is not false)
-                return await Visit(elseIf.block());
+                return await VisitBranch(elseIf.block());
         }
 
         if (context.ifElseBlockStmt() is { } elseBlock)
-            return await Visit(elseBlock.block());
+            return await VisitBranch(elseBlock.block());
 
         return default;
     }
+
+    // A branch may be empty, and the grammar then gives it no block. A condition that raised enters even an empty one, and
+    // runs nothing (measured: `If Boom() > 0 Then` with an empty Then and an Else runs neither, #839).
+    private async Task<ControlFlow> VisitBranch(VB6Parser.BlockContext? block) =>
+        block is null ? ControlFlow.Nothing : await Visit(block);
 
     /// <summary>
     /// <see cref="ConditionHolds"/>, or null when the condition raised under <c>On Error Resume Next</c>. VB6 goes on at
@@ -1502,22 +1537,22 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             var val = await expressionExecutor.EvaluateScalar(caseIs.valueStmt());
             if (caseIs.comparisonOperator().LT() != null)
             {
-                if (value.TryCompareTo(val) is < 0)
+                if (value.TryCompareTo(AsSelector(value, val, caseIs)) is < 0)
                     return true;
             }
             else if (caseIs.comparisonOperator().LEQ() != null)
             {
-                if (value.TryCompareTo(val) is <= 0)
+                if (value.TryCompareTo(AsSelector(value, val, caseIs)) is <= 0)
                     return true;
             }
             else if (caseIs.comparisonOperator().GT() != null)
             {
-                if (value.TryCompareTo(val) is > 0)
+                if (value.TryCompareTo(AsSelector(value, val, caseIs)) is > 0)
                     return true;
             }
             else if (caseIs.comparisonOperator().GEQ() != null)
             {
-                if (value.TryCompareTo(val) is >= 0)
+                if (value.TryCompareTo(AsSelector(value, val, caseIs)) is >= 0)
                     return true;
             }
             else if (caseIs.comparisonOperator().EQ() != null)
@@ -1549,8 +1584,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         else if (subCond is VB6Parser.CaseCondExprToContext caseTo)
         {
-            var from = await expressionExecutor.EvaluateScalar(caseTo.valueStmt(0));
-            var to = await expressionExecutor.EvaluateScalar(caseTo.valueStmt(1));
+            var from = AsSelector(value, await expressionExecutor.EvaluateScalar(caseTo.valueStmt(0)), caseTo);
+            var to = AsSelector(value, await expressionExecutor.EvaluateScalar(caseTo.valueStmt(1)), caseTo);
             if (value.TryCompareTo(from) is >= 0 && value.TryCompareTo(to) is <= 0)
             {
                 return true;
@@ -1598,6 +1633,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// corresponding Select Case is not. Sharing a comparison helper between the two would be wrong, and
     /// was the obvious thing to do.
     /// </para></summary>
+    /// <summary>
+    /// A <c>Case Is</c> or <c>Case x To y</c> value, converted into the selector's type before it is compared, as an
+    /// equality Case's is (<see cref="CaseMatches"/>). Measured, native and p-code: against a selector of 2, <c>Is &lt; 2.4</c>
+    /// does not match and <c>1.6 To 1.9</c> does; against 5, <c>Is &gt; "abc"</c> and <c>"a" To "z"</c> raise 13, where
+    /// HexIDE compared and matched nothing; against a String selector a number becomes text, so <c>"10"</c> is not
+    /// <c>Is &gt; 9</c>. A selector that is not a declared scalar type (Empty, Null) is compared as before.
+    /// </summary>
+    private static Vb6Value AsSelector(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx) =>
+        selector.Type != Vb6Value.ValueType.EmptyVariant && VbNumeric.IsDeclarableScalar(selector.Type)
+            ? VbNumeric.CoerceOnStore(caseValue, selector.Type, ctx)
+            : caseValue;
+
     private static bool CaseMatches(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx)
     {
         // Empty has not decided what it is yet, so it takes its partner's zero — the same rule
