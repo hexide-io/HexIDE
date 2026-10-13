@@ -333,6 +333,19 @@ public class ObjectAsValueTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(error), new Vb6Value(error != 0)]);
     }
 
+    [Fact]
+    public async Task Filter_reads_an_object_switch_before_an_object_match()
+    {
+        // Filter converts its arguments right to left (measured with values: `Filter(d, Null, "x")` is the switch's 13).
+        // So with a class with a default member as the switch and one without as the match, the switch is read first,
+        // and that is the refusal; read left to right it would be the match's 438.
+        var run = () => RunClasses(
+            "Dim d(0) As String, p, w, c\nSet p = New Plain\nSet w = New Widget\nOn Error Resume Next\nc = Filter(d, p, w)\n",
+            ("Plain", Plain), ("Widget", Widget));
+
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#174*");
+    }
+
     [Theory]
     [InlineData("Err", "ErrObject")]
     [InlineData("App", "App")]
