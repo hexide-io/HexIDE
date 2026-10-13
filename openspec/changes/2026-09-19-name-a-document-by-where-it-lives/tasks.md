@@ -1785,6 +1785,20 @@
   run: the redraw made on every change, which costs only time; the skip of a type-declaration character after a
   name, which nothing read and which is gone from both copies; and the read-back's bound at the header, which
   went with the read-back, since logical lines are now read forward from the code's first line.
+  — **Reviewed again.** A second mutation round left sixteen standing, and each now reddens a test or is
+  equivalent. The redraw comparing counts alone, or dropping either offset's comparison, reddens one of three new
+  `ReadOnlyGreyingTests` that move a region without changing how many there are: one edit group swapping which
+  procedure is described, a continuation taking a run's first line into the declaration, and a deleted statement
+  joining an orphan to the run above it. A fourth flips a run from an edit four lines away. On the server's side,
+  rows now decide `Attribute` and `Rem` in any case, a stale name in two cases, an enum's member declaring nothing,
+  a `Property` opening a body, a name starting with a letter, the kind read after the first dot, and logical lines
+  read from the code and not the header; `FormWithReaderShapes` gains the case, enum-member and two-case shapes, so
+  the parity check sees them too. On the IDE's, a `Property` opening a body, `rem` in lower case and a name starting
+  with a letter. Equivalent, and said so in both copies: `Rem` taken for a comment anywhere, since it cannot stand
+  inside a statement VB6 accepts, and a doubled quote ending a string, which leaves every separator inside one
+  string or the other. Test comments that named files the oracle does not record, or called a hand-written shape
+  VB6's, now cite the probe. The review's one design-level finding, an orphan locking part-way through a retype,
+  is in design.md's open questions, undecided.
   — **Left.** `CodeWindowReadOnlySections` still reads the physical line above a run as the described line when it
   decides whether a deletion takes the run, rather than `DescribedStart`; whether deleting part of a continued
   declaration takes its run is 4.5a's to decide. No test here shows it disagreeing with `Of`.

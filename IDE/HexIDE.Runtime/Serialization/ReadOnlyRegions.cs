@@ -781,6 +781,9 @@ public static class ReadOnlyRegions
                 {
                     if (text[i] != '"')
                         i++;
+                    // A doubled quote is read as VB6 lexes it, inside the string. Taking it for an end would split
+                    // the string in two at the pair and leave every character either side inside one string or the
+                    // other, and nothing counts strings, so no verdict turns on this (equivalent under mutation).
                     else if (i + 1 < end && text[i + 1] == '"')
                         i += 2;
                     else
@@ -799,7 +802,9 @@ public static class ReadOnlyRegions
                 var j = i + 1;
                 while (j < end && IsNameCharacter(text[j]))
                     j++;
-                // Rem is a comment where a statement starts, and like ' takes the rest of the line, a : included.
+                // Rem is a comment where a statement starts, and like ' takes the rest of the line, a : included. The
+                // position test is defensive: Rem is a reserved word that cannot stand inside a statement VB6
+                // accepts, so on such code no verdict turns on it (equivalent under mutation).
                 if ((tokens.Count == 0 || tokens[^1].Kind == TokenKind.Colon)
                     && text.AsSpan(i, j - i).Equals("Rem", StringComparison.OrdinalIgnoreCase))
                     break;

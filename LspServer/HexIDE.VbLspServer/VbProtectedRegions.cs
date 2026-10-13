@@ -556,6 +556,7 @@ internal sealed class VbProtectedRegions
                 {
                     if (text[i] != '"')
                         i++;
+                    // Inside the string, as VB6 lexes it; no verdict turns on it (the IDE's copy says why).
                     else if (i + 1 < end && text[i + 1] == '"')
                         i += 2;
                     else
@@ -572,6 +573,7 @@ internal sealed class VbProtectedRegions
                 var j = i + 1;
                 while (j < end && IsNameCharacter(text[j]))
                     j++;
+                // Rem where a statement starts; the position test is defensive (the IDE's copy says why).
                 if ((tokens.Count == 0 || tokens[^1].Kind == TokenKind.Colon)
                     && text.AsSpan(i, j - i).Equals("Rem", StringComparison.OrdinalIgnoreCase))
                     break;

@@ -1082,6 +1082,17 @@ draft, and rebuilt to the rules above once the oracle overturned that. What the 
   not read an `Enum`'s members or a `Type`'s fields, so a stale name that is one of those still reads as a
   rename's leftover. An enum member takes no variable run (V5), so no other member's description is handed on
   that way; a `Type`'s field was not measured.
+  *The guard is weaker than "errs towards too many names" makes it sound*, as review found, and 4.4 should be
+  built knowing where. The reader never sees a procedure's parameters, a label, or the name of an `Enum` or a
+  `Type`, so a run naming one of those reads as a rename's leftover too. The guard is a name declared somewhere
+  *now*: under `Public Tally As Long`, a run naming `Count` is an orphan while `Public Count As Long` stands below
+  it, and Tally's renamed run once that line is retyped to `Public Zed As Long`, where VB6, by V1's rule, would
+  carry Count's description to `Zed`, and 4.4's save would hand it to `Tally`. Two one-name lines whose runs
+  both carry the same stale name both read as renamed. And p09f's shape, `Gone.VB_VarDescription` under `Public A`, which VB6's
+  compiler attaches to nothing, reads as A's renamed run, so the save would give `A` a description it never had;
+  what VB6's IDE does with that shape at a save was not measured. Every case needs a `VB_Var…` line VB6 itself
+  does not write where it stands, which is why it is recorded rather than handled: text alone cannot tell any of
+  them from the run a rename by retyping leaves.
 - *The greying follows a run that changes kind.* The first build said the colourizer and the link suppression
   follow `Of` without a change of their own, and review found they do not: AvaloniaEdit rebuilds only the lines an
   edit touches, and a run's membership now depends on the line above it. So commenting out a declaration, or
@@ -1111,8 +1122,12 @@ nothing, **moves** a variable attribute under its variable and **moves** a dotle
 B). HexIDE does not rewrite text the developer cannot see, so it shows what VB6 would silently discard or move,
 where it can be repaired by hand. While there is no Procedure Attributes dialog (#62), that is the only way to
 repair one. A file HexIDE saves with an orphan in it is the same text VB6 would have loaded, so VB6 reads it the
-same way. The first draft's open question, whether the described line should widen past a blank line or a
-comment, is answered: VB6 does not honour such a run (p01, p02), so it does not widen.
+same way. A run mixing the two kinds is a divergence of another sort: VB6 gives each of its lines to its own
+member, a procedure's by position and a `VB_Var…` line by name (p09n), where HexIDE orphans the whole run, because
+a run describes a member only when VB6 reads every line of it as that member's. Nothing VB6 reads is lost by it,
+since the text stands and VB6 binds each line again when it next loads the file. The first draft's open
+question, whether the described line should widen past a blank line or a comment, is answered: VB6 does not
+honour such a run (p01, p02), so it does not widen.
 
 **Folds (4.3).** Every run that describes a member is folded by default, from its anchor (the described line's
 content end) to the content end of its last line, so the line after the run stays a line of its own. The fold
@@ -1250,6 +1265,18 @@ Three consequences for this change, none of which move task 2.1:
   AvaloniaEdit throws when a provider returns a segment outside the span it was asked about (3.7). An
   orphaned run, however it arises, is inert text the next save preserves. Neither VB6's behaviour here nor
   the paste side is measured.
+- **Repairing an orphan one keystroke at a time** (found reviewing 4.1, left for a decision). The renamed kind
+  makes a run read-only the moment it names one name nothing declares, so an orphan under a line declaring one
+  name locks part-way through a retype. `Attribute Count.VB_VarDescription` under `Public Tally As Long`, with
+  `Public Count As Long` further down, is an orphan VB6 would move under `Count`; Backspace once and `Coun` is
+  declared nowhere, the run is Tally's renamed run, greyed and read-only, and the next Backspace is refused
+  without a word. Undo, or cutting the whole line, is the way out. A run typed by hand has always done the same:
+  `Attribute Halt.` under `Public Sub Halt()` is the procedure's run at its first `.`, and `Attribute Tally.VB_Var`
+  under `Public Tally As Long` is the variable's, so the rest of the line cannot be typed. So "repaired by hand"
+  (above) means by whole lines today: cut, paste and delete. The two ways forward the review put, to be decided
+  rather than drifted into: keep `RenamedVariable` as a kind for 4.4's re-qualifying and 4.5b's comparison but
+  leave its run editable, ungreyed and unfolded; or keep it protected and say in the spec that repair is by whole
+  lines. Whichever is chosen should cover the typed-by-hand case too, since that one needs no rename to happen.
 - **Line endings — measured while building 3.1, and the diagnosis here was incomplete.** This said the
   header is written CRLF while *typed* lines are LF. The larger mechanism was that
   `VbFrmFormatDeserializer` rebuilt the code body line by line with `StringBuilder.AppendLine`, which

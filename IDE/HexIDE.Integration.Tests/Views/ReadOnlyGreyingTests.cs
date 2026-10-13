@@ -365,6 +365,129 @@ public class ReadOnlyGreyingTests : IDisposable
         ColoursOn(editor, alarm).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey, "named again, it is the variable's");
     }
 
+    // The redraw compares where each region is, not only how many there are (review of 4.1). Each test below changes
+    // the regions without changing their count, so a redraw that compared counts alone would leave its lines drawn
+    // as they were; and each edits only lines AvaloniaEdit rebuilds by itself, away from the lines asserted on.
+
+    [AvaloniaFact]
+    public void OneEditGroupThatTurnsOneRunIntoAnOrphanAndAnotherOutOfOneRedrawsBoth()
+    {
+        // A Replace All or a multi-edit undo step: one change event, the same number of regions before and after.
+        var themes = new ThemeService();
+        using var _ = TheIdesThemes(themes);
+        var vm = OpenModule(ModuleKind.ClassModule, "Order",
+            "Option Explicit\r\n\r\n" +
+            "Public Sub Halt()\r\n" +
+            "Attribute Halt.VB_Description = \"Stops\"\r\n" +
+            "End Sub\r\n" +
+            "'Public Sub Go()\r\n" +
+            "Attribute Go.VB_Description = \"Goes\"\r\n" +
+            "End Sub\r\n");
+        var editor = Show(vm);
+        var halt = LineOf(editor, "Attribute Halt");
+        var go = LineOf(editor, "Attribute Go");
+        ColoursOn(editor, halt).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey, "the premise: Halt's run is greyed");
+        ColoursOn(editor, go).Should().NotBeEmpty().And.NotContain(ClassicGrey, "and Go's, under a comment, is not");
+        var count = vm.ReadOnlyRegionsNow.Count;
+
+        editor.Document.BeginUpdate();
+        editor.Document.Remove(editor.Document.GetLineByNumber(go - 1).Offset, 1);
+        editor.Document.Insert(editor.Document.GetLineByNumber(halt - 1).Offset, "'");
+        editor.Document.EndUpdate();
+        Dispatcher.UIThread.RunJobs();
+
+        vm.ReadOnlyRegionsNow.Should().HaveCount(count, "the premise: as many regions as before, in another place");
+        ColoursOn(editor, halt).Should().NotBeEmpty().And.NotContain(ClassicGrey, "Halt's run is an orphan now");
+        ColoursOn(editor, go).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey, "and Go's describes Go");
+    }
+
+    [AvaloniaFact]
+    public void ARunThatLosesItsFirstLineToTheDeclarationAboveIsRedrawn()
+    {
+        // A continuation typed at the end of the declaration takes the run's first line into the declaration's
+        // logical line, and the rest of the run hangs from that. The region starts later and ends where it did.
+        var themes = new ThemeService();
+        using var _ = TheIdesThemes(themes);
+        var vm = OpenModule(ModuleKind.ClassModule, "Order",
+            "Option Explicit\r\n\r\n" +
+            "Public Sub Go()\r\n" +
+            "Attribute Go.VB_Description = \"Goes\"\r\n" +
+            "Attribute Go.VB_HelpID = 7\r\n" +
+            "End Sub\r\n");
+        var editor = Show(vm);
+        var first = LineOf(editor, "Attribute Go.VB_Description");
+        var second = LineOf(editor, "Attribute Go.VB_HelpID");
+        ColoursOn(editor, first).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey, "the premise: the run is greyed");
+        var count = vm.ReadOnlyRegionsNow.Count;
+
+        editor.Document.Insert(editor.Document.GetLineByNumber(first - 1).EndOffset, " _");
+        Dispatcher.UIThread.RunJobs();
+
+        vm.ReadOnlyRegionsNow.Should().HaveCount(count, "the premise: the run is still a region, one line shorter");
+        ColoursOn(editor, first).Should().NotBeEmpty().And.NotContain(ClassicGrey, "its first line is the declaration's now");
+        ColoursOn(editor, second).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey, "and the rest is still the run");
+    }
+
+    [AvaloniaFact]
+    public void ARunThatTakesInTheOrphanBelowItIsRedrawn()
+    {
+        // Deleting the statement between a run and an orphan joins them, and the procedure's run takes in the orphan's
+        // lines. The region starts where it did and ends later.
+        var themes = new ThemeService();
+        using var _ = TheIdesThemes(themes);
+        var vm = OpenModule(ModuleKind.ClassModule, "Order",
+            "Option Explicit\r\n\r\n" +
+            "Public Sub Go()\r\n" +
+            "Attribute Go.VB_Description = \"Goes\"\r\n" +
+            "    Debug.Print 1\r\n" +
+            "Attribute Go.VB_HelpID = 7\r\n" +
+            "Attribute Go.VB_UserMemId = 0\r\n" +
+            "End Sub\r\n");
+        var editor = Show(vm);
+        ColoursOn(editor, LineOf(editor, "Attribute Go.VB_UserMemId")).Should().NotBeEmpty().And.NotContain(ClassicGrey,
+            "the premise: the orphan is drawn as code");
+        var count = vm.ReadOnlyRegionsNow.Count;
+
+        var statement = editor.Document.GetLineByNumber(LineOf(editor, "Debug.Print"));
+        editor.Document.Remove(statement.Offset, statement.TotalLength);
+        Dispatcher.UIThread.RunJobs();
+
+        vm.ReadOnlyRegionsNow.Should().HaveCount(count, "the premise: one region, grown");
+        // The orphan's first line is next to the deletion, and AvaloniaEdit rebuilds it by itself; its last is not.
+        ColoursOn(editor, LineOf(editor, "Attribute Go.VB_HelpID")).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey,
+            "the orphan is the procedure's run now");
+        ColoursOn(editor, LineOf(editor, "Attribute Go.VB_UserMemId")).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey,
+            "all of it");
+    }
+
+    [AvaloniaFact]
+    public void AnEditFarFromARunThatTurnsItIntoAnOrphanRedrawsIt()
+    {
+        // The renamed kind reads every name the module declares, so a run under a line declaring one variable becomes an
+        // orphan when the name it carries is declared anywhere, here in a procedure four lines below it.
+        var themes = new ThemeService();
+        using var _ = TheIdesThemes(themes);
+        var vm = OpenModule(ModuleKind.ClassModule, "Order",
+            "Option Explicit\r\n\r\n" +
+            "Public Tally As Long\r\n" +
+            "Attribute Count.VB_VarDescription = \"Left by a rename\"\r\n" +
+            "\r\n" +
+            "Public Sub Other()\r\n" +
+            "    Debug.Print 1\r\n" +
+            "End Sub\r\n");
+        var editor = Show(vm);
+        var run = LineOf(editor, "Attribute Count");
+        ColoursOn(editor, run).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey, "the premise: the run is Tally's, renamed");
+
+        editor.Document.Insert(editor.Document.GetLineByNumber(LineOf(editor, "Debug.Print")).Offset, "    Dim Count As Long\r\n");
+        Dispatcher.UIThread.RunJobs();
+        ColoursOn(editor, run).Should().NotBeEmpty().And.NotContain(ClassicGrey, "Count is declared now, so the run is no rename's");
+
+        editor.Document.UndoStack.Undo();
+        Dispatcher.UIThread.RunJobs();
+        ColoursOn(editor, run).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey, "undone, it is Tally's again");
+    }
+
     /// <summary>Typed text as the input system delivers it: a TextInput event on the focused text area.</summary>
     private static void TypeText(TextEditor editor, string text)
     {

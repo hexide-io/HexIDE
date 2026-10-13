@@ -296,7 +296,7 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
         // And each rule of the reader, and of what a line is, decides one run of the form, so a copy of the rule
         // that breaks one disagrees with the other on that run's lines.
         ProtectedLines(FormWithReaderShapes).Should().Equal(
-            Enumerable.Range(0, 9).Concat([11, 22, 24, 27, 29, 35, 43, 46, 49, 50, 51, 52, 72]),
+            Enumerable.Range(0, 9).Concat([11, 23, 25, 28, 30, 36, 44, 46, 47, 50, 53, 54, 55, 56, 76, 80]),
             "the lines the server's own tests pin for the same text (WholeFileFixtures.FormWithReaderShapes)");
     }
 
@@ -527,65 +527,72 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
         "Public Enum Sizes\r\n" +                                                                 // 13
         "Attribute Sizes.VB_VarDescription = \"an Enum declares nothing\"\r\n" +                  // 14 orphan
         "    Small = 1\r\n" +                                                                     // 15
-        "End Enum\r\n" +                                                                          // 16
-        "Private Type Point\r\n" +                                                                // 17
-        "Attribute Point.VB_VarDescription = \"nor does a Type\"\r\n" +                           // 18 orphan
-        "    X As Long\r\n" +                                                                     // 19
-        "End Type\r\n" +                                                                          // 20
-        "Private [Total] As Long\r\n" +                                                           // 21
-        "Attribute Total.VB_VarDescription = \"a bracketed name\"\r\n" +                          // 22
-        "Public a1 As Long, b1(1 To 3, 4) As String, c1 As Long\r\n" +                            // 23
-        "Attribute c1.VB_VarDescription = \"past a comma in bounds\"\r\n" +                       // 24
-        "Public d1 As Long, f1 As Long, _\r\n" +                                                  // 25
-        "       e1 As Long\r\n" +                                                                 // 26
-        "Attribute e1.VB_VarDescription = \"past a continuation\"\r\n" +                          // 27
-        "Public g1 As Long, k1 As Long: Public h1 As Long\r\n" +                                  // 28
-        "Attribute h1.VB_VarDescription = \"after a colon\"\r\n" +                                // 29
-        "Public m1 As Long, p1 As Long ' x, n1\r\n" +                                             // 30
-        "Attribute n1.VB_VarDescription = \"in a comment\"\r\n" +                                 // 31 orphan
-        "Public q1 As Long, r1 As Long: Rem x: Dim s1 As Long\r\n" +                              // 32
-        "Attribute s1.VB_VarDescription = \"after Rem\"\r\n" +                                    // 33 orphan
-        "Private Const Lf = 10, Sep = \":\", Tb = 9\r\n" +                                        // 34
-        "Attribute Tb.VB_VarDescription = \"past a string\"\r\n" +                                // 35
-        "Public Spare1 As Long\r\n" +                                                             // 36
-        "Attribute cmdGo.VB_VarDescription = \"names a control\"\r\n" +                           // 37 orphan
-        "Public Spare2 As Long\r\n" +                                                             // 38
-        "Attribute Inner.VB_VarDescription = \"names a local\"\r\n" +                             // 39 orphan
-        "Public Spare3 As Long\r\n" +                                                             // 40
-        "Attribute Lone.VB_VarDescription = \"names a procedure\"\r\n" +                          // 41 orphan
-        "Public Spare4 As Long\r\n" +                                                             // 42
-        "Attribute Gone.VB_VarDescription = \"names nothing: a rename left it\"\r\n" +            // 43
-        "Private m_\r\n" +                                                                        // 44
-        "Public Function Foo() As Long\r\n" +                                                     // 45
-        "Attribute Foo.VB_Description = \"under a name ending in an underscore\"\r\n" +           // 46
-        "End Function\r\n" +                                                                      // 47
-        "Public Sub Wrapped()\r\n" +                                                              // 48
-        "Attribute Wrapped.VB_Description = _\r\n" +                                              // 49
-        "\"continued\"\r\n" +                                                                     // 50
-        "Attribute _\r\n" +                                                                       // 51
-        "Wrapped.VB_HelpID = 3\r\n" +                                                             // 52
-        "End Sub\r\n" +                                                                           // 53
-        "Public Sub Split(ByVal a As Long, _\r\n" +                                               // 54
-        "Attribute Split.VB_Description = \"part of the declaration\"\r\n" +                      // 55
-        "ByVal b As Long)\r\n" +                                                                  // 56
+        "Attribute Small.VB_VarDescription = \"nor does an enum's member\"\r\n" +                 // 16 orphan
+        "End Enum\r\n" +                                                                          // 17
+        "Private Type Point\r\n" +                                                                // 18
+        "Attribute Point.VB_VarDescription = \"nor does a Type\"\r\n" +                           // 19 orphan
+        "    X As Long\r\n" +                                                                     // 20
+        "End Type\r\n" +                                                                          // 21
+        "Private [Total] As Long\r\n" +                                                           // 22
+        "Attribute Total.VB_VarDescription = \"a bracketed name\"\r\n" +                          // 23
+        "Public a1 As Long, b1(1 To 3, 4) As String, c1 As Long\r\n" +                            // 24
+        "Attribute c1.VB_VarDescription = \"past a comma in bounds\"\r\n" +                       // 25
+        "Public d1 As Long, f1 As Long, _\r\n" +                                                  // 26
+        "       e1 As Long\r\n" +                                                                 // 27
+        "Attribute e1.VB_VarDescription = \"past a continuation\"\r\n" +                          // 28
+        "Public g1 As Long, k1 As Long: Public h1 As Long\r\n" +                                  // 29
+        "Attribute h1.VB_VarDescription = \"after a colon\"\r\n" +                                // 30
+        "Public m1 As Long, p1 As Long ' x, n1\r\n" +                                             // 31
+        "Attribute n1.VB_VarDescription = \"in a comment\"\r\n" +                                 // 32 orphan
+        "Public q1 As Long, r1 As Long: rem x: Dim s1 As Long\r\n" +                              // 33
+        "Attribute s1.VB_VarDescription = \"after Rem\"\r\n" +                                    // 34 orphan
+        "Private Const Lf = 10, Sep = \":\", Tb = 9\r\n" +                                        // 35
+        "Attribute Tb.VB_VarDescription = \"past a string\"\r\n" +                                // 36
+        "Public Spare1 As Long\r\n" +                                                             // 37
+        "Attribute cmdGo.VB_VarDescription = \"names a control\"\r\n" +                           // 38 orphan
+        "Public Spare2 As Long\r\n" +                                                             // 39
+        "Attribute Inner.VB_VarDescription = \"names a local\"\r\n" +                             // 40 orphan
+        "Public Spare3 As Long\r\n" +                                                             // 41
+        "Attribute Lone.VB_VarDescription = \"names a procedure\"\r\n" +                          // 42 orphan
+        "Public Spare4 As Long\r\n" +                                                             // 43
+        "Attribute Gone.VB_VarDescription = \"names nothing: a rename left it\"\r\n" +            // 44
+        "Public Spare5 As Long\r\n" +                                                             // 45
+        "Attribute Moved.VB_VarDescription = \"a rename left it, in two cases\"\r\n" +            // 46
+        "Attribute moved.VB_VarHelpID = 5\r\n" +                                                  // 47
+        "Private m_\r\n" +                                                                        // 48
+        "Public Function Foo() As Long\r\n" +                                                     // 49
+        "Attribute Foo.VB_Description = \"under a name ending in an underscore\"\r\n" +           // 50
+        "End Function\r\n" +                                                                      // 51
+        "Public Sub Wrapped()\r\n" +                                                              // 52
+        "Attribute Wrapped.VB_Description = _\r\n" +                                              // 53
+        "\"continued\"\r\n" +                                                                     // 54
+        "Attribute _\r\n" +                                                                       // 55
+        "Wrapped.VB_HelpID = 3\r\n" +                                                             // 56
         "End Sub\r\n" +                                                                           // 57
-        "Public Sub Lone(ByVal a As Long, _\r\n" +                                                // 58
-        "_\r\n" +                                                                                 // 59
+        "Public Sub Split(ByVal a As Long, _\r\n" +                                               // 58
+        "Attribute Split.VB_Description = \"part of the declaration\"\r\n" +                      // 59
         "ByVal b As Long)\r\n" +                                                                  // 60
-        "Attribute Lone.VB_Description = \"under the declaration's last line\"\r\n" +             // 61 orphan
-        "End Sub\r\n" +                                                                           // 62
-        "Public Sub Body()\r\n" +                                                                 // 63
-        "    Dim Inner As Long\r\n" +                                                             // 64
-        "Attribute Inner.VB_VarDescription = \"a local's\"\r\n" +                                 // 65 orphan
+        "End Sub\r\n" +                                                                           // 61
+        "Public Sub Lone(ByVal a As Long, _\r\n" +                                                // 62
+        "_\r\n" +                                                                                 // 63
+        "ByVal b As Long)\r\n" +                                                                  // 64
+        "Attribute Lone.VB_Description = \"under the declaration's last line\"\r\n" +             // 65 orphan
         "End Sub\r\n" +                                                                           // 66
-        "Public Sub Reserved()\r\n" +                                                             // 67
-        "Attribute Reserved.VB_Description = \"beside a line naming nothing\"\r\n" +              // 68 orphan
-        "Attribute(1) = 2\r\n" +                                                                  // 69 orphan
+        "Public Sub Body()\r\n" +                                                                 // 67
+        "    Dim Inner As Long\r\n" +                                                             // 68
+        "Attribute Inner.VB_VarDescription = \"a local's\"\r\n" +                                 // 69 orphan
         "End Sub\r\n" +                                                                           // 70
-        "Public Sub Prefixed()\r\n" +                                                             // 71
-        "Attribute Prefixed.VB_Description = \"beside a line of another word\"\r\n" +             // 72
-        "AttributeCount = 2\r\n" +                                                                // 73
-        "End Sub\r\n";                                                                            // 74
+        "Public Sub Reserved()\r\n" +                                                             // 71
+        "Attribute Reserved.VB_Description = \"beside a line naming nothing\"\r\n" +              // 72 orphan
+        "Attribute(1) = 2\r\n" +                                                                  // 73 orphan
+        "End Sub\r\n" +                                                                           // 74
+        "Public Sub Prefixed()\r\n" +                                                             // 75
+        "Attribute Prefixed.VB_Description = \"beside a line of another word\"\r\n" +             // 76
+        "AttributeCount = 2\r\n" +                                                                // 77
+        "End Sub\r\n" +                                                                           // 78
+        "Public Sub Lowered()\r\n" +                                                              // 79
+        "attribute Lowered.VB_Description = \"the word in lower case\"\r\n" +                     // 80
+        "End Sub\r\n";                                                                            // 81
 
     /// <summary>The inline form with a designer line the grammar cannot read.</summary>
     private static readonly string DamagedFormHeader =

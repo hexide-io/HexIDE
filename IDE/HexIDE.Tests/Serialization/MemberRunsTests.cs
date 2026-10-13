@@ -110,8 +110,10 @@ public class MemberRunsTests
     [InlineData("Private Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long", "GetTickCount")]
     public void EveryKindOfProcedureDeclarationTakesARun(string declaration, string name)
     {
-        // All but the Property Set and the PtrSafe are lines VB6's own dialog wrote a run under (DeclShapes.cls and
-        // Panel.ctl on the oracle guest). PtrSafe is VBA7's Declare, read for the VBA personalities.
+        // Where the oracle's IDE probes saw VB6 keep a run: its dialog wrote one under an Event (A's Ledger.cls) and
+        // a Let-only property (E's WriteOnly), and its save kept a hand-written one in place under the Declare, the
+        // Private Sub, the Friend Function, the Public Static Function and the trailing comment (B2's DeclShapes).
+        // The Property Set is hand-written and unmeasured. PtrSafe is VBA7's Declare, read for the VBA personalities.
         var code = declaration + "\r\nAttribute " + name + ".VB_Description = \"x\"\r\n";
 
         var run = RunsOf(code).Should().ContainSingle().Subject;
@@ -123,8 +125,9 @@ public class MemberRunsTests
     [Fact]
     public void AContinuedDeclarationIsDescribedFromItsFirstLineAndAnchoredAtItsLast()
     {
-        // VB6 wrote this one (Ledger.cls). The trailing spaces after the second continuation are the ones the
-        // parity test gives every line, and must not end the logical line.
+        // The shape VB6's dialog wrote for Ledger.cls's Average (IDE probe A), given a third line here. The trailing
+        // spaces after the second continuation are the ones the parity test gives every line, and must not end the
+        // logical line.
         const string code =
             "Public Function Average(ByVal First As Long, _\r\n" +
             "                        ByVal Second As Long, _  \r\n" +
@@ -179,8 +182,9 @@ public class MemberRunsTests
     [Fact]
     public void ANameIsAProcedureAttributeUnlessWhatFollowsItsFirstDotStartsVbVar()
     {
-        // Both from Panel.ctl, which VB6 wrote: a property's VB_ProcData is a procedure attribute with two dots,
-        // and a variable's VB_VarProcData is a variable attribute. The qualifier is the name before the first dot.
+        // The VB_VarProcData and VB_ProcData lines are the shapes VB6's dialog wrote for IDE probe E's Spare and Full:
+        // a property's VB_ProcData is a procedure attribute with two dots, and a variable's VB_VarProcData is a
+        // variable attribute. The lower-case line is not VB6's. The qualifier is the name before the first dot.
         const string code =
             "Public Spare As Long\r\n" +
             "Attribute Spare.VB_VarProcData = \";Behavior\"\r\n" +
@@ -311,7 +315,7 @@ public class MemberRunsTests
     [Fact]
     public void EveryStatementOnTheDescribedLineIsRead()
     {
-        // Panel.ctl, which VB6 wrote: its dialog put B's run under the line declaring it after a colon (IDE probe E).
+        // IDE probe E: VB6's dialog put B's run under the line declaring it after a colon.
         const string code =
             "Public A As Long: Public B As Long\r\n" +
             "Attribute B.VB_VarDescription = \"After a colon.\"\r\n";
@@ -465,6 +469,7 @@ public class MemberRunsTests
     [InlineData("Public a As Long ' x, y", "a:V")]                                          // a comment ends the line
     [InlineData("Public a As Long ' x: Dim b", "a:V")]                                      // its : included
     [InlineData("Public a As Long: Rem x: Dim b", "a:V")]                                   // Rem where a statement starts
+    [InlineData("Public a As Long: rem x: Dim b", "a:V")]                                   // in any case
     [InlineData("Public Total$ ' isn't it", "Total:V")]
     public void TheDeclarationReaderFindsTheNamesALineDeclares(string line, string names)
     {
@@ -550,7 +555,8 @@ public class MemberRunsTests
     [InlineData("Public Sub Go()\r\nEnd Sub\r\nAttribute Go.VB_Description = \"x\"\r\n", "under the end of the member it names (p05e)")]
     [InlineData("Option Explicit\r\nAttribute VB_Description = \"x\"\r\n", "a line with no qualifier below the code (p06a)")]
     [InlineData("Public Sub Go()\r\nAttribute VB_Description = \"x\"\r\nEnd Sub\r\n", "a line with no qualifier under a declaration (p06c)")]
-    [InlineData("Public Sub Go()\r\nAttribute Go.VB_Description = \"x\"\r\nAttribute A.VB_VarDescription = \"y\"\r\nEnd Sub\r\n", "a run mixing the two kinds (p09n)")]
+    [InlineData("Public Sub Go()\r\nAttribute Go.VB_Description = \"x\"\r\nAttribute A.VB_VarDescription = \"y\"\r\nEnd Sub\r\n",
+        "a run mixing the two kinds, in p09n's shape, where VB6 gives each line to its own member: a divergence (design.md)")]
     [InlineData("Public Total As Long\r\nAttribute Total.VB_Description = \"x\"\r\n", "a procedure attribute under a variable (p09i)")]
     [InlineData("Public Const Rate = 5\r\nAttribute Rate.VB_Description = \"x\"\r\n", "a procedure attribute under a constant (IDE probe V5)")]
     [InlineData("Public Sub Go()\r\nAttribute Go.VB_VarHelpID = -1\r\nEnd Sub\r\n", "a variable attribute under a procedure")]
@@ -563,6 +569,7 @@ public class MemberRunsTests
     [InlineData("Private Type Point\r\nAttribute Point.VB_VarDescription = \"x\"\r\n    X As Long\r\nEnd Type\r\n", "under a Type")]
     [InlineData("Public Sub Go()\r\n    Dim t As Long\r\nAttribute t.VB_VarDescription = \"x\"\r\nEnd Sub\r\n", "under a procedure's own local")]
     [InlineData("Public Sub Go()\r\nEnd Sub\r\nPublic Late As Long\r\nAttribute Late.VB_VarDescription = \"x\"\r\n", "under a variable after the first procedure, which VB6 refuses")]
+    [InlineData("Public Property Get P() As Long\r\nEnd Property\r\nDim Q As Long\r\nAttribute Q.VB_VarDescription = \"x\"\r\n", "under a variable after a Property accessor, which opens a body as a Sub does")]
     [InlineData("Public Sub Go()\r\nAttribute = 5\r\nEnd Sub\r\n", "a line naming nothing")]
     public void ARunVb6DoesNotGiveToTheLineAboveDescribesNothingAndIsNoRegion(string code, string because)
     {
@@ -584,6 +591,7 @@ public class MemberRunsTests
     [InlineData("Attribute = 5")]
     [InlineData("Attribute(2) = 5")]
     [InlineData("ATTRIBUTE")]
+    [InlineData("Attribute .VB_Description = \"x\"")]          // a name starts with a letter; not measured
     public void ALineWhoseFirstWordIsAttributeIsAnAttributeLineHoweverItGoesOn(string line)
     {
         // Attribute is a reserved word in code (oracle probe p07e), so such a line is no assignment or array. It

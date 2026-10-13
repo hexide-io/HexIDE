@@ -139,6 +139,11 @@ public class VbProtectedRegionsTests
     [InlineData("Public Sub Go()\r\nEnd Sub\r\nPublic Late As Long\r\nAttribute Late.VB_VarDescription = \"x\"\r\n")]
     [InlineData("Public Sub Foo(ByVal a As Long, _\r\nAttribute Foo.VB_Description = \"p07\"\r\nByVal b As Long)\r\nEnd Sub\r\n")]
     [InlineData("Public Sub Foo()\r\n' a comment _\r\nAttribute Foo.VB_Description = \"p07c\"\r\nEnd Sub\r\n")]
+    [InlineData("Public Enum Sizes\r\n    Small = 1\r\nAttribute Small.VB_VarDescription = \"x\"\r\nEnd Enum\r\n")] // an enum's member (V5)
+    [InlineData("Public Property Get P() As Long\r\nEnd Property\r\nDim Q As Long\r\nAttribute Q.VB_VarDescription = \"x\"\r\n")] // a Property opens a body
+    [InlineData("Public q As Long, r As Long: rem x: Dim s As Long\r\nAttribute s.VB_VarDescription = \"x\"\r\n")] // Rem in any case
+    [InlineData("Public Sub Go()\r\nAttribute .VB_Description = \"x\"\r\nEnd Sub\r\n")] // a name starts with a letter; not measured
+    [InlineData("Public Spare As Long\r\nAttribute Spare.Inner.VB_VarDescription = \"x\"\r\n")] // the kind is read after the first dot; not measured
     public void ARunVb6DoesNotGiveToTheLineAboveIsNotProtected(string code)
     {
         ProtectedLines(code).Should().BeEmpty();
@@ -159,13 +164,30 @@ public class VbProtectedRegionsTests
     [InlineData("Public Const C1 = 1, C2 = 2\r\nAttribute C2.VB_VarDescription = \"x\"\r\n")]
     [InlineData("Public Spare As Long\r\nAttribute spare.vb_vardescription = \"x\"\r\n")] // VB_Var without case
     [InlineData("Public Tally As Long\r\nAttribute Count.VB_VarDescription = \"x\"\r\n")] // a rename left it
+    [InlineData("Public Tally As Long\r\nAttribute Count.VB_VarDescription = \"x\"\r\nAttribute count.VB_VarHelpID = 3\r\n")] // in two cases (V1)
     [InlineData("Public Function Total(ByVal a As Long, _  \r\n    ByVal b As Long) As Currency\r\nAttribute Total.VB_Description = \"x\"\r\nEnd Function\r\n")]
+    [InlineData("Public Sub Halt()\r\nattribute halt.VB_Description = \"x\"\r\nEnd Sub\r\n")] // the word in any case (p12)
+    [InlineData("Public Spare As Long\r\nAttribute Spare.VB_VarProcData.VB_Invoke_Property = \"x\"\r\n")] // the kind is read after the first dot; not measured
     public void ARunVb6GivesToTheLineAboveIsProtected(string code)
     {
-        var attribute = Lines(code).Select((line, i) => (line, i)).First(l => l.line.StartsWith("Attribute", StringComparison.Ordinal)).i;
-        var last = Lines(code).Select((line, i) => (line, i)).Last(l => l.line.StartsWith("Attribute", StringComparison.Ordinal)).i;
+        var attribute = Lines(code).Select((line, i) => (line, i)).First(l => l.line.StartsWith("Attribute", StringComparison.OrdinalIgnoreCase)).i;
+        var last = Lines(code).Select((line, i) => (line, i)).Last(l => l.line.StartsWith("Attribute", StringComparison.OrdinalIgnoreCase)).i;
 
         ProtectedLines(code).Should().Equal(Enumerable.Range(attribute, last - attribute + 1));
+    }
+
+    [Fact]
+    public void ALineOfTheHeaderContinuesNothingIntoTheCode()
+    {
+        // Logical lines are read from the code's first line, so a header line ending in an underscore, which VB6 never
+        // writes, leaves the declaration below it a line of its own, and the run under that declaration describes it.
+        const string code =
+            "Attribute VB_Name = \"Module1\" _\r\n" +     // 0
+            "Public Sub Go()\r\n" +                     // 1
+            "Attribute Go.VB_Description = \"x\"\r\n" +  // 2
+            "End Sub\r\n";                              // 3
+
+        ProtectedLines(code).Should().Equal(0, 2);
     }
 
     [Fact]
