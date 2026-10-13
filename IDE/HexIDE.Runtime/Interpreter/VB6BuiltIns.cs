@@ -65,6 +65,9 @@ public partial class VB6BuiltIns
 
     private static readonly Dictionary<string, BuiltinFn> Builtins = BuildRegistry();
 
+    /// <summary>Whether <paramref name="name"/> is a built-in function this interpreter implements.</summary>
+    public static bool IsBuiltInFunction(string name) => Builtins.ContainsKey(name);
+
     private static Dictionary<string, BuiltinFn> BuildRegistry()
     {
         var d = new Dictionary<string, BuiltinFn>(StringComparer.OrdinalIgnoreCase);

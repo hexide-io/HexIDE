@@ -588,7 +588,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             var idxArgs = await EvaluateCallArgs(argsCtx);
             if (idxArgs.Count != 1)
                 throw new VBRunTimeException(procOrArrayCall, VBStandardError.SubscriptOutOfRange);
-            if (!group.TryGetElement(Subscript(idxArgs[0]), out var element))
+            if (!group.TryGetElement(ControlArrayIndex(idxArgs[0]), out var element))
                 throw new VBRunTimeException(procOrArrayCall, VBStandardError.ControlArrayElementDoesntExist);
             return new Vb6Value(element);
         }

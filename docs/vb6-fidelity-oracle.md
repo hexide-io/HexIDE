@@ -5520,38 +5520,53 @@ tested there.
 (session 0) and run, logging each value with `TypeName` and `Err.Number` under `On Error Resume Next`. `a` is
 `Dim a(5) As Integer` holding `a(j) = j * 10`.
 
-Each probe was built as native code, the harness's default, and also run in the IDE with `VB6.EXE /runexit` (see
-"Resume Next into a block" and #842). Every line of all three logs was identical in the two modes.
+Each probe was built as native code, the harness's default, and also run in the IDE. The IDE runs used
+`VB6.EXE /runexit probe.vbp`, which runs a project as F5 does and closes VB when the program ends. It was started in
+the guest's session 0 over PowerShell Direct, and the program logged with `Print #` to a file beside the project,
+because `Debug.Print` output is gone once VB closes. #842 tracks making both harnesses part of the tree. Every line
+read in both modes was identical in the two, except where a row says otherwise. A compile error can only be read
+from `/make`, so those rows are native only.
+
+The review's later probes are reproduced at the end of the section. `p22` is the form-startup project behind the
+control-array, Missing, ReDim and `UBound` rows. `p21a` to `p21h` are eight one-module projects, one per answer,
+because a compile error stops the build.
 
 ### Subscripts
 
-| Expression | Value | Err |
-|---|---|---|
-| `a(CLng(2))`, `a(2&)` | 20 | |
-| sum of `a(i)` over `i` a Long, 0 to `UBound(a)` | 150 | |
-| `a(UBound(a))` | 50 | |
-| `a(1.5)`, `a(2.5)`, `a(2.4)` | 20 | |
-| `a(2.6)` | 30 | |
-| `a("3")`, `a(" 3 ")` | 30 | |
-| `a("2.5")` | 20 | |
-| `a(Empty)`, `a(False)` | 0 | |
-| `a(CCur(2.5))`, `a(CDate(2))` | 20 | |
-| `a(CSng(3.5))` | 40 | |
-| `a("x")` | | 13 |
-| `a(Null)` | | 94 |
-| `a(True)`, `a(-1)`, `a(6)`, `a(40000)` | | 9 |
-| `a(3000000000#)` | | 6 |
-| `a(2.5) = 99`, then `a(2)` | 99 | |
-| `a(3.5) = 77`, then `a(4)` | 77 | |
-| `m(1.5, 0.5)` and `m(CLng(2), CLng(1))` of a `Dim m(2, 2)` | `m(2, 0)` and `m(2, 1)` | |
+| Expression | Value | Type | Err |
+|---|---|---|---|
+| `a(CLng(2))`, `a(2&)` | 20 | Integer | |
+| sum of `a(i)` over `i` a Long, 0 to `UBound(a)` | 150 | Integer | |
+| `a(UBound(a))` | 50 | Integer | |
+| `a(1.5)`, `a(2.5)`, `a(2.4)` | 20 | Integer | |
+| `a(2.6)` | 30 | Integer | |
+| `a("3")`, `a(" 3 ")` | 30 | Integer | |
+| `a("2.5")` | 20 | Integer | |
+| `a(Empty)`, `a(False)` | 0 | Integer | |
+| `a(CCur(2.5))`, `a(CDate(2))` | 20 | Integer | |
+| `a(CSng(3.5))` | 40 | Integer | |
+| `a("x")` | | | 13 |
+| `a(Null)` | | | 94 |
+| `a(True)`, `a(-1)`, `a(6)`, `a(40000)` | | | 9 |
+| `a(3000000000#)` | | | 6 |
+| `a(x)`, `x` an omitted `Optional x As Variant` (`p22`) | | | 13 |
+| `a(x) = 99`, the same `x` (`p22`) | `a(0)` unchanged | | 13 |
+| `a(CVErr(5))` (`p22`) | | | 13 |
+| `a(2.5) = 99`, then `a(2)` | 99 | Integer | |
+| `a(3.5) = 77`, then `a(4)` | 77 | Integer | |
+| `m(1.5, 0.5)` and `m(CLng(2), CLng(1))` of a `Dim m(2, 2)` | `m(2, 0)` and `m(2, 1)` | | |
 
-**A subscript is a Long, coerced exactly as `CLng` coerces it**, and only then checked against the bounds:
+**A subscript is a Long, coerced as `CLng` coerces it**, and only then checked against the bounds:
 - banker's rounding (2.5 and 1.5 are both 2, 3.5 is 4), also through Currency, Single, a Date and a numeric
   string;
 - `True` is -1, so out of bounds; `Empty` and `False` are 0;
 - `Null` is 94 and a non-numeric string 13;
 - 40000 is out of bounds (9) rather than an overflow, because it is a Long, not an Integer;
-- beyond a Long, 6.
+- beyond a Long, 6;
+- **the one exception to CLng:** an omitted `Optional` Variant, and an Error value, are 13. `CLng` reads the omitted
+  argument as 448, the number of the error value VB6 passes for it, and HexIDE's subscript did the same, so `a(x)`
+  was `a(448)`: that element where one exists, and 9 where not. HexIDE has no Error values yet (`CVErr`), so that
+  row is not tested.
 
 A write finds its element the same way, and so does every subscript of a two-dimensional array. So does a `Set` of an
 element (measured later, both modes): with `wa(3) As Widget`, `Set wa(i) = w` with `i` a Long 2, `Set wa(2.5) = Nothing`
@@ -5578,6 +5593,59 @@ Every bound goes through the same coercion. The two kinds of failure leave the a
 - **A bound that cannot be coerced** raises before anything changes, and `b` keeps its old bounds.
 - **An upper bound below its lower** raises 9 and leaves `b` **erased**, so `UBound(b)` raises 9 too.
 
+**A Variant is not an array variable, and ReDim treats it differently** (`p22`, native and in the IDE). `v` is a
+Variant given `ReDim v(2)` first; `b` is `Dim b() As Long` given `ReDim b(2)` first:
+
+| Statement | Err | Afterwards |
+|---|---|---|
+| `ReDim v(5 To 4)`, `ReDim v(-1)`: the upper bound one below the lower | 9 | `v` still 0 To 2 |
+| `ReDim v(5 To 2)`: further below | 7 | `v` Empty, VarType 0 |
+| `ReDim b(5 To 4)`, `ReDim b(5 To 2)` | 9 | `b` erased |
+
+So the "9 and erased" rule belongs to a variable declared an array. HexIDE erased a Variant too. It also could not
+`ReDim` a Variant that had never held an array: it took the Variant's own type, Empty, which is not an array type,
+and stopped with an internal error.
+
+More of a Variant, in a later probe (`p23`, a Sub Main project, native and in the IDE):
+
+| `v` before | Statement | Err | `v` afterwards |
+|---|---|---|---|
+| Empty, or 5 | `ReDim v(2)` | | `Variant()`, 0 To 2 |
+| a `Long` array | `ReDim v(2)` | | `Long()`, 0 To 2 |
+| Empty, or 5 | `ReDim v(5 To 2)` | 7 | Empty |
+| Empty | `ReDim v(5 To 4)` | 9 | Empty, as it was |
+| `Variant()`, 0 To 2 | `ReDim v(0 To 1, 5 To 2)` | 7 | Empty |
+| `Variant()`, 0 To 2 | `ReDim v(0 To 1, 5 To 4)` | 9 | 0 To 2, as it was |
+| `Variant()`, 0 To 2, or Empty | `ReDim v(2147483647)` | 7 | Empty |
+
+So a Variant's new array keeps the element type of the array it held, and is a Variant array otherwise. Any one
+dimension decides the error: one further below its lower bound is 7, one only just below is 9.
+
+**The edge of a Long** (`p22`, both modes):
+
+| Statement | Err | Afterwards |
+|---|---|---|
+| `ReDim b(2147483647)`, from undimensioned or from 0 To 2 | 7 | `b` erased |
+| `ReDim b(1 To 2147483647)` | 7 | `b` erased |
+| `ReDim b(-2147483648# To 2147483647)` | none | `LBound` -2147483648, `UBound` 2147483647 |
+
+An array of more elements than a Long counts is 7, Out of memory. The last row is VB6's own count wrapping: 2^32
+elements is 0 in 32 bits, so it allocates nothing and reports bounds it cannot hold. **That is a defect, not a
+behaviour, and HexIDE does not reproduce it** (the Fidelity Principle): it raises 7 there too. HexIDE counted in an
+int, so 0 To 2147483647 wrapped negative and raised 9, and the full range wrapped to the same zero as VB6's.
+
+**`UBound` and `LBound`'s dimension** coerces as a subscript does (`p22`, both modes), with `b` 1 To 3:
+
+| `UBound(b, d)`, `d` | Err | Value |
+|---|---|---|
+| `"1"` | | 3 |
+| `Null` | 94 | |
+| `"x"` | 13 | |
+| `3000000000#` | 6 | |
+| `True` (-1), `Empty` (0), `1.5` (2) | 9 | |
+
+HexIDE read the dimension with its integer helper, which disagreed on several of these.
+
 `ReDim b(0 To -1)`, an empty range, is refused. HexIDE keeps such an array internally for `Split` and friends, so
 the refusal belongs to `ReDim` itself, not to the array.
 
@@ -5600,15 +5668,70 @@ the refusal belongs to `ReDim` itself, not to the array.
 
 Banker's rounding again: 2.5 is 2, and 3.5 and 1.5 round up to 4 and 2.
 
+### What a module-level array's bound may name
+
+The review asked what VB6 allows in a module-level bound beyond literals and same-module Consts above it. `p21a` to
+`p21h`, each built with `/make` and run where it built:
+
+| Module-level declarations | VB6 |
+|---|---|
+| `Dim d(N) As Long`, then `Const N = 3` | compile error, "Constant expression required" |
+| `Dim n As Long`, then `Dim d(n) As Long` | compile error, "Constant expression required" |
+| `Const A = B + 1`, then `Const B = 2`, then `Dim d(A) As Long` | compile error, "Constant expression required", at `Const A` |
+| `Dim d(M)`, `Dim e(Module2.M)`, `Dim g(1 To M + 1)`, with `Public Const M = 3` in Module2 | 0 To 3, 0 To 3, 1 To 4 |
+| `Dim d(eMax)`, with `eMax = 4` in an Enum | 0 To 4 |
+| `Dim b(0 To GRID - 1, 0 To GRID - 1)`, `Dim h(GRID \ 3)`, with `Const GRID = 10` | 0 To 9 each; 0 To 3 |
+| `Dim p(2.5)` | 0 To 2 |
+| `Dim d(Len("abc"))` | 0 To 3 |
+| `Dim d(vbKeyA)` | 0 To 65 |
+
+In a procedure, `Dim a(N)` before `Const N = 3` is a compile error too, "Variable not defined" (`p21f`, under
+`Option Explicit`).
+
+**VB6 refuses a forward reference between module Consts.** `Const A = B + 1` above `Const B = 2` does not compile.
+That is narrower than CLAUDE.md's pre-pass paragraph implies: it reasons from order-independent Const evaluation, as
+though `Const A = B + 1` before `Const B` were valid VB6. Within one module it is not. Measured once, for module-level
+Consts in one module. Whether a Const may name a *later* Const in another module was not probed.
+
+**HexIDE, after the review.** A module-level array's bounds are read where it is allocated, as the module's
+declarations run, never in the pre-pass. Each name a bound uses is classified then:
+- a same-module Const above the Dim, an Enum member or a built-in constant is read;
+- a built-in function is called;
+- a same-module Const below the Dim, a variable or a user function is VB6's compile error;
+- another module's Const, qualified or not, is refused, naming #880: HexIDE does not read it unqualified, and
+  initialises modules in list order, so its size could be Empty's.
+
+Because declarations run in source order and VB6 refuses a forward reference, a same-module Const above the Dim has
+already run and holds its final value, so reading it then is all the laziness the rule needs.
+
+A form's run does not run declarations at all (#256), so an array whose bounds name a constant is refused there,
+naming the module and the array. Sizing it would not be enough: on that run the module's own Consts read Empty too.
+
 ### A control-array index
 
 On a form with `Cmd(0)` and `Cmd(1)`:
 - `Cmd(CLng(1))`, `Cmd(0.6)` and `Cmd("1")` are all `Cmd(1)`;
 - `Cmd(1.5)` raises 340, "Control array element doesn't exist", because 1.5 rounds to 2.
 
-So an index is coerced exactly as a subscript is. `Load` and `Unload` coerce theirs the same way, measured later on a
-form with only `Cmd(0)`: `Load Cmd(i)` with `i` a Long 2 loads element 2, `Load Cmd(3.5)` loads element 4, and
-`Unload Cmd(4.4)` unloads it again, each with no error, native and in the IDE.
+`Load` and `Unload` read theirs the same way, measured later on a form with only `Cmd(0)`: `Load Cmd(i)` with `i` a
+Long 2 loads element 2, `Load Cmd(3.5)` loads element 4, and `Unload Cmd(4.4)` unloads it again, each with no error,
+native and in the IDE.
+
+**But an index is coerced as `CInt`, not as a subscript** (`p22`, on a form with only `Cmd(0)`, native and in the
+IDE). This section first said "exactly as a subscript is", from rows that could not tell the two apart:
+
+| Statement | Err |
+|---|---|
+| `Load Cmd(32768)`, `Load Cmd(40000)`, `Load Cmd(70000&)`, `Load Cmd(3000000000#)`, `Load Cmd("40000")`, `Load Cmd(-32769)` | 6 |
+| `Load Cmd(32767.6)`: it rounds to 32768 first | 6 |
+| `Load Cmd(-1)`, `Load Cmd(True)`, `Load Cmd(-32768)` | 341, "Invalid control array index" |
+| `c = Cmd(40000).Caption`; `c = Cmd(-1).Caption` | 6; 341 |
+| `Unload Cmd(40000)`; `Unload Cmd(-1)` | 6; 341 |
+| `c = Cmd(1).Caption`, with no element 1 | 340, after those checks |
+| `Load Cmd(32766.5)` | none: element 32766, banker's rounding |
+
+Coerced as a Long, HexIDE loaded elements 40000, -1 and `True` with no error (found in review). Before #873 each of
+those stopped the run untrappably, because the index had to be an Integer already.
 
 ### A method called from Class_Initialize
 
@@ -5654,12 +5777,68 @@ while `Class_Initialize` runs, and hands it back at whatever count `Initialize` 
   reserved word `Me`. The row was renamed `mH`.
 
 **HexIDE, after this.**
-- Every subscript, control-array index and `Dim`/`ReDim` bound is coerced as above.
-- `ReDim` with an upper bound below its lower raises 9 and erases the array.
+- Every subscript and `Dim`/`ReDim` bound is coerced as `CLng` does, except that an omitted `Optional` is 13. A
+  control-array index is coerced as `CInt` does, and a negative one is 341. `UBound`'s and `LBound`'s dimension is
+  coerced as a subscript is.
+- `ReDim` with an upper bound below its lower raises 9 and erases a variable declared an array. A Variant keeps its
+  array for an upper bound one below the lower, and is emptied with 7 for one further below. A Variant can be
+  `ReDim`med at all. More elements than a Long counts is 7, and erases the array.
 - A module-level `Dim` bounded by anything but a plain integer, such as `Dim d(N)` or `Dim d(2&)`, loads. Its bounds
-  were parsed as integers before the module ran, so either one threw and the module failed to load.
+  were parsed as integers before the module ran, so either one threw and the module failed to load. They are now
+  read where the array is allocated, under the rules in "What a module-level array's bound may name", and a form's
+  run refuses such an array (#256) rather than leave it unallocated.
 - A procedure's `Const`s are declared at its entry, ahead of its `Dim`s. HexIDE declares a procedure's `Dim`s when
   the procedure is entered, so `Dim pA(P)` under `Const P = 2.5` was sized while `P` was still Empty, not as VB6's
-  `pA(0 To 2)`. G40's module-level fix needed this too: without it, the same bound inside a procedure was sized
+  `pA(0 To 2)`. #760's module-level fix needed this too: without it, the same bound inside a procedure was sized
   from Empty rather than refused.
 - `New` holds the object while `Class_Initialize` runs.
+
+**The review's probes.** `p22`'s `Form1.frm` holds `Cmd(0)` and runs everything from `Form_Load`, logging each line
+with `W`, which appends to `log.txt`. Abridged to one of each kind of row:
+
+```vb
+Private Sub Missing(Optional x As Variant)
+    Dim a(3) As Long, b() As Long, c As Variant
+    On Error Resume Next
+    Err.Clear: c = a(x)
+    W "a(x), x an omitted Optional Variant" & vbTab & "err " & Err.Number
+    Err.Clear: ReDim b(x)
+    W "ReDim b(x)" & vbTab & "err " & Err.Number
+End Sub
+
+Private Sub Form_Load()
+    Dim c As Variant, v As Variant, b() As Long
+    On Error Resume Next
+    Err.Clear: Load Cmd(40000)
+    W "Load Cmd(40000)" & vbTab & "err " & Err.Number & vbTab & "Count " & Cmd.Count
+    Missing
+    v = Empty: ReDim v(2): v(0) = "kept"
+    Err.Clear: ReDim v(5 To 4)
+    W "ReDim v(2) then ReDim v(5 To 4)" & vbTab & "err " & Err.Number & vbTab & Shape(v)
+    ReDim b(2)
+    Err.Clear: ReDim b(2147483647)
+    W "ReDim b(2) then ReDim b(2147483647)" & vbTab & "err " & Err.Number & vbTab & Shape(b)
+    ReDim b(1 To 3)
+    Err.Clear: c = UBound(b, Null)
+    W "UBound(b, Null)" & vbTab & "err " & Err.Number
+    End
+End Sub
+```
+
+`Shape` reports `LBound..UBound`, or the 9 that reading them raises. Each `p21` project is a `Module1.bas` with
+`Option Explicit`, the declarations in the table, and a `Sub Main` that writes the bounds. `p21a`, for example:
+
+```vb
+Option Explicit
+Dim d(N) As Long
+Const N = 3
+
+Sub Main()
+    Dim f As Integer
+    f = FreeFile
+    Open App.Path & "\log.txt" For Output As #f
+    On Error Resume Next
+    Print #f, "forward ref" & vbTab & "UBound " & UBound(d) & vbTab & "err " & Err.Number
+    Close #f
+End Sub
+```

@@ -155,6 +155,76 @@ public class SubscriptCoercionTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(7), new Vb6Value(2L)]);
     }
 
+    [Theory]
+    [InlineData("c = a(x)")]
+    [InlineData("a(x) = 99")]
+    [InlineData("ReDim b(x)")]
+    public async Task An_omitted_Optional_as_a_subscript_or_a_bound_is_13_not_448(string use)
+    {
+        // Measured, native and in the IDE, with `Optional x As Variant`. CLng reads an omitted Optional as 448, so a(x)
+        // was a(448). Untyped here, because an omitted `As Variant` one reads as Empty in HexIDE (#866).
+        await Run($"Use\nSub Use(Optional x)\n    Dim a(500) As Long, b() As Long, c\n    a(0) = 10\n" +
+                  $"    On Error Resume Next\n    {use}\n    Debug.Print Err.Number\n    Debug.Print a(0)\nEnd Sub\n");
+        AssertDebugLog([new Vb6Value(13L), new Vb6Value(10L)]);
+    }
+
+    [Theory]
+    [InlineData("v = Empty", "ReDim v(2)", "Variant()")]
+    [InlineData("v = 5", "ReDim v(2)", "Variant()")]
+    [InlineData("Dim l(1) As Long\nv = l", "ReDim v(2)", "Long()")]
+    public async Task A_Variant_can_be_ReDimmed_and_keeps_the_element_type_of_an_array_it_held(string setup, string redim, string typeName)
+    {
+        // Measured, native and in the IDE. A Variant that had never held an array stopped with an internal error.
+        await Run($"Dim v\n{setup}\n{redim}\nDebug.Print TypeName(v)\nDebug.Print UBound(v)\n");
+        AssertDebugLog([typeName, new Vb6Value(2L)]);
+    }
+
+    [Theory]
+    [InlineData("ReDim v(2)", "ReDim v(5 To 4)", 9L, "Variant() 2")]          // one below: kept
+    [InlineData("ReDim v(2)", "ReDim v(-1)", 9L, "Variant() 2")]
+    [InlineData("ReDim v(2)", "ReDim v(0 To 1, 5 To 4)", 9L, "Variant() 2")]
+    [InlineData("ReDim v(2)", "ReDim v(5 To 2)", 7L, "Empty")]                // further below: emptied
+    [InlineData("v = 5", "ReDim v(5 To 2)", 7L, "Empty")]
+    [InlineData("ReDim v(2)", "ReDim v(0 To 1, 5 To 2)", 7L, "Empty")]
+    [InlineData("v = Empty", "ReDim v(5 To 4)", 9L, "Empty")]
+    [InlineData("ReDim v(2)", "ReDim v(2147483647)", 7L, "Empty")]
+    public async Task A_Variant_ReDimmed_to_an_inverted_or_huge_range_is_kept_or_emptied_as_measured(
+        string setup, string redim, long error, string after)
+    {
+        // Measured, native and in the IDE. A variable declared an array is erased with 9 instead (the test above).
+        await Run($"Dim v\n{setup}\nOn Error Resume Next\n{redim}\nDebug.Print Err.Number\n" +
+                  "If IsArray(v) Then Debug.Print TypeName(v) & \" \" & UBound(v) Else Debug.Print TypeName(v)\n");
+        AssertDebugLog([new Vb6Value(error), after]);
+    }
+
+    [Theory]
+    [InlineData("ReDim b(2147483647)")]
+    [InlineData("ReDim b(1 To 2147483647)")]
+    [InlineData("ReDim b(-2147483648# To 2147483647)")]   // VB6 wraps this to no elements and raises nothing: a defect
+    public async Task More_elements_than_a_Long_counts_is_7_and_erases_the_array(string redim)
+    {
+        // Measured, native and in the IDE, bar the full range. 0 To 2147483647 raised 9: the count wrapped in an int.
+        await Run($"Dim b() As Long\nReDim b(2)\nOn Error Resume Next\n{redim}\nDebug.Print Err.Number\n" +
+                  "Err.Clear\nDim u\nu = UBound(b)\nDebug.Print Err.Number\n");
+        AssertDebugLog([new Vb6Value(7L), new Vb6Value(9L)]);
+    }
+
+    [Theory]
+    [InlineData("\"1\"", 0L, "3")]
+    [InlineData("Null", 94L, "")]
+    [InlineData("\"x\"", 13L, "")]
+    [InlineData("3000000000#", 6L, "")]
+    [InlineData("True", 9L, "")]
+    [InlineData("Empty", 9L, "")]
+    [InlineData("1.5", 9L, "")]          // 2: no second dimension
+    public async Task UBounds_dimension_is_coerced_as_a_subscript_is(string dimension, long error, string value)
+    {
+        // Measured, native and in the IDE, with b 1 To 3.
+        await Run($"Dim b() As Long, c\nReDim b(1 To 3)\nOn Error Resume Next\nc = UBound(b, {dimension})\n" +
+                  "Debug.Print Err.Number\nDebug.Print CStr(c)\n");
+        AssertDebugLog([new Vb6Value(error), value]);
+    }
+
     [Fact]
     public async Task A_Set_of_an_element_finds_it_the_same_way()
     {

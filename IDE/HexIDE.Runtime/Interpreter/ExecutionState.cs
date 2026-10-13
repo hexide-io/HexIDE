@@ -71,6 +71,17 @@ public class ExecutionState
     /// <summary>Whether a slot refuses assignment.</summary>
     public bool IsReadOnly(int location) => readOnlyLocations.Contains(location);
 
+    private readonly HashSet<int> declaredArrayLocations = new();
+
+    /// <summary>
+    /// Mark a slot as declared an array (<c>Dim b()</c>, <c>Dim b(3) As Long</c>), as against a Variant that holds one.
+    /// ReDim tells them apart: an inverted range erases a declared array, and keeps or empties a Variant (measured).
+    /// </summary>
+    public void MarkDeclaredArray(int location) => declaredArrayLocations.Add(location);
+
+    /// <summary>Whether a slot was declared an array, rather than a Variant that may hold one.</summary>
+    public bool IsDeclaredArray(int location) => declaredArrayLocations.Contains(location);
+
     public Vb6Value this[int location]
     {
         get => memory[location];

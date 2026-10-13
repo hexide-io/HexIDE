@@ -135,15 +135,47 @@ public class ControlArrayTests
     [InlineData("Command1(CLng(1))")]
     [InlineData("Command1(0.6)")]          // banker's rounding: 1
     [InlineData("Command1(\"1\")")]
-    public async Task An_index_is_coerced_as_CLng_does(string element)
+    public async Task An_index_is_coerced_as_CInt_does(string element)
     {
-        // Measured on vb6.exe, as an array subscript is. A Long index stopped the run with "Type mismatch".
+        // Measured on vb6.exe, native and in the IDE. A Long index stopped the run with "Type mismatch".
         var debug = await Run(TwoButtonArray, $"Debug.Print {element}.Caption\r\n");
         debug.Should().Equal(new Vb6Value("B"));
     }
 
+    [AvaloniaTheory]
+    [InlineData("Load Command1(32768)", 6L)]
+    [InlineData("Load Command1(40000)", 6L)]
+    [InlineData("Dim i As Long\r\ni = 70000\r\nLoad Command1(i)", 6L)]
+    [InlineData("Load Command1(3000000000#)", 6L)]
+    [InlineData("Load Command1(32767.6)", 6L)]       // rounds to 32768 first
+    [InlineData("Load Command1(\"40000\")", 6L)]
+    [InlineData("Load Command1(-32769)", 6L)]
+    [InlineData("Load Command1(-1)", 341L)]
+    [InlineData("Load Command1(True)", 341L)]
+    [InlineData("Load Command1(-32768)", 341L)]
+    [InlineData("s = Command1(40000).Caption", 6L)]
+    [InlineData("s = Command1(-1).Caption", 341L)]
+    [InlineData("Unload Command1(40000)", 6L)]
+    [InlineData("Unload Command1(-1)", 341L)]
+    public async Task An_index_outside_an_Integer_is_6_and_a_negative_one_341(string statement, long error)
+    {
+        // Measured on vb6.exe, native and in the IDE: a control-array index coerces as CInt, not as a subscript does.
+        // Coerced as CLng, these loaded elements 40000, -1 and True with no error.
+        var debug = await Run(TwoButtonArray,
+            $"On Error Resume Next\r\nDim s\r\n{statement}\r\nDebug.Print Err.Number\r\nDebug.Print Command1.Count\r\n");
+        debug.Select(v => Convert.ToInt64(v.Value)).Should().Equal(error, 2L);
+    }
+
     [AvaloniaFact]
-    public async Task Load_and_Unload_coerce_their_index_as_CLng_does()
+    public async Task An_index_that_rounds_to_32766_loads_that_element()
+    {
+        // Banker's rounding, measured: 32766.5 is 32766.
+        var debug = await Run(TwoButtonArray, "Load Command1(32766.5)\r\nDebug.Print Command1.UBound\r\n");
+        debug.Select(v => Convert.ToInt64(v.Value)).Should().Equal(32766L);
+    }
+
+    [AvaloniaFact]
+    public async Task Load_and_Unload_coerce_their_index_as_CInt_does()
     {
         // Measured, native and in the IDE: a Long index loads, Load Cmd(3.5) loads element 4 and Unload Cmd(4.4)
         // unloads it again, as a subscript rounds.

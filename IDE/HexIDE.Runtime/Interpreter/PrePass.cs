@@ -22,6 +22,12 @@ public class PrePass : VB6BaseVisitor<object?>
     // by then are both already built.
     public List<string> Implemented = new();
     public List<VB6Parser.BlockContext> topLevelBlocks = new();
+    // Each module-level Const by name, with the token index of its declaration. Collected for the allocation site of a
+    // module-level array, which asks whether a bound names a Const declared below it (StatementExecutor).
+    public Dictionary<string, int> ConstDeclaredAt = new(StringComparer.OrdinalIgnoreCase);
+    // Module-level arrays whose bounds are not plain integers. They are sized only when the module's declarations
+    // run, which a form's run does not do yet (#256), so that run refuses them rather than leave them unallocated.
+    public List<string> DeferredArrays = new();
     // User-defined Type definitions and Enum member tables declared in this module (aggregated program-wide by
     // the interpreter). Public by default — MVP does no Private-Type module-scoping.
     public Dictionary<string, UdtTypeDef> Types = new(StringComparer.OrdinalIgnoreCase);
@@ -158,6 +164,7 @@ public class PrePass : VB6BaseVisitor<object?>
                                 || !TryReadLiteralBound(size[^1], out var upper))
                             {
                                 dimensions = null;
+                                DeferredArrays.Add(subStmt.ambiguousIdentifier().GetText());
                                 break;
                             }
                             dimensions.Add((lower, upper));
@@ -191,6 +198,8 @@ public class PrePass : VB6BaseVisitor<object?>
                 var value = dimensions != null ? new Vb6Value(type, dimensions) : new Vb6Value(type);
                 if (dimensions != null && value.Value is VBArray fixedArr) fixedArr.IsDynamic = false;   // `Dim a(N)` = fixed
                 var location = state.Alloc(value);
+                if (isArray)
+                    state.MarkDeclaredArray(location);
                 rootEnv.DefineVariable(subStmt.ambiguousIdentifier().GetText(), location);
             }
         }
@@ -215,6 +224,7 @@ public class PrePass : VB6BaseVisitor<object?>
                 throw new NotImplementedException("Const type hints not supported");
             var location = state.Alloc(Vb6Value.Variant);
             rootEnv.DefineVariable(sub.ambiguousIdentifier().GetText(), location);
+            ConstDeclaredAt.TryAdd(sub.ambiguousIdentifier().GetText(), sub.Start.TokenIndex);
         }
         return default;
     }

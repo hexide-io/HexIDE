@@ -1072,7 +1072,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, name, out var target) || target.Value is not ControlArrayGroup group)
             throw new NotImplementedException($"{verb} is only supported for control arrays; '{name}' is not one");
         var idxArgs = await expressionExecutor.EvaluateCallArgs(poac.argsCall(0));
-        return (group, Subscript(idxArgs[0]));
+        return (group, ControlArrayIndex(idxArgs[0]));
     }
 
     // First iCS_S_ProcedureOrArrayCall in pre-order (the outer Command1(i), not a nested call inside the index).
@@ -1572,21 +1572,49 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new VBCompileErrorException("Unknown variable " + variableName);
 
             List<(int, int)>? dimensions = await ExtractDimensions(redim.subscripts());
-            Vb6Value.ValueType type = redim.asTypeClause() != null ? ExtractType(redim.asTypeClause(), true) : value.Type;
+            // A variable declared an array keeps its element type; a Variant becomes a Variant array, unless it already
+            // holds a typed one. It was given its own type, which for an Empty Variant was not an array type at all.
+            var declaredArray = currentEnv.TryGetVariableLocation(variableName, out var redimLoc)
+                && interpreter.ExecutionContext.State.IsDeclaredArray(redimLoc);
+            Vb6Value.ValueType type = redim.asTypeClause() != null ? ExtractType(redim.asTypeClause(), true)
+                : declaredArray || value.Type.IsArray ? value.Type
+                : new Vb6Value.ValueType(Vb6Value.ValueType.EmptyVariant, true);
 
             if (dimensions == null)
                 throw new VBCompileErrorException("Dimensions required");
 
-            // An upper bound below its lower raises 9, and the array is left erased, not as it was. Measured:
-            // ReDim b(-1), b(5 To 2) and b(0 To -1) each raise 9, and UBound(b) then raises 9 too. A bound that fails
-            // to coerce ("x", Null, beyond a Long) raises before this and leaves b alone, which ExtractDimensions does.
+            // An upper bound below its lower raises 9, and a declared array is left erased, not as it was. Measured:
+            // ReDim b(-1), b(5 To 2) and b(0 To -1) each raise 9, and UBound(b) then raises 9 too. A Variant is
+            // different, measured too: an upper bound one below its lower (`ReDim v(-1)`, `v(5 To 4)`) raises 9 and
+            // leaves v as it was, and one further below (`v(5 To 2)`) raises 7 and empties v. A bound that fails to
+            // coerce ("x", Null, beyond a Long) raises before this and leaves the variable alone, as ExtractDimensions
+            // does.
             if (dimensions.Exists(d => d.Item2 < d.Item1))
             {
-                interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variableName, new Vb6Value(type));
+                if (declaredArray)
+                    interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variableName, new Vb6Value(type));
+                else if (dimensions.Exists(d => d.Item2 < d.Item1 - 1))
+                {
+                    interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variableName, Vb6Value.Variant);
+                    throw new VBRunTimeException(context, VBStandardError.OutOfMemory);
+                }
                 throw new VBRunTimeException(context, VBStandardError.SubscriptOutOfRange);
             }
 
-            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variableName, new Vb6Value(type, dimensions));
+            // An array too big to hold is 7, and a declared array is left erased (measured: ReDim b(2) then
+            // ReDim b(2147483647) raises 7, and UBound(b) then raises 9).
+            Vb6Value redimmed;
+            try
+            {
+                redimmed = new Vb6Value(type, dimensions);
+            }
+            catch (VBRunTimeException e) when (e.Error.ErrNo == VBStandardError.OutOfMemory.ErrNo)
+            {
+                interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variableName,
+                    declaredArray ? new Vb6Value(type) : Vb6Value.Variant);
+                throw new VBRunTimeException(context, VBStandardError.OutOfMemory);
+            }
+            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variableName, redimmed);
         }
 
         return ControlFlow.Nothing;
@@ -1640,6 +1668,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (subStmt.LPAREN() != null && subStmt.RPAREN() != null) // array
                 {
                     isArray = true;
+                    if (ownedSlots == null && subStmt.subscripts() is { } bounds)
+                        CheckModuleLevelBounds(bounds, subStmt);
                     dimensions = await ExtractDimensions(subStmt.subscripts());
                 }
 
@@ -1691,6 +1721,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // wholesale, and `Dim v` / `Dim v As Variant` must stay exactly as untyped as they read.
                 var declared = VbNumeric.IsDeclarableScalar(value.Type) ? value.Type : null;
                 interpreter.ExecutionContext.AllocVariable(currentEnv, localName, value, declared, declaredClass);
+                if (isArray && currentEnv.TryGetVariableLocation(localName, out var arrayLoc))
+                    interpreter.ExecutionContext.State.MarkDeclaredArray(arrayLoc);
                 // Track this local so RunProcedure releases its reference (fires Class_Terminate) at scope-exit,
                 // in declaration order. Every Dim slot is tracked (a Variant can later hold an object via Set);
                 // ReleaseRef no-ops non-objects. Only proc-body executors have ownedSlots (module/field-init = null).
@@ -1734,6 +1766,69 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         interpreter.ExecutionContext.AllocVariable(currentEnv, name, value);
         if (ownedSlots != null && currentEnv.TryGetVariableLocation(name, out var slot))
             ownedSlots.Add(slot);
+    }
+
+    /// <summary>
+    /// The names a module-level array's bounds use, checked where the array is allocated: as its module's declarations
+    /// run, never in the pre-pass. VB6 sizes such an array from a constant expression before the program starts.
+    /// Measured with <c>/make</c>: a bound may name a Const declared above it in the same module, another module's
+    /// Public Const, an Enum member or a built-in constant (<c>vbKeyA</c> is 65), and may call a built-in function
+    /// (<c>Len("abc")</c> is 3). A Const declared below it, or a variable, is "Constant expression required".
+    /// </summary>
+    /// <remarks>
+    /// Declarations run in source order, and VB6 refuses a forward reference, so a same-module Const above the Dim has
+    /// already run and holds its final value: reading it once it has run is all the laziness needed. Another module's
+    /// Const is refused, because it is read unqualified only through a gap (#880) and may not have run yet, where
+    /// sizing from Empty would give a wrong size with no error.
+    /// </remarks>
+    private void CheckModuleLevelBounds(VB6Parser.SubscriptsContext bounds, VB6Parser.VariableSubStmtContext dim)
+    {
+        Walk(bounds);
+
+        void Walk(Antlr4.Runtime.Tree.IParseTree node)
+        {
+            switch (node)
+            {
+                case VB6Parser.ICS_S_MembersCallContext members:
+                    throw AnotherModulesConst(members.GetText());
+                case VB6Parser.ICS_S_VariableOrProcedureCallContext name:
+                    CheckName(name.ambiguousIdentifier().GetText());
+                    return;
+                case VB6Parser.ICS_S_ProcedureOrArrayCallContext call when call.ambiguousIdentifier() is { } callee:
+                    // A built-in function of constants is allowed; its arguments are checked as the walk goes on.
+                    if (!VB6BuiltIns.IsBuiltInFunction(callee.GetText()))
+                        throw ConstantExpressionRequired();
+                    break;
+            }
+            for (var i = 0; i < node.ChildCount; i++)
+                Walk(node.GetChild(i));
+        }
+
+        void CheckName(string name)
+        {
+            if (currentModule.PrePass.ConstDeclaredAt.TryGetValue(name, out var declaredAt))
+            {
+                if (declaredAt > dim.Start.TokenIndex)
+                    throw ConstantExpressionRequired();
+                return;
+            }
+            if (interpreter.BuiltIns.TryGetBuiltInConstant(name, out _))
+                return;
+            foreach (var module in interpreter.Modules.All)
+            {
+                if (module.PrePass.Enums.Values.Any(members => members.ContainsKey(name)))
+                    return;
+                if (!ReferenceEquals(module, currentModule) && module.PrePass.ConstDeclaredAt.ContainsKey(name))
+                    throw AnotherModulesConst(name);
+            }
+            throw ConstantExpressionRequired();
+        }
+
+        static VBCompileErrorException ConstantExpressionRequired() => new("Constant expression required");
+
+        NotImplementedException AnotherModulesConst(string name) => new(
+            $"{dim.ambiguousIdentifier().GetText()}'s bounds name {name}, another module's Const. A module-level array " +
+            "is sized when its module's declarations run, and another module's Const is not read there yet (#880).");
     }
 
     private async Task<List<(int, int)>?> ExtractDimensions(VB6Parser.SubscriptsContext? subscripts)

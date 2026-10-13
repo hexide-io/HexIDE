@@ -520,6 +520,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     public async Task Execute()
     {
+        declarationsRun = true;
         // Initialise every NON-primary module's module-level declarations first (fills Public Const/Dim values
         // in that module's own env) so a cross-module read sees a value, not Empty. Modules can't have executable
         // top-level statements in real VB6, so this is declaration hoisting; the primary (test/startup) body runs
@@ -578,6 +579,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     public async Task RunStartupSubMain()
     {
         var startup = FindStartupSubMain();
+        declarationsRun = true;
 
         try
         {
@@ -601,6 +603,31 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         catch (Debugging.StopExecutionSignal)
         {
             // A debugger reset (Stop) unwound the walk cleanly — swallowed exactly as Execute() does.
+        }
+    }
+
+    // Set once the modules' declarations have run, by Execute or RunStartupSubMain. A form's run enters through
+    // ExecuteSub alone and never runs them (#256).
+    private bool declarationsRun;
+
+    /// <summary>
+    /// A module-level array whose bounds name a constant is sized when its module's declarations run (the pre-pass
+    /// reads only plain integer bounds). A form's run does not run them yet (#256), so such an array would stay
+    /// unallocated and its first use would raise a trappable 9. Refused instead, naming the array.
+    /// </summary>
+    /// <remarks>
+    /// Sizing the array here would not be enough: on that run a module's own Consts read Empty too, so a loop to
+    /// <c>GRID - 1</c> would still run no passes. #256 is the fix for both.
+    /// </remarks>
+    private void RefuseArraysSizedWhenDeclarationsRun()
+    {
+        foreach (var module in Modules.All)
+        {
+            if (module.Kind == InterpreterModuleKind.Class || module.PrePass.DeferredArrays.Count == 0)
+                continue;
+            throw new NotImplementedException(
+                $"{module.Name}'s {module.PrePass.DeferredArrays[0]} is sized by a constant, which needs {module.Name}'s " +
+                "declarations to run, and a form's run does not run them yet (#256).");
         }
     }
 
@@ -657,6 +684,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     // args or none). Enters at the primary (form) module's scope. Delegates to CallProcedure; return discarded.
     public async Task ExecuteSub(string name, List<Vb6Value>? args = null, bool ignoreMissing = false)
     {
+        if (!declarationsRun)
+            RefuseArraysSizedWhenDeclarationsRun();
         var callArgs = new List<CallArg>();
         if (args != null)
             foreach (var value in args)

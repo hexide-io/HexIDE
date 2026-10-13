@@ -50,6 +50,44 @@ public class ClassInitializeSiblingCallTests : BaseVBTestFixture
     }
 
     [Fact]
+    public async Task An_object_whose_Class_Initialize_stores_Me_terminates_only_when_that_reference_goes()
+    {
+        // Measured: Initialize stores Me in a module variable, then calls a method of its own. Setting the caller's
+        // variable to Nothing does not terminate it; setting the stored one to Nothing does. The hold New keeps while
+        // Initialize runs is dropped without a zero check, which is what hands the object back at a count of 1 here.
+        await RunClasses("""
+            Public gKeep As Keeper
+            Dim k2 As Keeper
+            Set k2 = New Keeper
+            Debug.Print "after New"
+            Set k2 = Nothing
+            Debug.Print "after Set k2 = Nothing"
+            Set gKeep = Nothing
+            Debug.Print "after Set gKeep = Nothing"
+            Public Sub Keep(o As Keeper)
+                Set gKeep = o
+            End Sub
+
+            """.Replace("\r\n", "\n"), ("Keeper", """
+            Private Sub Class_Initialize()
+                Debug.Print "init: stores Me"
+                Keep Me
+                Touch
+            End Sub
+            Public Sub Touch()
+                Debug.Print "touch"
+            End Sub
+            Private Sub Class_Terminate()
+                Debug.Print "terminate"
+            End Sub
+
+            """.Replace("\r\n", "\n")));
+        AssertDebugLog([
+            "init: stores Me", "touch", "after New", "after Set k2 = Nothing", "terminate", "after Set gKeep = Nothing",
+        ]);
+    }
+
+    [Fact]
     public async Task An_object_built_into_a_local_terminates_when_the_procedure_ends()
     {
         await RunClasses("""

@@ -25,7 +25,9 @@ public partial class VB6BuiltIns
             throw InvalidCall();
         if (a[0].Value is not VBArray array)
             throw new VBRunTimeException(VBStandardError.TypeMismatch);
-        int dimension = Supplied(a, 1) ? AsInt(a[1]) : 1;
+        // The dimension coerces as CLng does, as a subscript does (measured, native and in the IDE): Null 94, "x" 13,
+        // 3000000000# 6, and True, Empty and 1.5 (which rounds to 2) name no dimension of a one-dimensional array, so 9.
+        int dimension = Supplied(a, 1) ? Convert.ToInt32(NarrowNum(a[1], Vb6Value.ValueType.Long).Value) : 1;
         // A dimension < 1 or > the array's rank is a trappable Subscript-out-of-range (Err 9, oracle-verified);
         // indexing bounds[dimension-1] directly would throw an ArgumentOutOfRangeException that On Error can't trap.
         if (dimension < 1 || dimension > array.Rank)

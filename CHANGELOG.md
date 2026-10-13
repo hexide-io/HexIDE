@@ -24,12 +24,20 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **A subscript, a control-array index or an array bound may be any number** (#849). Only an Integer, a Byte or
   an integral string was accepted, so `a(i)` with `i` a Long, `a(UBound(a))` and `ReDim b(n)` stopped the run.
-  Each is now coerced as VB6 coerces it, as `CLng` does: `a(2.5)` is `a(2)`, Null raises 94 and `"x"` 13.
-  `ReDim` with an upper bound below its lower raises 9 and erases the array, as in VB6.
+  Each is now coerced as VB6 coerces it. A subscript or a bound is coerced as `CLng` does: `a(2.5)` is `a(2)`, Null
+  raises 94, `"x"` 13, and an omitted `Optional` 13. A control-array index is coerced as `CInt` does, so one outside
+  an Integer raises 6 and a negative one 341. So is `UBound`'s and `LBound`'s dimension, as a subscript.
+- **`ReDim` follows VB6 at its edges** (#849). An upper bound below its lower raises 9 and erases a variable declared
+  an array. A Variant keeps its array when the upper bound is one below the lower, and is emptied with 7 when it is
+  further below. More elements than a Long counts raises 7, where it raised 9. A Variant that never held an array
+  can be `ReDim`med at all; it stopped with an internal error.
 
 - **A module-level array sized by a `Const` loads** (#760). `Private mGrid(0 To GRID_MAX)` made the whole module
-  fail to load; so did a typed literal such as `Dim d(2&)`. A procedure's `Const`s are declared before its
-  `Dim`s, so `Dim a(P)` inside a procedure sees `P` too.
+  fail to load; so did a typed literal such as `Dim d(2&)`. Its bounds are read where it is allocated, as VB6
+  allows: a Const declared below it, or a variable, is VB6's "Constant expression required". Another module's
+  Const is refused until it can be read unqualified (#880). A form's run refuses such an array, naming it, because
+  it does not run the module's declarations yet (#256). A procedure's `Const`s are declared before its `Dim`s, so
+  `Dim a(P)` inside a procedure sees `P` too.
 
 - **A method called from `Class_Initialize` no longer terminates the object** (#850). The call fired
   `Class_Terminate` in the middle of `New`, and the real `Class_Terminate` never ran afterwards.
