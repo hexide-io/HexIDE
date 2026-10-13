@@ -6048,16 +6048,17 @@ A procedure's Consts are not checked yet. What is refused:
 of them does.
 
 **Review round four** found that the check refused qualified constants main had read, and asked what else a bound or
-a Const may read. Measured with `/make`, one project each, on the en-GB guest; each project that built was run:
+a Const may read. Measured with `/make`, one project each, on the en-GB guest; each project that built was run, and
+the types (added in round five) are each value's `TypeName` from the same run:
 
 | Declarations | VB6 |
 |---|---|
-| `Private Const C = VBA.vbCrLf`, then `Len(C)` | 2 |
-| `Const C = KeyCodeConstants.vbKeyA`; `Const C = VBRUN.KeyCodeConstants.vbKeyA` | 65; 65 |
+| `Private Const C = VBA.vbCrLf`, then `Len(C)` | 2, Long |
+| `Const C = KeyCodeConstants.vbKeyA`; `Const C = VBRUN.KeyCodeConstants.vbKeyA` | 65, Long; 65 |
 | `Dim d(VBRUN.vbKeyA)` | 0 To 65 |
-| `Const C = Module2.colMax + 1`, Module2's `Public Enum Cols` with `colMax = 4` | 5 |
+| `Const C = Module2.colMax + 1`, Module2's `Public Enum Cols` with `colMax = 4` | 5, Long |
 | `Dim d(Module2.Cols.colMax)`, the same Module2 | 0 To 4 |
-| `Const C = Probe.Module2.Cols.colMax`; `Const C = Probe.Module2.M + 1`, the project being `Probe` | 4; 4 |
+| `Const C = Probe.Module2.Cols.colMax`; `Const C = Probe.Module2.M + 1`, the project being `Probe` | 4, Long; 4, Integer |
 | `Const C = Module2.pMax`, Module2's `Private Enum P` | "Method or data member not found" |
 | `Const C = KeyCodeConstants.vbCancel` | "Method or data member not found": another container's member |
 | `Const C = Module1.Sizes.eMax`, in Module1 | "Circular dependencies between modules" |
@@ -6082,8 +6083,11 @@ and `LenB` size only from a String: of a number VB6 asks for a variable. An Enum
 what reads it. And a dimension with no values does not compile, at either level.
 
 **HexIDE, after round four.**
-- Every qualified form above is read as VB6 reads it, or refused with VB6's compile error. A qualified shape no probe
-  has asked about is refused loudly, rather than guessed.
+- Every qualified form above is read as VB6 reads it, or refused with VB6's compile error. A shape the evaluator's
+  own levels do not resolve is refused loudly, rather than guessed. The project name in front is stepped over, and
+  what follows it is resolved by the same rules: measured for `Probe.Module2.Cols.colMax` and `Probe.Module2.M + 1`,
+  and an inference for any other shape. (Round five narrowed this. It said a qualified shape no probe had asked about
+  was refused, which the project-name step contradicts.)
 - Another module's Public declaration is looked for before a built-in constant of the same name; its Const is then
   refused unqualified, naming #880.
 - `Len` and `LenB` size from a String constant only: a literal, a String Const, a concatenation, or `CStr` of a
@@ -6093,7 +6097,8 @@ what reads it. And a dimension with no values does not compile, at either level.
   expression required".
 - A `Global` variable counts as Public.
 - A dimension with no values is "Range has no values" at a Dim, at module and procedure level, raised as the Dim runs.
-  It built an array with no elements, so `UBound` read -1 and loops ran no passes.
+  It built an array with no elements, so `UBound` read -1 and loops ran no passes. (Only where upper is lower - 1, or a
+  bound is not a literal: a literal range inverted by more was still a run-time 9 until round five, below.)
 
 ### A Const's As type
 
@@ -6133,8 +6138,9 @@ it as `CDate` does.
 
 **HexIDE, after this.** A module-level or procedure Const converts into its `As` type through the same conversion a
 store uses, and a conversion that would raise 6 or 13 is "Overflow" or "Type mismatch", raised as the Const runs. A
-store of a String into a Date reads as `CDate` reads it, in the program's locale, where every date string was 13. A
-Const of an object or fixed-length String type is refused loudly. Currency from a Double still rounds the decimal form
+store of a String into a Date read as `CDate` reads it, in the program's locale, where every date string was 13;
+round five reverted that, below, because HexIDE's `CDate` has no numeric fallback (#967). A Const of an object or
+fixed-length String type is refused loudly. Currency from a Double still rounds the decimal form
 (#966).
 
 ### ReDim of a fixed array through a parameter
@@ -6158,11 +6164,65 @@ array. Measured, native and in the IDE where marked:
 **HexIDE, after this.** ReDim of a fixed array through an array parameter raises 10 and leaves it as it was, after
 converting the bounds and before the inverted-range check; named directly it is "Array already dimensioned", raised
 as the ReDim runs. Each call records its array parameters by name, because a ByRef one shares the caller's slot and
-the slot cannot say so. `Erase` already reset a fixed array's elements and kept its bounds. `ReDim Preserve` is not
+the slot cannot say so (every parameter, since round five, below). `Erase` already reset a fixed array's elements and kept its bounds. `ReDim Preserve` is not
 implemented at all.
 
 **Another module's array, qualified, found on the way** (`g01`, both modes): `x = Module2.g(1)` is the element,
 5, a Long, and `Module2.g(2) = 7` writes it. HexIDE reads the whole array, and the write is a trappable 424 (#965).
+
+### Review round five
+
+Round four's guards read the array object, and HexIDE's array Let shared that object, so a dynamic array holding a
+copy of a fixed one could not be ReDimmed. The review measured that VB6 copies, and the rest below was measured
+afterwards with `/make`, one project each, natively (the IDE half waits on the shared desktop). `fx` is `Dim fx(3) As
+Long` with `fx(1) = 7`:
+
+| Program | VB6 |
+|---|---|
+| `Dim d() As Long`, `d = fx`, `d(1) = 99` | `fx(1)` 7, `d(1)` 99: a copy (the review measured the same, P5) |
+| then `ReDim d(10)` | 0 To 10, `fx` still 0 To 3 with `fx(1)` 7 |
+| `Dim v`, `v = fx`, `v(1) = 55` | `fx(1)` 7, `v(1)` 55, `TypeName(v)` "Long()" |
+| then `ReDim v(5)` | 0 To 5, `fx` still 0 To 3 |
+| `Dim fx(1, 2) As Long`, `fx(1, 2) = 7`, `d = fx`, `d(1, 2) = 99`; the same into a Variant | `fx(1, 2)` 7 both times |
+| `Dim buf(3) As Byte`, `buf(1) = 9`, `G buf`, `Sub G(v)`, `ReDim v(10)`, the caller under `On Error Resume Next` | 10, "This array is fixed or temporarily locked"; `buf` 0 To 3, `buf(1)` 9 |
+| the same with `ReDim Preserve v(10)` | an error that ends `G`, its number not logged; `buf` kept |
+| `Sub GV(ByVal v)`, `ReDim v(10)` | no error, `v` 0 To 10 inside, `buf` 0 To 3 with `buf(1)` 9 |
+| module-level `Private d(5 To 2)`; `Private d(0 To -5)`; `Private d(1, 5 To 2)` | "Range has no values", each |
+| a class's `Private d(5 To 2)`; a procedure's `Dim d(5 To 2)` | "Range has no values", both |
+| `Private d(Len("ab" + "c"))`; `Const S = "ab" + "c"`, `Private d(Len(S))` | 0 To 3; 0 To 3, `S` a String |
+| `Private d(Len("ab" + 1))` | "Variable required - can't assign to this expression" |
+| `Const C As Integer = Null`; `Const C As String = Null`; a procedure's `Const P As Integer = Null` | "Invalid use of Null", each |
+| `Const C As Variant = Null`; `Const C = Null` | Null, `TypeName` "Null", both |
+| `Dim a(5) As Long`, `a(2) = 7`, `x = a(k)`, `k` a class with no default member | 438, `x` unchanged |
+| `x = a(w)`, `w` a class whose default member returns 2; `a(w) = 5` | 7; writes `a(2)` |
+| `x = a(n)`, `n` a Nothing | 91 |
+
+The review also measured, before this: `d = fx` then `ReDim d(10)` works at module level, from a Variant-returning
+Function's fixed local, and after passing `d` to `Sub Grow(b() As Long)`; `CDate("36526")` is 01/01/2000,
+`"36526.5"` noon that day, `" 2 "` 01/01/1900 and `"-1"` 29/12/1899; and `d = "36526"` into a Date gives the same.
+
+So an assignment copies an array, every dimension, and the copy is dynamic, since only a dynamic array or a Variant
+can be assigned one. A fixed array can then be held only by its own declaration, or reached through a ByRef
+parameter, and a parameter's ReDim of one is 10 whether the parameter is an array or a Variant: VB6 cannot know at
+compile time what a Variant holds. A literal range with no values does not compile wherever it is. `+` of two
+Strings is a String, and with a number it is not. A typed Const cannot hold Null, where a Variant one can.
+
+**HexIDE, after round five.**
+- An array Let copies the array, every level, as a dynamic array (`VBArray.CopyForLet`, through `CopyIfValueType`),
+  where it shared it. So `d = fx` then `d(1) = 99` leaves `fx(1)`, and `d` can be ReDimmed. A ByRef argument is
+  still shared, and a ByVal Variant gets a copy.
+- ReDim through any parameter of a fixed array is 10, a Variant parameter included, where that was "Array already
+  dimensioned". Each call records all its parameters by name.
+- A literal range with no values is "Range has no values" from the pre-pass, which built it and raised 9, at module
+  level and in a class.
+- `Len` and `LenB` size from `"ab" + "c"`, and of `"ab" + 1` are "Variable required".
+- A typed Const of Null is "Invalid use of Null", raised as the Const runs.
+- `a(k)` is 438 and `a(Nothing)` 91, as before; `a(w)` is refused naming #174, read or written.
+- **Reverted from round four:** a store of a String into a Date goes through `ToNum` again, as on main. Round four
+  sent it through `CDate`, which has no numeric fallback, so `d = "36526"` became 13, and which accepts a dotted
+  date, so `d = "1.2.2003"` became silently 1 February (#800). So `d = "1/2/2003"` is 13 again, where VB6 gives a
+  date, and a `Const … As Date` given a String is refused loudly. Both are #967.
+- HexIDE's `CCur(0.00015)` is 0.0002, where VB6 gives 0.0001: #966 is wrong in both directions.
 
 Because declarations run in source order and VB6 refuses a forward reference, a same-module Const above the Dim has
 already run and holds its final value, so reading it then is all the laziness the rule needs.
@@ -6870,7 +6930,9 @@ Clipboard, Printer or Forms yet. Round three, on a form with a control array `Cm
   delimiter and `Filter`'s match, switch and compare are passed on unread, for those functions to read in their own
   order (round seven). `VarType` and the Is functions refuse a class with a default member and answer about one without;
 - the numeric conversions' own check (`RefuseNonScalar`, in `NarrowNum` and `CBool`), which reads an object wherever
-  the dispatcher has not: Filter's compare and switch, and since #873 every subscript, bound and control-array index;
+  the dispatcher has not: Filter's compare and switch, and since #873 every subscript, bound and control-array index.
+  Of those, only the subscript is measured and pinned: `a(k)` is 438, `a(Nothing)` 91, and `a(w)` is 7 in VB6 and
+  refused naming #174 here (#873's round five);
 - the conditions of `If`, `ElseIf`, `While` and `Do`, a For bound and step, `Select Case`, a Case value, a range's
   bounds and a `Case Is` value;
 - `Debug.Print`, `Randomize`, `Err.Raise`, `Error`, `ChDir`, `ChDrive`, and the Mid statement's start and length;

@@ -11,7 +11,8 @@ namespace HexIDE.Runtime.Interpreter;
 /// <item>a same-module Const or Enum declared above, an Enum member bare or as <c>Sizes.eMax</c>, a built-in constant
 /// bare or qualified by its library or container (<c>vbKeyA</c>, <c>VBA.vbCrLf</c>, <c>KeyCodeConstants.vbKeyA</c>,
 /// <c>VBRUN.KeyCodeConstants.vbKeyA</c>), and another module's Public Enum member qualified (<c>Cols.colMax</c>,
-/// <c>Module2.colMax</c>, <c>Module2.Cols.colMax</c>), the project name in front of any of them included;</item>
+/// <c>Module2.colMax</c>, <c>Module2.Cols.colMax</c>). The project name in front is stepped over and the rest resolved
+/// the same way: measured for <c>Probe.Module2.Cols.colMax</c> and <c>Probe.Module2.M + 1</c>, inferred for the rest;</item>
 /// <item>in a bound, not in a Const, some built-in functions of constants: <c>Abs</c>, <c>CBool</c>, <c>CByte</c>,
 /// <c>CCur</c>, <c>CDbl</c>, <c>CInt</c>, <c>CLng</c>, <c>CSng</c>, <c>CStr</c>, <c>CVar</c>, <c>Fix</c>, <c>Int</c>,
 /// <c>Len</c>, <c>LenB</c> and <c>Sgn</c>, called bare. <c>Len</c> and <c>LenB</c> take only a String: of a number they
