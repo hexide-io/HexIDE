@@ -314,7 +314,7 @@
     "Str.Designer.Context.ViewCode": "Переглянути код",
     "Str.Designer.Context.AlignToGrid": "Вирівняти за сіткою",
     "Str.Designer.Context.Properties": "Властивості",
-    "Str.CodeEditor.ReadOnly.Banner": "Лише для читання — HexIDE поки що не може точно відтворити цю форму, тому збереження змінило б її. Її код не можна редагувати, доки це не буде виправлено.",
+    "Str.CodeEditor.FileNotSaved.Banner": "Цей файл не буде збережено — HexIDE поки що не може точно відтворити його, тому збереження змінило б його. Його код є частиною файлу, тож введення в цьому вікні відхиляється.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Перейменування не виконано, оскільки воно змінило б заголовок цього файлу або рядки Attribute одного з членів, якими керує IDE.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Рядок {0} належить до заголовка цього файлу або до рядків Attribute одного з членів, які ніколи не виконуються, тому на ньому не можна встановити точку зупину чи закладку.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Вставити файл",

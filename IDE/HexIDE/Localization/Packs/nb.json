@@ -314,7 +314,7 @@
     "Str.Designer.Context.ViewCode": "Vis kode",
     "Str.Designer.Context.AlignToGrid": "Juster etter rutenett",
     "Str.Designer.Context.Properties": "Egenskaper",
-    "Str.CodeEditor.ReadOnly.Banner": "Skrivebeskyttet — HexIDE kan ennå ikke gjengi dette skjemaet nøyaktig, så det ville bli endret om det ble lagret. Skjemaets kode kan ikke redigeres før dette er rettet.",
+    "Str.CodeEditor.FileNotSaved.Banner": "Denne filen blir ikke lagret — HexIDE kan ennå ikke gjengi den nøyaktig, så den ville bli endret om den ble lagret. Koden er en del av filen, så skriving i dette vinduet avvises.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "Navnet ble ikke endret, fordi det ville endre filens header eller et medlems Attribute-linjer, som IDE-et vedlikeholder.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "Linje {0} hører til filens header eller et medlems Attribute-linjer, som aldri kjøres, så det kan ikke settes et bruddpunkt eller et bokmerke der.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "Sett inn fil",

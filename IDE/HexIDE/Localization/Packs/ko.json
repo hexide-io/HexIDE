@@ -314,7 +314,7 @@
     "Str.Designer.Context.ViewCode": "코드 보기",
     "Str.Designer.Context.AlignToGrid": "눈금에 맞춤",
     "Str.Designer.Context.Properties": "속성",
-    "Str.CodeEditor.ReadOnly.Banner": "읽기 전용 — HexIDE가 아직 이 폼을 충실하게 재현할 수 없어 저장하면 폼이 바뀝니다. 이 문제가 해결될 때까지 코드를 편집할 수 없습니다.",
+    "Str.CodeEditor.FileNotSaved.Banner": "이 파일은 저장되지 않습니다 — HexIDE가 아직 이 파일을 충실하게 재현할 수 없어 저장하면 파일이 바뀝니다. 코드도 파일의 일부이므로 이 창에서의 입력은 거부됩니다.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "이 파일의 헤더나 멤버의 Attribute 줄이 바뀌게 되므로 이름 바꾸기를 적용하지 않았습니다. 이 부분은 IDE가 관리합니다.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "{0}번째 줄은 이 파일의 헤더나 멤버의 Attribute 줄에 속합니다. 이 줄들은 실행되지 않으므로 중단점이나 책갈피를 설정할 수 없습니다.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "파일 삽입",

@@ -314,7 +314,7 @@
     "Str.Designer.Context.ViewCode": "عرض التعليمات البرمجية",
     "Str.Designer.Context.AlignToGrid": "محاذاة إلى الشبكة",
     "Str.Designer.Context.Properties": "الخصائص",
-    "Str.CodeEditor.ReadOnly.Banner": "للقراءة فقط — لا يستطيع HexIDE حتى الآن إعادة إنتاج هذا النموذج بأمانة، لذا فإن حفظه سيغيّره. لا يمكن تحرير التعليمات البرمجية الخاصة به حتى يتم إصلاح ذلك.",
+    "Str.CodeEditor.FileNotSaved.Banner": "لن يُحفظ هذا الملف — لا يستطيع HexIDE حتى الآن إعادة إنتاجه بأمانة، لذا فإن حفظه سيغيّره. تعليماته البرمجية جزء من الملف، ولذلك تُرفض الكتابة في هذه النافذة.",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "لم تُطبَّق إعادة التسمية لأنها ستغيّر رأس هذا الملف أو أسطر Attribute الخاصة بأحد الأعضاء، وهي أسطر تتولّاها بيئة التطوير.",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "السطر {0} جزء من رأس هذا الملف أو من أسطر Attribute الخاصة بأحد الأعضاء، وهي أسطر لا تُنفَّذ أبدًا، لذا لا يمكن وضع نقطة توقف أو إشارة مرجعية عليه.",
     "Str.CodeEditor.Dialog.InsertFileTitle": "إدراج ملف",

@@ -314,7 +314,7 @@
     "Str.Designer.Context.ViewCode": "コードの表示",
     "Str.Designer.Context.AlignToGrid": "グリッドに合わせる",
     "Str.Designer.Context.Properties": "プロパティ",
-    "Str.CodeEditor.ReadOnly.Banner": "読み取り専用 — HexIDE はまだこのフォームを忠実に再現できないため、保存するとフォームが変化してしまいます。この問題が解決されるまで、そのコードは編集できません。",
+    "Str.CodeEditor.FileNotSaved.Banner": "このファイルは保存されません — HexIDE はまだこのファイルを忠実に再現できないため、保存するとファイルが変化してしまいます。コードもファイルの一部であるため、このウィンドウでの入力は拒否されます。",
     "Str.CodeEditor.Msg.RenameTouchesReadOnly": "名前の変更は行われませんでした。このファイルのヘッダー、またはメンバーの Attribute 行が変更されるためです。これらは IDE が管理しています。",
     "Str.CodeEditor.Msg.NoMarkOnReadOnlyLine": "{0} 行目は、このファイルのヘッダーまたはメンバーの Attribute 行の一部です。これらの行は実行されないため、ブレークポイントやブックマークは設定できません。",
     "Str.CodeEditor.Dialog.InsertFileTitle": "ファイルの挿入",
