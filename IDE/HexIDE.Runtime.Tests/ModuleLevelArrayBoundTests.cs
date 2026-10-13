@@ -120,15 +120,48 @@ public class ModuleLevelArrayBoundTests : BaseVBTestFixture
     [InlineData("Dim d(M) As Long")]
     [InlineData("Dim d(Module2.M) As Long")]
     [InlineData("Dim d(1 To M + 1) As Long")]
-    [InlineData("Const C = M + 1\nDim d(C) As Long")]                              // through a Const of this module
-    [InlineData("Const C = Module2.M + 1\nDim d(C) As Long")]
     public async Task A_bound_reading_another_modules_Const_is_refused_rather_than_sized_from_Empty(string declarations)
     {
-        // VB6 gives 0 To 3, 0 To 3, 1 To 4, 0 To 4 and 0 To 4. HexIDE does not read another module's Const unqualified
+        // VB6 gives 0 To 3, 0 To 3 and 1 To 4. HexIDE does not read another module's Const unqualified
         // (#880), and initialises modules in list order, so a size from it could be Empty's.
         var run = () => RunModules($"{declarations}\n", ("Module2", "Public Const M = 3\n"));
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*d's bounds read*another module's Public Const*#880*");
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*d's bounds read*M, another module's Public Const*#880*");
+    }
+
+    [Theory]
+    [InlineData("Const A = B + 1\nConst B = 2\nDebug.Print A")]                  // a forward reference, with no array at all
+    [InlineData("Dim n As Long\nConst C = n + 1\nDebug.Print C")]
+    [InlineData("Const C = Len(\"x\")\nDebug.Print C")]                           // any function call in a Const
+    [InlineData("Const C = Twice(2)\nDebug.Print C\n" + Twice)]
+    public async Task A_module_Const_that_is_not_a_constant_expression_is_VB6s_compile_error(string code)
+    {
+        // Measured with /make: each is "Constant expression required" at the Const. Each ran, from whatever the
+        // evaluator made of it: A was 1, and C 1, 1 and 4.
+        var run = () => Run(code + "\n");
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Constant expression required*");
+    }
+
+    [Theory]
+    [InlineData("Const C = M + 1\nDebug.Print C")]
+    [InlineData("Const C = Module2.M + 1\nDebug.Print C")]
+    public async Task A_module_Const_reading_another_modules_Const_is_refused_rather_than_read_as_Empty(string code)
+    {
+        // VB6 gives 4 for both (measured). HexIDE gave 1: M unqualified is not found, and Module2 may not have run.
+        var run = () => RunModules(code + "\n", ("Module2", "Public Const M = 3\n"));
+
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*Const C's value reads*M, another module's Public Const*#880*");
+    }
+
+    [Theory]
+    [InlineData("Const A = 2\nConst B = A * 2\nDebug.Print B", 4L)]
+    [InlineData(Sizes + "\nConst C = eMax + 1\nDebug.Print C", 5L)]
+    [InlineData("Const C = vbKeyA - 60\nDebug.Print C", 5L)]
+    public async Task A_module_Const_of_constants_is_its_value(string code, long expected)
+    {
+        await Run(code + "\n");
+        debug.Should().ContainSingle().Which.Value.Should().Match<object>(v => Convert.ToInt64(v) == expected);
     }
 
     [Fact]
@@ -138,7 +171,7 @@ public class ModuleLevelArrayBoundTests : BaseVBTestFixture
         // module last, so M would still be Empty there.
         var run = () => RunModules("Public Const M = 3\n", ("Module2", "Const C = Module1.M + 1\nPublic d(C) As Long\n"));
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*d's bounds read Module1.M*#880*");
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*Const C's value reads Module1.M*#880*");
     }
 
     [Fact]

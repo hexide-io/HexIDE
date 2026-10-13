@@ -44,10 +44,14 @@ there isn't one yet. Anything may change between 0.x releases.
 - **A typed array parameter shares its caller's array** (#849). `Sub P(b() As Long)` took `b` for a Long, so an array
   passed to it was copied rather than shared, and narrowed as if it were a scalar.
 
+- **A module-level `Const` is checked as VB6 checks it** (#760). Its value may read only other constants: a Const
+  declared below it or the Const itself, a variable, a user function and any function call are VB6's "Constant
+  expression required", where they ran from whatever HexIDE made of them. Another module's Public Const is refused
+  (#880) rather than read as Empty.
 - **A module-level array sized by a `Const` loads** (#760). `Private mGrid(0 To GRID_MAX)` made the whole module
   fail to load; so did a typed literal such as `Dim d(2&)`. Its bounds are read where it is allocated, by VB6's
-  rules, through every Const they name: a Const declared below, a variable, a user function, a function call in a
-  Const, and the built-ins VB6 refuses there are its "Constant expression required". Another module's Public Const
+  rules: a Const declared below, a variable, a user function, and the built-ins VB6 refuses there are its "Constant
+  expression required". Another module's Public Const
   (#880) and its Enum member read unqualified (#889) are refused, rather than sized from Empty. A form's run refuses
   such an array, naming it, because it does not run the module's declarations yet (#256). A procedure's `Const`s are declared before its `Dim`s, so
   `Dim a(P)` inside a procedure sees `P` too.

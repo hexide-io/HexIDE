@@ -5877,7 +5877,10 @@ each sized `d` from what HexIDE's evaluator made of the Const (0 To 1, or 4), an
 Empty and sized 0 To 0, and `Dim d(Int(Rnd() * 10))` sized at random.
 
 **HexIDE, after round three.** The pre-pass collects each Const's declaration and visibility, and each Public
-variable. At the Dim, the bound is classified as above, through every same-module Const it names, recursively:
+variable. Each module-level Const is checked as it runs, before it is evaluated, and the bound at the Dim, both by
+the rules above. The Consts above ran first, so a Const a bound or another Const names has been checked already, and
+the check is one level deep. So `Const A = B + 1` above `Const B` is refused with no array in sight, as VB6 refuses it.
+A procedure's Consts are not checked yet. What is refused:
 - a Const below, the Const itself, a variable, a user function, a function call inside a Const, a built-in VB6
   refuses, and another module's Public variable are VB6's compile error;
 - a name the module cannot see is "Variable not defined" under `Option Explicit`, and "Constant expression

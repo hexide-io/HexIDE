@@ -437,6 +437,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             }
 
             var name = sub.ambiguousIdentifier().GetText();
+            // What the value reads is checked against VB6's rules for a constant expression first (measured).
+            ModuleLevelBounds.CheckConst(interpreter, currentModule, currentEnv, sub);
             var value = await expressionExecutor.EvaluateValue(sub.valueStmt());
             // At module level the name was hoisted by the pre-pass, so this fills that slot.
             if (!interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, value))

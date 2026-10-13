@@ -3,31 +3,32 @@ using Antlr4.Runtime.Tree;
 namespace HexIDE.Runtime.Interpreter;
 
 /// <summary>
-/// What a module-level array's bounds may read, checked where the array is allocated: as its module's declarations run,
-/// never in the pre-pass. VB6 sizes such an array from a constant expression before the program starts, and refuses to
-/// compile one it cannot. Every rule here was measured with <c>vb6.exe /make</c> (the oracle's "What a module-level
+/// What a module-level Const's value and a module-level array's bounds may read: VB6's constant expressions, checked
+/// as the module's declarations run, never in the pre-pass. VB6 works both out before the program starts, and refuses
+/// to compile one it cannot. Every rule here was measured with <c>vb6.exe /make</c> (the oracle's "What a module-level
 /// array's bound may name"):
 /// <list type="bullet">
-/// <item>a same-module Const declared above the Dim, whose own initialiser is checked by the same rules, through every
-/// Const it names: a Const below, a variable, a function call or the Const itself there is "Constant expression
-/// required";</item>
-/// <item>an Enum member of the module, bare or as <c>Sizes.eMax</c>, and another module's Public Enum member qualified
-/// by its Enum's name;</item>
-/// <item>a built-in constant (<c>vbKeyA</c>);</item>
-/// <item>in the bound itself, not in a Const, some built-in functions of constants: <c>Abs</c>, <c>CBool</c>,
-/// <c>CByte</c>, <c>CCur</c>, <c>CDbl</c>, <c>CInt</c>, <c>CLng</c>, <c>CSng</c>, <c>CStr</c>, <c>CVar</c>, <c>Fix</c>,
-/// <c>Int</c>, <c>Len</c>, <c>LenB</c> and <c>Sgn</c>.</item>
+/// <item>a same-module Const declared above, an Enum member of the module, bare or as <c>Sizes.eMax</c>, another
+/// module's Public Enum member qualified by its Enum's name, and a built-in constant (<c>vbKeyA</c>);</item>
+/// <item>in a bound, not in a Const, some built-in functions of constants: <c>Abs</c>, <c>CBool</c>, <c>CByte</c>,
+/// <c>CCur</c>, <c>CDbl</c>, <c>CInt</c>, <c>CLng</c>, <c>CSng</c>, <c>CStr</c>, <c>CVar</c>, <c>Fix</c>, <c>Int</c>,
+/// <c>Len</c>, <c>LenB</c> and <c>Sgn</c>. A Const refuses every function call, <c>Len</c> included.</item>
 /// </list>
-/// A variable, a user function, another module's Public variable, and the built-ins measured as refused are "Constant
-/// expression required"; a name the module cannot see is "Variable not defined" under Option Explicit, and the first
-/// otherwise; the module's own name as a qualifier is "Circular dependencies between modules".
+/// A Const below or the Const itself, a variable, a user function, another module's Public variable, and the built-ins
+/// measured as refused are "Constant expression required"; a name the module cannot see is "Variable not defined"
+/// under Option Explicit, and the first otherwise; the module's own name as a qualifier is "Circular dependencies
+/// between modules".
 /// </summary>
 /// <remarks>
-/// <para>This relates symbols, which the pre-pass must not do, so it runs at allocation. The pre-pass only collects:
-/// each Const's declaration and visibility, and each Public variable.</para>
-/// <para>Two things VB6 reads are refused loudly instead, because HexIDE would size the array from Empty: another
-/// module's Public Const, qualified or not (#880), and another module's Public Enum member, unqualified (#889).
-/// A built-in function nobody has measured in a bound is refused loudly too, rather than guessed either way.</para>
+/// <para>Each module-level Const is checked as it runs, before it is evaluated, and the Consts above it ran first, so a
+/// Const a bound or another Const names has been checked already: the walk is one level deep. This relates symbols,
+/// which the pre-pass must not do, so it runs with the declarations. The pre-pass only collects: each Const's
+/// declaration and visibility, and each Public variable.</para>
+/// <para>Two things VB6 reads are refused loudly instead, because HexIDE would read Empty: another module's Public
+/// Const, qualified or not (#880), and another module's Public Enum member, unqualified (#889). A built-in function
+/// nobody has measured in a bound is refused loudly too, rather than guessed either way.</para>
+/// <para>A procedure's Consts are not checked here (its <c>Dim a(N)</c> above <c>Const N</c> runs, a missing compile
+/// error, recorded).</para>
 /// </remarks>
 internal sealed class ModuleLevelBounds
 {
@@ -45,22 +46,34 @@ internal sealed class ModuleLevelBounds
     private readonly BasicInterpreter interpreter;
     private readonly ModuleInfo module;
     private readonly ExecutionEnvironment env;
-    private readonly string array;
-    // Each same-module Const already found to be a constant expression.
-    private readonly HashSet<VB6Parser.ConstSubStmtContext> checkedConsts = new();
+    // What is being checked, for a refusal's message ("d's bounds", "Const C's value"), and its verbs.
+    private readonly string subject;
+    private readonly string reads, calls;
 
-    private ModuleLevelBounds(BasicInterpreter interpreter, ModuleInfo module, ExecutionEnvironment env, string array)
+    private ModuleLevelBounds(BasicInterpreter interpreter, ModuleInfo module, ExecutionEnvironment env, string subject,
+        bool plural)
     {
         this.interpreter = interpreter;
         this.module = module;
         this.env = env;
-        this.array = array;
+        this.subject = subject;
+        (reads, calls) = plural ? ("read", "call") : ("reads", "calls");
     }
 
+    /// <summary>A module-level array's bounds, at its Dim.</summary>
     public static void Check(BasicInterpreter interpreter, ModuleInfo module, ExecutionEnvironment env,
         VB6Parser.SubscriptsContext bounds, VB6Parser.VariableSubStmtContext dim)
-        => new ModuleLevelBounds(interpreter, module, env, dim.ambiguousIdentifier().GetText())
+        => new ModuleLevelBounds(interpreter, module, env, dim.ambiguousIdentifier().GetText() + "'s bounds", plural: true)
             .Walk(bounds, inConst: false, position: dim.Start.TokenIndex);
+
+    /// <summary>
+    /// A module-level Const's value, as the Const runs and before it is evaluated. Every Const above it was checked
+    /// when it ran, so a same-module Const it names is a constant expression already, and the walk need go no deeper.
+    /// </summary>
+    public static void CheckConst(BasicInterpreter interpreter, ModuleInfo module, ExecutionEnvironment env,
+        VB6Parser.ConstSubStmtContext constant)
+        => new ModuleLevelBounds(interpreter, module, env, "Const " + constant.ambiguousIdentifier().GetText() + "'s value", plural: false)
+            .Walk(constant.valueStmt(), inConst: true, position: constant.Start.TokenIndex);
 
     // `position` is where the expression sits: a name it reads must be declared before it.
     private void Walk(IParseTree node, bool inConst, int position)
@@ -85,11 +98,10 @@ internal sealed class ModuleLevelBounds
     {
         if (module.PrePass.ModuleConsts.TryGetValue(name, out var constant))
         {
-            // A Const below, or the Const itself, is not yet a constant (measured: forward and self references).
+            // A Const below, or the Const itself, is not yet a constant (measured: forward and self references). One
+            // above was checked when it ran (CheckConst), so it is one.
             if (constant.Declaration.Start.TokenIndex >= position)
                 throw ConstantExpressionRequired();
-            if (checkedConsts.Add(constant.Declaration))
-                Walk(constant.Declaration.valueStmt(), inConst: true, position: constant.Declaration.Start.TokenIndex);
             return;
         }
         if (module.PrePass.Enums.Values.Any(members => members.ContainsKey(name)))
@@ -169,21 +181,21 @@ internal sealed class ModuleLevelBounds
         if (RefusedFunctions.Contains(function))
             throw ConstantExpressionRequired();
         throw new NotImplementedException(
-            $"{array}'s bounds call {name}. VB6 allows only some built-in functions in a module-level array's bounds, " +
+            $"{subject} {calls} {name}. VB6 allows only some built-in functions in a module-level array's bounds, " +
             "and HexIDE does not know whether this is one, so it does not size the array from it.");
     }
 
     private static VBCompileErrorException ConstantExpressionRequired() => new("Constant expression required");
 
     private NotImplementedException AnotherModulesConst(string name) => new(
-        $"{array}'s bounds read {name}, another module's Public Const. A module-level array is sized when its module's " +
+        $"{subject} {reads} {name}, another module's Public Const. A module's Consts and arrays are worked out as its " +
         "declarations run, and HexIDE does not read another module's Const there yet: unqualified it is not found, and " +
         "qualified it may not have been initialised (#880).");
 
     private NotImplementedException AnotherModulesEnumMember(string name) => new(
-        $"{array}'s bounds read {name}, a member of another module's Enum. HexIDE does not read another module's Enum " +
+        $"{subject} {reads} {name}, a member of another module's Enum. HexIDE does not read another module's Enum " +
         "member unqualified yet (#889). Qualify it with its Enum's name.");
 
     private NotImplementedException Unsupported(string text) => new(
-        $"{array}'s bounds read {text}, which HexIDE does not read in a module-level array's bounds.");
+        $"{subject} {reads} {text}, which HexIDE does not read in a module-level Const or array bound.");
 }
