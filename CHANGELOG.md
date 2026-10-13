@@ -41,8 +41,9 @@ there isn't one yet. Anything may change between 0.x releases.
   every operator, a Let, a ByVal argument for a typed parameter, every condition, bound and Case, `Randomize`,
   `Err.Raise`, `Error`, `ChDir`, `ChDrive`, the Mid statement, and every built-in function's value arguments.
   `TypeName` and `IsObject` still take the object, and `VarType` and the Is functions answer about it. A class
-  with a default member, which VB6 reads in all those places (bar a few where a Function default member gives 450
-  through a Variant), stops the run with a message saying class default members are not implemented yet (#174),
+  with a default member, which VB6 reads in all those places (bar a few, measured, where a Function default member
+  gives 450: `Format`, `Abs` and `Not` through a Variant, and in the IDE a Case value against an Empty selector), stops
+  the run with a message saying class default members are not implemented yet (#174),
   rather than an error `On Error Resume Next` would step over.
 - **`Err` used as a value is its `Number`**, as in VB6: `"Error " & Err`, `x = Err`, `Err + 1`. It was refused. App
   used as a value raises VB6's 438, where it printed a .NET type name (VB6 also empties a Variant `v` in `v = App`

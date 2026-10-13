@@ -147,7 +147,7 @@ public partial class VB6BuiltIns
 
     // A compare argument read as CLng reads it (banker's rounding, so 1.5 is 2 and 0.5 is 0), all measured for Filter:
     // Null is 94, Nothing 91, an array and a string that is not a number 13, and 3E+10 is 6. An object is read as it is
-    // converted. Nothing read as 0, a binary compare, and Err as an object.
+    // converted. It read Nothing as 0, a binary compare, and passed Err on as an object.
     private static long CompareArgument(Vb6Value compare) =>
         Convert.ToInt64(NarrowNum(compare, Vb6Value.ValueType.Long).Value);
 
@@ -162,7 +162,8 @@ public partial class VB6BuiltIns
         1 => StringComparison.OrdinalIgnoreCase,
         2 or < 0 => throw InvalidCall(),
         _ => throw new NotImplementedException(
-            $"A compare of {compare} is read by VB6 as a Windows locale identifier, which is not supported (#881)."),
+            $"A compare of {compare} is not supported. VB6 compares as text for some values from 3 up and raises 5 for " +
+            "others, consistently with reading them as Windows locale identifiers, and HexIDE cannot tell which (#881)."),
     };
 
     // Nothing is the Object type holding no reference (Vb6Value.Nothing).

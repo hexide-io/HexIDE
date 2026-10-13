@@ -192,13 +192,13 @@ public class ArrayFunctionsTests : BaseVBTestFixture
     [InlineData("3")]
     [InlineData("1033")]
     [InlineData("3000")]
-    public async Task Filters_compare_of_3_or_more_is_refused_because_VB6_reads_it_as_a_locale(string compare)
+    public async Task Filters_compare_of_3_or_more_is_refused(string compare)
     {
-        // Measured: a valid Windows locale identifier (3, 1033) compares as text in that locale, and an invalid one
-        // (3000) is 5. HexIDE cannot tell which is which (#881).
+        // Measured: 3 and 1033 compare as text, and 3000 is 5, consistent with VB6 reading them as Windows locale
+        // identifiers. HexIDE cannot tell which values VB6 accepts (#881).
         var run = () => Run($"Dim d(1) As String, r\nd(0) = \"Apple\"\nr = Filter(d, \"a\", True, {compare})\n");
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*locale*#881*");
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*compare of*not supported*#881*");
     }
 
     [Theory]

@@ -5738,11 +5738,12 @@ member is a **Property Get** rather than a Function:
 | `Not o` | 450 | -43, Long |
 | `wp + 1`, `"v=" & wp`, typed | | 43, "v=42" |
 
-So 450, "Wrong number of arguments or invalid property assignment", is what a Function default member gives on the
-paths that ask for the member **as a property**. A Property Get is one and answers 42; a Function is not one. Most
-paths ask in a way a Function satisfies, which is why only these few showed it. The IDE adds one such path: a Case value
-compared with an Empty or Null selector (below). HexIDE refuses every one of them, so no answer here can become a
-wrong value, and a default member that HexIDE later calls (#174) must reproduce the 450 for a Function there.
+So with a Function default member, `Format`, `Abs` and `Not` through a Variant give 450, "Wrong number of arguments or
+invalid property assignment", and a Property Get default member gives 42 and -43 on the same uses. Every other use in
+the two probes above gave the Function's value. The IDE adds one more use that gives 450: a Case value compared with an Empty or Null
+selector (below). The rows say which uses give 450, not why: no rule beyond them was measured. HexIDE refuses every one
+of them, so no answer here can become a wrong value, and a default member that HexIDE later calls (#174) must reproduce
+the 450 for a Function on those uses.
 
 **What it says.**
 - An object used as a value is its default member in every place this probe used one: a Let into any scalar or a
@@ -5959,12 +5960,12 @@ identical on every row, with `ee` an Empty Variant:
 | `Join("abc", Null)` | 13 |
 
 So the switch reads as `CBool` reads it, and the compare as a number. Round five read the 5 row as "any value but 0 is
-a text compare". **Round six overturned that** (below): 5 is a text compare only because 5 is a valid Windows locale
-identifier. Filter checks every argument for Null before it looks at the array, so a Null match beside a string is 94;
+a text compare". **Round six overturned that** (below): 5 is a text compare, and round six's rows are consistent with
+that being because 5 is a valid Windows locale identifier. Filter checks every argument for Null before it looks at the array, so a Null match beside a string is 94;
 Join looks at the array first, so a Null delimiter beside a string is 13. HexIDE read both as plain numbers, so an
 Empty switch or compare raised 13 and only 1 was a text compare; its Null compare was 13, and `Filter("abc", Null)`
-was 13. All now answer as above, except the compare of 5: round six found it a locale identifier, which HexIDE
-refuses (#881).
+was 13. All now answer as above, except the compare of 5, which HexIDE refuses as it refuses every value from 3 up
+(#881).
 
 **Filter's compare, and the order of its conversions, round six.** Measured as native code and in the IDE (`p24`, a
 Sub Main project), identical on every row. `d1` holds "Apple" and "pear", so a binary compare for "a" keeps only
@@ -6005,7 +6006,7 @@ compares an element with the match.
 
 **HexIDE, after round six.**
 - 0 is binary and 1 text; 2 and negative values are 5.
-- 3 and above are refused loudly, naming #881, because HexIDE can't tell which locale identifiers Windows accepts,
+- 3 and above are refused loudly, naming #881, because HexIDE can't tell which of those values VB6 accepts,
   and its text compare uses no locale.
 - Before, every value but 1 was binary.
 - The conversions run right to left, and the compare is checked only for an array that has elements.
@@ -6096,10 +6097,9 @@ object first, so each of the first rows is 438, or the refusal naming #174 for `
 
 **A default member on a typed variable, round five.** With `w` declared `As Widget`, whose default member is a
 Function returning 42, both modes: `Not w` is -43, a Long, and `CDate(w)` is 10/02/1900 (an en-GB guest). Through a
-Variant, `Not` of the same object raises 450 (above). So neither alone gives the 450. It needs a Function default
-member, since a Property Get default member through the same Variant answers 42 and -43; and it needs a path that asks
-for the member as a property: through a Variant here, since the typed `w` answers, or in the IDE a Case value compared
-with an Empty or Null selector, where the typed `w` gives it too (above).
+Variant, `Not` of the same object raises 450 (above). So the typed `w` answers where the Variant gave 450, and a
+Property Get default member answers through the Variant too (above). In the IDE, a Case value compared with an Empty or
+Null selector gives 450 for the typed `w` as well. The rows say which uses give 450, not why.
 
 **A Let of App into a typed target, round five.** Both modes, under Resume Next, with each target holding a value
 first:
@@ -6171,10 +6171,11 @@ Clipboard, Printer or Forms yet. Round three, on a form with a control array `Cm
 - a Let, a store into a declared scalar (`CoerceOnStore`), a ByVal argument for a declared scalar parameter;
 - every built-in function's arguments (`EvaluateBuiltInFunction`), once the name is found to be a built-in: an
   unknown name stays "Sub or Function not defined" whatever it is given. `TypeName`, `IsObject`, `IsMissing` and `Array`
-  take the argument itself, and so does the array that `LBound`, `UBound`, `Join` and `Filter` take first. `VarType` and
-  the Is functions refuse a class with a default member and answer about one without;
-- the numeric conversions' own coercion, which subscripts will use once #873 lands; nothing reaches it before the
-  dispatcher yet;
+  take the argument itself, and so does the array that `LBound`, `UBound`, `Join` and `Filter` take first. `Join`'s
+  delimiter and `Filter`'s match, switch and compare are passed on unread, for those functions to read in their own
+  order (round seven). `VarType` and the Is functions refuse a class with a default member and answer about one without;
+- the numeric conversions' own check (`RefuseNonScalar`, in `NarrowNum` and `CBool`), which reads an object wherever
+  the dispatcher has not: Filter's compare and switch now, and subscripts once #873 lands;
 - the conditions of `If`, `ElseIf`, `While` and `Do`, a For bound and step, `Select Case`, a Case value, a range's
   bounds and a `Case Is` value;
 - `Debug.Print`, `Randomize`, `Err.Raise`, `Error`, `ChDir`, `ChDrive`, and the Mid statement's start and length;
