@@ -354,7 +354,8 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   reports a line in its own code view, every `Attribute` line excluded, and that number is converted where the
   log is parsed and nowhere else ([the measurement](vb6-fidelity-oracle.md)).
 - **Status:** **by design** (#273 tasks 3.6 and 3.16). A sidecar written before the change counts from the
-  first line of code; carrying it forward is task 3.17.
+  first line of code, and is migrated as its project opens, each mark moved down onto the statement it was set
+  on (task 3.17).
 
 ### D24. No breakpoint or bookmark on a header line or a member's `Attribute` line
 - **VB6:** the case could not arise: those lines were not in the code window.

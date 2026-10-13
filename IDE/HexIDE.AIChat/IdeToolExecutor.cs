@@ -125,7 +125,7 @@ public sealed class IdeToolExecutor(IHexIdeHost host)
     /// one asked for before answering. Without that check it answered with whatever window was in front, which
     /// for a file already open in a background tab was a different file under the name the model asked for
     /// (hexide-io/HexIDE#273 task 3.19 review). Reading this way also moves the caret to the file's first line.
-    /// A member that reads by name would do neither; that is filed as an issue, see the #273 thread.
+    /// A member that reads by name would do neither; that is hexide-io/HexIDE#887.
     /// </remarks>
     private async Task<string> GetFileContentAsync(JsonObject? args)
     {

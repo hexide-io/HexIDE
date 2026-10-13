@@ -66,7 +66,17 @@ there isn't one yet. Anything may change between 0.x releases.
   code window's protection.
 - **No breakpoint or bookmark can be set on a file's header or a procedure's `Attribute` lines**, by F9,
   Ctrl+F2, a click in either margin or an automation client; the status bar says why. Those lines never run.
-  One already there can still be removed.
+  One already there can still be removed, and one found there among a project's saved marks is dropped as the
+  project opens, with a note in the log.
+- **Bookmarks and breakpoints saved by an earlier HexIDE stay on the statements they were set on.** They were
+  counted from the first line of code and now count from the top of the file, so the file a project keeps them
+  in (`<project>.user.hexproj`) is migrated as the project opens and rewritten once, as version 2, with the
+  marks under new keys, `fileBookmarks` and `fileBreakpoints`. A mark for a document whose file is missing is
+  kept as it is, and moved by the first opening that finds the file. A mark the old code window allowed on what
+  is now a read-only line, such as a form's `Attribute VB_Name`, is dropped instead. **Going back to an earlier
+  HexIDE afterwards costs those marks:** it shows none of a migrated file's bookmarks or breakpoints, and HexIDE
+  0.2.0 and earlier delete them the next time they write that file, which saving the project or setting or
+  clearing any mark does.
 - **Editing code while a program is paused asks about resetting it only when the edit actually lands.** A
   keystroke in the header writes nothing and no longer asks, and nor does a change made in the form designer.
   Paste, cut and deleting a selection now do ask: until now they slipped past the prompt by every route, the

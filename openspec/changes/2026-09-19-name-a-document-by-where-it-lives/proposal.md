@@ -57,7 +57,9 @@ nothing to map.
   debugger and Call Stack, the automation surface and the add-in surface. The interpreter is given the whole
   file, so its line numbers are the editor's with no conversion.
 - **A one-time sidecar migration** re-keys existing breakpoints and bookmarks and moves them down by however
-  many lines now sit above the old first line, so they stay on the same statements.
+  many lines now sit above the old first line, so they stay on the same statements. A mark the old window
+  allowed on a line that is now read-only, a form's leading `Attribute` lines or a member's, is dropped and
+  logged instead.
 
 ## What this change does not do
 

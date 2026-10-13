@@ -1846,7 +1846,7 @@ loaded projects share. `get_debug_state` and `get_call_stack` carry the running 
 module names. **Still not every reply:** a tool that reports or acts on a document without taking its name does
 not name its project yet. That is the run-control replies' "Paused at" note, `get_locals`' and the watches'
 `context`, the designer undo, redo and format tools, which act on the active designer, and the tab tools, which
-take and report a tab's title. Filed as an issue, see the #273 thread. `uri` is now explained where it is
+take and report a tab's title. Filed as #886. `uri` is now explained where it is
 returned (`get_bookmarks`, `get_breakpoints`, `get_diagnostics`): it is the name a language server knows the
 document by, its `file:` URI, or `untitled:<project>/<name>.<ext>` before it has a file. Until now its only
 explanation was a code comment, which no caller can read. The delta's scenario, a breakpoint set in `form1` of a

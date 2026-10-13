@@ -73,10 +73,11 @@ public static class MarkLineRules
     /// The <paramref name="lines"/> that are lines of the document, and those that are not.
     /// </summary>
     /// <remarks>
-    /// Range only, and for the sidecar's load. A sidecar written before the code window held the whole file
-    /// counts its lines from the first line of code, so a read-only test made here, in file lines, would drop a
-    /// breakpoint on a form's fifth line of code because the designer block has a fifth line. Moving those
-    /// lines is the sidecar migration's job (#273 task 3.17), and it has to come first.
+    /// Range only, and for the sidecar's load, which asks it twice for a sidecar written before the code window
+    /// held the whole file: once over a document's code, in the numbering those lines were written in, before the
+    /// migration moves them (#273 task 3.17), and once over the whole file for lines already counted that way. The
+    /// read-only test is the load's own, made after the move: made in the old numbering it would judge a form's
+    /// fifth line of code by the designer block's fifth line.
     /// </remarks>
     public static (IReadOnlyList<int> Kept, IReadOnlyList<int> Dropped) Within(
         CodeWindowText text, IReadOnlyCollection<int> lines, int first)
