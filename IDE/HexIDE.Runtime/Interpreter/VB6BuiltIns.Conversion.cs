@@ -11,16 +11,19 @@ public partial class VB6BuiltIns
 {
     private static void RegisterConversion(Dictionary<string, BuiltinFn> d)
     {
-        d["CByte"] = (_, a, _) => NarrowNum(a[0], VT.Byte);
-        d["CInt"]  = (_, a, _) => NarrowNum(a[0], VT.Integer);
-        d["CLng"]  = (_, a, _) => NarrowNum(a[0], VT.Long);
-        d["CSng"]  = (_, a, _) => NarrowNum(a[0], VT.Single);
-        d["CDbl"]  = (_, a, _) => NarrowNum(a[0], VT.Double);
-        d["CCur"]  = (_, a, _) => NarrowNum(a[0], VT.Currency);
+        // Each returns its type fixed, as a declared variable reads (see Vb6Value.HasFixedType). Measured: `CInt(v) * 7000`
+        // is 6 with v holding 5, and `Select Case CStr(v)` with v holding "10" is not `Case Is > 9`. CDec's result is a
+        // Variant in VB6, which has no Decimal declaration, so it is not.
+        d["CByte"] = (_, a, _) => NarrowNum(a[0], VT.Byte).AsFixedType();
+        d["CInt"]  = (_, a, _) => NarrowNum(a[0], VT.Integer).AsFixedType();
+        d["CLng"]  = (_, a, _) => NarrowNum(a[0], VT.Long).AsFixedType();
+        d["CSng"]  = (_, a, _) => NarrowNum(a[0], VT.Single).AsFixedType();
+        d["CDbl"]  = (_, a, _) => NarrowNum(a[0], VT.Double).AsFixedType();
+        d["CCur"]  = (_, a, _) => NarrowNum(a[0], VT.Currency).AsFixedType();
         d["CDec"]  = (_, a, _) => NarrowNum(a[0], VT.Decimal);
-        d["CBool"] = (_, a, _) => CBool(a[0]);
-        d["CStr"]  = (_, a, _) => a[0].IsNull ? throw InvalidUseOfNull() : new Vb6Value(AsStr(a[0]));   // no leading space
-        d["CDate"] = (_, a, _) => CDate(a[0]);
+        d["CBool"] = (_, a, _) => CBool(a[0]).AsFixedType();
+        d["CStr"]  = (_, a, _) => a[0].IsNull ? throw InvalidUseOfNull() : new Vb6Value(AsStr(a[0])).AsFixedType();   // no leading space
+        d["CDate"] = (_, a, _) => CDate(a[0]).AsFixedType();
         d["Hex"]   = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(RadixStr(a[0], 16));
         d["Oct"]   = (_, a, _) => a[0].IsNull ? Vb6Value.Null : new Vb6Value(RadixStr(a[0], 8));
     }

@@ -2786,6 +2786,12 @@ could be widened. 30 cases; the result is a single rule with one genuinely surpr
 
 > **VB6 coerces the CASE EXPRESSION to the SELECTOR's runtime type, then compares.**
 
+> **Corrected 2026-10-13, #839's review round two:** for a selector with a FIXED type only, a declared
+> variable, a literal, a typed Function, parameter, field or array element, or an expression of those. Every
+> selector measured here was declared, apart from an unassigned Variant, so the rule was written for every
+> selector. A Variant selector holding a value converts nothing: a Variant 2 does not match `Case 1.7`, and a
+> Variant 1 does not match `Case "1.0"`. See *A typed selector and a Variant one*.
+
 It does *not* compare numerically, and it is not symmetric. Two measurements settle it, and they disagree
 with each other under any numeric reading:
 
@@ -2803,7 +2809,9 @@ Everything else follows from it and was confirmed rather than assumed: a `Long` 
 Integer literal; an `Integer` selector matches `1&`; `Double`, `Currency`, `Date` and `Boolean` selectors all
 participate (`True` matches `Case -1`, a Date of serial 2 matches `Case 2`); an unassigned Variant matches
 `Case 0`; the first of two matching arms wins; and a selector that is an *expression* is judged on its
-runtime type, not its declared one.
+runtime type, not its declared one. (**Corrected 2026-10-13:** an expression's type is fixed when its operands'
+are, as `i + 1` is with a declared `i`, and a Variant when one is a Variant, as `v + 1` is; a Variant one
+converts nothing. See *A typed selector and a Variant one*.)
 
 ### A failed coercion RAISES — it is not a non-match
 
@@ -5804,13 +5812,16 @@ So each of start, limit and step is converted as a store into the counter would 
 overflow, 13 for text that is not a number) as it is evaluated, and a conversion that raises is a raised header. A
 Byte counter cannot step down at all.
 
-**A Case Is or To value converts into the selector's type**, as an equality Case's does (see *Select Case matching*):
+**A Case Is or To value converts into the selector's type**, as an equality Case's does (see *Select Case matching*).
+**Corrected in review round two:** into a TYPED selector's type. Each selector below is a literal or a declared variable
+except the Variant in the third row, whose answer the two rules share; a Variant selector converts nothing, and the
+section *A typed selector and a Variant one* has its rules.
 
 | Selector | Case | VB6 |
 |---|---|---|
 | 5 | `Is > "abc"`; `"a" To "z"`; `1 To "x"`; `Is = "abc"`; `Is > v`, `v` a Variant holding `"abc"` | that Case, Err 13 |
 | 5 | `Is > "3"` | that Case |
-| `"abc"`, a String variable or a Variant holding it | `Is > 5` | that Case: 5 becomes `"5"` |
+| `"abc"`, a String variable or a Variant holding it | `Is > 5` | that Case: 5 becomes `"5"` against the two typed ones, and the Variant is above any number (round two) |
 | `"10"`; a String `"9"` | `Is > 9`; `Is < 10` | Case Else: text against text |
 | 2 | `Is < 2.4`; `Is < 2.6`; `1.6 To 1.9`; `2.6 To 3` | Else; that Case; that Case; Else |
 | a Currency 2 | `Is < 2.00004` | Case Else |
@@ -5843,6 +5854,8 @@ P-code does not do it, and HexIDE follows p-code.
   selector with constant Cases.
 - A `Case Is` or `To` value converts into the selector's type before it is compared (review round one), so a value it
   cannot convert raises, and runs its own Case under Resume Next. It was compared as it was, and matched nothing.
+  Review round two limited that to a typed selector, and compares a Variant one as VB6 compares Variants; see *A typed
+  selector and a Variant one*.
 
 **For.**
 - A header that raises runs the body once, then carries on by the p-code model above. A Variant counter raises 92 at
@@ -5856,8 +5869,11 @@ P-code does not do it, and HexIDE follows p-code.
   store uses, so an overflow or a text that is not a number is a raised header, and a fractional bound rounds into an
   Integer or Long counter. A typed parameter's slot now records its numeric type, as a Dim's does, so it is a typed
   counter and a store into it converts.
-- A fractional start, limit or step for a Single, Double or Currency counter is refused as not implemented. It used to
-  raise a trappable 13, which Resume Next stepped over, skipping the loop without a word.
+- A start, limit or step still fractional after its conversion into the counter's type is refused as not implemented,
+  and untrappably. That is any counter that keeps a fraction: a Single, Double, Currency or Date one, and a Variant or
+  undeclared one, which is the common `For x = 0 To 1 Step 0.25`. Main raised a trappable 13 for every fractional For,
+  which Resume Next stepped over, skipping the loop without a word. Neither is VB6's answer, and this one says so (#983).
+- A raised header with a String or Boolean counter is refused, since VB6 was not measured there (#984).
 
 **For Each.**
 - An unallocated array raises 92, Nothing 424, and any other non-object value 13, each at the statement. The first used
@@ -5872,6 +5888,160 @@ P-code does not do it, and HexIDE follows p-code.
 
 **Not changed: On Error GoTo, then `Resume Next` in the handler.** HexIDE resumes after the whole statement at the
 procedure's top level. That is the tree-walk limit for nested-granular `Resume`, recorded in `interpreter-gaps.md`.
+
+
+## A typed selector and a Variant one (2026-10-13, #839 review round two)
+
+**The question.** Review round one made a `Case Is` or `To` value convert into the selector's type, as an equality
+Case's does, and measured it with 20 rows. Every selector in them was a literal or a declared variable except one
+Variant holding a string, whose answer the two rules share. The review of that round ran the same programs on main and
+on the head and found 14 results changed, every one away from VB6: a Variant holding 5 was no longer `Case Is < 5.4`,
+and `Case Is > "a"` against it stopped the run with 13. So: which selectors convert, and how does VB6 compare the ones
+that do not?
+
+**The probe.** Seven Sub Main projects, 111 rows. Each row is its own Sub under `On Error Resume Next`, writing the arm it
+took and `Err.Number`, so no row's error reaches the next. Built as native code and as p-code, and the first six p-code
+projects run in the IDE, as described under "What a condition is": **all three agree on every row.** The seventh, six
+rows pinning Empty as `""` against text, was added when a mutant that read it as `" "` survived, and was built as native
+code and as p-code only, the two agreeing. `SelectCaseMatchingTests` generates its rows from these probes and their
+logs, so its expectations are not transcribed.
+
+### What decides it is the selector's type
+
+A selector with a fixed type converts each Case value into it, as a store would (*Select Case matching*). A Variant
+converts nothing. Against 5, `Case Is < 5.4`:
+
+| Selector, holding 5 | VB6 |
+|---|---|
+| `Dim v As Integer`; the literal `5`; `i + 1`, `Dim i As Integer` holding 4 | Case Else: typed |
+| `F()`, a Function `As Integer`; `CInt(v)`; `ByVal p As Integer` | Case Else: typed |
+| `a(0)`, `Dim a(1) As Integer`; `u.n`, a Type's `n As Integer`; `o.N`, a class's `Public N As Integer` | Case Else: typed |
+| `Dim v`; `v = CLng(5)`; `CVar(5)` | that Case: a Variant |
+| `v + 1`, `v` holding 4; `i + v`, `i` an Integer 4 and `v` a Variant 1 | that Case: a Variant |
+| `v(0)`, `Dim v(1)`; `u.x`, a Type's `x As Variant`; `o.V`, a class's `Public V As Variant` | that Case: a Variant |
+| `FV()`, a Function with no `As` | that Case: a Variant |
+
+The same holds for text. Holding `"10"`, `Select Case "10"`, a Function `As String`, `CStr(v)`, `Mid$("10", 1)` and a
+`ByVal s As String` are not `Case Is > 9`, compared as text; `Mid("10", 1)` is, a Variant. A `ByVal b As Boolean`
+holding False is not `Case Is < 1`.
+
+**Arithmetic agrees**, since it reads the same type (#122): `F() * 7000`, `CInt(v) * 7000`, `a(0) * 7000`,
+`u.n * 7000` and `o.N * 7000` are all 6, Overflow, and `v(0) * 7000`, `u.x * 7000`, `o.V * 7000` and
+`CVar(5) * 7000` are all 35000.
+
+### A Variant selector against a typed Case value
+
+A literal, a declared variable or a typed Function's result. The selector is read as that value's type.
+
+| Selector | Case | VB6 |
+|---|---|---|
+| a Variant 5 | `Is < "10"`; `Is > "a"`; `"a" To "c"`; `Case "abc"` | Case Else, each: text, `"5"` |
+| a Variant 5 | `Is < "a"`; `Is = "5"`; `Is <> "abc"` | that Case, each: text |
+| a Variant 10; 100 | `Is > "9"` | Case Else, both: text |
+| a Variant 1 | `Case "1.0"` | Case Else: text |
+| a Variant 0 | `Is <> "abc"` | that Case |
+| a Variant 5, against `Dim w As String` holding `"10"` | `Is < w` | Case Else: text |
+| a Variant 5, against `FS()`, a Function `As String` returning `"10"` | `Is > FS()` | that Case: text |
+| a Variant True | `Case "True"`; `Case "-1"` | that Case; Case Else: True is written `"True"` |
+| a Variant `"3"`; `"10"`; `"10"` | `Is < 9`; `Is > 9`; `Is < 9` | that Case; that Case; Case Else: a number |
+| a Variant `"3"`, against `Dim k As Integer` holding 9 | `Is > k` | Case Else: a number |
+| a Variant `"2.5"`; `"2.6"`; `"70000"` | `Case 2`; `Is < 3`; `Is > 5` | Case Else; that Case; that Case: not rounded into the Integer, and no Overflow |
+| a Variant `"1.0"`; `"2.5"`; `"5"` | `Case 1`; `Case 2.5`; `Case 5&` | that Case, each |
+| a Variant `"0.5"`; `"1.5"` | `Is < 1`; `Is > 1` | that Case, both |
+| a Variant `"abc"` | `Is > 5`; `Is < 5`; `Case 5` | that Case; Case Else; Case Else: above any number, Err 0 |
+| a Variant `"True"` | `Case -1`; `Is < 0` | Case Else, both: not a number, so above |
+| a Variant `"1/2/1900"` | `Is < 5` | Case Else: not read as a date |
+| a Variant `"True"`; `"-1"`; `"5"` | `Case True` | that Case, each: read as CBool reads it |
+| a Variant `"abc"` | `Case True` | Case Else, Err 0 |
+| a Variant 2 | `Case 1.7`; `Is = 1.7` | Case Else, both: numbers compared as they are |
+| a Variant 5.5; 2.5 | `Is < 6`; `Case 2` and `2 To 2` | that Case; Case Else: not rounded either |
+| a Variant True; False | `Is < 0`; `Is < 1` | that Case, both: -1 and 0 |
+| a Variant True | `Case 1`; `Case -1` | Case Else; that Case |
+| a Variant 5 | `Is > True` | that Case |
+| a Variant Date `#1/2/1900#` | `Is > 2` | that Case: its serial, 3 |
+
+### A Variant selector against a Variant Case value
+
+Any number is below any string, whether or not the string reads as a number. Each `w` here is an undeclared Variant.
+
+| Selector | `w` | Case | VB6 |
+|---|---|---|---|
+| 10 | `"9"` | `Is > w` | Case Else |
+| 5 | `"10"`; `"abc"` | `Is < w` | that Case, both |
+| `"10"`; `"abc"` | 9; 5 | `Is > w` | that Case, both |
+| `"3"` | 9 | `Is < w` | Case Else |
+| 5; `"5"` | `"5"`; 5 | `Case w` | Case Else, both |
+| 5 | 5 | `Case w` | that Case |
+
+A typed selector converts a Variant Case value as it converts a literal: `Dim n As Integer` holding 5 matches `Case w`
+with `w` holding `"5"`, and `Dim s As String` holding `"5"` matches it with `w` holding 5.
+
+### Empty, Null and Booleans
+
+| Selector | Case | VB6 |
+|---|---|---|
+| 5; `"a"` | `Is > w`, `w` Empty | that Case, both: 0 and `""` |
+| 0 | `Case w`, `w` Empty | that Case |
+| 5; `"abc"`; `" "` | `Is > Empty` | that Case, each |
+| `""` | `Is < Empty` | Case Else: `""` is not below `""` |
+| Empty | `Case ""`; `Is < " "` | that Case, both: Empty is `""` |
+| `""`; `" "` | `Case w`; `Is > w`, `w` Empty | that Case, both |
+| Null | `Case Null`; `Is < 1`; `Is <> 1` | Case Else, each: Null is equal to, below, above and different from nothing |
+
+A Boolean is -1 or 0, so **True is below False**:
+
+| `Dim b As Boolean` | Case | VB6 |
+|---|---|---|
+| False | `Is < 1` | Case Else: 1 is True, which is below |
+| True | `Is < 0`; `Is < False` | that Case, both |
+| False | `Is > True` | that Case |
+| True | `3 To 6`; `Is >= 5.6`; `Is <= 4.6`; `4.6 To 5.4`; `Case 5` | that Case, each: each converts to True |
+| True | `Is > "a"` | that Case, Err 13 |
+
+### Err across a procedure (for #877)
+
+Read in passing, since the probe gives each row its own Sub. A Sub under `On Error Resume Next` that raises 11 and then
+returns leaves `Err.Number` at 11 in its caller, and the next Sub still reads 11 until its own `On Error Resume Next`,
+which clears it to 0. A Sub whose `On Error GoTo` handler ran to `End Sub` leaves 0. HexIDE gives 11 in both places.
+
+### What was overturned, and what resisted explanation
+
+**Overturned, both ours.**
+- **The 2026-09-03 rule:** "VB6 coerces the CASE EXPRESSION to the SELECTOR's runtime type". It was measured on declared
+  selectors and one unassigned Variant, and written for every selector.
+- **Round one's extension of it to `Is` and `To`:** measured on literal selectors, its 20 rows agreed with it.
+- **Main's accidental answers:** a String compared with a number matched nothing on main. That happens to be VB6's
+  answer for `Is > "a"` against a Variant 5, so main was right there for the wrong reason, and so were the four rows
+  this round would have broken had a typed Function, `CStr` and String parameters not been made typed with it.
+
+**Resisted explanation.** A Variant string against a typed Boolean is read as CBool reads it: `"True"`, `"-1"` and
+`"5"` all equal True. Against a typed number the same string is parsed as a number, so `"True"` does not equal -1. That
+fits every row and is not a mechanism understood. A Variant `"1/2/1900"` is not read as a date against a number;
+against a typed Date it was not run.
+
+### HexIDE, after round two
+
+- **Which rule.** `ForSelector` converts a Case value into a typed selector's type, and into nothing else. A Variant
+  selector goes to `CompareAsVariants`, which has the rules above. `CompareCase` serves `Is`, `To`, an equality Case and
+  `Is <>`. The equality Case had the 2026-09-03 rule for every selector too, so a Variant 2 matched `Case 1.7`; it
+  shares the comparison now. A `To`'s two bounds are both converted before either is compared, as before.
+- **A Boolean compares as -1 and 0** (`Vb6Value.TryCompareTo`). It compared as .NET's False below True.
+- **Where the type comes from.** A value's type is taken where it is read, from what holds it, which is arithmetic's
+  rule as much as this one's (`Vb6Value.HasFixedType`). Typed now:
+  - a typed Function's or Property Get's result;
+  - the conversion functions, `CByte` to `CStr` and `CDate`, but not `CDec`, whose result is a Variant in VB6;
+  - a typed array's element, from the array's element type;
+  - a typed Type field, from the Type's declaration;
+  - a String, Boolean or Date parameter whose value already has its type (#874 still owes the conversion of one that
+    does not).
+
+  A Variant array element or Type field holding a literal had kept the literal's type, so it overflowed where VB6
+  widens. A typed Function's result and `CInt`'s widened where VB6 overflows.
+- **Not run here:** `Mid$` (#742) and `CVar`, which HexIDE does not have.
+- **Not measured, and so not claimed:**
+  - the result type of the other intrinsics (#985);
+  - a Variant holding a typed array, whose elements HexIDE reads as the array's type;
+  - a Type field's store, which is still not converted (#221).
 
 ## Attribute lines inside a procedure (2026-10-12, #832)
 

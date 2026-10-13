@@ -32,8 +32,9 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
                 return ((DateTime)Value!).CompareTo((DateTime)other.Value!);
             if (Type == ValueType.String)
                 return String.Compare((string)Value!, (string)other.Value!, StringComparison.Ordinal);
+            // True is -1 and False 0, so True is the lower: measured, #839, a Boolean True is `Case Is < False`.
             if (Type == ValueType.Boolean)
-                return ((bool)Value!).CompareTo((bool)other.Value!);
+                return ((bool)Value! ? -1 : 0).CompareTo((bool)other.Value! ? -1 : 0);
             return null;
         }
 
@@ -88,8 +89,15 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     /// sub-expressions — `(a + 0) * 3` with a declared `a` still raises Err 6, which is why this rides on
     /// the value rather than being looked up at the operator.
     ///
-    /// Deliberately NOT part of Equals or GetHashCode: 30000 equals 30000 however it was obtained, and
-    /// nothing outside arithmetic may branch on this.
+    /// Deliberately NOT part of Equals or GetHashCode: 30000 equals 30000 however it was obtained. Arithmetic
+    /// is one observer and Select Case the other: a Case value is converted into a fixed selector's type and
+    /// not into a Variant's, so against a declared 5 `Case Is < 5.4` does not match and against a Variant 5 it
+    /// does (measured, #839). Nothing else may branch on this.
+    ///
+    /// The flag is set where the value is read, from what holds it, not carried from where it came: a declared
+    /// variable or a typed field, parameter, array element or Function result is fixed, and a Variant one is
+    /// not, whatever was stored in it (measured: `v(0) * 7000` with a Variant array holding the literal 5 is
+    /// 35000, and `F() * 7000` with `F` declared `As Integer` returning 5 is 6).
     /// </summary>
     public readonly bool HasFixedType;
 
@@ -481,7 +489,9 @@ public class VBArray
             arr = ((object[])arr)[i - bounds[index1].lbound];
         }
 
-        return (Vb6Value)arr;
+        // The element type decides whether the element is fixed, as a variable's slot does (see HasFixedType).
+        var element = (Vb6Value)arr;
+        return elementType is { } et && VbNumeric.IsDeclarableScalar(et) ? element.AsFixedType() : element.AsVariantSubtype();
     }
 
     public void SetValue(IReadOnlyList<int> index, Vb6Value val)
@@ -497,8 +507,8 @@ public class VBArray
 
         // Coerce to the DECLARED element type, the same way a declared scalar variable does — `Dim a(1 To 3)
         // As Long : a(1) = 5` holds a Long, and `a(2) * 3` widens like a Long rather than overflowing an
-        // Integer (measured). elementType is null for `Dim a()` and for Array()/Split() results, which are
-        // Variant arrays and take the value unchanged.
+        // Integer (measured). A Variant array, `Dim a()` or Array()'s result, takes the value unchanged; Split's
+        // result is a String array.
         if (elementType is { } et && VbNumeric.IsDeclarableScalar(et))
             val = VbNumeric.CoerceOnStore(val, et, null);
 

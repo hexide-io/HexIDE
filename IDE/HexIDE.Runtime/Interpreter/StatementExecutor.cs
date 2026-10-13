@@ -1528,22 +1528,22 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             var val = await expressionExecutor.EvaluateScalar(caseIs.valueStmt());
             if (caseIs.comparisonOperator().LT() != null)
             {
-                if (value.TryCompareTo(AsSelector(value, val, caseIs)) is < 0)
+                if (CompareCase(value, ForSelector(value, val, caseIs)) is < 0)
                     return true;
             }
             else if (caseIs.comparisonOperator().LEQ() != null)
             {
-                if (value.TryCompareTo(AsSelector(value, val, caseIs)) is <= 0)
+                if (CompareCase(value, ForSelector(value, val, caseIs)) is <= 0)
                     return true;
             }
             else if (caseIs.comparisonOperator().GT() != null)
             {
-                if (value.TryCompareTo(AsSelector(value, val, caseIs)) is > 0)
+                if (CompareCase(value, ForSelector(value, val, caseIs)) is > 0)
                     return true;
             }
             else if (caseIs.comparisonOperator().GEQ() != null)
             {
-                if (value.TryCompareTo(AsSelector(value, val, caseIs)) is >= 0)
+                if (CompareCase(value, ForSelector(value, val, caseIs)) is >= 0)
                     return true;
             }
             else if (caseIs.comparisonOperator().EQ() != null)
@@ -1553,7 +1553,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             }
             else if (caseIs.comparisonOperator().NEQ() != null)
             {
-                if (!CaseMatches(value, val, caseIs))
+                if (CaseDiffers(value, val, caseIs))
                     return true;
             }
             else if (caseIs.comparisonOperator().IS() != null)
@@ -1575,9 +1575,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         }
         else if (subCond is VB6Parser.CaseCondExprToContext caseTo)
         {
-            var from = AsSelector(value, await expressionExecutor.EvaluateScalar(caseTo.valueStmt(0)), caseTo);
-            var to = AsSelector(value, await expressionExecutor.EvaluateScalar(caseTo.valueStmt(1)), caseTo);
-            if (value.TryCompareTo(from) is >= 0 && value.TryCompareTo(to) is <= 0)
+            // Both bounds are converted before either is compared, so a bound that cannot convert raises even when the
+            // other has already ruled the selector out.
+            var from = ForSelector(value, await expressionExecutor.EvaluateScalar(caseTo.valueStmt(0)), caseTo);
+            var to = ForSelector(value, await expressionExecutor.EvaluateScalar(caseTo.valueStmt(1)), caseTo);
+            if (CompareCase(value, from) is >= 0 && CompareCase(value, to) is <= 0)
             {
                 return true;
             }
@@ -1601,55 +1603,115 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private async Task<ControlFlow> RunCaseBody(VB6Parser.SC_CaseContext @case)
         => @case.block() is { } body ? await Visit(body) : ControlFlow.Nothing;
 
-    /// <summary>Does a case expression match the selector?
-    ///
-    /// <para>
-    /// VB6 coerces the CASE VALUE to the SELECTOR's runtime type and then compares — it does not compare
-    /// numerically, and it is not symmetric. Both halves are measured (see <i>Select Case matching</i> in
-    /// docs/vb6-fidelity-oracle.md): a <c>String</c> selector holding <c>"1.0"</c> does NOT match
-    /// <c>Case 1</c>, because <c>CStr(1)</c> is <c>"1"</c>; a <c>Long</c> selector holding 2 DOES match
-    /// <c>Case 1.7</c>, because <c>CLng(1.7)</c> is 2. Comparing numerically would get both backwards.
-    /// </para>
-    ///
-    /// <para>
-    /// That rule is <see cref="VbNumeric.CoerceOnStore"/> exactly — VB6's coercion-on-store and its
-    /// Select Case comparison are one rule — so this reuses it rather than restating it, and inherits its
-    /// already-pinned edges: a failed coercion RAISES rather than failing to match (<c>Case 40000</c>
-    /// against an <c>Integer</c> selector is Err 6, <c>Case "abc"</c> against a <c>Long</c> one is Err 13),
-    /// while coercion toward a <c>String</c> selector cannot fail and so never raises.
-    /// </para>
-    ///
-    /// <para>
-    /// NB the <c>=</c> operator is a DIFFERENT rule: <c>"1.0" = 1</c> is True in VB6 while the
-    /// corresponding Select Case is not. Sharing a comparison helper between the two would be wrong, and
-    /// was the obvious thing to do.
-    /// </para></summary>
     /// <summary>
-    /// A <c>Case Is</c> or <c>Case x To y</c> value, converted into the selector's type before it is compared, as an
-    /// equality Case's is (<see cref="CaseMatches"/>). Measured, native and p-code: against a selector of 2, <c>Is &lt; 2.4</c>
-    /// does not match and <c>1.6 To 1.9</c> does; against 5, <c>Is &gt; "abc"</c> and <c>"a" To "z"</c> raise 13, where
-    /// HexIDE compared and matched nothing; against a String selector a number becomes text, so <c>"10"</c> is not
-    /// <c>Is &gt; 9</c>. A selector that is not a declared scalar type (Empty, Null) is compared as before.
+    /// The Case value as the comparison takes it. A selector with a FIXED type, a declared variable, a literal, a typed
+    /// Function, parameter, field or array element, or an expression of those (<see cref="Vb6Value.HasFixedType"/>), has
+    /// the Case value converted into its type, as a store into a variable of that type converts it, so a value that will
+    /// not convert raises (see <i>Select Case matching</i> in docs/vb6-fidelity-oracle.md): against a declared Long 2,
+    /// <c>Case 1.7</c> matches, <c>Is &lt; 2.4</c> does not, and <c>Is &gt; "abc"</c> is 13. A Variant selector takes the
+    /// Case value as it is, and <see cref="CompareAsVariants"/> has the rules for that.
     /// </summary>
-    private static Vb6Value AsSelector(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx) =>
-        selector.Type != Vb6Value.ValueType.EmptyVariant && VbNumeric.IsDeclarableScalar(selector.Type)
-            ? VbNumeric.CoerceOnStore(caseValue, selector.Type, ctx)
-            : caseValue;
+    private static Vb6Value ForSelector(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx) =>
+        HasFixedScalarType(selector) ? VbNumeric.CoerceOnStore(caseValue, selector.Type, ctx) : caseValue;
 
-    private static bool CaseMatches(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx)
+    /// <summary>How the selector compares with a Case value <see cref="ForSelector"/> has prepared: below zero, zero or above
+    /// zero, or null where the two are not ordered, which matches no test.</summary>
+    private static int? CompareCase(Vb6Value selector, Vb6Value prepared) =>
+        HasFixedScalarType(selector) ? selector.TryCompareTo(prepared) : CompareAsVariants(selector, prepared);
+
+    private static bool HasFixedScalarType(Vb6Value v) => v.HasFixedType && VbNumeric.IsDeclarableScalar(v.Type);
+
+    /// <summary>Whether an equality Case, <c>Case x</c> or <c>Case Is = x</c>, matches the selector.
+    ///
+    /// <para>
+    /// NB the <c>=</c> operator is a DIFFERENT rule: <c>"1.0" = 1</c> is True in VB6 while the corresponding Select Case
+    /// on a String selector is not. Sharing a comparison helper between the two would be wrong, and was the obvious thing
+    /// to do.
+    /// </para></summary>
+    private static bool CaseMatches(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx) =>
+        CompareCase(selector, ForSelector(selector, caseValue, ctx)) is 0;
+
+    /// <summary><c>Case Is &lt;&gt; x</c>. Null differs from nothing (measured: a Null selector is not <c>Is &lt;&gt; 1</c>).
+    /// An object, array or UDT against a Variant selector is compared for identity, as it was before any of this was
+    /// measured.</summary>
+    private static bool CaseDiffers(Vb6Value selector, Vb6Value caseValue, ParserRuleContext ctx) =>
+        !HasFixedScalarType(selector) && (KindOf(selector) == CaseKind.Other || KindOf(caseValue) == CaseKind.Other)
+            ? !selector.Equals(caseValue)
+            : CompareCase(selector, ForSelector(selector, caseValue, ctx)) is { } order && order != 0;
+
+    /// <summary>
+    /// A Variant selector against a Case value, neither converted into the other's type. Measured, native and p-code, #839
+    /// (docs/vb6-fidelity-oracle.md, <i>A Variant selector</i>):
+    /// <list type="bullet">
+    /// <item>Against a TYPED Case value, a literal, a declared variable or a typed Function's result, the selector is read
+    /// as that type. Against a String it is text, so 5 is not <c>Is &lt; "10"</c> and <c>Is = "5"</c> matches. Against a
+    /// number it is a number, a string selector parsed as one without rounding, so "3" is <c>Is &lt; 9</c> and "2.5" is not
+    /// <c>Case 2</c>. Against a Boolean it is read as CBool reads it, so "True" and "5" are <c>Case True</c>. A string that
+    /// does not read as the Case value's type is above it, and raises nothing: "abc" is <c>Is &gt; 5</c>, and "True" is
+    /// not <c>Case -1</c>.</item>
+    /// <item>Against a VARIANT Case value, any number is below any string, whether or not the string reads as a number: 10
+    /// is not <c>Is &gt; w</c> with w holding "9", and 5 is not <c>Case w</c> with w holding "5".</item>
+    /// <item>Either way, Empty is 0 against a number and "" against a string, a Boolean is -1 or 0, so True is below 0, and
+    /// Null is below, above and equal to nothing.</item>
+    /// </list>
+    /// </summary>
+    private static int? CompareAsVariants(Vb6Value selector, Vb6Value caseValue)
     {
-        // Empty has not decided what it is yet, so it takes its partner's zero — the same rule
-        // GetTwoValuesSameTypesOrNull applies for `=`. Measured: an unassigned Variant matches `Case 0`.
-        if (selector.Type == Vb6Value.ValueType.EmptyVariant)
-            return VbNumeric.IsDeclarableScalar(caseValue.Type)
-                && new Vb6Value(caseValue.Type).Equals(caseValue);
+        var s = KindOf(selector);
+        var c = KindOf(caseValue);
+        if (s == CaseKind.Null || c == CaseKind.Null)
+            return null;
+        if (s == CaseKind.Other || c == CaseKind.Other)
+            return selector.Equals(caseValue) ? 0 : null;
+        if (caseValue.HasFixedType && c != CaseKind.Empty)
+        {
+            if (c == CaseKind.Text)
+                return Math.Sign(string.CompareOrdinal(TextOf(selector), (string)caseValue.Value!));
+            if (s != CaseKind.Text)
+                return NumberOf(selector).CompareTo(NumberOf(caseValue));
+            var read = caseValue.Type == Vb6Value.ValueType.Boolean
+                ? TryRead(() => VB6BuiltIns.CBool(selector))
+                : TryRead(() => new Vb6Value(VB6BuiltIns.ToNum(selector)));
+            return read is { } number ? NumberOf(number).CompareTo(NumberOf(caseValue)) : 1;
+        }
+        if (s == CaseKind.Number && c == CaseKind.Text)
+            return -1;
+        if (s == CaseKind.Text && c == CaseKind.Number)
+            return 1;
+        if (s == CaseKind.Text || c == CaseKind.Text)
+            return Math.Sign(string.CompareOrdinal(TextOf(selector), TextOf(caseValue)));
+        return NumberOf(selector).CompareTo(NumberOf(caseValue));
+    }
 
-        // Object, UDT, Null, arrays: nothing to coerce toward, so compare as before rather than invent a
-        // rule for a case the oracle has not been asked about.
-        if (!VbNumeric.IsDeclarableScalar(selector.Type))
-            return selector.Equals(caseValue);
+    private enum CaseKind { Empty, Null, Number, Text, Other }
 
-        return VbNumeric.CoerceOnStore(caseValue, selector.Type, ctx).Equals(selector);
+    private static CaseKind KindOf(Vb6Value v) =>
+        v.IsMissing ? CaseKind.Other
+        : v.Type == Vb6Value.ValueType.EmptyVariant ? CaseKind.Empty
+        : v.IsNull ? CaseKind.Null
+        : v.Type == Vb6Value.ValueType.String ? CaseKind.Text
+        : v.Value is bool || Vb6Value.TryNumericToDouble(v, out _) ? CaseKind.Number
+        : CaseKind.Other;
+
+    // Empty is "", and a number or a Boolean is written as CStr writes it.
+    private static string TextOf(Vb6Value v) =>
+        v.Type == Vb6Value.ValueType.EmptyVariant ? "" : v.Value as string ?? VbDisplay.ToText(v);
+
+    // Empty is 0, a Boolean -1 or 0, and a Date its serial.
+    private static double NumberOf(Vb6Value v) =>
+        v.Value is bool b ? (b ? -1 : 0) : Vb6Value.TryNumericToDouble(v, out var d) ? d : 0;
+
+    // A string read as a number or a Boolean, or null where it does not read as one (13).
+    private static Vb6Value? TryRead(Func<Vb6Value> read)
+    {
+        try
+        {
+            return read();
+        }
+        catch (VBRunTimeException e) when (e.Error.ErrNo == VBStandardError.TypeMismatch.ErrNo)
+        {
+            return null;
+        }
     }
 
     public override async Task<ControlFlow> VisitSendkeysStmt(VB6Parser.SendkeysStmtContext context)

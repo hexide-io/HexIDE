@@ -45,13 +45,25 @@ public sealed class VbUdt
     public string TypeName { get; }
     private readonly Dictionary<string, Vb6Value> fields;
 
-    public VbUdt(string typeName, Dictionary<string, Vb6Value> fields)
+    // The fields declared with a scalar type. A read of one is fixed and a read of any other is a Variant's, as a
+    // variable's slot decides for a variable (see Vb6Value.HasFixedType): measured, `u.x * 7000` with a Variant field
+    // holding 5 is 35000, and a Select Case on it is a Variant one.
+    private readonly IReadOnlySet<string> typedFields;
+
+    public VbUdt(string typeName, Dictionary<string, Vb6Value> fields, IReadOnlySet<string>? typedFields = null)
     {
         TypeName = typeName;
         this.fields = fields;
+        this.typedFields = typedFields ?? new HashSet<string>();
     }
 
-    public bool TryGet(string field, out Vb6Value value) => fields.TryGetValue(field, out value);
+    public bool TryGet(string field, out Vb6Value value)
+    {
+        if (!fields.TryGetValue(field, out value))
+            return false;
+        value = typedFields.Contains(field) ? value.AsFixedType() : value.AsVariantSubtype();
+        return true;
+    }
 
     /// <summary>Enumerate the fields (name → value) in declaration order — the dictionary preserves the
     /// typedef's insertion order (fields are never removed). Read-only; used by the debugger's Locals inspector.</summary>
@@ -71,6 +83,6 @@ public sealed class VbUdt
         var copy = new Dictionary<string, Vb6Value>(fields.Comparer);
         foreach (var (name, value) in fields)
             copy[name] = value.Value is VbUdt nested ? Vb6Value.NewUdt(nested.DeepClone()) : value;
-        return new VbUdt(TypeName, copy);
+        return new VbUdt(TypeName, copy, typedFields);
     }
 }
