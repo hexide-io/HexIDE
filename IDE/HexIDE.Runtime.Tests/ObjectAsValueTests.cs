@@ -278,7 +278,8 @@ public class ObjectAsValueTests : BaseVBTestFixture
             Debug.Print "v=" & Err
             """);
 
-        // `If Err Then` is measured too, and needs a condition that is not a Boolean, which is #839's.
+        // `If Err Then` is measured too, and belongs to this change (#847's note): it also needs a condition that is not a
+        // Boolean, which is #865's. Whichever of the two merges second pins it here.
         AssertDebugLog([new Vb6Value("v=11"), new Vb6Value("11"), new Vb6Value("12"), new Vb6Value("11"), new Vb6Value("3"),
             new Vb6Value(11L), new Vb6Value("v=0")]);
     }
