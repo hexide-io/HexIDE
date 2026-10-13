@@ -6253,6 +6253,22 @@ Round six measured three more programs, five rows here, native and in the IDE al
 So a `v As Variant` parameter shares the caller's array as an untyped one does, for a ReDim too, and HexIDE does not
 share it, for a ReDim. That is #970's alias item.
 
+**And an untyped parameter ReDims by the Variant rule even when it shares a declared array** (measured for #873's
+seventh review, native; the review measured the same, T1 to T7). The caller has `Dim a() As Long`, `ReDim a(3)`,
+`a(1) = 9`, and passes `a` to `Sub G(v)`, which does the ReDim; the caller is under `On Error Resume Next`:
+
+| `ReDim v(…)` in `G` | VB6 | HexIDE, at round six |
+|---|---|---|
+| `-1`; `5 To 4`; `5 To 2, 5 To 4` | 9, and `a` keeps 0 To 3, a `Long()` | 9, and `a` erased |
+| `5 To 2`; `0 To -5`; `0 To 1, 5 To 2` | 7, and `a` erased, still a `Long()` | 9, and `a` erased |
+| `2` | no error, `a` 0 To 2 | the same |
+
+So VB6 applies the rule above for a Variant (9 and kept when any dimension is exactly one below its lower bound, 7 and
+emptied otherwise) to an untyped parameter whatever it shares, emptying a declared array by erasing it. HexIDE's
+parameter shares the caller's slot and its declared-array mark, so it applies the declared-array rule: data VB6 keeps
+is lost in the first row, and the second raises 9 where VB6 raises 7. Main does the same. It is #970's, which owns
+parameter aliasing.
+
 Because declarations run in source order and VB6 refuses a forward reference, a same-module Const above the Dim has
 already run and holds its final value, so reading it then is all the laziness the rule needs.
 

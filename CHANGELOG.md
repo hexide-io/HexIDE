@@ -57,7 +57,8 @@ there isn't one yet. Anything may change between 0.x releases.
 - **A fixed array can't be resized through a parameter** (#873). `ReDim b(10)` in a callee given a caller's
   `Dim buf(3)` raises VB6's 10, "This array is fixed or temporarily locked", and leaves `buf` as it was, whether `b` is
   an array parameter or an untyped one; named directly, `ReDim` of a fixed array is VB6's "Array already dimensioned".
-  A `v As Variant` parameter is not refused yet (#970).
+  A `v As Variant` parameter is not refused yet, and its ReDim of a caller's dynamic array still leaves the caller's
+  array as it was, where VB6 resizes it (#970).
 
 - **A module-level `Const` is checked as VB6 checks it** (#760). Its value may read only other constants: a Const
   declared below it or the Const itself, a variable, a user function and any function call are VB6's "Constant

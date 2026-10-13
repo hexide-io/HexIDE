@@ -24,7 +24,7 @@ public class PrePass : VB6BaseVisitor<object?>
     public List<VB6Parser.BlockContext> topLevelBlocks = new();
     // Each module-level Const by name: its declaration, and whether another module can see it (Public or Global; one
     // with no visibility is Private, measured). Collected for the allocation site of a module-level array, which
-    // classifies what a bound reads, through the Consts it names (StatementExecutor.CheckModuleLevelBounds).
+    // classifies what a bound reads, through the Consts it names (ModuleLevelBounds.Check and CheckConst).
     public Dictionary<string, (VB6Parser.ConstSubStmtContext Declaration, bool Public)> ModuleConsts =
         new(StringComparer.OrdinalIgnoreCase);
     // Module-level variables declared Public, for the same classification: another module's Public variable in a bound

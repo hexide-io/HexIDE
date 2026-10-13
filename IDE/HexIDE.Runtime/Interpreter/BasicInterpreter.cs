@@ -1084,7 +1084,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     }
 
     // A parameter's own slot says what it was declared as, for ReDim: `b()` an array, `v` or `v As Variant` a Variant.
-    // A ByRef parameter that shares its caller's slot keeps whatever the caller's declaration said.
+    // A ByRef parameter that shares its caller's slot keeps the caller's marks. That is right for fixedness (a fixed
+    // array is 10 through it, measured), but not for the inverted-range rule: an untyped `v` sharing a declared `Long()`
+    // erases it with 9, where VB6 applies the Variant rule to `v` (measured, #970).
     private void MarkParameterSlot(ParamInfo p, ExecutionEnvironment callee)
     {
         if (!callee.TryGetVariableLocation(p.Name, out var location))
