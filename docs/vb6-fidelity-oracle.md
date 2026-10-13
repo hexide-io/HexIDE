@@ -5512,8 +5512,8 @@ tested there.
 
 **The question.** What every statement with a condition makes of a value that is not a Boolean. HexIDE accepted only
 a Boolean in a block `If` or `ElseIf`, and raised "IF doesn't contain a bool expression" for anything else, an error
-whose Number was 0. A one-line `If` raised 13 for anything but a Boolean, and the loops accepted a Boolean, an Integer
-or Null. So `If Len(s) Then`, `If InStr(s, "x") Then` and `If flags And 4 Then` stopped the run, and under
+whose Number was 0. A one-line `If` raised 13 for anything but a Boolean, and the loops accepted a Boolean, an Integer,
+a Byte, a string that reads as an integer, or Null, and raised 13 for anything else, Empty included. So `If Len(s) Then`, `If InStr(s, "x") Then` and `If flags And 4 Then` stopped the run, and under
 `On Error Resume Next` the block form skipped its body with nothing in Err.
 
 **Probe.** A Sub Main project with no `On Error Resume Next`: a function `P(form, v)` traps with `On Error GoTo` and
@@ -5562,6 +5562,7 @@ condition fail. It is plain False, so `Do Until Null` runs and `Loop Until Null`
 |---|---|
 | a Variant set to `Nothing`; an `Object` variable never set | 91 |
 | a Variant holding a class with no default member | 438 |
+| a Variant holding a class whose default member returns 42 | `If` holds; `Do While` loops |
 
 So a condition refuses an object as every conversion does. `CBool` alone in HexIDE did not ask: each of these, and a
 class with a default member, a control and `Err`, fell through to a trappable 13.

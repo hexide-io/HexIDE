@@ -78,6 +78,10 @@ public partial class VB6BuiltIns
                 + "implemented for a class yet (#174).");
         if (v.Type == VT.Object)
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+        // Err stands for its Number in VB6 (measured), which #840 implements. `If Err Then` is the common case.
+        if (v.Value is VbErr)
+            throw new NotImplementedException(
+                "Using Err as a value reads its Number, which is not implemented yet (#840). Name Err.Number instead.");
         throw new NotImplementedException(
             "Converting a control or object to a number reads its default member, which is not implemented (#790). "
             + "Name the property instead.");

@@ -798,7 +798,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             bool matched = false;
             foreach (var elseIf in context.ifElseIfBlockStmt())
             {
-                if (await ConditionHolds(elseIf.ifConditionStmt().valueStmt(), context))
+                if (await ConditionHolds(elseIf.ifConditionStmt().valueStmt(), elseIf))
                 {
                     return await Visit(elseIf.block());
                 }

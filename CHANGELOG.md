@@ -28,7 +28,7 @@ there isn't one yet. Anything may change between 0.x releases.
   `If Len(s) Then`, `If InStr(s, "x") Then`, `If flags And 4 Then` and `Do While n` with a Long `n` stopped the run.
   Every form now reads its condition as `CBool` does: a number holds when it is not 0, a string when it reads as True
   or as such a number, and Null and Empty do not. An object in a condition raises VB6's 438 and Nothing 91, where
-  each was a trappable 13; a class with a default member, a control and `Err` are refused until #174, #790 and
+  each was a trappable 13, or in a block `If` or `ElseIf` the error numbered 0; a class with a default member, a control and `Err` are refused until #174, #790 and
   #840.
 
 - **A syntax error when a program starts, or a compile error while it runs, is reported like a run-time error.**

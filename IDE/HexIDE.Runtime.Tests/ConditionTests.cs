@@ -151,7 +151,7 @@ public class ConditionTests : BaseVBTestFixture
         // of the two merges second turns this into the measured answer.
         var run = () => Run("On Error Resume Next\nErr.Raise 53\nIf Err Then Debug.Print 1\n");
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#790*");
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#840*");
     }
 
     private const string Plain = "Public Tag As Long\n";
@@ -193,15 +193,23 @@ public class ConditionTests : BaseVBTestFixture
     [MemberData(nameof(EveryForm))]
     public async Task A_class_with_a_default_member_is_refused(string form)
     {
-        // VB6 reads the member (measured for If). HexIDE does not call it yet (#174), so it refuses, untrappably.
+        // VB6 reads the member: `If w Then` holds and `Do While w` loops for a member returning 42 (measured, native and
+        // in the IDE). HexIDE does not call it yet (#174), so it refuses, untrappably.
         var run = () => RunClasses($"Dim v, c\nSet v = New Widget\nOn Error Resume Next\n{form}\n", ("Widget", Widget));
 
         (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#174*");
     }
 
     [Theory]
-    [MemberData(nameof(EveryForm))]
-    public async Task An_error_in_a_condition_names_its_statement(string form)
+    [InlineData("If v Then c = 1", 3)]
+    [InlineData("If v Then\nc = 1\nEnd If", 3)]
+    [InlineData("If False Then\nc = 0\nElseIf v Then\nc = 1\nEnd If", 5)]   // the ElseIf clause, not the whole If
+    [InlineData("While v\nc = 1\nWend", 3)]
+    [InlineData("Do While v\nc = 1\nLoop", 3)]
+    [InlineData("Do Until v\nc = 1\nLoop", 3)]
+    [InlineData("Do\nc = 1\nLoop While v", 3)]   // the whole loop, from its Do: main's granularity for a statement
+    [InlineData("Do\nc = 1\nLoop Until v", 3)]
+    public async Task An_error_in_a_condition_names_its_statement(string form, int line)
     {
         // CBool has no statement of its own, so the condition's is attached, for the run-time error dialog and
         // get_last_runtime_error. The old Boolean-only checks raised with it.
@@ -210,6 +218,6 @@ public class ConditionTests : BaseVBTestFixture
         var thrown = (await run.Should().ThrowAsync<VBRunTimeException>()).Which;
         thrown.Error.ErrNo.Should().Be(13);
         thrown.Context.Should().NotBeNull();
-        thrown.Context!.GetText().Should().Contain("v");
+        thrown.Context!.Start.Line.Should().Be(line);
     }
 }
