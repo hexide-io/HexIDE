@@ -517,7 +517,7 @@ public class PrePass : VB6BaseVisitor<object?>
         var returnUdt = context.asTypeClause()?.type()?.complexType()?.GetText();
         var returnType = returnUdt != null
             ? Vb6Value.ValueType.UserDefinedType
-            : ExtractBaseType(context.asTypeClause()) ?? Vb6Value.ValueType.EmptyVariant;
+            : ReturnTypeOf(context.asTypeClause());
         GetOrAddProperty(name).Get = new ProcedureInfo(name, true, args, returnType, context.block(),
             IsPrivate(context.visibility()), returnUdt);
         NoteDefaultMember(context.block());
@@ -604,7 +604,7 @@ public class PrePass : VB6BaseVisitor<object?>
         var returnUdt = context.asTypeClause()?.type()?.complexType()?.GetText();
         var returnType = returnUdt != null
             ? Vb6Value.ValueType.UserDefinedType
-            : ExtractBaseType(context.asTypeClause()) ?? Vb6Value.ValueType.EmptyVariant;
+            : ReturnTypeOf(context.asTypeClause());
         Procedures[name] = new ProcedureInfo(name, true, ParseParams(context.argList()), returnType,
             context.block(), IsPrivate(context.visibility()), returnUdt);
         NoteDefaultMember(context.block());
@@ -651,4 +651,13 @@ public class PrePass : VB6BaseVisitor<object?>
     // return types are left untyped in that case for now — the wider type system is a later phase).
     private static Vb6Value.ValueType? ExtractBaseType(VB6Parser.AsTypeClauseContext? asType)
         => BaseTypeMapper.Map(asType?.type()?.baseType());
+
+    // A Function's or Property Get's return type, an array where the clause says so: `As Long()` returns a Long() (measured,
+    // #975: TypeName "Long()", and one that never assigns its name returns an empty one, UBound raising 9). It was read as
+    // its element type, so the array the body stored was narrowed into a Long on the way out, and came back 0.
+    private static Vb6Value.ValueType ReturnTypeOf(VB6Parser.AsTypeClauseContext? asType)
+    {
+        var type = ExtractBaseType(asType) ?? Vb6Value.ValueType.EmptyVariant;
+        return asType?.type()?.LPAREN() != null ? new Vb6Value.ValueType(type, true) : type;
+    }
 }

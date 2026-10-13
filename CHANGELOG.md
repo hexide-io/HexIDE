@@ -22,6 +22,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A Function declared to return an array returns it** (#975). `Function F() As Long()` returned a Long 0 with no
+  error, because its return was read as the element type, so `d = F()` left `d` a scalar and the next `d(1)` stopped
+  the run. It now returns the array, and one that never assigns its name returns an empty one, as VB6 does. A Property
+  Get declared the same way is fixed with it.
 - **Calling a procedure that carries an `Attribute` line no longer stops the run.** VB6 writes these inside a
   procedure for a default member (`VB_UserMemId`), a description from Tools → Procedure Attributes
   (`VB_Description`), a property category (`VB_ProcData`) and more, and after a module-level variable for its
