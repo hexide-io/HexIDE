@@ -87,7 +87,10 @@ file. Making the run follow its line is what stops an ordinary edit leaving an a
 that is no longer there — which read-only text would otherwise do, because a deletion is carved around it.
 
 An attribute line left describing nothing SHALL be preserved, not removed: it is inert text, and the IDE does
-not know what the developer meant by it.
+not know what the developer meant by it. A run of attribute lines describes a member when the line directly
+above it, with any lines continued into it, declares the member each of its lines names. A run that does not —
+under a blank line, a comment, a statement or another member's declaration — SHALL NOT be read-only, greyed or
+folded, because editing it by hand is the only way to repair it.
 
 #### Scenario: A procedure with a description
 - **WHEN** a module containing a procedure with an `Attribute <Name>.VB_Description` line is opened
@@ -96,6 +99,10 @@ not know what the developer meant by it.
 #### Scenario: Deleting a described procedure
 - **WHEN** the developer selects a procedure including its declaration line and deletes it
 - **THEN** its attribute lines go with it, and none is left behind
+
+#### Scenario: An attribute line that describes nothing
+- **WHEN** a run of `Attribute` lines sits under a line that does not declare the member they name
+- **THEN** it is shown and edited as ordinary text, and the file keeps it
 
 ### Requirement: Only the IDE SHALL change a read-only region
 A read-only region is the file's header, or a run of attribute lines describing a member. A document the IDE

@@ -274,14 +274,31 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
     private async Task<PublishDiagnosticsParams> OpenAndPublishAsync(VBLspClient client, string text) =>
         await Published(await OpenAsync(client, text)).Task;
 
+    [Fact]
+    public void TheInlineFilesCarryRunsThatDescribeAMemberAndOrphansBoth()
+    {
+        // The premise of every comparison above for task 4.1: the two copies of the rule agree on runs only
+        // where the inputs have runs of each kind, and of each shape the rule reads -- a continued declaration,
+        // a comma list, WithEvents, a property's Get and Let, and an orphan of each sort.
+        var runs = ReadOnlyRegions.MemberRuns(ClassWithOrphans, 0);
+
+        runs.Where(r => r.DescribesMember).Select(r => r.Key)
+            .Should().Equal(new MemberRunKey("CLOCK", 0), new MemberRunKey("COUNT", 0), new MemberRunKey("TOTAL", 0),
+                new MemberRunKey("VALUE", 0), new MemberRunKey("VALUE", 1));
+        runs.Count(r => !r.DescribesMember).Should().Be(5);
+        ProtectedLines(ClassWithOrphans).Should().Equal(Enumerable.Range(0, 6).Concat([10, 11, 13, 17, 22, 26]),
+            "the lines the server's own tests pin for the same text (WholeFileFixtures.ClassWithOrphans)");
+    }
+
     /// <summary>
-    /// Every whole VB6 file the repository carries, those <c>HEXIDE_ROUNDTRIP_CORPUS</c> names, and two inline
-    /// files carrying members' attribute lines, which no corpus file has.
+    /// Every whole VB6 file the repository carries, those <c>HEXIDE_ROUNDTRIP_CORPUS</c> names, and three
+    /// inline files carrying members' attribute lines, which no corpus file has.
     /// </summary>
     private static IEnumerable<(string Name, string Text)> Inputs()
     {
         yield return ("inline form", Form);
         yield return ("inline class", Class);
+        yield return ("inline class with orphans", ClassWithOrphans);
 
         var roots = new List<string?> { FindUpwards("demo"), FindUpwards(Path.Join("corpus", "designer")) };
         var env = Environment.GetEnvironmentVariable("HEXIDE_ROUNDTRIP_CORPUS");
@@ -417,6 +434,49 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
         "Attribute Total.VB_ProcData.VB_Invoke_Property = \"General\"\r\n" +              // 17
         "total = 0\r\n" +                                                                 // 18
         "end property\r\n";                                                               // 19
+
+    /// <summary>
+    /// The server's <c>WholeFileFixtures.ClassWithOrphans</c>, written by hand: runs that describe a member under
+    /// a continued declaration, a comma list with a comment after it, a <c>WithEvents</c> variable and the next
+    /// name of its list, and a property's <c>Get</c> and <c>Let</c>, and orphans with no qualifier, under a body statement, a
+    /// blank line and a comment, and naming a member declared elsewhere (hexide-io/HexIDE#273 task 4.1).
+    /// </summary>
+    private const string ClassWithOrphans =
+        "VERSION 1.0 CLASS\r\n" +                                                         // 0
+        "BEGIN\r\n" +                                                                     // 1
+        "  MultiUse = -1  'True\r\n" +                                                    // 2
+        "END\r\n" +                                                                       // 3
+        "Attribute VB_Name = \"Ledger\"\r\n" +                                            // 4
+        "Attribute VB_Exposed = False\r\n" +                                              // 5
+        "Option Explicit\r\n" +                                                           // 6
+        "Attribute VB_Description = \"dotless, below the code\"\r\n" +                    // 7  orphan
+        "\r\n" +                                                                          // 8
+        "Public WithEvents Clock As Timer, Alarm As Timer\r\n" +                          // 9
+        "Attribute Clock.VB_VarHelpID = -1\r\n" +                                         // 10
+        "Attribute Alarm.VB_VarDescription = \"The alarm\"\r\n" +                         // 11
+        "public rate as currency, count as long ' totals\r\n" +                           // 12
+        "Attribute count.VB_VarDescription = \"How many\"\r\n" +                          // 13
+        "\r\n" +                                                                          // 14
+        "public function total(byval a as long, _\r\n" +                                  // 15
+        "    byval b as long) as currency\r\n" +                                          // 16
+        "Attribute total.VB_Description = \"The sum\"\r\n" +                              // 17
+        "total = a + b\r\n" +                                                             // 18
+        "Attribute total.VB_UserMemId = 0\r\n" +                                          // 19 orphan
+        "end function\r\n" +                                                              // 20
+        "public property get Value() as long\r\n" +                                       // 21
+        "Attribute Value.VB_UserMemId = 0\r\n" +                                          // 22
+        "Value = 1\r\n" +                                                                 // 23
+        "end property\r\n" +                                                              // 24
+        "public property let Value(byval v as long)\r\n" +                                // 25
+        "Attribute Value.VB_Description = \"The value\"\r\n" +                            // 26
+        "end property\r\n" +                                                              // 27
+        "\r\n" +                                                                          // 28
+        "Attribute Value.VB_HelpID = 1\r\n" +                                             // 29 orphan
+        "' the next one describes nothing either\r\n" +                                   // 30
+        "Attribute Value.VB_MemberFlags = \"40\"\r\n" +                                   // 31 orphan
+        "public sub Halt()\r\n" +                                                         // 32
+        "Attribute Total.VB_Description = \"misplaced\"\r\n" +                            // 33 orphan
+        "end sub\r\n";                                                                    // 34
 
     /// <summary>The inline form with a designer line the grammar cannot read.</summary>
     private static readonly string DamagedFormHeader =

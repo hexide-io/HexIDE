@@ -5,6 +5,7 @@ using System.Threading;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using Avalonia.Threading;
@@ -265,6 +266,60 @@ public class ReadOnlyGreyingTests : IDisposable
         ColoursOn(editor, attribute).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey);
         ColoursOn(editor, attribute - 1).Should().NotContain(ClassicGrey, "the declaration is code");
         ColoursOn(editor, attribute + 1).Should().NotContain(ClassicGrey, "so is the body");
+    }
+
+    [AvaloniaFact]
+    public void AnAttributeLineThatDescribesNothing()
+    {
+        // The code-editor delta's scenario (#273 task 4.1): a run under a line that does not declare the member it
+        // names is shown and edited as ordinary text, and the file keeps it. Beside it, a run that does describe
+        // its member, which is greyed and refuses the same keystroke, so the typing path is shown to be live.
+        var themes = new ThemeService();
+        using var _ = TheIdesThemes(themes);
+        var project = new ProjectDefinition(VBProjectType.EXE, "P");
+        var module = new ModuleDefinition(project, "Order", ModuleKind.ClassModule);
+        module.UpdateCode(
+            "Option Explicit\r\n\r\n" +
+            "Public Sub Halt()\r\n" +
+            "Attribute Halt.VB_Description = \"Stops\"\r\n" +
+            "End Sub\r\n" +
+            "Public Sub Go()\r\n" +
+            "    Debug.Print 1\r\n" +
+            "Attribute Go.VB_Description = \"Goes\"\r\n" +
+            "End Sub\r\n");
+        var vm = MakeViewModel().Initialize(module);
+        var editor = Show(vm);
+        editor.TextArea.Focus();
+        Dispatcher.UIThread.RunJobs();
+
+        var orphan = editor.Document.GetLineByNumber(LineOf(editor, "Attribute Go.VB_Description"));
+        var described = editor.Document.GetLineByNumber(LineOf(editor, "Attribute Halt.VB_Description"));
+        ColoursOn(editor, orphan.LineNumber).Should().NotBeEmpty().And.NotContain(ClassicGrey, "the orphan is shown as code");
+        ColoursOn(editor, described.LineNumber).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey, "the control is greyed");
+
+        var sections = editor.TextArea.ReadOnlySectionProvider;
+        sections.CanInsert(orphan.Offset).Should().BeTrue();
+        sections.GetDeletableSegments(new TextSegment { StartOffset = orphan.Offset, Length = orphan.TotalLength })
+            .Sum(s => s.Length).Should().Be(orphan.TotalLength, "all of it can be deleted");
+
+        var before = vm.Document.Text;
+        editor.TextArea.Caret.Offset = described.Offset + "Attribute Halt.VB_Description = \"".Length;
+        TypeText(editor, "Really ");
+        vm.Document.Text.Should().Be(before, "the control: typing into a member's own run is refused");
+
+        editor.TextArea.Caret.Offset = orphan.Offset + "Attribute Go.VB_Description = \"".Length;
+        TypeText(editor, "Really ");
+        vm.Document.Text.Should().Contain("Attribute Go.VB_Description = \"Really Goes\"", "the orphan is typed into");
+
+        vm.BufferBody.Should().Contain("    Debug.Print 1\r\nAttribute Go.VB_Description = \"Really Goes\"\r\nEnd Sub",
+            "and the file keeps it, where it was");
+    }
+
+    /// <summary>Typed text as the input system delivers it: a TextInput event on the focused text area.</summary>
+    private static void TypeText(TextEditor editor, string text)
+    {
+        editor.TextArea.RaiseEvent(new TextInputEventArgs { RoutedEvent = InputElement.TextInputEvent, Text = text });
+        Dispatcher.UIThread.RunJobs();
     }
 
     [AvaloniaFact]

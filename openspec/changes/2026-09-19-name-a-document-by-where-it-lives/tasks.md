@@ -1722,8 +1722,49 @@
 
 ## 4. Member attributes
 
-- [ ] 4.1 Detect procedure-level and declaration-level `Attribute` runs, and anchor each to the line it
+- [x] 4.1 Detect procedure-level and declaration-level `Attribute` runs, and anchor each to the line it
   describes.
+  — **Built as design.md settles it** ("Settled before building phase 4", and the "Settled while building 4.1"
+  points under it). `ReadOnlyRegions.MemberRuns(text, prefixLength)` reports every run below the header as a
+  `MemberRun`, from the one scan `Of` also reads: its region; each line's qualifier, up to the first `.` and null
+  for a dotless line; the described logical line's start, read back over ` _` continuations and never into the
+  header; its anchor; the run's last content end; the names the described line declares, each with its offset
+  (`ReadOnlyRegions.NamesDeclaredOn`, public, for 4.4's fix-up and 4.5b's comparison); the verdict
+  `DescribesMember`; and a `MemberRunKey`, the first qualifier upper-cased with its ordinal among the runs that
+  describe a member, null for an orphan. `Of` now returns only the runs that describe a member, so an orphan is
+  not protected, greyed or refused a mark, and every consumer follows without a change of its own, since each
+  reads regions: the section provider, the colourizer and links, `LineEdits`, Find and Replace, rename,
+  `ApplyEdits`, `CodeWindowText.IsReadOnlyLine`, the sidecar's drop, and the folding adapter's "the region nothing
+  anchors is the header". `Vb6ToolchainService`'s line count mirrors VB6's own and is untouched. The server's
+  `VbProtectedRegions` ports the rule helper for helper; its rename qualifier rule is 4.4's and is unchanged, so a
+  rename now reaches an orphan's qualifier as ordinary text, as it does any other.
+  — **Tests.** `MemberRunsTests`: a procedure's run, a WithEvents `VB_VarHelpID` run, one under a declaration with
+  a trailing comment (ADDIN.DSR's shape), a declaration continued over three lines with trailing spaces after a
+  ` _`, a name on a continued line, a two-dot qualifier, a property's Get and Let under distinct keys, a comma list
+  one run describes in full, the declaration reader on fifteen forms and twelve non-declarations, orphans under a
+  blank line, a comment, a body statement, the member's own `End Sub`, another member, a mixed run and two dotless
+  lines, a blank line splitting one member's run, the keys across an edit above and an orphan before them, and
+  the header boundary. The delta's new scenario "An attribute line that describes nothing" has its test by its
+  name in `ReadOnlyGreyingTests`: not greyed, typed into and deletable, kept where it was in the body, beside a
+  described run that is greyed and refuses the same keystroke. The server's `VbProtectedRegionsTests` pins the
+  port on fixtures, and `WholeFileFixtures.ClassWithOrphans`, carried as a twin in
+  `BundledServerRespectsTheIdesRegionsTests`, gives the parity check a continued declaration, a WithEvents comma
+  list, a comma list with a comment, a property pair and five orphans; a plain fact there pins that the file has
+  both kinds. No existing test assumed an orphan was protected, so none was changed.
+  — **Seen while building.** The orphan fixture raises no diagnostic from the bundled server: the grammar reads an
+  `Attribute` line anywhere a statement goes. A damaged orphan is reported, where a damaged member line is not.
+  The grammar takes `WithEvents` once per declaration, so a list giving each name its own, which the VBA
+  reference allows, is a syntax error; the fixture avoids it, and it is recorded in design.md, not filed.
+  — **Mutation: 12, each reddening a test**, the parity check included wherever the server was current: the
+  verdict always true; continuation not walked; the qualifier split at the last `.`; orphans still returned by
+  `Of`; the ordinal never incremented; the qualifier compared with case; orphans counted and keyed; a comma list
+  read to its first name; `WithEvents` not skipped; and on the server, every run protected, continuation not
+  walked, and names compared with case. The scenario's test reddens under the first and the fourth.
+  — **Left.** The **(oracle)** questions are unmeasured: whether VB6 honours a run under a blank line or a
+  comment, and the shapes the survey listed (continued and multi-name declarations, a property pair, events,
+  bracketed names). `CodeWindowReadOnlySections` still reads the physical line above a run as the described line
+  when it decides whether a deletion takes the run, rather than `DescribedStart`; whether deleting part of a
+  continued declaration takes its run is 4.5a's to decide.
 - [ ] 4.2 Read-only and greyed, through the same provider and colour as the header.
   — **Both halves exist already:** the runs have been read-only since 3.7, and 3.15 greys every read-only
   region, these included. What is left is checking both once 4.3 folds the runs.

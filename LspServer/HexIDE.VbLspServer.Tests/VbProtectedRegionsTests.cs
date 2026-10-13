@@ -99,6 +99,44 @@ public class VbProtectedRegionsTests
     }
 
     [Fact]
+    public void OnlyARunTheLineAboveDeclaresIsProtected()
+    {
+        // Task 4.1: a run under a declaration of every name it qualifies is the member's, through a continued
+        // declaration, a comma list and a property's Get and Let alike. An orphan is ordinary text.
+        ProtectedLines(ClassWithOrphans).Should().Equal(
+            Enumerable.Range(0, ClassWithOrphansHeaderLines).Concat(ClassWithOrphansDescribingLines));
+    }
+
+    [Theory]
+    [InlineData("Public Sub Go()\r\n\r\nAttribute Go.VB_Description = \"x\"\r\nEnd Sub\r\n")]
+    [InlineData("Public Sub Go()\r\n' describes Go\r\nAttribute Go.VB_Description = \"x\"\r\nEnd Sub\r\n")]
+    [InlineData("Public Sub Go()\r\n    Debug.Print 1\r\nAttribute Go.VB_Description = \"x\"\r\nEnd Sub\r\n")]
+    [InlineData("Public Sub Halt()\r\nAttribute Go.VB_Description = \"x\"\r\nEnd Sub\r\n")]
+    [InlineData("Public Sub Go()\r\nAttribute Go.VB_Description = \"x\"\r\nAttribute Halt.VB_Description = \"y\"\r\nEnd Sub\r\n")]
+    [InlineData("Public Sub Go()\r\nAttribute VB_Description = \"x\"\r\nEnd Sub\r\n")]
+    public void ARunTheLineAboveDoesNotDeclareIsNotProtected(string code)
+    {
+        ProtectedLines(code).Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("Sub Main()\r\nAttribute main.VB_Description = \"x\"\r\nEnd Sub\r\n")] // compared without case
+    [InlineData("Private Static Function Twice(ByVal n As Long) As Long\r\nAttribute Twice.VB_UserMemId = 0\r\nEnd Function\r\n")]
+    [InlineData("Friend Property Set Target(ByVal o As Object)\r\nAttribute Target.VB_Description = \"x\"\r\nEnd Property\r\n")]
+    [InlineData("Public Event Changed(ByVal Value As Long)\r\nAttribute Changed.VB_Description = \"x\"\r\n")]
+    [InlineData("Private Declare Function GetTickCount Lib \"kernel32\" () As Long\r\nAttribute GetTickCount.VB_Description = \"x\"\r\n")]
+    [InlineData("Dim a As Long, b(1 To 3, 4) As String\r\nAttribute b.VB_VarDescription = \"x\"\r\n")]
+    [InlineData("Global Count% ' how many\r\nAttribute Count.VB_VarDescription = \"x\"\r\n")]
+    [InlineData("Private WithEvents mGame As Game\r\nAttribute mGame.VB_VarHelpID = -1\r\n")]
+    [InlineData("Public Function Total(ByVal a As Long, _  \r\n    ByVal b As Long) As Currency\r\nAttribute Total.VB_Description = \"x\"\r\nEnd Function\r\n")]
+    public void ARunUnderADeclarationOfItsNameIsProtected(string code)
+    {
+        var attribute = Lines(code).Select((line, i) => (line, i)).First(l => l.line.StartsWith("Attribute", StringComparison.Ordinal)).i;
+
+        ProtectedLines(code).Should().Equal(attribute);
+    }
+
+    [Fact]
     public void ARangeEndingAtTheStartOfALineDoesNotCoverThatLine()
     {
         var regions = VbProtectedRegions.Of(Form);

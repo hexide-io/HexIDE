@@ -995,6 +995,26 @@ its first qualifier without case plus its ordinal among runs with that qualifier
 may each carry one. The data travels beside `TextRegion` as a separate record rather than widening it, because
 `TextRegion`'s positional equality is pinned by tests and a list field in a record struct compares by reference.
 
+*Settled while building 4.1.* `ReadOnlyRegions.MemberRuns` reports every run, orphans included, as a `MemberRun`
+from the same scan as `Of`, which keeps only the runs that describe a member. What the paragraphs above left open:
+- *The ordinal counts only runs that describe a member*, and an orphan has no key. An orphan is free text, so
+  adding, repairing or removing one must not renumber the runs of a member that still has its declaration, which
+  is what 4.3's remembered expansion and 4.5b's comparison would otherwise key wrongly.
+- *A continuation is VB6's own rule*, an underscore after whitespace at the end of the line, trailing whitespace
+  aside. Not `VbAutoCloseProvider.IsContinuationLine`, which also takes an identifier ending in `_` for one; 4.5,
+  which reads the same lines for Enter, should use this rule or say why not.
+- *Only the first statement on the described line is read*: a `:` ends it, as a comment does. `Public A As Long:
+  Public B As Long` declares `A` alone here. VB6 writes no such line under an attribute run that anyone has seen.
+- *VBA7's `Declare PtrSafe` is read as `Declare`*, for the VBA personalities. `Const`, `Enum` and `Type` declare
+  nothing a run can describe.
+- *A blank line inside one member's run leaves the half after it an orphan*, because a blank line ends a run. That
+  is the **(oracle)** question above, unchanged.
+- *An orphan is the server's ordinary text too*: it is formatted as code, and the grammar reads it as an attribute
+  statement anywhere a statement goes, so a well-formed one raises nothing and a damaged one is reported. Seen
+  while building: the bundled grammar takes `WithEvents` once per declaration, so `Public WithEvents A As T,
+  WithEvents B As T`, which the VBA reference's `Dim` syntax allows, is reported as a syntax error. Not measured on
+  `vb6.exe`, and not filed yet. The reader here accepts it.
+
 **A run that describes nothing is inert text, not a region.** The code-editor requirement defines a read-only
 region as the header or "a run of attribute lines describing a member", and says an attribute line left
 describing nothing is preserved as inert text. So a run whose logical line above does not declare its

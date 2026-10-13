@@ -79,6 +79,61 @@ internal static class WholeFileFixtures
 
     public static readonly int[] ClassMemberAttributeLines = [13, 16, 17];
 
+    /// <summary>
+    /// A class whose attribute runs describe a member and fail to (hexide-io/HexIDE#273 task 4.1). Written by
+    /// hand, not by VB6: the orphans are shapes VB6 is not known to write, and are here to show that only a
+    /// run the line above it declares is protected.
+    /// </summary>
+    /// <remarks>
+    /// Lines 0-5 are the header. Protected below it: 10-11 (a <c>WithEvents</c> variable and the next name of
+    /// its comma list), 13 (the second name of a list with a comment after it), 17 (a declaration continued over 15-16),
+    /// 22 and 26 (a property's <c>Get</c> and <c>Let</c>). Orphans: 7 (no qualifier), 19 (under a body
+    /// statement), 29 (under a blank line), 31 (under a comment) and 33 (naming a member declared elsewhere).
+    /// <c>BundledServerRespectsTheIdesRegionsTests</c> carries the same text.
+    /// </remarks>
+    public const string ClassWithOrphans =
+        "VERSION 1.0 CLASS\r\n" +                                                         // 0
+        "BEGIN\r\n" +                                                                     // 1
+        "  MultiUse = -1  'True\r\n" +                                                    // 2
+        "END\r\n" +                                                                       // 3
+        "Attribute VB_Name = \"Ledger\"\r\n" +                                            // 4
+        "Attribute VB_Exposed = False\r\n" +                                              // 5
+        "Option Explicit\r\n" +                                                           // 6
+        "Attribute VB_Description = \"dotless, below the code\"\r\n" +                    // 7
+        "\r\n" +                                                                          // 8
+        "Public WithEvents Clock As Timer, Alarm As Timer\r\n" +                          // 9
+        "Attribute Clock.VB_VarHelpID = -1\r\n" +                                         // 10
+        "Attribute Alarm.VB_VarDescription = \"The alarm\"\r\n" +                         // 11
+        "public rate as currency, count as long ' totals\r\n" +                           // 12
+        "Attribute count.VB_VarDescription = \"How many\"\r\n" +                          // 13
+        "\r\n" +                                                                          // 14
+        "public function total(byval a as long, _\r\n" +                                  // 15
+        "    byval b as long) as currency\r\n" +                                          // 16
+        "Attribute total.VB_Description = \"The sum\"\r\n" +                              // 17
+        "total = a + b\r\n" +                                                             // 18
+        "Attribute total.VB_UserMemId = 0\r\n" +                                          // 19
+        "end function\r\n" +                                                              // 20
+        "public property get Value() as long\r\n" +                                       // 21
+        "Attribute Value.VB_UserMemId = 0\r\n" +                                          // 22
+        "Value = 1\r\n" +                                                                 // 23
+        "end property\r\n" +                                                              // 24
+        "public property let Value(byval v as long)\r\n" +                                // 25
+        "Attribute Value.VB_Description = \"The value\"\r\n" +                            // 26
+        "end property\r\n" +                                                              // 27
+        "\r\n" +                                                                          // 28
+        "Attribute Value.VB_HelpID = 1\r\n" +                                             // 29
+        "' the next one describes nothing either\r\n" +                                   // 30
+        "Attribute Value.VB_MemberFlags = \"40\"\r\n" +                                   // 31
+        "public sub Halt()\r\n" +                                                         // 32
+        "Attribute Total.VB_Description = \"misplaced\"\r\n" +                            // 33
+        "end sub\r\n";                                                                    // 34
+
+    public const int ClassWithOrphansHeaderLines = 6;
+
+    public static readonly int[] ClassWithOrphansDescribingLines = [10, 11, 13, 17, 22, 26];
+
+    public static readonly int[] ClassWithOrphansOrphanLines = [7, 19, 29, 31, 33];
+
     /// <summary>The lines of <paramref name="text"/>, split as the server splits them.</summary>
     public static string[] Lines(string text) =>
         text.Split('\n').Select(l => l.TrimEnd('\r')).ToArray();

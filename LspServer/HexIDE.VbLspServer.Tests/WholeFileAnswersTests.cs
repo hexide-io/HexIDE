@@ -67,6 +67,7 @@ public class WholeFileAnswersTests
     [Theory]
     [InlineData(Form)]
     [InlineData(Class)]
+    [InlineData(ClassWithOrphans)]
     public void NoFormattingEditCoversAProtectedLine(string text)
     {
         var regions = VbProtectedRegions.Of(text);
@@ -80,6 +81,7 @@ public class WholeFileAnswersTests
     [Theory]
     [InlineData(Form)]
     [InlineData(Class)]
+    [InlineData(ClassWithOrphans)]
     public void TheEditsProduceExactlyWhatFormatProduces(string text)
     {
         Apply(text, VbFormatter.Edits(text)).Should().Be(VbFormatter.Format(text));
@@ -99,6 +101,7 @@ public class WholeFileAnswersTests
     [Theory]
     [InlineData(Form)]
     [InlineData(Class)]
+    [InlineData(ClassWithOrphans)]
     public void AWholeFileWithMembersAttributeLinesParsesClean(string text)
     {
         // Measured rather than assumed: no file in the corpus carries a member's attribute lines, so until
@@ -159,6 +162,20 @@ public class WholeFileAnswersTests
         VbDiagnosticsProvider.GetDiagnosticsAndTreeIncludingProtectedLines(damaged).Diagnostics
             .Should().Contain(d => d.Range.Start.Line == 16);
         VbDiagnosticsProvider.GetDiagnostics(damaged).Should().NotContain(d => d.Range.Start.Line == 16);
+    }
+
+    [Fact]
+    public void AnOrphanedRunIsTheDevelopersTextToFormatAndToCheck()
+    {
+        // Task 4.1: a run the line above does not declare is ordinary text. The formatter indents the one inside
+        // a function body as the body, and leaves the member's own run beside it where VB6 writes it; a damaged
+        // orphan is reported, where a damaged member attribute line is not.
+        var formatted = Lines(VbFormatter.Format(ClassWithOrphans)!);
+        formatted[17].Should().Be("Attribute total.VB_Description = \"The sum\"", "the member's own run is protected");
+        formatted[19].Should().Be("    Attribute total.VB_UserMemId = 0", "the orphan under the body statement is code");
+
+        var damaged = ClassWithOrphans.Replace("total.VB_UserMemId = 0", "total.VB_UserMemId = = 0", StringComparison.Ordinal);
+        VbDiagnosticsProvider.GetDiagnostics(damaged).Should().Contain(d => d.Range.Start.Line == 19);
     }
 
     [Fact]

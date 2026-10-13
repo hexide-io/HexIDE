@@ -17,7 +17,10 @@ namespace HexIDE.VbLspServer;
 /// <b>The header</b> is the top of the file through the last line of the leading <c>Attribute</c> run: a
 /// <c>VERSION</c> line, then a class's <c>BEGIN … END</c> block or a form's <c>Object</c> lines and designer
 /// block, then the attribute run. A text with none of this has no header. <b>A member's attribute lines</b>
-/// are <c>Attribute Name.VB_Something = …</c>, wherever they appear below the header.
+/// are a run of <c>Attribute Name.VB_Something = …</c> lines below the header that describes a member: the
+/// logical line directly above the run declares the name before the first <c>.</c> of every line in it
+/// (task 4.1). A run that does not — under a blank line, a comment, a body statement or another member, or a
+/// line with no <c>.</c> — is an orphan, which is ordinary text here as it is in the IDE.
 /// </para>
 /// <para>
 /// <b>This is the IDE's rule, ported rather than shared.</b> The IDE's own copy is
@@ -55,8 +58,30 @@ internal sealed class VbProtectedRegions
         var header = HeaderLinesFromText(lines);
 
         var marks = new bool[lines.Count];
-        for (var i = 0; i < lines.Count; i++)
-            marks[i] = i < header || IsMemberAttribute(lines[i]);
+        for (var i = 0; i < header; i++)
+            marks[i] = true;
+
+        var at = header;
+        while (at < lines.Count)
+        {
+            if (!IsMemberAttribute(lines[at], out _))
+            {
+                at++;
+                continue;
+            }
+            var first = at;
+            var qualifiers = new List<string?>();
+            while (at < lines.Count && IsMemberAttribute(lines[at], out var qualifier))
+            {
+                qualifiers.Add(qualifier);
+                at++;
+            }
+            if (DescribesMember(lines, header, first, qualifiers))
+            {
+                for (var line = first; line < at; line++)
+                    marks[line] = true;
+            }
+        }
         return new VbProtectedRegions(marks, header, DeclaredNames(lines, header));
     }
 
@@ -71,7 +96,10 @@ internal sealed class VbProtectedRegions
     /// </remarks>
     public bool Declares(string word) => declaredNames.Contains(word);
 
-    /// <summary>True when <paramref name="line"/> (0-based) is in the header or is a member's attribute line.</summary>
+    /// <summary>
+    /// True when <paramref name="line"/> (0-based) is in the header or is an attribute line of a run that
+    /// describes a member. An orphan's lines are not protected.
+    /// </summary>
     public bool IsProtected(int line) => line >= 0 && line < protectedLines.Length && protectedLines[line];
 
     /// <summary>True when any line <paramref name="range"/> covers is protected.</summary>
@@ -253,8 +281,10 @@ internal sealed class VbProtectedRegions
     /// True for <c>Attribute Name.VB_Something = …</c>, and false for anything that merely begins with the
     /// word — an assignment to a variable called <c>Attribute</c>, or an array of that name.
     /// </summary>
-    private static bool IsMemberAttribute(string text)
+    /// <param name="qualifier">The attribute name up to its first <c>.</c>; null when it has none.</param>
+    private static bool IsMemberAttribute(string text, out string? qualifier)
     {
+        qualifier = null;
         var rest = text.AsSpan().Trim();
         if (!StartsWithKeyword(rest, "Attribute"))
             return false;
@@ -266,8 +296,207 @@ internal sealed class VbProtectedRegions
         if (name == 0 || !char.IsLetter(rest[0]))
             return false;
 
-        rest = rest[name..].TrimStart();
-        return rest.Length > 0 && rest[0] == '=';
+        var dot = rest[..name].IndexOf('.');
+        var after = rest[name..].TrimStart();
+        if (after.Length == 0 || after[0] != '=')
+            return false;
+        qualifier = dot < 0 ? null : rest[..dot].ToString();
+        return true;
+    }
+
+    /// <summary>
+    /// True when the logical line directly above the run starting at <paramref name="first"/> declares every
+    /// one of <paramref name="qualifiers"/>, compared without case. The IDE's <c>ReadOnlyRegions.Scan</c>.
+    /// </summary>
+    /// <remarks>
+    /// The line above is read back over the lines continued into it with <c> _</c>, never into the header,
+    /// and joined with the line breaks kept, which the declaration reader takes for whitespace.
+    /// </remarks>
+    private static bool DescribesMember(List<string> lines, int header, int first, List<string?> qualifiers)
+    {
+        if (first == 0)
+            return false;
+        var top = first - 1;
+        while (top - 1 >= header && EndsWithContinuation(lines[top - 1]))
+            top--;
+        var logical = string.Join("\n", lines.GetRange(top, first - top));
+        var declared = NamesDeclaredOn(logical);
+        return qualifiers.TrueForAll(q => q is not null && declared.Contains(q));
+    }
+
+    /// <summary>
+    /// True when <paramref name="line"/> continues into the next: its text ends with <c>_</c> after
+    /// whitespace, trailing whitespace aside. The IDE's <c>ReadOnlyRegions.EndsWithContinuation</c>.
+    /// </summary>
+    private static bool EndsWithContinuation(string line)
+    {
+        var content = line.AsSpan().TrimEnd();
+        return content.Length > 0 && content[^1] == '_' && (content.Length == 1 || char.IsWhiteSpace(content[^2]));
+    }
+
+    /// <summary>
+    /// The names the declaration on <paramref name="text"/> writes, compared without case; empty when it is
+    /// not a declaration. The IDE's <c>ReadOnlyRegions.NamesDeclaredOn</c>, which documents the forms read.
+    /// </summary>
+    private static HashSet<string> NamesDeclaredOn(string text)
+    {
+        var tokens = TokensOf(text);
+        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        var t = 0;
+        var modified = false;
+        while (IsWord(text, tokens, t, "Public", "Private", "Friend", "Global", "Static"))
+        {
+            t++;
+            modified = true;
+        }
+
+        if (IsWord(text, tokens, t, "Declare"))
+        {
+            t++;
+            if (IsWord(text, tokens, t, "PtrSafe"))
+                t++;
+            if (IsWord(text, tokens, t, "Sub", "Function"))
+                AddName(t + 1);
+            return names;
+        }
+        if (IsWord(text, tokens, t, "Sub", "Function", "Event"))
+        {
+            AddName(t + 1);
+            return names;
+        }
+        if (IsWord(text, tokens, t, "Property"))
+        {
+            if (IsWord(text, tokens, t + 1, "Get", "Let", "Set"))
+                AddName(t + 2);
+            return names;
+        }
+
+        if (IsWord(text, tokens, t, "Dim"))
+        {
+            t++;
+            modified = true;
+        }
+        if (!modified || IsWord(text, tokens, t, "Const", "Enum", "Type"))
+            return names;
+
+        while (t < tokens.Count)
+        {
+            if (IsWord(text, tokens, t, "WithEvents"))
+                t++;
+            if (t >= tokens.Count || tokens[t].Kind != TokenKind.Word)
+                break;
+            AddName(t);
+
+            var depth = 0;
+            t++;
+            while (t < tokens.Count && !(depth == 0 && tokens[t].Kind == TokenKind.Comma))
+            {
+                depth += tokens[t].Kind switch { TokenKind.Open => 1, TokenKind.Close => -1, _ => 0 };
+                t++;
+            }
+            t++;
+        }
+        return names;
+
+        void AddName(int at)
+        {
+            if (at < tokens.Count && tokens[at].Kind == TokenKind.Word)
+                names.Add(text.Substring(tokens[at].Start, tokens[at].Length));
+        }
+    }
+
+    private enum TokenKind { Word, Open, Close, Comma, Other }
+
+    private readonly record struct Token(TokenKind Kind, int Start, int Length);
+
+    /// <summary>The tokens of the first statement on <paramref name="text"/>; the IDE's <c>ReadOnlyRegions.TokensOf</c>.</summary>
+    private static List<Token> TokensOf(string text)
+    {
+        var tokens = new List<Token>();
+        var end = text.Length;
+        var i = 0;
+        while (i < end)
+        {
+            var c = text[i];
+            if (char.IsWhiteSpace(c))
+            {
+                i++;
+                continue;
+            }
+            if (c == '_' && OnlyWhitespaceToLineEnd(text, i + 1, end))
+            {
+                i++;
+                continue;
+            }
+            if (c is '\'' or ':')
+                break;
+            if (c == '"')
+            {
+                var opening = i++;
+                while (i < end && text[i] != '\n')
+                {
+                    if (text[i] != '"')
+                        i++;
+                    else if (i + 1 < end && text[i + 1] == '"')
+                        i += 2;
+                    else
+                    {
+                        i++;
+                        break;
+                    }
+                }
+                tokens.Add(new Token(TokenKind.Other, opening, i - opening));
+                continue;
+            }
+            if (char.IsLetter(c))
+            {
+                var j = i + 1;
+                while (j < end && (char.IsLetterOrDigit(text[j]) || text[j] == '_'))
+                    j++;
+                if (tokens.Count == 0 && text.AsSpan(i, j - i).Equals("Rem", StringComparison.OrdinalIgnoreCase))
+                    break;
+                tokens.Add(new Token(TokenKind.Word, i, j - i));
+                i = j < end && text[j] is '%' or '&' or '!' or '#' or '@' or '$' ? j + 1 : j;
+                continue;
+            }
+            if (c == '[')
+            {
+                var close = text.IndexOf(']', i + 1, end - i - 1);
+                if (close > i + 1)
+                {
+                    tokens.Add(new Token(TokenKind.Word, i + 1, close - i - 1));
+                    i = close + 1;
+                    continue;
+                }
+            }
+            tokens.Add(new Token(c switch { '(' => TokenKind.Open, ')' => TokenKind.Close, ',' => TokenKind.Comma, _ => TokenKind.Other }, i, 1));
+            i++;
+        }
+        return tokens;
+    }
+
+    private static bool OnlyWhitespaceToLineEnd(string text, int from, int end)
+    {
+        for (var i = from; i < end && text[i] != '\n'; i++)
+        {
+            if (!char.IsWhiteSpace(text[i]))
+                return false;
+        }
+        return true;
+    }
+
+    private static bool IsWord(string text, List<Token> tokens, int at, params string[] words)
+    {
+        if (at >= tokens.Count || tokens[at].Kind != TokenKind.Word)
+            return false;
+        var word = text.AsSpan(tokens[at].Start, tokens[at].Length);
+        foreach (var w in words)
+        {
+            if (word.Equals(w, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
     }
 
     private static bool StartsWithKeyword(ReadOnlySpan<char> line, string keyword) =>

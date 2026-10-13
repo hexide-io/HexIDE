@@ -66,6 +66,67 @@ public readonly record struct TextRegion(int Start, int End, bool OpenEnded = fa
 }
 
 /// <summary>
+/// A run of <c>Attribute</c> lines below a file's header, and the line above it that it may describe
+/// (hexide-io/HexIDE#273 task 4.1). See <see cref="ReadOnlyRegions.MemberRuns"/>.
+/// </summary>
+/// <param name="Region">
+/// The run's whole lines. Its <see cref="TextRegion.Anchor"/> is <paramref name="Anchor"/>, so for a run that
+/// describes a member this is exactly the region <see cref="ReadOnlyRegions.Of"/> returns.
+/// </param>
+/// <param name="Qualifiers">
+/// Each line's qualifier, in order: its attribute name up to the first <c>.</c>, as written, so
+/// <c>Total.VB_ProcData.VB_Invoke_Property</c> gives <c>Total</c>. Null for a line with no <c>.</c>, which
+/// names no member.
+/// </param>
+/// <param name="DescribedStart">
+/// Where the described line starts: the first physical line of the logical line directly above the run,
+/// reading back over the lines that continue into it with <c> _</c>.
+/// </param>
+/// <param name="Anchor">
+/// Where the described line ends: the end of the text of the physical line directly above the run, before its
+/// terminator. A fold of the run starts here.
+/// </param>
+/// <param name="LastContentEnd">The end of the text of the run's last line, before its terminator.</param>
+/// <param name="Declared">
+/// The names the described line declares, read lexically (<see cref="ReadOnlyRegions.NamesDeclaredOn(string, int, int)"/>),
+/// each with where it is written. Empty when that line declares nothing.
+/// </param>
+/// <param name="DescribesMember">
+/// True when the described line declares the qualifier of every line in the run, compared without case. A
+/// run that does not is an <em>orphan</em>: inert text, not a read-only region.
+/// </param>
+/// <param name="Key">
+/// Which run this is, in a form that outlives its offsets; null for an orphan. See <see cref="MemberRunKey"/>.
+/// </param>
+public sealed record MemberRun(
+    TextRegion Region,
+    IReadOnlyList<string?> Qualifiers,
+    int DescribedStart,
+    int Anchor,
+    int LastContentEnd,
+    IReadOnlyList<DeclaredName> Declared,
+    bool DescribesMember,
+    MemberRunKey? Key);
+
+/// <summary>
+/// A run that describes a member, named so that two texts can be compared and state can be kept across an
+/// edit: its first qualifier, upper-cased, and its ordinal among the runs that describe a member with that
+/// qualifier, counted from the top of the file.
+/// </summary>
+/// <remarks>
+/// The name alone is not enough, because a property's <c>Get</c> and <c>Let</c> share one and each may carry a
+/// run. Orphans are not counted, so repairing or removing one, which is free text, does not renumber the runs
+/// of a member that still has its declaration.
+/// </remarks>
+public readonly record struct MemberRunKey(string Member, int Ordinal);
+
+/// <summary>
+/// A name a declaration writes, and where: the name occupies <c>Name.Length</c> characters from
+/// <see cref="Offset"/>, a type-declaration character or brackets around it aside.
+/// </summary>
+public readonly record struct DeclaredName(string Name, int Offset);
+
+/// <summary>
 /// Where the read-only regions of a code window's buffer are: the file's header, and each run of attribute
 /// lines describing a member (hexide-io/HexIDE#273 phase 3).
 /// </summary>
@@ -88,12 +149,19 @@ public readonly record struct TextRegion(int Start, int End, bool OpenEnded = fa
 /// <c>.ctl</c>/<c>.pag</c>, or a <c>.bas</c>/<c>.cls</c> whose first line is blank (hexide-io/HexIDE#472),
 /// keeps its whole file in the code. Its prefix is then empty, but the buffer still opens with a header.
 /// </para>
+/// <para>
+/// <b>A run of attribute lines is a region only when it describes a member</b> (task 4.1): when the logical
+/// line directly above it declares the qualifier of every line in it. Anything else is an orphan — a run under
+/// a blank line, a comment, a body statement or another member, or a line with no <c>.</c> below the code — and
+/// an orphan is inert text the developer can see and change, which is the only way to repair one.
+/// <see cref="MemberRuns"/> reports both kinds, with the verdict.
+/// </para>
 /// </remarks>
 public static class ReadOnlyRegions
 {
     /// <summary>
     /// The read-only regions of <paramref name="text"/>, in order: the header first when there is one, then
-    /// every member attribute run.
+    /// every attribute run that describes a member. An orphaned run is not one.
     /// </summary>
     /// <param name="text">The whole buffer.</param>
     /// <param name="prefixLength">
@@ -101,33 +169,141 @@ public static class ReadOnlyRegions
     /// </param>
     public static IReadOnlyList<TextRegion> Of(string text, int prefixLength)
     {
-        var lines = LinesOf(text);
+        var (lines, headerLines, runs) = Scan(text, prefixLength);
         var regions = new List<TextRegion>();
 
-        var headerLines = HeaderLineCount(text, lines, prefixLength);
         if (headerLines > 0)
             regions.Add(RegionOf(lines, 0, headerLines, text.Length));
-
-        var i = headerLines;
-        while (i < lines.Count)
+        foreach (var run in runs)
         {
-            if (!IsMemberAttribute(text, lines[i]))
-            {
-                i++;
-                continue;
-            }
-            var first = i;
-            while (i < lines.Count && IsMemberAttribute(text, lines[i]))
-                i++;
-            // The run hangs from the line above it, which is the member it describes. A run on the first line
-            // would be the header's, so there always is one; the guard is for a text no rule here produces.
-            regions.Add(RegionOf(lines, first, i, text.Length) with
-            {
-                Anchor = first > 0 ? lines[first - 1].ContentEnd : null,
-            });
+            if (run.DescribesMember)
+                regions.Add(run.Region);
         }
         return regions;
     }
+
+    /// <summary>
+    /// Every run of <c>Attribute</c> lines below the header of <paramref name="text"/>, in order, those that
+    /// describe a member and the orphans alike, each with the line above it that it describes or fails to.
+    /// </summary>
+    /// <param name="text">The whole buffer, or any whole file: give 0 for <paramref name="prefixLength"/>.</param>
+    /// <param name="prefixLength">
+    /// The length of the header the buffer was composed with, or 0 when the model split nothing off.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// <b>A run</b> is a maximal block of consecutive <c>Attribute &lt;name&gt; = …</c> lines below the header,
+    /// as <see cref="Of"/> has always found them. A blank line ends one, so a run split by a blank line is two
+    /// runs, and the second hangs from the blank line.
+    /// </para>
+    /// <para>
+    /// <b>Whether it describes a member is read lexically and line-locally</b>: the described line's
+    /// declaration is read for the names it writes (<see cref="NamesDeclaredOn(string, int, int)"/>), and each
+    /// qualifier is compared with them without case. That is collection, not binding — nothing else in the
+    /// module is consulted, so a run whose qualifier names a member declared elsewhere is an orphan here.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<MemberRun> MemberRuns(string text, int prefixLength) => Scan(text, prefixLength).Runs;
+
+    /// <summary>
+    /// The names the declaration on <c>[start, end)</c> of <paramref name="text"/> writes, each with where it
+    /// is written; empty when that text is not a declaration.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>Lexical and line-local, and biased towards finding a declaration</b>, because a run wrongly judged an
+    /// orphan loses its protection, while one wrongly judged to describe a member costs nothing but a fold. It
+    /// reads, without case:
+    /// </para>
+    /// <list type="bullet">
+    /// <item><c>[Public|Private|Friend|Global|Static]… Sub|Function|Event &lt;name&gt;</c>, and
+    /// <c>Property Get|Let|Set &lt;name&gt;</c> after the same modifiers;</item>
+    /// <item><c>[Public|Private] Declare [PtrSafe] Sub|Function &lt;name&gt;</c>, <c>PtrSafe</c> being the same
+    /// declaration in VBA7;</item>
+    /// <item>variable declarators after at least one of <c>Public|Private|Friend|Global|Static|Dim</c>:
+    /// <c>[WithEvents] &lt;name&gt;[(…)] [As …]</c>, as a comma list, each with its own <c>WithEvents</c>.</item>
+    /// </list>
+    /// <para>
+    /// A <c> _</c> line continuation and the line break after it are whitespace, so <c>[start, end)</c> may be
+    /// a whole continued logical line. A comment ends the read, and so does a <c>:</c>, so only the first
+    /// statement on a line is read. A name may carry a type-declaration character (<c>Total$</c> declares
+    /// <c>Total</c>) or be bracketed. <c>Const</c>, <c>Enum</c> and <c>Type</c> declare nothing a member run can
+    /// describe.
+    /// </para>
+    /// </remarks>
+    public static IReadOnlyList<DeclaredName> NamesDeclaredOn(string text, int start, int end)
+    {
+        var tokens = TokensOf(text, start, end);
+        var names = new List<DeclaredName>();
+
+        var t = 0;
+        var modified = false;
+        while (IsWord(text, tokens, t, "Public", "Private", "Friend", "Global", "Static"))
+        {
+            t++;
+            modified = true;
+        }
+
+        if (IsWord(text, tokens, t, "Declare"))
+        {
+            t++;
+            if (IsWord(text, tokens, t, "PtrSafe"))
+                t++;
+            if (IsWord(text, tokens, t, "Sub", "Function"))
+                AddName(t + 1);
+            return names;
+        }
+        if (IsWord(text, tokens, t, "Sub", "Function", "Event"))
+        {
+            AddName(t + 1);
+            return names;
+        }
+        if (IsWord(text, tokens, t, "Property"))
+        {
+            if (IsWord(text, tokens, t + 1, "Get", "Let", "Set"))
+                AddName(t + 2);
+            return names;
+        }
+
+        if (IsWord(text, tokens, t, "Dim"))
+        {
+            t++;
+            modified = true;
+        }
+        // Without a declaring keyword the line is a statement: an assignment, a call, a ReDim.
+        if (!modified || IsWord(text, tokens, t, "Const", "Enum", "Type"))
+            return names;
+
+        while (t < tokens.Count)
+        {
+            if (IsWord(text, tokens, t, "WithEvents"))
+                t++;
+            if (t >= tokens.Count || tokens[t].Kind != TokenKind.Word)
+                break;
+            AddName(t);
+
+            // Past the rest of this declarator -- its bounds and its As clause -- to the comma that starts the
+            // next, which a comma inside the bounds does not.
+            var depth = 0;
+            t++;
+            while (t < tokens.Count && !(depth == 0 && tokens[t].Kind == TokenKind.Comma))
+            {
+                depth += tokens[t].Kind switch { TokenKind.Open => 1, TokenKind.Close => -1, _ => 0 };
+                t++;
+            }
+            t++;
+        }
+        return names;
+
+        void AddName(int at)
+        {
+            if (at < tokens.Count && tokens[at].Kind == TokenKind.Word)
+                names.Add(new DeclaredName(text.Substring(tokens[at].Start, tokens[at].Length), tokens[at].Start));
+        }
+    }
+
+    /// <summary>The names <paramref name="line"/> declares; see <see cref="NamesDeclaredOn(string, int, int)"/>.</summary>
+    public static IReadOnlyList<DeclaredName> NamesDeclaredOn(string line) => NamesDeclaredOn(line, 0, line.Length);
 
     /// <summary>
     /// The offset just past the header, which is where the developer's code starts. 0 when there is no header.
@@ -226,6 +402,193 @@ public static class ReadOnlyRegions
 
     /// <summary>One line of the buffer: where its text starts and ends, and where the next line starts.</summary>
     private readonly record struct Line(int Start, int ContentEnd, int Next);
+
+    /// <summary>
+    /// The lines of <paramref name="text"/>, how many of them the header takes, and every attribute run below
+    /// it with its verdict: the one scan <see cref="Of"/> and <see cref="MemberRuns"/> both read.
+    /// </summary>
+    private static (List<Line> Lines, int HeaderLines, List<MemberRun> Runs) Scan(string text, int prefixLength)
+    {
+        var lines = LinesOf(text);
+        var headerLines = HeaderLineCount(text, lines, prefixLength);
+        var runs = new List<MemberRun>();
+        var ordinals = new Dictionary<string, int>(StringComparer.Ordinal);
+
+        var i = headerLines;
+        while (i < lines.Count)
+        {
+            if (!IsMemberAttribute(text, lines[i], out _))
+            {
+                i++;
+                continue;
+            }
+            var first = i;
+            var qualifiers = new List<string?>();
+            while (i < lines.Count && IsMemberAttribute(text, lines[i], out var qualifier))
+            {
+                qualifiers.Add(qualifier);
+                i++;
+            }
+
+            // The run hangs from the line above it, which is the member it describes if it describes one. A run
+            // on the first line would be the header's, so there always is one; the guard is for a text no rule
+            // here produces. The line above is read back over the lines continued into it, and never into the
+            // header.
+            var region = RegionOf(lines, first, i, text.Length);
+            var describedStart = region.Start;
+            var anchor = region.Start;
+            IReadOnlyList<DeclaredName> declared = [];
+            if (first > 0)
+            {
+                var top = first - 1;
+                while (top - 1 >= headerLines && EndsWithContinuation(text, lines[top - 1]))
+                    top--;
+                describedStart = lines[top].Start;
+                anchor = lines[first - 1].ContentEnd;
+                declared = NamesDeclaredOn(text, describedStart, anchor);
+                region = region with { Anchor = anchor };
+            }
+
+            var describes = first > 0 && qualifiers.TrueForAll(q => q is not null && Declares(declared, q));
+            MemberRunKey? key = null;
+            if (describes)
+            {
+                var member = qualifiers[0]!.ToUpperInvariant();
+                ordinals.TryGetValue(member, out var ordinal);
+                ordinals[member] = ordinal + 1;
+                key = new MemberRunKey(member, ordinal);
+            }
+            runs.Add(new MemberRun(region, qualifiers, describedStart, anchor, lines[i - 1].ContentEnd, declared,
+                describes, key));
+        }
+        return (lines, headerLines, runs);
+    }
+
+    private static bool Declares(IReadOnlyList<DeclaredName> declared, string name)
+    {
+        foreach (var d in declared)
+        {
+            if (string.Equals(d.Name, name, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// True when <paramref name="line"/> continues into the next: its text ends with <c>_</c> after
+    /// whitespace, trailing whitespace aside.
+    /// </summary>
+    /// <remarks>
+    /// The rule VB6 states, a space and an underscore, and deliberately not
+    /// <c>VbAutoCloseProvider.IsContinuationLine</c>'s looser one, which also takes an identifier that ends in
+    /// <c>_</c> for a continuation.
+    /// </remarks>
+    private static bool EndsWithContinuation(string text, Line line)
+    {
+        var content = text.AsSpan(line.Start, line.ContentEnd - line.Start).TrimEnd();
+        return content.Length > 0 && content[^1] == '_' && (content.Length == 1 || char.IsWhiteSpace(content[^2]));
+    }
+
+    private enum TokenKind { Word, Open, Close, Comma, Other }
+
+    /// <summary>
+    /// A token of a declaration: a name or keyword (<see cref="TokenKind.Word"/>, a bracketed name without its
+    /// brackets and a name without its type character), a parenthesis, a comma, or anything else.
+    /// </summary>
+    private readonly record struct Token(TokenKind Kind, int Start, int Length);
+
+    /// <summary>
+    /// The tokens of the first statement on <c>[start, end)</c>: up to a comment, a <c>:</c>, or the end.
+    /// </summary>
+    private static List<Token> TokensOf(string text, int start, int end)
+    {
+        var tokens = new List<Token>();
+        var i = start;
+        while (i < end)
+        {
+            var c = text[i];
+            if (char.IsWhiteSpace(c))
+            {
+                // A line break here is one a continuation left, and is whitespace like the rest.
+                i++;
+                continue;
+            }
+            if (c == '_' && OnlyWhitespaceToLineEnd(text, i + 1, end))
+            {
+                // A continuation. No name starts with an underscore, so one at the start of a token is this.
+                i++;
+                continue;
+            }
+            if (c is '\'' or ':')
+                break;
+            if (c == '"')
+            {
+                // A string, "" inside it being a quote: a ' or : in one is neither a comment nor a separator.
+                var opening = i++;
+                while (i < end && text[i] != '\n')
+                {
+                    if (text[i] != '"')
+                        i++;
+                    else if (i + 1 < end && text[i + 1] == '"')
+                        i += 2;
+                    else
+                    {
+                        i++;
+                        break;
+                    }
+                }
+                tokens.Add(new Token(TokenKind.Other, opening, i - opening));
+                continue;
+            }
+            if (char.IsLetter(c))
+            {
+                var j = i + 1;
+                while (j < end && (char.IsLetterOrDigit(text[j]) || text[j] == '_'))
+                    j++;
+                if (tokens.Count == 0 && text.AsSpan(i, j - i).Equals("Rem", StringComparison.OrdinalIgnoreCase))
+                    break;
+                tokens.Add(new Token(TokenKind.Word, i, j - i));
+                i = j < end && text[j] is '%' or '&' or '!' or '#' or '@' or '$' ? j + 1 : j;
+                continue;
+            }
+            if (c == '[')
+            {
+                var close = text.IndexOf(']', i + 1, end - i - 1);
+                if (close > i + 1)
+                {
+                    tokens.Add(new Token(TokenKind.Word, i + 1, close - i - 1));
+                    i = close + 1;
+                    continue;
+                }
+            }
+            tokens.Add(new Token(c switch { '(' => TokenKind.Open, ')' => TokenKind.Close, ',' => TokenKind.Comma, _ => TokenKind.Other }, i, 1));
+            i++;
+        }
+        return tokens;
+    }
+
+    private static bool OnlyWhitespaceToLineEnd(string text, int from, int end)
+    {
+        for (var i = from; i < end && text[i] != '\n'; i++)
+        {
+            if (!char.IsWhiteSpace(text[i]))
+                return false;
+        }
+        return true;
+    }
+
+    private static bool IsWord(string text, List<Token> tokens, int at, params string[] words)
+    {
+        if (at >= tokens.Count || tokens[at].Kind != TokenKind.Word)
+            return false;
+        var word = text.AsSpan(tokens[at].Start, tokens[at].Length);
+        foreach (var w in words)
+        {
+            if (word.Equals(w, StringComparison.OrdinalIgnoreCase))
+                return true;
+        }
+        return false;
+    }
 
     private static List<Line> LinesOf(string text)
     {
@@ -341,8 +704,13 @@ public static class ReadOnlyRegions
     /// True for <c>Attribute Name.VB_Something = …</c>, and false for anything that merely begins with the
     /// word — an assignment to a variable called <c>Attribute</c>, or an array of that name.
     /// </summary>
-    private static bool IsMemberAttribute(string text, Line line)
+    /// <param name="qualifier">
+    /// The attribute name up to its first <c>.</c>, which is the member it names; null when it has none. A line
+    /// with no <c>.</c> is still an attribute line, and still part of a run, but it names no member.
+    /// </param>
+    private static bool IsMemberAttribute(string text, Line line, out string? qualifier)
     {
+        qualifier = null;
         var rest = Trimmed(text, line);
         if (!StartsWithKeyword(rest, "Attribute"))
             return false;
@@ -354,8 +722,12 @@ public static class ReadOnlyRegions
         if (name == 0 || !char.IsLetter(rest[0]))
             return false;
 
-        rest = rest[name..].TrimStart();
-        return rest.Length > 0 && rest[0] == '=';
+        var dot = rest[..name].IndexOf('.');
+        var after = rest[name..].TrimStart();
+        if (after.Length == 0 || after[0] != '=')
+            return false;
+        qualifier = dot < 0 ? null : rest[..dot].ToString();
+        return true;
     }
 
     private static bool StartsWithKeyword(ReadOnlySpan<char> line, string keyword) =>
