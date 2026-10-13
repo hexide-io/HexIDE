@@ -163,14 +163,17 @@ public class MarkOnReadOnlyLineTests : IDisposable
     }
 
     [AvaloniaFact]
-    public void AFormHeldReadOnlyAsAWholeStillTakesBreakpointsInItsCode()
+    public void ABreakpointInAFormTheIdeCannotSaveFaithfully()
     {
         // The code-editor delta's scenario: being read-only as a whole is not a read-only region.
         var vm = OpenForm();
         vm.FormDefinition!.MarkUnfaithfulToSave(UnfaithfulSaveCause.NestedContainers, "a menu was flattened");
         vm.IsReadOnly.Should().BeTrue("the fixture must actually be held read-only");
+        var line = LineOf(vm, "Command1.Enabled");
 
-        vm.ToggleBreakpoint(LineOf(vm, "Command1.Enabled")).Should().BeTrue();
+        vm.ToggleBreakpoint(line).Should().BeTrue();
+
+        breakpoints.GetBreakpoints(vm.Identity).Should().Equal([line], "it is set");
     }
 
     // ── Bookmarks ───────────────────────────────────────────────────────────────────────────────────────

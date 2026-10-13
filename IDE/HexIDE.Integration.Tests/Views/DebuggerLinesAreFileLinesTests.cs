@@ -79,8 +79,10 @@ public class DebuggerLinesAreFileLinesTests
     }
 
     [AvaloniaFact]
-    public async Task A_breakpoint_on_a_forms_first_statement_stops_on_that_line()
+    public async Task Stopping_on_a_breakpoint_in_a_form()
     {
+        // The interpreter-debugger delta's scenario: a breakpoint on Form_Load's first statement, set on its file
+        // line, stops on that line. The bar is drawn at the line a stop reports, which CurrentStatementBarTests pins.
         var form = AForm("Debug.Print 1");
         var debugger = new DebugController();
         debugger.SetBreakpoints("Form1", [9]);

@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
 using Avalonia.Input;
+using Avalonia.Media;
 using Avalonia.Threading;
 using AvaloniaEdit;
 using AvaloniaEdit.Editing;
@@ -203,8 +206,10 @@ public class MarkGutterOnReadOnlyLineTests : IDisposable
     }
 
     [AvaloniaFact]
-    public void AClickOnAFoldedHeaderSetsNoBookmark()
+    public void TogglingABookmarkOnAFoldedHeader()
     {
+        // The bookmarks delta's scenario: a click on the folded header's row sets nothing, and the row after it is
+        // code and takes one.
         var vm = OpenForm();
         var (window, editor) = Show(vm);
         SetHeaderFolded(editor, true);
@@ -214,6 +219,97 @@ public class MarkGutterOnReadOnlyLineTests : IDisposable
 
         ClickGutter<BookmarkMargin>(window, editor, 1);
         bookmarks.GetBookmarks(vm.Identity).Should().Equal([HeaderLines], "stored 0-based: file line 10");
+    }
+
+    // ── The marks themselves, as drawn (the bookmarks and interpreter-debugger deltas' restated scenarios) ──
+
+    private static readonly Color BreakpointDot = Color.Parse("#C00000");
+    private static readonly Color BookmarkDot = Color.Parse("#00C0C0");
+
+    /// <summary>
+    /// The colour a real Skia frame of the window has at the middle of <typeparamref name="TMargin"/>, beside the
+    /// 1-based document <paramref name="line"/>: the centre of the dot when the margin draws one there.
+    /// </summary>
+    private static Color DrawnBeside<TMargin>(Window window, TextEditor editor, int line) where TMargin : AbstractMargin
+    {
+        Dispatcher.UIThread.RunJobs();
+        var textView = editor.TextArea.TextView;
+        textView.EnsureVisualLines();
+        var visual = textView.GetVisualLine(line) ?? throw new InvalidOperationException($"line {line} is not on screen");
+        var margin = editor.TextArea.LeftMargins.OfType<TMargin>().Single();
+        var y = visual.VisualTop - textView.VerticalOffset + visual.Height / 2;
+        var at = margin.TranslatePoint(new Point(margin.Bounds.Width / 2, y), window)!.Value;
+
+        var frame = window.CaptureRenderedFrame() ?? throw new InvalidOperationException("no frame was rendered");
+        using var buffer = frame.Lock();
+        var offset = (int)at.Y * buffer.RowBytes + (int)at.X * 4;
+        byte At(int i) => Marshal.ReadByte(buffer.Address, offset + i);
+        return buffer.Format == Avalonia.Platform.PixelFormat.Bgra8888
+            ? Color.FromRgb(At(2), At(1), At(0))
+            : Color.FromRgb(At(0), At(1), At(2));
+    }
+
+    [AvaloniaFact]
+    public void TogglingABookmark()
+    {
+        // The line is marked in the margin, and toggling again removes it. Ctrl+F2 and a click in the bookmark
+        // gutter both come to the window's toggle; the click's own route is the folded-header test above.
+        var vm = OpenForm();
+        var (window, editor) = Show(vm);
+        var line = HeaderLines + 3;
+        DrawnBeside<BookmarkMargin>(window, editor, line).Should().NotBe(BookmarkDot, "the premise: nothing is marked yet");
+
+        vm.ToggleBookmark(line).Should().BeTrue();
+
+        bookmarks.GetBookmarks(vm.Identity).Should().Equal([line - 1], "stored 0-based");
+        DrawnBeside<BookmarkMargin>(window, editor, line).Should().Be(BookmarkDot, "the line is marked in the margin");
+
+        vm.ToggleBookmark(line).Should().BeTrue();
+
+        bookmarks.GetBookmarks(vm.Identity).Should().BeEmpty();
+        DrawnBeside<BookmarkMargin>(window, editor, line).Should().NotBe(BookmarkDot, "toggling again removes it");
+    }
+
+    [AvaloniaFact]
+    public void ALineWithBothABookmarkAndABreakpoint()
+    {
+        // Both stay visible: each has a gutter of its own and a colour of its own, so neither hides the other.
+        var vm = OpenForm();
+        var (window, editor) = Show(vm);
+        var line = HeaderLines + 4;
+
+        vm.ToggleBreakpoint(line).Should().BeTrue();
+        vm.ToggleBookmark(line).Should().BeTrue();
+
+        DrawnBeside<BreakpointMargin>(window, editor, line).Should().Be(BreakpointDot);
+        DrawnBeside<BookmarkMargin>(window, editor, line).Should().Be(BookmarkDot);
+        DrawnBeside<BreakpointMargin>(window, editor, line + 1).Should().NotBe(BreakpointDot, "the control: only that line is marked");
+        DrawnBeside<BookmarkMargin>(window, editor, line + 1).Should().NotBe(BookmarkDot);
+    }
+
+    [AvaloniaFact]
+    public void TogglingABreakpointOnTheCaretLine()
+    {
+        // The interpreter-debugger delta's scenario. F9 and Debug > Toggle Breakpoint toggle the caret's line
+        // through the window's own toggle (MainViewViewModelTests holds the main window to that); a click in the
+        // gutter beside the line does the same. Set one way and cleared the other, with a dark-red dot drawn on
+        // the line while it carries a breakpoint and gone once it does not.
+        var vm = OpenForm();
+        var (window, editor) = Show(vm);
+        editor.CaretOffset = editor.Document.GetLineByNumber(HeaderLines + 4).Offset + 4;
+        var line = editor.Document.GetLineByOffset(editor.CaretOffset).LineNumber;
+
+        vm.ToggleBreakpoint(line).Should().BeTrue();
+
+        breakpoints.GetBreakpoints(vm.Identity).Should().Equal(line);
+        DrawnBeside<BreakpointMargin>(window, editor, line).Should().Be(BreakpointDot, "a solid dark-red dot");
+
+        editor.TextArea.TextView.EnsureVisualLines();
+        var row = editor.TextArea.TextView.VisualLines.ToList().FindIndex(v => v.FirstDocumentLine.LineNumber == line);
+        ClickGutter<BreakpointMargin>(window, editor, row).Should().Be(line);
+
+        breakpoints.GetBreakpoints(vm.Identity).Should().BeEmpty("toggling a line that has one removes it");
+        DrawnBeside<BreakpointMargin>(window, editor, line).Should().NotBe(BreakpointDot);
     }
 
     [AvaloniaFact]

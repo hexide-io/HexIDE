@@ -109,9 +109,11 @@ there isn't one yet. Anything may change between 0.x releases.
   line N everywhere. An add-in that counted lines itself is out by the header's length until it counts them in
   `Content`. `SetContent` takes `Content` back unchanged, or the code alone, and keeps the header either way; a header
   that differs is refused. **New `TrySetContent`, `TryApplyEdits` and `TryNavigateTo` say why a call was refused**:
-  an unknown or ambiguous name, a header the call would change, or a line the document does not have. The existing
-  members keep their signatures and answers, so a packaged add-in keeps running; and the new ones have default
-  implementations, so a hand-written `IEditorAccess` keeps compiling. A line outside the document passed to
+  an unknown or ambiguous name, a header the call would change, or a line the document does not have. **New
+  `IDiagnosticsAccess.TryGetFor` says why a name found no single document**, where `GetFor` answers an empty list for
+  that and for a file with no diagnostics alike. The existing members keep their signatures and answers, so a
+  packaged add-in keeps running; and the new ones have default implementations, so a hand-written `IEditorAccess` or
+  `IDiagnosticsAccess` keeps compiling. A line outside the document passed to
   `NavigateTo` now moves nothing, where it closed the IDE, and navigating to a document open behind another tab
   brings it to the front, where the caret used to move out of sight.
 - **The AI Chat panel is told, and tells you, when the IDE refuses an edit.** It is shown the whole file, header

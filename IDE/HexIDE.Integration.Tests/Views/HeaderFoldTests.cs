@@ -215,9 +215,10 @@ public class HeaderFoldTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task TheHeaderStaysFoldedWithNoLanguageServer()
+    public async Task NoServerIsAttached()
     {
-        // An empty answer is what no server looks like, and an answer used to replace every fold the window had.
+        // The lsp-client delta's scenario, on a form; AClassOpensWithItsHeaderFolded is the class. An empty answer
+        // is what no server looks like, and an answer used to replace every fold the window had.
         lsp.IsRunning.Returns(false);
         var vm = OpenForm();
         var (_, editor) = Show(vm);
@@ -379,7 +380,7 @@ public class HeaderFoldTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task ReformattingAfterExpandingAClassesHeaderLeavesItExpanded()
+    public async Task ReformattingAfterExpandingTheHeader()
     {
         // The delta's scenario as it is written, on a class, whose header is all of its prefix.
         var vm = OpenModule(ModuleKind.ClassModule, "Order");
@@ -402,17 +403,26 @@ public class HeaderFoldTests : IDisposable
     }
 
     [AvaloniaFact]
-    public async Task AFoldedHeaderStaysFoldedWhenTheCodeIsReformatted()
+    public async Task ReformattingADocumentWhoseHeaderIsFolded()
     {
+        // The code-editor delta's scenario, with the answer the bundled server used to send: one edit over the
+        // whole document, every header line flattened to column zero, in \n. The header comes through unchanged
+        // because the guard dropped that part, and the fold over it stays folded. The reload half of the scenario
+        // is AFoldedHeaderStaysFoldedWhenTheFileIsReloaded.
         var vm = OpenForm();
         var (_, editor) = Show(vm);
+        var header = vm.Document.Text[..HeaderEnd(editor, HeaderLines)];
 
         var buffer = vm.Document.Text.Replace("\r\n", "\n");
+        var headerEnd = buffer.IndexOf("Option Explicit", StringComparison.Ordinal);
+        var flattened = string.Join("\n", buffer[..headerEnd].Split('\n').Select(l => l.TrimStart()));
         vm.ApplyFormatting([new TextEdit(
             new HexIDE.Lsp.Messages.Range(new Position(0, 0), new Position(buffer.Split('\n').Length, 0)),
-            buffer.Replace("    Unload Me", "        Unload Me"))]);
+            flattened + buffer[headerEnd..].Replace("    Unload Me", "        Unload Me"))]);
         Dispatcher.UIThread.RunJobs();
 
+        vm.Document.Text.Should().Contain("        Unload Me", "the formatting landed in the code");
+        vm.Document.Text.Should().StartWith(header, "and left the header as it was");
         HeaderSection(editor)!.IsFolded.Should().BeTrue();
         await SettleFolding();
         HeaderSection(editor)!.IsFolded.Should().BeTrue();

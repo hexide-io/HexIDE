@@ -293,6 +293,36 @@ public class HeaderRefresherTests
         breakpoints.GetBreakpoints(document).Should().Equal(firstBodyLine + 1 + grewBy);
     }
 
+    [AvaloniaFact]
+    public void AddingAControlBelowABreakpoint()
+    {
+        // The code-editor delta's scenario, judged by the statement the breakpoint is on rather than by arithmetic,
+        // in the open window and in the file the model composes. The control is added the way every designer path
+        // announces a commit, on the bus.
+        var sut = CreateSut();
+        var form = Deserialize(OneLabel + "\r\n\r\nPrivate Sub Form_Load()\r\n    Label1.Caption = \"Ready\"\r\nEnd Sub\r\n");
+        sut.LayoutChanged(form);
+        var editor = NewCodeEditor().Initialize(form);
+        dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { editor });
+        var document = DocumentIdentity.For(form);
+        const string statement = "    Label1.Caption = \"Ready\"";
+        var line = LineHolding(editor.Document.Text, statement);
+        breakpoints.SetDocument(document, [line]);
+
+        form.UpdateComponents([.. form.Components, AButton("Command1")]);
+        bus.Publish(new FormLayoutChangedEvent(form));
+
+        var now = breakpoints.GetBreakpoints(document).Should().ContainSingle().Subject;
+        now.Should().BeGreaterThan(line, "the premise: the designer block grew above it");
+        LineAt(editor.Document.Text, now).Should().Be(statement, "the breakpoint is still on the same statement");
+        LineAt(FormCodeText.WholeFile(form), now).Should().Be(statement, "in the file the model composes too");
+        editor.Dispose();
+
+        static int LineHolding(string text, string line) =>
+            Array.IndexOf(text.Replace("\r\n", "\n").Split('\n'), line) + 1;
+        static string LineAt(string text, int line) => text.Replace("\r\n", "\n").Split('\n')[line - 1];
+    }
+
     [Fact]
     public void TheNotificationOnTheBusIsWhatDrivesIt()
     {

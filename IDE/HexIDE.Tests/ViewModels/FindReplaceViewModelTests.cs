@@ -300,6 +300,41 @@ public class FindReplaceViewModelTests
             MessageBoxButtons.Ok, MessageBoxIcon.Information);
     }
 
+    private sealed class NullSink : HexIDE.Runtime.Serialization.IDeserializeErrorSink
+    {
+        public static readonly NullSink Instance = new();
+        public void LogError(string _) { }
+    }
+
+    [AvaloniaFact]
+    public void ReplaceAllDoesNotTouchAControlsBeginLine()
+    {
+        // Task 3.21's case, in the window as the IDE opens one: a form read by the deserializer and composed with
+        // its designer block in front of its code. ReplaceAll_ReplacingTextThatAlsoAppearsInTheHeader assigns its
+        // text to a window that was never given a form, so its header is found from the text alone; here the
+        // header is the prefix the window was opened with, which is the path every real form takes.
+        var form = new HexIDE.Runtime.Serialization.FormDeserializer()
+            .Deserialize(new ProjectDefinition(VBProjectType.EXE, "P"), FormWithCommand1, NullSink.Instance)!;
+        var editor = CreateMockEditor("");
+        editor.Initialize(form);
+        editor.CaretOffset = 0;
+        editor.Document.Text.Should().Be(FormWithCommand1, "the premise: the window holds the form's file");
+        SetActiveEditor(editor);
+        var sut = CreateSut();
+        sut.SearchText = "Command1";
+        sut.ReplaceText = "cmdOK";
+
+        sut.ReplaceAllCommand.Execute(null);
+
+        editor.Document.Text.Should().Contain("   Begin VB.CommandButton Command1 \r\n", "the control's Begin line is untouched")
+            .And.Contain("      Caption         =   \"Command1\"\r\n", "and so is everything else in the designer block");
+        var codeStart = FormWithCommand1.IndexOf("Private Sub", StringComparison.Ordinal);
+        editor.Document.Text.Should().Be(
+            FormWithCommand1[..codeStart] + FormWithCommand1[codeStart..].Replace("Command1", "cmdOK"));
+        editor.BufferBody.Should().Be(form.Code.Replace("Command1", "cmdOK"), "the code is what changed");
+        editor.Dispose();
+    }
+
     [AvaloniaFact]
     public void ReplaceOne_WithAMatchSelectedInTheHeader_LeavesItAlone()
     {

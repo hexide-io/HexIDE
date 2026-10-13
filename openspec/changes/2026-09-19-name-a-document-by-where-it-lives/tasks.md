@@ -1535,8 +1535,8 @@
   description, navigation and notice cases.
   — **Not done:** AI Chat's `get_file_content` still reads through navigate-then-active-document and needs a
   read-by-name member; since the review it refuses rather than answers with the wrong file. `GetFor` cannot say a
-  name is ambiguous. Both recorded in design.md. The first is #887; the second is an unmet scenario of this change's own delta, so 3.21 takes it up. Not
-  live-verified; 3.22 carries the checks.
+  name is ambiguous. Both recorded in design.md. The first is #887; the second was an unmet scenario of this change's
+  own delta, and 3.21 closed it with `IDiagnosticsAccess.TryGetFor`. Not live-verified; 3.22 carries the checks.
   — **Review** (design.md, "Settled in the 3.19 review"). The ai-chat requirement is met on both paths: a refused
   `apply_edit` is shown in the transcript as well as told to the model (`TheAssistantsEditIsRefused`, which drives
   the tool call through the chat), and an Apply's outcome is told to the model as well as shown, held while the
@@ -1549,12 +1549,67 @@
 - [ ] 3.20 New strings (refusal reasons, the reworded read-only banner) added to `en` and every shipped pack in
   the same change. A fold's label is its first line, so the header fold has no string of its own (settled in
   design.md, "Settled while building phase 3").
-- [ ] 3.21 Tests, one per scenario in the deltas this phase implements, named after the scenario, plus: buffer equals the file on open; an unchanged save writes the buffer; formatting leaves the
+- [x] 3.21 Tests, one per scenario in the deltas this phase implements, named after the scenario, plus: buffer equals the file on open; an unchanged save writes the buffer; formatting leaves the
   header; Replace All does not touch a control's `Begin` line; a designer move is not undone by code-window
   undo; the header stays folded after formatting; a migrated sidecar keeps marks on their statements and is
   idempotent; an add-in replacement that changes the header is refused.
   — **Already done:** "an add-in replacement that changes the header is refused" is
   `AddinWholeFileTests.AnAddinReplacementThatChangesTheHeaderIsRefused`, written with 3.19. Do not duplicate it.
+  — **Every phase-3 scenario of the nine deltas now has a test by its name**, and so does the lsp-client delta's
+  "No server is attached", which 3.14 built. How rename and addition were chosen, and why restated scenarios count,
+  is in design.md ("Settled while building 3.21"). The gaps the survey's table left, closed:
+  - *New*: `CodeWindowHoldsTheFileTests.OpeningAClassModule`, on a class whose header carries the Class Builder's
+    two lines, so the window's header is shown to be the file's and not one of HexIDE's making;
+    `OpeningAFormAndSavingItUnchanged`, a save through `ProjectService` with the window open: the window holds the
+    file written, the re-head does not undo, and the dirty detector and the save prompt read the document clean;
+    `GuardedFormattingTests.FormattingAClass` (the test of that name had opened a form, and is now
+    `FormattingAFormFormatsTheCodeAndLeavesTheHeaderUnchanged`); `DesignerCommitTests.MovingAControlWithTheCodeWindowOpen`,
+    a drag through the designer's undo stack, the bus and the refresher, after which only `Left` and `Top` differ
+    in the header, the code is untouched, and the window's undo takes the typed line and leaves the move;
+    `HeaderRefresherTests.AddingAControlBelowABreakpoint`, judged by the statement rather than by arithmetic;
+    `MarkGutterOnReadOnlyLineTests.TogglingABookmark`, `ALineWithBothABookmarkAndABreakpoint` and
+    `TogglingABreakpointOnTheCaretLine`, which read the dots off a Skia frame; `MainViewViewModelTests.TogglingABreakpointOnTheCaretLine`
+    and `ClearingEveryBreakpointInTheProject`, the main window's F9, menu and Clear All;
+    `UserSidecarBreakpointTests.ASidecarNamingLinesPastTheEndOfItsDocument` and `MarksInsideTheDocumentAreKept`;
+    `WireContractTests.Opening_a_form_reports_nothing_in_its_header`; `AddinDiagnosticsAccessTests.TwoProjectsWithADocumentOfTheSameName`.
+  - *Renamed*: `HeaderFoldTests.ReformattingAfterExpandingTheHeader`, `ReformattingADocumentWhoseHeaderIsFolded`
+    (now given the flattening answer, and asserting the header unchanged) and `NoServerIsAttached`;
+    `MarkOnReadOnlyLineTests.ABreakpointInAFormTheIdeCannotSaveFaithfully` (now asserting the store);
+    `ResetPromptTests.ChangingAFormsLayoutWhilePaused` (now through the refresher rather than the window's own
+    write); `LineNumbersFromTheTopOfTheFileTests.AClassWithTheStandardHeader`;
+    `DebuggerLinesAreFileLinesTests.Stopping_on_a_breakpoint_in_a_form`; `MarkGutterOnReadOnlyLineTests.TogglingABookmarkOnAFoldedHeader`;
+    and in the server's `WireContractTests`, `Opening_a_form_whose_designer_block_cannot_be_parsed_…`,
+    `Renaming_an_identifier_that_also_appears_in_the_layout_…` and `Renaming_a_member_that_has_a_description_…`.
+  - *Completed in place*: `ReadOnlyGreyingTests.OpeningAForm` now asserts the fold, folded and one line, and
+    `OpeningAStandardModule` that the header line cannot be edited.
+  — **The extra cases**: (1) `TheBufferIsTheFileOnOpenForEveryKind`, every document in `demo/` and
+  `corpus/designer/` opened from disk in a code window; (2) `AnUnchangedSaveWritesTheBuffer`, on two render-stable
+  fixtures with that premise checked first; (3) `FormattingAClass`; (4) `FindReplaceViewModelTests.ReplaceAllDoesNotTouchAControlsBeginLine`,
+  in a window opened with the form's prefix, where the scenario's own test finds the header from the text alone;
+  (5) `MovingAControlWithTheCodeWindowOpen`; (6) `ReformattingADocumentWhoseHeaderIsFolded`; (7) 3.17's
+  `SidecarMigrationTests.AMigratedSidecarKeepsEachMarkOnItsStatement` and `OpeningAnAlreadyMigratedSidecarAgain`,
+  run green here; (8) 3.19's `AddinWholeFileTests.AnAddinReplacementThatChangesTheHeaderIsRefused`.
+  — **The add-in scenario 3.19 left unmet is met**: `IDiagnosticsAccess.TryGetFor` says why a name found no single
+  document, where `GetFor` answers an empty list (design.md, "Not done here, and why").
+  — **Left as they are**: "A compile error from VB6" is 2.9's (`Vb6CompileLogTests.AFormsDesignerBlockIsCountedInTheBuffer`);
+  the document-identity scenarios are phase 1's, and three of them have no test by their name; "A procedure with a
+  description" and "Deleting a described procedure" are phase 4's. The code-editor requirement "A document with no
+  file yet SHALL hold the header its first save will write" has no scenario and is still unmet at open (#885).
+  — **Mutation: 30, each reddening a new or strengthened test.** `TryGetFor`'s reason dropped, the first of two
+  documents taken, the project ignored, and a default body that invents a refusal; the class prefix replaced by the
+  canonical header and the form's dropped; a save that does not re-head the window, a header write not marked as
+  the IDE's own, the undo loop not putting it back, the dirty detector comparing the whole buffer, the flush writing
+  it; formatting with no regions; a mark refused on every line of a form held read-only; a refresh that moves no
+  marks; Replace All with no regions; the sidecar keeping lines past the end, and counting the code section;
+  F9 counting from the first line of code, and Clear All not delegating; the window not folding its header; a
+  one-line header that is no region, and a provider that lets typing in; the bookmark gutter forgetting its store
+  is 0-based, drawing in the breakpoint's colour, and the breakpoint gutter not repainting; the reset prompt opening
+  for an unarmed change; the refresher not listening, and a drag that pushes nothing. **One survived its first
+  run**: the class prefix replaced by the canonical header, because every class the repository carries has that
+  header. `OpeningAClassModule` now opens a class whose header carries the Class Builder's lines, and the
+  mutation reddens it. The one-line-header mutation reddened `OpeningAStandardModule` on its greying first, so a
+  provider-only mutation was added to show the new "cannot be edited" assertions bite on their own. The server's
+  "Opening a form" was checked as design.md records: green with either layer broken, red with both.
 
 - [ ] 3.22 Verify in the running IDE, through the automation tools rather than by asking anyone to click:
   open a VB6-authored `.frm`, `.cls` and `.bas`; snapshot the header folded and greyed under a light and a

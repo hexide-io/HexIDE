@@ -90,9 +90,10 @@ public class GuardedFormattingTests : IDisposable
         .Replace("end sub", "End Sub");
 
     [AvaloniaFact]
-    public void FormattingAClassFormatsTheCodeAndLeavesTheHeaderUnchanged()
+    public void FormattingAFormFormatsTheCodeAndLeavesTheHeaderUnchanged()
     {
-        // The code-editor delta's own scenario, on the kind that bit: a form, whose header straddles the split.
+        // The kind that bit: a form, whose header straddles the split. The delta's scenario names a class, and is
+        // FormattingAClass below.
         var vm = OpenForm(out _);
         var header = vm.Document.Text[..vm.Document.Text.IndexOf("Option Explicit", StringComparison.Ordinal)];
 
@@ -100,6 +101,73 @@ public class GuardedFormattingTests : IDisposable
 
         vm.Document.Text.Should().Be(header +
             "Option Explicit\r\n\r\nPrivate Sub cmdOK_Click()\r\n    Unload Me\r\nEnd Sub\r\n");
+    }
+
+    /// <summary>A class as VB6 writes it, the header with its decoded enumeration comments.</summary>
+    private const string Cls =
+        "VERSION 1.0 CLASS\r\n" +
+        "BEGIN\r\n" +
+        "  MultiUse = -1  'True\r\n" +
+        "  Persistable = 0  'NotPersistable\r\n" +
+        "  DataBindingBehavior = 0  'vbNone\r\n" +
+        "  DataSourceBehavior  = 0  'vbNone\r\n" +
+        "  MTSTransactionMode  = 0  'NotAnMTSObject\r\n" +
+        "END\r\n" +
+        "Attribute VB_Name = \"Order\"\r\n" +
+        "Attribute VB_GlobalNameSpace = False\r\n" +
+        "Attribute VB_Creatable = True\r\n" +
+        "Attribute VB_PredeclaredId = False\r\n" +
+        "Attribute VB_Exposed = False\r\n" +
+        "Option Explicit\r\n" +
+        "\r\n" +
+        "public function total() as currency\r\n" +
+        "total = 0\r\n" +
+        "end function\r\n";
+
+    /// <summary>A class read as the project service reads one: the header split off and kept, the body as its code.</summary>
+    private CodeEditorViewModel OpenClass()
+    {
+        var (header, body) = ModuleFileFormat.SplitHeader(Cls, ModuleKind.ClassModule);
+        header.Should().StartWith("VERSION 1.0 CLASS").And.EndWith("Attribute VB_Exposed = False\r\n",
+            "the premise: the reader recognised the whole header, so the code window composes it as the prefix");
+        var module = new ModuleDefinition(Project, "Order", ModuleKind.ClassModule);
+        module.RecordOriginalHeader(header);
+        module.UpdateCode(body);
+        var eventBus = Substitute.For<IEventBus>();
+        eventBus.Subscribe<CreateOrNavigateToSubEvent>(Arg.Any<Action<CreateOrNavigateToSubEvent>>()).Returns(Substitute.For<IDisposable>());
+        eventBus.Subscribe<ApplyAllUnsavedChangesEvent>(Arg.Any<Action<ApplyAllUnsavedChangesEvent>>()).Returns(Substitute.For<IDisposable>());
+        eventBus.Subscribe<FormUnloadedEvent>(Arg.Any<Action<FormUnloadedEvent>>()).Returns(Substitute.For<IDisposable>());
+        var vm = new CodeEditorViewModel(
+            Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(),
+            Substitute.For<IProjectService>(), eventBus, Substitute.For<ILspClient>(),
+            Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
+            Substitute.For<IBookmarkService>(), Substitute.For<HexIDE.Debugging.IBreakpointService>(),
+            Substitute.For<HexIDE.Runtime.Debugging.IDebugController>(),
+            Substitute.For<HexIDE.Debugging.IRunScope>(), Substitute.For<ILocalizationService>());
+        made.Add(vm);
+        return vm.Initialize(module);
+    }
+
+    [AvaloniaFact]
+    public void FormattingAClass()
+    {
+        // The code-editor delta's scenario as written: a class, formatted by a server whose answer replaces the
+        // whole document. The answer flattens the class block's two-space indent to column zero and speaks \n,
+        // as the bundled server's did, so a header that survives it survives because the guard kept it.
+        var vm = OpenClass();
+        var header = Cls[..Cls.IndexOf("Option Explicit", StringComparison.Ordinal)];
+        vm.Document.Text.Should().Be(Cls, "the premise: the window holds the file");
+
+        vm.ApplyFormatting([WholeDocumentAnswer(vm.Document.Text, code => code
+            .Replace("public function total() as currency", "Public Function total() As Currency")
+            .Replace("total = 0", "    total = 0")
+            .Replace("end function", "End Function"))]);
+
+        vm.Document.Text.Should().StartWith(header, "the header is unchanged, byte for byte");
+        vm.Document.Text.Should().Be(header +
+            "Option Explicit\r\n\r\nPublic Function total() As Currency\r\n    total = 0\r\nEnd Function\r\n",
+            "and the code is formatted");
+        vm.BufferBody.Should().Be(vm.Document.Text[header.Length..], "the split still falls where the header ends");
     }
 
     [AvaloniaFact]

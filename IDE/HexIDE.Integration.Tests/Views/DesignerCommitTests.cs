@@ -1,7 +1,14 @@
+using System.IO;
 using Avalonia.Headless.XUnit;
+using HexIDE.Bookmarks;
+using HexIDE.Debugging;
 using HexIDE.Events;
+using HexIDE.Forms.ViewModels;
 using HexIDE.IDE;
 using HexIDE.Localization;
+using HexIDE.Lsp;
+using HexIDE.Projects;
+using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.Components;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
@@ -152,6 +159,83 @@ public class DesignerCommitTests
         vm.EndDrag();
 
         announcements.Should().Be(1);
+    }
+
+    private const string LabelAt120 = """
+        VERSION 5.00
+        Begin VB.Form Form1
+           Begin VB.Label Label1
+              Caption         =   "Hi"
+              Height          =   240
+              Left            =   120
+              Top             =   120
+              Width           =   1000
+           End
+        End
+        Attribute VB_Name = "Form1"
+        Option Explicit
+
+        """;
+
+    private static CodeEditorViewModel NewCodeEditor()
+    {
+        var eventBus = Substitute.For<IEventBus>();
+        eventBus.Subscribe<CreateOrNavigateToSubEvent>(Arg.Any<Action<CreateOrNavigateToSubEvent>>()).Returns(Substitute.For<IDisposable>());
+        eventBus.Subscribe<ApplyAllUnsavedChangesEvent>(Arg.Any<Action<ApplyAllUnsavedChangesEvent>>()).Returns(Substitute.For<IDisposable>());
+        eventBus.Subscribe<FormUnloadedEvent>(Arg.Any<Action<FormUnloadedEvent>>()).Returns(Substitute.For<IDisposable>());
+        return new CodeEditorViewModel(
+            Substitute.For<IWindowManager>(), Substitute.For<IEditorService>(), Substitute.For<IProjectService>(),
+            eventBus, Substitute.For<ILspClient>(), Substitute.For<ISettingsService>(), Substitute.For<IStatusBarService>(),
+            Substitute.For<IBookmarkService>(), Substitute.For<IBreakpointService>(), Substitute.For<IDebugController>(),
+            Substitute.For<IRunScope>(), Substitute.For<ILocalizationService>());
+    }
+
+    [AvaloniaFact]
+    public void MovingAControlWithTheCodeWindowOpen()
+    {
+        // The code-editor delta's scenario, from the designer's own gesture to the open code window: the drag ends,
+        // the designer's undo stack takes the move as one commit and announces it on the bus, and the header
+        // refresher re-renders the form and re-heads the window. The code typed before the move is the developer's
+        // last code edit, and the code window's undo has to take it and leave the move.
+        var bus = new EventBus();
+        var form = Deserialize(LabelAt120);
+        form.AbsolutePath = Path.Combine(Path.GetTempPath(), "hexide-designer-commit", "Form1.frm");
+        var open = new List<BaseEditorWindowViewModel>();
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.OpenDocuments.Returns(_ => open);
+        using var refresher = new HeaderRefresher(bus, dock, new BreakpointService(), new BookmarkService());
+
+        // Settled on a render before the window opens, so what changes below is the move and nothing else.
+        refresher.LayoutChanged(form);
+        using var editor = NewCodeEditor().Initialize(form);
+        open.Add(editor);
+        var asOpened = editor.BufferBody;
+        editor.Document.Insert(editor.Document.TextLength, "Dim x As Long\r\n");
+        var typed = editor.BufferBody;
+        var headerBefore = form.DesignerText!;
+
+        var designer = NewDesignerVm(bus).Initialize(form);
+        var label = designer.Components.Single();
+        designer.BeginDrag([label]);
+        label.Left += 30;
+        label.Top += 15;
+        designer.EndDrag();
+
+        var headerAfter = form.DesignerText!;
+        var before = headerBefore.Split("\r\n");
+        var after = headerAfter.Split("\r\n");
+        after.Should().HaveSameCount(before);
+        Enumerable.Range(0, before.Length).Where(i => before[i] != after[i]).Select(i => after[i].Trim()).ToList()
+            .Should().HaveCount(2).And.OnlyContain(line => line.StartsWith("Left ") || line.StartsWith("Top "),
+                "the header shows the control's new position, and nothing else of it changed");
+        editor.Document.Text.Should().Be(headerAfter + typed, "the code window's header is the new one");
+        editor.BufferBody.Should().Be(typed, "and its code is untouched");
+
+        editor.UndoRequested(() => editor.Document.UndoStack.Undo());
+
+        editor.BufferBody.Should().Be(asOpened, "undo in the code window still undoes the developer's last code edit");
+        editor.Document.Text.Should().Be(headerAfter + asOpened, "and does not undo the move");
+        form.DesignerText.Should().Be(headerAfter);
     }
 
     [AvaloniaFact]

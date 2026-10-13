@@ -9,6 +9,7 @@ using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using Avalonia.Threading;
 using AvaloniaEdit;
+using AvaloniaEdit.Document;
 using AvaloniaEdit.Folding;
 using AvaloniaEdit.Rendering;
 using HexIDE.Bookmarks;
@@ -212,6 +213,10 @@ public class ReadOnlyGreyingTests : IDisposable
         var vm = OpenForm();
         var editor = Show(vm);
 
+        var fold = ((FoldingManager)editor.TextArea.TextView.GetService(typeof(FoldingManager))!).GetFoldingsAt(0).Single();
+        fold.IsFolded.Should().BeTrue("the header is folded when the window opens");
+        fold.EndOffset.Should().Be(editor.Document.GetLineByNumber(HeaderLines).EndOffset,
+            "into one line, the designer block and the attribute lines together");
         FoldLabelColour.Should().Be(ClassicGrey,
             "the folded header's label is drawn in the theme's read-only colour");
 
@@ -225,14 +230,24 @@ public class ReadOnlyGreyingTests : IDisposable
     [AvaloniaFact]
     public void OpeningAStandardModule()
     {
-        // The delta's scenario: a one-line header is greyed, and is not folded.
+        // The delta's scenario: a one-line header is greyed, cannot be edited, and is not folded.
         var themes = new ThemeService();
         using var _ = TheIdesThemes(themes);
         var editor = Show(OpenModule(ModuleKind.StandardModule, "Module1", "Option Explicit\r\n"));
+        var header = editor.Document.GetLineByNumber(1);
+        editor.Document.GetText(header).Should().Be("Attribute VB_Name = \"Module1\"", "the premise: the header is its one line");
 
         ((FoldingManager)editor.TextArea.TextView.GetService(typeof(FoldingManager))!).GetFoldingsAt(0).Should().BeEmpty();
         ColoursOn(editor, 1).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey);
         ColoursOn(editor, 2).Should().NotContain(ClassicGrey);
+
+        // Asked of the section provider the window installs, which typing, pasting and deleting all consult.
+        var sections = editor.TextArea.ReadOnlySectionProvider;
+        sections.CanInsert(0).Should().BeFalse("the header line cannot be typed into at its start");
+        sections.CanInsert(header.Offset + 10).Should().BeFalse("nor inside it");
+        sections.GetDeletableSegments(new TextSegment { StartOffset = header.Offset, Length = header.Length })
+            .Sum(s => s.Length).Should().Be(0, "nor can any of it be deleted");
+        sections.CanInsert(editor.Document.GetLineByNumber(2).Offset).Should().BeTrue("the code below it can be edited");
     }
 
     // ── What else is greyed, and what is not ───────────────────────────────────────────────────────────

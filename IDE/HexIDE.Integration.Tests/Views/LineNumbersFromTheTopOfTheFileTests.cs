@@ -95,10 +95,11 @@ public class LineNumbersFromTheTopOfTheFileTests : IDisposable
     }
 
     [AvaloniaFact]
-    public void TheStatusBarCountsAClassesFirstLineOfCodeFromTheTopOfTheFile()
+    public void AClassWithTheStandardHeader()
     {
-        // The code-editor delta's scenario. The expected number is where the class's own header ends, not a
-        // constant, so the test states the rule rather than today's header.
+        // The code-editor delta's scenario: the status bar counts a class's first line of code from the top of the
+        // file. The expected number is where the class's own header ends, not a constant, so the test states the
+        // rule rather than today's header.
         var vm = OpenClass();
         var editor = Show(vm);
         var header = vm.CodeWindowText.HeaderLineCount;

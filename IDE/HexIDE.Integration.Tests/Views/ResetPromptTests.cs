@@ -18,6 +18,7 @@ using HexIDE.Localization;
 using HexIDE.Lsp;
 using HexIDE.Lsp.Messages;
 using HexIDE.Projects;
+using HexIDE.Runtime.Components;
 using HexIDE.Runtime.Debugging;
 using HexIDE.Runtime.ProjectElements;
 using HexIDE.Runtime.Serialization;
@@ -348,15 +349,26 @@ public class ResetPromptTests : IDisposable
     }
 
     [AvaloniaFact]
-    public void AHeaderRefreshWhileRunningDoesNotAsk()
+    public void ChangingAFormsLayoutWhilePaused()
     {
-        // The code-editor delta's scenario: a designer change made while a run is paused shows no prompt.
+        // The code-editor delta's scenario: a designer change made while a run is paused shows no prompt. It reaches
+        // the window the way a designer commit does, through the header refresher, which re-renders the form and
+        // replaces the header in the open window.
         var vm = OpenForm();
         Show(vm);
+        var dock = Substitute.For<IDocumentDockService>();
+        dock.OpenDocuments.Returns(new List<BaseEditorWindowViewModel> { vm });
+        using var refresher = new HeaderRefresher(new EventBus(), dock, new BreakpointService(), new BookmarkService());
+        var form = vm.FormDefinition!;
+        var code = vm.BufferBody;
 
-        vm.RefreshPrefix(FormCodeText.Prefix(vm.FormDefinition!).Replace("\"Orders\"", "\"Orders and more\""));
+        form.Components.Single(c => c.BaseClass.VBTypeName == "VB.Form")
+            .SetProperty(VBProperties.CaptionProperty, "Orders and more");
+        refresher.LayoutChanged(form);
         Dispatcher.UIThread.RunJobs();
 
+        vm.Document.Text.Should().Contain("\"Orders and more\"", "the premise: the change reached the window's header");
+        vm.BufferBody.Should().Be(code);
         Prompts().Should().Be(0);
     }
 

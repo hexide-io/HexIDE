@@ -240,6 +240,61 @@ public sealed class UserSidecarBreakpointTests : IDisposable
     }
 
     /// <summary>
+    /// The user-sidecar delta's two restated scenarios, as they are written: a two-line module, and a sidecar in this
+    /// build's format holding a breakpoint on its line 99 and one on its line 2. The module's two lines are its
+    /// <c>Attribute VB_Name</c> header and one line of code, so line 2, counted from the top of the file, is code.
+    /// </summary>
+    /// <remarks>
+    /// <c>MarksOnLinesTheDocumentDoesNotHaveAreDroppedAtLoad_AndNotWrittenBack</c> covers both with more lines either
+    /// side, and is cited by name by the change that introduced them (2026-09-22-drop-marks-outside-their-document),
+    /// so it keeps its name and these say the scenarios as written.
+    /// </remarks>
+    private async Task<(ProjectDefinition Project, BreakpointService Breakpoints, UserSidecarService Sidecar, string Path)>
+        TwoLineModuleWithASidecarNaming(params int[] lines)
+    {
+        Directory.CreateDirectory(_dir);
+        var project = TestHelpers.CreateProjectWithModule("P", "Module1");
+        project.Modules[0].UpdateCode("Option Explicit");
+        project.AbsolutePath = Path.Combine(_dir, "P.vbp");
+        CodeWindowText.Of(Module1(project)).LineCount.Should().Be(2, "the premise: a two-line module");
+        var sidecarPath = Path.Combine(_dir, "P.user.hexproj");
+        await File.WriteAllTextAsync(sidecarPath,
+            $$"""{ "version": 2, "fileBreakpoints": { "Module1": [{{string.Join(", ", lines)}}] } }""",
+            TestContext.Current.CancellationToken);
+
+        var projectManager = Substitute.For<IProjectManager>();
+        projectManager.LoadedProjects.Returns(new List<ProjectDefinition>());
+        var breakpoints = new BreakpointService();
+        var sidecar = new UserSidecarService(new BookmarkService(), breakpoints, projectManager);
+        await sidecar.LoadAsync(project);
+        return (project, breakpoints, sidecar, sidecarPath);
+    }
+
+    [Fact]
+    public async Task ASidecarNamingLinesPastTheEndOfItsDocument()
+    {
+        using var log = new CapturedLog();
+        var (project, breakpoints, sidecar, path) = await TwoLineModuleWithASidecarNaming(2, 99);
+
+        breakpoints.GetBreakpoints(Module1(project)).Should().NotContain(99, "the module has no breakpoint on line 99");
+        log.Messages.Should().ContainSingle(m => m.StartsWith("Dropped breakpoints on [99]"))
+            .Which.Should().Contain("Module1").And.Contain("2 line(s)", "the log says it was dropped, and why");
+
+        await sidecar.SaveAsync(project);
+        var json = JsonDocument.Parse(await File.ReadAllTextAsync(path, TestContext.Current.CancellationToken));
+        json.RootElement.GetProperty("fileBreakpoints").GetProperty("Module1").EnumerateArray()
+            .Select(e => e.GetInt32()).Should().NotContain(99, "the next save does not write it");
+    }
+
+    [Fact]
+    public async Task MarksInsideTheDocumentAreKept()
+    {
+        var (project, breakpoints, _, _) = await TwoLineModuleWithASidecarNaming(2, 99);
+
+        breakpoints.GetBreakpoints(Module1(project)).Should().Equal([2], "that breakpoint is restored");
+    }
+
+    /// <summary>
     /// A sidecar written before lines counted from the top of the file has its lines checked in the numbering they
     /// were written in, over the document's code, before they move (#273 task 3.17).
     /// </summary>

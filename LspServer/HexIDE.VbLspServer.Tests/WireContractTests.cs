@@ -522,9 +522,10 @@ public class WireContractTests
     }
 
     [Fact]
-    public async Task Renaming_a_local_named_like_a_layout_property_edits_nothing_in_the_designer_block()
+    public async Task Renaming_an_identifier_that_also_appears_in_the_layout_edits_nothing_in_the_designer_block()
     {
-        // Caption is a property three times over in the fixture's designer block.
+        // The language-server delta's scenario. Caption is a property three times over in the fixture's designer
+        // block, and the local renamed here is called Caption too.
         await using var h = await StartAsync();
         await OpenAsync(h, Uri, WholeFileFixtures.Form);
 
@@ -540,7 +541,7 @@ public class WireContractTests
     }
 
     [Fact]
-    public async Task Renaming_a_member_takes_its_own_attribute_lines_qualifier_along_and_nothing_else_there()
+    public async Task Renaming_a_member_that_has_a_description_takes_its_qualifier_along_and_nothing_else_on_that_line()
     {
         // The one exception to the rule, and the design record's: an attribute line names the member it
         // describes, so a rename that left it behind would describe a member that no longer exists. Only the
@@ -599,10 +600,32 @@ public class WireContractTests
     }
 
     [Fact]
-    public async Task Opening_a_form_with_a_damaged_header_publishes_the_codes_diagnostics_and_none_in_the_header()
+    public async Task Opening_a_form_reports_nothing_in_its_header()
     {
-        // The delta's "Opening a form", on the case it exists for: a clean header raises nothing anyway. The
-        // body is damaged too, so an empty publish cannot pass for a filtered one.
+        // The language-server delta's scenario: a form's whole file, designer block and all, as VB6 writes it,
+        // including the comment VB6 puts after an enumerated value, which once failed both grammars on most forms
+        // (task 0.2). A header like this raises nothing in either layer that keeps it out (the grammar reads it,
+        // and the server withholds anything on a protected line), so the body is damaged: a publish with no
+        // diagnostics in it cannot pass for one that left the header out.
+        var form = WholeFileFixtures.Form
+            .Replace("   ClientHeight    =   3000\r\n",
+                "   BorderStyle     =   1  'Fixed Single\r\n   ClientHeight    =   3000\r\n", StringComparison.Ordinal)
+            .Replace("dim Caption as string", "dim Caption as", StringComparison.Ordinal);
+        const int headerLines = WholeFileFixtures.FormHeaderLines + 1;
+        await using var h = await StartAsync();
+        await OpenAsync(h, Uri, form);
+
+        var lines = (await h.NextDiagnosticsAsync()).GetProperty("diagnostics").EnumerateArray()
+            .Select(d => d.GetProperty("range").GetProperty("start").GetProperty("line").GetInt32()).ToList();
+
+        lines.Should().Contain(21).And.OnlyContain(l => l >= headerLines);
+    }
+
+    [Fact]
+    public async Task Opening_a_form_whose_designer_block_cannot_be_parsed_publishes_the_codes_diagnostics_and_none_in_the_header()
+    {
+        // The language-server delta's scenario. The body is damaged too, so an empty publish cannot pass for a
+        // filtered one.
         var form = WholeFileFixtures.Form
             .Replace("ClientHeight    =   3000", "ClientHeight    =   = 3000", StringComparison.Ordinal)
             .Replace("dim Caption as string", "dim Caption as", StringComparison.Ordinal);

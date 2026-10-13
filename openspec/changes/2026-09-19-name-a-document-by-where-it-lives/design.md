@@ -892,9 +892,23 @@ host's open did not activate an editor that was already open, and it could read 
 Fixing it needs a member that reads a document by name, which the add-in surface lacks; adding one is its own
 decision. Filed as #887. Its navigation to line 1 also puts the caret in the folded
 header, which "Folds and greying" says expands it; that is unmeasured, and is 3.22's to look at.
-`IDiagnosticsAccess.GetFor` still answers empty for a name two projects share rather than saying so, and is the one
-member that names a document and cannot yet tell an add-in why, so the addin-system scenario "Two projects with a
-document of the same name" is unmet for it. Being a scenario of this change's own delta, it is taken up by 3.21 rather than filed.
+`IDiagnosticsAccess.GetFor` answered empty for a name two projects share rather than saying so, and was the one
+member that named a document and could not tell an add-in why, so the addin-system scenario "Two projects with a
+document of the same name" was unmet for it. Being a scenario of this change's own delta, 3.21 took it up rather
+than filing it, and closed it with `TryGetFor` (below).
+
+**An add-in asking for one document's diagnostics is told why the name found none, through
+`IDiagnosticsAccess.TryGetFor(fileName, project)`, answering an `AddinDiagnosticsResult(IReadOnlyList<AddinDiagnostic>
+Diagnostics, string? Reason = null)`** (task 3.21). `GetFor`'s list return is frozen, as `SetContent`'s `Task<bool>`
+is, so the reason comes from a new member beside it, and `GetFor(fileName, project)` is now `TryGetFor` with the
+reason dropped. The reasons are `NamedDocuments.Resolve`'s, as the editor members' are. The record has no
+`Succeeded` flag, unlike `AddinEditResult`: a refusal is a reason (`Refused` reads it), and a document with no
+diagnostics is an empty list with none, which is the one distinction the list alone could not draw.
+**The default body answers `GetFor`'s list with no reason, and never refuses.** A host that implements only `GetFor`
+cannot tell an ambiguous name from a clean file, so neither can the body, and inventing a refusal for an empty list
+would report a clean file as a name that found nothing. `AddinEditResult.WithoutReason` is not the precedent here:
+it maps an answer of false, which those older members did give, whereas `GetFor` never said it was refused at all.
+Only HexIDE's own host, and any that implements the member, refuses; the interface remarks say so.
 
 **Settled in the 3.19 review.** Each of these closes a way the add-in or AI Chat answered something other than
 what happened.
@@ -920,6 +934,28 @@ what happened.
   and empties the code, and the reply said success.
 - *An `ApplyEdits` refusal names the edit as the add-in sent it*: its place in the set and the positions given,
   where it named the buffer position, which differs for a column past a line's end.
+
+**Settled while building 3.21.** What "a test per scenario" and two of the task's own cases came to.
+- *A restated scenario counts.* The bookmarks and interpreter-debugger deltas remove a requirement and add it back
+  narrowed, so their carried-over scenarios ("Toggling a bookmark", "Clearing every breakpoint in the project") are
+  scenarios of this change and get tests by their names, like the new ones.
+- *A test already proving a scenario was renamed to it, unless something outside the test file cites its name.*
+  `MarksOnLinesTheDocumentDoesNotHaveAreDroppedAtLoad_AndNotWrittenBack` is cited by the archived change that
+  introduced the sidecar's range drop, and an archive is a record rather than a document to keep in step, so the
+  two sidecar scenarios got tests of their own beside it. Where a scenario-named test existed and left part of
+  its THEN unasserted (a standard module's header "cannot be edited", a form's header "folded into one line"), the
+  missing clause went into that test rather than into a sibling.
+- *"An unchanged save writes the buffer" is asserted only on a form the serializer reproduces exactly*, because a
+  form is written by rendering its model, not by copying what was read, so for any other form the claim is false
+  and a test of it would enshrine the wrong invariant. The fixtures are a form the serializer wrote itself, which
+  is its own fixed point, and `BillOfFare.frm`, which it reproduces today; each test checks that premise before
+  relying on it. For a form it does not reproduce, the requirement is the other half, that the window follows the
+  file the save wrote, and that is the scenario's own test.
+- *The language server's "Opening a form" has no single point of failure in today's code.* A header VB6 wrote
+  raises nothing in the grammar (task 0.2), and the server withholds anything on a protected line (task 3.10), so
+  the test pins the two together, on a header carrying the enumeration comment that once failed both grammars.
+  Measured: with 0.2's `WS?` taken out of `cp_SingleProperty` it stays green, with the listener given no protected
+  regions it stays green, and with both it fails on that comment's line. Each layer has its own tests.
 
 ## When a document gets its file (#489, settled 2026-09-20)
 

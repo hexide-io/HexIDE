@@ -83,6 +83,28 @@ public record AddinEditResult(bool Succeeded, string? Reason = null, bool Header
         new(false, "Refused. This host answers only whether a call succeeded, so it gives no reason.");
 }
 
+/// <summary>
+/// The diagnostics held for one document, or why the name given did not find one document: built by the IDE,
+/// read by add-ins.
+/// </summary>
+/// <param name="Diagnostics">
+/// The document's diagnostics, which may be none. Always empty when the call was refused.
+/// </param>
+/// <param name="Reason">
+/// Why the name did not find one document, in words a person or a model can act on, and null when it did. Written
+/// in English whatever language the IDE shows, as <see cref="AddinEditResult.Reason"/> is.
+/// </param>
+/// <remarks>
+/// An empty list with no reason is a document the IDE holds no diagnostics for. That is the distinction this
+/// record exists to make: the list alone cannot tell a clean file from a name that found nothing.
+/// Trailing fields may be added, optional, on the rule the records above follow.
+/// </remarks>
+public record AddinDiagnosticsResult(IReadOnlyList<AddinDiagnostic> Diagnostics, string? Reason = null)
+{
+    /// <summary>True when the name did not find one document, which <see cref="Reason"/> then explains.</summary>
+    public bool Refused => Reason is not null;
+}
+
 public record AddinProjectInfo(string ProjectName, string ProjectPath, IReadOnlyList<AddinFileInfo> Files);
 
 /// <remarks>
