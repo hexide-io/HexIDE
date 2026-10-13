@@ -151,11 +151,11 @@ public class ReadOnlyRegionsTests
     }
 
     [Theory]
-    [InlineData("Attribute = 5")]            // a variable called Attribute
-    [InlineData("Attribute(2) = 5")]         // an array of that name
     [InlineData("' Attribute X.VB_Description = \"x\"")]
     [InlineData("AttributeCount = 3")]
-    public void CodeThatMerelyStartsWithTheWordIsNotAnAttributeLine(string line)
+    [InlineData("Attribute = 5")]            // Attribute is a reserved word, so this is an attribute line naming nothing
+    [InlineData("Attribute(2) = 5")]         // and so is this (MemberRunsTests)
+    public void CodeThatMerelyStartsWithTheWordIsNoRegion(string line)
     {
         var text = ClassHeader + "Sub Main()\r\n" + line + "\r\nEnd Sub\r\n";
 

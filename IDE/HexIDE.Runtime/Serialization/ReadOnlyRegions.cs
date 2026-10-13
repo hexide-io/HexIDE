@@ -70,61 +70,144 @@ public readonly record struct TextRegion(int Start, int End, bool OpenEnded = fa
 /// (hexide-io/HexIDE#273 task 4.1). See <see cref="ReadOnlyRegions.MemberRuns"/>.
 /// </summary>
 /// <param name="Region">
-/// The run's whole lines. Its <see cref="TextRegion.Anchor"/> is <paramref name="Anchor"/>, so for a run that
-/// describes a member this is exactly the region <see cref="ReadOnlyRegions.Of"/> returns.
+/// The run's whole lines, every physical line of a continued attribute line included. Its
+/// <see cref="TextRegion.Anchor"/> is <paramref name="Anchor"/> whenever a line of code is above the run, so for
+/// a run that describes a member this is exactly the region <see cref="ReadOnlyRegions.Of"/> returns.
 /// </param>
-/// <param name="Qualifiers">
-/// Each line's qualifier, in order: its attribute name up to the first <c>.</c>, as written, so
-/// <c>Total.VB_ProcData.VB_Invoke_Property</c> gives <c>Total</c>. Null for a line with no <c>.</c>, which
-/// names no member.
-/// </param>
+/// <param name="Lines">Each attribute line of the run, in order, with what its name says.</param>
 /// <param name="DescribedStart">
-/// Where the described line starts: the first physical line of the logical line directly above the run,
-/// reading back over the lines that continue into it with <c> _</c>.
+/// Where the described line starts: the first physical line of the logical line directly above the run.
 /// </param>
 /// <param name="Anchor">
 /// Where the described line ends: the end of the text of the physical line directly above the run, before its
 /// terminator. A fold of the run starts here.
 /// </param>
-/// <param name="LastContentEnd">The end of the text of the run's last line, before its terminator.</param>
+/// <param name="LastContentEnd">The end of the text of the run's last physical line, before its terminator.</param>
 /// <param name="Declared">
-/// The names the described line declares, read lexically (<see cref="ReadOnlyRegions.NamesDeclaredOn(string, int, int)"/>),
-/// each with where it is written. Empty when that line declares nothing.
+/// The names the described line declares, every statement of it read
+/// (<see cref="ReadOnlyRegions.NamesDeclaredOn(string, int, int)"/>), each with where it is written and what it
+/// declares. Empty when that line declares nothing.
 /// </param>
-/// <param name="DescribesMember">
-/// True when the described line declares the qualifier of every line in the run, compared without case. A
-/// run that does not is an <em>orphan</em>: inert text, not a read-only region.
+/// <param name="Kind">
+/// What the run describes, which is how VB6 binds its lines; <see cref="MemberRunKind.Orphan"/> for a run that
+/// describes nothing, which is inert text and not a read-only region.
+/// </param>
+/// <param name="Member">
+/// The member the run describes, as its declaration spells it: one of <paramref name="Declared"/>. Null for an
+/// orphan. For a <see cref="MemberRunKind.Procedure"/> or <see cref="MemberRunKind.RenamedVariable"/> run, this
+/// is the name the save writes into every line's qualifier (task 4.4), at each line's
+/// <see cref="AttributeLine.QualifierOffset"/>.
 /// </param>
 /// <param name="Key">
 /// Which run this is, in a form that outlives its offsets; null for an orphan. See <see cref="MemberRunKey"/>.
 /// </param>
 public sealed record MemberRun(
     TextRegion Region,
-    IReadOnlyList<string?> Qualifiers,
+    IReadOnlyList<AttributeLine> Lines,
     int DescribedStart,
     int Anchor,
     int LastContentEnd,
     IReadOnlyList<DeclaredName> Declared,
-    bool DescribesMember,
-    MemberRunKey? Key);
+    MemberRunKind Kind,
+    DeclaredName? Member,
+    MemberRunKey? Key)
+{
+    /// <summary>True for a run that describes a member: anything but an <see cref="MemberRunKind.Orphan"/>.</summary>
+    public bool DescribesMember => Kind != MemberRunKind.Orphan;
+}
+
+/// <summary>
+/// What a run of attribute lines describes (hexide-io/HexIDE#273 task 4.1), which follows how VB6 binds the two
+/// kinds of member attribute: a procedure attribute by its position, and a variable attribute by its name
+/// (design.md, "Settled before building phase 4").
+/// </summary>
+public enum MemberRunKind
+{
+    /// <summary>Nothing. The run is inert text: not read-only, greyed or folded, and kept byte for byte.</summary>
+    Orphan,
+
+    /// <summary>
+    /// The procedure declared on the line directly above, every line being a procedure attribute. VB6 gives
+    /// such a line to that procedure whatever its qualifier names, so the qualifiers are not consulted, and the
+    /// save re-writes them to the procedure's name (task 4.4).
+    /// </summary>
+    Procedure,
+
+    /// <summary>
+    /// The module-level variables or constants the line directly above declares, every line being a variable
+    /// attribute that names one of them. Left as written by the save.
+    /// </summary>
+    Variable,
+
+    /// <summary>
+    /// The one variable or constant the line directly above declares, every line being a variable attribute
+    /// naming one and the same name that nothing in the module declares: the run a rename by retyping leaves.
+    /// VB6 carries it to the new name, and the save re-writes its qualifiers to it (task 4.4).
+    /// </summary>
+    RenamedVariable,
+}
+
+/// <summary>One attribute line of a <see cref="MemberRun"/>: a logical line, perhaps continued with <c> _</c>.</summary>
+/// <param name="Start">The offset of its first character, which is the start of its first physical line.</param>
+/// <param name="End">The end of its text: where its last physical line's terminator starts.</param>
+/// <param name="Kind">Which kind of attribute its name makes it.</param>
+/// <param name="Qualifier">
+/// Its attribute name up to the first <c>.</c>, as written, so <c>Total.VB_ProcData.VB_Invoke_Property</c> gives
+/// <c>Total</c>. Null for a <see cref="AttributeLineKind.Dotless"/> line.
+/// </param>
+/// <param name="QualifierOffset">
+/// Where <paramref name="Qualifier"/> is written, which may be on a physical line after the first; it is
+/// <c>Qualifier.Length</c> characters long. -1 for a dotless line.
+/// </param>
+public readonly record struct AttributeLine(int Start, int End, AttributeLineKind Kind, string? Qualifier, int QualifierOffset);
+
+/// <summary>Which kind of attribute a line's name makes it.</summary>
+public enum AttributeLineKind
+{
+    /// <summary>
+    /// No <c>.</c> in its name, or no name at all. Below the code VB6 reads it as the module's own, so it
+    /// describes no member.
+    /// </summary>
+    Dotless,
+
+    /// <summary>A dotted name whose part after the first <c>.</c> does not start <c>VB_Var</c>.</summary>
+    Procedure,
+
+    /// <summary>A dotted name whose part after the first <c>.</c> starts <c>VB_Var</c>, compared without case.</summary>
+    Variable,
+}
 
 /// <summary>
 /// A run that describes a member, named so that two texts can be compared and state can be kept across an
-/// edit: its first qualifier, upper-cased, and its ordinal among the runs that describe a member with that
-/// qualifier, counted from the top of the file.
+/// edit: the name of the member it describes as its declaration spells it, upper-cased, and its ordinal among
+/// the runs that describe a member of that name, counted from the top of the file.
 /// </summary>
 /// <remarks>
-/// The name alone is not enough, because a property's <c>Get</c> and <c>Let</c> share one and each may carry a
-/// run. Orphans are not counted, so repairing or removing one, which is free text, does not renumber the runs
-/// of a member that still has its declaration.
+/// The member's declared name and not a qualifier, because a procedure's run may name anything and a renamed
+/// variable's names the old name. The name alone is not enough, because a property's <c>Get</c> and <c>Let</c>
+/// share one and each may carry a run. Orphans are not counted, so repairing or removing one, which is free
+/// text, does not renumber the runs of a member that still has its declaration.
 /// </remarks>
 public readonly record struct MemberRunKey(string Member, int Ordinal);
 
 /// <summary>
-/// A name a declaration writes, and where: the name occupies <c>Name.Length</c> characters from
-/// <see cref="Offset"/>, a type-declaration character or brackets around it aside.
+/// A name a declaration writes, where, and what it declares: the name occupies <c>Name.Length</c> characters
+/// from <see cref="Offset"/>, a type-declaration character or brackets around it aside.
 /// </summary>
-public readonly record struct DeclaredName(string Name, int Offset);
+public readonly record struct DeclaredName(string Name, int Offset, DeclarationKind Kind);
+
+/// <summary>What a <see cref="DeclaredName"/> names.</summary>
+public enum DeclarationKind
+{
+    /// <summary>A <c>Sub</c>, <c>Function</c>, <c>Property</c> accessor, <c>Event</c> or <c>Declare</c>.</summary>
+    Procedure,
+
+    /// <summary>A variable: a declarator after <c>Dim</c> or a modifier.</summary>
+    Variable,
+
+    /// <summary>A constant: a declarator after <c>Const</c>.</summary>
+    Constant,
+}
 
 /// <summary>
 /// Where the read-only regions of a code window's buffer are: the file's header, and each run of attribute
@@ -150,11 +233,12 @@ public readonly record struct DeclaredName(string Name, int Offset);
 /// keeps its whole file in the code. Its prefix is then empty, but the buffer still opens with a header.
 /// </para>
 /// <para>
-/// <b>A run of attribute lines is a region only when it describes a member</b> (task 4.1): when the logical
-/// line directly above it declares the qualifier of every line in it. Anything else is an orphan — a run under
-/// a blank line, a comment, a body statement or another member, or a line with no <c>.</c> below the code — and
-/// an orphan is inert text the developer can see and change, which is the only way to repair one.
-/// <see cref="MemberRuns"/> reports both kinds, with the verdict.
+/// <b>A run of attribute lines is a region only when it describes a member</b> (task 4.1): when it sits
+/// directly under a declaration and VB6 reads every line of it as that declaration's. Anything else is an
+/// orphan — a run under a blank line, a comment or a body statement, a run mixing the two kinds of attribute,
+/// a variable attribute away from its variable, or a line with no <c>.</c> below the code — and an orphan is
+/// inert text the developer can see and change, which is the only way to repair one. <see cref="MemberRuns"/>
+/// reports both kinds, with the verdict.
 /// </para>
 /// </remarks>
 public static class ReadOnlyRegions
@@ -192,115 +276,63 @@ public static class ReadOnlyRegions
     /// </param>
     /// <remarks>
     /// <para>
-    /// <b>A run</b> is a maximal block of consecutive <c>Attribute &lt;name&gt; = …</c> lines below the header,
-    /// as <see cref="Of"/> has always found them. A blank line ends one, so a run split by a blank line is two
-    /// runs, and the second hangs from the blank line.
+    /// <b>A run</b> is a maximal block of consecutive logical lines below the header whose first word is
+    /// <c>Attribute</c>, in any case and at any indent, each with the physical lines it continues into with
+    /// <c> _</c>. A physical line that continues the line above it is never an attribute line: it is part of that
+    /// line's statement, or of its comment, which is how VB6 reads it (oracle probes p07 and p07c). A blank line
+    /// ends a run, so a run split by a blank line is two runs, and the second hangs from the blank line.
     /// </para>
     /// <para>
-    /// <b>Whether it describes a member is read lexically and line-locally</b>: the described line's
-    /// declaration is read for the names it writes (<see cref="NamesDeclaredOn(string, int, int)"/>), and each
-    /// qualifier is compared with them without case. That is collection, not binding — nothing else in the
-    /// module is consulted, so a run whose qualifier names a member declared elsewhere is an orphan here.
+    /// <b>What it describes is how VB6 binds its lines</b> (design.md, "Settled before building phase 4"). Under
+    /// a procedure's declaration, a run of procedure attributes describes that procedure, whatever its
+    /// qualifiers name, because VB6 binds such a line by position. Under a module-level variable or constant's
+    /// declaration, a run of <c>VB_Var…</c> lines describes it when each line names a name that line declares,
+    /// because VB6 binds such a line by name; or, when the line declares one name, when every line names one and
+    /// the same name that nothing in the module declares, which is the run a rename by retyping leaves. Every
+    /// other run is an orphan. See <see cref="MemberRunKind"/>.
+    /// </para>
+    /// <para>
+    /// <b>It is read lexically</b>: the described line for the names it writes
+    /// (<see cref="NamesDeclaredOn(string, int, int)"/>), and, for the renamed kind alone, every line of the
+    /// module and the designer block for the names they write, and the module for where its first procedure
+    /// starts. That is collection, not binding: a qualifier is compared with names written down, and never
+    /// resolved to a declaration. The module's names err towards too many, a procedure's locals included, which
+    /// errs towards an orphan and never towards giving a run to a member whose name it does not carry.
     /// </para>
     /// </remarks>
     public static IReadOnlyList<MemberRun> MemberRuns(string text, int prefixLength) => Scan(text, prefixLength).Runs;
 
     /// <summary>
-    /// The names the declaration on <c>[start, end)</c> of <paramref name="text"/> writes, each with where it
-    /// is written; empty when that text is not a declaration.
+    /// The names the declarations on <c>[start, end)</c> of <paramref name="text"/> write, each with where it is
+    /// written and what it declares; empty when that text declares nothing.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>Lexical and line-local, and biased towards finding a declaration</b>, because a run wrongly judged an
-    /// orphan loses its protection, while one wrongly judged to describe a member costs nothing but a fold. It
-    /// reads, without case:
+    /// <b>Lexical, and line-local.</b> Every statement on the line is read, <c>:</c>-separated ones included,
+    /// because VB6's own Procedure Attributes dialog writes a run under <c>Public A As Long: Public B As Long</c>
+    /// for <c>B</c> (IDE probe E). Each statement is read, without case, as:
     /// </para>
     /// <list type="bullet">
     /// <item><c>[Public|Private|Friend|Global|Static]… Sub|Function|Event &lt;name&gt;</c>, and
-    /// <c>Property Get|Let|Set &lt;name&gt;</c> after the same modifiers;</item>
+    /// <c>Property Get|Let|Set &lt;name&gt;</c> after the same modifiers: a procedure;</item>
     /// <item><c>[Public|Private] Declare [PtrSafe] Sub|Function &lt;name&gt;</c>, <c>PtrSafe</c> being the same
-    /// declaration in VBA7;</item>
-    /// <item>variable declarators after at least one of <c>Public|Private|Friend|Global|Static|Dim</c>:
-    /// <c>[WithEvents] &lt;name&gt;[(…)] [As …]</c>, as a comma list, each with its own <c>WithEvents</c>.</item>
+    /// declaration in VBA7: a procedure;</item>
+    /// <item>declarators after <c>[Public|Private|Global] Const</c>: constants, <c>Const C1 = 1, C2 = 2</c>
+    /// declaring both (IDE probe V5);</item>
+    /// <item>declarators after at least one of <c>Public|Private|Friend|Global|Static|Dim</c>:
+    /// <c>[WithEvents] &lt;name&gt;[(…)] [As …]</c>, as a comma list, each with its own <c>WithEvents</c>:
+    /// variables.</item>
     /// </list>
     /// <para>
-    /// A <c> _</c> line continuation and the line break after it are whitespace, so <c>[start, end)</c> may be
-    /// a whole continued logical line. A comment ends the read, and so does a <c>:</c>, so only the first
-    /// statement on a line is read. A name may carry a type-declaration character (<c>Total$</c> declares
-    /// <c>Total</c>) or be bracketed. <c>Const</c>, <c>Enum</c> and <c>Type</c> declare nothing a member run can
-    /// describe.
+    /// A <c> _</c> line continuation and the line break after it are whitespace, so <c>[start, end)</c> may be a
+    /// whole continued logical line. A comment ends the line, a <c>'</c> anywhere or <c>Rem</c> where a statement
+    /// starts, and a <c>:</c> in it is the comment's. A string is one token, so a <c>:</c>, <c>'</c> or <c>,</c> in
+    /// a constant's value is none of those. A name may carry a type-declaration character (<c>Total$</c> declares
+    /// <c>Total</c>) or be bracketed. <c>Enum</c> and <c>Type</c> declare nothing a run can describe.
     /// </para>
     /// </remarks>
-    public static IReadOnlyList<DeclaredName> NamesDeclaredOn(string text, int start, int end)
-    {
-        var tokens = TokensOf(text, start, end);
-        var names = new List<DeclaredName>();
-
-        var t = 0;
-        var modified = false;
-        while (IsWord(text, tokens, t, "Public", "Private", "Friend", "Global", "Static"))
-        {
-            t++;
-            modified = true;
-        }
-
-        if (IsWord(text, tokens, t, "Declare"))
-        {
-            t++;
-            if (IsWord(text, tokens, t, "PtrSafe"))
-                t++;
-            if (IsWord(text, tokens, t, "Sub", "Function"))
-                AddName(t + 1);
-            return names;
-        }
-        if (IsWord(text, tokens, t, "Sub", "Function", "Event"))
-        {
-            AddName(t + 1);
-            return names;
-        }
-        if (IsWord(text, tokens, t, "Property"))
-        {
-            if (IsWord(text, tokens, t + 1, "Get", "Let", "Set"))
-                AddName(t + 2);
-            return names;
-        }
-
-        if (IsWord(text, tokens, t, "Dim"))
-        {
-            t++;
-            modified = true;
-        }
-        // Without a declaring keyword the line is a statement: an assignment, a call, a ReDim.
-        if (!modified || IsWord(text, tokens, t, "Const", "Enum", "Type"))
-            return names;
-
-        while (t < tokens.Count)
-        {
-            if (IsWord(text, tokens, t, "WithEvents"))
-                t++;
-            if (t >= tokens.Count || tokens[t].Kind != TokenKind.Word)
-                break;
-            AddName(t);
-
-            // Past the rest of this declarator -- its bounds and its As clause -- to the comma that starts the
-            // next, which a comma inside the bounds does not.
-            var depth = 0;
-            t++;
-            while (t < tokens.Count && !(depth == 0 && tokens[t].Kind == TokenKind.Comma))
-            {
-                depth += tokens[t].Kind switch { TokenKind.Open => 1, TokenKind.Close => -1, _ => 0 };
-                t++;
-            }
-            t++;
-        }
-        return names;
-
-        void AddName(int at)
-        {
-            if (at < tokens.Count && tokens[at].Kind == TokenKind.Word)
-                names.Add(new DeclaredName(text.Substring(tokens[at].Start, tokens[at].Length), tokens[at].Start));
-        }
-    }
+    public static IReadOnlyList<DeclaredName> NamesDeclaredOn(string text, int start, int end) =>
+        ReadDeclarations(text, start, end, out _);
 
     /// <summary>The names <paramref name="line"/> declares; see <see cref="NamesDeclaredOn(string, int, int)"/>.</summary>
     public static IReadOnlyList<DeclaredName> NamesDeclaredOn(string line) => NamesDeclaredOn(line, 0, line.Length);
@@ -352,9 +384,14 @@ public static class ReadOnlyRegions
     public static IReadOnlySet<string> DeclaredNames(string text, int prefixLength)
     {
         var lines = LinesOf(text);
-        var headerLines = HeaderLineCount(text, lines, prefixLength);
-
         var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        AddDesignerNames(text, lines, HeaderLineCount(text, lines, prefixLength), names);
+        return names;
+    }
+
+    /// <summary>Adds the name on each <c>Begin</c> line of the header's first <paramref name="headerLines"/> lines.</summary>
+    private static void AddDesignerNames(string text, List<Line> lines, int headerLines, HashSet<string> names)
+    {
         for (var i = 0; i < headerLines; i++)
         {
             var line = Trimmed(text, lines[i]);
@@ -368,7 +405,6 @@ public static class ReadOnlyRegions
             if (!name.IsEmpty)
                 names.Add(name.ToString());
         }
-        return names;
     }
 
     /// <summary>
@@ -403,6 +439,9 @@ public static class ReadOnlyRegions
     /// <summary>One line of the buffer: where its text starts and ends, and where the next line starts.</summary>
     private readonly record struct Line(int Start, int ContentEnd, int Next);
 
+    /// <summary>A logical line: its first physical line and its last, which is the first not continued with <c> _</c>.</summary>
+    private readonly record struct LogicalLine(int First, int Last);
+
     /// <summary>
     /// The lines of <paramref name="text"/>, how many of them the header takes, and every attribute run below
     /// it with its verdict: the one scan <see cref="Of"/> and <see cref="MemberRuns"/> both read.
@@ -411,94 +450,307 @@ public static class ReadOnlyRegions
     {
         var lines = LinesOf(text);
         var headerLines = HeaderLineCount(text, lines, prefixLength);
+        var logical = LogicalLinesOf(text, lines, headerLines);
         var runs = new List<MemberRun>();
         var ordinals = new Dictionary<string, int>(StringComparer.Ordinal);
 
-        var i = headerLines;
-        while (i < lines.Count)
+        // Read only for a variable run, and then once: where the first procedure body starts, and the names the
+        // whole module writes. Most files never need either.
+        int? firstBody = null;
+        HashSet<string>? moduleNames = null;
+
+        var k = 0;
+        while (k < logical.Count)
         {
-            if (!IsMemberAttribute(text, lines[i], out _))
+            if (!IsAttributeLine(text, lines[logical[k].First]))
             {
-                i++;
+                k++;
                 continue;
             }
-            var first = i;
-            var qualifiers = new List<string?>();
-            while (i < lines.Count && IsMemberAttribute(text, lines[i], out var qualifier))
-            {
-                qualifiers.Add(qualifier);
-                i++;
-            }
+            var first = k;
+            var attributes = new List<AttributeLine>();
+            for (; k < logical.Count && IsAttributeLine(text, lines[logical[k].First]); k++)
+                attributes.Add(ReadAttributeLine(text, lines[logical[k].First].Start, lines[logical[k].Last].ContentEnd));
 
-            // The run hangs from the line above it, which is the member it describes if it describes one. A run
-            // on the first line would be the header's, so there always is one; the guard is for a text no rule
-            // here produces. The line above is read back over the lines continued into it, and never into the
-            // header.
-            var region = RegionOf(lines, first, i, text.Length);
+            // The run hangs from the logical line above it, which is the member it describes if it describes one.
+            // The first line of the code has none of its own: above it is the header, which declares nothing. A run
+            // there is a line the header's own reading does not take for an attribute line, such as
+            // Attribute(1) = 2, which names nothing either.
+            var region = RegionOf(lines, logical[first].First, logical[k - 1].Last + 1, text.Length);
             var describedStart = region.Start;
             var anchor = region.Start;
             IReadOnlyList<DeclaredName> declared = [];
+            var kind = MemberRunKind.Orphan;
+            DeclaredName? member = null;
             if (first > 0)
             {
-                var top = first - 1;
-                while (top - 1 >= headerLines && EndsWithContinuation(text, lines[top - 1]))
-                    top--;
-                describedStart = lines[top].Start;
-                anchor = lines[first - 1].ContentEnd;
-                declared = NamesDeclaredOn(text, describedStart, anchor);
+                var above = logical[first - 1];
+                describedStart = lines[above.First].Start;
+                anchor = lines[above.Last].ContentEnd;
                 region = region with { Anchor = anchor };
+                var names = ReadDeclarations(text, describedStart, anchor, out _);
+                declared = names;
+                (kind, member) = Verdict(attributes, names, () => first - 1 < FirstBody(), name => ModuleNames().Contains(name));
             }
 
-            var describes = first > 0 && qualifiers.TrueForAll(q => q is not null && Declares(declared, q));
             MemberRunKey? key = null;
-            if (describes)
+            if (member is { } described)
             {
-                var member = qualifiers[0]!.ToUpperInvariant();
-                ordinals.TryGetValue(member, out var ordinal);
-                ordinals[member] = ordinal + 1;
-                key = new MemberRunKey(member, ordinal);
+                var name = described.Name.ToUpperInvariant();
+                ordinals.TryGetValue(name, out var ordinal);
+                ordinals[name] = ordinal + 1;
+                key = new MemberRunKey(name, ordinal);
             }
-            runs.Add(new MemberRun(region, qualifiers, describedStart, anchor, lines[i - 1].ContentEnd, declared,
-                describes, key));
+            runs.Add(new MemberRun(region, attributes, describedStart, anchor, lines[logical[k - 1].Last].ContentEnd,
+                declared, kind, member, key));
         }
         return (lines, headerLines, runs);
-    }
 
-    private static bool Declares(IReadOnlyList<DeclaredName> declared, string name)
-    {
-        foreach (var d in declared)
+        // The first logical line that opens a procedure's body. Before it is the declarations section, which is
+        // the only place VB6 allows a module-level variable or constant; after it, a declaration is a procedure's
+        // own. An Event or a Declare opens no body.
+        int FirstBody()
         {
-            if (string.Equals(d.Name, name, StringComparison.OrdinalIgnoreCase))
-                return true;
+            if (firstBody is null)
+            {
+                firstBody = logical.Count;
+                for (var i = 0; i < logical.Count; i++)
+                {
+                    ReadDeclarations(text, lines[logical[i].First].Start, lines[logical[i].Last].ContentEnd, out var opensBody);
+                    if (opensBody)
+                    {
+                        firstBody = i;
+                        break;
+                    }
+                }
+            }
+            return firstBody.Value;
         }
-        return false;
+
+        // Every name the module writes a declaration of, read the same way from every logical line, a procedure's
+        // own locals included, and the designer block's controls.
+        HashSet<string> ModuleNames()
+        {
+            if (moduleNames is null)
+            {
+                moduleNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                AddDesignerNames(text, lines, headerLines, moduleNames);
+                foreach (var line in logical)
+                {
+                    foreach (var d in ReadDeclarations(text, lines[line.First].Start, lines[line.Last].ContentEnd, out _))
+                        moduleNames.Add(d.Name);
+                }
+            }
+            return moduleNames;
+        }
     }
 
     /// <summary>
-    /// True when <paramref name="line"/> continues into the next: its text ends with <c>_</c> after
+    /// What a run of <paramref name="attributes"/> under a line declaring <paramref name="declared"/> describes,
+    /// and which of those names it is.
+    /// </summary>
+    /// <param name="moduleLevel">Whether the described line is in the module's declarations section.</param>
+    /// <param name="declaredInModule">Whether the module writes a declaration of a name anywhere.</param>
+    private static (MemberRunKind Kind, DeclaredName? Member) Verdict(List<AttributeLine> attributes,
+        List<DeclaredName> declared, Func<bool> moduleLevel, Func<string, bool> declaredInModule)
+    {
+        // A procedure attribute goes to the procedure declared directly above it, whatever its qualifier names
+        // (oracle probes p04, p05a, p05b).
+        if (attributes.TrueForAll(a => a.Kind == AttributeLineKind.Procedure))
+        {
+            foreach (var d in declared)
+            {
+                if (d.Kind == DeclarationKind.Procedure)
+                    return (MemberRunKind.Procedure, d);
+            }
+            return (MemberRunKind.Orphan, null);
+        }
+
+        // A variable attribute goes to the module-level variable or constant its qualifier names. A mixed run, a
+        // dotless line, and a variable attribute under a procedure's own declaration describe nothing here.
+        if (!attributes.TrueForAll(a => a.Kind == AttributeLineKind.Variable) || !moduleLevel())
+            return (MemberRunKind.Orphan, null);
+        if (attributes.TrueForAll(a => VariableNamed(declared, a.Qualifier!) is not null))
+            return (MemberRunKind.Variable, VariableNamed(declared, attributes[0].Qualifier!));
+
+        // The run a rename by retyping leaves: a line declaring one name, under it a run naming one other name, and
+        // that name declared nowhere. Were it declared elsewhere, VB6 would give the run to that one.
+        var stale = attributes[0].Qualifier!;
+        if (declared.Count == 1 && declared[0].Kind != DeclarationKind.Procedure
+            && attributes.TrueForAll(a => string.Equals(a.Qualifier, stale, StringComparison.OrdinalIgnoreCase))
+            && !declaredInModule(stale))
+            return (MemberRunKind.RenamedVariable, declared[0]);
+        return (MemberRunKind.Orphan, null);
+    }
+
+    /// <summary>The variable or constant among <paramref name="declared"/> called <paramref name="name"/>, compared without case.</summary>
+    private static DeclaredName? VariableNamed(List<DeclaredName> declared, string name)
+    {
+        foreach (var d in declared)
+        {
+            if (d.Kind != DeclarationKind.Procedure && string.Equals(d.Name, name, StringComparison.OrdinalIgnoreCase))
+                return d;
+        }
+        return null;
+    }
+
+    /// <summary>The logical lines of <paramref name="lines"/> from <paramref name="from"/> on.</summary>
+    /// <remarks>
+    /// From the first line of the code, and never back into the header: a header's last line is an
+    /// <c>Attribute</c> line or a block's <c>End</c>, neither of which a developer continues.
+    /// </remarks>
+    private static List<LogicalLine> LogicalLinesOf(string text, List<Line> lines, int from)
+    {
+        var logical = new List<LogicalLine>();
+        var i = from;
+        while (i < lines.Count)
+        {
+            var last = i;
+            while (last + 1 < lines.Count && EndsWithContinuation(text, lines[last]))
+                last++;
+            logical.Add(new LogicalLine(i, last));
+            i = last + 1;
+        }
+        return logical;
+    }
+
+    /// <summary>
+    /// True when <paramref name="line"/> continues into the next: its text ends with an underscore after
     /// whitespace, trailing whitespace aside.
     /// </summary>
     /// <remarks>
-    /// The rule VB6 states, a space and an underscore, and deliberately not
-    /// <c>VbAutoCloseProvider.IsContinuationLine</c>'s looser one, which also takes an identifier that ends in
-    /// <c>_</c> for a continuation.
+    /// The rule VB6 holds to, whitespace then an underscore, with no exemption at the start of a line: a line of
+    /// nothing but an underscore continues only when it is indented (docs/vb6-fidelity-oracle.md). And
+    /// deliberately not <c>VbAutoCloseProvider.IsContinuationLine</c>'s looser one, which also takes an identifier
+    /// that ends in <c>_</c> for a continuation.
     /// </remarks>
     private static bool EndsWithContinuation(string text, Line line)
     {
         var content = text.AsSpan(line.Start, line.ContentEnd - line.Start).TrimEnd();
-        return content.Length > 0 && content[^1] == '_' && (content.Length == 1 || char.IsWhiteSpace(content[^2]));
+        return content.Length > 1 && content[^1] == '_' && char.IsWhiteSpace(content[^2]);
     }
 
-    private enum TokenKind { Word, Open, Close, Comma, Other }
+    /// <summary>
+    /// The declarations on <c>[start, end)</c>, as <see cref="NamesDeclaredOn(string, int, int)"/> reads them.
+    /// </summary>
+    /// <param name="opensBody">
+    /// True when a statement on it declares a <c>Sub</c>, a <c>Function</c> or a <c>Property</c> accessor, which
+    /// opens a procedure's body: the end of the module's declarations section.
+    /// </param>
+    private static List<DeclaredName> ReadDeclarations(string text, int start, int end, out bool opensBody)
+    {
+        var tokens = TokensOf(text, start, end);
+        var names = new List<DeclaredName>();
+        opensBody = false;
+        var from = 0;
+        while (from < tokens.Count)
+        {
+            var to = from;
+            while (to < tokens.Count && tokens[to].Kind != TokenKind.Colon)
+                to++;
+            opensBody |= ReadStatement(text, tokens, from, to, names);
+            from = to + 1;
+        }
+        return names;
+    }
+
+    /// <summary>
+    /// Adds the names the statement of <paramref name="tokens"/> <c>[t, end)</c> declares to
+    /// <paramref name="names"/>; true when it opens a procedure's body.
+    /// </summary>
+    private static bool ReadStatement(string text, List<Token> tokens, int t, int end, List<DeclaredName> names)
+    {
+        var modified = false;
+        while (IsWord(text, tokens, t, end, "Public", "Private", "Friend", "Global", "Static"))
+        {
+            t++;
+            modified = true;
+        }
+
+        if (IsWord(text, tokens, t, end, "Declare"))
+        {
+            t++;
+            if (IsWord(text, tokens, t, end, "PtrSafe"))
+                t++;
+            if (IsWord(text, tokens, t, end, "Sub", "Function"))
+                AddName(t + 1, DeclarationKind.Procedure);
+            return false;
+        }
+        if (IsWord(text, tokens, t, end, "Event"))
+        {
+            AddName(t + 1, DeclarationKind.Procedure);
+            return false;
+        }
+        if (IsWord(text, tokens, t, end, "Sub", "Function"))
+        {
+            AddName(t + 1, DeclarationKind.Procedure);
+            return true;
+        }
+        if (IsWord(text, tokens, t, end, "Property"))
+        {
+            if (!IsWord(text, tokens, t + 1, end, "Get", "Let", "Set"))
+                return false;
+            AddName(t + 2, DeclarationKind.Procedure);
+            return true;
+        }
+        if (IsWord(text, tokens, t, end, "Const"))
+        {
+            AddDeclarators(t + 1, DeclarationKind.Constant);
+            return false;
+        }
+
+        if (IsWord(text, tokens, t, end, "Dim"))
+        {
+            t++;
+            modified = true;
+        }
+        // Without a declaring keyword the statement is not a declaration: an assignment, a call, a ReDim.
+        if (!modified || IsWord(text, tokens, t, end, "Enum", "Type"))
+            return false;
+        AddDeclarators(t, DeclarationKind.Variable);
+        return false;
+
+        void AddDeclarators(int at, DeclarationKind kind)
+        {
+            while (at < end)
+            {
+                if (IsWord(text, tokens, at, end, "WithEvents"))
+                    at++;
+                if (at >= end || tokens[at].Kind != TokenKind.Word)
+                    break;
+                AddName(at, kind);
+
+                // Past the rest of this declarator -- its bounds, its As clause, a constant's value -- to the comma
+                // that starts the next, which a comma inside parentheses does not.
+                var depth = 0;
+                at++;
+                while (at < end && !(depth == 0 && tokens[at].Kind == TokenKind.Comma))
+                {
+                    depth += tokens[at].Kind switch { TokenKind.Open => 1, TokenKind.Close => -1, _ => 0 };
+                    at++;
+                }
+                at++;
+            }
+        }
+
+        void AddName(int at, DeclarationKind kind)
+        {
+            if (at < end && tokens[at].Kind == TokenKind.Word)
+                names.Add(new DeclaredName(text.Substring(tokens[at].Start, tokens[at].Length), tokens[at].Start, kind));
+        }
+    }
+
+    private enum TokenKind { Word, Open, Close, Comma, Colon, Other }
 
     /// <summary>
     /// A token of a declaration: a name or keyword (<see cref="TokenKind.Word"/>, a bracketed name without its
-    /// brackets and a name without its type character), a parenthesis, a comma, or anything else.
+    /// brackets and a name without its type character), a parenthesis, a comma, a <c>:</c>, or anything else.
     /// </summary>
     private readonly record struct Token(TokenKind Kind, int Start, int Length);
 
     /// <summary>
-    /// The tokens of the first statement on <c>[start, end)</c>: up to a comment, a <c>:</c>, or the end.
+    /// The tokens on <c>[start, end)</c>, up to a comment or the end: every statement's, each ended by a
+    /// <see cref="TokenKind.Colon"/>.
     /// </summary>
     private static List<Token> TokensOf(string text, int start, int end)
     {
@@ -519,11 +771,11 @@ public static class ReadOnlyRegions
                 i++;
                 continue;
             }
-            if (c is '\'' or ':')
+            if (c == '\'')
                 break;
             if (c == '"')
             {
-                // A string, "" inside it being a quote: a ' or : in one is neither a comment nor a separator.
+                // A string, "" inside it being a quote: a ' or : or , in one is none of those.
                 var opening = i++;
                 while (i < end && text[i] != '\n')
                 {
@@ -542,13 +794,17 @@ public static class ReadOnlyRegions
             }
             if (char.IsLetter(c))
             {
+                // A type-declaration character after the name is left to be read as a token of its own, which
+                // nothing reads.
                 var j = i + 1;
-                while (j < end && (char.IsLetterOrDigit(text[j]) || text[j] == '_'))
+                while (j < end && IsNameCharacter(text[j]))
                     j++;
-                if (tokens.Count == 0 && text.AsSpan(i, j - i).Equals("Rem", StringComparison.OrdinalIgnoreCase))
+                // Rem is a comment where a statement starts, and like ' takes the rest of the line, a : included.
+                if ((tokens.Count == 0 || tokens[^1].Kind == TokenKind.Colon)
+                    && text.AsSpan(i, j - i).Equals("Rem", StringComparison.OrdinalIgnoreCase))
                     break;
                 tokens.Add(new Token(TokenKind.Word, i, j - i));
-                i = j < end && text[j] is '%' or '&' or '!' or '#' or '@' or '$' ? j + 1 : j;
+                i = j;
                 continue;
             }
             if (c == '[')
@@ -561,11 +817,20 @@ public static class ReadOnlyRegions
                     continue;
                 }
             }
-            tokens.Add(new Token(c switch { '(' => TokenKind.Open, ')' => TokenKind.Close, ',' => TokenKind.Comma, _ => TokenKind.Other }, i, 1));
+            tokens.Add(new Token(c switch
+            {
+                '(' => TokenKind.Open,
+                ')' => TokenKind.Close,
+                ',' => TokenKind.Comma,
+                ':' => TokenKind.Colon,
+                _ => TokenKind.Other,
+            }, i, 1));
             i++;
         }
         return tokens;
     }
+
+    private static bool IsNameCharacter(char c) => char.IsLetterOrDigit(c) || c == '_';
 
     private static bool OnlyWhitespaceToLineEnd(string text, int from, int end)
     {
@@ -577,9 +842,10 @@ public static class ReadOnlyRegions
         return true;
     }
 
-    private static bool IsWord(string text, List<Token> tokens, int at, params string[] words)
+    /// <summary>True when the token at <paramref name="at"/>, before <paramref name="end"/>, is one of <paramref name="words"/>.</summary>
+    private static bool IsWord(string text, List<Token> tokens, int at, int end, params string[] words)
     {
-        if (at >= tokens.Count || tokens[at].Kind != TokenKind.Word)
+        if (at >= end || tokens[at].Kind != TokenKind.Word)
             return false;
         var word = text.AsSpan(tokens[at].Start, tokens[at].Length);
         foreach (var w in words)
@@ -701,33 +967,53 @@ public static class ReadOnlyRegions
     }
 
     /// <summary>
-    /// True for <c>Attribute Name.VB_Something = …</c>, and false for anything that merely begins with the
-    /// word — an assignment to a variable called <c>Attribute</c>, or an array of that name.
+    /// True when the logical line starting on <paramref name="line"/> is an attribute line: its first word is
+    /// <c>Attribute</c>, in any case and at any indent.
     /// </summary>
-    /// <param name="qualifier">
-    /// The attribute name up to its first <c>.</c>, which is the member it names; null when it has none. A line
-    /// with no <c>.</c> is still an attribute line, and still part of a run, but it names no member.
-    /// </param>
-    private static bool IsMemberAttribute(string text, Line line, out string? qualifier)
+    /// <remarks>
+    /// <c>Attribute</c> is a reserved word in code (oracle probe p07e), so a line that starts with the word is
+    /// one however it goes on, <c>Attribute = 5</c> included; such a line names nothing, and describes nothing.
+    /// <c>AttributeCount = 3</c> starts with another word.
+    /// </remarks>
+    private static bool IsAttributeLine(string text, Line line)
     {
-        qualifier = null;
-        var rest = Trimmed(text, line);
-        if (!StartsWithKeyword(rest, "Attribute"))
-            return false;
-        rest = rest["Attribute".Length..].TrimStart();
+        var content = text.AsSpan(line.Start, line.ContentEnd - line.Start).TrimStart();
+        return content.StartsWith("Attribute", StringComparison.OrdinalIgnoreCase)
+               && (content.Length == "Attribute".Length || !IsNameCharacter(content["Attribute".Length]));
+    }
 
-        var name = 0;
-        while (name < rest.Length && (char.IsLetterOrDigit(rest[name]) || rest[name] is '_' or '.'))
-            name++;
-        if (name == 0 || !char.IsLetter(rest[0]))
-            return false;
+    /// <summary>
+    /// The attribute line on <c>[start, end)</c>, a logical line <see cref="IsAttributeLine"/> accepted: its
+    /// name, read past any <c> _</c> continuation after the word, and the kind and qualifier the name gives it.
+    /// </summary>
+    /// <remarks>
+    /// The name may be on a later physical line than the word, as in <c>Attribute _</c> above
+    /// <c>Foo.VB_Description = "x"</c>, which VB6 reads as one attribute line (oracle probe p11b).
+    /// </remarks>
+    private static AttributeLine ReadAttributeLine(string text, int start, int end)
+    {
+        var i = start;
+        while (char.IsWhiteSpace(text[i]))
+            i++;
+        i += "Attribute".Length;
+        while (i < end && (char.IsWhiteSpace(text[i]) || (text[i] == '_' && OnlyWhitespaceToLineEnd(text, i + 1, end))))
+            i++;
 
-        var dot = rest[..name].IndexOf('.');
-        var after = rest[name..].TrimStart();
-        if (after.Length == 0 || after[0] != '=')
-            return false;
-        qualifier = dot < 0 ? null : rest[..dot].ToString();
-        return true;
+        var name = i;
+        if (i < end && char.IsLetter(text[i]))
+        {
+            while (i < end && (IsNameCharacter(text[i]) || text[i] == '.'))
+                i++;
+        }
+        var dot = text.IndexOf('.', name, i - name);
+        if (dot < 0)
+            return new AttributeLine(start, end, AttributeLineKind.Dotless, null, -1);
+
+        // Not measured with the name in another case; compared without case, as VB6 compares names.
+        var kind = text.AsSpan(dot + 1, i - dot - 1).StartsWith("VB_Var", StringComparison.OrdinalIgnoreCase)
+            ? AttributeLineKind.Variable
+            : AttributeLineKind.Procedure;
+        return new AttributeLine(start, end, kind, text[name..dot], name);
     }
 
     private static bool StartsWithKeyword(ReadOnlySpan<char> line, string keyword) =>

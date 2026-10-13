@@ -271,9 +271,9 @@ public class ReadOnlyGreyingTests : IDisposable
     [AvaloniaFact]
     public void AnAttributeLineThatDescribesNothing()
     {
-        // The code-editor delta's scenario (#273 task 4.1): a run under a line that does not declare the member it
-        // names is shown and edited as ordinary text, and the file keeps it. Beside it, a run that does describe
-        // its member, which is greyed and refuses the same keystroke, so the typing path is shown to be live.
+        // The code-editor delta's scenario (#273 task 4.1): a run VB6 would not give to the line above it, here a
+        // body statement, is shown and edited as ordinary text, and the file keeps it. Beside it, a run that does
+        // describe its member, which is greyed and refuses the same keystroke, so the typing path is shown to be live.
         var themes = new ThemeService();
         using var _ = TheIdesThemes(themes);
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
@@ -313,6 +313,56 @@ public class ReadOnlyGreyingTests : IDisposable
 
         vm.BufferBody.Should().Contain("    Debug.Print 1\r\nAttribute Go.VB_Description = \"Really Goes\"\r\nEnd Sub",
             "and the file keeps it, where it was");
+    }
+
+    [AvaloniaFact]
+    public void AnEditToTheLineAboveARunRedrawsItWhenItTurnsIntoAnOrphanOrBack()
+    {
+        // #273 task 4.1: whether a run is read-only depends on the line above it, and AvaloniaEdit rebuilds only the
+        // lines an edit touches. No language server publishes here, so nothing else redraws the run.
+        var themes = new ThemeService();
+        using var _ = TheIdesThemes(themes);
+        var vm = OpenModule(ModuleKind.ClassModule, "Order",
+            "Option Explicit\r\n\r\n" +
+            "Public Clock As Timer, Alarm As Timer\r\n" +
+            "Attribute Alarm.VB_VarDescription = \"Rings\"\r\n" +
+            "\r\n" +
+            "Public Sub Halt()\r\n" +
+            "Attribute Halt.VB_Description = \"Stops at https://example.com/halt\"\r\n" +
+            "End Sub\r\n");
+        var editor = Show(vm);
+        editor.TextArea.Focus();
+        Dispatcher.UIThread.RunJobs();
+        var sections = editor.TextArea.ReadOnlySectionProvider;
+        var alarm = LineOf(editor, "Attribute Alarm");
+        var halt = LineOf(editor, "Attribute Halt");
+        ColoursOn(editor, alarm).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey, "the premise: both runs are greyed");
+        ColoursOn(editor, halt).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey);
+        LinksOn(editor, halt).Should().BeEmpty("and the address in one is plain");
+
+        // Commenting out the declaration leaves its run under a comment, which VB6 gives nothing to.
+        editor.TextArea.Caret.Offset = editor.Document.GetLineByNumber(halt - 1).Offset;
+        TypeText(editor, "'");
+        sections.CanInsert(editor.Document.GetLineByNumber(halt).Offset).Should().BeTrue("the premise: the run is an orphan now");
+        ColoursOn(editor, halt).Should().NotContain(ClassicGrey, "an orphan is drawn as code");
+        LinksOn(editor, halt).Should().ContainSingle("and its address is a link again");
+
+        editor.Document.Remove(editor.Document.GetLineByNumber(halt - 1).Offset, 1);
+        Dispatcher.UIThread.RunJobs();
+        ColoursOn(editor, halt).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey, "uncommented, it is the procedure's again");
+        LinksOn(editor, halt).Should().BeEmpty();
+
+        // Retyping one variable of a line declaring two leaves the run that named it naming nothing the line
+        // declares, and the line declares two, so no rename can be read into it.
+        var declaration = editor.Document.GetLineByNumber(alarm - 1);
+        editor.TextArea.Caret.Offset = declaration.Offset + "Public Clock As Timer, Alarm".Length;
+        TypeText(editor, "s");
+        sections.CanInsert(editor.Document.GetLineByNumber(alarm).Offset).Should().BeTrue("the premise: the run is an orphan now");
+        ColoursOn(editor, alarm).Should().NotContain(ClassicGrey);
+
+        editor.Document.Remove(declaration.Offset + "Public Clock As Timer, Alarm".Length, 1);
+        Dispatcher.UIThread.RunJobs();
+        ColoursOn(editor, alarm).Should().NotBeEmpty().And.AllBeEquivalentTo(ClassicGrey, "named again, it is the variable's");
     }
 
     /// <summary>Typed text as the input system delivers it: a TextInput event on the focused text area.</summary>

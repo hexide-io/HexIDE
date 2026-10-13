@@ -99,41 +99,89 @@ public class VbProtectedRegionsTests
     }
 
     [Fact]
-    public void OnlyARunTheLineAboveDeclaresIsProtected()
+    public void OnlyARunVb6GivesToTheLineAboveIsProtected()
     {
-        // Task 4.1: a run under a declaration of every name it qualifies is the member's, through a continued
-        // declaration, a comma list and a property's Get and Let alike. An orphan is ordinary text.
+        // Task 4.1: a run of procedure attributes under a procedure's declaration, whatever they name, and a run
+        // of VB_Var lines under a module-level variable or constant naming what it declares, or what a rename
+        // left. An orphan is ordinary text.
         ProtectedLines(ClassWithOrphans).Should().Equal(
             Enumerable.Range(0, ClassWithOrphansHeaderLines).Concat(ClassWithOrphansDescribingLines));
+    }
+
+    [Fact]
+    public void EachRuleOfTheDeclarationReaderDecidesItsOwnRun()
+    {
+        // The shapes the reviewer of the first 4.1 found unpinned on this side: each run in the fixture is
+        // protected or not by one rule of the reader, or of what a line is, so breaking that rule moves exactly
+        // that run. BundledServerRespectsTheIdesRegionsTests holds the IDE's copy to the same text.
+        ProtectedLines(FormWithReaderShapes).Should().Equal(
+            Enumerable.Range(0, FormWithReaderShapesHeaderLines).Concat(FormWithReaderShapesDescribingLines));
     }
 
     [Theory]
     [InlineData("Public Sub Go()\r\n\r\nAttribute Go.VB_Description = \"x\"\r\nEnd Sub\r\n")]
     [InlineData("Public Sub Go()\r\n' describes Go\r\nAttribute Go.VB_Description = \"x\"\r\nEnd Sub\r\n")]
     [InlineData("Public Sub Go()\r\n    Debug.Print 1\r\nAttribute Go.VB_Description = \"x\"\r\nEnd Sub\r\n")]
-    [InlineData("Public Sub Halt()\r\nAttribute Go.VB_Description = \"x\"\r\nEnd Sub\r\n")]
-    [InlineData("Public Sub Go()\r\nAttribute Go.VB_Description = \"x\"\r\nAttribute Halt.VB_Description = \"y\"\r\nEnd Sub\r\n")]
     [InlineData("Public Sub Go()\r\nAttribute VB_Description = \"x\"\r\nEnd Sub\r\n")]
-    public void ARunTheLineAboveDoesNotDeclareIsNotProtected(string code)
+    [InlineData("Public Sub Go()\r\nAttribute Go.VB_Description = \"x\"\r\nAttribute A.VB_VarDescription = \"y\"\r\nEnd Sub\r\n")]
+    [InlineData("Public Total As Long\r\nAttribute Total.VB_Description = \"x\"\r\n")]
+    [InlineData("Public Const Rate = 5\r\nAttribute Rate.VB_Description = \"x\"\r\n")]
+    [InlineData("Public Sub Go()\r\nAttribute Go.VB_VarHelpID = -1\r\nEnd Sub\r\n")]
+    [InlineData("Public Event Changed()\r\nAttribute Changed.VB_VarDescription = \"x\"\r\n")]
+    [InlineData("Public Event Changed()\r\nAttribute Count.VB_VarDescription = \"x\"\r\n")]
+    [InlineData("Public A As Long: Public Sub Go()\r\nAttribute A.VB_VarDescription = \"x\"\r\nEnd Sub\r\n")]
+    [InlineData("Public A As Long, C As Long\r\nAttribute B.VB_VarDescription = \"x\"\r\n")]
+    [InlineData("Public Tally As Long\r\nAttribute Count.VB_VarDescription = \"x\"\r\nPublic Count As Long\r\n")]
+    [InlineData("Public Tally As Long\r\nAttribute Count.VB_VarDescription = \"x\"\r\nAttribute Total.VB_VarHelpID = 3\r\n")]
+    [InlineData("Public Tally As Long\r\nAttribute Count.VB_VarDescription = \"x\"\r\nAttribute Tally.VB_VarHelpID = 3\r\n")]
+    [InlineData("Public Sub Go()\r\nAttribute Go.VB_Description = \"x\"\r\nAttribute(1) = 2\r\nEnd Sub\r\n")]
+    [InlineData("Public Sub Go()\r\n    Dim t As Long\r\nAttribute t.VB_VarDescription = \"x\"\r\nEnd Sub\r\n")]
+    [InlineData("Public Sub Go()\r\nEnd Sub\r\nPublic Late As Long\r\nAttribute Late.VB_VarDescription = \"x\"\r\n")]
+    [InlineData("Public Sub Foo(ByVal a As Long, _\r\nAttribute Foo.VB_Description = \"p07\"\r\nByVal b As Long)\r\nEnd Sub\r\n")]
+    [InlineData("Public Sub Foo()\r\n' a comment _\r\nAttribute Foo.VB_Description = \"p07c\"\r\nEnd Sub\r\n")]
+    public void ARunVb6DoesNotGiveToTheLineAboveIsNotProtected(string code)
     {
         ProtectedLines(code).Should().BeEmpty();
     }
 
     [Theory]
     [InlineData("Sub Main()\r\nAttribute main.VB_Description = \"x\"\r\nEnd Sub\r\n")] // compared without case
+    [InlineData("Public Sub Halt()\r\nAttribute Go.VB_Description = \"x\"\r\nEnd Sub\r\n")] // whatever it names
+    [InlineData("Public Sub Halt()\r\nAttribute VB_Varnish.VB_Description = \"x\"\r\nEnd Sub\r\n")] // VB_Var only after the dot
     [InlineData("Private Static Function Twice(ByVal n As Long) As Long\r\nAttribute Twice.VB_UserMemId = 0\r\nEnd Function\r\n")]
     [InlineData("Friend Property Set Target(ByVal o As Object)\r\nAttribute Target.VB_Description = \"x\"\r\nEnd Property\r\n")]
     [InlineData("Public Event Changed(ByVal Value As Long)\r\nAttribute Changed.VB_Description = \"x\"\r\n")]
     [InlineData("Private Declare Function GetTickCount Lib \"kernel32\" () As Long\r\nAttribute GetTickCount.VB_Description = \"x\"\r\n")]
-    [InlineData("Dim a As Long, b(1 To 3, 4) As String\r\nAttribute b.VB_VarDescription = \"x\"\r\n")]
+    [InlineData("Dim a As Long, b(1 To 3, 4) As String, c\r\nAttribute b.VB_VarDescription = \"x\"\r\nAttribute c.VB_VarDescription = \"y\"\r\n")]
     [InlineData("Global Count% ' how many\r\nAttribute Count.VB_VarDescription = \"x\"\r\n")]
     [InlineData("Private WithEvents mGame As Game\r\nAttribute mGame.VB_VarHelpID = -1\r\n")]
+    [InlineData("Public A As Long: Public B As Long\r\nAttribute B.VB_VarDescription = \"x\"\r\n")]
+    [InlineData("Public Const C1 = 1, C2 = 2\r\nAttribute C2.VB_VarDescription = \"x\"\r\n")]
+    [InlineData("Public Spare As Long\r\nAttribute spare.vb_vardescription = \"x\"\r\n")] // VB_Var without case
+    [InlineData("Public Tally As Long\r\nAttribute Count.VB_VarDescription = \"x\"\r\n")] // a rename left it
     [InlineData("Public Function Total(ByVal a As Long, _  \r\n    ByVal b As Long) As Currency\r\nAttribute Total.VB_Description = \"x\"\r\nEnd Function\r\n")]
-    public void ARunUnderADeclarationOfItsNameIsProtected(string code)
+    public void ARunVb6GivesToTheLineAboveIsProtected(string code)
     {
         var attribute = Lines(code).Select((line, i) => (line, i)).First(l => l.line.StartsWith("Attribute", StringComparison.Ordinal)).i;
+        var last = Lines(code).Select((line, i) => (line, i)).Last(l => l.line.StartsWith("Attribute", StringComparison.Ordinal)).i;
 
-        ProtectedLines(code).Should().Equal(attribute);
+        ProtectedLines(code).Should().Equal(Enumerable.Range(attribute, last - attribute + 1));
+    }
+
+    [Fact]
+    public void AnAttributeLineContinuedWithAnUnderscoreIsProtectedWhole()
+    {
+        // Oracle probes p11a and p11b: VB6 reads each as one attribute line, the name on the second physical line
+        // in the second.
+        const string code =
+            "Public Sub Foo()\r\n" +                    // 0
+            "Attribute Foo.VB_Description = _\r\n" +    // 1
+            "\"p11a\"\r\n" +                             // 2
+            "Attribute _\r\n" +                         // 3
+            "Foo.VB_HelpID = 3\r\n" +                   // 4
+            "End Sub\r\n";                              // 5
+
+        ProtectedLines(code).Should().Equal(1, 2, 3, 4);
     }
 
     [Fact]

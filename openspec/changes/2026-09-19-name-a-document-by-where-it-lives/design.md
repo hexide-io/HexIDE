@@ -1037,16 +1037,21 @@ than widening it, because `TextRegion`'s positional equality is pinned by tests 
 struct compares by reference.
 
 *Settled while building 4.1.* `ReadOnlyRegions.MemberRuns` reports every run, orphans included, as a `MemberRun`
-from the same scan as `Of`, which keeps only the runs that describe a member. What the paragraphs above left open:
+from the same scan as `Of`, which keeps only the runs that describe a member. It was first built to the first
+draft, and rebuilt to the rules above once the oracle overturned that. What the paragraphs above left open:
 - *The ordinal counts only runs that describe a member*, and an orphan has no key. An orphan is free text, so
   adding, repairing or removing one must not renumber the runs of a member that still has its declaration, which
   is what 4.3's remembered expansion and 4.5b's comparison would otherwise key wrongly.
 - *A continuation is VB6's own rule*, an underscore after whitespace at the end of the line, trailing whitespace
   aside. Not `VbAutoCloseProvider.IsContinuationLine`, which also takes an identifier ending in `_` for one; 4.5,
-  which reads the same lines for Enter, should use this rule or say why not.
+  which reads the same lines for Enter, should use this rule or say why not. The whitespace is required at the
+  start of a line too: a line of nothing but an underscore continues only when it is indented, as the oracle
+  file already recorded, so one in column 1 continues nothing (the first build took it for a continuation).
 - *Only the first statement on the described line is read*: a `:` ends it, as a comment does. `Public A As Long:
   Public B As Long` declares `A` alone here. **Overturned by the oracle**: VB6's dialog writes `B`'s run under
-  that very line (IDE probe E), so every statement on the line is read.
+  that very line (IDE probe E), so every statement on the line is read. A comment still ends the line, its `:`
+  included, and so does `Rem` where any statement starts; a string is one token, so a `:`, `'` or `,` in a
+  constant's value is none of those.
 - *VBA7's `Declare PtrSafe` is read as `Declare`*, for the VBA personalities. `Const`, `Enum` and `Type` declare
   nothing a run can describe. **Overturned for `Const` by the oracle** (IDE probe V5): a constant takes a variable
   run. `Enum` and `Type` take none.
@@ -1058,6 +1063,34 @@ from the same scan as `Of`, which keeps only the runs that describe a member. Wh
   while building: the bundled grammar takes `WithEvents` once per declaration, so `Public WithEvents A As T,
   WithEvents B As T`, which the VBA reference's `Dim` syntax allows, is reported as a syntax error. Not measured on
   `vb6.exe`, and not filed yet. The reader here accepts it.
+- *A logical line whose first word is `Attribute` is an attribute line however it goes on*, `Attribute = 5` and
+  `Attribute(2) = 5` included, because `Attribute` is a reserved word in code (p07e). Such a line names nothing,
+  so it describes nothing; all that changes is that it joins a run beside it, and a run with a nameless line in it
+  is an orphan anyway. The header's own reading still wants whitespace after the word, so a line like that
+  directly below the header starts the code, and a run there hangs from no line of code at all.
+- *The two kinds are told apart without case*: a dotted name is a variable attribute when what follows its first
+  `.` starts `VB_Var`, in any case. Not measured with another case; VB6 compares names without case everywhere
+  else.
+- *A module-level declaration is one in the declarations section*: before the first logical line that declares a
+  `Sub`, a `Function` or a `Property` accessor, which open a body. An `Event` or a `Declare` opens none, and
+  Ledger.cls, which VB6 wrote, declares its event above its variables. VB6 refuses a module-level declaration
+  anywhere else, so a variable run under a procedure's own `Dim`, `Static` or `Const` is an orphan, even naming
+  the name that line declares.
+- *What the module declares*, for the renamed kind, is what the reader finds on every logical line below the
+  header, a procedure's locals included, and the designer block's names (`DeclaredNames`). It is read only when a
+  run might be the renamed kind, so a file whose runs name their members pays nothing for it. The reader does
+  not read an `Enum`'s members or a `Type`'s fields, so a stale name that is one of those still reads as a
+  rename's leftover. An enum member takes no variable run (V5), so no other member's description is handed on
+  that way; a `Type`'s field was not measured.
+- *The greying follows a run that changes kind.* The first build said the colourizer and the link suppression
+  follow `Of` without a change of their own, and review found they do not: AvaloniaEdit rebuilds only the lines an
+  edit touches, and a run's membership now depends on the line above it. So commenting out a declaration, or
+  retyping one variable of a line declaring two, left the run greyed until something else redrew it, and a
+  language server's publish was the only thing that did. `ReadOnlyRegionRedraw` compares the regions before and
+  after each change, moved through it, and redraws the view on any difference.
+- *What 4.4 and 4.5b need is on the run*, so neither reads the text again: `MemberRun.Kind` (which runs the save
+  re-qualifies), `Member` (the name it writes, as declared), and each `AttributeLine`'s `Qualifier` and
+  `QualifierOffset`, which may be on a physical line after the line's first.
 
 **A run that describes nothing is inert text, not a region.** The code-editor requirement defines a read-only
 region as the header or "a run of attribute lines describing a member", and says an attribute line left

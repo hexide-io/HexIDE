@@ -74,9 +74,9 @@ case: it is still shown greyed out, and is still read-only.
 - **THEN** the header is still folded afterwards
 
 ### Requirement: An attribute line that describes a member SHALL be read-only and folded into that member's line
-An `Attribute` line naming a procedure, property or module-level variable SHALL be greyed out, read-only, and
-folded — by default — into the end of the line it describes: the procedure's declaration, or the variable
-declaration it follows. Such a run SHALL follow the line it describes: deleting that line SHALL delete the
+An `Attribute` line describing a procedure, property, or module-level variable or constant SHALL be greyed out,
+read-only, and folded — by default — into the end of the line it describes: the procedure's declaration, or the
+variable or constant declaration it follows. Such a run SHALL follow the line it describes: deleting that line SHALL delete the
 run with it, and a member's own attribute lines SHALL follow that member's rename, whether the IDE or a
 language server makes it.
 
@@ -87,10 +87,15 @@ file. Making the run follow its line is what stops an ordinary edit leaving an a
 that is no longer there — which read-only text would otherwise do, because a deletion is carved around it.
 
 An attribute line left describing nothing SHALL be preserved, not removed: it is inert text, and the IDE does
-not know what the developer meant by it. A run of attribute lines describes a member when the line directly
-above it, with any lines continued into it, declares the member each of its lines names. A run that does not —
-under a blank line, a comment, a statement or another member's declaration — SHALL NOT be read-only, greyed or
-folded, because editing it by hand is the only way to repair it.
+not know what the developer meant by it. A run of attribute lines describes a member when it sits directly
+under that member's declaration, with any lines continued into it, and VB6 reads every line of it as that
+member's: a run of procedure attributes under a procedure's declaration, whatever member its lines name, since
+VB6 gives such a line to the procedure above it; or a run of `VB_Var…` lines under a module-level variable or
+constant's declaration, each naming a name that line declares or, where the line declares one name, all naming
+one name nothing in the module declares, which is what retyping that name leaves. A run that does not — under a
+blank line, a comment or a statement, mixing the two kinds, or a variable attribute under a procedure or naming
+a variable declared elsewhere — SHALL NOT be read-only, greyed or folded, because editing it by hand is the
+only way to repair it.
 
 #### Scenario: A procedure with a description
 - **WHEN** a module containing a procedure with an `Attribute <Name>.VB_Description` line is opened
@@ -101,7 +106,8 @@ folded, because editing it by hand is the only way to repair it.
 - **THEN** its attribute lines go with it, and none is left behind
 
 #### Scenario: An attribute line that describes nothing
-- **WHEN** a run of `Attribute` lines sits under a line that does not declare the member they name
+- **WHEN** a run of `Attribute` lines sits where VB6 gives it to no member: under a blank line, a comment or a
+  statement, or under a declaration its lines do not belong to
 - **THEN** it is shown and edited as ordinary text, and the file keeps it
 
 ### Requirement: Only the IDE SHALL change a read-only region

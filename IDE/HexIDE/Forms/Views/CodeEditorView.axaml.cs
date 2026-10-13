@@ -35,6 +35,7 @@ public partial class CodeEditorView : UserControl
     private LspDiagnosticsColorizer? _colorizer;
     private ReadOnlyRegionColorizer? _readOnlyColorizer;
     private ReadOnlyRegionLinks? _readOnlyLinks;
+    private ReadOnlyRegionRedraw? _readOnlyRedraw;
     private IDisposable? _readOnlyTextSub;
     private CancellationTokenSource? _hoverCts;
     private BookmarkMargin? _bookmarkMargin;
@@ -234,6 +235,9 @@ public partial class CodeEditorView : UserControl
             // this claims it as plain text. The folding generator goes ahead of it when installed below.
             _readOnlyLinks = new ReadOnlyRegionLinks(() => vm.ReadOnlyRegionsNow, TextEditor.TextArea.TextView);
             TextEditor.TextArea.TextView.ElementGenerators.Insert(0, _readOnlyLinks);
+            // Both read the regions as each line is built, and AvaloniaEdit rebuilds only the lines an edit touches,
+            // while a member's run turns into an orphan or out of one by an edit to the line above it (task 4.1).
+            _readOnlyRedraw = new ReadOnlyRegionRedraw(vm.Document, TextEditor.TextArea.TextView, () => vm.ReadOnlyRegionsNow);
 
             _colorizer = new LspDiagnosticsColorizer(TextEditor.TextArea.TextView);
             TextEditor.TextArea.TextView.LineTransformers.Add(_colorizer);
@@ -429,6 +433,8 @@ public partial class CodeEditorView : UserControl
             TextEditor.TextArea.TextView.ElementGenerators.Remove(_readOnlyLinks);
             _readOnlyLinks = null;
         }
+        _readOnlyRedraw?.Dispose();
+        _readOnlyRedraw = null;
 
         if (_foldingManager is not null)
         {

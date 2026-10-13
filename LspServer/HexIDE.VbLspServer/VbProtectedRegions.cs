@@ -17,10 +17,12 @@ namespace HexIDE.VbLspServer;
 /// <b>The header</b> is the top of the file through the last line of the leading <c>Attribute</c> run: a
 /// <c>VERSION</c> line, then a class's <c>BEGIN … END</c> block or a form's <c>Object</c> lines and designer
 /// block, then the attribute run. A text with none of this has no header. <b>A member's attribute lines</b>
-/// are a run of <c>Attribute Name.VB_Something = …</c> lines below the header that describes a member: the
-/// logical line directly above the run declares the name before the first <c>.</c> of every line in it
-/// (task 4.1). A run that does not — under a blank line, a comment, a body statement or another member, or a
-/// line with no <c>.</c> — is an orphan, which is ordinary text here as it is in the IDE.
+/// are a run of logical lines below the header whose first word is <c>Attribute</c> that describes a member
+/// (task 4.1): procedure attributes under a procedure's declaration, whatever they name, or <c>VB_Var…</c>
+/// lines under a module-level variable or constant's, naming what it declares or, on a line declaring one
+/// name, one name nothing in the module declares. A run that does not — under a blank line, a comment or a
+/// body statement, mixing the two kinds, or a variable attribute away from its variable — is an orphan, which
+/// is ordinary text here as it is in the IDE.
 /// </para>
 /// <para>
 /// <b>This is the IDE's rule, ported rather than shared.</b> The IDE's own copy is
@@ -60,27 +62,10 @@ internal sealed class VbProtectedRegions
         var marks = new bool[lines.Count];
         for (var i = 0; i < header; i++)
             marks[i] = true;
-
-        var at = header;
-        while (at < lines.Count)
+        foreach (var (first, last) in DescribingRuns(lines, header))
         {
-            if (!IsMemberAttribute(lines[at], out _))
-            {
-                at++;
-                continue;
-            }
-            var first = at;
-            var qualifiers = new List<string?>();
-            while (at < lines.Count && IsMemberAttribute(lines[at], out var qualifier))
-            {
-                qualifiers.Add(qualifier);
-                at++;
-            }
-            if (DescribesMember(lines, header, first, qualifiers))
-            {
-                for (var line = first; line < at; line++)
-                    marks[line] = true;
-            }
+            for (var line = first; line <= last; line++)
+                marks[line] = true;
         }
         return new VbProtectedRegions(marks, header, DeclaredNames(lines, header));
     }
@@ -277,140 +262,273 @@ internal sealed class VbProtectedRegions
         return lastAttribute < 0 ? 0 : lastAttribute + 1 - from;
     }
 
+    private enum AttributeLineKind { Dotless, Procedure, Variable }
+
+    private enum DeclarationKind { Procedure, Variable, Constant }
+
+    private readonly record struct Declared(string Name, DeclarationKind Kind);
+
+    private readonly record struct AttributeLine(AttributeLineKind Kind, string? Qualifier);
+
     /// <summary>
-    /// True for <c>Attribute Name.VB_Something = …</c>, and false for anything that merely begins with the
-    /// word — an assignment to a variable called <c>Attribute</c>, or an array of that name.
+    /// The first and last physical line of every run below the header that describes a member. The IDE's
+    /// <c>ReadOnlyRegions.Scan</c>, which documents the rule.
     /// </summary>
-    /// <param name="qualifier">The attribute name up to its first <c>.</c>; null when it has none.</param>
-    private static bool IsMemberAttribute(string text, out string? qualifier)
+    private static IEnumerable<(int First, int Last)> DescribingRuns(List<string> lines, int header)
     {
-        qualifier = null;
-        var rest = text.AsSpan().Trim();
-        if (!StartsWithKeyword(rest, "Attribute"))
-            return false;
-        rest = rest["Attribute".Length..].TrimStart();
+        var logical = LogicalLinesOf(lines, header);
+        int? firstBody = null;
+        HashSet<string>? moduleNames = null;
 
-        var name = 0;
-        while (name < rest.Length && (char.IsLetterOrDigit(rest[name]) || rest[name] is '_' or '.'))
-            name++;
-        if (name == 0 || !char.IsLetter(rest[0]))
-            return false;
+        var k = 0;
+        while (k < logical.Count)
+        {
+            if (!IsAttributeLine(lines[logical[k].First]))
+            {
+                k++;
+                continue;
+            }
+            var first = k;
+            var attributes = new List<AttributeLine>();
+            for (; k < logical.Count && IsAttributeLine(lines[logical[k].First]); k++)
+                attributes.Add(ReadAttributeLine(Text(logical[k])));
 
-        var dot = rest[..name].IndexOf('.');
-        var after = rest[name..].TrimStart();
-        if (after.Length == 0 || after[0] != '=')
+            // The first line of the code has no line of its own above it, and so describes nothing.
+            if (first > 0 && Describes(attributes, ReadDeclarations(Text(logical[first - 1]), out _),
+                    () => first - 1 < FirstBody(), name => ModuleNames().Contains(name)))
+                yield return (logical[first].First, logical[k - 1].Last);
+        }
+
+        // A logical line's physical lines, joined with the line breaks kept, which the declaration reader takes
+        // for whitespace.
+        string Text((int First, int Last) line) => string.Join("\n", lines.GetRange(line.First, line.Last - line.First + 1));
+
+        int FirstBody()
+        {
+            if (firstBody is null)
+            {
+                firstBody = logical.Count;
+                for (var i = 0; i < logical.Count; i++)
+                {
+                    ReadDeclarations(Text(logical[i]), out var opensBody);
+                    if (opensBody)
+                    {
+                        firstBody = i;
+                        break;
+                    }
+                }
+            }
+            return firstBody.Value;
+        }
+
+        HashSet<string> ModuleNames()
+        {
+            if (moduleNames is null)
+            {
+                moduleNames = DeclaredNames(lines, header);
+                foreach (var line in logical)
+                {
+                    foreach (var d in ReadDeclarations(Text(line), out _))
+                        moduleNames.Add(d.Name);
+                }
+            }
+            return moduleNames;
+        }
+    }
+
+    /// <summary>Whether a run of <paramref name="attributes"/> under a line declaring <paramref name="declared"/> describes a member. The IDE's <c>ReadOnlyRegions.Verdict</c>.</summary>
+    private static bool Describes(List<AttributeLine> attributes, List<Declared> declared, Func<bool> moduleLevel,
+        Func<string, bool> declaredInModule)
+    {
+        if (attributes.TrueForAll(a => a.Kind == AttributeLineKind.Procedure))
+            return declared.Exists(d => d.Kind == DeclarationKind.Procedure);
+
+        if (!attributes.TrueForAll(a => a.Kind == AttributeLineKind.Variable) || !moduleLevel())
             return false;
-        qualifier = dot < 0 ? null : rest[..dot].ToString();
-        return true;
+        if (attributes.TrueForAll(a => declared.Exists(d => IsVariableNamed(d, a.Qualifier!))))
+            return true;
+
+        var stale = attributes[0].Qualifier!;
+        return declared.Count == 1 && declared[0].Kind != DeclarationKind.Procedure
+            && attributes.TrueForAll(a => string.Equals(a.Qualifier, stale, StringComparison.OrdinalIgnoreCase))
+            && !declaredInModule(stale);
+    }
+
+    private static bool IsVariableNamed(Declared declared, string name) =>
+        declared.Kind != DeclarationKind.Procedure && string.Equals(declared.Name, name, StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The logical lines from <paramref name="from"/> on. The IDE's <c>ReadOnlyRegions.LogicalLinesOf</c>.</summary>
+    private static List<(int First, int Last)> LogicalLinesOf(List<string> lines, int from)
+    {
+        var logical = new List<(int, int)>();
+        var i = from;
+        while (i < lines.Count)
+        {
+            var last = i;
+            while (last + 1 < lines.Count && EndsWithContinuation(lines[last]))
+                last++;
+            logical.Add((i, last));
+            i = last + 1;
+        }
+        return logical;
     }
 
     /// <summary>
-    /// True when the logical line directly above the run starting at <paramref name="first"/> declares every
-    /// one of <paramref name="qualifiers"/>, compared without case. The IDE's <c>ReadOnlyRegions.Scan</c>.
-    /// </summary>
-    /// <remarks>
-    /// The line above is read back over the lines continued into it with <c> _</c>, never into the header,
-    /// and joined with the line breaks kept, which the declaration reader takes for whitespace.
-    /// </remarks>
-    private static bool DescribesMember(List<string> lines, int header, int first, List<string?> qualifiers)
-    {
-        if (first == 0)
-            return false;
-        var top = first - 1;
-        while (top - 1 >= header && EndsWithContinuation(lines[top - 1]))
-            top--;
-        var logical = string.Join("\n", lines.GetRange(top, first - top));
-        var declared = NamesDeclaredOn(logical);
-        return qualifiers.TrueForAll(q => q is not null && declared.Contains(q));
-    }
-
-    /// <summary>
-    /// True when <paramref name="line"/> continues into the next: its text ends with <c>_</c> after
-    /// whitespace, trailing whitespace aside. The IDE's <c>ReadOnlyRegions.EndsWithContinuation</c>.
+    /// True when <paramref name="line"/> continues into the next: its text ends with an underscore after
+    /// whitespace, trailing whitespace aside, so a line of nothing but an underscore continues only when it is
+    /// indented. The IDE's <c>ReadOnlyRegions.EndsWithContinuation</c>.
     /// </summary>
     private static bool EndsWithContinuation(string line)
     {
         var content = line.AsSpan().TrimEnd();
-        return content.Length > 0 && content[^1] == '_' && (content.Length == 1 || char.IsWhiteSpace(content[^2]));
+        return content.Length > 1 && content[^1] == '_' && char.IsWhiteSpace(content[^2]);
     }
 
     /// <summary>
-    /// The names the declaration on <paramref name="text"/> writes, compared without case; empty when it is
-    /// not a declaration. The IDE's <c>ReadOnlyRegions.NamesDeclaredOn</c>, which documents the forms read.
+    /// True when a logical line starting on <paramref name="line"/> is an attribute line: its first word is
+    /// <c>Attribute</c>. The IDE's <c>ReadOnlyRegions.IsAttributeLine</c>.
     /// </summary>
-    private static HashSet<string> NamesDeclaredOn(string text)
+    private static bool IsAttributeLine(string line)
+    {
+        var content = line.AsSpan().TrimStart();
+        return content.StartsWith("Attribute", StringComparison.OrdinalIgnoreCase)
+               && (content.Length == "Attribute".Length || !IsNameCharacter(content["Attribute".Length]));
+    }
+
+    /// <summary>The kind and qualifier of the attribute line <paramref name="text"/>. The IDE's <c>ReadOnlyRegions.ReadAttributeLine</c>.</summary>
+    private static AttributeLine ReadAttributeLine(string text)
+    {
+        var end = text.Length;
+        var i = 0;
+        while (char.IsWhiteSpace(text[i]))
+            i++;
+        i += "Attribute".Length;
+        while (i < end && (char.IsWhiteSpace(text[i]) || (text[i] == '_' && OnlyWhitespaceToLineEnd(text, i + 1, end))))
+            i++;
+
+        var name = i;
+        if (i < end && char.IsLetter(text[i]))
+        {
+            while (i < end && (IsNameCharacter(text[i]) || text[i] == '.'))
+                i++;
+        }
+        var dot = text.IndexOf('.', name, i - name);
+        if (dot < 0)
+            return new AttributeLine(AttributeLineKind.Dotless, null);
+
+        var kind = text.AsSpan(dot + 1, i - dot - 1).StartsWith("VB_Var", StringComparison.OrdinalIgnoreCase)
+            ? AttributeLineKind.Variable
+            : AttributeLineKind.Procedure;
+        return new AttributeLine(kind, text[name..dot]);
+    }
+
+    /// <summary>
+    /// The names the declarations on <paramref name="text"/> write, every statement read. The IDE's
+    /// <c>ReadOnlyRegions.NamesDeclaredOn</c>, which documents the forms read.
+    /// </summary>
+    /// <param name="opensBody">True when a statement on it opens a procedure's body.</param>
+    private static List<Declared> ReadDeclarations(string text, out bool opensBody)
     {
         var tokens = TokensOf(text);
-        var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        var t = 0;
-        var modified = false;
-        while (IsWord(text, tokens, t, "Public", "Private", "Friend", "Global", "Static"))
+        var names = new List<Declared>();
+        opensBody = false;
+        var from = 0;
+        while (from < tokens.Count)
         {
-            t++;
-            modified = true;
-        }
-
-        if (IsWord(text, tokens, t, "Declare"))
-        {
-            t++;
-            if (IsWord(text, tokens, t, "PtrSafe"))
-                t++;
-            if (IsWord(text, tokens, t, "Sub", "Function"))
-                AddName(t + 1);
-            return names;
-        }
-        if (IsWord(text, tokens, t, "Sub", "Function", "Event"))
-        {
-            AddName(t + 1);
-            return names;
-        }
-        if (IsWord(text, tokens, t, "Property"))
-        {
-            if (IsWord(text, tokens, t + 1, "Get", "Let", "Set"))
-                AddName(t + 2);
-            return names;
-        }
-
-        if (IsWord(text, tokens, t, "Dim"))
-        {
-            t++;
-            modified = true;
-        }
-        if (!modified || IsWord(text, tokens, t, "Const", "Enum", "Type"))
-            return names;
-
-        while (t < tokens.Count)
-        {
-            if (IsWord(text, tokens, t, "WithEvents"))
-                t++;
-            if (t >= tokens.Count || tokens[t].Kind != TokenKind.Word)
-                break;
-            AddName(t);
-
-            var depth = 0;
-            t++;
-            while (t < tokens.Count && !(depth == 0 && tokens[t].Kind == TokenKind.Comma))
-            {
-                depth += tokens[t].Kind switch { TokenKind.Open => 1, TokenKind.Close => -1, _ => 0 };
-                t++;
-            }
-            t++;
+            var to = from;
+            while (to < tokens.Count && tokens[to].Kind != TokenKind.Colon)
+                to++;
+            opensBody |= ReadStatement(text, tokens, from, to, names);
+            from = to + 1;
         }
         return names;
+    }
 
-        void AddName(int at)
+    /// <summary>One statement's declarations. The IDE's <c>ReadOnlyRegions.ReadStatement</c>.</summary>
+    private static bool ReadStatement(string text, List<Token> tokens, int t, int end, List<Declared> names)
+    {
+        var modified = false;
+        while (IsWord(text, tokens, t, end, "Public", "Private", "Friend", "Global", "Static"))
         {
-            if (at < tokens.Count && tokens[at].Kind == TokenKind.Word)
-                names.Add(text.Substring(tokens[at].Start, tokens[at].Length));
+            t++;
+            modified = true;
+        }
+
+        if (IsWord(text, tokens, t, end, "Declare"))
+        {
+            t++;
+            if (IsWord(text, tokens, t, end, "PtrSafe"))
+                t++;
+            if (IsWord(text, tokens, t, end, "Sub", "Function"))
+                AddName(t + 1, DeclarationKind.Procedure);
+            return false;
+        }
+        if (IsWord(text, tokens, t, end, "Event"))
+        {
+            AddName(t + 1, DeclarationKind.Procedure);
+            return false;
+        }
+        if (IsWord(text, tokens, t, end, "Sub", "Function"))
+        {
+            AddName(t + 1, DeclarationKind.Procedure);
+            return true;
+        }
+        if (IsWord(text, tokens, t, end, "Property"))
+        {
+            if (!IsWord(text, tokens, t + 1, end, "Get", "Let", "Set"))
+                return false;
+            AddName(t + 2, DeclarationKind.Procedure);
+            return true;
+        }
+        if (IsWord(text, tokens, t, end, "Const"))
+        {
+            AddDeclarators(t + 1, DeclarationKind.Constant);
+            return false;
+        }
+
+        if (IsWord(text, tokens, t, end, "Dim"))
+        {
+            t++;
+            modified = true;
+        }
+        if (!modified || IsWord(text, tokens, t, end, "Enum", "Type"))
+            return false;
+        AddDeclarators(t, DeclarationKind.Variable);
+        return false;
+
+        void AddDeclarators(int at, DeclarationKind kind)
+        {
+            while (at < end)
+            {
+                if (IsWord(text, tokens, at, end, "WithEvents"))
+                    at++;
+                if (at >= end || tokens[at].Kind != TokenKind.Word)
+                    break;
+                AddName(at, kind);
+
+                var depth = 0;
+                at++;
+                while (at < end && !(depth == 0 && tokens[at].Kind == TokenKind.Comma))
+                {
+                    depth += tokens[at].Kind switch { TokenKind.Open => 1, TokenKind.Close => -1, _ => 0 };
+                    at++;
+                }
+                at++;
+            }
+        }
+
+        void AddName(int at, DeclarationKind kind)
+        {
+            if (at < end && tokens[at].Kind == TokenKind.Word)
+                names.Add(new Declared(text.Substring(tokens[at].Start, tokens[at].Length), kind));
         }
     }
 
-    private enum TokenKind { Word, Open, Close, Comma, Other }
+    private enum TokenKind { Word, Open, Close, Comma, Colon, Other }
 
     private readonly record struct Token(TokenKind Kind, int Start, int Length);
 
-    /// <summary>The tokens of the first statement on <paramref name="text"/>; the IDE's <c>ReadOnlyRegions.TokensOf</c>.</summary>
+    /// <summary>The tokens on <paramref name="text"/>, up to a comment; the IDE's <c>ReadOnlyRegions.TokensOf</c>.</summary>
     private static List<Token> TokensOf(string text)
     {
         var tokens = new List<Token>();
@@ -429,7 +547,7 @@ internal sealed class VbProtectedRegions
                 i++;
                 continue;
             }
-            if (c is '\'' or ':')
+            if (c == '\'')
                 break;
             if (c == '"')
             {
@@ -452,12 +570,13 @@ internal sealed class VbProtectedRegions
             if (char.IsLetter(c))
             {
                 var j = i + 1;
-                while (j < end && (char.IsLetterOrDigit(text[j]) || text[j] == '_'))
+                while (j < end && IsNameCharacter(text[j]))
                     j++;
-                if (tokens.Count == 0 && text.AsSpan(i, j - i).Equals("Rem", StringComparison.OrdinalIgnoreCase))
+                if ((tokens.Count == 0 || tokens[^1].Kind == TokenKind.Colon)
+                    && text.AsSpan(i, j - i).Equals("Rem", StringComparison.OrdinalIgnoreCase))
                     break;
                 tokens.Add(new Token(TokenKind.Word, i, j - i));
-                i = j < end && text[j] is '%' or '&' or '!' or '#' or '@' or '$' ? j + 1 : j;
+                i = j;
                 continue;
             }
             if (c == '[')
@@ -470,11 +589,20 @@ internal sealed class VbProtectedRegions
                     continue;
                 }
             }
-            tokens.Add(new Token(c switch { '(' => TokenKind.Open, ')' => TokenKind.Close, ',' => TokenKind.Comma, _ => TokenKind.Other }, i, 1));
+            tokens.Add(new Token(c switch
+            {
+                '(' => TokenKind.Open,
+                ')' => TokenKind.Close,
+                ',' => TokenKind.Comma,
+                ':' => TokenKind.Colon,
+                _ => TokenKind.Other,
+            }, i, 1));
             i++;
         }
         return tokens;
     }
+
+    private static bool IsNameCharacter(char c) => char.IsLetterOrDigit(c) || c == '_';
 
     private static bool OnlyWhitespaceToLineEnd(string text, int from, int end)
     {
@@ -486,9 +614,9 @@ internal sealed class VbProtectedRegions
         return true;
     }
 
-    private static bool IsWord(string text, List<Token> tokens, int at, params string[] words)
+    private static bool IsWord(string text, List<Token> tokens, int at, int end, params string[] words)
     {
-        if (at >= tokens.Count || tokens[at].Kind != TokenKind.Word)
+        if (at >= end || tokens[at].Kind != TokenKind.Word)
             return false;
         var word = text.AsSpan(tokens[at].Start, tokens[at].Length);
         foreach (var w in words)
