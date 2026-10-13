@@ -22,6 +22,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A member call inside `While...Wend` runs** (#882). `Debug.Print x`, `Err.Clear` or `rs.MoveNext` in a
+  `While` body stopped the run with "Sub or Function not defined", naming the object, so the common
+  `While Not rs.EOF ... rs.MoveNext ... Wend` loop could not run at all. `Do While` was unaffected.
+
 - **A condition is read as VB6 reads it** (#847). A block `If` or `ElseIf` refused anything but a Boolean with an
   error numbered 0, so under On Error Resume Next it skipped its body with nothing in Err. A one-line `If` raised 13
   for anything but a Boolean, and the loops raised 13 for a Long, a Double, Empty or most strings. So
