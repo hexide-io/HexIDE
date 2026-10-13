@@ -56,8 +56,14 @@ public partial class VB6BuiltIns
         if (!isAsync && !Builtins.TryGetValue(name, out fn))
             return null;
 
-        for (var i = 0; i < args.Count; i++)
-            args[i] = ArgumentAsUsed(name, i, args[i]);
+        // Filter reads its arguments right to left (measured: `Filter(d, Null, "x")` is the switch's 13, not the match's
+        // 94), so an object among them is read in that order too.
+        if (string.Equals(name, "Filter", StringComparison.OrdinalIgnoreCase))
+            for (var i = args.Count - 1; i >= 0; i--)
+                args[i] = ArgumentAsUsed(name, i, args[i]);
+        else
+            for (var i = 0; i < args.Count; i++)
+                args[i] = ArgumentAsUsed(name, i, args[i]);
 
         // The two async builtins await the standard library; every other builtin is in the sync registry.
         if (string.Equals(name, "msgbox", StringComparison.OrdinalIgnoreCase))

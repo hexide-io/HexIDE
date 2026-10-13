@@ -84,15 +84,14 @@ public partial class VB6BuiltIns
     //
     // The delimiter is read only when the array has an element, even one that needs no delimiter (measured, native and
     // in the IDE): with no element, `Join(Array(), Null)` and `Join(ds, Null)` are "" and an object delimiter is not
-    // read either; with one, `Join(Array("a"), Null)` is 94 and a class with no default member 438. A Null delimiter
-    // read as "".
+    // read either; with one, `Join(Array("a"), Null)` is 94, Nothing 91 and a class with no default member 438. A Null
+    // or Nothing delimiter read as "".
     private static Vb6Value Join(IReadOnlyList<Vb6Value> a)
     {
         if (a.Count < 1) throw InvalidCall();
         if (a[0].Value is not VBArray arr) throw new VBRunTimeException(VBStandardError.TypeMismatch);
         if (arr.Rank == 0 || arr.UpperBound(1) < arr.LowerBound(1)) return new Vb6Value("");
-        if (Supplied(a, 1) && a[1].IsNull) throw new VBRunTimeException(VBStandardError.InvalidUseOfNull);
-        string delim = Supplied(a, 1) ? AsStr(a[1]) : " ";
+        string delim = Supplied(a, 1) ? ArgumentText(a[1]) : " ";
         var sb = new StringBuilder();
         int lo = arr.LowerBound(1), hi = arr.UpperBound(1);
         for (int i = lo; i <= hi; i++)
@@ -106,24 +105,22 @@ public partial class VB6BuiltIns
     // Filter(array, match, [include=True], [compare]) -> a 0-based String array of the (non-)matching elements. Always a
     // String array (measured: VarType 8200 for a String input, a Variant input and no match alike); it was a Variant
     // array. All measured, native and in the IDE:
-    // - A Null match, switch or compare is 94, even for an array never allocated, and even ahead of the array check:
-    //   `Filter("abc", Null)` is 94, not 13.
+    // - The arguments convert right to left, compare, then switch, then match, before the array is looked at: a Null one
+    //   is 94, and `Filter(d, Null, "x")` is the switch's 13. So `Filter("abc", Null)` is 94, not 13.
     // - The switch reads as CBool reads it: Empty and "False" exclude, "True" and 2 include, "x" is 13.
-    // - The compare reads as a number: Empty is a binary compare, 1, "1" and 5 a text compare, "x" is 13. It raised 13
-    //   for Empty, and took 5 as binary.
+    // - An array with no element, never allocated, erased or 0 To -1, gives back an unallocated String array, with no
+    //   error, and its compare is not checked.
+    // - Otherwise the compare is checked (see CompareMode).
     private static Vb6Value Filter(IReadOnlyList<Vb6Value> a)
     {
         if (a.Count < 2) throw InvalidCall();
-        if (a[1].IsNull || (Supplied(a, 2) && a[2].IsNull) || (Supplied(a, 3) && a[3].IsNull))
-            throw new VBRunTimeException(VBStandardError.InvalidUseOfNull);
+        long compare = Supplied(a, 3) ? CompareArgument(a[3]) : 0;
+        bool include = !Supplied(a, 2) || CBool(RefuseNull(a[2])).Value is true;
+        string match = ArgumentText(a[1]);
         if (a[0].Value is not VBArray arr) throw new VBRunTimeException(VBStandardError.TypeMismatch);
-        string match = AsStr(a[1]);
-        bool include = !Supplied(a, 2) || CBool(a[2]).Value is true;
-        bool text = Supplied(a, 3) && Convert.ToInt64(VbNumeric.CoerceOnStore(a[3], Vb6Value.ValueType.Long, null).Value ?? 0L) != 0;
-        var cmp = text ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
-        // An array never allocated, or erased, gives back an unallocated String array with no error, whatever its own type
-        // (measured for String, Variant and Long arrays and an erased one: LBound and UBound of the result raise 9).
-        if (arr.Rank == 0) return new Vb6Value(new Vb6Value.ValueType(Vb6Value.ValueType.String, true));
+        if (arr.Rank == 0 || arr.UpperBound(1) < arr.LowerBound(1))
+            return new Vb6Value(new Vb6Value.ValueType(Vb6Value.ValueType.String, true));
+        var cmp = CompareMode(compare);
 
         var items = new List<Vb6Value>();
         int lo = arr.LowerBound(1), hi = arr.UpperBound(1);
@@ -136,14 +133,51 @@ public partial class VB6BuiltIns
         return MakeArray(Vb6Value.ValueType.String, items);
     }
 
+    // A compare argument read as a Long, as CLng reads it (banker's rounding, so 1.5 is 2 and 0.5 is 0): Null is 94, and
+    // a string that is not a number, or an array, is 13 (measured for Filter).
+    private static long CompareArgument(Vb6Value compare)
+    {
+        if (RefuseNull(compare).Value is VBArray) throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        return Convert.ToInt64(VbNumeric.CoerceOnStore(compare, Vb6Value.ValueType.Long, null).Value ?? 0L);
+    }
+
+    // Filter's compare, measured: 0 is binary and 1 text. 2 (vbDatabaseCompare, which needs a database), any negative
+    // value and True are 5. 3 and above are taken as a Windows locale identifier: a valid one (3, 4, 5, 1033, 2057)
+    // compares as text in that locale, and an invalid one (3000, 65535) is 5. HexIDE cannot tell which identifiers
+    // Windows accepts, and compares text without a locale, so it refuses those loudly rather than guess (#881).
+    private static StringComparison CompareMode(long compare) => compare switch
+    {
+        0 => StringComparison.Ordinal,
+        1 => StringComparison.OrdinalIgnoreCase,
+        2 or < 0 => throw InvalidCall(),
+        _ => throw new NotImplementedException(
+            $"A compare of {compare} is read by VB6 as a Windows locale identifier, which is not supported (#881)."),
+    };
+
+    // Nothing is the Object type holding no reference (Vb6Value.Nothing).
+    private static bool IsNothing(Vb6Value value) => value.Type == Vb6Value.ValueType.Object && value.Value is null;
+
+    private static Vb6Value RefuseNull(Vb6Value value) =>
+        value.IsNull ? throw new VBRunTimeException(VBStandardError.InvalidUseOfNull) : value;
+
+    // A match or a delimiter as text. Null is 94 and Nothing 91 (measured for both); anything else reads as a value.
+    private static string ArgumentText(Vb6Value value)
+    {
+        if (IsNothing(RefuseNull(value)))
+            throw new VBRunTimeException(VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
+        return AsStr(value);
+    }
+
     // Join and Filter convert each element as a store into a String does (measured, native and in the IDE, for both):
-    // Null is 94, an array 13, and a class with no default member 438. A Boolean, a number, a Date and Empty give their
-    // text, and a class with a default member its value (here refused, #174). A Null element gave "" and an array the
-    // CLR type name, with no error. VB6 also raises 13 for an Error value and 450 for a Collection, which HexIDE has
-    // neither of yet.
+    // Null is 94, Nothing 91, an array 13, and a class with no default member 438. A Boolean, a number, a Date and Empty
+    // give their text, and a class with a default member its value (here refused, #174). A Null element gave "", and
+    // an array the CLR type name, with no error. VB6 also raises 13 for an Error value and 450 for a Collection, which
+    // HexIDE has neither of yet.
     private static string ElementText(Vb6Value element)
     {
         if (element.Value is VBArray) throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        if (IsNothing(element))
+            throw new VBRunTimeException(VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
         return VbNumeric.CoerceOnStore(element, Vb6Value.ValueType.String, null).Value as string ?? "";
     }
 }

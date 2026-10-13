@@ -159,24 +159,77 @@ public class ArrayFunctionsTests : BaseVBTestFixture
     [InlineData("Filter(d, \"A\", True, e)", -1L)]    // the compare reads as a number: Empty is binary
     [InlineData("Filter(d, \"A\", True, \"1\")", 1L)]
     [InlineData("Filter(d, \"A\", True, 1)", 1L)]
-    [InlineData("Filter(d, \"A\", True, 5)", 1L)]      // not only 1 is a text compare
     public async Task Filter_reads_its_switch_as_CBool_does_and_its_compare_as_a_number(string call, long upper)
     {
         // Measured, native and in the IDE, with d holding "apple" and "pear". Both were read as plain numbers, so an Empty
-        // switch or compare raised 13, and only a compare of 1 was a text compare.
+        // switch or compare raised 13.
         await Run($"Dim d(1) As String, e, r\nd(0) = \"apple\"\nd(1) = \"pear\"\nr = {call}\nDebug.Print UBound(r)\n");
         AssertDebugLog([new Vb6Value(upper)]);
     }
 
     [Theory]
-    [InlineData("Filter(d, \"a\", e)")]
-    [InlineData("Filter(d, \"a\", \"True\")")]
-    [InlineData("Filter(d, \"a\", True, e)")]
-    public async Task Filter_of_an_array_never_allocated_takes_any_switch_and_compare_that_convert(string call)
+    [InlineData("0", 0L, 0L)]          // binary: only "pear" holds a lower-case a
+    [InlineData("0.5", 0L, 0L)]        // rounds to 0
+    [InlineData("Empty", 0L, 0L)]
+    [InlineData("1", 0L, 1L)]          // text: "Apple" too
+    [InlineData("1.4", 0L, 1L)]        // rounds to 1
+    [InlineData("\"1\"", 0L, 1L)]
+    [InlineData("2", 5L, -2L)]         // vbDatabaseCompare
+    [InlineData("\"2\"", 5L, -2L)]
+    [InlineData("1.5", 5L, -2L)]       // rounds to 2
+    [InlineData("-1", 5L, -2L)]
+    [InlineData("True", 5L, -2L)]
+    public async Task Filters_compare_is_0_binary_1_text_and_otherwise_5(string compare, long error, long upper)
     {
-        // Measured, native and in the IDE: no error, and the unallocated String array back.
-        await Run($"Dim d() As String, e, c\nOn Error Resume Next\nc = {call}\nDebug.Print Err.Number\nDebug.Print VarType(c)\n");
-        AssertDebugLog([new Vb6Value(0L), new Vb6Value(8200L)]);
+        // Measured, native and in the IDE, with d holding "Apple" and "pear". 2 and negatives were binary, and so was
+        // every value but 1. -2 here stands for no result.
+        await Run($"Dim d(1) As String, r\nd(0) = \"Apple\"\nd(1) = \"pear\"\nr = CLng(-2)\nOn Error Resume Next\n" +
+                  $"r = Filter(d, \"a\", True, {compare})\nDebug.Print Err.Number\nIf IsArray(r) Then Debug.Print UBound(r) Else Debug.Print r\n");
+        AssertDebugLog([new Vb6Value(error), new Vb6Value(upper)]);
+    }
+
+    [Theory]
+    [InlineData("3")]
+    [InlineData("1033")]
+    [InlineData("3000")]
+    public async Task Filters_compare_of_3_or_more_is_refused_because_VB6_reads_it_as_a_locale(string compare)
+    {
+        // Measured: a valid Windows locale identifier (3, 1033) compares as text in that locale, and an invalid one
+        // (3000) is 5. HexIDE cannot tell which is which (#881).
+        var run = () => Run($"Dim d(1) As String, r\nd(0) = \"Apple\"\nr = Filter(d, \"a\", True, {compare})\n");
+
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*locale*#881*");
+    }
+
+    [Theory]
+    [InlineData("Dim d() As String", "Filter(d, \"a\", e)")]
+    [InlineData("Dim d() As String", "Filter(d, \"a\", \"True\")")]
+    [InlineData("Dim d() As String", "Filter(d, \"a\", True, e)")]
+    [InlineData("Dim d() As String", "Filter(d, \"a\", True, 2)")]       // the compare is not checked
+    [InlineData("Dim d() As String", "Filter(d, \"a\", True, -1)")]
+    [InlineData("Dim d() As String", "Filter(d, \"a\", True, 3000)")]
+    [InlineData("Dim d", "Filter(Array(), \"a\")")]                       // 0 To -1 in, unallocated out
+    [InlineData("Dim d", "Filter(Array(), \"a\", True, 2)")]
+    public async Task Filter_of_an_array_with_no_element_gives_an_unallocated_String_array(string declaration, string call)
+    {
+        // Measured, native and in the IDE: no error, and an unallocated String array back, whose bounds raise 9. For
+        // Array() it gave 0 To -1.
+        await Run($"{declaration}\nDim e, c, n\nOn Error Resume Next\nc = {call}\nDebug.Print Err.Number\nDebug.Print VarType(c)\n" +
+                  "n = UBound(c)\nDebug.Print Err.Number\n");
+        AssertDebugLog([new Vb6Value(0L), new Vb6Value(8200L), new Vb6Value(9L)]);
+    }
+
+    [Theory]
+    [InlineData("Filter(d, \"a\", \"x\", 3000)", 13L)]     // the switch's 13: the compare is checked only later
+    [InlineData("Filter(d, Null, \"x\")", 13L)]            // the switch before the match
+    [InlineData("Filter(d, \"a\", \"x\", Null)", 94L)]     // the compare before the switch
+    [InlineData("Filter(d, Null, True, 3000)", 94L)]
+    [InlineData("Filter(\"abc\", \"a\", True, 3000)", 13L)]   // the array check before the compare's
+    public async Task Filter_converts_its_arguments_right_to_left_and_checks_the_compare_last(string call, long error)
+    {
+        // Measured, native and in the IDE.
+        await Run($"Dim d(1) As String, c\nd(0) = \"Apple\"\nOn Error Resume Next\nc = {call}\nDebug.Print Err.Number\n");
+        AssertDebugLog([new Vb6Value(error)]);
     }
 
     [Theory]
@@ -185,12 +238,24 @@ public class ArrayFunctionsTests : BaseVBTestFixture
     [InlineData("c = Filter(Array(\"ab\", Null), \"ul\")", 94L)]
     [InlineData("c = Join(Array(Array(1), \"b\"), \"-\")", 13L)]
     [InlineData("c = Filter(Array(Array(1, 2), \"b\"), \"b\", False)", 13L)]
+    [InlineData("c = Filter(Array(\"ab\", Nothing), \"zz\", False)", 91L)]
+    [InlineData("c = Join(Array(\"ab\", Nothing), \"-\")", 91L)]
+    [InlineData("c = Join(Array(\"ab\", \"cd\"), o)", 91L)]   // a Nothing delimiter, with elements to join
+    [InlineData("c = Filter(Array(\"ab\", \"cd\"), o)", 91L)] // a Nothing match
     public async Task An_element_that_cannot_be_a_string_raises_in_Join_and_Filter(string call, long error)
     {
         // Measured, native and in the IDE: each element is converted as a store into a String does. A Null element read
-        // as "", and an array element as the CLR type name.
-        await Run($"Dim c\nOn Error Resume Next\n{call}\nDebug.Print Err.Number\nDebug.Print IsEmpty(c)\n");
+        // as "", an array element as the CLR type name, and Nothing as "".
+        await Run($"Dim c, o\nSet o = Nothing\nOn Error Resume Next\n{call}\nDebug.Print Err.Number\nDebug.Print IsEmpty(c)\n");
         AssertDebugLog([new Vb6Value(error), new Vb6Value(true)]);
+    }
+
+    [Fact]
+    public async Task Join_of_an_array_with_no_element_does_not_read_a_Nothing_delimiter()
+    {
+        // Measured, native and in the IDE: "" with no error.
+        await Run("Dim d() As String, o, c\nSet o = Nothing\nOn Error Resume Next\nc = Join(d, o)\nDebug.Print Err.Number\nDebug.Print \"[\" & c & \"]\"\n");
+        AssertDebugLog([new Vb6Value(0L), "[]"]);
     }
 
     [Theory]

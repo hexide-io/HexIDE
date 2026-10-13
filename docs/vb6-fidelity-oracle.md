@@ -5800,11 +5800,59 @@ identical on every row, with `ee` an Empty Variant:
 | `Filter(5, "a", "x")`, `Filter("abc", "a", "x")`, `Filter("abc", "a", True, "x")`, `Filter(Null, "a")` | 13 |
 | `Join("abc", Null)` | 13 |
 
-So the switch reads as `CBool` reads it, and the compare as a number, where any value but 0 is a text compare (1 and
-5 were measured; nothing else). Filter checks every argument for Null before it looks at the array, so a Null match
-beside a string is 94; Join looks at the array first, so a Null delimiter beside a string is 13. HexIDE read both
-as plain numbers, so an Empty switch or compare raised 13 and only 1 was a text compare; its Null compare was 13, and
-`Filter("abc", Null)` was 13. All now answer as above.
+So the switch reads as `CBool` reads it, and the compare as a number. Round five read the 5 row as "any value but 0 is
+a text compare". **Round six overturned that** (below): 5 is a text compare only because 5 is a valid Windows locale
+identifier. Filter checks every argument for Null before it looks at the array, so a Null match beside a string is 94;
+Join looks at the array first, so a Null delimiter beside a string is 13. HexIDE read both as plain numbers, so an
+Empty switch or compare raised 13 and only 1 was a text compare; its Null compare was 13, and `Filter("abc", Null)`
+was 13. All now answer as above.
+
+**Filter's compare, and the order of its conversions, round six.** Measured as native code and in the IDE (`p24`, a
+Sub Main project), identical on every row. `d1` holds "Apple" and "pear", so a binary compare for "a" keeps only
+"pear" and a text compare keeps both:
+
+| Compare | VB6 |
+|---|---|
+| 0, 0.5, Empty | binary: "pear" |
+| 1, 1.4, "1" | text: both |
+| 2, "2", 1.5 | 5 |
+| -1, `True` | 5 |
+| 3, 4, 5, 1033, 2057 | text: both |
+| 3000, 65535 | 5 |
+| 2, -1, 3000 or 1033, with `ds` never allocated, or with `Array()` | no error, an unallocated String array |
+
+So the compare is read as a Long, with banker's rounding. 0 is binary and 1 text. 2 is `vbDatabaseCompare`, which
+needs an Access database, and is 5, and so is any negative value. 3 and above are taken as a Windows locale
+identifier: a valid one compares as text in that locale, and an invalid one is 5. None of that is checked when the
+array has no element. And `Filter(Array(), "a")`, an allocated array of no elements, gives back an **unallocated**
+String array, not 0 To -1, though a match that keeps nothing from an array that has elements is 0 To -1 (above).
+
+| Call | VB6 |
+|---|---|
+| `Filter(d1, "a", "x", 3000)` | 13: the switch, so the compare's 5 comes later |
+| `Filter(d1, Null, "x")` | 13: the switch before the match |
+| `Filter(d1, "a", "x", Null)` | 94: the compare before the switch |
+| `Filter(d1, Null, True, 3000)`, `Filter(d1, "a", Null, 3000)` | 94 |
+| `Filter("abc", "a", True, 3000)` | 13: the array check before the compare's |
+
+So Filter converts its arguments right to left: the compare, then the switch, then the match, each Null 94 and each
+non-number 13. Then it checks the array, and only after that whether the compare is one it accepts.
+
+**Nothing**, both modes: `Filter(Array("ab", Nothing), "zz", False)`, `Join(Array("ab", Nothing), "-")`,
+`Join(d1, o)` and `Filter(d1, o)`, with `o` Nothing, each raise 91. `Join(ds, o)` with `ds` never allocated is `""`.
+
+**HexIDE, after round six.**
+- 0 is binary and 1 text; 2 and negative values are 5.
+- 3 and above are refused loudly, naming #881, because HexIDE can't tell which locale identifiers Windows accepts,
+  and its text compare uses no locale.
+- Before, every value but 1 was binary.
+- The conversions run right to left, and the compare is checked only for an array that has elements.
+- `Filter(Array(), ...)` gives an unallocated array.
+- Nothing is 91 as an element, a delimiter or a match, where it read as `""`.
+
+**The other functions' compare** (`p24`, both modes): `InStr` and `StrComp` raise 5 for 2, while `Split` and
+`Replace` take 2 as text. All four raise 5 for -1 and 3000, and take 1033 as text. HexIDE reads all of them as
+"1 is text, anything else binary". That's #881.
 
 **A default member on a typed variable, round five.** With `w` declared `As Widget`, whose default member is a
 Function returning 42, both modes: `Not w` is -43, a Long, and `CDate(w)` is 10/02/1900 (an en-GB guest). Through a
