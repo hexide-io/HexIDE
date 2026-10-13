@@ -118,11 +118,10 @@ public class ModuleLevelArrayBoundTests : BaseVBTestFixture
 
     [Theory]
     [InlineData("Dim d(M) As Long")]
-    [InlineData("Dim d(Module2.M) As Long")]
     [InlineData("Dim d(1 To M + 1) As Long")]
     public async Task A_bound_reading_another_modules_Const_is_refused_rather_than_sized_from_Empty(string declarations)
     {
-        // VB6 gives 0 To 3, 0 To 3 and 1 To 4. HexIDE does not read another module's Const unqualified
+        // VB6 gives 0 To 3 and 1 To 4. HexIDE does not read another module's Const unqualified
         // (#880), and initialises modules in list order, so a size from it could be Empty's.
         var run = () => RunModules($"{declarations}\n", ("Module2", "Public Const M = 3\n"));
 
@@ -145,10 +144,9 @@ public class ModuleLevelArrayBoundTests : BaseVBTestFixture
 
     [Theory]
     [InlineData("Const C = M + 1\nDebug.Print C")]
-    [InlineData("Const C = Module2.M + 1\nDebug.Print C")]
     public async Task A_module_Const_reading_another_modules_Const_is_refused_rather_than_read_as_Empty(string code)
     {
-        // VB6 gives 4 for both (measured). HexIDE gave 1: M unqualified is not found, and Module2 may not have run.
+        // VB6 gives 4 (measured). HexIDE gave 1: M unqualified is not found (#880).
         var run = () => RunModules(code + "\n", ("Module2", "Public Const M = 3\n"));
 
         (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*Const C's value reads*M, another module's Public Const*#880*");
@@ -165,13 +163,54 @@ public class ModuleLevelArrayBoundTests : BaseVBTestFixture
     }
 
     [Fact]
-    public async Task A_bound_reading_the_startup_modules_Const_from_another_module_is_refused()
+    public async Task A_Const_reading_a_module_whose_declarations_have_not_run_is_refused()
     {
-        // Measured: Module2's `Public d(C)`, with `Const C = Module1.M + 1`, is 0 To 4. HexIDE initialises the primary
-        // module last, so M would still be Empty there.
+        // Measured: Module2's `Public d(C)`, with `Const C = Module1.M + 1`, is 0 To 4, in either list order. HexIDE
+        // initialises the primary module last, so M would still be Empty there.
         var run = () => RunModules("Public Const M = 3\n", ("Module2", "Const C = Module1.M + 1\nPublic d(C) As Long\n"));
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*Const C's value reads Module1.M*#880*");
+        (await run.Should().ThrowAsync<NotImplementedException>())
+            .WithMessage("*Const C's value reads Module1.M, a Public Const of Module1, whose declarations have not run yet*#893*");
+    }
+
+    [Theory]
+    [InlineData("Dim d(Module2.M) As Long\nDebug.Print UBound(d)", 3L)]
+    [InlineData("Const C = Module2.M + 1\nDebug.Print C", 4L)]
+    public async Task Another_modules_Const_qualified_is_read_once_that_module_has_run(string code, long expected)
+    {
+        // Measured: 0 To 3 and 4, in either list order. Module2 runs before the primary, so its value is final.
+        await RunModules(code + "\n", ("Module2", "Public Const M = 3\n"));
+
+        debug.Should().ContainSingle().Which.Value.Should().Match<object>(v => Convert.ToInt64(v) == expected);
+    }
+
+    [Fact]
+    public async Task A_class_Const_reads_the_startup_modules_Const_once_its_declarations_have_run()
+    {
+        // Measured, native and in the IDE: a class's `Private Const C = Module1.M + 1` is 4. The startup module runs
+        // last, its body doubling as its declarations, so a class created after that reads M's final value.
+        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv,
+            "Public Const M = 3\nSub Go()\n    Dim h As Holder\n    Set h = New Holder\n    Debug.Print h.GetC\nEnd Sub\n",
+            "Module1", null, [("Holder", "Private Const C = Module1.M + 1\nPublic Function GetC()\n    GetC = C\nEnd Function\n")]);
+
+        await vb.Execute();
+        await vb.ExecuteSub("Go");
+
+        debug.Should().ContainSingle().Which.Value.Should().Match<object>(v => Convert.ToInt64(v) == 4);
+    }
+
+    [Theory]
+    [InlineData("Const A = 2\nConst A2 = Module1.A + 1")]
+    [InlineData("Const A = Module1.B + 1\nConst B = 2")]       // a qualified forward reference is this error too
+    [InlineData("Private n As Long\nConst C = Module1.n + 1")]   // whatever it names: a variable,
+    [InlineData("Public n As Long\nDim d(Module1.n) As Long")]   // in a bound too,
+    [InlineData("Const C = Module1.Twice(2)\n" + Twice)]          // a function,
+    [InlineData("Const C = Module1.Nope + 1")]                     // or nothing at all (all measured)
+    public async Task A_module_Const_naming_its_own_module_is_VB6s_circular_dependency(string code)
+    {
+        var run = () => RunModules(code + "\n");
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Circular dependencies between modules*");
     }
 
     [Fact]

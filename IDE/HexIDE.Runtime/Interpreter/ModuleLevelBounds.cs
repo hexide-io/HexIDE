@@ -17,16 +17,17 @@ namespace HexIDE.Runtime.Interpreter;
 /// A Const below or the Const itself, a variable, a user function, another module's Public variable, and the built-ins
 /// measured as refused are "Constant expression required"; a name the module cannot see is "Variable not defined"
 /// under Option Explicit, and the first otherwise; the module's own name as a qualifier is "Circular dependencies
-/// between modules".
+/// between modules", whatever it names, a forward reference included.
 /// </summary>
 /// <remarks>
 /// <para>Each module-level Const is checked as it runs, before it is evaluated, and the Consts above it ran first, so a
 /// Const a bound or another Const names has been checked already: the walk is one level deep. This relates symbols,
 /// which the pre-pass must not do, so it runs with the declarations. The pre-pass only collects: each Const's
 /// declaration and visibility, and each Public variable.</para>
-/// <para>Two things VB6 reads are refused loudly instead, because HexIDE would read Empty: another module's Public
-/// Const, qualified or not (#880), and another module's Public Enum member, unqualified (#889). A built-in function
-/// nobody has measured in a bound is refused loudly too, rather than guessed either way.</para>
+/// <para>Three things VB6 reads are refused loudly instead, because HexIDE would read Empty: another module's Public
+/// Const unqualified (#880), or qualified before that module's declarations have run (#893), and another module's
+/// Public Enum member unqualified (#889). Qualified, once that module has run, another module's Const is read: its
+/// value is final. A built-in function nobody has measured in a bound is refused loudly too, rather than guessed.</para>
 /// <para>A procedure's Consts are not checked here (its <c>Dim a(N)</c> above <c>Const N</c> runs, a missing compile
 /// error, recorded).</para>
 /// </remarks>
@@ -142,14 +143,10 @@ internal sealed class ModuleLevelBounds
             throw Unsupported(text);
         var (qualifier, member) = (parts[0], parts[1]);
 
+        // The module naming itself is a cycle (measured for a Const and an Enum member, and for a qualified forward
+        // reference, which is this error rather than "Constant expression required").
         if (string.Equals(qualifier, module.Name, StringComparison.OrdinalIgnoreCase))
-        {
-            // Measured for a Const and an Enum member of the module itself.
-            if (module.PrePass.ModuleConsts.ContainsKey(member)
-                || module.PrePass.Enums.Values.Any(members => members.ContainsKey(member)))
-                throw new VBCompileErrorException("Circular dependencies between modules");
-            throw Unsupported(text);
-        }
+            throw new VBCompileErrorException("Circular dependencies between modules");
         if (interpreter.TryResolveEnum(qualifier, module, out var enumMembers))
         {
             if (enumMembers.ContainsKey(member))
@@ -159,7 +156,13 @@ internal sealed class ModuleLevelBounds
         if (interpreter.Modules.TryGet(qualifier, out var other) && other.Kind == InterpreterModuleKind.Standard)
         {
             if (other.PrePass.ModuleConsts.TryGetValue(member, out var theirs) && theirs.Public)
-                throw AnotherModulesConst(text);
+            {
+                // VB6 reads it in either list order (measured). Once that module's declarations have run, its value is
+                // final, and the qualified read finds it; before, it would be Empty.
+                if (other.DeclarationsRun)
+                    return;
+                throw NotInitialisedYet(text, other.Name);
+            }
             if (other.PrePass.PublicVariables.Contains(member))
                 throw ConstantExpressionRequired();
         }
@@ -191,6 +194,11 @@ internal sealed class ModuleLevelBounds
         $"{subject} {reads} {name}, another module's Public Const. A module's Consts and arrays are worked out as its " +
         "declarations run, and HexIDE does not read another module's Const there yet: unqualified it is not found, and " +
         "qualified it may not have been initialised (#880).");
+
+    private NotImplementedException NotInitialisedYet(string text, string other) => new(
+        $"{subject} {reads} {text}, a Public Const of {other}, whose declarations have not run yet. VB6 works out every " +
+        $"module's Consts before the program starts; HexIDE initialises modules one at a time, in list order, and " +
+        "does not yet initialise one on demand (#893).");
 
     private NotImplementedException AnotherModulesEnumMember(string name) => new(
         $"{subject} {reads} {name}, a member of another module's Enum. HexIDE does not read another module's Enum " +

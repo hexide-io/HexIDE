@@ -46,13 +46,14 @@ there isn't one yet. Anything may change between 0.x releases.
 
 - **A module-level `Const` is checked as VB6 checks it** (#760). Its value may read only other constants: a Const
   declared below it or the Const itself, a variable, a user function and any function call are VB6's "Constant
-  expression required", where they ran from whatever HexIDE made of them. Another module's Public Const is refused
-  (#880) rather than read as Empty.
+  expression required", where they ran from whatever HexIDE made of them. Another module's Public Const is read
+  qualified once that module's declarations have run, and refused unqualified (#880) or before (#893), rather than
+  read as Empty. A module naming itself is "Circular dependencies between modules".
 - **A module-level array sized by a `Const` loads** (#760). `Private mGrid(0 To GRID_MAX)` made the whole module
   fail to load; so did a typed literal such as `Dim d(2&)`. Its bounds are read where it is allocated, by VB6's
   rules: a Const declared below, a variable, a user function, and the built-ins VB6 refuses there are its "Constant
-  expression required". Another module's Public Const
-  (#880) and its Enum member read unqualified (#889) are refused, rather than sized from Empty. A form's run refuses
+  expression required". Another module's Public Const unqualified (#880), or qualified before that module has run
+  (#893), and its Enum member read unqualified (#889) are refused, rather than sized from Empty. A form's run refuses
   such an array, naming it, because it does not run the module's declarations yet (#256). A procedure's `Const`s are declared before its `Dim`s, so
   `Dim a(P)` inside a procedure sees `P` too.
 

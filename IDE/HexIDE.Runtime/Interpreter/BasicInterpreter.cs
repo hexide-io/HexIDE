@@ -531,12 +531,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         {
             foreach (var m in Modules.All)
                 if (!ReferenceEquals(m, primaryModule) && m.Kind == InterpreterModuleKind.Standard)
+                {
                     foreach (var block in m.PrePass.topLevelBlocks)
                         await new StatementExecutor(this, m.ModuleEnv, m).Execute(block);
+                    m.DeclarationsRun = true;
+                }
 
             var statementExecutor = new StatementExecutor(this, rootEnv, primaryModule);
             foreach (var block in primaryModule.PrePass.topLevelBlocks)
                 await statementExecutor.Execute(block);
+            primaryModule.DeclarationsRun = true;
         }
         catch (Debugging.StopExecutionSignal)
         {
@@ -595,8 +599,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             // beyond seeding values.
             foreach (var m in Modules.All)
                 if (m.Kind == InterpreterModuleKind.Standard)
+                {
                     foreach (var block in m.PrePass.topLevelBlocks)
                         await new StatementExecutor(this, m.ModuleEnv, m).Execute(block);
+                    m.DeclarationsRun = true;
+                }
 
             await RunProcedure(startup.Module, startup.Proc, Array.Empty<CallArg>());
         }

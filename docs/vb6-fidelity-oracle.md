@@ -2434,9 +2434,12 @@ fix.
 | a member referencing an **earlier** enum, qualified | legal |
 | a member referencing an earlier member of its **own** enum, qualified | legal |
 
-This matters more than it looks. CLAUDE.md prescribes lazy-memoised evaluation for `Const` precisely
-because `Const` is order-independent, and the obvious move was to reach for the same pattern here. VB6 says
-no: source order **is** the rule, so a plain forward walk is not a shortcut, it is the specification. The
+This matters more than it looks. CLAUDE.md prescribes lazy-memoised evaluation for `Const` on the premise
+that `Const` is order-independent, and the obvious move was to reach for the same pattern here. VB6 says
+no: source order **is** the rule, so a plain forward walk is not a shortcut, it is the specification. **The premise
+is wrong for `Const` too, within a module** (measured later, #873): `Const A = B + 1` above `Const B = 2` is
+"Constant expression required" at every scope probed. Only across modules is the order free, and there VB6 refuses a
+cycle (the section "Subscripts, bounds, and a method called from Class_Initialize"). The
 pre-pass stays pure collection and a forward reference simply is not found — the right answer for the right
 reason.
 
@@ -5820,12 +5823,43 @@ The review asked what VB6 allows in a module-level bound beyond literals and sam
 
 In a procedure, `Dim a(N)` before `Const N = 3` is a compile error too, "Variable not defined" (`p21f`, under
 `Option Explicit`). **HexIDE runs it,** because a procedure's Consts are declared at its entry, ahead of its Dims
-(#760, below): a missing compile error, recorded, not a wrong value.
+(#760, below): a missing compile error, recorded. A procedure's Consts are #894, where a forward reference without
+`Option Explicit` also gives a wrong value (`A` is 1).
 
 **VB6 refuses a forward reference between module Consts.** `Const A = B + 1` above `Const B = 2` does not compile.
 That is narrower than CLAUDE.md's pre-pass paragraph implies: it reasons from order-independent Const evaluation, as
-though `Const A = B + 1` before `Const B` were valid VB6. Within one module it is not. Measured once, for module-level
-Consts in one module. Whether a Const may name a *later* Const in another module was not probed.
+though `Const A = B + 1` before `Const B` were valid VB6. Within one module it is not.
+
+**Across modules, list order does not matter, but the modules' Consts must not form a cycle.** Measured by hexide-7b's
+review with `vb6.exe /make`, two measurers working independently, identical in every row; the rows and the probe
+sources are in that review's measurement record (2026-10-13):
+
+| Program | VB6 |
+|---|---|
+| Module1 `Public Const A = Module2.B + 1`, Module2 `Public Const B = 2`, either list order | A = 3 |
+| the same, unqualified, `Public Const A = B + 1`, either list order | A = 3 |
+| Module1 `Public Const A = B + 1`, Module2 `Public Const B = A + 1`, either order | "Circular dependencies between modules", at Module2's Const |
+| Module1 `Public Const A = 1` and `Public Const C = B + 1`, Module2 `Public Const B = A + 1`: no Const depends on itself | "Circular dependencies between modules" |
+| as above, with a module-level `Public arr(A) As Long` in place of a Const | "Circular dependencies between modules": a bound is an edge too |
+| a Const read inside a procedure body, a procedure-level Const in the other module, or a procedure call, as the back edge | builds: procedure bodies are not edges |
+| Module1 `Const A = 2`, `Const A2 = Module1.A + 1` | "Circular dependencies between modules": the module naming itself |
+| `Const A = Module1.B + 1` above `Const B = 2`, in Module1 | "Circular dependencies between modules", not "Constant expression required" |
+| in Module1, `Const C = Module1.n + 1` after `Private n As Long`; `Private d(Module1.n) As Long` after `Public n As Long`; `Const C = Module1.Twice(2)`; `Const C = Module1.Nope + 1`, with nothing named Nope | "Circular dependencies between modules", each: whatever the module's own name qualifies (measured for #873, `/make`, one project each) |
+| `Const A = B + 1` above `Const B = 2`, module level, with or without `Option Explicit` | "Constant expression required" |
+| the same in a class, in a form never loaded, and `Const A = eLater + 1` above the Enum declaring `eLater` | "Constant expression required"; the form's fires because `/make` compiles every module |
+| `Const A = B + 1`, Module2's `Private Const B = 2` | "Variable not defined": invisible |
+| in a procedure, `Const A = B + 1` above `Const B = 2` | "Variable not defined" with `Option Explicit`, "Constant expression required" without |
+| in a procedure, `Dim a(N) As Long` above `Const N = 3`, no `Option Explicit` | "Constant expression required" |
+
+So the cycle check is per module, not per Const. Module-level Consts and array bounds make edges between modules;
+procedure bodies do not. Within a module, every scope probed evaluates strictly in source order: module, class,
+form, procedure and Enum member. And at module level `Option Explicit` still says "Constant expression required",
+where at procedure level it says "Variable not defined": module-level names are known before their values are.
+
+**HexIDE, after this.** Another module's Public Const read qualified, as `Module2.B`, is read when that module's
+declarations have already run, which modules in list order before the primary have; its value is final. Before they
+have run, it is refused naming #893, which is VB6's on-demand ordering, with its cycle error. Unqualified it is
+still #880. The module naming itself is "Circular dependencies between modules", whatever it names.
 
 **Review round three** asked what lies one level down: what a Const above the Dim may itself read, which built-ins
 are allowed, and what a qualified name does. Each case below is its own project, built with `/make` (`p27`, `p28` and
@@ -5886,7 +5920,8 @@ A procedure's Consts are not checked yet. What is refused:
 - a name the module cannot see is "Variable not defined" under `Option Explicit`, and "Constant expression
   required" without it;
 - the module's own name as a qualifier is "Circular dependencies between modules";
-- another module's Public Const, qualified or not, is refused naming #880, and another module's Enum member
+- another module's Public Const unqualified is refused naming #880, and qualified it is read once that module's
+  declarations have run and refused naming #893 before; another module's Enum member
   unqualified is refused naming #889, rather than sized from Empty. Qualified by its Enum's name it is read;
 - a built-in no probe has asked about is refused, rather than guessed either way.
 
