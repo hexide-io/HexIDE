@@ -111,8 +111,7 @@ looking. Someone used to VB6, where a project is opened and F5 runs it, finds th
 - Rename the Make items to Build, and add Rebuild and Clean (#399).
 - The affected `Str.Menu.*` keys change meaning, so every shipped language pack needs new values rather than a
   mechanical rename.
-- Update the Make and Start rows in [`MISSING_FEATURES.md`](../MISSING_FEATURES.md). One of them already gives
-  the wrong shortcut: Make with VB6 has none, and Alt+F5 belongs to Start with VB6.
+- Update the Make and Start rows in [`MISSING_FEATURES.md`](../MISSING_FEATURES.md).
 
 ## Open questions
 

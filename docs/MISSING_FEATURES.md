@@ -24,7 +24,7 @@
 | Print… | — | Stub | Bound to `NYICommand`; shows "not yet implemented" |
 | Print Setup… | — | Stub | Bound to `NYICommand` |
 | Make *{project}*… | — | Partial | Invokes HexIDE interpreter export; no real native-code compile |
-| Make *{project}* with VB6… | Alt+F5 (make) | Done | Shells out to VB6.EXE if installed |
+| Make *{project}* with VB6… | — | Done | Shells out to VB6.EXE if installed |
 | Make Project Group… | — | Done | Saves every loaded project and the group as one operation: every destination, the `.vbg` path included, is asked for first, then every file is checked against its code page, and only then is anything written, so a dismissed picker or a refusal leaves every file as it was; removes `DisabledCommand` |
 | MRU file list | — | Done | "Recent Projects ►" submenu in File menu; backed by `IRecentProjectsService`; refreshes on project open/close |
 | Exit | Ctrl+Q | Done | Calls `IClassicDesktopStyleApplicationLifetime.Shutdown()` |

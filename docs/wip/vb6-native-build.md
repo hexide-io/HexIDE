@@ -65,13 +65,15 @@ code. One run per row.
 
 What follows from them:
 
-1. **`LinkSwitches` and `C2Switches` both work,** read from a `[VBCompiler]` section of the `.vbp`. The
-   research below found many projects using `LinkSwitches`, but none with a non-empty `C2Switches`, so this
-   appears to be the first demonstration that VB6 honours it.
+1. **`LinkSwitches` and `C2Switches` both work,** read from a `[VBCompiler]` section of the `.vbp`.
+   `LinkSwitches` is in wide use. `C2Switches` was claimed in 2013, and a VBForums thread reports C2 rejecting
+   `/Ob2` given through it with the same C1007 error, but no public project was found using it. This run
+   confirms it from a clean `.vbp` under `/make`, and records exactly what `/out` says.
 2. **A failing C2 reaches `/out`, and `/make` exits** rather than waiting on a dialog. That is what the IDE's
    "Unexpected error" message hides behind its offer to open the errors in Notepad.
-3. **What LINK prints on a successful link is dropped.** LINK normally warns about an option it does not
-   recognise (LNK4044), but nothing of it reached `/out`. Only a wrapper around LINK can show it.
+3. **Whatever LINK prints on a successful link is dropped.** `/out` held only the success line. LINK is
+   expected to have warned about the unknown option (LNK4044), but that was not observed: seeing it is
+   exactly what the wrapper in layer 2 is for.
 4. **`VB6.EXE` runs the `C2.EXE` and `LINK.EXE` in its own folder.** A private copy of `VB98` therefore runs
    whatever is in the copy, and the user's installation is never involved.
 
@@ -174,8 +176,8 @@ which run the real tools (kept in the copy under other names) and send their com
 back to HexIDE.
 
 - **Nothing in the user's installation changes,** and no administrator rights are needed.
-- **HexIDE ships no VB6 file.** It copies the user's own licensed installation, on the same machine, for the
-  same user.
+- **HexIDE ships no VB6 file.** It copies the user's own installation, on the same machine, for the same
+  user. Whether VB6's licence permits such a working copy is an open question below.
 - **The registry is shared,** so references, controls and add-in settings resolve exactly as they do for the
   original.
 - **Keep it current:** record the original files' hashes beside the copy, and refresh it when they change, for
@@ -215,6 +217,8 @@ It replaces executables in Program Files that every VB6 build runs, so it must:
 - The values of the documented keys, which are taken from third parties.
 - Which files `/make` needs, if the private copy is ever trimmed.
 - How a p-code build's single LINK run looks through the wrapper.
+- Whether VB6's licence terms permit HexIDE to keep a working copy of the user's installation, and to replace
+  two of its files with wrappers. This needs an answer before layer 2 ships.
 
 ## Related
 

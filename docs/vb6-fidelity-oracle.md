@@ -7004,16 +7004,18 @@ row.
 | The whole `VB98` folder copied to another directory, `/make` run with the copy's `VB6.EXE` | 0 | Succeeded. |
 | The same copy with its `C2.EXE` renamed | 1 | `File not found: C2.EXE` then `Build of 'probe.exe' failed.` |
 
-**`C2Switches` is honoured.** The community has used `LinkSwitches` for years; `C2Switches` was claimed in 2013
-and exposed by one add-in, but no public project was found with a non-empty value, so its effect had not been
-shown. A bogus flag reaching C2 proves VB6 passes it on.
+**`C2Switches` is honoured.** The community has used `LinkSwitches` for years. `C2Switches` was claimed in 2013,
+exposed by one add-in, and a VBForums thread reports C2 rejecting `/Ob2` passed through it with the same C1007,
+but no public project was found using it. This run confirms it from a clean `.vbp` under `/make`: a bogus flag
+reaches C2, and the table above is exactly what `/out` says.
 
 **A failing code generator does not block `/make`.** The interactive IDE shows "Unexpected error occurred in
 code generator or linker" and offers to open the errors in Notepad; under `/make` the same text and C2's own
 diagnostic go to `/out`, and the process exits 1.
 
-**A successful link discards LINK's output.** LINK 6 warns about an option it does not recognise (LNK4044),
-but none of it reached `/out`. Not measured: what `/out` holds when LINK fails.
+**A successful link discards whatever LINK printed.** `/out` held only the success line. LINK is expected to
+have warned about the unknown option (LNK4044), but that is inferred, not observed; a wrapper around LINK would
+see it. Not measured: what `/out` holds when LINK fails.
 
 **`VB6.EXE` runs the `C2.EXE` beside itself.** With the copy's `C2.EXE` gone, the build failed rather than
 falling back to the original installation, which was still present. So a private copy of `VB98` runs whatever
