@@ -335,6 +335,17 @@ public class SubscriptCoercionTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(10L), new Vb6Value(3L), new Vb6Value(7L)]);
     }
 
+    [Theory]
+    [InlineData("Dim d() As Long")]
+    [InlineData("Dim d")]
+    public async Task An_array_Let_copies_every_dimension(string declaration)
+    {
+        // Measured, native: after `d = fx`, d(1, 2) = 99 leaves fx(1, 2) at 7, for a dynamic array and a Variant alike.
+        await Run($"Dim fx(1, 2) As Long\nfx(1, 2) = 7\n{declaration}\nd = fx\nd(1, 2) = 99\nDebug.Print fx(1, 2)\nDebug.Print d(1, 2)\n");
+
+        AssertDebugLog([new Vb6Value(7L), new Vb6Value(99L)]);
+    }
+
     [Fact]
     public async Task A_Variant_parameter_holding_a_fixed_array_ReDimmed_is_10_and_kept()
     {
