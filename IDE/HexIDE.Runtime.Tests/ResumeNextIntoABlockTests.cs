@@ -521,7 +521,7 @@ public class ResumeNextIntoABlockTests : BaseVBTestFixture
         // one of the project's own Functions lets HexIDE see.
         var run = () => RunResumingNext("For Each x In (BoomV())\nNext\n");
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#839*");
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#969*");
     }
 
     [Fact]

@@ -5748,11 +5748,14 @@ but that was checked row by row, not proved.
 
 ### HexIDE, after #839
 
-**Conditions.** If, ElseIf, one-line If, Do and While share one reading of a condition, `ConditionMet`.
+**Conditions.** If, ElseIf, one-line If, Do and While read a condition through `ConditionMet`, which wraps main's
+`ConditionHolds` (#847, #840) and adds only what Resume Next needs.
 - A condition that raises under Resume Next is recorded in `Err` and enters its block: the branch, or a pre-tested
   loop's body, asked again next time round. A post-tested loop ends.
-- The reading also fixes non-Boolean conditions. A block `If 5 Then` used to raise "IF doesn't contain a bool
-  expression", and a one-line `If 0.5 Then` raised 13.
+- The reading is `ConditionHolds`'s: `CBool`'s rule, Null and Empty False, an object read as an operand is. This branch
+  first wrote the same reading itself, and #847 landed it on main first, so the merge kept main's. An untrappable
+  refusal, such as a class's default member (#174), still stops the run under Resume Next, because it is not a run-time
+  error.
 
 **Select Case.**
 - A Case test that raises runs its own Case's body.
@@ -5773,7 +5776,7 @@ but that was checked row by row, not proved.
 - Under Resume Next, the body runs once and `Next` raises 92, emptying the element unless the collection is declared as
   an array.
 - Where the collection itself raised, HexIDE cannot see its declared type without its value. It answers that only for a
-  call of one of the project's own Functions, from that Function's declaration. Anything else is refused, naming #839.
+  call of one of the project's own Functions, from that Function's declaration. Anything else is refused, naming #969.
 - For Each over an object is refused as not implemented, where it used to raise a trappable 13.
 
 **With.** A target that raises leaves the body with no object, so each leading-dot member raises 91.
