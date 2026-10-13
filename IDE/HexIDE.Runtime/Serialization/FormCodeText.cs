@@ -242,6 +242,41 @@ public static class FormCodeText
             ? ModuleFileFormat.BufferHeader(module.Name, module.Kind, module.OriginalHeader)
             : module.FormPart?.DesignerText ?? "";
 
+    /// <summary>What the code window puts in front of this document's code, whichever kind it is.</summary>
+    public static string Prefix(DocumentIdentity document) =>
+        document.Module is { } module ? Prefix(module) : Prefix(document.Form!);
+
+    /// <summary>
+    /// The number of line breaks in <paramref name="text"/>. For a <see cref="Prefix(FormDefinition)"/>, which
+    /// always ends with its terminator, that is the number of lines it occupies, and so the 0-based line the
+    /// code after it starts on.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <b>One count for everything that moves a mark because of a prefix.</b> The header refresh moves a
+    /// document's marks by the difference between two prefixes' counts, and the sidecar's migration moves marks
+    /// written before the code window showed a prefix at all by the whole of one (hexide-io/HexIDE#273 task
+    /// 3.17). Two counters would be two answers to one question, and the first time they disagreed a mark would
+    /// land on another statement.
+    /// </para>
+    /// <para>
+    /// Counts <c>'\n'</c> rather than splitting on <c>Environment.NewLine</c>. A <c>.frm</c> is a Windows-native
+    /// format and is CRLF-terminated wherever it came from, but a prefix is also composed from text HexIDE
+    /// itself produced, and <c>build-ide</c> runs on <c>ubuntu-latest</c>: a count that asked the host what a
+    /// line ending is would answer differently there and move every mark on the wrong machine.
+    /// </para>
+    /// </remarks>
+    public static int LineBreaks(string text)
+    {
+        var count = 0;
+        foreach (var c in text)
+        {
+            if (c == '\n')
+                count++;
+        }
+        return count;
+    }
+
     /// <summary>
     /// The body of a composed buffer: everything after the prefix it was composed with.
     /// </summary>

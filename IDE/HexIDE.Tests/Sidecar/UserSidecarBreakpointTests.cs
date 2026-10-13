@@ -85,7 +85,7 @@ public sealed class UserSidecarBreakpointTests : IDisposable
         await sidecar.SaveAsync(project);
 
         var json = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(_dir, "P.user.hexproj"), TestContext.Current.CancellationToken));
-        json.RootElement.GetProperty("breakpoints").EnumerateObject()
+        json.RootElement.GetProperty("fileBreakpoints").EnumerateObject()
             .Select(p => p.Name).Should().Equal("Module1");
     }
 
@@ -93,6 +93,11 @@ public sealed class UserSidecarBreakpointTests : IDisposable
     /// A sidecar written before documents had identities named them by the URI the IDE used internally.
     /// Those keys are still read, so an upgrade does not lose anybody's marks.
     /// </summary>
+    /// <remarks>
+    /// Such a sidecar also predates lines counted from the top of the file, so its lines are migrated as they are
+    /// read: Form1 was created here and has no header, so its bookmark stays where it was, and Module1's code is
+    /// now shown under its <c>Attribute VB_Name</c> line, so its breakpoints move down by one.
+    /// </remarks>
     [Fact]
     public async Task ASidecarWrittenWithTheOldKeysIsStillRead()
     {
@@ -114,7 +119,7 @@ public sealed class UserSidecarBreakpointTests : IDisposable
         await new UserSidecarService(bookmarks, breakpoints, projectManager).LoadAsync(project);
 
         bookmarks.GetBookmarks(Form1(project)).Should().Equal(1);
-        breakpoints.GetBreakpoints(Module1(project)).Should().Equal(2, 6);
+        breakpoints.GetBreakpoints(Module1(project)).Should().Equal(3, 7);
     }
 
     [Fact]
@@ -180,7 +185,10 @@ public sealed class UserSidecarBreakpointTests : IDisposable
         var sidecar = new UserSidecarService(bookmarks, new BreakpointService(), projectManager);
         bookmarks.SetBookmarks(Form1(project), new[] { 7 });
 
+        // As the save itself does: the form's file is written as its path is set. A path naming no file is a
+        // document whose file is missing, whose marks the next load keeps in the sidecar rather than placing them.
         project.Forms[0].AbsolutePath = Path.Combine(_dir, "Form1.frm");
+        await File.WriteAllTextAsync(project.Forms[0].AbsolutePath!, TwelveLines, TestContext.Current.CancellationToken);
 
         bookmarks.GetBookmarks(Form1(project)).Should().Equal(7);
 
@@ -204,13 +212,14 @@ public sealed class UserSidecarBreakpointTests : IDisposable
         var sidecarPath = Path.Combine(_dir, "P.user.hexproj");
 
         // Form1 was created by HexIDE and has no designer block yet, so its file is its twelve lines of code.
-        // Module1's file is those twelve under the Attribute VB_Name line the code window shows: thirteen.
+        // Module1's file is those twelve under the Attribute VB_Name line the code window shows: thirteen. That
+        // line is read-only, so the lowest breakpoint Module1 can keep is on line 2, its first line of code.
         await File.WriteAllTextAsync(sidecarPath,
             """
             {
-              "version": 1,
-              "bookmarks": { "Form1": [-1, 0, 11, 12, 99] },
-              "breakpoints": { "Module1": [-1, 0, 1, 13, 14, 99] }
+              "version": 2,
+              "fileBookmarks": { "Form1": [-1, 0, 11, 12, 99] },
+              "fileBreakpoints": { "Module1": [-1, 0, 2, 13, 14, 99] }
             }
             """, TestContext.Current.CancellationToken);
 
@@ -220,14 +229,47 @@ public sealed class UserSidecarBreakpointTests : IDisposable
         await sidecar.LoadAsync(project);
 
         bookmarks.GetBookmarks(Form1(project)).Should().Equal([0, 11], "bookmarks count from 0");
-        breakpoints.GetBreakpoints(Module1(project)).Should().Equal([1, 13], "breakpoints count from 1, header included");
+        breakpoints.GetBreakpoints(Module1(project)).Should().Equal([2, 13], "breakpoints count from 1, header included");
 
         await sidecar.SaveAsync(project);
         var json = JsonDocument.Parse(await File.ReadAllTextAsync(sidecarPath, TestContext.Current.CancellationToken));
-        json.RootElement.GetProperty("bookmarks").GetProperty("Form1").EnumerateArray()
+        json.RootElement.GetProperty("fileBookmarks").GetProperty("Form1").EnumerateArray()
             .Select(e => e.GetInt32()).Should().Equal(0, 11);
-        json.RootElement.GetProperty("breakpoints").GetProperty("Module1").EnumerateArray()
-            .Select(e => e.GetInt32()).Should().Equal(1, 13);
+        json.RootElement.GetProperty("fileBreakpoints").GetProperty("Module1").EnumerateArray()
+            .Select(e => e.GetInt32()).Should().Equal(2, 13);
+    }
+
+    /// <summary>
+    /// A sidecar written before lines counted from the top of the file has its lines checked in the numbering they
+    /// were written in, over the document's code, before they move (#273 task 3.17).
+    /// </summary>
+    /// <remarks>
+    /// Module1's code is twelve lines, so in the old numbering its breakpoints run 1..12. Line 0 and line 13 were
+    /// never lines of it: they are dropped, rather than moved down by the header's line to land on line 1, inside
+    /// the header, and on line 14, past the end. 1 and 12 are its first and last lines of code, now 2 and 13.
+    /// </remarks>
+    [Fact]
+    public async Task AnEarlierSidecarsLinesAreCheckedInTheirOwnNumberingBeforeTheyMove()
+    {
+        var projectManager = Substitute.For<IProjectManager>();
+        projectManager.LoadedProjects.Returns(new List<ProjectDefinition>());
+        var project = MakeSavedProject();
+        var sidecarPath = Path.Combine(_dir, "P.user.hexproj");
+        await File.WriteAllTextAsync(sidecarPath,
+            """{ "version": 1, "breakpoints": { "Module1": [0, 1, 12, 13] } }""",
+            TestContext.Current.CancellationToken);
+
+        var breakpoints = new BreakpointService();
+        using var log = new CapturedLog();
+        await new UserSidecarService(new BookmarkService(), breakpoints, projectManager).LoadAsync(project);
+
+        breakpoints.GetBreakpoints(Module1(project)).Should().Equal(2, 13);
+        log.Messages.Should().ContainSingle(m => m.Contains("had 12 line(s) of code"))
+            .Which.Should().Contain("[0, 13]");
+        var json = JsonDocument.Parse(await File.ReadAllTextAsync(sidecarPath, TestContext.Current.CancellationToken));
+        json.RootElement.GetProperty("fileBreakpoints").GetProperty("Module1").EnumerateArray()
+            .Select(e => e.GetInt32()).Should().Equal(2, 13);
+        json.RootElement.TryGetProperty("breakpoints", out _).Should().BeFalse();
     }
 
     private sealed class NullSink : IDeserializeErrorSink
@@ -242,9 +284,11 @@ public sealed class UserSidecarBreakpointTests : IDisposable
     /// </summary>
     /// <remarks>
     /// The range used to be counted in the form's code section, which is shorter than the file by the designer
-    /// block, so these marks were dropped as "not a line" and gone from the next save. And a mark on a header
-    /// line is kept too: a sidecar written before the code window held the whole file counts from the first
-    /// line of code, so its line 3 is code, and dropping it is the migration's call to make, not the load's.
+    /// block, so these marks were dropped as "not a line" and gone from the next save. This used to keep a mark on
+    /// a header line as well, because a sidecar written before the code window held the whole file counted from
+    /// the first line of code and that call was the migration's to make. The migration (#273 task 3.17) moves such
+    /// lines before they are judged, so a mark on a header line is now dropped; that has a test of its own in
+    /// <c>SidecarMigrationTests</c>, and this one keeps to the range.
     /// </remarks>
     [Fact]
     public async Task AMarkOnAFormsLastLineOfCodeIsKeptAtLoad()
@@ -273,9 +317,9 @@ public sealed class UserSidecarBreakpointTests : IDisposable
         await File.WriteAllTextAsync(Path.Combine(_dir, "P.user.hexproj"),
             $$"""
             {
-              "version": 1,
-              "bookmarks": { "Form2": [{{lastOfCode - 1}}] },
-              "breakpoints": { "Form2": [3, {{lastOfCode}}] }
+              "version": 2,
+              "fileBookmarks": { "Form2": [{{lastOfCode - 1}}] },
+              "fileBreakpoints": { "Form2": [{{lastOfCode}}] }
             }
             """, TestContext.Current.CancellationToken);
 
@@ -283,7 +327,7 @@ public sealed class UserSidecarBreakpointTests : IDisposable
         var breakpoints = new BreakpointService();
         await new UserSidecarService(bookmarks, breakpoints, projectManager).LoadAsync(project);
 
-        breakpoints.GetBreakpoints(DocumentIdentity.For(form)).Should().Equal(3, lastOfCode);
+        breakpoints.GetBreakpoints(DocumentIdentity.For(form)).Should().Equal(lastOfCode);
         bookmarks.GetBookmarks(DocumentIdentity.For(form)).Should().Equal(lastOfCode - 1);
     }
 }

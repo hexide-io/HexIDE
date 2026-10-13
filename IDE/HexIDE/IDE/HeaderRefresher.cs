@@ -216,8 +216,9 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
     /// </remarks>
     public void ShiftMarks(DocumentIdentity document, string oldHeader, string newHeader)
     {
-        var oldLines = LineCount(oldHeader);
-        var delta = LineCount(newHeader) - oldLines;
+        // The count the sidecar's migration shifts by as well, so the two can never disagree about a header.
+        var oldLines = FormCodeText.LineBreaks(oldHeader);
+        var delta = FormCodeText.LineBreaks(newHeader) - oldLines;
         if (delta == 0)
             return;
 
@@ -233,18 +234,6 @@ public sealed class HeaderRefresher : IHeaderRefresher, IDisposable
     /// <summary>Every line at or after <paramref name="firstBodyLine"/> moved by <paramref name="delta"/>.</summary>
     private static IEnumerable<int> Shift(IReadOnlyList<int> lines, int firstBodyLine, int delta) =>
         lines.Select(line => line >= firstBodyLine ? line + delta : line).ToList();
-
-    /// <summary>
-    /// The number of lines a header occupies, which is the 0-based line the body starts on.
-    /// </summary>
-    /// <remarks>
-    /// Counts <c>'\n'</c> rather than splitting on <c>Environment.NewLine</c>. A <c>.frm</c> is a
-    /// Windows-native format and is CRLF-terminated wherever it came from, but the buffer is also composed
-    /// from text HexIDE itself produced, and <c>build-ide</c> runs on <c>ubuntu-latest</c> — a count that
-    /// asked the host what a line ending is would answer differently there and move every mark on the
-    /// wrong machine.
-    /// </remarks>
-    private static int LineCount(string header) => header.Count(c => c == '\n');
 
     private CodeEditorViewModel? EditorFor(DocumentIdentity document) =>
         dock.OpenDocuments.OfType<CodeEditorViewModel>()

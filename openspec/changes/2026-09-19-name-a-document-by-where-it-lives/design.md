@@ -696,6 +696,48 @@ file-counted lines under the version-1 label. Migration moves those marks a seco
 machines that ran this branch have such files; nothing that shipped wrote one. Deleting the sidecar is the
 remedy.
 
+**Settled while building 3.17**, where the paragraphs above left a choice:
+
+- **A missing file is found by asking the file system, once, as the project opens.** A document whose path names
+  no file is unmeasurable; one with no path yet is measurable. `OriginalHeader is null` was the other candidate
+  and was rejected: a `.ctl` never records a header, so it says nothing about a UserControl. Where two documents
+  share a name, as a project written elsewhere can, the name is carried if either is unmeasurable, because one
+  entry cannot be half applied.
+- **The new keys are carried the same way as the old.** An entry under `fileBookmarks` or `fileBreakpoints` for a
+  name the session does not own is not placed: a module whose file is missing is loaded empty, so a range check
+  against it would keep its low lines and drop the rest. It is taken from the file at each save, as the old keys
+  are, and joined with any marks the stores hold under that name.
+- **Less what this session wrote there.** "Names the project had when it opened" is not quite enough, because a
+  name outside it can still be one this session writes — a document renamed to it — and the next save would then
+  carry that entry from the file as though someone else had written it. Renamed twice, a document would leave its
+  middle name's marks behind; a mark removed under that name would come back. So each save remembers what the
+  stores put under the new keys, and the next one carries only what the file holds beyond that. A line in both is
+  taken as this session's, since it is the side that can say the line is gone. Memory is used to subtract, never
+  to supply, so a deleted sidecar still stays deleted.
+- **"Changed" means an old-key entry was placed.** That alone triggers the write at load, through the owed write
+  `LoadAsync` already makes for a change held back during the read. A mark dropped for its range or for a read-only
+  line is not a migration and writes nothing by itself; the next save leaves it out, as the live requirement says.
+- **Until that write lands, every save subtracts what the load placed from the old keys.** Every save takes the
+  old keys from the file as it is, and the file holds the placed entries until a write lands — including the
+  migration's own write, which reads the file it is about to replace, and any save after a migration write that
+  failed because another program held the file. Without the subtraction they would be written back beside the
+  marks they became. An entry is subtracted only while it is exactly what was placed, so an older build's later
+  write under the same key is still kept for the next opening.
+- **The old numbering is checked over the code section, before the move**, counting `'\n'` plus one as `main`
+  did. No second range check follows it: the file is the prefix's lines plus the code's, so a line inside the old
+  range is inside the new one.
+- **The read-only drop applies to the new keys too.** No build writes a mark there under them, but the file can
+  change between sessions — VB6 adds a member's `Attribute` line below a declaration whose next line was marked —
+  and a sidecar can be edited by hand. The rule is about the line, whoever wrote the mark.
+- **A null where an entry's lines belong fails the read**, as it did before, for either format, before anything
+  reaches the stores.
+
+**Not closed by 3.17: the conflicted external change parked under 3.3b.** An external change the dirty detector
+calls a Conflict is not applied, so its header delta never reaches the stores and the sidecar records the marks
+in the numbering of the file as it was. Version 2 records no header length, so a later opening has nothing to
+measure the difference against. Recording each document's prefix line count beside its marks would let it; that
+is a format change of its own and is not made here.
+
 **`get_file_content` returns the whole file, and `hasUnsavedChanges` still compares the code section.**
 Comparing the whole buffer against `Code` would mark every open document unsaved, which is the trap 3.2a
 fixed in the dirty check. `set_file_content` takes what `get_file_content` returns, or the code alone, through
