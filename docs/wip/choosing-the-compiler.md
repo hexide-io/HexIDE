@@ -124,6 +124,7 @@ looking. Someone used to VB6, where a project is opened and F5 runs it, finds th
 ## Related
 
 - #399: Build, Rebuild and Clean, and the toolchain as configuration.
+- #978: what the VB6 toolchain gains once it is chosen.
 - #48: the disabled Project Properties tabs, where the setting would be edited.
 - #451: no error list.
 - #891: an add-in cannot contribute a debug adapter.
