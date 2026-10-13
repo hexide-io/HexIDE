@@ -28,7 +28,7 @@ public partial class VB6BuiltIns
     private static VBRunTimeException InvalidUseOfNull() => new(VBStandardError.InvalidUseOfNull);
 
     // Coerce (parsing strings, mapping bools/dates) then narrow to the target numeric subtype.
-    private static Vb6Value NarrowNum(Vb6Value v, VT target)
+    internal static Vb6Value NarrowNum(Vb6Value v, VT target)
     {
         if (v.IsNull) throw InvalidUseOfNull();
         // An omitted Optional Variant is the error value VB6 passes for a missing argument, whose number is 448. Measured:

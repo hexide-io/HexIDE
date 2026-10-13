@@ -392,9 +392,30 @@ public class VBArray
 
     public VBArray(Vb6Value.ValueType innerType, IReadOnlyList<(int lowerBound, int upperBound)> bounds)
     {
+        // An array too big to allocate is 7, Out of memory (measured for ReDim b(2147483647) and b(1 To 2147483647), which
+        // is all those rows say: 8 GB fails in a 32-bit process anyway). The count is taken as a long: as an int,
+        // 0 To 2147483647 wrapped negative and raised 9.
+        // VB6's own count wraps too, so its full range, -2147483648 To 2147483647, wraps to no elements and raises
+        // nothing, leaving an array whose bounds claim four billion elements and hold none. That is a defect, not a
+        // behaviour to reproduce, so here it is 7 like the rest.
+        long elements = 1;
+        foreach (var (lowerBound, upperBound) in bounds)
+        {
+            elements *= Math.Max(0L, (long)upperBound - lowerBound + 1);
+            if (elements > Array.MaxLength)
+                throw new VBRunTimeException(VBStandardError.OutOfMemory);
+        }
         this.bounds.AddRange(bounds);
         elementType = innerType;
-        array = CreateArray(innerType, 0);
+        try
+        {
+            array = CreateArray(innerType, 0);
+        }
+        catch (OutOfMemoryException)
+        {
+            // Fewer elements than that can still be more than this process can hold, as 1 To 2147483647 is.
+            throw new VBRunTimeException(VBStandardError.OutOfMemory);
+        }
     }
 
     /// <summary>Erase of a DYNAMIC array: free it → undimensioned. Subsequent LBound/UBound/element access raise
@@ -430,10 +451,10 @@ public class VBArray
         // An inverted/negative range (Dim a(-2), a(2 To 0), ReDim a(5 To 1)) gives a negative element count. VB6
         // raises a trappable Subscript-out-of-range (Err 9); `new object[-1]` would throw an UNCATCHABLE
         // OverflowException. An empty array — bounds (0,-1), size 0 — is valid (used by Split/Filter/Array).
-        int size = bounds[dimension].ubound - bounds[dimension].lbound + 1;
+        long size = (long)bounds[dimension].ubound - bounds[dimension].lbound + 1;
         if (size < 0)
             throw new VBRunTimeException(VBStandardError.SubscriptOutOfRange);
-        var arr = new object[size];
+        var arr = new object[(int)size];
         for (int i = 0; i < arr.Length; ++i)
         {
             if (dimension == bounds.Count - 1)

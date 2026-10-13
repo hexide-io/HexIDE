@@ -42,6 +42,34 @@ public sealed record ProcedureInfo(
     public IReadOnlyList<VB6Parser.VariableSubStmtContext> DeclaredLocals =>
         declaredLocals ??= CollectDeclaredLocals(Body);
 
+    /// <summary>
+    /// Every <c>Const</c> the procedure declares, in declaration order, wherever it sits in the body. Declared at
+    /// entry ahead of the Dims, because a Dim's bounds may name one: <c>Const P = 2.5</c> then <c>Dim a(P)</c> is
+    /// <c>a(0 To 2)</c> (measured), and the hoisted Dim was sized while <c>P</c> was still Empty.
+    /// </summary>
+    public IReadOnlyList<VB6Parser.ConstSubStmtContext> DeclaredConsts =>
+        declaredConsts ??= CollectDeclaredConsts(Body);
+
+    private IReadOnlyList<VB6Parser.ConstSubStmtContext>? declaredConsts;
+
+    private static List<VB6Parser.ConstSubStmtContext> CollectDeclaredConsts(VB6Parser.BlockContext? body)
+    {
+        var found = new List<VB6Parser.ConstSubStmtContext>();
+        if (body != null) Walk(body);
+        return found;
+
+        void Walk(Antlr4.Runtime.Tree.IParseTree node)
+        {
+            if (node is VB6Parser.ConstStmtContext c)
+            {
+                found.AddRange(c.constSubStmt());
+                return;
+            }
+            for (var i = 0; i < node.ChildCount; i++)
+                Walk(node.GetChild(i));
+        }
+    }
+
     private static List<VB6Parser.VariableSubStmtContext> CollectDeclaredLocals(VB6Parser.BlockContext? body)
     {
         var found = new List<VB6Parser.VariableSubStmtContext>();
@@ -88,7 +116,8 @@ public sealed record ParamInfo(
     bool Optional,
     bool ParamArray,
     Vb6Value.ValueType? DeclaredType,
-    VB6Parser.ArgDefaultValueContext? Default);
+    VB6Parser.ArgDefaultValueContext? Default,
+    bool IsArray = false);
 
 /// <summary>
 /// An evaluated argument at a call site: its value plus, when the argument is a caller lvalue, the caller

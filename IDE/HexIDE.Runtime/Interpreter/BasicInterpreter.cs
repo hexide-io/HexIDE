@@ -202,16 +202,32 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             await new StatementExecutor(this, instanceEnv, classDef).Execute(block);
         var instance = new VbObject(classDef, instanceEnv);
         if (classDef.PrePass.Procedures.TryGetValue("Class_Initialize", out var init))
-            await RunProcedure(classDef, init, [], instanceEnv, Vb6Value.NewObject(instance));
+        {
+            // The object under construction is held while Class_Initialize runs, as the New expression holds it in
+            // VB6. Without the hold it stood at 0, so a call from Class_Initialize to one of the object's own
+            // methods, which counts Me, took it to 1 and back to 0 on return and fired Class_Terminate before
+            // construction had finished (measured: VB6 runs Initialize, then both siblings, then nothing until the
+            // last reference goes). The hold is dropped without the zero check, so the object is handed back at
+            // whatever Initialize left it: 0 for the caller's Set to count, or more if Initialize stored Me.
+            instance.RefCount++;
+            try
+            {
+                await RunProcedure(classDef, init, [], instanceEnv, Vb6Value.NewObject(instance));
+            }
+            finally
+            {
+                instance.RefCount--;
+            }
+        }
         return instance;
     }
 
     // ---- Class_Terminate reference counting (interpreter-advanced Phase 4.2) ----
     // Real slot-based refcounting: named-storage + transient holders are counted on the VbObject; Terminate fires
     // at zero. Runtime execution machinery (in-bounds), not a scan of ExecutionState (unsound under E2). A `New`
-    // object starts at 0 and is AddRef'd by whatever first stores it (Set / ByVal param); there is no construction
-    // guard because Class_Initialize's Me is NOT counted (a lifecycle hook — see RunProcedure), so the hook can't
-    // terminate the half-built instance.
+    // object is handed back at 0 and is AddRef'd by whatever first stores it (Set / ByVal param). While it is being
+    // built, NewObject holds it, so a method Class_Initialize calls on it cannot take it to 0. Class_Initialize's
+    // own Me is not counted either (a lifecycle hook — see RunProcedure).
 
     /// <summary>Increment the reference count if <paramref name="v"/> is a live class instance (no-op for
     /// Nothing / controls / proxies / value types). Callers do AddRef(new) BEFORE Release(old) at every store, so
@@ -504,6 +520,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     public async Task Execute()
     {
+        declarationsRun = true;
         // Initialise every NON-primary module's module-level declarations first (fills Public Const/Dim values
         // in that module's own env) so a cross-module read sees a value, not Empty. Modules can't have executable
         // top-level statements in real VB6, so this is declaration hoisting; the primary (test/startup) body runs
@@ -514,12 +531,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         {
             foreach (var m in Modules.All)
                 if (!ReferenceEquals(m, primaryModule) && m.Kind == InterpreterModuleKind.Standard)
+                {
                     foreach (var block in m.PrePass.topLevelBlocks)
                         await new StatementExecutor(this, m.ModuleEnv, m).Execute(block);
+                    m.DeclarationsRun = true;
+                }
 
             var statementExecutor = new StatementExecutor(this, rootEnv, primaryModule);
             foreach (var block in primaryModule.PrePass.topLevelBlocks)
                 await statementExecutor.Execute(block);
+            primaryModule.DeclarationsRun = true;
         }
         catch (Debugging.StopExecutionSignal)
         {
@@ -562,6 +583,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     public async Task RunStartupSubMain()
     {
         var startup = FindStartupSubMain();
+        declarationsRun = true;
 
         try
         {
@@ -577,14 +599,42 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             // beyond seeding values.
             foreach (var m in Modules.All)
                 if (m.Kind == InterpreterModuleKind.Standard)
+                {
                     foreach (var block in m.PrePass.topLevelBlocks)
                         await new StatementExecutor(this, m.ModuleEnv, m).Execute(block);
+                    m.DeclarationsRun = true;
+                }
 
             await RunProcedure(startup.Module, startup.Proc, Array.Empty<CallArg>());
         }
         catch (Debugging.StopExecutionSignal)
         {
             // A debugger reset (Stop) unwound the walk cleanly — swallowed exactly as Execute() does.
+        }
+    }
+
+    // Set once the modules' declarations have run, by Execute or RunStartupSubMain. A form's run enters through
+    // ExecuteSub alone and never runs them (#256).
+    private bool declarationsRun;
+
+    /// <summary>
+    /// A module-level array whose bounds name a constant is sized when its module's declarations run (the pre-pass
+    /// reads only plain integer bounds). A form's run does not run them yet (#256), so such an array would stay
+    /// unallocated and its first use would raise a trappable 9. Refused instead, naming the array.
+    /// </summary>
+    /// <remarks>
+    /// Sizing the array here would not be enough: on that run a module's own Consts read Empty too, so a loop to
+    /// <c>GRID - 1</c> would still run no passes. #256 is the fix for both.
+    /// </remarks>
+    private void RefuseArraysSizedWhenDeclarationsRun()
+    {
+        foreach (var module in Modules.All)
+        {
+            if (module.Kind == InterpreterModuleKind.Class || module.PrePass.DeferredArrays.Count == 0)
+                continue;
+            throw new NotImplementedException(
+                $"{module.Name}'s {module.PrePass.DeferredArrays[0]} is sized by a constant, which needs {module.Name}'s " +
+                "declarations to run, and a form's run does not run them yet (#256).");
         }
     }
 
@@ -641,6 +691,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     // args or none). Enters at the primary (form) module's scope. Delegates to CallProcedure; return discarded.
     public async Task ExecuteSub(string name, List<Vb6Value>? args = null, bool ignoreMissing = false)
     {
+        if (!declarationsRun)
+            RefuseArraysSizedWhenDeclarationsRun();
         var callArgs = new List<CallArg>();
         if (args != null)
             foreach (var value in args)
@@ -972,6 +1024,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             var p = proc.Parameters[i];
             if (p.ParamArray)
                 throw new NotImplementedException("ParamArray parameters are not yet supported");
+            callee.Parameters.Add(p.Name);
 
             // A blank slot at this position (`Foo 1, , 3`) occupies it only so the arguments after it bind
             // correctly. It is NOT a value: fall through to the Optional branch so the parameter takes its
@@ -997,6 +1050,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                         ? VbNumeric.Narrow(passed, dt, body)
                         : CopyIfValueType(passed);
                     ExecutionContext.AllocVariable(callee, p.Name, stored);
+                    MarkParameterSlot(p, callee);
                     // A ByVal object param is a counted hold for the call's duration (so a `New T` passed straight
                     // into a call terminates right after the call, per the oracle); release it at scope-exit.
                     if (stored.Value is VbObject && callee.TryGetVariableLocation(p.Name, out var ploc))
@@ -1020,12 +1074,27 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     : p.DeclaredType is { } declared ? new Vb6Value(declared)
                     : Vb6Value.Missing;
                 ExecutionContext.AllocVariable(callee, p.Name, value);
+                MarkParameterSlot(p, callee);
             }
             else
             {
                 throw new VBCompileErrorException($"Argument not optional: '{p.Name}' in '{proc.Name}'");
             }
         }
+    }
+
+    // A parameter's own slot says what it was declared as, for ReDim: `b()` an array, `v` or `v As Variant` a Variant.
+    // A ByRef parameter that shares its caller's slot keeps the caller's marks. That is right for fixedness (a fixed
+    // array is 10 through it, measured), but not for the inverted-range rule: an untyped `v` sharing a declared `Long()`
+    // erases it with 9, where VB6 applies the Variant rule to `v` (measured, #970).
+    private void MarkParameterSlot(ParamInfo p, ExecutionEnvironment callee)
+    {
+        if (!callee.TryGetVariableLocation(p.Name, out var location))
+            return;
+        if (p.IsArray)
+            ExecutionContext.State.MarkDeclaredArray(location);
+        else if (p.DeclaredType is null || p.DeclaredType == Vb6Value.ValueType.EmptyVariant)
+            ExecutionContext.State.MarkVariant(location);
     }
 
     public void SyntaxError(TextWriter output, IRecognizer recognizer, IToken offendingSymbol, int line, int charPositionInLine,

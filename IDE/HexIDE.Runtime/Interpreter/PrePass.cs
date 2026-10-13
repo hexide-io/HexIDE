@@ -22,10 +22,25 @@ public class PrePass : VB6BaseVisitor<object?>
     // by then are both already built.
     public List<string> Implemented = new();
     public List<VB6Parser.BlockContext> topLevelBlocks = new();
+    // Each module-level Const by name: its declaration, and whether another module can see it (Public or Global; one
+    // with no visibility is Private, measured). Collected for the allocation site of a module-level array, which
+    // classifies what a bound reads, through the Consts it names (ModuleLevelBounds.Check and CheckConst).
+    public Dictionary<string, (VB6Parser.ConstSubStmtContext Declaration, bool Public)> ModuleConsts =
+        new(StringComparer.OrdinalIgnoreCase);
+    // Module-level variables declared Public, for the same classification: another module's Public variable in a bound
+    // is VB6's "Constant expression required", where a name it cannot see is "Variable not defined" (measured).
+    public HashSet<string> PublicVariables = new(StringComparer.OrdinalIgnoreCase);
+    // Module-level arrays whose bounds are not plain integers. They are sized only when the module's declarations
+    // run, which a form's run does not do yet (#256), so that run refuses them rather than leave them unallocated.
+    public List<string> DeferredArrays = new();
     // User-defined Type definitions and Enum member tables declared in this module (aggregated program-wide by
     // the interpreter). Public by default — MVP does no Private-Type module-scoping.
     public Dictionary<string, UdtTypeDef> Types = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, Dictionary<string, long>> Enums = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Where each Enum is declared, so that a module-level Const or bound above it can be refused, as VB6 refuses
+    /// it (measured: "Constant expression required"). Collected, not related: the check runs with the declarations.</summary>
+    public Dictionary<string, int> EnumDeclaredAt = new(StringComparer.OrdinalIgnoreCase);
 
     /// <summary>Enum names this module declared <c>Private</c> — invisible outside it, members included.
     /// Measured: a bare member of a foreign Private enum is "Variable not defined".</summary>
@@ -140,27 +155,32 @@ public class PrePass : VB6BaseVisitor<object?>
                 if (subStmt.LPAREN() != null && subStmt.RPAREN() != null) // array
                 {
                     isArray = true;
+                    // Bounds written as plain integers are read here. Anything else, such as a constant
+                    // (`Dim d(N)`) or a typed literal (`Dim d(2&)`), is left to the Dim statement, which allocates
+                    // the array again when the module's declarations run and evaluates its bounds there. They
+                    // were parsed as integers here regardless, so either one threw a FormatException and the
+                    // whole module failed to load. The name is still hoisted, as an undimensioned placeholder.
                     if (subStmt.subscripts() != null)
                     {
                         dimensions = new List<(int, int)>();
-                        int arrayLowerBound;
-                        int arrayUpperBound;
                         foreach (var dimension in subStmt.subscripts().subscript())
                         {
                             var size = dimension.valueStmt();
-                            if (size.Length == 2)
-                            {
-                                arrayLowerBound = int.Parse(size[0].GetText());
-                                arrayUpperBound = int.Parse(size[1].GetText());
-                            }
-                            else if (size.Length == 1)
-                            {
-                                arrayLowerBound = ArrayBase;
-                                arrayUpperBound = int.Parse(size[0].GetText());
-                            }
-                            else
+                            if (size.Length is not (1 or 2))
                                 throw new VBCompileErrorException("Either specify upper bound or lower and upper bound");
-                            dimensions.Add((arrayLowerBound, arrayUpperBound));
+                            var lower = ArrayBase;
+                            if ((size.Length == 2 && !TryReadLiteralBound(size[0], out lower))
+                                || !TryReadLiteralBound(size[^1], out var upper))
+                            {
+                                dimensions = null;
+                                DeferredArrays.Add(subStmt.ambiguousIdentifier().GetText());
+                                break;
+                            }
+                            // A literal range with no values does not compile (measured: `Dim d(5 To 2)`, `d(0 To -5)`
+                            // and `d(1, 5 To 2)` at module level and in a class). Built here, its allocation raised 9.
+                            if (upper < lower)
+                                throw new VBCompileErrorException("Range has no values");
+                            dimensions.Add((lower, upper));
                         }
                     }
                 }
@@ -191,7 +211,20 @@ public class PrePass : VB6BaseVisitor<object?>
                 var value = dimensions != null ? new Vb6Value(type, dimensions) : new Vb6Value(type);
                 if (dimensions != null && value.Value is VBArray fixedArr) fixedArr.IsDynamic = false;   // `Dim a(N)` = fixed
                 var location = state.Alloc(value);
+                if (isArray)
+                {
+                    state.MarkDeclaredArray(location);
+                    if (dimensions != null)
+                        state.MarkFixedArray(location);
+                }
+                else if (subStmt.asTypeClause() is null
+                         || (subStmt.asTypeClause().type().complexType() is null && type == Vb6Value.ValueType.EmptyVariant))
+                    state.MarkVariant(location);
                 rootEnv.DefineVariable(subStmt.ambiguousIdentifier().GetText(), location);
+                // Global is the old spelling of Public in a standard module (measured: `Global n` in a bound is
+                // "Constant expression required", as `Public n` is).
+                if (context.visibility()?.PUBLIC() != null || context.visibility()?.GLOBAL() != null)
+                    PublicVariables.Add(subStmt.ambiguousIdentifier().GetText());
             }
         }
         else
@@ -199,6 +232,10 @@ public class PrePass : VB6BaseVisitor<object?>
 
         return default;
     }
+
+    private static bool TryReadLiteralBound(VB6Parser.ValueStmtContext bound, out int value) =>
+        int.TryParse(bound.GetText(), System.Globalization.NumberStyles.AllowLeadingSign,
+            System.Globalization.CultureInfo.InvariantCulture, out value);
 
     public override object? VisitConstStmt(VB6Parser.ConstStmtContext context)
     {
@@ -211,6 +248,8 @@ public class PrePass : VB6BaseVisitor<object?>
                 throw new NotImplementedException("Const type hints not supported");
             var location = state.Alloc(Vb6Value.Variant);
             rootEnv.DefineVariable(sub.ambiguousIdentifier().GetText(), location);
+            var isPublic = context.publicPrivateGlobalVisibility() is { } visibility && visibility.PRIVATE() == null;
+            ModuleConsts.TryAdd(sub.ambiguousIdentifier().GetText(), (sub, isPublic));
         }
         return default;
     }
@@ -273,6 +312,7 @@ public class PrePass : VB6BaseVisitor<object?>
             rootEnv.DefineVariable(constName, location);
         }
         Enums[enumName] = members;
+        EnumDeclaredAt[enumName] = context.Start.TokenIndex;
         if (IsPrivateVisibility(context.publicPrivateVisibility()?.GetText()))
             PrivateEnums.Add(enumName);
         return default;
@@ -596,8 +636,13 @@ public class PrePass : VB6BaseVisitor<object?>
                 ByRef: arg.BYVAL() == null,        // VB6's default passing convention is ByRef
                 Optional: arg.OPTIONAL() != null,
                 ParamArray: arg.PARAMARRAY() != null,
-                DeclaredType: ExtractBaseType(arg.asTypeClause()),
-                Default: arg.argDefaultValue()));
+                // `b() As Long` is a Long array, not a Long: declared as the element type, an array passed ByRef was
+                // copied rather than shared, and then narrowed as if it were a scalar.
+                DeclaredType: arg.LPAREN() != null && ExtractBaseType(arg.asTypeClause()) is { } element
+                    ? new Vb6Value.ValueType(element, true)
+                    : ExtractBaseType(arg.asTypeClause()),
+                Default: arg.argDefaultValue(),
+                IsArray: arg.LPAREN() != null));
         }
         return result;
     }
