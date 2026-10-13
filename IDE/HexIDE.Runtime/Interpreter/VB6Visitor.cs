@@ -18,6 +18,44 @@ public abstract class VB6Visitor<T> : VB6BaseVisitor<T>
         return indexes.Select(AsType<TT>).ToList();
     }
 
+    /// <summary>
+    /// A subscript or an array bound, coerced to a Long as <c>CLng</c> coerces it. Measured on vb6.exe, for an
+    /// element, an element's assignment and a ReDim bound alike: banker's rounding (<c>a(2.5)</c> is <c>a(2)</c>,
+    /// <c>a(3.5)</c> is <c>a(4)</c>), a numeric string read (<c>a(" 3 ")</c>), <c>True</c> -1, <c>Empty</c> 0,
+    /// <c>Null</c> 94, <c>"x"</c> 13, and beyond a Long 6, all before the bounds are checked. One exception to CLng:
+    /// an omitted <c>Optional</c> Variant is 13, where CLng reads it as 448 (measured, and so is <c>CVErr(5)</c>,
+    /// which HexIDE has no value for yet).
+    /// </summary>
+    /// <remarks>
+    /// It accepted only an Integer, a Byte or an integral string, and refused anything else as an untrappable
+    /// "Type mismatch", so <c>a(i)</c> with <c>i</c> a Long, and <c>a(UBound(a))</c>, stopped the run.
+    /// </remarks>
+    public static int Subscript(Vb6Value value)
+    {
+        if (value.IsMissing)
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        return Convert.ToInt32(VB6BuiltIns.NarrowNum(value, Vb6Value.ValueType.Long).Value);
+    }
+
+    /// <summary>
+    /// A control-array index, coerced as <c>CInt</c> coerces it, not as a subscript is. Measured on vb6.exe, native and
+    /// in the IDE, for <c>Load</c>, <c>Unload</c> and an element's read alike: anything outside an Integer is 6, the
+    /// rounding included (<c>32767.6</c> is 6, <c>32766.5</c> is 32766); a negative index, -32768 and <c>True</c>
+    /// included, is 341; only then is a missing element 340.
+    /// </summary>
+    public static int ControlArrayIndex(Vb6Value value)
+    {
+        if (value.IsMissing)
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        var index = Convert.ToInt32(VB6BuiltIns.NarrowNum(value, Vb6Value.ValueType.Integer).Value);
+        if (index < 0)
+            throw new VBRunTimeException(VBStandardError.InvalidControlArrayIndex);
+        return index;
+    }
+
+    /// <summary>Each of <paramref name="values"/> as a <see cref="Subscript"/>.</summary>
+    public static List<int> Subscripts(IReadOnlyList<Vb6Value> values) => values.Select(Subscript).ToList();
+
     public bool TryUnpack<TT>(Vb6Value val, out TT tout)
     {
         tout = default!;

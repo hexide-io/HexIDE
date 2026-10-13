@@ -67,6 +67,49 @@ there isn't one yet. Anything may change between 0.x releases.
   each was a trappable 13, or in a block `If` or `ElseIf` the error numbered 0. `If Err Then` reads Err's Number
   (#840), and a class with a default member and a control are refused until #174 and #790.
 
+- **A subscript, a control-array index or an array bound may be any number** (#849). Only an Integer, a Byte or
+  an integral string was accepted, so `a(i)` with `i` a Long, `a(UBound(a))` and `ReDim b(n)` stopped the run.
+  Each is now coerced as VB6 coerces it. A subscript or a bound is coerced as `CLng` does: `a(2.5)` is `a(2)`, Null
+  raises 94, `"x"` 13, and an omitted `Optional` 13. A control-array index is coerced as `CInt` does, so one outside
+  an Integer raises 6 and a negative one 341, and an omitted `Optional` is 13 there too. `UBound`'s and `LBound`'s
+  dimension is coerced as `CInt` does as well, and an omitted `Optional` one is 13, where it was read as dimension 1.
+- **`ReDim` follows VB6 at its edges** (#849). An upper bound below its lower raises 9 and erases a variable declared
+  an array, or an array parameter, keeping its type. A Variant keeps its array when any dimension's upper bound is
+  one below its lower, and is emptied with 7 otherwise. `ReDim b(2147483647)` raises 7, Out of memory, where it
+  raised 9. A Variant that never held an array can be `ReDim`med at all; it stopped with an internal error.
+- **A typed array parameter shares its caller's array** (#849). `Sub P(b() As Long)` took `b` for a Long, so an array
+  passed to it was copied rather than shared, and narrowed as if it were a scalar.
+- **A fixed array can't be resized through a parameter** (#873). `ReDim b(10)` in a callee given a caller's
+  `Dim buf(3)` raises VB6's 10, "This array is fixed or temporarily locked", and leaves `buf` as it was, whether `b` is
+  an array parameter or an untyped one; named directly, `ReDim` of a fixed array is VB6's "Array already dimensioned".
+  A `v As Variant` parameter is not refused yet, and its ReDim of a caller's dynamic array still leaves the caller's
+  array as it was, where VB6 resizes it (#970).
+
+- **A module-level `Const` is checked as VB6 checks it** (#760). Its value may read only other constants: a Const
+  declared below it or the Const itself, a variable, a user function and any function call are VB6's "Constant
+  expression required", where they ran from whatever HexIDE made of them. Another module's Public Const is read
+  qualified once that module's declarations have run, and refused unqualified (#880) or before (#893), rather than
+  read as Empty. A module naming itself is "Circular dependencies between modules".
+- **A `Const` holds its value as its `As` type** (#873), at module and procedure level: `Const C As Integer = 2.5` is
+  2, and `Const HALF As Long = GRID / 2` rounds as a store into a Long does. A value the type can't hold is VB6's
+  compile error: `Const C As Byte = 300` is "Overflow", `Const C As Integer = "x"` "Type mismatch", and
+  `Const C As Integer = Null` "Invalid use of Null". The As clause was ignored, so a module array sized from such a
+  Const had the wrong bounds. A String given to a `Const … As Date` is refused, until HexIDE reads a date string as
+  VB6 does (#967).
+- **A module-level array sized by a `Const` loads** (#760). `Private mGrid(0 To GRID_MAX)` made the whole module
+  fail to load; so did a typed literal such as `Dim d(2&)`. Its bounds are read where it is allocated, by VB6's
+  rules: a Const or Enum declared below, a variable, a user function, and the built-ins VB6 refuses there are its
+  "Constant expression required". A constant qualified by its library, container, module, Enum or the project is read
+  (`VBA.vbCrLf`, `KeyCodeConstants.vbKeyA`, `Module2.Cols.colMax`), and `Len` sizes only from a String: of a number
+  it is VB6's "Variable required". A dimension with no values, such as `Dim d(-1)` or `Dim d(5 To 2)`, is VB6's
+  "Range has no values", in a module, a class or a procedure, where it built an empty array or raised 9. Another module's Public Const unqualified (#880), or qualified before that module has run
+  (#893), and its Enum member read unqualified (#889) are refused, rather than sized from Empty. A form's run refuses
+  such an array, naming it, because it does not run the module's declarations yet (#256). A procedure's `Const`s are declared before its `Dim`s, so
+  `Dim a(P)` inside a procedure sees `P` too.
+
+- **A method called from `Class_Initialize` no longer terminates the object** (#850). The call fired
+  `Class_Terminate` in the middle of `New`, and the real `Class_Terminate` never ran afterwards.
+
 - **An object used as a value no longer gives a wrong value.** A class with no default member raises VB6's 438
   wherever a value is wanted, where HexIDE raised 13, printed its CLR type name (`"v=" & k`, `CStr(k)`,
   `Debug.Print k`), read it as 0 (`Val(k)`, a ByVal Long argument), or matched nothing in `Select Case`. That covers

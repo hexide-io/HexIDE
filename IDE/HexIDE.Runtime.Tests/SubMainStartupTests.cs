@@ -47,6 +47,28 @@ public class SubMainStartupTests : BaseVBTestFixture
     }
 
     [Fact]
+    public async Task A_Const_reads_another_modules_Const_qualified_once_its_declarations_have_run()
+    {
+        // Measured: Module2's `Const C = Module1.M + 1` is 4, in either list order. Under Sub Main every module's
+        // declarations run before Main, in list order, so Module1's have run when Module2's do.
+        await RunMain("Public Const M = 3\n",
+            ("Module2", "Const C = Module1.M + 1\nSub Main()\n    Debug.Print C\nEnd Sub\n"));
+
+        debug.Should().ContainSingle().Which.Value.Should().Match<object>(v => Convert.ToInt64(v) == 4);
+    }
+
+    [Fact]
+    public async Task A_Const_reading_a_module_initialised_later_is_refused()
+    {
+        // Measured: 4 in VB6, in either list order. Here Module2's declarations run after Module1's, and HexIDE does not
+        // initialise a module on demand yet (#893), so M would be Empty.
+        var run = () => RunMain("Const C = Module2.M + 1\nSub Main()\n    Debug.Print C\nEnd Sub\n",
+            ("Module2", "Public Const M = 3\n"));
+
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*Module2.M*whose declarations have not run yet*#893*");
+    }
+
+    [Fact]
     public async Task RunsSubMainInTheOnlyModule()
     {
         await RunMain("Sub Main()\n    Debug.Print \"RAN\"\nEnd Sub\n");

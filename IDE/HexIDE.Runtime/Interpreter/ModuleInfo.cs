@@ -24,6 +24,15 @@ public sealed class ModuleInfo
     public PrePass PrePass { get; }
     public ExecutionEnvironment ModuleEnv { get; }
 
+    /// <summary>
+    /// Whether this module's module-level declarations have run, so its Consts hold their final values. The order
+    /// depends on how the run starts: <c>Execute</c>, which only the tests use, runs the other standard modules in list
+    /// order and the startup module last; <c>RunStartupSubMain</c>, the IDE's Sub Main run, runs every standard module in
+    /// list order before Main. A Const or bound that reads another module's Const qualified reads it only once this is
+    /// set, and is refused before (#893).
+    /// </summary>
+    public bool DeclarationsRun { get; set; }
+
     public ModuleInfo(string name, InterpreterModuleKind kind, PrePass prePass, ExecutionEnvironment moduleEnv)
     {
         Name = name;
