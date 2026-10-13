@@ -971,6 +971,99 @@ what happened.
   Measured: with 0.2's `WS?` taken out of `cp_SingleProperty` it stays green, with the listener given no protected
   regions it stays green, and with both it fails on that comment's line. Each layer has its own tests.
 
+## Settled before building phase 4
+
+Decided on 2026-10-13 from a survey of every phase-4 task against the code at `ce02d65`. Where a rule turns on
+what VB6 itself writes or keeps, it is marked **(oracle)**: phase 4 measures it on the oracle guest's VB6 IDE as
+it builds, records the measurement in `docs/vb6-fidelity-oracle.md`, and revises the rule here if the
+measurement disagrees.
+
+**What a run is, and what it describes (4.1).** A member run is a maximal block of consecutive `Attribute
+<name> = …` lines below the header, as `ReadOnlyRegions.Of` finds today. Each line's *qualifier* is its name up
+to the first `.`; a dotless line has none. The run's *described line* is the logical line directly above it:
+the physical line above, and the lines before that it continues with ` _`, read back to the first. The run
+**describes a member** when that logical line lexically declares the qualifier of every line in the run,
+compared without case. Declarations are read lexically and line-locally, the same kind of read as
+`DeclaredNames`: `[Public|Private|Friend|Global|Static] Sub|Function|Property Get|Let|Set|Event <name>`,
+`[Public|Private] Declare Sub|Function <name>`, and variable declarators
+`[Public|Private|Global|Dim|Static] [WithEvents] <name>[(…)] [As …][, <name> …]`. This is collection, not
+binding: it compares a qualifier with a name written on the adjacent line, and relates nothing else in the
+module. It errs towards *describes*, because a miss there costs protection, never text.
+
+A run's **key**, wherever state has to outlive its offsets (fold expansion, matching runs between two texts), is
+its first qualifier without case plus its ordinal among runs with that qualifier, since a property's Get and Let
+may each carry one. The data travels beside `TextRegion` as a separate record rather than widening it, because
+`TextRegion`'s positional equality is pinned by tests and a list field in a record struct compares by reference.
+
+**A run that describes nothing is inert text, not a region.** The code-editor requirement defines a read-only
+region as the header or "a run of attribute lines describing a member", and says an attribute line left
+describing nothing is preserved as inert text. So a run whose logical line above does not declare its
+qualifiers is an *orphan*: a run under a blank line, a comment, a body statement or another member, or under a
+declaration renamed by typing. An orphan is **not** read-only, greyed or folded, and nothing the IDE does removes
+or moves it. It is text the developer can see and change, which is the only way to repair one, since there is no
+Procedure Attributes dialog (#62). A dotless `Attribute` line below code describes nothing either. Protection
+changes for orphans only, so the server's port (`VbProtectedRegions`), the sidecar's read-only drop and the mark
+rules change with it, kept in step by `BundledServerRespectsTheIdesRegionsTests`. **(oracle)** whether VB6
+honours, keeps or drops a run separated from its member by a blank line or a comment: if it honours one, the
+described line widens to the previous non-blank, non-comment line.
+
+**Folds (4.3).** Every run that describes a member is folded by default, from its anchor (the described line's
+content end) to the content end of its last line, so the line after the run stays a line of its own. The fold
+has no title, so the library draws its own `...` box, and there is nothing new to translate. Expansion is
+remembered per run key on the view model, and a section the folding manager paired keeps its live state. A run
+re-created after a reload, a format or a dock move is folded again unless its key was expanded. The window's own
+folds are re-made at once whenever they are not current, not only the header's, and none of them is ever
+carried forward as a server fold.
+
+With a server's procedure fold on the same row, AvaloniaEdit's margin draws one marker per row, the procedure's,
+so a run expanded there is folded again only by closing and reopening the window. That is filed as an issue
+rather than solved here with a margin of our own.
+
+**The end of a folded described line is its anchor.** A collapsed run fold gives the row two caret stops:
+before the box (the anchor) and after it (the fold's end, inside the run). A caret landing on the second is moved
+to the first, or past the run to the next line when it came from the first. So typing, Enter, F9 and the status
+bar all see the end of the declaration the developer sees. This is measured headlessly before it is relied on,
+as 3.14 did for the header.
+
+**Renames (4.4).** A rename carries a run's qualifiers with it exactly when the rename changes the declaration
+the run describes. `ApplyRename` permits a qualifier edit only on a run describing a member whose declaration
+the same answer renames. Where a server's answer renamed the declaration but left the qualifier, the IDE adds
+the qualifier edit itself, taking the new spelling from the server's edit to the declaration. That covers a
+server that does not know VB6's attribute lines, which would otherwise orphan the run. A new name that is not a
+VB6 identifier is refused before the request, with a reason (a new string), and the bundled server answers
+nothing for one. A rename the developer makes by retyping the declaration gets no fix-up: it leaves an orphan,
+which is visible and editable. **(oracle)** whether VB6 carries a description across a name retyped on its
+declaration line.
+
+**Enter, and a line break at an anchor (4.5).** A line break inserted at a described line's anchor goes after
+the run, as a line of its own, in the document's newline. That covers Enter and Shift+Enter, a multi-line paste,
+Insert File and automation's `type_text`. Enter's auto-close looks past the run for the closer, and its
+re-casing of the declaration still applies, all as one undo step. An add-in's range edit that would insert a line
+break at an anchor is refused, like any edit that would separate a run from its line.
+
+**Deleting the described line (4.5a).** A deletion that removes the whole text of a described line, by Delete,
+Backspace, Cut or Ctrl+D, removes its run with it as one undo step, and a cut puts both on the clipboard. The
+window widens the request before the library asks the provider, because the provider can only narrow. Retyping
+over a selected declaration is a replacement, not a deletion: the run stays, and describes whatever the new line
+declares. Automation's `press_key` judges a deletion by the same rule, so it does what a person's key does. A
+drag-move that would carve a run stays a copy, as the library makes it today.
+
+**Whole replacements (4.5b).** `GuardedContent.Replace` compares the runs that describe members, keyed by
+member, between the document and the composed result:
+
+- a run may move with its member;
+- a run may disappear only together with its member's declaration;
+- a run may change only its qualifier, and only as a rename that also renamed its declaration.
+
+Any other change, addition or loss is refused, with a reason naming each member. Orphans are inert text and
+free. The add-in contract, `set_file_content`'s description and AI Chat's prompt say so, and `ApplyEdits` names
+the member in its refusal too.
+
+**The corpus (4.6).** The fixtures carrying member attributes are written by the VB6 IDE on the oracle guest,
+through Tools > Procedure Attributes, so the shapes the lanes check are VB6's own. They live under
+`corpus/member-attributes/` with a project of their own, and every lane that walks the repository's corpora
+walks it.
+
 ## When a document gets its file (#489, settled 2026-09-20)
 
 Task 2.1 names a document `untitled:` when it has no path, which presumes a document can *have* no path.

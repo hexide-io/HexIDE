@@ -1717,7 +1717,8 @@
   - *Found and filed, outside this change:* the status bar's "Ln x, Col y" and INS are hard-coded English
     (#960).
   - *Not done: 3.19's AI Chat checks.* They need an API key (`HEXIDE_AI_API_KEY`, `ANTHROPIC_API_KEY` or
-    `OPENAI_API_KEY`), and none is set here.
+    `OPENAI_API_KEY`), and none is set here. Deferred on 2026-10-13 until API credits are arranged; 3.22 stays
+    open for them alone, and phase 4 goes ahead meanwhile.
 
 ## 4. Member attributes
 
