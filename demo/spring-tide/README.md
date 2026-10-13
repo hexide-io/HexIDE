@@ -127,7 +127,8 @@ HexIDE widens a zero-width range to a single character so it can be seen at all.
 ## Against RDCore's current `main`
 
 Measured on 2026-10-05 against RDCore `a9a4918`, published locally and attached through this profile. The
-screenshot predates it.
+screenshot is not from it: it was taken on 2026-10-13 against `d1c04b5`, with the code window holding the whole
+file ([#273](https://github.com/hexide-io/HexIDE/issues/273)).
 
 **Folds follow your edits now, and the squiggle may not.** RDCore receives the text of an opened document,
 and the change after each edit, so its folds track what you type. Its diagnostics stop. Line 17,

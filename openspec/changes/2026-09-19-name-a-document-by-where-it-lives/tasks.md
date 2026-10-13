@@ -1680,6 +1680,44 @@
   Refresh `docs/mcp-first-contact.md`'s transcript from that run: its `open_file` reply still reads
   `{"success": true}`, where the tool now returns `project`, `document` and a `note` too, and
   `FirstContactTranscriptTests` checks only that the fields it shows still exist.
+  — **Seen running on 2026-10-13**, a Debug build of 5541621 on port 5123. Everything below is done except
+  3.19's AI Chat checks, which need a model to answer and so an API key, and none is configured on this machine.
+  Four files VB6 wrote, from the Template tree under `$HEXIDE_ROUNDTRIP_CORPUS`, were copied into a scratch
+  project: `Log in Dialog.frm`, `Dialog.frm`, `Data Source.cls` and `Registry Access.bas`, with
+  `About Dialog.frm` and no `.frx` for the banner. Every call went through the automation tools.
+  - *Whole file.* `get_file_content {"name":"clsDataSource"}`, not open, is the file, header first, with
+    `hasUnsavedChanges` false. `inspect_element` on each code window reads 99 / 29 / 238 / 44 lines, and
+    `BufferBody` starts at `Attribute VB_Name` for a form.
+  - *Folded and greyed*, snapshotted under Classic and then Dark after a live switch through Options. frmLogin
+    shows one grey `VERSION 5.00` row, then 74. clsDataSource shows `VERSION 1.0 CLASS`, then 14. RegKeys has
+    line 1 grey with no fold. Dialog is folded, then 42. Expanded, frmLogin is grey to 73 and in syntax colours
+    from 74, and Dialog under Dark is grey through 41.
+  - *Typing refused, saying why.* With the caret at offset 0, `type_text`, `press_key` Delete and `press_key`
+    Enter are each refused, and the refusal names offset 2165, line 74. A person typing is refused silently
+    (design.md, row 345); the banner gives the reason for a file held read-only as a whole. In frmAbout, held
+    read-only as a whole, `type_text` and `press_key` Enter are refused with "this file will not be saved … (it
+    references companion binary content …)", the 3.20 review's fix seen working.
+  - *F9 refused, saying why.* F9 on line 1, by `press_key` and by `invoke_menu_item {"path":"Debug/Toggle
+    Breakpoint"}`, sets nothing, and the status bar reads "Line 1 is part of this file's header …". As a
+    control, F9 on line 81 gives `get_breakpoints` [81] and a dot on 81. `set_breakpoints {"lines":[42]}` is
+    refused: "its code starts at 74". On clsDataSource, line 1 is refused and line 14 gives [14].
+  - *Replace All.* `txtPassword` → `txtPwd`, whole word, makes 2 replacements, both in the code. The header's
+    `Begin VB.TextBox txtPassword` is untouched. `ClientHeight`, which is only in the header, is "not found",
+    with no word of why (#705). One Ctrl+Z restores the file, and `hasUnsavedChanges` returns to false.
+  - *Margin and status bar.* Caret at offset 2165 reads `Ln 74, Col 1`; at 2320, `Ln 81, Col 5`; on
+    clsDataSource, `Ln 14`. The margins number the whole file in every snapshot.
+  - *A designer move with the code window open.* A comment typed on Dialog's line 42, then
+    `move_control {"formName":"Dialog","controlName":"OKButton","left":300}`. The code window's header reads
+    `Left = 4500` and the comment is still there. `Edit/Undo` in the code window takes the comment and leaves
+    4500. Saved with format-on-save off, the file differs from the template on that one line alone.
+  - *The banner*, on frmAbout: "This file will not be saved — …", in English, and bracketed under Pseudo (LTR).
+  - *The first-contact transcript* was re-recorded whole from a fresh session. That found
+    `list_lsp_messages`' `afterSequence` never shows a request answered when given the highest sequence seen
+    (#961, recorded in mcp-server-gaps.md). The spring-tide screenshot was retaken, against the server and commit its README names.
+  - *Found and filed, outside this change:* the status bar's "Ln x, Col y" and INS are hard-coded English
+    (#960).
+  - *Not done: 3.19's AI Chat checks.* They need an API key (`HEXIDE_AI_API_KEY`, `ANTHROPIC_API_KEY` or
+    `OPENAI_API_KEY`), and none is set here.
 
 ## 4. Member attributes
 
