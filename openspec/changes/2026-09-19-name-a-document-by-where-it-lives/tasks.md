@@ -1394,8 +1394,9 @@
   is that on this branch `Document.Text` answers "the file" and never "the code".
 - [ ] 3.19 Add-ins: content is the whole file; positions from the top of the file; `SetContent` refused if the
   header changes. The AI Chat add-in's prompt and apply paths updated.
-- [ ] 3.20 New strings (fold labels, refusal reasons, the reworded read-only banner) added to `en` and every
-  shipped pack in the same change.
+- [ ] 3.20 New strings (refusal reasons, the reworded read-only banner) added to `en` and every shipped pack in
+  the same change. A fold's label is its first line, so the header fold has no string of its own (settled in
+  design.md, "Settled while building phase 3").
 - [ ] 3.21 Tests, one per scenario in the deltas this phase implements, named after the scenario, plus: buffer equals the file on open; an unchanged save writes the buffer; formatting leaves the
   header; Replace All does not touch a control's `Begin` line; a designer move is not undone by code-window
   undo; the header stays folded after formatting; a migrated sidecar keeps marks on their statements and is
@@ -1403,7 +1404,8 @@
 
 - [ ] 3.22 Verify in the running IDE, through the automation tools rather than by asking anyone to click:
   open a VB6-authored `.frm`, `.cls` and `.bas`; snapshot the header folded and greyed under a light and a
-  dark theme; confirm typing, Replace All and F9 in the header are refused and say why; confirm the margin
+  dark theme; confirm typing and F9 in the header are refused and say why, and that Replace All leaves the header alone (saying
+  why is #705); confirm the margin
   and status bar count from the top of the file; confirm a designer move updates the header with the code
   window open. UI work is not complete until it is seen running.
 

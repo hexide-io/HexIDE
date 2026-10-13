@@ -4,8 +4,8 @@
 The content an add-in reads for a form, module or class SHALL be the whole file as the code window holds it,
 header included, and every position it reads or writes SHALL be counted from the top of the file. Replacing a
 document's content SHALL accept either the whole file with its header unchanged or the code alone, keeping the
-header. A modification that would change the header, or any other read-only region, SHALL be refused, and the
-add-in SHALL be told why.
+header, and SHALL be refused if it would change the header. An edit to a range of a document SHALL be refused if
+it would change the header or any other read-only region. Either refusal SHALL tell the add-in why.
 
 An add-in SHALL be able to name a document by its project as well as its name, and SHALL be able to reach a
 document of any loaded project rather than the startup project alone. Where an add-in names a document that

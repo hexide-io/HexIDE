@@ -653,6 +653,67 @@ is eventually built; building it is filed as hexide-io/HexIDE#493. The delta's r
 therefore proved at the store and in the editor by setting the model property, which is the only gesture
 that exists.
 
+## Settled while building phase 3
+
+Decisions the design above left open, made before tasks 3.17 to 3.22, each with what it was weighed against.
+
+**Version 2 writes its marks under new keys, `fileBookmarks` and `fileBreakpoints`.** They have the shape
+the old two have, a document name mapped to its lines, with the same bases: bookmarks from 0 and breakpoints
+from 1. The difference is that lines count from the top of the file. `bookmarks` and `breakpoints` keep their
+version-1 meaning in every file, whatever `version` says, as the #466 note above requires. This build never
+fills them from its own marks.
+
+**The version-1 keys are content this build keeps but does not write, as #466 keeps a newer build's keys.**
+On each save they are carried as the file holds them at that moment, never from memory. That is what makes
+the live scenario "A sidecar deleted while the project is open" hold: an in-memory copy of the unmigrated
+entries would bring them back after the developer deleted the file. It also keeps whatever a #466-fixed older
+build writes under those keys while this one has the project open, for the next load to migrate. On load, the
+migration takes every entry it can measure out of the version-1 keys, into the marks, shifted. When it moved
+or re-keyed anything, it rewrites the file once, leaving only what it could not measure under the old keys.
+
+**What cannot be measured:**
+- a key naming no document the project had when it opened;
+- a document whose file is missing when the project loads. A file that cannot be read never becomes a
+  document, so it is the first case.
+
+A document with no file yet is measurable: its shift is the header the code window shows above its code.
+A carried entry stays carried for the rest of the session, even if its document is added or removed meanwhile;
+the next load decides again. A mark set this session in a document whose old entry is still carried is
+written under the new keys. The next load that can measure the old entry migrates it and joins the two sets.
+
+**The shift is the number of line breaks in `FormCodeText.Prefix`**, one counter shared by the migration and
+`HeaderRefresher`. A version-1 line is checked against the old numbering, the code section's length, before it
+is shifted, so a line past the old end is dropped as it always was.
+
+**A mark that lands on a read-only line when the sidecar is read is dropped and logged.** Since 3.12 nothing
+can set one there, so only a migrated mark, or one written by a build without 3.12, can arrive on such a line.
+The old window let a form's leading `Attribute` lines and a member's `Attribute` lines take a mark. A
+breakpoint there never fires, and a bookmark there marks a line the IDE writes. The bookmarks delta already
+says none lands in the header.
+
+**This branch's own version-1 sidecars are not covered.** From 3.2 until 3.17, builds of this branch wrote
+file-counted lines under the version-1 label. Migration moves those marks a second time. Only development
+machines that ran this branch have such files; nothing that shipped wrote one. Deleting the sidecar is the
+remedy.
+
+**`get_file_content` returns the whole file, and `hasUnsavedChanges` still compares the code section.**
+Comparing the whole buffer against `Code` would mark every open document unsaved, which is the trap 3.2a
+fixed in the dirty check. `set_file_content` takes what `get_file_content` returns, or the code alone, through
+the same `GuardedContent` rule as an add-in's `SetContent`. Its separate refusal of a whole `.frm` (#338) goes,
+in the same commit as the read: changing one without the other would refuse exactly what the read returned.
+
+**A whole replacement checks the header, and an edit to a range checks every read-only region.**
+`GuardedContent.Replace` compares the incoming header with the document's and nothing else. A member's
+`Attribute` lines sit in the code it replaces, and phase 4 decides how they follow the line they describe.
+`ApplyEdits` and every other range write refuse any read-only region. The addin-system delta now says this
+in those terms, which design.md's row for `SetContent` already did.
+
+**The read-only banner gets a new key rather than new words under the old one.** Shipped-pack parity checks
+only that a key is present, so rewording under the same key would leave every translation saying the old
+thing with nothing failing. **A fold's label is the fold's first line**, as the code-editor delta says, so the
+header fold has no string of its own. **Find and Replace explaining what they left in the header is #705**,
+outside this change: 3.22 checks that Replace All leaves the header alone, not that it says so.
+
 ## When a document gets its file (#489, settled 2026-09-20)
 
 Task 2.1 names a document `untitled:` when it has no path, which presumes a document can *have* no path.
