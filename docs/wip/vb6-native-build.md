@@ -111,9 +111,10 @@ Exchange, so those are unsearched rather than empty.
 | `/ENTRY:DriverEntry /SUBSYSTEM:NATIVE` | A kernel driver (which also needed the runtime import patched out) |
 | `/STACK:<bytes>` | A larger stack |
 
-Caveats recorded alongside them: a replaced entry point skips some of VB's own initialisation; `/OPT:REF` can
-drop the object that imports the runtime and produce a broken executable, hence `/OPT:NOREF`; and one project
-swaps in a newer linker because LINK 6 has bugs with `/OPT:REF`.
+Caveats recorded alongside them: a replaced entry point skips some of VB's own initialisation. And both
+projects that link C objects in also replace the linker: vbsqlite with a surrogate, which is why it needs
+`/OPT:NOREF`, and VbPng with Visual Studio 2010's, because VB98's LINK drops VB's own imports under `/OPT:REF`.
+So `LinkSwitches` alone covers console programs, exports and entry points, but not every use above.
 
 ### Wrappers and hooks
 
@@ -131,10 +132,11 @@ Two things stand out. Every wrapper renames files in the user's installation, wh
 tools come with warnings about reinstalling VB6. And a 2004 survey of C2's switches warns against changing
 `-basic`, `-il` or the `-Z` options: without `-basic`, C2 hangs.
 
-### The documented native-code keys
+### The native-code keys
 
-VB6 writes these to the `.vbp` from the Compile tab. Microsoft's format page lists the keys without values;
-the values below come from a third-party parser and a forum post, and are not yet measured here.
+VB6 writes these to the `.vbp` from the Compile and Make tabs. Microsoft's format page shows the first ten in
+its sample file without describing them; `CondComp` is not on it, and is confirmed from public projects. The
+values below come from a third-party parser and a forum post, and are not yet measured here.
 
 | Key | Values | Compile tab option |
 |---|---|---|
@@ -145,7 +147,7 @@ the values below come from a third-party parser and a forum post, and are not ye
 | `NoAliasing` | -1 on | Assume No Aliasing |
 | `BoundsCheck`, `OverflowCheck`, `FlPointCheck`, `FDIVCheck` | -1 means the check is **removed** | The four "Remove … Checks" options |
 | `UnroundedFP` | -1 on | Allow Unrounded Floating Point Operations |
-| `CondComp` | `"NAME = 1 : OTHER = 0"` | Conditional Compilation Arguments |
+| `CondComp` | `"NAME = 1 : OTHER = 0"` | Conditional Compilation Arguments (Make tab) |
 
 ## Proposal
 
@@ -177,7 +179,12 @@ back to HexIDE.
 
 - **Nothing in the user's installation changes,** and no administrator rights are needed.
 - **HexIDE ships no VB6 file.** It copies the user's own installation, on the same machine, for the same
-  user. Whether VB6's licence permits such a working copy is an open question below.
+  user. The VB6 / Visual Studio 6 EULA's general grant (section 1.1) lets the licensed individual "make and use
+  copies of the SOFTWARE PRODUCT for the sole purposes of designing, developing, and testing" their software, on
+  any number of computers. Its section 6.7 forbids separating components for use by more than one user, which a
+  per-user copy does not do. The wrappers run C2 and LINK and record their arguments; nothing is decompiled or
+  disassembled (section 6.2). Read from the EULA installed with the oracle machine's Visual Studio 6; a
+  standalone VB6 box may carry its own, which is worth checking against the same three sections.
 - **The registry is shared,** so references, controls and add-in settings resolve exactly as they do for the
   original.
 - **Keep it current:** record the original files' hashes beside the copy, and refresh it when they change, for
@@ -217,11 +224,11 @@ It replaces executables in Program Files that every VB6 build runs, so it must:
 - The values of the documented keys, which are taken from third parties.
 - Which files `/make` needs, if the private copy is ever trimmed.
 - How a p-code build's single LINK run looks through the wrapper.
-- Whether VB6's licence terms permit HexIDE to keep a working copy of the user's installation, and to replace
-  two of its files with wrappers. This needs an answer before layer 2 ships.
 
 ## Related
 
+- #978: the work, in slices: the Output window, the switches in Project Properties, the private copy and its
+  wrappers, and the optional hooks. #979: a killed build is reported as "failed with no output".
 - #399: compiling with `vb6.exe` is configuration, not a menu item. See
   [One Build command, many compilers](choosing-the-compiler.md).
 - #48: the disabled Project Properties tabs.
