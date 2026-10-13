@@ -43,6 +43,10 @@ public class ModuleExecutionContext
         return false;
     }
 
+    /// <summary>Whether <paramref name="name"/> is a variable declared <c>As</c> a scalar type, rather than a Variant.</summary>
+    public bool HasDeclaredType(ExecutionEnvironment env, string name) =>
+        env.TryGetVariableLocation(name, out var loc) && state.DeclaredTypeOf(loc) != null;
+
     public bool TryGetVariable(ExecutionEnvironment env, string name, out Vb6Value value)
     {
         if (env.TryGetVariableLocation(name, out var loc))

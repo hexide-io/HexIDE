@@ -30,6 +30,27 @@ public class LetOfAnInBoxObjectTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(438L), new Vb6Value("pre")]);
     }
 
+    [Theory]
+    [InlineData("v = \"pre\"")]
+    [InlineData("v = 5")]
+    public async Task A_Let_of_App_into_a_Variant_empties_it_before_raising_438(string setup)
+    {
+        // Measured, native and in the IDE: VarType 0 afterwards, where a typed target keeps its value and a class with no
+        // default member leaves a Variant as it was.
+        await Run($"Dim v\n{setup}\nOn Error Resume Next\nv = App\nDebug.Print Err.Number\nDebug.Print VarType(v)\n");
+
+        AssertDebugLog([new Vb6Value(438L), new Vb6Value(0L)]);
+    }
+
+    [Fact]
+    public async Task A_Let_of_a_class_with_no_default_member_leaves_a_Variant_as_it_was()
+    {
+        await RunClasses("Dim v, k As Plain\nSet k = New Plain\nv = 5\nOn Error Resume Next\nv = k\nDebug.Print Err.Number\nDebug.Print VarType(v)\n",
+            ("Plain", "Public Tag As Long\n"));
+
+        AssertDebugLog([new Vb6Value(438L), new Vb6Value(2L)]);
+    }
+
     [Fact]
     public async Task Set_still_keeps_the_reference()
     {

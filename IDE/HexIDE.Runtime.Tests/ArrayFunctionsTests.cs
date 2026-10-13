@@ -5,7 +5,7 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// Phase 3 — array-producing intrinsics (Array, Split, Join, Filter) and LBound/UBound over them. Every
 /// expected value pinned against vb6.exe: Split's default delimiter is a space, Split("") and an empty Filter
-/// are both empty arrays (0,-1), Array/Filter yield Variant arrays while Split yields a String array.
+/// are both empty arrays (0,-1), Array yields a Variant array while Split and Filter yield String arrays.
 /// </summary>
 public class ArrayFunctionsTests : BaseVBTestFixture
 {
@@ -84,6 +84,8 @@ public class ArrayFunctionsTests : BaseVBTestFixture
     [Theory]
     [InlineData("Dim d() As String")]
     [InlineData("Dim d()")]
+    [InlineData("Dim d() As Long")]
+    [InlineData("Dim d() As String\nReDim d(1)\nErase d")]
     public async Task Join_and_Filter_of_an_array_never_allocated_do_not_raise(string declaration)
     {
         // Measured, native and in the IDE: Join gives "", and Filter an unallocated String array (VarType 8200, whose
@@ -111,6 +113,32 @@ public class ArrayFunctionsTests : BaseVBTestFixture
             "r = Filter(Array(\"apple\", \"pear\"), \"xyz\")\n" +
             "Debug.Print UBound(r)\n");   // -1 (no matches)
         AssertDebugLog([new Vb6Value(0L), "banana", new Vb6Value(1L), "apple", "cherry", new Vb6Value(-1L)]);   // UBound is Long (#193)
+    }
+
+    [Theory]
+    [InlineData("Filter(Array(\"apple\", \"pear\"), \"a\")", 1L)]   // a Variant array in
+    [InlineData("Filter(Array(1, 12), \"1\")", 1L)]                 // numbers in, strings out
+    [InlineData("Filter(Array(\"apple\", \"pear\"), \"xyz\")", -1L)] // no match
+    public async Task Filter_always_gives_a_String_array(string call, long upper)
+    {
+        // Measured, native and in the IDE: VarType 8200 every time. It was a Variant array.
+        await Run($"Dim r\nr = {call}\nDebug.Print VarType(r)\nDebug.Print TypeName(r)\nDebug.Print UBound(r)\n");
+        AssertDebugLog([new Vb6Value(8200L), "String()", new Vb6Value(upper)]);
+    }
+
+    [Theory]
+    [InlineData("Dim d() As String", "Filter(d, \"a\", \"x\")", 13L)]
+    [InlineData("Dim d() As String", "Filter(d, Null)", 94L)]
+    [InlineData("Dim d() As String", "Filter(d, \"a\", Null)", 94L)]
+    [InlineData("Dim d(1) As String", "Filter(d, Null)", 94L)]
+    [InlineData("Dim d(1) As String", "Filter(d, \"a\", Null)", 94L)]
+    [InlineData("Dim d(1) As String", "Filter(d, \"a\", \"x\")", 13L)]
+    public async Task Filter_reads_its_match_and_switch_before_the_array(string declaration, string call, long error)
+    {
+        // Measured, native and in the IDE: these raise even for an array never allocated, which Filter otherwise answers
+        // with no error.
+        await Run($"{declaration}\nDim c\nOn Error Resume Next\nc = {call}\nDebug.Print Err.Number\nDebug.Print IsEmpty(c)\n");
+        AssertDebugLog([new Vb6Value(error), new Vb6Value(true)]);
     }
 
     [Fact]

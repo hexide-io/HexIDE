@@ -5523,7 +5523,7 @@ in others, and a trappable error there lets `On Error Resume Next` carry on with
 
 **Probe.** A Sub Main project built with `vb6.exe /make` and run under `On Error Resume Next`, logging each result
 with `TypeName` and `Err.Number`. **Every probe here ran both as native code and in the IDE**, and the two agreed on
-every row except where a row says so. The first two probes were native only until the review's second round, which
+every row except where a row says so. A compile error can only be read from `/make`, so those rows are native only. The first two probes were native only until the review's second round, which
 ran them in the IDE too: identical, except the Select Case and For rows under Resume Next (below).
 
 **How the IDE runs were made.** `VB6.EXE /runexit probe.vbp` runs a project in the IDE, as F5 does, and closes VB when
@@ -5702,7 +5702,7 @@ Every other argument reads the member:
 | Used as a value | VB6 |
 |---|---|
 | `Err` | its `Number`: `"v=" & Err` is "v=0" or "v=11", `If Err Then` takes the Then branch after an error, `x = Err` stores 11, `Err + 1` is 12, `VarType(Err)` is 3, `Print #f, Err` writes 11 |
-| `App`, `Screen`, `Clipboard` | 438: none has a default member |
+| `App`, `Screen`, `Clipboard` | 438: none has a default member. For App, measured: `"v=" & App`; `s = App`, leaving a String `s` as it was; `v = App`, which **empties** a Variant `v` first (VarType 0), where `v = k` for a class with no default member leaves it as it was; and `Debug.Print App` and `Debug.Print Screen` in the IDE |
 | `Forms` | 450: its default member, `Item`, needs an argument |
 | `Debug` | a compile error, "Syntax error" (`/make` only, as is the next row) |
 | a control array without an index, `"v=" & Cmd` | a compile error, "Argument not optional" |

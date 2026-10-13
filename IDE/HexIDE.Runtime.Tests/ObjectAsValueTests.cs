@@ -5,7 +5,8 @@ namespace HexIDE.Runtime.Tests;
 /// <summary>
 /// A class instance used where a value is wanted (#174). Measured on vb6.exe, native and in the IDE, with
 /// <c>Widget</c>'s <c>Value</c> its default member returning 42 and <c>Plain</c> a class with none: every use below sees
-/// 42 for a Widget and raises 438 for a Plain. HexIDE does not call a class's default member yet, so a Widget is
+/// 42 for a Widget, except the few where a Function default member gives 450 (the oracle's 450 rows), and raises 438 for
+/// a Plain. HexIDE does not call a class's default member yet, so a Widget is
 /// refused untrappably, where it raised a trappable 438 or 13, or read 0, the CLR type name, or no match at all. A Plain
 /// raises VB6's 438, where several of these raised 13 or gave the type name (#436). The probe is in docs/vb6-fidelity-oracle.md, "An object used as a
 /// value".
@@ -306,7 +307,7 @@ public class ObjectAsValueTests : BaseVBTestFixture
     {
         // Measured, native and in the IDE: 13 for any object, even a class whose default member returns an array. The
         // member is not read there, so a class that has one is not refused. Through a Variant, because a typed object
-        // variable there does not compile ("Expected array").
+        // variable there does not compile ("Expected array", read from /make).
         await RunPrinting(cls, "Dim v\nSet v = o\n" + use);
 
         AssertDebugLog([new Vb6Value(13L)]);

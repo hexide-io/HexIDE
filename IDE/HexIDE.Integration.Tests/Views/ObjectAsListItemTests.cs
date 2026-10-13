@@ -79,7 +79,8 @@ public class ObjectAsListItemTests
     [AvaloniaFact]
     public async Task A_control_array_without_an_index_used_as_a_value_is_the_compile_error_VB6_gives()
     {
-        // Measured: `c = "v=" & Cmd` does not compile, "Argument not optional". Raised here as the statement runs; it
+        // Measured with /make, the only mode that reports a compile error: `c = "v=" & Cmd` does not compile, "Argument
+        // not optional". Raised here as the statement runs; it
         // used to concatenate a .NET type name (#436).
         var (_, _, ctx, env) = ContainerRuntimeHarness.Spawn(FormWithControlArray);
 

@@ -882,6 +882,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
         // A Let of an object stores its default member's value, into a Variant as readily as into a Long (measured): a
         // class instance is refused or 438 (ObjectAsValue). `Nothing` stays 438.
+        //
+        // `v = App` empties a Variant target before it raises 438, where a class with no default member leaves the target
+        // as it was, and a typed target keeps its value either way (all measured, native and in the IDE). So under On
+        // Error Resume Next the next line reads Empty there, not what v held.
+        if (value.Value is VbApp
+            && context.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } target
+            && interpreter.ExecutionContext.TryGetVariable(currentEnv, target.GetText(), out var held)
+            && !interpreter.ExecutionContext.HasDeclaredType(currentEnv, target.GetText()))
+        {
+            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, target.GetText(), Vb6Value.Variant);
+            await interpreter.ReleaseRef(held);
+        }
         value = ObjectAsValue.Scalar(value, context);
         if (value.Type == Vb6Value.ValueType.Object)
             throw new VBRunTimeException(context, VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);

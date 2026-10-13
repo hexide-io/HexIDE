@@ -79,8 +79,8 @@ public partial class VB6BuiltIns
 
     // Join(array, [delimiter=" "]) -> String. Anything but an array is 13, as it is for Filter and the bounds: a string,
     // a number, Empty, Null, Nothing and any other object (measured, native and in the IDE, #840). It raised 5. An array
-    // never allocated, `Dim d() As String`, joins to "" with no error (measured); it indexed a bounds list that was not
-    // there, an exception no On Error could trap.
+    // never allocated, or erased, joins to "" with no error, whatever its type (measured for String, Variant and Long
+    // arrays); it indexed a bounds list that was not there, an exception no On Error could trap.
     private static Vb6Value Join(IReadOnlyList<Vb6Value> a)
     {
         if (a.Count < 1) throw InvalidCall();
@@ -97,27 +97,31 @@ public partial class VB6BuiltIns
         return new Vb6Value(sb.ToString());
     }
 
-    // Filter(array, match, [include=True], [compare]) -> a 0-based Variant array of the (non-)matching elements.
+    // Filter(array, match, [include=True], [compare]) -> a 0-based String array of the (non-)matching elements. Always a
+    // String array (measured: VarType 8200 for a String input, a Variant input and no match alike); it was a Variant
+    // array. The match and the switch are read before the array is looked at (measured: with an array never allocated,
+    // a switch of "x" is 13 and a Null match or switch 94).
     private static Vb6Value Filter(IReadOnlyList<Vb6Value> a)
     {
         if (a.Count < 2) throw InvalidCall();
         if (a[0].Value is not VBArray arr) throw new VBRunTimeException(VBStandardError.TypeMismatch);
-        // An array never allocated gives back an unallocated String array with no error, whatever the array's own type
-        // (measured: VarType 8200 for a String and a Variant array alike, and LBound and UBound of it raise 9).
-        if (arr.Rank == 0) return new Vb6Value(new Vb6Value.ValueType(Vb6Value.ValueType.String, true));
+        if (a[1].IsNull || (Supplied(a, 2) && a[2].IsNull)) throw new VBRunTimeException(VBStandardError.InvalidUseOfNull);
         string match = AsStr(a[1]);
         bool include = !Supplied(a, 2) || AsDouble(a[2]) != 0;
         var cmp = Supplied(a, 3) && AsInt(a[3]) == 1 ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+        // An array never allocated, or erased, gives back an unallocated String array with no error, whatever its own type
+        // (measured for String, Variant and Long arrays and an erased one: LBound and UBound of the result raise 9).
+        if (arr.Rank == 0) return new Vb6Value(new Vb6Value.ValueType(Vb6Value.ValueType.String, true));
 
         var items = new List<Vb6Value>();
         int lo = arr.LowerBound(1), hi = arr.UpperBound(1);
         for (int i = lo; i <= hi; i++)
         {
-            var el = arr.GetValue(new[] { i });
-            bool contains = AsStr(el).IndexOf(match, cmp) >= 0;
-            if (contains == include) items.Add(el);
+            var text = AsStr(arr.GetValue(new[] { i }));
+            bool contains = text.IndexOf(match, cmp) >= 0;
+            if (contains == include) items.Add(new Vb6Value(text));
         }
-        return MakeArray(Vb6Value.ValueType.EmptyVariant, items);
+        return MakeArray(Vb6Value.ValueType.String, items);
     }
 
 }
