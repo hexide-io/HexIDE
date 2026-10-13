@@ -5586,6 +5586,8 @@ held whatever it was given. That copy branch takes every `ByVal` argument and ev
 literal, so both are affected.
 
 **Probe.** A Sub Main project with `On Error Resume Next`. Each procedure writes `TypeName(x)` and `x` with `Print #`.
+The caller clears `Err` before each call and reads `Err.Number` after it, so a 13 is the caller's own reading, and a
+call that raised it shows no line from the procedure, which is how "at the call" is known.
 Built as native code and also run in the IDE, as described under "What a condition is"; **every line was identical in
 the two modes**. The guest's locale is en-GB, which decides how a Date is written and how `"1/2/2000"` is read.
 
