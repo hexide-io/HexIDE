@@ -49,8 +49,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     {
         if (context.Length != 2)
             throw new Exception("This should only be called for two operands instructions");
-        var left = await EvaluateValue(context[0]);
-        var right = await EvaluateValue(context[1]);
+        // Every binary operator's operands come through here: an object stands for its default member (#174).
+        var left = await EvaluateScalar(context[0]);
+        var right = await EvaluateScalar(context[1]);
         return (left, right);
     }
 
@@ -174,6 +175,15 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         if (await Visit(arg) is not Vb6Value vb6Value)
             throw new NotImplementedException($"{arg.GetType()} expression is not supported");
         return vb6Value;
+    }
+
+    /// <summary>
+    /// <see cref="EvaluateValue"/> where a value is wanted, not an object: an operand, a condition, a bound, a Select
+    /// Case. A class instance there stands for its default member (<see cref="ObjectAsValue"/>).
+    /// </summary>
+    public async Task<Vb6Value> EvaluateScalar(IParseTree arg)
+    {
+        return ObjectAsValue.Scalar(await EvaluateValue(arg), arg as Antlr4.Runtime.ParserRuleContext);
     }
 
     /// <summary>
@@ -1084,7 +1094,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     public override async Task<object?> VisitVsNegation(VB6Parser.VsNegationContext context)
     {
-        var value = await EvaluateValue(context.valueStmt());
+        var value = await EvaluateScalar(context.valueStmt());
         if (value.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
         return VbNumeric.Negate(value, context);
@@ -1092,7 +1102,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     public override async Task<object?> VisitVsNot(VB6Parser.VsNotContext context)
     {
-        var value = await EvaluateValue(context.valueStmt());
+        var value = await EvaluateScalar(context.valueStmt());
         if (value.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
         // Not keeps its operand's OWN width rather than promoting: Not CByte(5) is 250, an eight-bit

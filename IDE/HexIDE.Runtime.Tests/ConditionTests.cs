@@ -142,16 +142,32 @@ public class ConditionTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value("T"), new Vb6Value(0L)]);
     }
 
-    [Fact]
-    public async Task A_condition_of_Err_is_refused_until_Err_is_its_Number()
+    [Theory]
+    [InlineData("If Err Then a = \"T\" Else a = \"E\"")]
+    [InlineData("If Err Then\na = \"T\"\nElse\na = \"E\"\nEnd If")]
+    [InlineData("If False Then\na = \"F\"\nElseIf Err Then\na = \"T\"\nElse\na = \"E\"\nEnd If")]
+    public async Task A_condition_of_Err_reads_its_Number(string form)
     {
-        // Pending #840. VB6 reads `If Err Then` as `If Err.Number Then` (measured: Then after an error, Else after Clear).
-        // Err used as a value is #840's, which makes it its Number. Until then it is refused, untrappably, as every
-        // conversion refuses it, rather than a trappable 13 that overwrote Err.Number and ran neither branch. Whichever
-        // of the two merges second turns this into the measured answer.
-        var run = () => Run("On Error Resume Next\nErr.Raise 53\nIf Err Then Debug.Print 1\n");
+        // Measured, native and in the IDE: Then after an error, Else after Err.Clear. It was a trappable 13, which
+        // overwrote Err.Number and ran neither branch.
+        await Run($"On Error Resume Next\nDim a, r\nErr.Raise 53\n{form}\nr = a\nErr.Clear\n{form}\nDebug.Print r & a\n");
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#840*");
+        AssertDebugLog([new Vb6Value("TE")]);
+    }
+
+    [Theory]
+    [InlineData("Err.Raise 53\nWhile Err\nErr.Clear\nc = c + 1\nIf c > 5 Then Exit Sub\nWend", 0L)]
+    [InlineData("Err.Raise 53\nDo While Err\nErr.Clear\nc = c + 1\nIf c > 5 Then Exit Do\nLoop", 0L)]
+    [InlineData("Err.Raise 53\nDo Until Err = 0\nErr.Clear\nc = c + 1\nIf c > 5 Then Exit Do\nLoop", 0L)]
+    [InlineData("Do Until Err\nc = c + 1\nErr.Raise 53\nIf c > 5 Then Exit Do\nLoop", 53L)]
+    [InlineData("Do\nc = c + 1\nIf c > 5 Then Exit Do\nLoop While Err", 0L)]
+    public async Task A_loop_on_Err_reads_its_Number(string form, long error)
+    {
+        // Measured, native and in the IDE: one pass each. The While row needed #882, which parsed `Err.Clear` in its body
+        // as two statements. While has no Exit, so its guard leaves the Sub, which skips the prints and fails the test.
+        await Run($"Probe\nSub Probe()\nOn Error Resume Next\nDim c\nc = 0\n{form}\nDebug.Print c\nDebug.Print Err.Number\nEnd Sub\n");
+
+        AssertDebugLog([new Vb6Value(1), new Vb6Value(error)]);
     }
 
     private const string Plain = "Public Tag As Long\n";
@@ -219,5 +235,29 @@ public class ConditionTests : BaseVBTestFixture
         thrown.Error.ErrNo.Should().Be(13);
         thrown.Context.Should().NotBeNull();
         thrown.Context!.Start.Line.Should().Be(line);
+    }
+
+    [Theory]
+    [InlineData("If v Then c = 1")]
+    [InlineData("If v Then\nc = 1\nEnd If")]
+    [InlineData("If False Then\nc = 0\nElseIf v Then\nc = 1\nEnd If")]
+    [InlineData("While v\nc = 1\nWend")]
+    [InlineData("Do While v\nc = 1\nLoop")]
+    [InlineData("Do Until v\nc = 1\nLoop")]
+    [InlineData("Do\nc = 1\nLoop While v")]
+    [InlineData("Do\nc = 1\nLoop Until v")]
+    public async Task An_objects_438_in_a_condition_names_the_statement_its_13_names(string form)
+    {
+        // The object was read outside the block that attaches the statement, so its 438 named the operand, v (#840's
+        // review). Most forms put v on the statement's own line, so the kind of context is compared as well as the line.
+        var thirteen = () => RunClasses($"Dim v, c\nv = \"abc\"\n{form}\n", ("Plain", Plain));
+        var objects = () => RunClasses($"Dim v, c\nSet v = New Plain\n{form}\n", ("Plain", Plain));
+
+        var expected = (await thirteen.Should().ThrowAsync<VBRunTimeException>()).Which.Context!;
+        var thrown = (await objects.Should().ThrowAsync<VBRunTimeException>()).Which;
+        thrown.Error.ErrNo.Should().Be(438);
+        thrown.Context.Should().NotBeNull();
+        thrown.Context!.GetType().Should().Be(expected.GetType());
+        thrown.Context.Start.Line.Should().Be(expected.Start.Line);
     }
 }
