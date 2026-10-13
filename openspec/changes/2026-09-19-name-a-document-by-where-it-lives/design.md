@@ -713,10 +713,13 @@ the next `get_file_content` in exactly the case a caller cannot foresee. The pat
 the same reason, since a first save through an armed file dialog is where a document gets one.
 
 **The read and write rule lives in `HexIDE`, as `DocumentContent`, not in the tools.** Tool bodies compile into
-an executable no test references, which is why `MarkLineRules` sits there too. The tools keep the lookup, the
-picker refusal, the save and the reply. `FormCodeText.LooksLikeFormFile` lost its only production caller with
-#338's refusal and went with its tests. `FormCodeText.PreserveAttributes` already had none before this task, and
-is left for 5.7, which owns `FormCodeText`'s comments.
+an executable no test references, which is why `MarkLineRules` sits there too. The name lookup has since followed
+it into `NamedDocuments` (below), so the tools keep which window is open on the document, the picker refusal, the
+save and the reply. `set_breakpoints`' range check reads the same `DocumentContent.TextOf` that the reply above
+counts, so the two agree by construction rather than by two copies of one expression; `ToolDocumentNamingTests`
+fails if a tool reads the code window's text any other way. `FormCodeText.LooksLikeFormFile` lost its only
+production caller with #338's refusal and went with its tests. `FormCodeText.PreserveAttributes` already had
+none before this task, and is left for 5.7, which owns `FormCodeText`'s comments.
 
 **A whole replacement checks the header, and an edit to a range checks every read-only region.**
 `GuardedContent.Replace` compares the incoming header with the document's and nothing else. A member's
@@ -733,21 +736,48 @@ outside this change: 3.22 checks that Replace All leaves the header alone, not t
 **Automation's naming half: the parameters keep their names, and the replies gain `project` and `document`.**
 "The shipped surfaces" says tools *take* and return `project` and `document`. They take `project`, and keep
 the name parameter they had: `name`, `formName` or `module`. Renaming a parameter would break every caller that
-passes it, to gain a spelling, while the reply is where a caller needs the normalised name. Every reply about one
-document carries both as optional trailing fields. The MCP SDK's serializer omits nulls (its options say
-`WhenWritingNull`, and the replies recorded in the gaps archive show it), so the tools that name no document
-reply exactly as before. A carried file is named the same way, by its project and its own name.
+passes it, to gain a spelling, while the reply is where a caller needs the normalised name. The reply of every
+tool that takes a document's name carries both, as optional trailing fields, whenever the name found a document,
+refusals included. The MCP SDK's serializer omits nulls (its options say `WhenWritingNull`, and the replies
+recorded in the gaps archive show it), so the tools that name no document reply exactly as before. A carried
+file is named the same way, by its project and its own name.
 A `get_diagnostics` item gets its names by resolving its `uri` back to a loaded document through the wire name,
 as `EditorService` resolves a server's reply. When the `uri` names nothing loaded the fields are absent, not
-guessed. `get_debug_state` and `get_call_stack` keep `module`, a bare name, and gain the running `project`
-beside it, since a run is one project. `add_file` takes `project` to say where to add. That is a capability
-rather than a rename, and without it a group's other projects could not be added to at all.
+guessed, and so they are when it names a file two loaded projects share: two documents with one file have one
+wire name, a diagnostic for it cannot say which project's copy it describes, and naming the first project to
+list the file would be the guess `Resolve` refuses to make for a name. `get_debug_state` and `get_call_stack`
+keep `module`, a bare name, and gain the running `project` beside it, since a run is one project. `add_file`
+takes `project` to say where to add. That is a capability rather than a rename, and without it a group's other
+projects could not be added to at all.
+
+**Not done: the tools that name a document without taking its name.** The delta's requirement covers a tool
+that *reports* a form, module or class as well as one that accepts its name, and these still report or act on
+one without saying which project's it is:
+- the note of every run-control reply, `Paused at Form1 line 9 (Step).`, from `run_project`, `break_program`,
+  `continue_program`, `step_into`, `step_over`, `step_out` and `run_to_cursor`;
+- `get_locals`' `context` and the watch tools' `context`, both `Module.Procedure`;
+- `get_undo_state`, `invoke_designer_undo`, `invoke_designer_redo` and `invoke_format_command`, which act on the
+  active designer and do not name its form;
+- `activate_document_tab` and `close_document_tab`, which take a tab's title, and `get_open_editors` and
+  `get_document_tabs`, which report titles.
+
+With a group holding two `Form1`s, none of these can say which one it means. They were left because the work
+is different in kind from what was done. The tools that take a name had a lookup to route through and a
+document in hand to name. These have no name to resolve: the run-control notes and the debugger contexts need
+the running project put beside a bare module name, as `get_debug_state` now has it; the designer tools need to
+name the document behind the active tab; and the tab tools need a decision about what identifies a tab to a
+caller, since a title is the IDE's display string and two `Form1` tabs can share one. Filed as an issue, see the
+#273 thread. Until it is closed the hexide-mcp-server requirement is only partly met, and task 5.8 notes that
+under the spec's Purpose when it archives, rather than recording the requirement as satisfied.
 
 **The resolution rule lives in `HexIDE`, as `NamedDocuments`, for the reason `DocumentContent` does.** The tools
 keep only what needs the running IDE: which designer or editor is open on the resolved document, the save and
 the reply. `move_control` and `add_control` now resolve the name to a document first and then find the designer
 open on it by reference. So a module is refused as having no designer rather than as "not open", and a name two
-projects share is refused rather than answered with whichever designer was found first.
+projects share is refused rather than answered with whichever designer was found first. Whether the tools keep
+to this is checked by reading their source, since nothing can call them: `ToolDocumentNamingTests` fails when a
+tool that takes `project` does not resolve through the lookup, when it uses the caller's name for anything but
+the lookup, when a `MutateResult` after the lookup does not go through `Naming`, or when `Naming` changes.
 
 **An add-in is told why through three new members, `TrySetContent`, `TryApplyEdits` and `TryNavigateTo`, each
 answering an `AddinEditResult(bool Succeeded, string? Reason = null, bool HeaderKept = false)`** (task 3.19). They
@@ -839,6 +869,8 @@ Three consequences for this change, none of which move task 2.1:
   name to be open once. A reference-counted open would satisfy the protocol, but two editors holding the
   same file can diverge. Whether VB6 allows it is unmeasured, and it is not the collision the oracle settled
   (that was two projects sharing a *name*). Recorded here, and to be filed if the implementation meets it.
+  Automation met it once, and answered without settling it: a `get_diagnostics` item for such a file names
+  no project or document, rather than the first project to list it ("Settled while building phase 3").
 - **What happens to a member's attribute lines when the member goes.** Deleting a procedure through the
   editor leaves its attribute run behind, because read-only text is carved out of a deletion, and cutting
   one moves the procedure without its description. The rule proposed is that a run belongs to the line it

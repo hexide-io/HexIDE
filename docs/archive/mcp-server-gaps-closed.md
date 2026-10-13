@@ -1265,7 +1265,9 @@ ambiguous name with the candidates listed. `move_control` and `add_control` then
 the document the name resolved to, so a bare `Form1` that used to work while only one of two was open is now
 refused, as it is everywhere else. `add_file` takes `project` too, naming the project to add to. The rule moved
 out of the tool bodies into `NamedDocuments` in the IDE assembly, where `NamedDocumentsTests` covers the
-refusals quoted above.
+refusals quoted above. That the tools use it is checked by `ToolDocumentNamingTests`, which reads their source:
+a tool that takes `project` must find the name through the lookup and use it for nothing else, so a designer
+found by its form's name, which is how `move_control` worked, fails the build.
 
 ---
 
@@ -1836,11 +1838,15 @@ caller cannot otherwise see.
 document searches every loaded project, and that replies carry `project` and `document`. Neither held
 everywhere. `set_control_property`, `move_control` and `add_control` still resolved a form their own way (see
 the #575 entry for what that did). Of the replies, only `get_bookmarks` and `get_breakpoints` carried the names.
-Now every tool that takes a form, module or class by name resolves it through one rule. Every reply about one
-document carries `project` and `document` as the IDE spells them: the content, designer and mark tools,
-`run_to_cursor`, `set_next_statement`, `add_file`, and each `get_diagnostics` item. On a diagnostic they sit
-beside the server's `uri` and are absent when that names nothing loaded. `get_debug_state` and
-`get_call_stack` carry the running `project` beside their bare module names. `uri` is now explained where it is
+Now every tool that takes a form, module or class by name resolves it through one rule, and its reply carries
+`project` and `document` as the IDE spells them whenever the name found one: the content, designer and mark
+tools, `run_to_cursor` and `set_next_statement`. So do `add_file`'s reply and each `get_diagnostics` item. On a
+diagnostic they sit beside the server's `uri`, and are absent when that names nothing loaded or a file two
+loaded projects share. `get_debug_state` and `get_call_stack` carry the running `project` beside their bare
+module names. **Still not every reply:** a tool that reports or acts on a document without taking its name does
+not name its project yet. That is the run-control replies' "Paused at" note, `get_locals`' and the watches'
+`context`, the designer undo, redo and format tools, which act on the active designer, and the tab tools, which
+take and report a tab's title. Filed as an issue, see the #273 thread. `uri` is now explained where it is
 returned (`get_bookmarks`, `get_breakpoints`, `get_diagnostics`): it is the name a language server knows the
 document by, its `file:` URI, or `untitled:<project>/<name>.<ext>` before it has a file. Until now its only
 explanation was a code comment, which no caller can read. The delta's scenario, a breakpoint set in `form1` of a

@@ -161,6 +161,14 @@ public static class NamedDocuments
     /// file a server analysed on its own account or a document since removed, finds nothing here, and that is
     /// an answer rather than a failure.
     /// </para>
+    /// <para>
+    /// <b>A file two loaded projects share names neither.</b> A group in which two projects list one <c>.bas</c>
+    /// holds two documents with one file, so one name for them both, and a server's diagnostic for that name
+    /// cannot say which project's copy it describes. Answering with the first project to list it would pass a
+    /// guess off as a fact, which is what <see cref="Resolve"/> refuses to do for a name two projects share. So
+    /// nothing is found, <see cref="NamedDocument.Missing"/> is false because something did answer, and
+    /// <see cref="NamedDocument.Error"/> says which documents did.
+    /// </para>
     /// </remarks>
     public static NamedDocument ForUri(IEnumerable<ProjectDefinition> loaded, string uri)
     {
@@ -168,18 +176,25 @@ public static class NamedDocuments
         if (string.IsNullOrWhiteSpace(uri))
             return new NamedDocument(null, null, null, Missing: true);
 
+        var found = new List<NamedDocument>();
         foreach (var project in loaded)
         {
             foreach (var document in DocumentLookup.DocumentsOf(project))
                 if (Same(uri, () => DocumentWireName.For(document)))
-                    return new NamedDocument(document, null, null);
+                    found.Add(new NamedDocument(document, null, null));
 
             foreach (var file in project.RelatedDocuments)
                 if (file.AbsolutePath is { } path && Same(uri, () => LspDocumentUri.ForFile(path)))
-                    return new NamedDocument(null, file, null);
+                    found.Add(new NamedDocument(null, file, null));
         }
 
-        return new NamedDocument(null, null, null, Missing: true);
+        return found.Count switch
+        {
+            1 => found[0],
+            0 => new NamedDocument(null, null, null, Missing: true),
+            _ => new NamedDocument(null, null,
+                $"'{uri}' names more than one loaded document: {string.Join(", ", found.Select(f => $"{f.Project}/{f.Name}"))}."),
+        };
 
         // A path that cannot be turned into a URI names nothing, and is not an error either: it is a project
         // entry naming something this filesystem cannot express.

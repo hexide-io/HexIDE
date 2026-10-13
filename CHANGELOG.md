@@ -85,10 +85,13 @@ there isn't one yet. Anything may change between 0.x releases.
   `move_control` and `add_control` were the exceptions: the first looked only in the startup project, and the
   other two used whichever open designer of that name came first. So with a group open, a bare name those two
   accepted may now be refused as ambiguous; pass `project`. `add_file` takes `project` too, for the project to
-  add to. A reply about one document now names it in `project` and `document`, spelled as the IDE spells them,
-  and so does each `get_diagnostics` item. Where a reply also carries a `uri`, the tool's description now says
-  what it is: the name the language server knows the document by. `get_debug_state` and `get_call_stack` name
-  the running project.
+  add to. The reply of every tool that takes a document's name now names what it found in `project` and
+  `document`, spelled as the IDE spells them, and so do `add_file`'s reply and each `get_diagnostics` item; a
+  diagnostic for a file two projects of a group share names neither. Where a reply also carries a `uri`, the
+  tool's description now says what it is: the name the language server knows the document by. `get_debug_state`
+  and `get_call_stack` name the running project. Not yet: the run-control replies' "Paused at" note, the
+  locals' and watches' `context`, the designer undo, redo and format tools, and the tab tools, which take and
+  report a tab's title, still name a form or module without its project.
 - **For add-in authors: `AddinDocument.Content` is now the document's whole file**, as the code window shows it - a
   form's designer block, a class's header and the leading `Attribute` lines first, then the code - where it used to
   be the code alone. Every position on the add-in surface counts from the top of that file - selections, edits,

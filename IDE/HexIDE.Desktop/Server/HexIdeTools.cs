@@ -103,7 +103,8 @@ internal sealed class HexIdeTools(IdeContext ctx)
                + "server sent one, 'code' (the rule that fired) and 'href' (where that rule is documented). "
                + "'uri' is the name the language server knows the document by: its file: URI, or "
                + "untitled:<project>/<name>.<ext> while it has no file. 'project' and 'document' name it as the IDE "
-               + "does, and are absent when the uri names no loaded form, module, class or carried file. 'severity' is Error, Warning, "
+               + "does, and are absent when the uri names no loaded form, module, class or carried file, or a file two loaded "
+               + "projects share, since nothing then says which project's copy it is about. 'severity' is Error, Warning, "
                + "Information or Hint, as the server reported it, or Unknown when the server sent none. "
                + "'line' and 'column' are 1-based, and the line is counted from the top of the file with its header "
                + "included, as the code window numbers it; a VB6 compiler error is converted to that numbering. "
@@ -245,9 +246,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
     {
         var restoredHeader = false;
         DocumentIdentity? target = null;
+        NamedDocument found = default;
         var (form, module, error) = await Dispatcher.UIThread.InvokeAsync<(FormDefinition?, ModuleDefinition?, string?)>(() =>
         {
-            var found = Find(name, project, carried: true);
+            // Kept for the reply, which names whatever the name reached, a carried file included: with a carried
+            // Notes in two projects, the refusal below has to say which one it found.
+            found = Find(name, project, carried: true);
             if (found.Carried is { } carried)
                 return (null, null,
                     $"'{carried.Name}' is a carried file, and set_file_content writes only forms and modules. "
@@ -285,7 +289,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
         });
 
         if (error is not null)
-            return Naming(new MutateResult(false, error), target);
+            return Naming(new MutateResult(false, error), found);
 
         // Before the save, which may take an armed cancel: that is the route the refusal above offers, and its
         // outcome is the document kept without a file, not a failure (#755).
@@ -662,7 +666,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (found.Carried is { } carried)
             {
                 ctx.EditorService.EditRelatedDocument(carried);
-                return new MutateResult(true, null, TabStateNote(), carried.Owner.Name, carried.Name);
+                return Naming(new MutateResult(true, null, TabStateNote()), found);
             }
             return new MutateResult(false, found.Error);
         }));
@@ -1575,7 +1579,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             // note naming a target that does not exist. Refused before anything starts, as set_breakpoints
             // refuses one (#569, #591).
             if (OutsideDocument(document, [line], first: 1, "line") is { } outside)
-                return new MutateResult(false, outside);
+                return Naming(new MutateResult(false, outside), document);
 
             target = $"{document.Display} line {line}";
             return StartFailure(() => ctx.ProjectRunnerService.RunToCursorProject(document, line));
@@ -2412,6 +2416,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
         document is null ? reply : reply with { Project = document.Project.Name, Document = document.Name };
 
     /// <summary>
+    /// The project and document a lookup found, a carried file included, added to <paramref name="reply"/>; the
+    /// reply unchanged when it found nothing.
+    /// </summary>
+    private static MutateResult Naming(MutateResult reply, NamedDocument found) =>
+        found.Name is null ? reply : reply with { Project = found.Project, Document = found.Name };
+
+    /// <summary>
     /// What a document holds after a mark was set on it, for the reply's note.
     /// </summary>
     /// <remarks>
@@ -2450,10 +2461,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
     /// Lines are counted as the code window counts them, from the top of the file with the header included: in
     /// the open window's buffer, else in the model's whole file. Counting the model's code section, as this did
     /// until #273 task 3.12, gave a different range depending on whether the window happened to be open.
+    /// The text is <see cref="HexIDE.IDE.DocumentContent.TextOf"/>, the one set_file_content's reply counts and
+    /// get_file_content returns, so the range this accepts and the range those state cannot drift apart.
     /// </remarks>
     private string? OutsideDocument(DocumentIdentity document, int[] lines, int first, string what, IReadOnlyCollection<int>? held = null)
     {
-        var text = CodeEditorOf(document)?.CodeWindowText ?? HexIDE.Runtime.Serialization.CodeWindowText.Of(document);
+        var text = HexIDE.IDE.DocumentContent.TextOf(document, CodeEditorOf(document));
         return HexIDE.IDE.MarkLineRules.Refusal(text, document.Display, lines, held ?? [], first, what);
     }
 

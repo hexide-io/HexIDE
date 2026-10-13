@@ -1384,53 +1384,75 @@
   after a failed read.
 - [x] 3.18 Automation: `get_file_content` returns the whole file open or not; `set_file_content` accepts it
   back, or a body alone with the header kept. Tool descriptions say lines count from the top of the file.
+  The delta's naming half, which this line does not name, was done after it, in part; the last three notes.
   — **Both tools changed in one commit**, as design.md requires. The read is the open window's buffer or the
   model's composition of the file, the text the mark tools count in. `hasUnsavedChanges` still compares the
   buffer's body with `Code`. The write goes through `GuardedContent` for every kind, and the whole-`.frm`
   refusal (#338) is gone, with `FormCodeText.LooksLikeFormFile`, its only production use, and its two tests.
-  — **The rule moved where a test can reach it**: `DocumentContent` in `HexIDE`, beside `MarkLineRules`. The
-  tools keep only the lookup, the picker refusal, the save and the reply. `DocumentContentTests` carries the
-  delta's scenario, `ReadingAndWritingBackAForm` (`BillOfFare.frm` read, written back, saved, and its bytes
-  unchanged), and reads and writes back every document in `demo/` and `corpus/designer/`, which is the only
+  — **The read and write rule moved where a test can reach it**: `DocumentContent` in `HexIDE`, beside
+  `MarkLineRules`. The name lookup followed it into `NamedDocuments` with the naming half, so the tools keep only
+  which window is open on the document, the picker refusal, the save and the reply. `DocumentContentTests`
+  carries the delta's scenario, `ReadingAndWritingBackAForm` (`BillOfFare.frm` read, written back, saved, and its
+  bytes unchanged), and reads and writes back every document in `demo/` and `corpus/designer/`, which is the only
   check that the prefix-measured header and the text-walked one agree on files VB6 wrote. They agree on all
   of them. What stays unreachable is which editor a tool picks and the save after the write: 3.22's.
   — **The reply states the range the lines are numbered in, read after the save** (settled in design.md).
+  `set_breakpoints` refuses a line outside that range, counted in the same text: both read
+  `DocumentContent.TextOf`, and `ToolDocumentNamingTests` fails when a tool reads the code window's text any
+  other way, so the two cannot drift apart.
   — **Descriptions:** both content tools; the run-control replies (`run_project`, `break_program`,
   `continue_program`, the three steps) and `get_last_runtime_error`, whose lines are file lines already;
   and `type_text`, `press_key`, `hover`, `inspect_element`, whose offsets index what `get_file_content`
   returns. `hover` was at the 2048-character limit, so its `dwellMs` detail moved into that parameter's own
   description. The refusal that gives an offset says what it counts from.
-  — **Not done here:** a reply that also carries the wire name does not yet say `uri` is that name, and
-  `get_file_content`/`set_file_content` replies carry no `project` and `document` (the delta's naming half).
-  A form created and not yet saved or committed still reads as its code alone, which is 3.4's open question.
-  **Standing hazard until this lands, found while merging main on 2026-09-23.** On this branch
-  `editor.Document.Text` is the whole file, so any tool that means *the code section* must read `BufferBody`.
-  Main's `get_file_content` read `Document.Text`, which on main is the code section and here would have
-  returned the designer block from a tool whose contract excludes it — wrong in the direction that costs a
-  caller a form, and silent. The merge changed both its form and module arms to `BufferBody`, and the
-  comparisons behind `hasUnsavedChanges` are against the model's `Code`, so both sides of each are the code
-  section. Anything written against main between now and this task carries the same trap; the general rule
-  is that on this branch `Document.Text` answers "the file" and never "the code".
+  — **Still open:** a form created and not yet saved or committed reads as its code alone, which is 3.4's open
+  question.
+  — **A standing rule, found while merging main on 2026-09-23.** On this branch `editor.Document.Text` is the
+  whole file, so code that means *the code section* must read `BufferBody`. Main's `get_file_content` read
+  `Document.Text`, which on main is the code section. Merged unchanged, it would have returned the designer block
+  from a tool whose contract then excluded it, silently, and in the direction that costs a caller a form. The
+  merge changed both its arms to `BufferBody`, and this task has since made the whole file that tool's contract.
+  The rule outlives the case: anything merged from main that reads `Document.Text` meaning the code gets the file
+  here. On this branch `Document.Text` answers "the file" and never "the code".
   — **The naming half was finished after this task, against the hexide-mcp-server delta rather than a task
-  line of its own.** Inventoried first: eleven tools already resolved a name through `DocumentLookup` across
-  every loaded project, case-insensitively, with `project` and the ambiguity refusal. They were the two content
-  tools, `open_file`, `view_designer`, `get_form_controls`, the four mark tools, `run_to_cursor` and
-  `set_next_statement`. Three did not. `set_control_property` looked in the startup project only, and
-  `move_control` and `add_control` matched open designers by name and took the first. They now resolve as the
-  rest do and take `project`, and so does `add_file`, which now takes `project` to name where it adds. The rule
-  moved out of the tool bodies into `NamedDocuments` (`HexIDE/IDE`), beside `MarkLineRules` and
-  `DocumentContent`, and `NamedDocumentsTests` covers its refusals. Every reply about one document carries
-  `project` and `document`: `MutateResult`, `FileContentResult`, `FormControlsResult`, `AddControlResult`,
-  `AddFileResult`, and each `get_diagnostics` item through a reverse lookup of its `uri`.
-  `get_debug_state` and `get_call_stack` carry the running `project`. `uri` is now described as the name a
-  language server knows the document by in `get_bookmarks`, `get_breakpoints` and `get_diagnostics`. The
-  scenario *Setting a breakpoint by name in the wrong case* is
+  line of its own, for the tools that take a document's name.** Inventoried first: eleven tools already
+  resolved a name through `DocumentLookup` across every loaded project, case-insensitively, with `project` and
+  the ambiguity refusal. They were the two content tools, `open_file`, `view_designer`, `get_form_controls`,
+  the four mark tools, `run_to_cursor` and `set_next_statement`. Three did not. `set_control_property` looked
+  in the startup project only, and `move_control` and `add_control` matched open designers by name and took the
+  first. They now resolve as the rest do and take `project`, and so does `add_file`, which now takes `project`
+  to name where it adds. The rule moved out of the tool bodies into `NamedDocuments` (`HexIDE/IDE`), beside
+  `MarkLineRules` and `DocumentContent`, and `NamedDocumentsTests` covers its refusals. The replies of those
+  fourteen tools carry `project` and `document` (`MutateResult`, `FileContentResult`, `FormControlsResult`,
+  `AddControlResult`, `BookmarksResult`, `BreakpointsResult`), a carried file's included, refusals of a
+  document the name did find included. So do `add_file`'s reply and each `get_diagnostics` item, through a
+  reverse lookup of its `uri` that leaves them out when the `uri` names nothing loaded, or names a file two
+  loaded projects share, since nothing then says which project's copy a diagnostic is about. `get_debug_state`
+  and `get_call_stack` carry the running `project`. `uri` is now described as the name a language server
+  knows the document by in `get_bookmarks`, `get_breakpoints` and `get_diagnostics`.
+  — **Not done: the tools that name a document without taking its name.** The note of the run-control replies
+  (`Paused at Form1 line 9 (Step).`, from `run_project`, `break_program`, `continue_program`, the three steps
+  and `run_to_cursor`) gives a bare module name. `get_locals`' `context` and the watch tools' `context` are
+  `Module.Procedure`. `get_undo_state`, `invoke_designer_undo`, `invoke_designer_redo` and
+  `invoke_format_command` act on the active designer and do not say which form it is. `activate_document_tab`
+  and `close_document_tab` take a tab's title, and `get_open_editors` and `get_document_tabs` report titles.
+  With a group holding two `Form1`s, none of them can say which one it means. design.md ("Settled while
+  building phase 3") says why they were left. Filed as an issue, see the #273 thread. The hexide-mcp-server
+  requirement ("a tool that accepts or reports a form, module or class") is therefore only partly met, and
+  5.8 has to carry that into the archive rather than record it as met.
+  — **Tests.** The scenario *Setting a breakpoint by name in the wrong case* is
   `BreakpointByNameTests.SettingABreakpointByNameInTheWrongCase`, in the integration suite because it renders
   the gutter and runs the project. Its three outcomes (the dot in `Form1`'s gutter, a run stopping on the line,
   the sidecar naming `Form1`) each failed when the breakpoint was keyed under a second definition called
-  `form1`. Recorded in `docs/archive/mcp-server-gaps-closed.md`, under the #467 and #575 entries whose "every
-  tool" this makes true, and in the CHANGELOG. Not live-verified; that belongs with 3.22's pass through the
-  running IDE.
+  `form1`. That test repeats the tool's steps rather than calling the tool, which no test can, so the tools'
+  use of the rule is guarded separately, by `ToolDocumentNamingTests` reading the tool source. Every tool that
+  takes `project` finds the name through the lookup, and the lookup searches every loaded project. The name is
+  used for nothing else, so a designer or editor is matched by the document found, never by name. Every
+  `MutateResult` after the lookup goes through `Naming`, whose body is pinned, and every other reply record
+  names the document itself. Two regressions passed every test before it and each fails it now: a
+  `move_control` that took the first open designer whose form had the caller's name, and a `Naming` that
+  returned its reply unchanged. Recorded in `docs/archive/mcp-server-gaps-closed.md`, under the #467 and #575
+  entries, and in the CHANGELOG. Not live-verified; that belongs with 3.22's pass through the running IDE.
 - [x] 3.19 Add-ins: content is the whole file; positions from the top of the file; `SetContent` refused if the
   header changes. The AI Chat add-in's prompt and apply paths updated.
   — **`AddinDocument.Content` is the code window's buffer**, so it is the text every position on the surface
@@ -1467,6 +1489,9 @@
   why is #705); confirm the margin
   and status bar count from the top of the file; confirm a designer move updates the header with the code
   window open. UI work is not complete until it is seen running.
+  Refresh `docs/mcp-first-contact.md`'s transcript from that run: its `open_file` reply still reads
+  `{"success": true}`, where the tool now returns `project`, `document` and a `note` too, and
+  `FirstContactTranscriptTests` checks only that the fields it shows still exist.
 
 ## 4. Member attributes
 
@@ -1507,4 +1532,6 @@
   `DirtyDetector`, the redactor and disclosure, `DocumentSavedEvent`, `IBreakpointService`, the automation
   tool descriptions.
 - [ ] 5.8 Validate and archive; rewrite the Purpose of each spec the archive touched if the CLI replaces it,
-  and fill in the new capabilities' Purpose.
+  and fill in the new capabilities' Purpose. The hexide-mcp-server requirement is only partly met (3.18's "Not
+  done" note): unless that issue is closed first, note it under that spec's `## Purpose` with the issue linked,
+  as `openspec/config.yaml` asks of a requirement the code does not yet meet.

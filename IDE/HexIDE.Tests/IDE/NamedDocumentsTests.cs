@@ -291,4 +291,39 @@ public sealed class NamedDocumentsTests
         named.Name.Should().BeNull();
         named.Error.Should().BeNull();
     }
+
+    [Fact]
+    public void AFileTwoProjectsShareIsNamedByNeither()
+    {
+        // Client.vbp and Server.vbp both list Shared.bas: two documents, one file, so one name to a server.
+        var client = AProject("Client", modules: ["Shared"]);
+        var server = AProject("Server", modules: ["Shared"]);
+        var path = Path.Combine(Path.GetTempPath(), "HexIDE.Tests.NamedDocuments", "Shared.bas");
+        client.Modules[0].AbsolutePath = path;
+        server.Modules[0].AbsolutePath = path;
+
+        var named = NamedDocuments.ForUri([client, server], DocumentWireName.For(server.Modules[0]));
+
+        named.Project.Should().BeNull("a diagnostic for the shared file cannot say which project's copy it describes, "
+                                      + "and naming the first project to list it would pass a guess off as a fact");
+        named.Name.Should().BeNull();
+        named.Missing.Should().BeFalse("two documents answered, which is not the same as none");
+        named.Error.Should().Be($"'{DocumentWireName.For(server.Modules[0])}' names more than one loaded document: "
+                                + "Client/Shared, Server/Shared.");
+    }
+
+    [Fact]
+    public void ACarriedFileTwoProjectsShareIsNamedByNeither()
+    {
+        var first = AProject("First");
+        var second = AProject("Second");
+        var notes = Carry(first, "Notes", "Notes.md");
+        Carry(second, "Notes", "Notes.md");
+
+        var named = NamedDocuments.ForUri([first, second], LspDocumentUri.ForFile(notes.AbsolutePath!));
+
+        named.Carried.Should().BeNull();
+        named.Project.Should().BeNull();
+        named.Missing.Should().BeFalse();
+    }
 }
