@@ -567,13 +567,17 @@ Collection is *"here is every `Sub` in this module"*, *"here is every `Public` v
 declaration"*, *"this expression has type T"* — which is **binding**, and binding is the AST.
 
 A weaker test — *"could the walk do this itself, just slower?"* — is tempting and wrong: it forbids
-order-independent `Const` evaluation, which no single walk can do and which is plainly not AST-building.
-Necessity is not the line. Relationships are.
+resolving another module's `Public Const` from a module-level declaration, which VB6 does whatever order the
+project lists its modules in (measured), which no single walk in that order can do, and which is plainly not
+AST-building. Necessity is not the line. Relationships are.
 
-The rule also decides **how** to build what it permits. `Const A = B + 1` looks like a symbol relationship,
-so do not topologically sort the constants up front — collect the *expressions* and evaluate lazily and
-memoised, letting the walk resolve the dependency when it reaches it. Same behaviour, and the pre-pass
-stays pure collection.
+The rule also decides **how** to build what it permits. Within one module VB6 evaluates `Const`s strictly in
+source order — `Const A = B + 1` above `Const B = 2` is its compile error "Constant expression required"
+(measured, `docs/vb6-fidelity-oracle.md`) — so there the walk itself is the specification. Across modules, do
+not topologically sort the modules up front: when a module-level declaration reads another module's constant,
+run that module's declarations first, once, and treat re-entering a module still mid-initialisation as VB6's
+own "Circular dependencies between modules" (#893). Same behaviour as VB6, at VB6's granularity, and the
+pre-pass stays pure collection.
 
 What it still refuses, for the same reason rather than a different one: the linearized CFG that `GoSub` /
 `Return` / `On expr GoTo` and nested-granular `Resume` are deferred pending. A control-flow graph relates
