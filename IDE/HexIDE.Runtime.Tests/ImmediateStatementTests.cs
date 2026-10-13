@@ -111,7 +111,7 @@ public class ImmediateStatementTests : BaseVBTestFixture
         var run = vb.Execute();
         await stop.Guarded();
 
-        (await dbg.EvaluateAsync("?s")).Should().Be("Ship");               // an object before
+        (await dbg.EvaluateAsync("?s")).Should().Contain("438");           // an object before: no default member, 438
         (await dbg.EvaluateAsync("Set s = Nothing")).Should().BeEmpty();   // the Set statement executes
         (await dbg.EvaluateAsync("?s")).Should().Be("Nothing");            // now Nothing
 

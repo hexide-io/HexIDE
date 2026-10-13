@@ -50,12 +50,20 @@ public partial class VB6BuiltIns
         if (!v.Type.IsArray)
         {
             if (v.Value is Control ctrl) return StripVb(ctrl.GetType().Name);
-            if (v.Value is ICSharpProxy px) return StripVb(px.GetType().Name);
+            if (v.Value is ICSharpProxy px) return InBoxTypeName(px);
         }
         return TypeInfo(v).name;
     }
 
     private static string StripVb(string n) => n.StartsWith("VB", StringComparison.Ordinal) ? n.Substring(2) : n;
+
+    // Measured (#840): TypeName(Err) is "ErrObject" and TypeName(App) is "App", which neither class's own name gives.
+    private static string InBoxTypeName(ICSharpProxy px) => px switch
+    {
+        VbErr => "ErrObject",
+        VbApp => "App",
+        _ => StripVb(px.GetType().Name),
+    };
 
     // Maps a value to its VB6 TypeName string and VbVarType code. Arrays append "()" / add vbArray (8192).
     private static (string name, int code) TypeInfo(Vb6Value v)

@@ -82,7 +82,30 @@ public class DocumentSavedAnnouncementTests : IDisposable
         return project;
     }
 
+    private static FormDefinition AddForm(ProjectDefinition project, string name)
+    {
+        var form = new FormDefinition(project, [new ComponentInstance(FormComponentClass.Instance, name)], "")
+        {
+            AbsolutePath = Path.Combine(Path.GetDirectoryName(project.AbsolutePath)!, name + ".frm"),
+        };
+        project.AddForm(form);
+        return form;
+    }
+
     // ── What counts ───────────────────────────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task SavingAFormAnnouncesIt()
+    {
+        var project = AProjectWith();
+        var form = AddForm(project, "Form1");
+
+        await MakeService().SaveForm(form, false);
+
+        var saved = _announced.Should().ContainSingle().Which;
+        saved.Form.Should().BeSameAs(form);
+        saved.Module.Should().BeNull();
+    }
 
     [Fact]
     public async Task SavingAModuleAnnouncesIt()
@@ -101,10 +124,12 @@ public class DocumentSavedAnnouncementTests : IDisposable
         // The gesture an editor-raised signal would miss entirely: File > Save Project and the toolbar
         // button write every document with no editor involved.
         var project = AProjectWith("Module1", "Module2", "Module3");
+        AddForm(project, "Form1");
 
         await MakeService().SaveProject(project, false);
 
-        _announced.Select(e => e.Module!.Name).Should().BeEquivalentTo(["Module1", "Module2", "Module3"]);
+        _announced.Select(e => e.Module?.Name ?? e.Form!.Name)
+            .Should().BeEquivalentTo(["Form1", "Module1", "Module2", "Module3"]);
     }
 
     [Fact]
@@ -180,13 +205,17 @@ public class DocumentSavedAnnouncementTests : IDisposable
         // rule about temporary directories: both write every module somewhere else through the same code,
         // and this one is a real save. It repoints each AbsolutePath PERMANENTLY, so those files are now
         // the project's files and a server should know they were written.
+        //
+        // Forms too, since #729: they used to be written here without a word, so a server kept a form's
+        // pre-save text while its modules were refreshed.
         var project = AProjectWith("Module1", "Module2");
+        AddForm(project, "Form1");
         var destination = Path.Combine(_dir, "elsewhere");
         Directory.CreateDirectory(destination);
 
         await MakeService().SaveProjectToDirectory(project, destination);
 
-        _announced.Select(e => e.Module!.Name).Should().BeEquivalentTo(["Module1", "Module2"]);
+        _announced.Select(e => e.Module?.Name ?? e.Form!.Name).Should().BeEquivalentTo(["Form1", "Module1", "Module2"]);
     }
 
     [Fact]

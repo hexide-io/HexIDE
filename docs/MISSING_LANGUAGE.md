@@ -23,7 +23,7 @@ divergence is a footnote.
 
 | Status | What happens on F5 | Why it ranks here |
 |---|---|---|
-| **Silently wrong** | Runs, does nothing, program continues | **Worst of all.** Nothing announces it, so the user debugs their own correct code. |
+| **Silently wrong** | Runs, does nothing or the wrong thing, program continues | **Worst of all.** Nothing announces it, so the user debugs their own correct code. |
 | **Won't load** | The module never opens | Nothing runs, and the user cannot even look around. |
 | **Dies** | Parses, then stops partway through with an error the user sees | The program gets going and falls off a cliff — but it *tells you*. |
 | Partial | Runs, with a real restriction | Fine *if the restriction is written down* — which is what the Detail column is for. |
@@ -47,9 +47,10 @@ path and the bare-statement path now raise for any name VB6 defines as an intrin
 VB6's *surface* rather than of our gaps — so implementing a function needs no edit to it, and a name we
 have never heard of still gets VB6's own "Sub or Function not defined".
 
-The category is kept at zero rather than deleted, because the shape is what matters: **anything that
-fails without saying so belongs here rather than under Dies.** If a construct is found doing that again,
-this is where it goes.
+The category was kept at zero rather than deleted, because the shape is what matters: **anything that
+fails without saying so belongs here rather than under Dies.** It did not stay at zero. Assignment through
+a type character (`s$ = "x"`) was found doing exactly that by a different mechanism, and the six type
+characters now sit in it ([#739](https://github.com/hexide-io/HexIDE/issues/739)).
 
 **Until [#754](https://github.com/hexide-io/HexIDE/issues/754), most Dies rows told only the test suite.**
 The classification above was made by running constructs headlessly, where the exception reaches the test.
@@ -85,7 +86,9 @@ every row is derived from reading HexIDE's own source, not from measuring real V
 *does it run* — a `NotImplementedException` is a fact about our code — but it is **not** authority on
 *does it behave correctly*. Where a Partial row describes a semantic difference, treat it as a lead to
 verify, not a measurement. Verified behaviour only ever lives in
-[`vb6-fidelity-oracle.md`](vb6-fidelity-oracle.md).
+[`vb6-fidelity-oracle.md`](vb6-fidelity-oracle.md). A row re-rated since on the oracle's evidence names
+the oracle rows it rests on, and says which parts no oracle row covers; for the type characters, the
+Silently wrong section does.
 
 **"Supported" is an optimistic ceiling.** Every row was attacked by an adversarial pass whose only job
 was to disprove it. It returned a verdict on 323 originally-supported rows and **demoted 217 of them** —
@@ -110,28 +113,33 @@ on the write path (`obj.a.b = x`, `Set obj.a.b = o`).
 
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Statements | 0 | 0 | 46 | 33 | 0 | 26 | 105 |
+| Statements | 0 | 2 | 46 | 29 | 0 | 28 | 105 |
 | Operators | 0 | 0 | 3 | 18 | 0 | 11 | 32 |
-| Intrinsic functions | 0 | 0 | 69 | 37 | 1 | 46 | 153 |
-| Keywords and modifiers | 0 | 0 | 11 | 21 | 1 | 18 | 51 |
-| Literals, types and suffixes | 0 | 1 | 7 | 17 | 0 | 25 | 50 |
+| Intrinsic functions | 0 | 0 | 69 | 38 | 1 | 45 | 153 |
+| Keywords and modifiers | 0 | 0 | 11 | 19 | 1 | 20 | 51 |
+| Literals, types and suffixes | 6 | 1 | 6 | 12 | 0 | 25 | 50 |
 | Compiler directives and options | 0 | 1 | 16 | 9 | 13 | 8 | 47 |
 | In-box objects | 0 | 0 | 98 | 8 | 0 | 17 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **0** | **2** | **258** | **404** | **15** | **503** | **1182** |
+| **Total** | **6** | **4** | **257** | **394** | **15** | **506** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
 
 
-### The single most useful number here is 3
+### The single most useful number here is 4
 
-**Only three constructs in the whole VB6 language fail to parse**: `#Const`, the `D` exponent marker
-(`1.5D2`), and two `#`-prefixed file numbers on one physical line. Every other gap parses cleanly and
-fails at run time. The grammar comprehends essentially the whole of VB6; what is missing is execution.
+**Only four constructs in the whole VB6 language fail to parse**: `#Const`, the `D` exponent marker
+(`1.5D2`), two `#`-prefixed file numbers on one physical line, and a `Function` declared with a type
+character (`Function GetName$()`, [#740](https://github.com/hexide-io/HexIDE/issues/740)). Every other
+gap parses cleanly and goes wrong at run time: mostly by throwing, sometimes by running on with a wrong
+value. The six Silently wrong rows below are the wrong values counted as such; the `()` row records
+another under [#741](https://github.com/hexide-io/HexIDE/issues/741) and stays Partial, for the reason
+given there. The grammar comprehends essentially the whole of VB6; what is missing is execution.
 
 It was four until numeric line labels were ported in from the LSP server's grammar, which already had
-the rule — see below.
+the rule — see below. It went back to four when the suffixed `Function` was measured, and that one has
+the same shape: the LSP server's grammar accepts it and the interpreter's does not.
 
 That matters for three reasons. It is the empirical form of the claim in `CLAUDE.md` that no VB6
 construct is incomprehensible to the CST, which until now was an architectural assertion rather than a
@@ -143,19 +151,93 @@ visitor, not changing how the language is understood.
 ### Where the damage actually is
 
 **Operators are nearly complete** — 3 absent of 32 — so expressions and arithmetic generally work. The
-damage is concentrated in **statements** and the **in-box object model**: 44% of VB6's statements and
-79% of the in-box surface (`App`, `Screen`, `Printer`, `Clipboard`, `Collection`) are unavailable.
+damage is concentrated in **statements** and the **in-box object model**: 46% of VB6's statements (48
+of 105, two of them the `Function` rows, which fail only when a type character is used) and 80% of the
+in-box surface (`App`, `Screen`, `Printer`, `Clipboard`, `Collection`; 98 of 123) are unavailable. Both
+figures are rounded to the nearest whole percent.
 
 That is the honest answer to "will my code run?" — the arithmetic will; the plumbing around it often will
 not. The classic file-I/O family is absent as a block, which is the most common way a real program dies
 here, usually within its first few statements.
 
-## Silently wrong — 0 names
+## Silently wrong — 6 names
 
-**Closed by [#191](https://github.com/hexide-io/HexIDE/issues/191).** Eight constructs used to sit here:
-`Shell`, `FreeFile`, `Command`, `CurDir`, `Cls`, `Erl`, `Dir` and `Time = x`. Each parsed, ran, did
-nothing, and let the program continue — so the user saw no error and went looking for a bug in their own
-code.
+**The six identifier type characters, `$ % & ! # @`
+([#739](https://github.com/hexide-io/HexIDE/issues/739)).** An assignment through one writes a
+*different* variable, and the program runs on with the value lost. Measured here without
+`Option Explicit`, which is VB6's default, with VB6's answer from the same configuration beside each
+except where a bullet says otherwise:
+
+- `Dim s As String : s$ = "x" : Debug.Print s` prints `""`, and the same inside a `Sub`. VB6 gives the
+  assigned value, for a module variable and a local alike.
+- `n% = 5` into an Integer, `l& = 70000` into a Long, `f! = 1.5` into a Single, `d# = 2.5` into a Double
+  and `c@ = 1.25` into a Currency each leave the declared variable at `0`. VB6 gives 5, 70000, 1.5, 2.5
+  and 1.25, each in the declared type.
+- `Dim i As Integer / For i% = 1 To 2 / Next / Debug.Print i` prints `0`, and a bare `i` read inside the
+  loop reads `0` on both passes. VB6 leaves `i` at 3, with and without `Option Explicit`, measured
+  for a local `i`; VB6's module-level counter is not measured. `Next i%`
+  throws here instead ("TypeHints not implemented"). This one is silent under `Option Explicit` too.
+- With nothing declared, `a$ = "x"` followed by a bare `a` reads `Empty`. VB6 gives `"x"`, a String:
+  `a$` and `a` are one variable. VB6 does the same for every character; HexIDE's side of the undeclared
+  case was run for `$` only.
+
+`VisitLetStmt` in `StatementExecutor.cs` names the target by its full text, character included
+(`GetText()`), so it looks up a variable called `s$`, finds none, and creates one, because
+`Option Explicit` is off by default. `VisitForNextStmt` takes its counter's name the same way. Both are
+read from the source; the probes measured what follows from them. **So the assignment is silent only
+without `Option Explicit`.** With it, `VisitLetStmt` raises "Variable not defined" for the suffixed name
+instead (`s$`, `n%`, `l&`, `f!`, `d#` and `c@`, each measured), an error VB6 does not raise. The `For`
+counter is the exception: `VisitForNextStmt` allocates its counter without that check, so under
+`Option Explicit` too `For i% = 1 To 2` leaves a declared `i` at 0 with no error, measured at module level
+and inside a `Sub`.
+
+VB6 sends the assignment to the declared variable for all six characters, into a module variable and
+into a local, with `Option Explicit` and without it: every one of those combinations is measured, in the
+section "An assignment through a type character reaches the declared variable, for every character"
+of the 2026-10-11 entry "A type character on a name the program also declares" in [`vb6-fidelity-oracle.md`](vb6-fidelity-oracle.md). The same entry measured it first
+for `$` on a name with a library twin, `Left` (TF_01, TL_01, TL_04). With nothing declared, the first
+assignment through a character declares the variable with that type, for every character: `a$ = "x"` then
+`a` gives `"x"` String, `k% = 3` then `k` an Integer 3, and `&`, `!`, `#` and `@` a Long, Single, Double
+and Currency. So the undeclared case is wrong here too, and is counted: HexIDE's side of it was run for `$`, and the
+other five go through the same `VisitLetStmt` path, which is read from the source rather than run.
+
+**Why the write is the silent one.** Every unqualified *read* through a type character throws —
+`Debug.Print s$` gives "Type hint is not supported" ([#742](https://github.com/hexide-io/HexIDE/issues/742))
+— so the one use that announces nothing is the one that changes state. A module-qualified read is the
+other exception, and a milder one: the qualifier path drops the character unchecked, so `Module1.VF$("x")`
+answers here where VB6 refuses to compile it. That is a missing error, not a wrong value (#742). The reverse order is a late error, not a wrong
+one: `b = "y"` with nothing declared, then `b$`, is the compile error "Type-declaration character does not
+match declared data type" in VB6, because the bare first use declared a Variant, and here the read
+throws. The literal forms are unaffected: `5%`, `70000&`, `1.5!`, `2.5#` and `1.25@` measure as Integer,
+Long, Single, Double and Currency. `$` has no literal form.
+
+**Measured, and recorded under [#741](https://github.com/hexide-io/HexIDE/issues/741) rather than here:
+call resolution.** A parameterless `Function Left() As String` called as `Left("abc", 1)` returns the
+program's own value here, where VB6 compiles the call and returns the library's `"a"` (TE_01). The same
+function without an `As` clause returns its value here with no error, where VB6 compiles the call and
+raises error 13 at run time (TE_04). TE_01 is a wrong result from a program VB6 runs; TE_04 is a missing
+run-time error, not a wrong result. TE_01 needs a parameterless procedure that shares a library
+function's name and is called with that function's arguments, since the library supplies VB6's answer;
+whether TE_04's needs the name too is open (see the `F` bullet below). Rating the call operator itself Silently wrong for
+TE_01 would misdescribe the common case, which resolves correctly, so it is recorded under #741 and the
+`() (call / array index)` row stays Partial and carries the link. Two neighbours in the same issue, both
+missing errors rather than wrong results:
+
+- `Dim Left As String` followed by `Left("abc", 1)` reaches the library's `Left` here, where VB6 refuses
+  to compile it with "Expected array" (TL_07; TF_04 for a module variable).
+- Surplus arguments are dropped, where VB6 refuses to compile the call. `H(5, 6)` on
+  `Function H(ByVal a As Long) As Long` gives 5 here, and `G(5, 6)` on a parameterless
+  `Function G() As Long` gives 1; for both, VB6 gives the compile error "Wrong number of arguments or
+  invalid property assignment". `F(5, 6)` on a parameterless `Function F()` with no `As` clause gives 1
+  here, and VB6 gives the compile error "Expected array", where TE_04, the same shape named `Left`,
+  compiles and raises error 13; `F` ran in the scripted harness and TE_04 in a project, so whether the
+  name or the harness makes that difference is open. None of the three raises anything here. (Oracle: the 2026-10-11
+  entry "A type character on a name the program also declares", the surplus-argument rows beside TE_01–TE_04.)
+
+**Closed earlier by [#191](https://github.com/hexide-io/HexIDE/issues/191).** Eight constructs used to
+sit here: `Shell`, `FreeFile`, `Command`, `CurDir`, `Cls`, `Erl`, `Dir` and `Time = x`. Each parsed, ran,
+did nothing, and let the program continue — so the user saw no error and went looking for a bug in their
+own code.
 
 Two causes, both now fixed. An unregistered bare name fell through to VB6's implicit-declaration rule and
 evaluated to `Empty`; the read path now raises for any name VB6 defines as an intrinsic, and the
@@ -164,28 +246,48 @@ bare-statement path no longer discards the "not a builtin" result. And `Time = x
 *variable* called `Time` and left the throw in `VisitTimeStmt` as unreachable dead code. `dateStmt`
 already sat ahead of `letStmt`, which is the only reason `Date = x` threw and `Time = x` did not.
 
-**The category stays in this document even at zero**, because it is the failure mode worth watching for:
+**The category stayed in this document at zero**, because it is the failure mode worth watching for:
 anything that fails without saying so belongs here rather than under Dies, and the reasoning above is how
 to recognise the next one. The check keys off a list of VB6's *surface* rather than of our gaps, so
-implementing a function does not require maintaining it.
+implementing a function does not require maintaining it. It could not have caught the type characters,
+which are the program's own names spelled with a suffix rather than names VB6 defines.
 
-## Won't load — 2 names
+| Name | Status | Detail | Source |
+|---|---|---|---|
+| `!` | **Silently wrong** | **Re-rated from Partial by measurement ([#739](https://github.com/hexide-io/HexIDE/issues/739)).** On a name it writes a different variable: without `Option Explicit`, `Dim f As Single : f! = 1.5 : Debug.Print f` prints 0, with no error, where VB6, also without it, gives 1.5, a Single (oracle: the 2026-10-11 entry "A type character on a name the program also declares", its section "An assignment through a type character reaches the declared variable, for every character", without `Option Explicit`; see Silently wrong). Under `Option Explicit` the assignment raises "Variable not defined (f!)" here instead, which VB6 does not. A read through it throws "Type hint is not supported" ([#742](https://github.com/hexide-io/HexIDE/issues/742)). The literal form is unaffected: `1.5!` is Single. — Honoured on a numeric LITERAL, never on an identifier. Literal: `ClassifyIntegerLiteral` and the DOUBLELITERAL branch read the trailing suffix (`'!' => new Vb6Value(float.Parse(body))`) —… | StatementExecutor.cs, ExpressionExecutor.cs |
+| `#` | **Silently wrong** | **Re-rated from Partial by measurement ([#739](https://github.com/hexide-io/HexIDE/issues/739)).** On a name it writes a different variable: without `Option Explicit`, `Dim d As Double : d# = 2.5 : Debug.Print d` prints 0, with no error, where VB6, also without it, gives 2.5, a Double (oracle: the 2026-10-11 entry "A type character on a name the program also declares", its section "An assignment through a type character reaches the declared variable, for every character", without `Option Explicit`; see Silently wrong). Under `Option Explicit` the assignment raises "Variable not defined (d#)" here instead, which VB6 does not. A read through it throws "Type hint is not supported" ([#742](https://github.com/hexide-io/HexIDE/issues/742)). The literal form is unaffected: `2.5#` is Double. — Honoured on a numeric LITERAL, never on an identifier. Literal: `_ => new Vb6Value(double.Parse(body))` for the `#` suffix — measured `5#` -> Double 5, `2.5#` -> Double… | StatementExecutor.cs, ExpressionExecutor.cs |
+| `$` | **Silently wrong** | **Re-rated from Dies by measurement ([#739](https://github.com/hexide-io/HexIDE/issues/739)).** This row said every occurrence throws, and an assignment target does not: without `Option Explicit`, `Dim s As String : s$ = "x" : Debug.Print s` prints `""` with no error, inside a `Sub` too, because the assignment creates a second variable named `s$`. Under `Option Explicit` the same line raises "Variable not defined (s$)", which VB6 does not. VB6 sends such an assignment to the declared variable, module or local, with or without `Option Explicit` (the 2026-10-11 entry "A type character on a name the program also declares", its section "An assignment through a type character reaches the declared variable, for every character", and oracle TF_01, TL_01, TL_04); see Silently wrong. With nothing declared, `a$ = "x"` then a bare `a` reads `Empty` here, where VB6 gives `"x"`, a String: in VB6 they are one variable. Unqualified reads throw ([#742](https://github.com/hexide-io/HexIDE/issues/742)): `Debug.Print s$` -> "Type hint is not supported" and `Mid$("abc", 2, 1)` -> "typehint not supported". So does a declaration: `Dim n$` -> "DIM type hints not implemented". `Function GetName$()` does not parse, and takes its module with it ([#740](https://github.com/hexide-io/HexIDE/issues/740); see `Function`); Silently wrong outranks that. There is no literal form for `$` at all (a String literal carries no suffix). | StatementExecutor.cs, ExpressionExecutor.cs, VB6BuiltIns.Strings.cs |
+| `%` | **Silently wrong** | **Re-rated from Partial by measurement ([#739](https://github.com/hexide-io/HexIDE/issues/739)).** On a name it writes a different variable: without `Option Explicit`, `Dim n As Integer : n% = 5 : Debug.Print n` prints 0, with no error, where VB6, also without it, gives 5, an Integer; under `Option Explicit` the assignment raises "Variable not defined (n%)" here instead, which VB6 does not. A `For i% = 1 To 2` counter runs on a second variable too, with or without `Option Explicit`, leaving a declared `i` at 0 where VB6 leaves it at 3 with or without `Option Explicit`; that silent counter is counted here, not under `For`. With nothing declared, VB6 makes `k% = 3` and a bare `k` one Integer variable; HexIDE's side of that was run for `$` only. (Oracle, all three: the 2026-10-11 entry "A type character on a name the program also declares", its section "An assignment through a type character reaches the declared variable, for every character", where the counter was measured in a local; see Silently wrong.) `Function Twice%(ByVal x As Integer)` does not parse ([#740](https://github.com/hexide-io/HexIDE/issues/740)); no oracle row has a `Function` declared with `%`, only with `$`. A read through it throws "Type hint is not supported" ([#742](https://github.com/hexide-io/HexIDE/issues/742)). The literal form is unaffected: `5%` is Integer. — Honoured on a numeric LITERAL, never on an identifier. Literal: `'%' => new Vb6Value(int.Parse(body)) // Integer (magnitude ctor keeps it Integer in Int16 range)` — measured `5%` -> Integer… | StatementExecutor.cs, ExpressionExecutor.cs |
+| `&` | **Silently wrong** | **Re-rated from Partial by measurement ([#739](https://github.com/hexide-io/HexIDE/issues/739)).** On a name it writes a different variable: without `Option Explicit`, `Dim l As Long : l& = 70000 : Debug.Print l` prints 0, with no error, where VB6, also without it, gives 70000, a Long, for a module variable, and a local `m& = 9` gives 9 (oracle: the 2026-10-11 entry "A type character on a name the program also declares", its section "An assignment through a type character reaches the declared variable, for every character", without `Option Explicit`; see Silently wrong). Under `Option Explicit` the assignment raises "Variable not defined (l&)" here instead, which VB6 does not. A read through it throws "Type hint is not supported" ([#742](https://github.com/hexide-io/HexIDE/issues/742)). The literal form is unaffected: `70000&` is Long. — Honoured on a numeric LITERAL, never on an identifier. Literal: `'&' => new Vb6Value(long.TryParse(body, out var lp) ? lp : (long)double.Parse(body))` — measured `5&` -> Long 5… | StatementExecutor.cs, ExpressionExecutor.cs |
+| `@` | **Silently wrong** | **Re-rated from Partial by measurement ([#739](https://github.com/hexide-io/HexIDE/issues/739)).** On a name it writes a different variable: without `Option Explicit`, `Dim c As Currency : c@ = 1.25 : Debug.Print c` prints 0, with no error, where VB6, also without it, gives 1.25, a Currency (oracle: the 2026-10-11 entry "A type character on a name the program also declares", its section "An assignment through a type character reaches the declared variable, for every character", without `Option Explicit`; see Silently wrong). Under `Option Explicit` the assignment raises "Variable not defined (c@)" here instead, which VB6 does not. A read through it throws "Type hint is not supported" ([#742](https://github.com/hexide-io/HexIDE/issues/742)). The literal form is unaffected: `1.25@` is Currency. — Honoured on a numeric LITERAL, never on an identifier. Literal: `'@' => Vb6Value.NewCurrency(decimal.Parse(body)) // @ forces Currency` — measured `5@` -> Currency 5… | StatementExecutor.cs, ExpressionExecutor.cs |
+
+## Won't load — 4 names
 
 The whole list. A parse failure takes the entire module down — nothing in the file runs and the editor
 cannot open it usefully — so despite how obscure these look, each one has a blast radius of a file rather
 than a statement. That is why they are worth fixing ahead of far more commonly used constructs that merely
 throw.
 
-**A third, found by verification and not in the table.** Any single physical source line containing two
+**`Function` joined the list by measurement** ([#740](https://github.com/hexide-io/HexIDE/issues/740)).
+A `Function` declared with a type character, `Function GetName$()`, does not parse; without one it does,
+so its two rows, `Function` and `Function...End Function`, are rated by that worst case. They are two
+names for one construct, as `Line number` and `LineNumber` are. Unlike the others it does not look
+obscure: the character stands in for an `As` clause. Only `$` has a VB6 row: VB6 compiles a `Function`
+declared with it (oracle TR_01, TR_02, TB_01, each a `Function Left$`). No oracle row has a `Function`
+declared with `% & ! # @`, although HexIDE refuses `Function Twice%` in the same way.
+
+**One more, found by verification and not in the table.** Any single physical source line containing two
 `#`-prefixed file numbers — `Print #1, #2` and the like — fails to parse, taking the whole module with
-it. This has the widest blast radius of the three and no row of its own, because the enumeration listed
-`#n` once as a literal rather than as a sequence that can repeat on a line.
+it. This had the widest blast radius of the first three and has no row of its own, because the
+enumeration listed `#n` once as a literal rather than as a sequence that can repeat on a line.
 
 **Numeric line labels used to be here**, and how they were found is the useful part: the LSP server's
 grammar already had a working `lineNumber` rule that the interpreter's lacked, so the *editor* accepted
 `10 Debug.Print 1` with no syntax error and the module then refused to load. HexIDE's two halves
 disagreed about what VB6 is. `GrammarParityTests` now compares the two rule inventories so the next such
-gap is a build failure rather than a bug report.
+gap is a build failure rather than a bug report. It compares inventories, though, not what each rule
+accepts, which is how the suffixed `Function` got past it: both grammars have a `functionStmt`, and only
+the LSP server's lets a type character follow the name.
 
 Worth noting what is *not* here: `#If` parses fine and throws, and so does the named-argument operator
 `:=` — both are execution gaps rather than grammar gaps, which is the cheaper kind to close.
@@ -194,10 +296,12 @@ Worth noting what is *not* here: `#If` parses fine and throws, and so does the n
 |---|---|---|---|
 | `#Const` | **Won't load** | VB6.g4 has no #Const lexer token and no parser rule; the only HASH-prefixed directive tokens are MACRO_IF/MACRO_ELSEIF/MACRO_ELSE/MACRO_END_IF (VB6.g4). '#Const' instead lexes as FILENUMBER… | VB6.g4 |
 | `DExponentLiteral` | **Won't load** | `DOUBLELITERAL` and `INTEGERLITERAL` accept only an `e`/`E` exponent marker, never `D`. Measured: `Debug.Print 1.5D2` -> "Compile error: mismatched input 'D2' expecting <EOF>". | VB6.g4 |
+| `Function` | **Won't load** | **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)).** `Function GetName$()` -> "extraneous input '$' expecting {':', '(', NEWLINE, WS}", and the whole module with it; `Function Twice%(ByVal x As Integer)` the same with `%`. VB6 compiles a `$`-declared Function (oracle TR_01, TR_02, TB_01); no oracle row covers a `Function` declared with `% & ! # @`. VB6.g4's `functionStmt` has no `typeHint?` after the name, though `propertyGetStmt` in the same file has one and the LSP server's grammar has it on both; `GrammarParityTests` compares rule inventories, not alternatives, so it does not see the gap. Otherwise as before — PrePass.VisitFunctionStmt registers a ProcedureInfo (name, params, return type, body, IsPrivate). The return is by assignment to the procedure's own name; an unassigned return yields the… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
+| `Function...End Function` | **Won't load** | **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)); see `Function`.** The production quoted below has no `typeHint?` after the name, so `Function GetName$()` does not parse. Otherwise as before — The whole construct - `(visibility WS)? (STATIC WS)? FUNCTION WS name (argList)? (asTypeClause)? ... END_FUNCTION` - is collected by PrePass.VisitFunctionStmt and executed by… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
 | `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 
-## Dies mid-run — 250 names
+## Dies mid-run — 249 names
 
 These parse. The program starts, reaches the statement, and throws. Grouped by area below so the clusters
 are visible — and they are very clustered: the classic file-I/O family is absent as a block, and so is
@@ -212,7 +316,6 @@ most of the in-box object model.
 | `#End If` | **Dies** | throws, as the terminator of macroIfThenElseStmt (VB6.g4) - same two exceptions as #If (PrePass.cs at module level, StatementExecutor.cs inside a procedure). | PrePass.cs |
 | `#If` | **Dies** | throws `"Conditional compilation (#If / #Const) is not supported"` — throws - with two different exceptions depending on where it sits. At module level PrePass hits it first: '' (PrePass.cs), under the comment… | PrePass.cs |
 | `#n` | **Dies** | `FILENUMBER : HASH LETTERORDIGIT +` is a lexer token listed in the `literal` rule — then throws at run time, because `VisitVsLiteralCore` has no FILENUMBER branch and falls into `throw new… | ExpressionExecutor.cs |
-| `$` | **Dies** | There is NO literal form for `$` at all (a String literal carries no suffix), so every occurrence is an identifier or function type hint and every one throws. Measured: `Debug.Print s$` ->… | VB6BuiltIns.Strings.cs |
 | `,` | **Dies** | The 14-column print-zone comma is grammar-level only: `outputList : outputList_Expression (WS? (SEMICOLON \| COMMA) WS? outputList_Expression?)* \| outputList_Expression? (WS? (SEMICOLON \|… | StatementExecutor.cs |
 | `:= (named argument)` | **Dies** | throws `"Assign is not implemented"` — `implicitCallStmt_InStmt WS? ASSIGN WS? valueStmt # vsAssign` with `ASSIGN : ':='` — then throws at run time: `public override Task<object?>… | ExpressionExecutor.cs |
 | `;` | **Dies** | The suppress-newline / adjacent-item semicolon is in `outputList` (Grammar/VB6.g4) and nothing consumes it - probed `Print #1, "a"; "b"` -> NotImplementedException "Print not implemented". | StatementExecutor.cs |
@@ -359,7 +462,7 @@ most of the in-box object model.
 | `LOF` | **Dies** | fails at name resolution: unregistered. Probed `Debug.Print LOF(1)` -> VBSubOrFunctionNotDefinedException: "Compile error: Sub or Function not defined (LOF)". docs/interpreter-gaps.md:83. | ExpressionExecutor.cs |
 | `LSet` | **Dies** | throws `"Lset not implemented"` — The grammar has the rule — `lsetStmt : LSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt` (VB6.g4), reachable from blockStmt (VB6.g4) — but the… | StatementExecutor.cs, VB6.g4 |
 | `Mac` | **Dies** | Not defined anywhere in the interpreter. Reachable only from #If, which throws first - measured with '#If Win32 Then ... #ElseIf Mac Then ... #End If': VBCompileErrorException 'Conditional… | PrePass.cs |
-| `Mid$` | **Dies** | `Mid$` lexes as MID + DOLLAR, and DOLLAR is a `typeHint` (VB6.g4) which `iCS_S_ProcedureOrArrayCall` accepts (VB6.g4). The letStmt handler rejects it BEFORE reaching the Mid-statement… | StatementExecutor.cs |
+| `Mid$` | **Dies** | **Tracked by [#742](https://github.com/hexide-io/HexIDE/issues/742).** — `Mid$` lexes as MID + DOLLAR, and DOLLAR is a `typeHint` (VB6.g4) which `iCS_S_ProcedureOrArrayCall` accepts (VB6.g4). The letStmt handler rejects it BEFORE reaching the Mid-statement… | StatementExecutor.cs |
 | `MidB` | **Dies** | Not registered (VB6BuiltIns.cs); no occurrence of "MidB" under IDE/HexIDE.Runtime. `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not defined (MidB)". | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `MIRR` | **Dies** | Unregistered in BuildRegistry (VB6BuiltIns.cs); ExpressionExecutor.cs throws "Compile error:\n\nSub or Function not defined (MIRR)". Named in the deferral list at… | VB6BuiltIns.cs |
 | `MkDir` | **Dies** | `mkdirStmt : MKDIR WS valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `MkDir "zdir"` -> NotImplementedException: "Mkdir not implemented". | StatementExecutor.cs |
@@ -458,14 +561,18 @@ most of the in-box object model.
 
 ## Full inventory by category
 
-Every name, including the ones that work. Sorted within each table by F5 impact — Won't load, Dies,
-Partial, No-op, Supported — because a reader of a coverage document is looking for what is missing.
+Every name, including the ones that work. Sorted within each table by F5 impact — Silently wrong, Won't
+load, Dies, Partial, No-op, Supported — because a reader of a coverage document is looking for what is
+missing.
 
 
-### Statements — 105 names (46 absent, 33 partial, 26 supported)
+### Statements — 105 names (48 absent, 29 partial, 28 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
+| `On Error Resume Next` | Supported | **#839:** a block statement whose condition or header raises goes on into the block, as VB6 does: `If k Then` runs the Then branch, `ElseIf k` its branch, a one-line `If k` its Then part, and `Do While k`, `Do Until k` and `While k` run their bodies, asking again each time round, where the whole statement was skipped (measured by #840 and #839, native and in the IDE). Where native code and p-code differ, for a Select Case selector and a For loop's start, limit or step, HexIDE follows p-code, which is how the IDE runs a program. On Error GoTo with Resume Next in the handler still resumes after the whole top-level statement (see `Resume Next`) — Sets errorMode = ErrorMode.ResumeNext, trapped per statement in every nested block (VisitBlock) and at the top-level pc driver. | StatementExecutor.cs |
+| `Function` | **Won't load** | **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)).** `Function GetName$()` -> "extraneous input '$' expecting {':', '(', NEWLINE, WS}", and the whole module with it; `Function Twice%(ByVal x As Integer)` the same with `%`. VB6 compiles a `$`-declared Function (oracle TR_01, TR_02, TB_01); no oracle row covers a `Function` declared with `% & ! # @`. VB6.g4's `functionStmt` has no `typeHint?` after the name, though `propertyGetStmt` in the same file has one and the LSP server's grammar has it on both; `GrammarParityTests` compares rule inventories, not alternatives, so it does not see the gap. Otherwise as before — PrePass.VisitFunctionStmt registers a ProcedureInfo (name, params, return type, body, IsPrivate). The return is by assignment to the procedure's own name; an unassigned return yields the… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
+| `Function...End Function` | **Won't load** | **Won't load with a type character ([#740](https://github.com/hexide-io/HexIDE/issues/740)); see `Function`.** The production quoted below has no `typeHint?` after the name, so `Function GetName$()` does not parse. Otherwise as before — The whole construct - `(visibility WS)? (STATIC WS)? FUNCTION WS name (argList)? (asTypeClause)? ... END_FUNCTION` - is collected by PrePass.VisitFunctionStmt and executed by… | VB6.g4, PrePass.cs, BasicInterpreter.cs |
 | `Time` | **Dies** | **Fixed by #191** — was Silently wrong: it ran, did nothing and let the program continue. Now raises, naming the intrinsic | StatementExecutor.cs |
 | `AppActivate` | **Dies** | throws `"AppActivate not implemented"` — Grammar rule `appActivateStmt : APPACTIVATE WS valueStmt (WS? COMMA WS? valueStmt)?` (VB6.g4); the visitor body is a single throw:… | StatementExecutor.cs |
 | `Close` | **Dies** | `closeStmt : CLOSE (WS valueStmt (WS? COMMA WS? valueStmt)*)?` (Grammar/VB6.g4) and a visitor exists, but its whole body is the throw. Probed both `Close #1` and bare `Close` ->… | StatementExecutor.cs |
@@ -492,7 +599,7 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `Line Input #` | **Dies** | `lineInputStmt : LINE_INPUT WS valueStmt WS? COMMA WS? valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Line Input #1, s` -> NotImplementedException: "LineInput not… | StatementExecutor.cs |
 | `Lock` | **Dies** | `lockStmt : LOCK WS valueStmt (WS? COMMA WS? valueStmt (WS TO WS valueStmt)?)?` (Grammar/VB6.g4); the visitor body is the throw. Probed `Lock #1, 1 To 2` -> NotImplementedException: "Lock… | StatementExecutor.cs |
 | `LSet` | **Dies** | throws `"Lset not implemented"` — The grammar has the rule — `lsetStmt : LSET WS implicitCallStmt_InStmt WS? EQ WS? valueStmt` (VB6.g4), reachable from blockStmt (VB6.g4) — but the… | StatementExecutor.cs, VB6.g4 |
-| `Mid$` | **Dies** | `Mid$` lexes as MID + DOLLAR, and DOLLAR is a `typeHint` (VB6.g4) which `iCS_S_ProcedureOrArrayCall` accepts (VB6.g4). The letStmt handler rejects it BEFORE reaching the Mid-statement… | StatementExecutor.cs |
+| `Mid$` | **Dies** | **Tracked by [#742](https://github.com/hexide-io/HexIDE/issues/742).** — `Mid$` lexes as MID + DOLLAR, and DOLLAR is a `typeHint` (VB6.g4) which `iCS_S_ProcedureOrArrayCall` accepts (VB6.g4). The letStmt handler rejects it BEFORE reaching the Mid-statement… | StatementExecutor.cs |
 | `MkDir` | **Dies** | `mkdirStmt : MKDIR WS valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `MkDir "zdir"` -> NotImplementedException: "Mkdir not implemented". | StatementExecutor.cs |
 | `Name` | **Dies** | `nameStmt : NAME WS valueStmt WS AS WS valueStmt` (Grammar/VB6.g4); the visitor body is the throw. Probed `Name "a.txt" As "b.txt"` -> NotImplementedException: "Name not implemented". | StatementExecutor.cs |
 | `On...GoSub` | **Dies** | throws `"OnGoSub not implemented"` — (onGoSubStmt, VB6.g4) and throws at run time. Verbatim: Measured: `On i GoSub L1` -> NotImplementedException: OnGoSub not implemented. | StatementExecutor.cs |
@@ -516,16 +623,13 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `Resume line` | Partial | `resumeStmt : RESUME (WS (NEXT \| ambiguousIdentifier))?` (VB6.g4). An identifier target becomes ResumeSignal(ResumeKind.Label) and the driver does `ResolveLabel(labels, r.Label!)`… | StatementExecutor.cs |
 | `ChDir` | Partial | Implemented and oracle-pinned. VisitChDirStmt evaluates the argument, coerces to string, assigns Environment.CurrentDirectory, and maps… | StatementExecutor.cs |
 | `Const` | Partial | Module-level names are hoisted by PrePass (so a Sub declared before the Const can still see it) and filled by the runtime visitor; local Consts inside a Sub work; multiple per line work… | StatementExecutor.cs, PrePass.cs |
-| `Dim` | Partial | Dim is treated as a DECLARATION, not an executable statement: HoistDeclaredLocals allocates every local a procedure declares before the body runs, in declaration order, and DeclareLocal is… | StatementExecutor.cs, PrePass.cs |
-| `Do...Loop` | Partial | **#839:** a condition is read as `CBool` reads it, with Null and Empty False, and one that raises under On Error Resume Next runs a pre-tested loop's body and ends a post-tested loop, as VB6 does — All three shapes implemented - bare `Do/Loop` (VisitDoBlockLoop, :430), pre-tested `Do While\|Until ... Loop` (VisitDoWhileBlockLoop, :483), post-tested `Do ... Loop While\|Until`… | StatementExecutor.cs |
+| `Dim` | Partial | **`Dim n$` throws** "DIM type hints not implemented" ([#742](https://github.com/hexide-io/HexIDE/issues/742)). — Dim is treated as a DECLARATION, not an executable statement: HoistDeclaredLocals allocates every local a procedure declares before the body runs, in declaration order, and DeclareLocal is… | StatementExecutor.cs, PrePass.cs |
 | `Enum` | Partial | **Improved** — a member's value is now a constant EXPRESSION, not a decimal literal: `&H80000005` (-2147483643, the high bit making it a negative Long), `&O17`, negatives, `xFirst + 1`, `2 ^ 3` and bit-ors of earlier members all work, and `/` is real division coerced to Long by rounding half to even. Evaluated in a single forward walk, which is measured rather than convenient — VB6 refuses a forward reference with "Constant expression required". Members are now READ-ONLY: `pTwo = 5` was silently accepted and is now refused, as VB6 refuses it. **Also fixed**: module scope (Public/Private honoured, two modules exporting one Public Enum name refused at load, a member name two enums share is "Ambiguous name detected" at the bare use), the three-part `Module1.MyEnum.Member` form, the PROJECT qualifier (`Project1.MyEnum.Foo`), and a zero-member enum is refused. Note `Module1.MyEnum` is NOT a type name in VB6 - an enum's identity is project-scoped - so only `Project1.MyEnum` qualifies in type position | PrePass.cs |
 | `Enum...End Enum` | Partial | The whole construct is handled by PrePass.VisitEnumerationStmt — see the `Enum` row. Addressing: bare `Value`, `Enum.Value` and `Module1.Value` all resolve; `Module1.Enum.Value` and the library-qualified `VBRUN.AlignConstants.vbAlignBottom` do not yet, though both are measured legal. Two enums sharing a member name silently return the last one where VB6 says "Ambiguous name detected" | PrePass.cs |
 | `Erase` | Partial | VisitEraseStmt implements the oracle-verified split: a DYNAMIC array is freed (arr.Free(), so a later LBound/UBound/index raises Err 9) and a FIXED array keeps its bounds with every element… | StatementExecutor.cs |
 | `Event` | Partial | PrePass.VisitEventStmt records the event NAME only. Dispatch is by handler name - RaiseEvent walks the source object's sinks and calls `{sinkVarName}_{eventName}` on each listener… | PrePass.cs, StatementExecutor.cs |
 | `For Each...Next` | Partial | **#839:** an unallocated array raises 92, Nothing 424 and any other non-object 13 (measured), where they ran no passes or raised a trappable 13; an object is refused as not implemented. Under On Error Resume Next the body runs once and Next raises 92, as VB6's does — VisitForEachStmt iterates array elements in VBArray order (first subscript fastest - ForEachTests.TwoDimensional_FirstSubscriptFastest), auto-declares the loop variable if absent, and binds… | StatementExecutor.cs |
-| `For...Next` | Partial | **#839:** a start, limit or step that raises under On Error Resume Next runs the body once and carries on as p-code and the IDE do (measured); a fractional one is refused as not implemented, where it raised a trappable 13. A change the body makes to the counter is still ignored (#841) — VisitForNextStmt implements VB6's `<=`/`>=` termination test (not equality), leaves the counter one step past the limit, and picks Integer vs Double for the counter by magnitude - all… | StatementExecutor.cs |
-| `Function` | Partial | PrePass.VisitFunctionStmt registers a ProcedureInfo (name, params, return type, body, IsPrivate). The return is by assignment to the procedure's own name; an unassigned return yields the… | PrePass.cs, BasicInterpreter.cs |
-| `Function...End Function` | Partial | The whole construct - `(visibility WS)? (STATIC WS)? FUNCTION WS name (argList)? (asTypeClause)? ... END_FUNCTION` - is collected by PrePass.VisitFunctionStmt and executed by… | PrePass.cs, BasicInterpreter.cs |
+| `For...Next` | Partial | **#839:** a start, limit or step that raises under On Error Resume Next runs the body once and carries on as p-code and the IDE do (measured); a fractional one is refused as not implemented, where it raised a trappable 13. A change the body makes to the counter is still ignored (#841). **A type character on the counter ([#739](https://github.com/hexide-io/HexIDE/issues/739), [#742](https://github.com/hexide-io/HexIDE/issues/742)).** With `Dim i As Integer`, `For i% = 1 To 2` runs the loop on a second variable named `i%` and leaves `i` at 0, with no error, with or without `Option Explicit`, where VB6 leaves it at 3 with or without `Option Explicit` (oracle: the 2026-10-11 entry "A type character on a name the program also declares", its section "An assignment through a type character reaches the declared variable, for every character", where the counter was measured in a local); `Next i%` throws "TypeHints not implemented". **Kept Partial on purpose:** the silent counter is the type character's defect, and is counted under the `%` row (Silently wrong), not here. That is unlike `Function`, which is rated by its type-character case because its own grammar rule refuses the character; this rule accepts it, and the counter is then named the way an assignment target is. — VisitForNextStmt implements VB6's `<=`/`>=` termination test (not equality), leaves the counter one step past the limit, and picks Integer vs Double for the counter by magnitude - all… | StatementExecutor.cs |
 | `GoTo` | Partial | VisitGoToStmt throws a private GoToSignal that unwinds to ExecuteProcedureBody, which repositions the program counter (StatementExecutor.cs). Only TOP-LEVEL statements of the procedure body… | StatementExecutor.cs |
 | `Implements` | Partial | Fully modelled and oracle-measured: PrePass collects the claimed interface names; VbInterface.VerifyConformance runs at FIRST INSTANTIATION (memoised per class) and raises VB6's own… | VbInterface.cs, BasicInterpreter.cs, StatementExecutor.cs |
 | `Let` | Partial | **Still current, but narrower than it reads:** #184 folded READ-path chains; this restriction is now write-path only. — Both forms work - the grammar is `(LET WS)? implicitCallStmt_InStmt ... EQ ... valueStmt`, and the explicit keyword is measured working (`Let x = 3` prints 3). VisitLetStmt covers plain… | StatementExecutor.cs |
@@ -544,11 +648,11 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `Type` | Partial | PrePass.VisitTypeStmt builds a UdtTypeDef of scalar fields plus nested-type names resolved at instantiation. Scalar fields, untyped (Variant) fields and nested UDT fields work (measured:… | PrePass.cs **Module scope now honoured**: a UDT's identity is module-scoped, so two modules may each own a `Public Type` of one name, `Module2.Point` names one specifically and overrides a local declaration, `Private` is invisible from elsewhere even when qualified, and two foreign Publics raise "Ambiguous name detected" (#180) |
 | `Type...End Type` | Partial | The whole construct is handled by PrePass.VisitTypeStmt - see the `Type` row. Works: scalar fields, untyped (Variant) fields, nested UDT fields at any depth, arrays OF a UDT, cross-module… | PrePass.cs, VbUdt.cs **Module scope now honoured**: a UDT's identity is module-scoped, so two modules may each own a `Public Type` of one name, `Module2.Point` names one specifically and overrides a local declaration, `Private` is invisible from elsewhere even when qualified, and two foreign Publics raise "Ambiguous name detected" (#180) |
 | `Unload` | Partial | Implemented for control arrays ONLY. VisitUnloadStmt carries the comment "Only control-array element unloading is modelled (Unload Command1(i)); a bare form Unload isn't." Anything else… | StatementExecutor.cs |
-| `While...Wend` | Partial | **#839:** the condition is read by VB6's rule, and one that raises under On Error Resume Next runs the body — VisitWhileWendStmt is a pre-tested loop; the comment records the design correctly: "VB6 has no `Exit While`/`Continue While`, so any non-Nothing control flow (Exit Sub/Function/Property)… | StatementExecutor.cs |
 | `With...End With` | Partial | **#839:** a target that raises under On Error Resume Next runs the body with no object, so each member raises 91 — **Superseded by #184:** object member chains now FOLD on the read path, so `a.Inner.V` works. The single-dot restriction described below survives only on the WRITE path (`obj.a.b = x`, `Set obj.a.b = o`). — Per-activation withTargets stack, pushed in VisitWithStmt and popped in a finally; nesting resolves innermost-first and a leading dot with no active With raises Error 91 (WithTests:… | StatementExecutor.cs |
 | `Beep` | Supported | Really implemented, not a no-op. VisitBeepStmt guards the platform then calls Console.Beep(): `if (OperatingSystem.IsWindows() \|\| OperatingSystem.IsLinux() \|\| OperatingSystem.IsMacOS())… | StatementExecutor.cs |
 | `Call` | Supported | Two forms, both implemented: VisitECS_ProcedureCall for `Call Foo(a, b)` (StatementExecutor.cs) and VisitECS_MemberProcedureCall for `Call Module1.Foo(...)` / `Call obj.Method(...)` (:590)… | StatementExecutor.cs |
 | `ChDrive` | Supported | Implemented and oracle-pinned. VisitChDriveStmt string-coerces the argument, takes the FIRST character, no-ops on an empty string, raises InvalidProcedureCall (5) for a non-A-Z first char… | StatementExecutor.cs |
+| `Do...Loop` | Supported | **#839:** a condition that raises under On Error Resume Next runs a pre-tested loop's body, asking again each time round, and ends a post-tested loop, as VB6 does (measured). **#847:** each condition is read as `CBool` reads it, with Null False (measured), where the loops took only a Boolean, an Integer, a Byte, an integral string or Null and raised 13 for anything else, a Long, a Double and Empty included; the condition was the only restriction; `Do While Err` reads Err's Number (#840, measured) — All three shapes implemented - bare `Do/Loop` (VisitDoBlockLoop, :430), pre-tested `Do While\|Until ... Loop` (VisitDoWhileBlockLoop, :483), post-tested `Do ... Loop While\|Until`… | StatementExecutor.cs |
 | `End Enum` | Supported | END_ENUM is a single lexer token closing the `enumerationStmt` rule (`(publicPrivateVisibility WS)? ENUM WS ambiguousIdentifier NEWLINE + (enumerationStmt_Constant)* END_ENUM`)… | VB6.g4 |
 | `End Function` | Supported | END_FUNCTION is a single lexer token closing the `functionStmt` rule; PrePass.VisitFunctionStmt consumes the whole construct and the terminator carries no separate behaviour. Exercised by… | VB6.g4 |
 | `End Property` | Supported | END_PROPERTY is a single lexer token closing all three of propertyGetStmt, propertyLetStmt and propertySetStmt; the terminator carries no separate behaviour. Exercised by every Property… | VB6.g4 |
@@ -561,16 +665,16 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `Exit Function` | Supported | Returns ControlFlow.ExitFunction; ExecuteProcedureBody returns on any non-Nothing ControlFlow (`if (await Visit(stmts[pc]) != ControlFlow.Nothing) return;`), leaving the return value… | StatementExecutor.cs |
 | `Exit Property` | Supported | Returns ControlFlow.ExitProperty (StatementExecutor.cs), which ExecuteProcedureBody treats like every other Exit. Property Get/Let/Set bodies run through the same driver… | StatementExecutor.cs |
 | `Exit Sub` | Supported | Returns ControlFlow.ExitSub (StatementExecutor.cs). Used throughout ErrorHandlingGoToTests to skip past the handler label, which is the canonical VB6 idiom and is confirmed working. | StatementExecutor.cs |
-| `If...Then...Else (block form)` | Supported | VisitBlockIfThenElse handles If / ElseIf* / Else / End If with first-match semantics. **#839:** a condition is read by VB6's rule (ConditionMet, measured): as `CBool` reads it, with Null and Empty False, so `If 5 Then` holds where it raised "IF doesn't contain a bool expression". Under On Error Resume Next a condition that raises enters its own branch, as VB6 does. | StatementExecutor.cs |
-| `If...Then...Else (single-line form)` | Supported | VisitInlineIfThenElse runs the whole colon-joined Then tail on true and the Else tail on false. **#839:** the condition is read as the block form reads it (ConditionMet), where it accepted a Boolean only; under On Error Resume Next a condition that raises runs the Then part. | StatementExecutor.cs |
+| `If...Then...Else (block form)` | Supported | VisitBlockIfThenElse handles If / ElseIf* / Else / End If with first-match semantics. **#847:** a condition is read as `CBool` reads it, with Null and Empty False (ConditionHolds, measured for every form, native and in the IDE), so `If Len(s) Then` and `If x And 4 Then` hold, and an object is read as an operand is, so `If Err Then` reads Err's Number (#840, measured). They raised "IF doesn't contain a bool expression", an error numbered 0, so under On Error Resume Next the body was skipped with nothing in Err. **#839:** under On Error Resume Next a condition that raises enters its own branch, the Then or the ElseIf it was testing, as VB6 does (measured), where the whole statement was skipped. | StatementExecutor.cs |
+| `If...Then...Else (single-line form)` | Supported | VisitInlineIfThenElse runs the whole colon-joined Then tail on true and the Else tail on false. **#847:** the condition is read as the block form reads it, where it accepted a Boolean only and raised 13 for anything else. **#839:** under On Error Resume Next a condition that raises runs the Then part, as VB6 does (measured). | StatementExecutor.cs |
 | `On Error GoTo 0` | Supported | VisitOnErrorStmt compares the target's source text: `if (target == "0") { errorMode = ErrorMode.None; handlerLabel = null; }`. Tested twice -… | StatementExecutor.cs |
-| `On Error Resume Next` | Supported | **#839:** a block statement whose condition or header raises goes on into the block, as VB6 does. On Error GoTo with Resume Next in the handler still resumes after the whole top-level statement (see `Resume Next`) — Sets errorMode = ErrorMode.ResumeNext. Trapped at two levels: per-statement inside every nested block (VisitBlock, StatementExecutor.cs) and at the top-level pc driver (:1901); both call… | StatementExecutor.cs |
 | `On Local Error` | Supported | The lexer emits a single ON_LOCAL_ERROR token accepted in the same production as ON_ERROR (VB6.g4), and VisitOnErrorStmt branches only on RESUME vs GOTO, so both spellings behave… | StatementExecutor.cs |
 | `RaiseEvent` | Supported | VisitRaiseEventStmt resolves Me to the source VbObject, evaluates the args ONCE with Locations so ByRef params alias the raiser's locals and multicast sinks share writes, snapshots… | StatementExecutor.cs |
 | `Randomize` | Supported | VisitRandomizeStmt evaluates the optional seed and calls interpreter.BuiltIns.Reseed(seed); Reseed sets the 24-bit LCG state Rnd consumes: `long bits = number is { } n ?… | StatementExecutor.cs |
 | `Stop` | Supported | VisitStopStmt: with a DebugController attached it calls EnterBreakFromStopStatementAsync (IDE break mode, like a breakpoint on that line); headless it throws Debugging.StopExecutionSignal… | StatementExecutor.cs |
 | `Sub` | Supported | PrePass.VisitSubStmt registers a ProcedureInfo with IsFunction false. Bare call (`Foo 1, 2`), `Call Foo(1, 2)`, cross-module resolution and instance-method dispatch all route through… | PrePass.cs, BasicInterpreter.cs |
 | `Sub...End Sub` | Supported | The whole construct - `(visibility WS)? (STATIC WS)? SUB WS name (argList)? ... END_SUB` - is collected by PrePass.VisitSubStmt and executed by BasicInterpreter.RunProcedure, shared with… | PrePass.cs, BasicInterpreter.cs |
+| `While...Wend` | Supported | **#839:** a condition that raises under On Error Resume Next runs the body, asking again each time round, as VB6 does (measured). **#882:** a bare member call in the body (`Debug.Print`, `Err.Clear`, `k.Bump`, `k.Add 10`, anywhere in the body) is one statement, where it was parsed as a call of the object followed by a With member call and stopped with "Sub or Function not defined" (measured, native and in the IDE). A `Call` statement and a `With` block start with a keyword, and ran before too. **#847:** each condition is read as `CBool` reads it, with Null False (measured), where the loops took only a Boolean, an Integer, a Byte, an integral string or Null and raised 13 for anything else, a Long, a Double and Empty included; the condition was the only restriction — VisitWhileWendStmt is a pre-tested loop; the comment records the design correctly: "VB6 has no `Exit While`/`Continue While`, so any non-Nothing control flow (Exit Sub/Function/Property)… | StatementExecutor.cs |
 
 ### Operators — 32 names (3 absent, 18 partial, 11 supported)
 
@@ -579,7 +683,7 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `! (dictionary access)` | **Dies** | throws `"dictionaryCallStmt is not supported"` — The grammar yields the pair (`dictionaryCallStmt : EXCLAMATIONMARK ambiguousIdentifier typeHint?`) but every consuming site throws. Measured on a… | ExpressionExecutor.cs |
 | `AddressOf` | **Dies** | throws `"ADDRESSOF is not implemented"` — (`ADDRESSOF WS valueStmt # vsAddressOf`) then throws at run time: `public override Task<object?> VisitVsAddressOf(VB6Parser.VsAddressOfContext… | ExpressionExecutor.cs |
 | `Like` | **Dies** | throws `"Like is not implemented"` — (`valueStmt WS LIKE WS valueStmt # vsLike`) then throws: `public override Task<object?> VisitVsLike(VB6Parser.VsLikeContext context) => Measured… | ExpressionExecutor.cs |
-| `& (string concatenation)` | Partial | `VisitVsAmp`: both Null -> Null; a single Null or Empty concatenates as "" — "Null and Empty both concatenate as \"\" (Empty.Value is null, so the old code NPE'd on it)"; otherwise… | ExpressionExecutor.cs |
+| `& (string concatenation)` | Partial | A class instance or an in-box object as an operand raises 438, or is refused naming #174 for a class with a default member, or stands for Err's Number, where it gave the CLR type name (#436, measured). **A control still gives its .NET type name** (`"v=" & Text1`, #790). `VisitVsAmp`: both Null -> Null; a single Null or Empty concatenates as "" — "Null and Empty both concatenate as \"\" (Empty.Value is null, so the old code NPE'd on it)"; otherwise… | ExpressionExecutor.cs |
 | `* (multiplication)` | Partial | `VisitVsMult` -> `VbNumeric.Mul` -> `Arith(l, r, ctx, '*')`, with the measured VB6 result-type ladder (Byte < Integer < Long < Single < Currency < Decimal < Double), Currency/Decimal… | ExpressionExecutor.cs |
 | `+ (addition)` | Partial | `VisitVsAdd`: Null on either side -> Null; String + String concatenates (`// VB6: String + String concatenates`); otherwise `VbNumeric.Add`, which special-cases Date — "Date + anything ->… | ExpressionExecutor.cs |
 | `+ (string concatenation)` | Partial | String + String concatenates: `if (leftValue.Type == Vb6Value.ValueType.String && rightValue.Type == Vb6Value.ValueType.String) return new Vb6Value((string)leftValue.Value! +… | ExpressionExecutor.cs |
@@ -598,7 +702,7 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `^ (exponentiation)` | Partial | `VisitVsPow` -> `VbNumeric.Power`, with the measured error split recorded in the source: "`^` distinguishes a DOMAIN error from an overflow, and the two get different numbers (measured): 0… | ExpressionExecutor.cs |
 | `Mod` | Partial | `VisitVsMod` -> `VbNumeric.Modulo`; operands are rounded to integers before the operation. Null on either side -> Null. Measured `7 Mod 2` = 1 Integer, `-7 Mod 2` = -1, `7.6 Mod 2` = 0… | ExpressionExecutor.cs |
 | `. (With-block leading dot)` | Supported | **Superseded by #184:** object member chains now FOLD on the read path, so `a.Inner.V` works. The single-dot restriction described below survives only on the WRITE path (`obj.a.b = x`, `Set obj.a.b = o`). — `VisitWithStmt` evaluates the target and pushes it on this activation's `withTargets`, popping in a `finally`; a member call with no leading part resolves against `withTargets.Peek()`, and… | StatementExecutor.cs |
-| `= (assignment)` | Supported | `VisitLetStmt` covers a bare or undeclared variable (VB6 creates it on first use unless Option Explicit — "VB6 creates an undeclared variable on first use — a procedure-local Variant… A Let of a control or an in-box object (`s = Text1`, `n = Err`) stops with `NotImplementedException` naming #790: VB6 reads its default member there, which HexIDE lacks, and storing the reference gave a wrong value. | StatementExecutor.cs |
+| `= (assignment)` | Supported | `VisitLetStmt` covers a bare or undeclared variable (VB6 creates it on first use unless Option Explicit — "VB6 creates an undeclared variable on first use — a procedure-local Variant… A Let of a control (`s = Text1`) stops with `NotImplementedException` naming #790: VB6 reads its default member there, which HexIDE lacks for controls, and storing the reference gave a wrong value. **#840:** an in-box object is settled by what it stands for, measured: `n = Err` stores Err.Number, `s = App` raises 438 (VB6 also empties a Variant `v` in `v = App` first, measured, which HexIDE does not do yet: [#878](https://github.com/hexide-io/HexIDE/issues/878)), and a class instance is refused naming #174 or raises 438 (ObjectAsValue). | StatementExecutor.cs |
 | `And` | Supported | Implemented over the oracle-measured `VbBitwise` ladder rather than by coercing to a common type: "Bitwise operators do not coerce to a common type; they reduce each operand to bits… | ExpressionExecutor.cs |
 | `Eqv` | Supported | `VisitVsEqv` takes the RAW pair ("raw — see VisitVsAnd"), returns Null when either side is Null, then applies `~(a ^ b)` through the same `VbBitwise` ladder. Measured `(True Eqv True)` ->… | ExpressionExecutor.cs |
 | `Imp` | Supported | `VisitVsImp` applies `~a \| b` through the `VbBitwise` ladder, with VB6's three-valued Null table written out explicitly: both Null -> Null; Null Imp True -> True; Null Imp False -> Null… | ExpressionExecutor.cs |
@@ -609,7 +713,7 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `TypeOf ... Is` | Supported | `VisitVsTypeOf`, including an explicit grammar-greediness workaround: "`TypeOf p Is Clock` parses the operand as the vsIs expression `p Is Clock` with NO Is-type clause. Recover by… | ExpressionExecutor.cs |
 | `Xor` | Supported | `VisitVsXor` — same raw-pair `VbBitwise` treatment (`static (a, b) => a ^ b`). Measured `(True Xor False)` -> Boolean True. | ExpressionExecutor.cs |
 
-### Intrinsic functions — 153 names (68 absent, 37 partial, 47 supported)
+### Intrinsic functions — 153 names (69 absent, 38 partial, 45 supported)
 
 
 **array** (3)
@@ -702,7 +806,7 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `IsEmpty` | Supported | Registered: new Vb6Value(a[0].Type == VT.EmptyVariant). Tested: IsEmpty(v)=True for an undeclared Variant, IsEmpty(0)=False (InspectionFunctionsTests.cs). Deliberately False for an omitted… | VB6BuiltIns.Inspection.cs |
 | `IsMissing` | Supported | Registered: new Vb6Value(a[0].IsMissing). True in exactly one case — an Optional parameter with neither a declared type nor a default, left out (or left blank mid-list). Comment: "True only… | VB6BuiltIns.Inspection.cs |
 | `IsNull` | Supported | Registered: new Vb6Value(a[0].Type == VT.Null). Tested: IsNull(Null)=True, IsNull(Empty)=False, IsNull(0)=False (InspectionFunctionsTests.cs), matching the oracle's "IsNull(Empty)=False". | VB6BuiltIns.Inspection.cs |
-| `IsNumeric` | Supported | **#777**: a String is read in the program's locale, as CDbl reads it. Registered; IsNumericValue reports numerics, Boolean, Empty and Color as True, Date/Null/objects/arrays as False, and strings via IsNumericString (&H/&O literals, thousands separators… | VB6BuiltIns.Inspection.cs |
+| `IsNumeric` | Supported | **#777**: a String is read in the program's locale, as CDbl reads it. Registered; IsNumericValue reports numerics, Boolean, Empty and Color as True, Date/Null/objects/arrays as False (**#840:** a class with a default member is refused naming #174, since VB6 answers about the member; one without is False with no error, measured for a class), and strings via IsNumericString (&H/&O literals, thousands separators… | VB6BuiltIns.Inspection.cs |
 | `IsObject` | Supported | Registered; IsObjectValue is True for VT.Control, VT.CSharpProxyObject, VT.Nothing and VT.Object — so IsObject(Nothing)=True as the oracle requires. Tested (False case) at… | VB6BuiltIns.Inspection.cs |
 | `VarType` | Supported | **Fixed by #193** — returned an Integer, VB6 returns Long. Registered: new Vb6Value((long)TypeInfo(a[0]).code). Full VbVarType map at VB6BuiltIns.Inspection.cs (vbEmpty 0, vbNull 1, vbInteger 2, vbLong 3, vbSingle 4, vbDouble 5… | VB6BuiltIns.Inspection.cs |
 
@@ -785,7 +889,7 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `StrConv` | **Dies** | Not registered (VB6BuiltIns.cs; no occurrence of "StrConv" under IDE/HexIDE.Runtime, nor in VbSignatures.cs). `throw new VBSubOrFunctionNotDefinedException(name)` — "Sub or Function not… | ExpressionExecutor.cs, VB6BuiltIns.cs |
 | `Asc` | Partial | Registered as `d["Asc"] = (_, a, _) => Asc(a[0]);`. The helper returns `new Vb6Value((int)s[0])` — the first UTF-16 code unit, i.e. AscW semantics, not an ANSI-codepage byte. Null… | VB6BuiltIns.Strings.cs |
 | `Chr` | Partial | Registered as `d["Chr"] = (_, a, _) => new Vb6Value(((char)AsInt(a[0])).ToString());`. Restriction: the argument is cast straight to a UTF-16 char with no range validation and no ANSI code… | VB6BuiltIns.Strings.cs |
-| `Filter` | Partial | Registered as `d["Filter"] = (_, a, _) => Filter(a);`. Handles Filter(array, match, [include=True], [compare]) and returns a 0-based Variant array; no matches yields bounds (0,-1). The file… | VB6BuiltIns.Array.cs |
+| `Filter` | Partial | **#840, measured:** the result is always a String array; the arguments convert right to left, each object read only as its turn comes, so a Null match, switch or compare is 94 even for an array never allocated, and ahead of the array check, and `Filter(d, k, "x")` is the switch's 13, not k's 438; the switch reads as `CBool` does, and Err as its Number; the compare reads as `CLng` does (Nothing 91, 3E+10 6), 0 is binary and 1 text, 2 and negatives are 5, and 3 and above, consistent with a Windows locale identifier to VB6, are refused ([#881](https://github.com/hexide-io/HexIDE/issues/881)); every element converts before any is compared (Null 94, Nothing 91, an array 13), and the compare is checked only when an element is compared with the match, so an array with no element gives an unallocated String array, and an empty match keeps every element, even with a compare of 2 or 3000; a Nothing match is 91; anything else that is not an array is 13. **An allocated Long array still gives a value where VB6 raises 13, and a 2-D one a trappable 9 ([#875](https://github.com/hexide-io/HexIDE/issues/875)).** — Registered as `d["Filter"] = (_, a, _) => Filter(a);`. Handles Filter(array, match, [include=True], [compare]) and returns a 0-based String array; no matches yields bounds (0,-1). The file… | VB6BuiltIns.Array.cs |
 | `InStr` | Partial | Registered as `d["InStr"] = (_, a, _) => InStr(a);`. Supports InStr([start,] string1, string2[, compare]) with 1-based results, Null propagation, start<1 raising Err 5, and start past the… | VB6BuiltIns.Strings.cs |
 | `InStrRev` | Partial | Registered as `d["InStrRev"] = (_, a, _) => InStrRev(a);`. Supports InStrRev(string1, string2[, start[, compare]]) with Null propagation and a default start of -1. Restrictions: (i)… | VB6BuiltIns.Strings.cs |
 | `LCase` | Partial | Registered as `d["LCase"] = (_, a, _) => NullOrStr(a[0], s => s.ToLowerInvariant());`. Null propagates to Null. Restriction: casing is INVARIANT, not the current locale, so locale-specific… | VB6BuiltIns.Strings.cs |
@@ -797,7 +901,7 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `String` | Partial | Registered as `d["String"] = (_, a, _) => new Vb6Value(new string(CharArg(a[1]), Math.Max(0, AsInt(a[0]))));`. Both argument forms work — String(n, "*") and String(n, 65) — via `CharArg`… | VB6BuiltIns.Strings.cs |
 | `UCase` | Partial | Registered as `d["UCase"] = (_, a, _) => NullOrStr(a[0], s => s.ToUpperInvariant());`. Null propagates — asserted by StringFunctionsTests.cs NullArgument_Propagates. Restriction: casing is… | VB6BuiltIns.Strings.cs |
 | `Format` | Supported | **#777**: the named formats, the date and number tokens, the separators and `>`/`<` casing come from the program's locale (`VbLocale`), not the thread's culture. **No-mask fixed by #772/#771** — `Format(x)` with no mask writes what CStr writes for a Single, Double or Date (measured); it used the decimal engine and `DateTime.ToString`. Registered as `d["Format"] = (_, a, _) => FormatValue(a);`. Covers the named numeric formats (General Number / Fixed / Standard / Percent / Scientific / Currency), the named date/time… | VB6BuiltIns.Format.cs |
-| `Join` | Supported | Registered as `d["Join"] = (_, a, _) => Join(a);`. Join(array, [delimiter]) with the VB6 default delimiter of a single SPACE (not a comma); the file header states this was pinned against… | VB6BuiltIns.Array.cs |
+| `Join` | Partial | **#840, measured:** an array with no element (never allocated, erased, or 0 To -1) joins to `""` without reading the delimiter; otherwise a Null delimiter is 94 and a Nothing one 91, even for one element; each element converts as a store into a String does (Null 94, Nothing 91, an array 13); anything that is not an array is 13. **Re-rated from Supported: an allocated Long array still joins where VB6 raises 5, and a 2-D one raises a trappable 9 ([#875](https://github.com/hexide-io/HexIDE/issues/875)).** — Registered as `d["Join"] = (_, a, _) => Join(a);`. Join(array, [delimiter]) with the VB6 default delimiter of a single SPACE (not a comma); the file header states this was pinned against… | VB6BuiltIns.Array.cs |
 | `Left` | Supported | Registered as `d["Left"] = (_, a, _) => NullOrStr(a[0], s => Left(s, AsInt(a[1])));`. Null propagates; n<0 raises Err 5 (`if (n < 0) throw InvalidCall();`); n beyond the length returns the… | VB6BuiltIns.Strings.cs |
 | `LTrim` | Supported | Registered as `d["LTrim"] = (_, a, _) => NullOrStr(a[0], s => s.TrimStart(' '));`. Trims only U+0020 (VB6's space-only trim, not .NET's default whitespace set); Null propagates. Tested:… | VB6BuiltIns.Strings.cs |
 | `Right` | Supported | Registered as `d["Right"] = (_, a, _) => NullOrStr(a[0], s => Right(s, AsInt(a[1])));`. Null propagates; n<0 raises Err 5 (`if (n < 0) throw InvalidCall();`); n beyond the length returns… | VB6BuiltIns.Strings.cs |
@@ -805,7 +909,7 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `StrReverse` | Supported | Registered as `d["StrReverse"] = (_, a, _) => NullOrStr(a[0], s => { var c = s.ToCharArray(); Array.Reverse(c); return new string(c); });`. Null propagates. Tested: StringFunctionsTests.cs. | VB6BuiltIns.Strings.cs |
 | `Trim` | Supported | Registered as `d["Trim"] = (_, a, _) => NullOrStr(a[0], s => s.Trim(' '));`. Trims only U+0020 from both ends (VB6's space-only semantics, not .NET's default whitespace trim); Null… | VB6BuiltIns.Strings.cs |
 
-### Keywords and modifiers — 51 names (11 absent, 21 partial, 18 supported)
+### Keywords and modifiers — 51 names (11 absent, 19 partial, 20 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -826,9 +930,8 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `ByVal` | Partial | A ByVal parameter is copied into a fresh callee slot, narrowed to its declared type when that type is core-numeric (VbNumeric.Narrow), and UDT values are deep-copied so callee mutation… | BasicInterpreter.cs |
 | `Case` | Partial | sC_Case (VB6.g4) is iterated by VisitSelectCaseStmt; each case's sC_Cond is dispatched by context class (CaseCondElse / CaseCondExpr) and comma-separated sub-conditions are all tried… | StatementExecutor.cs |
 | `Case Is` | Partial | CaseCondExprIs branch handles LT, LEQ, GT, GEQ, EQ and NEQ. Ordering comparisons go through Vb6Value.TryCompareTo, which promotes across numeric subtypes. Measured: `Case Is > 0` matches 1. | StatementExecutor.cs |
-| `Do` | Partial | Heads all three doLoopStmt alternatives, each with a real visitor: VisitDoBlockLoop (StatementExecutor.cs), VisitDoBlockWhileLoop (:447), VisitDoWhileBlockLoop (:483). Restriction is in the… | StatementExecutor.cs |
 | `Each` | Partial | Recognised by forEachStmt (VB6.g4) and driven by VisitForEachStmt. The visitor accepts arrays only: `if (collection.Value is not VBArray array) throw new VBRunTimeException(context… | StatementExecutor.cs |
-| `For` | Partial | Heads both forNextStmt (VisitForNextStmt, StatementExecutor.cs) and forEachStmt (VisitForEachStmt, :635). For...Next is integral-only; For Each is arrays-only. Type hints and an As clause… | StatementExecutor.cs |
+| `For` | Partial | **A type character on the counter ([#739](https://github.com/hexide-io/HexIDE/issues/739), [#742](https://github.com/hexide-io/HexIDE/issues/742)).** With `Dim i As Integer`, `For i% = 1 To 2` runs the loop on a second variable named `i%` and leaves `i` at 0, with no error, with or without `Option Explicit`, where VB6 leaves it at 3 with or without `Option Explicit` (oracle: the 2026-10-11 entry "A type character on a name the program also declares", its section "An assignment through a type character reaches the declared variable, for every character", where the counter was measured in a local); `Next i%` throws "TypeHints not implemented". **Kept Partial on purpose:** the silent counter is the type character's defect, and is counted under the `%` row (Silently wrong), not here; see `For...Next`. — Heads both forNextStmt (VisitForNextStmt, StatementExecutor.cs) and forEachStmt (VisitForEachStmt, StatementExecutor.cs). For...Next is integral-only; For Each is arrays-only. Type hints and an As clause… | StatementExecutor.cs |
 | `Global` | Partial | GLOBAL is an alternative of the `visibility` rule (VB6.g4) and of `publicPrivateGlobalVisibility` (VB6.g4), so `Global x As Integer`, `Global Const K = 5` and `Global Type T` all parse. The… | PrePass.cs, VB6.g4 |
 | `In` | Partial | Only occurrence in VB6 is `For Each x In coll` (VB6.g4); the grammar consumes it and VisitForEachStmt evaluates the following valueStmt as the collection. Same arrays-only restriction as… | StatementExecutor.cs |
 | `Is (Select Case comparison prefix)` | Partial | `sC_CondExpr : IS WS? comparisonOperator WS? valueStmt # caseCondExprIs` is handled for six operators — `<`, `<=`, `>`, `>=`, `=`, `<>` — via `value.TryCompareTo(val)` /… | StatementExecutor.cs |
@@ -839,8 +942,10 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `Rem` | Faithful | Handled purely in the lexer, on the hidden channel. Takes NO separator — `Rem`, `Rem:`, `Rem=1`, `Rem'x`, `Rem"x"` and a bare `Rem` are all comments, measured against vb6.exe against a reference that says a space is required. Guarded by REMTAIL so `RemX = 5` stays an assignment. A trailing `_` extends the remark onto the next line, which is faithful (vb6.exe reports "Expected End Sub" when it swallows one). Remaining divergence: `Rem` is a STATEMENT in VB6 and so needs a separator after a preceding statement, while HexIDE accepts `x = 1 Rem foo` — a missing error, not a wrong value. | VB6.g4 |
 | `Select` | Partial | Heads selectCaseStmt with a full visitor (StatementExecutor.cs). Restriction is in the exact-match comparison - see the Select Case row: equality is type-first, so a declared-type selector… | StatementExecutor.cs |
 | `Step` | Partial | by forNextStmt (VB6.g4) and read by VisitForNextStmt; a missing Step defaults to 1. Integral values only - the visitor truncation-checks all three bounds and throws: `throw new… | StatementExecutor.cs |
-| `While` | Partial | Two roles, both implemented: as the Do modifier (`Do While` / `Loop While`, StatementExecutor.cs/:483) and as the head of While...Wend (VisitWhileWendStmt, :1612). Tests: DoLoopTests (14… | StatementExecutor.cs |
 | `With` | Partial | VisitWithStmt pushes the evaluated target onto a per-activation withTargets stack and pops it in a finally; leading-dot members resolve against the innermost entry (StatementExecutor.cs… | StatementExecutor.cs |
+| `Do` | Supported | **#847:** each condition is read as `CBool` reads it, with Null False (measured), where the loops took only a Boolean, an Integer, a Byte, an integral string or Null and raised 13 for anything else, a Long, a Double and Empty included; the condition was the only restriction — Heads all three doLoopStmt alternatives, each with a real visitor: VisitDoBlockLoop (StatementExecutor.cs), VisitDoBlockWhileLoop (:447), VisitDoWhileBlockLoop (:483). | StatementExecutor.cs |
+| `If` | Supported | Both ifThenElseStmt alternatives have visitors, VisitBlockIfThenElse and VisitInlineIfThenElse. **#847:** both read a condition as `CBool` does, with Null and Empty False, where both required a strictly Boolean one. **#839:** under On Error Resume Next a condition that raises enters the block it guards, as VB6 does (measured). | StatementExecutor.cs |
+| `While` | Supported | **#847:** each condition is read as `CBool` reads it, with Null False (measured), where the loops took only a Boolean, an Integer, a Byte, an integral string or Null and raised 13 for anything else, a Long, a Double and Empty included; the condition was the only restriction — Two roles, both implemented: as the Do modifier (`Do While` / `Loop While`, StatementExecutor.cs/:483) and as the head of While...Wend (VisitWhileWendStmt, :1612). Tests: DoLoopTests (14… | StatementExecutor.cs |
 | `Friend` | No-op | as one alternative of the `visibility` rule and then deliberately ignored - only PRIVATE is read. Verbatim comment above the check: "// A module-level procedure is Public unless explicitly… | PrePass.cs, ProcedureModel.cs |
 | `ByVal (call-site modifier)` | Supported | For a user procedure a call-site `ByVal` suppresses aliasing: `int? location = arg.BYVAL() != null ? null : TryGetArgLocation(arg.valueStmt());` — "A call-site ByVal keyword (or a… | ExpressionExecutor.cs |
 | `Case Else` | Supported | `if (cond is VB6Parser.CaseCondElseContext) return await Visit(@case.block())`. The grammar puts ELSE first in sC_Cond specifically so it is not mis-parsed as a variable call (VB6.g4… | StatementExecutor.cs |
@@ -849,7 +954,6 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `End If` | Supported | A single END_IF lexer token closing blockIfThenElse (VB6.g4); purely structural, consumed by the parser. Exercised by every block-If test. | VB6.g4 |
 | `End Select` | Supported | END_SELECT closes selectCaseStmt (VB6.g4); structural only. Exercised by StatementTests.SelectCaseTests. | VB6.g4 |
 | `End With` | Supported | END_WITH closes withStmt (VB6.g4). The withTargets pop is in a `finally`, so the target is released even if the body exits abnormally (StatementExecutor.cs). | StatementExecutor.cs |
-| `If` | Supported | Both ifThenElseStmt alternatives have visitors, VisitBlockIfThenElse and VisitInlineIfThenElse. **#839:** both read a condition by VB6's rule (ConditionMet), where both required a strictly Boolean one. | StatementExecutor.cs |
 | `Local` | Supported | Its only VB6 use is `On Local Error`. The grammar folds it into a single ON_LOCAL_ERROR token accepted alongside ON_ERROR (VB6.g4) and VisitOnErrorStmt treats the two identically. Measured… | StatementExecutor.cs |
 | `Loop` | Supported | Closes all three doLoopStmt alternatives (VB6.g4) and carries the post-test condition in the `Do ... Loop While\|Until` form (VisitDoBlockWhileLoop, StatementExecutor.cs). Measured: `Do / n… | StatementExecutor.cs |
 | `Optional` | Supported | Three cases are distinguished, all oracle-verified per the code comment: a default expression -> that value (IsMissing False); a declared type with no default -> that type's zero (IsMissing… | BasicInterpreter.cs |
@@ -861,30 +965,30 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `Wend` | Supported | Closes whileWendStmt (VB6.g4); structural only. WhileWendTests covers accumulate, zero-iteration and Exit-Sub-from-inside cases. | VB6.g4 |
 | `WithEvents` | Supported | PrePass records each WithEvents name as an event sink and hoists the slot to Nothing; the runtime VisitVariableStmt re-seeds it per instance at New; the Set path detects a WithEvents field… | PrePass.cs, StatementExecutor.cs |
 
-### Literals, types and suffixes — 50 names (10 absent, 17 partial, 23 supported)
+### Literals, types and suffixes — 50 names (6 silently wrong, 7 absent, 12 partial, 25 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
+| `!` | **Silently wrong** | **Re-rated from Partial by measurement ([#739](https://github.com/hexide-io/HexIDE/issues/739)).** On a name it writes a different variable: without `Option Explicit`, `Dim f As Single : f! = 1.5 : Debug.Print f` prints 0, with no error, where VB6, also without it, gives 1.5, a Single (oracle: the 2026-10-11 entry "A type character on a name the program also declares", its section "An assignment through a type character reaches the declared variable, for every character", without `Option Explicit`; see Silently wrong). Under `Option Explicit` the assignment raises "Variable not defined (f!)" here instead, which VB6 does not. A read through it throws "Type hint is not supported" ([#742](https://github.com/hexide-io/HexIDE/issues/742)). The literal form is unaffected: `1.5!` is Single. — Honoured on a numeric LITERAL, never on an identifier. Literal: `ClassifyIntegerLiteral` and the DOUBLELITERAL branch read the trailing suffix (`'!' => new Vb6Value(float.Parse(body))`) —… | StatementExecutor.cs, ExpressionExecutor.cs |
+| `#` | **Silently wrong** | **Re-rated from Partial by measurement ([#739](https://github.com/hexide-io/HexIDE/issues/739)).** On a name it writes a different variable: without `Option Explicit`, `Dim d As Double : d# = 2.5 : Debug.Print d` prints 0, with no error, where VB6, also without it, gives 2.5, a Double (oracle: the 2026-10-11 entry "A type character on a name the program also declares", its section "An assignment through a type character reaches the declared variable, for every character", without `Option Explicit`; see Silently wrong). Under `Option Explicit` the assignment raises "Variable not defined (d#)" here instead, which VB6 does not. A read through it throws "Type hint is not supported" ([#742](https://github.com/hexide-io/HexIDE/issues/742)). The literal form is unaffected: `2.5#` is Double. — Honoured on a numeric LITERAL, never on an identifier. Literal: `_ => new Vb6Value(double.Parse(body))` for the `#` suffix — measured `5#` -> Double 5, `2.5#` -> Double… | StatementExecutor.cs, ExpressionExecutor.cs |
+| `$` | **Silently wrong** | **Re-rated from Dies by measurement ([#739](https://github.com/hexide-io/HexIDE/issues/739)).** This row said every occurrence throws, and an assignment target does not: without `Option Explicit`, `Dim s As String : s$ = "x" : Debug.Print s` prints `""` with no error, inside a `Sub` too, because the assignment creates a second variable named `s$`. Under `Option Explicit` the same line raises "Variable not defined (s$)", which VB6 does not. VB6 sends such an assignment to the declared variable, module or local, with or without `Option Explicit` (the 2026-10-11 entry "A type character on a name the program also declares", its section "An assignment through a type character reaches the declared variable, for every character", and oracle TF_01, TL_01, TL_04); see Silently wrong. With nothing declared, `a$ = "x"` then a bare `a` reads `Empty` here, where VB6 gives `"x"`, a String: in VB6 they are one variable. Unqualified reads throw ([#742](https://github.com/hexide-io/HexIDE/issues/742)): `Debug.Print s$` -> "Type hint is not supported" and `Mid$("abc", 2, 1)` -> "typehint not supported". So does a declaration: `Dim n$` -> "DIM type hints not implemented". `Function GetName$()` does not parse, and takes its module with it ([#740](https://github.com/hexide-io/HexIDE/issues/740); see `Function`); Silently wrong outranks that. There is no literal form for `$` at all (a String literal carries no suffix). | StatementExecutor.cs, ExpressionExecutor.cs, VB6BuiltIns.Strings.cs |
+| `%` | **Silently wrong** | **Re-rated from Partial by measurement ([#739](https://github.com/hexide-io/HexIDE/issues/739)).** On a name it writes a different variable: without `Option Explicit`, `Dim n As Integer : n% = 5 : Debug.Print n` prints 0, with no error, where VB6, also without it, gives 5, an Integer; under `Option Explicit` the assignment raises "Variable not defined (n%)" here instead, which VB6 does not. A `For i% = 1 To 2` counter runs on a second variable too, with or without `Option Explicit`, leaving a declared `i` at 0 where VB6 leaves it at 3 with or without `Option Explicit`; that silent counter is counted here, not under `For`. With nothing declared, VB6 makes `k% = 3` and a bare `k` one Integer variable; HexIDE's side of that was run for `$` only. (Oracle, all three: the 2026-10-11 entry "A type character on a name the program also declares", its section "An assignment through a type character reaches the declared variable, for every character", where the counter was measured in a local; see Silently wrong.) `Function Twice%(ByVal x As Integer)` does not parse ([#740](https://github.com/hexide-io/HexIDE/issues/740)); no oracle row has a `Function` declared with `%`, only with `$`. A read through it throws "Type hint is not supported" ([#742](https://github.com/hexide-io/HexIDE/issues/742)). The literal form is unaffected: `5%` is Integer. — Honoured on a numeric LITERAL, never on an identifier. Literal: `'%' => new Vb6Value(int.Parse(body)) // Integer (magnitude ctor keeps it Integer in Int16 range)` — measured `5%` -> Integer… | StatementExecutor.cs, ExpressionExecutor.cs |
+| `&` | **Silently wrong** | **Re-rated from Partial by measurement ([#739](https://github.com/hexide-io/HexIDE/issues/739)).** On a name it writes a different variable: without `Option Explicit`, `Dim l As Long : l& = 70000 : Debug.Print l` prints 0, with no error, where VB6, also without it, gives 70000, a Long, for a module variable, and a local `m& = 9` gives 9 (oracle: the 2026-10-11 entry "A type character on a name the program also declares", its section "An assignment through a type character reaches the declared variable, for every character", without `Option Explicit`; see Silently wrong). Under `Option Explicit` the assignment raises "Variable not defined (l&)" here instead, which VB6 does not. A read through it throws "Type hint is not supported" ([#742](https://github.com/hexide-io/HexIDE/issues/742)). The literal form is unaffected: `70000&` is Long. — Honoured on a numeric LITERAL, never on an identifier. Literal: `'&' => new Vb6Value(long.TryParse(body, out var lp) ? lp : (long)double.Parse(body))` — measured `5&` -> Long 5… | StatementExecutor.cs, ExpressionExecutor.cs |
+| `@` | **Silently wrong** | **Re-rated from Partial by measurement ([#739](https://github.com/hexide-io/HexIDE/issues/739)).** On a name it writes a different variable: without `Option Explicit`, `Dim c As Currency : c@ = 1.25 : Debug.Print c` prints 0, with no error, where VB6, also without it, gives 1.25, a Currency (oracle: the 2026-10-11 entry "A type character on a name the program also declares", its section "An assignment through a type character reaches the declared variable, for every character", without `Option Explicit`; see Silently wrong). Under `Option Explicit` the assignment raises "Variable not defined (c@)" here instead, which VB6 does not. A read through it throws "Type hint is not supported" ([#742](https://github.com/hexide-io/HexIDE/issues/742)). The literal form is unaffected: `1.25@` is Currency. — Honoured on a numeric LITERAL, never on an identifier. Literal: `'@' => Vb6Value.NewCurrency(decimal.Parse(body)) // @ forces Currency` — measured `5@` -> Currency 5… | StatementExecutor.cs, ExpressionExecutor.cs |
 | `DExponentLiteral` | **Won't load** | `DOUBLELITERAL` and `INTEGERLITERAL` accept only an `e`/`E` exponent marker, never `D`. Measured: `Debug.Print 1.5D2` -> "Compile error: mismatched input 'D2' expecting <EOF>". | VB6.g4 |
 | `Line number` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `LineNumber` | Supported | **Fixed** — numeric line labels now parse, and work as `GoTo`, `On Error GoTo` and `Resume` targets. Ported from the LSP grammar, which already had the rule | VB6.g4, StatementExecutor.cs |
 | `#` | **Dies** | and it is the one piece of this batch that fails even outside a file statement. `#1` lexes as its own token, `FILENUMBER : HASH LETTERORDIGIT+` (Grammar/VB6.g4), and FILENUMBER is an… | ExpressionExecutor.cs |
 | `#n` | **Dies** | `FILENUMBER : HASH LETTERORDIGIT +` is a lexer token listed in the `literal` rule — then throws at run time, because `VisitVsLiteralCore` has no FILENUMBER branch and falls into `throw new… | ExpressionExecutor.cs |
-| `$` | **Dies** | There is NO literal form for `$` at all (a String literal carries no suffix), so every occurrence is an identifier or function type hint and every one throws. Measured: `Debug.Print s$` ->… | VB6BuiltIns.Strings.cs |
 | `,` | **Dies** | The 14-column print-zone comma is grammar-level only: `outputList : outputList_Expression (WS? (SEMICOLON \| COMMA) WS? outputList_Expression?)* \| outputList_Expression? (WS? (SEMICOLON \|… | StatementExecutor.cs |
 | `:= (named argument)` | **Dies** | throws `"Assign is not implemented"` — `implicitCallStmt_InStmt WS? ASSIGN WS? valueStmt # vsAssign` with `ASSIGN : ':='` — then throws at run time: `public override Task<object?>… | ExpressionExecutor.cs |
 | `;` | **Dies** | The suppress-newline / adjacent-item semicolon is in `outputList` (Grammar/VB6.g4) and nothing consumes it - probed `Print #1, "a"; "b"` -> NotImplementedException "Print not implemented". | StatementExecutor.cs |
 | `ErrObject` | **Dies** | as a complexType, throws at run time. BaseTypeMapper.Map has no ErrObject case and it is not a user class/UDT/Enum, so DeclareLocal falls to the final else. Measured verbatim:… | StatementExecutor.cs |
 | `Decimal` | Partial | `Decimal` has no token in the grammar's `baseType` rule (BOOLEAN, BYTE, COLLECTION, CURRENCY, DATE, DOUBLE, INTEGER, LONG, OBJECT, SINGLE, STRING, VARIANT), so `As Decimal` parses as a… | VB6.g4 |
-| `!` | Partial | Honoured on a numeric LITERAL, never on an identifier. Literal: `ClassifyIntegerLiteral` and the DOUBLELITERAL branch read the trailing suffix (`'!' => new Vb6Value(float.Parse(body))`) —… | ExpressionExecutor.cs |
-| `#` | Partial | Honoured on a numeric LITERAL, never on an identifier. Literal: `_ => new Vb6Value(double.Parse(body))` for the `#` suffix — measured `5#` -> Double 5, `2.5#` -> Double… | ExpressionExecutor.cs |
-| `%` | Partial | Honoured on a numeric LITERAL, never on an identifier. Literal: `'%' => new Vb6Value(int.Parse(body)) // Integer (magnitude ctor keeps it Integer in Int16 range)` — measured `5%` -> Integer… | ExpressionExecutor.cs |
-| `&` | Partial | Honoured on a numeric LITERAL, never on an identifier. Literal: `'&' => new Vb6Value(long.TryParse(body, out var lp) ? lp : (long)double.Parse(body))` — measured `5&` -> Long 5… | ExpressionExecutor.cs |
 | `&H` | Partial | Implemented and oracle-faithful in `ClassifyRadixLiteral`, whose comment records the measurement: "VB6 &H hex / &O octal literals are unsigned bit-patterns (verified against vb6.exe): with… | ExpressionExecutor.cs |
 | `&O` | Partial | The same `ClassifyRadixLiteral` path with radix 8. Measured `&O17` = 15 Integer; a trailing `&`/`%` forces the Long/Integer reading as for hex. RESTRICTION: `OCTALLITERAL : (PLUS \| MINUS)?… | ExpressionExecutor.cs |
-| `() (call / array index)` | Partial | `EvaluateProcedureOrArrayCall` resolves in the documented VB6 order: a control-array element (missing element -> Err 340, oracle-pinned), then a local ARRAY variable (multi-dimensional… | ExpressionExecutor.cs |
+| `() (call / array index)` | Partial | **Kept Partial on purpose; a wrong result recorded under [#741](https://github.com/hexide-io/HexIDE/issues/741).** A parameterless `Function Left() As String` called as `Left("abc", 1)` returns the program's own value, where VB6 returns the library's `"a"` (oracle TE_01): a wrong result from a program VB6 runs. The same function without an `As` clause returns its value with no error, where VB6 raises error 13 at run time (TE_04): a missing run-time error, not a wrong result. TE_01 needs a parameterless procedure that shares a library function's name and is called with that function's arguments, so it is recorded under #741 rather than rating the call operator Silently wrong, which would misdescribe the common case. Missing compile errors besides: `Dim Left As String` then `Left("abc", 1)` reaches the library where VB6 refuses to compile it with "Expected array" (TL_07, TF_04); and surplus arguments are dropped with no error, `H(5, 6)` on `Function H(ByVal a As Long) As Long` giving 5 and `G(5, 6)` on a parameterless `Function G() As Long` giving 1, where VB6 gives "Wrong number of arguments or invalid property assignment", and `F(5, 6)` on a parameterless `Function F()` with no `As` clause giving 1, where VB6 gives "Expected array" (the oracle's surplus-argument rows beside TE_01–TE_04; whether TE_04 differs from `F` by name or by harness is open there). See Silently wrong. — `EvaluateProcedureOrArrayCall` resolves in the documented VB6 order: a control-array element (missing element -> Err 340, oracle-pinned), then a local ARRAY variable (multi-dimensional… | ExpressionExecutor.cs |
 | `:` | Partial | Only a colon IMMEDIATELY FOLLOWED BY A SPACE separates statements: the lexer rule is `NEWLINE : WS? ('\r'? '\n' \| COLON ' ') WS?`. Measured: `a = 1: Debug.Print a` runs and prints 1; `a =… | VB6.g4 |
-| `@` | Partial | Honoured on a numeric LITERAL, never on an identifier. Literal: `'@' => Vb6Value.NewCurrency(decimal.Parse(body)) // @ forces Currency` — measured `5@` -> Currency 5… | ExpressionExecutor.cs |
 | `Comment` | Partial | `COMMENT : WS? ('\'' \| COLON? REM ' ') (LINE_CONTINUATION \| ~ ('\n' \| '\r'))* -> channel(HIDDEN)` — comments lex to the hidden channel and are ignored. Measured working: a full-line `'… | VB6.g4 |
 | `Line label` | Partial | **Fixed** — a label is now a `lineHead` on the block, reachable only after a separator containing a real line break, so a label SHARING its line with a statement registers as a jump target. Ten of fourteen measured-legal forms used to be silently lost (`Skip: stmt`, `Later : stmt`, `Skip:: stmt`, an On Error handler target, a label split from its colon by a continuation, …), because `lineLabel` was a `blockStmt` competing for the colon the block needed as a separator. A label named for a keyword (`Error:`, `Name:`) now parses too. Remaining gap: a label sharing its line with a construct TERMINATOR (`Cont: Next i`, `Fin: End If`) parses but is not a jump target — that is the tree-walking limit, not this defect; see interpreter-gaps.md | VB6.g4, StatementExecutor.cs |
 | `LineContinuation` | Partial | `LINE_CONTINUATION : ' ' '_' '\r'? '\n' -> channel(HIDDEN)` — exactly one SPACE before the underscore, and the newline must follow the underscore immediately. Measured: `Debug.Print 1 +… | VB6.g4 |
@@ -1073,8 +1177,8 @@ Partial, No-op, Supported — because a reader of a coverage document is looking
 | `App.ProductName` | Partial | Resolves, but is hardwired to the empty string regardless of the project - it is not read from AppInfo at all. VbApp.cs is: case "productname": value = ""; return true; | VbApp.cs |
 | `ClipBoardConstants` | Partial | The nine MEMBER constants are all registered in the built-in constant table and resolve as bare names - vbCFBitmap=2, vbCFDIB=8, vbCFEMetafile=14, vbCFFiles=15, vbCFLink=-16640… | VB6BuiltIns.cs |
 | `Debug` | Partial | Seeded as a program-global CSharpProxy in every module env (BasicInterpreter.cs). DebugProxy.Call implements exactly one member, `Print`, matched in any case. Every other member falls to `throw… | DebugProxy.cs |
-| `Debug.Print` | Partial | DebugProxy.Call routes to IBasicStandardLibrary.DebugPrint - the Immediate window in the IDE, a capture list under test - preserving the typed Vb6Value. A bare `Debug.Print` prints a blank… | DebugProxy.cs |
-| `Err` | Partial | One program-global VbErr shared by every module env (BasicInterpreter.cs, BasicInterpreter.cs). Number/Description/Source are readable and writable through ICSharpPropertyBag; Clear and… | VbErr.cs |
+| `Debug.Print` | Partial | A class instance or App raises 438, as VB6's does (measured in the IDE, where Debug.Print runs, for a class, App and Screen; HexIDE has no Screen), or is refused naming #174 for a class with a default member, or prints Err's Number, where it printed the CLR type name. **A control still prints its .NET type name** (#790). DebugProxy.Call routes to IBasicStandardLibrary.DebugPrint - the Immediate window in the IDE, a capture list under test - preserving the typed Vb6Value. A bare `Debug.Print` prints a blank… | DebugProxy.cs |
+| `Err` | Partial | **#840:** used as a value, Err is its Number (measured: `"v=" & Err`, `x = Err`, `Err + 1`, `VarType(Err)` is 3). So is it as a condition: `If Err Then`, `While Err`, `Do While Err` and `Loop While Err` each read the Number (measured, one pass each in the loops). — One program-global VbErr shared by every module env (BasicInterpreter.cs, BasicInterpreter.cs). Number/Description/Source are readable and writable through ICSharpPropertyBag; Clear and… | VbErr.cs |
 | `Err.Raise` | Partial | VbErr.Call `case "raise"` forwards only the first three arguments - `Raise(ToLong(args[0]), args.Count >= 2 ? ... : null, args.Count >= 3 ? ... : null)`. Arguments 4 (HelpFile) and 5… | VbErr.cs |
 | `Err.Source` | Partial | Readable and writable (VbErr.cs, VbErr.cs) and set by Err.Raise when a Source argument is supplied - measured `Err.Raise 5, "src", "desc"` -> Source "src". But Capture deliberately does NOT… | VbErr.cs |
 | `Global` | Partial | Two distinct VB6 meanings; only one is implemented. (1) The DECLARATION KEYWORD works: GLOBAL is in the visibility rule (Grammar/VB6.g4, "visibility : PRIVATE \| PUBLIC \| FRIEND \|… | PrePass.cs |

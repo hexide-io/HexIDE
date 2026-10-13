@@ -23,21 +23,32 @@ most people will type today.
 | `--personality` | `vb6`, `vbaode`, `vba` | Selects the IDE personality for the session. |
 | `--server-port` | a port number | Starts the automation server on that port. **Debug builds only** — see below. |
 | `--developer-mode` | — | Turns on session developer mode. **Debug builds only** — see below. |
+| `--ansi-code-page` | a Windows code page number, such as `932` | Reads and writes VB6 sources as a machine whose ANSI code page is that one would. **Debug builds only** — see below. |
 | *(positional)* | a path ending `.vbp` | Opens that project instead of showing the startup dialog. Relative to where you ran HexIDE from. |
 
-## The two that behave differently in a distributed build
+## The ones that behave differently in a distributed build
 
 This asymmetry is deliberate and it is easy to read the wrong way round.
 
-**`--server-port` and `--developer-mode` are inert in a release build.** The automation server is compiled
-out entirely, and developer mode is hard-disabled, so a distributed binary opens no port and cannot be put
-into developer mode however it is launched. Neither flag errors; it simply does nothing.
+**`--server-port`, `--developer-mode` and `--ansi-code-page` are inert in a release build.** The automation
+server is compiled out entirely, and developer mode is hard-disabled, so a distributed binary opens no port
+and cannot be put into developer mode however it is launched. Nor can it be told to read files as another
+machine would: what a release reads a file as is what the machine it runs on reads it as. None of the three
+errors; each simply does nothing.
 
 **`--capture-lsp` is not.** The protocol capture ships in release builds, because the people it is for are
 writing a language server against a HexIDE they downloaded. A flag that was inert exactly there would put
 the feature out of reach of its audience.
 
 ## Details worth knowing
+
+**`--ansi-code-page` shows a file as another machine would read it.** VB6 source carries no declaration of
+its encoding, so the same bytes read differently on a Japanese and a Western Windows. A file the machine's
+code page cannot read is opened byte for byte instead, with a notice. On a Western machine every byte
+decodes, so that path cannot otherwise be reached there. `--ansi-code-page 932` makes it reachable without
+changing the machine's own settings. A value that is not a code page this platform has a table for stops
+HexIDE starting, with exit code 2, rather than run as this machine and look as though it had worked. That
+includes 65001: what VB6 does on a Windows set to UTF-8 is not settled.
 
 **`--user-data-dir` keeps a session away from your real settings.** Everything HexIDE stores per user
 lives in one directory — `settings.json`, the window layout, recent projects, [`lsp-servers.json`](language-servers.md),

@@ -17,10 +17,12 @@ there isn't one yet. Anything may change between 0.x releases.
   began to be written, when it was handed to the server, when the IDE began waiting for a reply, and when the
   server's first bytes arrived. A server that seems to ignore the IDE can now be told apart from a message that
   never reached it.
+- **`--ansi-code-page <n>`, in Debug builds**, reads and writes VB6 sources as a machine whose ANSI code page is
+  `n` would, so a file from, say, a Japanese machine can be checked on a Western one.
 
 ### Fixed
 
-- **Under On Error Resume Next, a block whose condition or header raises now runs, as VB6's does.** HexIDE skipped
+- **Under On Error Resume Next, a block whose condition or header raises now runs, as VB6's does** (#839). HexIDE skipped
   the whole statement, so the program carried on down a path VB6 would not take, with no error. VB6 goes on at the
   first statement inside the block. Measured on vb6.exe, as native code, as p-code and in the IDE:
   - an If or ElseIf runs the branch whose condition raised;
@@ -28,14 +30,57 @@ there isn't one yet. Anything may change between 0.x releases.
   - Do While, Do Until and While run the body, asking again each time round, and a Loop While or Until ends the loop;
   - With runs its body with no object;
   - For and For Each run the body once, and then carry on as the IDE does.
-- **A condition is read as VB6 reads it.** `If 5 Then` raised "IF doesn't contain a bool expression", and a one-line
-  `If 0.5 Then` or `Do While 0.5` raised a type mismatch. Under On Error Resume Next the block form was silently
-  wrong: `If Len(s) Then` skipped its body with no error. A number now holds when it is not 0, a string when it reads
-  as True or as such a number, and Null and Empty do not.
-- **For Each over something it cannot walk raises VB6's error.** An unallocated array ran no passes and said nothing;
+- **For Each over something it cannot walk raises VB6's error** (#839). An unallocated array ran no passes and said nothing;
   it now raises 92. Nothing raises 424 and any other value 13. Over an object, which HexIDE cannot walk yet, it now
   says so rather than raising an error On Error Resume Next stepped over. A For with a fractional start, limit or step
   is refused the same way.
+
+- **A member call inside `While...Wend` runs** (#882). `Debug.Print x`, `Err.Clear` or `rs.MoveNext` in a
+  `While` body stopped the run with "Sub or Function not defined", naming the object, so the common
+  `While Not rs.EOF ... rs.MoveNext ... Wend` loop could not run at all. `Do While` was unaffected.
+
+- **A condition is read as VB6 reads it** (#847). A block `If` or `ElseIf` refused anything but a Boolean with an
+  error numbered 0, so under On Error Resume Next it skipped its body with nothing in Err. A one-line `If` raised 13
+  for anything but a Boolean, and the loops raised 13 for a Long, a Double, Empty or most strings. So
+  `If Len(s) Then`, `If InStr(s, "x") Then`, `If flags And 4 Then` and `Do While n` with a Long `n` stopped the run.
+  Every form now reads its condition as `CBool` does: a number holds when it is not 0, a string when it reads as True
+  or as such a number, and Null and Empty do not. An object in a condition raises VB6's 438 and Nothing 91, where
+  each was a trappable 13, or in a block `If` or `ElseIf` the error numbered 0. `If Err Then` reads Err's Number
+  (#840), and a class with a default member and a control are refused until #174 and #790.
+
+- **An object used as a value no longer gives a wrong value.** A class with no default member raises VB6's 438
+  wherever a value is wanted, where HexIDE raised 13, printed its CLR type name (`"v=" & k`, `CStr(k)`,
+  `Debug.Print k`), read it as 0 (`Val(k)`, a ByVal Long argument), or matched nothing in `Select Case`. That covers
+  every operator, a Let, a ByVal argument for a typed parameter, every condition, bound and Case, `Randomize`,
+  `Err.Raise`, `Error`, `ChDir`, `ChDrive`, the Mid statement, and every built-in function's value arguments.
+  `TypeName` and `IsObject` still take the object, and `VarType` and the Is functions answer about it. A class
+  with a default member, which VB6 reads in all those places (bar a few, measured, where a Function default member
+  gives 450: `Format`, `Abs` and `Not` through a Variant, and in the IDE a Case value against an Empty selector), stops
+  the run with a message saying class default members are not implemented yet (#174),
+  rather than an error `On Error Resume Next` would step over.
+- **`Err` used as a value is its `Number`**, as in VB6: `"Error " & Err`, `x = Err`, `Err + 1`. It was refused. App
+  used as a value raises VB6's 438, where it printed a .NET type name (VB6 also empties a Variant `v` in `v = App`
+  first, which is #878). A control still gives its .NET type name in `"v=" & Text1`, `CStr(Text1)` and
+  `Debug.Print Text1`, until #790.
+- **`TypeName(Err)` is "ErrObject" and `TypeName(App)` is "App"**, as in VB6. They were HexIDE's own class names.
+- **`Join` and `Filter` of something that is not an array raise 13**, as in VB6, where they raised 5. Of an array
+  never allocated, `Join` gives `""` and `Filter` an unallocated String array, where both stopped the run with an error no
+  `On Error` could trap.
+- **`Filter` always gives a String array**, as in VB6, where it gave a Variant array for any allocated input. A Null
+  match, switch or compare is 94, even for an array never allocated, and even beside something that is not an array.
+  The switch reads as `CBool` does, so an Empty one no longer raises 13. The compare is 0 for binary and 1 for text;
+  2 and negative values raise 5, where every value but 1 was binary; and 3 and above, which VB6's answers are
+  consistent with reading as a Windows locale identifier, are refused (#881). A Nothing compare is 91, where it read as
+  0, a binary compare. `Filter` converts every element first, and checks its compare only when it compares an element
+  with the match: of an array with no element it gives an unallocated String array, and an empty match keeps every
+  element, so `Filter(list, "", True, 2)` is the whole list where it raised 5. An object among its match, switch and
+  compare is read only as its turn comes, so `Filter(d, k, "x")` is the switch's 13 where it was k's 438.
+- **`Join` and `Filter` convert each element as a store into a String does**, as in VB6: a Null element is 94 and an
+  array 13, and Nothing 91, where they read as `""`, the CLR type name and `""`. `Join` of an array with no element
+  gives `""` without reading its delimiter; with one, a Null delimiter is 94 and a Nothing one 91, where both read as
+  `""`. A Nothing match in `Filter` is 91 too.
+- **The Immediate window's `? obj` no longer prints the class's name.** A class with no default member is 438, as
+  `Debug.Print` of one is in VB6, and one with a default member says that reading it is not available in break mode.
 - **A syntax error when a program starts, or a compile error while it runs, is reported like a run-time error.**
   Each was a message box nothing recorded, so a program that never started was reported to automation as having run
   and ended. Both now appear in the run-time error dialog and are kept for `get_last_runtime_error`, and a syntax
@@ -139,6 +184,33 @@ there isn't one yet. Anything may change between 0.x releases.
   newer HexIDE wrote into it is kept, even when both had the project open at once. It goes with the project
   when the project is saved somewhere else, is not created by a save with nothing to record, and is left
   untouched when it cannot be read rather than overwritten.
+- **Saving a VB6 source file no longer changes text you did not edit.** A file whose accented characters
+  happened to read as valid UTF-8 was decoded that way and written back changed, so one ASCII edit could alter
+  an unrelated comment or string. A file now keeps the encoding it was read in, a UTF-8 byte-order mark
+  included. A file an earlier HexIDE saved as UTF-8 still opens as UTF-8. A file the project only carries, such
+  as a README, is not covered yet: its editor still rewrites any byte that is not valid UTF-8 (#745).
+- **On Windows a source file is read in the machine's own code page, as VB6 reads it.** A file without a
+  byte-order mark was shown as Latin-1, so a Western file's curly quotes and euro sign appeared as control
+  characters, and a Japanese file on a Japanese machine as mojibake. A file that code page cannot read still
+  opens, read byte for byte, and HexIDE now says which files it read that way. Each saves back unchanged. On
+  macOS and Linux, which have no such code page, a file is read as Windows-1252, so curly quotes show there too.
+- **An edit a file's code page cannot hold is refused, and nothing is written.** Such an edit used to be written
+  anyway, in bytes VB6 on that machine reads differently. A character beyond Latin-1 turned the whole file into
+  UTF-8, and one within it became its Latin-1 byte. Now a warning names the file, its code page, the
+  character, and the line it is in, which matters when the character is in a property or a file name rather than
+  the code just typed. A save of several files checks every one before it writes the first, so one such character
+  leaves them all as they were. That covers Save Project, Save All, the save offered when a project closes, Make
+  Project Group, and writing a new project to its folder. Make refuses before it asks where to put the program. A
+  new form or module whose name the code page cannot hold is refused before anything is created.
+- **Dismissing a file picker part-way through a save leaves every file as it was.** Saving a project with two
+  new files asked where to put each in turn and wrote as it went, so cancelling the second left the first
+  written. Every picker an operation needs is now answered before anything is written, Make Project Group's
+  included.
+- **A form or module that fails to load keeps its line in the project file.** The next Save Project removed the
+  line from the `.vbp`, so the file dropped out of the project in VB6 too.
+- **A save HexIDE refuses no longer leaves an automation tool waiting.** `set_file_content`,
+  `set_control_property` and `add_control` waited for someone to close a dialog. They now reply at once with
+  the refusal, and the change stays in the IDE.
 
 ## [0.2.0] — 2026-09-24
 

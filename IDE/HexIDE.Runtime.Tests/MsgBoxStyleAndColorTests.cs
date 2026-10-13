@@ -275,15 +275,14 @@ public class MsgBoxStyleAndColorTests : BaseVBTestFixture
     }
 
     [Theory]
-    [InlineData("CInt(Err)")]
-    [InlineData("RGB(Err, 0, 0)")]
-    public async Task An_object_standing_for_its_default_member_is_refused_until_default_members_exist(string expression)
+    [InlineData("CStr(CInt(Err))")]
+    [InlineData("CStr(RGB(Err, 0, 0))")]
+    public async Task Err_stands_for_its_Number(string expression)
     {
-        // VB6 reads the default member, CInt(Text1) as CInt(Text1.Text). HexIDE has none yet (#790), so it refuses
-        // untrappably rather than read 0.
-        var run = () => Run($"On Error Resume Next\nDim c\nc = {expression}\n");
+        // VB6 reads the default member, and Err's is Number (measured for #840). A control's is #790's.
+        await Run($"On Error Resume Next\nErr.Raise 11\nDebug.Print {expression}\n");
 
-        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#790*");
+        AssertDebugLog([new Vb6Value("11")]);
     }
 
     // ── RGB ──────────────────────────────────────────────────────────────────────────────────────

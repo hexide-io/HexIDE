@@ -1,3 +1,4 @@
+using HexIDE.IDE;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
@@ -6,6 +7,9 @@ namespace HexIDE.Runtime.ProjectElements;
 
 public class ProjectGroupDefinition : INotifyPropertyChanged
 {
+    /// <summary>Source encoding retained through saves and path changes.</summary>
+    public Vb6TextEncoding TextEncoding { get; set; } = Vb6TextEncoding.Ansi;
+
     private string name;
     private string? absolutePath;
 
