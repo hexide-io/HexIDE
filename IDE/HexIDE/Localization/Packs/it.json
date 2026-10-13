@@ -2,6 +2,9 @@
   "name": "Italian",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.NothingWritten": "Non è stato scritto nulla. {0} è conservato nella tabella codici {1}, che non può rappresentare '{2}' ({3}). Il carattere si trova in questa riga:\n\n{4}\n\nHexIDE conserva ogni file nella tabella codici con cui è stato letto o creato, anziché convertirlo. Sostituisci quel testo con caratteri presenti nella tabella codici oppure, se la riga contiene il nome di un file o di una cartella, scegli un nome che la tabella codici possa rappresentare. Quindi riprova. Le tue modifiche sono ancora aperte nell'IDE.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} non può essere letto con la tabella codici di questo computer ({1}), quindi è stato aperto byte per byte, come testo con codifica Europa occidentale (Latin-1). Salvarlo invariato riscrive gli stessi byte, ma non è possibile aggiungere al file caratteri non presenti in Latin-1. Il testo scritto con un'altra tabella codici potrebbe risultare incomprensibile.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "Questi file non possono essere letti con la tabella codici di questo computer ({1}), quindi sono stati aperti byte per byte, come testo con codifica Europa occidentale (Latin-1):\n\n{0}\n\nSalvarli invariati riscrive gli stessi byte, ma non è possibile aggiungere ai file caratteri non presenti in Latin-1. Il testo scritto con un'altra tabella codici potrebbe risultare incomprensibile.",
     "Str.Options.Language.RegionLabel": "_Area geografica:",
     "Str.Options.Language.RegionStandard": "(Standard)",
     "Str.Options.Language.Customize": "_Personalizza traduzioni…",
@@ -678,7 +681,6 @@
     "Str.Vb6Toolchain.CompilationFailed": "Compilazione VB6 non riuscita:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Compilazione riuscita ma l'eseguibile non è stato trovato in:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Esecuzione non riuscita",
-    "Str.ProjectRunner.MustHaveStartupForm": "È necessario un form di avvio o Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Questa azione reimposterà il progetto. Vuoi continuare?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Impossibile caricare il form '{0}', quindi il progetto non è stato avviato.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE non implementa ancora quanto segue:\n\n{0}",

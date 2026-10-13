@@ -2,6 +2,9 @@
   "name": "Polish",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.NothingWritten": "Niczego nie zapisano. Element {0} jest przechowywany w stronie kodowej {1}, która nie obsługuje znaku „{2}” ({3}). Znak ten występuje w tym wierszu:\n\n{4}\n\nHexIDE przechowuje każdy plik w stronie kodowej, w której został odczytany lub utworzony, zamiast go konwertować. Zmień ten tekst tak, aby zawierał tylko znaki obsługiwane przez tę stronę kodową, albo, jeśli w tym wierszu jest nazwa pliku lub folderu, wybierz nazwę złożoną z takich znaków. Następnie spróbuj ponownie. Twoje zmiany pozostają otwarte w IDE.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte": "Pliku źródłowego {0} nie udało się odczytać w stronie kodowej tego komputera ({1}), dlatego otwarto go bajt po bajcie jako tekst w kodowaniu zachodnioeuropejskim (Latin-1). Zapisanie go bez zmian zapisze z powrotem te same bajty, ale znaków spoza Latin-1 nie można dodać do tego pliku. Tekst zapisany w innej stronie kodowej może wyglądać na zniekształcony.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "Tych plików nie udało się odczytać w stronie kodowej tego komputera ({1}), dlatego otwarto je bajt po bajcie jako tekst w kodowaniu zachodnioeuropejskim (Latin-1):\n\n{0}\n\nZapisanie ich bez zmian zapisze z powrotem te same bajty, ale znaków spoza Latin-1 nie można dodać do tych plików. Tekst zapisany w innej stronie kodowej może wyglądać na zniekształcony.",
     "Str.Options.Language.RegionLabel": "_Region:",
     "Str.Options.Language.RegionStandard": "(Standardowy)",
     "Str.Options.Language.Customize": "_Dostosuj tłumaczenia…",
@@ -678,7 +681,6 @@
     "Str.Vb6Toolchain.CompilationFailed": "Kompilacja VB6 nie powiodła się:\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "Kompilacja powiodła się, ale nie znaleziono pliku wykonywalnego w lokalizacji:\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Uruchomienie nie powiodło się",
-    "Str.ProjectRunner.MustHaveStartupForm": "Wymagany jest formularz startowy lub Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Ta akcja zresetuje projekt. Czy chcesz kontynuować?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Nie można załadować formularza '{0}', więc projekt nie został uruchomiony.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE jeszcze tego nie obsługuje:\n\n{0}",

@@ -2,6 +2,9 @@
   "name": "Chinese (Traditional)",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.NothingWritten": "未寫入任何檔案。{0} 採用字碼頁 {1}，而此字碼頁無法表示「{2}」({3})。該字元位於這一行：\n\n{4}\n\nHexIDE 會讓每個檔案沿用讀取或建立時所用的字碼頁，而不會加以轉換。請將該文字改為此字碼頁能表示的字元；若該行指的是檔案或資料夾名稱，則請改用此字碼頁能表示的名稱。然後再試一次。您的變更仍在 IDE 中保持開啟。",
+    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} 無法以這台電腦的字碼頁 ({1}) 讀取，因此改以西歐語系 (Latin-1) 文字逐位元組開啟。若未經變更即儲存，會寫回相同的位元組，但無法在該檔案中加入 Latin-1 以外的字元。以其他字碼頁撰寫的文字可能會顯示為亂碼。",
+    "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "這些檔案無法以這台電腦的字碼頁 ({1}) 讀取，因此改以西歐語系 (Latin-1) 文字逐位元組開啟：\n\n{0}\n\n若未經變更即儲存，會寫回相同的位元組，但無法在這些檔案中加入 Latin-1 以外的字元。以其他字碼頁撰寫的文字可能會顯示為亂碼。",
     "Str.Options.Language.RegionLabel": "地區:",
     "Str.Options.Language.RegionStandard": "(標準)",
     "Str.Options.Language.Customize": "自訂翻譯…",
@@ -678,7 +681,6 @@
     "Str.Vb6Toolchain.CompilationFailed": "VB6 編譯失敗：\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "建置成功，但在下列位置找不到執行檔：\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "執行失敗",
-    "Str.ProjectRunner.MustHaveStartupForm": "必須有啟動表單或 Sub Main()",
     "Str.ProjectRunner.EditWhileRunningConfirm": "此動作將重設專案。是否要繼續？",
     "Str.ProjectRunner.StartupFormFailedToLoad": "無法載入表單「{0}」，因此專案未啟動。\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE 尚未實作此項目：\n\n{0}",

@@ -397,8 +397,11 @@ dropdown items are not addressable until realized. `inspect_element` carries no 
 plausible-looking array instead of an empty one, which is the part that misleads.
 
 **Workaround.** Never read `selectionItems` from a collapsed dropdown as the item list. `expand` first,
-then `dump_visual_tree(root=<combo>)` and read the `ComboBoxItem` children. Note the popup closes between
-calls, so expand again immediately before `select`.
+then `dump_visual_tree(root=<combo>)` and read the `ComboBoxItem` children. Expand again immediately before
+`select` if the popup has closed, and `collapse` after it. The tool does not close the popup: where this was
+first written it closed between calls, probably because the IDE window lost focus (inferred, not measured),
+while on Linux, with nothing taking focus from the IDE, it stayed open after `select` until `collapse`
+(see "`interact` `select` on a dropdown item leaves the dropdown open", [#907](https://github.com/hexide-io/HexIDE/issues/907)).
 
 **Suggested fix.** Either omit `selectionItems` when the items are unrealized, or mark it — an
 `itemsRealized: false` alongside it would be enough. A partial list that looks complete is worse than no
@@ -614,3 +617,438 @@ Windows only, and outside the surface a caller has.
 **Suggested fix.** An `interact` action, `close`, on a top-level window, raising the platform's close for a person
 (`WindowCloseReason.WindowClosing`, not programmatic), and replying whether the window is still open.
 [#829](https://github.com/hexide-io/HexIDE/issues/829).
+
+## A context-menu action bound to a method cannot be driven
+
+**Symptom.** Live-checking #831 needed a project with no startup form, so Form1 had to be removed. Both of the UI's
+routes are out of reach:
+
+```
+invoke_menu_item {"path":"Project/Remove Form1"}
+→ {"success":false,"error":"'Project/Remove Form1' is a submenu or has no command"}
+interact {"target":".../Pane[Project Group - Group1]/Custom/Tree/Pane/TreeItem[Project1 (Project1.vbp)]/TreeItem[Form1 (Form1.frm)]","action":"select"}
+→ {"success":true, ... "selected 'Form1 (Form1.frm)'"}
+interact {"target":".../Pane[Project Group - Group1]/Custom","action":"invoke_command","value":"DeleteForm"}
+→ {"success":false,"mechanism":"reflection","error":"no public property 'DeleteForm' on ProjectToolViewModel"}
+```
+
+The Project menu's item is inert, which is a product defect (#835). The Project Explorer's context menu binds
+**Remove Form1** to a method, `ProjectToolViewModel.DeleteForm()`, rather than to an `ICommand`. So `inspect_element`
+does not list it and `invoke_command` cannot reach it. This entry first said that no tool opens a context menu; that
+was wrong (below). The refusal also names a *property* when a command was asked for.
+
+**Corrected 2026-10-13: `expand` opens the context menu.** `interact` `expand` on a control that owns a ContextMenu
+or flyout opens it, and this tree's flyout was measured that way when #343 closed (`interact expand …/Custom/Tree →
+"opened flyout on 'Tree'"`, in the archive). No tool description says so, which is how this entry missed it
+([#949](https://github.com/hexide-io/HexIDE/issues/949)). Remove binds `Command="{CompiledBinding DeleteForm}"`,
+which Avalonia turns into a command, so `invoke` on that item with the flyout open should run it, and, through today's
+menu fallback, leave the flyout open afterwards (#947). That is read in code, not run. Remove acts on the selected form
+and asks nothing, so read the item's header before invoking it (#714). Until the route is checked live, the workaround
+below stands.
+
+**Workaround.** Load a `.vbp` whose `Startup` names no form in the project, by passing it as the positional argument
+at launch.
+
+**Suggested fix.** `invoke_command` falling back to a public parameterless method, listed by `inspect_element`, and
+a refusal that names what it looked for rather than a property. An action to open a context menu is not needed:
+`expand` is it. [#836](https://github.com/hexide-io/HexIDE/issues/836).
+
+## `dump_visual_tree` shows a node cut off by `maxDepth` as a leaf, and under `interactiveOnly` drops it and its ancestors
+
+**Symptom.** With a form open in the designer (Linux, openSUSE Leap 16 under XWayland, Debug build of main at
+b15c7cf, 2026-10-13):
+
+```
+dump_visual_tree {"maxDepth":8}
+dump_visual_tree {"root":"Window/Custom[MainView]/Pane[DockControl]/Pane[Root dock]/List[PART_ItemsControl]/List[#0]/Pane[#0]","maxDepth":2}
+→ both: Pane[#0] → Tab[PART_TabStrip] with "children":[], and no Custom[Root]
+dump_visual_tree {"root":"<the same path>","maxDepth":6,"interactiveOnly":false}
+→ Custom[Root] → … FormContainer → ControlsContainer → ListItem[Picture0] …
+```
+
+The designer pane appears to hold only a tab strip. A node at the cap is emitted with `"children":[]`, the same
+as a real leaf, and nothing records that the walk stopped. Under the default `interactiveOnly: true` that empty
+list prunes a non-interactive node at the cap, and the prune cascades up through every non-interactive ancestor:
+here the designer's ScrollViewer, then `Custom[Root]`, the designer itself. That breaks `interactiveOnly`'s
+promise to keep a node with an interactive descendant. It is the #362 trap from this document's header, and a
+smaller `maxDepth`, the natural answer to an overflowing whole-window dump (#699), walks into it. Cross-platform by
+code reading.
+
+**Workaround.** Do not read `"children":[]` as a leaf, or a missing node as absent. Dump again from the deepest
+node shown, with its path as `root`, a larger `maxDepth` and `interactiveOnly: false`.
+
+**Suggested fix.** At the cap, check for children without recursing and mark a node whose children were not
+walked `truncated: true`; under `interactiveOnly`, keep such a node instead of pruning it. Say so in the
+`maxDepth` and `interactiveOnly` parameter descriptions. [#953](https://github.com/hexide-io/HexIDE/issues/953).
+
+## A control with an x:Name is reported by that name alone, so the Tools menu reads `ToolsMenuItem`
+
+**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
+
+```
+dump_visual_tree {"root":"Window/Custom[MainView]/None[#0]","maxDepth":4}
+→ … MenuItem[File], MenuItem[Edit], MenuItem[View], … MenuItem[ToolsMenuItem], MenuItem[AddInsMenuItem] …
+interact {"target":"Window/Custom[MainView]/None[#0]/Menu[MenuBar]/MenuItem[ToolsMenuItem]","action":"expand"}
+→ opened menu 'ToolsMenuItem'
+```
+
+An x:Name wins over the label a person sees, in the node's `name`, in its path and in reply text, and no field
+carries "Tools". A caller searching the dump for the text in a snapshot finds nothing. Four menu items have an
+x:Name: `ToolsMenuItem`, `LanguageServersMenuItem`, `ProtocolInspectorMenuItem` and `AddInsMenuItem`. x:Name first
+is deliberate, because it does not change with the IDE language, so the fix adds rather than swaps.
+Cross-platform by code reading.
+
+**Workaround.** Address the item by the x:Name the dump shows. `MenuItem[Tools]` should also resolve, through the
+label fallback, but that is read in code and was not tried.
+
+**Suggested fix.** A `label` field on a node whenever the peer's label differs from `name`, reply text that uses
+it (`opened menu 'Tools' (ToolsMenuItem)`), and a description that says a segment may be addressed by either.
+[#948](https://github.com/hexide-io/HexIDE/issues/948).
+
+## `expand` also opens a control's context menu or flyout, and no description says so
+
+**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
+
+```
+dump_visual_tree {"maxDepth":3}
+→ Window/Custom[MainView]/None[#0]   (the menu band's StackPanel)   providers ["expandCollapse"]
+  TabItem[…]/None[PART_TabBody]      (a Border)                     providers ["expandCollapse"]
+dump_visual_tree {"root":"Window/Custom/Custom","interactiveOnly":false,"maxDepth":2}   (Options > Editor > Formatting)
+→ the Tab width TextBox                                             providers ["value","expandCollapse"]
+```
+
+The run read these as phantom tokens. They are not: each control owns a popup that `expand` opens, by design since
+#343. The StackPanel owns the Toolbars context flyout, `PART_TabBody` Dock's document context menu, and every
+TextBox the theme's Cut/Copy/Paste flyout. But `interact`'s `action` description defines expand and collapse as
+"a dropdown, tree node or expander", and `dump_visual_tree` says only "expandCollapse → expand/collapse", which
+is how #836 and its entry here came to say that no tool opens a context menu. `collapse` with the popup closed
+answers "element does not support 'collapse'" while the token is still shown. Cross-platform by code reading.
+
+**Workaround.** On a control with no expander of its own, read `expandCollapse` as "owns a context menu or
+flyout": `expand` opens it, and its items then appear under it in `dump_visual_tree`.
+
+**Suggested fix.** Say so in `interact`'s `action` description and, in a few words, in `dump_visual_tree`'s token
+list, and have `collapse` with nothing open say there is nothing to close.
+[#949](https://github.com/hexide-io/HexIDE/issues/949).
+
+## `interact` on a menu skips what a real gesture does: `collapse` leaves the menu bar active, `invoke` leaves the menu open
+
+**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
+
+```
+interact {"target":"Window/Custom[MainView]/None[#0]/Menu[MenuBar]/MenuItem[Format]","action":"collapse"}
+→ closed menu 'Format'
+```
+
+The Format header stayed highlighted in every later snapshot until
+`press_key {"target":"Window/Custom[MainView]/None[#0]/Menu[MenuBar]","key":"Escape"}`. `interact` `invoke` on the
+Project menu's `MenuItem[Remove Form2]` left the Project dropdown open, still drawn over the Object Browser after
+`activate_document_tab`. `collapse` closes only the submenu, not the menu bar, and `invoke` only raises Click,
+where a real click also toggles a checkable item and closes the menu. So, read in code and not run, `invoke` on
+the eight checkable items (the toolbar band's flyout, View > Toolbars and Minimap) changes nothing, and `toggle`
+and `invoke_menu_item` refuse them. Cross-platform by code reading.
+
+**Workaround.** `press_key` Escape on the MenuBar clears a header that `collapse` left active. What closes a
+dropdown that `invoke` left open was not measured, so check a snapshot after any menu `invoke`.
+
+**Suggested fix.** Do what Avalonia 12.1.4's own peer does: `collapse` on a top-level item closes the menu bar,
+and `invoke` toggles a checkable item, raises Click, then closes the menu unless `StaysOpenOnClick`. Have
+`MenuPopupTests` assert that the menu is closed after each. [#947](https://github.com/hexide-io/HexIDE/issues/947).
+
+## `interact` `select` on a dropdown item leaves the dropdown open
+
+**Symptom.** On the Object Browser's library box (Linux, openSUSE Leap 16 under XWayland, Debug build of main at
+b15c7cf, 2026-10-13):
+
+```
+interact {"target":".../List[#0]/Pane[#0]/Custom/ComboBox","action":"expand"}
+interact {"target":".../ComboBox/Pane/ComboBoxItem[VBA]","action":"select"}
+→ selected 'VBA'
+```
+
+The selection changed, but the popup stayed open over the Classes list until
+`interact {"target":".../ComboBox","action":"collapse"}`. Clicking the item closes it, and the reply does not say
+it is still open. `select` sets the selection through the item's peer, and Avalonia's ComboBox closes its popup on
+pointer, key and visibility changes, never on a selection change. The mechanism is cross-platform by code
+reading; whether a caller sees the popup linger depends on whether the IDE window keeps focus. Same family as the
+menu entry above: the driver acts on a control without the close a real gesture performs.
+
+**Workaround.** After `select` on a dropdown item, `collapse` the ComboBox. Do not rely on the popup closing
+between calls.
+
+**Suggested fix.** After selecting in an open dropdown, `select` closes it as a click does, and says so in its
+reply. [#907](https://github.com/hexide-io/HexIDE/issues/907).
+
+## `add_to_selection` names the new selection but not its reference, so a caller learns what Align measured against only afterwards
+
+**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
+
+```
+interact {"target":"Window/.../List[ControlsContainer]/ListItem[Command1]","action":"add_to_selection"}
+→ {"detail":"added 'Command1' to the selection; 2 items are selected now: Command0, Command1"}
+```
+
+Only the next `invoke_format_command` reply, "…, aligned to Command0", named the reference, the control every
+Align and Make Same command measures against. A snapshot between the two showed Command0 with the solid handles.
+The reply lists the selection in index order, as does `inspect_element`'s `selection`, so no read names the
+reference before a command runs, which the form-designer spec requires of the designer. The same goes for
+`remove_from_selection`. Cross-platform by code reading.
+
+**Workaround.** Select the intended reference first and `add_to_selection` the rest: by code reading, the
+reference stays on the first item selected, and removing it moves it to the lowest-indexed item still selected.
+A snapshot shows the reference with the solid handles.
+
+**Suggested fix.** With two or more selected, the reply names the primary item, and when `remove_from_selection`
+removes it, names the new one. [#951](https://github.com/hexide-io/HexIDE/issues/951). Which control should be
+the reference is #928.
+
+## `invoke_format_command`'s no-op reply states a selection rule the spec contradicts
+
+**Symptom.** With one control selected (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf,
+2026-10-13):
+
+```
+interact {"target":"Window/Custom[MainView]/Pane[DockControl]/Pane[Root dock]/List[PART_ItemsControl]/List[#0]/Pane[#0]/Custom[Root]/Pane/None[FormContainer]/List[ControlsContainer]/ListItem[Command1]","action":"select"}
+invoke_format_command {"command":"AlignLefts"}
+→ "Nothing changed, and no undo step was added: the selection is Command1. The spacing commands need two or
+   more selected controls, the others at least one, and a selection that already satisfies the command is
+   left as it is."
+```
+
+The spec makes the nine alignment and sizing commands unavailable below two selected controls, and with one they
+can never change anything, so "at least one" sends a caller back with the same single selection. The text is
+hard-coded and the command table has no per-command minimum. Cross-platform by code reading.
+
+**Workaround.** Before any Align* or MakeSame* command, select two or more controls with `interact` `select` and
+then `add_to_selection`. Read "at least one" as true only of SizeToGrid, CenterHorizontally and CenterVertically.
+
+**Suggested fix.** A per-command minimum in the `FormatCommands` table, a `success:false` refusal below it that
+names the rule and points to `add_to_selection`, and the no-op note generated from the same table, so the prose
+cannot drift from the code again. [#930](https://github.com/hexide-io/HexIDE/issues/930).
+
+## `set_control_property` cannot set Font, and its refusal implies a text form that does not exist
+
+**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
+
+```
+set_control_property {"formName":"Form1","controlName":"Label0","property":"Font","value":"DejaVu Sans"}
+→ {"success":false,"error":"Cannot set 'Font' to 'DejaVu Sans': it takes a value the Properties window accepts for a VBFont"}
+```
+
+The Properties window's Font row read "DejaVu Sans", the string refused, and that row is read-only beside a "..."
+button, so the set of values it accepts is empty. The description promises that a refused value's reply lists
+what the property takes, and here it does not. By code reading every `byte[]` property (Picture, Icon,
+MouseIcon, DragIcon, OleObjectBlob, List, ItemData) falls through the same way, refused as "...accepts for a
+Byte[]". Cross-platform by code reading.
+
+**Workaround.** For Font, the Properties window: select the control, `interact` `invoke` on the Font row's
+`PART_OpenFontWindowButton`, then drive the Font dialog, which the run did successfully. For the `byte[]`
+properties none is known: the grid gives them only a generic text box, and what it does with a typed value was
+not checked.
+
+**Suggested fix.** Accept Font as the grid shows it (a family, optionally a size and style words), merged with the
+current font so what is not given is kept. Never let a refusal promise a text form the parser refuses: name the
+Font dialog for Font, and say that no automation route exists yet for the `byte[]` properties.
+[#952](https://github.com/hexide-io/HexIDE/issues/952).
+
+## No tool reads back a control property beyond eight, though `set_control_property` sends callers to `get_form_controls` for them
+
+**Symptom.** (Linux, openSUSE Leap 16, Debug build of main at b15c7cf, 2026-10-13.)
+
+```
+get_form_controls {"formName":"Form1"}
+→ Label0: name, type VB.Label, left 120, top 10, width 100, height 20, caption "Centred &label", visible, enabled
+get_file_content {"name":"Form1"}
+→ the code section only, not the form's property block
+```
+
+No Alignment, AutoSize, WordWrap, BorderStyle, UseMnemonic or Font, so none of them can be read back after
+`set_control_property` sets them; the label's Alignment had to be inferred from its caption. `get_locals {}` while
+paused listed Label0 without them too. `get_form_controls` describes itself as returning "key design-time
+properties", which is accurate; what is not is `set_control_property`'s "Use get_form_controls to see available
+controls and properties".
+
+**Workaround.** Not exercised in that run: select the control in the designer and read the Properties window's
+rows with `dump_visual_tree` and `interactiveOnly: false`, or `inspect_element` on a row.
+
+**Suggested fix.** An optional `controlName` on `get_form_controls` that returns every property the Properties
+window shows for that control, under its name there and in the text form `set_control_property` accepts, and a
+corrected `set_control_property` description. [#923](https://github.com/hexide-io/HexIDE/issues/923).
+
+## No tool types as a person does, so anything driven by TextInput is out of reach
+
+**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
+
+```
+type_text {"target":"Window/Custom[MainView]/Pane[DockControl]/Pane[Root dock]/List[PART_ItemsControl]/List[#0]/Pane[#0]/Custom[Root]/None[TextEditor]","text":"Ms"}
+→ didChange seq 151, and no completion request
+```
+
+A person typing `M` triggers one. `type_text` inserts through the document API by design (#649), and `press_key`
+raises only KeyDown and KeyUp, which AvaloniaEdit does not turn into text. Nothing on the surface raises
+TextInput, so these are out of reach: the list that opens as you type, parameter info on `(` and `,` and its
+closing on `)`, the list closing on a character that cannot be part of a name, and the edit-while-running reset
+prompt for a printable character. Both tools do what they say; this is a missing capability, as #829's was.
+Cross-platform by code reading.
+
+**Workaround.** For completion and parameter info, the explicit commands: `press_key` with Ctrl+Space, Ctrl+J or
+Ctrl+Shift+I on the TextArea. A list opened that way cannot be seen either (next entry). There is no workaround
+for the typed-character paths.
+
+**Suggested fix.** A keyboard typing mode, a `type_keys` tool or `mode:"keyboard"` on `type_text`, that raises
+KeyDown, TextInput and KeyUp per character on the focused TextArea and reports mechanism "keyboard".
+[#943](https://github.com/hexide-io/HexIDE/issues/943).
+
+## `take_snapshot` and `dump_visual_tree` cannot see the code editor's completion list or parameter-info popup
+
+**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
+
+```
+press_key {"target":"Window/Custom[MainView]/Pane[DockControl]/Pane[Root dock]/List[PART_ItemsControl]/List[#0]/Pane[#0]/Custom[Root]/None[TextEditor]","key":"Space","modifiers":"Ctrl"}
+take_snapshot {}                     → the code window, with no list
+dump_visual_tree {"window":"auto"}   → MainWindow only
+```
+
+The run concluded that no list opens, and that was wrong: a Tab sent straight after was swallowed with no
+didChange, which needs an open list, and a headless reproduction confirms the list is open there (#941). Both
+tools answer the same whether or not a list is open. AvaloniaEdit's completion and insight windows are Popups
+parented only logically to the TopLevel, and the routes the tools use find visual-child popups plus open
+ContextMenus and flyouts. Cross-platform by code reading.
+
+**Workaround.** Do not read an empty snapshot as "no list". Infer the list from its effect: `press_key` Down then
+Tab, then read `get_file_content`, or the next `textDocument/didChange` in `list_lsp_messages`. Until #941 is
+fixed, Tab appends the item instead of replacing the prefix.
+
+**Suggested fix.** Expose CodeEditorView's completion and insight windows through an internal accessor, and return
+the open one from `AttachedPopupOf` for a CodeEditorView owner, so the snapshot and the tree both reach it.
+[#942](https://github.com/hexide-io/HexIDE/issues/942).
+
+## `take_snapshot` returns only a path on the IDE's machine, so a client attached from elsewhere cannot see the image
+
+**Symptom.** Driving a Debug build of b15c7cf in an openSUSE Leap 16 VM from a Windows host, through an SSH tunnel
+to the VM's MCP port (2026-10-13):
+
+```
+take_snapshot {}
+→ {"path":"/tmp/hexide_snapshot_20261013-004254-281_1.png","width":1920,"height":1011,"scale":1}
+```
+
+The path is in the VM's `/tmp`, which the client cannot open. The description says the tool "returns the file
+path so the caller can read the image", which holds only for a caller on the same machine. The server answers
+loopback only, so a tunnel is how another machine reaches it. Not Linux-specific: any remote attach has it.
+
+**Workaround.** Copy the file across by hand; every snapshot in that run was fetched with `scp`.
+
+**Suggested fix.** An optional `inline` parameter, default false, that returns the image as MCP image content
+(`image/png`) beside the same JSON. Keep path-only as the default: an inline image costs every local caller that
+does not need it. [#957](https://github.com/hexide-io/HexIDE/issues/957).
+
+## `set_window_state` replies with the window's state from before the change on Linux
+
+**Symptom.** Each call followed by `get_window_state {}` (Linux, openSUSE Leap 16 under XWayland, Debug build of
+main at b15c7cf, 2026-10-13):
+
+```
+set_window_state {"state":"Normal"}
+→ {"window":{"state":"Maximized","x":0,"y":32,"width":1920,"height":1011}}
+get_window_state {}
+→ {"state":"Normal","x":240,"y":171,"width":1440,"height":733}
+
+set_window_state {"state":"Normal","x":100,"y":100,"width":1280,"height":720}
+→ position updated, width and height still 1440x733
+get_window_state {}
+→ 1280x720
+
+set_window_state {"state":"Maximized"}
+→ {"window":{"state":"Normal", ...}}
+get_window_state {}
+→ Maximized, 0,32 1920x1011
+```
+
+The reply says `success: true` and carries the old value in the field described as the resulting state. #602's
+re-read waits only for HexIDE's own layout, and on Avalonia 12.0.4's X11 backend, which every Linux session uses,
+XWayland included, state and geometry change only when the window manager answers. Linux-specific by code
+reading: the other backends, Headless included, take the requested value at once, so tests cannot reproduce it.
+Read in code and not run, from Maximized: a restore with a size writes the maximised origin back as the position,
+and a refused off-screen position cannot undo a restore already sent while the reply says "Nothing was changed."
+The archived #602 entry's "read after layout, so a new size is not reported as the old one" holds only where the
+platform applies a change at once.
+
+**Workaround.** Ignore the reply's `window` and re-read with `get_window_state {}`.
+
+**Suggested fix.** Wait, bounded at about a second, until the window reports the target state and, when geometry
+was passed, a move or resize has arrived; on timeout, reply with what the window reports and a note to re-read.
+Check the frame against the screens before any state change, so a refusal never has to undo a restore.
+[#946](https://github.com/hexide-io/HexIDE/issues/946).
+
+## `get_last_runtime_error` does not say which module or line raised the error
+
+**Symptom.** (Linux, openSUSE Leap 16 under XWayland, Debug build of main at b15c7cf, 2026-10-13.)
+
+```
+get_last_runtime_error {}
+→ {"raised":true,"message":"Compile error:...","at":"2026-10-13T03:05:25.1331302+01:00","sequence":1}
+```
+
+The dialog read "Compile error: Method or data member not found (ListCount in Right(Control))", with Debug
+disabled (#9), so once it closed neither a person nor a caller could reach the line. The reply carries text,
+time and sequence only. A run-time error's text ends with the statement but no module or line, and a compile
+error met mid-run carries neither, although the interpreter tracks both for the debugger. Cross-platform by code
+reading.
+
+**Workaround.** None beyond searching the project for an identifier the message names.
+
+**Suggested fix.** Note the module and line on the exception on the way out of the statement walk, for run-time
+and compile errors alike, and carry them through to `module` and `line` in the reply. Leave the dialog's text
+alone: what VB6 shows for a compile error met mid-run is #833's measurement.
+[#955](https://github.com/hexide-io/HexIDE/issues/955).
+
+## `get_last_runtime_error` stamps local time, where every other timestamp on the surface is UTC
+
+**Symptom.** On a machine at +01:00 (Linux, openSUSE Leap 16, Debug build of main at b15c7cf, 2026-10-13):
+
+```
+get_last_runtime_error {}
+→ "at":"2026-10-13T03:05:25.1331302+01:00"
+/health
+→ "timestamp":"2026-10-13T04:07:50.0894348+00:00"
+```
+
+`list_lsp_messages`, the conversation export, the connection list and `/health` all stamp UTC, so lining an error
+up against the LSP record means converting offsets by hand. Invisible on a machine whose zone is UTC, CI
+included. Cross-platform by code reading, and the archived #342 entry quotes the same `+01:00`.
+
+**Workaround.** Compare the stamps as instants, not as text: each carries its offset, so the comparison still
+holds. This is an inconsistency, not wrong data.
+
+**Suggested fix.** `DateTimeOffset.UtcNow` in `RuntimeErrorLog`, and a test asserting a zero offset.
+[#956](https://github.com/hexide-io/HexIDE/issues/956).
+
+## `list_lsp_messages` `failuresOnly` omits a message that could not be serialized
+
+**Symptom.** With a serialization failure at seq 183 in the record (#944) (Linux, openSUSE Leap 16 under XWayland,
+main at b15c7cf, 2026-10-13):
+
+```
+list_lsp_messages {"failuresOnly":true,"limit":20}
+→ {"messages":[],"matched":0,"note":"118 envelope(s) are recorded, and none match this filter. Drop the filters to see what is there."}
+```
+
+The record held:
+
+```
+{"sequence":183,"direction":"Local","kind":"NeverSent","method":"$/cancelRequest","detail":"could not be serialized: ..."}
+```
+
+The Protocol Inspector's Failures only filter and its failure count miss it the same
+way: both count only error responses and the Failed, Cancelled and Abandoned outcomes. So a filter for finding
+failures hides the client-side defect the capture was built to expose. Not every NeverSent row is a failure: a
+request withheld because the server did not advertise the capability is recorded as a Sent NeverSent row,
+deliberately. Cross-platform by code reading.
+
+**Workaround.** Call `list_lsp_messages {}` with no filter and look for `kind:"NeverSent"` with
+`direction:"Local"`.
+
+**Suggested fix.** Count a Local NeverSent row as a failure in `CaptureQueries.IsFailure` and
+`ProtocolInspectorRowViewModel.IsFailure`, and say so in `failuresOnly`'s description.
+[#945](https://github.com/hexide-io/HexIDE/issues/945).

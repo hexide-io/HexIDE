@@ -211,8 +211,9 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 ### D15. All user-code invocation is rejected in the Immediate window (v1)
 - **VB6:** you can call user procedures (and `New` objects) from the Immediate window, with their side effects.
 - **HexIDE:** any user-code invocation in an Immediate expression is rejected — a bare call, an instance method
-  (`?obj.Method()`), a **Property Get** (`?obj.Prop`), a Module-qualified call (`?Module1.Foo()`), and `New`
-  (`?New Thing`). Intrinsics (`Len`, `Mid`, `UCase`, …) and direct field reads (`?obj.Field`) still work.
+  (`?obj.Method()`), a **Property Get** (`?obj.Prop`), an object's **default member** (`?obj`, #840), a
+  Module-qualified call (`?Module1.Foo()`), and `New` (`?New Thing`). An object with no default member is 438, which
+  VB6's is inferred to be from `Debug.Print k` (measured, 438 in the IDE), and `?Err` is Err.Number. Intrinsics (`Len`, `Mid`, `UCase`, …) and direct field reads (`?obj.Field`) still work.
 - **Why:** the interpreter runs on the UI thread and is parked at the paused statement gate; running any user
   statements would hit that same gate on the same thread — a **deadlock** — and mutate program state mid-debug.
 - **Status:** **by design** (v1). The `SuppressUserProcedureCalls` guard sits at the two sinks EVERY user body flows
@@ -308,6 +309,22 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **Status:** **open**, [#766](https://github.com/hexide-io/HexIDE/issues/766). Found in the #762 review, where a
   test of a fault in a raised event passed on an idle machine and failed on a loaded one.
   `DebugController.TimeSliceMs` = -1 reproduces it deterministically.
+
+### D22. A compile error met while a program runs is a run-time error dialog, and the run carries on
+- **VB6:** a compile error found while the program runs, such as a call to a Sub that does not exist, is shown in
+  the compile-error box (OK and Help), and the IDE stops at that line. That is how it is commonly described; it is
+  **not yet measured** on the oracle.
+- **HexIDE:** the error is recorded, so `get_last_runtime_error` returns it, and shown in the run-time error
+  dialog. End is enabled; Continue, Debug and Help are not. End ends the run. Closed any other way, the dialog
+  leaves the run going, with the event procedure that met the error abandoned, as after a run-time error in an
+  event procedure. A syntax error found before the run begins is a start that never became a run: it is reported in
+  the same dialog, with the module it is in named, and nothing runs.
+- **Why:** one route for every error a run meets. Sub Main's compile errors already went through that dialog
+  (#754), and a separate compile-error box would answer the same error two ways. A tree-walker meets a compile error
+  only when it reaches the statement, so stopping before the run began is not possible for it.
+- **Status:** **open**. The one-dialog route was decided in [#759](https://github.com/hexide-io/HexIDE/issues/759);
+  the measurement, and whether to break at the line instead, is
+  [#833](https://github.com/hexide-io/HexIDE/issues/833).
 
 ---
 

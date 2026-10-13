@@ -2,6 +2,9 @@
   "name": "French",
   "direction": "ltr",
   "strings": {
+    "Str.Dialog.SourceEncoding.NothingWritten": "Aucun fichier n'a été écrit. {0} est conservé dans la page de codes {1}, qui ne peut pas contenir « {2} » ({3}). Ce caractère figure dans la ligne suivante :\n\n{4}\n\nHexIDE conserve chaque fichier dans la page de codes dans laquelle il a été lu ou créé, plutôt que de le convertir. Remplacez ce texte par des caractères que cette page de codes prend en charge ou, si la ligne désigne un fichier ou un dossier, choisissez un nom que cette page de codes peut contenir. Réessayez ensuite. Tout reste ouvert dans l'EDI avec vos modifications.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte": "{0} n'a pas pu être lu dans la page de codes de cet ordinateur ({1}) ; il a donc été ouvert octet par octet, comme du texte d'Europe occidentale (Latin-1). L'enregistrer sans le modifier réécrit les mêmes octets, mais les caractères absents de Latin-1 ne peuvent pas y être ajoutés. Un texte écrit dans une autre page de codes peut s'afficher de façon illisible.",
+    "Str.Dialog.SourceEncoding.ReadByteForByte.Many": "Ces fichiers n'ont pas pu être lus dans la page de codes de cet ordinateur ({1}) ; ils ont donc été ouverts octet par octet, comme du texte d'Europe occidentale (Latin-1) :\n\n{0}\n\nLes enregistrer sans les modifier réécrit les mêmes octets, mais les caractères absents de Latin-1 ne peuvent pas y être ajoutés. Un texte écrit dans une autre page de codes peut s'afficher de façon illisible.",
     "Str.Options.Language.RegionLabel": "_Région :",
     "Str.Options.Language.RegionStandard": "(Standard)",
     "Str.Options.Language.Customize": "_Personnaliser les traductions…",
@@ -678,7 +681,6 @@
     "Str.Vb6Toolchain.CompilationFailed": "La compilation VB6 a échoué :\n\n{0}",
     "Str.Vb6Toolchain.ExeNotFound": "La génération a réussi mais l'exécutable est introuvable à :\n{0}",
     "Str.Vb6Toolchain.RunFailedTitle": "Échec de l'exécution",
-    "Str.ProjectRunner.MustHaveStartupForm": "Une feuille de démarrage ou une procédure Sub Main() est requise",
     "Str.ProjectRunner.EditWhileRunningConfirm": "Cette action réinitialisera votre projet. Voulez-vous continuer ?",
     "Str.ProjectRunner.StartupFormFailedToLoad": "Impossible de charger la feuille '{0}' ; le projet n'a donc pas démarré.\n\n{1}",
     "Str.ProjectRunner.NotImplementedYet": "HexIDE ne prend pas encore en charge ceci :\n\n{0}",

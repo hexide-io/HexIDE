@@ -48,6 +48,10 @@ public class VbErr : ICSharpProxy, ICSharpPropertyBag
 
     public void Call(string method, List<Vb6Value> args)
     {
+        // Raise's number, source and description are values: an object stands for its default member (measured:
+        // `Err.Raise w` raises 42, and a class with none raises 438). Without this an object raised number 0.
+        for (var i = 0; i < args.Count; i++)
+            args[i] = ObjectAsValue.Scalar(args[i], null);
         switch (method.ToLowerInvariant())
         {
             case "clear":

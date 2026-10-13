@@ -1243,7 +1243,9 @@ reads back `02/01/2003` under en-GB, as measured above. It was refused until the
 - **`Value` on a scroll bar whose Min exceeds its Max** (#787). Avalonia raises Maximum to Minimum, so the value
   would read back clamped.
 - **A control, an array or an object on the right** of a property assignment. For a control, VB6 reads its default
-  property (#790).
+  property (#790). (Superseded for a class instance and the in-box objects by #840, "An object used as a value": a
+  class with no default member raises 438, one with a default member is refused naming #174, and Err stands for its
+  Number. A control and an array are still refused here.)
 - **A colour read from a Timer or a scroll bar** (#801). VB6 gives neither control a colour, but both bind one as
   every templated control does, so the read would give black. Until #795 a Label's and a TextBox's colours were
   refused here too, because neither loaded them where a read could find them; both read back now, as measured
@@ -4308,6 +4310,407 @@ Related: [A `.vbp` item line has two shapes, and the keys do not agree on which
 (2026-09-20)](#a-vbp-item-line-has-two-shapes-and-the-keys-do-not-agree-on-which-2026-09-20), which is the
 other way HexIDE's serializer has emitted a project VB6 reads differently from HexIDE.
 
+---
+
+## A type character on a name the program also declares: `Left$` beside a user `Left` (2026-10-11)
+
+**The question.** The library's string functions come in pairs, `Left` and `Left$`. When a program declares
+its own `Left` (a variable, a constant, a parameter, a function), does `Left$` mean the program's `Left`,
+with the `$` checked against its type, or the library's `Left$`? And what does a type-declaration character
+do on a library function that has no `$` form at all, such as `Len$`?
+
+Two readings were in play, and the probes were written so that they predict different results:
+
+- **Scope first.** `Left$` is searched for as `Left` by the ordinary scope search, and the `$` is then
+  checked against whatever the search found.
+- **Written name first.** `Left$` is a name of its own, matched to the library's `Left$` before any `Left`
+  the program declares is considered.
+
+The second is not a straw man: it has been implemented elsewhere.
+
+**The probe.** VB6.EXE 6.00.8176 (SP6) with runtime MSVBVM60 6.00.9848, in the oracle guest. Three Standard
+EXE projects, built from standard modules, every one of them `Option Explicit`, so that a name binding
+nothing is a compile error rather than an implicit Variant. Each probe is a `Public Sub` placed in the module
+whose declarations set up its scenario:
+
+```vb
+Public Sub TF_03()
+    Dim r As Variant
+    On Error Resume Next
+    r = Left$("abc", 1)          ' the statement under test
+    TwRec "TF_03", ..., r, Err.Number, Err.Description
+End Sub
+```
+
+`TwRec` records `TypeName(r)/VarType(r)` and the value, or the error number and description. A harness
+module's `Sub Main` calls every probe in turn. One compile error fails the whole build, so a driver read the
+`/make` log, deleted the offending Sub together with its call in `Sub Main`, and rebuilt, until the build
+succeeded. A project row below that says *compile error* is that log's message, verbatim.
+
+- **Project 1**: eleven scenario modules beside the harness. Nine of them declare a module-level `Left` or
+  `Trim`, every one `Private`, so none sees another's; `TwinLocal` declares its `Left`s inside the probes,
+  and `TwinParam` as a parameter. Ten builds: the first nine each failed, its log naming one compile error,
+  and the tenth succeeded.
+- **Project 2**: a `Public Function Left` in module `TwinPublic`, and the probes that use it in a second
+  module. It built first time.
+- **A third project**: the harness and `TwinProcStr` alone, so only the four `TP_` probes. It ran before
+  the other two: its log is stamped 19:19:47, project 1's 19:20:21 and project 2's 19:22:08. Its one build
+  succeeded. Its `TwinProcStr.bas` is byte-identical to project 1's, and project 1's four `TP_` rows are
+  identical to its four.
+
+Nineteen further questions went through [the scripted harness](#the-scripted-harness--scriptsvb6-oracleps1),
+one expression per `/make`, with any declaration placed in the module's declarations section. They are
+marked *(script)* below. For those, the record kept is the expression, its declaration and the answer. Ten
+of them are compile errors, and their message is as that record gives it: no `/make` log for any of those
+nineteen is in the record. The later script runs in this entry kept theirs. The record's header says the script ran under `Option Explicit`, which the harness
+supplies when it is given no declaration. Five rows carried one, and for those the harness replaces its
+default `Option Explicit` with the lines given; the record keeps each declaration but does not show whether
+`Option Explicit` was among them. Every name those five use is declared.
+
+Every compiled result below is a Variant holding a String (`String/8`) unless a type is shown.
+
+### The program's `Left` answers, at every scope probed, with one exception further down
+
+| Probe | Declaration in force | Code | VB6 |
+|---|---|---|---|
+| TF_01 | `Private Left As String` (module) | `Left$ = "x": r = Left` | `"x"` |
+| TF_02 | the same | `Left = "y": r = Left$` | `"y"` |
+| TL_01 | `Dim Left As String` (local) | `Left$ = "x": r = Left` | `"x"` |
+| TL_02 | the same | `Left = "y": r = Left$` | `"y"` |
+| TL_04 | `Dim Left$` | `Left$ = "z": r = Left & "/" & TypeName(Left)` | `"z/String"` |
+| TL_06 | `Const Left As String = "k"` (local) | `r = Left$` | `"k"` |
+| TA_01 | a parameter: `Function TwP(ByVal Left As String) As Variant`, body `TwP = Left$` | `r = TwP("p")` | `"p"` |
+| TP_01 | `Private Function Left(ByVal s As String, ByVal n As Long) As String`, returning `"user:" & s & "/" & n` | `r = Left$("abc", 1)` | `"user:abc/1"` |
+| TP_02 | the same | `r = Left("abc", 1)` | `"user:abc/1"` |
+| TR_01 | `Private Function Left$(ByVal s As String, ByVal n As Long)`, returning `"ret:" & …` | `r = Left$("abc", 1)` | `"ret:abc/1"` |
+| TR_02 | the same | `r = Left("abc", 1)` | `"ret:abc/1"` |
+| TB_01 | `Private Function Left$(…)` whose body assigns `Left$ = "body:" & s & "/" & n` | `r = Left("abc", 1)` | `"body:abc/1"` |
+| TV_02 | `Private Function Left(ByVal s As String, ByVal n As Long)`, no `As` clause, returning `"var:" & …` | `r = Left("abc", 1)` | `"var:abc/1"` |
+| TX_01 | project 2: `Public Function Left(ByVal s As String, ByVal n As Long) As String` in another module, returning `"pub:" & …` | `r = Left$("abc", 1)` | `"pub:abc/1"` |
+| TX_02 | the same | `r = Left("abc", 1)` | `"pub:abc/1"` |
+
+Where the program's `Left` is a **`String` variable**, at module level or local, calling it does not fall
+back to the library, with the `$` or without it (no variable of another type was called with arguments):
+
+| Probe | Declaration in force | Code | VB6 |
+|---|---|---|---|
+| TF_03 | `Private Left As String` | `r = Left$("abc", 1)` | compile error: `Expected array` |
+| TF_04 | the same | `r = Left("abc", 1)` | compile error: `Expected array` |
+| TL_05 | `Dim Left As String` | `r = Left$("abc", 1)` | compile error: `Expected array` |
+| TL_07 | the same | `r = Left("abc", 1)` | compile error: `Expected array` |
+
+`Trim` was probed as a control, a name the parameterless-function rule further down was not written for.
+It has two declarations, both at module level:
+
+| Probe | Declaration in force | Code | VB6 |
+|---|---|---|---|
+| TT_01 | `Private Trim As String` (module) | `Trim$ = "x": r = Trim` | `"x"` |
+| TT_02 | the same | `Trim = "y": r = Trim$` | `"y"` |
+| TT_03 | the same | `r = Trim$(" a ")` | compile error: `Expected array` |
+| TT_04 | the same | `r = Trim(" a ")` | compile error: `Expected array` |
+| TU_01 | `Private Function Trim(ByVal s As String) As String`, returning `"user:" & s & "!"` | `r = Trim$(" a ")` | `"user: a !"` |
+| TU_02 | the same | `r = Trim(" a ")` | `"user: a !"` |
+
+One unqualified control sits beside `Private Left As String`: TF_06, `r = Right$("abc", 1)`, a twin the
+program does not declare, gives the library's `"c"`.
+
+And qualified:
+
+| Probe | Declaration in force | Code | VB6 |
+|---|---|---|---|
+| TF_05 | `Private Left As String` | `r = VBA.Left$("abc", 1)` | `"a"` |
+| TP_03 | `Private Function Left(…) As String` | `r = VBA.Left$("abc", 1)` | `"a"` |
+| TX_03 | project 2's `Public Function Left` | `r = VBA.Left$("abc", 1)` | `"a"` |
+| TP_04 | `Private Function Left(…) As String`, in module `TwinProcStr` | `r = TwinProcStr.Left$("abc", 1)` | `"user:abc/1"` |
+| TX_04 | project 2's `Public Function Left`, in module `TwinPublic` | `r = TwinPublic.Left$("abc", 1)` | `"pub:abc/1"` |
+
+So `Left$` is searched for as `Left`. Nineteen rows, from these tables and the next (TV_01, TL_03), are ones
+where the two readings predict differently: TF_01–03, TL_01–06, TT_01–03, TP_01, TR_01, TB_01, TA_01,
+TU_01, TV_01 and TX_01. VB6 did what scope first predicts in every one of them, and what written name first
+predicts in none. The assignment rows matter as much as the reads: `Left$ = …` stores into the program's variable (TF_01, TL_01, TL_04), and
+inside `Function Left$` it sets the function's return value (TB_01).
+
+A `Public Function Left` in another standard module outranks the library, with the `$` and without it
+(TX_01, TX_02). Under [The project's own declarations win](#the-projects-own-declarations-win), the in-box
+constants lost to a `Private Enum` and a `Private Const`, so what that showed is the libraries losing to
+the module's own declarations. TX_01 and TX_02 put the declaration in another module, and the library
+loses there too. Only that one shape was probed at that tier.
+
+A module qualifier with a `$` reaches the module's `Left`, which is declared without one (TP_04, TX_04).
+`VBA.Left$` reaches the library past each of the three declarations it was written beside: `Private Left
+As String` (TF_05), `Private Function Left(…) As String` (TP_03) and project 2's `Public Function Left`
+(TX_03). Each qualifier had a single candidate, so these rows show that qualification works, not any order
+within it.
+
+### Then the `$` is checked against what was found
+
+| Probe | Declaration in force | Code | VB6 |
+|---|---|---|---|
+| TV_01 | `Private Function Left(ByVal s As String, ByVal n As Long)`, no `As` clause | `r = Left$("abc", 1)` | compile error: `Type-declaration character does not match declared data type` |
+| TL_03 | `Dim Left As Long` | `r = Left$` | the same compile error |
+| *(script)* | `Private vv As Variant`, at module level | `vv$` | the same |
+| *(script)* | `Private Function VF(ByVal s As String)`, no `As` clause, `VF = s` | `VF$("x")` | the same |
+| *(script)* | the same | `Module1.VF$("x")` | the same |
+
+A Variant declaration gets no exemption: `$` against Variant is a mismatch exactly as `$` against Long is.
+Nor does the check pass a contradicted declaration over and carry on searching, or TV_01 would have reached
+the library's `Left$` and answered `"a"`. And it applies through a module qualifier.
+
+### An assignment through a type character reaches the declared variable, for every character
+
+The rows above assign only through `$`, only to a name the library also uses, and only under
+`Option Explicit`. Nine further `/make` runs of [the scripted harness](#the-scripted-harness--scriptsvb6-oracleps1)
+took the rest, each case a `Private Function` that assigns and returns what it reads back. The runs covered
+every character, into a module variable and into a local, with and without `Option Explicit`, plus
+undeclared names, which exist only without it.
+
+Every assignment through a character to a declared variable reached that variable:
+
+| Character | Declared as | Module variable, `Option Explicit` | Module variable, without | Local, `Option Explicit` | Local, without |
+|---|---|---|---|---|---|
+| `%` | Integer | `n% = 5`: `5` | `5` | `n% = 7`: `7` | `7` |
+| `&` | Long | `l& = 70000`: `70000` | `70000` | `m& = 9`: `9` | `9` |
+| `!` | Single | `f! = 1.5`: `1.5` | `1.5` | `f! = 2.5`: `2.5` | `2.5` |
+| `#` | Double | `d# = 2.5`: `2.5` | `2.5` | `d# = 3.5`: `3.5` | `3.5` |
+| `@` | Currency | `c@ = 1.25`: `1.25` | `1.25` | `c@ = 4.25`: `4.25` | `4.25` |
+| `$` | String | `s$ = "x"`: `"x"` | `s2$ = "w"`: `"w"` | `t$ = "y"`: `"y"` | `s$ = "z"`: `"z"` |
+
+Each value came back read through the bare name, and as the declared type. A `For` counter behaves the
+same way: a local `Dim i As Integer` and then `For i% = 1 To 2: Next` leave `i` at `3`, Integer, with and
+without `Option Explicit`. Only `%` was tried on a counter, and only in a local.
+
+Without `Option Explicit`, an undeclared name takes the type of the character it is first used with, and
+the bare name then reads the same variable:
+
+| Code | VB6 |
+|---|---|
+| `a$ = "x"`, then `a & "|" & TypeName(a)` | `"x|String"` |
+| `c$ = "z"`, then `c$ & "|" & TypeName(c$)` | `"z|String"` |
+| `k% = 3`, then `TypeName(k) & "|" & k` | `"Integer|3"` |
+| `l2& = 8`, then the same | `"Long|8"` |
+| `f2! = 1.5` | `"Single|1.5"` |
+| `d2# = 2.5` | `"Double|2.5"` |
+| `c2@ = 1.25` | `"Currency|1.25"` |
+| `b = "y"`, then `b$` | compile error: `Type-declaration character does not match declared data type` |
+
+So `a$` and `a` are one variable, and `Option Explicit` makes no difference to which one an assignment
+reaches. The first use decides the type: through a character, that character's type; bare, a Variant,
+against which a later `$` is the mismatch above. The obvious guess from VB6's QuickBASIC ancestry, where
+`a$` and `a` are two different variables, is overturned.
+
+The compile error came back as `Line 2`, which is the `b$` statement under the
+[`Line N` rule](#what-make-writes-to-out-and-what-line-n-counts-2026-09-19): one `Attribute` line, then the
+`Private Function` line at index 0.
+
+### On library names the `$` is enforced on some and ignored on others
+
+All *(script)*, one expression per `/make`, except TL_08 and TL_09, which ran in project 1.
+
+| Written | VB6 |
+|---|---|
+| `Asc$("a")` (TL_09) | compile error: `Type-declaration character does not match declared data type` |
+| `InStrRev$("abc", "b")` | the same |
+| `IIf$(True, "a", "b")` | the same |
+| `Choose$(1, "a")` | the same |
+| `Val$("12")` | the same |
+| `Array$(1)` | the same |
+| `InStr$("abc", "b")` (TL_08, and again as a script) | `2`, Long |
+| `InStrB$("abc", "b")` | `3`, Long |
+| `Len$("abc")` | `3`, Long |
+| `LenB$("abc")` | `6`, Long |
+| `CLng$(1)` | `1`, Long |
+| `Abs$(-1)` | `1`, Integer |
+| `Sgn$(-2)` | `-1`, Integer |
+| `Int$(1.5)` | `1`, Double |
+| `Fix$(1.5)` | `1`, Double |
+
+On the nine that compile, the `$` is ignored rather than applied: none of them comes back as a String. Where
+this file had already measured the function without the character, the type matches it: `Len` and `InStr`
+Long, `Sgn` Integer, `Int` and `Fix` following their operand
+([Return widths](#return-widths-of-the-integer-returning-intrinsics-2026-09-02)), and `Abs` keeping its
+operand's type (overturned assumption 8). `CLng` giving a Long was a positive control in
+[Numeric type pairs](#numeric-type-pairs--five-arithmetic-tables-and-comparison-is-a-sixth-2026-09-03).
+`InStrB` and `LenB` had no unhinted control, in this run or before it.
+
+### A parameterless String `Left` is passed over when given two arguments
+
+| Probe | Declaration in force | Code | VB6 |
+|---|---|---|---|
+| TE_01 | `Private Function Left() As String`, returning `"noparams"` | `r = Left("abc", 1)` | `"a"` |
+| TE_02 | the same | `r = Left$("abc", 1)` | `"a"` |
+| TE_03 | the same | `r = Left` | `"noparams"` |
+| TE_04 | `Private Function Left()`, no `As` clause, returning `"v"` | `r = Left("abc", 1)` | compiles; at run time `Err 13` (`Type mismatch`) |
+| *(script)* | `Private Function Right() As String`, returning `"noparams"` | `Right("abc", 1)` | compile error: `Wrong number of arguments or invalid property assignment` |
+| *(script)* | the same | `Right$("abc", 1)` | the same |
+
+TE_01 and TE_02 are the only unqualified `Left` calls in this entry where the program declares `Left` and the
+library answers anyway. TE_03 shows the function is there to be found when it is not given arguments. The probes for this
+shape were written from MS-VBAL §5.6.10, which, as the probes' author read it, singles out the name `Left`:
+a parameterless function returning `String`, followed by two arguments, is dropped as a match and the search
+goes on. VB6 did what that reading predicts in all four `TE_` rows. The Variant version is not dropped; its
+`Err 13` is most likely the attempt to index the String it returned, which the row does not show directly.
+
+Three more script runs, each under `Option Explicit`, gave surplus arguments to functions named neither
+`Left` nor `Right`:
+
+| Declaration in force | Code | VB6 |
+|---|---|---|
+| `Private Function H(ByVal a As Long) As Long`, `H = a` | `H(5, 6)` | compile error: `Wrong number of arguments or invalid property assignment` |
+| `Private Function G() As Long`, `G = 1` | `G(5, 6)` | the same |
+| `Private Function F()`, no `As` clause, `F = 1` | `F(5, 6)` | compile error: `Expected array` |
+
+`F` has TE_04's shape, a parameterless function with no `As` clause given two arguments, and is refused
+at compile time where TE_04 compiles and fails at run time. `F` ran in the scripted harness and TE_04 in
+project 1, so, as with the `Right` rows below, these rows cannot say whether the name or the harness made
+the difference.
+
+The same String shape named `Right` is not dropped, and is refused at compile time. That would make this a
+rule about the name rather than about parameterless String functions in general, except that the two
+`Right` rows went through the scripted harness rather than project 1, so they differ from TE_01 in harness
+as well as in name, and these rows cannot say which of the two made the difference. Within project 1, the
+only parameterless function given two arguments and not dropped is TE_04's, and it differs from TE_01 in
+its return type, not its name.
+
+### What this overturned
+
+Every probe's expected column is a string in the probe's own source, so it was fixed before VB6 compiled
+the probe, and it names each answer its author could not yet rule out. VB6 refuted these:
+
+- **Written name first**, in all nineteen rows where it differed from scope first. It predicted the
+  library's `"a"` for TF_03, TL_05, TT_03, TP_01, TR_01, TU_01, TV_01 and TX_01; "a compile error such as
+  `Argument not optional`" for TL_03; and a compile error for each assignment or argument-less read through
+  the `$` (TF_01, TF_02, TL_01, TL_02, TL_04, TL_06, TT_01, TT_02, TB_01, TA_01). TL_03 is the one row of
+  the nineteen where both readings predict a compile error, and its expected column notes: "Only the message
+  tells the two compile errors apart". Written name first gave its message only as an example; scope first named
+  `Type-declaration character does not match declared data type` outright, and that is what VB6 gave. So
+  TL_03 separates the two by the kind of message, not its wording. VB6's is about the `$` contradicting a
+  declaration, and written name first never reaches the `Dim Left As Long`: it reads `Left$` as the
+  library's, called with no arguments.
+- **Scope first with the `$` never checked**, which predicted `"var:abc/1"` for TV_01 and a Long `0` for
+  TL_03. Both are compile errors.
+- **A third reading**, in which a declaration the `$` contradicts is skipped and the search continues. It
+  predicted `"a"` for TV_01, which is a compile error.
+- **The `$` checked on every library name** predicted a compile error for `InStr$` (TL_08), which returns a
+  Long `2`. **Never checked on a library name** predicted `97` for `Asc$` (TL_09), which is a compile error.
+  Each half was right about some names and wrong about others.
+
+The first table invites a simpler rule than the entry supports: wherever the program declares a `Left`, an
+unqualified `Left$` means the program's. TE_02 overturns it. Beside a parameterless `Function Left() As
+String`, `Left$("abc", 1)` gives the library's `"a"`. It sits with the parameterless-function rows rather
+than the scope tables, which is what makes it easy to miss.
+
+### What resisted explanation
+
+- **Which library names ignore the `$`.** The type each result arrives as does not separate the two lists:
+  `InStr` and `InStrRev` both arrive as Long, and `Sgn` and `Asc` both as Integer (the 2026-09-02 table), yet
+  in each pair one ignores the `$` and the other refuses it. That does not rule out the declared return
+  type. Every type here, in these rows and in that table, is the subtype of the Variant the result was
+  assigned to, and the rows above show the `$` is checked against the declaration, not the value: TV_02's
+  function hands back a String, and TV_01's `$` on that same function, declared Variant, is refused. A
+  library function declared `As Variant` that returns a Long looks the same in these rows as one declared
+  `As Long`. TL_08's expected column took `InStr` to return a Variant, which nothing here measured. If it
+  does, `InStr$` compiling means the check does not treat it as it treats a declared Variant (`vv$`).
+  Seven of the nine that ignore the `$` (`Abs`, `CLng`, `Fix`, `Int`, `Len`, `LenB`, `Sgn`) are in MS-VBAL's
+  `reserved-name` production (section "Reserved Identifiers and IDENTIFIER", read 2026-10-11), and `InStr`
+  and `InStrB` are not. It misses the other way too: `Array`, one of the six that refuse the `$`, is in the
+  same section's `special-form` production, and the other five that refuse it (`Asc`, `InStrRev`, `IIf`,
+  `Choose`, `Val`) are reserved in neither. Read as a rule, "a reserved name ignores the `$`, any other
+  name has it checked", that fits twelve of the fifteen: the seven, and the five that are reserved in
+  neither production. It misfits three: `InStr` and `InStrB`, which ignore the `$` without being reserved,
+  and `Array`, which refuses it although it is reserved as a special form. So reservation is the best
+  single predictor here, and it is not the rule.
+- **Why `Left` and not `Right`.** Both are library functions with a `$` form and the same parameters. The
+  rows fit a rule specific to the name, for this shape, but do not isolate the name: the `Right` rows ran in
+  the scripted harness, in its `Module1` and called from its `Sub Main`, while TE_01 ran in project 1. Whether
+  it is the name, and if so why, is open.
+
+### Not measured
+
+- `Left$` with **no** arguments against the parameterless `Function Left() As String`. TE_03 is the bare
+  `Left`, so whether the hinted read reaches that function is open.
+- `Trim` anywhere but a module variable and a module function: no local, parameter, `Const`, `Dim Trim$`,
+  return-value or project-level `Trim`.
+- A `Left` variable called with arguments when it is not a `String`: no Variant or array `Left`.
+- `VBA.Left$` beside any declaration but the three in TF_05, TP_03 and TX_03: none beside a local, a
+  parameter, a `Const`, `Function Left$`, or a Variant or parameterless `Function Left`. No `VBA.Trim$` at
+  all.
+- The parameterless `Function Right() As String` inside project 1, beside the `TE_` probes, which is what
+  would separate the name from the harness. Likewise a parameterless Variant `F` given two arguments inside
+  project 1, beside TE_04.
+- The `Left` rule with a return type other than `String` or Variant, a `Property Get`, an argument count
+  other than two, or in a class or form module.
+- The project tier beyond one `Public Function` in a standard module: no `Public` variable or `Const`, no
+  two project-level `Left`s, no class or form module.
+- A type character on any library name not listed above, including every conversion function but `CLng`.
+- VBA7. The probes were written for Office VBA and only VB6 answered them. The two share a language engine's
+  lineage and are known to diverge at the edges.
+
+### Consequences for the interpreter
+
+HexIDE's interpreter was run on `main` (`f44df30`) against the project probes, one scenario module at a
+time behind a harness of its own, and against short programs of the same shape for the scripted cases.
+Four kinds of divergence came out, each filed:
+
+- An unqualified read through a type character throws `NotImplementedException`, for every character
+  and for the library's `$` functions. A module-qualified one does not: the qualifier path drops the
+  character unchecked, so `Module1.VF$("x")` answers `"x"` where VB6 refuses to compile it (#742, which
+  also carries the rules above as the design to implement). A declaration through one throws as well:
+  `Dim Left$` gives "DIM type hints not implemented" where VB6 compiles TL_04.
+- Without `Option Explicit`, an assignment through a type character writes a second variable, so `n% = 5`
+  leaves a declared `n` at 0 with no error. With it, the same line raises `Variable not defined (n%)`,
+  which VB6 does not. A `For i%` loop runs on a counter nobody reads either way (#739).
+- A `Function` declared with a type character does not parse, so its module does not load (#740).
+- Surplus arguments are dropped, so `H(5, 6)`, `G(5, 6)` and `F(5, 6)` above run and answer, and a
+  `String` variable that shares a library function's name (`Left`, `Trim`) is passed over to the library
+  when called with arguments. TE_01 answers the program's
+  parameterless `Left` where VB6 answers `"a"`, and TE_04 answers where VB6 raises `Err 13` (#741).
+
+### The `/make` line numbers agree with the 2026-09-19 measurement
+
+Each failing build's `/out` log held one line in the form recorded under
+[What `/make` writes to `/out`, and what "Line N" counts](#what-make-writes-to-out-and-what-line-n-counts-2026-09-19):
+
+```
+Compile Error in File '<path>\TwinField.bas', Line 30 : Expected array
+```
+
+| Build | File | VB6 printed | File line `N + 2` holds | Message |
+|---|---|---|---|---|
+| 1 | `TwinField.bas` | Line 30 | 32: `r = Left$("abc", 1)` (TF_03) | `Expected array` |
+| 2 | `TwinField.bas` | Line 30 | 32: `r = Left("abc", 1)` (TF_04, eight lines higher once TF_03 was gone) | `Expected array` |
+| 3 | `TwinProcVar.bas` | Line 14 | 16: `r = Left$("abc", 1)` (TV_01) | `Type-declaration character does not match declared data type` |
+| 4 | `TwinLocal.bas` | Line 28 | 30: `r = Left$` (TL_03) | the same |
+| 5 | `TwinLocal.bas` | Line 37 | 39: `r = Left$("abc", 1)` (TL_05) | `Expected array` |
+| 6 | `TwinLocal.bas` | Line 46 | 48: `r = Left("abc", 1)` (TL_07) | `Expected array` |
+| 7 | `TwinLocal.bas` | Line 54 | 56: `r = Asc$("a")` (TL_09) | `Type-declaration character does not match declared data type` |
+| 8 | `TwinTrimField.bas` | Line 30 | 32: `r = Trim$(" a ")` (TT_03) | `Expected array` |
+| 9 | `TwinTrimField.bas` | Line 30 | 32: `r = Trim(" a ")` (TT_04) | `Expected array` |
+| 10 | | | | `Build of 'twins1.exe' succeeded.` |
+
+Every module is a `.bas` whose only hidden line is `Attribute VB_Name`, so that section's
+`file line = N + 1 + hidden lines above` gives `N + 2`, and it holds in all nine. The driver found each
+statement from the line number, so the arithmetic alone would be circular. The content is what pins it: the
+lines either side of each statement are `On Error Resume Next` and the recording call, which cannot raise
+these messages. Replaying the deletions against the original modules reproduces every
+reported line, and ends at exactly the files that built. So these line numbers need no rule of their own:
+they are that section's rule applied to a `.bas`. The nine project builds add two message kinds the section did not have, both binding errors, and exercise
+nothing else in it: no procedure-level attribute, no continued statement. The later script runs' logs carry a
+third, `Wrong number of arguments or invalid property assignment`; their line numbers point into the
+harness's own generated module and were not reconciled with the rule here.
+
+Two things the logs show that the earlier section does not state:
+
+- **One error per build.** Project 1 held nine compile errors at its first build, and the log named one.
+  Each later build named the next. The logs cannot tell "stopped at the first error" from "reported only the
+  first"; they fit both. [Qualified type names](#qualified-type-names-a-type-never-shadows-the-qualifier-2026-09-19)
+  already relies on one failure failing the whole program.
+- **The order.** The nine arrived in the `.vbp`'s `Module=` order, and by line within a file. That is not
+  alphabetical (`TwinProcVar` came before `TwinLocal`), but it is also the order in which `Sub Main` calls the
+  probes, so this run cannot separate the two. One project, nine failing builds: observed, not established as
+a rule.
+
+---
+
 ## A running program's locale is the user's regional settings (2026-10-12, #777)
 
 Measured to decide which culture the interpreter should format and read text in, and whether a two-digit year is
@@ -4652,6 +5055,10 @@ the control. A Let of a control or of an in-box object (`Err`, `App`, a control 
 are unaffected. `Label1 = "x"` is still a compile error ("Method or data member not found"). `n = Err` reads
 `Err.Number` in VB6 by the documentation; that was not measured.
 
+**Superseded for the in-box objects by #840**, which measured them ("An object used as a value"): `n = Err` stores
+Err.Number, `s = App` raises 438, and `Debug` and a control array used as values are compile errors. The #790
+refusal now covers controls only.
+
 ## A Label's colours, read back and painted (2026-10-12, #795)
 
 Measured to decide what a Label and a TextBox should read back and paint. Real `vb6.exe` 6.00.8176 (SP6), guest
@@ -4989,7 +5396,8 @@ HexIDE read every one of these as 0, so `RGB(o, 0, 0)` was black and `CInt(o)` w
   - an omitted argument is 448;
   - a UDT raises 13, which is VB6's compile-time error raised at run time.
 - A control, an in-box object, or a class with a `VB_UserMemId = 0` member refuses, untrappably, because HexIDE does not
-  read default members yet: #790 for controls, #174 for classes. A trappable error there would let
+  read default members yet: #790 for controls, #174 for classes. (Superseded for the in-box objects by #840: Err used as a
+  value is its Number and App raises 438, as measured there.) A trappable error there would let
   `On Error Resume Next` carry on without the value VB6 gives.
 - A box hidden with its owner keeps waiting, shown again unowned, and so does a box whose owner was hidden before it
   opened. The waiting statement is abandoned only when the run that opened the box has ended, which survives a
@@ -5143,3 +5551,673 @@ line itself does nothing when `Value` runs.
 stopped the run. An attribute line is now metadata: running it does nothing, and the debugger's gate skips it, so
 a step goes from a procedure's first line to its first statement, as VB6's code window, which hides these lines,
 does. The default member is still not used as one, and that is #174.
+
+## What a condition is (2026-10-12, #847)
+
+**The question.** What every statement with a condition makes of a value that is not a Boolean. HexIDE accepted only
+a Boolean in a block `If` or `ElseIf`, and raised "IF doesn't contain a bool expression" for anything else, an error
+whose Number was 0. A one-line `If` raised 13 for anything but a Boolean, and the loops accepted a Boolean, an Integer,
+a Byte, a string that reads as an integer, or Null, and raised 13 for anything else, Empty included. So `If Len(s) Then`, `If InStr(s, "x") Then` and `If flags And 4 Then` stopped the run, and under
+`On Error Resume Next` the block form skipped its body with nothing in Err.
+
+**Probe.** A Sub Main project with no `On Error Resume Next`: a function `P(form, v)` traps with `On Error GoTo` and
+tests a Variant `v` in one of eight forms. The loops count their passes up to a limit of their own: 2 for a
+pre-tested loop, 3 for a post-tested one, so a loop that holds shows its limit. Built as native code and also run in
+the IDE; **every line was identical in the two modes**.
+
+**How the IDE runs were made.** `VB6.EXE /runexit probe.vbp` runs a project in the IDE, as F5 does, and closes VB when
+the program ends. It was started in the Win10 guest's session 0 over PowerShell Direct, with the project's files
+copied into a fresh folder first. The program writes its log with `Print #` to a file beside the project, because
+`Debug.Print` output goes to the Immediate window and is gone when VB closes. VB exits with 0xC000041D after the
+program finishes, which is normal. A compile error or an unhandled run-time error leaves a modal dialog nobody can
+answer in session 0, so a run still going after a timeout is killed and its log is missing or incomplete; every use is
+made under `On Error GoTo` for that reason. A `probe.exe` left in the folder means the run was a `/make` build, not an
+IDE run. #842 tracks making this, and the native `/make` harness, part of the tree.
+
+| `v` | one-line If | block If | ElseIf | While | Do While | Do Until | Loop While | Loop Until |
+|---|---|---|---|---|---|---|---|---|
+| 5, 0.5, -1@, `#1/1/2000#`, `CLng(11)` | Then | Then | Then | 2 | 2 | 0 | 3 | 1 |
+| `"True"`, `"1"`, `" 5 "`, `"&H10"` | Then | Then | Then | 2 | 2 | 0 | 3 | 1 |
+| 0, `CByte(0)`, `"False"`, `"0"` | Else | Else | Else | 0 | 0 | 2 | 1 | 3 |
+| **Null, Empty** | Else | Else | Else | 0 | 0 | **2** | 1 | **3** |
+| `"abc"`, `""`, `CVErr(5)` | 13 | 13 | 13 | 13 | 13 | 13 | 13 | 13 |
+
+**Typed values and the idioms,** each in a one-line and a block `If`, which agreed on every row:
+
+| Condition | Holds |
+|---|---|
+| a Long 11, a Double 0.5, a String `"-1"` | yes |
+| an Integer 0, a Variant holding a Long 0 | no |
+| `Len(s)` with `s` "abc"; with `s` "" | yes; no |
+| `InStr("abc", "b")`; `InStr("abc", "x")` | yes; no |
+| `x And 4`, `x And 1`, with `x` a Long 6 | yes; no |
+| `Err` and `Err.Number`, after `Err.Number = 11` | yes, both |
+| `Err` after `Err.Clear` | no |
+| the literal `Null` | no |
+| a String `"abc"` | 13 |
+
+**What it says.** Every form reads its condition as `CBool` reads it, except that Null is False where `CBool` raises
+94 for Null (measured alongside, both modes: `CBool(Null)` raises 94, `CBool(Empty)` is False with no error). The Null row is the one worth a second look: Null is not a third state that makes every
+condition fail. It is plain False, so `Do Until Null` runs and `Loop Until Null` does not end the loop.
+
+**An object in a condition,** measured in a second probe, native and in the IDE, with a one-line `If` and `Do While`:
+
+| `v` | VB6 |
+|---|---|
+| a Variant set to `Nothing`; an `Object` variable never set | 91 |
+| a Variant holding a class with no default member | 438 |
+| a Variant holding a class whose default member, a **Function**, returns 42 | `If` holds; `Do While` loops |
+
+The default member was a Function, `Public Function Value() As Long` with `VB_UserMemId = 0`. That matters because a
+Function default member gives 450 on some paths where a Property Get gives its value (#840's probes: `Format`, `Abs`,
+`Not`). A condition is not one of those paths. `ConditionTests`' `Widget` is the same Function.
+
+So a condition refuses an object as every conversion does. `CBool` alone in HexIDE did not ask: each of these, and a
+class with a default member, a control and `Err`, fell through to a trappable 13.
+
+**HexIDE, after this.** One reading, `ConditionHolds`, used by the block `If`, `ElseIf`, the one-line `If`, `While`,
+and both `Do` forms. `CBool` now refuses what every conversion refuses: Nothing is 91, a class with no default member
+438, and a class with a default member, a control and `Err` are refused, untrappably, naming #174, #790 or #840. An
+error `CBool` raises in a condition names the condition's statement. `If Err Then` follows Err used as a value, which
+#840 makes its Number. `CVErr` does not exist in HexIDE yet.
+
+**After #840 (2026-10-13).** A condition is read as an operand is, through `ObjectAsValue`, so `Err` there is its
+Number and is no longer refused. Measured again for the loops, native and in the IDE (`p25`, a Sub Main project under
+`On Error Resume Next`, identical in both modes):
+
+| Form | VB6 |
+|---|---|
+| `If Err Then`, one-line, block and `ElseIf` | Then after `Err.Raise 53`, Else after `Err.Clear` |
+| `While Err`, `Do While Err` and `Do Until Err = 0`, entered after `Err.Raise 53`, clearing it in the body | one pass |
+| `Do Until Err`, entered with no error, raising 53 in the body | one pass |
+| `Do ... Loop While Err`, with no error | one pass |
+
+A class with a default member and a control are still refused, naming #174 and #790. HexIDE answers every row. The
+`While` one stopped with "Sub or Function not defined (Err)" until #882, which measuring it found: a member call such
+as `Err.Clear` or `Debug.Print` inside `While...Wend` parsed as two statements, and the condition had nothing to do
+with it.
+
+## A typed parameter given a value of another type (2026-10-13, #874)
+
+**The question.** What a parameter declared `As Boolean`, `As String` or `As Date` holds when the caller passes a
+value of another type. Found in #865's review: HexIDE's `BindParameters` coerces a copied argument only into the
+numeric types (`IsCoreNumeric`: Byte, Integer, Long, Single, Double, Currency), so a Boolean, String or Date parameter
+held whatever it was given. That copy branch takes every `ByVal` argument and every `ByRef` argument passed as a
+literal, so both are affected.
+
+**Probe.** A Sub Main project with `On Error Resume Next`. Each procedure writes `TypeName(x)` and `x` with `Print #`.
+The caller clears `Err` before each call and reads `Err.Number` after it, so a 13 is the caller's own reading, and a
+call that raised it shows no line from the procedure, which is how "at the call" is known.
+Built as native code and also run in the IDE, as described under "What a condition is"; **every line was identical in
+the two modes**. The guest's locale is en-GB, which decides how a Date is written and how `"1/2/2000"` is read.
+
+| Call | Parameter | VB6 |
+|---|---|---|
+| `B 5`, `B 0` | `ByVal x As Boolean` | Boolean True, Boolean False |
+| `B "True"` | `ByVal x As Boolean` | Boolean True |
+| `B "abc"` | `ByVal x As Boolean` | 13, at the call: the procedure does not run |
+| `S 5`, `S True`, `S 2.5` | `ByVal x As String` | String "5", "True", "2.5" |
+| `D "1/2/2000"` | `ByVal x As Date` | Date 01/02/2000 |
+| `D 1`, `D 2.5`, `D True` | `ByVal x As Date` | Date 31/12/1899, 01/01/1900 12:00:00, 29/12/1899 |
+| `D "abc"` | `ByVal x As Date` | 13, at the call |
+| `BR 5`, `BR 0`, `BR "True"` | `x As Boolean`, ByRef | Boolean True, False, True |
+| `BR "abc"` | `x As Boolean`, ByRef | 13, at the call |
+| `SR 5`, `SR True`, `SR 2.5` | `x As String`, ByRef | String "5", "True", "2.5" |
+| `DR "1/2/2000"`, `DR 1` | `x As Date`, ByRef | Date 01/02/2000, 31/12/1899 |
+| `DR "abc"` | `x As Date`, ByRef | 13, at the call |
+
+**What it says.** A literal passed to a typed parameter, ByVal or ByRef, is converted into the parameter's type as a
+store into a variable of that type converts it, and a value that will not convert raises 13 before the procedure
+runs. HexIDE passes the ByVal Boolean and String cases through unconverted (run under HexIDE: `S 5` arrives as an
+Integer, and `B "abc"` runs with a String where VB6 raises 13), and its code sends the Date and ByRef cases down the
+same branch. #874 is the fix.
+
+## A member call inside While...Wend (2026-10-13, #882)
+
+**The question.** Whether each shape of member call runs as one statement in a `While...Wend` body. HexIDE parsed
+`k.Bump` there as a call of a procedure named `k` followed by `.Bump`, and stopped with "Sub or Function not defined
+(k)". Nobody doubted VB6 runs these; the probe pins the counts the tests assert.
+
+**Probe** (`p26`). A Sub Main project with a class `Counter` (`Public N As Long`, `Sub Bump()` adds 1, `Sub Add(ByVal
+x As Long)` adds x), and a module Sub `Helper(o As Counter)` that calls `o.Bump`. Each row starts from a new
+`Counter`, `i = 0`, `j = 0`, `c = 0`, and writes the value shown with `Print #`. Built as native code and also run in
+the IDE with `/runexit`; **every row was identical in the two modes**, with Err 0 throughout.
+
+| Body | Written | VB6 |
+|---|---|---|
+| `While i < 2` / `Debug.Print i` / `i = i + 1` / `Wend` | `i` | 2 |
+| `Err.Raise 5` under Resume Next, then `While Err.Number <> 0` / `Err.Clear` / `c = c + 1` / `Wend` | `c` | 1 |
+| `While i < 3` / `k.Bump` / `i = i + 1` / `Wend` | `k.N` | 3 |
+| `While i < 2` / `k.Add 10` / `i = i + 1` / `Wend` | `k.N` | 20 |
+| `While i < 2` / `Call k.Add(10)` / `i = i + 1` / `Wend` | `k.N` | 20 |
+| `While i < 2` / `Call Helper(k)` / `i = i + 1` / `Wend` | `k.N` | 2 |
+| `While i < 2` / `With k` / `.Bump` / `.Add 10` / `End With` / `i = i + 1` / `Wend` | `k.N` | 22 |
+| `While i < 2` / `i = i + 1` / `k.Bump` / `Wend` | `k.N` | 2 |
+| `While False` / `Wend` | a string | written, no error |
+| `While i < 2: k.Bump: i = i + 1: Wend`, one line | `k.N` | 2 |
+| a `While j < 2` holding `k.Bump`, nested in a `While i < 2` | `k.N` | 4 |
+
+**HexIDE, after this.** Every row answers as VB6 does. The grammar rule's body was `block*`, which lets two blocks sit
+side by side with no separator; it is now one optional block followed by a separator, as a `Do` loop's is. The LSP
+server's copy of the rule had the same shape, and is fixed the same way (`docs/vb6-grammar-fixes.md`, fix 8).
+
+## An object used as a value (2026-10-12, #174)
+
+**The question.** What a class instance gives where a value is wanted, with and without a default member. HexIDE
+does not call a class's default member yet. It raised a trappable 438 or 13 in some places and gave a wrong value
+in others, and a trappable error there lets `On Error Resume Next` carry on without VB6's value.
+
+**Probe.** A Sub Main project built with `vb6.exe /make` and run under `On Error Resume Next`, logging each result
+with `TypeName` and `Err.Number`. Every probe ran as native code, and every probe also ran in the IDE, with three
+kinds of row read in one mode only: a compile error can only be read from `/make`, so those rows are native only; a
+native build drops `Debug.Print`, so its rows are IDE only; and a row that would show a box (`MsgBox(w)`) was not run
+and says so. Where a row was read in both modes the two agreed, except where it says otherwise. The first two probes
+were native only until the review's second round, which ran them in the IDE too: identical, except the Select Case and
+For rows under Resume Next (below).
+
+**How the IDE runs were made.** `VB6.EXE /runexit probe.vbp` runs a project in the IDE, as F5 does, and closes VB when
+the program ends. It was started in the Win10 guest's session 0 over PowerShell Direct, with the project's files
+copied into a fresh folder first. The program writes its log with `Print #` to a file beside the project, because
+`Debug.Print` output goes to the Immediate window and is gone when VB closes. Three things to know when repeating it:
+- VB exits with 0xC000041D after the program finishes. That is normal.
+- A compile error or an unhandled run-time error leaves a modal dialog that nobody can answer in session 0, so a run
+  still going after a timeout is killed, and its log is missing or incomplete. Every use is therefore made under
+  `On Error Resume Next` or `On Error GoTo`, and a compile error shows up as a missing log.
+- A `probe.exe` left in the folder means the run was a `/make` build, not an IDE run.
+#842 tracks making this, and the native `/make` harness, part of the tree.
+- `w` is a `Widget`, whose `Value` carries `Attribute Value.VB_UserMemId = 0` and returns 42;
+- `k` is a `Plain`, a class with only `Public Tag As Long` and no default member.
+
+| Use | `w` | `k` |
+|---|---|---|
+| `x = w`, `x` a Long | 42, Long | 438, `x` unchanged |
+| `s = w`, `s` a String | "42", String | 438, `s` unchanged |
+| `d = w`, `d` a Double | 42, Double | 438, `d` unchanged |
+| `b = w`, `b` a Boolean | True | 438, `b` unchanged |
+| `vv = w`, `vv` a Variant, no `Set` | 42, **Long** | 438, `vv` still Empty |
+| `w + 1`, `w * 2`, `-w`, `w \ 5` | 43, 84, -42, 8, all Long | `k + 1`: **438** |
+| `w = 42`, `w > 41`, `w = "42"` | True, True, True | `k = 1`: 438 |
+| `"v=" & w` | "v=42" | **438** |
+| `CStr(w)`, `CDbl(w)`, `CBool(w)`, `CVar(w)`, `Val(w)` | "42", 42 Double, True, 42 Long, 42 Double | `CStr(k)`: 438 |
+| a ByVal Long argument, a ByVal String argument | 42 Long, "42" | 438 |
+| a ByVal **Variant** argument | the object itself: `TypeName` "Widget" | the object |
+| `If w Then` | the Then branch runs | 438, **and the Then branch runs** |
+| `Select Case w` … `Case 42` | matches | 438 at the selector |
+| `For i = 40 To w` | 3 passes | 438 at the bound |
+| `Print #f, w` | ` 42 ` | 438, after the text before it was written |
+
+`Debug.Print`'s output cannot be read this way: it goes to the Immediate window, which neither a built program nor a
+`/runexit` run leaves anywhere to read. Its **error** can be, in the IDE: `Debug.Print k` raises 438 there, and
+`Debug.Print w` raises nothing. A native build removes `Debug.Print` statements altogether, so there both give 0. What
+`Debug.Print w` prints is taken to follow `Print #`, which shares its formatting, and is **inferred**, not measured.
+The Immediate window's `? k` is inferred from `Debug.Print k` the same way.
+
+`Len(w)` does not compile: "Variable required - can't assign to this expression". (Every compile error in this section
+was read from `/make`. An IDE run of a project that does not compile leaves no log, so those rows are native only.)
+
+**A second probe, through a Variant.** `o` is a Variant holding the object (`Set o = w`), so `Len` compiles:
+
+| Use | Widget | Plain |
+|---|---|---|
+| `Left(o, 1)`, `InStr(o, "2")`, `Chr(o)`, `Len(o)`, `UCase(o)` | "4", 2, "*", 2, "42" | 438 each |
+| `IIf(o, "t", "f")` | "t" | 438 |
+| `CDate(o)` | 10/02/1900, a Date | 438 |
+| a ByVal Double argument | 42, Double | 438 |
+| `Format(o)`, `Format(o, "0.0")`, `Abs(o)`, `Not o` | **450** each | 438 each |
+
+The last row resisted explanation until #840's review, which measured the same uses against a class whose default
+member is a **Property Get** rather than a Function:
+
+| Through a Variant | Function default member | Property Get default member |
+|---|---|---|
+| `Format(o)` | 450 | "42" |
+| `Abs(o)` | 450 | 42, Long |
+| `Not o` | 450 | -43, Long |
+| `wp + 1`, `"v=" & wp`, typed | | 43, "v=42" |
+
+So with a Function default member, `Format`, `Abs` and `Not` through a Variant give 450, "Wrong number of arguments or
+invalid property assignment", and a Property Get default member gives 42 and -43 on the same uses. Every other use in
+the two probes above gave the Function's value. The IDE adds one more use that gives 450: a Case value compared with an Empty or Null
+selector (below). The rows say which uses give 450, not why: no rule beyond them was measured. HexIDE refuses every one
+of them, so no answer here can become a wrong value, and a default member that HexIDE later calls (#174) must reproduce
+the 450 for a Function on those uses.
+
+**What it says.**
+- An object used as a value is its default member in every place this probe used one: a Let into any scalar or a
+  Variant, an operator, a conversion, a condition, a bound, a ByVal scalar argument, `Print #`. The exception there
+  is the 450 above, which a Function default member gives on a few paths through a Variant. The rounds below find the
+  places that take the object rather than a value: `TypeName` and `IsObject`, `VarType` and the Is functions, and the
+  array that `LBound`, `UBound`, `Join` and `Filter` take first.
+- An object with no default member raises **438 in every one of those places**. HexIDE raised 13 for `k + 1`,
+  `-k`, a comparison, `CBool(k)`, `If k Then` and a For bound. It gave the CLR type name for `"v=" & k`, `CStr(k)`
+  and `Debug.Print k` (#436), 0 for `Val(k)` and a ByVal Long argument, and no error at all for `Select Case k`.
+- Of the arguments this probe passed, only a ByVal Variant parameter takes the object itself.
+
+**And an overturn about `On Error Resume Next`.** Measured in the second probe for every statement with a condition,
+with `k` a Plain, so each condition raises 438:
+
+| Statement | What ran |
+|---|---|
+| `If k Then ... Else ... End If` | the Then branch |
+| `If False Then ... ElseIf k Then ... Else ...` | the ElseIf branch |
+| `If k Then c = "Then" Else c = "Else"`, one line | the Then part |
+| `Select Case k`, `Case 1`, `Case Else` | native: **Case Else**; the IDE: neither (see below) |
+| `Do While k`, `Do Until k`, `While k` | the body, every pass, until the probe's own `Exit` after 3 |
+| `Do ... Loop While k` | the body once, then out |
+| `For i = 1 To k` | native: the body, every pass, until `Exit For` after 3, `i` still 0 afterwards; the IDE: one pass, `i` 1 afterwards |
+
+So for most of these, Resume Next goes on into the block, at the first statement inside it.
+A bottom-tested loop's next statement is the one after `Loop`. Select Case and For are the exceptions, and differ by
+mode.
+
+The Select Case and For rows are the two where native code and the IDE disagree, and the table gives each answer.
+They are one probe shape apiece (`Case 1` then `Case Else`; `For i = 1 To k`), so nothing more general is claimed
+here. Why they differ, and the other shapes, are #839's.
+
+The earlier reading here, that each Case raised in turn, was wrong.
+
+The first probe's finding, in its own words: `If k Then`, whose condition raises 438, went on into the Then
+branch. Resume Next resumes at the next statement, and the next statement after the `If` line is the first one
+inside the block. The obvious reading, that the failed condition skips the block, is wrong. HexIDE skips it, and
+does the same for every statement in the table except `Do ... Loop While`, where it already runs the body once and
+leaves, as VB6 does. #839 has the rest.
+
+### Found in #840's review (2026-10-12)
+
+The review found routes that still read an object as a value, and measured several; each answer was measured again
+here, native and in the IDE, with `sm` a class whose default member returns 2. `w` and `k` are as above.
+
+**`VarType` and the Is functions read the default member, and `TypeName` and `IsObject` do not.** Classes whose default
+member returns a value the function would answer about:
+
+| Call | Native and IDE |
+|---|---|
+| `VarType(w)`, `IsNumeric(w)` | 3, True |
+| `IsEmpty`, `IsNull`, `IsDate`, `IsNumeric`, `IsArray`, `IsError` of a class whose member returns Empty, Null, a Date, "12", an array, `CVErr(5)` | True for each |
+| `VarType` of those | 0, 1, 7, 8, 8204, 10 |
+| `TypeName(w)`, `IsObject(w)`, `TypeName` of those | "Widget", True, the class's name |
+| `VarType(k)`, and each Is function of `k` | 9, and False, **with no error**: a class with no default member answers about the object |
+
+**Select Case:**
+
+| Statement | Native | IDE |
+|---|---|---|
+| `Select Case 42`, `Case 40 To w`; `Case w To 50` | matches | matches |
+| `Select Case 42`, `Case 40 To k` | 438 | 438 |
+| `Select Case 43`, `Case Is > w`; `Select Case 41`, `Case Is < w` | matches | matches |
+| `Select Case 43`, `Case Is > k` | 438 | 438 |
+| `Select Case Empty` or `Null`, `Case w` | Case Else, no error | **450**, then `Case w`'s body: a Function default member, as above |
+| the same with a Property Get default member | Case Else | Case Else |
+| `Select Case Empty` or `Null`, `Case k` | 438 | 438 |
+
+**Statements:**
+
+| Statement | `w` (42) or `sm` (2) | `k` |
+|---|---|---|
+| `Randomize w` | the same first `Rnd` as `Randomize 42` | 438 |
+| `Err.Raise w`, `Error sm` | error 42, error 2 | 438 |
+| `ChDir w`, `ChDrive w` | 76 and 5: it tried "42" | 438 |
+| `Mid(s, sm, 1) = "X"`, `Mid(s, 2, sm) = "XYZ"` on "abcdef" | "aXcdef", "aXYdef" | 438, `s` unchanged |
+| `Mid(s, w, 1) = "X"` | 5, the start past the end | |
+
+**The array functions.** The array that `LBound`, `UBound`, `Join` and `Filter` take first is not read at all. Any
+object there raises 13, including a class whose default member returns an array, and so does every other value that
+is not an array. Through a Variant `v`, because a typed object variable there does not compile ("Expected array",
+from `/make`):
+
+| First argument | `UBound(v)`, `LBound(v)`, `Join(v, "-")`, `Filter(v, "b")` |
+|---|---|
+| a `Widget`, a `Plain`, an `Arr` whose default member returns `Array("a", "b", "c")` | 13 each |
+| `"abc"`, 5, Empty, Null | 13 each |
+
+HexIDE's `Join` and `Filter` raised 5 for each of those, and now raise 13. **Nothing is 13 here too**, not the 91 every
+conversion gives: `Join(v, "-")`, `Filter(v, "a")` and `UBound(v)` with `v` set to Nothing (round three).
+
+Every other argument reads the member:
+
+| Call | `sm` | `k` |
+|---|---|---|
+| `UBound(m, sm)`, `LBound(m, sm)` of `m(1 To 3, 5 To 9)` | 9, 5 | 438 |
+| `Split("a,b,c", ",", sm)`, `Split(w)` | two elements, `"42"` | 438 |
+| `Join(arrS, sm)`, `Filter(arrS, "a", sm)` | "2" as the delimiter, an include of True | 438 |
+
+**An array never allocated** (`Dim ds() As String`, `Dim dv()`), measured in round three, both modes:
+
+| Call | VB6 |
+|---|---|
+| `Join(ds, "-")`, `Join(dv, "-")`, and through a Variant holding `ds` | `""`, no error |
+| `Filter(ds, "a")`, `Filter(dv, "a")` | no error: an unallocated **String** array (VarType 8200) for both, whose `LBound` and `UBound` raise 9 |
+
+HexIDE indexed a bounds list that was not there, an exception no On Error could trap, and now gives both answers.
+
+**Join and Filter, round four.** Measured as native code and in the IDE, identical on every row. `ds` is
+`Dim ds() As String` never allocated, `d1` is `Dim d1(1) As String` holding "apple" and "pear", `al` is
+`Dim al(1) As Long` holding 1 and 12, and `m` is `Dim m(1, 1) As String`.
+
+An array never allocated answers the same whatever its element type, and so does an erased one:
+
+| Call | VB6 |
+|---|---|
+| `Join(dl, "-")` with `Dim dl() As Long`; `Join(de, "-")` after `ReDim de(1) : Erase de` | `""`, no error |
+| `Filter(dl, "a")`, `Filter(de, "a")` | an unallocated String array, whose `LBound` and `UBound` raise 9 |
+
+Filter reads its match and its switch before it looks at the array, so these raise even where the array alone would
+give no error:
+
+| Call | with `ds` | with `d1` |
+|---|---|---|
+| `Filter(x, "a", "x")` | 13 | 13 |
+| `Filter(x, Null)` | 94 | 94 |
+| `Filter(x, "a", Null)` | 94 | 94 |
+
+Its result is always a String array, VarType 8200 and `TypeName` "String()", whatever went in:
+
+| Call | Bounds of the result |
+|---|---|
+| `Filter(d1, "a")` | 0..1 |
+| `Filter(d1, "zzz")`, no match | 0..-1 |
+| `Filter(Array("apple", "pear"), "a")`, a Variant array | 0..1 |
+| `Filter(Array(1, 12), "1")`, a Variant array of numbers | 0..1 |
+
+HexIDE returned the unallocated result before reading the match and the switch, so all three of the first table gave
+no error for `ds`. Its `Filter(d1, Null)` gave no error either, and its result was a Variant array whenever the input
+was allocated. All three now answer as above.
+
+An allocated array that is not a 1-D String or Variant array. HexIDE still joins and filters the Long array `al` as
+if it held strings, and raises a trappable 9, Subscript out of range, for the 2-D array `m` (#875):
+
+| Call | VB6 |
+|---|---|
+| `Join(al, "-")` | 5 |
+| `Filter(al, "1")` | 13 |
+| `Join(m, "-")` | 5 |
+| `Filter(m, "a")` | 13 |
+| `Join(Array(1, 12), "-")` | "1-12": a Variant array of numbers is fine |
+
+So the allocation check comes before the element-type check: an unallocated Long array joins to `""`, and an allocated
+one raises 5.
+
+**When Join reads its delimiter, round five.** Measured as native code and in the IDE, identical on every row. `d0` is
+`Dim d0(0) As String` holding "x", and `k` and `w` are the classes above:
+
+| Call | VB6 |
+|---|---|
+| `Join(ds, Null)`, and the same for `dv`, `dl` and an erased `de` | `""`, no error |
+| `Join(Array(), Null)`, `Join(Split(""), Null)`: allocated, 0 To -1 | `""`, no error |
+| `Join(Array("a"), Null)`, `Join(d0, Null)`: one element | 94 |
+| `Join(Array("a", "b"), Null)`, `Join(d1, Null)` | 94 |
+| `Join(ds, k)`, `Join(Array(), k)`, `Join(ds, w)` | `""`, no error |
+| `Join(Array("a"), k)`, `Join(d0, k)`, `Join(d1, k)` | 438 |
+| `Join(d1, w)` | "apple42pear" |
+
+So Join reads its delimiter only when the array has an element, even a single one that needs no delimiter. HexIDE
+read a Null delimiter as `""`, and read an object delimiter for an array with no element. Both now answer as above.
+
+**Each element, round five.** Measured as native code and in the IDE, identical on every row. Each element sits in a
+Variant array beside "ab", and the exclude-"zz" filter keeps every element, so the result shows what each became:
+
+| Element `e` | `Join(Array("ab", e), "-")` | `Filter(Array("ab", e), "zz", False)` |
+|---|---|---|
+| Null | 94 | 94 |
+| Empty | "ab-" | "ab", "" |
+| True | "ab-True" | "ab", "True" |
+| 1.5 | not probed | "ab", "1.5" |
+| `#1/2/2000#` | not probed | "ab", "02/01/2000" (an en-GB guest) |
+| `CVErr(5)` | 13 | 13 |
+| a `Collection` | 450 | 450 |
+| `w`, default member 42 | "ab-42" | "ab", "42" |
+| `k`, no default member | 438 | 438 |
+
+Three more: `Filter(Array("ab", Null), "ul")` raises 94, so Null is not matched as the text "Null";
+`Filter(Array("ab", True), "ru")` gives one element, the String "True"; and `Filter(Array("ab", Empty), "")` gives both
+elements. Every element of the result is a String.
+
+An array as an element, measured in a later probe, both modes: `Filter(Array(Array(1, 2), "b"), "b", False)` and
+`Join(Array(Array(1), "b"), "-")` each raise 13.
+
+So each element is converted as a store into a String converts it: Null is 94, an array or an Error value 13, an
+object its default member, and a Collection, whose default member `Item` needs an argument, 450. HexIDE read a Null
+element as `""` with no error, and an array element as the CLR type name; it now raises 94 and 13. It has no Error
+values (`CVErr` is not implemented) and no `Collection`.
+
+**Filter's switch and compare, and the order of its checks, round five.** Measured as native code and in the IDE,
+identical on every row, with `ee` an Empty Variant:
+
+| Call | VB6 |
+|---|---|
+| `Filter(d1, "a", ee)`, `Filter(d1, "a", "False")` | no match kept: bounds 0..-1, since both elements contain "a" |
+| `Filter(d1, "a", "True")`, `Filter(d1, "a", 2)` | both elements |
+| `Filter(ds, "a", ee)`, `Filter(ds, "a", "True")`, `Filter(ds, "a", True, ee)` | no error, an unallocated String array |
+| `Filter(d1, "A", True, ee)` | bounds 0..-1: a binary compare |
+| `Filter(d1, "A", True, 1)`, `"1"`, `5` | both elements: a text compare |
+| `Filter(d1, "A", True, "x")`, `Filter(ds, "a", True, "x")` | 13 |
+| `Filter(d1, "A", True, Null)`, `Filter(ds, "a", True, Null)` | 94 |
+| `Filter("abc", Null)`, `Filter("abc", "a", Null)`, `Filter("abc", "a", True, Null)`, `Filter(Null, Null)` | **94**, not the 13 a non-array gives |
+| `Filter(5, "a", "x")`, `Filter("abc", "a", "x")`, `Filter("abc", "a", True, "x")`, `Filter(Null, "a")` | 13 |
+| `Join("abc", Null)` | 13 |
+
+So the switch reads as `CBool` reads it, and the compare as a number. Round five read the 5 row as "any value but 0 is
+a text compare". **Round six overturned that** (below): 5 is a text compare, and round six's rows are consistent with
+that being because 5 is a valid Windows locale identifier. Filter checks every argument for Null before it looks at the array, so a Null match beside a string is 94;
+Join looks at the array first, so a Null delimiter beside a string is 13. HexIDE read both as plain numbers, so an
+Empty switch or compare raised 13 and only 1 was a text compare; its Null compare was 13, and `Filter("abc", Null)`
+was 13. All now answer as above, except the compare of 5, which HexIDE refuses as it refuses every value from 3 up
+(#881).
+
+**Filter's compare, and the order of its conversions, round six.** Measured as native code and in the IDE (`p24`, a
+Sub Main project), identical on every row. `d1` holds "Apple" and "pear", so a binary compare for "a" keeps only
+"pear" and a text compare keeps both:
+
+| Compare | VB6 |
+|---|---|
+| 0, 0.5, Empty | binary: "pear" |
+| 1, 1.4, "1" | text: both |
+| 2, "2", 1.5 | 5 |
+| -1, `True` | 5 |
+| 3, 4, 5, 1033, 2057 | text: both |
+| 3000, 65535 | 5 |
+| 2, -1, 3000 or 1033, with `ds` never allocated, or with `Array()` | no error, an unallocated String array |
+
+So the compare is read as a Long, with banker's rounding. 0 is binary and 1 text. 2 is `vbDatabaseCompare`, which
+needs an Access database, and is 5, and so is any negative value. From 3 up, the rows are consistent with a Windows
+locale identifier: valid ones compare as text, and invalid ones are 5. Whether a valid one compares in that locale, or
+simply as text, is not measured; nothing here tells the two apart. None of that is checked when the array has no
+element, nor, round seven found, whenever no comparison is made. And `Filter(Array(), "a")`, an allocated array of no elements, gives back an **unallocated**
+String array, not 0 To -1, though a match that keeps nothing from an array that has elements is 0 To -1 (above).
+
+| Call | VB6 |
+|---|---|
+| `Filter(d1, "a", "x", 3000)` | 13: the switch, so the compare's 5 comes later |
+| `Filter(d1, Null, "x")` | 13: the switch before the match |
+| `Filter(d1, "a", "x", Null)` | 94: the compare before the switch |
+| `Filter(d1, Null, True, 3000)`, `Filter(d1, "a", Null, 3000)` | 94 |
+| `Filter("abc", "a", True, 3000)` | 13: the array check before the compare's |
+
+So Filter converts its arguments right to left: the compare, then the switch, then the match, each Null 94 and each
+non-number 13. Then it checks the array. Round six read the rest as "and only after that whether the compare is one it
+accepts"; round seven (below) found that Filter converts every element next, and checks the compare only when it
+compares an element with the match.
+
+**Nothing**, both modes (`p24`): `Filter(Array("ab", Nothing), "zz", False)`, `Join(Array("ab", Nothing), "-")`,
+`Join(d1, o)` and `Filter(d1, o)`, with `o` Nothing, each raise 91. `Join(ds, o)` with `ds` never allocated is `""`.
+
+**HexIDE, after round six.**
+- 0 is binary and 1 text; 2 and negative values are 5.
+- 3 and above are refused loudly, naming #881, because HexIDE can't tell which of those values VB6 accepts,
+  and its text compare uses no locale.
+- Before, every value but 1 was binary.
+- The conversions run right to left, and the compare is checked only for an array that has elements.
+- `Filter(Array(), ...)` gives an unallocated array.
+- Nothing is 91 as an element, a delimiter or a match, where it read as `""`.
+
+**The other functions' compare** (`p24`, both modes): `InStr` and `StrComp` raise 5 for 2, while `Split` and
+`Replace` take 2 as text. All four raise 5 for -1 and 3000, and take 1033 as text. HexIDE reads all of them as
+"1 is text, anything else binary" in `InStr`, `InStrRev`, `Split` and `Replace`; `StrComp` is not implemented. That's
+#881.
+
+**Filter's compare, round seven.** Measured as native code and in the IDE (`p41`, a Sub Main project), identical on
+every row. `s` is `Split("apple pear")`, so a binary compare for "A" keeps nothing and a text compare keeps both:
+
+| Compare | VB6 |
+|---|---|
+| 0.6 | text: it rounds to 1 |
+| 4096, 1033 | text |
+| 4095, 32767, 65536, 3000, -2 | 5 |
+| 3E+10 | 6 |
+| `Array(1)` | 13 |
+
+So 4096 is accepted and 4095 is not, as 1033 is and 3000 is not. That is still consistent with a locale identifier, and
+still not proof of one.
+
+**When the compare is checked, round seven.** Measured as native code and in the IDE (`p40` and `p41`), identical on
+every row:
+
+| Call | VB6 |
+|---|---|
+| `Filter(Array("x", Null), "a", True, 2)` | 94 |
+| `Filter(Array(Array(1)), "a", True, 2)` | 13 |
+| `Filter(Array("x", Null), "")` | 94 |
+| `Filter(Array("x"), "", True, Null)`; with `"zz"` as the compare | 94; 13 |
+| `Filter(Array("x"), "", True, 2)`; with 3000 as the compare | bounds 0..0, no error |
+| `Filter(Array("x", "y"), "", True, -1)` | 0..1 |
+| `Filter(Array("x"), "", False, 2)` | 0..-1 |
+| `Filter(Array(""), "a", True, 2)` | 0..-1 |
+| `Filter(Array(""), "")`; with `True, 2` | 0..0 |
+| `Filter(Array(""), "", False)` | 0..-1 |
+| `Filter(Array("", "x"), "", True, 2)`; with `False, 2` | 0..1; 0..-1 |
+| `Filter(Array("x"), "xyz", True, 2)` | 5 |
+
+So Filter converts every element before it compares any, and checks the compare only when it compares an element
+with the match. An empty match is in every element, an empty one included, and an empty element holds no other match,
+so neither needs a comparison: `Filter(list, "", True, 2)` is the whole list. The compare itself is still converted
+first, so a Null or a non-number there raises whatever else happens.
+
+**Each object argument is read as its turn comes, round seven** (`p41`, both modes). `d1` holds "apple" and "pear",
+`k` and `w` are the classes above, `o` is Nothing and `ds` is never allocated:
+
+| Call | VB6 |
+|---|---|
+| `Filter(d1, k, "x")`, `Filter(d1, "a", k, "x")` | 13 |
+| `Filter(d1, k, Null)`, `Filter(d1, "a", k, Null)` | 94 |
+| `Filter(d1, k, True, o)` | 91 |
+| `Filter(d1, w, "x")` | 13: `w` is never read |
+| `Filter(d1, "a", True, o)`, `Filter(ds, "a", True, o)` | 91 |
+
+**Err as an argument** (`p40`, both modes), with `s` holding "Apple", "pear" and "plum":
+- as the compare, with Err.Number 1, `Filter(s, "a", True, Err)` is a text compare, keeping "Apple" and "pear"; with 0,
+  binary, keeping "pear";
+- as the switch, 5 includes and 0 excludes;
+- as the match, with Err.Number 1, it is "1", which nothing holds.
+
+None raised; Err.Number was unchanged after each.
+
+**Other built-ins show the same order** (`p41`, both modes):
+
+| Call | VB6 |
+|---|---|
+| `Left(k, "x")`, `Mid(k, "x")`, `Replace(k, "a", "b", "x")`, `Split(k, ",", "x")`, `InStr(1, k, "a", "x")`, `Left(w, "x")` | 13 |
+| `Left(k, Null)` | 94 |
+| `Left(k, 1)` | 438 |
+| `Left(w, 1)` | "4" |
+
+So VB6 converts a typed value argument before it reads an object in a Variant or String slot. HexIDE reads every
+object first, so each of the first rows is 438, or the refusal naming #174 for `w` (#959).
+
+**HexIDE, after round seven.**
+- Filter converts every element first, and checks the compare only when it compares: an empty search returns the
+  whole list, where it raised 5.
+- It reads its match, switch and compare itself, each as its turn comes, rather than letting the dispatcher read every
+  object first: `Filter(d1, k, "x")` is 13, where it was 438.
+- A Nothing compare is 91, where it read as 0, a binary compare.
+- Err as the compare or the switch is its Number, where it reached the conversion as an object.
+- The other built-ins still read every object first (#959).
+
+**A default member on a typed variable, round five.** With `w` declared `As Widget`, whose default member is a
+Function returning 42, both modes: `Not w` is -43, a Long, and `CDate(w)` is 10/02/1900 (an en-GB guest). Through a
+Variant, `Not` of the same object raises 450 (above). So the typed `w` answers where the Variant gave 450, and a
+Property Get default member answers through the Variant too (above). In the IDE, a Case value compared with an Empty or
+Null selector gives 450 for the typed `w` as well. The rows say which uses give 450, not why.
+
+**A Let of App into a typed target, round five.** Both modes, under Resume Next, with each target holding a value
+first:
+
+| Target | VB6 after `x = App` |
+|---|---|
+| `Dim k As Plain`, holding an instance | 438, `k` still that instance |
+| `ByVal x As Long`, holding 5 | 438, VarType 3, 5 |
+| a `Function ... As Long`'s own name, holding 7 | 438, and the function returns 7 |
+| a `Function ... As String`'s own name, holding "x" | 438, and the function returns "x" |
+
+So only a Variant is emptied by `v = App`. HexIDE leaves a Variant as it was too (#878): a parameter's and a return
+name's slots carry no declared type, so a Variant cannot yet be told from them, and emptying every slot without one
+emptied all four of these.
+
+**Found on the way, both modes** (#876, #877):
+
+| Statement | VB6 |
+|---|---|
+| `For Each x In Filter(ds, "a")`, over a copy of that result, and over `ds` itself, under Resume Next | 92, and the body runs once |
+| `Err.Raise 5`, then `On Error Resume Next` | `Err.Number` is 0 |
+| a helper whose first line is `On Error Resume Next`, called after `Err.Raise 6` | the helper reads 0, and so does the caller after it returns |
+| `Err.Raise 7`, then `On Error GoTo 0` | 0 |
+
+**An array used as text, found on the way** (#879; `p19`, both modes, and the last row from `p42`, by `/make`):
+
+| Use | VB6 |
+|---|---|
+| `c = "v=" & Array(1)`, `c = CStr(Array(1))`, `c = Len(Array(1))`, `c = UCase(Array(1))`, `Print #f, Array(1)` | 13 |
+| `s = Array(1)`, `s` a String | 13, `s` unchanged |
+| `c = "v=" & a`, with `Dim a(1) As Long` | does not compile: "Type mismatch" |
+
+HexIDE's text conversion has no arm for an array, so the code gives its CLR type name for these, except where #840
+raises 13 for an element of Join or Filter. That HexIDE side is read from the code, not run (#879).
+
+**The in-box objects:**
+
+| Used as a value | VB6 |
+|---|---|
+| `Err` | its `Number`: `"v=" & Err` is "v=0" or "v=11", `If Err Then` takes the Then branch after an error, `x = Err` stores 11, `Err + 1` is 12, `VarType(Err)` is 3, `Print #f, Err` writes 11 |
+| `App`, `Screen`, `Clipboard` | 438: none has a default member. For App, measured: `"v=" & App`; `s = App`, leaving a String `s` as it was; `v = App`, which **empties** a Variant `v` first (VarType 0), where `v = k` for a class with no default member leaves it as it was (HexIDE does not empty it yet, #878); and `Debug.Print App` and `Debug.Print Screen` in the IDE |
+| `Forms` | 450: its default member, `Item`, needs an argument |
+| `Debug` | a compile error, "Syntax error" (`/make` only, as is the next row) |
+| a control array without an index, `"v=" & Cmd` | a compile error, "Argument not optional" |
+
+`TypeName` of each: Err "ErrObject", App "App", Screen "Screen", Clipboard "Clipboard", Printer "Printer", and
+Forms **"Object"**. HexIDE gave "VbErr" and "VbApp", its own class names, and now gives VB6's; it has no Screen,
+Clipboard, Printer or Forms yet. Round three, on a form with a control array `Cmd`: `TypeName(Cmd)` is "Object" and
+`TypeName(Cmd(0))` "CommandButton"; `TypeName` of `Dim wa(1) As Widget`, and of an unallocated `Dim wd() As Widget`, is
+**"Object()"**, not "Widget()", with VarType 8201. `TypeName(Debug)` does not compile ("Syntax error", `/make`).
+
+**The rows the review found unprobed,** measured in the second round:
+
+| Use | `w` (42) | `k` |
+|---|---|---|
+| `If False Then ... ElseIf w Then` | the ElseIf branch | 438, and the ElseIf branch runs (#839) |
+| `For i = w To 45`; `For i = 1 To 100 Step w` | 4 passes, `i` 46; 3 passes, `i` 127 | 438 at the bound or the step |
+| `Do ... Loop While w`; `Loop Until w` | loops; leaves after one pass | 438, and leaves after one pass |
+| `c = MsgBox(k)` | | 438, before any box shows |
+| `Debug.Print k`, `Debug.Print "v=" & k` | | 438 in the IDE |
+
+`MsgBox(w)` would show a box, which session 0 cannot dismiss, so it was not run. That it shows "42" is inferred.
+
+**HexIDE, after #174's refusal (this change).** One rule, `ObjectAsValue`, applied wherever a value is wanted:
+- every binary operator's operands (`GetTwoValues`), negation and `Not`;
+- every text coercion (`VbDisplay.ToText`: concatenation, `CStr`, `Val`, `Str` and the string functions), for a class
+  instance and an in-box object. **Not for a control**: `"v=" & Text1`, `CStr(Text1)` and `Debug.Print Text1` still give
+  the control's .NET type name, which is #790's;
+- a Let, a store into a declared scalar (`CoerceOnStore`), a ByVal argument for a declared scalar parameter;
+- every built-in function's arguments (`EvaluateBuiltInFunction`), once the name is found to be a built-in: an
+  unknown name stays "Sub or Function not defined" whatever it is given. `TypeName`, `IsObject`, `IsMissing` and `Array`
+  take the argument itself, and so does the array that `LBound`, `UBound`, `Join` and `Filter` take first. `Join`'s
+  delimiter and `Filter`'s match, switch and compare are passed on unread, for those functions to read in their own
+  order (round seven). `VarType` and the Is functions refuse a class with a default member and answer about one without;
+- the numeric conversions' own check (`RefuseNonScalar`, in `NarrowNum` and `CBool`), which reads an object wherever
+  the dispatcher has not: Filter's compare and switch now, and subscripts once #873 lands;
+- the conditions of `If`, `ElseIf`, `While` and `Do`, a For bound and step, `Select Case`, a Case value, a range's
+  bounds and a `Case Is` value;
+- `Debug.Print`, `Randomize`, `Err.Raise`, `Error`, `ChDir`, `ChDrive`, and the Mid statement's start and length;
+- the Immediate window's `? x`: a class with a default member is refused as a call into the program, as `? obj.Prop`
+  is (D15), and one with none is 438. It used to print the class's name.
+
+A class with a default member is refused, untrappably, naming #174. One with none raises 438. Err stands for its
+Number, App raises 438, and `Debug` and a control array used as values are the compile errors VB6 gives.

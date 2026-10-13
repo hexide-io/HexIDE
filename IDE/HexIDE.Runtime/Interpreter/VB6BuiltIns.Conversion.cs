@@ -35,7 +35,7 @@ public partial class VB6BuiltIns
         // CLng and CInt of one are both 448, with no error. It read as 0.
         if (v.IsMissing)
             v = new Vb6Value(MissingArgumentNumber);
-        RefuseNonScalar(v);
+        v = RefuseNonScalar(v);
         var num = v.Type == VT.String || v.Type == VT.Boolean ? new Vb6Value(ToNum(v)) : v;
         return VbNumeric.Narrow(num, target, null);
     }
@@ -62,20 +62,21 @@ public partial class VB6BuiltIns
     /// default members for controls yet (#790), so it refuses, untrappably, as a Let of one does.</item>
     /// </list>
     /// </remarks>
-    private static void RefuseNonScalar(Vb6Value v)
+    /// <returns>The value to convert: <paramref name="v"/> itself, or what an in-box object stands for (Err's Number).
+    /// A caller converts this, never the argument it passed, or Err would reach the conversion as an object.</returns>
+    private static Vb6Value RefuseNonScalar(Vb6Value v)
     {
         // An element of an array of a user-defined type that nothing has assigned holds no VbUdt yet, so the type
         // decides, not the value.
         if (v.Type.IsArray || v.Type == VT.UserDefinedType || v.Value is VbUdt)
             throw new VBRunTimeException(VBStandardError.TypeMismatch);
         if (v.Type != VT.Object && v.Type != VT.Control && v.Type != VT.CSharpProxyObject)
-            return;
+            return v;
         if (v.Value is null)
             throw new VBRunTimeException(VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
-        if (v.Value is VbObject { ClassDef.PrePass.DeclaresDefaultMember: true } withDefault)
-            throw new NotImplementedException(
-                $"Converting a {withDefault.ClassDef.Name} to a number reads its default member, which is not "
-                + "implemented for a class yet (#174). Name the member instead.");
+        v = ObjectAsValue.Scalar(v, null);
+        if (v.Type != VT.Object && v.Type != VT.Control && v.Type != VT.CSharpProxyObject)
+            return v;
         if (v.Type == VT.Object)
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
         throw new NotImplementedException(
@@ -137,6 +138,9 @@ public partial class VB6BuiltIns
     internal static Vb6Value CBool(Vb6Value v)
     {
         if (v.IsNull) throw InvalidUseOfNull();
+        // An object, a control, an in-box object or Nothing, as for every other conversion. CBool was the one that never
+        // asked, so each fell through ToNum to a trappable 13 (#847's review).
+        v = RefuseNonScalar(v);
         if (v.Value is bool b) return new Vb6Value(b);
         // Measured: CBool(Empty) is False, as Empty is 0 to CLng and CDbl. `Enabled = Empty` takes this path.
         if (v.Type == VT.EmptyVariant) return new Vb6Value(false);
