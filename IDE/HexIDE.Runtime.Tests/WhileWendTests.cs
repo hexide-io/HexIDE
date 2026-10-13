@@ -70,8 +70,9 @@ public class WhileWendTests : BaseVBTestFixture
     [InlineData("While i < 2\nj = 0\nWhile j < 2\nk.Bump\nj = j + 1\nWend\ni = i + 1\nWend", 4L)]   // nested
     public async Task A_member_call_inside_While_is_one_statement(string loop, long expected)
     {
-        // Measured, native and in the IDE: each gives the count shown. `k.Bump` was parsed as a call to a procedure
-        // named k, then `.Bump` as a With member call, so each stopped with "Sub or Function not defined (k)" (#882).
+        // Measured, native and in the IDE: each gives the count shown. A bare `k.Bump` or `k.Add 10` was parsed as a call
+        // to a procedure named k, then a With member call, so those five rows stopped with "Sub or Function not defined
+        // (k)" (#882). The Call and With rows start with a keyword and ran before too; they are here as coverage.
         await RunClasses(
             $"Dim k As Counter, i As Integer, j As Integer\nSet k = New Counter\n{loop}\nDebug.Print k.N\n" +
             "Sub Helper(o As Counter)\n    o.Bump\nEnd Sub\n",

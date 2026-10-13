@@ -91,6 +91,11 @@ followed by a separator, and never had the problem. Provenance: the VB6 Language
 syntax (a condition, optional statements, `Wend`), and `vb6.exe`, native and in the IDE, running each
 member-call shape in a `While` body, one-line and nested forms included.
 
+Error recovery inside a `While` body now cascades as it does in `Do`, `For` and `If`. A half-typed `MsgBox ("hi"` in
+a `While` body can drop the procedures after it from the document symbols, where `block*` happened to resynchronise
+sooner. That is the behaviour of every other block rule here, not a regression of this one; do not revert toward
+`block*` to soften it, because that brings back the wrong tree for every valid member call.
+
 ## Open gaps (found, not yet fixed)
 
 | Construct | Why it fails | Assessment |
