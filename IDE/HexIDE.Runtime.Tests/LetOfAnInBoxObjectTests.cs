@@ -30,16 +30,21 @@ public class LetOfAnInBoxObjectTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(438L), new Vb6Value("pre")]);
     }
 
-    [Theory]
-    [InlineData("v = \"pre\"")]
-    [InlineData("v = 5")]
-    public async Task A_Let_of_App_into_a_Variant_empties_it_before_raising_438(string setup)
+    [Fact]
+    public async Task A_Let_of_App_leaves_a_typed_target_as_it_was()
     {
-        // Measured, native and in the IDE: VarType 0 afterwards, where a typed target keeps its value and a class with no
-        // default member leaves a Variant as it was.
-        await Run($"Dim v\n{setup}\nOn Error Resume Next\nv = App\nDebug.Print Err.Number\nDebug.Print VarType(v)\n");
+        // Measured, native and in the IDE: a class-typed variable keeps its instance, a ByVal Long parameter its 5, and a
+        // Function As Long's own name its 7. A parameter's and a return name's slots carry no declared type, which is
+        // why #878 cannot simply empty every slot without one. The parameter is read as text because that missing type
+        // also leaves `x = 5` an Integer there, where VB6 has a Long (#874).
+        await RunClasses(
+            "Dim k As Plain\nSet k = New Plain\nOn Error Resume Next\nk = App\nDebug.Print Err.Number\nDebug.Print TypeName(k)\n"
+            + "Err.Clear\nTakesLong 1\nErr.Clear\nDebug.Print RetLong()\n"
+            + "Sub TakesLong(ByVal x As Long)\nx = 5\nOn Error Resume Next\nx = App\nDebug.Print Err.Number\nDebug.Print CStr(x)\nEnd Sub\n"
+            + "Function RetLong() As Long\nRetLong = 7\nOn Error Resume Next\nRetLong = App\nEnd Function\n",
+            ("Plain", "Public Tag As Long\n"));
 
-        AssertDebugLog([new Vb6Value(438L), new Vb6Value(0L)]);
+        AssertDebugLog([new Vb6Value(438L), "Plain", new Vb6Value(438L), "5", new Vb6Value(7L)]);
     }
 
     [Fact]

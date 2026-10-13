@@ -78,12 +78,15 @@ public partial class VB6BuiltIns
     /// the object, with no 438;</item>
     /// <item>the array that <c>LBound</c>, <c>UBound</c>, <c>Join</c> and <c>Filter</c> take first. An object there
     /// is not read at all: each raises 13 for any object, a class whose default member returns an array included
-    /// (measured, native and in the IDE), and the function's own array check raises that 13.</item>
+    /// (measured, native and in the IDE), and the function's own array check raises that 13;</item>
+    /// <item><c>Join</c>'s delimiter, which VB6 reads only when the array has an element (measured: <c>Join(Array(), k)</c>
+    /// is "" with no 438). <c>Join</c> reads it itself, after that check.</item>
     /// </list>
     /// </summary>
     private static Vb6Value ArgumentAsUsed(string name, int index, Vb6Value arg)
     {
-        if (TakesTheArgumentItself.Contains(name) || (index == 0 && TakesAnArrayFirst.Contains(name)))
+        if (TakesTheArgumentItself.Contains(name) || (index == 0 && TakesAnArrayFirst.Contains(name))
+            || (index == 1 && string.Equals(name, "Join", StringComparison.OrdinalIgnoreCase)))
             return arg;
         if (ReadsADefaultMemberIfAny.Contains(name))
             return ObjectAsValue.DefaultMemberIfAny(arg);

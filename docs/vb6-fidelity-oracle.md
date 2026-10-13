@@ -5522,9 +5522,12 @@ does not call a class's default member yet. It raised a trappable 438 or 13 in s
 in others, and a trappable error there lets `On Error Resume Next` carry on without VB6's value.
 
 **Probe.** A Sub Main project built with `vb6.exe /make` and run under `On Error Resume Next`, logging each result
-with `TypeName` and `Err.Number`. **Every probe here ran both as native code and in the IDE**, and the two agreed on
-every row except where a row says so. A compile error can only be read from `/make`, so those rows are native only. The first two probes were native only until the review's second round, which
-ran them in the IDE too: identical, except the Select Case and For rows under Resume Next (below).
+with `TypeName` and `Err.Number`. Every probe ran as native code, and every probe also ran in the IDE, with three
+kinds of row read in one mode only: a compile error can only be read from `/make`, so those rows are native only; a
+native build drops `Debug.Print`, so its rows are IDE only; and a row that would show a box (`MsgBox(w)`) was not run
+and says so. Where a row was read in both modes the two agreed, except where it says otherwise. The first two probes
+were native only until the review's second round, which ran them in the IDE too: identical, except the Select Case and
+For rows under Resume Next (below).
 
 **How the IDE runs were made.** `VB6.EXE /runexit probe.vbp` runs a project in the IDE, as F5 does, and closes VB when
 the program ends. It was started in the Win10 guest's session 0 over PowerShell Direct, with the project's files
@@ -5593,13 +5596,15 @@ compared with an Empty or Null selector (below). HexIDE refuses every one of the
 wrong value, and a default member that HexIDE later calls (#174) must reproduce the 450 for a Function there.
 
 **What it says.**
-- An object used as a value is its default member, everywhere: a Let into any scalar or a Variant, an operator, a
-  conversion, a condition, a bound, a ByVal scalar argument, `Print #`. The one exception is the 450 above, which a
-  Function default member gives on a few paths.
+- An object used as a value is its default member in every place this probe used one: a Let into any scalar or a
+  Variant, an operator, a conversion, a condition, a bound, a ByVal scalar argument, `Print #`. The exception there
+  is the 450 above, which a Function default member gives on a few paths through a Variant. The rounds below find the
+  places that take the object rather than a value: `TypeName` and `IsObject`, `VarType` and the Is functions, and the
+  array that `LBound`, `UBound`, `Join` and `Filter` take first.
 - An object with no default member raises **438 in every one of those places**. HexIDE raised 13 for `k + 1`,
   `-k`, a comparison, `CBool(k)`, `If k Then` and a For bound. It gave the CLR type name for `"v=" & k`, `CStr(k)`
   and `Debug.Print k` (#436), 0 for `Val(k)` and a ByVal Long argument, and no error at all for `Select Case k`.
-- Only a ByVal Variant parameter takes the object itself.
+- Of the arguments this probe passed, only a ByVal Variant parameter takes the object itself.
 
 **And an overturn about `On Error Resume Next`.** Measured in the second probe for every statement with a condition,
 with `k` a Plain, so each condition raises 438:
@@ -5614,8 +5619,9 @@ with `k` a Plain, so each condition raises 438:
 | `Do ... Loop While k` | the body once, then out |
 | `For i = 1 To k` | native: the body, every pass, until `Exit For` after 3, `i` still 0 afterwards; the IDE: one pass, `i` 1 afterwards |
 
-Resume Next resumes at the statement after the one that raised, and for a block statement that is the first statement
-inside it. A bottom-tested loop's next statement is the one after `Loop`.
+So for most of these, Resume Next goes on into the block, as if the condition had held: the first statement inside it.
+A bottom-tested loop's next statement is the one after `Loop`. Select Case and For are the exceptions, and differ by
+mode.
 
 The Select Case and For rows are the two where native code and the IDE disagree, and the table gives each answer.
 They are one probe shape apiece (`Case 1` then `Case Else`; `For i = 1 To k`), so nothing more general is claimed
@@ -5689,6 +5695,144 @@ conversion gives: `Join(v, "-")`, `Filter(v, "a")` and `UBound(v)` with `v` set 
 
 HexIDE indexed a bounds list that was not there, an exception no On Error could trap, and now gives both answers.
 
+**Join and Filter, round four.** Measured as native code and in the IDE, identical on every row. `ds` is
+`Dim ds() As String` never allocated, `d1` is `Dim d1(1) As String` holding "apple" and "pear", `al` is
+`Dim al(1) As Long` holding 1 and 12, and `m` is `Dim m(1, 1) As String`.
+
+An array never allocated answers the same whatever its element type, and so does an erased one:
+
+| Call | VB6 |
+|---|---|
+| `Join(dl, "-")` with `Dim dl() As Long`; `Join(de, "-")` after `ReDim de(1) : Erase de` | `""`, no error |
+| `Filter(dl, "a")`, `Filter(de, "a")` | an unallocated String array, whose `LBound` and `UBound` raise 9 |
+
+Filter reads its match and its switch before it looks at the array, so these raise even where the array alone would
+give no error:
+
+| Call | with `ds` | with `d1` |
+|---|---|---|
+| `Filter(x, "a", "x")` | 13 | 13 |
+| `Filter(x, Null)` | 94 | 94 |
+| `Filter(x, "a", Null)` | 94 | 94 |
+
+Its result is always a String array, VarType 8200 and `TypeName` "String()", whatever went in:
+
+| Call | Bounds of the result |
+|---|---|
+| `Filter(d1, "a")` | 0..1 |
+| `Filter(d1, "zzz")`, no match | 0..-1 |
+| `Filter(Array("apple", "pear"), "a")`, a Variant array | 0..1 |
+| `Filter(Array(1, 12), "1")`, a Variant array of numbers | 0..1 |
+
+HexIDE returned the unallocated result before reading the match and the switch, so all three of the first table gave
+no error for `ds`. Its `Filter(d1, Null)` gave no error either, and its result was a Variant array whenever the input
+was allocated. All three now answer as above.
+
+An allocated array that is not a 1-D String or Variant array. HexIDE still gives a value for each of these (#875):
+
+| Call | VB6 |
+|---|---|
+| `Join(al, "-")` | 5 |
+| `Filter(al, "1")` | 13 |
+| `Join(m, "-")` | 5 |
+| `Filter(m, "a")` | 13 |
+| `Join(Array(1, 12), "-")` | "1-12": a Variant array of numbers is fine |
+
+So the allocation check comes before the element-type check: an unallocated Long array joins to `""`, and an allocated
+one raises 5.
+
+**When Join reads its delimiter, round five.** Measured as native code and in the IDE, identical on every row. `d0` is
+`Dim d0(0) As String` holding "x", and `k` and `w` are the classes above:
+
+| Call | VB6 |
+|---|---|
+| `Join(ds, Null)`, and the same for `dv`, `dl` and an erased `de` | `""`, no error |
+| `Join(Array(), Null)`, `Join(Split(""), Null)`: allocated, 0 To -1 | `""`, no error |
+| `Join(Array("a"), Null)`, `Join(d0, Null)`: one element | 94 |
+| `Join(Array("a", "b"), Null)`, `Join(d1, Null)` | 94 |
+| `Join(ds, k)`, `Join(Array(), k)`, `Join(ds, w)` | `""`, no error |
+| `Join(Array("a"), k)`, `Join(d0, k)`, `Join(d1, k)` | 438 |
+| `Join(d1, w)` | "apple42pear" |
+
+So Join reads its delimiter only when the array has an element, even a single one that needs no delimiter. HexIDE
+read a Null delimiter as `""`, and read an object delimiter for an array with no element. Both now answer as above.
+
+**Each element, round five.** Measured as native code and in the IDE, identical on every row. Each element sits in a
+Variant array beside "ab", and the exclude-"zz" filter keeps every element, so the result shows what each became:
+
+| Element `e` | `Join(Array("ab", e), "-")` | `Filter(Array("ab", e), "zz", False)` |
+|---|---|---|
+| Null | 94 | 94 |
+| Empty | "ab-" | "ab", "" |
+| True | "ab-True" | "ab", "True" |
+| 1.5 | not probed | "ab", "1.5" |
+| `#1/2/2000#` | not probed | "ab", "02/01/2000" (an en-GB guest) |
+| `CVErr(5)` | 13 | 13 |
+| a `Collection` | 450 | 450 |
+| `w`, default member 42 | "ab-42" | "ab", "42" |
+| `k`, no default member | 438 | 438 |
+
+Three more: `Filter(Array("ab", Null), "ul")` raises 94, so Null is not matched as the text "Null";
+`Filter(Array("ab", True), "ru")` gives one element, the String "True"; and `Filter(Array("ab", Empty), "")` gives both
+elements. Every element of the result is a String.
+
+An array as an element, measured in a later probe, both modes: `Filter(Array(Array(1, 2), "b"), "b", False)` and
+`Join(Array(Array(1), "b"), "-")` each raise 13.
+
+So each element is converted as a store into a String converts it: Null is 94, an array or an Error value 13, an
+object its default member, and a Collection, whose default member `Item` needs an argument, 450. HexIDE read a Null
+element as `""` with no error, and an array element as the CLR type name; it now raises 94 and 13. It has no Error
+values (`CVErr` is not implemented) and no `Collection`.
+
+**Filter's switch and compare, and the order of its checks, round five.** Measured as native code and in the IDE,
+identical on every row, with `ee` an Empty Variant:
+
+| Call | VB6 |
+|---|---|
+| `Filter(d1, "a", ee)`, `Filter(d1, "a", "False")` | no match kept: bounds 0..-1, since both elements contain "a" |
+| `Filter(d1, "a", "True")`, `Filter(d1, "a", 2)` | both elements |
+| `Filter(ds, "a", ee)`, `Filter(ds, "a", "True")`, `Filter(ds, "a", True, ee)` | no error, an unallocated String array |
+| `Filter(d1, "A", True, ee)` | bounds 0..-1: a binary compare |
+| `Filter(d1, "A", True, 1)`, `"1"`, `5` | both elements: a text compare |
+| `Filter(d1, "A", True, "x")`, `Filter(ds, "a", True, "x")` | 13 |
+| `Filter(d1, "A", True, Null)`, `Filter(ds, "a", True, Null)` | 94 |
+| `Filter("abc", Null)` | **94**, not the 13 a non-array gives |
+| `Filter(5, "a", "x")` | 13 |
+| `Join("abc", Null)` | 13 |
+
+So the switch reads as `CBool` reads it, and the compare as a number, where any value but 0 is a text compare (1 and
+5 were measured; nothing else). Filter checks every argument for Null before it looks at the array, so a Null match
+beside a string is 94; Join looks at the array first, so a Null delimiter beside a string is 13. HexIDE read both
+as plain numbers, so an Empty switch or compare raised 13 and only 1 was a text compare; its Null compare was 13, and
+`Filter("abc", Null)` was 13. All now answer as above.
+
+**A default member on a typed variable, round five.** With `w` declared `As Widget`, whose default member is a
+Function returning 42, both modes: `Not w` is -43, a Long, and `CDate(w)` is 10/02/1900 (an en-GB guest). Through a
+Variant, `Not` of the same object raises 450 (above). So the 450 belongs to the Variant path, not to the Function.
+
+**A Let of App into a typed target, round five.** Both modes, under Resume Next, with each target holding a value
+first:
+
+| Target | VB6 after `x = App` |
+|---|---|
+| `Dim k As Plain`, holding an instance | 438, `k` still that instance |
+| `ByVal x As Long`, holding 5 | 438, VarType 3, 5 |
+| a `Function ... As Long`'s own name, holding 7 | 438, and the function returns 7 |
+| a `Function ... As String`'s own name, holding "x" | 438, and the function returns "x" |
+
+So only a Variant is emptied by `v = App`. HexIDE leaves a Variant as it was too (#878): a parameter's and a return
+name's slots carry no declared type, so a Variant cannot yet be told from them, and emptying every slot without one
+emptied all four of these.
+
+**Found on the way, both modes** (#876, #877):
+
+| Statement | VB6 |
+|---|---|
+| `For Each x In Filter(ds, "a")`, over a copy of that result, and over `ds` itself, under Resume Next | 92, and the body runs once |
+| `Err.Raise 5`, then `On Error Resume Next` | `Err.Number` is 0 |
+| a helper whose first line is `On Error Resume Next`, called after `Err.Raise 6` | the helper reads 0, and so does the caller after it returns |
+| `Err.Raise 7`, then `On Error GoTo 0` | 0 |
+
 Every other argument reads the member:
 
 | Call | `sm` | `k` |
@@ -5702,7 +5846,7 @@ Every other argument reads the member:
 | Used as a value | VB6 |
 |---|---|
 | `Err` | its `Number`: `"v=" & Err` is "v=0" or "v=11", `If Err Then` takes the Then branch after an error, `x = Err` stores 11, `Err + 1` is 12, `VarType(Err)` is 3, `Print #f, Err` writes 11 |
-| `App`, `Screen`, `Clipboard` | 438: none has a default member. For App, measured: `"v=" & App`; `s = App`, leaving a String `s` as it was; `v = App`, which **empties** a Variant `v` first (VarType 0), where `v = k` for a class with no default member leaves it as it was; and `Debug.Print App` and `Debug.Print Screen` in the IDE |
+| `App`, `Screen`, `Clipboard` | 438: none has a default member. For App, measured: `"v=" & App`; `s = App`, leaving a String `s` as it was; `v = App`, which **empties** a Variant `v` first (VarType 0), where `v = k` for a class with no default member leaves it as it was (HexIDE does not empty it yet, #878); and `Debug.Print App` and `Debug.Print Screen` in the IDE |
 | `Forms` | 450: its default member, `Item`, needs an argument |
 | `Debug` | a compile error, "Syntax error" (`/make` only, as is the next row) |
 | a control array without an index, `"v=" & Cmd` | a compile error, "Argument not optional" |

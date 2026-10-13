@@ -133,12 +133,84 @@ public class ArrayFunctionsTests : BaseVBTestFixture
     [InlineData("Dim d(1) As String", "Filter(d, Null)", 94L)]
     [InlineData("Dim d(1) As String", "Filter(d, \"a\", Null)", 94L)]
     [InlineData("Dim d(1) As String", "Filter(d, \"a\", \"x\")", 13L)]
-    public async Task Filter_reads_its_match_and_switch_before_the_array(string declaration, string call, long error)
+    [InlineData("Dim d() As String", "Filter(d, \"a\", True, Null)", 94L)]
+    [InlineData("Dim d(1) As String", "Filter(d, \"A\", True, Null)", 94L)]
+    [InlineData("Dim d() As String", "Filter(d, \"a\", True, \"x\")", 13L)]
+    [InlineData("Dim d(1) As String", "Filter(d, \"A\", True, \"x\")", 13L)]
+    [InlineData("Dim d", "Filter(\"abc\", Null)", 94L)]   // ahead of the array check, which gives 13
+    [InlineData("Dim d", "Filter(5, \"a\", \"x\")", 13L)]
+    public async Task Filter_reads_its_match_switch_and_compare_before_the_array(string declaration, string call, long error)
     {
         // Measured, native and in the IDE: these raise even for an array never allocated, which Filter otherwise answers
-        // with no error.
+        // with no error. A Null compare was 13, and a Null match beside something that is not an array was 13.
         await Run($"{declaration}\nDim c\nOn Error Resume Next\nc = {call}\nDebug.Print Err.Number\nDebug.Print IsEmpty(c)\n");
         AssertDebugLog([new Vb6Value(error), new Vb6Value(true)]);
+    }
+
+    [Theory]
+    [InlineData("Filter(d, \"a\", e)", -1L)]          // the switch reads as CBool: Empty excludes
+    [InlineData("Filter(d, \"a\", \"True\")", 1L)]
+    [InlineData("Filter(d, \"a\", \"False\")", -1L)]
+    [InlineData("Filter(d, \"a\", 2)", 1L)]
+    [InlineData("Filter(d, \"A\", True, e)", -1L)]    // the compare reads as a number: Empty is binary
+    [InlineData("Filter(d, \"A\", True, \"1\")", 1L)]
+    [InlineData("Filter(d, \"A\", True, 1)", 1L)]
+    [InlineData("Filter(d, \"A\", True, 5)", 1L)]      // not only 1 is a text compare
+    public async Task Filter_reads_its_switch_as_CBool_does_and_its_compare_as_a_number(string call, long upper)
+    {
+        // Measured, native and in the IDE, with d holding "apple" and "pear". Both were read as plain numbers, so an Empty
+        // switch or compare raised 13, and only a compare of 1 was a text compare.
+        await Run($"Dim d(1) As String, e, r\nd(0) = \"apple\"\nd(1) = \"pear\"\nr = {call}\nDebug.Print UBound(r)\n");
+        AssertDebugLog([new Vb6Value(upper)]);
+    }
+
+    [Theory]
+    [InlineData("Filter(d, \"a\", e)")]
+    [InlineData("Filter(d, \"a\", \"True\")")]
+    [InlineData("Filter(d, \"a\", True, e)")]
+    public async Task Filter_of_an_array_never_allocated_takes_any_switch_and_compare_that_convert(string call)
+    {
+        // Measured, native and in the IDE: no error, and the unallocated String array back.
+        await Run($"Dim d() As String, e, c\nOn Error Resume Next\nc = {call}\nDebug.Print Err.Number\nDebug.Print VarType(c)\n");
+        AssertDebugLog([new Vb6Value(0L), new Vb6Value(8200L)]);
+    }
+
+    [Theory]
+    [InlineData("c = Join(Array(\"ab\", Null), \"-\")", 94L)]
+    [InlineData("c = Filter(Array(\"ab\", Null), \"zz\", False)", 94L)]
+    [InlineData("c = Filter(Array(\"ab\", Null), \"ul\")", 94L)]
+    [InlineData("c = Join(Array(Array(1), \"b\"), \"-\")", 13L)]
+    [InlineData("c = Filter(Array(Array(1, 2), \"b\"), \"b\", False)", 13L)]
+    public async Task An_element_that_cannot_be_a_string_raises_in_Join_and_Filter(string call, long error)
+    {
+        // Measured, native and in the IDE: each element is converted as a store into a String does. A Null element read
+        // as "", and an array element as the CLR type name.
+        await Run($"Dim c\nOn Error Resume Next\n{call}\nDebug.Print Err.Number\nDebug.Print IsEmpty(c)\n");
+        AssertDebugLog([new Vb6Value(error), new Vb6Value(true)]);
+    }
+
+    [Theory]
+    [InlineData("Dim d() As String", 0L)]                         // never allocated
+    [InlineData("Dim d() As String\nReDim d(1)\nErase d", 0L)]   // erased
+    [InlineData("Dim d\nd = Array()", 0L)]                        // allocated, 0 To -1
+    [InlineData("Dim d\nd = Split(\"\")", 0L)]
+    [InlineData("Dim d(0) As String", 94L)]                       // one element, so no delimiter is needed
+    [InlineData("Dim d(1) As String", 94L)]
+    public async Task Join_reads_a_Null_delimiter_only_when_the_array_has_an_element(string declaration, long error)
+    {
+        // Measured, native and in the IDE. A Null delimiter read as "".
+        await Run($"{declaration}\nDim c\nOn Error Resume Next\nc = Join(d, Null)\nDebug.Print Err.Number\nDebug.Print TypeName(c)\n");
+        AssertDebugLog([new Vb6Value(error), error == 0 ? "String" : "Empty"]);
+    }
+
+    [Fact]
+    public async Task An_element_that_is_not_a_string_is_its_text_in_Join_and_Filter()
+    {
+        // Measured, native and in the IDE: True and Empty give "True" and "", and Filter matches "ru" inside True and
+        // gives back the String "True". 42 is inferred from the measured 1.5.
+        await Run("Dim r\nDebug.Print Join(Array(\"ab\", True, Empty, 42), \"-\")\n" +
+                  "r = Filter(Array(\"ab\", True), \"ru\")\nDebug.Print UBound(r)\nDebug.Print TypeName(r(0)) & \" \" & r(0)\n");
+        AssertDebugLog(["ab-True--42", new Vb6Value(0L), "String True"]);
     }
 
     [Fact]

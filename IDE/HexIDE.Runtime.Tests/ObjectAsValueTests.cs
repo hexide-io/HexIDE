@@ -4,12 +4,15 @@ namespace HexIDE.Runtime.Tests;
 
 /// <summary>
 /// A class instance used where a value is wanted (#174). Measured on vb6.exe, native and in the IDE, with
-/// <c>Widget</c>'s <c>Value</c> its default member returning 42 and <c>Plain</c> a class with none: every use below sees
-/// 42 for a Widget, except the few where a Function default member gives 450 (the oracle's 450 rows), and raises 438 for
-/// a Plain. HexIDE does not call a class's default member yet, so a Widget is
-/// refused untrappably, where it raised a trappable 438 or 13, or read 0, the CLR type name, or no match at all. A Plain
-/// raises VB6's 438, where several of these raised 13 or gave the type name (#436). The probe is in docs/vb6-fidelity-oracle.md, "An object used as a
-/// value".
+/// <c>Widget</c>'s <c>Value</c> its default member returning 42 and <c>Plain</c> a class with none. Where a value is
+/// wanted, VB6 sees 42 for a Widget and raises 438 for a Plain, except the few paths where a Function default member
+/// gives 450 through a Variant (the oracle's 450 rows). Some tests here are about the places that are not like that,
+/// and each says so: <c>TypeName</c>, <c>IsObject</c> and a ByVal Variant parameter take the object itself, <c>VarType</c>
+/// and the Is functions answer about a Plain with no 438, and the array that LBound, UBound, Join and Filter take first
+/// is 13 for any object. A few rows are inferred rather than measured, and say so. HexIDE does not call a class's
+/// default member yet, so a Widget is refused untrappably, where it raised a trappable 438 or 13, or read 0, the CLR
+/// type name, or no match at all. A Plain raises VB6's 438, where several of these raised 13 or gave the type name
+/// (#436). The probe is in docs/vb6-fidelity-oracle.md, "An object used as a value".
 /// </summary>
 public class ObjectAsValueTests : BaseVBTestFixture
 {
@@ -49,6 +52,8 @@ public class ObjectAsValueTests : BaseVBTestFixture
         "Select Case o\nCase 42\nc = 1\nEnd Select",
         "Dim i As Long\nFor i = 40 To o\nNext",   // no assignment in the body: #839 decides whether it runs
         "Debug.Print o",   // its 438 measured in the IDE: a native build drops Debug.Print
+        "c = Join(Array(\"ab\", o), \"-\")",   // an element: a Widget's measured "ab-42"
+        "c = Filter(Array(\"ab\", o), \"zz\", False)",
     };
 
     [Theory]
@@ -82,8 +87,8 @@ public class ObjectAsValueTests : BaseVBTestFixture
     public async Task A_condition_or_a_conversion_of_a_class_with_a_default_member_is_refused(string use)
     {
         // The same rule: VB6 reads the default member. Measured for If, a Case value, CDate and a Let into a Long; While,
-        // Do While and an array element are inferred from them. `Not o` raises 450 for a Function default member
-        // (measured), which the refusal covers too.
+        // Do While and an array element are inferred from them. On this typed `o`, `Not o` is -43 and `CDate(o)` a Date
+        // (measured); through a Variant, `Not o` raises 450 for a Function default member. The refusal covers both.
         var run = () => RunWith("Widget", use);
 
         (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*#174*");
@@ -312,6 +317,20 @@ public class ObjectAsValueTests : BaseVBTestFixture
         await RunPrinting(cls, "Dim v\nSet v = o\n" + use);
 
         AssertDebugLog([new Vb6Value(13L)]);
+    }
+
+    [Theory]
+    [InlineData("Plain", "c = Join(Array(), o)", 0L)]
+    [InlineData("Plain", "Dim d() As String\nc = Join(d, o)", 0L)]
+    [InlineData("Widget", "Dim d() As String\nc = Join(d, o)", 0L)]
+    [InlineData("Plain", "c = Join(Array(\"a\"), o)", 438L)]
+    public async Task Join_reads_an_object_delimiter_only_when_the_array_has_an_element(string cls, string use, long error)
+    {
+        // Measured, native and in the IDE: with no element the delimiter is not read, so neither a class with a default
+        // member nor one without is looked at; with one element, a class with none is 438.
+        await RunWith(cls, use);
+
+        AssertDebugLog([new Vb6Value(error), new Vb6Value(error != 0)]);
     }
 
     [Theory]

@@ -28,16 +28,24 @@ there isn't one yet. Anything may change between 0.x releases.
   every operator, a Let, a ByVal argument for a typed parameter, every condition, bound and Case, `Randomize`,
   `Err.Raise`, `Error`, `ChDir`, `ChDrive`, the Mid statement, and every built-in function's value arguments.
   `TypeName` and `IsObject` still take the object, and `VarType` and the Is functions answer about it. A class
-  with a default member, which VB6 reads in all those places (bar a few where a Function default member gives 450), stops the run with a message saying class default
-  members are not implemented yet (#174), rather than an error `On Error Resume Next` would step over.
+  with a default member, which VB6 reads in all those places (bar a few where a Function default member gives 450
+  through a Variant), stops the run with a message saying class default members are not implemented yet (#174),
+  rather than an error `On Error Resume Next` would step over.
 - **`Err` used as a value is its `Number`**, as in VB6: `"Error " & Err`, `x = Err`, `Err + 1`. It was refused. App
-  used as a value raises VB6's 438, where it printed a .NET type name; `v = App` empties a Variant `v` first, as VB6's
-  does. A control still gives its .NET type name in
-  `"v=" & Text1`, `CStr(Text1)` and `Debug.Print Text1`, until #790.
+  used as a value raises VB6's 438, where it printed a .NET type name (VB6 also empties a Variant `v` in `v = App`
+  first, which is #878). A control still gives its .NET type name in `"v=" & Text1`, `CStr(Text1)` and
+  `Debug.Print Text1`, until #790.
 - **`TypeName(Err)` is "ErrObject" and `TypeName(App)` is "App"**, as in VB6. They were HexIDE's own class names.
 - **`Join` and `Filter` of something that is not an array raise 13**, as in VB6, where they raised 5. Of an array
   never allocated, `Join` gives `""` and `Filter` an unallocated String array, where both stopped the run with an error no
   `On Error` could trap.
+- **`Filter` always gives a String array**, as in VB6, where it gave a Variant array for any allocated input. A Null
+  match, switch or compare is 94, even for an array never allocated, and even beside something that is not an array.
+  The switch reads as `CBool` does and the compare as a number, so an Empty one no longer raises 13, and a compare of
+  5 is a text compare, as 1 is.
+- **`Join` and `Filter` convert each element as a store into a String does**, as in VB6: a Null element is 94 and an
+  array 13, where they read as `""` and the CLR type name. `Join` of an array with no element gives `""` without
+  reading its delimiter; with one, a Null delimiter is 94, where it read as `""`.
 - **The Immediate window's `? obj` no longer prints the class's name.** A class with no default member is 438, as
   `Debug.Print` of one is in VB6, and one with a default member says that reading it is not available in break mode.
 - **A syntax error when a program starts, or a compile error while it runs, is reported like a run-time error.**
