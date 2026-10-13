@@ -5562,7 +5562,11 @@ condition fail. It is plain False, so `Do Until Null` runs and `Loop Until Null`
 |---|---|
 | a Variant set to `Nothing`; an `Object` variable never set | 91 |
 | a Variant holding a class with no default member | 438 |
-| a Variant holding a class whose default member returns 42 | `If` holds; `Do While` loops |
+| a Variant holding a class whose default member, a **Function**, returns 42 | `If` holds; `Do While` loops |
+
+The default member was a Function, `Public Function Value() As Long` with `VB_UserMemId = 0`. That matters because a
+Function default member gives 450 on some paths where a Property Get gives its value (#840's probes: `Format`, `Abs`,
+`Not`). A condition is not one of those paths. `ConditionTests`' `Widget` is the same Function.
 
 So a condition refuses an object as every conversion does. `CBool` alone in HexIDE did not ask: each of these, and a
 class with a default member, a control and `Err`, fell through to a trappable 13.
@@ -5572,3 +5576,36 @@ and both `Do` forms. `CBool` now refuses what every conversion refuses: Nothing 
 438, and a class with a default member, a control and `Err` are refused, untrappably, naming #174, #790 or #840. An
 error `CBool` raises in a condition names the condition's statement. `If Err Then` follows Err used as a value, which
 #840 makes its Number. `CVErr` does not exist in HexIDE yet.
+
+## A typed parameter given a value of another type (2026-10-13, #874)
+
+**The question.** What a parameter declared `As Boolean`, `As String` or `As Date` holds when the caller passes a
+value of another type. Found in #865's review: HexIDE's `BindParameters` coerces a copied argument only into the
+numeric types (`IsCoreNumeric`: Byte, Integer, Long, Single, Double, Currency), so a Boolean, String or Date parameter
+held whatever it was given. That copy branch takes every `ByVal` argument and every `ByRef` argument passed as a
+literal, so both are affected.
+
+**Probe.** A Sub Main project with `On Error Resume Next`. Each procedure writes `TypeName(x)` and `x` with `Print #`.
+Built as native code and also run in the IDE, as described under "What a condition is"; **every line was identical in
+the two modes**. The guest's locale is en-GB, which decides how a Date is written and how `"1/2/2000"` is read.
+
+| Call | Parameter | VB6 |
+|---|---|---|
+| `B 5`, `B 0` | `ByVal x As Boolean` | Boolean True, Boolean False |
+| `B "True"` | `ByVal x As Boolean` | Boolean True |
+| `B "abc"` | `ByVal x As Boolean` | 13, at the call: the procedure does not run |
+| `S 5`, `S True`, `S 2.5` | `ByVal x As String` | String "5", "True", "2.5" |
+| `D "1/2/2000"` | `ByVal x As Date` | Date 01/02/2000 |
+| `D 1`, `D 2.5`, `D True` | `ByVal x As Date` | Date 31/12/1899, 01/01/1900 12:00:00, 29/12/1899 |
+| `D "abc"` | `ByVal x As Date` | 13, at the call |
+| `BR 5`, `BR 0`, `BR "True"` | `x As Boolean`, ByRef | Boolean True, False, True |
+| `BR "abc"` | `x As Boolean`, ByRef | 13, at the call |
+| `SR 5`, `SR True`, `SR 2.5` | `x As String`, ByRef | String "5", "True", "2.5" |
+| `DR "1/2/2000"`, `DR 1` | `x As Date`, ByRef | Date 01/02/2000, 31/12/1899 |
+| `DR "abc"` | `x As Date`, ByRef | 13, at the call |
+
+**What it says.** A literal passed to a typed parameter, ByVal or ByRef, is converted into the parameter's type as a
+store into a variable of that type converts it, and a value that will not convert raises 13 before the procedure
+runs. HexIDE passes the ByVal Boolean and String cases through unconverted (run under HexIDE: `S 5` arrives as an
+Integer, and `B "abc"` runs with a String where VB6 raises 13), and its code sends the Date and ByRef cases down the
+same branch. #874 is the fix.
