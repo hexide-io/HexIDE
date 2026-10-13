@@ -74,6 +74,25 @@ public class SetNextStatementTests : BaseVBTestFixture
     }
 
     [Fact]
+    public async Task SetNext_onto_an_Attribute_line_is_refused()
+    {
+        // An Attribute line is metadata, so it is no more a statement to move to than a blank line is (#832).
+        var (vb, dbg) = NewDebuggable(
+            "Go\nSub Go()\nAttribute Go.VB_Description = \"x\"\nDebug.Print 1\nDebug.Print 2\nEnd Sub\n", "M");
+        dbg.SetBreakpoints("M", new[] { 5 });
+        var stop = NextStop(dbg);
+        var run = vb.Execute();
+        (await stop.Guarded()).Line.Should().Be(5);
+
+        dbg.SetNextStatement("M", 3).Should().BeFalse();   // the Attribute line
+        dbg.SetNextStatement("M", 4).Should().BeTrue();    // the first statement after it
+        dbg.SetBreakpoints("M", Array.Empty<int>());       // so the re-run does not stop on line 5 again
+        dbg.Continue();
+        await run.Guarded();
+        debug.Select(v => v.Value).Should().Equal(1, 1, 2);
+    }
+
+    [Fact]
     public async Task SetNext_WhilePausedInsideBlock_Refused()
     {
         var (vb, dbg) = NewDebuggable(

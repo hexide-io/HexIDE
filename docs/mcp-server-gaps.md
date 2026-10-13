@@ -1052,3 +1052,34 @@ deliberately. Cross-platform by code reading.
 **Suggested fix.** Count a Local NeverSent row as a failure in `CaptureQueries.IsFailure` and
 `ProtocolInspectorRowViewModel.IsFailure`, and say so in `failuresOnly`'s description.
 [#945](https://github.com/hexide-io/HexIDE/issues/945).
+
+## No reply mentions a modal dialog, whether it was already open or the action opened it
+
+**Symptom.** (Windows 11, Debug build of #838's branch, merged with main at 2047857, 2026-10-13.) Paused at a
+breakpoint on line 3 of a module, with the caret moved to line 2, an `Attribute` line:
+
+```
+invoke_menu_item {"path":"Debug/Set Next Statement"}
+→ {"success":true,"note":"Invoked 'Set Next Statement'."}
+take_snapshot {"window":"ide"}
+→ {"path":"…_3.png","width":1920,"height":974,"scale":1.5}
+dump_visual_tree {"maxDepth":3,"interactiveOnly":false}
+→ {"window":"HexIDE","root":{… "className":"MessageBox" … "Can't set the next statement here — only a
+   top-level statement of the currently paused procedure is supported …" … "Button[OK]"}}
+take_snapshot {}
+→ {"path":"…_4.png","activeDialog":"HexIDE","width":642,"height":172,"scale":1.5}
+```
+
+The command refused the move and opened a message box saying so. The first reply reads as if the move had
+happened. The second is the main window with no `activeDialog`, and the box is not in the image, although
+`window: "ide"` is the documented way to reach the IDE while a program is paused, and the tool's description
+says an open modal is captured in preference to the main window. Only the default window finds it. #681
+measured the first half with Tools/Add Procedure left open; this is a modal raised by the action itself, which
+[its Linux comment](https://github.com/hexide-io/HexIDE/issues/681#issuecomment-6146516046) describes.
+
+**Workaround.** After any action that might open a dialog, `dump_visual_tree {}` and read its `window`. A
+`take_snapshot {}` with no `window` captures the dialog.
+
+**Suggested fix.** #681's decision, for the replies. For `take_snapshot` with `window: "ide"`, prefer a modal
+the IDE owns, as `auto` does, or at least name it in `activeDialog`.
+[#681](https://github.com/hexide-io/HexIDE/issues/681).
