@@ -363,9 +363,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // The debugger treats the line as it treats a blank one. A step never stops on it: ExecuteProcedureBody, which also
     // runs a module's declarations where `Attribute Name.VB_VarDescription` follows a Public variable, and VisitBlock,
     // for one nested in a block, both skip it. Set Next Statement onto it is refused. A breakpoint or Run To Cursor on
-    // it is never reached, as on a blank or comment line, because neither checks its line. VB6's code window hides
-    // these lines, so none of that can be asked of it there. HexIDE's shows them, and #273 makes each run read-only and
-    // folds it into the line it describes.
+    // it is accepted and never reached, as on a blank or comment line, because neither checks its line. VB6's code
+    // window hides these lines, so none of that can be asked of it there. HexIDE's shows them, and #273 makes each run
+    // read-only, folds it into the line it describes, and refuses a breakpoint on it.
     public override Task<ControlFlow> VisitAttributeStmt(VB6Parser.AttributeStmtContext context) =>
         Task.FromResult(ControlFlow.Nothing);
 
