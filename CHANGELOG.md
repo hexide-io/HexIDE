@@ -47,16 +47,28 @@ there isn't one yet. Anything may change between 0.x releases.
   raised 9. A Variant that never held an array can be `ReDim`med at all; it stopped with an internal error.
 - **A typed array parameter shares its caller's array** (#849). `Sub P(b() As Long)` took `b` for a Long, so an array
   passed to it was copied rather than shared, and narrowed as if it were a scalar.
+- **A fixed array can't be resized through a parameter** (#873). `ReDim b(10)` in a callee given a caller's
+  `Dim buf(3)` raises VB6's 10, "This array is fixed or temporarily locked", and leaves `buf` as it was; named
+  directly, `ReDim` of a fixed array is VB6's "Array already dimensioned".
+- **A String stored into a Date is read as `CDate` reads it** (#873), in the program's locale: `d = "1/2/2003"` is a
+  date, where every date string raised 13.
 
 - **A module-level `Const` is checked as VB6 checks it** (#760). Its value may read only other constants: a Const
   declared below it or the Const itself, a variable, a user function and any function call are VB6's "Constant
   expression required", where they ran from whatever HexIDE made of them. Another module's Public Const is read
   qualified once that module's declarations have run, and refused unqualified (#880) or before (#893), rather than
   read as Empty. A module naming itself is "Circular dependencies between modules".
+- **A `Const` holds its value as its `As` type** (#873), at module and procedure level: `Const C As Integer = 2.5` is
+  2, and `Const HALF As Long = GRID / 2` rounds as a store into a Long does. A value the type can't hold is VB6's
+  compile error: `Const C As Byte = 300` is "Overflow" and `Const C As Integer = "x"` "Type mismatch". The As
+  clause was ignored, so a module array sized from such a Const had the wrong bounds.
 - **A module-level array sized by a `Const` loads** (#760). `Private mGrid(0 To GRID_MAX)` made the whole module
   fail to load; so did a typed literal such as `Dim d(2&)`. Its bounds are read where it is allocated, by VB6's
-  rules: a Const declared below, a variable, a user function, and the built-ins VB6 refuses there are its "Constant
-  expression required". Another module's Public Const unqualified (#880), or qualified before that module has run
+  rules: a Const or Enum declared below, a variable, a user function, and the built-ins VB6 refuses there are its
+  "Constant expression required". A constant qualified by its library, container, module, Enum or the project is read
+  (`VBA.vbCrLf`, `KeyCodeConstants.vbKeyA`, `Module2.Cols.colMax`), and `Len` sizes only from a String: of a number
+  it is VB6's "Variable required". A dimension with no values, such as `Dim d(-1)`, is VB6's "Range has no values",
+  where it built an empty array. Another module's Public Const unqualified (#880), or qualified before that module has run
   (#893), and its Enum member read unqualified (#889) are refused, rather than sized from Empty. A form's run refuses
   such an array, naming it, because it does not run the module's declarations yet (#256). A procedure's `Const`s are declared before its `Dim`s, so
   `Dim a(P)` inside a procedure sees `P` too.

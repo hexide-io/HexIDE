@@ -2437,8 +2437,9 @@ fix.
 This matters more than it looks. CLAUDE.md prescribes lazy-memoised evaluation for `Const` on the premise
 that `Const` is order-independent, and the obvious move was to reach for the same pattern here. VB6 says
 no: source order **is** the rule, so a plain forward walk is not a shortcut, it is the specification. **The premise
-is wrong for `Const` too, within a module** (measured later, #873): `Const A = B + 1` above `Const B = 2` is
-"Constant expression required" at every scope probed. Only across modules is the order free, and there VB6 refuses a
+is wrong for `Const` too, within a module** (measured later, #873): `Const A = B + 1` above `Const B = 2` is refused
+at every scope probed, as "Constant expression required", except in a procedure under `Option Explicit`, where it is
+"Variable not defined". Only across modules is the order free, and there VB6 refuses a
 cycle (the section "Subscripts, bounds, and a method called from Class_Initialize"). The
 pre-pass stays pure collection and a forward reference simply is not found — the right answer for the right
 reason.
@@ -5860,9 +5861,9 @@ That is narrower than CLAUDE.md's pre-pass paragraph implies: it reasons from or
 though `Const A = B + 1` before `Const B` were valid VB6. Within one module it is not.
 
 **Across modules, list order does not matter, but the modules' Consts must not form a cycle.** Measured for #873's
-review with `vb6.exe /make` (2026-10-13), by two measurers working independently, identical in every row. Each row is
-one project: the program column is all of each module's declarations, Sub Main sits in Module1 and prints each
-value, and a project that built was run:
+review with `vb6.exe /make` (2026-10-13), by two measurers working independently, identical in every row, except the
+two rows marked as measured once. Each row is one project: the program column is all of each module's declarations,
+Sub Main sits in Module1 and prints each value, and a project that built was run:
 
 | Program | VB6 |
 |---|---|
@@ -5874,7 +5875,8 @@ value, and a project that built was run:
 | a Const read inside a procedure body, a procedure-level Const in the other module, or a procedure call, as the back edge | builds: procedure bodies are not edges |
 | Module1 `Const A = 2`, `Const A2 = Module1.A + 1` | "Circular dependencies between modules": the module naming itself |
 | `Const A = Module1.B + 1` above `Const B = 2`, in Module1 | "Circular dependencies between modules", not "Constant expression required" |
-| in Module1, `Const C = Module1.n + 1` after `Private n As Long`; `Private d(Module1.n) As Long` after `Public n As Long`; `Const C = Module1.Twice(2)`; `Const C = Module1.Nope + 1`, with nothing named Nope | "Circular dependencies between modules", each: whatever the module's own name qualifies (measured for #873, `/make`, one project each) |
+| in Module1, `Const C = Module1.n + 1` after `Private n As Long`; `Private d(Module1.n) As Long` after `Public n As Long`; `Const C = Module1.Twice(2)`; `Const C = Module1.Nope + 1`, with nothing named Nope | "Circular dependencies between modules", each: whatever the module's own name qualifies (measured once, for #873, `/make`, one project each) |
+| a class's `Private Const C = Module1.M + 1` and `Private Const D = M + 2`, Module1's `Public Const M = 3` | C = 4, an Integer, and D = 5 (measured once, for #873, native and in the IDE) |
 | `Const A = B + 1` above `Const B = 2`, module level, with or without `Option Explicit` | "Constant expression required" |
 | the same in a class, in a form never loaded, and `Const A = eLater + 1` above the Enum declaring `eLater` | "Constant expression required"; the form's fires because `/make` compiles every module |
 | `Const A = B + 1`, Module2's `Private Const B = 2` | "Variable not defined": invisible |
@@ -5887,8 +5889,11 @@ form, procedure and Enum member. And at module level `Option Explicit` still say
 where at procedure level it says "Variable not defined": module-level names are known before their values are.
 
 **HexIDE, after this.** Another module's Public Const read qualified, as `Module2.B`, is read when that module's
-declarations have already run, which modules in list order before the primary have; its value is final. Before they
-have run, it is refused naming #893, which is VB6's on-demand ordering, with its cycle error. Unqualified it is
+declarations have already run; its value is final. Which have run depends on how the run starts. `Execute`, which
+only the tests use, runs the other standard modules in list order and the startup module last, its body doubling as
+its declarations. The IDE's Sub Main run, `RunStartupSubMain`, runs every standard module's declarations in list
+order, the startup module's among them, before Main. Before a module's have run, a read of its Const is refused naming
+#893, which is VB6's on-demand ordering, with its cycle error. Unqualified it is
 still #880. The module naming itself is "Circular dependencies between modules", whatever it names.
 
 **Review round three** asked what lies one level down: what a Const above the Dim may itself read, which built-ins
@@ -5957,6 +5962,123 @@ A procedure's Consts are not checked yet. What is refused:
 
 `LenB` and `CVar` are allowed in a bound but not implemented in HexIDE, so a bound using them stops there as any use
 of them does.
+
+**Review round four** found that the check refused qualified constants main had read, and asked what else a bound or
+a Const may read. Measured with `/make`, one project each, on the en-GB guest; each project that built was run:
+
+| Declarations | VB6 |
+|---|---|
+| `Private Const C = VBA.vbCrLf`, then `Len(C)` | 2 |
+| `Const C = KeyCodeConstants.vbKeyA`; `Const C = VBRUN.KeyCodeConstants.vbKeyA` | 65; 65 |
+| `Dim d(VBRUN.vbKeyA)` | 0 To 65 |
+| `Const C = Module2.colMax + 1`, Module2's `Public Enum Cols` with `colMax = 4` | 5 |
+| `Dim d(Module2.Cols.colMax)`, the same Module2 | 0 To 4 |
+| `Const C = Probe.Module2.Cols.colMax`; `Const C = Probe.Module2.M + 1`, the project being `Probe` | 4; 4 |
+| `Const C = Module2.pMax`, Module2's `Private Enum P` | "Method or data member not found" |
+| `Const C = KeyCodeConstants.vbCancel` | "Method or data member not found": another container's member |
+| `Const C = Module1.Sizes.eMax`, in Module1 | "Circular dependencies between modules" |
+| `Const C = Sizes.eMax` above `Enum Sizes` | "Constant expression required" |
+| `Dim d(VBA.Len("ab"))` | "Constant expression required", though `Dim d(Len("ab"))` sizes |
+| `Const S = "abc"`, `Dim d(Len(S))`; `Const S As String = "abcd"`, `Dim d(Len(S))` | 0 To 3; 0 To 4 |
+| `Dim d(LenB("ab"))`; `Const S = "abc"`, `Dim d(LenB(S))`; `Const S = "ab"`, `Dim d(Len(S & "c"))` | 0 To 4; 0 To 6; 0 To 3 |
+| `Dim d(LenB(12345))` | "Variable required - can't assign to this expression" |
+| `Dim d(-1)`; `Const N = 0`, `Dim d(1 To N)`; `Dim d(5, 2 To 1)`, each at module level | "Range has no values" |
+| `Dim d(-1)`; `Const N = 0`, `Dim d(1 To N)`, each in a procedure | "Range has no values" |
+| `Dim d(0 To 0)` | 0 To 0 |
+| `Dim d(n)`, Module2's `Global n As Long`, with and without `Option Explicit` | "Constant expression required" |
+
+The review measured the rest itself, two verifiers each: `Len(12345)`, `Len` of a numeric Const and of a typed,
+fractional or Date Const are "Variable required"; Module2's `Public Const vbKeyA = 3` sizes `Dim d(vbKeyA)` 0 To 3,
+the project beating the library; and `Const A = eLater + 1`, `Dim d(eLater)` and `Dim d(E.eLater)` above the Enum
+declaring `eLater` are "Constant expression required".
+
+So a qualified constant resolves level by level as the evaluator resolves it: the project, a module, an Enum, a
+library, an in-box container. A call through a qualifier is no constant, even of a function a bound allows bare. `Len`
+and `LenB` size only from a String: of a number VB6 asks for a variable. An Enum, like a Const, must be declared above
+what reads it. And a dimension with no values does not compile, at either level.
+
+**HexIDE, after round four.**
+- Every qualified form above is read as VB6 reads it, or refused with VB6's compile error. A qualified shape no probe
+  has asked about is refused loudly, rather than guessed.
+- Another module's Public declaration is looked for before a built-in constant of the same name; its Const is then
+  refused unqualified, naming #880.
+- `Len` and `LenB` size from a String constant only: a literal, a String Const, a concatenation, or `CStr` of a
+  constant. Of a number or a non-String Const they are "Variable required". Of anything else, such as another
+  function's result, they are refused loudly. HexIDE has no `LenB` to size from yet.
+- The pre-pass records where each Enum is declared, which is collection; an Enum below a Const or bound is "Constant
+  expression required".
+- A `Global` variable counts as Public.
+- A dimension with no values is "Range has no values" at a Dim, at module and procedure level, raised as the Dim runs.
+  It built an array with no elements, so `UBound` read -1 and loops ran no passes.
+
+### A Const's As type
+
+A Const's `As` clause was ignored: the Const held whatever its initialiser gave, and a module array's bounds trusted
+it. Measured with `/make`, one project each, each that built run and its value and `TypeName` written:
+
+| Declaration | VB6 |
+|---|---|
+| `Const C As Integer = 2.5`; at procedure level too | 2, Integer |
+| `Const C As Long = 2.5`; `= 3.5` | 2; 4, Long |
+| `Const C As Single = 1.23456789` | 1.234568, Single |
+| `Const C As Currency = 1.23456`; `= 1.00005` | 1.2346; 1.0001, Currency |
+| `Const C As String = 5`; `= 1.5`; `= #1/2/2003#` | "5"; "1.5"; "02/01/2003", String |
+| `Const C As Date = 1`; `= #1/2/2003#`; `= "1/2/2003"` | 31/12/1899; 02/01/2003; 01/02/2003, Date |
+| `Const C As Integer = "5"`; `= True` | 5; -1, Integer |
+| `Const C As Boolean = "True"` | True, Boolean |
+| `Const C As Variant = 2.5` | 2.5, Double |
+| `Const C As Byte = 300`; `= -1`; `Const C As Integer = 32768`; `Const C As Currency = 922337203685478#`; `Const C As Date = 3000000`; a procedure's `Const P As Byte = 300` | "Overflow" |
+| `Const C As Integer = "x"`; `Const C As Date = "abc"` | "Type mismatch" |
+| `Const C As Integer = 2.5`, `Dim d(C + C)` | 0 To 4 |
+
+The review measured three more: `Const CL As Long = 7 / 2` is 4 and sizes `Dim d(CL * 2)` 0 To 8, and `Const B As
+Boolean = 5` sizes `Dim d(B To 1)` -1 To 1.
+
+So a Const converts into its type as a store into a variable of that type converts, and where that store would raise 6
+or 13 the Const is the compile error of the same name. `1.00005` is not a tie as a Double, so it rounds up, which
+HexIDE's Currency conversion does not do yet (#966): it gives 1, for this Const and for every store and `CCur` of that
+value. The same probe found a store of a date string into a Date raised 13 in HexIDE (`s01`, below), where VB6 reads
+it as `CDate` does.
+
+| Statement (`s01`, both modes) | VB6 |
+|---|---|
+| `c = 1.00005`, `c` a Currency; `CCur(1.00005)` | 1.0001; 1.0001 |
+| `CCur(2.00005)`; `CCur(0.00015)` | 2; 0.0001: the Doubles nearest those lie below the midpoint |
+| `dd = "1/2/2003"`, `dd` a Date | 01/02/2003, no error |
+| `dd = "abc"` | 13 |
+
+**HexIDE, after this.** A module-level or procedure Const converts into its `As` type through the same conversion a
+store uses, and a conversion that would raise 6 or 13 is "Overflow" or "Type mismatch", raised as the Const runs. A
+store of a String into a Date reads as `CDate` reads it, in the program's locale, where every date string was 13. A
+Const of an object or fixed-length String type is refused loudly. Currency from a Double still rounds the decimal form
+(#966).
+
+### ReDim of a fixed array through a parameter
+
+Making a `b() As Long` parameter share the caller's array (round three) let a callee's ReDim replace a caller's fixed
+array. Measured, native and in the IDE where marked:
+
+| Program | VB6 |
+|---|---|
+| `Dim buf(3) As Byte` in Sub Main, passed to `Sub Grow(b() As Byte)`, which does `ReDim b(10)` (both modes) | 10, "This array is fixed or temporarily locked"; `buf` still 0 To 3 |
+| the same with a module-level `Private mbuf(3) As Byte` | 10; still 0 To 3 |
+| `ReDim Preserve b(10)` (both modes) | 10 |
+| `Dim buf(3)` passed to an untyped `Sub Grow(b())` (both modes) | 10 |
+| `ReDim b(3)`, the same bounds again (both modes) | 10, and `buf(1)` keeps its value |
+| `ReDim b("x")` | 13: the bound converts first |
+| `ReDim b(5 To 2)` (both modes) | 10, before an inverted range's 9 |
+| `Dim buf() As Byte`, `ReDim buf(3)`, then `Grow` | no error, 0 To 10 in the caller too |
+| `Erase b` in the callee, of the fixed `buf` (both modes) | no error: 0 To 3, and element 1, which held 9, reads 0 |
+| `Dim buf(3) As Byte`, `ReDim buf(10)`, by name, in Sub Main; the same of a module-level one | does not compile: "Array already dimensioned" |
+
+**HexIDE, after this.** ReDim of a fixed array through an array parameter raises 10 and leaves it as it was, after
+converting the bounds and before the inverted-range check; named directly it is "Array already dimensioned", raised
+as the ReDim runs. Each call records its array parameters by name, because a ByRef one shares the caller's slot and
+the slot cannot say so. `Erase` already reset a fixed array's elements and kept its bounds. `ReDim Preserve` is not
+implemented at all.
+
+**Another module's array, qualified, found on the way** (`g01`, both modes): `x = Module2.g(1)` is the element,
+5, a Long, and `Module2.g(2) = 7` writes it. HexIDE reads the whole array, and the write is a trappable 424 (#965).
 
 Because declarations run in source order and VB6 refuses a forward reference, a same-module Const above the Dim has
 already run and holds its final value, so reading it then is all the laziness the rule needs.
