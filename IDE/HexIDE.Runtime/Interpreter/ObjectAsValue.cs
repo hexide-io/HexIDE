@@ -20,10 +20,9 @@ namespace HexIDE.Runtime.Interpreter;
 /// <item><c>Print #</c>, <c>Randomize</c>, <c>Err.Raise</c>, <c>Error</c>, <c>ChDir</c>, <c>ChDrive</c>, and the Mid
 /// statement's start and length.</item>
 /// </list>
-/// <para>One exception, explained: where the default member is a <b>Function</b>, <c>Format</c>, <c>Abs</c> and
-/// <c>Not</c> of a Variant holding it raise 450, and so does a Case value compared with an Empty selector in the IDE.
-/// Those paths ask for the member as a property, and a Function is not one. A Property Get default member gives 42
-/// there too.</para>
+/// <para>One exception, measured: where the default member is a <b>Function</b>, <c>Format</c>, <c>Abs</c> and
+/// <c>Not</c> of a Variant holding it raise 450, and so does a Case value compared with an Empty selector in the IDE. A
+/// Property Get default member gives 42 on those uses. The rows say which uses give 450, not why.</para>
 /// <para>A ByVal Variant argument takes the object itself. HexIDE does not call a class's default member yet (#174), so
 /// it refuses, untrappably: a trappable error would let <c>On Error Resume Next</c> carry on without the value VB6
 /// gives. An object with no default member raises VB6's 438, which a program may trap.</para>
