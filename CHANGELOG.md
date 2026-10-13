@@ -22,6 +22,15 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A condition is read as VB6 reads it** (#847). A block `If` or `ElseIf` refused anything but a Boolean with an
+  error numbered 0, so under On Error Resume Next it skipped its body with nothing in Err. A one-line `If` raised 13
+  for anything but a Boolean, and the loops raised 13 for a Long, a Double, Empty or most strings. So
+  `If Len(s) Then`, `If InStr(s, "x") Then`, `If flags And 4 Then` and `Do While n` with a Long `n` stopped the run.
+  Every form now reads its condition as `CBool` does: a number holds when it is not 0, a string when it reads as True
+  or as such a number, and Null and Empty do not. An object in a condition raises VB6's 438 and Nothing 91, where
+  each was a trappable 13, or in a block `If` or `ElseIf` the error numbered 0; a class with a default member, a control and `Err` are refused until #174, #790 and
+  #840.
+
 - **A subscript, a control-array index or an array bound may be any number** (#849). Only an Integer, a Byte or
   an integral string was accepted, so `a(i)` with `i` a Long, `a(UBound(a))` and `ReDim b(n)` stopped the run.
   Each is now coerced as VB6 coerces it. A subscript or a bound is coerced as `CLng` does: `a(2.5)` is `a(2)`, Null

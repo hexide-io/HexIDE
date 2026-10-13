@@ -78,6 +78,10 @@ public partial class VB6BuiltIns
                 + "implemented for a class yet (#174).");
         if (v.Type == VT.Object)
             throw new VBRunTimeException(VBStandardError.ObjectDoesntSupportThisPropertyOrMethod);
+        // Err stands for its Number in VB6 (measured), which #840 implements. `If Err Then` is the common case.
+        if (v.Value is VbErr)
+            throw new NotImplementedException(
+                "Using Err as a value reads its Number, which is not implemented yet (#840). Name Err.Number instead.");
         throw new NotImplementedException(
             "Converting a control or object to a number reads its default member, which is not implemented (#790). "
             + "Name the property instead.");
@@ -137,6 +141,9 @@ public partial class VB6BuiltIns
     internal static Vb6Value CBool(Vb6Value v)
     {
         if (v.IsNull) throw InvalidUseOfNull();
+        // An object, a control, an in-box object or Nothing, as for every other conversion. CBool was the one that never
+        // asked, so each fell through ToNum to a trappable 13 (#847's review).
+        RefuseNonScalar(v);
         if (v.Value is bool b) return new Vb6Value(b);
         // Measured: CBool(Empty) is False, as Empty is 0 to CLng and CDbl. `Enabled = Empty` takes this path.
         if (v.Type == VT.EmptyVariant) return new Vb6Value(false);

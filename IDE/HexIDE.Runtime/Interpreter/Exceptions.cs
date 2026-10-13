@@ -27,6 +27,20 @@ public class VBRunTimeException : Exception
     {
         Context = context;
     }
+
+    private VBRunTimeException(string message, ParserRuleContext context, VBStandardError stdError, Exception inner)
+        : base(message, inner)
+    {
+        Context = context;
+        this.stdError = stdError;
+    }
+
+    /// <summary>
+    /// This error as raised by <paramref name="statement"/>, for one a built-in raised with no statement to hand, so the
+    /// run-time error dialog and <c>get_last_runtime_error</c> still name the statement. One that has a context keeps it.
+    /// </summary>
+    public VBRunTimeException At(ParserRuleContext statement) =>
+        Context != null ? this : new VBRunTimeException(Message, statement, stdError, this);
 }
 
 public class VBCompileErrorException : Exception
