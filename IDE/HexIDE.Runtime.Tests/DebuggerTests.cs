@@ -244,6 +244,54 @@ public class DebuggerTests : BaseVBTestFixture
     }
 
     [Fact]
+    public async Task StepInto_a_procedure_passes_over_its_Attribute_lines()
+    {
+        // VB6's code window does not show a procedure's Attribute lines, so a step never stops on one (#832).
+        var (vb, dbg) = NewDebuggable(
+            "Debug.Print Answer()\n" +
+            "Function Answer()\nAttribute Answer.VB_Description = \"x\"\nAttribute Answer.VB_UserMemId = 0\n" +
+            "Answer = 42\nEnd Function\n", "M");
+        dbg.SetBreakpoints("M", new[] { 1 });
+
+        var stop = NextStop(dbg);
+        var run = vb.Execute();
+        (await stop.Guarded()).Line.Should().Be(1);
+
+        var s2 = NextStop(dbg);
+        dbg.StepInto();
+        var inAnswer = await s2.Guarded();
+        inAnswer.Line.Should().Be(5, "the first statement, after the two attribute lines");
+        inAnswer.Reason.Should().Be(StopReason.Step);
+
+        dbg.Continue();
+        await run.Guarded();
+        AssertDebugLog([42]);
+    }
+
+    [Fact]
+    public async Task StepInto_passes_over_an_Attribute_line_nested_in_a_block()
+    {
+        // Only a hand-edited file puts one there, but a step still treats it as metadata, not a statement.
+        var (vb, dbg) = NewDebuggable(
+            "Go\nSub Go()\nIf True Then\nAttribute Go.VB_Description = \"x\"\nDebug.Print 1\nEnd If\nEnd Sub\n", "M");
+        dbg.SetBreakpoints("M", new[] { 3 });
+
+        var stop = NextStop(dbg);
+        var run = vb.Execute();
+        (await stop.Guarded()).Line.Should().Be(3);
+
+        var s2 = NextStop(dbg);
+        dbg.StepInto();
+        var inBlock = await s2.Guarded();
+        inBlock.Line.Should().Be(5, "the If's first statement, after its Attribute line");
+        inBlock.Reason.Should().Be(StopReason.Step);
+
+        dbg.Continue();
+        await run.Guarded();
+        AssertDebugLog([1]);
+    }
+
+    [Fact]
     public async Task Continue_FromStepBreak_RunsFree_NoFurtherStepBreaks()
     {
         var (vb, dbg) = NewDebuggable("Debug.Print \"a\"\nDebug.Print \"b\"\nDebug.Print \"c\"\n", "M");
