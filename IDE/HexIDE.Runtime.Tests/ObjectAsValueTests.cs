@@ -170,8 +170,9 @@ public class ObjectAsValueTests : BaseVBTestFixture
         $"Dim o As {cls}\nSet o = New {cls}\nDim c\nOn Error Resume Next\n{use}\nDebug.Print Err.Number\n" + Helpers,
         ("Widget", Widget), ("Plain", Plain));
 
-    // Every one of these reads the default member in VB6, and raises 438 for a Plain. What runs next differs by mode
-    // where a Case or a For bound raises, so the Plain side asserts only the error.
+    // Every one of these reads the default member in VB6, and raises 438 for a Plain. The exception is the IDE's Case
+    // against an Empty or Null selector, where a Function default member gives 450 (the oracle's 450 rows). What runs
+    // next differs by mode where a Case or a For bound raises, so the Plain side asserts only the error.
     public static TheoryData<string> FoundInReview => new()
     {
         "If False Then\nc = 0\nElseIf o Then\nc = 1\nEnd If",

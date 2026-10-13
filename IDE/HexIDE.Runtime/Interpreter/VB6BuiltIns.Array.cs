@@ -5,7 +5,7 @@ using System.Text;
 namespace HexIDE.Runtime.Interpreter;
 
 // Phase 3 — Array intrinsics. LBound/UBound plus the array-producing family: Array (Variant array), Split
-// (String array), Join, Filter (Variant array). Behaviour pinned against vb6.exe — notably Split's default
+// (String array), Join, Filter (String array). Behaviour pinned against vb6.exe — notably Split's default
 // delimiter is a space, Split("") is an empty array (0,-1), and Filter with no matches is likewise (0,-1).
 public partial class VB6BuiltIns
 {
