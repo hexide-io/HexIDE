@@ -170,16 +170,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         return new VbUdt(typeName, fields);
     }
 
-    /// <summary>Deep-copy a UDT value, and copy an array (VB6 value semantics; <see cref="VBArray.CopyForLet"/>); pass
-    /// everything else through unchanged. Applied at the value-assignment boundaries: <c>Let</c>, <c>ByVal</c> param,
-    /// whole-UDT field write, function return. A <c>VbObject</c> is deliberately NOT copied — objects are reference
-    /// types, so <c>Set b = a</c> shares. A ByRef argument never comes here, so an array passed ByRef is shared.</summary>
-    public static Vb6Value CopyIfValueType(Vb6Value v) => v.Value switch
-    {
-        VbUdt udt => Vb6Value.NewUdt(udt.DeepClone()),
-        VBArray array => v.WithArray(array.CopyForLet()),
-        _ => v,
-    };
+    /// <summary>Deep-copy a UDT value (VB6 value semantics); pass everything else through unchanged. Applied at
+    /// the value-assignment boundaries: <c>Let</c>, <c>ByVal</c> param, whole-UDT field write, function return.
+    /// A <c>VbObject</c> is deliberately NOT copied — objects are reference types, so <c>Set b = a</c> shares.</summary>
+    public static Vb6Value CopyIfValueType(Vb6Value v)
+        => v.Value is VbUdt udt ? Vb6Value.NewUdt(udt.DeepClone()) : v;
 
     /// <summary>Instantiate a class (<c>New ClassName</c>): build this instance's OWN field env by cloning the
     /// class template env (so the shared <c>Debug</c>/<c>Err</c>/global slots carry over) then re-running the

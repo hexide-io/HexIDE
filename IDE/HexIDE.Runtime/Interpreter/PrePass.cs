@@ -212,7 +212,11 @@ public class PrePass : VB6BaseVisitor<object?>
                 if (dimensions != null && value.Value is VBArray fixedArr) fixedArr.IsDynamic = false;   // `Dim a(N)` = fixed
                 var location = state.Alloc(value);
                 if (isArray)
+                {
                     state.MarkDeclaredArray(location);
+                    if (dimensions != null)
+                        state.MarkFixedArray(location);
+                }
                 else if (subStmt.asTypeClause() is null
                          || (subStmt.asTypeClause().type().complexType() is null && type == Vb6Value.ValueType.EmptyVariant))
                     state.MarkVariant(location);

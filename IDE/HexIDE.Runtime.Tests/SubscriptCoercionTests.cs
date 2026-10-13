@@ -308,16 +308,16 @@ public class SubscriptCoercionTests : BaseVBTestFixture
         AssertDebugLog([new Vb6Value(10L), new Vb6Value(3L)]);
     }
 
-    [Theory]
-    [InlineData("Dim d() As Long\nd = fx")]       // a dynamic array
-    [InlineData("Dim d\nd = fx")]                 // a Variant
-    public async Task An_array_Let_copies_the_array(string assignment)
+    [Fact]
+    public async Task A_module_dynamic_array_is_ReDimmed_in_a_procedure_and_through_a_parameter()
     {
-        // Measured: after the copy, d(1) = 99 leaves fx(1) at 7, for a dynamic array and a Variant alike. HexIDE shared the
-        // array, so fx(1) read 99.
-        await Run($"Dim fx(3) As Long\nfx(1) = 7\n{assignment}\nd(1) = 99\nDebug.Print fx(1)\nDebug.Print d(1)\n");
+        // Measured, native and in the IDE: 10, then 12 through the parameter, and a module Variant 4. Only `Dim a(N)` marks
+        // a slot fixed, and the pre-pass declares these.
+        await Run("Go\nPrivate mdyn() As Byte\nPrivate mvar\nSub Go()\n    ReDim mdyn(10)\n    Debug.Print UBound(mdyn)\n" +
+                  "    Grow mdyn\n    Debug.Print UBound(mdyn)\n    ReDim mvar(4)\n    Debug.Print UBound(mvar)\nEnd Sub\n" +
+                  "Sub Grow(b() As Byte)\n    ReDim b(12)\nEnd Sub\n");
 
-        AssertDebugLog([new Vb6Value(7L), new Vb6Value(99L)]);
+        AssertDebugLog([new Vb6Value(10L), new Vb6Value(12L), new Vb6Value(4L)]);
     }
 
     [Theory]
@@ -325,33 +325,22 @@ public class SubscriptCoercionTests : BaseVBTestFixture
     [InlineData("Dim fx(3) As Long, d\nfx(1) = 7\nd = fx\nReDim d(10)", "")]                      // into a Variant
     [InlineData("Private fx(3) As Long, d() As Long\nfx(1) = 7\nd = fx\nReDim d(10)", "")]         // at module level
     [InlineData("Dim fx(3) As Long, d() As Long\nfx(1) = 7\nd = fx\nGrow d", "Sub Grow(b() As Long)\n    ReDim b(10)\nEnd Sub\n")]
-    public async Task A_copy_of_a_fixed_array_can_be_ReDimmed(string setup, string subs)
+    public async Task An_array_assigned_a_fixed_array_can_still_be_ReDimmed(string setup, string subs)
     {
-        // Measured: the first two here, natively; the first, third and fourth by #873's review. The copy is dynamic, and
-        // the fixed original keeps its bounds and its element. Sharing the array made the copy fixed, so it was "Array
-        // already dimensioned", or a 10 through the parameter.
+        // Measured: the first two here, natively; the first, third and fourth by #873's review. In VB6 `d` holds a dynamic
+        // copy, and the fixed original keeps its bounds and its element. Fixedness is the declaration's, so `d` is dynamic
+        // although HexIDE's Let shares `fx`'s array with it (#970), and the ReDim gives `d` a new array of its own.
         await Run($"{setup}\nDebug.Print UBound(d)\nDebug.Print UBound(fx)\nDebug.Print fx(1)\n{subs}");
 
         AssertDebugLog([new Vb6Value(10L), new Vb6Value(3L), new Vb6Value(7L)]);
     }
 
-    [Theory]
-    [InlineData("Dim d() As Long")]
-    [InlineData("Dim d")]
-    public async Task An_array_Let_copies_every_dimension(string declaration)
-    {
-        // Measured, native: after `d = fx`, d(1, 2) = 99 leaves fx(1, 2) at 7, for a dynamic array and a Variant alike.
-        await Run($"Dim fx(1, 2) As Long\nfx(1, 2) = 7\n{declaration}\nd = fx\nd(1, 2) = 99\nDebug.Print fx(1, 2)\nDebug.Print d(1, 2)\n");
-
-        AssertDebugLog([new Vb6Value(7L), new Vb6Value(99L)]);
-    }
-
     [Fact]
-    public async Task A_Variant_parameter_holding_a_fixed_array_ReDimmed_is_10_and_kept()
+    public async Task An_untyped_parameter_holding_a_fixed_array_ReDimmed_is_10_and_kept()
     {
-        // Measured, native: a ByRef Variant parameter shares the caller's fixed array, so its ReDim is 10, "This array is
-        // fixed or temporarily locked", and the array keeps its bounds and its element. It was the compile error "Array
-        // already dimensioned", which VB6 cannot give: what a Variant holds is not known until it runs.
+        // Measured, native: an untyped ByRef parameter shares the caller's fixed array, so its ReDim is 10, "This array is
+        // fixed or temporarily locked", and the array keeps its bounds and its element. It silently replaced the caller's
+        // array. A `v As Variant` parameter is not refused yet: HexIDE gives it a slot of its own (#970).
         await Run("On Error Resume Next\nDim buf(3) As Byte\nbuf(1) = 9\nG buf\nDebug.Print Err.Number\n" +
                   "Debug.Print UBound(buf)\nDebug.Print CLng(buf(1))\nSub G(v)\n    ReDim v(10)\nEnd Sub\n");
 
@@ -359,14 +348,31 @@ public class SubscriptCoercionTests : BaseVBTestFixture
     }
 
     [Fact]
-    public async Task A_ByVal_Variant_parameter_gets_a_copy_it_can_ReDim()
+    public async Task A_ByVal_Variant_parameter_can_ReDim_without_touching_the_callers_array()
     {
-        // Measured, native: the callee's ReDim gives it 0 To 10, and the caller's array is untouched.
+        // Measured, native: the callee's ReDim gives it 0 To 10, and the caller's array is untouched. VB6 passes a copy;
+        // HexIDE passes the caller's array, which an element write would reach (#970), and the ReDim replaces only the
+        // parameter's own slot.
         await Run("On Error Resume Next\nDim buf(3) As Byte\nbuf(1) = 9\nGV buf\nDebug.Print Err.Number\n" +
                   "Debug.Print UBound(buf)\nDebug.Print CLng(buf(1))\n" +
                   "Sub GV(ByVal v)\n    ReDim v(10)\n    Debug.Print UBound(v)\nEnd Sub\n");
 
         AssertDebugLog([new Vb6Value(10L), new Vb6Value(0L), new Vb6Value(3L), new Vb6Value(9L)]);
+    }
+
+    [Theory]
+    [InlineData("Dim a(2) As Long")]                  // a fixed typed array
+    [InlineData("Dim a\na = Array(1, 2)")]            // a Variant holding an array
+    [InlineData("Dim a(1) As Variant")]               // a Variant array
+    [InlineData("Dim a() As Long\nReDim a(2)")]       // a dynamic typed array
+    public async Task A_ByRef_Variant_parameter_writes_to_the_callers_array(string declaration)
+    {
+        // Measured by #873's review: 33 each time, which is what lets `Sub BubbleSort(arr As Variant)` sort its caller's
+        // array. HexIDE reaches it by passing the array itself, and #873's fifth round broke that when its Let copied
+        // arrays: these read 0, 1, Empty and 0. Whatever fixes #970 must keep them.
+        await Run($"{declaration}\nS3 a\nDebug.Print a(0)\nSub S3(v As Variant)\n    v(0) = 33\nEnd Sub\n");
+
+        debug.Select(v => v.Value?.ToString()).Should().Equal("33");
     }
 
     private const string Plain = "Public Tag As Long\n";

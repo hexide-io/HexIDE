@@ -54,12 +54,10 @@ there isn't one yet. Anything may change between 0.x releases.
   raised 9. A Variant that never held an array can be `ReDim`med at all; it stopped with an internal error.
 - **A typed array parameter shares its caller's array** (#849). `Sub P(b() As Long)` took `b` for a Long, so an array
   passed to it was copied rather than shared, and narrowed as if it were a scalar.
-- **An array assignment copies the array** (#873), every dimension, as VB6's does. After `d = f`, `d(1) = 99`
-  changed `f(1)` too, because the two shared one array; a ByVal Variant shared it the same way. The copy can be
-  `ReDim`med, even when the original is fixed.
 - **A fixed array can't be resized through a parameter** (#873). `ReDim b(10)` in a callee given a caller's
   `Dim buf(3)` raises VB6's 10, "This array is fixed or temporarily locked", and leaves `buf` as it was, whether `b` is
-  an array parameter or a Variant; named directly, `ReDim` of a fixed array is VB6's "Array already dimensioned".
+  an array parameter or an untyped one; named directly, `ReDim` of a fixed array is VB6's "Array already dimensioned".
+  A `v As Variant` parameter is not refused yet (#970).
 
 - **A module-level `Const` is checked as VB6 checks it** (#760). Its value may read only other constants: a Const
   declared below it or the Const itself, a variable, a user function and any function call are VB6's "Constant

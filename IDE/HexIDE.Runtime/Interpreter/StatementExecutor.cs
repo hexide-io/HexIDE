@@ -1626,12 +1626,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 throw new VBCompileErrorException("Dimensions required");
 
             // A fixed array reached through a parameter is 10, "This array is fixed or temporarily locked", and is left
-            // as it was: measured for a local and a module-level fixed array, a typed and an untyped array parameter, a
-            // Variant parameter, ReDim Preserve, and the same bounds again. Its bounds are converted first (`ReDim
-            // b("x")` is 13), and the 10 comes before an inverted range's 9 (`ReDim b(5 To 2)` is 10). Named directly, a
-            // local or a module-level one, it does not compile: "Array already dimensioned" (measured). It was silently
-            // replaced. Only a fixed declaration holds a fixed array, because a Let copies one as a dynamic array.
-            if (!variant && value.Value is VBArray { IsDynamic: false })
+            // as it was: measured for a local and a module-level fixed array, a typed and an untyped array parameter, an
+            // untyped `Sub G(v)`, `v As Variant`, ReDim Preserve (refused above, as not implemented), and the same bounds
+            // again. Its bounds are converted first (`ReDim b("x")` is 13), and the 10 comes before an inverted range's 9
+            // (`ReDim b(5 To 2)` is 10). Named directly, a local or a module-level one, it does not compile: "Array already
+            // dimensioned" (measured). It was silently replaced. Fixedness is the declaring slot's
+            // (ExecutionState.MarkFixedArray), not the array's: a Let into another slot does not carry it (`d = f` then
+            // `ReDim d(10)` works, measured), and a ByRef parameter that shares the caller's slot reaches the caller's
+            // mark. A `v As Variant` parameter has its own slot, so its ReDim of a fixed array is not refused yet (#970).
+            if (located && interpreter.ExecutionContext.State.IsFixedArray(redimLoc))
             {
                 if (currentEnv.Parameters.Contains(variableName))
                     throw new VBRunTimeException(context, VBStandardError.ThisArrayIsFixedOrTemporarilyLocked);
@@ -1783,7 +1786,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 var declared = VbNumeric.IsDeclarableScalar(value.Type) ? value.Type : null;
                 interpreter.ExecutionContext.AllocVariable(currentEnv, localName, value, declared, declaredClass);
                 if (isArray && currentEnv.TryGetVariableLocation(localName, out var arrayLoc))
+                {
                     interpreter.ExecutionContext.State.MarkDeclaredArray(arrayLoc);
+                    if (dimensions != null)
+                        interpreter.ExecutionContext.State.MarkFixedArray(arrayLoc);
+                }
                 else if (!isArray && declaredClass is null && value.Type == Vb6Value.ValueType.EmptyVariant
                          && (asType is null || asType.type()?.complexType() is null)
                          && currentEnv.TryGetVariableLocation(localName, out var variantLoc))

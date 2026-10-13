@@ -37,8 +37,8 @@ public class ExecutionEnvironment
 
     /// <summary>
     /// The parameters of the procedure this environment runs, by name. A ByRef one shares the caller's slot, so the slot
-    /// cannot say it is a parameter; the name can. ReDim of a fixed array through one, an array parameter or a Variant,
-    /// is a run-time 10, and of a fixed array named directly VB6 does not compile (measured). Not copied by
+    /// cannot say it is a parameter; the name can. ReDim of a fixed array through one, an array parameter or an untyped
+    /// one, is a run-time 10, and of a fixed array named directly VB6 does not compile (measured). Not copied by
     /// <see cref="Clone"/>: each call has its own.
     /// </summary>
     public HashSet<string> Parameters { get; } = new(StringComparer.OrdinalIgnoreCase);

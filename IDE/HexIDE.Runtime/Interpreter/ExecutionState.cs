@@ -82,6 +82,19 @@ public class ExecutionState
     /// <summary>Whether a slot was declared an array, rather than a Variant that may hold one.</summary>
     public bool IsDeclaredArray(int location) => declaredArrayLocations.Contains(location);
 
+    private readonly HashSet<int> fixedArrayLocations = new();
+
+    /// <summary>
+    /// Mark a slot as declared a fixed array, <c>Dim b(3)</c>, which ReDim refuses. Fixedness belongs to the
+    /// declaration, not to the array the slot holds: after <c>d = f</c>, <c>d</c> is still dynamic and VB6 ReDims it
+    /// (measured, #873), although HexIDE's Let shares <c>f</c>'s array with it (#970). Keyed by slot, so a ByRef
+    /// parameter that shares the caller's slot reaches the caller's mark.
+    /// </summary>
+    public void MarkFixedArray(int location) => fixedArrayLocations.Add(location);
+
+    /// <summary>Whether a slot was declared a fixed array (<see cref="MarkFixedArray"/>).</summary>
+    public bool IsFixedArray(int location) => fixedArrayLocations.Contains(location);
+
     private readonly HashSet<int> variantLocations = new();
 
     /// <summary>

@@ -6131,9 +6131,9 @@ it as `CDate` does.
 
 | Statement (`s01`, both modes) | VB6 |
 |---|---|
-| `c = 1.00005`, `c` a Currency; `CCur(1.00005)` | 1.0001; 1.0001 |
-| `CCur(2.00005)`; `CCur(0.00015)` | 2; 0.0001: the Doubles nearest those lie below the midpoint |
-| `dd = "1/2/2003"`, `dd` a Date | 01/02/2003, no error |
+| `c = 1.00005`, `c` a Currency; `CCur(1.00005)` | 1.0001; 1.0001 (HexIDE gives 1 for both, #966) |
+| `CCur(2.00005)`; `CCur(0.00015)` | 2; 0.0001: the Doubles nearest those lie below the midpoint (HexIDE gives 2 and 0.0002, #966) |
+| `dd = "1/2/2003"`, `dd` a Date | 01/02/2003, no error (HexIDE raises 13, #967) |
 | `dd = "abc"` | 13 |
 
 **HexIDE, after this.** A module-level or procedure Const converts into its `As` type through the same conversion a
@@ -6165,7 +6165,8 @@ array. Measured, native and in the IDE where marked:
 converting the bounds and before the inverted-range check; named directly it is "Array already dimensioned", raised
 as the ReDim runs. Each call records its array parameters by name, because a ByRef one shares the caller's slot and
 the slot cannot say so (every parameter, since round five, below). `Erase` already reset a fixed array's elements and kept its bounds. `ReDim Preserve` is not
-implemented at all.
+implemented at all. (Round six, below, moved the decision from the array to the declaring slot. This round read the
+array object, which HexIDE's Let shares, so `d = f` then `ReDim d(10)` was refused, where main and VB6 run it.)
 
 **Another module's array, qualified, found on the way** (`g01`, both modes): `x = Module2.g(1)` is the element,
 5, a Long, and `Module2.g(2) = 7` writes it. HexIDE reads the whole array, and the write is a trappable 424 (#965).
@@ -6173,19 +6174,20 @@ implemented at all.
 ### Review round five
 
 Round four's guards read the array object, and HexIDE's array Let shared that object, so a dynamic array holding a
-copy of a fixed one could not be ReDimmed. The review measured that VB6 copies, and the rest below was measured
-afterwards with `/make`, one project each, natively (the IDE half waits on the shared desktop). `fx` is `Dim fx(3) As
-Long` with `fx(1) = 7`:
+copy of a fixed one could not be ReDimmed; on main, which checked nothing, that ReDim worked. The review measured that
+VB6 copies, and the rest below was measured afterwards with `/make`, one project each, natively. Each project that
+builds was then run in the IDE too, in round six, and every line matched. `fx` is `Dim fx(3) As Long` with
+`fx(1) = 7`:
 
 | Program | VB6 |
 |---|---|
-| `Dim d() As Long`, `d = fx`, `d(1) = 99` | `fx(1)` 7, `d(1)` 99: a copy (the review measured the same, P5) |
+| `Dim d() As Long`, `d = fx`, `d(1) = 99` | `fx(1)` 7, `d(1)` 99: a copy (the review measured the same program) |
 | then `ReDim d(10)` | 0 To 10, `fx` still 0 To 3 with `fx(1)` 7 |
 | `Dim v`, `v = fx`, `v(1) = 55` | `fx(1)` 7, `v(1)` 55, `TypeName(v)` "Long()" |
 | then `ReDim v(5)` | 0 To 5, `fx` still 0 To 3 |
 | `Dim fx(1, 2) As Long`, `fx(1, 2) = 7`, `d = fx`, `d(1, 2) = 99`; the same into a Variant | `fx(1, 2)` 7 both times |
 | `Dim buf(3) As Byte`, `buf(1) = 9`, `G buf`, `Sub G(v)`, `ReDim v(10)`, the caller under `On Error Resume Next` | 10, "This array is fixed or temporarily locked"; `buf` 0 To 3, `buf(1)` 9 |
-| the same with `ReDim Preserve v(10)` | an error that ends `G`, its number not logged; `buf` kept |
+| the same with `ReDim Preserve v(10)` | an error that ends `G`, its number not logged here; `buf` kept. Round six logged it: 10 |
 | `Sub GV(ByVal v)`, `ReDim v(10)` | no error, `v` 0 To 10 inside, `buf` 0 To 3 with `buf(1)` 9 |
 | module-level `Private d(5 To 2)`; `Private d(0 To -5)`; `Private d(1, 5 To 2)` | "Range has no values", each |
 | a class's `Private d(5 To 2)`; a procedure's `Dim d(5 To 2)` | "Range has no values", both |
@@ -6198,21 +6200,20 @@ Long` with `fx(1) = 7`:
 | `x = a(n)`, `n` a Nothing | 91 |
 
 The review also measured, before this: `d = fx` then `ReDim d(10)` works at module level, from a Variant-returning
-Function's fixed local, and after passing `d` to `Sub Grow(b() As Long)`; `CDate("36526")` is 01/01/2000,
+Function's fixed local, and after passing `d` to `Sub Grow(b() As Long)`; and, for #967, `CDate("36526")` is 01/01/2000,
 `"36526.5"` noon that day, `" 2 "` 01/01/1900 and `"-1"` 29/12/1899; and `d = "36526"` into a Date gives the same.
 
 So an assignment copies an array, every dimension, and the copy is dynamic, since only a dynamic array or a Variant
 can be assigned one. A fixed array can then be held only by its own declaration, or reached through a ByRef
-parameter, and a parameter's ReDim of one is 10 whether the parameter is an array or a Variant: VB6 cannot know at
-compile time what a Variant holds. A literal range with no values does not compile wherever it is. `+` of two
+parameter, and a parameter's ReDim of one is 10 whether the parameter is an array or untyped, `Sub G(v)`: VB6 cannot
+know at compile time what a Variant holds. Round six measured the same through `v As Variant`: 10, below. A literal range with no values does not compile wherever it is. `+` of two
 Strings is a String, and with a number it is not. A typed Const cannot hold Null, where a Variant one can.
 
 **HexIDE, after round five.**
-- An array Let copies the array, every level, as a dynamic array (`VBArray.CopyForLet`, through `CopyIfValueType`),
-  where it shared it. So `d = fx` then `d(1) = 99` leaves `fx(1)`, and `d` can be ReDimmed. A ByRef argument is
-  still shared, and a ByVal Variant gets a copy.
-- ReDim through any parameter of a fixed array is 10, a Variant parameter included, where that was "Array already
-  dimensioned". Each call records all its parameters by name.
+- An array Let copied the array, every level, as a dynamic array (`VBArray.CopyForLet`, through `CopyIfValueType`),
+  where it shared it. Round six took this back out (below), and it is #970's.
+- ReDim through an untyped parameter of a fixed array is 10, where main silently replaced the caller's array and round
+  four gave "Array already dimensioned". Each call records all its parameters by name.
 - A literal range with no values is "Range has no values" from the pre-pass, which built it and raised 9, at module
   level and in a class.
 - `Len` and `LenB` size from `"ab" + "c"`, and of `"ab" + 1` are "Variable required".
@@ -6223,6 +6224,34 @@ Strings is a String, and with a number it is not. A typed Const cannot hold Null
   date, so `d = "1.2.2003"` became silently 1 February (#800). So `d = "1/2/2003"` is 13 again, where VB6 gives a
   date, and a `Const … As Date` given a String is refused loudly. Both are #967.
 - HexIDE's `CCur(0.00015)` is 0.0002, where VB6 gives 0.0001: #966 is wrong in both directions.
+
+**Round six: the copy comes out, and fixedness is the declaration's.** Copying on Let is VB6's rule, but the change
+reaches every Let, argument, element store, For Each and object reference count, and the review found it broke four
+things: a ByRef `v As Variant` parameter given an array got a private copy (so `Sub BubbleSort(arr As Variant)` left
+its array unsorted), the copy did not count the objects it held, `v(1) = v` then a Let overflowed the stack, and an
+element Let and a For Each still shared. All of that, with every row above, is #970. Here:
+- An array Let shares the array again, as on main. The copy rows above are #970's to reproduce.
+- Fixedness is the declaring slot's: `Dim a(N)` marks its slot (`ExecutionState.MarkFixedArray`), at module and
+  procedure level and in each class instance. So `d = fx` then `ReDim d(10)` works again, giving `d` an array of its
+  own, and a ByRef parameter that shares the caller's slot reaches the caller's mark: 10, through `b() As Long` or an
+  untyped `v`.
+- A `v As Variant` parameter has a slot of its own, so its ReDim of a fixed array is not refused yet (#970).
+- `Sub S3(v As Variant): v(0) = 33` writes the caller's array again (33 for each of the review's four shapes), and is
+  pinned, so #970's copy cannot break it unseen.
+
+Round six measured four more programs, native and in the IDE alike, with `buf` a `Dim buf(3) As Byte` holding 9 at
+`buf(1)` and the caller under `On Error Resume Next`:
+
+| Program | VB6 | HexIDE |
+|---|---|---|
+| `Sub GP(v)`: `ReDim Preserve v(10)`; `Sub GPA(b() As Byte)`: the same | 10 each, `buf` kept | refused: `ReDim Preserve` is not implemented |
+| `Sub GA(v As Variant)`: `ReDim v(10)`, given `buf` | 10, `buf` kept | no error, `buf` kept: the ReDim replaces the parameter's own slot (#970) |
+| `Sub GW(v As Variant)`: `v(1) = 5`, given `buf` | `buf(1)` 5 | `buf(1)` 5 |
+| `GA dyn`, `dyn` a `Dim dyn() As Byte` ReDimmed to 3 | no error, `dyn` 0 To 10 | no error, `dyn` 0 To 3: silently wrong, as on main (#970) |
+| module-level `Private mdyn() As Byte`: `ReDim mdyn(10)` in a procedure, then `Grow mdyn` with `ReDim b(12)`; `Private mvar`, `ReDim mvar(4)` | 10, then 12; 4 | the same, and pinned: only `Dim a(N)` marks a slot fixed |
+
+So a `v As Variant` parameter shares the caller's array as an untyped one does, for a ReDim too, and HexIDE does not
+share it, for a ReDim. That is #970's alias item.
 
 Because declarations run in source order and VB6 refuses a forward reference, a same-module Const above the Dim has
 already run and holds its final value, so reading it then is all the laziness the rule needs.
