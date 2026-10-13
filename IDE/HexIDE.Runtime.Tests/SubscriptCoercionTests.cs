@@ -263,6 +263,72 @@ public class SubscriptCoercionTests : BaseVBTestFixture
     }
 
     [Theory]
+    [InlineData("Dim buf(3) As Byte", "Sub Grow(b() As Byte)", "ReDim b(10)")]     // a typed array parameter
+    [InlineData("Dim buf(3)", "Sub Grow(b())", "ReDim b(10)")]                      // an untyped one
+    [InlineData("Dim buf(3) As Byte", "Sub Grow(b() As Byte)", "ReDim b(3)")]      // the same bounds again
+    public async Task A_fixed_array_ReDimmed_through_a_parameter_is_10_and_kept(string declaration, string sub, string redim)
+    {
+        // Measured, native and in the IDE: 10, "This array is fixed or temporarily locked", and the caller's array is as it
+        // was, element 1 included. It was silently replaced by the callee's new array.
+        await Run($"{declaration}\nbuf(1) = 9\nGrow buf\nDebug.Print UBound(buf)\nDebug.Print CLng(buf(1))\n" +
+                  $"{sub}\n    On Error Resume Next\n    {redim}\n    Debug.Print Err.Number\n    Debug.Print UBound(b)\nEnd Sub\n");
+
+        AssertDebugLog([new Vb6Value(10L), new Vb6Value(3L), new Vb6Value(3L), new Vb6Value(9L)]);
+    }
+
+    [Theory]
+    [InlineData("ReDim b(\"x\")", 13L)]       // the bound is converted first
+    [InlineData("ReDim b(5 To 2)", 10L)]      // then the 10, before an inverted range's 9
+    public async Task A_fixed_array_parameters_ReDim_converts_its_bounds_then_raises_10(string redim, long error)
+    {
+        // Measured, native and in the IDE (the second in both): the array is kept, 0 To 3.
+        await Run("Dim buf(3) As Byte\nGrow buf\nDebug.Print UBound(buf)\n" +
+                  $"Sub Grow(b() As Byte)\n    On Error Resume Next\n    {redim}\n    Debug.Print Err.Number\nEnd Sub\n");
+
+        AssertDebugLog([new Vb6Value(error), new Vb6Value(3L)]);
+    }
+
+    [Theory]
+    [InlineData("Go\nSub Go()\n    Dim buf(3) As Byte\n    ReDim buf(10)\nEnd Sub")]
+    [InlineData("Go\nPrivate mbuf(3) As Byte\nSub Go()\n    ReDim mbuf(10)\nEnd Sub")]
+    public async Task A_fixed_array_ReDimmed_by_name_is_VB6s_Array_already_dimensioned(string code)
+    {
+        // Measured with /make: a local and a module-level one alike do not compile.
+        var run = () => Run(code + "\n");
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Array already dimensioned*");
+    }
+
+    [Fact]
+    public async Task A_module_fixed_array_ReDimmed_through_a_parameter_is_10()
+    {
+        await Run("Go\nPrivate mbuf(3) As Byte\nSub Go()\n    Grow mbuf\n    Debug.Print UBound(mbuf)\nEnd Sub\n" +
+                  "Sub Grow(b() As Byte)\n    On Error Resume Next\n    ReDim b(10)\n    Debug.Print Err.Number\nEnd Sub\n");
+
+        AssertDebugLog([new Vb6Value(10L), new Vb6Value(3L)]);
+    }
+
+    [Fact]
+    public async Task A_dynamic_array_ReDimmed_through_a_parameter_is_resized()
+    {
+        // Measured, the control: no error, and the caller sees 0 To 10.
+        await Run("Dim buf() As Byte\nReDim buf(3)\nGrow buf\nDebug.Print UBound(buf)\n" +
+                  "Sub Grow(b() As Byte)\n    ReDim b(10)\nEnd Sub\n");
+
+        AssertDebugLog([new Vb6Value(10L)]);
+    }
+
+    [Fact]
+    public async Task A_fixed_array_Erased_through_a_parameter_keeps_its_bounds_and_loses_its_values()
+    {
+        // Measured, native and in the IDE: no error, UBound 3, and element 1 back to 0, in the callee and the caller.
+        await Run("Dim buf(3) As Byte\nbuf(1) = 9\nClear buf\nDebug.Print UBound(buf)\nDebug.Print buf(1)\n" +
+                  "Sub Clear(b() As Byte)\n    Erase b\nEnd Sub\n");
+
+        AssertDebugLog([new Vb6Value(3L), new Vb6Value((byte)0)]);
+    }
+
+    [Theory]
     [InlineData("Dim u() As Variant\nReDim u(2)\nP u\nSub P(b())", 9L, "Variant()")]       // an untyped array parameter
     [InlineData("Dim v\nReDim v(2)\nP v\nSub P(b As Variant)", 7L, "Empty")]           // a Variant parameter
     [InlineData("Dim v\nReDim v(2)\nP v\nSub P(b)", 7L, "Empty")]

@@ -1024,6 +1024,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             var p = proc.Parameters[i];
             if (p.ParamArray)
                 throw new NotImplementedException("ParamArray parameters are not yet supported");
+            if (p.IsArray)
+                callee.ArrayParameters.Add(p.Name);
 
             // A blank slot at this position (`Foo 1, , 3`) occupies it only so the arguments after it bind
             // correctly. It is NOT a value: fall through to the Optional branch so the parameter takes its

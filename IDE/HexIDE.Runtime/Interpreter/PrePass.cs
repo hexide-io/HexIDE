@@ -38,6 +38,10 @@ public class PrePass : VB6BaseVisitor<object?>
     public Dictionary<string, UdtTypeDef> Types = new(StringComparer.OrdinalIgnoreCase);
     public Dictionary<string, Dictionary<string, long>> Enums = new(StringComparer.OrdinalIgnoreCase);
 
+    /// <summary>Where each Enum is declared, so that a module-level Const or bound above it can be refused, as VB6 refuses
+    /// it (measured: "Constant expression required"). Collected, not related: the check runs with the declarations.</summary>
+    public Dictionary<string, int> EnumDeclaredAt = new(StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Enum names this module declared <c>Private</c> — invisible outside it, members included.
     /// Measured: a bare member of a foreign Private enum is "Variable not defined".</summary>
     public HashSet<string> PrivateEnums = new(StringComparer.OrdinalIgnoreCase);
@@ -209,7 +213,9 @@ public class PrePass : VB6BaseVisitor<object?>
                          || (subStmt.asTypeClause().type().complexType() is null && type == Vb6Value.ValueType.EmptyVariant))
                     state.MarkVariant(location);
                 rootEnv.DefineVariable(subStmt.ambiguousIdentifier().GetText(), location);
-                if (context.visibility()?.PUBLIC() != null)
+                // Global is the old spelling of Public in a standard module (measured: `Global n` in a bound is
+                // "Constant expression required", as `Public n` is).
+                if (context.visibility()?.PUBLIC() != null || context.visibility()?.GLOBAL() != null)
                     PublicVariables.Add(subStmt.ambiguousIdentifier().GetText());
             }
         }
@@ -298,6 +304,7 @@ public class PrePass : VB6BaseVisitor<object?>
             rootEnv.DefineVariable(constName, location);
         }
         Enums[enumName] = members;
+        EnumDeclaredAt[enumName] = context.Start.TokenIndex;
         if (IsPrivateVisibility(context.publicPrivateVisibility()?.GetText()))
             PrivateEnums.Add(enumName);
         return default;

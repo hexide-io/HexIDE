@@ -222,6 +222,10 @@ public static class VbNumeric
         // would silently store 0 and `i = "abc"` would too. ToNum is the interpreter's own already-pinned
         // string→number rule, Err 13 and all. Routed only for Strings, so the Currency/Decimal paths below
         // keep their decimal precision instead of going through a double.
+        // A String into a Date reads as CDate reads it, in the program's locale: measured, `dd = "1/2/2003"` is 1 February
+        // under en-GB, and `dd = "abc"` 13. It went through ToNum, so every date string was 13.
+        if (target == VT.Date && v.Type == VT.String)
+            return VB6BuiltIns.CDate(v);
         if (v.Type == VT.String)
             return Narrow(new Vb6Value(VB6BuiltIns.ToNum(v)), target, ctx);
         return Narrow(v, target, ctx);

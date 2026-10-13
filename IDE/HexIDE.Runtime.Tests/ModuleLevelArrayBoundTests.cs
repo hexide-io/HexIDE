@@ -262,6 +262,124 @@ public class ModuleLevelArrayBoundTests : BaseVBTestFixture
         await run.Should().NotThrowAsync();
     }
 
+    [Theory]
+    [InlineData("Private Const NL = VBA.vbCrLf\nDebug.Print Len(NL)", 2L)]           // a library-qualified constant
+    [InlineData("Const K = KeyCodeConstants.vbKeyA\nDebug.Print K", 65L)]             // a container-qualified one
+    [InlineData("Const K = VBRUN.KeyCodeConstants.vbKeyA\nDebug.Print K", 65L)]       // both
+    [InlineData("Dim d(VBRUN.vbKeyA) As Long\nDebug.Print UBound(d)", 65L)]
+    [InlineData("Const C = Module2.colMax + 1\nDebug.Print C", 3L)]                   // another module's Enum member
+    [InlineData("Dim d(Module2.Cols.colMax) As Long\nDebug.Print UBound(d)", 2L)]     // the three-part form
+    [InlineData("Const C = Project1.Module2.Cols.colMax\nDebug.Print C", 2L)]         // the project name in front
+    [InlineData("Const C = Project1.Module2.M + 1\nDebug.Print C", 4L)]
+    public async Task A_qualified_constant_main_read_is_still_read(string code, long expected)
+    {
+        // Measured: 2, 65, 65, 0 To 65, colMax + 1, 0 To colMax, colMax and 4. The check refused every qualified name
+        // but `Module.PublicConst` and `Enum.member`, so these stopped the load where main read them.
+        await RunModules(code + "\n", ("Module2", Cols + "Public Const M = 3\n"));
+
+        debug.Should().ContainSingle().Which.Value.Should().Match<object>(v => Convert.ToInt64(v) == expected);
+    }
+
+    [Theory]
+    [InlineData(Sizes + "\nConst C = Module1.Sizes.eMax", "Circular dependencies between modules")]
+    [InlineData("Const C = Sizes.eMax\n" + Sizes, "Constant expression required")]     // the Enum below
+    [InlineData("Dim d(VBA.Len(\"ab\")) As Long", "Constant expression required")]    // a call through a qualifier
+    [InlineData("Const C = Module2.pMax", "Method or data member not found")]          // a Private Enum's member
+    [InlineData("Const C = KeyCodeConstants.vbCancel", "Method or data member not found")]   // another container's
+    public async Task A_qualified_name_VB6_refuses_is_its_compile_error(string declarations, string error)
+    {
+        // Measured with /make, one project each.
+        var run = () => RunModules(declarations + "\n", ("Module2", "Private Enum P\n    pMax = 4\nEnd Enum\n"));
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage($"*{error}*");
+    }
+
+    [Theory]
+    [InlineData("Const S = \"abc\"\nDim d(Len(S)) As Long", 3L)]
+    [InlineData("Const S As String = \"abcd\"\nDim d(Len(S)) As Long", 4L)]
+    [InlineData("Const S = \"ab\"\nDim d(Len(S & \"c\")) As Long", 3L)]
+    public async Task Len_of_a_String_constant_sizes_the_array(string declarations, long upper)
+    {
+        // Measured, with LenB("ab") 0 To 4 and LenB of "abc" 0 To 6 too. HexIDE has no LenB to size from yet.
+        await Run($"{declarations}\nDebug.Print UBound(d)\n");
+
+        AssertDebugLog([new Vb6Value(upper)]);
+    }
+
+    [Theory]
+    [InlineData("Dim d(Len(12345)) As Long")]
+    [InlineData("Dim d(LenB(12345)) As Long")]
+    [InlineData("Const N1 = 12345\nDim d(Len(N1)) As Long")]
+    [InlineData("Const N As Long = 5\nDim d(Len(N)) As Long")]
+    [InlineData("Const F = 2.5\nDim d(Len(F)) As Long")]
+    [InlineData("Const D = #1/2/2003#\nDim d(Len(D)) As Long")]
+    public async Task Len_of_a_constant_that_is_not_a_String_is_VB6s_Variable_required(string declarations)
+    {
+        // Measured with /make: "Variable required - can't assign to this expression". HexIDE sized each from the number
+        // of characters the value prints as.
+        var run = () => Run(declarations + "\n");
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Variable required*");
+    }
+
+    [Fact]
+    public async Task Another_modules_Public_Const_is_found_before_a_built_in_constant()
+    {
+        // Measured: Module2's `Public Const vbKeyA = 3` sizes Module1's `Dim d(vbKeyA)` 0 To 3, the project beating the
+        // library. HexIDE sized it 0 To 65; it now finds the project's, which it cannot read unqualified yet (#880).
+        var run = () => RunModules("Dim d(vbKeyA) As Long\nDebug.Print UBound(d)\n", ("Module2", "Public Const vbKeyA = 3\n"));
+
+        (await run.Should().ThrowAsync<NotImplementedException>()).WithMessage("*vbKeyA, another module's Public Const*#880*");
+    }
+
+    [Theory]
+    [InlineData("Dim d(-1) As Long")]
+    [InlineData("Const N = 0\nDim d(1 To N) As Long")]
+    [InlineData("Const N = -1\nDim d(N) As Long")]
+    [InlineData("Dim d(5, 2 To 1) As Long")]
+    [InlineData("Go\nSub Go()\n    Dim d(-1) As Long\nEnd Sub")]                       // in a procedure too
+    [InlineData("Go\nSub Go()\n    Const N = 0\n    Dim d(1 To N) As Long\nEnd Sub")]
+    public async Task A_dimension_with_no_values_is_VB6s_Range_has_no_values(string code)
+    {
+        // Measured with /make, at module and procedure level. HexIDE built an array with no elements, so UBound read -1
+        // and a loop over it ran no passes.
+        var run = () => Run(code + "\n");
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Range has no values*");
+    }
+
+    [Fact]
+    public async Task A_dimension_of_one_element_is_not_empty()
+    {
+        await Run("Dim d(0 To 0) As Long\nDebug.Print UBound(d)\n");   // measured: 0 To 0
+
+        AssertDebugLog([new Vb6Value(0L)]);
+    }
+
+    [Theory]
+    [InlineData("Const A = eLater + 1\nEnum E\n    eLater = 5\nEnd Enum")]
+    [InlineData("Dim d(eLater) As Long\nEnum E\n    eLater = 5\nEnd Enum")]
+    [InlineData("Dim d(E.eLater) As Long\nEnum E\n    eLater = 5\nEnd Enum")]
+    public async Task An_Enum_below_is_not_yet_a_constant(string declarations)
+    {
+        // Measured: "Constant expression required" for each. With the Enum first, A is 6 and d is 0 To 5.
+        var run = () => Run(declarations + "\n");
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Constant expression required*");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("Option Explicit\n")]
+    public async Task Another_modules_Global_variable_is_a_compile_error(string option)
+    {
+        // Measured: "Constant expression required", with and without Option Explicit. Global was not counted as Public,
+        // so with Option Explicit it was "Variable not defined".
+        var run = () => RunModules($"{option}Dim d(n) As Long\n", ("Module2", "Global n As Long\n"));
+
+        (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Constant expression required*");
+    }
+
     private sealed class NoLibrary : IBasicStandardLibrary
     {
         public Task<MessageBoxResult> MsgBox(string text, string? caption, MessageBoxButtons buttons, MessageBoxIcon icon) =>

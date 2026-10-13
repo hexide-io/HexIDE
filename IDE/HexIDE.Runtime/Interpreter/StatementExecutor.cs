@@ -439,7 +439,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             var name = sub.ambiguousIdentifier().GetText();
             // What the value reads is checked against VB6's rules for a constant expression first (measured).
             ModuleLevelBounds.CheckConst(interpreter, currentModule, currentEnv, sub);
-            var value = await expressionExecutor.EvaluateValue(sub.valueStmt());
+            var value = AsDeclared(sub, await expressionExecutor.EvaluateValue(sub.valueStmt()));
             // At module level the name was hoisted by the pre-pass, so this fills that slot.
             if (!interpreter.ExecutionContext.TryUpdateVariable(currentEnv, name, value))
                 interpreter.ExecutionContext.AllocVariable(currentEnv, name, value);
@@ -1595,6 +1595,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (dimensions == null)
                 throw new VBCompileErrorException("Dimensions required");
 
+            // A fixed array reached through an array parameter is 10, "This array is fixed or temporarily locked", and
+            // is left as it was: measured for a local and a module-level fixed array, a typed and an untyped
+            // parameter, ReDim Preserve, and the same bounds again. Its bounds are converted first (`ReDim b("x")` is
+            // 13), and the 10 comes before an inverted range's 9 (`ReDim b(5 To 2)` is 10). Named directly, a local or a
+            // module-level one, it does not compile: "Array already dimensioned" (measured). It was silently replaced.
+            if (!variant && value.Value is VBArray { IsDynamic: false })
+            {
+                if (currentEnv.ArrayParameters.Contains(variableName))
+                    throw new VBRunTimeException(context, VBStandardError.ThisArrayIsFixedOrTemporarilyLocked);
+                throw new VBCompileErrorException("Array already dimensioned");
+            }
+
             // An upper bound below its lower raises 9, and an array is left erased, typed as it was. Measured: ReDim
             // b(-1), b(5 To 2) and b(0 To -1) each raise 9, and UBound(b) then raises 9 too, for a declared array and
             // for a `b() As Long` parameter alike. A Variant is different, measured too: if any dimension's upper bound
@@ -1684,6 +1696,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     if (ownedSlots == null && subStmt.subscripts() is { } bounds)
                         ModuleLevelBounds.Check(interpreter, currentModule, currentEnv, bounds, subStmt);
                     dimensions = await ExtractDimensions(subStmt.subscripts());
+                    // A dimension whose upper bound is below its lower is "Range has no values", at module and procedure
+                    // level, from a literal or a Const (measured: `Dim d(-1)`, `Dim d(1 To N)` with N 0, `Dim d(5, 2 To 1)`).
+                    // It built an array with no elements, so UBound read -1 and loops ran no passes.
+                    if (dimensions?.Exists(d => d.Item2 < d.Item1) == true)
+                        throw new VBCompileErrorException("Range has no values");
                 }
 
                 var asType = subStmt.asTypeClause();
@@ -1779,10 +1796,43 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var name = sub.ambiguousIdentifier().GetText();
         if (!declaredLocals.Add(name))
             return;
-        var value = await expressionExecutor.EvaluateValue(sub.valueStmt());
+        var value = AsDeclared(sub, await expressionExecutor.EvaluateValue(sub.valueStmt()));
         interpreter.ExecutionContext.AllocVariable(currentEnv, name, value);
         if (ownedSlots != null && currentEnv.TryGetVariableLocation(name, out var slot))
             ownedSlots.Add(slot);
+    }
+
+    /// <summary>
+    /// A Const's value as its <c>As</c> type holds it, at module and procedure level alike: converted as a store into a
+    /// variable of that type converts it (CoerceOnStore), and VB6's compile error where that conversion fails. Measured
+    /// with <c>/make</c>: <c>As Integer = 2.5</c> is 2, <c>As Long = 3.5</c> 4, <c>As String = 5</c> "5", <c>As Date = 1</c>
+    /// 31/12/1899, <c>As Currency = 1.23456</c> 1.2346, <c>As Integer = True</c> -1, <c>As Integer = "5"</c> 5; and
+    /// <c>As Byte = 300</c>, <c>As Byte = -1</c>, <c>As Integer = 32768</c>, a Currency or a Date beyond its range are
+    /// "Overflow", and <c>As Integer = "x"</c> "Type mismatch". <c>As Variant</c> keeps the value as it is (2.5, a Double).
+    /// It stored the value as the initialiser gave it, whatever the As clause said.
+    /// </summary>
+    private static Vb6Value AsDeclared(VB6Parser.ConstSubStmtContext sub, Vb6Value value)
+    {
+        if (sub.asTypeClause() is not { } asType)
+            return value;
+        var type = BaseTypeMapper.Map(asType.type()?.baseType());
+        if (type is null || asType.fieldLength() != null)
+            throw new NotImplementedException(
+                $"Const {sub.ambiguousIdentifier().GetText()} As {asType.type()?.GetText()} is not supported.");
+        if (type == Vb6Value.ValueType.EmptyVariant)
+            return value;
+        try
+        {
+            return VbNumeric.CoerceOnStore(value, type, sub);
+        }
+        catch (VBRunTimeException ex) when (ex.Error.ErrNo == VBStandardError.Overflow.ErrNo)
+        {
+            throw new VBCompileErrorException("Overflow");
+        }
+        catch (VBRunTimeException ex) when (ex.Error.ErrNo == VBStandardError.TypeMismatch.ErrNo)
+        {
+            throw new VBCompileErrorException("Type mismatch");
+        }
     }
 
     private async Task<List<(int, int)>?> ExtractDimensions(VB6Parser.SubscriptsContext? subscripts)
