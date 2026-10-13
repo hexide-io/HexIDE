@@ -110,8 +110,8 @@ public class MemberRunsTests
     [InlineData("Private Declare PtrSafe Function GetTickCount Lib \"kernel32\" () As Long", "GetTickCount")]
     public void EveryKindOfProcedureDeclarationTakesARun(string declaration, string name)
     {
-        // The first eight are lines VB6's own dialog wrote a run under (DeclShapes.cls and Panel.ctl on the
-        // oracle guest); PtrSafe is VBA7's Declare, read for the VBA personalities.
+        // All but the Property Set and the PtrSafe are lines VB6's own dialog wrote a run under (DeclShapes.cls and
+        // Panel.ctl on the oracle guest). PtrSafe is VBA7's Declare, read for the VBA personalities.
         var code = declaration + "\r\nAttribute " + name + ".VB_Description = \"x\"\r\n";
 
         var run = RunsOf(code).Should().ContainSingle().Subject;
@@ -332,7 +332,9 @@ public class MemberRunsTests
     {
         // VB6 keeps a VB_VarDescription under a module-level Const and shows it as the constant's description,
         // though neither its dialog nor its Object Browser offers to make one (IDE probe V5). The first three
-        // are files VB6 saved.
+        // declarations are from standard modules VB6 saved. Under this class header a Public Const is one VB6
+        // rejects, and drops the run of; the read does not know the module's kind and protects it either way
+        // (design.md).
         var code = "Option Explicit\r\n" + declaration + "\r\nAttribute " + name + ".VB_VarDescription = \"x\"\r\n";
 
         var run = RunsOf(code).Should().ContainSingle(because).Subject;
