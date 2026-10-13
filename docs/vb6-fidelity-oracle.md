@@ -6011,8 +6011,10 @@ which clears it to 0. A Sub whose `On Error GoTo` handler ran to `End Sub` leave
   selectors and one unassigned Variant, and written for every selector.
 - **Round one's extension of it to `Is` and `To`:** measured on literal selectors, its 20 rows agreed with it.
 - **Main's accidental answers:** a String compared with a number matched nothing on main. That happens to be VB6's
-  answer for `Is > "a"` against a Variant 5, so main was right there for the wrong reason, and so were the four rows
-  this round would have broken had a typed Function, `CStr` and String parameters not been made typed with it.
+  answer for `Is > "a"` against a Variant 5, so main was right there for the wrong reason. So it was for four rows this
+  round would have broken had they not been made typed with it: a Function `As String`, `CStr`, and a String and a
+  Boolean parameter. Two more, a Variant array element and a Variant Type field holding 5, main got right because it
+  compared numbers as numbers, and they would have broken had they kept the literal's type.
 
 **Resisted explanation.** A Variant string against a typed Boolean is read as CBool reads it: `"True"`, `"-1"` and
 `"5"` all equal True. Against a typed number the same string is parsed as a number, so `"True"` does not equal -1. That
