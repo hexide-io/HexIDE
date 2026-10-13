@@ -154,4 +154,15 @@ public class SubscriptCoercionTests : BaseVBTestFixture
         await Run("Const N As Long = 2\nDim d(N) As Integer\nd(N) = 7\nShow\nSub Show()\n    Debug.Print d(N)\n    Debug.Print UBound(d)\nEnd Sub\n");
         AssertDebugLog([new Vb6Value(7), new Vb6Value(2L)]);
     }
+
+    [Fact]
+    public async Task A_Set_of_an_element_finds_it_the_same_way()
+    {
+        // Measured, native and in the IDE: a Long index, and Set wa(2.5) and Set wa(0.6) reach wa(2) and wa(1).
+        await RunClasses(
+            "Dim wa(3) As Thing, w As Thing, i As Long\nSet w = New Thing\ni = 2\nSet wa(i) = w\nDebug.Print wa(2) Is w\n" +
+            "Set wa(2.5) = Nothing\nDebug.Print wa(2) Is Nothing\nSet wa(0.6) = w\nDebug.Print wa(1) Is w\n",
+            ("Thing", "Public Tag As Long\n"));
+        AssertDebugLog([new Vb6Value(true), new Vb6Value(true), new Vb6Value(true)]);
+    }
 }

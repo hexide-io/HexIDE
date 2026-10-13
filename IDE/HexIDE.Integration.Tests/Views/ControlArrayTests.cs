@@ -143,6 +143,18 @@ public class ControlArrayTests
     }
 
     [AvaloniaFact]
+    public async Task Load_and_Unload_coerce_their_index_as_CLng_does()
+    {
+        // Measured, native and in the IDE: a Long index loads, Load Cmd(3.5) loads element 4 and Unload Cmd(4.4)
+        // unloads it again, as a subscript rounds.
+        var debug = await Run(TwoButtonArray,
+            "Dim i As Long\r\ni = 2\r\nLoad Command1(i)\r\nLoad Command1(3.5)\r\n" +
+            "Debug.Print Command1.Count\r\nDebug.Print Command1.UBound\r\n" +
+            "Unload Command1(4.4)\r\nDebug.Print Command1.UBound\r\n");
+        debug.Select(v => Convert.ToInt64(v.Value)).Should().Equal(4L, 4L, 2L);
+    }
+
+    [AvaloniaFact]
     public async Task An_index_that_rounds_past_the_last_element_Yields340()
     {
         // 1.5 rounds to 2, which does not exist (measured).

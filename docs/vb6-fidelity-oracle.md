@@ -5553,7 +5553,9 @@ Each probe was built as native code, the harness's default, and also run in the 
 - 40000 is out of bounds (9) rather than an overflow, because it is a Long, not an Integer;
 - beyond a Long, 6.
 
-A write finds its element the same way, and so does every subscript of a two-dimensional array.
+A write finds its element the same way, and so does every subscript of a two-dimensional array. So does a `Set` of an
+element (measured later, both modes): with `wa(3) As Widget`, `Set wa(i) = w` with `i` a Long 2, `Set wa(2.5) = Nothing`
+and `Set wa(0.6) = w` reach `wa(2)`, `wa(2)` and `wa(1)`.
 
 ### Bounds
 
@@ -5604,7 +5606,9 @@ On a form with `Cmd(0)` and `Cmd(1)`:
 - `Cmd(CLng(1))`, `Cmd(0.6)` and `Cmd("1")` are all `Cmd(1)`;
 - `Cmd(1.5)` raises 340, "Control array element doesn't exist", because 1.5 rounds to 2.
 
-So an index is coerced exactly as a subscript is.
+So an index is coerced exactly as a subscript is. `Load` and `Unload` coerce theirs the same way, measured later on a
+form with only `Cmd(0)`: `Load Cmd(i)` with `i` a Long 2 loads element 2, `Load Cmd(3.5)` loads element 4, and
+`Unload Cmd(4.4)` unloads it again, each with no error, native and in the IDE.
 
 ### A method called from Class_Initialize
 
