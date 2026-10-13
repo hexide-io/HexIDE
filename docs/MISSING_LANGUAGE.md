@@ -113,7 +113,7 @@ on the write path (`obj.a.b = x`, `Set obj.a.b = o`).
 
 | Category | Silently wrong | Won't load | Dies | Partial | No-op | Supported | Total |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| Statements | 1 | 2 | 46 | 30 | 0 | 26 | 105 |
+| Statements | 1 | 2 | 46 | 29 | 0 | 27 | 105 |
 | Operators | 0 | 0 | 3 | 18 | 0 | 11 | 32 |
 | Intrinsic functions | 0 | 0 | 69 | 37 | 1 | 46 | 153 |
 | Keywords and modifiers | 0 | 0 | 11 | 19 | 1 | 20 | 51 |
@@ -121,7 +121,7 @@ on the write path (`obj.a.b = x`, `Set obj.a.b = o`).
 | Compiler directives and options | 0 | 1 | 16 | 9 | 13 | 8 | 47 |
 | In-box objects | 0 | 0 | 98 | 8 | 0 | 17 | 123 |
 | Intrinsic constants | 0 | 0 | 8 | 261 | 0 | 352 | 621 |
-| **Total** | **7** | **4** | **257** | **394** | **15** | **505** | **1182** |
+| **Total** | **7** | **4** | **257** | **393** | **15** | **506** | **1182** |
 
 The *Silently wrong* column counts only what a verifier proved by running it. It is a floor, not a
 census — see the caveat above.
@@ -572,7 +572,7 @@ load, Dies, Partial, No-op, Supported — because a reader of a coverage documen
 missing.
 
 
-### Statements — 105 names (1 silently wrong, 48 absent, 30 partial, 26 supported)
+### Statements — 105 names (1 silently wrong, 48 absent, 29 partial, 27 supported)
 
 | Name | Status | Detail | Source |
 |---|---|---|---|
@@ -654,7 +654,6 @@ missing.
 | `Type` | Partial | PrePass.VisitTypeStmt builds a UdtTypeDef of scalar fields plus nested-type names resolved at instantiation. Scalar fields, untyped (Variant) fields and nested UDT fields work (measured:… | PrePass.cs **Module scope now honoured**: a UDT's identity is module-scoped, so two modules may each own a `Public Type` of one name, `Module2.Point` names one specifically and overrides a local declaration, `Private` is invisible from elsewhere even when qualified, and two foreign Publics raise "Ambiguous name detected" (#180) |
 | `Type...End Type` | Partial | The whole construct is handled by PrePass.VisitTypeStmt - see the `Type` row. Works: scalar fields, untyped (Variant) fields, nested UDT fields at any depth, arrays OF a UDT, cross-module… | PrePass.cs, VbUdt.cs **Module scope now honoured**: a UDT's identity is module-scoped, so two modules may each own a `Public Type` of one name, `Module2.Point` names one specifically and overrides a local declaration, `Private` is invisible from elsewhere even when qualified, and two foreign Publics raise "Ambiguous name detected" (#180) |
 | `Unload` | Partial | Implemented for control arrays ONLY. VisitUnloadStmt carries the comment "Only control-array element unloading is modelled (Unload Command1(i)); a bare form Unload isn't." Anything else… | StatementExecutor.cs |
-| `While...Wend` | Partial | **A member call in the body stops the run ([#882](https://github.com/hexide-io/HexIDE/issues/882)):** `Debug.Print x`, `Err.Clear` or `rs.MoveNext` inside `While...Wend` parses as two statements and raises "Sub or Function not defined"; `Do While ... Loop` is unaffected. **#847:** each condition is read as `CBool` reads it, with Null False (measured), where the loops took only a Boolean, an Integer, a Byte, an integral string or Null and raised 13 for anything else, a Long, a Double and Empty included; the condition was the only restriction — VisitWhileWendStmt is a pre-tested loop; the comment records the design correctly: "VB6 has no `Exit While`/`Continue While`, so any non-Nothing control flow (Exit Sub/Function/Property)… | StatementExecutor.cs |
 | `With...End With` | Partial | **Superseded by #184:** object member chains now FOLD on the read path, so `a.Inner.V` works. The single-dot restriction described below survives only on the WRITE path (`obj.a.b = x`, `Set obj.a.b = o`). — Per-activation withTargets stack, pushed in VisitWithStmt and popped in a finally; nesting resolves innermost-first and a leading dot with no active With raises Error 91 (WithTests:… | StatementExecutor.cs |
 | `Beep` | Supported | Really implemented, not a no-op. VisitBeepStmt guards the platform then calls Console.Beep(): `if (OperatingSystem.IsWindows() \|\| OperatingSystem.IsLinux() \|\| OperatingSystem.IsMacOS())… | StatementExecutor.cs |
 | `Call` | Supported | Two forms, both implemented: VisitECS_ProcedureCall for `Call Foo(a, b)` (StatementExecutor.cs) and VisitECS_MemberProcedureCall for `Call Module1.Foo(...)` / `Call obj.Method(...)` (:590)… | StatementExecutor.cs |
@@ -681,6 +680,7 @@ missing.
 | `Stop` | Supported | VisitStopStmt: with a DebugController attached it calls EnterBreakFromStopStatementAsync (IDE break mode, like a breakpoint on that line); headless it throws Debugging.StopExecutionSignal… | StatementExecutor.cs |
 | `Sub` | Supported | PrePass.VisitSubStmt registers a ProcedureInfo with IsFunction false. Bare call (`Foo 1, 2`), `Call Foo(1, 2)`, cross-module resolution and instance-method dispatch all route through… | PrePass.cs, BasicInterpreter.cs |
 | `Sub...End Sub` | Supported | The whole construct - `(visibility WS)? (STATIC WS)? SUB WS name (argList)? ... END_SUB` - is collected by PrePass.VisitSubStmt and executed by BasicInterpreter.RunProcedure, shared with… | PrePass.cs, BasicInterpreter.cs |
+| `While...Wend` | Supported | **#882:** a bare member call in the body (`Debug.Print`, `Err.Clear`, `k.Bump`, `k.Add 10`, anywhere in the body) is one statement, where it was parsed as a call of the object followed by a With member call and stopped with "Sub or Function not defined" (measured, native and in the IDE). A `Call` statement and a `With` block start with a keyword, and ran before too. **#847:** each condition is read as `CBool` reads it, with Null False (measured), where the loops took only a Boolean, an Integer, a Byte, an integral string or Null and raised 13 for anything else, a Long, a Double and Empty included; the condition was the only restriction — VisitWhileWendStmt is a pre-tested loop; the comment records the design correctly: "VB6 has no `Exit While`/`Continue While`, so any non-Nothing control flow (Exit Sub/Function/Property)… | StatementExecutor.cs |
 
 ### Operators — 32 names (3 absent, 18 partial, 11 supported)
 
@@ -1184,7 +1184,7 @@ missing.
 | `ClipBoardConstants` | Partial | The nine MEMBER constants are all registered in the built-in constant table and resolve as bare names - vbCFBitmap=2, vbCFDIB=8, vbCFEMetafile=14, vbCFFiles=15, vbCFLink=-16640… | VB6BuiltIns.cs |
 | `Debug` | Partial | Seeded as a program-global CSharpProxy in every module env (BasicInterpreter.cs). DebugProxy.Call implements exactly one member, `Print`, matched in any case. Every other member falls to `throw… | DebugProxy.cs |
 | `Debug.Print` | Partial | A class instance or App raises 438, as VB6's does (measured in the IDE, where Debug.Print runs, for a class, App and Screen; HexIDE has no Screen), or is refused naming #174 for a class with a default member, or prints Err's Number, where it printed the CLR type name. **A control still prints its .NET type name** (#790). DebugProxy.Call routes to IBasicStandardLibrary.DebugPrint - the Immediate window in the IDE, a capture list under test - preserving the typed Vb6Value. A bare `Debug.Print` prints a blank… | DebugProxy.cs |
-| `Err` | Partial | **#840:** used as a value, Err is its Number (measured: `"v=" & Err`, `x = Err`, `Err + 1`, `VarType(Err)` is 3). — One program-global VbErr shared by every module env (BasicInterpreter.cs, BasicInterpreter.cs). Number/Description/Source are readable and writable through ICSharpPropertyBag; Clear and… | VbErr.cs |
+| `Err` | Partial | **#840:** used as a value, Err is its Number (measured: `"v=" & Err`, `x = Err`, `Err + 1`, `VarType(Err)` is 3). So is it as a condition: `If Err Then`, `While Err`, `Do While Err` and `Loop While Err` each read the Number (measured, one pass each in the loops). — One program-global VbErr shared by every module env (BasicInterpreter.cs, BasicInterpreter.cs). Number/Description/Source are readable and writable through ICSharpPropertyBag; Clear and… | VbErr.cs |
 | `Err.Raise` | Partial | VbErr.Call `case "raise"` forwards only the first three arguments - `Raise(ToLong(args[0]), args.Count >= 2 ? ... : null, args.Count >= 3 ? ... : null)`. Arguments 4 (HelpFile) and 5… | VbErr.cs |
 | `Err.Source` | Partial | Readable and writable (VbErr.cs, VbErr.cs) and set by Err.Raise when a Source argument is supplied - measured `Err.Raise 5, "src", "desc"` -> Source "src". But Capture deliberately does NOT… | VbErr.cs |
 | `Global` | Partial | Two distinct VB6 meanings; only one is implemented. (1) The DECLARATION KEYWORD works: GLOBAL is in the visibility rule (Grammar/VB6.g4, "visibility : PRIVATE \| PUBLIC \| FRIEND \|… | PrePass.cs |

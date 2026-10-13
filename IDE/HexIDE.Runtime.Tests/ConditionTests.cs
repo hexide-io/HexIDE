@@ -156,14 +156,15 @@ public class ConditionTests : BaseVBTestFixture
     }
 
     [Theory]
+    [InlineData("Err.Raise 53\nWhile Err\nErr.Clear\nc = c + 1\nIf c > 5 Then Exit Sub\nWend", 0L)]
     [InlineData("Err.Raise 53\nDo While Err\nErr.Clear\nc = c + 1\nIf c > 5 Then Exit Do\nLoop", 0L)]
     [InlineData("Err.Raise 53\nDo Until Err = 0\nErr.Clear\nc = c + 1\nIf c > 5 Then Exit Do\nLoop", 0L)]
     [InlineData("Do Until Err\nc = c + 1\nErr.Raise 53\nIf c > 5 Then Exit Do\nLoop", 53L)]
     [InlineData("Do\nc = c + 1\nIf c > 5 Then Exit Do\nLoop While Err", 0L)]
     public async Task A_loop_on_Err_reads_its_Number(string form, long error)
     {
-        // Measured, native and in the IDE: one pass each. `While Err` with `Err.Clear` in its body runs one pass in VB6 too,
-        // but in HexIDE a member call inside While...Wend is parsed as two statements (#882).
+        // Measured, native and in the IDE: one pass each. The While row needed #882, which parsed `Err.Clear` in its body
+        // as two statements. While has no Exit, so its guard leaves the Sub, which skips the prints and fails the test.
         await Run($"Probe\nSub Probe()\nOn Error Resume Next\nDim c\nc = 0\n{form}\nDebug.Print c\nDebug.Print Err.Number\nEnd Sub\n");
 
         AssertDebugLog([new Vb6Value(1), new Vb6Value(error)]);
