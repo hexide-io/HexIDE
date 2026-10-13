@@ -179,7 +179,12 @@ back to HexIDE.
 
 - **Nothing in the user's installation changes,** and no administrator rights are needed.
 - **HexIDE ships no VB6 file.** It copies the user's own installation, on the same machine, for the same
-  user. Whether VB6's licence permits such a working copy is an open question below.
+  user. The VB6 / Visual Studio 6 EULA's general grant (section 1.1) lets the licensed individual "make and use
+  copies of the SOFTWARE PRODUCT for the sole purposes of designing, developing, and testing" their software, on
+  any number of computers. Its section 6.7 forbids separating components for use by more than one user, which a
+  per-user copy does not do. The wrappers run C2 and LINK and record their arguments; nothing is decompiled or
+  disassembled (section 6.2). Read from the EULA installed with the oracle machine's Visual Studio 6; a
+  standalone VB6 box may carry its own, which is worth checking against the same three sections.
 - **The registry is shared,** so references, controls and add-in settings resolve exactly as they do for the
   original.
 - **Keep it current:** record the original files' hashes beside the copy, and refresh it when they change, for
@@ -219,8 +224,6 @@ It replaces executables in Program Files that every VB6 build runs, so it must:
 - The values of the documented keys, which are taken from third parties.
 - Which files `/make` needs, if the private copy is ever trimmed.
 - How a p-code build's single LINK run looks through the wrapper.
-- Whether VB6's licence terms permit HexIDE to keep a working copy of the user's installation, and to replace
-  two of its files with wrappers. This needs an answer before layer 2 ships.
 
 ## Related
 
