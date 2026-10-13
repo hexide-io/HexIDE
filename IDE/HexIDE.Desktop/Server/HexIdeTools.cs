@@ -160,7 +160,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_file_content")]
-    [Description("Returns the current text of a named form, module or carried file: the open editor's text if it is open, otherwise the IDE's copy (for a carried file, the file on disk). Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. hasUnsavedChanges is true when saving would change the file on disk — edits typed in the editor, controls added, removed or reordered in the designer, or any other change to the IDE's copy since it was last loaded or saved. A document with no file yet always has unsaved changes.")]
+    [Description("Returns the current text of a named form, module or carried file: the open editor's text if it is open, otherwise the IDE's copy (for a carried file, the file on disk). For a form, module or class that is its WHOLE FILE, open or not: a form's VERSION line and designer block, a class's header and the leading Attribute lines come first, then the code. So line 1 is the file's first line, as set_breakpoints, get_diagnostics and every other tool that takes or reports a line count it, and an editor offset (interact set_property CaretOffset, or the offset a type_text or press_key refusal gives) indexes this text. set_file_content takes it back as it is, or the code alone. A form created in this session and not yet saved or changed in the designer has no header yet, so its text is its code alone. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. hasUnsavedChanges is true when saving would change the file on disk — edits typed in the editor, controls added, removed or reordered in the designer, or any other change to the IDE's copy since it was last loaded or saved. A document with no file yet always has unsaved changes.")]
     public async Task<FileContentResult> GetFileContentAsync(string name, string? project = null, CancellationToken ct = default)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -174,28 +174,27 @@ internal sealed class HexIdeTools(IdeContext ctx)
             var found = Find(name, project, carried: true);
             if (found.Document is { } document)
             {
+                // The WHOLE file, header included, open or not (#273 task 3.18): the text every line number
+                // and every editor offset counts in, and the text set_file_content takes back. The dirtiness
+                // below is a different question with a different answer, and the two are deliberately read
+                // from different things: the editor's code section against the model's Code. The whole buffer
+                // never equals Code, so comparing what this returns would call every open document edited.
                 var editor = CodeEditorOf(document);
-                // BufferBody, not the raw buffer: since #273 task 3.2 the buffer is the whole file. This tool
-                // still answers with the code section, and its own description promises that set_file_content
-                // accepts what it returns -- so the pair has to move together, which is task 3.18. Returning
-                // the whole file here while set_file_content still refuses one would make the tool
-                // contradict itself. The comparisons below are against the model's Code, which is the code
-                // section too, so both sides of each one are the same thing.
+                var text = HexIDE.IDE.DocumentContent.Read(document, editor);
+                var codeAhead = HexIDE.IDE.DocumentContent.CodeAheadOfModel(document, editor);
                 if (document.Form is { } form)
                 {
-                    var text = editor?.BufferBody ?? form.Code;
-                    var unsaved = !string.Equals(text, form.Code, StringComparison.Ordinal)
+                    var unsaved = codeAhead
                                   || DesignerOf(form) is { HasComponentsNotInModel: true }
                                   || ctx.ProjectService.HasUnsavedChanges(form);
                     return new FileContentResult(text, unsaved, null);
                 }
 
                 var module = document.Module!;
-                var moduleText = editor?.BufferBody ?? module.Code;
-                var moduleUnsaved = !string.Equals(moduleText, module.Code, StringComparison.Ordinal)
+                var moduleUnsaved = codeAhead
                                     || (module.FormPart is { } part && DesignerOf(part) is { HasComponentsNotInModel: true })
                                     || ctx.ProjectService.HasUnsavedChanges(module);
-                return new FileContentResult(moduleText, moduleUnsaved, null);
+                return new FileContentResult(text, moduleUnsaved, null);
             }
 
             // A carried file is read as its editor holds it, or else as it is on disk. It used to be refused
@@ -224,28 +223,12 @@ internal sealed class HexIdeTools(IdeContext ctx)
             .OfType<HexIDE.VisualDesigner.FormEditViewModel>()
             .FirstOrDefault(d => d.FormDefinition == form);
 
-    /// <summary>
-    /// <see cref="HexIDE.Runtime.Serialization.GuardedContent"/> for a document with no code window open:
-    /// the same rule, applied to the model's text, with the body written back to the model.
-    /// </summary>
-    private static HexIDE.Runtime.Serialization.ContentReplacement ReplaceModelContent(
-        string current, string prefix, string incoming, Action<string> updateCode)
-    {
-        var result = HexIDE.Runtime.Serialization.GuardedContent.Replace(current, prefix.Length, incoming);
-        if (result.NewText is { } text)
-            updateCode(text[prefix.Length..]);
-        return result;
-    }
-
     [McpServerTool(Name = "set_file_content")]
-    [Description("Replaces the VB6 source code of a named form or module and saves to disk. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. Pass the CODE SECTION, not a whole file: a .frm's VERSION/Begin designer block is refused (it describes controls, which this tool does not apply). A .bas/.cls may be sent with its header only if the header is exactly the module's; a header that differs is refused, because the header is the IDE's to change. A form's leading 'Attribute VB_*' block is its identity; the editor shows it, but content composed rather than round-tripped rarely carries it -- if yours omits it the existing one is kept and the result says so, so a body that leaves it out can no longer destroy VB_Name, and if yours changes it the write is refused. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' names the file written and how many lines, and says whether the document is open in an editor, since only open documents are analysed for get_diagnostics. The save writes the whole file, so text set earlier and not yet saved, such as a form's captions, counts too: when the document's code page cannot hold a character anywhere in it, nothing is written and no dialog is shown, the code stays in the IDE, and the reply names the document, the code page, the character and the line that holds it.")]
+    [Description("Replaces the VB6 source of a named form, module or class and saves to disk. Use get_project_info to list available names. Searches every loaded project; pass `project` when a group holds two documents of one name, and without it an ambiguous name is refused and the reply lists them. Send what get_file_content returns, edited: the whole file with its header unchanged (a form's or UserControl's VERSION line and designer block, a class's header, the leading Attribute lines). The code alone is accepted too, and the document's own header is kept in front of it. Only a header that DIFFERS from the document's is refused, and nothing changes: the header is the IDE's to change, from the designer and the Properties window, so a changed control or Instancing is not applied by sending it here. A form's leading 'Attribute VB_*' lines are its identity: if content leaves them out the existing ones are kept and the reply says so. A document with no file yet saves through a native picker, which would stop this server answering, so it is refused before anything changes unless answer_next_file_dialog has been armed first. The reply's 'note' names the file written and the range the document's lines are now numbered in, from the top of the file with the header included, as get_file_content returns it and set_breakpoints counts, and says whether the document is open in an editor, since only open documents are analysed for get_diagnostics. The save writes the whole file, so text set earlier and not yet saved, such as a form's captions, counts too: when the document's code page cannot hold a character anywhere in it, nothing is written and no dialog is shown, the code stays in the IDE, and the reply names the document, the code page, the character and the line that holds it.")]
     public async Task<MutateResult> SetFileContentAsync(string name, string content, string? project = null, CancellationToken ct = default)
     {
         var restoredHeader = false;
-        // What was written, for the reply: a bare success left a caller to find out where it went, and
-        // whether get_diagnostics would ever say anything about it. (#670)
-        string? writtenText = null, writtenPath = null;
-        var openInEditor = false;
+        DocumentIdentity? target = null;
         var (form, module, error) = await Dispatcher.UIThread.InvokeAsync<(FormDefinition?, ModuleDefinition?, string?)>(() =>
         {
             var found = Find(name, project, carried: true);
@@ -256,71 +239,33 @@ internal sealed class HexIdeTools(IdeContext ctx)
             if (found.Document is not { } document)
                 return (null, null, found.Error);
 
-            if (document.Form is { } form)
-            {
-                // REFUSED rather than stripped, and the asymmetry with the module branch below is the
-                // point. A module's header carries nothing the model does not already own, so dropping it
-                // loses nothing. A form's designer block describes its CONTROLS, and this tool does not
-                // apply them -- so accepting the file would either bury the header in the code (where it is
-                // compiled as VB) or silently discard the controls the caller supplied. (#338)
-                if (HexIDE.Runtime.Serialization.FormCodeText.LooksLikeFormFile(content))
-                    return (null, null,
-                        "That is a whole .frm file, not a form's code section: it opens with a VERSION / "
-                        + "Begin designer block. This tool replaces code only and would not apply the "
-                        + "controls. Pass what get_file_content returns, or edit the .frm on disk.");
+            // Refused BEFORE the edit. This used to apply the code and only then find there was no file to
+            // write, so the reply said the change failed while the editor held it. (#538)
+            if (document.Form is { } pickerForm && HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(pickerForm.AbsolutePath))
+                return (null, null, $"Form '{pickerForm.Name}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
+            if (document.Module is { } pickerModule && HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(pickerModule.AbsolutePath))
+                return (null, null, $"Module '{pickerModule.Name}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
 
-                // Refused BEFORE the edit. This used to apply the code and only then find there was no file
-                // to write, so the reply said the change failed while the editor held it. (#538)
-                if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(form.AbsolutePath))
-                    return (null, null, $"Form '{form.Name}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
+            // Through the guarded path (#273 tasks 3.9 and 3.18), which is the one place that decides what
+            // incoming content may touch, for every kind alike. It accepts what get_file_content returns, the
+            // whole file with its header unchanged, and the code alone with the header kept. A header that
+            // DIFFERS is refused, because the header changes only from the IDE's model.
+            //
+            // A whole .frm used to be refused here before the guard saw it (#338), on the ground that its
+            // designer block describes controls this tool does not apply. The header comparison answers that
+            // better: a designer block exactly as the form has it applies nothing, and one that differs is
+            // refused with the reason. The separate refusal had to go in the same change as the read, or this
+            // tool would have refused exactly what get_file_content now returns.
+            var replaced = HexIDE.IDE.DocumentContent.Write(document, CodeEditorOf(document), content);
+            if (replaced.Refusal is { } refusal)
+                return (null, null, refusal);
 
-                // Through the guarded path (#273 task 3.9), which is now the one place that decides what an
-                // incoming body may touch. The attribute block is kept when the incoming text omits it --
-                // VB_Name is the form's identity, and a caller composing a body rather than round-tripping
-                // one omits it anyway, which used to delete it with no warning, straight to disk (gap 14).
-                // An attribute block that DIFFERS from the form's is refused, because that is the header,
-                // and the header changes only from the IDE's model. HeaderKept is the guard's own answer to
-                // "was one restored", rather than this tool working it out a second way.
-                var editor = CodeEditorOf(document);
-                var replaced = editor is not null
-                    ? editor.ReplaceContent(content)
-                    : ReplaceModelContent(HexIDE.Runtime.Serialization.FormCodeText.WholeFile(form),
-                        HexIDE.Runtime.Serialization.FormCodeText.Prefix(form), content, form.UpdateCode);
-                if (replaced.Refusal is { } refusal)
-                    return (null, null, refusal);
-
-                // Whether the CALLER left the Attribute block out, not whether anything was put back: the designer
-                // block is always put back in front, so HeaderKept is true for the very text get_file_content
-                // returned, and a note saying it was omitted sent the caller round the same loop.
-                restoredHeader = HexIDE.Runtime.Serialization.ReadOnlyRegions.HeaderEnd(content, 0) == 0
-                                 && HexIDE.Runtime.Serialization.FormCodeText.AttributeBlock(form.Code).Length > 0;
-                // The BODY, not the whole file: the note counts the lines that were written as code, and
-                // since task 3.2 an open buffer also holds the designer block above them.
-                (writtenText, writtenPath, openInEditor) = (editor?.BufferBody ?? form.Code, form.AbsolutePath, editor is not null);
-                return (form, null, null);
-            }
-
-            var module = document.Module!;
-            {
-                if (HexIDE.IDE.ScriptedFileDialogs.WouldShowPicker(module.AbsolutePath))
-                    return (null, null, $"Module '{module.Name}' {HexIDE.IDE.ScriptedFileDialogs.PickerRefusal}");
-
-                // Through the guarded path (#273 task 3.9): the body alone, or the file with its header exactly
-                // as the module has it. It used to strip ANY header silently, so a caller that sent a class
-                // with its Instancing changed was told the write succeeded while the change was discarded. A
-                // header that differs is now refused, and the caller is told why -- which is why nothing here
-                // reports a header as "stripped" any more.
-                var editor = CodeEditorOf(document);
-                var replaced = editor is not null
-                    ? editor.ReplaceContent(content)
-                    : ReplaceModelContent(HexIDE.Runtime.Serialization.FormCodeText.WholeFile(module),
-                        HexIDE.Runtime.Serialization.FormCodeText.Prefix(module), content, module.UpdateCode);
-                if (replaced.Refusal is { } refusal)
-                    return (null, null, refusal);
-
-                (writtenText, writtenPath, openInEditor) = (editor?.BufferBody ?? module.Code, module.AbsolutePath, editor is not null);
-                return (null, module, null);
-            }
+            // Whether the CALLER left a form's Attribute block out, not whether anything was put back: the
+            // designer block is always put back in front of code sent alone. The block is the form's identity,
+            // and leaving it out used to delete it with no warning, straight to disk (gap 14).
+            restoredHeader = HexIDE.IDE.DocumentContent.LeftOutAttributeLines(document, content);
+            target = document;
+            return (document.Form, document.Module, null);
         });
 
         if (error is not null)
@@ -347,7 +292,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
                 // Not "the new code was refused": the character can be anywhere in the file. The message quotes its line.
                 return new MutateResult(false, $"The new code is in the IDE, but the file was not written. {refused.Message}");
             return written
-                ? new MutateResult(true, null, WrittenNote(form?.Name ?? module!.Name, writtenPath, writtenText, openInEditor)
+                ? new MutateResult(true, null, await Dispatcher.UIThread.InvokeAsync(() => WrittenNote(target!))
                     + (restoredHeader
                         ? " Kept the form's Attribute header, which the content omitted. VB_Name is the form's "
                           + "identity; without this the write would have destroyed it. Call get_file_content "
@@ -372,12 +317,27 @@ internal sealed class HexIdeTools(IdeContext ctx)
         }
     }
 
-    /// <summary>What set_file_content wrote, and whether get_diagnostics will see it.</summary>
-    private static string WrittenNote(string name, string? path, string? text, bool openInEditor)
+    /// <summary>What set_file_content wrote, and whether get_diagnostics will see it. (#670)</summary>
+    /// <remarks>
+    /// <para>
+    /// The range is the one set_breakpoints accepts and its refusals state, counted from the top of the file
+    /// with the header included, so a caller can take it straight there. MarkLineRules counts it the same way.
+    /// </para>
+    /// <para>
+    /// Read AFTER the save, and the order matters. A form's save re-renders its designer block and adopts the
+    /// result as the header: a form that had no header yet gains one there, and one VB6 wrote can change
+    /// height. A range taken before the save would disagree with the next get_file_content in exactly the case
+    /// a caller cannot predict. The path is read afterwards for the same reason: a first save through an armed
+    /// file dialog is where a document gets one.
+    /// </para>
+    /// </remarks>
+    private string WrittenNote(DocumentIdentity document)
     {
-        var lines = string.IsNullOrEmpty(text) ? 0 : text.TrimEnd('\r', '\n').Split('\n').Length;
-        return $"Wrote {lines} line{(lines == 1 ? "" : "s")} of code for {name} to {path}. "
-               + (openInEditor
+        var editor = CodeEditorOf(document);
+        var lines = HexIDE.IDE.DocumentContent.TextOf(document, editor).LineCount;
+        return $"Wrote {document.Name} to {document.AbsolutePath}. Its lines are numbered 1..{lines}, from the top of "
+               + "the file with the header included, as get_file_content returns it. "
+               + (editor is not null
                    ? "Its editor shows the new text; get_diagnostics has diagnostics for it once the server has "
                      + "analysed the change."
                    : "It is not open in an editor, and only open documents are analysed: open_file it, then "
@@ -773,7 +733,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "run_project")]
-    [Description("Starts running the current VB6 project in the IDE. Returns an error if no project is loaded, if it is already running, or if the start never becomes a run: a syntax error in the startup form or in any standard or class module (the error names the module), no startup form, a Sub Main project with no usable or with two Sub Mains, a startup form that cannot be built, or a declaration that cannot be loaded — in those cases nothing is running, the IDE has opened a runtime-error dialog, and get_last_runtime_error returns the same text. step_into, step_over, step_out and run_to_cursor report a failed start from idle the same way. The reply's 'note' says, after up to 2 s, whether it paused (at a breakpoint or Stop, with where), is running, or ended, and names any run-time error it raised, including reaching a construct HexIDE does not implement, which ends the run.")]
+    [Description("Starts running the current VB6 project in the IDE. Returns an error if no project is loaded, if it is already running, or if the start never becomes a run: a syntax error in the startup form or in any standard or class module (the error names the module), no startup form, a Sub Main project with no usable or with two Sub Mains, a startup form that cannot be built, or a declaration that cannot be loaded — in those cases nothing is running, the IDE has opened a runtime-error dialog, and get_last_runtime_error returns the same text. step_into, step_over, step_out and run_to_cursor report a failed start from idle the same way. The reply's 'note' says, after up to 2 s, whether it paused (at a breakpoint or Stop, with the module and the line, counted from the top of the file as the code window numbers it), is running, or ended, and names any run-time error it raised, including reaching a construct HexIDE does not implement, which ends the run.")]
     public async Task<MutateResult> RunProjectAsync(CancellationToken ct)
     {
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
@@ -828,7 +788,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "get_last_runtime_error")]
-    [Description("Returns the last runtime error the running program raised, WITH ITS TEXT, and keeps it after the error dialog has been dismissed. That includes a compile error met while it ran, and the reason a start never became a run. Use it after any run that might raise: stop_project and shutdown_ide both close open dialogs, so a run whose form silently did nothing is otherwise indistinguishable from a run whose error dialog was dismissed a moment earlier. run_project clears the message first, so a result here belongs to the most recent run. 'sequence' only ever increases and is not cleared — compare it across runs to tell 'no error' from 'the same error again', which message text cannot do. Returns raised:false when the current run has raised nothing.")]
+    [Description("Returns the last runtime error the running program raised, WITH ITS TEXT, and keeps it after the error dialog has been dismissed. That includes a compile error met while it ran, and the reason a start never became a run; a line such an error names counts from the top of the file, header included, as the code window numbers it. Use it after any run that might raise: stop_project and shutdown_ide both close open dialogs, so a run whose form silently did nothing is otherwise indistinguishable from a run whose error dialog was dismissed a moment earlier. run_project clears the message first, so a result here belongs to the most recent run. 'sequence' only ever increases and is not cleared — compare it across runs to tell 'no error' from 'the same error again', which message text cannot do. Returns raised:false when the current run has raised nothing.")]
     public async Task<RuntimeErrorResult> GetLastRuntimeErrorAsync(CancellationToken ct)
     {
         return await Dispatcher.UIThread.InvokeAsync(() =>
@@ -1400,7 +1360,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "break_program")]
-    [Description("Pauses the running project at the next executed statement (VB6 Break / Ctrl+Break). Error if not running or already paused. The reply's 'note' gives where it paused or, when the program is waiting for an event, says it will pause at the next statement that runs.")]
+    [Description("Pauses the running project at the next executed statement (VB6 Break / Ctrl+Break). Error if not running or already paused. The reply's 'note' gives where it paused (the module and the line, counted from the top of the file as the code window numbers it) or, when the program is waiting for an event, says it will pause at the next statement that runs.")]
     public async Task<MutateResult> BreakProgramAsync(CancellationToken ct)
     {
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
@@ -1422,7 +1382,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "continue_program")]
-    [Description("Resumes a paused project (VB6 Continue / F5 in break mode). Error if not currently paused. The reply's 'note' says, after up to 2 s, whether it paused again (with where), is running, or ended.")]
+    [Description("Resumes a paused project (VB6 Continue / F5 in break mode). Error if not currently paused. The reply's 'note' says, after up to 2 s, whether it paused again (with the module and the line, counted from the top of the file as the code window numbers it), is running, or ended.")]
     public async Task<MutateResult> ContinueProgramAsync(CancellationToken ct)
     {
         var (refused, outcome) = await StartAndAwaitStopAsync(() =>
@@ -1529,17 +1489,17 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "step_into")]
-    [Description("Step Into (F8): from idle, starts the project and breaks at the first executed statement; while paused, executes the next statement and breaks (descending into any called Sub/Function); while running, breaks at the next statement. The reply's 'note' says where it paused (module, line and reason) or, when no pause comes within 2 s, whether the program is still running or has ended.")]
+    [Description("Step Into (F8): from idle, starts the project and breaks at the first executed statement; while paused, executes the next statement and breaks (descending into any called Sub/Function); while running, breaks at the next statement. The reply's 'note' says where it paused (module, line counted from the top of the file as the code window numbers it, and reason) or, when no pause comes within 2 s, whether the program is still running or has ended.")]
     public Task<MutateResult> StepIntoAsync(CancellationToken ct) =>
         StepAndReportAsync(() => ctx.ProjectRunnerService.CanStepIntoProject, () => ctx.ProjectRunnerService.StepIntoProject(), ct);
 
     [McpServerTool(Name = "step_over")]
-    [Description("Step Over (Shift+F8): while paused, executes the next statement and breaks in the SAME frame — a called Sub/Function runs to completion without descending (unlike step_into). On a non-call statement it behaves like step_into. From idle, starts the project and breaks at the first statement. The reply's 'note' says where it paused (module, line and reason) or, when no pause comes within 2 s, whether the program is still running or has ended.")]
+    [Description("Step Over (Shift+F8): while paused, executes the next statement and breaks in the SAME frame — a called Sub/Function runs to completion without descending (unlike step_into). On a non-call statement it behaves like step_into. From idle, starts the project and breaks at the first statement. The reply's 'note' says where it paused (module, line counted from the top of the file as the code window numbers it, and reason) or, when no pause comes within 2 s, whether the program is still running or has ended.")]
     public Task<MutateResult> StepOverAsync(CancellationToken ct) =>
         StepAndReportAsync(() => ctx.ProjectRunnerService.CanStepOverProject, () => ctx.ProjectRunnerService.StepOverProject(), ct);
 
     [McpServerTool(Name = "step_out")]
-    [Description("Step Out (Ctrl+Shift+F8): while paused, runs the rest of the current procedure and breaks at the statement in the CALLER after it returns. Stepping out of the outermost frame runs that event/procedure to completion. From idle it starts the project (like Step Into); while running it requests a pause. The reply's 'note' says where it paused (module, line and reason) or, when no pause comes within 2 s, whether the program is still running or has ended.")]
+    [Description("Step Out (Ctrl+Shift+F8): while paused, runs the rest of the current procedure and breaks at the statement in the CALLER after it returns. Stepping out of the outermost frame runs that event/procedure to completion. From idle it starts the project (like Step Into); while running it requests a pause. The reply's 'note' says where it paused (module, line counted from the top of the file as the code window numbers it, and reason) or, when no pause comes within 2 s, whether the program is still running or has ended.")]
     public Task<MutateResult> StepOutAsync(CancellationToken ct) =>
         StepAndReportAsync(() => ctx.ProjectRunnerService.CanStepOutProject, () => ctx.ProjectRunnerService.StepOutProject(), ct);
 
@@ -1991,7 +1951,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "inspect_element")]
-    [Description("Returns a deep inspection of a single control addressed by 'target' (a path from dump_visual_tree): identity, supported interaction providers, bounding rectangle ('boundingRect': x, y, width, height in the window's device-independent units from its top-left; multiply by take_snapshot's 'scale' to find it in a snapshot), current selection/value/toggle state, for a scroll bar or slider its 'range' (value, minimum, maximum and isReadOnly, which is what set_range_value moves and refuses outside of), and the DataContext ViewModel's public command and property members (the surface the reflection-based interact actions target), each property with its current value where it reads as text. Members are listed on the control that owns the DataContext: a control that inherits it from an ancestor lists none, and 'dataContextOwner' gives the owner's path to inspect instead ('dataContextNote' says so). Members the Dock framework's base types declare are left out and counted in 'dataContextNote'. An editor's 'Document' reads as a line count, because get_file_content returns that text; the Immediate window's reads as its text. A value over 4000 characters is cut and says its full length. Use before interact to confirm an element supports the action you intend, or — for a control with no provider — to discover the VM members the reflection fallback can reach. 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused. Reports 'isHidden': true when the control is in the tree but not on screen (effectively invisible, e.g. collapsed by a binding); absent when it is showing.")]
+    [Description("Returns a deep inspection of a single control addressed by 'target' (a path from dump_visual_tree): identity, supported interaction providers, bounding rectangle ('boundingRect': x, y, width, height in the window's device-independent units from its top-left; multiply by take_snapshot's 'scale' to find it in a snapshot), current selection/value/toggle state, for a scroll bar or slider its 'range' (value, minimum, maximum and isReadOnly, which is what set_range_value moves and refuses outside of), and the DataContext ViewModel's public command and property members (the surface the reflection-based interact actions target), each property with its current value where it reads as text. Members are listed on the control that owns the DataContext: a control that inherits it from an ancestor lists none, and 'dataContextOwner' gives the owner's path to inspect instead ('dataContextNote' says so). Members the Dock framework's base types declare are left out and counted in 'dataContextNote'. An editor's 'Document' reads as a line count, because get_file_content returns that text: the whole file, which a code editor's CaretOffset, SelectionStart and SelectionLength count into; the Immediate window's reads as its text. A value over 4000 characters is cut and says its full length. Use before interact to confirm an element supports the action you intend, or — for a control with no provider — to discover the VM members the reflection fallback can reach. 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused. Reports 'isHidden': true when the control is in the tree but not on screen (effectively invisible, e.g. collapsed by a binding); absent when it is showing.")]
     public async Task<InspectResult> InspectElementAsync(
         string target, string? window = null, CancellationToken ct = default)
     {
@@ -2050,7 +2010,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "type_text")]
-    [Description("Types text into the control at 'target' (a path from dump_visual_tree) by inserting at the caret via the control's own API, reported as mechanism \"document\" because it is an edit and not key events; a read-only or disabled surface is refused, as a person's typing would be — works on the code editor (AvaloniaEdit), which has no value provider for 'interact set_value'. If 'target' isn't itself a text surface, the nearest descendant editor/textbox is used (the AvaloniaEdit editor is preferred over incidental textboxes). When that happens the reply gives the path of the surface that took the text. Multi-line text is inserted verbatim (include \\n for new lines); exact, reliable, and not altered by live auto-indent/IntelliSense. For a typing cadence, call this once per line. Use press_key for Enter/Tab/commands. In a code window it is also refused while the caret is in the file's header or a member's Attribute lines, which only the IDE changes; the reply says where the editable code starts. 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused.")]
+    [Description("Types text into the control at 'target' (a path from dump_visual_tree) by inserting at the caret via the control's own API, reported as mechanism \"document\" because it is an edit and not key events; a read-only or disabled surface is refused, as a person's typing would be — works on the code editor (AvaloniaEdit), which has no value provider for 'interact set_value'. If 'target' isn't itself a text surface, the nearest descendant editor/textbox is used (the AvaloniaEdit editor is preferred over incidental textboxes). When that happens the reply gives the path of the surface that took the text. Multi-line text is inserted verbatim (include \\n for new lines); exact, reliable, and not altered by live auto-indent/IntelliSense. For a typing cadence, call this once per line. Use press_key for Enter/Tab/commands. In a code window it is also refused while the caret is in the file's header or a member's Attribute lines, which only the IDE changes; the reply says where the editable code starts, as an offset into the whole file, which is the text get_file_content returns. 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused.")]
     public async Task<InteractOutcome> TypeTextAsync(
         string target, string text, string? window = null, CancellationToken ct = default)
     {
@@ -2069,9 +2029,13 @@ internal sealed class HexIdeTools(IdeContext ctx)
     }
 
     [McpServerTool(Name = "hover")]
-    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) by raising real PointerEntered/PointerMoved events, watches for a tip, and reports its text. WORKS for tips a control raises from its OWN pointer handler — LSP quick-info and the debugger's Auto Data Tips in the code editor. Does NOT work for a declarative ToolTip.Tip: Avalonia's ToolTipService ignores a synthetic pointer, so a toolbar button's tooltip stays shut. 'x'/'y' are optional and relative to the target's own top-left; omit them and the point is the CARET for a code editor (position it first with interact set_property CaretOffset, which is how you hover a particular identifier) and the centre of anything else. A target that is not a code editor but contains one is hovered at that editor, the first under it, and the reply then names the editor and gives its path, as dump_visual_tree would print it. 'dwellMs' (default 1500, 0 to 10000) is how long to watch — it must exceed the 400ms quick-info dwell plus the language server's round trip. When no tip opens, the reply adds the 'declared tip' of the control under the hovered point or its nearest ancestor that sets one, which is the text a human would be shown there. The tip is TRANSIENT (a synthetic pointer never sets IsPointerOver, so it closes again shortly after opening), which is why this polls rather than looking once, and it is placed AT THE REAL POINTER — wherever it last crossed this window — and not under the target: the editor opens quick-info with PlacementMode.Pointer, which anchors to a position Avalonia tracks per window and a synthetic event never updates. Measured: with the mouse parked over the Toolbox, hovering the caret opened the tip beside the Toolbox; on a fresh window at screen (300,250) that no pointer had crossed, it opened at screen (0,15). So assert the reported text, never a snapshot. 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused.")]
+    [Description("Moves the pointer onto the control at 'target' (a path from dump_visual_tree) by raising real PointerEntered/PointerMoved events, watches for a tip, and reports its text. WORKS for tips a control raises from its OWN pointer handler — LSP quick-info and the debugger's Auto Data Tips in the code editor. Does NOT work for a declarative ToolTip.Tip: Avalonia's ToolTipService ignores a synthetic pointer, so a toolbar button's tooltip stays shut. 'x'/'y' are optional and relative to the target's own top-left; omit them and the point is the CARET for a code editor (position it first with interact set_property CaretOffset, an offset into the whole file get_file_content returns, which is how you hover a particular identifier) and the centre of anything else. A target that is not a code editor but contains one is hovered at that editor, the first under it, and the reply then names the editor and gives its path, as dump_visual_tree would print it. 'dwellMs' is how long to watch. When no tip opens, the reply adds the 'declared tip' of the control under the hovered point or its nearest ancestor that sets one, which is the text a human would be shown there. The tip is TRANSIENT (a synthetic pointer never sets IsPointerOver, so it closes again shortly after opening), which is why this polls rather than looking once, and it is placed AT THE REAL POINTER — wherever it last crossed this window — and not under the target: the editor opens quick-info with PlacementMode.Pointer, which anchors to a position Avalonia tracks per window and a synthetic event never updates. Measured: with the mouse parked over the Toolbox, hovering the caret opened the tip beside the Toolbox; on a fresh window at screen (300,250) that no pointer had crossed, it opened at screen (0,15). So assert the reported text, never a snapshot. 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused.")]
     public async Task<InteractOutcome> HoverAsync(
-        string target, double? x = null, double? y = null, int dwellMs = 1500, string? window = null,
+        string target, double? x = null, double? y = null,
+        [Description("How long to watch for a tip, in milliseconds: default 1500, from 0 to 10000. It must exceed the "
+                     + "400ms quick-info dwell plus the language server's round trip.")]
+        int dwellMs = 1500,
+        string? window = null,
         CancellationToken ct = default)
     {
         if (dwellMs is < 0 or > MaxHoverDwellMs)
@@ -2174,7 +2138,7 @@ internal sealed class HexIdeTools(IdeContext ctx)
             ? text.Trim()
             : null;
     [McpServerTool(Name = "press_key")]
-    [Description("Presses a key on the control at 'target' (a path from dump_visual_tree) by raising real KeyDown/KeyUp events — for navigation and commands that type_text doesn't cover: Enter, Tab, Back(space), Delete, Escape, arrow keys, etc., optionally with modifiers. 'key' is an Avalonia Key name (Enter, Tab, Back, Escape, Down, S, ...). 'modifiers' is an optional combo like 'Ctrl', 'Ctrl+Shift', 'Alt'. Resolves to the DEEPEST input surface under 'target' — for the code editor that is AvaloniaEdit's TextArea, where its key handling lives — because a routed event reaches only the element it is raised on and its ancestors, never anything below. Falls back to the first focusable descendant, and FAILS rather than reporting success when nothing under 'target' can take keyboard focus. When the key went to a control other than the one addressed, the reply names it and gives its path, as dump_visual_tree would print it, so it can be used as a target. In a code window, a key that would change text (Enter, Tab, Back, Delete, Ctrl+V/X/D) is refused when what it changes is in the file's header or a member's Attribute lines, which only the IDE changes; the reply says where the editable code starts. Navigation keys are never refused. 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused.")]
+    [Description("Presses a key on the control at 'target' (a path from dump_visual_tree) by raising real KeyDown/KeyUp events — for navigation and commands that type_text doesn't cover: Enter, Tab, Back(space), Delete, Escape, arrow keys, etc., optionally with modifiers. 'key' is an Avalonia Key name (Enter, Tab, Back, Escape, Down, S, ...). 'modifiers' is an optional combo like 'Ctrl', 'Ctrl+Shift', 'Alt'. Resolves to the DEEPEST input surface under 'target' — for the code editor that is AvaloniaEdit's TextArea, where its key handling lives — because a routed event reaches only the element it is raised on and its ancestors, never anything below. Falls back to the first focusable descendant, and FAILS rather than reporting success when nothing under 'target' can take keyboard focus. When the key went to a control other than the one addressed, the reply names it and gives its path, as dump_visual_tree would print it, so it can be used as a target. In a code window, a key that would change text (Enter, Tab, Back, Delete, Ctrl+V/X/D) is refused when what it changes is in the file's header or a member's Attribute lines, which only the IDE changes; the reply says where the editable code starts, as an offset into the whole file, which is the text get_file_content returns. Navigation keys are never refused. 'window' picks the top-level window the path is resolved against — \"auto\" (default, the frontmost) or \"ide\"; pass \"ide\" to reach the IDE while a program is running or paused.")]
     public async Task<InteractOutcome> PressKeyAsync(
         string target, string key, string? modifiers = null, string? window = null,
         CancellationToken ct = default)

@@ -1382,8 +1382,27 @@
 - [ ] 3.17 Sidecar migration to the next format (#466 first, so an older build keeps what it cannot read): read the recorded format, re-key, move lines by each header's
   length, carry unmeasurable entries unchanged, keep unrecognised content, rewrite only on change and never
   after a failed read.
-- [ ] 3.18 Automation: `get_file_content` returns the whole file open or not; `set_file_content` accepts it
+- [x] 3.18 Automation: `get_file_content` returns the whole file open or not; `set_file_content` accepts it
   back, or a body alone with the header kept. Tool descriptions say lines count from the top of the file.
+  — **Both tools changed in one commit**, as design.md requires. The read is the open window's buffer or the
+  model's composition of the file, the text the mark tools count in. `hasUnsavedChanges` still compares the
+  buffer's body with `Code`. The write goes through `GuardedContent` for every kind, and the whole-`.frm`
+  refusal (#338) is gone, with `FormCodeText.LooksLikeFormFile`, its only production use, and its two tests.
+  — **The rule moved where a test can reach it**: `DocumentContent` in `HexIDE`, beside `MarkLineRules`. The
+  tools keep only the lookup, the picker refusal, the save and the reply. `DocumentContentTests` carries the
+  delta's scenario, `ReadingAndWritingBackAForm` (`BillOfFare.frm` read, written back, saved, and its bytes
+  unchanged), and reads and writes back every document in `demo/` and `corpus/designer/`, which is the only
+  check that the prefix-measured header and the text-walked one agree on files VB6 wrote. They agree on all
+  of them. What stays unreachable is which editor a tool picks and the save after the write: 3.22's.
+  — **The reply states the range the lines are numbered in, read after the save** (settled in design.md).
+  — **Descriptions:** both content tools; the run-control replies (`run_project`, `break_program`,
+  `continue_program`, the three steps) and `get_last_runtime_error`, whose lines are file lines already;
+  and `type_text`, `press_key`, `hover`, `inspect_element`, whose offsets index what `get_file_content`
+  returns. `hover` was at the 2048-character limit, so its `dwellMs` detail moved into that parameter's own
+  description. The refusal that gives an offset says what it counts from.
+  — **Not done here:** a reply that also carries the wire name does not yet say `uri` is that name, and
+  `get_file_content`/`set_file_content` replies carry no `project` and `document` (the delta's naming half).
+  A form created and not yet saved or committed still reads as its code alone, which is 3.4's open question.
   **Standing hazard until this lands, found while merging main on 2026-09-23.** On this branch
   `editor.Document.Text` is the whole file, so any tool that means *the code section* must read `BufferBody`.
   Main's `get_file_content` read `Document.Text`, which on main is the code section and here would have

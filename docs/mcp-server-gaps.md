@@ -590,34 +590,18 @@ part of it.
 `invoke_menu_item {"path":"Project/Add Module"}` does the same for `Module3`. An untouched module loaded from
 disk reads `false`.
 
+**Since #273 task 3.18 the `content` half of that reply reads differently, and the defect does not.**
+`get_file_content` now returns a module's whole file, so a new `Helpers` answers with its one header line,
+`Attribute VB_Name = "Helpers"`, rather than `""`. `hasUnsavedChanges` still compares the code section with
+the model's, which did not change, so it still reads `true`. The `""` above is what was measured, before
+that change.
+
 **Workaround.** Read `hasUnsavedChanges` on a document added in this session as "new", not as "edited".
 
 **Suggested fix.** Undecided, and filed as needs-decision:
 [#597](https://github.com/hexide-io/HexIDE/issues/597). Either record the render baseline when a new
 document is written, or keep new documents unsaved on purpose and say so in `get_file_content`'s
 description.
-
-## Placing the caret needs a buffer offset that no read tool returns
-
-**Symptom (2026-09-25, during #273 task 3.7's live check).** With a class module open,
-`type_text {"target":"…/Custom[Root]/None[TextEditor]","text":"X"}` after `press_key {"key":"Home","modifiers":"Ctrl"}`
-was refused with a good reply: the offset is in the header, and *"put the caret there with interact
-set_property CaretOffset=371"*. That offset is into the editor buffer, which holds the whole file. But
-`get_file_content {"name":"Order"}` answers with the code section only, header stripped, so no read tool
-returns the text those offsets count into. To reach a given line the caller has to navigate with keys:
-`press_key` Ctrl+End, then Up three times, then Home, to land on a member's `Attribute` line.
-
-**Workaround.** Take offsets from a refusal's reply, or navigate with `press_key`. `inspect_element` on the
-code view reports `CaretOffset` and `BufferBody`, which is still the code section too.
-
-**Do not compute offsets from the file on disk.** Tried on 2026-10-02 (#273 task 3.13): offsets taken from
-`BillOfFare.frm`'s bytes landed four characters early in the editor, because the file is UTF-8 and its two
-em dashes above that line are three bytes each and one character each in the buffer. A copy and a paste
-then took different text from what was intended, which read like corruption until it was traced.
-
-**Suggested fix.** #273 task 3.18 makes `get_file_content` return the whole file, which closes the
-mismatch. A way to put the caret at a line and column, or at a text match, would still save every caller
-the offset arithmetic. Filed as [#700](https://github.com/hexide-io/HexIDE/issues/700).
 
 ## A whole-window `dump_visual_tree` overflows the caller's output limit
 

@@ -702,6 +702,21 @@ fixed in the dirty check. `set_file_content` takes what `get_file_content` retur
 the same `GuardedContent` rule as an add-in's `SetContent`. Its separate refusal of a whole `.frm` (#338) goes,
 in the same commit as the read: changing one without the other would refuse exactly what the read returned.
 
+**`set_file_content`'s reply states the range the document's lines are numbered in, read after the save.**
+It used to count the code it had just written. It now gives `1..N` from the top of the file, counted as the
+code window counts, which is also the range `set_breakpoints` accepts and states when it refuses, so the two
+replies cannot disagree about where a document ends. It is read after the save, not after the replacement,
+because a form's save re-renders its designer block and adopts that as the header: a form with no header yet
+gains one there, and one VB6 wrote can change height. Counted before the save, the number would disagree with
+the next `get_file_content` in exactly the case a caller cannot foresee. The path in the reply is read then for
+the same reason, since a first save through an armed file dialog is where a document gets one.
+
+**The read and write rule lives in `HexIDE`, as `DocumentContent`, not in the tools.** Tool bodies compile into
+an executable no test references, which is why `MarkLineRules` sits there too. The tools keep the lookup, the
+picker refusal, the save and the reply. `FormCodeText.LooksLikeFormFile` lost its only production caller with
+#338's refusal and went with its tests. `FormCodeText.PreserveAttributes` already had none before this task, and
+is left for 5.7, which owns `FormCodeText`'s comments.
+
 **A whole replacement checks the header, and an edit to a range checks every read-only region.**
 `GuardedContent.Replace` compares the incoming header with the document's and nothing else. A member's
 `Attribute` lines sit in the code it replaces, and phase 4 decides how they follow the line they describe.

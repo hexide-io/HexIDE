@@ -15,38 +15,13 @@ namespace HexIDE.Runtime.Serialization;
 /// form writes the part they came to write, and a straight replacement then deletes that block with no
 /// warning — which happened, and reached a commit before <c>git diff</c> caught it.</para>
 ///
-/// <para>The mirror mistake is passing a whole <c>.frm</c> instead, which puts <c>VERSION</c> /
-/// <c>Begin VB.Form</c> into the code where it is compiled as VB.</para>
+/// <para>A whole <c>.frm</c>, designer block and all, is no longer the mirror mistake it was: a caller that
+/// sends one back is sending what reading a form returns (hexide-io/HexIDE#273 task 3.18), and
+/// <see cref="GuardedContent"/> compares its header with the form's rather than putting it into the code.
+/// The <c>LooksLikeFormFile</c> test that refused one outright (#338) went with that change.</para>
 /// </remarks>
 public static class FormCodeText
 {
-    /// <summary>
-    /// True when this is a whole <c>.frm</c> file rather than the code section of one.
-    /// </summary>
-    /// <remarks>
-    /// Both signals are required. A lone <c>VERSION</c> line is not proof — a form's code could plausibly
-    /// begin with an identifier of that name — while <c>VERSION</c> followed by a <c>Begin</c> block is the
-    /// shape of the file and of nothing else.
-    /// </remarks>
-    public static bool LooksLikeFormFile(string content)
-    {
-        var sawVersion = false;
-        foreach (var raw in Lines(content))
-        {
-            var line = raw.Trim();
-            if (line.Length == 0) continue;
-
-            if (!sawVersion)
-            {
-                if (!line.StartsWith("VERSION", StringComparison.OrdinalIgnoreCase)) return false;
-                sawVersion = true;
-                continue;
-            }
-            return line.StartsWith("Begin ", StringComparison.OrdinalIgnoreCase);
-        }
-        return false;
-    }
-
     /// <summary>
     /// The leading <c>Attribute</c> block of a code section, with its line endings, or <c>""</c> if absent.
     /// </summary>

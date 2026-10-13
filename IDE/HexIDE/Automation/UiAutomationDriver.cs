@@ -1315,7 +1315,7 @@ public static class UiAutomationDriver
             $"{tool} refused: offset {span.Offset} is in the file's header or a member's Attribute lines, which "
           + "only the IDE changes (the designer, a save, a rename). Nothing was written. The nearest place "
           + $"that can be edited starts at offset {past}; put the caret there with interact set_property "
-          + $"CaretOffset={past}.");
+          + $"CaretOffset={past}. Offsets count from the start of the file, in the text get_file_content returns.");
     }
 
     /// <summary>

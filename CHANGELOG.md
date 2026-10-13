@@ -71,6 +71,14 @@ there isn't one yet. Anything may change between 0.x releases.
   keystroke in the header writes nothing and no longer asks, and nor does a change made in the form designer.
   Paste, cut and deleting a selection now do ask: until now they slipped past the prompt by every route, the
   keys, the menus and the toolbar alike.
+- **For automation clients: `get_file_content` returns a form's, module's or class's whole file**, header
+  included, whether or not it is open in the IDE, where it used to return the code alone. Its line 1 is the
+  file's first line, as every tool that takes or reports a line counts, and an editor offset indexes it.
+  `set_file_content` takes that text back unchanged, or the code alone as before. A whole `.frm` is no longer
+  refused for being one: only a header that differs from the document's is refused, and nothing changes. Its
+  reply now counts the lines the document holds from the top of the file. `hasUnsavedChanges` means what it
+  did. A client that edits what it read and sends it back needs no change; one that searched `content` for
+  line numbers now finds them counted from the top of the file.
 
 ### Fixed
 
