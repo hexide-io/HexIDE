@@ -1472,9 +1472,19 @@
   of `BillOfFare.frm` and `Game.cls` through the surface, the six shipped signatures, and a v0.2.0-shaped host
   answering the new members. `AIChatWholeFileTests` carries the ai-chat delta's two scenarios and the prompt,
   description, navigation and notice cases.
-  — **Not done:** AI Chat's `get_file_content` still reads through navigate-then-active-document, which is wrong
-  for a background tab and needs a read-by-name member; `GetFor` cannot say a name is ambiguous. Both recorded in
-  design.md. Not live-verified; 3.22.
+  — **Not done:** AI Chat's `get_file_content` still reads through navigate-then-active-document and needs a
+  read-by-name member; since the review it refuses rather than answers with the wrong file. `GetFor` cannot say a
+  name is ambiguous. Both recorded in design.md, and each filed as an issue, see the #273 thread. Not
+  live-verified; 3.22 carries the checks.
+  — **Review** (design.md, "Settled in the 3.19 review"). The ai-chat requirement is met on both paths: a refused
+  `apply_edit` is shown in the transcript as well as told to the model (`TheAssistantsEditIsRefused`, which drives
+  the tool call through the chat), and an Apply's outcome is told to the model as well as shown, held while the
+  model is responding (`ApplyingABlockTheIdeRefuses`, `ABlockAppliedWhileTheAssistantIsRespondingIsToldOnlyWhereANoteMayGo`,
+  `ANoteFromTheIdeIsNotShownAsTheDevelopersOwnMessageWhenTheChatReopens`). The add-in contract no longer implies a
+  replacement checks a member's attribute run; 4.5b owns that. Navigation brings the window forward, or says it
+  could not. AI Chat's `get_diagnostics` refuses an unknown or ambiguous name, replies use one spelling, and blank
+  `apply_edit` content is refused. An `ApplyEdits` refusal names the edit by its index and the positions sent.
+  `TheFileListCoversEveryLoadedProject` fails under the review's missed mutation (`GetProjects().Take(1)`).
 - [ ] 3.20 New strings (refusal reasons, the reworded read-only banner) added to `en` and every shipped pack in
   the same change. A fold's label is its first line, so the header fold has no string of its own (settled in
   design.md, "Settled while building phase 3").
@@ -1482,6 +1492,8 @@
   header; Replace All does not touch a control's `Begin` line; a designer move is not undone by code-window
   undo; the header stays folded after formatting; a migrated sidecar keeps marks on their statements and is
   idempotent; an add-in replacement that changes the header is refused.
+  — **Already done:** "an add-in replacement that changes the header is refused" is
+  `AddinWholeFileTests.AnAddinReplacementThatChangesTheHeaderIsRefused`, written with 3.19. Do not duplicate it.
 
 - [ ] 3.22 Verify in the running IDE, through the automation tools rather than by asking anyone to click:
   open a VB6-authored `.frm`, `.cls` and `.bas`; snapshot the header folded and greyed under a light and a
@@ -1489,6 +1501,13 @@
   why is #705); confirm the margin
   and status bar count from the top of the file; confirm a designer move updates the header with the code
   window open. UI work is not complete until it is seen running.
+  From 3.19, in the AI Chat panel, its transcript driven through `ChatViewModel.Say` and the reply's Apply button
+  through `interact`: an approved whole-file Apply of a form's own content, unchanged, is accepted and says so; an
+  Apply whose designer block has one caption changed is refused, with the reason visible in the transcript, and
+  the reason is in what the model is told (the session's IDE note, readable in `chat-history.json`); after each
+  whole-buffer write, where the caret ends up and whether the header fold is still folded. `get_file_content` on a
+  file open behind another tab returns that file, not the one in front, and leaves the header fold folded or
+  says why not; `navigate_to` into a background tab brings it forward.
   Refresh `docs/mcp-first-contact.md`'s transcript from that run: its `open_file` reply still reads
   `{"success": true}`, where the tool now returns `project`, `document` and a `note` too, and
   `FirstContactTranscriptTests` checks only that the fields it shows still exist.
@@ -1511,6 +1530,11 @@
   it along. An orphaned run, however it arises, is preserved as inert text. 3.7 already covers a selection
   spanning the line and its run. What is left is the line on its own, which the provider cannot widen to
   (AvaloniaEdit refuses segments outside the requested span), so it needs a guarded write.
+- [ ] 4.5b Whole replacements refuse a change to a member's attribute run: add-in `TrySetContent` and
+  `SetContent`, and automation `set_file_content`, as the code-editor requirement "Only the IDE SHALL change a
+  read-only region" requires. Until then `GuardedContent.Replace` compares the header alone (design.md, "A whole
+  replacement checks the header"), and the add-in contract's doc comments say a replacement that changes a run is
+  applied. Close both, and refuse with a reason that names the member.
 - [ ] 4.6 Corpus lane: files carrying member-level attributes round-trip, which no lane covers today.
 - [ ] 4.7 Tests, one per scenario in this phase's delta, plus a deletion case for a described procedure.
 - [ ] 4.8 Verify in the running IDE, through the automation tools: a procedure's attributes folded into its

@@ -8,9 +8,11 @@ public enum AddinDiagnosticSeverity { Error = 1, Warning = 2, Information = 3, H
 /// The document's whole file, as its code window holds it: a form's <c>VERSION</c> line and designer block, a
 /// class's header and the <c>Attribute</c> lines that open the code come first, then the code. It is the text
 /// every position on this surface counts in, so line N of it is line N to <see cref="AddinSelection"/>,
-/// <see cref="AddinTextEdit"/>, <see cref="AddinDiagnostic"/> and <c>NavigateTo</c>. The header and a member's
-/// <c>Attribute</c> lines are the IDE's to change: <c>TrySetContent</c> takes this text back with them unchanged,
-/// or the code alone, and refuses a header that differs. Before hexide-io/HexIDE#273 this was the code alone,
+/// <see cref="AddinTextEdit"/>, <see cref="AddinDiagnostic"/> and <c>NavigateTo</c>. The header is the IDE's to
+/// change: <c>TrySetContent</c> takes this text back with the header unchanged, or the code alone, and refuses a
+/// header that differs. A member's <c>Attribute</c> lines are the IDE's too, and <c>TryApplyEdits</c> refuses an
+/// edit to them; <c>TrySetContent</c> does not yet check them, so a replacement that changes one is applied
+/// (hexide-io/HexIDE#273 task 4.5b). Before hexide-io/HexIDE#273 this was the code alone,
 /// starting at the form's <c>Attribute</c> lines or after the class's header. A form created in this session and
 /// not yet saved or changed in the designer has no header yet, so for it this is still the code alone.
 /// </param>

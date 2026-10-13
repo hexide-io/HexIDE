@@ -35,10 +35,22 @@ public class AddinWholeFileTests : IDisposable
     private readonly string dir = Path.Join(Path.GetTempPath(), "hexide-addin-" + Guid.NewGuid().ToString("N"));
     private readonly AddinEditorService sut;
 
+    /// <summary>The window in front. The dock brings a window forward as the real one does, unless told it cannot.</summary>
+    private CodeEditorViewModel? active;
+    private bool canBringForward = true;
+
     public AddinWholeFileTests()
     {
         projects.LoadedProjects.Returns(_ => loaded);
         dock.OpenDocuments.Returns(_ => open.Cast<BaseEditorWindowViewModel>().ToList());
+        dock.ActiveDocument.Returns(_ => active);
+        dock.TryActivate(Arg.Any<Func<CodeEditorViewModel, bool>>()).Returns(call =>
+        {
+            if (!canBringForward || open.FirstOrDefault(call.Arg<Func<CodeEditorViewModel, bool>>()) is not { } match)
+                return false;
+            active = match;
+            return true;
+        });
         sut = new AddinEditorService(dock, Substitute.For<IEditorService>(), projects);
     }
 
@@ -124,7 +136,7 @@ public class AddinWholeFileTests : IDisposable
     private CodeEditorViewModel Show(CodeEditorViewModel editor)
     {
         open.Add(editor);
-        dock.ActiveDocument.Returns(editor);
+        active = editor;
         return editor;
     }
 
@@ -214,9 +226,51 @@ public class AddinWholeFileTests : IDisposable
         (await sut.SetContent("Module1", ModuleCode, null)).Should().BeFalse("the members that answer true or false refuse it too");
         sut.NavigateTo("Module1", line, 1, null).Should().BeFalse();
 
+        // Naming the project reaches that project's document, and only it, through each of the three members. The
+        // first project is named for the move, so a project dropped on the way would land on the other document.
         (await sut.TryApplyEdits("Module1", [new AddinTextEdit(line, 13, line, 14, "1")], "Stock")).Succeeded.Should().BeTrue();
         second.Document.Text.Should().Contain("Total = 1");
         first.Document.Text.Should().Be(firstBefore, "naming the project reaches that project's document only");
+
+        var replaced = ModuleCode.Replace("Total = 0", "Total = 2");
+        (await sut.TrySetContent("Module1", replaced, "Stock")).Succeeded.Should().BeTrue();
+        second.Document.Text.Should().Contain("Total = 2");
+        first.Document.Text.Should().Be(firstBefore);
+
+        (await sut.TryNavigateTo("Module1", line, 5, "Shop")).Succeeded.Should().BeTrue();
+        first.Document.GetLocation(first.CaretOffset).Line.Should().Be(line);
+        second.Document.GetLocation(second.CaretOffset).Line.Should().NotBe(line);
+        dock.ActiveDocument.Should().BeSameAs(first, "the move brings the named project's document to the front");
+    }
+
+    [AvaloniaFact]
+    public async Task NavigatingToADocumentOpenBehindAnotherBringsItToTheFront()
+    {
+        // An editor already open was returned where it was, so the caret moved in a tab the developer could not
+        // see, and AI Chat told its model it had taken the developer to the line.
+        var behind = OpenModule("Shop", "Module1");
+        var inFront = OpenModule("Shop", "Module2");
+        var line = LineOf(behind.Document.Text, "    Total = 0");
+
+        var result = await sut.TryNavigateTo("Module1", line, 1, null);
+
+        result.Succeeded.Should().BeTrue();
+        dock.ActiveDocument.Should().BeSameAs(behind).And.NotBeSameAs(inFront);
+        behind.Document.GetLocation(behind.CaretOffset).Line.Should().Be(line);
+    }
+
+    [AvaloniaFact]
+    public async Task NavigatingToADocumentThatCannotComeToTheFrontSaysSo()
+    {
+        var behind = OpenModule("Shop", "Module1");
+        OpenModule("Shop", "Module2");
+        canBringForward = false;
+
+        var result = await sut.TryNavigateTo("Module1", 3, 1, null);
+
+        result.Succeeded.Should().BeFalse("the developer is not looking at the line, so the move did not do what was asked");
+        result.Reason.Should().Contain("could not be brought to the front").And.Contain("Shop/Module1");
+        behind.Document.GetLocation(behind.CaretOffset).Line.Should().Be(3, "the caret was moved, and the reason says so");
     }
 
     // ── Refusals reach the add-in, with their reason (task 3.21's extra case) ───────────────────────────────
@@ -245,8 +299,43 @@ public class AddinWholeFileTests : IDisposable
 
         result.Succeeded.Should().BeFalse();
         result.Reason.Should().Contain("line 3, column 24", "the add-in named the edit by line and column, not by a buffer offset")
-            .And.NotContain("offset");
+            .And.Contain("Edit 2 of 2").And.NotContain("offset");
         editor.Document.Text.Should().Be(Frm, "all or nothing: the edit in the code is not applied either");
+    }
+
+    [AvaloniaFact]
+    public async Task ARefusedEditIsNamedAsTheAddinSentIt()
+    {
+        // A column past a line's end means the line's end, so the buffer places this edit at the end of line 3,
+        // which the refusal used to name. The add-in sent column 200, as the second of three edits, and that is
+        // what it can recognise.
+        var editor = OpenForm();
+        var code = LineOf(Frm, "    Command1.Enabled");
+
+        var result = await sut.TryApplyEdits("frmOrders",
+        [
+            new AddinTextEdit(code, 5, code, 13, "cmdOk"),
+            new AddinTextEdit(3, 200, 3, 200, " "),
+            new AddinTextEdit(code + 1, 1, code + 1, 1, "'"),
+        ], null);
+
+        result.Succeeded.Should().BeFalse();
+        result.Reason.Should().StartWith("Edit 2 of 3 (line 3, column 200 to line 3, column 200) would change the document's header");
+        editor.Document.Text.Should().Be(Frm);
+    }
+
+    [AvaloniaFact]
+    public async Task AnEditThatEndsBeforeItStartsIsRefused()
+    {
+        var editor = OpenForm();
+        var code = LineOf(Frm, "    Command1.Enabled");
+
+        var result = await sut.TryApplyEdits("frmOrders", [new AddinTextEdit(code, 9, code, 5, "x")], null);
+
+        result.Succeeded.Should().BeFalse();
+        result.Reason.Should().Be(
+            $"The edit ends (line {code}, column 5) before it starts (line {code}, column 9). Nothing was changed.");
+        editor.Document.Text.Should().Be(Frm);
     }
 
     [AvaloniaFact]

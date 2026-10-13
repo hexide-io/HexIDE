@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using Avalonia.Threading;
 using HexIDE.Addins;
 using HexIDE.AIChat;
 using HexIDE.AIChat.Views;
@@ -58,23 +59,60 @@ public class AIChatWholeFileTests : IDisposable
             .ExecuteAsync(new ToolCall("call_1", tool, JsonSerializer.Serialize(arguments)))
             .ContinueWith(t => (JsonObject)JsonNode.Parse(t.Result)!, TaskScheduler.Default);
 
+    private static ToolCall Call(string tool, object arguments) => new("call_1", tool, JsonSerializer.Serialize(arguments));
+
+    /// <summary>The loaded projects as the add-in surface lists them: Orders (Form1, Module1) and Stock (Module1).</summary>
+    private void TwoProjectsLoaded() =>
+        projects.GetProjects().Returns(
+        [
+            new AddinProjectInfo("Orders", @"C:\p\Orders.vbp",
+            [
+                new AddinFileInfo("Form1", @"C:\p\Form1.frm", AddinDocumentKind.Form, "Orders"),
+                new AddinFileInfo("Module1", @"C:\p\Module1.bas", AddinDocumentKind.Module, "Orders"),
+            ]),
+            new AddinProjectInfo("Stock", @"C:\s\Stock.vbp",
+            [
+                new AddinFileInfo("Module1", @"C:\s\Module1.bas", AddinDocumentKind.Module, "Stock"),
+            ]),
+        ]);
+
+    private static JsonObject ToolResult(ConversationMessage message)
+    {
+        message.Role.Should().Be("tool");
+        return (JsonObject)JsonNode.Parse(message.Content)!;
+    }
+
     // ── The ai-chat delta's scenarios ───────────────────────────────────────────────────────────────────────
 
-    [Fact]
+    [AvaloniaFact]
     public async Task TheAssistantsEditIsRefused()
     {
+        // Both halves of the requirement: the assistant is told, through the tool result, and so is the developer
+        // who approved the edit, in the transcript. The transcript said only "Using tool" until the 3.19 review.
         editor.TrySetContent("Form1", Arg.Any<string>(), Arg.Is<string?>(p => p == null)).Returns(new AddinEditResult(false, HeaderRefusal));
+        var chat = new ChatViewModel(host, settingsDir);
 
-        var reply = await Execute("apply_edit", new { file_name = "Form1", content = FormFile.Replace("Orders", "Sales") });
+        await chat.RunToolCallAsync(Call("apply_edit", new { file_name = "Form1", content = FormFile.Replace("Orders", "Sales") }));
+        Dispatcher.UIThread.RunJobs();
 
-        reply["success"]!.GetValue<bool>().Should().BeFalse("the model must not be told an edit landed that did not");
-        reply["error"]!.GetValue<string>().Should().Be(HeaderRefusal, "the model is told why, so it can send the code alone instead");
-        _ = editor.DidNotReceiveWithAnyArgs().SetContent(default!, default!);
+        var told = ToolResult(chat.SessionLog.Last());
+        told["success"]!.GetValue<bool>().Should().BeFalse("the model must not be told an edit landed that did not");
+        told["error"]!.GetValue<string>().Should().Be(HeaderRefusal, "the model is told why, so it can send the code alone instead");
+
+        var shown = chat.Messages.Last();
+        shown.IsError.Should().BeTrue("the developer approved this edit and must see that it did not land");
+        shown.RawContent.Should().Be($"Not applied to Form1: {HeaderRefusal}");
+
+        // The member that answers only true or false would let a refusal pass for success, so it is not the one used.
+        _ = editor.Received(1).TrySetContent("Form1", FormFile.Replace("Orders", "Sales"), null);
+        _ = editor.DidNotReceive().SetContent(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>());
     }
 
     [Fact]
     public async Task ApplyingABlockTheIdeRefuses()
     {
+        // Both halves again: the developer sees it, and the assistant is told, where before only the transcript said
+        // and the assistant's next turn went on as though its code were in the file.
         editor.TrySetContent("Form1", Arg.Any<string>(), "Orders").Returns(new AddinEditResult(false, HeaderRefusal));
         var chat = new ChatViewModel(host, settingsDir);
 
@@ -84,6 +122,11 @@ public class AIChatWholeFileTests : IDisposable
         shown.IsError.Should().BeTrue();
         shown.RawContent.Should().Contain("Not applied to Form1").And.Contain(HeaderRefusal);
         _ = editor.Received(1).TrySetContent("Form1", FormFile.Replace("Orders", "Sales"), "Orders");
+
+        var note = chat.SessionLog.Last();
+        note.FromIde.Should().BeTrue();
+        note.Role.Should().Be("user", "the only role that can carry a note with no tool call to answer");
+        note.Content.Should().Contain("Form1 (project Orders)").And.Contain("refused").And.Contain(HeaderRefusal);
     }
 
     // ── apply_edit and the Apply button ─────────────────────────────────────────────────────────────────────
@@ -97,6 +140,49 @@ public class AIChatWholeFileTests : IDisposable
 
         reply["success"]!.GetValue<bool>().Should().BeTrue();
         reply["headerKept"]!.GetValue<bool>().Should().BeTrue();
+    }
+
+    [AvaloniaFact]
+    public async Task AnApprovedEditTheIdeAcceptsSaysSoInTheTranscript()
+    {
+        editor.TrySetContent("Form1", "Option Explicit\r\n", null).Returns(new AddinEditResult(true, HeaderKept: true));
+        var chat = new ChatViewModel(host, settingsDir);
+
+        await chat.RunToolCallAsync(Call("apply_edit", new { file_name = "Form1", content = "Option Explicit\r\n" }));
+        Dispatcher.UIThread.RunJobs();
+
+        chat.Messages.Select(m => m.RawContent).Should().Equal("Using tool: `apply_edit`", "Applied to Form1.");
+        chat.Messages.Last().IsError.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public async Task AReadToolAddsNothingToTheTranscriptButItsStatusLine()
+    {
+        var chat = new ChatViewModel(host, settingsDir);
+
+        await chat.RunToolCallAsync(Call("get_active_file", new { }));
+        Dispatcher.UIThread.RunJobs();
+
+        chat.Messages.Select(m => m.RawContent).Should().Equal("Using tool: `get_active_file`");
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("  \r\n")]
+    public async Task AnEditWithNoContentIsRefusedRatherThanEmptyingTheFile(string? content)
+    {
+        // The IDE takes text with no header as the code alone, so empty content would keep the header and erase
+        // the code, and the reply said success. A truncated call is likelier than a model that means that.
+        var arguments = content is null
+            ? (object)new { file_name = "Form1" }
+            : new { file_name = "Form1", content };
+
+        var reply = await Execute("apply_edit", arguments);
+
+        reply["success"]!.GetValue<bool>().Should().BeFalse();
+        reply["error"]!.GetValue<string>().Should().Contain("No content was sent, so nothing was changed");
+        _ = editor.DidNotReceiveWithAnyArgs().TrySetContent(default!, default!, default);
     }
 
     [Fact]
@@ -126,7 +212,7 @@ public class AIChatWholeFileTests : IDisposable
     }
 
     [Fact]
-    public async Task ABlockTheIdeAcceptsIsReportedInTheTranscript()
+    public async Task ABlockTheIdeAcceptsIsReportedInTheTranscriptAndToTheAssistant()
     {
         editor.TrySetContent("Form1", "Option Explicit", "Orders").Returns(new AddinEditResult(true, HeaderKept: true));
         var chat = new ChatViewModel(host, settingsDir);
@@ -135,6 +221,8 @@ public class AIChatWholeFileTests : IDisposable
 
         chat.Messages.Last().IsError.Should().BeFalse();
         chat.Messages.Last().RawContent.Should().Be("Applied to Form1.");
+        chat.SessionLog.Last().FromIde.Should().BeTrue();
+        chat.SessionLog.Last().Content.Should().Contain("accepted").And.Contain("keeping the file's own header");
     }
 
     [Fact]
@@ -147,6 +235,37 @@ public class AIChatWholeFileTests : IDisposable
 
         chat.Messages.Last().IsError.Should().BeTrue();
         chat.Messages.Last().RawContent.Should().Contain("no code window is active");
+        chat.SessionLog.Should().BeEmpty("no change was put to the IDE, so there is nothing to tell the assistant");
+    }
+
+    [Fact]
+    public async Task ABlockAppliedWhileTheAssistantIsRespondingIsToldOnlyWhereANoteMayGo()
+    {
+        // The Apply button stays live while the assistant works, including between a tool call and its result,
+        // where a note would make the endpoint refuse the request and leave the saved history unusable.
+        editor.TrySetContent("Form1", "Option Explicit", "Orders").Returns(new AddinEditResult(false, HeaderRefusal));
+        var chat = new ChatViewModel(host, settingsDir) { IsResponding = true };
+
+        await chat.ApplyToActiveFileAsync("Option Explicit");
+
+        chat.SessionLog.Should().BeEmpty("the note is held while the assistant is responding");
+        chat.FlushHeldNotes();
+        chat.SessionLog.Should().ContainSingle().Which.Content.Should().Contain(HeaderRefusal);
+    }
+
+    [Fact]
+    public async Task ANoteFromTheIdeIsNotShownAsTheDevelopersOwnMessageWhenTheChatReopens()
+    {
+        editor.TrySetContent("Form1", "Option Explicit", "Orders").Returns(new AddinEditResult(false, HeaderRefusal));
+        await new ChatViewModel(host, settingsDir).ApplyToActiveFileAsync("Option Explicit");
+
+        var reopened = new ChatViewModel(host, settingsDir);
+
+        reopened.SessionLog.Should().ContainSingle().Which.FromIde.Should().BeTrue("the note is saved with the history");
+        var shown = reopened.Messages.Should().ContainSingle().Subject;
+        shown.IsUser.Should().BeFalse("the developer did not type it");
+        shown.IsStatusLine.Should().BeTrue();
+        shown.RawContent.Should().Contain(HeaderRefusal);
     }
 
     [Fact]
@@ -186,6 +305,122 @@ public class AIChatWholeFileTests : IDisposable
         reply["success"]!.GetValue<bool>().Should().BeTrue();
     }
 
+    // ── Naming a file among every loaded project ────────────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task TheFileListCoversEveryLoadedProject()
+    {
+        // The ambiguity refusals tell the model to pass a project; this is where it learns which there are.
+        TwoProjectsLoaded();
+
+        var files = (await Execute("list_files", new { }))["files"]!.AsArray()
+            .Select(f => $"{f!["project"]!.GetValue<string>()}/{f["fileName"]!.GetValue<string>()}");
+
+        files.Should().Equal("Orders/Form1", "Orders/Module1", "Stock/Module1");
+    }
+
+    [Fact]
+    public async Task ReadingANameTwoProjectsShareIsRefusedWithBothProjects()
+    {
+        TwoProjectsLoaded();
+
+        var reply = await Execute("get_file_content", new { file_name = "module1" });
+
+        reply["error"]!.GetValue<string>().Should().Contain("more than one project").And.Contain("Orders, Stock")
+            .And.Contain("Pass project");
+        _ = editor.DidNotReceiveWithAnyArgs().TryNavigateTo(default!, default, default, default);
+    }
+
+    [Fact]
+    public async Task ReadingAFileInTheProjectNamedOpensThatOneAndReturnsIt()
+    {
+        TwoProjectsLoaded();
+        const string stock = "Attribute VB_Name = \"Module1\"\r\nOption Explicit\r\n";
+        editor.TryNavigateTo("Module1", 1, 1, "Stock").Returns(new AddinEditResult(true));
+        editor.GetActiveDocument().Returns(new AddinDocument("Module1", @"C:\s\Module1.bas", stock, AddinDocumentKind.Module, "Stock"));
+
+        var reply = await Execute("get_file_content", new { file_name = "Module1", project = "Stock" });
+
+        reply["content"]!.GetValue<string>().Should().Be(stock);
+        reply["project"]!.GetValue<string>().Should().Be("Stock");
+    }
+
+    [Fact]
+    public async Task ReadingAFileThatDidNotComeToTheFrontIsRefusedRatherThanAnsweredWithAnother()
+    {
+        // The file is read as the active document. When the window in front is another file, that file's content
+        // came back under the name asked for.
+        TwoProjectsLoaded();
+        editor.TryNavigateTo("Module1", 1, 1, "Stock").Returns(new AddinEditResult(true));
+
+        var reply = await Execute("get_file_content", new { file_name = "Module1", project = "Stock" });
+
+        reply["content"].Should().BeNull("Form1 is in front, and its content is not Module1's");
+        reply["error"]!.GetValue<string>().Should().Contain("Could not read Module1").And.Contain("holds Form1 in project Orders");
+    }
+
+    [Fact]
+    public async Task ReadingAFileTheIdeCannotOpenSaysWhy()
+    {
+        TwoProjectsLoaded();
+        editor.TryNavigateTo("Form1", 1, 1, "Orders").Returns(new AddinEditResult(false, "No code window could be opened on Orders/Form1."));
+
+        var reply = await Execute("get_file_content", new { file_name = "Form1" });
+
+        reply["error"]!.GetValue<string>().Should().Be("Could not open Form1: No code window could be opened on Orders/Form1.");
+    }
+
+    [Fact]
+    public async Task DiagnosticsForANameTwoProjectsShareAreRefusedNotAnsweredEmpty()
+    {
+        // The host answers an empty list for a name it cannot resolve to one document, which reads as "no errors".
+        TwoProjectsLoaded();
+        diagnostics.GetFor(default!, default).ReturnsForAnyArgs([]);
+
+        var reply = await Execute("get_diagnostics", new { file_name = "Module1" });
+
+        reply["diagnostics"].Should().BeNull();
+        reply["error"]!.GetValue<string>().Should().Contain("more than one project").And.Contain("Orders, Stock");
+    }
+
+    [Fact]
+    public async Task DiagnosticsForANameNoProjectHasAreRefusedNotAnsweredEmpty()
+    {
+        TwoProjectsLoaded();
+        diagnostics.GetFor(default!, default).ReturnsForAnyArgs([]);
+
+        var reply = await Execute("get_diagnostics", new { file_name = "Modul1" });
+
+        reply["error"]!.GetValue<string>().Should().Contain("File not found: Modul1").And.Contain("list_files");
+    }
+
+    [Fact]
+    public async Task DiagnosticsForAFileAreAskedForInTheProjectItIsIn()
+    {
+        TwoProjectsLoaded();
+        diagnostics.GetFor("Module1", "Stock").Returns(
+            [new AddinDiagnostic("Module1", 2, 1, "Syntax error", AddinDiagnosticSeverity.Error, Project: "Stock")]);
+
+        var reply = await Execute("get_diagnostics", new { file_name = "module1", project = "stock" });
+
+        var item = reply["diagnostics"]!.AsArray().Should().ContainSingle().Subject!;
+        item["message"]!.GetValue<string>().Should().Be("Syntax error");
+        item["project"]!.GetValue<string>().Should().Be("Stock");
+        diagnostics.Received(1).GetFor("Module1", "Stock");
+    }
+
+    [Fact]
+    public async Task DiagnosticsWithNoFileNamedAreEveryFilesDiagnostics()
+    {
+        diagnostics.GetAll().Returns(
+            [new AddinDiagnostic("Form1", 8, 5, "Variable not defined", AddinDiagnosticSeverity.Error, Project: "Orders")]);
+
+        var reply = await Execute("get_diagnostics", new { });
+
+        reply["diagnostics"]!.AsArray().Should().ContainSingle();
+        diagnostics.DidNotReceiveWithAnyArgs().GetFor(default!, default);
+    }
+
     // ── What the model is shown ─────────────────────────────────────────────────────────────────────────────
 
     [Fact]
@@ -193,8 +428,30 @@ public class AIChatWholeFileTests : IDisposable
     {
         var reply = await Execute("get_active_file", new { });
 
-        reply["Content"]!.GetValue<string>().Should().Be(FormFile);
-        reply["Project"]!.GetValue<string>().Should().Be("Orders");
+        reply["content"]!.GetValue<string>().Should().Be(FormFile);
+        reply["project"]!.GetValue<string>().Should().Be("Orders");
+    }
+
+    [Fact]
+    public async Task EveryReplyNamesItsFieldsOneWay()
+    {
+        // get_active_file answered "Project" and list_files "project"; apply_edit's "fileName" sat beside the read
+        // tools' "FileName". A model keying on one spelling found nothing under the other.
+        TwoProjectsLoaded();
+        editor.TrySetContent("Form1", "x", null).Returns(new AddinEditResult(true));
+        diagnostics.GetAll().Returns(
+            [new AddinDiagnostic("Form1", 8, 5, "Variable not defined", AddinDiagnosticSeverity.Error, "E1", "vb6", "Orders")]);
+
+        var keys = new List<string>();
+        keys.AddRange(Keys(await Execute("get_active_file", new { })));
+        keys.AddRange(Keys((JsonObject)(await Execute("list_files", new { }))["files"]![0]!));
+        keys.AddRange(Keys((JsonObject)(await Execute("get_diagnostics", new { }))["diagnostics"]![0]!));
+        keys.AddRange(Keys(await Execute("apply_edit", new { file_name = "Form1", content = "x" })));
+
+        keys.Should().Contain(new[] { "fileName", "project", "content", "kind", "line", "column", "message", "severity", "headerKept" })
+            .And.OnlyContain(k => char.IsLower(k[0]), "one spelling for every field, the one apply_edit already used");
+
+        static IEnumerable<string> Keys(JsonObject o) => o.Select(p => p.Key);
     }
 
     [Fact]

@@ -1371,21 +1371,24 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// Applies edits an add-in computed against this buffer, or refuses them all when any would change a
     /// read-only region.
     /// </summary>
-    /// <returns>
-    /// Null when applied; otherwise why not, naming the refused edit by the 1-based line and column it starts at,
-    /// counted from the top of the file, which is how an add-in named it.
-    /// </returns>
-    internal string? ApplyEdits(IReadOnlyList<TextChange> edits)
+    /// <param name="edits">The edits, as offsets in this buffer.</param>
+    /// <param name="describe">
+    /// How the refusal names the edit at an index, in the caller's own terms. Without it the edit is named by the
+    /// 1-based line and column its offset falls at, counted from the top of the file.
+    /// </param>
+    /// <returns>Null when applied; otherwise why not, naming the refused edit.</returns>
+    internal string? ApplyEdits(IReadOnlyList<TextChange> edits, Func<int, string>? describe = null)
     {
         var regions = ReadOnlyRegionsNow;
-        foreach (var edit in edits)
+        for (var i = 0; i < edits.Count; i++)
         {
+            var edit = edits[i];
             if (ReadOnlyRegions.Changes(regions, edit.Offset, edit.Length))
             {
                 var at = Document.GetLocation(edit.Offset);
-                return $"The edit at line {at.Line}, column {at.Column} would change the document's header (its "
-                       + "designer block, class header or leading Attribute lines) or a member's Attribute lines, "
-                       + "which only the IDE changes. Nothing was changed.";
+                return $"{describe?.Invoke(i) ?? $"The edit at line {at.Line}, column {at.Column}"} would change the "
+                       + "document's header (its designer block, class header or leading Attribute lines) or a "
+                       + "member's Attribute lines, which only the IDE changes. Nothing was changed.";
             }
         }
 

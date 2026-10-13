@@ -102,11 +102,14 @@ there isn't one yet. Anything may change between 0.x releases.
   an unknown or ambiguous name, a header the call would change, or a line the document does not have. The existing
   members keep their signatures and answers, so a packaged add-in keeps running; and the new ones have default
   implementations, so a hand-written `IEditorAccess` keeps compiling. A line outside the document passed to
-  `NavigateTo` now moves nothing, where it closed the IDE.
+  `NavigateTo` now moves nothing, where it closed the IDE, and navigating to a document open behind another tab
+  brings it to the front, where the caret used to move out of sight.
 - **The AI Chat panel is told, and tells you, when the IDE refuses an edit.** It is shown the whole file, header
   included, and told the header is read-only. An edit it asks for, or a block you apply, that would change the
-  header is refused with the reason in the transcript, where before the edit was reported as done whether it was
-  or not. Its privacy notice now says the active file's contents are sent, layout and captions included, and is
+  header is refused: the reason is shown in the transcript and the assistant is told it, on both paths, where
+  before the edit was reported as done whether it was or not. Asking for the diagnostics of a file name two
+  loaded projects share, or one none has, is refused with the reason rather than answered with no diagnostics.
+  Its privacy notice now says the active file's contents are sent, layout and captions included, and is
   shown once more to anyone who saw the old one, which said "code".
 
 ### Fixed

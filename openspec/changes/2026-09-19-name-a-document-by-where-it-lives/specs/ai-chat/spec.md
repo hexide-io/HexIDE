@@ -12,8 +12,10 @@ the other side: the assistant carries on as though the edit landed, and the deve
 
 #### Scenario: The assistant's edit is refused
 - **WHEN** the assistant asks to replace a file's content with text whose header differs from the file's
-- **THEN** nothing is written, and the assistant is told the edit was refused and why
+- **THEN** nothing is written, the assistant is told the edit was refused and why, and the transcript shows the
+  refusal and its reason
 
 #### Scenario: Applying a block the IDE refuses
 - **WHEN** the developer applies a code block whose header differs from the active file's
-- **THEN** nothing is written, and the transcript says the block was not applied and why
+- **THEN** nothing is written, the transcript says the block was not applied and why, and the assistant is told
+  the same

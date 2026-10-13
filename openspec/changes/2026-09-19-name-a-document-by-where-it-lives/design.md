@@ -725,7 +725,13 @@ none before this task, and is left for 5.7, which owns `FormCodeText`'s comments
 `GuardedContent.Replace` compares the incoming header with the document's and nothing else. A member's
 `Attribute` lines sit in the code it replaces, and phase 4 decides how they follow the line they describe.
 `ApplyEdits` and every other range write refuse any read-only region. The addin-system delta now says this
-in those terms, which design.md's row for `SetContent` already did.
+in those terms, which design.md's row for `SetContent` already did. **This stands for phase 3 only.** The
+code-editor delta's requirement "Only the IDE SHALL change a read-only region" counts a member's attribute run
+as one and names add-in and automation commands among the edits that may not change it, so until phase 4 a
+whole replacement (add-in `TrySetContent` and `SetContent`, automation `set_file_content`) that rewrites or
+drops a member's run is applied, and that requirement is not met for it. Task 4.5b owns closing it, once 4.1
+can say which run belongs to which line. The add-in contract's doc comments say so, rather than implying a
+refusal (3.19 review).
 
 **The read-only banner gets a new key rather than new words under the old one.** Shipped-pack parity checks
 only that a key is present, so rewording under the same key would leave every translation saying the old
@@ -828,12 +834,39 @@ told. The ai-chat delta added here holds the add-in to reporting a refused chang
 says "contents" and needs no change.
 
 **Not done here, and why.** The AI Chat `get_file_content` tool reads a named file by navigating to it and then
-reading the active document. It reads the wrong document when the file is open in a background tab, because the
-host's open does not activate an editor that is already open, and it may read before the posted open runs. Fixing
-it needs a member that reads a document by name, which the add-in surface lacks; adding one is its own decision.
-Its navigation to line 1 also puts the caret in the folded header, which "Folds and greying" says expands it; that
-is unmeasured, and is 3.22's to look at. `IDiagnosticsAccess.GetFor` still answers empty for a name two projects
-share rather than saying so, and is the one member that names a document and cannot yet tell an add-in why.
+reading the active document. It read the wrong document when the file was open in a background tab, because the
+host's open did not activate an editor that was already open, and it could read before the posted open ran.
+Fixing it needs a member that reads a document by name, which the add-in surface lacks; adding one is its own
+decision. Filed as an issue, see the #273 thread. Its navigation to line 1 also puts the caret in the folded
+header, which "Folds and greying" says expands it; that is unmeasured, and is 3.22's to look at.
+`IDiagnosticsAccess.GetFor` still answers empty for a name two projects share rather than saying so, and is the one
+member that names a document and cannot yet tell an add-in why, so the addin-system scenario "Two projects with a
+document of the same name" is unmet for it. Filed as an issue, see the #273 thread.
+
+**Settled in the 3.19 review.** Each of these closes a way the add-in or AI Chat answered something other than
+what happened.
+- *Both halves of the ai-chat requirement, on both paths.* A refused `apply_edit` reached the model and not the
+  transcript, which showed only "Using tool"; a refused Apply reached the transcript and not the model. The
+  transcript now shows what every write tool came to (an `apply_edit` applied or refused, any other write that
+  failed), and the Apply button's outcome, accepted or refused, goes to the model as a note. A note is a `user`
+  message flagged as from the IDE: a `tool` message needs a call to answer, and a `system` message mid-conversation
+  is refused by some endpoints. It is held while the model is responding and put in only where a user message may
+  come, because the Apply button stays live between a tool call and its result, where anything but the result makes
+  the endpoint refuse the request and leaves the saved history unusable. The flag keeps the note out of the
+  developer's own bubbles when the transcript is rebuilt.
+- *Navigation brings the window forward.* `TryNavigateTo` and `NavigateTo` activate an editor that was already open
+  behind another, and `TryNavigateTo` refuses, saying the caret did move, when the window cannot come forward. A
+  write does not come forward, so an add-in changing a background document does not take the developer's view.
+  AI Chat's `get_file_content` now waits on `TryNavigateTo` and refuses when the active document is not the one
+  asked for, which keeps the wrong file from being answered while the read-by-name member above is outstanding.
+- *AI Chat's `get_diagnostics` resolves the name first*, as `get_file_content` does, and refuses a name no project
+  has or two share, which the host answered with an empty list that a model reads as a clean file.
+- *One spelling for every AI Chat reply field*, camelCase through a serializer policy rather than hand-renamed
+  members. `get_active_file` said `Project` and `list_files` said `project`.
+- *`apply_edit` with missing or blank content is refused.* The IDE takes such text as code alone, keeps the header
+  and empties the code, and the reply said success.
+- *An `ApplyEdits` refusal names the edit as the add-in sent it*: its place in the set and the positions given,
+  where it named the buffer position, which differs for a column past a line's end.
 
 ## When a document gets its file (#489, settled 2026-09-20)
 

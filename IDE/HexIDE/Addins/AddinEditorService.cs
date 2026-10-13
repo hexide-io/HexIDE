@@ -68,8 +68,11 @@ public sealed class AddinEditorService(
 
         Dispatcher.UIThread.Post(() =>
         {
-            if (Open(document) is { } editor && MoveCaret(editor, line, column) is { } refusal)
+            if (Open(document) is not { } editor) return;
+            if (MoveCaret(editor, line, column) is { } refusal)
                 Refused(nameof(NavigateTo), document.Display, refusal);
+            else if (BringForward(editor) is { } hidden)
+                Refused(nameof(NavigateTo), document.Display, hidden);
         });
         return true;
     }
@@ -84,9 +87,10 @@ public sealed class AddinEditorService(
         {
             if (Open(document) is not { } editor)
                 return Refusal(nameof(TryNavigateTo), document.Display, NoWindow(document));
-            return MoveCaret(editor, line, column) is { } refusal
-                ? Refusal(nameof(TryNavigateTo), document.Display, refusal)
-                : new AddinEditResult(true);
+            var refusal = MoveCaret(editor, line, column) ?? BringForward(editor);
+            return refusal is null
+                ? new AddinEditResult(true)
+                : Refusal(nameof(TryNavigateTo), document.Display, refusal);
         });
     }
 
@@ -141,7 +145,7 @@ public sealed class AddinEditorService(
                 // A position the document does not have used to throw out of GetLineByNumber, which reached
                 // the caller as an exception rather than an answer.
                 var edit = edits[i];
-                var which = edits.Count == 1 ? "The edit" : $"Edit {i + 1} of {edits.Count}";
+                var which = Which(i);
                 if ((PositionRefusal(doc, document.Display, edit.StartLine, edit.StartColumn, $"{which} starts at")
                      ?? PositionRefusal(doc, document.Display, edit.EndLine, edit.EndColumn, $"{which} ends at")) is { } bad)
                     return Refusal(nameof(TryApplyEdits), document.Display, bad + " Nothing was changed.");
@@ -157,10 +161,16 @@ public sealed class AddinEditorService(
 
             // All or nothing, through the guarded path (#273 task 3.9): an edit that would change the header or a
             // member's attribute lines refuses the whole set, because applying the rest would leave the add-in's
-            // change half made.
-            return editor.ApplyEdits(changes) is { } refusal
+            // change half made. The refusal names the edit as the add-in sent it, by its place in the set and the
+            // positions it gave, rather than where the buffer put it: a column past a line's end means the line's
+            // end here, and the add-in would not recognise that column as one it sent.
+            return editor.ApplyEdits(changes, i =>
+                    $"{Which(i)} (line {edits[i].StartLine}, column {edits[i].StartColumn} to line {edits[i].EndLine}, "
+                    + $"column {edits[i].EndColumn})") is { } refusal
                 ? Refusal(nameof(TryApplyEdits), document.Display, refusal)
                 : new AddinEditResult(true);
+
+            string Which(int i) => edits.Count == 1 ? "The edit" : $"Edit {i + 1} of {edits.Count}";
         });
     }
 
@@ -226,7 +236,29 @@ public sealed class AddinEditorService(
         return Math.Min(docLine.Offset + column - 1, docLine.EndOffset);
     }
 
-    /// <summary>Opens the document's code editor if it is not open, and returns it.</summary>
+    /// <summary>
+    /// Brings an editor's window to the front, or says why it could not.
+    /// </summary>
+    /// <remarks>
+    /// Navigation only. <see cref="Open"/> returns an editor that is already open where it is, so a caret moved in
+    /// a background tab moved where the developer could not see it, and the call answered success: AI Chat's
+    /// <c>navigate_to</c> told the model it had taken the developer to the line while the screen still showed
+    /// another file (hexide-io/HexIDE#273 task 3.19 review). A write does not come forward, so an add-in that
+    /// changes a background document does not take the developer's view with it.
+    /// </remarks>
+    private string? BringForward(CodeEditorViewModel editor)
+    {
+        if (ReferenceEquals(documentDock.ActiveDocument, editor)) return null;
+        return documentDock.TryActivate<CodeEditorViewModel>(e => ReferenceEquals(e, editor))
+            ? null
+            : $"The caret was moved in {editor.Identity.Display}, but its code window could not be brought to the "
+              + "front, so it is not the window the developer sees.";
+    }
+
+    /// <summary>
+    /// Opens the document's code editor if it is not open, and returns it. One already open is returned where it
+    /// is, in front or not.
+    /// </summary>
     private CodeEditorViewModel? Open(DocumentIdentity document)
     {
         if (FindEditor(document) is { } already) return already;

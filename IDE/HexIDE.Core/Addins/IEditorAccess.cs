@@ -16,7 +16,8 @@ namespace HexIDE.Addins;
 /// document has it, or the code alone, in which case the document's own header is kept in front of it; a form's
 /// code may also be sent with the <c>Attribute</c> lines it opens with, as earlier versions of this surface
 /// handed it out. A replacement whose header differs is refused. An edit to a range is refused if it would change
-/// the header or a member's <c>Attribute</c> lines.
+/// the header or a member's <c>Attribute</c> lines. A replacement checks the header only: in this version one that
+/// changes a member's <c>Attribute</c> lines is applied (hexide-io/HexIDE#273 task 4.5b).
 /// </para>
 /// <para>
 /// <b>The members that start <c>Try</c> say why a call was refused</b>, and are the ones to call. The others
@@ -48,8 +49,9 @@ public interface IEditorAccess
     Task ApplyEdits(string fileName, IReadOnlyList<AddinTextEdit> edits);
 
     /// <summary>
-    /// Puts the caret on a document, opening its editor if it is not already open. The caret moves shortly
-    /// after this returns, on the UI thread; <see cref="TryNavigateTo"/> waits for it.
+    /// Puts the caret on a document and brings its code window to the front, opening it if it is not already
+    /// open. The caret moves shortly after this returns, on the UI thread; on HexIDE's own host
+    /// <see cref="TryNavigateTo"/> waits for it.
     /// </summary>
     /// <param name="fileName">The document's VB6 name, in any case.</param>
     /// <param name="line">
@@ -61,8 +63,8 @@ public interface IEditorAccess
     /// documents in two loaded projects is refused rather than guessed at.
     /// </param>
     /// <returns>
-    /// False when no such document was found, or when the name was ambiguous. A line or column the document
-    /// does not have moves nothing.
+    /// False when no loaded project has the name given as <paramref name="project"/>, when no such document was
+    /// found, or when the name was ambiguous. A line or column the document does not have moves nothing.
     /// </returns>
     bool NavigateTo(string fileName, int line, int column, string? project);
 
@@ -74,8 +76,9 @@ public interface IEditorAccess
     /// </remarks>
     /// <inheritdoc cref="NavigateTo(string, int, int, string?)" path="/param"/>
     /// <returns>
-    /// False when no such document was found, when the name was ambiguous, or when the content would have
-    /// changed the document's header, in which case nothing was written. <see cref="TrySetContent"/> says which.
+    /// False when no loaded project has the name given as <paramref name="project"/>, when no such document was
+    /// found, when the name was ambiguous, or when the content would have changed the document's header, in
+    /// which case nothing was written. <see cref="TrySetContent"/> says which.
     /// </returns>
     Task<bool> SetContent(string fileName, string content, string? project);
 
@@ -86,23 +89,27 @@ public interface IEditorAccess
     /// </remarks>
     /// <inheritdoc cref="NavigateTo(string, int, int, string?)" path="/param"/>
     /// <returns>
-    /// False when no such document was found, when the name was ambiguous, or when an edit was refused, in which
-    /// case nothing was written. <see cref="TryApplyEdits"/> says which.
+    /// False when no loaded project has the name given as <paramref name="project"/>, when no such document was
+    /// found, when the name was ambiguous, or when an edit was refused, in which case nothing was written.
+    /// <see cref="TryApplyEdits"/> says which.
     /// </returns>
     Task<bool> ApplyEdits(string fileName, IReadOnlyList<AddinTextEdit> edits, string? project);
 
     /// <summary>
-    /// Puts the caret on a document, opening its editor if it is not already open, and completes once it is
-    /// there.
+    /// Puts the caret on a document and brings its code window to the front, opening it if it is not already
+    /// open, and says why when it does not.
     /// </summary>
     /// <inheritdoc cref="NavigateTo(string, int, int, string?)" path="/param"/>
     /// <returns>
-    /// Whether the caret was moved, and if not, why: no such document, a name two loaded projects share, or a
-    /// line or column the document does not have.
+    /// Whether the caret was moved and its window brought to the front, and if not, why: no loaded project of
+    /// the name given as <paramref name="project"/>, no such document, a name two loaded projects share, a line
+    /// or column the document does not have, or a window that could not be brought to the front.
     /// </returns>
     /// <remarks>
-    /// The body here serves only a host that implements nothing newer than <see cref="NavigateTo(string, int,
-    /// int, string?)"/>, which can say that a call failed but not why. HexIDE's own host says why.
+    /// <b>HexIDE's own host completes once the caret is there</b>, so a <see cref="GetSelection"/> straight after
+    /// reads the new position. The body here does not: it serves only a host that implements nothing newer than
+    /// <see cref="NavigateTo(string, int, int, string?)"/>, which answers as soon as the name resolves and moves
+    /// the caret afterwards, and which can say that a call failed but not why.
     /// </remarks>
     Task<AddinEditResult> TryNavigateTo(string fileName, int line, int column, string? project) =>
         Task.FromResult(NavigateTo(fileName, line, column, project)
@@ -113,8 +120,10 @@ public interface IEditorAccess
     /// <inheritdoc cref="SetContent(string, string, string?)" path="/remarks"/>
     /// <inheritdoc cref="NavigateTo(string, int, int, string?)" path="/param"/>
     /// <returns>
-    /// Whether the content was written, and if not, why: no such document, a name two loaded projects share,
-    /// or a header that differs from the document's. Nothing is written when it is refused.
+    /// Whether the content was written, and if not, why: no loaded project of the name given as
+    /// <paramref name="project"/>, no such document, a name two loaded projects share, or a header that differs
+    /// from the document's. Nothing is written when it is refused. A change to a member's <c>Attribute</c> lines
+    /// is not checked in this version, and is written (hexide-io/HexIDE#273 task 4.5b).
     /// <see cref="AddinEditResult.HeaderKept"/> says whether the document's header was put in front of what
     /// was sent.
     /// </returns>
@@ -127,8 +136,10 @@ public interface IEditorAccess
     /// <inheritdoc cref="ApplyEdits(string, IReadOnlyList{AddinTextEdit}, string?)" path="/remarks"/>
     /// <inheritdoc cref="NavigateTo(string, int, int, string?)" path="/param"/>
     /// <returns>
-    /// Whether the edits were applied, and if not, why: no such document, a name two loaded projects share, an
-    /// edit that would change a read-only part of the document, or a position the document does not have.
+    /// Whether the edits were applied, and if not, why: no loaded project of the name given as
+    /// <paramref name="project"/>, no such document, a name two loaded projects share, an edit that would change
+    /// a read-only part of the document, or a position the document does not have. A refusal names the edit by
+    /// its place in the set and the positions it was sent with.
     /// Nothing is applied when any edit is refused.
     /// </returns>
     async Task<AddinEditResult> TryApplyEdits(string fileName, IReadOnlyList<AddinTextEdit> edits, string? project) =>

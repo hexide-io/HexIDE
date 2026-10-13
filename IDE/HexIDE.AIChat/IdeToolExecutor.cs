@@ -38,7 +38,9 @@ public sealed class IdeToolExecutor(IHexIdeHost host)
             new JsonObject()),
         Tool("get_diagnostics",
             "Get diagnostics (errors and warnings), for every file or for one. Lines and columns count from 1, and "
-            + "lines count from the top of the file with its header included, as in the content get_active_file returns",
+            + "lines count from the top of the file with its header included, as in the content get_active_file returns. "
+            + "A file name no loaded project has, or one two projects share, is refused with the reason rather than "
+            + "answered with an empty list",
             Params(new JsonObject
             {
                 ["file_name"] = Described("string", "Optional: only return diagnostics for this file"),
@@ -71,6 +73,18 @@ public sealed class IdeToolExecutor(IHexIdeHost host)
         Tool("stop_project",  "Stop the currently running VB6 project",     new JsonObject()),
     };
 
+    /// <summary>
+    /// How every reply is written. One naming rule for every field, so a model that reads <c>project</c> from one
+    /// tool finds it under the same name in the next.
+    /// </summary>
+    /// <remarks>
+    /// The replies were serialized from anonymous types under the default policy, which keeps each member's own
+    /// spelling, so <c>Project</c> came back from get_active_file and <c>project</c> from list_files, and
+    /// apply_edit's <c>fileName</c> sat beside the read tools' <c>FileName</c> (hexide-io/HexIDE#273 task 3.19
+    /// review). A policy rather than hand-renamed members, so a field added later cannot reopen the split.
+    /// </remarks>
+    private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
     public async Task<string> ExecuteAsync(ToolCall call)
     {
         try
@@ -82,94 +96,116 @@ public sealed class IdeToolExecutor(IHexIdeHost host)
             return call.Name switch
             {
                 "get_active_file"  => GetActiveFile(),
-                "get_file_content" => GetFileContent(args),
+                "get_file_content" => await GetFileContentAsync(args),
                 "list_files"       => ListFiles(),
                 "get_diagnostics"  => GetDiagnostics(args),
                 "apply_edit"       => await ApplyEditAsync(args),
                 "navigate_to"      => await NavigateToAsync(args),
                 "run_project"      => RunProject(),
                 "stop_project"     => StopProject(),
-                _                  => $"{{\"error\":\"Unknown tool: {call.Name}\"}}"
+                _                  => Reply(new { error = $"Unknown tool: {call.Name}" })
             };
         }
         catch (Exception ex)
         {
-            return JsonSerializer.Serialize(new { error = ex.Message });
+            return Reply(new { error = ex.Message });
         }
     }
 
     private string GetActiveFile()
     {
         var doc = host.Editor.GetActiveDocument();
-        if (doc is null) return "{\"error\":\"No active editor\"}";
-        return JsonSerializer.Serialize(new { doc.FileName, doc.Project, doc.Content });
+        if (doc is null) return Reply(new { error = "No active editor" });
+        return Reply(new { doc.FileName, doc.Project, doc.Content });
     }
 
-    private string GetFileContent(JsonObject? args)
+    /// <remarks>
+    /// The add-in surface has no member that reads a document by name, so this opens the file, waits until the
+    /// IDE has brought it to the front, and reads the active document. It checks that the active document is the
+    /// one asked for before answering. Without that check it answered with whatever window was in front, which
+    /// for a file already open in a background tab was a different file under the name the model asked for
+    /// (hexide-io/HexIDE#273 task 3.19 review). Reading this way also moves the caret to the file's first line.
+    /// A member that reads by name would do neither; that is filed as an issue, see the #273 thread.
+    /// </remarks>
+    private async Task<string> GetFileContentAsync(JsonObject? args)
     {
-        var name = Text(args, "file_name") ?? "";
-        var project = Text(args, "project");
-        var files = host.Project.GetProjects()
-            .SelectMany(p => p.Files)
-            .Where(f => f.FileName.Equals(name, StringComparison.OrdinalIgnoreCase)
-                        && (project is null || string.Equals(f.Project, project, StringComparison.OrdinalIgnoreCase)))
-            .ToList();
-        if (files.Count == 0)
-            return JsonSerializer.Serialize(new { error = project is null ? $"File not found: {name}" : $"File not found: {name} in project {project}" });
-        if (files.Count > 1)
-            return JsonSerializer.Serialize(new
-            {
-                error = $"'{name}' is in more than one project: {string.Join(", ", files.Select(f => f.Project))}. "
-                        + "Pass project to say which."
-            });
+        var (file, refusal) = FindFile(args);
+        if (file is null) return refusal!;
 
-        // Read via editor if open, otherwise from disk
-        // For now, open the file and read it
-        var file = files[0];
-        host.Editor.NavigateTo(file.FileName, 1, 1, file.Project);
+        var opened = await host.Editor.TryNavigateTo(file.FileName, 1, 1, file.Project);
+        if (!opened.Succeeded)
+            return Reply(new { error = $"Could not open {file.FileName}: {opened.Reason}" });
+
         var doc = host.Editor.GetActiveDocument();
-        return doc is not null
-            ? JsonSerializer.Serialize(new { doc.FileName, doc.Project, doc.Content })
-            : JsonSerializer.Serialize(new { error = "Could not open file" });
+        if (doc is null
+            || !doc.FileName.Equals(file.FileName, StringComparison.OrdinalIgnoreCase)
+            || !string.Equals(doc.Project, file.Project, StringComparison.OrdinalIgnoreCase))
+            return Reply(new
+            {
+                error = $"Could not read {file.FileName}: the IDE opened it, but the active code window holds "
+                        + (doc is null ? "no file" : $"{doc.FileName}{(doc.Project is { } p ? $" in project {p}" : "")}")
+                        + ", so its content would not be the file asked for."
+            });
+        return Reply(new { doc.FileName, doc.Project, doc.Content });
     }
 
     private string ListFiles()
     {
         var files = host.Project.GetProjects()
             .SelectMany(p => p.Files.Select(f => new { f.FileName, kind = f.Kind.ToString(), project = p.ProjectName }));
-        return JsonSerializer.Serialize(new { files });
+        return Reply(new { files });
     }
 
+    /// <remarks>
+    /// A file named is found here first, as get_file_content finds it, and its diagnostics asked for in the
+    /// project it was found in. The host answers an empty list for a name it cannot resolve to one document,
+    /// which a model reads as a clean file: a name two loaded projects share, or one no project has, was
+    /// reported as having no errors (hexide-io/HexIDE#273 task 3.19 review).
+    /// </remarks>
     private string GetDiagnostics(JsonObject? args)
     {
-        var fileName = Text(args, "file_name");
-        var diags = string.IsNullOrEmpty(fileName)
-            ? host.Diagnostics.GetAll()
-            : host.Diagnostics.GetFor(fileName, Text(args, "project"));
+        IReadOnlyList<AddinDiagnostic> diags;
+        if (Text(args, "file_name") is null)
+            diags = host.Diagnostics.GetAll();
+        else
+        {
+            var (file, refusal) = FindFile(args);
+            if (file is null) return refusal!;
+            diags = host.Diagnostics.GetFor(file.FileName, file.Project);
+        }
 
         var items = diags.Select(d => new
         {
-            d.FileName, d.Line, d.Column, d.Message,
+            d.FileName, d.Project, d.Line, d.Column, d.Message,
             severity = d.Severity.ToString(),
             d.Code, d.Source
         });
-        return JsonSerializer.Serialize(new { diagnostics = items });
+        return Reply(new { diagnostics = items });
     }
 
     /// <remarks>
     /// The outcome is the IDE's answer, not an assumption. This used to check the name against the startup
     /// project and then report success whatever the write did, so a header the IDE refused, or a name another
     /// loaded project also has, reached the model as an edit that had landed (hexide-io/HexIDE#273 task 3.19).
+    /// Content that is missing or blank is refused here: the IDE would take it as code alone, keep the header, and
+    /// empty the file's code, and a truncated call is likelier than a model that means that.
     /// </remarks>
     private async Task<string> ApplyEditAsync(JsonObject? args)
     {
         var fileName = Text(args, "file_name") ?? "";
-        var content  = Text(args, "content") ?? "";
+        var content  = Text(args, "content");
+        if (string.IsNullOrWhiteSpace(content))
+            return Reply(new
+            {
+                success = false,
+                error = "No content was sent, so nothing was changed. Send the whole file with its header unchanged, "
+                        + "or the code alone.",
+            });
 
         var result = await host.Editor.TrySetContent(fileName, content, Text(args, "project"));
         return result.Succeeded
-            ? JsonSerializer.Serialize(new { success = true, fileName, headerKept = result.HeaderKept })
-            : JsonSerializer.Serialize(new { success = false, error = result.Reason });
+            ? Reply(new { success = true, fileName, headerKept = result.HeaderKept })
+            : Reply(new { success = false, error = result.Reason });
     }
 
     private async Task<string> NavigateToAsync(JsonObject? args)
@@ -178,21 +214,52 @@ public sealed class IdeToolExecutor(IHexIdeHost host)
         var line     = args?["line"]?.GetValue<int>() ?? 1;
         var result = await host.Editor.TryNavigateTo(fileName, line, 1, Text(args, "project"));
         return result.Succeeded
-            ? JsonSerializer.Serialize(new { success = true })
-            : JsonSerializer.Serialize(new { success = false, error = result.Reason });
+            ? Reply(new { success = true })
+            : Reply(new { success = false, error = result.Reason });
     }
 
     private string RunProject() =>
         host.RunProject()
-            ? JsonSerializer.Serialize(new { success = true })
-            : JsonSerializer.Serialize(new { success = false, error = "Cannot start project (none loaded or already running)" });
+            ? Reply(new { success = true })
+            : Reply(new { success = false, error = "Cannot start project (none loaded or already running)" });
 
     private string StopProject() =>
         host.StopProject()
-            ? JsonSerializer.Serialize(new { success = true })
-            : JsonSerializer.Serialize(new { success = false, error = "No project is currently running" });
+            ? Reply(new { success = true })
+            : Reply(new { success = false, error = "No project is currently running" });
 
     // ── helpers ──────────────────────────────────────────────────────────────
+
+    private static string Reply<T>(T value) => JsonSerializer.Serialize(value, Json);
+
+    /// <summary>
+    /// The file a tool's <c>file_name</c> and <c>project</c> name, among every loaded project's files, or the
+    /// reply refusing it: no such file, or a name two projects share with both listed.
+    /// </summary>
+    private (AddinFileInfo? File, string? Error) FindFile(JsonObject? args)
+    {
+        var name = Text(args, "file_name") ?? "";
+        var project = Text(args, "project");
+        var files = host.Project.GetProjects()
+            .SelectMany(p => p.Files)
+            .Where(f => f.FileName.Equals(name, StringComparison.OrdinalIgnoreCase)
+                        && (project is null || string.Equals(f.Project, project, StringComparison.OrdinalIgnoreCase)))
+            .ToList();
+        return files.Count switch
+        {
+            1 => (files[0], null),
+            0 => (null, Reply(new
+            {
+                error = (project is null ? $"File not found: {name}" : $"File not found: {name} in project {project}")
+                        + ". list_files lists every loaded project's files."
+            })),
+            _ => (null, Reply(new
+            {
+                error = $"'{name}' is in more than one project: {string.Join(", ", files.Select(f => f.Project))}. "
+                        + "Pass project to say which."
+            })),
+        };
+    }
 
     private static JsonObject Tool(string name, string description, JsonObject parameters) =>
         new()

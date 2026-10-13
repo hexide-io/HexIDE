@@ -29,7 +29,13 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     private bool _egressNoticeShown;
     private ChatMessageViewModel? _activeStream;
 
+    /// <summary>Notes for the assistant written while it was responding, held until a user message may come next.</summary>
+    private readonly List<ConversationMessage> _heldNotes = [];
+
     public ObservableCollection<ChatMessageViewModel> Messages { get; } = [];
+
+    /// <summary>What the assistant is sent: the conversation as the session holds it.</summary>
+    internal IReadOnlyList<ConversationMessage> SessionLog => _session.Log;
 
     public string InputText
     {
@@ -40,7 +46,7 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     public bool IsResponding
     {
         get => _isResponding;
-        private set { _isResponding = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsResponding))); }
+        internal set { _isResponding = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsResponding))); }
     }
 
     /// <summary>
@@ -72,7 +78,9 @@ public sealed class ChatViewModel : INotifyPropertyChanged
         _tools       = new IdeToolExecutor(host);
 
         foreach (var msg in _session.Log.Where(m => m.Role is "user" or "assistant"))
-            Messages.Add(new ChatMessageViewModel(msg.Role, msg.Content));
+            Messages.Add(msg.FromIde
+                ? new ChatMessageViewModel("assistant", msg.Content, isStatusLine: true)
+                : new ChatMessageViewModel(msg.Role, msg.Content));
     }
 
     public async Task SendAsync()
@@ -99,6 +107,7 @@ public sealed class ChatViewModel : INotifyPropertyChanged
         }
         finally
         {
+            FlushHeldNotes();
             _session.SaveTo(_historyPath);
             IsResponding = false;
         }
@@ -129,8 +138,8 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     }
 
     /// <summary>
-    /// The Apply button on a code block: replaces the active document's content with the block, and says in the
-    /// transcript what came of it.
+    /// The Apply button on a code block: replaces the active document's content with the block, says in the
+    /// transcript what came of it, and tells the assistant.
     /// </summary>
     /// <remarks>
     /// The block may be the code alone or the whole file, and the IDE keeps the document's header either way. It
@@ -138,12 +147,19 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     /// since the header is compared line for line. That refusal used to vanish, and so did a block applied with
     /// no code window active; the button looked as though it had done something. The click handler does not
     /// await this, so nothing may escape it either.
+    /// <para>
+    /// The assistant is told the outcome too, accepted or refused, as a note in the conversation. Until the 3.19
+    /// review only the transcript said, so after a refusal the assistant's next turn went on as though its code
+    /// were in the file (the ai-chat delta's requirement has both halves). No note is written when no code window
+    /// was active, since no change was put to the IDE.
+    /// </para>
     /// </remarks>
     public async Task ApplyToActiveFileAsync(string code)
     {
+        AddinDocument? doc = null;
         try
         {
-            var doc = _host.Editor.GetActiveDocument();
+            doc = _host.Editor.GetActiveDocument();
             if (doc is null)
             {
                 Messages.Add(new ChatMessageViewModel("assistant",
@@ -156,10 +172,51 @@ public sealed class ChatViewModel : INotifyPropertyChanged
             Messages.Add(result.Succeeded
                 ? new ChatMessageViewModel("assistant", $"Applied to {doc.FileName}.", isStatusLine: true)
                 : new ChatMessageViewModel("assistant", $"Not applied to {doc.FileName}: {result.Reason}", isError: true));
+            TellAssistant(result.Succeeded
+                ? $"The developer applied a code block from this chat to {Describe(doc)}, and the IDE accepted it"
+                  + (result.HeaderKept ? ", keeping the file's own header in front of it." : ".")
+                : $"The developer applied a code block from this chat to {Describe(doc)}, and the IDE refused it, so "
+                  + $"nothing was written: {result.Reason}");
         }
         catch (Exception ex)
         {
             Messages.Add(new ChatMessageViewModel("assistant", $"Not applied: {ex.Message}", isError: true));
+            if (doc is not null)
+                TellAssistant($"The developer applied a code block from this chat to {Describe(doc)}, and it failed, "
+                              + $"so nothing was written: {ex.Message}");
+        }
+
+        static string Describe(AddinDocument doc) =>
+            doc.Project is { } project ? $"{doc.FileName} (project {project})" : doc.FileName;
+    }
+
+    /// <summary>
+    /// Puts a note from the IDE into the conversation, for the assistant to read on its next request.
+    /// </summary>
+    /// <remarks>
+    /// A note can only go where a user message may: after a <c>tool_calls</c> message the endpoint expects that
+    /// call's results and nothing else, and refuses the whole request otherwise, which would leave the saved
+    /// history unusable. The Apply button stays live while the assistant is responding, including while it waits
+    /// for approval between a call and its result, so a note written then is held, and the loop puts it in at its
+    /// next safe point.
+    /// </remarks>
+    private void TellAssistant(string note)
+    {
+        lock (_heldNotes)
+            _heldNotes.Add(new ConversationMessage("user", "[Note from the IDE] " + note, fromIde: true));
+        if (IsResponding) return;
+
+        FlushHeldNotes();
+        _session.SaveTo(_historyPath);
+    }
+
+    /// <summary>Moves held notes into the conversation. Call only where a user message may come next.</summary>
+    internal void FlushHeldNotes()
+    {
+        lock (_heldNotes)
+        {
+            foreach (var note in _heldNotes) _session.Add(note);
+            _heldNotes.Clear();
         }
     }
 
@@ -169,6 +226,8 @@ public sealed class ChatViewModel : INotifyPropertyChanged
     {
         while (true)
         {
+            // Here the last message is the developer's or a tool result, after which a note may come.
+            FlushHeldNotes();
             await MaybeCompactAsync();
 
             var systemPrompt = BuildSystemPrompt();
@@ -222,28 +281,84 @@ public sealed class ChatViewModel : INotifyPropertyChanged
                     }
                 }
 
-                var statusVm = new ChatMessageViewModel("assistant",
-                    $"Using tool: `{tc.Name}`", isStatusLine: true);
-                Dispatcher.UIThread.Post(() => Messages.Add(statusVm));
-
-                var result = await _tools.ExecuteAsync(tc);
-                _session.Add(new ConversationMessage("tool", result,
-                    toolCallId: tc.Id, toolName: tc.Name));
+                await RunToolCallAsync(tc);
             }
         }
+    }
+
+    /// <summary>
+    /// Runs one tool call the assistant asked for, once approved where it needs to be: the assistant is given the
+    /// result, and the transcript says what a write came to.
+    /// </summary>
+    /// <remarks>
+    /// The transcript showed only "Using tool" until the 3.19 review. A write the IDE refused, an
+    /// <c>apply_edit</c> whose header differs above all, reached the assistant and not the developer, who had
+    /// just approved it and was left believing it had landed (the ai-chat delta's requirement has both halves).
+    /// </remarks>
+    internal async Task RunToolCallAsync(ToolCall tc)
+    {
+        var statusVm = new ChatMessageViewModel("assistant",
+            $"Using tool: `{tc.Name}`", isStatusLine: true);
+        Dispatcher.UIThread.Post(() => Messages.Add(statusVm));
+
+        var result = await _tools.ExecuteAsync(tc);
+        _session.Add(new ConversationMessage("tool", result,
+            toolCallId: tc.Id, toolName: tc.Name));
+
+        if (DescribeWriteOutcome(tc, result) is { } outcome)
+            Dispatcher.UIThread.Post(() => Messages.Add(outcome));
+    }
+
+    /// <summary>
+    /// The transcript line for what a write tool came to: an <c>apply_edit</c> applied or refused, or another
+    /// write refused. Null for a read tool, and for a write that did what it was asked and has nothing to add.
+    /// </summary>
+    private static ChatMessageViewModel? DescribeWriteOutcome(ToolCall tc, string result)
+    {
+        if (!IdeToolExecutor.WriteTools.Contains(tc.Name)) return null;
+
+        bool succeeded;
+        string? reason;
+        try
+        {
+            var reply = JsonNode.Parse(result) as JsonObject;
+            succeeded = reply?["success"]?.GetValue<bool>() == true;
+            reason = reply?["error"]?.GetValue<string>();
+        }
+        catch
+        {
+            succeeded = false;
+            reason = result;
+        }
+
+        var file = FileNameOf(tc) ?? "the file";
+        if (tc.Name == "apply_edit")
+            return succeeded
+                ? new ChatMessageViewModel("assistant", $"Applied to {file}.", isStatusLine: true)
+                : new ChatMessageViewModel("assistant", $"Not applied to {file}: {reason ?? "no reason was given."}", isError: true);
+        return succeeded
+            ? null
+            : new ChatMessageViewModel("assistant", $"`{tc.Name}` failed: {reason ?? "no reason was given."}", isError: true);
+    }
+
+    /// <summary>The <c>file_name</c> a tool call names, or null.</summary>
+    private static string? FileNameOf(ToolCall tc)
+    {
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(tc.ArgumentsJson) && tc.ArgumentsJson != "{}"
+                && JsonNode.Parse(tc.ArgumentsJson) is JsonObject o
+                && o["file_name"]?.GetValue<string>() is { Length: > 0 } file)
+                return file;
+        }
+        catch { /* no name to give */ }
+        return null;
     }
 
     /// <summary>A human-readable description of a pending write-tool call for the approval prompt.</summary>
     private static string DescribeWriteTool(ToolCall tc)
     {
-        string? file = null;
-        try
-        {
-            if (!string.IsNullOrWhiteSpace(tc.ArgumentsJson) && tc.ArgumentsJson != "{}"
-                && JsonNode.Parse(tc.ArgumentsJson) is JsonObject o)
-                file = o["file_name"]?.GetValue<string>();
-        }
-        catch { /* fall through to a generic description */ }
+        var file = FileNameOf(tc);
 
         return tc.Name switch
         {
