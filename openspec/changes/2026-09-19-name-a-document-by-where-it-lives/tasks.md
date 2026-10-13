@@ -1431,8 +1431,28 @@
   `form1`. Recorded in `docs/archive/mcp-server-gaps-closed.md`, under the #467 and #575 entries whose "every
   tool" this makes true, and in the CHANGELOG. Not live-verified; that belongs with 3.22's pass through the
   running IDE.
-- [ ] 3.19 Add-ins: content is the whole file; positions from the top of the file; `SetContent` refused if the
+- [x] 3.19 Add-ins: content is the whole file; positions from the top of the file; `SetContent` refused if the
   header changes. The AI Chat add-in's prompt and apply paths updated.
+  — **`AddinDocument.Content` is the code window's buffer**, so it is the text every position on the surface
+  counts in, which 3.16 found it was not. Positions needed nothing more.
+  — **The add-in is told why** through `TrySetContent`, `TryApplyEdits` and `TryNavigateTo`, default interface
+  members answering `AddinEditResult`; the members that answer true or false are those with the reason dropped.
+  Names, shape and the rejected alternative are in design.md, "Settled while building phase 3". Names resolve
+  through `NamedDocuments`, so an add-in gets automation's refusals; an edit's refusal names its line and column.
+  — **A line the document does not have is refused**, where it threw: on the UI thread, inside `NavigateTo`'s post,
+  which ended the process. Settled in design.md with the rest.
+  — **AI Chat:** the prompt and tool descriptions say content is the whole file, the header is read-only and what
+  `apply_edit` takes; `apply_edit`, `navigate_to` and the Apply button report the IDE's answer; four tools take
+  `project`; the privacy notice says "contents", and is shown again once. A new ai-chat delta in this change holds
+  the add-in to reporting a refused change.
+  — **Tests:** `AddinWholeFileTests` carries the addin-system delta's four scenarios, "an add-in replacement that
+  changes the header is refused" with its reason, the line-and-column refusal, out-of-range positions, a round trip
+  of `BillOfFare.frm` and `Game.cls` through the surface, the six shipped signatures, and a v0.2.0-shaped host
+  answering the new members. `AIChatWholeFileTests` carries the ai-chat delta's two scenarios and the prompt,
+  description, navigation and notice cases.
+  — **Not done:** AI Chat's `get_file_content` still reads through navigate-then-active-document, which is wrong
+  for a background tab and needs a read-by-name member; `GetFor` cannot say a name is ambiguous. Both recorded in
+  design.md. Not live-verified; 3.22.
 - [ ] 3.20 New strings (refusal reasons, the reworded read-only banner) added to `en` and every shipped pack in
   the same change. A fold's label is its first line, so the header fold has no string of its own (settled in
   design.md, "Settled while building phase 3").

@@ -343,8 +343,8 @@ join.
 | Enter (auto-close, auto-indent) | Writes nothing with the caret inside a read-only region: there is no "after" a line break could sensibly go to. Its keyword re-casing of the lines just committed skips any line inside one, because re-casing rewrites a line and no insert rule covers that. |
 | Event stubs, Add Procedure | Append at the end of the document, which is never inside a region. Safe by construction. |
 | Paste, cut, delete, backspace, Ctrl+D, text drag-and-drop | Left to the read-only section provider, which the editor library consults on each of these routes itself. Inside a region a paste is therefore refused silently rather than moved after it, and that is accepted rather than replaced with a paste of our own. |
-| Add-in `SetContent` | The same rule as automation: the whole file with its header unchanged, or the body alone with the header kept. Refused only when the header would change. The shipped chat add-in applies a model's fenced block, which is a body. A refusal returns false and the reason is logged, until task 3.19 gives the contract a way to carry it. |
-| Add-in `ApplyEdits` | All or nothing: if any edit touches a read-only region, none is applied, because the rest alone would leave the add-in's change half made. A refusal returns false, as `SetContent`'s does. |
+| Add-in `SetContent` | The same rule as automation: the whole file with its header unchanged, or the body alone with the header kept. Refused only when the header would change. The shipped chat add-in applies a model's fenced block, which is a body. `TrySetContent` gives the add-in the reason (task 3.19); `SetContent` answers false, as it always has. |
+| Add-in `ApplyEdits` | All or nothing: if any edit touches a read-only region, or names a line or column the document does not have, none is applied, because the rest alone would leave the add-in's change half made. `TryApplyEdits` gives the reason, naming the edit by its line and column; `ApplyEdits` answers false. |
 | Automation `set_file_content` | Accepts the whole file (header unchanged) or the body alone (header kept). That settles #338's asymmetry. |
 | Automation `type_text`, `press_key` | Refused inside a read-only region, and the reply says so and gives the offset where editing can resume. `press_key` judges only a key that would change text — Enter, Tab, Backspace, Delete, Ctrl+V, Ctrl+X, Ctrl+D — against what that key would change; a navigation key is never refused. |
 | Initial load; reload after an external change | Owner. Replaces the whole buffer. |
@@ -561,8 +561,9 @@ shipped chat add-in applies a model's fenced block, which is a body, so a rule t
 whole file would break it. Naming needs work too: the editor surface names a document by its own name, but
 the file-opened and file-closed events carry the *dock title* as both the name and the path, and lookups
 resolve in the startup project only. Both are read through the identity, and a document is nameable by its
-project as well as its name — as a trailing optional argument, following the convention the diagnostics
-change used, so existing add-ins keep compiling.
+project as well as its name — as an overload beside each existing member, not a trailing optional argument
+(see "The add-in surface takes overloads" under phase 1, which superseded the argument this paragraph first
+proposed), so existing add-ins keep compiling and keep running.
 
 **Export redaction.** Today `untitled:` would pass through unredacted, carrying the project and document
 names. Its path segments are pseudonymised like a `file:` URI's (an extension of #397). The rationale in the
@@ -747,6 +748,62 @@ keep only what needs the running IDE: which designer or editor is open on the re
 the reply. `move_control` and `add_control` now resolve the name to a document first and then find the designer
 open on it by reference. So a module is refused as having no designer rather than as "not open", and a name two
 projects share is refused rather than answered with whichever designer was found first.
+
+**An add-in is told why through three new members, `TrySetContent`, `TryApplyEdits` and `TryNavigateTo`, each
+answering an `AddinEditResult(bool Succeeded, string? Reason = null, bool HeaderKept = false)`** (task 3.19). They
+take the same arguments as the project-qualified members beside them; only the answer differs. That is why they are
+not overloads of those members in the strict sense: C# cannot overload on the return type alone, and the v0.2.0
+`Task<bool>` returns are frozen because add-ins are loaded built. "Overloads" in phase 1's decision means an
+additional member rather than a default parameter, and these keep to it. Considered and rejected: a same-named
+overload told apart by a new parameter type, such as a record naming the document. It is a true overload, but it
+gives an add-in two ways to make one call that answer differently, chosen by the shape of the first argument. The
+`Try` prefix puts each beside the member it supersedes in a completion list, and the interface remarks say they are
+the ones to call. Each member that answers true or false is now its `Try` counterpart with the reason dropped, so
+the two cannot disagree about what is refused.
+
+**They are default interface members, whose bodies call the members a host already had.** A host or test double
+written against v0.2.0 compiles and answers them unchanged; its refusal reads `AddinEditResult.WithoutReason`,
+which says no reason was given rather than inventing one. HexIDE's own host overrides all three. NSubstitute 5.3
+intercepts them like any other member, measured by the AI Chat tests, which configure them on a substitute.
+
+**The reasons are the ones automation gives, and are English.** A name resolves through `NamedDocuments`, so an
+add-in hears what an automation caller hears: no project of that name, no document of that name with what the
+projects hold, or a name two projects share with both listed. A replacement's refusal is `GuardedContent`'s. An
+edit's refusal names the edit by its line and column from the top of the file, where it used to name a buffer
+offset no add-in had given. They are English for the reason automation's are: an add-in may pass one to a model
+or a log as readily as show it, and the IDE never shows one itself, so task 3.20 does not apply to them.
+`HeaderKept` comes from `GuardedContent` too, and is true when what was sent lacked some or all of the header.
+
+**A position the document does not have is refused, not thrown, and no longer ends the process.** `NavigateTo`
+moved the caret inside a post to the UI thread, and `GetLineByNumber` threw there for a line outside the document,
+which ends the process (DebugCrashHook's measurement). The AI Chat add-in passed a model's line straight through.
+`TryNavigateTo` waits on the UI thread and refuses such a line with the range the document has; `NavigateTo` keeps
+answering as soon as the name resolves, as it always has, and moves nothing. `ApplyEdits` threw the same way into
+its caller, and now refuses the whole set instead, as it refuses an edit to a read-only region. A column below 1
+is refused too; a column past a line's end still means the line's end.
+
+**The AI Chat add-in takes a `project` argument on `get_file_content`, `get_diagnostics`, `apply_edit` and
+`navigate_to`, and names a file's project in `get_active_file` and every `list_files` entry**, which now lists
+every loaded project rather than the startup project's alone. Otherwise the refusal for a name two projects share
+would tell the model to pass something it had nowhere to put. `apply_edit` and the Apply button report the IDE's
+answer, success or the reason, where both used to report nothing or success. The add-in's strings stay English:
+it has no localization at all, the tool texts and the notices included, and it reaches the IDE only through the
+add-in surface, which offers none.
+
+**The AI Chat privacy notice says "the active file's contents (for a form, its layout and captions too)", and is
+shown again once to a developer who acknowledged the old one.** It said "the active file's code", which stopped
+being what was sent when a form's designer block joined it. The acknowledgement file now records which notice was
+shown, and anything else counts as unacknowledged, because more now leaves the machine than that developer was
+told. The ai-chat delta added here holds the add-in to reporting a refused change; the egress requirement already
+says "contents" and needs no change.
+
+**Not done here, and why.** The AI Chat `get_file_content` tool reads a named file by navigating to it and then
+reading the active document. It reads the wrong document when the file is open in a background tab, because the
+host's open does not activate an editor that is already open, and it may read before the posted open runs. Fixing
+it needs a member that reads a document by name, which the add-in surface lacks; adding one is its own decision.
+Its navigation to line 1 also puts the caret in the folded header, which "Folds and greying" says expands it; that
+is unmeasured, and is 3.22's to look at. `IDiagnosticsAccess.GetFor` still answers empty for a name two projects
+share rather than saying so, and is the one member that names a document and cannot yet tell an add-in why.
 
 ## When a document gets its file (#489, settled 2026-09-20)
 

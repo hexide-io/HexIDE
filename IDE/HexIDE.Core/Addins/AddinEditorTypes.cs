@@ -5,10 +5,14 @@ public enum AddinDocumentKind { Form, Module, UserControl, Other }
 public enum AddinDiagnosticSeverity { Error = 1, Warning = 2, Information = 3, Hint = 4 }
 
 /// <param name="Content">
-/// The document's code, without the header the code window shows above it. <b>Not yet the text every position
-/// on this surface counts in</b>: those count from the top of the file, header included, so a line found by
-/// reading this is out by the header's length. Content becomes the whole file in hexide-io/HexIDE#273 task
-/// 3.19, with its own contract note, rather than changing here as a side effect.
+/// The document's whole file, as its code window holds it: a form's <c>VERSION</c> line and designer block, a
+/// class's header and the <c>Attribute</c> lines that open the code come first, then the code. It is the text
+/// every position on this surface counts in, so line N of it is line N to <see cref="AddinSelection"/>,
+/// <see cref="AddinTextEdit"/>, <see cref="AddinDiagnostic"/> and <c>NavigateTo</c>. The header and a member's
+/// <c>Attribute</c> lines are the IDE's to change: <c>TrySetContent</c> takes this text back with them unchanged,
+/// or the code alone, and refuses a header that differs. Before hexide-io/HexIDE#273 this was the code alone,
+/// starting at the form's <c>Attribute</c> lines or after the class's header. A form created in this session and
+/// not yet saved or changed in the designer has no header yet, so for it this is still the code alone.
 /// </param>
 /// <param name="Project">
 /// The project holding this document, by name. Trailing and optional so an add-in built against an earlier
@@ -49,6 +53,33 @@ public record AddinTextEdit(
 /// IDE builds these records and add-ins read them, so nothing outside the IDE constructs one positionally.
 /// </param>
 public record AddinFileInfo(string FileName, string FilePath, AddinDocumentKind Kind, string? Project = null);
+
+/// <summary>
+/// What a call that changes a document, or moves to a place in one, came to: built by the IDE, read by add-ins.
+/// </summary>
+/// <param name="Succeeded">True when the call did what it asked.</param>
+/// <param name="Reason">
+/// Why it did not, in words a person or a model can act on, and null when it succeeded. Written in English
+/// whatever language the IDE shows, as automation replies are, because an add-in may pass it to a model or log
+/// it as well as show it.
+/// </param>
+/// <param name="HeaderKept">
+/// True when a replacement carried none of the document's header, or only part of it, so the document's own
+/// header was put in front of it. False for every other call.
+/// </param>
+/// <remarks>
+/// Trailing fields may be added, optional, on the rule the records above follow: the IDE builds this and add-ins
+/// read it, so nothing outside the IDE constructs one positionally.
+/// </remarks>
+public record AddinEditResult(bool Succeeded, string? Reason = null, bool HeaderKept = false)
+{
+    /// <summary>
+    /// The refusal a host gives when it implements only the members that answer true or false, and so cannot
+    /// say why.
+    /// </summary>
+    public static AddinEditResult WithoutReason { get; } =
+        new(false, "Refused. This host answers only whether a call succeeded, so it gives no reason.");
+}
 
 public record AddinProjectInfo(string ProjectName, string ProjectPath, IReadOnlyList<AddinFileInfo> Files);
 

@@ -89,6 +89,22 @@ there isn't one yet. Anything may change between 0.x releases.
   and so does each `get_diagnostics` item. Where a reply also carries a `uri`, the tool's description now says
   what it is: the name the language server knows the document by. `get_debug_state` and `get_call_stack` name
   the running project.
+- **For add-in authors: `AddinDocument.Content` is now the document's whole file**, as the code window shows it - a
+  form's designer block, a class's header and the leading `Attribute` lines first, then the code - where it used to
+  be the code alone. Every position on the add-in surface counts from the top of that file - selections, edits,
+  navigation and diagnostics - where in 0.2.0 it counted from the first line of code, so line N of `Content` is
+  line N everywhere. An add-in that counted lines itself is out by the header's length until it counts them in
+  `Content`. `SetContent` takes `Content` back unchanged, or the code alone, and keeps the header either way; a header
+  that differs is refused. **New `TrySetContent`, `TryApplyEdits` and `TryNavigateTo` say why a call was refused**:
+  an unknown or ambiguous name, a header the call would change, or a line the document does not have. The existing
+  members keep their signatures and answers, so a packaged add-in keeps running; and the new ones have default
+  implementations, so a hand-written `IEditorAccess` keeps compiling. A line outside the document passed to
+  `NavigateTo` now moves nothing, where it closed the IDE.
+- **The AI Chat panel is told, and tells you, when the IDE refuses an edit.** It is shown the whole file, header
+  included, and told the header is read-only. An edit it asks for, or a block you apply, that would change the
+  header is refused with the reason in the transcript, where before the edit was reported as done whether it was
+  or not. Its privacy notice now says the active file's contents are sent, layout and captions included, and is
+  shown once more to anyone who saw the old one, which said "code".
 
 ### Fixed
 

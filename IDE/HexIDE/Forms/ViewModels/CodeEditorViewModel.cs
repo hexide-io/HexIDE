@@ -1371,14 +1371,22 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// Applies edits an add-in computed against this buffer, or refuses them all when any would change a
     /// read-only region.
     /// </summary>
-    /// <returns>Null when applied; otherwise why not.</returns>
+    /// <returns>
+    /// Null when applied; otherwise why not, naming the refused edit by the 1-based line and column it starts at,
+    /// counted from the top of the file, which is how an add-in named it.
+    /// </returns>
     internal string? ApplyEdits(IReadOnlyList<TextChange> edits)
     {
         var regions = ReadOnlyRegionsNow;
         foreach (var edit in edits)
         {
             if (ReadOnlyRegions.Changes(regions, edit.Offset, edit.Length))
-                return $"An edit at offset {edit.Offset} would change the document's header or a member's attribute lines, which only the IDE changes.";
+            {
+                var at = Document.GetLocation(edit.Offset);
+                return $"The edit at line {at.Line}, column {at.Column} would change the document's header (its "
+                       + "designer block, class header or leading Attribute lines) or a member's Attribute lines, "
+                       + "which only the IDE changes. Nothing was changed.";
+            }
         }
 
         var lastFirst = new List<TextChange>(edits);
