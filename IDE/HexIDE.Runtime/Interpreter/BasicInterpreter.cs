@@ -1037,6 +1037,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                         ? VbNumeric.Narrow(arg.Value, dt, body)
                         : CopyIfValueType(arg.Value);
                     ExecutionContext.AllocVariable(callee, p.Name, stored);
+                    MarkParameterSlot(p, callee);
                     // A ByVal object param is a counted hold for the call's duration (so a `New T` passed straight
                     // into a call terminates right after the call, per the oracle); release it at scope-exit.
                     if (stored.Value is VbObject && callee.TryGetVariableLocation(p.Name, out var ploc))
@@ -1060,12 +1061,25 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     : p.DeclaredType is { } declared ? new Vb6Value(declared)
                     : Vb6Value.Missing;
                 ExecutionContext.AllocVariable(callee, p.Name, value);
+                MarkParameterSlot(p, callee);
             }
             else
             {
                 throw new VBCompileErrorException($"Argument not optional: '{p.Name}' in '{proc.Name}'");
             }
         }
+    }
+
+    // A parameter's own slot says what it was declared as, for ReDim: `b()` an array, `v` or `v As Variant` a Variant.
+    // A ByRef parameter that shares its caller's slot keeps whatever the caller's declaration said.
+    private void MarkParameterSlot(ParamInfo p, ExecutionEnvironment callee)
+    {
+        if (!callee.TryGetVariableLocation(p.Name, out var location))
+            return;
+        if (p.IsArray)
+            ExecutionContext.State.MarkDeclaredArray(location);
+        else if (p.DeclaredType is null || p.DeclaredType == Vb6Value.ValueType.EmptyVariant)
+            ExecutionContext.State.MarkVariant(location);
     }
 
     public void SyntaxError(TextWriter output, IRecognizer recognizer, IToken offendingSymbol, int line, int charPositionInLine,

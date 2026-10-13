@@ -166,6 +166,21 @@ public class ControlArrayTests
         debug.Select(v => Convert.ToInt64(v.Value)).Should().Equal(error, 2L);
     }
 
+    [AvaloniaTheory]
+    [InlineData("Load Command1(x)")]
+    [InlineData("s = Command1(x).Caption")]
+    [InlineData("Unload Command1(x)")]
+    public async Task An_omitted_Optional_index_is_13_not_448(string statement)
+    {
+        // Measured on vb6.exe, native and in the IDE, with `Optional x As Variant`: 13 each, and nothing loads. CInt
+        // reads an omitted Optional as 448, so without the check Load made element 448. Untyped here, because an
+        // omitted `As Variant` one reads as Empty in HexIDE (#866).
+        var debug = await Run(TwoButtonArray,
+            $"Use\r\nSub Use(Optional x)\r\nOn Error Resume Next\r\nDim s\r\n{statement}\r\n" +
+            "Debug.Print Err.Number\r\nDebug.Print Command1.Count\r\nEnd Sub\r\n");
+        debug.Select(v => Convert.ToInt64(v.Value)).Should().Equal(13L, 2L);
+    }
+
     [AvaloniaFact]
     public async Task An_index_that_rounds_to_32766_loads_that_element()
     {

@@ -116,7 +116,8 @@ public sealed record ParamInfo(
     bool Optional,
     bool ParamArray,
     Vb6Value.ValueType? DeclaredType,
-    VB6Parser.ArgDefaultValueContext? Default);
+    VB6Parser.ArgDefaultValueContext? Default,
+    bool IsArray = false);
 
 /// <summary>
 /// An evaluated argument at a call site: its value plus, when the argument is a caller lvalue, the caller

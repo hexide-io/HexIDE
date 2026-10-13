@@ -82,6 +82,19 @@ public class ExecutionState
     /// <summary>Whether a slot was declared an array, rather than a Variant that may hold one.</summary>
     public bool IsDeclaredArray(int location) => declaredArrayLocations.Contains(location);
 
+    private readonly HashSet<int> variantLocations = new();
+
+    /// <summary>
+    /// Mark a slot as known to be a Variant: <c>Dim v</c>, <c>Dim v As Variant</c>, a Variant parameter, a variable VB6
+    /// creates on first use. ReDim treats only these as Variants. A slot that is neither this nor a declared array is
+    /// one whose declared type HexIDE does not carry, such as a <c>b() As Long</c> parameter, and is treated as the
+    /// array it holds rather than guessed to be a Variant (measured: such a parameter keeps its type, #873).
+    /// </summary>
+    public void MarkVariant(int location) => variantLocations.Add(location);
+
+    /// <summary>Whether a slot is known to be a Variant (<see cref="MarkVariant"/>).</summary>
+    public bool IsVariant(int location) => variantLocations.Contains(location);
+
     public Vb6Value this[int location]
     {
         get => memory[location];

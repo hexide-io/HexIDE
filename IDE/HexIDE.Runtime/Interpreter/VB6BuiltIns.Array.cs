@@ -25,9 +25,13 @@ public partial class VB6BuiltIns
             throw InvalidCall();
         if (a[0].Value is not VBArray array)
             throw new VBRunTimeException(VBStandardError.TypeMismatch);
-        // The dimension coerces as CLng does, as a subscript does (measured, native and in the IDE): Null 94, "x" 13,
-        // 3000000000# 6, and True, Empty and 1.5 (which rounds to 2) name no dimension of a one-dimensional array, so 9.
-        int dimension = Supplied(a, 1) ? Convert.ToInt32(NarrowNum(a[1], Vb6Value.ValueType.Long).Value) : 1;
+        // The dimension coerces as CInt does (measured, native and in the IDE): Null 94, "x" 13, and 40000, 32768, 70000&,
+        // -32769 and "40000" all 6, where 32767 is 9; True, Empty, -1 and 1.5 (which rounds to 2) name no dimension of a
+        // one-dimensional array, so 9. An omitted Optional is 13, as an Error value is: it is passed, not left out, so it
+        // is not read as dimension 1.
+        if (a.Count > 1 && a[1].IsMissing)
+            throw new VBRunTimeException(VBStandardError.TypeMismatch);
+        int dimension = Supplied(a, 1) ? Convert.ToInt32(NarrowNum(a[1], Vb6Value.ValueType.Integer).Value) : 1;
         // A dimension < 1 or > the array's rank is a trappable Subscript-out-of-range (Err 9, oracle-verified);
         // indexing bounds[dimension-1] directly would throw an ArgumentOutOfRangeException that On Error can't trap.
         if (dimension < 1 || dimension > array.Rank)

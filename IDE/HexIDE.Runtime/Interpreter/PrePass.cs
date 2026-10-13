@@ -22,9 +22,14 @@ public class PrePass : VB6BaseVisitor<object?>
     // by then are both already built.
     public List<string> Implemented = new();
     public List<VB6Parser.BlockContext> topLevelBlocks = new();
-    // Each module-level Const by name, with the token index of its declaration. Collected for the allocation site of a
-    // module-level array, which asks whether a bound names a Const declared below it (StatementExecutor).
-    public Dictionary<string, int> ConstDeclaredAt = new(StringComparer.OrdinalIgnoreCase);
+    // Each module-level Const by name: its declaration, and whether another module can see it (Public or Global; one
+    // with no visibility is Private, measured). Collected for the allocation site of a module-level array, which
+    // classifies what a bound reads, through the Consts it names (StatementExecutor.CheckModuleLevelBounds).
+    public Dictionary<string, (VB6Parser.ConstSubStmtContext Declaration, bool Public)> ModuleConsts =
+        new(StringComparer.OrdinalIgnoreCase);
+    // Module-level variables declared Public, for the same classification: another module's Public variable in a bound
+    // is VB6's "Constant expression required", where a name it cannot see is "Variable not defined" (measured).
+    public HashSet<string> PublicVariables = new(StringComparer.OrdinalIgnoreCase);
     // Module-level arrays whose bounds are not plain integers. They are sized only when the module's declarations
     // run, which a form's run does not do yet (#256), so that run refuses them rather than leave them unallocated.
     public List<string> DeferredArrays = new();
@@ -200,7 +205,12 @@ public class PrePass : VB6BaseVisitor<object?>
                 var location = state.Alloc(value);
                 if (isArray)
                     state.MarkDeclaredArray(location);
+                else if (subStmt.asTypeClause() is null
+                         || (subStmt.asTypeClause().type().complexType() is null && type == Vb6Value.ValueType.EmptyVariant))
+                    state.MarkVariant(location);
                 rootEnv.DefineVariable(subStmt.ambiguousIdentifier().GetText(), location);
+                if (context.visibility()?.PUBLIC() != null)
+                    PublicVariables.Add(subStmt.ambiguousIdentifier().GetText());
             }
         }
         else
@@ -224,7 +234,8 @@ public class PrePass : VB6BaseVisitor<object?>
                 throw new NotImplementedException("Const type hints not supported");
             var location = state.Alloc(Vb6Value.Variant);
             rootEnv.DefineVariable(sub.ambiguousIdentifier().GetText(), location);
-            ConstDeclaredAt.TryAdd(sub.ambiguousIdentifier().GetText(), sub.Start.TokenIndex);
+            var isPublic = context.publicPrivateGlobalVisibility() is { } visibility && visibility.PRIVATE() == null;
+            ModuleConsts.TryAdd(sub.ambiguousIdentifier().GetText(), (sub, isPublic));
         }
         return default;
     }
@@ -610,8 +621,13 @@ public class PrePass : VB6BaseVisitor<object?>
                 ByRef: arg.BYVAL() == null,        // VB6's default passing convention is ByRef
                 Optional: arg.OPTIONAL() != null,
                 ParamArray: arg.PARAMARRAY() != null,
-                DeclaredType: ExtractBaseType(arg.asTypeClause()),
-                Default: arg.argDefaultValue()));
+                // `b() As Long` is a Long array, not a Long: declared as the element type, an array passed ByRef was
+                // copied rather than shared, and then narrowed as if it were a scalar.
+                DeclaredType: arg.LPAREN() != null && ExtractBaseType(arg.asTypeClause()) is { } element
+                    ? new Vb6Value.ValueType(element, true)
+                    : ExtractBaseType(arg.asTypeClause()),
+                Default: arg.argDefaultValue(),
+                IsArray: arg.LPAREN() != null));
         }
         return result;
     }

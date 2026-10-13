@@ -186,6 +186,12 @@ public class SubscriptCoercionTests : BaseVBTestFixture
     [InlineData("ReDim v(2)", "ReDim v(5 To 2)", 7L, "Empty")]                // further below: emptied
     [InlineData("v = 5", "ReDim v(5 To 2)", 7L, "Empty")]
     [InlineData("ReDim v(2)", "ReDim v(0 To 1, 5 To 2)", 7L, "Empty")]
+    [InlineData("ReDim v(2)", "ReDim v(5 To 2, 5 To 1)", 7L, "Empty")]
+    [InlineData("ReDim v(2)", "ReDim v(5 To 4, 5 To 2)", 9L, "Variant() 2")]      // one dimension just below wins
+    [InlineData("ReDim v(2)", "ReDim v(5 To 2, 5 To 4)", 9L, "Variant() 2")]
+    [InlineData("ReDim v(2)", "ReDim v(5 To 2, 0 To 1, 5 To 4)", 9L, "Variant() 2")]
+    [InlineData("ReDim v(2)", "ReDim v(0 To 1, 5 To 4, 5 To 2)", 9L, "Variant() 2")]
+    [InlineData("ReDim v(2)", "ReDim v(5 To 4, 0 To 1)", 9L, "Variant() 2")]
     [InlineData("v = Empty", "ReDim v(5 To 4)", 9L, "Empty")]
     [InlineData("ReDim v(2)", "ReDim v(2147483647)", 7L, "Empty")]
     public async Task A_Variant_ReDimmed_to_an_inverted_or_huge_range_is_kept_or_emptied_as_measured(
@@ -217,12 +223,77 @@ public class SubscriptCoercionTests : BaseVBTestFixture
     [InlineData("True", 9L, "")]
     [InlineData("Empty", 9L, "")]
     [InlineData("1.5", 9L, "")]          // 2: no second dimension
-    public async Task UBounds_dimension_is_coerced_as_a_subscript_is(string dimension, long error, string value)
+    [InlineData("2.5", 9L, "")]
+    [InlineData("-1", 9L, "")]
+    [InlineData("32767", 9L, "")]
+    [InlineData("32768", 6L, "")]        // beyond an Integer: CInt, not CLng
+    [InlineData("40000", 6L, "")]
+    [InlineData("70000&", 6L, "")]
+    [InlineData("-32769", 6L, "")]
+    [InlineData("\"40000\"", 6L, "")]
+    public async Task UBounds_dimension_is_coerced_as_CInt(string dimension, long error, string value)
     {
-        // Measured, native and in the IDE, with b 1 To 3.
+        // Measured, native and in the IDE, with b 1 To 3. It was read as CLng reads it, so 40000 was 9.
         await Run($"Dim b() As Long, c\nReDim b(1 To 3)\nOn Error Resume Next\nc = UBound(b, {dimension})\n" +
                   "Debug.Print Err.Number\nDebug.Print CStr(c)\n");
         AssertDebugLog([new Vb6Value(error), value]);
+    }
+
+    [Theory]
+    [InlineData("UBound")]
+    [InlineData("LBound")]
+    public async Task An_omitted_Optional_dimension_is_13_not_the_first(string function)
+    {
+        // Measured, native and in the IDE. It was read as no dimension given, so dimension 1.
+        await Run($"Use\nSub Use(Optional x)\n    Dim b() As Long, c\n    ReDim b(1 To 3)\n    On Error Resume Next\n" +
+                  $"    c = {function}(b, x)\n    Debug.Print Err.Number\n    Debug.Print IsEmpty(c)\nEnd Sub\n");
+        AssertDebugLog([new Vb6Value(13L), new Vb6Value(true)]);
+    }
+
+    [Fact]
+    public async Task A_typed_array_parameter_is_erased_and_stays_typed_on_an_inverted_ReDim()
+    {
+        // Measured, native and in the IDE: 9, an erased Long(), and a later String store into it is 13. It was taken
+        // for a Variant, so 7, Empty, and a Variant() that took the String.
+        await Run("Dim b() As Long\nReDim b(2)\nTyped b\n" +
+                  "Sub Typed(b() As Long)\n    On Error Resume Next\n    ReDim b(5 To 2)\n    Debug.Print Err.Number\n" +
+                  "    Debug.Print TypeName(b)\n    Err.Clear\n    ReDim b(1)\n    b(0) = \"x\"\n    Debug.Print Err.Number\n" +
+                  "    Debug.Print TypeName(b)\nEnd Sub\n");
+        AssertDebugLog([new Vb6Value(9L), "Long()", new Vb6Value(13L), "Long()"]);
+    }
+
+    [Theory]
+    [InlineData("Dim u() As Variant\nReDim u(2)\nP u\nSub P(b())", 9L, "Variant()")]       // an untyped array parameter
+    [InlineData("Dim v\nReDim v(2)\nP v\nSub P(b As Variant)", 7L, "Empty")]           // a Variant parameter
+    [InlineData("Dim v\nReDim v(2)\nP v\nSub P(b)", 7L, "Empty")]
+    public async Task A_parameter_is_ReDimmed_as_what_it_was_declared(string head, long error, string typeName)
+    {
+        // Measured, native and in the IDE, for the first two.
+        await Run($"{head}\n    On Error Resume Next\n    ReDim b(5 To 2)\n    Debug.Print Err.Number\n" +
+                  "    Debug.Print TypeName(b)\nEnd Sub\n");
+        AssertDebugLog([new Vb6Value(error), typeName]);
+    }
+
+    [Theory]
+    [InlineData("Go\nSub Go()\n    Dim v\n    ReDim v(2)\n    On Error Resume Next\n    ReDim v(5 To 2)\n    Debug.Print Err.Number\nEnd Sub\n")]   // a procedure's Dim
+    [InlineData("x = 5\nOn Error Resume Next\nReDim x(5 To 2)\nDebug.Print Err.Number\n")]   // a variable created on first use
+    public async Task Every_kind_of_Variant_is_a_Variant_to_ReDim(string code)
+    {
+        // Each is a Variant, so 7 and emptied, as `Dim v` is (measured). Only a slot known to be one is treated as one.
+        await Run(code);
+        AssertDebugLog([new Vb6Value(7L)]);
+    }
+
+    [Fact]
+    public async Task A_module_Variant_is_a_Variant_to_ReDim_when_the_declarations_have_not_run()
+    {
+        // A form's run enters through ExecuteSub without running the declarations (#256), so only the pre-pass declared v.
+        var vb = new BasicInterpreter(new MockStdLib(debug), context, rootEnv,
+            "Private v\nSub Go()\n    ReDim v(2)\n    On Error Resume Next\n    ReDim v(5 To 2)\n    Debug.Print Err.Number\nEnd Sub\n", "Form1");
+
+        await vb.ExecuteSub("Go", null, true);
+
+        AssertDebugLog([new Vb6Value(7L)]);
     }
 
     [Fact]
