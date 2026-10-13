@@ -138,6 +138,10 @@ public class ArrayFunctionsTests : BaseVBTestFixture
     [InlineData("Dim d() As String", "Filter(d, \"a\", True, \"x\")", 13L)]
     [InlineData("Dim d(1) As String", "Filter(d, \"A\", True, \"x\")", 13L)]
     [InlineData("Dim d", "Filter(\"abc\", Null)", 94L)]   // ahead of the array check, which gives 13
+    [InlineData("Dim d", "Filter(\"abc\", \"a\", Null)", 94L)]
+    [InlineData("Dim d", "Filter(\"abc\", \"a\", True, Null)", 94L)]
+    [InlineData("Dim d", "Filter(Null, Null)", 94L)]
+    [InlineData("Dim d", "Filter(Null, \"a\")", 13L)]
     [InlineData("Dim d", "Filter(5, \"a\", \"x\")", 13L)]
     public async Task Filter_reads_its_match_switch_and_compare_before_the_array(string declaration, string call, long error)
     {

@@ -5796,8 +5796,8 @@ identical on every row, with `ee` an Empty Variant:
 | `Filter(d1, "A", True, 1)`, `"1"`, `5` | both elements: a text compare |
 | `Filter(d1, "A", True, "x")`, `Filter(ds, "a", True, "x")` | 13 |
 | `Filter(d1, "A", True, Null)`, `Filter(ds, "a", True, Null)` | 94 |
-| `Filter("abc", Null)` | **94**, not the 13 a non-array gives |
-| `Filter(5, "a", "x")` | 13 |
+| `Filter("abc", Null)`, `Filter("abc", "a", Null)`, `Filter("abc", "a", True, Null)`, `Filter(Null, Null)` | **94**, not the 13 a non-array gives |
+| `Filter(5, "a", "x")`, `Filter("abc", "a", "x")`, `Filter("abc", "a", True, "x")`, `Filter(Null, "a")` | 13 |
 | `Join("abc", Null)` | 13 |
 
 So the switch reads as `CBool` reads it, and the compare as a number, where any value but 0 is a text compare (1 and
