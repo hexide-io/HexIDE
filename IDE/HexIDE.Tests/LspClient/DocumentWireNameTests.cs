@@ -1,6 +1,10 @@
 using HexIDE.Runtime.Components;
 using HexIDE.Lsp;
 using HexIDE.Runtime.ProjectElements;
+using HexIDE.Events;
+using HexIDE.IDE;
+using HexIDE.Projects;
+using HexIDE.Sidecar;
 
 // NB: namespace deliberately avoids a `Lsp` segment — see VBLspClientTests.
 namespace HexIDE.Tests.LspClient;
@@ -121,5 +125,49 @@ public class DocumentWireNameTests
         // The collision the vb6:// scheme could not express: it named both vb6://module/Module1.
         DocumentWireName.For(Module(Project("Alpha"), "Module1"))
             .Should().NotBe(DocumentWireName.For(Module(Project("Beta"), "Module1")));
+    }
+
+    [Fact]
+    public void RenamingAFormThatHasAFile()
+    {
+        // lsp-client's scenario of that name: the wire name is the file's, and a rename moves no file, so a server
+        // is told nothing and keeps the document it has.
+        var path = OperatingSystem.IsWindows() ? @"C:\src\proj\Form1.frm" : "/src/proj/Form1.frm";
+        var form = new FormDefinition(Project(), FormComponentClass.Instance, "Form1") { AbsolutePath = path };
+        var before = DocumentWireName.For(form);
+
+        form.Components[0].SetProperty(VBProperties.NameProperty, "Renamed");
+
+        form.Name.Should().Be("Renamed", "the premise of this test");
+        DocumentWireName.For(form).Should().Be(before).And.Be(LspDocumentUri.ForFile(path));
+    }
+
+    [Fact]
+    public async Task AModuleInAProjectNotYetSaved()
+    {
+        // lsp-client's scenario of that name. A module added to a project that has never been saved is written at
+        // once, into the project's private scratch folder, so it has a file and is named by it, not as untitled:.
+        var service = new ProjectService(
+            () => throw new InvalidOperationException("no new-project dialog here"),
+            Substitute.For<IWindowManager>(), Substitute.For<IEventBus>(), Substitute.For<IProjectManager>(),
+            Substitute.For<IRecentProjectsService>(), Substitute.For<IReferenceLibraryService>(),
+            Substitute.For<IUserSidecarService>(), new FileBaselineStore(),
+            Substitute.For<HexIDE.Localization.ILocalizationService>(), Substitute.For<IHeaderRefresher>());
+        var project = new ProjectDefinition(VBProjectType.EXE, "Project1");
+        try
+        {
+            var module = await service.AddNewModule(project, "Module1", ModuleKind.StandardModule, interactive: false);
+
+            project.AbsolutePath.Should().BeNull("the premise of this test");
+            module.AbsolutePath.Should().StartWith(project.WorkingDirectory!).And.EndWith("Module1.bas");
+            File.Exists(module.AbsolutePath).Should().BeTrue();
+            DocumentWireName.For(module).Should().Be(LspDocumentUri.ForFile(module.AbsolutePath!))
+                .And.StartWith("file:///");
+        }
+        finally
+        {
+            if (project.WorkingDirectory is { } scratch)
+                try { Directory.Delete(scratch, recursive: true); } catch { /* best effort */ }
+        }
     }
 }
