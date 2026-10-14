@@ -2663,6 +2663,20 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     /// is the module.
     /// </para>
     /// </summary>
+    private (string? Qualifier, string Name) SplitTypeName(string text)
+    {
+        var parts = text.Split('.');
+        if (parts.Length == 1) return (null, parts[0]);
+
+        // Drop a leading project name if that is what it is.
+        var i = 0;
+        if (parts.Length > 1 && string.Equals(parts[0], interpreter.ProjectName, StringComparison.OrdinalIgnoreCase))
+            i = 1;
+
+        var name = parts[^1];
+        return i < parts.Length - 1 ? (parts[^2], name) : (null, name);
+    }
+
     /// <summary>
     /// Whether a type name the interpreter has no class, UDT or enum for is still a type a declaration may name (#822
     /// review). It is when it is:
@@ -2690,20 +2704,6 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (qualifier is not null)
             return !interpreter.Modules.Contains(qualifier) && !VB6InBoxLibraries.IsLibrary(qualifier);
         return interpreter.ReferencesOtherLibraries;
-    }
-
-    private (string? Qualifier, string Name) SplitTypeName(string text)
-    {
-        var parts = text.Split('.');
-        if (parts.Length == 1) return (null, parts[0]);
-
-        // Drop a leading project name if that is what it is.
-        var i = 0;
-        if (parts.Length > 1 && string.Equals(parts[0], interpreter.ProjectName, StringComparison.OrdinalIgnoreCase))
-            i = 1;
-
-        var name = parts[^1];
-        return i < parts.Length - 1 ? (parts[^2], name) : (null, name);
     }
 
     private static void CollectLineHeads(VB6Parser.BlockContext block, VB6Parser.BlockStmtContext[] stmts,
