@@ -928,4 +928,32 @@ public sealed class UserSidecarSaveTests : IDisposable
 
         File.GetLastWriteTimeUtc(path).Should().Be(stamp);
     }
+
+    /// <summary>
+    /// document-identity's scenario of that name (#273). Both stores key a mark by the document's identity, not by
+    /// its name, so a rename moves nothing; the sidecar is written under the name the document has when it is
+    /// saved. The next run is honoured by the same lookup: the runner reads each document's marks by identity and
+    /// names them to the interpreter by the document's current name (<c>ProjectRunnerService</c>).
+    /// </summary>
+    [Fact]
+    public async Task RenamingADocumentWithBreakpointsOnIt()
+    {
+        var project = Project();
+        var bookmarks = new BookmarkService();
+        var breakpoints = new BreakpointService();
+        var sidecar = Service(bookmarks, breakpoints);
+        await sidecar.LoadAsync(project);
+        bookmarks.SetBookmarks(Module1(project), [4]);
+        breakpoints.SetDocument(Module1(project), [7]);
+
+        project.Modules[0].Name = "Utilities";
+
+        bookmarks.GetBookmarks(Module1(project)).Should().Equal([4], "the same line, under the renamed document");
+        breakpoints.GetBreakpoints(Module1(project)).Should().Equal([7], "the same line, under the renamed document");
+        await sidecar.SaveAsync(project);
+        var written = Read(SidecarOf(project));
+        Lines(written, "fileBookmarks", "Utilities").Should().Equal(4);
+        Lines(written, "fileBreakpoints", "Utilities").Should().Equal(7);
+        written["fileBookmarks"]!.AsObject().ContainsKey("Module1").Should().BeFalse("the old name is not kept beside the new");
+    }
 }
