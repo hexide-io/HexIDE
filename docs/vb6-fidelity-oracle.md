@@ -8625,6 +8625,33 @@ What these show:
 - **A use after Unload loads the form again,** raising Load but not Initialize, and the run carries on. The obvious
   guess, that touching an unloaded form is an error, is wrong.
 
+**An Unload that finds nothing to do.** Three more probes, the same twelve-way agreement, each with `On Error Resume
+Next` so an error would be data:
+
+| Probe | Log |
+|---|---|
+| `Unload Me` twice in a row | QueryUnload and Unload **once**, both statements after, `Err.Number` 0 each time, then `terminate` |
+| `Unload Me` inside Form_QueryUnload | the nested statement returns at once with Err 0, then Unload, the handler's statements, `terminate` |
+| `Unload Me` inside Form_Unload | the same: nothing raised again, Err 0, then the handler's statements, `terminate` |
+
+So a second `Unload Me` does not load the form again, where `Me.Caption` does. An Unload of a form that is already
+unloaded, or is being unloaded, does nothing at all.
+
+**`Unload Me` inside Form_Load** (raised at review, #1046). Five probes, native and p-code, all ten agreeing. Form2's
+Form_Load logs, unloads itself, and logs again.
+
+| Probe | Log |
+|---|---|
+| The startup form, `Unload Me` in its own Load | `load`, QueryUnload mode 1, Unload, **the rest of Load**, `terminate`. No Resize, Activate or Paint, and the exe exits 0 with nothing shown |
+| `Form2.Show` from Form1 | Form2's Initialize, Load, QueryUnload, Unload, the rest of its Load, then at Form1 **Err 364, "Object was unloaded"**. `Forms.Count` is 1 |
+| `Load Form2` | the same, and the same **364** |
+| `Form2.Show vbModal` | the same, and the same **364** |
+| The startup form, QueryUnload refusing the unload made in Load | QueryUnload's refusal, the rest of Load, then **Resize and Activate**: the form is shown and the run goes on |
+
+One more thing these show, which matters for #822. **Form2's Terminate is not raised by its Unload.** Each Form2 probe
+ends with `End`, which raises no Terminate, and none came before it. A form's Terminate goes with its instance's
+release. The startup form's comes as the run ends, which is where the first table sees it.
+
 ### HexIDE
 
 Since #973 (its first slice), `Unload Me`, or `Unload Form1` naming the running startup form, raises Form_QueryUnload
@@ -8634,8 +8661,18 @@ to it. Once the handler has returned, Form_Terminate runs, the form's fields are
 form gone. The window's close box raises the same pair with UnloadMode 0, and a refusal keeps the window open. Pinned
 in `UnloadTests`, through the IDE's F5 path, with every statement yielding.
 
+Also pinned there, after the review of #1046:
+- **`Unload Me` in Form_Load** runs the rest of Load and then Terminate. The form is never shown, and the run ends
+  with no report. A refusal there shows the form, as in VB6.
+- **An Unload of a form already unloaded, or from inside its own QueryUnload or Unload,** does nothing.
+- **Two presses of the close box** ask once. A press while an unload is deciding, or after it with Terminate still to
+  come, keeps the window until Terminate has run.
+
 What it still does not do:
 - **Reload on use.** A use of the form after it has unloaded is refused as not implemented, naming #822, where VB6
   loads it again. Running on would end the run where VB6 carries on.
-- **Another form, and `Unload` of a form that isn't loaded.** Both belong to #822's Load slice.
+- **Another form.** Its Show and Load, and the 364 above, belong to #822's Load slice. So does keeping a form's
+  Terminate for its instance's release. With only the startup form, that release is the run's end, which comes straight
+  after.
+- **`Unload Me` in Form_Initialize** is refused, naming #822. It is not measured.
 - **The SingleView host's close box** still closes without asking. The desktop's asks.

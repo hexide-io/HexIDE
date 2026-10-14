@@ -545,9 +545,14 @@ public class VBLoader
         {
             try
             {
-                // A form whose start was a fault, or that the program ended, is never shown (#1010 review).
+                // A form whose start was a fault, or that the program ended, is never shown (#1010 review). Nor is one that
+                // unloaded itself in Load, whose Terminate runs here, before the pump closes (measured, #1046 review).
                 if (!await context.StartAsync() || token.IsCancellationRequested || run.Task.IsCompleted)
+                {
+                    if (!token.IsCancellationRequested && !run.Task.IsCompleted)
+                        await context.FinishUnloadAsync(closeUnshown);
                     return;
+                }
                 shown = true;
                 await showUntilClosed();
             }

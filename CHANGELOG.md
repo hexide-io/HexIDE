@@ -29,6 +29,8 @@ there isn't one yet. Anything may change between 0.x releases.
   - **What comes after:** the rest of the handler still runs. Then `Form_Terminate`, the form's fields are released,
     and the run ends.
   - **The close box** asks the same way, and a refusal keeps the window open.
+  - **`Unload Me` in `Form_Load`** ends the run without showing the form. A second Unload, or one from inside
+    QueryUnload or Unload, does nothing.
 - **MouseDown, MouseUp and MouseMove are raised** (#974) on the form and on every control that has them in VB6:
   CommandButton, Label, TextBox, PictureBox, Frame, CheckBox, OptionButton, Image and ListBox. Before, no handler for
   them ever ran. Measured on vb6.exe:

@@ -49,17 +49,21 @@ public class UnloadTests
       + "End\r\n"
       + "Attribute VB_Name = \"Form1\"\r\n";
 
-    // The lifecycle, logged, with QueryUnload and Unload refusing while their flag is set.
+    // The lifecycle, logged, with QueryUnload and Unload refusing while their flag is set, and unloading again from
+    // inside themselves while nestIn names them.
     private const string Lifecycle = """
         Private refuseQuery As Boolean
         Private refuseUnload As Boolean
+        Private nestIn As Integer
         Private Sub Form_QueryUnload(Cancel As Integer, UnloadMode As Integer)
             Debug.Print "queryunload, mode " & UnloadMode & ", cancel in " & Cancel
             If refuseQuery Then Cancel = True: refuseQuery = False: Debug.Print "queryunload refuses"
+            If nestIn = 1 Then nestIn = 0: Unload Me: Debug.Print "nested in queryunload"
         End Sub
         Private Sub Form_Unload(Cancel As Integer)
             Debug.Print "unload, cancel in " & Cancel
             If refuseUnload Then Cancel = 1: refuseUnload = False: Debug.Print "unload refuses"
+            If nestIn = 2 Then nestIn = 0: Unload Me: Debug.Print "nested in unload"
         End Sub
         Private Sub Form_Terminate()
             Debug.Print "terminate"
@@ -70,13 +74,13 @@ public class UnloadTests
     private sealed class Run : IDisposable
     {
         public required ProjectRunnerService Runner { get; init; }
-        public required VBFormRuntime Window { get; init; }
+        public required VBFormRuntime? Window { get; init; }
         public required Action Detach { get; init; }
         public required List<string> Printed { get; init; }
         public required List<string> Failed { get; init; }
         public bool Closed { get; set; }
 
-        public void Click() => Window.GetLogicalDescendants().OfType<VBCommandButton>().Single()
+        public void Click() => Window!.GetLogicalDescendants().OfType<VBCommandButton>().Single()
             .RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
         public void Dispose()
@@ -87,7 +91,10 @@ public class UnloadTests
         }
     }
 
-    private static Run Start(string code, params (string Name, ModuleKind Kind, string Code)[] modules)
+    private static Run Start(string code, params (string Name, ModuleKind Kind, string Code)[] modules) =>
+        Start(code, shown: true, modules);
+
+    private static Run Start(string code, bool shown, params (string Name, ModuleKind Kind, string Code)[] modules)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form = new FormDeserializer().Deserialize(project, Form, new NullSink())!;
@@ -127,16 +134,20 @@ public class UnloadTests
         runner.RunFailed += failed.Add;
         runner.RunProject(project);
         Pump();
-        window.Should().NotBeNull("the startup form opens before anything is clicked");
+        if (shown)
+            window.Should().NotBeNull("the startup form opens before anything is clicked");
+        else
+            window.Should().BeNull("the startup form unloaded itself in Load");
         var run = new Run
         {
             Runner = runner,
-            Window = window!,
+            Window = window,
             Printed = printed,
             Failed = failed,
             Detach = () => VBDebugConsole.Output -= print,
         };
-        window!.Closed += (_, _) => run.Closed = true;
+        if (window is not null)
+            window.Closed += (_, _) => run.Closed = true;
         return run;
     }
 
@@ -209,13 +220,29 @@ public class UnloadTests
             End Sub
             """);
 
-        run.Window.Context.UnloadFromCloseBox().Should().BeTrue("the program decides whether the form closes");
+        run.Window!.Context.UnloadFromCloseBox().Should().BeTrue("the program decides whether the form closes");
         Pump();
 
         run.Printed.Should().Equal("queryunload, mode 0, cancel in 0", "queryunload refuses");
         run.Closed.Should().BeFalse();
 
         run.Printed.Clear();
+        run.Window!.Context.UnloadFromCloseBox().Should().BeTrue();
+        Pump();
+
+        run.Failed.Should().BeEmpty();
+        run.Printed.Should().Equal("queryunload, mode 0, cancel in 0", "unload, cancel in 0", "terminate");
+        run.Closed.Should().BeTrue();
+        run.Runner.IsRunning.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void Two_presses_of_the_close_box_ask_once_and_lose_neither_Terminate_nor_the_run()
+    {
+        // Both presses wait in the queue, one behind the other, as two quick clicks on the box do (#1046 review).
+        using var run = Start("");
+
+        run.Window!.Context.UnloadFromCloseBox().Should().BeTrue();
         run.Window.Context.UnloadFromCloseBox().Should().BeTrue();
         Pump();
 
@@ -223,6 +250,96 @@ public class UnloadTests
         run.Printed.Should().Equal("queryunload, mode 0, cancel in 0", "unload, cancel in 0", "terminate");
         run.Closed.Should().BeTrue();
         run.Runner.IsRunning.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void A_press_of_the_close_box_behind_a_handler_that_unloads_asks_nothing()
+    {
+        // The press comes while the click's handler is still running, every statement yielding, so it waits behind it.
+        using var run = Start("""
+            Private Sub Command1_Click()
+                Debug.Print "click"
+                Unload Me
+                Debug.Print "after unload"
+            End Sub
+            """);
+
+        run.Click();
+        run.Window!.Context.UnloadFromCloseBox().Should().BeTrue("the window stays until the program has decided");
+        Pump();
+
+        run.Failed.Should().BeEmpty();
+        run.Printed.Should().Equal("click", "queryunload, mode 1, cancel in 0", "unload, cancel in 0", "after unload",
+            "terminate");
+        run.Closed.Should().BeTrue();
+        run.Runner.IsRunning.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void Unload_Me_in_Form_Load_runs_the_rest_of_Load_and_Terminate_and_ends_the_run_without_showing_the_form()
+    {
+        // Measured: QueryUnload, Unload, the rest of Load, Terminate, and the run ends silently, never shown (#1046 review).
+        using var run = Start("""
+            Private Sub Form_Load()
+                Debug.Print "load"
+                Unload Me
+                Debug.Print "after unload, in load"
+            End Sub
+            Private Sub Form_Resize()
+                Debug.Print "resize"
+            End Sub
+            """, shown: false);
+
+        run.Failed.Should().BeEmpty();
+        run.Printed.Should().Equal("load", "queryunload, mode 1, cancel in 0", "unload, cancel in 0", "after unload, in load",
+            "terminate");
+        run.Runner.IsRunning.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void A_refused_Unload_Me_in_Form_Load_shows_the_form_and_the_run_goes_on()
+    {
+        // Measured: the form is shown, with Resize and Activate, and the run goes on.
+        using var run = Start("""
+            Private Sub Form_Load()
+                refuseQuery = True
+                Unload Me
+                Debug.Print "after the refused unload, in load"
+            End Sub
+            """);
+
+        run.Failed.Should().BeEmpty();
+        run.Printed.Should().Equal("queryunload, mode 1, cancel in 0", "queryunload refuses", "after the refused unload, in load");
+        run.Closed.Should().BeFalse();
+        run.Runner.IsRunning.Should().BeTrue();
+    }
+
+    [AvaloniaTheory]
+    [InlineData(0, new[] { "queryunload, mode 1, cancel in 0", "unload, cancel in 0", "after the first", "after the second" })]
+    [InlineData(1, new[] { "queryunload, mode 1, cancel in 0", "nested in queryunload", "unload, cancel in 0", "after the first",
+        "after the second" })]
+    [InlineData(2, new[] { "queryunload, mode 1, cancel in 0", "unload, cancel in 0", "nested in unload", "after the first",
+        "after the second" })]
+    public void An_Unload_of_a_form_already_unloading_or_unloaded_does_nothing(int nest, string[] expected)
+    {
+        // Measured: a second Unload Me, and one from inside QueryUnload or Unload, raise nothing, report no error and reload
+        // nothing. The outer unload goes on.
+        using var run = Start($"""
+            Private Sub Command1_Click()
+                nestIn = {nest}
+                Unload Me
+                Debug.Print "after the first"
+                Unload Me
+                Debug.Print "after the second"
+            End Sub
+            """);
+
+        run.Click();
+        Pump();
+
+        run.Failed.Should().BeEmpty();
+        run.Printed.Should().Equal([.. expected, "terminate"]);
+        run.Closed.Should().BeTrue();
     }
 
     [AvaloniaFact]

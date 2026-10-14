@@ -145,8 +145,11 @@ public class VBWindowContext : IModuleExecutionRoot
     /// <summary>How the host closes the form's window. Set as the form is started.</summary>
     public Action? CloseWindow { get; set; }
 
-    // Set while QueryUnload and Unload run, so an Unload from inside them is refused rather than raising them again.
+    // Set while QueryUnload and Unload run. An Unload from inside them does nothing, as in VB6 (measured).
     private bool unloading;
+
+    // Set once the form has unloaded and until its Terminate has run, which waits for the handler that unloaded it.
+    private bool terminatePending;
 
     /// <summary>
     /// Unload the form, as VB6 does (#973): <c>Form_QueryUnload</c>, then <c>Form_Unload</c>, each with a ByRef Cancel
@@ -154,16 +157,21 @@ public class VBWindowContext : IModuleExecutionRoot
     /// <c>Unload Me</c> run once they have. The window goes at once. Terminate, and the run's end with its last form, come
     /// once the handler that unloaded it has returned (measured, native and p-code).
     /// </summary>
+    /// <remarks>
+    /// An Unload of a form already unloaded, or from inside its own QueryUnload or Unload, does nothing: no event, no
+    /// error, and no reload (measured). Inside the handlers the outer unload goes on.
+    /// </remarks>
     /// <param name="mode">VB6's UnloadMode: 1 (vbFormCode) from <c>Unload</c>, 0 (vbFormControlMenu) from the close box.</param>
-    /// <returns>Whether the form unloaded: false when a handler cancelled.</returns>
+    /// <returns>Whether the form is now unloaded: false when a handler cancelled, or while the unload is still deciding.</returns>
     public async Task<bool> UnloadAsync(int mode)
     {
         if (interpreter is null)
             return true;
         var form = EnsureInstance();
-        if (!form.FormLoaded || unloading)
-            throw new NotImplementedException(
-                $"Unload of {form.ClassName} while it is {(unloading ? "unloading" : "not loaded")} is not implemented yet (#822).");
+        if (unloading || form.FormUnloaded)
+            return form.FormUnloaded;
+        if (!form.FormLoaded)
+            throw new NotImplementedException($"Unload of {form.ClassName} before it has loaded is not implemented yet (#822).");
         unloading = true;
         try
         {
@@ -180,12 +188,22 @@ public class VBWindowContext : IModuleExecutionRoot
         HoldControls(form);
         if (Window is not null)
             Window.IsVisible = false;
-        Events.WhenIdle(async () =>
-        {
-            await Report(() => interpreter.FireTerminate(form));
-            CloseWindow?.Invoke();
-        });
+        terminatePending = true;
+        Events.WhenIdle(() => FinishUnloadAsync(CloseWindow));
         return true;
+    }
+
+    /// <summary>
+    /// The last of an unload, once the handler that unloaded the form has returned: <c>Form_Terminate</c>, the form's
+    /// fields released, then <paramref name="close"/> for its window. Runs once, and does nothing when no unload waits.
+    /// </summary>
+    public async Task FinishUnloadAsync(Action? close)
+    {
+        if (!terminatePending)
+            return;
+        terminatePending = false;
+        await Report(() => interpreter!.FireTerminate(EnsureInstance()));
+        close?.Invoke();
     }
 
     // Raise QueryUnload or Unload with Cancel passed by reference, and say whether the handler set it.
@@ -206,9 +224,22 @@ public class VBWindowContext : IModuleExecutionRoot
     /// </summary>
     public bool UnloadFromCloseBox()
     {
-        if (interpreter is null || RunIsOver() || instance is not { FormLoaded: true })
+        if (interpreter is null || RunIsOver() || instance is null)
             return false;
-        Events.Raise("Form_QueryUnload", async () => await Dispatch(async () => await UnloadAsync(0)));
+        // Unloading, or unloaded with Terminate still to come: the window stays until that has run, and goes then. Closed
+        // now, the run would end before Terminate (#1046 review).
+        if (unloading || instance.FormUnloaded)
+            return true;
+        if (!instance.FormLoaded)
+            return false;
+        var form = instance;
+        Events.Raise("Form_QueryUnload", async () =>
+        {
+            // A second press, queued behind the first, finds the form gone or going, and asks nothing.
+            if (form.FormUnloaded || unloading)
+                return;
+            await Dispatch(async () => await UnloadAsync(0));
+        });
         return true;
     }
 
@@ -228,6 +259,8 @@ public class VBWindowContext : IModuleExecutionRoot
     /// (debugger-vb6-divergences D23), so the start goes on.</item>
     /// <item>A fault, End, or the debugger's Stop ends the run, and the start stops there: Load is not raised after a
     /// fault in Initialize. The owner's reaction to a fault arrives later, posted, so the start can't wait for it.</item>
+    /// <item>A form that unloaded itself during Load is not shown. Its Terminate is still to run
+    /// (<see cref="FinishUnloadAsync"/>), and the run ends silently, as VB6's does (measured).</item>
     /// </list>
     /// </returns>
     public async Task<bool> StartAsync()
@@ -247,7 +280,9 @@ public class VBWindowContext : IModuleExecutionRoot
                     return false;
                 form.FormLoaded = true;
                 ExecutionContext.State.ClearPendingControls(form.ClassName);
-                return await Report(() => interpreter.RaiseFormEvent(form, "Form_Load")) != Outcome.Over && !RunIsOver();
+                // A form that unloaded itself in Load, as `Unload Me` there does, is not shown (measured, #1046 review).
+                return await Report(() => interpreter.RaiseFormEvent(form, "Form_Load")) != Outcome.Over && !RunIsOver()
+                    && !form.FormUnloaded;
             }
             finally
             {
