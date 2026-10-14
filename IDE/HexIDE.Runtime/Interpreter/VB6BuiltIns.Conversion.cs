@@ -109,15 +109,24 @@ public partial class VB6BuiltIns
                     throw new VBRunTimeException(VBStandardError.TypeMismatch);
                 }
             }
-            // In the program's locale, as CStr writes, so CDbl(CStr(x)) round-trips in any locale (#777). No
-            // thousands separator: VB6 skips one (`CDbl("1,5")` is 15 under en-GB), which is #770.
-            if (!double.TryParse(s, NumberStyles.Float, VbLocale.Current, out var sd))
+            // In the program's locale, as CStr writes, so CDbl(CStr(x)) round-trips in any locale (#777). Measured on
+            // vb6.exe under en-GB and de-DE (#770, #1047), CDbl and an arithmetic operand alike:
+            // - the locale's thousands separator is skipped wherever it falls: "1,000" and "6,5" are 1000 and 65 under
+            //   en-GB, and "1,000" is 1 and "6.5" is 65 under de-DE;
+            // - a trailing sign and parentheses make a negative: "6-" and "(6)" are both -6;
+            // - D marks an exponent as E does: "1D3" is 1000.
+            if (!double.TryParse(s, NumberStyle, VbLocale.Current, out var sd)
+                && !(s.AsSpan().IndexOfAny('d', 'D') >= 0
+                     && double.TryParse(s.Replace('d', 'e').Replace('D', 'E'), NumberStyle, VbLocale.Current, out sd)))
                 throw new VBRunTimeException(VBStandardError.TypeMismatch);
             return Finite(sd, s);
         }
         if (Vb6Value.TryNumericToDouble(v, out var d)) return d;   // numeric + Date (via OA serial)
         throw new VBRunTimeException(VBStandardError.TypeMismatch);
     }
+
+    private const NumberStyles NumberStyle = NumberStyles.Float | NumberStyles.AllowThousands
+                                             | NumberStyles.AllowTrailingSign | NumberStyles.AllowParentheses;
 
     /// <summary>
     /// A number .NET parsed from <paramref name="text"/>, or the error VB6 raises for it. .NET reads "NaN",

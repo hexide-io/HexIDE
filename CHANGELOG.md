@@ -22,6 +22,12 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Arithmetic on a numeric String works, as in VB6** (#1047). `Text1.Text * 2` used to stop the run with Type mismatch.
+  - **The reading:** every operator now reads a String operand as `CDbl` does, in the program's locale, and the result
+    type is the one a Double would give.
+  - **`+`:** a String beside a String or Empty concatenates.
+  - **`CDbl` and its relatives** read a thousands separator, so `CDbl("1,000")` is 1000 under en-GB (#770). They also
+    read a trailing sign (`"6-"`), parentheses (`"(6)"`) and a `D` exponent (`"1D3"`), all measured on vb6.exe.
 - **Two overflow edges now match VB6** (#234). Both were measured as p-code and in vb6.exe's IDE.
   - **`0 / 0` raises Overflow (6)**, not Division by zero (11), for every operand type except Decimal, which keeps 11.
   - **A Variant Single that overflows** widens to Double, as a Variant Integer widens to Long, instead of raising
