@@ -129,17 +129,6 @@ public class CorpusBehaviourTests
         ["select-case-matching/equality-operator-string-numerically-equal-textually-different"] =
             "EQ-OPERATOR-COERCION: raises Type mismatch, VB6 says True",
 
-        // RESUME-NEXT-LANDS-PAST-THE-ARM. Both of these now raise the RIGHT error (6 for the overflowing
-        // coercion, 13 for the unparseable one) and print it. They differ only in where On Error Resume
-        // Next resumes to: VB6 continues INTO the matched arm's body and prints MATCH first, HexIDE
-        // resumes past the whole statement. A resume-point question, not a Select Case one — and the
-        // unhandled form of both cases (recorded `hung`, i.e. VB6 put up a modal) is the semantics that
-        // actually matters, which HexIDE now reproduces.
-        ["select-case-matching/integer-selector-out-of-range-case-error-number"] =
-            "RESUME-POINT: right error (6), but Resume Next skips the arm body VB6 enters",
-        ["select-case-matching/numeric-selector-unparseable-string-case-error-number"] =
-            "RESUME-POINT: right error (13), but Resume Next skips the arm body VB6 enters",
-
         // SPLIT-IDENTIFIER-IS-TWO-NAMES. VB6 does not join an identifier across a line continuation — the
         // halves are separate names, so the read is of an undeclared Variant and yields 0. HexIDE joins
         // them and reads the real variable, answering 5. Accepting more than VB6 would be tolerable; this

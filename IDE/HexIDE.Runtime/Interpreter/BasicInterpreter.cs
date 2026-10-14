@@ -1017,6 +1017,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         _ => false,
     };
 
+    // The declared type a parameter's own slot records, as a Dim's does, so that a store into it converts and a For over
+    // it is a typed counter (measured, #839: `Function P(ByVal i As Long)` counts as a Long). Only the numeric types,
+    // whose value is already converted on the way in; a String, Boolean or Date parameter is not converted yet (#874).
+    private static Vb6Value.ValueType? NumericSlotType(ParamInfo p) =>
+        p.DeclaredType is { } dt && VbNumeric.IsCoreNumeric(dt) ? dt : null;
+
     private async Task BindParameters(ProcedureInfo proc, IReadOnlyList<CallArg> args, ExecutionEnvironment callee, ModuleInfo owner, List<int> ownedSlots)
     {
         for (int i = 0; i < proc.Parameters.Count; i++)
@@ -1049,7 +1055,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     var stored = p.DeclaredType is { } dt && VbNumeric.IsCoreNumeric(dt) && proc.Body is { } body
                         ? VbNumeric.Narrow(passed, dt, body)
                         : CopyIfValueType(passed);
-                    ExecutionContext.AllocVariable(callee, p.Name, stored);
+                    ExecutionContext.AllocVariable(callee, p.Name, stored, NumericSlotType(p));
                     MarkParameterSlot(p, callee);
                     // A ByVal object param is a counted hold for the call's duration (so a `New T` passed straight
                     // into a call terminates right after the call, per the oracle); release it at scope-exit.
@@ -1073,7 +1079,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     ? await new ExpressionExecutor(this, callee, owner, new Stack<Vb6Value>()).EvaluateValue(p.Default.valueStmt())
                     : p.DeclaredType is { } declared ? new Vb6Value(declared)
                     : Vb6Value.Missing;
-                ExecutionContext.AllocVariable(callee, p.Name, value);
+                if (NumericSlotType(p) is { } numeric && proc.Body is { } optionalBody)
+                    value = VbNumeric.Narrow(value, numeric, optionalBody);
+                ExecutionContext.AllocVariable(callee, p.Name, value, NumericSlotType(p));
                 MarkParameterSlot(p, callee);
             }
             else
