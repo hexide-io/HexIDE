@@ -1230,6 +1230,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // A UDT is a value type: `b = a` stores an independent deep copy so mutating b never touches a.
             if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out var oldLet))
             {
+                // In a form's code, a property of the form: `Caption = "Ready"` sets the caption (#995, measured), with or
+                // without Option Explicit. It used to make a new variable and leave the caption as it was.
+                if (FormMembers.TryBare(interpreter.ExecutionContext, currentEnv, identifier, out var form, out var formMember)
+                    && !formMember.IsMethod)
+                {
+                    FormMembers.Write(form, identifier, formMember, value);
+                    return default;
+                }
                 // VB6 creates an undeclared variable on first use — a procedure-local Variant, Empty, fresh
                 // per call (all measured). "Require Variable Declaration" is OFF by default in VB6, so a
                 // module without Option Explicit is the ordinary case rather than a legacy one, and this
@@ -1321,7 +1329,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     await interpreter.ReleaseRef(oldFieldLet);
                     return default;
                 }
-                // A form's built-in property is its window's: `Me.Caption = "x"` (#822). Set below, as a control's is.
+                // A form's built-in property is its window's: `Me.Caption = "x"` (#822). One VB6's Form has is set as the bare
+                // name is, so a read-only one is VB6's compile error and one HexIDE lacks is not implemented (#995). Any
+                // other is set below, as a control's is.
+                if (vobj.ClassDef.Kind == InterpreterModuleKind.Form && FormMembers.IsMember(fieldName, out var formMember)
+                    && !formMember.IsMethod && membersCall.iCS_S_MemberCall().Length == 1)
+                {
+                    FormMembers.Write(vobj, fieldName, formMember, value);
+                    return default;
+                }
                 variable = vobj.BuiltInMembersFor(fieldName) is { } formWindow
                     ? new Vb6Value(formWindow)
                     : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, fieldName);
@@ -1908,7 +1924,13 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             var id = varCall.GetText();
             if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, id, out var oldVal))
+            {
+                // A form's own object property, bare (`Set Picture = ...`, #995): not set through Set anywhere yet, as
+                // `Set Me.Picture` isn't either.
+                if (FormMembers.TryBare(interpreter.ExecutionContext, currentEnv, id, out var form, out _))
+                    throw new NotImplementedException($"Set on {form.ClassName}'s own {id} is not implemented");
                 throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Variable " + id + " is not declared");
+            }
             // Phase-5 event-sink bind detection: `id` is a `WithEvents` field of the current class AND resolves to
             // the actual instance field slot — NOT a procedure-local of the same name shadowing it (the shadowing
             // Dim re-allocs a distinct slot, so the locations differ). `Me` is the listener instance (WithEvents is
@@ -2606,6 +2628,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     public override async Task<ControlFlow> VisitICS_B_ProcedureCall(VB6Parser.ICS_B_ProcedureCallContext context)
     {
         var subName = context.certainIdentifier().GetText();
+        // In a form's code, a method of the form: `Cls`, `Hide`, `Move 0, 0` (#995). Before another module's Public Sub of
+        // the name, as the form's members come before the project's globals (measured, #822).
+        if (FormMembers.TryBare(interpreter.ExecutionContext, currentEnv, subName, out var form, out var formMember)
+            && formMember.IsMethod)
+        {
+            FormMembers.Call(form, subName, await expressionExecutor.EvaluateCallArgs(context.argsCall()));
+            return ControlFlow.Nothing;
+        }
         // A bare procedure statement (Foo a, b): a user Sub/Function (this module, or another module's Public)
         // takes precedence over a builtin.
         if (interpreter.TryResolveProcedure(subName, currentModule, out _, out _))

@@ -531,6 +531,16 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
             if (!interpreter.ExecutionContext.TryGetVariable(env, identifier, out var variable))
             {
+                // In a form's code, a member of the form: `Caption`, `Width`, `Left` (#995). After the procedure's locals and
+                // the form's own variables and controls, which the lookup above found, and before the project's globals
+                // and VBA, as VB6 resolves it (measured, #822). Its own procedures can't share a name with one.
+                if (FormMembers.TryBare(interpreter.ExecutionContext, env, identifier, out var form, out var formMember))
+                {
+                    if (formMember.CanGet && formMember.RequiredArgs == 0)
+                        return FormMembers.Read(form, identifier);
+                    if (formMember.IsMethod && formMember.RequiredArgs == 0)
+                        return FormMembers.Call(form, identifier, []);
+                }
                 if (interpreter.BuiltIns.TryGetBuiltInConstant(identifier, out var builtInConst))
                     return builtInConst;
                 // A bare name in an expression may be a zero-argument (or all-optional) Function call — this
@@ -658,6 +668,11 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 throw new VBRunTimeException(procOrArrayCall, VBStandardError.SubscriptOutOfRange);
             }
         }
+        // A form's method, in its own code: `TextWidth("abc")` (#995). A form property takes no arguments, so a call with
+        // some is not the form's: `Left("abc", 1)` is VBA's (measured).
+        var isFormMember = FormMembers.TryBare(interpreter.ExecutionContext, env, name, out var form, out var formMember);
+        if (isFormMember && formMember.IsMethod)
+            return FormMembers.Call(form, name, await EvaluateCallArgs(argsCtx));
         if (interpreter.TryResolveProcedure(name, currentModule, out _, out _))
         {
             var callArgs = await ResolveCallArgs(argsCtx);
@@ -668,6 +683,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var args = await EvaluateCallArgs(argsCtx);
         if (await EvaluateFunction(name, args) is { } builtInResult)
             return builtInResult;
+        // A property of the form indexed, as `Controls(0)` is through its default member, which HexIDE has none of yet.
+        if (isFormMember)
+            throw new NotImplementedException($"{form.ClassName}'s {name} with arguments is not implemented");
 
         throw new VBSubOrFunctionNotDefinedException(name);
     }
@@ -719,7 +737,18 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             // A form's built-in members are its window's: `Me.Caption`, `Form1.Width` (#822). They come after the form's
             // own members, which VB6 refuses to let clash with them.
             if (vobj.BuiltInMembersFor(memberName) is { } formWindow)
+            {
+                // A VB6 Form member HexIDE can't read is refused as not implemented: 438 is what VB6 says of a member the
+                // Form doesn't have, which this one does (#995). A method is the window's to call.
+                if (vobj.ClassDef.Kind == InterpreterModuleKind.Form && FormMembers.IsMember(memberName, out var formMember))
+                {
+                    if (formMember.IsMethod)
+                        return FormMembers.Call(vobj, memberName, await EvaluateCallArgs(MemberArgs(member)));
+                    if (MemberArgs(member) == null && !FormMembers.CanRead(formWindow, memberName))
+                        throw new NotImplementedException($"Reading {vobj.ClassName}'s {memberName} is not implemented");
+                }
                 return await ResolveOneMember(new Vb6Value(formWindow), member, ctx);
+            }
             throw new VBMethodOrDataMemberNotFoundException(memberName, variable.Type);
         }
 
