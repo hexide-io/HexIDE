@@ -8652,6 +8652,27 @@ One more thing these show, which matters for #822. **Form2's Terminate is not ra
 ends with `End`, which raises no Terminate, and none came before it. A form's Terminate goes with its instance's
 release. The startup form's comes as the run ends, which is where the first table sees it.
 
+**In vb6.exe's IDE, the same.** Where the IDE and a compiled program differ, HexIDE matches the IDE (decided
+2026-10-14, recorded on #822). So the probes whose answer could depend on the IDE's host were run again in it, with
+`VB6.EXE /runexit`:
+- **`Unload Me`** and the statements after it;
+- **a WM_CLOSE**, refused and then allowed;
+- **`Unload Me` in the startup form's Load;**
+- **the 364 at `Form2.Show`;**
+- **a refusal in Load.**
+
+All five logs match the compiled builds line for line, Terminate's place at the run's end included. VB6.EXE itself
+exited with 0xC000041D every time, as it did in earlier `/runexit` runs from a PowerShell Direct session. Each log was
+complete before that.
+
+The rest weren't rerun, because they exercise the language engine rather than the host, and native and p-code already
+agree on them:
+- the two Cancel probes, which test a ByRef argument;
+- reload on use;
+- the three no-op shapes;
+- the copies of the 364 under `Load` and `Show vbModal`;
+- the headless `Visible` probe.
+
 ### HexIDE
 
 Since #973 (its first slice), `Unload Me`, or `Unload Form1` naming the running startup form, raises Form_QueryUnload
