@@ -1040,9 +1040,12 @@ measured beyond this one name, so it is recorded here as a fact about `Left`, no
 | `Form1.Caption`, `Form1.Score` (a Public of the form) and `Form1.Text1.Text` | `cap`, `5`, `t1` |
 | `Score`, unqualified, where `Score` is a Public of the form | Empty: a new variable, there being no Option Explicit |
 | `Hello`, unqualified, where `Hello` is a Public Sub of the form | does not compile: "Sub or Function not defined" |
+| `Ping`, unqualified, where Module2 and the form each have a Public Sub `Ping` | Module2's runs: `module2 ping` |
 
 A form's Public members are members of the form, not project globals. They are reached through its name, and not
-without it. [A form-based game's runtime surface](#a-form-based-games-runtime-surface-2026-10-12) had the same refusal
+without it. The `Ping` row is the same rule seen from the other side: a form's Public Sub is not a candidate for an
+unqualified name at all, so it cannot make a module's Sub of the same name ambiguous. The probe was Form1, Module1 and
+Module2 in one Standard EXE, with Form1's Load calling Module1's `CallPing`, whose body is the bare `Ping`. [A form-based game's runtime surface](#a-form-based-games-runtime-surface-2026-10-12) had the same refusal
 for a class calling a form's Public Sub unqualified, and the other direction too: a standard module's Public Const and
 variable are reachable unqualified from a form.
 
@@ -1101,7 +1104,8 @@ Read from the code at `upstream/main` c933fbd, not run. A form's code runs as th
 interpreter of its own, and `Me` and the form's name are bound to the window (`VBLoader.RunForm`). So:
 - **Implicit `Me`:** a bare name is never looked up on the form: `Caption = "x"` makes a new variable (#995).
 - **A form's Public Subs:** the form is a standard module, so they are found unqualified from another module, where VB6
-  refuses (#822).
+  refuses (#822). And a name the form shares with another module's Public Sub is "Ambiguous name detected: Ping"
+  (`TryResolveProcedure` counts the form as a second standard module with a `Ping`), where VB6 runs the module's.
 - **The form from outside:** its name is bound in its own module only.
 - **`TypeName(Me)`:** it is the window's .NET class name with `VB` taken off, `FormRuntime`.
 - **The lifecycle:** Initialize and Activate are never raised, and Resize comes before Load (#994). A form's declarations
@@ -1109,6 +1113,11 @@ interpreter of its own, and `Me` and the form's name are bound to the window (`V
 
 #822 carries the design that makes the form an instance. #995 follows it for implicit `Me`, and the predeclared,
 auto-instantiating name belongs to the slices that bring `Load`, `Show` and a second form.
+
+#822's first slice makes the startup form an instance of its module, with `Me` that instance. It brings the rows
+above into line for `Me`, `TypeName(Me)`, the form reached from a module, both of the Public Sub rows, the
+declarations at Initialize, and Initialize and Load before Resize. Implicit `Me` (#995), a control used in Initialize
+(#1009), Activate, the predeclared name and `Unload` remain.
 
 ## Assigning to a control property (2026-10-12, #768)
 
