@@ -17,7 +17,7 @@ public class FormComponentClass : ComponentBaseClass
     StartUpPositionProperty,
     KeyPreviewProperty,
     MaxButtonProperty,
-    MinButtonProperty], [ClickEvent])
+    MinButtonProperty], [ClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
     {
     }
 

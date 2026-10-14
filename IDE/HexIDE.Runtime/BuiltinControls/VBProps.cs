@@ -24,4 +24,11 @@ public class VBProps
         AvaloniaProperty.RegisterAttached<VBProps, Control, VBScaleMode>("ScaleMode", VBScaleMode.Twip);
     public static VBScaleMode GetScaleMode(AvaloniaObject element) => element.GetValue(ScaleModeProperty);
     public static void SetScaleMode(AvaloniaObject element, VBScaleMode value) => element.SetValue(ScaleModeProperty, value);
+
+    // How far in from a control's edge its client area starts, in pixels: where a mouse event's X and Y count from (#974).
+    // A 3-D bordered TextBox's and ListBox's start 2 pixels in (measured with GetClientRect); every other control's at 0.
+    public static readonly AttachedProperty<double> ClientInsetProperty =
+        AvaloniaProperty.RegisterAttached<VBProps, Control, double>("ClientInset");
+    public static double GetClientInset(AvaloniaObject element) => element.GetValue(ClientInsetProperty);
+    public static void SetClientInset(AvaloniaObject element, double value) => element.SetValue(ClientInsetProperty, value);
 }

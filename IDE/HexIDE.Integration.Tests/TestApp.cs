@@ -35,6 +35,13 @@ public class TestApp : Application
         {
             Source = new Uri("avares://HexIDE/Automation/AccessKeyNames.axaml"),
         });
+        // As App.axaml does: the running controls' own templates. Without them a Frame has no template, so the controls
+        // it contains are not in the visual tree at all, and real pointer input passes through them (#974).
+        foreach (var dictionary in new[] { "VBTimer.axaml", "VBLabel.axaml", "Resources.axaml" })
+            Resources.MergedDictionaries.Add(new ResourceInclude(new Uri("avares://HexIDE.Integration.Tests/"))
+            {
+                Source = new Uri("avares://HexIDE.Runtime/BuiltinControls/" + dictionary),
+            });
     }
 
     public static AppBuilder BuildAvaloniaApp() =>

@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Rendering;
 using HexIDE.Runtime.Serialization;
 
 namespace HexIDE.Runtime.BuiltinControls;
@@ -13,7 +14,7 @@ namespace HexIDE.Runtime.BuiltinControls;
 /// control with no drawing methods and no ability to contain anything; the only thing it does is show a
 /// picture, optionally stretched.
 /// </summary>
-public class VBImage : Control
+public class VBImage : Control, ICustomHitTest
 {
     protected override Type StyleKeyOverride => typeof(Control);
 
@@ -26,7 +27,14 @@ public class VBImage : Control
     static VBImage()
     {
         AffectsRender<VBImage>(PictureProperty, StretchProperty);
+        // Before Click, so MouseUp comes first, as for a Label (#974, #861).
+        AttachedEvents.AttachMouse<VBImage>();
+        AttachedEvents.AttachClick<VBImage>();
     }
+
+    // The whole rectangle takes the pointer, picture or not, so the mouse events reach it (#974). It draws nothing a
+    // hit test would otherwise find where it has no picture.
+    public bool HitTest(Point point) => new Rect(Bounds.Size).Contains(point);
 
     /// <summary>
     /// The picture, as the bytes the <c>.frx</c> record held. Decoded lazily and cached, because the same

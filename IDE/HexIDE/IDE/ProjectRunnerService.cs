@@ -593,6 +593,10 @@ public partial class ProjectRunnerService : IProjectRunnerService
         {
             windowContext.ExecuteSub(name, args);
         }
+
+        public bool Handles(string name) => windowContext.Handles(name);
+
+        public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args) => windowContext.ExecuteEvent(name, args);
     }
 
     public class MDIStandaloneStandardLib : IBasicStandardLibrary

@@ -32,4 +32,8 @@ public class VBFormRuntime : Window, IModuleExecutionRoot
     {
         windowContext.ExecuteSub(name, args);
     }
+
+    public bool Handles(string name) => windowContext.Handles(name);
+
+    public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args) => windowContext.ExecuteEvent(name, args);
 }

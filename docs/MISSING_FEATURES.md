@@ -345,7 +345,7 @@
 | FileListBox | Missing | Not in toolbox — see DriveListBox |
 | Shape | Done | |
 | Line | Missing | Not in toolbox. The only intrinsic that is not a rectangle — its geometry is X1/Y1/X2/Y2, which the designer's bounding-box model has no concept of ([#163](https://github.com/hexide-io/HexIDE/issues/163)) |
-| Image | Done | `ImageComponentClass` + `VBImage`; decodes an .frx picture record by peeling both the record framing and the StdPicture preamble |
+| Image | Done | `ImageComponentClass` + `VBImage`; decodes an .frx picture record by peeling both the record framing and the StdPicture preamble. Raises Click and the mouse events, hit-tested across its whole rectangle with or without a picture (#974); DblClick is #1031 |
 | OLE | Windows-only | OLE Container control; in-process COM hosting; Windows only |
 | PictureBox | Done | |
 | Custom tab / component groups | Missing | Single flat list; no tab support |
@@ -497,7 +497,7 @@
 |---|---|---|
 | Run VB6 project in-process | Partial | Runs via one `BasicInterpreter` (F5 = MCP `run_project` = the ~383 tests all use the same engine — no separate stub), but that engine is only ~25% language-complete (~10% for a real program) — see the rows below |
 | Standard control set (Label, TextBox, Button, etc.) | Partial | ~13 intrinsic controls instantiate + run; other types render as inert placeholders |
-| Form events (Load, Click, Change, Timer) | Partial | `Form_Load`/`Resize`, `Click`, `Change` and `Timer` fire; `Unload`, `Key*`/`Mouse*` and `ComboBox` events are declared but never wired |
+| Form events (Load, Click, Change, Timer) | Partial | `Form_Load`/`Resize`, `Click`, `Change` and `Timer` fire, Click on the controls that wire it and not the Form. `MouseDown`, `MouseUp` and `MouseMove` fire on every control VB6 gives them and the Form, in VB6's order against Click (#974). `DblClick` (#1031), `Unload`, `Key*` and `ComboBox` events are not wired |
 | VB6 built-in functions | Partial | **~80** implemented via a data-driven registry (interpreter-core Phase 3, complete), all pinned against `vb6.exe`: **Strings** (`Left/Right/Mid/Len/InStr/InStrRev/Replace/Trim/LTrim/RTrim/UCase/LCase/StrReverse/Space/String/Chr/Asc/Str/Val`), **Conversion** (`CByte/CInt/CLng/CSng/CDbl/CCur/CDec/CBool/CStr/CDate`, `Hex/Oct`), **Math** (`Abs/Int/Fix/Sgn/Sqr/Sin/Cos/Tan/Atn/Exp/Log/Round`, `Rnd` + `Randomize`), **Inspection** (`TypeName/VarType/IsNumeric/IsDate/IsEmpty/IsNull/IsArray/IsObject`), **Array** (`Array/Split/Join/Filter/LBound/UBound`), **Date/Time** (`Now/Date/Time/Timer/Year/Month/Day/Hour/Minute/Second/Weekday/DateSerial/TimeSerial/DateValue/TimeValue/DateAdd/DateDiff/DatePart/MonthName/WeekdayName`), **`Format`** (the full mask mini-language: numeric/date/string/Boolean) + `MsgBox/InputBox`. **Still missing:** the `$`-typed twins (`Format$/Left$/Mid$/…`) need the type-hint dispatch; a few intrinsics (`StrConv/WeekdayName` locale edges) remain — but the everyday surface is covered. |
 | User-defined `Function` declarations | Done | Declared + callable from statements and expressions; recursion works; return via the function-name idiom (interpreter-core Phase 1) |
 | `Sub`/`Function` parameters | Done | ByRef (VB6 default — aliases the caller's slot, so mutations propagate) / ByVal (copy) / `Optional` + evaluated defaults bound (Phase 1); `ParamArray` + named args still pending |

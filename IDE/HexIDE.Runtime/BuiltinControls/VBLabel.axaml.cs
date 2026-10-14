@@ -98,6 +98,8 @@ public class VBLabel : TemplatedControl
         RecognizesAccessKeyProperty.Changed.AddClassHandler<VBLabel>((label, e) => label.UpdateStyle());
         TextProperty.Changed.AddClassHandler<VBLabel>((label, e) => label.UpdateStyle());
 
+        // Before Click, so MouseUp comes first, as VB6 raises them (#974).
+        AttachedEvents.AttachMouse<VBLabel>();
         AttachedEvents.AttachClick<VBLabel>();
     }
 

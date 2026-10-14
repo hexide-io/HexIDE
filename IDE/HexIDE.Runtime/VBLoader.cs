@@ -34,6 +34,10 @@ public class VBLoader
         // The form's ScaleMode is the unit its controls' positions are read and written in (#933). The .frm holds them
         // in twips whatever it is.
         VBProps.SetScaleMode(canvas, (VBScaleMode)(element.Scale?.Mode ?? (int)VBScaleMode.Twip));
+        // The form's own mouse events come from its client area, which is hit-tested only where it has a background: a
+        // transparent one shows the form's BackColor through it (#974).
+        canvas.Background = Avalonia.Media.Brushes.Transparent;
+        AttachedEvents.AttachFormMouse(canvas);
         var menu = new Menu();
         DockPanel.SetDock(menu, Avalonia.Controls.Dock.Top);
         var shortcuts = new List<(KeyGesture Gesture, Action Invoke)>();
@@ -343,6 +347,23 @@ public class VBLoader
         target.Children.Add(control);
         onPlaced?.Invoke(component, control, target);
 
+        // A PictureBox's ScaleMode is the unit of the controls inside it (measured: in a pixel PictureBox, a TextBox at 150
+        // twips reads 10), and of its own mouse events' X and Y. HexIDE keeps it as the line the .frm wrote. A Frame has
+        // none, so its children stay in twips.
+        if (componentClass.TryGetChildHost(control, out var ownHost) && DeclaredScaleMode(component) is { } scaleMode)
+            VBProps.SetScaleMode(ownHost, scaleMode);
+        // Where a 3-D bordered TextBox's or ListBox's client area starts, which is where its mouse X and Y count from: 2
+        // pixels in, and at the edge when it is flat or has no border (measured with GetClientRect, #974).
+        if (componentClass is TextBoxComponentClass or ListBoxComponentClass)
+        {
+            var flat = componentClass is ListBoxComponentClass
+                ? component.GetPropertyOrDefault(VBProperties.AppearanceProperty) == VBAppearance.Flat
+                : RawNumber(component, "Appearance") == 0;
+            var borderless = componentClass is TextBoxComponentClass && RawNumber(component, "BorderStyle") == 0;
+            if (!flat && !borderless)
+                VBProps.SetClientInset(control, 2);
+        }
+
         if (component.ContainedControls.Count == 0)
             return;
 
@@ -354,27 +375,26 @@ public class VBLoader
             childHost = host;
         }
 
-        // A PictureBox's ScaleMode is the unit of the controls inside it (measured: in a pixel PictureBox, a TextBox at 150
-        // twips reads 10). HexIDE keeps it as the line the .frm wrote. A Frame has none, so its children stay in twips.
-        if (DeclaredScaleMode(component) is { } scaleMode)
-            VBProps.SetScaleMode(childHost, scaleMode);
-
         foreach (var child in component.ContainedControls)
             PlaceComponentTree(child, childHost, formCanvas, onPlaced);
     }
 
     // The ScaleMode a container's .frm block declares, from the line HexIDE preserves for it: `ScaleMode = 3  'Pixel`.
-    private static VBScaleMode? DeclaredScaleMode(ComponentInstance component)
+    private static VBScaleMode? DeclaredScaleMode(ComponentInstance component) =>
+        RawNumber(component, "ScaleMode") is { } mode && Enum.IsDefined(typeof(VBScaleMode), mode) ? (VBScaleMode)mode : null;
+
+    // The number on a property line HexIDE preserves without modelling it, such as `BorderStyle = 0  'None`.
+    private static int? RawNumber(ComponentInstance component, string name)
     {
         foreach (var property in component.UnknownRawProperties)
         {
-            if (!property.Name.Equals("ScaleMode", StringComparison.OrdinalIgnoreCase) || property.Lines.Count == 0)
+            if (!property.Name.Equals(name, StringComparison.OrdinalIgnoreCase) || property.Lines.Count == 0)
                 continue;
             var line = property.Lines[0];
             var value = line[(line.IndexOf('=') + 1)..].TrimStart();
             var digits = value.Length - value.TrimStart("0123456789".ToCharArray()).Length;
-            if (digits > 0 && int.TryParse(value[..digits], out var mode) && Enum.IsDefined(typeof(VBScaleMode), mode))
-                return (VBScaleMode)mode;
+            if (digits > 0 && int.TryParse(value[..digits], out var number))
+                return number;
         }
         return null;
     }

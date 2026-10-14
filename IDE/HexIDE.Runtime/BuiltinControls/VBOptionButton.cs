@@ -31,6 +31,8 @@ public class VBOptionButton : RadioButton
 
     static VBOptionButton()
     {
+        // MouseUp follows Click, as a CheckBox's does (#974).
+        AttachedEvents.AttachMouse<VBOptionButton>();
         AppearanceProperty.Changed.AddClassHandler<VBOptionButton>((option, e) =>
         {
             if (option.Appearance == VBAppearance._3D)

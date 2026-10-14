@@ -187,20 +187,32 @@ public class VBWindowContext : IModuleExecutionRoot
 
     public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
     {
+        var argList = args is null ? null : new List<Vb6Value>(args);
+        Raise(name, () => argList);
+    }
+
+    /// <inheritdoc/>
+    public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args) => Raise(name, args);
+
+    /// <inheritdoc/>
+    public bool Handles(string name) => interpreter is not null && EnsureInstance().ClassDef.PrePass.Procedures.ContainsKey(name);
+
+    private void Raise(string name, Func<IReadOnlyList<Vb6Value>?> args)
+    {
         // An event raised before SetCode has no code to run, as when a form's controls fail to build and the
         // run is abandoned half way. It used to reach here anyway and log a NullReferenceException after the
         // real error, which read as a second fault (#590).
         if (interpreter is null)
             return;
         var form = EnsureInstance();
-        var argList = args is null ? null : new List<Vb6Value>(args);
         // The event is the form's: its own procedure of that name, run on its instance (#822). A context that was never
-        // started, as a test's is, runs the declarations first; a started one ran them in StartAsync.
+        // started, as a test's is, runs the declarations first; a started one ran them in StartAsync. The arguments are
+        // worked out inside the dispatch, so one HexIDE can't work out is refused as the run's error (#974).
         Dispatch(async () =>
         {
             if (!started)
                 await EnsureDeclarations();
-            await interpreter.RaiseFormEvent(form, name, argList);
+            await interpreter.RaiseFormEvent(form, name, args());
         }).ListenErrors();
     }
 
