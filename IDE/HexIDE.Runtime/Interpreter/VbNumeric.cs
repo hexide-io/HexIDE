@@ -46,10 +46,31 @@ public static class VbNumeric
         _ => VT.Decimal
     };
 
+    /// <summary>
+    /// A String operand, read as VB6 reads it: as the Double <c>CDbl</c> would make of it, or Type mismatch (#1047). Measured
+    /// across every operator and partner, native, p-code and the IDE: <c>"6" * 2</c> is 12, and the String takes a Double's
+    /// place in the result table, so <c>"6" + CCur(2)</c> is Currency, <c>"6" * CDec(2)</c> Decimal, and <c>"7" \ "2"</c> Long.
+    /// </summary>
+    private static Vb6Value ReadString(Vb6Value v, ParserRuleContext? ctx)
+    {
+        if (v.Type != VT.String)
+            return v;
+        try
+        {
+            return new Vb6Value(VB6BuiltIns.ToNum(v));
+        }
+        catch (VBRunTimeException e) when (ctx is not null)
+        {
+            throw new VBRunTimeException(ctx, e.Error);
+        }
+    }
+
     // ===== + - * =====
 
     public static Vb6Value Add(Vb6Value l, Vb6Value r, ParserRuleContext? ctx)
     {
+        l = ReadString(l, ctx);
+        r = ReadString(r, ctx);
         if (l.Type == VT.Date || r.Type == VT.Date)
             return FromSerial(SerialOf(l) + SerialOf(r), ctx);   // Date + anything -> Date (adds serial days)
         return Arith(l, r, ctx, '+');
@@ -57,6 +78,8 @@ public static class VbNumeric
 
     public static Vb6Value Sub(Vb6Value l, Vb6Value r, ParserRuleContext? ctx)
     {
+        l = ReadString(l, ctx);
+        r = ReadString(r, ctx);
         bool ld = l.Type == VT.Date, rd = r.Type == VT.Date;
         if (ld && rd)
             return new Vb6Value(SerialOf(l) - SerialOf(r));      // Date - Date -> Double (day difference)
@@ -65,7 +88,8 @@ public static class VbNumeric
         return Arith(l, r, ctx, '-');
     }
 
-    public static Vb6Value Mul(Vb6Value l, Vb6Value r, ParserRuleContext? ctx) => Arith(l, r, ctx, '*');
+    public static Vb6Value Mul(Vb6Value l, Vb6Value r, ParserRuleContext? ctx) =>
+        Arith(ReadString(l, ctx), ReadString(r, ctx), ctx, '*');
 
     private static Vb6Value Arith(Vb6Value l, Vb6Value r, ParserRuleContext? ctx, char op)
     {
@@ -101,6 +125,8 @@ public static class VbNumeric
 
     public static Vb6Value RealDivide(Vb6Value l, Vb6Value r, ParserRuleContext? ctx)
     {
+        l = ReadString(l, ctx);
+        r = ReadString(r, ctx);
         if (!TryToDouble(l, out var a) || !TryToDouble(r, out var b))
             throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
         if (b == 0.0)
@@ -118,6 +144,9 @@ public static class VbNumeric
 
     public static Vb6Value IntDivide(Vb6Value l, Vb6Value r, ParserRuleContext? ctx)
     {
+        RefuseBooleanOverString(l, r, "\\", ctx);
+        l = ReadString(l, ctx);
+        r = ReadString(r, ctx);
         long a = RoundToLong(l, ctx), b = RoundToLong(r, ctx);
         if (b == 0)
             throw new VBRunTimeException(ctx, VBStandardError.DivisionByZero);
@@ -126,16 +155,31 @@ public static class VbNumeric
 
     public static Vb6Value Modulo(Vb6Value l, Vb6Value r, ParserRuleContext? ctx)
     {
+        RefuseBooleanOverString(l, r, "Mod", ctx);
+        l = ReadString(l, ctx);
+        r = ReadString(r, ctx);
         long a = RoundToLong(l, ctx), b = RoundToLong(r, ctx);
         if (b == 0)
             throw new VBRunTimeException(ctx, VBStandardError.DivisionByZero);
         return NarrowLong(a % b, IntResultType(l.Type, r.Type), ctx);   // C# % sign follows dividend, as VB6 Mod
     }
 
+    // A Boolean divided by a String, with \ or Mod, is the one shape where VB6 does not read the String as a Double:
+    // `True \ "6"` is the Boolean True and `True Mod "6"` the Boolean False (measured, native and p-code), though
+    // `"6" \ True` is the Long -6. Read as a Double it would come out a Long 0, a wrong value, so it is refused (#1047).
+    private static void RefuseBooleanOverString(Vb6Value l, Vb6Value r, string op, ParserRuleContext? ctx)
+    {
+        if (l.Type == VT.Boolean && r.Type == VT.String)
+            throw new NotImplementedException(
+                $"A Boolean {op} a String is not implemented: VB6 gives a Boolean there, by a rule not yet measured (#1047).");
+    }
+
     // ===== ^ and unary minus =====
 
     public static Vb6Value Power(Vb6Value l, Vb6Value r, ParserRuleContext? ctx)
     {
+        l = ReadString(l, ctx);
+        r = ReadString(r, ctx);
         if (!TryToDouble(l, out var a) || !TryToDouble(r, out var b))
             throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
         // `^` distinguishes a DOMAIN error from an overflow, and the two get different numbers (measured):
@@ -150,6 +194,7 @@ public static class VbNumeric
 
     public static Vb6Value Negate(Vb6Value v, ParserRuleContext? ctx)
     {
+        v = ReadString(v, ctx);
         int rank = CoreRank(v.Type);
         if (rank < 0)
         {

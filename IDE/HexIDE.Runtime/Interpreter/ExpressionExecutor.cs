@@ -1030,6 +1030,12 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return Vb6Value.Null;
         if (leftValue.Type == Vb6Value.ValueType.String && rightValue.Type == Vb6Value.ValueType.String)
             return new Vb6Value((string)leftValue.Value! + (string)rightValue.Value!);   // VB6: String + String concatenates
+        // A String beside Empty is the String, both ways round: `"6" + Empty` and `Empty + "6"` are the String "6"
+        // (measured, #1047). Any other operand beside a String reads the String as a number.
+        if (leftValue.Type == Vb6Value.ValueType.String && rightValue.Type == Vb6Value.ValueType.EmptyVariant)
+            return new Vb6Value((string)leftValue.Value!);
+        if (leftValue.Type == Vb6Value.ValueType.EmptyVariant && rightValue.Type == Vb6Value.ValueType.String)
+            return new Vb6Value((string)rightValue.Value!);
         return Typed(leftValue, rightValue, VbNumeric.Add(leftValue, rightValue, context));
     }
 
