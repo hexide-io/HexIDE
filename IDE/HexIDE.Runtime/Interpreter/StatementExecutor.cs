@@ -367,6 +367,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return ret;
         }
 
+        // And at the end of the block, so a loop's condition, read next, sees what a handler its last statement raised
+        // has set: `Do: Text1.Text = "x": Loop Until done`, with Text1_Change setting done (#766).
+        if (interpreter.Events is { } raised)
+            await raised.WaitForRaised();
         return ControlFlow.Nothing;
     }
 

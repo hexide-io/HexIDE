@@ -323,8 +323,8 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   handler at a time: an event that comes while a handler runs waits for it, the raiser of a nested event waits for it,
   and `DoEvents` runs what is waiting. The time slice still yields, for Ctrl+Break, but lets nothing in.
   `EventOrderTests` and `RunFaultTests` run with `TimeSliceMs` = -1, which yields at every statement. What remains is
-  the granularity: a nested handler finishes before the raiser's next statement, or before a call returns, rather
-  than inside the very expression that raised it.
+  the granularity: a nested handler finishes before the raiser's next statement, the end of its block, or the return
+  of a call, rather than inside the very expression that raised it.
 
 ### D22. A compile error met while a program runs is a run-time error dialog, and the run carries on
 - **VB6:** a compile error found while the program runs, such as a call to a Sub that does not exist, is shown in

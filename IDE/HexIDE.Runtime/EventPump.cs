@@ -20,9 +20,10 @@ public enum EventCoalescing
     Timer,
 
     /// <summary>
-    /// The latest replaces any still waiting, as a MouseMove does: Windows synthesises WM_MOUSEMOVE when nothing else is
-    /// queued, so only the newest move is ever delivered. Inferred from that rule; synthetic messages cannot drive it on
-    /// the oracle.
+    /// A move, as a MouseMove is: it updates the newest waiting event when that is itself a move, of any control, and is
+    /// queued otherwise. The program's input is one queue, and a move never reaches past a press or anything else, so a
+    /// waiting Move, Down, Move stays three. Inferred from how Windows coalesces WM_MOUSEMOVE, not measured: synthetic
+    /// messages cannot drive it on the oracle.
     /// </summary>
     Latest,
 }
@@ -75,6 +76,7 @@ public sealed class EventPump
     private readonly List<Waiting> queue = [];
     private readonly Dictionary<string, int> running = new(StringComparer.OrdinalIgnoreCase);
     private int topLevel;
+    private bool closed;
 
     /// <summary>The walk running now, or null when none is.</summary>
     internal Walk? Current { get; private set; }
@@ -88,6 +90,8 @@ public sealed class EventPump
     /// </summary>
     public void Raise(string name, Func<Task> work, EventCoalescing coalescing = EventCoalescing.None)
     {
+        if (closed)
+            return;
         if (Current is { } raiser)
         {
             var started = Start(name, work);
@@ -190,8 +194,15 @@ public sealed class EventPump
         }
     }
 
-    /// <summary>Forget every waiting event, as the end of a run does.</summary>
-    public void Clear() => queue.Clear();
+    /// <summary>
+    /// The run is over: forget every waiting event, and take no more. Called where the run ends, so nothing it left
+    /// waiting can run beside the next run, whatever the debugger the two runs share says by then.
+    /// </summary>
+    public void Close()
+    {
+        closed = true;
+        queue.Clear();
+    }
 
     private bool IsRunning(string name) => running.TryGetValue(name, out var count) && count > 0;
 
@@ -275,11 +286,14 @@ public sealed class EventPump
 
     private void Enqueue(Waiting item)
     {
-        var index = queue.FindIndex(w => string.Equals(w.Name, item.Name, StringComparison.OrdinalIgnoreCase));
-        if (index >= 0 && item.Coalescing == EventCoalescing.Timer)
+        if (item.Coalescing == EventCoalescing.Timer
+            && queue.FindIndex(w => string.Equals(w.Name, item.Name, StringComparison.OrdinalIgnoreCase)) >= 0)
             return;
-        if (index >= 0 && item.Coalescing == EventCoalescing.Latest)
-            queue.RemoveAt(index);
+        if (item.Coalescing == EventCoalescing.Latest && queue.Count > 0 && queue[^1].Coalescing == EventCoalescing.Latest)
+        {
+            queue[^1] = item;
+            return;
+        }
         queue.Add(item);
     }
 

@@ -165,6 +165,34 @@ public class EventOrderTests
     }
 
     [AvaloniaFact]
+    public void A_loop_condition_sees_what_a_handler_its_last_statement_raised_has_set()
+    {
+        // The body's last statement raises Change, which sets done; the condition is read after it, as in VB6, so the
+        // loop runs once. Read before Change had finished, it ran twice.
+        using var run = Start("""
+            Private done As Boolean
+            Private Sub Command1_Click()
+                Dim n As Integer
+                Do
+                    n = n + 1
+                    Text1.Text = Text1.Text & "x"
+                Loop Until done Or n > 5
+                Debug.Print "loops " & n
+            End Sub
+            Private Sub Text1_Change()
+                Debug.Print "change"
+                done = True
+            End Sub
+            """, -1);
+
+        run.Click("Command1");
+        Pump();
+
+        run.Failed.Should().BeEmpty();
+        run.Printed.Should().Equal("change", "loops 1");
+    }
+
+    [AvaloniaFact]
     public void An_event_that_comes_while_a_handler_runs_waits_until_it_has_finished()
     {
         // Command1's handler yields at its first statement; Command2 is clicked while it is suspended there.

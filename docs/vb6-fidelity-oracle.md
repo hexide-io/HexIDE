@@ -8493,10 +8493,12 @@ the click in.
 Since #766 an `EventPump`, one per run, runs handlers one at a time:
 - **A top-level event** (input, a Timer, a window event) runs at once when nothing runs, and otherwise waits its turn.
 - **An event the program's own code raises** runs at once. The raiser waits for it: before its next statement, before
-  the rest of a single-line `If`, and before a call returns.
+  the rest of a single-line `If`, at the end of a block (so a loop's condition sees what it set), and before a call
+  returns.
 - **`DoEvents`** gives the dispatcher one turn, then runs what is waiting inside the caller.
-- **A Timer** keeps at most one tick waiting, and none while its own handler runs. A MouseMove is coalesced to the
-  latest, by the inferred rule.
+- **A Timer** keeps at most one tick waiting, and none while its own handler runs. A move updates only a move at the
+  back of the queue, of any control, and never reaches past a press, by the inferred rule.
+- **The end of a run** closes the pump: what it left waiting is forgotten, and nothing more is taken.
 - **The time slice stays,** for Ctrl+Break and rendering, and no longer lets an event in.
 - **A MsgBox or InputBox** keeps the gate held, until a Timer under a MsgBox is measured.
 
@@ -8504,6 +8506,6 @@ Pinned in `EventOrderTests`, with the debugger's time slice off and at -1, where
 now runs at -1 too.
 
 Where HexIDE still differs: VB6 runs a nested handler inside the very call that raised it, so the rest of that
-expression comes after it. HexIDE waits at the next statement, the next part of a single-line `If`, or the return of
-a call. A raise in the middle of an expression, `x = SetIt() + Text1.Text` with SetIt raising Change, can therefore
+expression comes after it. HexIDE waits at the next statement, the next part of a single-line `If`, the end of a block,
+or the return of a call. A raise in the middle of an expression, `x = SetIt() + Text1.Text` with SetIt raising Change, can therefore
 see the rest of the expression evaluated first. And `DoEvents` returns 0, not VB6's count of open forms.
