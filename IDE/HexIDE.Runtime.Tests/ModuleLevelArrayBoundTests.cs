@@ -240,6 +240,9 @@ public class ModuleLevelArrayBoundTests : BaseVBTestFixture
     [Theory]
     [InlineData("Private Const GRID = 10\nPrivate mBoard(0 To GRID - 1) As Long\n")]   // bounded by the form's own Const
     [InlineData("Private mBoard(0 To 9) As Long\n")]                                   // and by literals
+    [InlineData("Private mBoard(0 To &H9) As Long\n")]                                 // #760's other bounds: hex,
+    [InlineData("Private mBoard(0 To 9&) As Long\n")]                                  // a typed literal,
+    [InlineData("Private mBoard(0 To (8 + 1)) As Long\n")]                             // and a constant expression
     public void A_forms_run_sizes_its_module_level_arrays(string declarations)
     {
         // A form's run used to skip the form's declarations (#256), so an array bounded by a Const was refused before

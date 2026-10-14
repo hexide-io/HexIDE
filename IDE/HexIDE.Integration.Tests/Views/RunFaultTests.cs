@@ -344,17 +344,25 @@ public class RunFaultTests
     public void A_fault_in_Form_Load_ends_the_run_too()
     {
         // Form_Load is where a program's first statements run, so it is where most programs will meet a gap
-        // first. The run must end and its form close, rather than leave an empty form standing.
+        // first. The run must end, rather than leave an empty form standing. Load runs before the form is shown
+        // (#822), so a fault there means the form is never shown at all.
         var run = FormProject(ReachesGoSub("Form_Load"));
         var printed = Printed(out var sink);
         VBDebugConsole.Output += sink;
         try
         {
-            var window = Start(run, printed);
+            VBFormRuntime? window = null;
+            using var opened = Window.WindowOpenedEvent.AddClassHandler<VBFormRuntime>((w, _) =>
+            {
+                if (w.Title == Caption)
+                    window = w;
+            });
+            run.Runner.RunProject(run.Project);
+            Pump();
 
             run.RunFailed.Should().ContainSingle().Which.Should().Contain("GoSub");
             printed.Should().Equal(["before"]);
-            window.IsVisible.Should().BeFalse("the form is closed with the run");
+            window.Should().BeNull("a form whose Load faulted is never shown");
             AssertNothingIsRunning(run);
         }
         finally
@@ -550,7 +558,11 @@ public class RunFaultTests
             }
 
             printed.Should().Equal(["before"]);
-            closed.Should().BeTrue("End closes the program's form, as the End command does");
+            if (procedure == "Form_Load")
+                // Load runs before the form is shown (#822), so a run that ends there never shows it.
+                window.Should().BeNull("End in Form_Load ends the run before the form is shown");
+            else
+                closed.Should().BeTrue("End closes the program's form, as the End command does");
             run.RunFailed.Should().BeEmpty("ending is not an error");
             run.StartFailed.Should().BeEmpty();
             AssertNothingIsRunning(run);

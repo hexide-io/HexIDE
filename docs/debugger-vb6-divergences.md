@@ -121,7 +121,7 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   `Me.Tag`-leaked-`TaskCompletionSource` defect this surfaced is FIXED (see interpreter-gaps). The remaining items
   above are separate runtime-model gaps, not a Locals-tree deficiency.
 
-### D8. A form's `Me` root is synthetic (forms are singleton Standard modules)
+### D8. A form's `Me` root is synthetic (forms are singleton Standard modules) — RESOLVED (#822, first slice)
 - **VB6:** a form is a class with a default instance; `Me` in a form event handler is a real object with the form's
   properties + module-level variables under it.
 - **HexIDE:** the interpreter models a form as the **primary Standard module** (a singleton), so a form event
@@ -134,6 +134,11 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   fake object. Ties to D7 (no property/control surface under it).
 - **Status:** **by design** (approximation). Exact VB6 Locals labelling (`Me` vs module name, root ordering) is
   worth confirming against the real VB6 IDE at some point; recorded so it isn't mistaken for a bug.
+- **Resolved by #822's first slice (#1010):** a running form is an instance of its module, so `Me` in its event
+  handlers is a real `VbObject`, as a class method's is. Locals shows it as `Me` with the form's name as its type: the
+  window's VB6 properties first, then the instance's variables and controls (D7's surface, unchanged). The form's name
+  is now seeded into every module, as `Debug` and `Err` are, so it is hidden from a module frame's Locals as well as
+  under `Me`. The labelling question above is still unmeasured.
 
 ### D9. Locals show only already-executed `Dim`s; value formatting is approximate
 - **VB6:** the Locals window lists **every** declared local from procedure entry (unset ones show as `Empty`/0/""),
@@ -325,6 +330,23 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **Status:** **open**. The one-dialog route was decided in [#759](https://github.com/hexide-io/HexIDE/issues/759);
   the measurement, and whether to break at the line instead, is
   [#833](https://github.com/hexide-io/HexIDE/issues/833).
+
+### D23. An unhandled run-time error in an event procedure leaves the run going
+- **VB6:** in the IDE, an unhandled run-time error stops the program at the statement and enters break mode, offering
+  End, Debug and Help, and nothing else runs until the developer chooses. A compiled exe shows the message and ends.
+  That is how it is commonly described; it is **not yet measured** on the oracle.
+- **HexIDE:** the error is recorded, so `get_last_runtime_error` returns it, and shown in the run-time error dialog,
+  where End ends the run. The event procedure that met it is abandoned, and the run carries on: a Timer tick or a click
+  still raises its handler, on whatever state the abandoned procedure left. That includes a form's start (#1010): a
+  run-time error in `Form_Initialize` is reported, and `Form_Load` is still raised and the form shown. A fault, a
+  construct HexIDE does not implement or an engine fault, is different: it ends the run, and during the start it stops
+  before the window is shown.
+- **Why:** the error reaches the dialog only after the event-dispatch boundary in `VBWindowContext` has caught it, once
+  the procedure has unwound, so there is no live frame to break into. Breaking at the statement needs the walk to
+  pause where the error is raised.
+- **Status:** **open**, [#1011](https://github.com/hexide-io/HexIDE/issues/1011): the measurement, and whether to end
+  the run (the compiled exe's behaviour) or break at the statement (the IDE's). D22 is the same divergence for a
+  compile error.
 
 ---
 

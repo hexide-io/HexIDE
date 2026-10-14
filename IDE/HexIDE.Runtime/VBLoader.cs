@@ -446,7 +446,8 @@ public class VBLoader
     /// <summary>
     /// Start a prepared form, then show its window, as VB6 shows its startup form: Initialize and Load run before the
     /// window appears (measured, #822), so a Resize comes after Load. The task completes when the window closes, or when
-    /// the run is cancelled, or ends, before it was shown. Shown or not, a cancellation closes the form.
+    /// the start does not end in a form to show: a fault in Initialize or Load, End, the debugger's Stop, or the run
+    /// cancelled first. Shown or not, a cancellation closes the form.
     /// </summary>
     public static Task StartAndShow(VBWindowContext context, CancellationToken token, Action close, Func<Task> showUntilClosed)
     {
@@ -464,8 +465,8 @@ public class VBLoader
         {
             try
             {
-                await context.StartAsync();
-                if (token.IsCancellationRequested || run.Task.IsCompleted)
+                // A form whose start was a fault, or that the program ended, is never shown (#1010 review).
+                if (!await context.StartAsync() || token.IsCancellationRequested || run.Task.IsCompleted)
                     return;
                 shown = true;
                 await showUntilClosed();

@@ -130,25 +130,32 @@ public class VBWindowContext : IModuleExecutionRoot
     /// <summary>
     /// Start the form as VB6 starts its startup form, before its window is shown (measured, #822): the modules'
     /// declarations, then the form's own, then <c>Form_Initialize</c>, then <c>Form_Load</c>. Each event runs inside the
-    /// boundary <see cref="ExecuteSub"/> gives any event, so a fault in one is reported as one is there. A run that ends
-    /// during Initialize, through End or the debugger's Stop, does not go on to Load.
+    /// boundary <see cref="ExecuteSub"/> gives any event, so an error in one is reported as one is there.
     /// </summary>
-    public async Task StartAsync()
+    /// <returns>
+    /// Whether the form started, and so is to be shown. A run-time error in Initialize or Load leaves the run going, as
+    /// one does in any event procedure (debugger-vb6-divergences D23), so the start goes on. A fault, End, or the
+    /// debugger's Stop ends the run: the start stops there, and Load is not raised after a fault in Initialize. The
+    /// owner's reaction to a fault arrives later, posted, so the start can't wait for it to say so.
+    /// </returns>
+    public async Task<bool> StartAsync()
     {
         if (interpreter is null)
-            return;
+            return false;
         var form = EnsureInstance();
-        await Dispatch(async () =>
+        var initialized = await Dispatch(async () =>
         {
             await EnsureDeclarations();
             await interpreter.RaiseFormEvent(form, "Form_Initialize");
         });
-        if (interpreter.Ending || interpreter.DebugController?.IsAborting == true)
-            return;
+        if (!initialized || RunIsOver())
+            return false;
         form.FormLoaded = true;
         ExecutionContext.State.ClearPendingControls(form.ClassName);
-        await Dispatch(() => interpreter.RaiseFormEvent(form, "Form_Load"));
+        return await Dispatch(() => interpreter.RaiseFormEvent(form, "Form_Load")) && !RunIsOver();
     }
+
+    private bool RunIsOver() => interpreter!.Ending || interpreter.DebugController?.IsAborting == true;
 
     private async Task EnsureDeclarations()
     {
@@ -177,25 +184,31 @@ public class VBWindowContext : IModuleExecutionRoot
         }).ListenErrors();
     }
 
-    // The event-dispatch boundary: every way an event procedure can stop, reported as what it is.
-    private async Task Dispatch(Func<Task> work)
+    // The event-dispatch boundary: every way an event procedure can stop, reported as what it is. True when the run
+    // carries on afterwards: the procedure finished, or stopped on a run-time or compile error, which leaves the run
+    // going (D22, D23). False when the run is over: a fault, a cancellation, or the debugger's Stop.
+    private async Task<bool> Dispatch(Func<Task> work)
     {
         try
         {
             await work();
+            return true;
         }
         catch (VBRunTimeException e)
         {
             RunTimeError?.Invoke(this, e);
+            return true;
         }
         catch (VBCompileErrorException e)
         {
             CompileError?.Invoke(this, e);
+            return true;
         }
         catch (Debugging.StopExecutionSignal)
         {
             // Debugger Stop (End) unwinds via this signal. The interpreter entry points already swallow it;
             // this is the belt-and-suspenders at the run-window boundary so it never logs as an error.
+            return false;
         }
         catch (Exception e)
         {
@@ -207,6 +220,7 @@ public class VBWindowContext : IModuleExecutionRoot
             // the paused run carries on.
             if (e is not (OperationCanceledException or Debugging.ImmediateEvalException))
                 Faulted?.Invoke(this, e);
+            return e is Debugging.ImmediateEvalException;
         }
         finally
         {

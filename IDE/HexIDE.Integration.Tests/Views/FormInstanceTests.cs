@@ -43,7 +43,11 @@ public class FormInstanceTests
       + "End\r\n"
       + "Attribute VB_Name = \"Form1\"\r\n";
 
-    private sealed record Run(List<string> Printed, List<Exception> Errors);
+    private sealed record Run(List<string> Printed, List<Exception> Errors)
+    {
+        /// <summary>Whether the window was showing once the start had run.</summary>
+        public bool Shown { get; set; }
+    }
 
     /// <summary>Run Form1 with <paramref name="formCode"/>, and the named modules, as F5 does, then close it.</summary>
     private static Run RunForm(string formCode, params (string Name, ModuleKind Kind, string Code)[] modules)
@@ -70,6 +74,7 @@ public class FormInstanceTests
         {
             VBLoader.RunForm(form, CancellationToken.None, out var window);
             Dispatcher.UIThread.RunJobs();
+            run.Shown = window.IsVisible;
             window.Close();
         }
         finally
@@ -234,13 +239,39 @@ public class FormInstanceTests
     public void A_control_or_built_in_member_used_in_Form_Initialize_is_refused(string statement, string named)
     {
         // VB6 loads the form there and then, inside Initialize (measured). HexIDE can't yet, and running Load afterwards
-        // would leave the wrong value, so the statement stops with "not implemented" (#1009). Load still runs after.
+        // would leave the wrong value, so the statement stops with "not implemented" (#1009). That is a fault, which ends
+        // the run, so the start stops with it: Load is not raised and the window is not shown (#1010 review).
         var run = RunForm($"Private Sub Form_Initialize()\n    {statement}\n    Debug.Print \"initialize end\"\nEnd Sub\n"
             + "Private Sub Form_Load()\n    Debug.Print \"load\"\nEnd Sub\n");
 
         run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
             .Which.Message.Should().Contain(named).And.Contain("#1009");
+        run.Printed.Should().BeEmpty();
+        run.Shown.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void A_fault_in_Form_Load_ends_the_start_before_the_window_is_shown()
+    {
+        // A form's Move is not implemented yet, so the statement faults, and a fault ends the run.
+        var run = RunForm("Private Sub Form_Load()\n    Debug.Print \"load\"\n    Me.Move 0, 0\n    Debug.Print \"load end\"\nEnd Sub\n");
+
+        run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>();
         run.Printed.Should().Equal("load");
+        run.Shown.Should().BeFalse();
+    }
+
+    [AvaloniaFact]
+    public void A_run_time_error_in_Form_Initialize_is_reported_and_the_start_goes_on()
+    {
+        // An unhandled run-time error stops its event procedure and leaves the run going, as in any event today. VB6
+        // halts the run there instead (debugger-vb6-divergences D23).
+        var run = RunForm("Private Sub Form_Initialize()\n    Debug.Print 1 / 0\nEnd Sub\n"
+            + "Private Sub Form_Load()\n    Debug.Print \"load\"\nEnd Sub\n");
+
+        run.Errors.Should().ContainSingle().Which.Should().BeOfType<VBRunTimeException>();
+        run.Printed.Should().Equal("load");
+        run.Shown.Should().BeTrue();
     }
 
     // ── The debugger ────────────────────────────────────────────────────────────────────────────────────
