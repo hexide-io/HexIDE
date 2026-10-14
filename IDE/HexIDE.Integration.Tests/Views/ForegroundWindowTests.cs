@@ -173,4 +173,51 @@ public class ForegroundWindowTests
         window.Should().BeNull();
         error.Should().Contain("editor").And.Contain("auto").And.Contain("ide");
     }
+
+    // ── A window by its name (#822) ───────────────────────────────────────────────────────────────────────
+
+    private static Window Form(string name, string title)
+    {
+        var w = Shown(title);
+        HexIDE.Runtime.BuiltinControls.VBProps.SetName(w, name);
+        return w;
+    }
+
+    [AvaloniaFact]
+    public void A_form_behind_another_is_reached_by_its_title_or_its_name()
+    {
+        var main = Shown("HexIDE");
+        var form1 = Form("Form1", "Main form");
+        var form2 = Form("Form2", "Form2");
+
+        ForegroundWindow.Pick(null, main, [main, form1, form2]).Window.Should().BeSameAs(form2, "it opened last");
+        ForegroundWindow.Pick("Main form", main, [main, form1, form2]).Window.Should().BeSameAs(form1);
+        ForegroundWindow.Pick("form1", main, [main, form1, form2]).Window.Should().BeSameAs(form1, "names ignore case");
+    }
+
+    [AvaloniaFact]
+    public void An_unknown_name_is_refused_with_the_titles_of_the_open_windows()
+    {
+        var main = Shown("HexIDE");
+        var form1 = Form("Form1", "Form1");
+
+        var (window, error) = ForegroundWindow.Pick("Form3", main, [main, form1]);
+
+        window.Should().BeNull();
+        error.Should().Contain("Unknown window 'Form3'").And.Contain("\"Form1\"").And.NotContain("\"HexIDE\"");
+    }
+
+    [AvaloniaFact]
+    public void Two_windows_of_one_name_are_refused_as_ambiguous_and_a_hidden_one_as_unreachable()
+    {
+        var main = Shown("HexIDE");
+        var first = Form("Form1", "Form1");
+        var second = Form("Form1", "Form1 again");
+
+        ForegroundWindow.Pick("Form1", main, [main, first, second]).Error.Should().Contain("2 open windows answer to 'Form1'");
+
+        second.Hide();
+        ForegroundWindow.Pick("Form1 again", main, [main, first, second]).Error.Should().Contain("is hidden");
+        ForegroundWindow.Pick("Form1", main, [main, first, second]).Window.Should().BeSameAs(first, "only one is showing");
+    }
 }
