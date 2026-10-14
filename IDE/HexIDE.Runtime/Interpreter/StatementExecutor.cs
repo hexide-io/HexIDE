@@ -1327,6 +1327,19 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return default;
             }
 
+            // A chain of objects, `Form2.Text1.Text = x` or `obj.Child.Name = x`: every member but the last is read as an
+            // expression reads it, which loads Form2 as a read of its control does, and the last is the one assigned
+            // (#822). Where the read ends at a UDT the write would land in a copy and be lost, so that is refused.
+            var members = membersCall.iCS_S_MemberCall();
+            if (members.Length > 1)
+            {
+                variable = await expressionExecutor.ResolveMemberChain(variable, members[..^1], 0, context);
+                if (variable.Value is VbUdt)
+                    throw new NotImplementedException(
+                        "Assigning a field of a UDT reached through an object's member is not implemented");
+                members = members[^1..];
+            }
+
             // A class instance member value-assign (`obj.Member = x`, no `Set`). A Property Let accessor wins
             // over a raw field write (the value coerces to the Let parameter's declared type inside the call);
             // otherwise write into the instance's own env slot (a UDT value is copied so the object owns it).
@@ -1335,13 +1348,11 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             {
                 if (variable.Value is not VbObject vobj)
                     throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
-                if (membersCall.iCS_S_MemberCall().Length != 1)
-                    throw new NotImplementedException("Object member chains are single-dot only");
-                if (MemberHasArgs(membersCall.iCS_S_MemberCall()[0]))
+                if (MemberHasArgs(members[0]))
                     throw new NotImplementedException("Parameterized/indexed object member assignment is not supported");
-                var fieldName = VbInterface.ResolveMember(variable, vobj, UdtFieldName(membersCall.iCS_S_MemberCall()[0]))
+                var fieldName = VbInterface.ResolveMember(variable, vobj, UdtFieldName(members[0]))
                     ?? throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound,
-                        UdtFieldName(membersCall.iCS_S_MemberCall()[0]));
+                        UdtFieldName(members[0]));
                 if (vobj.ClassDef.PrePass.Properties.TryGetValue(fieldName, out var prop) && prop.Let is { } letter)
                 {
                     await interpreter.RunProcedure(vobj.ClassDef, letter, [new CallArg(value, null)], vobj.InstanceEnv, variable, stmtFrames);
@@ -1360,7 +1371,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 // name is, so a read-only one is VB6's compile error and one HexIDE lacks is not implemented (#995). Any
                 // other is set below, as a control's is.
                 if (vobj.ClassDef.Kind == InterpreterModuleKind.Form && FormMembers.IsMember(fieldName, out var formMember)
-                    && !formMember.IsMethod && membersCall.iCS_S_MemberCall().Length == 1)
+                    && !formMember.IsMethod)
                 {
                     await interpreter.Loading((Form: vobj, Name: fieldName, Member: formMember, Value: value),
                         static s => FormMembers.Write(s.Form, s.Name, s.Member, s.Value));
@@ -1371,10 +1382,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, fieldName);
             }
 
-            if (membersCall.iCS_S_MemberCall().Length != 1)
-                throw new NotImplementedException("Only single member call (single dot) is supported as of now");
-
-            var memberIdentifier = membersCall.iCS_S_MemberCall()[0].GetText().TrimStart('.') ?? throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Null member name");
+            var memberIdentifier = members[0].GetText().TrimStart('.') ?? throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Null member name");
 
             // A CSharp property bag (e.g. Err.Number = …) handles its own get/set by name.
             if (variable.Value is ICSharpPropertyBag propertyBag && propertyBag.TrySetProperty(memberIdentifier, value))

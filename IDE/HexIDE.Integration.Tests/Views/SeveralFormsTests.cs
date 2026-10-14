@@ -43,6 +43,14 @@ public class SeveralFormsTests
       + "      Top             =   120\r\n"
       + "      Width           =   1215\r\n"
       + "   End\r\n"
+      + "   Begin VB.Label Label1 \r\n"
+      + "      Caption         =   \"label\"\r\n"
+      + "      Height          =   255\r\n"
+      + "      Left            =   1440\r\n"
+      + "      TabIndex        =   2\r\n"
+      + "      Top             =   120\r\n"
+      + "      Width           =   1215\r\n"
+      + "   End\r\n"
       + "   Begin VB.CommandButton Command1 \r\n"
       + "      Caption         =   \"Command1\"\r\n"
       + "      Height          =   495\r\n"
@@ -439,16 +447,48 @@ public class SeveralFormsTests
     }
 
     [AvaloniaTheory]
-    [InlineData("For Each c In Form2.Controls\n        Debug.Print TypeName(c)\n    Next", "Controls")]
-    [InlineData("Form2.Text1.SetFocus", "SetFocus")]
-    public void A_use_HexIDE_lacks_loads_the_form_then_is_refused_as_not_implemented(string use, string named)
+    [InlineData("For Each c In Form2.Controls\n        Debug.Print TypeName(c)\n    Next",
+        "Reading Form2's Controls is not implemented: the form's Controls collection is #1060")]
+    [InlineData("Form2.Text1.SetFocus", "The SetFocus method is not implemented for Text1 (#1061)")]
+    public void A_use_HexIDE_lacks_loads_the_form_then_is_refused_naming_its_issue(string use, string refusal)
     {
-        // The load is the measured part: a built-in member or a control's loads the form. What follows is HexIDE's gap.
+        // The load is the measured part: a built-in member or a control's loads the form. What follows is HexIDE's gap,
+        // and the refusal is the gap itself: the Controls collection, or SetFocus, not the chain that reached it.
         using var run = Start($"Private c As Variant\nPrivate Sub Form_Load()\n    {use}\n    Debug.Print \"not reached\"\nEnd Sub\n");
 
         run.Printed.Should().Equal("f2 initialize", "f2 load");
         run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
-            .Which.Message.Should().Contain(named);
+            .Which.Message.Should().Be(refusal);
+    }
+
+    [AvaloniaFact]
+    public void Writing_another_forms_controls_loads_it_and_the_values_are_the_ones_it_shows()
+    {
+        // Every program of several forms does this. The first write loads Form2, as a read of its control does (measured).
+        using var run = Start("""
+            Private Sub Form_Load()
+                Form2.Text1.Text = "typed"
+                Form2.Label1.Caption = "labelled"
+                Debug.Print Form2.Text1.Text & " / " & Form2.Label1.Caption
+                Form2.Show
+            End Sub
+            """);
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 initialize", "f2 load", "typed / labelled");
+        var shown = run.Opened.Should().ContainKey("Form2").WhoseValue;
+        shown.GetLogicalDescendants().OfType<VBTextBox>().Single().Text.Should().Be("typed");
+        shown.GetLogicalDescendants().OfType<VBLabel>().Single().Text.Should().Be("labelled");
+    }
+
+    [AvaloniaFact]
+    public void SetFocus_is_refused_on_the_forms_own_control_too_so_the_refusal_is_SetFocus_and_not_the_chain()
+    {
+        using var run = Start("Private Sub Form_Load()\n    Text1.SetFocus\n    Debug.Print \"not reached\"\nEnd Sub\n");
+
+        run.Printed.Should().BeEmpty();
+        run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
+            .Which.Message.Should().Be("The SetFocus method is not implemented for Text1 (#1061)");
     }
 
     // ── When the run ends ──────────────────────────────────────────────────────────────────────────────

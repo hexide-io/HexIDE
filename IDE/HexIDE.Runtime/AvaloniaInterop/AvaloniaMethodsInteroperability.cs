@@ -52,6 +52,8 @@ public static class AvaloniaMethodsInteroperability
         // would leave the program believing the control had moved (#754). A member VB6 itself lacks is a
         // trappable 438 in VB6, and telling the two apart needs each control's VB6 method list.
         var target = VBProps.GetName(c) ?? c.GetType().Name;
-        throw new NotImplementedException($"The {method} method is not implemented for {target}");
+        // SetFocus is refused on every control, its own form's included; #1061 tracks it.
+        var tracked = method.Equals("SetFocus", StringComparison.OrdinalIgnoreCase) ? " (#1061)" : "";
+        throw new NotImplementedException($"The {method} method is not implemented for {target}{tracked}");
     }
 }

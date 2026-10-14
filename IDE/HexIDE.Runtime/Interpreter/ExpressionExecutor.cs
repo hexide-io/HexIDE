@@ -687,7 +687,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 return await interpreter.Loading((Form: form, Name: name, Args: formArgs), static s => FormMembers.Call(s.Form, s.Name, s.Args));
             if (FormMembers.CallIsVbas(name, formArgs.Count) && await EvaluateFunction(name, formArgs) is { } vbaResult)
                 return vbaResult;
-            throw new NotImplementedException($"{form.ClassName}'s {name} with arguments is not implemented");
+            throw new NotImplementedException($"{form.ClassName}'s {name} with arguments is not implemented{FormMembers.TrackedBy(name)}");
         }
         if (interpreter.TryResolveProcedure(name, currentModule, out _, out _))
         {
@@ -760,7 +760,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                     if (formMember.IsMethod)
                         return FormMembers.Call(vobj, memberName, await EvaluateCallArgs(MemberArgs(member)));
                     if (MemberArgs(member) == null && !FormMembers.CanRead(formWindow, memberName))
-                        throw new NotImplementedException($"Reading {vobj.ClassName}'s {memberName} is not implemented");
+                        throw new NotImplementedException($"Reading {vobj.ClassName}'s {memberName} is not implemented{FormMembers.TrackedBy(memberName)}");
                 }
                 return await ResolveOneMember(new Vb6Value(formWindow), member, ctx);
             }
@@ -800,7 +800,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     /// Everything else resolves a step at a time — so a chain may change kind as it goes (an object field
     /// holding a UDT, a UDT field holding an object) without any step needing to know what follows it.
     /// </summary>
-    private async Task<Vb6Value> ResolveMemberChain(
+    internal async Task<Vb6Value> ResolveMemberChain(
         Vb6Value current, VB6Parser.ICS_S_MemberCallContext[] members, int from,
         Antlr4.Runtime.ParserRuleContext ctx)
     {
