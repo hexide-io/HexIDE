@@ -88,7 +88,7 @@ public struct VBStandardError
     // the longest, most descriptive entries were independently reworded to functionally-equivalent wording;
     // the number a program traps on is unchanged either way.)
     public static readonly VBStandardError ReturnWithoutGoSub = new(3, "Return without GoSub");
-    public static readonly VBStandardError InvalidProcedureCall = new(5, "Invalid procedure call");
+    public static readonly VBStandardError InvalidProcedureCall = new(5, "Invalid procedure call or argument");
     public static readonly VBStandardError Overflow = new(6, "Overflow");
     public static readonly VBStandardError OutOfMemory = new(7, "Out of memory");
     public static readonly VBStandardError SubscriptOutOfRange = new(9, "Subscript out of range");
@@ -159,7 +159,9 @@ public struct VBStandardError
     public static readonly VBStandardError PropertyGetCantBeExecutedAtRunTime = new(393, "Property Get can't be executed at run time");
     public static readonly VBStandardError PropertyGetCantBeExecutedOnWriteOnlyProperty = new(394, "Property Get can't be executed on write-only property");
     public static readonly VBStandardError FormAlreadyDisplayedCantShowModally = new(400, "Form already displayed; can't show modally");
-    public static readonly VBStandardError CodeMustCloseTopmostModalFormFirst = new(402, "Code must close topmost modal form first");
+    public static readonly VBStandardError CantShowNonModalFormWhenModalFormIsDisplayed = new(401, "Can't show non-modal form when modal form is displayed");
+    public static readonly VBStandardError CodeMustCloseTopmostModalFormFirst = new(402, "Must close or hide topmost modal form first");
+    public static readonly VBStandardError UnableToShowModalFormWithinThisContext = new(405, "Unable to show modal form within this context");
     public static readonly VBStandardError PermissionToUseObjectDenied = new(419, "Permission to use object denied");
     public static readonly VBStandardError PropertyNotFound = new(422, "Property not found");
     public static readonly VBStandardError PropertyOrMethodNotFound = new(423, "Property or method not found");

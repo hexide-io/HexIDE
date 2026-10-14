@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Avalonia.Controls;
 using HexIDE.Runtime.Interpreter;
 
@@ -10,20 +11,25 @@ public static class AvaloniaMethodsInteroperability
     public static Vb6Value Call(this Control c, string method, IReadOnlyList<Vb6Value> args)
     {
         // A form's Show and Hide, on a window the program drives (#822). Its load came first, where the member was looked
-        // up. Show modally waits for the form, which is #822's next slice.
+        // up. A modal Show waits for the form, so only a statement, through CallAsync, can make one.
         if (c is IFormView view)
         {
             if (method.Equals("show", StringComparison.OrdinalIgnoreCase))
             {
-                if (args.Count > 0 && args[0].Type != Vb6Value.ValueType.EmptyVariant && !args[0].IsMissing
-                    && Convert.ToDouble(VB6BuiltIns.ToNum(args[0]), System.Globalization.CultureInfo.InvariantCulture) != 0)
-                    throw new NotImplementedException("Show vbModal is not implemented yet (#822).");
-                view.ShowForm();
+                if (IsModal(args))
+                    throw new NotImplementedException("Show vbModal is not implemented here, only as a statement (#822).");
+                if (view.Context.Program is { } program)
+                    program.Show(view);
+                else
+                    view.ShowForm();
                 return Vb6Value.Nothing;
             }
             if (method.Equals("hide", StringComparison.OrdinalIgnoreCase))
             {
-                view.HideForm();
+                if (view.Context.Program is { } program)
+                    program.Hide(view);
+                else
+                    view.HideForm();
                 return Vb6Value.Nothing;
             }
         }
@@ -55,5 +61,36 @@ public static class AvaloniaMethodsInteroperability
         // SetFocus is refused on every control, its own form's included; #1061 tracks it.
         var tracked = method.Equals("SetFocus", StringComparison.OrdinalIgnoreCase) ? " (#1061)" : "";
         throw new NotImplementedException($"The {method} method is not implemented for {target}{tracked}");
+    }
+
+    /// <summary>
+    /// <see cref="Call"/>, for a statement, which can wait: <c>Form2.Show vbModal</c> returns once Form2 has gone (#822).
+    /// </summary>
+    public static async ValueTask<Vb6Value> CallAsync(this Control c, string method, IReadOnlyList<Vb6Value> args)
+    {
+        if (c is IFormView view && method.Equals("show", StringComparison.OrdinalIgnoreCase) && IsModal(args))
+        {
+            var program = view.Context.Program
+                          ?? throw new NotImplementedException("Show vbModal needs a program of forms, which this host doesn't run (#822).");
+            await program.ShowModal(view);
+            return Vb6Value.Nothing;
+        }
+        return c.Call(method, args);
+    }
+
+    // Show's style: 0 is modeless and 1 modal, converted as CInt converts it, so 0.6 is modal and 1.5 is 2. Anything else is
+    // 5, "Invalid procedure call or argument", after the form has loaded (measured, #822).
+    private static bool IsModal(IReadOnlyList<Vb6Value> args)
+    {
+        if (args.Count == 0 || args[0].IsMissing)
+            return false;
+        var style = Convert.ToInt32(VB6BuiltIns.NarrowNum(args[0], Vb6Value.ValueType.Integer).Value,
+            System.Globalization.CultureInfo.InvariantCulture);
+        return style switch
+        {
+            0 => false,
+            1 => true,
+            _ => throw new VBRunTimeException(VBStandardError.InvalidProcedureCall),
+        };
     }
 }

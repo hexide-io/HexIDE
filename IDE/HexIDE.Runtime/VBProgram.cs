@@ -19,8 +19,11 @@ public interface IFormView
     /// <summary>Put the form's controls in the window.</summary>
     void SetContent(Avalonia.Controls.Control content);
 
-    /// <summary>Show the window, modelessly.</summary>
+    /// <summary>Show the window. Whether it is modal is the program's business, not the window's.</summary>
     void ShowForm();
+
+    /// <summary>Whether the window is showing: false once it has been hidden, made invisible or closed.</summary>
+    bool IsShown { get; }
 
     /// <summary>Hide the window. The form stays loaded.</summary>
     void HideForm();
@@ -42,6 +45,8 @@ public sealed class VBProgram : IFormProgram
     private readonly Dictionary<VbObject, VBWindowContext> contexts = new(ReferenceEqualityComparer.Instance);
     private readonly List<VbObject> created = [];
     private readonly HashSet<VbObject> loaded = new(ReferenceEqualityComparer.Instance);
+    // The modal forms displayed, innermost last, each with the windows it disabled.
+    private readonly List<(VBWindowContext Form, List<Avalonia.Controls.Control> Disabled)> modals = [];
     private readonly TaskCompletionSource ended = new();
     private bool finishing;
 
@@ -155,6 +160,80 @@ public sealed class VBProgram : IFormProgram
         context.CloseWindow = view.CloseForm;
         Register(context);
         return context;
+    }
+
+    /// <summary>
+    /// Show a form modelessly. While a modal form is displayed that is 401, "Can't show non-modal form when modal form is
+    /// displayed", for any form, one already shown and the modal form itself included (measured, #822).
+    /// </summary>
+    internal void Show(IFormView view)
+    {
+        if (modals.Count > 0)
+            throw new VBRunTimeException(VBStandardError.CantShowNonModalFormWhenModalFormIsDisplayed);
+        view.ShowForm();
+    }
+
+    /// <summary>
+    /// Hide a form. While a modal form is displayed only the innermost one can be hidden: any other is 402, "Must close or
+    /// hide topmost modal form first", a modal form beneath it included (measured, #822).
+    /// </summary>
+    internal void Hide(IFormView view)
+    {
+        if (modals.Count > 0 && !ReferenceEquals(modals[^1].Form, view.Context))
+            throw new VBRunTimeException(VBStandardError.CodeMustCloseTopmostModalFormFirst);
+        view.HideForm();
+    }
+
+    /// <summary>
+    /// Show a form modally, as <c>Show vbModal</c> does (#822): every other form is disabled, and the statement waits,
+    /// running the program's events as they come, until the form is hidden, made invisible or unloaded. Then the forms it
+    /// disabled are enabled again. All measured.
+    /// </summary>
+    /// <remarks>
+    /// A form already shown modelessly turns modal, with no error: VB6's documented 400 never came (measured). So does a
+    /// form beneath the modal one, over it. Only the modal forms themselves are refused, with 405, "Unable to show modal
+    /// form within this context". Other forms' events go on: Form1's Timer ticks under Form2's modal form, in compiled code
+    /// and in the IDE alike (measured).
+    /// </remarks>
+    internal async Task ShowModal(IFormView view)
+    {
+        var context = view.Context;
+        if (modals.Exists(m => ReferenceEquals(m.Form, context)))
+            throw new VBRunTimeException(VBStandardError.UnableToShowModalFormWithinThisContext);
+        // Form1.Enabled reads False while Form2 is modal, and True again once it has gone (measured on the console). A form
+        // its program disabled itself stays so. A form an outer modal form disabled is enabled while it is modal over it,
+        // and disabled again after.
+        var own = context.Window;
+        var outer = own is null ? -1 : modals.FindLastIndex(m => m.Disabled.Contains(own));
+        var disabled = new List<Avalonia.Controls.Control>();
+        foreach (var other in contexts.Values)
+            if (!ReferenceEquals(other, context) && other.Window is { IsEnabled: true } window)
+            {
+                window.IsEnabled = false;
+                disabled.Add(window);
+            }
+        if (outer >= 0)
+            own!.IsEnabled = true;
+        modals.Add((context, disabled));
+        var over = interpreter.BuiltIns.WatchRunEnd?.Invoke();
+        try
+        {
+            view.ShowForm();
+            var form = context.FormInstance!;
+            await Events.WhileModal(() => form.FormLoaded && view.IsShown && over?.Invoke() != true);
+        }
+        finally
+        {
+            modals.RemoveAt(modals.FindIndex(m => ReferenceEquals(m.Form, context)));
+            foreach (var window in disabled)
+                window.IsEnabled = true;
+            if (outer >= 0)
+                own!.IsEnabled = false;
+        }
+        // The run ended under the modal form, by End, Stop or a fault: the statement after the Show never runs (measured
+        // for End).
+        if (Events.IsClosed || over?.Invoke() == true)
+            throw new Debugging.StopExecutionSignal();
     }
 
     /// <summary>A form has loaded: the program holds it until it unloads, as VB6's Forms does.</summary>

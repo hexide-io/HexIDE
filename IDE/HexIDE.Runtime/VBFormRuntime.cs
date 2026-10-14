@@ -48,6 +48,8 @@ public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
 
     public void HideForm() => Hide();
 
+    public bool IsShown => IsVisible;
+
     public void CloseForm() => Close();
 
     protected override void OnClosing(WindowClosingEventArgs e)
