@@ -524,4 +524,111 @@ public sealed class MemberAttributesFollowARenameTests : IDisposable
         Decoded(copy).Should().Contain("Attribute Gone.VB_Description");
         editor.Document.Text.Should().Contain("Attribute Gone.VB_Description");
     }
+
+    [AvaloniaFact]
+    public async Task ACopyMakeWritesOfAModuleLeavesTheModelsQualifiersAsTheyAre()
+    {
+        // The module half of the same rule, which is a separate write: Make repoints each module into its temporary
+        // directory and writes it through the save core without announcing it, then puts every path back. At that
+        // path the module has no baseline, so the dirty check alone would call it changed and rewrite the model.
+        var service = MakeService();
+        const string name = "NamesNothing";
+        var module = await ClassOnDisk(service, name, Shape(name, "p4 marker",
+            "Public Function Total() As Long\r\nAttribute Gone.VB_Description = \"Names nothing.\"\r\n    Total = 1\r\nEnd Function\r\n"));
+        var editor = Open(DocumentIdentity.For(module));
+        Retype(editor, "' p4 marker", "p4 marker", "p4 marker2");
+        var own = module.AbsolutePath;
+        var copy = Path.Join(dir, "packaged", name + ".cls");
+        Directory.CreateDirectory(Path.GetDirectoryName(copy)!);
+
+        module.AbsolutePath = copy;
+        try
+        {
+            (await service.SaveModuleCore(module, saveAs: false, announceSave: false)).Should().BeTrue();
+        }
+        finally
+        {
+            module.AbsolutePath = own;
+        }
+
+        Decoded(copy).Should().Contain("Attribute Gone.VB_Description", "the copy is written from the model as it stands");
+        module.Code.Should().Contain("Attribute Gone.VB_Description");
+        editor.Document.Text.Should().Contain("Attribute Gone.VB_Description");
+    }
+
+    /// <summary>A class with two procedures whose runs name nothing, the second's name the longer.</summary>
+    private static string TwoStaleRuns(string marker, string first, string second) => Vb6Class("TwoRuns",
+        "Option Explicit\r\n" +
+        $"' {marker}\r\n" +
+        "\r\n" +
+        "Public Function Total() As Long\r\n" +
+        $"Attribute {first}.VB_Description = \"Adds things up.\"\r\n" +
+        "    Total = 1\r\n" +
+        "End Function\r\n" +
+        "\r\n" +
+        "Public Sub LongerName()\r\n" +
+        $"Attribute {second}.VB_Description = \"Does more.\"\r\n" +
+        "End Sub\r\n");
+
+    [AvaloniaFact]
+    public async Task SeveralRewritesInOneWindowLandWhereTheSaveWroteThem()
+    {
+        // Each rewrite changes the length of the text after it, so the window makes them from the last to the first:
+        // made the other way, every offset after the first rewrite would be off by what that one added. The window's
+        // own check compares the save's text with a rewrite composed separately, so only the window's text after the
+        // write can tell the two orders apart.
+        var service = MakeService();
+        var module = await ClassOnDisk(service, "TwoRuns", TwoStaleRuns("p4 marker", "G", "X"));
+        var editor = Open(DocumentIdentity.For(module));
+        Retype(editor, "' p4 marker", "p4 marker", "p4 marker2");
+
+        (await service.SaveModule(module, saveAs: false, interactive: false)).Should().BeTrue();
+
+        Decoded(module.AbsolutePath!).Should().Be(TwoStaleRuns("p4 marker2", "Total", "LongerName"));
+        editor.Document.Text.Should().Be(Decoded(module.AbsolutePath!));
+    }
+
+    [AvaloniaFact]
+    public async Task ACaretAboveARewrittenRunDoesNotMove()
+    {
+        // The other side of ACaretBelowARewrittenRunStaysOnTheTextItWasOn: a rewrite after the caret moves nothing
+        // before it.
+        var service = MakeService();
+        var module = await ClassOnDisk(service, "TwoRuns", TwoStaleRuns("p4 marker", "G", "X"));
+        var editor = Open(DocumentIdentity.For(module));
+        Retype(editor, "' p4 marker", "p4 marker", "p4 marker2");
+        var above = editor.Document.Text.IndexOf("Option Explicit", StringComparison.Ordinal);
+        editor.CaretOffset = above;
+
+        (await service.SaveModule(module, saveAs: false, interactive: false)).Should().BeTrue();
+
+        editor.Document.Text.Should().Contain("Attribute LongerName.VB_Description", "the premise: both runs were rewritten");
+        editor.CaretOffset.Should().Be(above);
+    }
+
+    [AvaloniaFact]
+    public async Task AnUndoAfterOneThatTookBackASavesRewriteLeavesAStaleRunAsItStands()
+    {
+        // Whether an undo puts the qualifiers back is asked afresh for each Undo. The first Undo here takes back the
+        // save's rewrite with the edit before it, and the window rewrites the run again from the text as it then
+        // stands. The second takes back a designer change and the edit before that, and no save's rewrite: the
+        // stale run a retype made since stays as it stands until a save writes it, as it does with no undo at all.
+        var service = MakeService();
+        var form = await FormOnDisk(service, StaleForm);
+        var editor = Open(DocumentIdentity.For(form));
+        Retype(editor, "    Total = 1", "1", "2");
+        (await service.SaveForm(form, saveAs: false, interactive: false)).Should().BeTrue();
+        editor.UndoRequested(() => editor.Document.UndoStack.Undo());
+        editor.Document.Text.Should().Contain("Public Function Total() As Long\r\nAttribute Total.VB_Description",
+            "the premise: the first Undo undid the save's rewrite, and the window made it again");
+
+        Retype(editor, "Public Function Total", "Total", "Halt");
+        Retype(editor, "    Total = 1", "1", "3");
+        form.Components[0].SetProperty(VBProperties.CaptionProperty, "Sales");
+        refresher.LayoutChanged(form);
+        editor.UndoRequested(() => editor.Document.UndoStack.Undo());
+
+        editor.Document.Text.Should().Contain("    Total = 1\r\n", "the premise: the second Undo took back the body edit")
+            .And.Contain("Public Function Halt() As Long\r\nAttribute Total.VB_Description");
+    }
 }

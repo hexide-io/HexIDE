@@ -1218,21 +1218,43 @@ VB6 carries a procedure's description across all three kinds of rename, so that 
   replaces that member's name on the declaration with the same text: the procedure, whatever the qualifier said; for
   a variable run, the declarator the line names; for the renamed kind, the one name its line declares. The rule it
   replaced let a qualifier through when it spelled the old name, so renaming `Total` wrote into a stale `Total.` run
-  under `Halt`; that is now refused, and the bundled server no longer sends it. Its port reads each qualifier's
+  under `Halt`; that is now refused, and the bundled server no longer sends it. A lexical or foreign server still
+  does, so after a retype of `Total` to `Halt` with no save, a rename of any other `Total` through one of those is
+  refused whole where it used to be applied. That cost is taken knowingly: dropping the one edit and applying the
+  rest is formatting's rule, where a discarded edit changes only layout; a rename partly applied is an answer the
+  server did not give. Its port reads each qualifier's
   owner at the qualifier's own position, so a qualifier on an attribute line's second physical line (p11b), which
   the old text test missed, follows the rename too.
-- *No new string.* `Str.Naming.Msg.NotAVb6Name` already gives this reason in every shipped pack, and
-  `ProjectNaming.IsValidName` is the measured rule every other name is chosen by: a letter, then letters, digits
-  and underscores, a leading or lone underscore and a bracketed name measured illegal. Both are reused, and the
-  bundled server holds a new name to a port of the same rule. Not refused, because nothing measured covers them and
-  the shared message would be wrong for them: a keyword (`Rem` is measured never to be an identifier, `Empty`,
-  `New` and `Nothing` in one or two positions each), a name past any length, and a letter outside ASCII.
+- *One new string, for four words.* `Str.Naming.Msg.NotAVb6Name` already gives the shape rule's reason in every
+  shipped pack, and `ProjectNaming.IsValidName` is the measured rule every other name is chosen by: a letter, then
+  letters, digits and underscores, a leading or lone underscore and a bracketed name measured illegal. Both are
+  reused. The first build stopped there, saying no keyword was measured, which the oracle contradicts for four
+  (found reviewing 4.4): `Rem` is never an identifier anywhere (refused as a variable, a `Sub`, a parameter, a
+  field and an enum member), `Empty` is refused as a variable, and `New` and `Nothing` as a `Sub` and as a label.
+  Each has a name's shape, so the shape rule's message would be wrong for it, which was the real reason it was
+  let through; renamed `Rem`, `Function Total` stopped compiling and its `Rem = mSum` became a comment.
+  `ProjectNaming.IsReservedWord` holds those four, refused in every position since none was accepted in any
+  position tried, with `Str.Naming.Msg.ReservedWord`, and the bundled server's `IsName` refuses the same four. Not
+  refused: any other keyword, which words VB6 reserves being underivable (the label probes found `Beep` usable and
+  `Stop` not), a name past any length, and a letter outside ASCII.
 - *The weaknesses of the renamed kind are now the save's.* Each case under "What the module declares" above is
   rewritten to the line's name where VB6 would bind it elsewhere or to nothing: p09f's `Gone` under `Public A`, the
   `Count`/`Tally`/`Zed` retype, two one-name lines carrying one stale name, and a stale name that is a parameter's,
   a label's, an `Enum`'s or a `Type`'s. `MemberAttributeQualifiersTests` pins each, beside the comma-list rules:
   Multi2's run naming a declarator the line no longer declares is kept as text, and MultiP's renamed first
   declarator is the one loss, its run left naming `P` where VB6 wrote `r`.
+- *The save rewrites a run's qualifiers and nothing else of it* (found reviewing 4.4, from the corpus's evidence).
+  VB6's save writes each run afresh: an indented line at column 1 and `Attribute   Spaced.VB_Description   =   ...`
+  with single spaces (B2's `DeclShapes`), a repeated attribute once (B's `DoubleDesc`), and `VB_VarHelpID = -1`
+  under every `WithEvents` declaration, one loaded without it included (B's `BareWithEvents`). HexIDE keeps each of
+  those as written, and adds no line. VB6 reads all of it the same way at its next load: its saves kept the
+  indented and spaced lines as the procedure's, took the first of two, and the compiler gives a `WithEvents`
+  variable help context -1 with the line or without it (p10a, p10b). So nothing VB6 reads differs, and rewriting
+  it would change text under a fold the developer never opened for no reader's sake. The qualifier is the
+  exception because it is the part a rename makes wrong, and for a variable's run the part VB6 binds by. A file
+  saved by each IDE in turn therefore changes in those bytes at VB6's save and never at HexIDE's. Whether the save
+  should drop a repeated attribute after all, which unlike the rest stays hidden and locked, is the open question
+  raised reviewing 4.6.
 - *Make writes a copy of the model as it stands*, so a renamed variable's stale qualifier reaches `vb6.exe /make`
   unrewritten until the document is saved, and VB6, binding a `VB_Var` line by name, attaches it to nothing in what
   it compiles. A procedure's run is unaffected, being bound by position. Recorded, not handled.
@@ -1349,3 +1371,16 @@ Three consequences for this change, none of which move task 2.1:
   them matches none of what the compiler actually writes (#477), so that consumer has had no live traffic
   at all. This change re-keys the rows to the wire name resolved from the
   compiler's own (absolute) path, and converts its line numbers once, where the log is parsed.
+- **A Save As, or a write to a directory, of a document with no unsaved changes** (found reviewing 4.4). The save
+  rewrites a run's qualifiers only for a document with unsaved changes, asked against the baseline of the path it
+  was read from, so a Save As and `SaveProjectToDirectory` of an untouched module carry a loaded
+  `Attribute Gone.VB_Description` under `Function Total` to the new file as it was read. The gate stands in for
+  "a module VB6 writes", on the premise that VB6's Save Project writes no module it holds as unchanged, and that
+  premise says nothing about a Save As, which writes the module whatever its state. Whether VB6 then writes the
+  runs afresh is unmeasured; its saves of changed modules write each run whole from its own record (indent and
+  spacing too, "Settled while building 4.4"), which suggests it, and does not show it. The options: (a) keep the
+  gate as it is: a document saved untouched is written byte for byte wherever it goes, and the new file is the
+  old one; (b) treat a write to a path other than the document's own as a change, so the save rewrites and the
+  window follows, as at any save, which is what VB6 presumably does. One guest session settles it: load
+  `NamesNothing`'s shape, then Save As without editing, and diff. Until then (a), which writes nothing VB6's own
+  next load reads differently.

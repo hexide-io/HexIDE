@@ -203,8 +203,8 @@ IDE rewrites a procedure's qualifiers, and those of the run a retyped one-name v
 save of a changed document, as VB6 does. With the caret in either, there is no rename, and the IDE says so
 rather than asking for a name. Nor is a name the designer block declares renamed from the code — a form's, a
 control's or a menu's — because its declaration is in the header: rename it in the Properties window. A new
-name that is not a VB6 name (a letter, then letters, digits and underscores) is answered with nothing, and the
-IDE refuses it before asking.
+name that is not a VB6 name (a letter, then letters, digits and underscores, and not one of the reserved words
+`Rem`, `Empty`, `New` and `Nothing`) is answered with nothing, and the IDE refuses it before asking.
 
 - ■ Lexical, single-file. It will rename unrelated symbols that share a name, and cross-file rename needs a
   workspace model. **Semantic rename is explicitly outside the limit**, so this will not grow into it.

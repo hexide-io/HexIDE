@@ -595,11 +595,16 @@ public class WireContractTests
     [InlineData("_")]
     [InlineData("[Total]")]
     [InlineData("Grand-Total")]
+    [InlineData("Rem")]
+    [InlineData("empty")]
+    [InlineData("New")]
+    [InlineData("Nothing")]
     public async Task Renaming_to_a_name_VB6_does_not_accept_has_no_answer(string newName)
     {
         // The IDE refuses these before it asks (#273 task 4.4); a client that does not is answered with nothing,
         // rather than with edits writing a name that would not compile. A leading or lone underscore and a
-        // bracketed name were measured illegal against vb6.exe.
+        // bracketed name were measured illegal against vb6.exe, and so were the four reserved words, each with a
+        // name's shape: Rem wherever it was tried, Empty as a variable, New and Nothing as a Sub.
         await using var h = await StartAsync();
         await OpenAsync(h, Uri, Doc);
 
@@ -618,11 +623,13 @@ public class WireContractTests
     [InlineData("Total_")]
     [InlineData("Total2")]
     [InlineData("Größe")]
+    [InlineData("RemX")]
+    [InlineData("Rem1")]
     public async Task Rename_to_a_name_VB6_may_accept_is_answered(string newName)
     {
-        // The positive control: an underscore inside or at the end of a name and a digit after its first letter
-        // were measured legal; a letter outside ASCII was not measured, and VB6 may accept one in its code page,
-        // so it is not refused.
+        // The positive control: an underscore inside or at the end of a name, a digit after its first letter, and
+        // RemX and Rem1 were measured legal; a letter outside ASCII was not measured, and VB6 may accept one in its
+        // code page, so it is not refused.
         await using var h = await StartAsync();
         await OpenAsync(h, Uri, Doc);
 

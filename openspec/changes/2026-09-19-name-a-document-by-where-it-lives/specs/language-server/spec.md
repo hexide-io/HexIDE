@@ -32,8 +32,10 @@ gives that member, which for a procedure is the run under its declaration whatev
 naming `Total` under another procedure is that procedure's, and renaming `Total` leaves it alone.
 
 A new name that is not a VB6 name, a letter followed by letters, digits and underscores, would write text that
-does not compile wherever the name stands, and `Grand Total` would split one name into two. The code editor
-refuses such a name before it asks; a client that does not is answered with nothing.
+does not compile wherever the name stands, and `Grand Total` would split one name into two. Nor is one of the four
+words VB6 was measured to refuse as a name though each has a name's shape, `Rem`, `Empty`, `New` and `Nothing`:
+renamed `Rem`, a function's `Rem = mSum` would be a comment. The code editor refuses such a name before it asks; a
+client that does not is answered with nothing.
 
 Keeping off the header makes a declared name the one rename that has to be declined outright. Its
 declaration is the `Begin` line in the designer block, so a rename that kept off the header would rename every
@@ -75,6 +77,6 @@ whole file, the code's real errors included, and give no reason why.
 - **THEN** the answer changes the name that qualifies the attribute line, and nothing else on that line
 
 #### Scenario: Renaming to a name VB6 does not accept
-- **WHEN** a rename is asked for with a new name that does not start with a letter, or holds a character other than
-  a letter, a digit or an underscore
+- **WHEN** a rename is asked for with a new name that does not start with a letter, holds a character other than
+  a letter, a digit or an underscore, or is `Rem`, `Empty`, `New` or `Nothing` in any case
 - **THEN** there is no answer

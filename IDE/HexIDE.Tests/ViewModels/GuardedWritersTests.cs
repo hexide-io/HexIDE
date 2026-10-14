@@ -275,6 +275,9 @@ public class GuardedWritersTests : IDisposable
             .Should().Be("rename refused", "the qualifier has to take the name the declaration takes");
         vm.ApplyRename([EditOf(vm.Document, "Total", "Grand"), EditOf(vm.Document, "Gone.VB_", "Grand")], "Total")
             .Should().Be("rename refused", "an edit reaching past the qualifier is an edit to the rest of the line");
+        vm.ApplyRename([EditOf(vm.Document, "Total(", "Grand"), EditOf(vm.Document, "Gone", "Grand")], "Total")
+            .Should().Be("rename refused",
+                "nor is a declaration's edit reaching past the name a rename of it, though it writes the qualifier's text");
 
         vm.Document.Text.Should().Be(before);
     }
@@ -314,6 +317,26 @@ public class GuardedWritersTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void AVariablesQualifierIsTheVariablesEvenWithAProcedureOfTheSameNameOnItsLine()
+    {
+        // A VB_Var line binds by name to a variable or constant, never to a procedure, so a same-named Event later on
+        // the line is not the member a rename of the variable has to rename. Not a shape VB6 was seen to write, or
+        // measured to accept; it is what reaches the rule's choice of declarator, which the shapes VB6 does write
+        // never do.
+        var module = TestHelpers.CreateModule(name: "Clash", kind: ModuleKind.ClassModule);
+        module.UpdateCode(
+            "Option Explicit\r\n" +
+            "Public Total As Long: Public Event Total()\r\n" +
+            "Attribute Total.VB_VarDescription = \"The variable's.\"\r\n");
+        var vm = NewEditor().Initialize(module);
+
+        vm.ApplyRename([EditOf(vm.Document, "Total", "Grand"), EditOf(vm.Document, "Total", "Grand", occurrence: 2)], "Total")
+            .Should().BeNull();
+
+        vm.Document.Text.Should().Contain("Public Grand As Long: Public Event Total()\r\nAttribute Grand.VB_VarDescription");
+    }
+
+    [AvaloniaFact]
     public void ARenameMayNotRewriteAVariablesQualifierForAnotherDeclaratorOfItsLine()
     {
         var vm = OpenDescribedClass();
@@ -347,15 +370,37 @@ public class GuardedWritersTests : IDisposable
     }
 
     [AvaloniaTheory]
+    [InlineData("Rem")]
+    [InlineData("rem")]
+    [InlineData("Empty")]
+    [InlineData("EMPTY")]
+    [InlineData("New")]
+    [InlineData("Nothing")]
+    public void ANewNameVb6ReservesIsRefusedWithItsOwnReason(string newName)
+    {
+        // The four words measured refused as a name wherever they were tried (oracle: Rem as a variable, a Sub, a
+        // parameter, a field and an enum member; Empty as a variable; New and Nothing as a Sub and a label). Each has
+        // a name's shape, so the shape rule's message would be wrong for it. Without the refusal, Total renamed Rem
+        // would leave `Rem = mSum` in its body, a comment in VB6 and in the interpreter.
+        localization.GetString("Str.Naming.Msg.NotAVb6Name").Returns("'{0}' is not a VB6 name");
+        localization.GetString("Str.Naming.Msg.ReservedWord").Returns("'{0}' is reserved");
+
+        OpenClass().NewNameRefusal(newName).Should().Be($"'{newName}' is reserved");
+    }
+
+    [AvaloniaTheory]
     [InlineData("GrandTotal")]
     [InlineData("Grand_Total")]
     [InlineData("Total_")]
     [InlineData("Total2")]
     [InlineData("Größe")]
+    [InlineData("RemX")]
+    [InlineData("Rem1")]
     public void ANewNameVb6MayAcceptIsNotRefused(string newName)
     {
-        // An underscore inside or at the end of a name and a digit after its first letter were measured legal. A
-        // letter outside ASCII was not measured; VB6 may take one in its code page, so it is left to the server.
+        // An underscore inside or at the end of a name and a digit after its first letter were measured legal, and so
+        // were RemX and Rem1, which start with a reserved word and are not one. A letter outside ASCII was not
+        // measured; VB6 may take one in its code page, so it is left to the server.
         OpenClass().NewNameRefusal(newName).Should().BeNull();
     }
 

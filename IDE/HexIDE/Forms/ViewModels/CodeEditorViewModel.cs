@@ -1474,6 +1474,9 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     {
         foreach (var run in runs)
         {
+            // DescribesMember is defensive. Only an edit that changes a region is asked about, and an orphan is no
+            // region and overlaps no run, so an edit starting in one reaches a region only past its own line, and is
+            // then none of its qualifiers: the answer is false either way.
             if (!run.DescribesMember || change.Offset < run.Region.Start || change.Offset >= run.Region.End)
                 continue;
             foreach (var line in run.Lines)
@@ -1521,16 +1524,23 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// space, a <c>.</c> or a type-declaration character cannot be part of a name at all.
     /// </para>
     /// <para>
-    /// <b>What it does not refuse, because nothing measured says to</b>: a keyword (only <c>Rem</c>, <c>Empty</c>,
-    /// <c>New</c> and <c>Nothing</c> have been measured, each in one or two positions), a name past any length, and
-    /// a letter outside ASCII, which VB6 may accept in its code page. Its message is the one every other naming
-    /// refusal shows, which says the rule above and so would be wrong for anything it does not cover.
+    /// <b>Then the four words VB6 was measured to refuse though they have a name's shape</b>
+    /// (<see cref="ProjectNaming.IsReservedWord"/>): <c>Rem</c>, <c>Empty</c>, <c>New</c> and <c>Nothing</c>. Each
+    /// has a message of its own, because the shape rule's says what a name is made of, and these are made of
+    /// exactly that. Renamed to <c>Rem</c>, <c>Function Total</c> would no longer compile, and a body line
+    /// <c>Rem = mSum</c> would turn into a comment, in VB6 and in the interpreter alike.
+    /// </para>
+    /// <para>
+    /// <b>What it does not refuse, because nothing measured says to</b>: any other keyword, a name past any
+    /// length, and a letter outside ASCII, which VB6 may accept in its code page.
     /// </para>
     /// </remarks>
     internal string? NewNameRefusal(string newName) =>
-        ProjectNaming.IsValidName(newName)
-            ? null
-            : string.Format(localization.GetString("Str.Naming.Msg.NotAVb6Name"), newName);
+        !ProjectNaming.IsValidName(newName)
+            ? string.Format(localization.GetString("Str.Naming.Msg.NotAVb6Name"), newName)
+            : ProjectNaming.IsReservedWord(newName)
+                ? string.Format(localization.GetString("Str.Naming.Msg.ReservedWord"), newName)
+                : null;
 
     /// <summary>
     /// Why <paramref name="word"/> cannot be renamed from <paramref name="offset"/>, or null when it can.

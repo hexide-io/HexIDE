@@ -6243,7 +6243,9 @@ line above, the first draft's rule, and was rebuilt to the revised rules before 
 - Whether File > Save Project writes a module nobody changed, and so whether a stale qualifier in an untouched
   module (`NamesNothing`'s shape) survives a save. Both sessions dirtied every module first, on the premise that it
   would not be written otherwise; HexIDE's save rewrites qualifiers only in a module with unsaved changes (task
-  4.4), which matches that premise and rests on it.
+  4.4), which matches that premise and rests on it. Nor whether File > Save As, which writes the module whatever
+  its state, writes an untouched module's runs afresh and re-qualifies a stale one: HexIDE's Save As of such a
+  module keeps the qualifier as it was read, an open question in the change's `design.md`.
 - ActiveX DLL, OCX and group projects, and `VB_Exposed = True` classes, in the IDE: every IDE probe was a Standard
   EXE, its UserControls private to it.
 
@@ -6305,6 +6307,10 @@ variable's, as VB6 does, is settled in `design.md` and was built in task 4.4, fo
 only, so a module saved untouched keeps a stale qualifier byte for byte. That VB6 writes only a module it holds as
 changed is the premise both sessions dirtied every module on (*Method*, above), not something either measured:
 whether VB6's Save Project leaves an untouched module's bytes alone, a stale qualifier included, is unmeasured. The
+save rewrites a run's qualifiers and nothing else of it, where VB6's save writes the run afresh: an indented or
+oddly spaced line stays as written where VB6 writes it at column 1 with single spaces (`DeclShapes`), and no
+`VB_VarHelpID = -1` is added under a `WithEvents` declaration loaded without one (`BareWithEvents`), both of which
+VB6 reads the same way at its next load. The
 files the dialog wrote are to become the
 corpus of task 4.6. Where HexIDE departs from VB6
 it does so on purpose: an orphan stays visible and editable, where VB6 hides it and drops or moves it at its next
