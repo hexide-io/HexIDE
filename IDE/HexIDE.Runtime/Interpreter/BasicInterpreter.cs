@@ -47,6 +47,28 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     public Debugging.IDebugController? DebugController { get; set; }
 
     /// <summary>
+    /// The run's event pump, when the program runs in a window: what keeps its handlers one at a time (#766). Null for code
+    /// run with no window, as a module test's is, where nothing can interleave.
+    /// </summary>
+    public EventPump? Events { get; set; }
+
+    /// <summary>
+    /// A built-in call. With a pump, a built-in that waits (MsgBox, InputBox) is a suspension the pump is told of, and
+    /// <c>DoEvents</c> runs what is waiting, as VB6's does (#766). Without one, DoEvents does nothing, as before.
+    /// </summary>
+    internal async Task<Vb6Value?> CallBuiltIn(string name, List<Vb6Value> args)
+    {
+        if (Events is not { } events)
+            return await BuiltIns.EvaluateBuiltInFunction(name, args);
+        if (args.Count == 0 && string.Equals(name, "DoEvents", StringComparison.OrdinalIgnoreCase))
+        {
+            await events.DoEvents();
+            return new Vb6Value(0);
+        }
+        return await events.WhileSuspended(BuiltIns.EvaluateBuiltInFunction(name, args));
+    }
+
+    /// <summary>
     /// Set by <c>End</c>, and never cleared: the program is over. Every walk of this interpreter stops at its next
     /// statement, a procedure started later (a Timer tick or a click already queued) runs none of its own, and no
     /// <c>Class_Terminate</c> runs (#775).
@@ -869,7 +891,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         var flat = new List<Vb6Value>(args.Count);
         foreach (var a in args)
             flat.Add(a.Value);
-        if (await BuiltIns.EvaluateBuiltInFunction(name, flat) is { } result)
+        if (await CallBuiltIn(name, flat) is { } result)
             return result;
         if (!ignoreMissing)
             throw new VBCompileErrorException("Sub or Function not defined (" + name + ')');
@@ -952,7 +974,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 // its Dim line is legal and yields the declared type's zero — where previously the name
                 // resolved to a module-level procedure of the same name, and a watch on it saw a change the
                 // program never made. Inside the try, so a fault while allocating still unwinds normally.
-                try { await executor.HoistDeclaredLocals(proc); await executor.Execute(proc.Body); }
+                try
+                {
+                    await executor.HoistDeclaredLocals(proc);
+                    await executor.Execute(proc.Body);
+                    // A handler the last statement raised finishes inside the call, as it does in VB6, before the caller
+                    // goes on with what the call returned (#766).
+                    if (Events is { } events)
+                        await events.WaitForRaised();
+                }
                 finally { activationStack.Remove(executor); }
             }
             if (proc.IsFunction)

@@ -522,6 +522,12 @@ public class VBLoader
     {
         var run = new TaskCompletionSource();
         var shown = false;
+        // Where the run ends, its event pump closes, so nothing it left waiting can run beside the next one (#766).
+        void Ended()
+        {
+            context.Events.Close();
+            run.TrySetResult();
+        }
         token.Register(() =>
         {
             if (shown)
@@ -529,7 +535,7 @@ public class VBLoader
             else
             {
                 closeUnshown?.Invoke();
-                run.TrySetResult();
+                Ended();
             }
         });
 
@@ -545,7 +551,7 @@ public class VBLoader
             }
             finally
             {
-                run.TrySetResult();
+                Ended();
             }
         }
         StartThenShow().ListenErrors();

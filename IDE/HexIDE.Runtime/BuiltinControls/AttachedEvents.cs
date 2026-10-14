@@ -130,7 +130,10 @@ public static class AttachedEvents
             args.Add(new Vb6Value(ControlPositions.MouseCoordinate(x, mode, vertical: false)));
             args.Add(new Vb6Value(ControlPositions.MouseCoordinate(y, mode, vertical: true)));
             return args;
-        });
+        },
+        // A move waiting behind a running handler is updated by the next one rather than queued beside it, as Windows
+        // coalesces WM_MOUSEMOVE: only into the newest waiting event, never past a press (inferred, #766).
+        ReferenceEquals(eventClass, ComponentBaseClass.MouseMoveEvent) ? EventCoalescing.Latest : EventCoalescing.None);
     }
 
     /// <summary>

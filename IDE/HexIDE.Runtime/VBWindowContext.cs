@@ -25,6 +25,12 @@ public class VBWindowContext : IModuleExecutionRoot
 
     public ModuleExecutionContext ExecutionContext { get; } = new();
 
+    /// <summary>
+    /// Runs this program's handlers one at a time, as VB6's single thread does (#766). One per run: a program of several
+    /// forms will share one, since VB6 serialises them all.
+    /// </summary>
+    public EventPump Events { get; } = new();
+
     public string Code { get; private set; } = "";
 
     /// <summary>The form module's own env: the template its instance is cloned from.</summary>
@@ -82,7 +88,8 @@ public class VBWindowContext : IModuleExecutionRoot
         interpreter = new BasicInterpreter(standardLibrary, ExecutionContext, RootEnv, code, moduleName,
             additionalModules, classModules, InterpreterModuleKind.Form)
         {
-            DebugController = debugController
+            DebugController = debugController,
+            Events = Events,
         };
         instance = null;
         formDeclarationsRun = false;
@@ -158,20 +165,24 @@ public class VBWindowContext : IModuleExecutionRoot
             return false;
         var form = EnsureInstance();
         started = true;
-        try
+        // The start holds the gate as any handler does, so an event that comes during Load waits for it (#766).
+        return await Events.Run("Form_Load", async () =>
         {
-            if (await Report(EnsureDeclarations) != Outcome.Completed)
-                return false;
-            if (await Report(() => interpreter.RaiseFormEvent(form, "Form_Initialize")) == Outcome.Over || RunIsOver())
-                return false;
-            form.FormLoaded = true;
-            ExecutionContext.State.ClearPendingControls(form.ClassName);
-            return await Report(() => interpreter.RaiseFormEvent(form, "Form_Load")) != Outcome.Over && !RunIsOver();
-        }
-        finally
-        {
-            interpreter.DebugController?.NotifyDispatchIdle();
-        }
+            try
+            {
+                if (await Report(EnsureDeclarations) != Outcome.Completed)
+                    return false;
+                if (await Report(() => interpreter.RaiseFormEvent(form, "Form_Initialize")) == Outcome.Over || RunIsOver())
+                    return false;
+                form.FormLoaded = true;
+                ExecutionContext.State.ClearPendingControls(form.ClassName);
+                return await Report(() => interpreter.RaiseFormEvent(form, "Form_Load")) != Outcome.Over && !RunIsOver();
+            }
+            finally
+            {
+                interpreter.DebugController?.NotifyDispatchIdle();
+            }
+        });
     }
 
     private bool RunIsOver() => interpreter!.Ending || interpreter.DebugController?.IsAborting == true;
@@ -192,12 +203,23 @@ public class VBWindowContext : IModuleExecutionRoot
     }
 
     /// <inheritdoc/>
-    public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args) => Raise(name, args);
+    public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None) =>
+        Raise(name, args, coalescing);
 
     /// <inheritdoc/>
     public bool Handles(string name) => interpreter is not null && EnsureInstance().ClassDef.PrePass.Procedures.ContainsKey(name);
 
-    private void Raise(string name, Func<IReadOnlyList<Vb6Value>?> args)
+    /// <inheritdoc/>
+    public void ExecuteTimer(string name, IReadOnlyList<Vb6Value>? args = null)
+    {
+        var argList = args is null ? null : new List<Vb6Value>(args);
+        // Each element of a Timer array is a timer of its own, so its ticks are kept apart by Index.
+        var key = argList is { Count: > 0 } ? $"{name}({argList[0].Value})" : name;
+        Raise(name, () => argList, EventCoalescing.Timer, key);
+    }
+
+    private void Raise(string name, Func<IReadOnlyList<Vb6Value>?> args,
+        EventCoalescing coalescing = EventCoalescing.None, string? key = null)
     {
         // An event raised before SetCode has no code to run, as when a form's controls fail to build and the
         // run is abandoned half way. It used to reach here anyway and log a NullReferenceException after the
@@ -208,12 +230,28 @@ public class VBWindowContext : IModuleExecutionRoot
         // The event is the form's: its own procedure of that name, run on its instance (#822). A context that was never
         // started, as a test's is, runs the declarations first; a started one ran them in StartAsync. The arguments are
         // worked out inside the dispatch, so one HexIDE can't work out is refused as the run's error (#974).
-        Dispatch(async () =>
+        async Task Work()
         {
-            if (!started)
-                await EnsureDeclarations();
-            await interpreter.RaiseFormEvent(form, name, args());
-        }).ListenErrors();
+            // An event that waited while the run ended runs nothing.
+            if (RunIsOver())
+                return;
+            await Dispatch(async () =>
+            {
+                if (!started)
+                    await EnsureDeclarations();
+                await interpreter.RaiseFormEvent(form, name, args());
+            });
+        }
+
+        // Typed in the Immediate window while paused, `Text1.Text = "x"` raises Text1_Change, which is refused there (see
+        // Report). The refusal belongs to the statement typed, so it runs now rather than waiting for the paused handler.
+        if (interpreter.SuppressUserProcedureCalls)
+        {
+            Work().ListenErrors();
+            return;
+        }
+        // One handler at a time: at once if nothing runs or the running handler's own code raised it, else in turn (#766).
+        Events.Raise(key ?? name, Work, coalescing);
     }
 
     // How a piece of a dispatch ended: it finished; it stopped on a run-time or compile error, which was reported and

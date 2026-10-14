@@ -35,5 +35,8 @@ public class VBFormRuntime : Window, IModuleExecutionRoot
 
     public bool Handles(string name) => windowContext.Handles(name);
 
-    public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args) => windowContext.ExecuteEvent(name, args);
+    public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None) =>
+        windowContext.ExecuteEvent(name, args, coalescing);
+
+    public void ExecuteTimer(string name, IReadOnlyList<Vb6Value>? args = null) => windowContext.ExecuteTimer(name, args);
 }

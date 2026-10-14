@@ -99,7 +99,7 @@ public class InteractVocabularyTests
         try
         {
             ErrorOf((Control)window.Content!, "wiggle").Should()
-                .Contain("set_range_value").And.Contain("scroll").And.Contain("double_click");
+                .Contain("set_range_value").And.Contain("scroll").And.Contain("double_click").And.Contain("|click|");
         }
         finally { window.Close(); }
     }

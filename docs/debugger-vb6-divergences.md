@@ -308,19 +308,23 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **Status:** **unmeasured**, recorded on [#656](https://github.com/hexide-io/HexIDE/issues/656). Not a
   divergence until the oracle says VB6 stops there.
 
-### D21. The time slice is an implicit `DoEvents` every 15 ms
+### D21. The time slice was an implicit `DoEvents` every 15 ms — FIXED
 - **VB6:** a running program gives up the thread only at `DoEvents`, a modal dialog or the end of an event
   procedure. An event that a statement raises (`Text1.Text = "x"` raising `Text1_Change`) runs to completion
-  before that statement finishes, and no other event procedure runs inside one that has not finished. This is
-  the single-threaded message loop as documented, not yet measured on the oracle.
+  before that statement finishes, and no other event procedure runs inside one that has not finished. Measured
+  since, native and p-code (vb6-fidelity-oracle.md, *One handler at a time*).
 - **HexIDE:** `DebugController` yields the UI thread whenever 15 ms have passed since the last yield, so that
   Ctrl+Break can land. That yield is effectively a `DoEvents`. If it lands at the first statement of a raised
   event's handler, the setter returns and the raiser runs on before the handler has finished. While any walk is
   yielded, a Timer tick or a click can start another event procedure inside it.
 - **Why:** the program and the IDE share one UI thread, and Break has to be able to reach a tight loop.
-- **Status:** **open**, [#766](https://github.com/hexide-io/HexIDE/issues/766). Found in the #762 review, where a
-  test of a fault in a raised event passed on an idle machine and failed on a loaded one.
-  `DebugController.TimeSliceMs` = -1 reproduces it deterministically.
+- **Status:** **fixed** by [#766](https://github.com/hexide-io/HexIDE/issues/766). Found in the #762 review, where a
+  test of a fault in a raised event passed on an idle machine and failed on a loaded one. An `EventPump` now runs one
+  handler at a time: an event that comes while a handler runs waits for it, the raiser of a nested event waits for it,
+  and `DoEvents` runs what is waiting. The time slice still yields, for Ctrl+Break, but lets nothing in.
+  `EventOrderTests` and `RunFaultTests` run with `TimeSliceMs` = -1, which yields at every statement. What remains is
+  the granularity: a nested handler finishes before the raiser's next statement, the end of its block, or the return
+  of a call, rather than inside the very expression that raised it.
 
 ### D22. A compile error met while a program runs is a run-time error dialog, and the run carries on
 - **VB6:** a compile error found while the program runs, such as a call to a Sub that does not exist, is shown in

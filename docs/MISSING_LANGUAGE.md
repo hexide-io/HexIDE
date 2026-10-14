@@ -68,8 +68,8 @@ In a running IDE, how a row dies decides whether the user hears about it:
   `On Error Resume Next` they are skipped with `Err.Number` left at 0. That is Silently wrong under an
   error handler, and it is tracked in [#257](https://github.com/hexide-io/HexIDE/issues/257).
 
-**Not every absence is safe to demote into No-op.** `DoEvents` returning 0 without pumping messages
-withholds a behaviour and lies about nothing. `Print #` as a no-op would silently not write the user's
+**Not every absence is safe to demote into No-op.** `DoEvents` returning 0 without pumping messages, as it
+did until #766, withheld a behaviour and lied about nothing. `Print #` as a no-op would silently not write the user's
 file — the same harm shape as a silently lossy save, which
 [`serialization-outcomes.md`](serialization-outcomes.md) rules out entirely. So the question for each gap
 is not only *how expensive to close* but *can it be degraded honestly in the meantime*.
@@ -839,7 +839,7 @@ missing.
 | `Switch` | **Dies** | Not in BuildRegistry; zero occurrences in HexIDE.Runtime. `x = Switch(c1, v1, c2, v2)` throws VBSubOrFunctionNotDefinedException: "Sub or Function not defined (Switch)". Named in… | ExpressionExecutor.cs |
 | `InputBox` | Partial | Implemented, but only the first three arguments are read: `var prompt = args.Count >= 1 ...; var caption = args.Count >= 2 ...; var defaultText = args.Count >= 3 ...` then `await… | VB6BuiltIns.cs |
 | `MsgBox` | Partial | The Buttons argument is read as the Long it is, coerced as CLng does, so an in-box constant shows its buttons and icon (measured: a Long, "4" and 4.5 select Yes/No; Null raises 94 and "abc" 13 before any dialog), and the answer is a Long. Not honoured: the default-button, help-button, modality and right-to-left bits, and the HelpFile and Context arguments. | VB6BuiltIns.cs |
-| `DoEvents` | No-op | Deliberately accepted and ignored. Registered in BuildRegistry with the comment that says why: "DoEvents - a no-op here (the tree-walking interpreter has no message pump). VB6 yields to the… | VB6BuiltIns.cs |
+| `DoEvents` | Partial | Since #766, in a program running in a window, gives the dispatcher a turn and then runs every event waiting, inside the caller, as VB6 does (measured; a Timer never inside its own handler). Returns 0, not VB6's count of open forms. Code run with no window, as a module test's is, has nothing to wait for, and there it does nothing. Was: "DoEvents - a no-op here (the tree-walking interpreter has no message pump). VB6 yields to the… | VB6BuiltIns.cs |
 
 **math** (26)
 

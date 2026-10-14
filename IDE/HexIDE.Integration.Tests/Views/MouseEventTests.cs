@@ -90,12 +90,12 @@ public class MouseEventTests
         }
     }
 
-    private static Running Start(string frm, string code)
+    private static Running Start(string frm, string code, HexIDE.Runtime.Debugging.IDebugController? debugger = null)
     {
         var project = new ProjectDefinition(VBProjectType.EXE, "P");
         var form = new FormDeserializer().Deserialize(project, frm + code, new NullSink())!;
         project.AddForm(form);
-        VBLoader.RunForm(form, CancellationToken.None, out var window);
+        VBLoader.RunForm(form, CancellationToken.None, out var window, debugger);
         var run = new Running { Window = window };
         void OnFaulted(VBWindowContext _, System.Exception e) => run.Errors.Add(e);
         void OnRunTimeError(VBWindowContext _, VBRunTimeException e) => run.Errors.Add(e);
@@ -114,6 +114,91 @@ public class MouseEventTests
         Dispatcher.UIThread.RunJobs();
         window.UpdateLayout();
         return run;
+    }
+
+    // Under the IDE's debugger, which gives up the thread at its time slice: 15 ms is the IDE's own, -1 yields at every
+    // statement. Before #766 a handler that yielded let the next event start first, so a CommandButton printed MouseDown,
+    // MouseUp, Click; MouseEventTests' other cases run with no debugger, where nothing yields.
+    private static HexIDE.Runtime.Debugging.DebugController Debugger(long timeSliceMs)
+    {
+        var debugger = new HexIDE.Runtime.Debugging.DebugController { TimeSliceMs = timeSliceMs };
+        debugger.Reset();
+        return debugger;
+    }
+
+    [AvaloniaTheory]
+    [InlineData(15L)]
+    [InlineData(-1L)]
+    public void Under_the_debuggers_time_slice_a_human_paced_click_keeps_VB6s_order(long timeSliceMs)
+    {
+        // A press, a pause longer than the slice, then the release: Click and MouseUp come from that one release, and the
+        // first of them yields. VB6's order holds only because MouseUp now waits for Click.
+        using var run = Start(Form(Twips, Controls), Handlers("Command1"), Debugger(timeSliceMs));
+        var point = run.At("Command1", 10, 5);
+
+        Thread.Sleep(40);
+        run.Window.MouseDown(point, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        Thread.Sleep(40);
+        run.Window.MouseUp(point, MouseButton.Left);
+        Dispatcher.UIThread.RunJobs();
+        Dispatcher.UIThread.RunJobs();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Command1 MouseDown 1 0 150 75", "Command1 Click", "Command1 MouseUp 1 0 150 75");
+    }
+
+    [AvaloniaFact]
+    public void Under_a_slice_at_every_statement_a_TextBox_keeps_MouseDown_MouseUp_then_Click()
+    {
+        using var run = Start(Form(Twips, Controls), Handlers("Text1"), Debugger(-1));
+
+        run.Click(run.At("Text1", 10, 5));
+        Dispatcher.UIThread.RunJobs();
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("Text1 MouseDown 1 0 120 45", "Text1 MouseUp 1 0 120 45", "Text1 Click");
+    }
+
+    // A root that records how each event was raised, rather than running it.
+    private sealed class RecordingRoot : Canvas, IModuleExecutionRoot
+    {
+        public List<(string Name, EventCoalescing Coalescing)> Raised { get; } = new();
+
+        public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null) => Raised.Add((name, EventCoalescing.None));
+
+        public void ExecuteEvent(string name, System.Func<IReadOnlyList<Vb6Value>> args,
+            EventCoalescing coalescing = EventCoalescing.None) => Raised.Add((name, coalescing));
+    }
+
+    [AvaloniaFact]
+    public void A_move_is_raised_to_be_coalesced_and_a_press_is_not()
+    {
+        // Which moves wait is EventPumpTests': a move updates only a move at the back of the queue. Real headless input
+        // drains the dispatcher after each event, so it cannot hold a handler open long enough to show two moves waiting.
+        // What it can show is that a control raises its moves that way, and its presses not.
+        var button = new VBCommandButton { Width = 80, Height = 30 };
+        VBProps.SetName(button, "Command1");
+        Canvas.SetLeft(button, 16);
+        Canvas.SetTop(button, 16);
+        var root = new RecordingRoot { Width = 300, Height = 200 };
+        root.Children.Add(button);
+        var window = new Window { Content = root, Width = 300, Height = 200 };
+        window.Show();
+        try
+        {
+            Dispatcher.UIThread.RunJobs();
+            var point = button.TranslatePoint(new Point(10, 5), window)!.Value;
+
+            window.MouseMove(point);
+            window.MouseDown(point, MouseButton.Left);
+            window.MouseUp(point, MouseButton.Left);
+
+            root.Raised.Should().Contain(("Command1_MouseMove", EventCoalescing.Latest))
+                .And.Contain(("Command1_MouseDown", EventCoalescing.None))
+                .And.Contain(("Command1_MouseUp", EventCoalescing.None));
+        }
+        finally { window.Close(); }
     }
 
     [AvaloniaFact]

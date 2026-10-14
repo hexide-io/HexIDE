@@ -18,7 +18,15 @@ public interface IModuleExecutionRoot
     /// <summary>
     /// Raise an event whose arguments are worked out as it is dispatched (#974). One HexIDE can't work out, such as a
     /// mouse position in a ScaleMode it doesn't convert, is then refused as the run's own error, reported like any other,
-    /// rather than thrown out of an input handler.
+    /// rather than thrown out of an input handler. <paramref name="coalescing"/> says how it waits behind a running
+    /// handler: a MouseMove is <see cref="EventCoalescing.Latest"/> (#766).
     /// </summary>
-    void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args) => ExecuteSub(name, args());
+    void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None) =>
+        ExecuteSub(name, args());
+
+    /// <summary>
+    /// A Timer control's tick. While that Timer's own handler runs the tick is dropped, and while another handler runs
+    /// at most one waits (measured, #766). A root with no queue of its own runs it as any event.
+    /// </summary>
+    void ExecuteTimer(string name, IReadOnlyList<Vb6Value>? args = null) => ExecuteSub(name, args);
 }
