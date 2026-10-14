@@ -237,8 +237,10 @@ new document wait for the project's first save, as VB6 does, which would make `u
 of every new document. **A saved document whose file is then deleted keeps its `file:` name**: `untitled:`
 means "no file yet", not "file missing".
 
-All five foreign servers the suite drives were asked about an `untitled:` document, each under an extension
-it claims, and the frames were read rather than the client's own events (`UntitledDocumentNamesTests`):
+All five foreign servers the suite drives were asked about an `untitled:` document on 2026-09-20, each under
+an extension it claims, and the frames were read rather than the client's own events. The table records the
+versions measured then, which are not all the suite's current pins; `UntitledDocumentNamesTests` keeps
+asking at whatever is pinned:
 
 | Server | `untitled:Project1/Module1.<ext>` | leading slash | raw non-ASCII | percent-encoded | delivery |
 |---|---|---|---|---|---|
