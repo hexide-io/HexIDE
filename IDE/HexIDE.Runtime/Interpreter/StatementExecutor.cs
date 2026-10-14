@@ -1479,7 +1479,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return ControlFlow.Nothing;
             }
         }
-        // Only control-array element loading is modelled (Load Command1(i)); a bare form Load isn't.
+        // Otherwise a control-array element, Load Command1(i): the only other thing Load loads.
         var (group, index) = await ResolveControlArrayTarget(context.valueStmt(), "Load");
         group.Load(index);   // Err 360 if the element already exists
         return ControlFlow.Nothing;

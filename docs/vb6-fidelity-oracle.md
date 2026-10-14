@@ -8922,3 +8922,48 @@ Form2's own timer reports on Form1, then unloads (6a) or hides (6b) Form2 at its
   were first created.
 
 Unrelated to the questions but recorded: in session 0 a shown form reads `Visible` False, as #973's probe saw.
+
+**8. An error in another form's Initialize or Load, under the caller's `On Error`.** Form1's Timer calls a Sub that sets
+`On Error GoTo h`, then uses Form2 once. Form2 divides an Integer by an Integer variable holding 0 in its Initialize or
+its Load. Compiled only, native and p-code agreeing.
+
+| use | Form2 errs in | the caller's handler |
+|---|---|---|
+| `Load Form2` | Load | **not reached**: the run stops at the error |
+| `L Form2.Text1.Text` | Load | **not reached** |
+| `Form2.Show` | Load | **not reached** |
+| `Form2.pub = 1` | Initialize | **traps it**: `caught 11 Division by zero` |
+
+- **Load is an event, and its error is not the caller's.** The log stops after Form2's Load line and the run hangs on
+  the unhandled-error box (session 0 can't dismiss it). This matches what b1 to b3 found for other events.
+- **Initialize is not a boundary.** Its error comes back through the statement that used the form's name, as a class's
+  Initialize error comes back through its `New`. After the trap Form1's Timer ticked on, and the run ended at its End.
+- **What it overturned.** HexIDE's first cut reported an error in either the same way, at the boundary, on the
+  reasoning that both are event procedures. Initialize isn't one in this sense.
+- **The IDE is not measured here.** Under the IDE's default Break in Class Module, a form counts as a class module,
+  which is #1011's c1.
+
+**9. Unload of a form that isn't loaded.**
+- **`Unload Form2`, with Form2 never used:** raises Form2's Initialize, from the use of its name, then nothing. There
+  is no QueryUnload, Unload or error, and `Forms.Count` stays 1.
+- **`Form2.pub = 1`, then `Unload Form2`:** the same. Afterwards `Form2.pub` still reads 1, so the instance was kept.
+- **`Unload Me` inside the form's own Initialize** does nothing, for the startup form and for another form:
+  - the line after it runs;
+  - the form then loads, and Show goes on as usual.
+
+So an Unload of a form that isn't loaded does nothing, wherever it comes from. HexIDE had refused it as not
+implemented.
+
+**10. A use whose Load unloads the form.** Form2's Load unloads it with `Unload Me`. Form1 then uses Form2 once under
+`On Error Resume Next`, logging `Err` and `Forms.Count`. Native and p-code agree.
+
+| use | log |
+|---|---|
+| `x = Form2.Text1.Text` | Initialize, Load, QueryUnload 1, Unload, the rest of Load, then **364 "Object was unloaded"**. `x` is left Empty and `Forms.Count` is 1 |
+| `x = Form2.Caption` | the same, and the same **364** |
+| `Form2.Hide` | the same, and the same **364** |
+
+- **Same answer for every use.** The `Show`, `Load` and `Show vbModal` rows under *Unload Me inside Form_Load* gave this
+  answer too, and so does each use that loads the form.
+- **No second load.** VB6 doesn't load the form again to finish the use. HexIDE's first cut did, retrying the use after
+  the load, and so loaded it again on every retry.

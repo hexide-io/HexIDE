@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Threading.Tasks;
 
 namespace HexIDE.Runtime.Interpreter;
@@ -31,8 +30,8 @@ public sealed class FormInstanceNeeded(ModuleInfo form)
 }
 
 /// <summary>
-/// The run's forms, as the interpreter reaches them (#822): making a form's default instance, loading it, and showing and
-/// hiding it. The program implements it. A run with none, as a test's bare interpreter is, has no forms to reach.
+/// The run's forms, as the interpreter reaches them (#822): making a form's default instance, and loading it. The program
+/// implements it. A run with none, as a test's bare interpreter is, has no forms to reach.
 /// </summary>
 public interface IFormProgram
 {
