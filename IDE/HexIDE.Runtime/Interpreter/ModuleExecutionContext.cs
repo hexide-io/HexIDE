@@ -58,9 +58,15 @@ public class ModuleExecutionContext
             //
             // An untyped or Variant parameter is a Variant, though it may share a caller's typed slot: measured, #1001, a
             // `v As Variant` or an untyped `v` given a `Dim n As Integer` holding 5 widens `v * 7000` to a Long 35000. The
-            // name decides that, since the slot is the caller's.
-            value = state.DeclaredTypeOf(loc) != null && !env.VariantParameters.Contains(name)
-                ? value.AsFixedType()
+            // name decides that, since the slot is the caller's. A slot known to be a Variant reads as a Variant's too
+            // (#987), and that includes a Const declared As Variant. Every other Const, and an Enum member, is typed
+            // (measured, #1005: `K * m` with `Const K = 5` and `m As Integer` 7000 overflows, and `Select Case mFive`
+            // converts `Case 4.6` into 5). A slot that is none of these, such as an object's, reads as neither, and
+            // compares as it always has.
+            value = env.VariantParameters.Contains(name) ? value.AsVariant()
+                : state.DeclaredTypeOf(loc) != null ? value.AsFixedType()
+                : state.IsVariant(loc) ? value.AsVariant()
+                : state.IsConstant(loc) || state.IsReadOnly(loc) ? value.AsFixedType()
                 : value.AsVariantSubtype();
             // And the NAME the slot was declared with, for a class-typed slot — set and cleared by the same
             // rule and for the same reason. This is what an `As IFoo` read carries into member dispatch.

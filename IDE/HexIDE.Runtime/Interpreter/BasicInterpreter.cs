@@ -156,8 +156,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (depth > 64)
             throw new VBCompileErrorException("Recursive Type definition: " + typeName);
         var fields = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
+        var typedFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var variantFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in def.Fields)
         {
+            // An Enum field is a typed Long, as an Enum variable is (measured, #1005).
+            if (f.ScalarType is { } declared && VbNumeric.IsDeclarableScalar(declared)
+                || f.UdtTypeName is { } enumName && !Types.ContainsKey(enumName) && Enums.ContainsKey(enumName))
+                typedFields.Add(f.Name);
+            else if (f.UdtTypeName is null && (f.ScalarType is null || f.ScalarType == Vb6Value.ValueType.EmptyVariant))
+                variantFields.Add(f.Name);
             if (f.ScalarType is { } scalar)
                 fields[f.Name] = new Vb6Value(scalar);
             else if (f.UdtTypeName is { } nested)
@@ -167,7 +175,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             else
                 fields[f.Name] = Vb6Value.Variant;
         }
-        return new VbUdt(typeName, fields);
+        return new VbUdt(typeName, fields, typedFields, variantFields);
     }
 
     /// <summary>
@@ -857,6 +865,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     // Coerce the function's value to its declared return type (banker's round + range-check).
                     ? (proc.Body is { } body && VbNumeric.IsCoreNumeric(proc.ReturnType) ? VbNumeric.Narrow(rv, proc.ReturnType, body) : rv)
                     : SeedReturnValue(proc);
+            // A Function or Property Get declared as a scalar or an Enum returns a typed value, and an untyped, Variant or
+            // Object one a Variant's (measured: #987, `F() * 7000` with `F` As Integer returning 5 is 6, and `FV() * 7000`
+            // is 35000; #1005, `GetColor()` As an Enum is a typed Long, and `GetObj().P` As Object is late-bound). A class,
+            // UDT, array or Collection return is left as it is: a class's members are early-bound and typed already.
+            if (ret is { } returned)
+                ret = proc.ReturnUdtTypeName is null && VbNumeric.IsDeclarableScalar(proc.ReturnType) ? returned.AsFixedType()
+                    : proc.ReturnUdtTypeName is { } named && !named.Contains('.') && !Types.ContainsKey(named)
+                      && TryResolveEnum(named, owner, out _) ? returned.AsFixedType()
+                    : proc.ReturnsVariant ? returned.AsVariant()
+                    : returned;
             completed = true;
         }
         finally
@@ -1071,8 +1089,14 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             var p = proc.Parameters[i];
             if (p.ParamArray)
                 throw new NotImplementedException("ParamArray parameters are not yet supported");
+            // An Enum parameter is a Long: converted into one, and typed (measured, #1005: `c * m` with `c As MyEnum`
+            // given 5 and `m As Long` 500000000 overflows, and `Select Case c` converts `Case 4.6` into 5). Resolved here,
+            // since the pre-pass that read the declaration had not yet seen every module's Enums.
+            if (p is { DeclaredType: null, IsArray: false, TypeName: { } typeName } && !typeName.Contains('.')
+                && TryResolveEnum(typeName, owner, out _))
+                p = p with { DeclaredType = Vb6Value.ValueType.Long };
             callee.Parameters.Add(p.Name);
-            if (!p.IsArray && (p.DeclaredType is null || p.DeclaredType == Vb6Value.ValueType.EmptyVariant))
+            if (p.ReadsAsVariant)
                 callee.VariantParameters.Add(p.Name);
 
             // A blank slot at this position (`Foo 1, , 3`) occupies it only so the arguments after it bind
@@ -1151,7 +1175,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             return;
         if (p.IsArray)
             ExecutionContext.State.MarkDeclaredArray(location);
-        else if (p.DeclaredType is null || p.DeclaredType == Vb6Value.ValueType.EmptyVariant)
+        else if (p.ReadsAsVariant)
             ExecutionContext.State.MarkVariant(location);
     }
 

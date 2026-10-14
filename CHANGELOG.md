@@ -22,6 +22,22 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **Select Case compares as VB6 does, and arithmetic overflows where VB6's does** (#987). VB6 treats a value as typed or
+  as a Variant by where it came from, and both decide the result. Measured on vb6.exe, native and p-code:
+  - **A typed selector** converts each Case value into its type, so a declared 2 is no longer `Case Is < 2.4`, and a
+    declared Boolean True is `Case 3 To 6`.
+  - **A Variant selector** compares as VB6 compares Variants: a Variant 5 is below `"10"` as text, and a Variant 2 is
+    not `Case 1.7`. True is below False.
+  - **A typed Function's result, a conversion function, a typed array element or Type field, and the typed intrinsics**
+    (`Asc`, `Sgn`, `UBound`, `Len` of a typed argument and others) now overflow past their type's ceiling, as a
+    declared variable does: `F() * 7000` with `F` an Integer returning 5 raises Overflow, where it gave 35000.
+  - **A Variant array element, a Variant Type field, a late-bound member and the Variant intrinsics** (`Hour`, `Day`,
+    `Mid`, `Left` and the rest) widen, as a Variant does: `w(0) * 7000` with `w(0)` holding 5 is 35000, where it
+    raised Overflow.
+  - **A Const, an Enum member, and an Enum parameter, return or Type field** are typed, as in VB6: `K * m` with
+    `Const K = 5` and `m As Integer` 7000 raises Overflow, where it gave 35000. A Const declared `As Variant` is a
+    Variant.
+  - **A parameter or return declared `As Object`** is late-bound, as a Variant is, so its members' results widen.
 - **A ByRef `As Variant` parameter writes back to its caller** (#1001). `Sub S(v As Variant): v = 5` left a caller's
   Variant, or a caller's `Integer`, as it was, because the parameter got a copy of anything but an array. It now
   shares the caller's variable, as an untyped parameter does. Along with it, an untyped or Variant parameter given a
