@@ -168,6 +168,20 @@ public class GuardedContentMemberRunTests
     }
 
     [Theory]
+    [InlineData("in another case", "Attribute total.")]
+    [InlineData("to a name declared nowhere, which the save writes back (task 4.4)", "Attribute Gone.")]
+    public void AVariablesOwnQualifierChangedSoThatItStillDescribesTheVariablePasses(string _, string qualifier)
+    {
+        // The cost of reading a variable's own qualifier as the member, accepted (design.md, "Settled while building
+        // 4.5b"): the run still describes Total, as a VB_Var line without case or a rename's leftover, so nothing
+        // VB6 binds has changed.
+        var code = Code.Replace("    Total = 0\r\n", "");
+        var incoming = code.Replace("Attribute Total.", qualifier);
+
+        Applied(Replace(code, incoming), incoming);
+    }
+
+    [Theory]
     [InlineData("Public Function Halt() As Long", "End Function")]
     [InlineData("Public Property Get Halt() As Long", "End Property")]
     public void AProcedureRetypedKeepsItsRun(string declaration, string end)
@@ -356,7 +370,7 @@ public class GuardedContentMemberRunTests
     [Fact]
     public void AVariablesRunNamesEveryVariableItDescribes()
     {
-        // One run under a line declaring two, each line naming its own (IDE probe E's comma list).
+        // One run under a line declaring two, each line naming its own: a hand-written comma list.
         const string code =
             "Option Explicit\r\n" +
             "Public A As Long, B As Long\r\n" +

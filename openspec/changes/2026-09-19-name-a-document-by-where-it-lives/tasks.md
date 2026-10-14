@@ -1840,11 +1840,11 @@
   changing a member's attribute lines", and the addin-system delta's requirement says the same. What the design
   left open, and the two places its wording did not hold, are "Settled while building 4.5b" in design.md: matching by
   `MemberRunKey`'s ordinal, and reading a variable's run with its qualifiers, each failed a case the rule allows.
-  — **Tests.** `GuardedContentMemberRunTests`, 38 cases: what passes (code edits, line endings, a continued
+  — **Tests.** `GuardedContentMemberRunTests`, 40 cases: what passes (code edits, line endings, a continued
   attribute line's, a procedure moved, deleted, commented out, renamed with or without its qualifier, its qualifier
   changed alone, retyped to a `Function` or a `Property Get`, a variable renamed both ways and with its qualifier in
-  another case, orphans changed or removed, a property's accessors swapped, its first accessor deleted with its
-  run, both renamed); what is refused and how it is named (a description changed, a run removed or separated from
+  another case, a variable's own qualifier changed in case or to a name declared nowhere, orphans changed or
+  removed, a property's accessors swapped, its first accessor deleted with its run, both renamed); what is refused and how it is named (a description changed, a run removed or separated from
   a declaration that stays, a variable's run pointed at another variable, a rename that also changes the run, a run
   moved onto a member already declared or onto a new one while its own stays, a pasted line under a bare
   declaration, an orphan promoted, a property's run moved from Get to Let and one added to its Let, every member
