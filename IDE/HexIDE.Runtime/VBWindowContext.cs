@@ -208,8 +208,8 @@ public class VBWindowContext : IModuleExecutionRoot
 
     /// <summary>
     /// Hold the form's controls until it loads. VB6 loads a form at the first use of one of its controls, even inside
-    /// <c>Form_Initialize</c> (measured, #822); HexIDE can't yet, so a use before Load is refused (#1009) rather than read
-    /// in the wrong order. Called once the controls are in the instance's env.
+    /// <c>Form_Initialize</c> (measured, #822), and so does HexIDE: a read of a held control asks for the load
+    /// (<see cref="FormLoadNeeded"/>). Called once the controls are in the instance's env.
     /// </summary>
     public void HoldControlsUntilLoad() => HoldControls(EnsureInstance());
 
@@ -284,15 +284,16 @@ public class VBWindowContext : IModuleExecutionRoot
             return;
         terminatePending = false;
         // In a program the form's Terminate waits for its instance's release, or for the program's end, not its unload
-        // (measured, #822). The window goes now.
+        // (measured, #822). The program ends first if this was its last form, running the Terminates and closing every
+        // window: a host whose run ends with the window would otherwise end it before them. Else the window goes now.
         if (Program is { } program)
         {
+            await program.Gone();
             if (close is not null && !windowClosed)
             {
                 windowClosed = true;
                 close();
             }
-            await program.Gone();
             return;
         }
         await Report(() => interpreter!.FireTerminate(EnsureInstance()));

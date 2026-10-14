@@ -304,6 +304,29 @@ public class SeveralFormsTests
         run.Opened.Should().ContainKey("Form1");
     }
 
+    [AvaloniaTheory]
+    [InlineData("Load Form2")]
+    [InlineData("Form2.Show")]
+    [InlineData("Form2.Hide")]
+    [InlineData("x = Form2.Caption")]
+    [InlineData("x = Form2.Text1.Text")]
+    public void A_use_whose_load_unloads_the_form_is_Err_364_there(string use)
+    {
+        using var run = Start($"Private x As Variant\nPrivate Sub Form_Load()\n    On Error Resume Next\n    {use}\n"
+            + "    Debug.Print \"after, err \" & Err.Number & \" [\" & x & \"]\"\nEnd Sub\n", """
+            Private Sub Form_Load()
+                Debug.Print "f2 load"
+                Unload Me
+                Debug.Print "f2 rest of load"
+            End Sub
+
+            """);
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 load", "f2 rest of load", "after, err 364 []");
+        run.Opened.Should().NotContainKey("Form2");
+    }
+
     // ── When the run ends ──────────────────────────────────────────────────────────────────────────────
 
     [AvaloniaFact]

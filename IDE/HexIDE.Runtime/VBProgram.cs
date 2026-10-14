@@ -119,7 +119,8 @@ public sealed class VBProgram : IFormProgram
     /// <summary>
     /// Load <paramref name="form"/> if it isn't loaded, inside the statement that asked. Form_Load is an event, and its
     /// error is not the statement's: an <c>On Error</c> around <c>Load Form2</c>, <c>Form2.Show</c> or a use of one of its
-    /// controls doesn't trap it (measured, #822), so it is reported as an error in any event is.
+    /// controls doesn't trap it (measured, #822), so it is reported as an error in any event is. A Load that unloads the
+    /// form is the statement's error, though: 364, "Object was unloaded", whatever the use was (measured).
     /// </summary>
     public async Task Load(VbObject form)
     {
@@ -132,6 +133,8 @@ public sealed class VBProgram : IFormProgram
         if (form.FormUnloaded)
             context = Open(form.ClassDef, existing: form);
         await context.LoadAsync();
+        if (form.FormUnloaded)
+            throw new VBRunTimeException(VBStandardError.ObjectWasUnloaded);
     }
 
     // A window for `form`, from the host, and its controls put into the instance: a new instance, or an unloaded one.

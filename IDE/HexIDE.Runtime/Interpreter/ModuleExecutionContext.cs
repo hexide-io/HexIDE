@@ -55,8 +55,9 @@ public class ModuleExecutionContext
 
     /// <summary>
     /// Read a variable for the debugger: as <see cref="TryGetVariable"/> does, except that a form's control is read even
-    /// before the form has loaded. Locals and the watch window only look, and a program reading one there is refused
-    /// (#1009), not the debugger showing it.
+    /// before the form has loaded, and a form's name holding no instance reads as the Nothing it holds. Locals and the
+    /// watch window only look: a program reading either loads the form or makes its instance (#822), and the debugger
+    /// mustn't.
     /// </summary>
     public bool TryInspectVariable(ExecutionEnvironment env, string name, out Vb6Value value) =>
         TryRead(env, name, out value, inspecting: true);
