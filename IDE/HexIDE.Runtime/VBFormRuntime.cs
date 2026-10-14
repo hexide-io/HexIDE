@@ -32,4 +32,6 @@ public class VBFormRuntime : Window, IModuleExecutionRoot
     {
         windowContext.ExecuteSub(name, args);
     }
+
+    public void ExecuteTimer(string name, IReadOnlyList<Vb6Value>? args = null) => windowContext.ExecuteTimer(name, args);
 }
