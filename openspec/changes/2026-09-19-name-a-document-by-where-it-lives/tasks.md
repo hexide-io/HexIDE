@@ -1882,13 +1882,36 @@
   and orphans not skipped in the rename rule, said so in a comment. Recorded in design.md rather than changed: the
   save rewrites a run's qualifiers and nothing else of it (VB6 rewrites the whole run), a rename from a lexical
   server refused whole when it reaches another member's stale run, and, under "Open questions", Save As and a
-  write to a directory of an unchanged document. The scenario's THEN now says "once it is saved".
+  write to a directory of an unchanged document (settled since: below). The scenario's THEN now says "once it is
+  saved".
   — **Left.** The view's call to `NewNameRefusal` after the input box, and its hardcoded `New name:` and `Rename`
   prompt, have no test; the prompt is a localization gap older than this task. Keywords other than the four
   measured are not refused as new names. Whether VB6's Save Project writes an untouched module, and whether its
-  Save As rewrites one's stale qualifiers, were not measured (oracle, *Not measured*). Make's copy carries a renamed
+  Save As rewrites one's stale qualifiers, were not measured then; they are now (below). Make's copy carries a renamed
   variable's stale qualifier to `vb6.exe` until the document is saved. The bundled server answers a refused
   rename with `null`, which LSP reads as "no change required", for this refusal as for its others.
+  — **Follow-up, after measuring the save** (2026-10-14; design.md, "Settled after measuring the save"). A third
+  IDE session found that VB6's Save Project leaves an untouched module unwritten, and that its own Save or Save As
+  of one writes the runs afresh, re-qualified. So the save now rewrites a document's qualifiers when it has unsaved
+  changes, when it is written by its own Save or Save As (`ownCommand`, passed by `SaveForm` and `SaveModuleCore`
+  through `SaveFiles` and `Write`), or when it is written to a file other than its own (`SaveProjectToDirectory`);
+  a project's or the group's save of an unchanged member at its own file still writes it byte for byte, and Make's
+  copies still rewrite nothing. **Tests** in `MemberAttributesFollowARenameTests`: the unchanged project save
+  renamed `AProjectSaveOfAnUnchangedMemberLeavesAStaleQualifierAsItWasRead`, and the dirtied one, B's, now saved
+  through Save Project as B was, so each still decides what it says;
+  `EveryProjectSaveKeepsAnUnchangedMembersStaleQualifiers` for Save Project, Save Project As, the File menu's save
+  of every project and a write to the project's own directory, a form and a class each; an unchanged document's
+  own Save on B's three shapes, its Save As to VB6's `NamesNothingAs.cls` byte for byte (length and SHA-256
+  included) with the file it was read from left alone, and its Save As to its own file, form and class; a write to
+  another directory, form and class, both windows following;
+  `UntouchedC.cls` saved, against VB6's file, with the two divergences; a file named in another case, its own on
+  Windows only; and for an unchanged form's own Save, the window following unedited and the save one undo entry.
+  `UndoInTheCodeWindowAfterASaveThatRewroteQualifiersDoesNotTakeThemBack` now saves through Save Project, for the
+  same reason as B's. **Mutation: 18, each reddening a test**, one at a time: either arm of the gate ignoring the
+  flag, the path or the dirty check (six); the path compared with case on every host; `SaveForm` or `SaveModuleCore`
+  not passing the flag, or passing it for a Save alone and not a Save As (four); Save Project, the save of every
+  project, or a write to the project's directory passing it (three); `SaveFiles` or `Write` dropping it on the way
+  to a form or a module (three); and the old gate, unsaved changes alone.
 - [ ] 4.5 Enter at the end of a described line inserts after the attribute run, not between the line and its
   attributes.
 - [ ] 4.5a A run follows the line it describes: deleting that line deletes the run with it, and a cut takes

@@ -19,4 +19,5 @@ the matching write refuses breaks the most basic loop an automation client runs.
 
 #### Scenario: Reading and writing back a form
 - **WHEN** a client reads the content of a form the IDE will save, and writes the same text back
-- **THEN** the write succeeds and the form is unchanged
+- **THEN** the write succeeds and the form is unchanged, but for a member's attribute line naming another name than
+  its member's, which the save writes with its member's name, as the form's own Save does

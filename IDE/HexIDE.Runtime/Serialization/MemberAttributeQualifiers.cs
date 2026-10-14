@@ -10,13 +10,15 @@ namespace HexIDE.Runtime.Serialization;
 /// </summary>
 /// <remarks>
 /// <para>
-/// <b>VB6 rewrites these at every save of a module it holds as changed.</b> It keeps a member's attributes with
-/// the member, not with any text, and writes each run afresh, qualified with the member's name in its declared
-/// casing: after a name retyped on the declaration, after Replace All, after the whole declaration retyped over
-/// a selection, and for a loaded run whose qualifier names nothing, another member, or the member in another case
-/// (oracle, "Member attributes": IDE probes C2, C3, C8, V1 and B's <c>NamesNothing</c>, <c>NamesOther</c> and
-/// <c>LowerCase</c>). So a rename by any route ends with the qualifiers VB6 would write, and nothing has to fix
-/// them at the moment of the edit.
+/// <b>VB6 rewrites these every time it writes a module</b>: at a save of a module it holds as changed, and at an
+/// explicit Save or Save As of one it does not, though its Save Project leaves such a module unwritten. It keeps a
+/// member's attributes with the member, not with any text, and writes each run afresh, qualified with the member's
+/// name in its declared casing: after a name retyped on the declaration, after Replace All, after the whole
+/// declaration retyped over a selection, and for a loaded run whose qualifier names nothing, another member, or the
+/// member in another case (oracle, "Member attributes": IDE probes C2, C3, C8, V1, B's <c>NamesNothing</c>,
+/// <c>NamesOther</c> and <c>LowerCase</c>, and the third session's Q2 and Q3). So a rename by any route ends with
+/// the qualifiers VB6 would write, and nothing has to fix them at the moment of the edit. Which writes rewrite is
+/// the save's to decide (<c>ProjectService</c>).
 /// </para>
 /// <para>
 /// <b>Two kinds of run are rewritten, and only two</b>, read off <see cref="MemberRun.Kind"/> rather than the
@@ -30,9 +32,12 @@ namespace HexIDE.Runtime.Serialization;
 /// <b>The renamed kind is a lexical guess, and so this inherits its weaknesses</b> (design.md, "What the module
 /// declares" under "Settled while building 4.1"). A <c>VB_Var</c> line naming a parameter, a label, an
 /// <c>Enum</c>'s or a <c>Type</c>'s name, or a name declared nowhere at all, under a one-name line, reads as a
-/// rename's leftover, and is rewritten to that line's name where VB6 would bind it elsewhere or to nothing.
-/// Each case needs a line VB6 itself does not write where it stands, which is why it is pinned by tests rather
-/// than handled: text alone cannot tell it from the run a rename by retyping leaves.
+/// rename's leftover, and is rewritten to that line's name where VB6 would bind it elsewhere or to nothing. The last
+/// is measured: loaded from a file, <c>Attribute Count.VB_VarDescription</c> under <c>Public Tally As Long</c>, with
+/// <c>Count</c> declared nowhere, is dropped by VB6's next write of the module, where the same text left by
+/// retyping <c>Count</c> in VB6's code window is carried to <c>Tally</c> (V1). Each case needs a line VB6 itself
+/// does not write where it stands, which is why it is pinned by tests rather than handled: text alone cannot tell
+/// it from the run a rename by retyping leaves.
 /// </para>
 /// </remarks>
 public static class MemberAttributeQualifiers
