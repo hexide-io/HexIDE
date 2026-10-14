@@ -1098,6 +1098,24 @@ So the form's name names an instance that VB6 creates on first use:
   and a `Score` of 0. So `Form2 Is Nothing` is never True: naming the form creates it.
 - **At the end of the run,** the instance still alive is terminated.
 
+### A form's declarations, an event from Load, and its name set to Nothing (#1010 review)
+
+The same harness, native and p-code agreeing. The project holds Form1 (with `Text1`), an empty Form2, Module1, and a
+`Reference=` to stdole, as a new Standard EXE has.
+
+| Probe | Log |
+|---|---|
+| Form1 declares `Private` variables `As Form`, `As Object`, `As Collection`, `As StdFont`, `As OLE_COLOR`, `As TextBox`, `As Form2`, `As Form1`, `As IPictureDisp` and `As Control`; Load logs each `TypeName`, and `Is Nothing` for five | `Nothing Nothing Nothing Nothing Long Nothing Nothing Nothing Nothing Nothing`, then `True True True True True` |
+| Load logs, sets `Text1.Text = "x"`, logs again; `Text1_Change` logs | `load start`, `change x`, `load end` |
+| Load sets a form `Public Score` to 5 and calls Module1's `Drop`, which does `Set Form1 = Nothing`; Load then logs `Me.Score` and `TypeName(Me)`, and unloads | `dropped`, `after drop: 5 Form1`, `after unload`, then `terminate` |
+
+What these show:
+- **An object declaration is Nothing whatever its type:** VB's own classes and interfaces, another form, the form
+  itself, and stdole's dispinterface alias `IPictureDisp`. stdole's `OLE_COLOR` is an alias for a Long.
+- **A control event raised from Load runs inside it,** before the statement that raised it returns.
+- **Clearing the name doesn't end a loaded form.** The instance lives on, and Terminate waits for the unload and the
+  end of the procedure that was running in it.
+
 ### HexIDE
 
 Read from the code at `upstream/main` c933fbd, not run. A form's code runs as the primary standard module of an

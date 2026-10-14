@@ -290,6 +290,13 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   or in how the first statement of a form's load is reached.
 - **Status:** **bug**, [#656](https://github.com/hexide-io/HexIDE/issues/656). What VB6 does on exactly this form is
   still owed to the oracle.
+- **Resolved for a startup form by #1010 (#822's first slice):** the cause, read from the code rather than traced at
+  the time, was that the start was more than one dispatch. Resize was raised first, and the end of its dispatch
+  disarmed the armed step before Load ran. The start
+  is now one dispatch, declarations, Initialize and Load, and the gate is skipped on declarations, as VB6 never stops
+  on one. So Step Into from idle breaks on the first statement of `Form_Initialize`, or of `Form_Load` when there is
+  none, and a step off the end of Initialize goes on into Load (pinned in `FormInstanceTests`). A `Sub Main` start
+  is not re-measured.
 
 ### D20. A step from a function's last statement skips `End Function` — UNMEASURED
 - **VB6:** not measured. Whether F8 stops on `End Function` / `End Sub` before returning to the caller needs the
