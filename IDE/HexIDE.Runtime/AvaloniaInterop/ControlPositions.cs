@@ -1,0 +1,82 @@
+using System;
+using Avalonia.Controls;
+using HexIDE.Runtime.BuiltinControls;
+using HexIDE.Runtime.BuiltinTypes;
+using HexIDE.Runtime.Components;
+using HexIDE.Runtime.Interpreter;
+
+namespace HexIDE.Runtime.AvaloniaInterop;
+
+/// <summary>
+/// A control's Left, Top, Width and Height as a running program sees them (#933): in its container's ScaleMode, as a
+/// Single, held as a whole number of twips. HexIDE lays controls out in pixels, at 15 twips a pixel, so the conversion
+/// happens here, at the property, which is the only place a program observes the unit.
+/// </summary>
+/// <remarks>
+/// What VB6 does, measured with <c>vb6.exe /make</c>, native and p-code agreeing (the oracle's "A control's position at
+/// run time"):
+/// <list type="bullet">
+/// <item>A .frm holds every position in twips, whatever the form's ScaleMode: a pixel form's <c>Left = 8</c> reads
+/// 0.5333334. So the reader's divide-by-15 is right, and only the run time converts.</item>
+/// <item>A program reads and writes them in the container's ScaleMode: the form's for a control on the form, a
+/// PictureBox's for one inside it, and twips inside a Frame, which has no ScaleMode, even on a pixel form. A form's own
+/// Width and Height are twips whatever its ScaleMode.</item>
+/// <item>The value is a whole number of twips: <c>Left = 1.5</c> and <c>2.5</c> read 2 (half to even), and 10.5 pixels
+/// is 158 twips. There is no snapping to whole pixels: a TextBox's <c>Left = 1201</c> reads 1201. A value past a Long's
+/// range, in twips, is 6.</item>
+/// <item>A Label is at least one pixel wide and high: <c>Width = 7</c> and <c>Width = 0</c> read 15.</item>
+/// </list>
+/// </remarks>
+internal static class ControlPositions
+{
+    public static bool IsPosition(PropertyClass property) =>
+        ReferenceEquals(property, VBProperties.LeftProperty) || ReferenceEquals(property, VBProperties.TopProperty)
+        || IsSize(property);
+
+    private static bool IsSize(PropertyClass property) =>
+        ReferenceEquals(property, VBProperties.WidthProperty) || ReferenceEquals(property, VBProperties.HeightProperty);
+
+    private static bool IsVertical(PropertyClass property) =>
+        ReferenceEquals(property, VBProperties.TopProperty) || ReferenceEquals(property, VBProperties.HeightProperty);
+
+    /// <summary>The value a program reads, from the control's position in pixels.</summary>
+    public static Vb6Value Read(Control control, PropertyClass property, double pixels)
+    {
+        // A whole number of twips, which is what VB6 holds; the pixels came from twips, so this only drops the noise of
+        // the division.
+        var twips = Math.Round(pixels * VBScaleModeExtensions.PixelToTwips);
+        return new Vb6Value((float)(twips / TwipsPerUnit(control, property)));
+    }
+
+    /// <summary>The position in pixels for a value a program assigns, after VB6's rounding to whole twips.</summary>
+    public static double ToPixels(Control control, PropertyClass property, double value)
+    {
+        var twips = value * TwipsPerUnit(control, property);
+        if (double.IsNaN(twips) || twips < int.MinValue - 0.5 || twips >= int.MaxValue + 0.5)
+            throw new VBRunTimeException(VBStandardError.Overflow);
+        twips = Math.Round(twips, MidpointRounding.ToEven);
+        if (control is VBLabel && IsSize(property) && twips < VBScaleModeExtensions.PixelToTwips)
+            twips = VBScaleModeExtensions.PixelToTwips;
+        return twips / VBScaleModeExtensions.PixelToTwips;
+    }
+
+    // How many twips one of the program's units is, for this property of this control.
+    private static double TwipsPerUnit(Control control, PropertyClass property)
+    {
+        if (control is Window)
+            return 1;
+        var mode = control.Parent is Control host ? VBProps.GetScaleMode(host) : VBScaleMode.Twip;
+        switch (mode)
+        {
+            case VBScaleMode.Twip or VBScaleMode.Point or VBScaleMode.Pixel or VBScaleMode.Character or VBScaleMode.Inch:
+                var (horizontal, vertical) = mode.TwipsPerUnit();
+                return IsVertical(property) ? vertical : horizontal;
+            default:
+                // User needs the container's ScaleLeft, ScaleTop, ScaleWidth and ScaleHeight, which HexIDE does not hold.
+                // Centimeter and Millimeter read 0.2116669 and 2.116669 for 120 twips, where 1440 / 2.54 twips a
+                // centimetre gives 0.2116667: measured, and not explained, so not guessed.
+                throw new NotImplementedException(
+                    $"{property.Name} in a container whose ScaleMode is {mode} is not implemented (#990)");
+        }
+    }
+}

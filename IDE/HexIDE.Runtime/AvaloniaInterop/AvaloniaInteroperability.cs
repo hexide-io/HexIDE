@@ -203,6 +203,8 @@ public static class AvaloniaInteroperability
                     continue;
 
                 var converted = ConvertForAssignment(property, value);
+                if (ControlPositions.IsPosition(property) && converted is double assigned)
+                    converted = ControlPositions.ToPixels(control, property, assigned);
                 if (control is VBScrollBar bar && ReferenceEquals(property, VBProperties.ValueProperty) && converted is int position)
                     CheckScrollBarValue(bar, position);
                 // ListIndex takes -1 (nothing selected) to ListCount - 1, and 380 outside it, from a String too, in a
@@ -306,11 +308,9 @@ public static class AvaloniaInteroperability
 
         if (type == typeof(double))
         {
-            // Measured: VB6 holds a position or size as a whole number of twips in a Long, though it reads back as
-            // a Single. So `Left = 1.5` reads back 2, and `Left = 1E+20`, which a Single could hold, is Overflow (6).
-            // The check here is that Long. The value itself is kept as given, because HexIDE does not hold
-            // positions in twips; the rounding is recorded as a divergence in docs/vb6-fidelity-oracle.md.
-            Coerce(value, Vb6Value.ValueType.Long);
+            // A position or size is a whole number of twips in a Long, though it reads back as a Single (measured).
+            // ControlPositions rounds it, in twips, and checks the Long range there, where the unit is known: `Left =
+            // 1E+20`, which a Single could hold, is Overflow (6).
             return System.Convert.ToDouble(Coerce(value, Vb6Value.ValueType.Double));
         }
 
@@ -401,6 +401,12 @@ public static class AvaloniaInteroperability
                     continue;
 
                 var raw = prop.GetUntyped(c);
+                // A position or size is twips, or the container's ScaleMode, as a Single (#933), where HexIDE holds pixels.
+                if (ControlPositions.IsPosition(property) && raw is double pixels)
+                {
+                    value = ControlPositions.Read(c, property, pixels);
+                    return true;
+                }
                 // A colour is a Long to a VB6 program (measured: `Text1.BackColor` reads back 255, TypeName Long), so
                 // it prints as a number and compares with one: `If Label1.BackColor = vbRed` is True (#789). An unset
                 // Tag is "" in VB6, so `X.Tag = Y.Tag` copies an empty string rather than raising 94.

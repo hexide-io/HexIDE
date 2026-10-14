@@ -22,6 +22,15 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A control's Left, Top, Width and Height are twips at run time** (#933), as VB6 has them, measured on vb6.exe:
+  - **What changed:** a program read and wrote them in pixels, as a Double. A .frm Left of 120 read 8, and
+    `Text1.Left = 1200` moved the control 1200 pixels, fifteen times too far. They are now twips, as a Single.
+  - **ScaleMode:** they are read in the container's ScaleMode: the form's, a PictureBox's for the controls inside it,
+    and twips inside a Frame. A form's own Width and Height are twips whatever its ScaleMode.
+  - **Rounding:** an assignment is rounded to whole twips, half to even, so `Left = 1.5` reads back 2 (#791).
+  - **Labels:** a Label is at least a pixel wide and high.
+  - **Not yet:** a User, centimetre or millimetre ScaleMode is refused (#990). The form's own size is its client
+    size, without the frame (#852).
 - **A module's Public variables and Consts are visible bare from every other module** (#880), as VB6 makes them,
   measured on vb6.exe:
   - **What changed:** `Debug.Print M`, where Module2 has `Public Const M = 3`, is 3, and `G = 7` stores into Module2's
