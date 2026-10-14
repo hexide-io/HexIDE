@@ -54,8 +54,8 @@ Comments and trailing commas are allowed — this is a file you edit by hand, no
 | Field | Required | Meaning |
 |---|---|---|
 | `id` | yes | Identifies the entry. Reusing a default's id **replaces** that default wholesale, keeping its position. |
-| `extensions` | yes | The file extensions this server **serves**. This is what routing reads. |
-| `languageId` | yes | What this server wants those files **called**, in the protocol sense. |
+| `extensions` | yes | The file extensions this server **serves**. This is what routing reads, and the only thing it reads. |
+| `languageId` | yes | What this server wants those files **called**, in the protocol sense. It routes nothing, except that `vb6` lets a `.cls` claim take the project's class modules; see below. |
 | `transport` | yes | `stdio`, `pipe` or `websocket`. |
 | `command` | for `stdio` | The executable to launch. Optional on `pipe` — see *Starting the server yourself* below. |
 | `arguments` | no | Command line. Part of the command's identity — see *A command you have not run before*. |
@@ -72,14 +72,33 @@ Comments and trailing commas are allowed — this is a file you edit by hand, no
 
 These two are easy to confuse and they do different jobs.
 
-**`extensions` decides which documents reach the server.** **`languageId` decides what the server is told
-they are.** Two servers may claim the same extension and disagree about what to call it — one saying
-`python`, another `python3` — and both are right; each has its own connection and hears its own answer.
+**`extensions` decides which documents reach the server, and nothing else does.** **`languageId` decides
+what the server is told they are.** Two servers may claim the same extension and disagree about what to call
+it — one saying `python`, another `python3` — and both are right; each has its own connection and hears its
+own answer. An entry with the right identifier and none of the right extensions is sent nothing.
 
-This matters for HexIDE's own forms and modules, which have no file extension on the wire. A server is
-recognised as serving them if it declares VB6 source extensions (`.bas`, `.frm`, `.ctl`, `.pag`) **or**
-names the language `vb6` directly. Declaring only `.cls` is not enough, because a `.cls` is equally a
-LaTeX class file and reading that as a claim on VB6 would hand a LaTeX server your project's source.
+**HexIDE's own forms, modules and classes route the same way.** Each reaches a server under a name ending in
+the extension it is saved with: its file's `file:` URI once it has one, and
+`untitled:<Project>/<Name>.frm` (or `.bas`, `.cls`, `.ctl`, `.pag`) until then. Each is sent as the whole
+file, header and designer block included. So a VB6 server receives the kinds whose extensions it claims, and
+an entry claiming only `.bas` receives standard modules and nothing else. The bundled entry claims `.bas`,
+`.cls`, `.frm`, `.ctl`, `.pag`, `.dob` and `.dsr`, and declares `vb6`. How documents are named, and what
+happens when a name changes, is in [`lsp-client.md`](./lsp-client.md).
+
+**One exception, and it only ever narrows: a project's class modules.** A `.cls` is a VB6 class module and
+equally a LaTeX class file, so claiming `.cls` is not enough to receive the project's classes; reading it as
+a claim on VB6 would hand a LaTeX server your source. The entry must also establish that it serves VB6, by
+claiming one of `.bas`, `.frm`, `.ctl`, `.pag`, `.dob` or `.dsr`, or by declaring `languageId: vb6`. That is
+the only thing `languageId` is ever read for, and it never makes a claim on its own: an entry declaring `vb6`
+that claims no VB6 extension is still sent nothing. It applies only to documents of the project. A `.cls`
+the project merely carries goes to every entry that claims `.cls`, because nothing says it is VB6.
+
+> Earlier revisions of this section said HexIDE's forms and modules had no extension on the wire, and that
+> an entry naming the language `vb6` received them whatever extensions it claimed. Both were true while those
+> documents were named by a private `vb6://` scheme, and neither has been since
+> [#273](https://github.com/hexide-io/HexIDE/issues/273) named them by their files, or by an `untitled:`
+> name carrying their extension until they have one. An entry that relied on its identifier alone needs the
+> extensions it serves added to `extensions`.
 
 ## Giving one server a bigger record
 
@@ -219,8 +238,8 @@ simply not silent.
 
 ## Servers start when they are needed
 
-Nothing starts at launch. A server starts when the first document of a language it claims is opened, so a
-project containing no Markdown never pays for a Markdown server, and a broken server for a language you
+Nothing starts at launch. A server starts when the first document with an extension it claims is opened, so
+a project containing no Markdown never pays for a Markdown server, and a broken server for a language you
 are not using cannot spoil startup for you.
 
 ## When a server seems to do nothing
@@ -239,6 +258,9 @@ In order of likelihood:
    that seems to answer nothing until you save.
 5. **Check `extensions`, not `languageId`.** Routing reads the first. An entry with the right identifier
    and the wrong extensions serves nothing.
+6. **A VB6 server claims `.cls` and is sent none of the project's class modules?** A `.cls` claim alone
+   does not take them. Claim another VB6 extension it serves, or declare `vb6`; see *Extensions serve; the
+   identifier names*.
 
 ## What is deliberately not here
 

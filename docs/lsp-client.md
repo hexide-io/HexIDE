@@ -202,6 +202,157 @@ falsified; it means only that the notification carries no text.
 
 ---
 
+## Naming a document
+
+**A document that has a file is named by that file's `file:` URI** — a form, module, class, UserControl or
+PropertyPage of the project exactly as much as a file the project carries. A server can therefore read it
+from disk, resolve something relative to it, and recognise it when it indexes the workspace folder. A
+UserControl or PropertyPage is named by its *module's* file, which is the one the project file names; its
+designer half's path can diverge from it today ([#474](https://github.com/hexide-io/HexIDE/issues/474)).
+
+**A document of the project with no file yet is named `untitled:<Project>/<Name>.<ext>`** — the
+project's name, the document's own name, and the extension its kind will be saved with: `.frm`, `.bas`, `.cls`,
+`.ctl` or `.pag`. The extension is there because routing reads it. Three rules:
+
+- **No leading slash.** `untitled:/Project1/Form1.frm` and `untitled:Project1/Form1.frm` normalise
+  differently, so one spelling is chosen and never mixed. Two spellings of one name are two documents to a
+  server.
+- **Each segment is percent-encoded** (`LspDocumentUri.ForUntitled`), never interpolated raw. texlab drops a
+  notification whose URI is not strictly valid without a word: no response, no error, nothing on standard
+  error, and the connection stays up and answers about other documents normally. A request about that
+  document is then never answered at all, because nothing but `initialize` has a timeout
+  ([#486](https://github.com/hexide-io/HexIDE/issues/486)). The same server, in the same process, answers the
+  percent-encoded form.
+- **Compared without regard to case**, because both segments are VB6 names. This is only ever exercised
+  against a server that echoes the name back: a pushing server returns it byte for byte, while a pulled
+  report carries no URI at all, so the client files the answer under the name it asked about.
+
+The rule reads the path and nothing else: a document whose path is unset is named `untitled:`, and any
+other is named by its path. A file in a folder the IDE chose — the scratch folder a never-saved project
+writes its documents into — is named `file:` like any other, because that is where the bytes are and it is
+inside the root servers are told about; naming it `untitled:` would show a server that indexes the root the
+same module twice. Today the IDE writes a newly added form or module into that folder at once, so most new
+documents are `file:` from the start. [#500](https://github.com/hexide-io/HexIDE/issues/500) proposes that a
+new document wait for the project's first save, as VB6 does, which would make `untitled:` the ordinary name
+of every new document. **A saved document whose file is then deleted keeps its `file:` name**: `untitled:`
+means "no file yet", not "file missing".
+
+All five foreign servers the suite drives were asked about an `untitled:` document, each under an extension
+it claims, and the frames were read rather than the client's own events (`UntitledDocumentNamesTests`):
+
+| Server | `untitled:Project1/Module1.<ext>` | leading slash | raw non-ASCII | percent-encoded | delivery |
+|---|---|---|---|---|---|
+| rumdl 0.2.64 | accepted | accepted | accepted | accepted | pull **and** publishes |
+| texlab 5.26.0 | accepted | accepted | **dropped in silence** | accepted | push |
+| vscode-json-language-server | accepted | accepted | accepted | accepted | pull |
+| ruff 0.16.7 | accepted | accepted | accepted | accepted | pull |
+| clangd 22.1.6 | **refused** | refused | refused | refused | push |
+
+clangd's refusal is read off its standard error (`only supports 'file' URI scheme`), and it refuses the
+scheme rather than a spelling. A server like it cannot serve a document until the document has a file.
+
+### What this replaced
+
+Until [#273](https://github.com/hexide-io/HexIDE/issues/273) a form was `vb6://form/Form1` and a module or
+class `vb6://module/Module1`, minted by string interpolation in eight places. It was a scheme HexIDE had
+invented, so a server not written for HexIDE could not open the document, read it from disk, watch it,
+resolve anything relative to it, or route it by extension — even once the project was saved and every one of
+those documents had a file. A server asking for saves without text was told that `vb6://module/Module1` was
+saved, and could do nothing with it. The same string was also the breakpoint key, the bookmark key,
+the sidecar key and what automation reported, and some holders froze it while others recomputed it from the
+live name, so after a rename they named different documents
+([#269](https://github.com/hexide-io/HexIDE/issues/269)). Breakpoints and bookmarks now belong to the
+document itself, and the wire name is only the wire name (`DocumentWireName.For`).
+
+The cost was concrete. `demo/spring-tide` used to carry its module as `RelatedDoc=` rather than `Module=`,
+because a module would have been named `vb6://module/TideTable`, which the demo's server could not read. It
+is a `Module=` now, named by its file, and the server's answers are the ones it gave the carried copy.
+
+### A name is fixed when the document opens
+
+The name is chosen when the document is opened to the language layer and changes only by the close-and-open
+below. It is **never** re-read from the document's current path. Make EXE points every document's path into
+a temporary folder for the length of the build and back afterwards; a name recomputed from the path would
+name a document no server was told about, twice. A build therefore tells no server anything
+(`ABuildSaysNothingAtAllAlthoughItRepointsEveryPath`).
+
+Every request is sent under the name the document's session holds, and only while the session is open. That
+closed a silent defect: each request used to mint a fresh name from the document, which reads its path
+live, so from a document's first save the lifecycle notifications still said `untitled:` while every
+request said `file:`. The bundled server answers a URI it does not hold with an empty result and no error,
+so hover, completion, folding, Go To Definition, rename and formatting went quiet with nothing logged.
+
+### When the name changes: close, then open
+
+A document's name changes when it is written to a file other than the one it is named by — its first save, a
+Save As, a project saved into another directory — and, for a document with no file, when it or its project
+is renamed. A saved form that is renamed keeps its wire name, because its file has not changed.
+
+Each server that has the document open is then told it **closed under the old name, and then that it opened
+under the new one**, with its current text and with its versions starting again where an open's do. This
+is the shape the protocol itself prescribes for a rename, for the reason it gives: more than the name can
+change, including which servers claim the document. Both halves are awaited, so they arrive in that order on
+every connection, and `RenameWireShapeTests` asserts it on the bytes of a server spoken to by hand. Opens and
+closes are otherwise fire-and-forget, and an open that overtook its close would leave a server holding the
+document twice under a name it is never told to release. No request is sent between the two. Where a save
+caused the change, the save notification follows, under the new name.
+
+**Diagnostics follow the name.** Everything recorded under the old name is withdrawn as the document is
+closed under it, from every source, the compiler's injected rows included (`DiagnosticLedger.Forget`), and
+the client records an empty set for the old name on each closing connection, a pushing server's as much as a
+pulled one's. An ordinary close does less on purpose: it clears a pulled server's set, leaves a pushing server
+to clear its own, and leaves the compiler's rows alone, because a build's claim about a form outlives the
+editor that showed it. On a rename no later publication is coming, because no server will ever be told about
+the old name again, and a mark left under it would be one nothing could clear.
+
+**Nothing the developer set moves.** Breakpoints and bookmarks belong to the document, not to the name it is
+known by on the wire.
+
+---
+
+## A server is sent the whole file
+
+A form, module or class reaches a server as the **whole file**: a class's `VERSION` and `BEGIN … END` block,
+a form's `VERSION` line, object references and designer block, the run of `Attribute` lines that opens the
+code, and every member's `Attribute` lines further down. It used to be sent what the code window then showed:
+a module's code without its header, and a form's without its designer block. A position now means the same
+line to the editor, to a server that reads the file from disk, to the interpreter, and to anything reading
+the file afterwards.
+
+The header and the members' `Attribute` runs are the IDE's to change, and read-only in the code window. A
+server is expected to keep off them — the bundled one does, by the rule in
+[`lsp-server-features.md`](./lsp-server-features.md) — but the client does not depend on it:
+
+- **Folds.** The header's fold and each member's attribute fold are the code window's own, made from the
+  file's layout with or without a server, and they do not come through the language-client interface at all.
+  They describe the file format, which is the same whichever server is attached, and a fold that vanished with
+  the server would expose the text it exists to keep out of the way. A server's folds are merged with them on
+  every answer (`Vb6FoldingAdapter.Merge`): one that nests inside or around them is kept, and one that crosses
+  one of them, **or starts where one of them starts**, is dropped. The second rule is the fold library's
+  doing: it pairs the folds it is given with the sections it holds by start offset alone, so a server fold
+  from the top of the file took the header's section, and the header came back unfolded.
+- **Formatting.** An answer is applied to a copy, reduced to the lines it actually changes, and any change to
+  a line of the header or a member's attribute run is dropped, as one undo step. Lines are compared without
+  their terminators, so a server answering in `\n` for a `\r\n` buffer does not rewrite every line.
+- **Rename** is not clipped, because a rename partly applied leaves one name meaning two things. An answer
+  with any edit in the header or a member's attribute run is refused whole, and the developer is told why.
+  The one edit let through is a member's own name where it qualifies one of its attribute lines
+  (`Attribute Total.VB_Description`), when the same answer renames that member's declaration to the same new
+  name. The code window also refuses before it asks: with the caret on a read-only line, on a name the
+  designer block declares (the form's, a control's or a menu's, which is renamed in the Properties window),
+  or with a new name that is not a VB6 name — a letter, then letters, digits and underscores, and not one of
+  `Rem`, `Empty`, `New` and `Nothing`, the four words `vb6.exe` was measured to refuse though each has a
+  name's shape.
+- **Diagnostics** inside the header or an attribute run are shown like any other, because they are a
+  server's claim about the file. The bundled server raises none there.
+- **A rename's edits to other documents are dropped.** The code window applies the edits for its own
+  document and discards the rest without saying so
+  ([#1024](https://github.com/hexide-io/HexIDE/issues/1024)). No server attached to a code window sends
+  more than one document's edits today; one that binds names would, and naming a saved member by its file
+  is what lets such a server name it.
+
+---
+
 ## Diagnostics have an owner
 
 More than one source publishes onto the one diagnostics channel: each attached server, and the real VB6
@@ -212,6 +363,14 @@ So the channel keeps the last set per **(document, source)** and raises the unio
 its own rows; the event subscribers see is still one whole-document set, which is what they were written
 for. Each connection is a source, keyed by its registration id; an injecting caller names its own key
 (`DiagnosticOwner`).
+
+The compiler's rows are filed under the document's wire name, found from the absolute path `vb6.exe` prints,
+for every kind of document. They used to be matched to a form by its file's stem and filed under
+`vb6://form/<Name>`, forms only, so a module's errors were dropped, and the pattern they were read with
+expected a format `vb6.exe` never writes, so in
+practice none had ever arrived ([#477](https://github.com/hexide-io/HexIDE/issues/477)). The line `vb6.exe`
+prints counts only the code it showed, without the header or any `Attribute` line, and is converted to a
+file line where the log is read and nowhere else.
 
 Without that, replacement meant last-writer-wins. Building with VB6 cleared its previous errors by
 publishing an empty set for every form, which deleted whatever the language server had published for those
@@ -282,17 +441,79 @@ report a change that is not a document, such as its own configuration file being
 
 Two questions the protocol keeps separate, and so does HexIDE:
 
-- **`extensions`** — which files a server *serves*. This is what routing reads.
-- **`languageId`** — what that server wants those files *called* on the wire.
+- **`extensions`** — which files a server *serves*. This is what routing reads, for every document.
+- **`languageId`** — what that server wants those files *called* on the wire. It routes nothing on its own.
 
 **HexIDE holds no global opinion about what a file is.** The identifier sent for a document is the one the
 *receiving server* declared, not a project-wide constant. That is why the same file can be offered to two
-servers under two different names, and why a server keying its state on the identifier stays coherent.
+servers under two different names, and why a server keying its state on the identifier stays coherent. An
+extension no entry claims routes nowhere, and the document opens with language features absent. That is an
+ordinary outcome, and nothing reports it as an error.
+
+**Every form, module and class carries an extension on the wire**, including one with no file yet (see
+*Naming a document* above), so there is one rule and no exception for HexIDE's own documents. That was not
+true until [#273](https://github.com/hexide-io/HexIDE/issues/273): a form or module used to be named
+`vb6://form/Form1` or `vb6://module/Module1`, which carries no extension, so routing had a second branch that
+read the scheme instead, and a server's `languageId` doubled as a claim. A VB6 server attached as `vba` rather
+than `vb6` therefore started, initialized and was never sent a document
+([#277](https://github.com/hexide-io/HexIDE/issues/277)). The scheme branch, `SchemeLanguageOf`, and the
+identifier as a claim are gone.
+
+### The one place the identifier still counts: a project's class modules
 
 The `.cls` collision is the worked example: a `.cls` is a VB6 class module *and* a LaTeX class file. A lone
 `.cls` claim therefore cannot be read as "serves VB6" — a real LaTeX server claims it too, and routing a VB6
 module there would have it parse Visual Basic as LaTeX and report confident nonsense about the developer's
-own source. Documents the IDE carries have no extension at all and route by scheme instead.
+own source ([#279](https://github.com/hexide-io/HexIDE/issues/279)).
+
+So **a member of the project** is offered only to an entry whose claim establishes VB6
+(`DocumentLanguage.EstablishesVb6`): one that claims a VB6 extension no other language uses — `.bas`, `.frm`,
+`.ctl`, `.pag`, `.dob` or `.dsr`, every VB6 source extension but `.cls` — or that declares the identifier
+`vb6`. The gate is applied to every member, and it only ever bites on `.cls`: on any other VB6 extension the
+extension that matched already establishes VB6. It is deliberately about *VB6's* unambiguous extensions.
+Stated loosely as "an extension no other language uses", it would admit a Markdown server through `.md`.
+
+**A file the project carries is not a member**, is not known to be VB6, and is routed by its extension alone.
+A carried `.cls` reaches the LaTeX server; a class module of the project does not.
+
+**Membership is stated by whoever opens the document, not worked out by the router.** The code window opens
+members and says so; the carried-file editor opens carried files and says not. The registry remembers the
+answer for as long as the document is open, and routes its changes, its close, its save and any re-open by
+the same record, so a server that starts later cannot be handed a document it was never offered. The router
+deliberately holds no model of the project, and the two ways it could have answered for itself both fail:
+parsing the project and document names back out of an `untitled:` name, which nothing is allowed to do, or
+matching paths, which cannot see a document that has no file. It is an overload of `OpenDocumentAsync`
+rather than a defaulted argument, because a defaulted `bool` would compile at every existing call site and
+silently change what each one meant.
+
+Two behaviours changed with this, and both are narrower than before:
+
+- An entry that claims `.bas` and nothing else no longer receives forms and classes. The scheme branch used
+  to hand it every VB6 document.
+- An entry that declares `languageId: vb6` and claims no VB6 extension receives nothing. Declaring `vb6`
+  narrows a claim on `.cls`; it does not make one.
+
+**What was overturned on the way, and it is worth knowing because the guards said otherwise.** The `.cls`
+gate used to live inside the scheme branch. Once documents stopped being named `vb6://`, that branch could
+no longer be reached, so the gate silently went with it and a LaTeX server would again have been offered
+class modules. Both existing guards stayed green, because both opened `vb6://module/Module1`: a name with no
+extension routes nowhere, so "the LaTeX server did not receive it" held without ever reaching the rule.
+Building the member gate before deleting the branch is what showed it. The guard
+`ALatexServerClaimingClsIsNotOfferedVb6Modules` now opens `untitled:Project1/Class1.cls` against real texlab,
+and `DeclaringTheLanguageWithoutClaimingAnExtensionNoLongerRoutesAnything` pins the second behaviour change
+above so it reads as a decision rather than an accident.
+
+### When the workspace moves
+
+A project's first save, setting another project as the startup project, and Save Project As all move the
+workspace root, and a root is sent once, at `initialize`. So the running servers are stopped and started
+again at the new root, and **every document still open is opened again on each restarted connection that
+claims it**, with its latest text, before any change to it is forwarded
+([#469](https://github.com/hexide-io/HexIDE/issues/469)). Without that, a restarted connection holds nothing,
+and every document except the one whose opening noticed the move goes silently dark. The re-open is driven by
+the registry's own record of what is open rather than by the document that triggered it, because the
+teardown stops every server and the triggering document's claimants are a smaller set. A move is noticed
+when a document is next opened, not when the project changes.
 
 ### Transports
 
@@ -664,6 +885,9 @@ Three clusters account for nearly all of the gap:
 | Full-text sync only; a declared incremental kind is ignored | Wasteful on large files; the incremental path is untested | [#282](https://github.com/hexide-io/HexIDE/issues/282) |
 | No workspace-wide pull diagnostics (`workspace/diagnostic`) | Diagnostics are per open document; a server's findings about files nobody has open are never requested | [#284](https://github.com/hexide-io/HexIDE/issues/284) |
 | `lsp-servers.json` resolved through a folder API that returns nothing on Unix | Config location is unreliable on Linux/macOS unless `XDG_CONFIG_HOME` is set | [#280](https://github.com/hexide-io/HexIDE/issues/280) |
+| No request but `initialize` has a timeout | A request about a document the server silently discarded is never answered, and nothing gives up on it | [#486](https://github.com/hexide-io/HexIDE/issues/486) |
+| A rename's `WorkspaceEdit` is applied to the code window's own document only | Edits to every other document are dropped without a word, so a binding server's rename is applied in part | [#1024](https://github.com/hexide-io/HexIDE/issues/1024) |
+| An error answered to `textDocument/rename` is turned into `null` | A server that refuses a rename with a reason is shown as one that found nothing to change | [#1015](https://github.com/hexide-io/HexIDE/issues/1015) |
 
 ---
 
@@ -695,7 +919,7 @@ it takes, with no client work in between. That is the seam working as designed, 
 remaining rows would take too.
 
 The Object Browser therefore has to distinguish three empty answers that look identical: **nothing has
-started yet** (servers start lazily, when a document of their language is opened), **nothing running offers
+started yet** (servers start lazily, when a document with an extension they claim is opened), **nothing running offers
 the feature**, and **nothing matched**. Only the third is "not there", and a search box that said so for
 all three would be confidently wrong two-thirds of the time.
 
