@@ -471,4 +471,53 @@ public class SelectCaseMatchingTests : BaseVBTestFixture
 
         AssertDebugLog([new Vb6Value(expected)]);
     }
+
+    // The round-two review's families, measured by the supervisor on vb6.exe as native code (the oracle's "Measured in the
+    // review of round two"). Each is a source round two's rule got wrong. A Const is typed in Select Case, where it was
+    // already right here; a member reached through a Variant is late-bound and a Variant's; an element of a Variant holding
+    // a typed array is a Variant's; and an untyped ByRef parameter is a Variant, though it shares a typed variable.
+    [Theory]
+    [InlineData("Const K = 5", "", "K", "4.6", "case | 0")]
+    [InlineData("Const K = 5", "", "K", "\"a\"", "case | 13")]
+    [InlineData("Const ID_OPEN = 1\n    Dim cmd", "cmd = \"1\"", "cmd", "ID_OPEN", "case | 0")]
+    [InlineData("Dim a(1) As Integer, va", "a(0) = 5\n    va = a", "va(0)", "Is < 5.4", "case | 0")]
+    public async Task A_round_two_review_row_reads_as_VB6_reads_it(string declarations, string setup, string selector, string test, string expected)
+    {
+        await Run(CaseProgram(declarations, setup, selector, test));
+
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    private const string LateBound = "Public Property Get P() As Integer\n    P = 5\nEnd Property\nPublic Function M() As Integer\n    M = 5\nEnd Function\n";
+
+    [Theory]
+    [InlineData("Dim vo\nSet vo = New Foo\nx = vo.P * 7000", "0 35000")]                // late-bound: a Variant's
+    [InlineData("Dim vo\nSet vo = New Foo\nx = vo.M() * 7000", "0 35000")]
+    [InlineData("Dim vo\nSet vo = New Foo\nWith vo\n    x = .P * 7000\nEnd With", "0 35000")]
+    [InlineData("Dim o As Foo\nSet o = New Foo\nx = o.P * 7000", "6 ")]                // early-bound: typed
+    public async Task A_member_reached_through_a_Variant_is_a_Variant(string program, string expected)
+    {
+        await RunClasses($"On Error Resume Next\nDim x\n{program}\nDebug.Print Err.Number & \" \" & x\n", ("Foo", LateBound));
+
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    [Fact]
+    public async Task A_late_bound_selector_is_a_Variant_one()
+    {
+        // `Case Is > "a"` against a typed Integer is 13; against the late-bound `vo.P` it is Case Else, Err 0.
+        await RunClasses(CaseProgram("Dim vo", "Set vo = New Foo", "vo.P", "Is > \"a\""), ("Foo", LateBound));
+
+        AssertDebugLog([new Vb6Value("else | 0")]);
+    }
+
+    [Fact]
+    public async Task An_untyped_ByRef_parameter_sharing_a_typed_variable_is_a_Variant_selector()
+    {
+        await Run("Dim q As Integer\nq = 5\nG q\nSub G(p)\n    On Error Resume Next\n    Dim r As String\n    r = \"none\"\n"
+            + "    Select Case p\n    Case Is > \"a\"\n        r = \"case\"\n    Case Else\n        r = \"else\"\n    End Select\n"
+            + "    Debug.Print r & \" | \" & Err.Number\nEnd Sub\n");
+
+        AssertDebugLog([new Vb6Value("else | 0")]);
+    }
 }

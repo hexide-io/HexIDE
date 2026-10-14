@@ -6077,6 +6077,98 @@ arithmetic. Measured, native, p-code and in the IDE, each in its own Sub under `
 A typed parameter is a ceiling, as a declared variable is. Main widened the first three. The Byte row is the
 `Byte * Byte` split recorded under *Numeric type pairs*: native code wraps, p-code and the IDE raise.
 
+### Which intrinsics are typed (2026-10-14, #987)
+
+**The question.** The review of round two found `Len`, `Abs`, `Sgn`, `Asc`, `UBound` and `InStr` typed and `Hour` and
+`Day` Variants. #987 needs the rest before it can mark a result either way, because a mark that is wrong flips a result
+main got right.
+
+**The probe.** One project, each row its own Sub under `On Error Resume Next`, built as native code and as p-code, the
+two agreeing on every line. A numeric result holding N is tried against `Case Is < N.4`: a typed Integer or Long
+converts N.4 into N, which it is not below, and takes Case Else; a Variant takes the Case. It is then multiplied past
+its ceiling, 7000 for an Integer and 500000000 for a Long: a typed one overflows, a Variant widens. A text result holding
+"10" (or "11") is tried against `Case Is > 9`: a typed String converts 9 into "9" and compares text, Case Else; a Variant
+is read as a number and takes the Case. `v` is a Variant and `n` a `Dim n As Integer`.
+
+| Source | `Case` | Times the multiplier | So |
+|---|---|---|---|
+| `Len("abcde")` | Else | Overflow | typed |
+| `Len(v), v "abcde"` | Case | a Double | a Variant |
+| `InStr("abcd5", "5")` | Else | Overflow | typed |
+| `InStr(v, "5"), v "abcd5"` | Case | a Double | a Variant |
+| `Abs(-5)` | Else | Overflow | typed |
+| `Abs(v), v -5` | Case | a Long | a Variant |
+| `Abs(n), n As Integer -5` | Else | Overflow | typed |
+| `Sgn(5)` | Else | a Integer | typed |
+| `Sgn(v), v 5` | Else | a Integer | typed |
+| `Asc("A")` | Else | Overflow | typed |
+| `Asc(v), v "A"` | Else | Overflow | typed |
+| `UBound(arr), Dim arr(5)` | Else | Overflow | typed |
+| `LBound(arr5), Dim arr5(5 To 6)` | Else | Overflow | typed |
+| `CInt(5.2)` | Else | Overflow | typed |
+| `CInt(v), v 5.2` | Else | Overflow | typed |
+| `CLng(5.2)` | Else | Overflow | typed |
+| `CLng(v), v 5.2` | Else | Overflow | typed |
+| `CByte(5.2)` | Else | Overflow | typed |
+| `Hour(#5:00:00 AM#)` | Case | a Long | a Variant |
+| `Minute(#12:05:00 AM#)` | Case | a Long | a Variant |
+| `Second(#12:00:05 AM#)` | Case | a Long | a Variant |
+| `Day(#1/5/2000#)` | Case | a Long | a Variant |
+| `Month(#5/1/2000#)` | Case | a Long | a Variant |
+| `Year(#1/1/2000#)` | Case | a Long | a Variant |
+| `Weekday(#1/6/2000#)` | Case | a Long | a Variant |
+| `IIf(True, 5, 6)` | Case | a Long | a Variant |
+| `Choose(1, 5, 6)` | Case | a Long | a Variant |
+| `Switch(True, 5)` | Case | a Long | a Variant |
+| `Int(5.7)` | Case | a Double | neither: a Double, which the probe cannot tell |
+| `Fix(5.7)` | Case | a Double | neither: a Double, which the probe cannot tell |
+| `Int(n), n As Integer 5` | Else | Overflow | typed |
+| `Fix(n), n As Integer 5` | Else | Overflow | typed |
+| `Round(5.2)` | Case | a Double | neither: a Double, which the probe cannot tell |
+| `Val("5")` | Case | a Double | neither: a Double, which the probe cannot tell |
+| `Len(n), n As Integer` | Else | a Long | typed |
+| `Mid("10", 1)` | Case | | a Variant |
+| `Mid$("10", 1)` | Else | | typed |
+| `Left("10", 2)` | Case | | a Variant |
+| `Left$("10", 2)` | Else | | typed |
+| `Right("10", 2)` | Case | | a Variant |
+| `Right$("10", 2)` | Else | | typed |
+| `Trim(" 10 ")` | Case | | a Variant |
+| `Trim$(" 10 ")` | Else | | typed |
+| `LCase("10")` | Case | | a Variant |
+| `LCase$("10")` | Else | | typed |
+| `UCase("10")` | Case | | a Variant |
+| `Hex(16)` | Case | | a Variant |
+| `Hex$(16)` | Else | | typed |
+| `Oct(8)` | Case | | a Variant |
+| `String(2, "1")` | Case | | a Variant |
+| `String$(2, "1")` | Else | | typed |
+| `Format(10)` | Case | | a Variant |
+| `Format$(10)` | Else | | typed |
+| `CStr(10)` | Else | | typed |
+| `Replace("1x", "x", "0")` | Else | | typed |
+| `StrReverse("01")` | Else | | typed |
+| `LTrim("10")` | Case | | a Variant |
+| `Chr(49) & "0"` | Case | | a Variant |
+| `"1" & "0"` | Else | | typed |
+
+**What it says.** Three families, not one rule:
+- **Always typed:** `Sgn` and `Asc`, even of a Variant; `CInt`, `CLng`, `CByte` and `CStr`; `UBound` and `LBound`; and
+  `Replace` and `StrReverse`, which have no `$` form.
+- **Always a Variant:** the date parts (`Hour`, `Minute`, `Second`, `Day`, `Month`, `Year`, `Weekday`); `IIf`, `Choose`
+  and `Switch`; and every string function with a `$` form, called without it (`Mid`, `Left`, `Right`, `Trim`, `LTrim`,
+  `LCase`, `UCase`, `Hex`, `Oct`, `String`, `Format`), whose `$` form is typed.
+- **As their argument:** `Len`, `InStr` and `Abs` are typed when given a typed argument and a Variant when given a
+  Variant. `Int` and `Fix` of a typed Integer are typed; of a Variant they were not run.
+- **Concatenation** follows its operands: `"1" & "0"` is typed and `Chr(49) & "0"` a Variant, `Chr` being one.
+
+**Not determined:** `Int(5.7)`, `Fix(5.7)`, `Round(5.2)` and `Val("5")` return Doubles, which convert 5.4 into 5.4 and
+take the Case either way, and do not overflow. The row for `Err.Number` measured nothing (the probe's helper returned
+0) and is left out.
+
+**And one more thing it found:** `Len` of a typed variable is its size, 2 for the Integer holding 5 here, and `Len` of a
+literal or an expression does not compile ("Variable required - can't assign to this expression"). That is #780's.
+
 ### HexIDE
 
 **None of this is implemented by #839.** Round two built it: Case values converted into a typed selector's type, a
@@ -6100,6 +6192,26 @@ What main does with these rows, for #987's reference:
 - **A Type field's store** is not converted (#221), so a typed field read is only as good as its store: `u.b = 200`,
   `x = u.b + u.b` with `b As Byte` is 400 here, where VB6 raises 6.
 - **Not run here:** `Mid$` (#742), and `CVar`, which HexIDE does not have.
+
+**HexIDE, after #987.** A value is typed, a Variant's, or neither, and *neither* is what main did, in both observers, so a
+source nobody has measured cannot flip:
+- **Arithmetic** keeps #122's rule, a ceiling only when both operands are typed, so only the new typed marks change it:
+  a typed Function's or Property Get's result, a typed array element or Type field, the typed intrinsics, and `Len`,
+  `InStr`, `Abs`, `Int` and `Fix` of typed arguments. `F() * 7000` and `CInt(v) * 7000` now overflow, as in VB6. A
+  Variant array element or Type field reads as a Variant's whatever it holds, so `w(0) * 7000` widens.
+- **Select Case:** a typed selector converts each Case value into its type, `Is` and `To` as well as equality, and a
+  Variant selector compares as VB6 compares Variants (round two's rules), against a Case value that is typed or a
+  Variant's. A selector or Case value that is neither, such as a Const, an Enum member or a Double result, compares as
+  main did. A Boolean is -1 or 0, so True is below False.
+- **Variant sources:** a slot marked Variant, an untyped or Variant parameter even when it shares a typed variable
+  (#1001's read rule), a Variant array's element or any element read through a Variant, a Variant Type field, an
+  untyped or `As Variant` Function's result, a member reached through a Variant (late-bound), and the Variant
+  intrinsics. An operator's result is a Variant's when either operand is.
+- **Every measured row is pinned:** round two's 111 and its generated arithmetic rows, the review's families, and the
+  intrinsic table above, except `IIf`, `Choose` and `Switch`, which HexIDE does not implement, and `Len` of a typed
+  Integer, whose value is #780's.
+- **Left as main, by design:** a Const and an Enum member (typed in Select Case, where main's comparison was already
+  right; unmeasured in arithmetic), and every intrinsic not run here.
 
 ## Attribute lines inside a procedure (2026-10-12, #832)
 
