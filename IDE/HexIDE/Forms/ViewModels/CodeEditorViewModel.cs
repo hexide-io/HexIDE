@@ -433,9 +433,10 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>The save decides, and this follows it.</b> A save rewrites the model's qualifiers only for a document
-    /// with unsaved changes, so a buffer whose runs still name a stale member may be exactly what an unchanged
-    /// save wrote. The rewrite is therefore made here only when it turns this buffer's code into
+    /// <b>The save decides, and this follows it.</b> A save rewrites the model's qualifiers only where VB6 would
+    /// write the module: one with unsaved changes, one saved by its own Save or Save As, or one written to a file
+    /// other than its own. So a buffer whose runs still name a stale member may be exactly what a project's save
+    /// of an unchanged member wrote. The rewrite is therefore made here only when it turns this buffer's code into
     /// <paramref name="written"/>, which is the save having made it too. Anything else, including a buffer that
     /// somehow no longer holds what was flushed, is left alone and logged: the next flush makes the buffer win,
     /// as it always does.

@@ -5544,8 +5544,9 @@ measurement, not the design.
 
 **Probe names**, kept as recorded so each claim below traces to one: the compiler probes `p01` to `p14f`; the first
 IDE session's by letter (A, the dialog; B and B2, hand-written shapes loaded and saved; C1 to C9b, edits; D, the
-code window; E, a UserControl given every option the dialog left enabled); the second IDE session's V1 to V8. A
-module inside a probe is named where it matters (`BlankGap`, `TarDD`).
+code window; E, a UserControl given every option the dialog left enabled); the second IDE session's V1 to V8; the
+third's Q1 to Q3, the three questions it asked of VB6's saves. A module inside a probe is named where it matters
+(`BlankGap`, `TarDD`).
 
 ### Method
 
@@ -5586,7 +5587,7 @@ every keystroke the driver checked that the foreground window was that VB6's. In
 step, placed before or after every `F7`, every return from a dialog and every `Alt+T`, checked that the foreground
 title named the intended code window. Every step that mattered was confirmed from a screenshot, never from
 SendKeys' return, and after every save the project directory was copied back to the host. Two sessions, with
-projects under `C:\hexoracle-p4\ide\` and `C:\hexoracle-p4\ide2\`, every one a Standard EXE.
+projects under `C:\hexoracle-p4\ide\` and `C:\hexoracle-p4\ide2\`, every one a Standard EXE, and a third, below.
 
 A member is reached through the Project Explorer: type-ahead the component's name, `F7`, then `Ctrl+F` with the
 declaration's text, `Enter` and `Esc`, which leaves the caret on the declaration. Tools > Procedure Attributes is
@@ -5611,7 +5612,19 @@ produced was written by VB6. The hand-written shapes are the inputs, and what VB
 To make an untouched module save, each load-and-save project (B, B2 and V5's two) was dirtied by one Replace All
 of a marker comment, `' p4 marker` to `' p4 marker2`, over the Current Project. Wherever the count was recorded,
 VB6 reported one replacement per module (13, 8 and 10), and the marker is the only other change in any file saved
-from them.
+from them. Neither session measured that premise; the third did, and it holds for Save Project (*Which saves write
+a module*, below).
+
+**The third IDE session** (2026-10-14) used the same agent and rig as the second session, with the project at
+`C:\hexoracle-p4\ide3\S`, a Standard EXE, in two VB6 launches, each recorded by PID and each closed through File >
+Exit, and no `/make` running in the guest at any point, which every batch checked before it started. The one member
+edited was opened as above, by type-ahead and `F7`; a member saved untouched was selected with one click on its
+Project Explorer row and never opened. The File menu's `Save <file>` and `Save <file> As...` items name the member
+the Project Explorer has selected, so each was read from a screenshot before Alt+F and **S** or **A** was sent
+(*Rig shortcomings*, 12), and Save Project was Alt+F, **V**. A Save As's file name went
+in through the clipboard and `Ctrl+V`, not typed, so a mixed-case name kept its case. Each file's SHA-256, length
+and timestamp were read in the guest over PowerShell Direct before and after every step, not from the agent's log,
+and the guest directory was copied back to the host after each.
 
 What this half can see: what the dialog writes, what a save writes back, what the code window shows, and what the
 dialog and the Object Browser report for a member. What it cannot: whether the compiler attaches what the IDE
@@ -6053,7 +6066,9 @@ For a variable, in the second:
 So when a line declaring several variables is edited, VB6 carries the first declarator's attributes to whatever the
 first declarator now is, and drops every other declarator's, renamed or not. A one-name line is the degenerate
 case. All four measurements were renames. (`MultiP`'s new name came out `r` and `MultiXY`'s `z`, lower case,
-because SendKeys dropped the Shift; each is still a rename.)
+because SendKeys dropped the Shift; each is still a rename.) V1's carrying is of a rename VB6 saw being made: the
+same declaration over the same description, loaded from a file with `Count` declared nowhere, is given to no member
+and dropped at the module's next write (the third session's Q2, *Which saves write a module*, below).
 
 **A retyped type keeps the run** (V8). `Public Size As Long`, described `Retype8 Size, a Long.`, with `Long` retyped
 `String`: VB6 saved `Attribute Size.VB_VarDescription = "Retype8 Size, a Long."` under `Public Size As String`.
@@ -6116,6 +6131,104 @@ rule, the first stands. This refines the first session's "it never preserves an 
 keeps one it **loaded** as text, but one put into the code window is text, written back as it stands, and becomes an
 attribute only by passing through a load.
 
+### Which saves write a module (the third IDE session, 2026-10-14)
+
+**The question.** Both sessions above dirtied every module before saving it, on the premise that VB6 writes no
+module it holds as unchanged, so nothing above shows what VB6 does with a module nobody touched: whether Save Project
+writes it, and what an explicit Save or Save As of it writes. HexIDE's save re-qualifies a stale run only where VB6
+would write the module, so it needed both answers.
+
+**The project**, `S.vbp`, a Standard EXE with `Startup="Sub Main"` and no `Main`, which VB6 loaded with no prompt. Five
+members, CRLF, ASCII, no BOM:
+
+- `Touched.bas`: `Attribute VB_Name = "Touched"`, `Option Explicit`, `' p4 marker`, a blank line, and an empty
+  `Public Sub Poke()`.
+- `Untouched.bas`, the evidence's shapes put together, byte for byte:
+
+  ```vb
+  Attribute VB_Name = "Untouched"
+  Option Explicit
+  ' p4 marker
+
+  Public Tally As Long
+  Attribute Count.VB_VarDescription = "Var1 Count, described."
+
+  Public Function Total() As Long
+  Attribute Gone.VB_Description = "Names nothing."
+      Total = 1
+  End Function
+
+  Public Sub Indented()
+      Attribute Indented.VB_Description = "Indented."
+  End Sub
+
+  Public Sub Spaced()
+  Attribute   Spaced.VB_Description   =   "Extra spaces."
+  End Sub
+  ```
+
+  `Count` is declared nowhere. The two lines under `Tally` are V1's `Var1` with only its declaration retyped, which
+  is the text a code window that shows attribute lines, as HexIDE's does, holds after V1's edit.
+- `UntouchedC.cls`: the same body under the class header, `VB_Name = "UntouchedC"`.
+- `NamesNothing.cls` and `DeclShapes.cls`: B's and B2's inputs, byte for byte, so each has VB6's dirtied output
+  beside it to compare with.
+
+| Probe | Step | Written |
+|---|---|---|
+| Q1 | `Touched` edited (a comment typed at its end), then File > Save Project | `Touched.bas`, 91 bytes to 104; `S.vbp`, 16 ms later, with a new timestamp and **identical bytes**. Nothing else: `Untouched.bas`, `UntouchedC.cls`, `NamesNothing.cls` and `DeclShapes.cls` kept their bytes **and their timestamps**. No `.vbw`. |
+| Q2 | `Untouched` selected; the File menu read **`Save Untouched.bas    Ctrl+S`**, enabled; Alt+F, **S** | `Untouched.bas`, 439 bytes to 368 |
+| Q2, again | VB6 relaunched on the same `S.vbp`, nothing saved first; `DeclShapes` and `UntouchedC` each selected and saved the same way | `DeclShapes.cls`, 1216 to 1156; `UntouchedC.cls`, 782 to 711 |
+| Q3 | `UntouchedC` selected; File > **Save UntouchedC.cls As...**, the dialog titled `Save File As`, `UntouchedCAs.cls`; then the same for `Untouched` and for `NamesNothing` | each new file; the file each was read from untouched, bytes and timestamp |
+
+`Untouched.bas` after Q2, against what it was:
+
+```
+6d5
+< Attribute Count.VB_VarDescription = "Var1 Count, described."
+9c8
+< Attribute Gone.VB_Description = "Names nothing."
+---
+> Attribute Total.VB_Description = "Names nothing."
+14c13
+<     Attribute Indented.VB_Description = "Indented."
+---
+> Attribute Indented.VB_Description = "Indented."
+18c17
+< Attribute   Spaced.VB_Description   =   "Extra spaces."
+---
+> Attribute Spaced.VB_Description = "Extra spaces."
+```
+
+`UntouchedC.cls`'s diff is the same at the class's line numbers, and its plain Save and its Save As wrote one file:
+`UntouchedC.cls` and `UntouchedCAs.cls`, both 711 bytes, both SHA-256 `E9BCDC45...`, `VB_Name` still `"UntouchedC"`.
+`DeclShapes.cls` lost `Attribute K.VB_VarDescription = "Under a Const."`, the run under its `Public Const` in a class,
+and had its indented and spaced lines written afresh; against B2's dirtied output it differs only in the marker
+comment B2's edit changed. `NamesNothingAs.cls` (523 bytes, SHA-256 `1F48BA4F...`) is the input with `Gone`
+re-qualified `Total`, and nothing else, and against B's dirtied output differs only in that marker. `UntouchedAs.bas`
+is byte for byte `Untouched.bas` after Q2, which is confounded: Q2 had already rewritten the file it was compared
+against, so it shows only that a Save As did not reach back to the bytes VB6 loaded. Q3's answer rests on the two
+classes, whose files still held their input when they were saved as.
+
+So:
+
+- **Save Project writes only a module VB6 holds as changed**, and the project file, which it writes even when nothing
+  in it changed. The premise both earlier sessions dirtied every module on holds.
+- **A module's own Save writes it whatever its state.** The item is enabled for a module nobody changed, and the file
+  is written.
+- **Every write of a module writes its runs afresh**, as the earlier sessions saw at a Save Project of a dirtied one:
+  re-qualified, at column 1, with single spaces, the orphans dropped. The runs an untouched module's Save writes are
+  the runs a dirtied module's save writes (`DeclShapes`, `NamesNothing`), and its Save As writes the same bytes as its
+  Save (`UntouchedC`). VB6's only byte-preserving behaviour is not writing the module at all.
+- **A `VB_Var` line naming a name declared nowhere, loaded under a line declaring one variable, is given to no
+  member**, and the next write of the module drops it. V1's retype of `Count` to `Tally` in the code window left the
+  same declaration over the same description, and VB6 carried that description to `Tally`. So VB6 carries a
+  variable's description across a rename it saw being made, not across text that looks like one, and the file alone
+  cannot tell which a line is.
+- **A Save As re-points the member and leaves the project to save.** After the three Save As steps the Project
+  Explorer named `Untouched (UntouchedAs.b...`, and File > Exit's prompt, *Save changes to the following files?*,
+  listed `S.vbp` alone. Answered No, `S.vbp` kept naming the original files, and `S.vbw` (144 bytes) was written at
+  exit even so. The second launch, with nothing left unsaved, exited with no prompt and wrote `S.vbw` again.
+
 ### What this overturned
 
 **Ours, in the first draft of `design.md`'s "Settled before building phase 4"**, written on 2026-10-13
@@ -6166,6 +6279,20 @@ line above, the first draft's rule, and was rebuilt to the revised rules before 
 - *The dialog opens on "the same entry whichever accessor holds the caret".* It was seen in `LetFirst` and
   `Tariff`, where the property is the only public member, so a fall-back to the first entry of the Name list looks
   identical. With a second public member it fell back twice in six (V6, `GetSetB` and `LetGetA`).
+
+**Ours, by the third session.**
+
+- *HexIDE's gate, "only a document with unsaved changes"* (task 4.4), stood in for "a module VB6 writes" on the
+  premise above. Q1 bore the premise out for Save Project, and Q2 and Q3 showed what it never covered: VB6's own
+  Save and Save As of an untouched module write it, and write its runs afresh, `Gone` re-qualified `Total` as at
+  any save. HexIDE wrote such a module byte for byte at both, and now re-qualifies it (*HexIDE, after #273*).
+- *The open question in `design.md` kept that gate for a Save As until it was measured*, on the ground that the
+  copy "writes nothing VB6's own next load reads differently". True of the file, and not what VB6 writes: the option
+  it set aside, that a write somewhere else should re-qualify, "which is what VB6 presumably does", is what VB6 does.
+- *Reading V1 as "a stale one-name `VB_Var` run is carried to the variable"*, which the renamed kind of run in
+  `design.md` rests on. V1 measured a rename made in VB6's code window. The same text loaded from a file is given to
+  no member and dropped (Q2). The reader cannot see the difference, so it is kept as a divergence (*HexIDE, after
+  #273*).
 
 **The 2026-09-19 entry** is refined rather than overturned (*What `Line N` counts, refined*, above).
 
@@ -6243,12 +6370,14 @@ line above, the first draft's rule, and was rebuilt to the revised rules before 
 - `Public WithEvents A As T, WithEvents B As T`, `WithEvents` repeated within one declaration, which HexIDE's
   bundled grammar refuses.
 - E's UserControl loaded and saved again, to see that the reversed variable order is stable.
-- Whether File > Save Project writes a module nobody changed, and so whether a stale qualifier in an untouched
-  module (`NamesNothing`'s shape) survives a save. Both sessions dirtied every module first, on the premise that it
-  would not be written otherwise; HexIDE's save rewrites qualifiers only in a module with unsaved changes (task
-  4.4), which matches that premise and rests on it. Nor whether File > Save As, which writes the module whatever
-  its state, writes an untouched module's runs afresh and re-qualifies a stale one: HexIDE's Save As of such a
-  module keeps the qualifier as it was read, an open question in the change's `design.md`.
+- `Ctrl+S` with the focus in an untouched module's **code window**, rather than with the module selected in the
+  Project Explorer. The menu item shows the same accelerator, so the outcome is presumably Q2's; that is inferred,
+  not seen.
+- Whether Save Project writes an untouched module that **is open** in a code window but not edited. In Q1 only
+  `Touched`'s window was open.
+- A `.frm` member, untouched, through Save Project, its own Save, or Save As; and a `.ctl`.
+- A Save As of an untouched module whose file had not already been rewritten, in a `.bas`: `Untouched.bas`'s was
+  confounded by Q2's save before it, so Q3 rests on two classes.
 - ActiveX DLL, OCX and group projects, and `VB_Exposed = True` classes, in the IDE: every IDE probe was a Standard
   EXE, its UserControls private to it.
 
@@ -6297,6 +6426,13 @@ Recorded so the next person driving VB6's IDE through the agent need not find th
 11. **In the compiler half**, the registered `TLBINF32.DLL` crashed 32-bit PowerShell with an access violation, so
     the type libraries were read through `oleaut32` alone. `/make` registers every ActiveX DLL it builds, so the 51
     were unregistered afterwards with `regsvr32 /u /s`: 51 registered before, none after.
+12. **The title check cannot see which Project Explorer item is selected** (the third session). With a code window
+    maximised the main title names that window, `... - [Touched (Code)]`, whichever member the Project Explorer has
+    selected, so an `expect` step passes for a Save that will write another member. Confirm the target from the
+    File menu's item text instead, `Save Untouched.bas` or `Save UntouchedC.cls As...`, read from a screenshot
+    taken with the menu open, before the item's letter is sent; the `Properties - <name>` caption agrees, and the
+    written file's hash and `VB_Name` confirm it afterwards. The same session put each Save As file name in through
+    the clipboard and `Ctrl+V`, which shortcoming 1 cannot touch, and the case on disk matched every time.
 
 ### HexIDE, after #273
 
@@ -6306,26 +6442,37 @@ the compiler half and before the IDE half had finished, and judged a run by a qu
 the revised rules on 2026-10-14: a procedure run's qualifiers are not consulted, every `:` statement on the line is
 read, a constant takes a `VB_Var` run, and a one-name line takes the run a rename by retyping leaves when the name
 it carries is declared nowhere in the module. The save's re-qualification of a procedure's run and a one-name
-variable's, as VB6 does, is settled in `design.md` and was built in task 4.4, for a module with unsaved changes
-only, so a module saved untouched keeps a stale qualifier byte for byte. That VB6 writes only a module it holds as
-changed is the premise both sessions dirtied every module on (*Method*, above), not something either measured:
-whether VB6's Save Project leaves an untouched module's bytes alone, a stale qualifier included, is unmeasured. The
-save rewrites a run's qualifiers and nothing else of it, where VB6's save writes the run afresh: an indented or
-oddly spaced line stays as written where VB6 writes it at column 1 with single spaces (`DeclShapes`), and no
-`VB_VarHelpID = -1` is added under a `WithEvents` declaration loaded without one (`BareWithEvents`), both of which
-VB6 reads the same way at its next load. The files VB6 wrote are the corpus of task 4.6,
-`corpus/member-attributes/round-trip` and the saved output in `evidence/`, which every corpus lane walks; the
-hand-written load shapes VB6 was given are beside that output, and a test reads each against it. Where HexIDE
+variable's, as VB6 does, is settled in `design.md` and was built in task 4.4, first for a module with unsaved
+changes only, on the premise the first two sessions dirtied every module on. The third session measured the premise
+(*Which saves write a module*) and HexIDE now re-qualifies wherever VB6 writes the module: a document with unsaved
+changes, at any save; a document written by its own Save or Save As, whatever its state; and a document written to
+a file other than its own, which a write of the project to another directory does and VB6 does only by a Save As.
+A project's or the group's save of an unchanged member at its own file writes the bytes it read, a stale qualifier
+included. HexIDE's Save Project writes every member, so that is as near as it comes to VB6 leaving the file
+unwritten, and the timestamp is the only difference. Make's copies re-qualify nothing. The save rewrites a run's
+qualifiers and nothing else of it, where every write of VB6's writes the run afresh: an indented or oddly spaced
+line stays as written where VB6 writes it at column 1 with single spaces (B2's `DeclShapes`, and the third
+session's `Untouched` saved untouched), and no `VB_VarHelpID = -1` is added under a `WithEvents` declaration loaded
+without one (`BareWithEvents`), both of which VB6 reads the same way at its next load. The files VB6 wrote are the
+corpus of task 4.6, `corpus/member-attributes/round-trip` and the saved output in `evidence/`, which every corpus
+lane walks; the hand-written load shapes VB6 was given are beside that output, and a test reads each against it.
+The third session's files are not added to the corpus; a test pins its two clean results instead: VB6's
+`NamesNothingAs.cls`, which HexIDE's Save As of the same input writes byte for byte, and VB6's `UntouchedC.cls`,
+which HexIDE's Save of the same module does not write, for the two reasons given here. Where HexIDE
 departs from VB6 it does so on purpose: an orphan stays visible and editable, where VB6 hides it and drops or moves
-it at its next save; Undo restores a run and a cut carries one, where VB6 loses the description to both; a comma
-list keeps every declarator's run that still names a declarator on the line, where VB6 keeps only the first's; and
-an `Attribute` line pasted directly under a declaration is read as a run at once, which is what VB6's next load
-makes of the same bytes. A run mixing the two kinds is left as ordinary text, where VB6 gives each of its lines to
-its own member (p09n): the text stands, so VB6 binds it the same way at its next load. Three go the other way,
-keeping less than VB6 keeps or protecting what VB6 drops: a comma list's renamed first declarator leaves its run
-naming the old name, an orphan, where VB6 carries it and re-qualifies it; a run under a `Public Const` in a class,
-form or UserControl is read as describing and protected, where VB6 drops it (V5); and a run giving one attribute
-twice describes its member whole, where VB6's save keeps the first line and drops the second (p05g, B's
-`DoubleDesc`). Unlike an orphan, that second line is protected and folded with the run, so it cannot be seen or
-removed by hand until the Procedure Attributes dialog exists (#62), and a save keeps it, as settled in `design.md`;
-VB6 reads the first at its next load either way.
+it at its next write of the module; Undo restores a run and a cut carries one, where VB6 loses the description to
+both; a comma list keeps every declarator's run that still names a declarator on the line, where VB6 keeps only
+the first's; and an `Attribute` line pasted directly under a declaration is read as a run at once, which is what
+VB6's next load makes of the same bytes. A run mixing the two kinds is left as ordinary text, where VB6 gives each
+of its lines to its own member (p09n): the text stands, so VB6 binds it the same way at its next load. Four go the
+other way, keeping less than VB6 keeps or protecting what VB6 drops: a comma list's renamed first declarator leaves
+its run naming the old name, an orphan, where VB6 carries it and re-qualifies it; a run under a `Public Const` in a
+class, form or UserControl is read as describing and protected, where VB6 drops it (V5, and the third session's
+`DeclShapes` saved untouched); a run giving one attribute twice describes its member whole, where VB6's save keeps
+the first line and drops the second (p05g, B's `DoubleDesc`); and a one-name `VB_Var` line read from a file, naming
+a name the module declares nowhere, is protected as the line's variable's and re-qualified to it at the next save
+that writes the module, where VB6's load gives it to no member and its next write drops it (the third session's
+`Count` under `Tally`). Only a rename made in VB6's own code window carries such a line (V1), and HexIDE's reader
+cannot tell the two apart from the text, which is all it reads. Unlike an orphan, `DoubleDesc`'s second line is
+protected and folded with the run, so it cannot be seen or removed by hand until the Procedure Attributes dialog
+exists (#62), and a save keeps it, as settled in `design.md`; VB6 reads the first at its next load either way.
