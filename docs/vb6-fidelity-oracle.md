@@ -8835,3 +8835,85 @@ What it still does not do:
 - **`"6" * CCur(2)` and `"6" / CDec(2)`** come out as Currency and Double, where VB6 gives Double and Decimal. HexIDE gets
   the same two pairs wrong for any Double operand, which is #230.
 - **A String compared to a number** is #211.
+
+## Several forms: load, show, hide, modal, and when the run ends (2026-10-14, #822)
+
+The seven questions of #822's design note for slice 2a. There are 21 projects, two forms each. Every form logs
+Initialize, Load, Resize, Activate, Deactivate, QueryUnload, Unload and Terminate, with the seconds since the start, and
+every project ends itself.
+
+**How they were run:**
+- every project native and p-code, which agree in every probe;
+- in vb6.exe's IDE (`/runexit`) for the modal, hide and run's-end probes, where the host could matter. The IDE matches
+  p-code in every one.
+- Most runs were in the guest's session 0, which has no interactive desktop. Two things read differently there, so the
+  modal probes were run on the console session too. The console answers stand.
+
+**1. Which use loads a form.** Form1 touches Form2 once, then logs `Forms.Count`, which counts loaded forms without
+touching Form2.
+
+| first use | raises | loaded after it |
+|---|---|---|
+| `x = Form2.Caption` | Initialize, Load | yes |
+| `x = Form2.Text1.Text` | Initialize, Load | yes |
+| `x = Form2.pub`, a Public variable | Initialize | **no** |
+| `Form2.pub = 3` | Initialize | **no** |
+| `Form2.Foo`, a Public Sub | Initialize, then Foo runs | **no** |
+| `Set o = Form2` | Initialize (`TypeName(o)` is `Form2`) | **no** |
+
+**Any use of the name makes the instance and raises Initialize. Only a control or a built-in member loads it.** None
+of them shows it.
+
+**2. `Load Form2`, then `Form2.Show`.**
+- **Load:** raises Initialize and Load, and returns with the form loaded and not visible.
+- **Show:** raises Resize and returns. Form1's Deactivate and Form2's Activate come after the statement has returned.
+
+**3. Hide.**
+- **`Form2.Hide`:** the form stays loaded, and `Forms.Count` is still 2.
+- **Hiding both forms:** the run keeps going. Form1's Timer ticked four more times, until the forms were unloaded.
+- **Activation:** no Deactivate was logged for a hidden form. That was in session 0, and activation there is not
+  trustworthy, so it is unmeasured.
+
+**4. Unload, then use again.**
+- **After `Unload Form2`:**
+  - `Form2.pub` still reads **5**, the value set before the unload, and does not reload the form;
+  - `Form2.Caption` reloads it, raising **Load without Initialize**.
+- **Terminate** is not raised by Unload. It came at `Set Form2 = Nothing`, before the next statement.
+- **After that,** `Form2.pub` makes a **new instance** (Initialize, with pub 0), not loaded.
+
+**5. `New Form2`.**
+- **`Set f = New Form2`:** raises Initialize at once, and the form is not loaded.
+- **`f.Caption = "second"`:** loads it.
+- **`f.Show`:** shows it.
+- **`Form2.Show` after that:** makes the **default instance**, a third Initialize and Load, so three forms are
+  loaded. `f Is Form2` is False, and the captions are "second" and "Form2".
+- **`Set f = Nothing`, after `Unload f`:** raises f's Terminate.
+
+**6. `Show vbModal`.** Form1's Timer1 ticks every 200 ms throughout. Its Timer2 shows Form2 modally at 0.6 s, and
+Form2's own timer reports on Form1, then unloads (6a) or hides (6b) Form2 at its fifth tick.
+- **Form1's Timer keeps ticking while Form2 is modal,** in native code, in p-code and in the IDE. This is the
+  measurement the design waited on. The obvious guess, that the IDE holds other forms' Timers behind a modal form, is
+  wrong here; whether it holds for a `MsgBox` is a separate question, not run.
+- **Form1 is disabled while Form2 is modal.** On the console, `Form1.Enabled` reads False and so does
+  `IsWindowEnabled(Form1.hWnd)`, and both read True again once the modal form has gone. In session 0 both read True
+  throughout, the one place that session misled.
+- **A click posted to Form1's button still ran its Click** (6c), on the console as in session 0. That shows only that
+  posted messages bypass the disabled window. A person's click cannot reach a disabled window, so it is not evidence
+  that input runs.
+- **The statement after `Show vbModal`** runs once Form2 has unloaded (6a) or hidden itself (6b), and after the handler
+  that did so has returned. After a hide, Form2 is still loaded.
+- **Activation:** Form1 is deactivated as Form2 activates, and activated again when the modal returns.
+
+**7. When the run ends.**
+- **Sub Main showing a form and returning:** Main ends straight after the form's Resize, before its Activate (as E3
+  had it). The run then lasts until the form unloads.
+- **Sub Main loading a form hidden and returning:** the run goes on; its Timer ticked until it unloaded itself.
+- **Sub Main showing a form modally:** Main waits. Once the form has unloaded, Main goes on with no form loaded, and
+  returns.
+- **The last visible form unloading while another form is loaded:** the run goes on with the other form, hidden or
+  shown, and ends only when it unloads.
+- **So the run ends when no form is loaded, shown or hidden, and Sub Main has returned.**
+- **The Terminates of default instances never released** come at the run's end, all together, in the order the forms
+  were first created.
+
+Unrelated to the questions but recorded: in session 0 a shown form reads `Visible` False, as #973's probe saw.
