@@ -5,15 +5,23 @@ using HexIDE.Runtime.ProjectElements;
 namespace HexIDE.Runtime.Serialization;
 
 /// <summary>
-/// The text of a form's <b>code section</b> — everything a <c>.frm</c> holds after its designer block.
+/// The text of a form's <b>code section</b> — everything a <c>.frm</c> holds after its designer block — and the
+/// whole file the code window composes from it.
 /// </summary>
 /// <remarks>
-/// <para>A form's code section opens with an <c>Attribute VB_*</c> block that VB6 hides. HexIDE's editor
-/// <i>does</i> show it — measured in the running IDE on 2026-09-20, where it is the opening lines of
-/// the code window, syntax-coloured as ordinary code and freely editable. <c>VB_Name</c> is load-bearing: it is the
-/// form's identity. Being on screen is not the same as being written back: anyone composing "the code" of a
-/// form writes the part they came to write, and a straight replacement then deletes that block with no
-/// warning — which happened, and reached a commit before <c>git diff</c> caught it.</para>
+/// <para>A form's code section opens with an <c>Attribute VB_*</c> block that VB6's code window hid. HexIDE's
+/// shows the whole file (hexide-io/HexIDE#273): the designer half (<see cref="Prefix(FormDefinition)"/>), then
+/// the code section, with everything from the top of the file through that block greyed, read-only and folded.
+/// <c>VB_Name</c> is load-bearing: it is the form's identity, and only the IDE writes it, following a rename
+/// (<see cref="RetargetVbName"/>).</para>
+///
+/// <para><b>Before phase 3 of #273 the block was on screen and unprotected.</b> Measured in the running IDE on
+/// 2026-09-20, it was the opening lines of the code window, syntax-coloured as ordinary code and freely
+/// editable, where comments in the tree said it was hidden. Being on screen was never the same as being written
+/// back either: anyone composing "the code" of a form writes the part they came to write, and a straight
+/// replacement then deleted the block with no warning — which happened, and reached a commit before
+/// <c>git diff</c> caught it. <see cref="GuardedContent"/> now keeps the document's header in front of code sent
+/// alone and refuses content that would change it.</para>
 ///
 /// <para>A whole <c>.frm</c>, designer block and all, is no longer the mirror mistake it was: a caller that
 /// sends one back is sending what reading a form returns (hexide-io/HexIDE#273 task 3.18), and
@@ -27,8 +35,9 @@ public static class FormCodeText
     /// </summary>
     /// <remarks>
     /// Leading blank lines are carried into the block so restoring it cannot introduce or lose one. Only a
-    /// LEADING run counts: an <c>Attribute</c> line further down belongs to a procedure and is not part of
-    /// the file's identity.
+    /// LEADING run counts: an <c>Attribute</c> line further down describes a member — the procedure or variable
+    /// declared above it — and is that member's read-only run (<see cref="ReadOnlyRegions"/>), not part of the
+    /// file's identity.
     /// </remarks>
     public static string AttributeBlock(string code)
     {
@@ -54,9 +63,19 @@ public static class FormCodeText
     /// incoming text has none of its own. Returns <paramref name="incoming"/> unchanged otherwise.
     /// </summary>
     /// <remarks>
-    /// Preserving rather than refusing, because omitting the block is what a caller does when they mean
-    /// exactly what they said — "replace the code" — and the block is not code. The alternative, silently
-    /// accepting a body that destroys the form's identity, is the one behaviour that should not exist.
+    /// <para>
+    /// <b>No production caller.</b> <c>set_file_content</c> was the last, and stopped calling this when it went
+    /// through <see cref="GuardedContent"/> (hexide-io/HexIDE#273 task 3.9). That keeps the document's whole
+    /// header in front of code sent alone, designer block and this block together, and refuses content that
+    /// would change it, so it is the rule now; only this method's own tests reach it.
+    /// </para>
+    /// <para>
+    /// It preserved rather than refused, because omitting the block is what a caller does when they mean
+    /// exactly what they said — "replace the code" — and, while the code window still opened on the block as
+    /// ordinary code, the block was not treated as code. The alternative, silently accepting a body that
+    /// destroys the form's identity, is the one behaviour that should not exist, and the guarded path keeps
+    /// that half of the reasoning.
+    /// </para>
     /// </remarks>
     public static string PreserveAttributes(string incoming, string existing)
     {
@@ -81,7 +100,7 @@ public static class FormCodeText
     /// </para>
     /// <para>
     /// Only the LEADING run counts, for the same reason as <see cref="AttributeBlock"/>: an
-    /// <c>Attribute</c> line further down belongs to a procedure. Blank lines before it are skipped.
+    /// <c>Attribute</c> line further down describes a member. Blank lines before it are skipped.
     /// </para>
     /// </remarks>
     public static (int Start, int Length)? VbNameLine(string code)
@@ -171,12 +190,14 @@ public static class FormCodeText
     /// included. Both halves are slices of the text that was read.
     ///
     /// <para>
-    /// A form HexIDE created has no designer text <b>until something commits a change to it</b>, so until
-    /// then this is its code alone. That is right rather than a gap while it lasts: nothing has decided what
-    /// the file will say. The first committed designer change renders the header the form's first save will
-    /// write and records it (task 3.4), after which this composes both halves like any other form. What
-    /// still has no answer is the window in between — a form opened and never touched shows no header, and
-    /// what ought to appear there is recorded as an open question under task 3.4.
+    /// A form HexIDE created has no designer text <b>until something renders one</b>, so until then this is
+    /// its code alone. That is right rather than a gap while it lasts: nothing has decided what the file will
+    /// say. A form created with a file (<c>ProjectService.AddNewForm</c>) is rendered by the write that creates
+    /// it. One created with none, the Standard EXE template's <c>Form1</c> or the Project Explorer's Add Form,
+    /// is rendered by its first committed designer change, under the name its first save will use, or by that
+    /// save (task 3.4), after which this composes both halves like any other form. What still has no answer is
+    /// the window in between — such a form opened and never touched shows no header, and what ought to appear
+    /// there, with how the sidecar would tell whether its marks already count it, is hexide-io/HexIDE#885.
     /// </para>
     ///
     /// <para>
@@ -325,13 +346,22 @@ public static class FormCodeText
     /// The whole file this module represents, whichever kind it is.
     /// </summary>
     /// <remarks>
-    /// Two different shapes behind one question, which is the point of having it in one place. A
-    /// <c>.bas</c> or <c>.cls</c> composes through <see cref="ModuleFileFormat.ToFileContent"/>, so it picks
-    /// up the preserved header or the canonical literal. A <c>.ctl</c> or <c>.pag</c> does not: its header
-    /// is a designer block, <see cref="ModuleFileFormat.HandlesHeader"/> is false for those kinds and
-    /// <c>ToFileContent</c> would hand the body straight back, so it composes from the <c>FormPart</c> that
-    /// carries the designer text with the MODULE's code beside it — which is the half the save path writes
-    /// for those kinds too.
+    /// <para>
+    /// Two different shapes behind one question, which is the point of having it in one place, and both go
+    /// through <see cref="Prefix(ModuleDefinition)"/>. A <c>.bas</c> or <c>.cls</c> composes through
+    /// <see cref="ModuleFileFormat.BufferHeader"/>, so it picks up the preserved header, the canonical literal
+    /// for a module never read from disk, or nothing for one whose header was not recognised. A <c>.ctl</c> or
+    /// <c>.pag</c> does not: its header is a designer block, <see cref="ModuleFileFormat.HandlesHeader"/> is
+    /// false for those kinds, so it composes from the <c>FormPart</c> that carries the designer text with the
+    /// MODULE's code beside it — which is the half the save path writes for those kinds too.
+    /// </para>
+    /// <para>
+    /// <b>This used to say a <c>.bas</c> or <c>.cls</c> composed through
+    /// <see cref="ModuleFileFormat.ToFileContent"/>.</b> It does not, and the difference is the last case:
+    /// <c>ToFileContent</c> writes the canonical literal in front of a body that is already the whole file,
+    /// which is hexide-io/HexIDE#472. So for exactly those files this is the text the code window shows, and a
+    /// save writes something else.
+    /// </para>
     /// </remarks>
     public static string WholeFile(ModuleDefinition module) => Prefix(module) + module.Code;
 

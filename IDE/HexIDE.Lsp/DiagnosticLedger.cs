@@ -134,9 +134,10 @@ internal sealed class DiagnosticLedger
         ///
         /// <para>
         /// Deliberately not the spelling of the publish that triggered it. Two sources naming one document
-        /// differently — the compiler's <c>vb6://form/Form1</c> against a server's echoed
-        /// <c>vb6://form/form1</c> — would otherwise raise the same merged set under two URIs, and a
-        /// consumer keyed by raw string would report it twice. Editors compare with
+        /// differently — the compiler's <c>file:///C:/Ledger/Form1.frm</c> against a server's echoed
+        /// <c>file:///c:/Ledger/Form1.frm</c> on Windows, or two casings of one <c>untitled:</c> name — would
+        /// otherwise raise the same merged set under two URIs, and a consumer keyed by raw string would report
+        /// it twice. Editors compare with
         /// <see cref="LspDocumentUri.AreSame"/>, so a stable spelling costs them nothing.
         /// </para>
         /// </summary>

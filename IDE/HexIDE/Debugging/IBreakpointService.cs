@@ -5,12 +5,28 @@ using HexIDE.Runtime.ProjectElements;
 namespace HexIDE.Debugging;
 
 /// <summary>
-/// The IDE-side store of breakpoints — 1-based source lines per document, matching ANTLR
+/// The IDE-side store of breakpoints — 1-based file lines per document, matching ANTLR
 /// <c>stmt.Start.Line</c> and AvaloniaEdit. In-memory; persistence is owned by <c>UserSidecarService</c> (the
 /// per-user <c>&lt;project&gt;.user.hexproj</c> sidecar beside the .vbp, shared with bookmarks — an Evolution
 /// improvement over VB6's session-only behaviour).
 /// </summary>
 /// <remarks>
+/// <para>
+/// <b>A line is counted from the top of the file, header included</b>, as the code window numbers it
+/// (hexide-io/HexIDE#273): in a form that has a header, line 1 is its <c>VERSION</c> line, not the first line
+/// of code. The interpreter is given the same whole file (<c>FormCodeText.WholeFile</c>), so its statement
+/// lines are these lines and nothing converts between them. VB6's code window hid the header, so HexIDE's
+/// numbers differ from VB6's there; that divergence is deliberate.
+/// </para>
+/// <para>
+/// <b>Lines are bare integers, with no anchor.</b> Typing above a breakpoint does not move it. What does is
+/// the IDE's own: when a committed designer change, a save or a reload changes the header's line count,
+/// <c>HeaderRefresher.ShiftMarks</c> moves every mark below the header here, in the store, so a document with
+/// no window open moves too; and the sidecar's load moves marks written before the header was counted. This
+/// store accepts any line it is given. Refusing a new breakpoint on a line that never runs, in the header or
+/// a member's <c>Attribute</c> lines, is its callers' job: the code window, and <c>MarkLineRules</c> for
+/// automation.
+/// </para>
 /// <para>
 /// Keyed by <see cref="DocumentIdentity"/>, not by a name or a URI. A key made from a name moves every
 /// breakpoint on a document when the document is renamed, saved for the first time, saved elsewhere, or has
