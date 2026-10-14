@@ -66,7 +66,9 @@ public class ModuleExecutionContext
         if (env.TryGetVariableLocation(name, out var loc))
         {
             if (!inspecting && state.PendingControlOf(loc) is { } form)
-                throw new NotImplementedException(VbObject.NotYetLoaded(form, name));
+                throw new NotImplementedException(state.IsUnloaded(form)
+                    ? VbObject.UsedAfterUnload(form, name)
+                    : VbObject.NotYetLoaded(form, name));
             value = state[loc];
             // A slot with a declared type is a ceiling: overflowing it is Err 6, where a Variant would widen.
             // Marked on the VALUE because fixedness propagates through sub-expressions — `(a + 0) * 3` with a

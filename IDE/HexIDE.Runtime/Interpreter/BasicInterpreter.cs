@@ -336,7 +336,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (o.Terminated || Ending || DebugController?.IsAborting == true)
             return;
         o.Terminated = true;
-        if (o.ClassDef.PrePass.Procedures.TryGetValue("Class_Terminate", out var term))
+        // A form's hook is its own Form_Terminate, raised once it has unloaded and is released (#973).
+        var hook = o.ClassDef.Kind == InterpreterModuleKind.Form ? "Form_Terminate" : "Class_Terminate";
+        if (o.ClassDef.PrePass.Procedures.TryGetValue(hook, out var term))
             await RunProcedure(o.ClassDef, term, [], o.InstanceEnv, Vb6Value.NewObject(o));
         // Auto-unadvise (Phase 5): a terminating listener drops its `WithEvents` connections from their sources
         // (VB6 releases the connection point on Terminate), so no source retains a sink into a dead instance —
@@ -780,12 +782,21 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// </summary>
     public async Task RaiseFormEvent(VbObject instance, string name, IReadOnlyList<Vb6Value>? args = null)
     {
-        if (!instance.ClassDef.PrePass.Procedures.TryGetValue(name, out var proc))
-            return;
         var callArgs = new List<CallArg>();
         if (args != null)
             foreach (var value in args)
                 callArgs.Add(new CallArg(value, null));
+        await RaiseFormEvent(instance, name, callArgs);
+    }
+
+    /// <summary>
+    /// Raise a form's event with arguments that may be passed by reference, as QueryUnload's and Unload's Cancel are: an
+    /// argument with a location is that slot, so what the handler stores there is read back (#973).
+    /// </summary>
+    public async Task RaiseFormEvent(VbObject instance, string name, IReadOnlyList<CallArg> callArgs)
+    {
+        if (!instance.ClassDef.PrePass.Procedures.TryGetValue(name, out var proc))
+            return;
         try
         {
             await RunProcedure(instance.ClassDef, proc, callArgs, instance.InstanceEnv, Vb6Value.NewObject(instance));

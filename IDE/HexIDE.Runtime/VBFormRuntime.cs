@@ -39,4 +39,16 @@ public class VBFormRuntime : Window, IModuleExecutionRoot
         windowContext.ExecuteEvent(name, args, coalescing);
 
     public void ExecuteTimer(string name, IReadOnlyList<Vb6Value>? args = null) => windowContext.ExecuteTimer(name, args);
+
+    public Task<bool> UnloadAsync(int mode) => windowContext.UnloadAsync(mode);
+
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        // The close box asks the program first, as VB6's does: QueryUnload with UnloadMode 0, then Unload, and either may
+        // cancel. The window closes once the form has unloaded (#973). A close from code, End, Stop or the IDE shutting
+        // down is not the program's to refuse.
+        if (e.CloseReason == WindowCloseReason.WindowClosing && !e.IsProgrammatic && windowContext.UnloadFromCloseBox())
+            e.Cancel = true;
+        base.OnClosing(e);
+    }
 }

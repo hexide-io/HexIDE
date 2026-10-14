@@ -29,4 +29,11 @@ public interface IModuleExecutionRoot
     /// at most one waits (measured, #766). A root with no queue of its own runs it as any event.
     /// </summary>
     void ExecuteTimer(string name, IReadOnlyList<Vb6Value>? args = null) => ExecuteSub(name, args);
+
+    /// <summary>
+    /// Unload the form, as VB6's <c>Unload</c> statement does (#973): QueryUnload, then Unload, either of which may cancel.
+    /// <paramref name="mode"/> is VB6's UnloadMode, 1 from code. Gives back whether the form unloaded.
+    /// </summary>
+    System.Threading.Tasks.Task<bool> UnloadAsync(int mode) =>
+        throw new NotImplementedException("Unload of a form is not implemented here");
 }

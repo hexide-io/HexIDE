@@ -102,7 +102,13 @@ public class EventOrderTests
         project.AddForm(form);
 
         var localization = Substitute.For<ILocalizationService>();
-        localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>() + " {0} {1}");
+        // Each message's own placeholders, as the packs have them. A template with one too many made the fault report
+        // throw before it was raised, so a fault in one of these runs went unreported and `Failed` read empty.
+        localization.GetString(Arg.Any<string>()).Returns(call => call.Arg<string>() switch
+        {
+            "Str.ProjectRunner.StartupFormFailedToLoad" => "Form '{0}' failed: {1}",
+            var key => key + ": {0}",
+        });
         var controller = new DebugController { TimeSliceMs = timeSliceMs };
         var runner = new ProjectRunnerService(
             Substitute.For<IEventBus>(), Substitute.For<IWindowManager>(), Substitute.For<IProjectManager>(),

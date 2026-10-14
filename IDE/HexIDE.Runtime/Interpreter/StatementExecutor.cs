@@ -2078,7 +2078,17 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitUnloadStmt(VB6Parser.UnloadStmtContext context)
     {
-        // Only control-array element unloading is modelled (Unload Command1(i)); a bare form Unload isn't.
+        // A form, as `Unload Me` or by its name (#973): QueryUnload and Unload run inside this statement, and the ones
+        // after it run once they have. An indexed operand is a control-array element, as before.
+        if (FindProcedureOrArrayCall(context.valueStmt()) is not { } indexed || indexed.argsCall().Length == 0)
+        {
+            var target = await expressionExecutor.EvaluateValue(context.valueStmt());
+            if (target.Value is VbObject { FormWindow: IModuleExecutionRoot root })
+            {
+                await root.UnloadAsync(1);
+                return ControlFlow.Nothing;
+            }
+        }
         var (group, index) = await ResolveControlArrayTarget(context.valueStmt(), "Unload");
         group.Unload(index);   // Err 340 if missing, Err 362 if a design-time element
         return ControlFlow.Nothing;

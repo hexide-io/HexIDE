@@ -600,6 +600,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
             windowContext.ExecuteEvent(name, args, coalescing);
 
         public void ExecuteTimer(string name, IReadOnlyList<Vb6Value>? args = null) => windowContext.ExecuteTimer(name, args);
+
+        public Task<bool> UnloadAsync(int mode) => windowContext.UnloadAsync(mode);
     }
 
     public class MDIStandaloneStandardLib : IBasicStandardLibrary

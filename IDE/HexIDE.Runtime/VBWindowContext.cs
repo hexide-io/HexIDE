@@ -133,12 +133,114 @@ public class VBWindowContext : IModuleExecutionRoot
     /// <c>Form_Initialize</c> (measured, #822); HexIDE can't yet, so a use before Load is refused (#1009) rather than read
     /// in the wrong order. Called once the controls are in the instance's env.
     /// </summary>
-    public void HoldControlsUntilLoad()
+    public void HoldControlsUntilLoad() => HoldControls(EnsureInstance());
+
+    private void HoldControls(VbObject form)
     {
-        var form = EnsureInstance();
         foreach (var location in form.InstanceEnv.variableToLocation.Values)
             if (ExecutionContext.State[location].Value is Avalonia.Controls.Control or ControlArrayGroup)
                 ExecutionContext.State.MarkPendingControl(location, form.ClassName);
+    }
+
+    /// <summary>How the host closes the form's window. Set as the form is started.</summary>
+    public Action? CloseWindow { get; set; }
+
+    // Set while QueryUnload and Unload run. An Unload from inside them does nothing, as in VB6 (measured).
+    private bool unloading;
+
+    // Set once the form has unloaded and until its Terminate has run, which waits for the handler that unloaded it.
+    private bool terminatePending;
+
+    /// <summary>
+    /// Unload the form, as VB6 does (#973): <c>Form_QueryUnload</c>, then <c>Form_Unload</c>, each with a ByRef Cancel
+    /// that keeps the form loaded. They run inside the statement that unloads, as a call does, and the statements after
+    /// <c>Unload Me</c> run once they have. The window goes at once. Terminate, and the run's end with its last form, come
+    /// once the handler that unloaded it has returned (measured, native and p-code).
+    /// </summary>
+    /// <remarks>
+    /// An Unload of a form already unloaded, or from inside its own QueryUnload or Unload, does nothing: no event, no
+    /// error, and no reload (measured). Inside the handlers the outer unload goes on.
+    /// </remarks>
+    /// <param name="mode">VB6's UnloadMode: 1 (vbFormCode) from <c>Unload</c>, 0 (vbFormControlMenu) from the close box.</param>
+    /// <returns>Whether the form is now unloaded: false when a handler cancelled, or while the unload is still deciding.</returns>
+    public async Task<bool> UnloadAsync(int mode)
+    {
+        if (interpreter is null)
+            return true;
+        var form = EnsureInstance();
+        if (unloading || form.FormUnloaded)
+            return form.FormUnloaded;
+        if (!form.FormLoaded)
+            throw new NotImplementedException($"Unload of {form.ClassName} before it has loaded is not implemented yet (#822).");
+        unloading = true;
+        try
+        {
+            if (await Cancelled(form, "Form_QueryUnload", mode) || await Cancelled(form, "Form_Unload", null))
+                return false;
+        }
+        finally
+        {
+            unloading = false;
+        }
+        form.FormLoaded = false;
+        form.FormUnloaded = true;
+        ExecutionContext.State.MarkUnloaded(form.ClassName);
+        HoldControls(form);
+        if (Window is not null)
+            Window.IsVisible = false;
+        terminatePending = true;
+        Events.WhenIdle(() => FinishUnloadAsync(CloseWindow));
+        return true;
+    }
+
+    /// <summary>
+    /// The last of an unload, once the handler that unloaded the form has returned: <c>Form_Terminate</c>, the form's
+    /// fields released, then <paramref name="close"/> for its window. Runs once, and does nothing when no unload waits.
+    /// </summary>
+    public async Task FinishUnloadAsync(Action? close)
+    {
+        if (!terminatePending)
+            return;
+        terminatePending = false;
+        await Report(() => interpreter!.FireTerminate(EnsureInstance()));
+        close?.Invoke();
+    }
+
+    // Raise QueryUnload or Unload with Cancel passed by reference, and say whether the handler set it.
+    private async Task<bool> Cancelled(VbObject form, string name, int? mode)
+    {
+        var state = ExecutionContext.State;
+        var cancel = state.Alloc(new Vb6Value(0));
+        var args = new List<CallArg> { new(state[cancel], cancel) };
+        if (mode is { } unloadMode)
+            args.Add(new CallArg(new Vb6Value(unloadMode), null));
+        await interpreter!.RaiseFormEvent(form, name, args);
+        return state[cancel].Value is { } set && Convert.ToDouble(set, System.Globalization.CultureInfo.InvariantCulture) != 0;
+    }
+
+    /// <summary>
+    /// The window's close box, pressed: true when the program now decides, through QueryUnload with UnloadMode 0 and then
+    /// Unload, raised as any event is, so the window must stay open until it has. False when there is no program to ask.
+    /// </summary>
+    public bool UnloadFromCloseBox()
+    {
+        if (interpreter is null || RunIsOver() || instance is null)
+            return false;
+        // Unloading, or unloaded with Terminate still to come: the window stays until that has run, and goes then. Closed
+        // now, the run would end before Terminate (#1046 review).
+        if (unloading || instance.FormUnloaded)
+            return true;
+        if (!instance.FormLoaded)
+            return false;
+        var form = instance;
+        Events.Raise("Form_QueryUnload", async () =>
+        {
+            // A second press, queued behind the first, finds the form gone or going, and asks nothing.
+            if (form.FormUnloaded || unloading)
+                return;
+            await Dispatch(async () => await UnloadAsync(0));
+        });
+        return true;
     }
 
     /// <summary>
@@ -157,6 +259,8 @@ public class VBWindowContext : IModuleExecutionRoot
     /// (debugger-vb6-divergences D23), so the start goes on.</item>
     /// <item>A fault, End, or the debugger's Stop ends the run, and the start stops there: Load is not raised after a
     /// fault in Initialize. The owner's reaction to a fault arrives later, posted, so the start can't wait for it.</item>
+    /// <item>A form that unloaded itself during Load is not shown. Its Terminate is still to run
+    /// (<see cref="FinishUnloadAsync"/>), and the run ends silently, as VB6's does (measured).</item>
     /// </list>
     /// </returns>
     public async Task<bool> StartAsync()
@@ -176,7 +280,9 @@ public class VBWindowContext : IModuleExecutionRoot
                     return false;
                 form.FormLoaded = true;
                 ExecutionContext.State.ClearPendingControls(form.ClassName);
-                return await Report(() => interpreter.RaiseFormEvent(form, "Form_Load")) != Outcome.Over && !RunIsOver();
+                // A form that unloaded itself in Load, as `Unload Me` there does, is not shown (measured, #1046 review).
+                return await Report(() => interpreter.RaiseFormEvent(form, "Form_Load")) != Outcome.Over && !RunIsOver()
+                    && !form.FormUnloaded;
             }
             finally
             {
@@ -232,8 +338,9 @@ public class VBWindowContext : IModuleExecutionRoot
         // worked out inside the dispatch, so one HexIDE can't work out is refused as the run's error (#974).
         async Task Work()
         {
-            // An event that waited while the run ended runs nothing.
-            if (RunIsOver())
+            // An event that waited while the run ended runs nothing, and neither does one for a form that has unloaded,
+            // whose window and controls VB6 has destroyed.
+            if (RunIsOver() || form.FormUnloaded)
                 return;
             await Dispatch(async () =>
             {

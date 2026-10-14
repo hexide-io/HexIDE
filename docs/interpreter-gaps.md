@@ -62,7 +62,7 @@ Platform: 4 · Partial: 12 · Other: 0.
 _Original per-item findings (retained for detail; dispositions above supersede the "Undocumented" notes):_
 
 - **Beep / AppActivate / SendKeys** — all three visitors throw `NotImplementedException` (StatementExecutor.cs:101-114, 911-914); real VB6 statements (system tone / activate another app / send keystrokes). Undocumented.
-- **Load / Unload** — both throw; VB6 places/removes a form or control-array element in memory (`Unload Me` is the canonical self-close). Undocumented — nearest wall (Forms-as-classes) covers only second-form instantiation, and the advanced spec Phase 1 actually lists them as expected-to-resolve.
+- **Load / Unload** — (since #973, `Unload Me` on the startup form is implemented; a form's `Load`, and `Unload` of another form, wait for #822's Load slice) both throw; VB6 places/removes a form or control-array element in memory (`Unload Me` is the canonical self-close). Undocumented — nearest wall (Forms-as-classes) covers only second-form instantiation, and the advanced spec Phase 1 actually lists them as expected-to-resolve.
 - **DoEvents** — wholly absent from the interpreter (0 hits); VB6 intrinsic that yields to the message queue and returns the open-form count. Undocumented.
 - **Erase** — `VisitEraseStmt` throws (StatementExecutor.cs:253-255); VB6 reinitialises fixed arrays / frees dynamic-array storage. Undocumented.
 - **Mid statement** (`Mid(s,i,n) = ...`) — `VisitMidStmt` throws (StatementExecutor.cs:675); VB6 replaces chars in place without lengthening. Every doc reference is to the Mid *function*. Undocumented.
