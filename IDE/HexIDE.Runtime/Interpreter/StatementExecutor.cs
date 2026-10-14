@@ -1125,13 +1125,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     private bool NamesATypedScalarOrConst(string name)
     {
-        if (!currentEnv.TryGetVariableLocation(name, out var location))
+        if (!IsOwnDeclaration(name, out var location))
             return false;
         if (interpreter.ExecutionContext.State.DeclaredTypeOf(location) != null || localConsts.Contains(name))
             return true;
-        // The module's own Const, unless a local or a parameter of the same name hides it.
-        return currentModule.PrePass.ModuleConsts.ContainsKey(name)
-            && currentModule.ModuleEnv.TryGetVariableLocation(name, out var moduleLocation) && moduleLocation == location;
+        // The module's own Const, unless a local of the same name hides it.
+        return !declaredLocals.Contains(name) && currentModule.PrePass.ModuleConsts.ContainsKey(name);
     }
 
     // A bare name for an array variable declared as one (`Dim a(1) As Long`, `Dim a() As Long`), whose type VB6 knows
@@ -1139,8 +1138,20 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     private bool IsDeclaredArrayVariable(VB6Parser.ValueStmtContext valueStmt) =>
         valueStmt is VB6Parser.VsICSContext ics
         && ics.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } bare
-        && currentEnv.TryGetVariableLocation(bare.ambiguousIdentifier().GetText(), out var location)
+        && IsOwnDeclaration(bare.ambiguousIdentifier().GetText(), out var location)
         && interpreter.ExecutionContext.State.IsDeclaredArray(location);
+
+    // A name this procedure declared itself, or one the module declared, whose slot therefore says how it was declared. A
+    // parameter is neither: a ByRef one reads its caller's slot, whose marks are the caller's declaration. So an untyped
+    // `p` given a declared Integer, or a declared Long(), is 13 here, as in VB6 (measured, #997's review), and a typed
+    // parameter is 13 too, where VB6 refuses to compile: wrong only on a program VB6 does not compile.
+    private bool IsOwnDeclaration(string name, out int location)
+    {
+        if (!currentEnv.TryGetVariableLocation(name, out location) || currentEnv.Parameters.Contains(name))
+            return false;
+        return declaredLocals.Contains(name)
+            || currentModule.ModuleEnv.TryGetVariableLocation(name, out var moduleLocation) && moduleLocation == location;
+    }
 
     public override async Task<ControlFlow> VisitLetStmt(VB6Parser.LetStmtContext context)
     {

@@ -145,6 +145,8 @@ public class TypedArrayReturnTests : BaseVBTestFixture
     [InlineData("", "Function F() As Integer()\n    F = Null\nEnd Function\n", "F()", "err 13, x Empty - To -")]
     [InlineData("", "Function F() As Byte()\n    Dim v\n    v = 5\n    F = v\nEnd Function\n", "F()", "err 13, x Empty - To -")]
     [InlineData("Const K = 5\n", "Function F(ByVal K) As Integer()\n    F = K\nEnd Function\n", "F(5)", "err 13, x Empty - To -")]
+    [InlineData("Dim k As Integer\nk = 5\n", "Function F(p) As Integer()\n    F = p\nEnd Function\n", "F(k)", "err 13, x Empty - To -")]
+    [InlineData("Dim la(1) As Long\n", "Function F(p) As Integer()\n    F = p\nEnd Function\n", "F(la)", "err 13, x Empty - To -")]
     public async Task A_store_whose_type_only_the_value_knows_is_13(string declarations, string function, string call, string expected)
     {
         await Run(declarations + $"On Error Resume Next\nDim x\nx = {call}\nDebug.Print \"err \" & Err.Number & \", x \" & Shape(x)\n" + function + Shape);
@@ -171,6 +173,19 @@ public class TypedArrayReturnTests : BaseVBTestFixture
         var run = () => Run(declarations + "On Error Resume Next\nDim x\nx = F()\n" + function + Shape);
 
         (await run.Should().ThrowAsync<VBCompileErrorException>()).WithMessage("*Can't assign to array*");
+    }
+
+    [Theory]
+    [InlineData("", "Function F(p As Integer) As Integer()\n    F = p\nEnd Function\n", "F(5)")]
+    [InlineData("Dim la(1) As Long\n", "Function F(p() As Long) As Integer()\n    F = p\nEnd Function\n", "F(la)")]
+    public async Task A_typed_parameter_is_13_where_VB6_refuses_to_compile(string declarations, string function, string call)
+    {
+        // VB6 refuses both with "Can't assign to array" (measured). A parameter's name reads its caller's slot, so only the
+        // procedure's own declarations and the module's are read as typed; a typed parameter falls to 13, which is wrong
+        // only on a program VB6 does not compile. Pinned so that changing it is a decision.
+        await Run(declarations + $"On Error Resume Next\nDim x\nx = {call}\nDebug.Print \"err \" & Err.Number & \", x \" & Shape(x)\n" + function + Shape);
+
+        AssertDebugLog([new Vb6Value("err 13, x Empty - To -")]);
     }
 
     [Theory]
