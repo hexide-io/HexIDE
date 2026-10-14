@@ -36,9 +36,9 @@ public sealed class VbObject
     public Avalonia.Controls.Control? FormWindow { get; set; }
 
     /// <summary>
-    /// Whether a form instance has begun to load: set as <c>Form_Load</c> is raised. Before it, during
-    /// <c>Form_Initialize</c>, VB6 would load the form at the first use of a control or a built-in member, inside
-    /// Initialize (measured, #822); HexIDE refuses that use instead (#1009).
+    /// Whether a form instance has begun to load: set as <c>Form_Load</c> is raised. Before it, as during
+    /// <c>Form_Initialize</c>, VB6 loads the form at the first use of a control or a built-in member, inside Initialize
+    /// (measured, #822), and so does HexIDE, wherever the walk can load it (<see cref="FormLoadNeeded"/>).
     /// </summary>
     public bool FormLoaded { get; set; }
 
@@ -55,8 +55,7 @@ public sealed class VbObject
     public Avalonia.Controls.Control? BuiltInMembersFor(string member) =>
         FormWindow is null ? null
         : FormLoaded ? FormWindow
-        : FormUnloaded ? throw new NotImplementedException(UsedAfterUnload(ClassName, $"{ClassName}.{member}"))
-        : throw new NotImplementedException(NotYetLoaded(ClassName, $"{ClassName}.{member}"));
+        : throw new FormLoadNeeded(this, $"{ClassName}.{member}");
 
     /// <summary>The refusal for a use of a form's control or built-in member before the form has loaded (#1009).</summary>
     public static string NotYetLoaded(string form, string what) =>

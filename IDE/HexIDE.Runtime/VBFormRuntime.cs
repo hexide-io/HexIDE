@@ -8,7 +8,7 @@ using HexIDE.Runtime.Interpreter;
 
 namespace HexIDE.Runtime;
 
-public class VBFormRuntime : Window, IModuleExecutionRoot
+public class VBFormRuntime : Window, IModuleExecutionRoot, IFormView
 {
 
     private VBWindowContext windowContext;
@@ -41,6 +41,14 @@ public class VBFormRuntime : Window, IModuleExecutionRoot
     public void ExecuteTimer(string name, IReadOnlyList<Vb6Value>? args = null) => windowContext.ExecuteTimer(name, args);
 
     public Task<bool> UnloadAsync(int mode) => windowContext.UnloadAsync(mode);
+
+    public void SetContent(Control content) => Content = content;
+
+    public void ShowForm() => Show();
+
+    public void HideForm() => Hide();
+
+    public void CloseForm() => Close();
 
     protected override void OnClosing(WindowClosingEventArgs e)
     {

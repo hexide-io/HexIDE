@@ -66,10 +66,12 @@ public class ModuleExecutionContext
         if (env.TryGetVariableLocation(name, out var loc))
         {
             if (!inspecting && state.PendingControlOf(loc) is { } form)
-                throw new NotImplementedException(state.IsUnloaded(form)
-                    ? VbObject.UsedAfterUnload(form, name)
-                    : VbObject.NotYetLoaded(form, name));
+                throw new FormLoadNeeded(form, name);
             value = state[loc];
+            // A form's name holding no instance makes one where it's read, as VB6's predeclared name does (#822).
+            if (!inspecting && value.Type == Vb6Value.ValueType.Object && value.Value is null
+                && state.DefaultFormOf(loc) is { } module)
+                throw new FormInstanceNeeded(module);
             // A slot with a declared type is a ceiling: overflowing it is Err 6, where a Variant would widen.
             // Marked on the VALUE because fixedness propagates through sub-expressions — `(a + 0) * 3` with a
             // declared `a` still raises Err 6, measured. (#122)

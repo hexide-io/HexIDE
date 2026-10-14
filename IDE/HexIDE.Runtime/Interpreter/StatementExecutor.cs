@@ -705,7 +705,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return ControlFlow.Nothing;
             }
             // A form's built-in method is its window's: `Call Me.Move 0, 0` (#822).
-            value = vobj.BuiltInMembersFor(identifier) is { } formWindow
+            value = await interpreter.Loading(() => vobj.BuiltInMembersFor(identifier)) is { } formWindow
                 ? new Vb6Value(formWindow)
                 : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, identifier);
         }
@@ -1247,14 +1247,15 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         {
             var identifier = varOrProcCall.GetText() ?? throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Null variable name");
             // A UDT is a value type: `b = a` stores an independent deep copy so mutating b never touches a.
-            if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out var oldLet))
+            var (letFound, oldLet) = await interpreter.Loading(() => (interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out var v), v));
+            if (!letFound)
             {
                 // In a form's code, a property of the form: `Caption = "Ready"` sets the caption (#995, measured), with or
                 // without Option Explicit. It used to make a new variable and leave the caption as it was.
                 if (FormMembers.TryBare(interpreter.ExecutionContext, currentEnv, identifier, out var form, out var formMember)
                     && !formMember.IsMethod)
                 {
-                    FormMembers.Write(form, identifier, formMember, value);
+                    await interpreter.Loading(() => FormMembers.Write(form, identifier, formMember, value));
                     return default;
                 }
                 // VB6 creates an undeclared variable on first use — a procedure-local Variant, Empty, fresh
@@ -1296,7 +1297,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (membersCall.iCS_S_VariableOrProcedureCall() is { } leadPart)
             {
                 identifier = leadPart.GetText();
-                if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out variable))
+                bool leadFound;
+                var leadName = identifier;
+                (leadFound, variable) = await interpreter.Loading(() => (interpreter.ExecutionContext.TryGetVariable(currentEnv, leadName, out var v), v));
+                if (!leadFound)
                     throw new VBRunTimeException(context, VBStandardError.ObjectRequired, "Can't find variable " + identifier);
             }
             else if (membersCall.iCS_S_ProcedureOrArrayCall() is { } leadProcOrArray)
@@ -1341,7 +1345,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     await interpreter.RunProcedure(vobj.ClassDef, letter, [new CallArg(value, null)], vobj.InstanceEnv, variable, stmtFrames);
                     return default;
                 }
-                if (interpreter.ExecutionContext.TryGetVariable(vobj.InstanceEnv, fieldName, out var oldFieldLet))
+                var (isField, oldFieldLet) = await interpreter.Loading(() => (interpreter.ExecutionContext.TryGetVariable(vobj.InstanceEnv, fieldName, out var v), v));
+                if (isField)
                 {
                     interpreter.ExecutionContext.TryUpdateVariable(vobj.InstanceEnv, fieldName, interpreter.CopyForStore(value));
                     // A field that held an object, now overwritten by a scalar via Let, drops that reference.
@@ -1354,10 +1359,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 if (vobj.ClassDef.Kind == InterpreterModuleKind.Form && FormMembers.IsMember(fieldName, out var formMember)
                     && !formMember.IsMethod && membersCall.iCS_S_MemberCall().Length == 1)
                 {
-                    FormMembers.Write(vobj, fieldName, formMember, value);
+                    await interpreter.Loading(() => FormMembers.Write(vobj, fieldName, formMember, value));
                     return default;
                 }
-                variable = vobj.BuiltInMembersFor(fieldName) is { } formWindow
+                variable = await interpreter.Loading(() => vobj.BuiltInMembersFor(fieldName)) is { } formWindow
                     ? new Vb6Value(formWindow)
                     : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, fieldName);
             }
@@ -1462,6 +1467,18 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
 
     public override async Task<ControlFlow> VisitLoadStmt(VB6Parser.LoadStmtContext context)
     {
+        // A form, by its name (#822): its instance is made if it has none, then it loads, hidden (measured).
+        if (FindProcedureOrArrayCall(context.valueStmt()) is not { } indexedLoad || indexedLoad.argsCall().Length == 0)
+        {
+            var target = await expressionExecutor.EvaluateValue(context.valueStmt());
+            if (target.Value is VbObject { ClassDef.Kind: InterpreterModuleKind.Form } form)
+            {
+                if (interpreter.Forms is not { } forms)
+                    throw new NotImplementedException($"Load of {form.ClassName} is not implemented here (#822).");
+                await forms.Load(form);
+                return ControlFlow.Nothing;
+            }
+        }
         // Only control-array element loading is modelled (Load Command1(i)); a bare form Load isn't.
         var (group, index) = await ResolveControlArrayTarget(context.valueStmt(), "Load");
         group.Load(index);   // Err 360 if the element already exists
@@ -1942,7 +1959,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (context.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } varCall)
         {
             var id = varCall.GetText();
-            if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, id, out var oldVal))
+            // The value being replaced, read as it is: `Set Form2 = Nothing` must not make the instance it lets go of (#822).
+            if (!interpreter.ExecutionContext.TryInspectVariable(currentEnv, id, out var oldVal))
             {
                 // A form's own object property, bare (`Set Picture = ...`, #995): not set through Set anywhere yet, as
                 // `Set Me.Picture` isn't either.
@@ -1993,8 +2011,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (context.implicitCallStmt_InStmt().iCS_S_MembersCall() is { } membersCall
             && membersCall.iCS_S_VariableOrProcedureCall() is { } leadPart)
         {
-            if (!interpreter.ExecutionContext.TryGetVariable(currentEnv, leadPart.GetText(), out var target)
-                || target.Value is not VbObject targetObj)
+            var (setLead, target) = await interpreter.Loading(() => (interpreter.ExecutionContext.TryGetVariable(currentEnv, leadPart.GetText(), out var v), v));
+            if (!setLead || target.Value is not VbObject targetObj)
                 throw new VBRunTimeException(context, VBStandardError.ObjectVariableOrWithBlockVariableNotSet);
             if (membersCall.iCS_S_MemberCall().Length != 1)
                 throw new NotImplementedException("Object member chains are single-dot only");
@@ -2011,11 +2029,12 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return ControlFlow.Nothing;
             }
             // Raw object-field write: refcount the field slot (AddRef new before Release old, as for a plain var).
-            if (!interpreter.ExecutionContext.TryGetVariable(targetObj.InstanceEnv, fieldName, out var oldField))
+            var (setField, oldField) = await interpreter.Loading(() => (interpreter.ExecutionContext.TryGetVariable(targetObj.InstanceEnv, fieldName, out var v), v));
+            if (!setField)
             {
                 // A form's built-in object property (`Set Me.Picture = ...`) is not set through Set anywhere yet: a
                 // control's isn't either. Refused, rather than raising a trappable 438 VB6 would not (#822).
-                if (targetObj.BuiltInMembersFor(fieldName) is not null)
+                if (await interpreter.Loading(() => targetObj.BuiltInMembersFor(fieldName)) is not null)
                     throw new NotImplementedException($"Set on a form's own {fieldName} is not implemented");
                 throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, fieldName);
             }
@@ -2591,7 +2610,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 return ControlFlow.Nothing;
             }
             // A form's built-in method is its window's: `Me.Hide`, `Form1.Move 0, 0` (#822).
-            value = vobj.BuiltInMembersFor(identifier) is { } formWindow
+            value = await interpreter.Loading(() => vobj.BuiltInMembersFor(identifier)) is { } formWindow
                 ? new Vb6Value(formWindow)
                 : throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, identifier);
         }
@@ -2662,7 +2681,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         if (FormMembers.TryBare(interpreter.ExecutionContext, currentEnv, subName, out var form, out var formMember)
             && formMember.IsMethod)
         {
-            FormMembers.Call(form, subName, await expressionExecutor.EvaluateCallArgs(context.argsCall()));
+            var callArgs = await expressionExecutor.EvaluateCallArgs(context.argsCall());
+            await interpreter.Loading(() => FormMembers.Call(form, subName, callArgs));
             return ControlFlow.Nothing;
         }
         // A bare procedure statement (Foo a, b): a user Sub/Function (this module, or another module's Public)

@@ -414,7 +414,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         string primaryName = "Module1",
         IReadOnlyList<(string Name, string Code)>? additionalModules = null,
         IReadOnlyList<(string Name, string Code)>? classModules = null,
-        InterpreterModuleKind primaryKind = InterpreterModuleKind.Standard)
+        InterpreterModuleKind primaryKind = InterpreterModuleKind.Standard,
+        IReadOnlyList<(string Name, string Code)>? formModules = null)
     {
         ExecutionContext = executionContext;
         BuiltIns = new VB6BuiltIns(stdLib)
@@ -448,6 +449,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (classModules != null)
             foreach (var (name, modCode) in classModules)
                 Modules.Add(BuildModule(name, InterpreterModuleKind.Class, modCode, new ExecutionEnvironment()));
+
+        // The project's other forms are templates too (#822): each running form is an instance of one, made where the
+        // form's name is first used.
+        if (formModules != null)
+            foreach (var (name, modCode) in formModules)
+                Modules.Add(BuildModule(name, InterpreterModuleKind.Form, modCode, new ExecutionEnvironment()));
 
         // Aggregate every module's UDT/Enum definitions into one program-wide table.
         //
@@ -742,6 +749,57 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// <c>Set Form1 = Nothing</c> (measured, #822). Here the name is bound to the one instance the run starts with; that
     /// rule belongs to the slices that add Load, Show and a second form.
     /// </remarks>
+    /// <summary>The run's forms, which make default instances and load them (#822). Null in a run with none.</summary>
+    public IFormProgram? Forms { get; set; }
+
+    /// <summary>
+    /// Give every form module's name its program-wide slot, holding Nothing until its first read makes the form's default
+    /// instance (#822). The program calls this once its forms can be made.
+    /// </summary>
+    public void SeedFormNames()
+    {
+        foreach (var form in Modules.All)
+            if (form.Kind == InterpreterModuleKind.Form)
+            {
+                if (!rootEnv.TryGetVariableLocation(form.Name, out _))
+                    SeedProgramGlobal(form.Name, () => Vb6Value.Nothing);
+                if (primaryModule.ModuleEnv.TryGetVariableLocation(form.Name, out var slot)
+                    || form.ModuleEnv.TryGetVariableLocation(form.Name, out slot))
+                    ExecutionContext.State.MarkDefaultForm(slot, form);
+            }
+    }
+
+    /// <summary>
+    /// A read that may meet a form not yet made or not loaded (#822): <paramref name="read"/>, and when it asks for a form's
+    /// default instance or its load, that is done and the read made again. A read has no side effect before the point it
+    /// asks, so making it again is the same read. With no forms to reach, the request stays the refusal it is.
+    /// </summary>
+    internal async Task<T> Loading<T>(Func<T> read)
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try
+            {
+                return read();
+            }
+            catch (FormInstanceNeeded need) when (Forms is { } forms && attempt < 16)
+            {
+                await forms.MakeDefaultInstance(need.Form);
+            }
+            catch (FormLoadNeeded need) when (Forms is { } forms && attempt < 16)
+            {
+                await forms.Load(need.Form);
+            }
+        }
+    }
+
+    /// <inheritdoc cref="Loading{T}"/>
+    internal Task Loading(Action read) => Loading(() =>
+    {
+        read();
+        return true;
+    });
+
     public VbObject NewFormInstance(ModuleInfo form)
     {
         if (form.Kind != InterpreterModuleKind.Form)
