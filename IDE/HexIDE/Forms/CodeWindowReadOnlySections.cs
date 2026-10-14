@@ -124,9 +124,17 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
     /// removes all of that line's text and all of the run's (task 4.5a).
     /// </summary>
     /// <remarks>
+    /// <para>
     /// To the run's last line's text and not its terminator, which is what <see cref="WidenDeletion"/> widens a
     /// deletion of the line's text alone to. That terminator is left as the end of the line the deletion empties,
     /// which is the developer's line break and was never the run's: folded, the declaration's row ends with it.
+    /// </para>
+    /// <para>
+    /// <b>A replacement is asked the same question</b>, because the library asks this provider what typing and a paste
+    /// may delete exactly as it asks for a deletion. So text typed over the line and the run's text, the run expanded,
+    /// replaces both, as 3.7 already let it once the selection reached the run's last terminator (#273 task 4.5a
+    /// review). A replacement of the line's text alone takes nothing: the run stays, for whatever the new line declares.
+    /// </para>
     /// </remarks>
     internal bool Takes(MemberRun run, int start, int end) =>
         run.DescribesMember && start <= TextStart(run) && end >= run.LastContentEnd;
@@ -154,7 +162,9 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
     /// the anchor deletes the line's text and leaves its row: it reaches the end of the run's last line, whose
     /// terminator is left to end the emptied line. One ending past the anchor, as Ctrl+D and a whole-line Cut do,
     /// deletes the line, and reaches past the run's last terminator too. Either way the result is what the same
-    /// deletion would leave were the run not there.
+    /// deletion would leave were the run not there, trailing whitespace aside: one ending at the end of the line's
+    /// text also takes the spaces or tabs between there and the anchor, which with no run there it would leave on the
+    /// row (#273 task 4.5a review).
     /// </para>
     /// </remarks>
     internal (int Offset, int Length) WidenDeletion(int offset, int length)
@@ -165,12 +175,17 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
         var end = offset + length;
         foreach (var run in runs())
         {
+            // Only saves work: this run's line, and every later one's, starts at or after the deletion's end, and a
+            // described line has text, so the deletion cannot reach the end of it, which the test below wants
+            // (equivalent under mutation).
             if (run.DescribedStart >= end)
                 break;
             if (!run.DescribesMember || offset > TextStart(run) || end < TextEnd(run))
                 continue;
+            // A deletion ending at or before the anchor ends before the run, so the run's last line's text end is
+            // always the further; one past the anchor may reach beyond the run, and keeps its own end then.
             end = end <= run.Anchor
-                ? Math.Max(end, run.LastContentEnd)
+                ? run.LastContentEnd
                 : Math.Max(end, run.Region.End);
         }
         return (offset, end - offset);
@@ -205,7 +220,8 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
     /// <remarks>
     /// The whitespace is let in because Enter treats a caret before trailing whitespace as the end of the line,
     /// and a line break put there would leave the run hanging from a line of nothing but that whitespace, which
-    /// declares nothing.
+    /// declares nothing. A trailing comment is not let in, so a line break before one still leaves the run under the
+    /// comment; which way to place it is an open question in the design record (#273 task 4.5 review).
     /// </remarks>
     internal MemberRun? RunHangingFrom(int offset)
     {
@@ -213,6 +229,8 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
         {
             if (run.Anchor < offset)
                 continue;
+            // Only saves work: a later run's line starts past offset, so the line break before it stands between
+            // offset and its anchor, and the blanks test below refuses it (equivalent under mutation).
             if (run.DescribedStart > offset)
                 break;
             if (run.DescribesMember && OnlyBlanks(offset, run.Anchor))
@@ -232,7 +250,9 @@ internal sealed class CodeWindowReadOnlySections : TextSegmentReadOnlySectionPro
     /// <b>As if the run were not there.</b> Folded, the run is part of its declaration's row, and the box marks its
     /// place. Whatever the text would have put on the next row it now puts on the row after the run, and what it
     /// would have left on the declaration's row stays there. So Enter's line break makes a line of its own after
-    /// the run, and a paste of several lines joins its first to the declaration, as it would without one.
+    /// the run, and a paste of several lines joins its first to the declaration, as it would without one. Trailing
+    /// whitespace aside: spaces or tabs between the span's end and the anchor stay on the declaration's row, where
+    /// with no run there the line break would carry them to the next (#273 task 4.5 review).
     /// </para>
     /// <para>
     /// <b>In the document's newline</b>: every line break in the text is written as the described line's own

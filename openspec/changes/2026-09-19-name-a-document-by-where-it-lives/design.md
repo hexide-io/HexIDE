@@ -1252,10 +1252,14 @@ break at an anchor is refused, like any edit that would separate a run from its 
   declaration, where it would land with no run there, and puts the others after the run. "As a line of its own"
   read as the whole text after the run would have moved a paste's first line off the row it was pasted on. Insert
   File and `type_text` follow the same rule (`CodeWindowReadOnlySections.PlaceLineBreak`, written as one undo step by
-  `CodeEditorViewModel.InsertLineBreakPastRun`).
+  `CodeEditorViewModel.InsertLineBreakPastRun`). "As if the run were not there" is about the text placed, trailing
+  whitespace aside (found reviewing 4.5): spaces or tabs between the span's end and the anchor stay on the
+  declaration's row, where with no run there the line break would carry them to the next.
 - *The anchor includes the whitespace before it.* Enter treats a caret before trailing whitespace as the end of the
   line, and a line break there would leave the run under a line of nothing but that whitespace, which declares
-  nothing; so the rule applies wherever only spaces and tabs stand between the span's end and the anchor.
+  nothing; so the rule applies wherever only spaces and tabs stand between the span's end and the anchor. A trailing
+  comment there is not let in, and a line break before one leaves the run under the comment, an orphan (found reviewing
+  4.5, and an open question below).
 - *"The document's newline" is the described line's own terminator*, there always being one above a run, and every
   line break in the placed text is written in it, as the library writes a paste. Insert File and `type_text` write
   their text verbatim everywhere else, and a LF file inserted into a CRLF module still mixes the two there; Enter
@@ -1268,11 +1272,18 @@ break at an anchor is refused, like any edit that would separate a run from its 
   this task's. The closer is looked for from the run's last line, which still inserts a second `End Sub` when the
   body is not empty, as Enter on any existing block opener does (#471).
 - *Shift+Enter* is the library's, and typed text reaches the window at `TextEntering` before the library writes it,
-  so a line break typed there is placed by the window and the library writes nothing. The new line takes the
-  declaration's indent, which is what the library's indentation would give it with no run there.
+  so a line break typed there is placed by the window and the library writes nothing. The new line takes the indent of
+  the declaration's last physical line, which is what the library's indentation would give it with no run there: the
+  continuation's, for a continued declaration (said "the declaration's" until review read it as the first line's).
 - *A paste is the window's own only where it ends at an anchor*; everywhere else the library's paste runs as before.
   The window cannot know until the clipboard answers whether the text holds a line break, so it reads the clipboard
   itself there, normalises the text as the library does, and pastes text with no line break where it was asked.
+  A paste over the whole of a declaration's text is split the same way, so its first line takes the declaration's
+  place and the run stays under it, which is right when that line is the new declaration and orphans the run when it
+  is not (found reviewing 4.5, and an open question below).
+- *A drop of dragged text is the library's* (found reviewing 4.5). AvaloniaEdit 12.0.0 inserts dropped text at the
+  drop position with no placement (`SelectionMouseHandler`'s drop, read decompiled), so dropped text holding a line
+  break at an anchor leaves the run under the drop's last line. Recorded, not handled.
 - *Which handler a key reaches, measured headlessly before relying on it*: Delete, Ctrl+X and Ctrl+V are taken by the
   code window's commands before the text area sees them; Enter by the window's tunnel handler; Backspace, Ctrl+D,
   Ctrl+Delete and Shift+Enter reach the library's own bindings, after that handler.
@@ -1310,10 +1321,26 @@ a run at once, which is what VB6's next load makes of the same bytes.
 - *How far the widening reaches depends on whether the line's break was asked for.* A deletion ending at or before
   the anchor deletes the text and leaves the row: it reaches the end of the run's last line, whose terminator is
   left to end the emptied line. One ending past the anchor, as Ctrl+D and a whole-line Cut do, deletes the line, and
-  reaches past the run's last terminator. Both leave what the same deletion would leave with no run there.
+  reaches past the run's last terminator. Both leave what the same deletion would leave with no run there, trailing
+  whitespace aside (found reviewing 4.5a): one ending at the end of the line's text also takes the spaces or tabs
+  between there and the anchor, which with no run there it would leave on the row.
 - *The provider lets a deletion through whole when it covers the line's text and the run's text*, to the run's last
   line's text end, which is what the widening produces; it used to want the run's last terminator too, which a
-  deletion of the line's text alone never reaches.
+  deletion of the line's text alone never reaches. A replacement is asked the same question, because the library asks
+  the provider what typing and a paste may delete exactly as it asks for a deletion (found reviewing 4.5a): text
+  typed over the line and the run's text, the run expanded, replaces both, as 3.7 let it once the selection reached the
+  run's last terminator. Typed over the line's text alone, it takes nothing, and the run stays.
+- *The widening is the window's keys' and `press_key`'s, and no other writer's* (found reviewing 4.5a). An add-in's
+  range edit, Replace and Replace All that delete a declaration's text alone are applied and leave its run under the
+  emptied row, an orphan; the same deletion with its line break is refused as a change to the run. The delta's
+  requirement that deleting the line deletes its run is unconditional, so for those writers the code falls short of
+  it. Which way to close that is an open question below.
+- *A whole-line cut carries the run, and AvaloniaEdit has no whole-line paste* (found reviewing 4.5a). Its whole-line
+  copy writes text alone, so a cut line pasted with the caret mid-line, at another described declaration's anchor,
+  joins that row and puts the cut run after the other member's, where the two read as one run, the other member's;
+  4.4's save would re-qualify the cut member's lines to it, its dispatch id included. The pasted row is a syntax
+  error, so it is seen, and Undo takes it back. Recorded, not handled. Before 4.5a the clipboard held the visible
+  line alone, as VB6's does (C5).
 - *Ctrl+D is the window's when it would leave a run behind.* The library computes the lines from the selection's two
   ends, so a selection widened to the start of the line after the run would delete that line too; the window deletes
   the widened span itself, through the library's own deletion of a selection, and otherwise leaves Ctrl+D to it.
@@ -1421,6 +1448,37 @@ Three consequences for this change, none of which move task 2.1:
   selection, and take it to the anchor when the selection clears, which touches every way a selection is made and
   cleared; select only to the anchor, which leaves the run out of a copy of the whole file, rejected; or leave it,
   since only that shape of file meets it. Left for now.
+- **A line break before a described line's trailing comment** (found reviewing 4.5). Enter with the caret before
+  ` ' does X` on `Public Sub Go() ' does X`, the run below it, splits the line at the caret, as any mid-line Enter
+  does, and leaves the run under the comment, an orphan, which VB6 would give to nothing and drop at its next save.
+  Shift+Enter, a multi-line paste, `type_text` and Insert File do the same there, and an add-in's line break there is
+  not refused. It predates 4.5, which left mid-line to the developer; 4.5's whitespace reasoning, a run left under a
+  line that declares nothing, applies word for word, but the rule was written for spaces and tabs, and the two ways
+  to extend it give different text. The options: treat the comment as trailing whitespace is treated, so the line
+  break goes after the run and the comment stays on the declaration's row, and Enter there no longer moves it; move
+  what stands between the caret and the anchor past the run with the line break, so the comment lands on the row
+  after the run, which is the only reading literally "as if the run were not there", and is what VB6, which writes a
+  member's attributes directly under its declaration, would presumably save from the same gesture (not measured);
+  or leave it, as any split of the line. The second fits the existing placement: the span replaced reaches the
+  anchor, and its text goes after the line break placed past the run. Left for now.
+- **A paste over a declaration's whole text whose first line does not declare** (found reviewing 4.5). `' note`,
+  `Public Sub Go()` pasted over the selected `Public Sub Go()` puts `' note` in the declaration's place and the
+  rest after the run, which is left under the comment, an orphan; Insert File over the same selection does the same.
+  With no rule the run would have stayed under the pasted declaration. But `Public Sub Leave()`, `    x = 1` pasted
+  the same way leaves the run under `Public Sub Leave()`, describing it, where with no rule it would have been
+  left under `x = 1`, an orphan. The options: leave it, right when the text's first line is the new declaration;
+  write such a paste as given, with no split, when it covers the declaration's whole text, right when the
+  declaration comes last and wrong for `Leave`; or split after the text's first line that declares something, read
+  as 4.1's reader reads a declaration, right for both at the cost of reading pasted text for declarations. Not
+  measured in VB6. Left for now.
+- **Deleting a declaration's text by a writer that is not a key** (found reviewing 4.5a). The delta says deleting a
+  described line deletes its run, unconditionally. The keys and `press_key` do; an add-in's range edit, Replace and
+  Replace All that delete the declaration's text alone are applied and leave the run an orphan, and with the line's
+  break they are refused. The options: widen such a deletion as the window does, so the IDE takes the run with the
+  line, which in a set of edits can meet another edit's span; refuse it, naming the member, as a line break at an
+  anchor is refused; or narrow the requirement to the developer's own deletions, leaving the orphan as inert text,
+  which keeps everything. The add-in range path is 4.5b's, and the same path lets a range edit add a run (#1012).
+  Left for now.
 - **Compiler diagnostics.** Their rows were keyed by `vb6://form/{Name}`, and the expression that parses
   them matches none of what the compiler actually writes (#477), so that consumer has had no live traffic
   at all. This change re-keys the rows to the wire name resolved from the

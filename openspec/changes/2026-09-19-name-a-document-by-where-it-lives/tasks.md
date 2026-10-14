@@ -1967,6 +1967,29 @@
   text verbatim away from an anchor, so a LF file inserted into a CRLF module mixes the two there. Replace and a
   server's formatting are not asked about a line break at an anchor: a replacement or an edit ending there that holds
   one would still leave the run under its last line. A drop of dragged text at an anchor is the library's.
+  — **Reviewed**, with 4.5a, by a review that drove every route against probes of its own and found nothing blocking.
+  Two shapes the rule places wrongly, both checked here before being recorded: a line break before a described line's
+  trailing comment splits the line at the caret and leaves the run under the comment, an orphan, which predates 4.5;
+  and a paste over a declaration's whole text whose first line is not the new declaration leaves the run under that
+  line. The ways to fix each disagree with each other and VB6 is unmeasured, so both are open questions in design.md,
+  and the code is unchanged. The settled points now say the rule leaves trailing whitespace on the declaration's row,
+  where with no run Enter carries it to the new line; that Shift+Enter's indent is the declaration's last physical
+  line's, which design.md had called the declaration's; and that a drop is the library's. `type_text`'s reply counted
+  the text as written, so a LF sent into a CRLF module counted twice; it counts what was sent, as its other reply does.
+  — **Tests.** `MemberRunFollowsItsLineTests` in HexIDE.Tests gains four: a LF module's line breaks written LF, a
+  placed replacement's tail where `TailStart` says with the caret after it, an add-in's replacement ending at the
+  anchor refused, and a declaration pasted with its body over the whole declaration keeping the run for the new
+  member. In HexIDE.Integration.Tests, two: Shift+Enter at a continued declaration indented like its last line, and a
+  paste the window leaves to the library's carving still written in the module's newline; and `type_text`'s count.
+  — **Mutation.** Review ran 44 across both tasks, one at a time, and left 15 standing; 4.5 had six. Five are now
+  caught, each by the test added for it, one at a time: the newline hard-coded to CRLF, `TailStart` ignoring the
+  length replaced, the add-in refusal asked at the edit's start, Shift+Enter's indent read from the declaration's
+  first line, and the paste fallback writing the clipboard's newlines; so is the reply's count put back. Equivalent,
+  and marked in a comment: `RunHangingFrom`'s early break, since a later run's anchor lies past a line break, which
+  the blanks test refuses.
+  — **Left.** The two open questions. Enter over a selection inserts at the caret instead of replacing the
+  selection, as it does with no run there, and `type_text` leaves a selection standing; both predate 4.5, and are to
+  be filed.
 - [x] 4.5a A run follows the line it describes: deleting that line deletes the run with it, and a cut takes
   it along. An orphaned run, however it arises, is preserved as inert text. 3.7 already covers a selection
   spanning the line and its run. What is left is the line on its own, which the provider cannot widen to
@@ -2019,6 +2042,28 @@
   not handled). Delete with nothing selected deletes nothing in the code window (#708), so that key reaches a whole
   line only through a selection. `press_key` still refuses a deletion the provider would carry out in part, which a
   person's key carries out as far as it can; that was already so.
+  — **Reviewed**, with 4.5, and nothing blocking. Three findings were about what the rules do rather than defects in
+  them, each checked here, and the settled points in design.md now say all three. The widening is the keys' and
+  `press_key`'s alone: an add-in's range edit, Replace and Replace All that delete a declaration's text alone are
+  applied and leave its run an orphan, which the delta's unconditional requirement does not allow. How to close that
+  is an open question in design.md, and the code is unchanged, the add-in range path being 4.5b's. The provider's rule
+  answers a replacement as it does a deletion, so text typed over the line and the run's text, the run expanded,
+  replaces both. And a whole-line cut, which now carries the run, pasted mid-line at another described declaration's
+  anchor makes the two runs one, the other member's. Both widenings also take trailing whitespace that the same
+  deletion with no run would leave, and the settled point says so. Ctrl+D never arming the reset prompt, which review
+  also found, is #1025, already filed with Ctrl+Backspace and Ctrl+Delete, and left to it.
+  — **Tests.** HexIDE.Tests gains the provider letting a deletion from after the indent through whole. In
+  HexIDE.Integration.Tests: Ctrl+Backspace and Ctrl+Delete over a selected declaration taking its run, and `press_key`
+  letting Backspace, Delete and Ctrl+X through over the whole line with its line break; and the line break typed over
+  a selected declaration renamed for what it shows, the run left an orphan, which it now asserts. `MemberRunFollowsItsLineTests`
+  is 29 in HexIDE.Tests and 31 in HexIDE.Integration.Tests, with 4.5's.
+  — **Mutation.** 4.5a had nine of review's survivors. Six are now caught, one at a time, each by the test added for
+  it: `Takes` reading the line from `DescribedStart` rather than after its indent, each word delete left out of the
+  keys that widen, and `press_key` taking Ctrl+X, Backspace or Delete for a write. Equivalent, and marked in comments:
+  `WidenDeletion`'s early break, which only saves work, and the selection kept when nothing is widened, where an equal
+  one would delete and copy the same text. The third, a `Math.Max` that could never bind, since a deletion ending at
+  or before the anchor ends before the run, is removed.
+  — **Left.** The open question; the drag-move, as before; and #1025.
 - [ ] 4.5b Whole replacements refuse a change to a member's attribute run: add-in `TrySetContent` and
   `SetContent`, and automation `set_file_content`, as the code-editor requirement "Only the IDE SHALL change a
   read-only region" requires. Until then `GuardedContent.Replace` compares the header alone (design.md, "A whole

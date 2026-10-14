@@ -1168,8 +1168,10 @@ public static class UiAutomationDriver
                 && window.InsertLineBreakPastRun(codeArea.Caret.Offset, 0, text) is { } placed)
             {
                 codeArea.Caret.Offset = placed.End;
+                // The count is of what was sent, as everywhere else this reports one; its line breaks may have been
+                // written in a newline of another length.
                 return new InteractOutcome(true, TypedMechanism,
-                    $"typed {placed.Head.Length + placed.Tail.Length} char(s) into {surface.GetType().Name}"
+                    $"typed {text.Length} char(s) into {surface.GetType().Name}"
                     + $"{(ReferenceEquals(surface, control) ? string.Empty : AddressOf(control, controlPath, surface))}. "
                     + $"The caret was at the end of the declaration of {placed.Run.Member?.Name}, so the text from its "
                     + "first line break on went after that member's Attribute lines, which follow the line they "

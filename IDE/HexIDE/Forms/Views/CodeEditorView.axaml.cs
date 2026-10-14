@@ -1605,8 +1605,10 @@ public partial class CodeEditorView : UserControl
     /// </summary>
     /// <remarks>
     /// Here, before the library asks the provider, because the provider can only narrow what it is asked about:
-    /// AvaloniaEdit throws on a segment outside the span. The selection is left alone when nothing is widened, so an
-    /// empty one still cuts its line the library's way.
+    /// AvaloniaEdit throws on a segment outside the span. The selection is left as it was when nothing is widened.
+    /// That only keeps it from being replaced by an equal one: the library deletes the same text either way, and its
+    /// whole-line cut of an empty selection copies the same line as a cut of that line selected (equivalent under
+    /// mutation, #273 task 4.5a review).
     /// </remarks>
     private void WidenSelectionForDeletion(bool wholeLineWhenEmpty)
     {
@@ -1732,8 +1734,9 @@ public partial class CodeEditorView : UserControl
     /// <returns>True when it was written here, and the library must write nothing.</returns>
     /// <remarks>
     /// A line break alone is a key's, and the library indents the line it makes like the line above it. The line
-    /// above the new one is the declaration's, as the developer sees it, so the new line takes the declaration's
-    /// indent, which is what it would take with no run there.
+    /// above the new one is the declaration's last physical line, as the developer sees it, so the new line takes
+    /// that line's indent, which is what it would take with no run there: for a continued declaration, the
+    /// continuation's and not the first line's (#273 task 4.5 review).
     /// </remarks>
     private bool PlaceTypedLineBreakPastRun(string typed)
     {

@@ -372,10 +372,11 @@ public class MemberRunFollowsItsLineTests : IDisposable
     }
 
     [AvaloniaFact]
-    public void ALineBreakTypedOverASelectedDeclarationIsAReplacementAndKeepsTheRun()
+    public void ALineBreakTypedOverASelectedDeclarationIsAReplacementAndLeavesTheRunAnOrphan()
     {
         // Only the keys that delete widen the selection. Shift+Enter over the declaration's text replaces it with a line
-        // break, which goes after the run; the run is left under the emptied line, an orphan kept as it was.
+        // break, which goes after the run; the run is not taken, and is left under the emptied line, which declares
+        // nothing, as an orphan kept as it was.
         var vm = Open(Procedure);
         var editor = Show(vm);
         var declaration = LineWith(editor, "Public Sub Go()");
@@ -384,6 +385,46 @@ public class MemberRunFollowsItsLineTests : IDisposable
         Press(editor, Key.Enter, KeyModifiers.Shift);
 
         vm.Document.Text.Should().Contain("Option Explicit\r\n\r\n\r\n" + RunText + "\r\n    Debug.Print 1");
+        vm.MemberRunsNow.Should().ContainSingle().Which.Kind.Should().Be(MemberRunKind.Orphan);
+    }
+
+    [AvaloniaTheory]
+    [InlineData(Key.Back)]
+    [InlineData(Key.Delete)]
+    public void AWordDeleteOverASelectedDescribedDeclarationTakesItsRun(Key key)
+    {
+        // Ctrl+Backspace and Ctrl+Delete delete a selection as Backspace does, through the library's own word deletes,
+        // so the window widens it the same way (#273 task 4.5a review).
+        var vm = Open(Procedure);
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        var declaration = LineWith(editor, "Public Sub Go()");
+        editor.Select(declaration.Offset, declaration.Length);
+
+        Press(editor, key, KeyModifiers.Control);
+
+        vm.Document.Text.Should().Be(before.Replace("Public Sub Go()\r\n" + RunText, "\r\n"));
+    }
+
+    [AvaloniaTheory]
+    [InlineData("Back", null)]
+    [InlineData("Delete", null)]
+    [InlineData("X", "Ctrl")]
+    public void PressKeyLetsADeletionOfAWholeDescribedLineThrough(string key, string? modifiers)
+    {
+        // The whole line, its line break included, reaches into the run's region, so judged as text written over it
+        // the key would be refused. Judged as the deletion it is, it takes the run with the line, as a person's key does
+        // (#273 task 4.5a review).
+        var vm = Open(Procedure);
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        var declaration = LineWith(editor, "Public Sub Go()");
+        editor.Select(declaration.Offset, declaration.TotalLength);
+
+        var pressed = UiAutomationDriver.PressKey(editor, key, modifiers);
+
+        pressed.Success.Should().BeTrue(pressed.Error);
+        vm.Document.Text.Should().Be(before.Replace("Public Sub Go()\r\n" + RunText, string.Empty));
     }
 
     // ── A line break at the end of a described line (4.5) ───────────────────────────────────────────────────
@@ -509,6 +550,21 @@ public class MemberRunFollowsItsLineTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void ShiftEnterAtTheEndOfAContinuedDescribedDeclarationIndentsLikeItsLastLine()
+    {
+        // The library indents a new line like the line above it, which with no run there is the declaration's last
+        // physical line, the continuation, and not its first (#273 task 4.5 review).
+        var vm = Open("Option Explicit\r\n\r\nPublic Sub Go( _\r\n    ByVal x As Long)\r\nAttribute Go.VB_Description = \"Goes\"\r\nEnd Sub\r\n");
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        PutCaret(editor, LineWith(editor, "    ByVal x As Long)").EndOffset);
+
+        Press(editor, Key.Enter, KeyModifiers.Shift);
+
+        vm.Document.Text.Should().Be(before.Replace("\"Goes\"\r\n", "\"Goes\"\r\n    \r\n"));
+    }
+
+    [AvaloniaFact]
     public async Task APasteOfSeveralLinesAtTheEndOfADescribedDeclarationPutsAllButTheFirstAfterTheRun()
     {
         // As if the run were not there: the first line joins the declaration, the rest follow the run, and every line
@@ -547,6 +603,33 @@ public class MemberRunFollowsItsLineTests : IDisposable
     }
 
     [AvaloniaFact]
+    public async Task APasteTheWindowLeavesToTheLibrarysRuleIsStillWrittenInTheModulesNewline()
+    {
+        // A selection ending at an anchor that crosses another member's run is carved, so the window does not place the
+        // paste and writes it where the carving leaves it, as the library's paste would; and in the module's newline, as
+        // the library's paste would too (#273 task 4.5 review).
+        var vm = Open(
+            "Option Explicit\r\n" +
+            "Public Count As Long\r\n" +
+            "Attribute Count.VB_VarDescription = \"How many\"\r\n" +
+            "\r\n" +
+            "Public Sub Go()\r\n" + RunText + "End Sub\r\n");
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        var from = before.IndexOf("Count As Long", StringComparison.Ordinal);
+        editor.Select(from, RunOf(vm, "Go").Anchor - from);
+        await SetClipboard(editor, "A\nB");
+
+        Press(editor, Key.V, KeyModifiers.Control);
+        await UntilChanged(vm, before);
+
+        vm.Document.Text.Should().Contain("A\r\nB").And.Contain("Attribute Count.VB_VarDescription",
+            "the run the selection crossed is carved out of what the paste replaced");
+        vm.Document.Text.Replace("\r\n", string.Empty, StringComparison.Ordinal).Should().NotContain("\n",
+            "no line break is written as the clipboard had it");
+    }
+
+    [AvaloniaFact]
     public void TypeTextOfSeveralLinesAtTheEndOfADescribedDeclarationPutsThemAfterTheRunAndSaysSo()
     {
         var vm = Open(Procedure);
@@ -554,10 +637,13 @@ public class MemberRunFollowsItsLineTests : IDisposable
         var before = vm.Document.Text;
         PutCaret(editor, LineWith(editor, "Public Sub Go()").EndOffset);
 
-        var typed = UiAutomationDriver.TypeText(editor, "\n    Debug.Print 0");
+        const string sent = "\n    Debug.Print 0";
+        var typed = UiAutomationDriver.TypeText(editor, sent);
 
         typed.Success.Should().BeTrue(typed.Error);
         typed.Detail.Should().Contain("Go").And.Contain("after").And.Contain($"offset {editor.TextArea.Caret.Offset}");
+        typed.Detail.Should().StartWith($"typed {sent.Length} char(s)",
+            "the count is of what was sent, as the reply everywhere else counts it, though its LF was written as CRLF");
         vm.Document.Text.Should().Be(before.Replace("VB_UserMemId = 0\r\n", "VB_UserMemId = 0\r\n    Debug.Print 0\r\n"));
     }
 

@@ -202,6 +202,19 @@ public class MemberRunFollowsItsLineTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void TheProviderLetsADeletionFromTheEndOfTheIndentTakeTheRun()
+    {
+        // Home puts the caret after the indent, so Home, Shift+End and Backspace delete from there. The window widens
+        // that deletion over the run, and the provider must then let it through whole, or the run would be carved out
+        // of it and left an orphan under the emptied row (#273 task 4.5a review).
+        var vm = OpenCode();
+        var text = At(vm, "Public Property Get Total");
+        var end = RunOf(vm, "Total").LastContentEnd;
+
+        Deletable(vm, text, end).Should().Equal((text, end));
+    }
+
+    [AvaloniaFact]
     public void TheProviderStillCarvesOutARunUnderADeclarationTheDeletionLeavesPartOf()
     {
         var vm = OpenCode();
@@ -314,6 +327,18 @@ public class MemberRunFollowsItsLineTests : IDisposable
     }
 
     [AvaloniaFact]
+    public void InAnLfModuleEveryLineBreakIsWrittenLf()
+    {
+        // The described line's own terminator, whatever it is, and not the platform's or the CRLF VB6 writes: a module
+        // saved with LF gets LF (#273 task 4.5 review).
+        var vm = Open(Code.Replace("\r\n", "\n", StringComparison.Ordinal));
+        var run = RunOf(vm, "Go");
+
+        vm.ReadOnlySections.PlaceLineBreak(run.Anchor, 0, "\r\n    Debug.Print 0\r\n")!.Tail
+            .Should().Be("\n    Debug.Print 0\n");
+    }
+
+    [AvaloniaFact]
     public void ALineBreakBeforeTrailingWhitespaceGoesAfterTheRunToo()
     {
         // Enter takes a caret before trailing whitespace for the end of the line; a line break there would leave the
@@ -336,6 +361,37 @@ public class MemberRunFollowsItsLineTests : IDisposable
         var placed = vm.ReadOnlySections.PlaceLineBreak(name, run.Anchor - name, "Halt()\r\n")!;
 
         (placed.Offset, placed.Length, placed.Head).Should().Be((name, run.Anchor - name, "Halt()"));
+    }
+
+    [AvaloniaFact]
+    public void APlacedReplacementSaysWhereItsTailWasWrittenAndLeavesTheCaretAfterIt()
+    {
+        // Where the tail starts once the head has replaced the selection, which is shorter or longer than it: the caret
+        // after a paste over a selection ending at the anchor goes to the end of what was pasted (#273 task 4.5 review).
+        var vm = OpenCode();
+        var run = RunOf(vm, "Go");
+        var name = At(vm, "Go()");
+
+        var placed = vm.InsertLineBreakPastRun(name, run.Anchor - name, "Halt()\r\n    x = 1")!;
+
+        vm.Document.Text.Substring(placed.TailStart, placed.Tail.Length).Should().Be("\r\n    x = 1");
+        placed.End.Should().Be(At(vm, "    x = 1") + "    x = 1".Length);
+    }
+
+    [AvaloniaFact]
+    public void TextReplacingADescribedDeclarationWholeThatDeclaresOnItsFirstLineKeepsTheRunForIt()
+    {
+        // A declaration and the lines after it, pasted over the selected declaration: the first line joins the row, the
+        // run stays under it and describes what it declares, as a retype's run does (IDE probe C8). Text whose first
+        // line declares nothing is an open question in design.md (#273 task 4.5 review).
+        var vm = OpenCode();
+        var declaration = LineOf(vm, "Public Sub Go()");
+
+        vm.InsertLineBreakPastRun(declaration.Offset, declaration.Length, "Public Sub Leave()\r\n    x = 1")
+            .Should().NotBeNull();
+
+        vm.Document.Text.Should().Contain("Public Sub Leave()\r\nAttribute Go.VB_Description");
+        RunOf(vm, "Leave").Kind.Should().Be(MemberRunKind.Procedure);
     }
 
     [AvaloniaFact]
@@ -407,6 +463,22 @@ public class MemberRunFollowsItsLineTests : IDisposable
         var refusal = vm.ApplyEdits([new TextChange(run.Anchor, 0, "\r\n    Debug.Print 0")]);
 
         refusal.Should().Contain("line break").And.Contain("Go").And.Contain("Nothing was changed");
+        vm.Document.Text.Should().Be(before);
+    }
+
+    [AvaloniaFact]
+    public void AnAddInsReplacementEndingAtTheEndOfADescribedLineWithALineBreakIsRefused()
+    {
+        // Asked of where the edit ends, which is where its text meets the anchor: a new name and a line break written
+        // over the old name would leave the run under the line break's line (#273 task 4.5 review).
+        var vm = OpenCode();
+        var before = vm.Document.Text;
+        var run = RunOf(vm, "Go");
+        var name = At(vm, "Go()");
+
+        var refusal = vm.ApplyEdits([new TextChange(name, run.Anchor - name, "Halt()\r\n")]);
+
+        refusal.Should().Contain("line break").And.Contain("Go");
         vm.Document.Text.Should().Be(before);
     }
 
