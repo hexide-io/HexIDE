@@ -6327,5 +6327,5 @@ naming the old name, an orphan, where VB6 carries it and re-qualifies it; a run 
 form or UserControl is read as describing and protected, where VB6 drops it (V5); and a run giving one attribute
 twice describes its member whole, where VB6's save keeps the first line and drops the second (p05g, B's
 `DoubleDesc`). Unlike an orphan, that second line is protected and folded with the run, so it cannot be seen or
-removed by hand until the Procedure Attributes dialog exists (#62), and a save keeps it; VB6 reads the first at its
-next load either way. Whether HexIDE's save should drop it, as VB6's does, is an open question in `design.md`.
+removed by hand until the Procedure Attributes dialog exists (#62), and a save keeps it, as settled in `design.md`;
+VB6 reads the first at its next load either way.

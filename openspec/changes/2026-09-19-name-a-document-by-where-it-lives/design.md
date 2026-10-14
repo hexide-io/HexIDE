@@ -1252,9 +1252,16 @@ VB6 carries a procedure's description across all three kinds of rename, so that 
   variable help context -1 with the line or without it (p10a, p10b). So nothing VB6 reads differs, and rewriting
   it would change text under a fold the developer never opened for no reader's sake. The qualifier is the
   exception because it is the part a rename makes wrong, and for a variable's run the part VB6 binds by. A file
-  saved by each IDE in turn therefore changes in those bytes at VB6's save and never at HexIDE's. Whether the save
-  should drop a repeated attribute after all, which unlike the rest stays hidden and locked, is the open question
-  raised reviewing 4.6.
+  saved by each IDE in turn therefore changes in those bytes at VB6's save and never at HexIDE's.
+- *A repeated attribute is kept with the rest of its run* (settled 2026-10-14; raised reviewing 4.6). The save
+  does not drop the second `VB_Description` of `DoubleDesc`'s shape, and a repeat does not end the run. Dropping it
+  would be the one place the save removes a line, where every other write it makes to a run is a qualifier, and
+  the rule above already keeps what VB6 reads the same at its next load, which this is: the first line wins at
+  load and at compile (p05g). Ending the run at the repeat would make the second line an orphan, visible and
+  editable, but VB6 does not give that line to nothing: it reads it as the member's and discards it, and an orphan
+  is what VB6 gives to no member. The cost is the one review named: the line stays hidden and locked until the
+  Procedure Attributes dialog (#62) can show and remove it, and it is dead text in the meantime, never a wrong
+  description. VB6's IDE never writes the shape; only a hand-edited file carries it.
 - *Make writes a copy of the model as it stands*, so a renamed variable's stale qualifier reaches `vb6.exe /make`
   unrewritten until the document is saved, and VB6, binding a `VB_Var` line by name, attaches it to nothing in what
   it compiles. A procedure's run is unaffected, being bound by position. Recorded, not handled.
@@ -1436,8 +1443,7 @@ is the inputs'; what VB6 saved of them is VB6's bytes, and is walked with the fi
   at its next load, the first winning. It is not an orphan's case, though, as review found: the reason for keeping
   an orphan is that it stays visible and editable, and this second line is inside a run that describes a member,
   so it is protected and folded with the run. It cannot be seen or removed by hand until the Procedure Attributes
-  dialog exists (#62), and the save keeps it for good. Whether 4.4's save should drop it, as VB6's does, is under
-  "Open questions".
+  dialog exists (#62), and the save keeps it; that it does was settled under "Settled while building 4.4".
 - *"Every option the dialog offers" is every option it left enabled.* *Don't show in Property Browser*
   (`FUNCFLAG_FNONBROWSABLE`, 0x400) was greyed once Hide was ticked (IDE probe E), so no file carries it.
 
@@ -1485,17 +1491,6 @@ Three consequences for this change, none of which move task 2.1:
   AvaloniaEdit throws when a provider returns a segment outside the span it was asked about (3.7). An
   orphaned run, however it arises, is inert text the next save preserves. Neither VB6's behaviour here nor
   the paste side is measured.
-- **A run that gives one attribute twice, for 4.4 to decide** (found reviewing 4.6). `DoubleDesc`'s shape, two
-  `VB_Description` lines under one procedure: HexIDE describes the member and protects and folds both, VB6's save
-  keeps the first and drops the second (p05g, IDE probe B), and VB6 never writes one itself. The options:
-  (a) keep both, as now: nothing VB6 reads is lost, since its next load takes the first, but the dead line is kept
-  hidden and locked for good; (b) have 4.4's save drop every repeat of an attribute name after its first within a
-  run, an owner write in the same step as the re-qualification, which is what VB6's save does, at the cost of
-  removing text the developer never saw; (c) have a repeat end the run, so the second line and any after it are an
-  orphan, visible and editable, which is the orphan rule's own reasoning, but splits a run VB6's compiler reads as
-  the one member's, the first line standing (p05g). The section's reasoning does not settle it: "HexIDE does not
-  rewrite text the developer cannot see" argues for (a), while 4.4's re-qualification already rewrites protected
-  text wherever VB6's save does.
 - **Line endings — measured while building 3.1, and the diagnosis here was incomplete.** This said the
   header is written CRLF while *typed* lines are LF. The larger mechanism was that
   `VbFrmFormatDeserializer` rebuilt the code body line by line with `StringBuilder.AppendLine`, which

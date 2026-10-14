@@ -16,8 +16,8 @@ cd IDE && dotnet build HexIDE.Desktop/HexIDE.Desktop.csproj
 cd IDE && dotnet run --project HexIDE.Desktop/
 
 # Tests
-cd IDE && dotnet test HexIDE.Runtime.Tests/              # ~1000 VB6 interpreter tests
-cd LspServer && dotnet test HexIDE.VbLspServer.Tests/    # ~115 LSP server tests
+cd IDE && dotnet test HexIDE.Runtime.Tests/              # ~1900 VB6 interpreter tests
+cd LspServer && dotnet test HexIDE.VbLspServer.Tests/    # ~300 LSP server tests
 cd IDE && dotnet test HexIDE.Tests/                      # IDE ViewModel tests (fetches a foreign LSP server once — see below)
 cd IDE && dotnet test HexIDE.Integration.Tests/          # Headless Avalonia UI tests
 
@@ -27,7 +27,7 @@ cd IDE && dotnet test HexIDE.Runtime.Tests/ -- --filter-method "*DebugPrint_With
 # One class, or an arbitrary slice
 cd IDE && dotnet test HexIDE.Tests/ -- --filter-class "*CodeEditorViewModelTests"
 cd IDE && dotnet test HexIDE.Tests/ -- --filter-query "/*/*/CodeEditorViewModelTests/*"
-cd LspServer && dotnet test HexIDE.VbLspServer.Tests/ --filter "FullyQualifiedName~WireContractTests"
+cd LspServer && dotnet test HexIDE.VbLspServer.Tests/ -- --filter-class "*WireContractTests"
 
 # Publish (both needed for the "Make EXE" IDE feature)
 cd IDE && dotnet publish HexIDE.Desktop -f net10.0 -o bin/

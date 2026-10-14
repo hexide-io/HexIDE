@@ -2045,7 +2045,8 @@
   `Attribute` line, which a header running on into a member's run cannot pass; a HexIDE-written demo form with no
   `Attribute` line is left to the checks before it. *Recorded*: `DoubleDesc` in the oracle's list of what HexIDE
   departs from, design.md's bullet saying its second line is protected and folded rather than editable, and whether
-  4.4's save should drop it under "Open questions", with three options; `TarV`'s `mExtra` edit in the oracle's V6
+  4.4's save should drop it, raised with three options and settled after the merge: kept (design.md, "Settled
+  while building 4.4"); `TarV`'s `mExtra` edit in the oracle's V6
   account and the README; and, in the README, each `.vbp` and `Starter.bas` as it came about (`Acc2`, `Probe2` and
   `Tar2`'s projects saved again by VB6 byte for byte, `Extras.vbp`, the stage-1 project and every `Starter.bas`
   never saved by it).
