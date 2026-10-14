@@ -476,6 +476,23 @@ public class FormInstanceTests
         run.Printed.Should().BeEmpty();
     }
 
+    [AvaloniaTheory]
+    [InlineData("    Debug.Print Caption(1)")]
+    [InlineData("    Debug.Print Left(5)")]
+    [InlineData("    Debug.Print Left(\"abc\", 1, 2)")]
+    public void A_property_of_the_form_called_with_arguments_VBA_cant_take_is_never_a_project_procedure(string statement)
+    {
+        // Measured: each is "Wrong number of arguments or invalid property assignment", the first though Module1 declares
+        // `Function Caption(n)`. VBA's Left takes the call only with its two arguments. Running Module1's Caption would be a
+        // wrong result; HexIDE refuses instead, as not implemented, since which error VB6 gives depends on the property's type.
+        var run = RunFormLoad(statement + "\n    Debug.Print \"ran\"",
+            ("Module1", ModuleKind.StandardModule, "Public Function Caption(ByVal n As Integer) As String\n    Caption = \"module \" & n\nEnd Function\n"));
+
+        run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
+            .Which.Message.Should().Contain("with arguments");
+        run.Printed.Should().BeEmpty();
+    }
+
     [AvaloniaFact]
     public void A_bare_member_used_in_Form_Initialize_is_refused_as_a_built_in_used_there_is()
     {

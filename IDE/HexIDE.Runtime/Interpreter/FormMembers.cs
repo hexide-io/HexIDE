@@ -44,6 +44,18 @@ internal static class FormMembers
         return true;
     }
 
+    /// <summary>
+    /// Whether a call of a Form property, with <paramref name="argCount"/> arguments, is VBA's function of the same name.
+    /// VB6 takes VBA's when the arguments fit it, and otherwise refuses the call as the property's (measured: in a form,
+    /// <c>Left("abc", 1)</c> is <c>a</c>, while <c>Left(5)</c> and <c>Left("abc", 1, 2)</c> are "Wrong number of arguments
+    /// or invalid property assignment", where in a module <c>Left(5)</c> is "Argument not optional"). A project's own
+    /// Function is never the fallback: <c>Caption(1)</c> is refused though a module declares <c>Function Caption(n)</c>.
+    /// Left is the one Form member that is also a VBA function (the rest of VB6's intrinsic names the Form shares, Name,
+    /// is a statement), and it takes two arguments.
+    /// </summary>
+    public static bool CallIsVbas(string name, int argCount) =>
+        string.Equals(name, "Left", StringComparison.OrdinalIgnoreCase) && argCount == 2;
+
     /// <summary>Whether VB6's Form has a member of this name.</summary>
     public static bool IsMember(string name, out VB6FormMembers.Member member) => VB6FormMembers.TryGet(name, out member);
 

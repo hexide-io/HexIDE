@@ -1033,6 +1033,14 @@ VB6 gives no order to settle between the two, because a program that has both do
 `Left` is the form's property. The form's `Left` takes no arguments. Whether arguments are what decides it was not
 measured beyond this one name, so it is recorded here as a fact about `Left`, not as a rule.
 
+**Measured further for #995, and the guess was wrong.** The obvious reading, that a call with arguments simply skips
+a property that takes none, is not what VB6 does. The fallback is VBA's function, and only when the call fits it: in a
+form `Left(5)` and `Left("abc", 1, 2)` are "Wrong number of arguments or invalid property assignment", where in a
+standard module `Left(5)` is VBA's own "Argument not optional". And a project's Function is never the fallback:
+`Caption(1)` and `Tag(2)` in a form are the same "Wrong number" error though Module1 declares `Function Caption(n)` and
+`Function Tag(n)`. `Left` is the only Form member that is also a VBA function, so this is as far as the rule can be
+measured. See *Bare names in a form, for implicit `Me`* below.
+
 ### The form from a standard module
 
 | Module1 code | VB6 |
@@ -1116,6 +1124,41 @@ What these show:
 - **Clearing the name doesn't end a loaded form.** The instance lives on, and Terminate waits for the unload and the
   end of the procedure that was running in it.
 
+### Bare names in a form, for implicit `Me` (2026-10-14, #995)
+
+The same harness, native and p-code agreeing on every row; one project per row, so a compile error stays its own.
+Form1 holds `Text1`; Module1 holds the logger.
+
+| Form code | VB6 |
+|---|---|
+| `hWnd = 5` (bare, and as `Me.hWnd = 5`) | does not compile: "Function or interface marked as restricted, or the function uses an Automation type not supported in Visual Basic" |
+| `Count = 1`, `Me.Count = 1`, `HasDC = True`, `hDC = 5` | the same message, for each |
+| `Set ActiveControl = Text1` | compiles; the run stops at a modal dialog before logging, which the harness's timeout cut off |
+| `Option Explicit`, then `Caption = "set"` and `Caption & "\|" & Me.Caption` | `set\|set` |
+| `Cls`, then `TextWidth("abc") > 0` and its `TypeName` | `cls ok`, then `True Single` |
+| `Dim Caption As String` in Load, `Caption = "local"`, then `Caption & "\|" & Me.Caption` | `local\|Form1` |
+| `TypeName(ScaleWidth)`, `ScaleWidth > 0`, `TypeName(Controls)`, `Controls.Count` | `Single True`, `Object 1` |
+| `Hide` in Load, then `Visible` | `hidden False` |
+| `Name`, `Left("abc", 2)`, `Left = Me.Left` | `Form1 ab True` |
+| `Caption(1)`, where Module1 has `Public Function Caption(ByVal n As Integer) As String` | does not compile: "Wrong number of arguments or invalid property assignment" |
+| `Tag(2)`, where Module1 has `Public Function Tag(ByVal n As Integer) As String` | the same |
+| `Left(5)` | the same |
+| `Left("abc", 1, 2)` | the same |
+| `Left$("abc", 2)` and `VBA.Left("abc", 1)` | `ab a` |
+| `Left(5)` in Module1, not the form | does not compile: "Argument not optional" |
+
+What these show:
+- **Assigning a member the Form only reads is refused at compile time,** with a message about restricted functions,
+  not one about read-only properties. That held for every read-only member tried, bare and through `Me`.
+- **A bare member is the form's under `Option Explicit` too,** and a local of the same name shadows it.
+- **A bare method runs,** as `Cls` does, and one called for its value returns its value, as `TextWidth` does.
+- **A property called with arguments** is VBA's function when the call fits it, and otherwise refused as the
+  property's, never a project Function of the name.
+
+The Form's members themselves were read out of VB98\VB6.OLB by `scripts/dump-typelib-members.ps1`, into
+`vb6-form-members.json`: 87 names on `_Form`, its default interface, and 31 events on `FormEvents`. `Print`, a method
+of a form in VB6 code, is not in the type library: VB6 compiles it as syntax.
+
 ### HexIDE
 
 Read from the code at `upstream/main` c933fbd, not run. A form's code runs as the primary standard module of an
@@ -1134,8 +1177,14 @@ auto-instantiating name belongs to the slices that bring `Load`, `Show` and a se
 
 #822's first slice makes the startup form an instance of its module, with `Me` that instance. It brings the rows
 above into line for `Me`, `TypeName(Me)`, the form reached from a module, both of the Public Sub rows, the
-declarations at Initialize, and Initialize and Load before Resize. Implicit `Me` (#995), a control used in Initialize
-(#1009), Activate, the predeclared name and `Unload` remain.
+declarations at Initialize, and Initialize and Load before Resize. A control used in Initialize (#1009), Activate, the
+predeclared name and `Unload` remain.
+
+#995 then brings implicit `Me` into line: a bare name in a form's code is the form's member, after its locals, variables,
+controls and procedures and before the project's globals, for reads, assignments and calls. A member VB6's Form has and
+HexIDE does not is refused as not implemented, rather than made a variable. A read-only one assigned is VB6's compile
+error. A property called with arguments is VBA's only for `Left` with its two, and otherwise refused, never a project
+procedure: refused as not implemented, because the error VB6 gives depends on whether the property's type takes an index.
 
 ## Assigning to a control property (2026-10-12, #768)
 

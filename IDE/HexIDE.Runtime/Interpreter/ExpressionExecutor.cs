@@ -668,11 +668,19 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
                 throw new VBRunTimeException(procOrArrayCall, VBStandardError.SubscriptOutOfRange);
             }
         }
-        // A form's method, in its own code: `TextWidth("abc")` (#995). A form property takes no arguments, so a call with
-        // some is not the form's: `Left("abc", 1)` is VBA's (measured).
-        var isFormMember = FormMembers.TryBare(interpreter.ExecutionContext, env, name, out var form, out var formMember);
-        if (isFormMember && formMember.IsMethod)
-            return FormMembers.Call(form, name, await EvaluateCallArgs(argsCtx));
+        // In a form's own code, a member of the form (#995). A method is called: `TextWidth("abc")`. A property called with
+        // arguments is VBA's function of the name only when the arguments fit it, `Left("abc", 1)`, and never a project
+        // procedure's (measured). Any other is refused: VB6 gives "Wrong number of arguments" where the property's type
+        // takes no index, and reaches a default member where it does (`Controls(0)`), which HexIDE has none of yet.
+        if (FormMembers.TryBare(interpreter.ExecutionContext, env, name, out var form, out var formMember))
+        {
+            var formArgs = await EvaluateCallArgs(argsCtx);
+            if (formMember.IsMethod)
+                return FormMembers.Call(form, name, formArgs);
+            if (FormMembers.CallIsVbas(name, formArgs.Count) && await EvaluateFunction(name, formArgs) is { } vbaResult)
+                return vbaResult;
+            throw new NotImplementedException($"{form.ClassName}'s {name} with arguments is not implemented");
+        }
         if (interpreter.TryResolveProcedure(name, currentModule, out _, out _))
         {
             var callArgs = await ResolveCallArgs(argsCtx);
@@ -683,9 +691,6 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var args = await EvaluateCallArgs(argsCtx);
         if (await EvaluateFunction(name, args) is { } builtInResult)
             return builtInResult;
-        // A property of the form indexed, as `Controls(0)` is through its default member, which HexIDE has none of yet.
-        if (isFormMember)
-            throw new NotImplementedException($"{form.ClassName}'s {name} with arguments is not implemented");
 
         throw new VBSubOrFunctionNotDefinedException(name);
     }

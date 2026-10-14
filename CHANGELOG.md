@@ -22,6 +22,18 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A bare name in a form's code is the form's member** (#995), as VB6 resolves it, measured on vb6.exe:
+  - **The common case:** `Caption = "Ready"` sets the form's caption, and `If Width > 3000` reads its width. Before,
+    the first made a new variable and the second read Empty, or both were "Variable not defined" under Option
+    Explicit.
+  - **Order:** the form's members come after the procedure's locals and the form's own variables and controls, and
+    before a module's `Public` of the same name.
+  - **Members HexIDE lacks:** one VB6's Form has and HexIDE doesn't, such as `CurrentX`, `ScaleMode` or `Cls`, is
+    refused as not implemented rather than made a variable. `Me.ScaleMode` says the same, where it raised 438.
+  - **Read-only members:** assigning one, such as `hWnd` or `Count`, bare or through `Me`, is VB6's own compile error.
+  - **Calls with arguments:** a property called with arguments is VBA's function only for `Left("abc", 1)`, and is
+    never a project procedure of the same name.
+  - **The member table** is read out of VB6.OLB by a new `scripts/dump-typelib-members.ps1`, not written by hand.
 - **A running form is an object, with a real `Me`** (#822, first slice). A form's code ran as a standard module, with
   `Me` and the form's name bound to its window. The form is now an instance of its module, as VB6 has it, measured on
   vb6.exe:

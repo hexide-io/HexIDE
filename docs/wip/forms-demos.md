@@ -47,7 +47,7 @@ once it lands:
 | Module-level declarations read from a form, such as the form's own `Const GRID = 10` | #256 | Fixed by the first slice |
 | A form-level array sized by a `Const` | #760 | Fixed by the first slice |
 | `WithEvents` in a form | #972 | Fixed by the first slice |
-| Implicit `Me`: `Caption = "x"` in a form sets the form's caption | #995 | Straight after the first slice |
+| Implicit `Me`: `Caption = "x"` in a form sets the form's caption | #995 | Done |
 | A control used in `Form_Initialize` loads the form there | #1009 | With Load and Show |
 | `Unload Me`, with QueryUnload, Unload and Cancel | #973 | The first slice does not |
 | Default instances, `Load`, `Show`, `Hide`, `New frmX`, and `Show vbModal` | To be filed once #822 lands | Yes |
