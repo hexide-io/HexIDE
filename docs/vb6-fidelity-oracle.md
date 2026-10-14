@@ -8697,3 +8697,48 @@ What it still does not do:
   after.
 - **`Unload Me` in Form_Initialize** is refused, naming #822. It is not measured.
 - **The SingleView host's close box** still closes without asking. The desktop's asks.
+
+## An unhandled run-time error (2026-10-14, #1011)
+
+What does VB6 do when an event procedure raises a run-time error that nothing handles? The probe has Timer1 logging a
+stamped tick every 200 ms, and Timer2 dividing by zero once at 1 s with no `On Error`.
+
+**In the IDE**, driven on the guest's console session (F5, then the dialog's buttons, a screenshot after each):
+- **The dialog** is titled *Microsoft Visual Basic* and reads "Run-time error '11':" over "Division by zero". It offers
+  **Continue** (greyed), **End**, **Debug** (the default button) and **Help**. The IDE's title stays *[run]* while the dialog
+  is up; it is not break mode yet.
+- **Nothing runs behind it.** No tick came in 18 s. A `/runexit` pass from session 0 agrees: no tick in 7 s.
+- **Debug** enters *[break]*. The faulting statement, `x = 1 \ 0`, is the current statement, with its procedure
+  live. When the error is raised in a standard-module Sub the handler called, the break is inside that Sub, on its own
+  line. No tick runs in break mode.
+- **F5 from break retries the faulting statement, all of it.** For `x = F() + 1 \ 0`, F logged a second call at
+  the moment of the F5, and the same dialog came straight back.
+- **End** returns to design mode, and raises no QueryUnload, Unload or Terminate.
+- **Error Trapping** is the default, *Break in Class Module*. It was read off Tools > Options > General, since the
+  registry holds no value for it.
+
+**Compiled, native and p-code**, the dialog seen on the console:
+- a message box titled with the program's name, with a warning icon, the same two lines, and OK only;
+- nothing runs behind it: no tick in 29 s in session 0, nor in 20 s on the console;
+- OK ends the process, and raises no QueryUnload, Unload or Terminate.
+
+**An event procedure is a boundary for error handling.** A handler in the code that raised an event does not catch an
+error the event's procedure leaves unhandled. The same in the IDE (`/runexit`) and in both compiled builds:
+
+| probe | the handler | result |
+|---|---|---|
+| b1 | `On Error GoTo` in the code that sets `Text1.Text`; Text1_Change divides by zero | not caught |
+| b2 | `On Error GoTo` in the form around `c.Fire`; `RaiseEvent` to a `WithEvents` sink that divides by zero | not caught |
+| b3 | `On Error GoTo` inside `Fire`, directly around the `RaiseEvent` | not caught |
+
+The obvious guess is that a handler further up the stack catches the error, as it would for an ordinary call. It is
+wrong across an event, whether a control raised the event or `RaiseEvent` did.
+
+**Where the IDE and a compiled program differ.** A class method with no handler divides by zero, and the form calls it
+inside `On Error GoTo` (c1):
+- **compiled, native and p-code:** the form's handler catches it, with Err 11;
+- **in the IDE**, under the default *Break in Class Module*, the run stops in the class, and the form's handler never
+  runs.
+
+The same call to a standard-module Sub (c2) is caught by the form's handler in the IDE and in both builds. So the IDE's
+option decides c1, not the language. Which of the two HexIDE follows is open on #1011.
