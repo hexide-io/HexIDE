@@ -1865,7 +1865,7 @@
   code window every change to a run's region already redraws it; it is kept for an editor that folds nothing. And
   the runs cache's prefix check, which mirrors `ReadOnlyRegionsNow`'s and matters only for a reload that moves the
   split without changing the text, which no test makes.
-  — **Left.** The margin's one marker per row is to be filed: a run expanded beside a server's procedure fold has
+  — **Left.** The margin's one marker per row is #1014: a run expanded beside a server's procedure fold has
   no marker to fold it again with, so only closing and reopening the window does. A reload whose body changed can
   still put the caret's old offset inside a run, which opens it as the caret moving there does, the run's version of
   what 3.14 fixed for the header. 4.5 owns Enter at the anchor and 4.5a a deletion of the described line; 4.8
@@ -1884,10 +1884,10 @@
   member opened as that one had been left; a key a shown run moves off is now dropped, each before any state is
   recorded, with the key each section was last seen under kept by the view, which also brings a property's Get back
   folded when it is deleted alone and undone. design.md's settled points are corrected and say what is still not
-  handled: the Get left expanded comes back folded, and a retype that clears the name first folds the run. The
-  margin's one-marker-per-row is "to be filed" in design.md too now. Select All in a file a run ends leaves the
+  handled: the Get left expanded comes back folded, and a retype that clears the name first folds the run. design.md
+  names the margin's one marker per row as #1014 too. Select All in a file a run ends leaves the
   caret at the anchor, off both ends of the selection; fixing it is not cheap, and it is an open question in
-  design.md.
+  design.md (#1019).
   — **Tests.** `MemberRunFoldTests`, 28 to 43: a 200-line format reading the runs at most twice, with an expanded
   run still expanded; Cmd+Right and Cmd+Shift+Right with macOS's two bindings added to the text area as its keymap
   adds them; Ctrl+Shift+Right beside Shift+Right; a Right some handler takes before the text area, and a placement

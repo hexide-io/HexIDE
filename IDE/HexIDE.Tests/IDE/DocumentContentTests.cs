@@ -209,6 +209,32 @@ public class DocumentContentTests : IDisposable
         DocumentContent.Read(document, editor: null).Should().Be(read);
     }
 
+    [Fact]
+    public async Task ReadingAndWritingBackAFormWhoseAttributeLineNamesAnotherName()
+    {
+        // The scenario's "but for": set_file_content saves as the form's own Save does, and VB6's own Save of a
+        // document nobody changed writes its runs afresh (the oracle's third IDE session), so a stale qualifier read
+        // and written back comes out naming its member, and nothing else of the file moves (#273 task 4.4).
+        var vbp = Stage(Path.Join(FindUpwards("demo")!, "bill-of-fare"));
+        var frm = Directory.EnumerateFiles(Path.GetDirectoryName(vbp)!, "*.frm").Single();
+        const string stale = "Public Function Total() As Long\r\nAttribute Gone.VB_Description = \"Names nothing.\"\r\n"
+                             + "    Total = 1\r\nEnd Function\r\n";
+        await File.AppendAllTextAsync(frm, "\r\n" + stale, TestContext.Current.CancellationToken);
+        var bytes = await File.ReadAllBytesAsync(frm, TestContext.Current.CancellationToken);
+        var service = MakeService();
+        await service.OpenProject(vbp);
+        var form = loaded.Single().Forms.Single();
+        var document = DocumentIdentity.For(form);
+
+        var read = DocumentContent.Read(document, editor: null);
+        DocumentContent.Write(document, editor: null, read).Refusal.Should().BeNull();
+        (await service.SaveForm(form, saveAs: false, interactive: false)).Should().BeTrue();
+
+        var after = Vb6TextFile.ReadDocument(await File.ReadAllBytesAsync(frm, TestContext.Current.CancellationToken)).Text;
+        after.Should().Be(Vb6TextFile.ReadDocument(bytes).Text.Replace("Attribute Gone.", "Attribute Total."),
+            "the form is unchanged but for the qualifier, which names its member as the form's own Save writes it");
+    }
+
     [AvaloniaFact]
     public void ReadingAndWritingBackAFormWithItsCodeWindowOpen()
     {

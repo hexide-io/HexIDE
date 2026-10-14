@@ -1167,8 +1167,8 @@ folds are re-made at once whenever they are not current, not only the header's, 
 carried forward as a server fold.
 
 With a server's procedure fold on the same row, AvaloniaEdit's margin draws one marker per row, the procedure's,
-so a run expanded there is folded again only by closing and reopening the window. That is to be filed as an
-issue, rather than solved here with a margin of our own.
+so a run expanded there is folded again only by closing and reopening the window. That is #1014,
+rather than solved here with a margin of our own.
 
 **The end of a folded described line is its anchor.** A collapsed run fold gives the row two caret stops:
 before the box (the anchor) and after it (the fold's end, inside the run). A caret landing on the second is moved
@@ -1713,14 +1713,6 @@ Three consequences for this change, none of which move task 2.1:
   (that was two projects sharing a *name*). Recorded here, and to be filed if the implementation meets it.
   Automation met it once, and answered without settling it: a `get_diagnostics` item for such a file names
   no project or document, rather than the first project to list it ("Settled while building phase 3").
-- **What happens to a member's attribute lines when the member goes.** Deleting a procedure through the
-  editor leaves its attribute run behind, because read-only text is carved out of a deletion, and cutting
-  one moves the procedure without its description. The rule proposed is that a run belongs to the line it
-  describes and goes with it. The read-only provider can express that only partly: it may decline to carve
-  a run out of a deletion that already spans the run and its line, but it cannot widen one, because
-  AvaloniaEdit throws when a provider returns a segment outside the span it was asked about (3.7). An
-  orphaned run, however it arises, is inert text the next save preserves. Neither VB6's behaviour here nor
-  the paste side is measured.
 - **Line endings — measured while building 3.1, and the diagnosis here was incomplete.** This said the
   header is written CRLF while *typed* lines are LF. The larger mechanism was that
   `VbFrmFormatDeserializer` rebuilt the code body line by line with `StringBuilder.AppendLine`, which
@@ -1738,7 +1730,7 @@ Three consequences for this change, none of which move task 2.1:
   is byte-exact. What remains open is the narrower original point: text *typed* into the buffer arrives
   with whatever the editor inserts, so a form edited and saved can still mix them. That is now the only
   live part, and it becomes visible to servers once they see the header.
-- **The caret at a folded run's end as the end of a selection** (found reviewing 4.3). Select All puts the caret at
+- **The caret at a folded run's end as the end of a selection** (found reviewing 4.3; #1019). Select All puts the caret at
   the end of the file before it selects, and in a file whose last line is a described member's attribute line, with
   no line break after it, that is the stop after the run's box, so the window moves the caret to the anchor and the
   selection is left ending past it: Shift+Left then takes the selection back to before the declaration's last
