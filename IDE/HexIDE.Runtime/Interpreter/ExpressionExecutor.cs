@@ -47,9 +47,10 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     // Which intrinsics VB6 types and which return a Variant, measured one by one (#987, native and p-code: a Select Case
     // on each result against `Case Is < N.4`, or `Case Is > 9` for text, and its product past an Integer's or a Long's
-    // ceiling). A name not listed was not run and reads as it always has.
+    // ceiling). A name not listed was not run and reads as it always has. CSng was measured with #234: two CSng results
+    // whose sum is past a Single's ceiling raise Err 6, where two Variant Singles widen to Double.
     private static readonly HashSet<string> TypedIntrinsics = new(StringComparer.OrdinalIgnoreCase)
-        { "Sgn", "Asc", "CInt", "CLng", "CByte", "CStr", "UBound", "LBound", "Replace", "StrReverse" };
+        { "Sgn", "Asc", "CInt", "CLng", "CByte", "CSng", "CStr", "UBound", "LBound", "Replace", "StrReverse" };
 
     private static readonly HashSet<string> VariantIntrinsics = new(StringComparer.OrdinalIgnoreCase)
     {
