@@ -6297,8 +6297,9 @@ the compiler half and before the IDE half had finished, and judged a run by a qu
 the revised rules on 2026-10-14: a procedure run's qualifiers are not consulted, every `:` statement on the line is
 read, a constant takes a `VB_Var` run, and a one-name line takes the run a rename by retyping leaves when the name
 it carries is declared nowhere in the module. The save's re-qualification of a procedure's run and a one-name
-variable's, as VB6 does, is settled in `design.md` and is task 4.4. The files the dialog wrote are to become the
-corpus of task 4.6. Where HexIDE departs from VB6
+variable's, as VB6 does, is settled in `design.md` and is task 4.4. The files VB6 wrote are the corpus of task
+4.6, `corpus/member-attributes/round-trip`, which every corpus lane walks, and the hand-written load shapes with
+VB6's saved output for each are beside them in `evidence/`, read against each other by a test. Where HexIDE departs from VB6
 it does so on purpose: an orphan stays visible and editable, where VB6 hides it and drops or moves it at its next
 save; Undo restores a run and a cut carries one, where VB6 loses the description to both; a comma list keeps every
 declarator's run that still names a declarator on the line, where VB6 keeps only the first's; and an `Attribute`

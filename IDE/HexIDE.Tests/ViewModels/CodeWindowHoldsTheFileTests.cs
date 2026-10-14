@@ -131,14 +131,24 @@ public sealed class CodeWindowHoldsTheFileTests : IDisposable
 
     private static string Demo(string name) => Path.Join(FindUpwards("demo")!, name);
 
-    /// <summary>Every project the repository carries VB6 source for: the demos and the designer corpus.</summary>
+    /// <summary>
+    /// Every project the repository carries VB6 source for: the demos, the designer corpus, and the projects VB6's own
+    /// IDE wrote members' attribute lines into (#273 task 4.6), whose evidence half is hand-written shapes VB6 rewrote
+    /// and is left out.
+    /// </summary>
     private static IEnumerable<string> RepositoryProjects()
     {
-        var roots = new[] { FindUpwards("demo"), FindUpwards(Path.Join("corpus", "designer")) }.OfType<string>().ToList();
-        roots.Should().HaveCount(2, "the repository's own VB6 projects are the corpus here, and must be found");
-        return roots.SelectMany(root => Directory.EnumerateFiles(root, "*.vbp", SearchOption.AllDirectories))
-            .Select(Path.GetDirectoryName).OfType<string>().Distinct().Order(StringComparer.Ordinal);
+        var roots = new[] { FindUpwards("demo"), FindUpwards(Path.Join("corpus", "designer")), MemberAttributeCorpus() }
+            .OfType<string>().ToList();
+        roots.Should().HaveCount(3, "the repository's own VB6 projects are the corpus here, and must be found");
+        return ProjectsUnder(roots);
     }
+
+    private static string? MemberAttributeCorpus() => FindUpwards(Path.Join("corpus", "member-attributes", "round-trip"));
+
+    private static IEnumerable<string> ProjectsUnder(IEnumerable<string> roots) =>
+        roots.SelectMany(root => Directory.EnumerateFiles(root, "*.vbp", SearchOption.AllDirectories))
+            .Select(Path.GetDirectoryName).OfType<string>().Distinct().Order(StringComparer.Ordinal);
 
     // ── Opening ─────────────────────────────────────────────────────────────────────────────────────────
 
@@ -291,5 +301,52 @@ public sealed class CodeWindowHoldsTheFileTests : IDisposable
         (await File.ReadAllBytesAsync(form.AbsolutePath!, TestContext.Current.CancellationToken))
             .Should().Equal(bytes, "byte for byte, encoding and line endings included");
         editor.Document.Text.Should().Be(buffer, "and the window, having nothing to follow, is left as it was");
+    }
+
+    [AvaloniaFact]
+    public async Task EveryFileVb6WroteMembersAttributesIntoSavesUnchangedAsTheBytesItWasReadFrom()
+    {
+        // #273 task 4.6. The files VB6's IDE wrote through Tools > Procedure Attributes, every kind it writes them
+        // into, opened in a code window and saved through the project service with nothing changed. A member's run
+        // is in the code, not the header, so it reaches the file only through the window's flush and the model's
+        // code: a run the buffer, the split or the render dropped, moved or re-spelled would differ here, and no
+        // other test saves one VB6 wrote. Each file is written, not skipped as clean: the save writes
+        // unconditionally, and the timestamp, put back a day first, has to move.
+        var root = MemberAttributeCorpus();
+        root.Should().NotBeNull("the corpus is the proof -- without it this passes vacuously");
+        var saved = new List<string>();
+
+        foreach (var project in ProjectsUnder([root!]))
+        {
+            loaded.Clear();
+            var service = MakeService();
+            await service.OpenProject(Stage(project));
+            foreach (var document in DocumentLookup.DocumentsOf(loaded.Single()))
+            {
+                var path = document.AbsolutePath!;
+                var name = Path.GetFileName(path);
+                var bytes = await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken);
+                var before = DateTime.UtcNow.AddDays(-1);
+                File.SetLastWriteTimeUtc(path, before);
+                var editor = Open(document);
+                var buffer = editor.Document.Text;
+                buffer.Should().Be(Decoded(path), $"the premise: {name}'s window opens on its file");
+
+                var written = document.Module is { } module
+                    ? await service.SaveModule(module, saveAs: false, interactive: false)
+                    : await service.SaveForm(document.Form!, saveAs: false, interactive: false);
+
+                written.Should().BeTrue($"{name} is saved, not refused");
+                File.GetLastWriteTimeUtc(path).Should().BeAfter(before, $"{name} was written, not left alone");
+                (await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken))
+                    .Should().Equal(bytes, $"{name} saved unchanged is the bytes VB6 wrote, its members' runs included");
+                editor.Document.Text.Should().Be(buffer, $"and {name}'s window has nothing to follow");
+                saved.Add(name);
+            }
+        }
+
+        saved.Should().Contain(["Main.frm", "Gauge.ctl", "Panel.ctl", "Helpers.bas", "Ledger.cls", "TarD.cls", "SetGet6.cls"],
+            "a form, both UserControls, a standard module and classes, a Let-first and a Set-first run among them");
+        saved.Should().HaveCount(43, "every module, class, form and UserControl of the six projects");
     }
 }

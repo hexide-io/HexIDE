@@ -49,6 +49,13 @@ public class SerializationCorpusTests
         var designer = FindUpwards(Path.Join("corpus", "designer"));
         if (designer is not null) yield return designer;
 
+        // Always too, for the same reason: the only files anywhere that carry members' attribute lines, every one
+        // written by VB6's own IDE through Tools > Procedure Attributes (#273 task 4.6). Its round-trip half and
+        // not the whole folder: corpus/member-attributes/evidence holds hand-written load shapes, orphans among
+        // them, which VB6 rewrote on its save, so they are evidence for the orphan rules and not VB6's bytes.
+        var memberAttributes = FindUpwards(Path.Join("corpus", "member-attributes", "round-trip"));
+        if (memberAttributes is not null) yield return memberAttributes;
+
         var env = Environment.GetEnvironmentVariable("HEXIDE_ROUNDTRIP_CORPUS");
         if (!string.IsNullOrWhiteSpace(env))
         {

@@ -59,7 +59,15 @@ public class WholeFileGrammarTests
         // VB6 install, which CI does not have — see corpus/designer/README.md.
         var designer = FindUpwards(Path.Join("corpus", "designer"));
         if (designer is not null) yield return designer;
+
+        // The only files that carry members' attribute lines, as VB6's own IDE writes them, so the only ones that
+        // hand the grammar an Attribute statement below the header (#273 task 4.6). The round-trip half: the
+        // evidence beside it is hand-written load shapes, one of them a declaration VB6 itself rejects.
+        var memberAttributes = FindUpwards(MemberAttributeCorpus);
+        if (memberAttributes is not null) yield return memberAttributes;
     }
+
+    private static readonly string MemberAttributeCorpus = Path.Join("corpus", "member-attributes", "round-trip");
 
     private static string? FindUpwards(string folderName)
     {
@@ -94,7 +102,7 @@ public class WholeFileGrammarTests
         var preExisting = new List<string>();
         var newRepoFailures = new List<string>();
         var counts = new SortedDictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-        var ownedRoots = new[] { FindUpwards("demo"), FindUpwards(Path.Join("corpus", "designer")) }
+        var ownedRoots = new[] { FindUpwards("demo"), FindUpwards(Path.Join("corpus", "designer")), FindUpwards(MemberAttributeCorpus) }
             .Where(r => r is not null).Select(r => r!).ToList();
 
         foreach (var path in files)

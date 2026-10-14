@@ -1821,7 +1821,46 @@
   read-only region" requires. Until then `GuardedContent.Replace` compares the header alone (design.md, "A whole
   replacement checks the header"), and the add-in contract's doc comments say a replacement that changes a run is
   applied. Close both, and refuse with a reason that names the member.
-- [ ] 4.6 Corpus lane: files carrying member-level attributes round-trip, which no lane covers today.
+- [x] 4.6 Corpus lane: files carrying member-level attributes round-trip, which no lane covers today.
+  — **Built.** `corpus/member-attributes/`, its `README.md` stating the provenance: `round-trip/`, six projects
+  whose every member `Attribute` line VB6's IDE wrote on the oracle guest on 2026-10-13, through Tools > Procedure
+  Attributes or by its own save after an edit (IDE probes A, E, V1 to V8), and `evidence/`, the four hand-written
+  load-shape projects (B, B2, V5), each `input/` beside the `saved/` VB6 wrote back. Bytes as VB6 wrote them: CRLF,
+  ASCII, `/corpus/** -text` already keeping git's hands off, checked with `git ls-files --eol` (every file
+  `i/crlf w/crlf`, the README `i/lf`) and a byte comparison of a `checkout-index` against the originals. No `.vbw`,
+  no Template file, nothing identifying; the one relative `Reference=` path is VB6's own rewrite. `*.vbp` is ignored
+  repo-wide, so `.gitignore` gains the corpus's exception beside `corpus/designer`'s: without it CI would have had
+  no project to open, and the project lanes would have passed on nothing.
+  — **Wired in**, the round-trip half, beside `corpus/designer` wherever that is walked: `SerializationCorpusTests`
+  (always, as the designer corpus is), both halves' `WholeFileGrammarTests` roots and owned roots,
+  `VbProtectedRegionsTests`' header check, `WholeFileCompositionTests` (the three designer files),
+  `DocumentContentTests` and `CodeWindowHoldsTheFileTests` (three roots now, and the kinds asserted again with runs
+  in them). `BundledServerRespectsTheIdesRegionsTests` reads the whole folder, the evidence's orphans included,
+  because it compares the two copies of the rule and is no round trip; it ran, not skipped. Not extended, because
+  none reads the repository's VB6 files: the conformance lanes and the lanes over a VB6 install. Three remarks that
+  said no corpus file carried a member's attribute lines now say why the inline fixtures stay.
+  — **Tests.** `MemberAttributeCorpusTests`: each run of each round-trip file is read as describing the member VB6
+  wrote it under, from a table written from the files (declaration line, kind, key), with the qualifier at its
+  offset and spelled as declared, and the regions after the header exactly the runs; nothing VB6 saved, 90 runs
+  over both halves, is an orphan or a rename's leftover; and each hand-written run describes a member exactly when
+  VB6's save kept a line of it in place, the recorded `Public Const` in a class excepted.
+  `CodeWindowHoldsTheFileTests.EveryFileVb6WroteMembersAttributesIntoSavesUnchangedAsTheBytesItWasReadFrom`: each of
+  the 43 documents opened in a code window and saved through the project service unchanged gives back VB6's bytes,
+  written and not skipped. `WholeFileCompositionTests.EveryDesignerFileVb6WroteMembersAttributesIntoComposesBackToItself`.
+  No corpus file exposed a defect: every lane passed on first run.
+  — **Mutation, seven on the product and two on the test, each reddening a test.** The reader taking only the first
+  statement of a line, no continuation, `WithEvents` read as a name, no `Property Set`, and `Enum`/`Type` declaring
+  names, each caught by `MemberAttributeCorpusTests` (the last by the evidence test alone). A module save and a form
+  save dropping every member run from the code, each caught by the module or form round trip and by the unchanged
+  save. Either recorded divergence removed from the evidence test reddens it, so neither entry is dead. The
+  mutations a qualifier-consulting reader would need survive this corpus by construction, since VB6 never writes a
+  qualifier naming anything else; that is `MemberRunsTests`' to pin, and design.md says so.
+  — **Settled**, in design.md under "Settled while building 4.6": which half the lanes walk, six projects rather than
+  one, what VB6's files can and cannot decide, and one divergence the section had not recorded (a run giving one
+  attribute twice is protected whole, where VB6's save keeps the first line).
+  — **Left.** *Don't show in Property Browser* is in no file (the dialog greyed it once Hide was ticked), and nor is
+  a PropertyPage's run, a `VB_Description` loaded longer than 254 characters, or a run with a continued attribute
+  line, none of which VB6's IDE was seen writing. The edit probes' intermediate states are in the oracle file only.
 - [ ] 4.7 Tests, one per scenario in this phase's delta, plus a deletion case for a described procedure.
 - [ ] 4.8 Verify in the running IDE, through the automation tools: a procedure's attributes folded into its
   declaration line, refusing an edit, and surviving a format.

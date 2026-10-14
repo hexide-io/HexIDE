@@ -1237,6 +1237,35 @@ Get. The fixtures live under `corpus/member-attributes/` with a project of their
 walks the repository's corpora walks it. The hand-written load shapes and VB6's saved output for each are kept beside
 them as the evidence for the orphan rules above, not as round-trip fixtures, since VB6 rewrote them.
 
+*Settled while building 4.6.*
+- *The lanes walk the round-trip half, and the evidence is read by two tests only.* The paragraph above asks for
+  both, so the fixtures are `corpus/member-attributes/round-trip` and the evidence `corpus/member-attributes/evidence`,
+  and every lane walking `corpus/designer` walks the first: the form, module and project round trips, both
+  whole-file grammars, the server's header check, each designer file's composition, the content read and
+  write-back, and the code window's open and its unchanged save. The evidence is read by the server-parity check,
+  which compares the two copies of the rule and is no round trip, and by a test that reads each input against its
+  saved twin (below). Not extended, because none of them reads the repository's VB6 files: the conformance lanes
+  (JSON snippets), and the lanes over a VB6 install's Template tree or `vb6.exe` itself.
+- *"A project of their own" is six, each as VB6 left it.* Merging them would need a project file written here, not
+  by VB6. Besides the dialog's output the corpus carries what VB6 saved after the second session's edits (a
+  variable renamed or retyped, a procedure's kind changed, comma lists edited, pasted text reloaded), since a save
+  regenerates every run; and the first session's project as stage 1 left it, for the one description with a
+  doubled quote, which stage 2 cleared.
+- *VB6's own files decide the reader without reading it.* VB6 writes each run directly under its member, qualified
+  with the declared name, and never an orphan, so each run's member is known from the file. Measured: all 58 runs
+  of the round-trip half and the 32 of the evidence's saved output describe the declaration above them, none is an
+  orphan or a rename's leftover, and every qualifier offset lands on the name. What these files cannot check is any
+  rule about a qualifier that names something else, which VB6 never writes; that stays with the inline rows.
+- *The evidence is executable, and it found one divergence the section did not record.* A hand-written run
+  describes a member here exactly when VB6's save kept a line of it under the same line, compared from the two
+  texts alone, across all 43 runs of the four projects, except the `Public Const` in a class already recorded above
+  (two files). Not recorded until now: a run giving one attribute twice (`DoubleDesc`, two `VB_Description` lines)
+  describes the member whole and protects both lines, where VB6's save keeps the first and drops the second (IDE
+  probe B, p05g). HexIDE keeps text VB6 would discard, the same direction as its orphans, and VB6 reads the file
+  the same way at its next load, the first winning.
+- *"Every option the dialog offers" is every option it left enabled.* *Don't show in Property Browser*
+  (`FUNCFLAG_FNONBROWSABLE`, 0x400) was greyed once Hide was ticked (IDE probe E), so no file carries it.
+
 ## When a document gets its file (#489, settled 2026-09-20)
 
 Task 2.1 names a document `untitled:` when it has no path, which presumes a document can *have* no path.

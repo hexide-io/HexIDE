@@ -288,7 +288,9 @@ public class VbProtectedRegionsTests
     private static IEnumerable<string> CorpusFiles()
     {
         string[] extensions = [".frm", ".cls", ".bas", ".ctl", ".pag"];
-        foreach (var root in new[] { "demo", Path.Combine("corpus", "designer") })
+        // corpus/member-attributes' round-trip half and not its evidence: the files VB6's IDE wrote, whose headers
+        // are VB6's own, and whose member runs below the header are the ones a header ending a line late would eat.
+        foreach (var root in new[] { "demo", Path.Combine("corpus", "designer"), Path.Combine("corpus", "member-attributes", "round-trip") })
         {
             if (FindUpwards(root) is not { } dir)
                 continue;

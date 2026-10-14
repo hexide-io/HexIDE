@@ -9,9 +9,12 @@ namespace HexIDE.VbLspServer.Tests;
 /// (hexide-io/HexIDE#273 task 3.10).
 /// </summary>
 /// <remarks>
-/// Inline rather than read from the corpus because no file in the corpus carries a member's attribute lines,
-/// so a test built on the corpus alone would pass vacuously for half of what it claims. The code below each
-/// header is deliberately unformatted, so that a formatter which protected too much would be caught too.
+/// Inline rather than read from the corpus because, when they were written, no file in the corpus carried a
+/// member's attribute lines, so a test built on the corpus alone would have passed vacuously for half of what it
+/// claims. <c>corpus/member-attributes</c> now carries runs VB6's own IDE wrote (#273 task 4.6), but VB6 writes no
+/// orphan and no rename's leftover, so these stay: each of the reader's rules is decided by one shape here. The
+/// code below each header is deliberately unformatted, so that a formatter which protected too much would be
+/// caught too.
 /// </remarks>
 internal static class WholeFileFixtures
 {

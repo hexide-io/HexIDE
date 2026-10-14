@@ -302,8 +302,14 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
 
     /// <summary>
     /// Every whole VB6 file the repository carries, those <c>HEXIDE_ROUNDTRIP_CORPUS</c> names, and four
-    /// inline files, three of them carrying members' attribute lines, which no corpus file has.
+    /// inline files, three of them carrying members' attribute lines.
     /// </summary>
+    /// <remarks>
+    /// The inline files stay although <c>corpus/member-attributes</c> now carries runs VB6's own IDE wrote, because
+    /// VB6 writes no orphan and no rename's leftover, and each of the reader's rules is decided by one shape there.
+    /// That folder is read whole, its evidence half included: this compares the two copies of the rule and is no
+    /// round trip, and the evidence's inputs are the misplaced runs VB6 itself loaded (#273 task 4.6).
+    /// </remarks>
     private static IEnumerable<(string Name, string Text)> Inputs()
     {
         yield return ("inline form", Form);
@@ -311,7 +317,10 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
         yield return ("inline class with orphans", ClassWithOrphans);
         yield return ("inline form with the reader's shapes", FormWithReaderShapes);
 
-        var roots = new List<string?> { FindUpwards("demo"), FindUpwards(Path.Join("corpus", "designer")) };
+        var roots = new List<string?>
+        {
+            FindUpwards("demo"), FindUpwards(Path.Join("corpus", "designer")), FindUpwards(Path.Join("corpus", "member-attributes")),
+        };
         var env = Environment.GetEnvironmentVariable("HEXIDE_ROUNDTRIP_CORPUS");
         if (!string.IsNullOrWhiteSpace(env))
             roots.AddRange(env.Split(';', StringSplitOptions.RemoveEmptyEntries).Where(Directory.Exists));

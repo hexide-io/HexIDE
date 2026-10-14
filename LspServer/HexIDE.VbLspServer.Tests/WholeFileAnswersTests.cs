@@ -104,8 +104,9 @@ public class WholeFileAnswersTests
     [InlineData(ClassWithOrphans)]
     public void AWholeFileWithMembersAttributeLinesParsesClean(string text)
     {
-        // Measured rather than assumed: no file in the corpus carries a member's attribute lines, so until
-        // this test nothing had ever handed the server's grammar one.
+        // Measured rather than assumed: when this was written no file in the corpus carried a member's attribute
+        // lines, so until this test nothing had ever handed the server's grammar one. The VB6-written ones in
+        // corpus/member-attributes are parsed whole by WholeFileGrammarTests; the orphans are only here.
         VbDiagnosticsProvider.GetDiagnosticsAndTreeIncludingProtectedLines(text).Diagnostics.Should().BeEmpty();
     }
 

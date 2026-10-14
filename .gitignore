@@ -308,6 +308,11 @@ node_modules/
 # found the first time it did; untracked, CI would scan one project fewer and say nothing.
 !corpus/designer/*.vbp
 
+# ...and so are the member-attribute corpus's, which VB6's IDE wrote: the round-trip half's are what the code
+# window and content lanes open each project through, and the evidence half's came back byte-identical from
+# VB6's save, which is part of what that evidence records (hexide-io/HexIDE#273 task 4.6).
+!corpus/member-attributes/**/*.vbp
+
 # Demo executables. demo/README.md tells you to rebuild any demo in place with
 # `VB6.EXE /make <Name>.vbp`, and the .vbp's ExeName32 drops the binary right beside its source.
 # Since hexide-io/HexIDE#437 the hygiene guard's artefact scan sees UNTRACKED files, so without

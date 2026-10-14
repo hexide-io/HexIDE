@@ -299,6 +299,29 @@ public class WholeFileCompositionTests
         FormCodeText.WholeFile(Load(original)).Should().Be(original);
     }
 
+    [Theory]
+    [InlineData("MemberAttributes", "Main.frm")]
+    [InlineData("MemberAttributes", "Gauge.ctl")]
+    [InlineData("Extras", "Panel.ctl")]
+    public void EveryDesignerFileVb6WroteMembersAttributesIntoComposesBackToItself(string project, string fileName)
+    {
+        // #273 task 4.6: the only designer files anywhere whose code carries members' attribute runs, as VB6's own
+        // IDE wrote them. The designer block is split off and the code kept as text, so the runs ride in the code
+        // half, the header's own attribute run ahead of them; composing the two halves gives back the file.
+        var dir = FindUpwards(Path.Join("corpus", "member-attributes", "round-trip", project));
+        dir.Should().NotBeNull("the corpus is the proof -- without it this passes vacuously");
+
+        var path = Path.Join(dir, fileName);
+        File.Exists(path).Should().BeTrue();
+
+        var original = Vb6TextFile.Decode(File.ReadAllBytes(path));
+        var form = Load(original);
+
+        FormCodeText.WholeFile(form).Should().Be(original);
+        form.Code.Should().StartWith("Attribute VB_Name", "the premise: the code half opens with the header's own run")
+            .And.Contain(".VB_Description = ", "and carries the members' runs below it");
+    }
+
     private static string? FindUpwards(string folderName)
     {
         var dir = new DirectoryInfo(AppContext.BaseDirectory);
