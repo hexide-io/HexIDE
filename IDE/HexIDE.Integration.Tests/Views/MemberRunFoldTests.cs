@@ -803,17 +803,20 @@ public class MemberRunFoldTests : IDisposable
         var (_, editor) = Show(vm);
         var declaration = LineWith(editor, "Public Sub Go()");
 
-        // The word step's key is the platform's (Ctrl+Shift+Right on Windows and Linux, Alt+Shift+Right on macOS), so it
-        // is read from the bindings rather than assumed: one bound to the word step that no earlier binding takes first,
-        // as the library tries them in order. The first word-step binding was not enough: on macOS CI that one was
-        // Ctrl+Shift+Right, which an earlier binding takes, and the press selected nothing.
+        // The word step's key is the platform's, so it is read from the bindings rather than assumed: one bound to the
+        // word step that no earlier binding takes first, as the library tries them in order. Measured on CI's macOS run:
+        // the only one is Ctrl+Shift+Right, and an earlier binding takes it, so there the press selected nothing and no
+        // key reaches the word step at all. Shift+Right is asked everywhere, the word step wherever a key reaches it.
         var bindings = editor.TextArea.DefaultInputHandler.CaretNavigation.KeyBindings;
         var byWord = bindings
             .Where(b => b.Command == EditingCommands.SelectRightByWord && b.Gesture?.Key == Key.Right)
             .Select(b => b.Gesture!.KeyModifiers)
-            .First(m => bindings.First(b => b.Gesture?.Matches(new KeyEventArgs { Key = Key.Right, KeyModifiers = m }) == true)
-                .Command == EditingCommands.SelectRightByWord);
-        foreach (var modifiers in new[] { KeyModifiers.Shift, byWord })
+            .Where(m => bindings.First(b => b.Gesture?.Matches(new KeyEventArgs { Key = Key.Right, KeyModifiers = m }) == true)
+                .Command == EditingCommands.SelectRightByWord)
+            .Take(1);
+        if (!OperatingSystem.IsMacOS())
+            byWord.Should().ContainSingle("Windows and Linux bind the word step to a key of its own");
+        foreach (var modifiers in byWord.Prepend(KeyModifiers.Shift).ToList())
         {
             editor.TextArea.ClearSelection();
             PutCaret(editor, declaration.EndOffset);
