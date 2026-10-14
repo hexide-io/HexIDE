@@ -54,6 +54,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // The procedure this activation is running, for the debugger's Locals header ("Module.Procedure"). Null for a
     // module-init / class-field-init executor (no enclosing proc) — those show just the module name.
     private readonly string? procName;
+    private readonly Vb6Value.ValueType? checkedArrayReturn;
 
     private ExpressionExecutor expressionExecutor => new ExpressionExecutor(interpreter, currentEnv, currentModule, withTargets, stmtFrames);
 
@@ -62,7 +63,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         ModuleInfo currentModule,
         List<int>? ownedSlots = null,
         Stack<List<Vb6Value>>? stmtFrames = null,
-        string? procName = null)
+        string? procName = null,
+        Vb6Value.ValueType? checkedArrayReturn = null)
     {
         this.interpreter = interpreter;
         this.currentEnv = currentEnv;
@@ -70,6 +72,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         this.ownedSlots = ownedSlots;
         this.stmtFrames = stmtFrames ?? new Stack<List<Vb6Value>>();
         this.procName = procName;
+        this.checkedArrayReturn = checkedArrayReturn;
     }
 
     /// <summary>The debugger's view of THIS activation's Locals (see <see cref="Debugging.DebugInspector"/>) —
@@ -185,6 +188,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
     // inside a loop) is a no-op — the variable keeps its value, it is NOT reset (oracle: Dim total in a 1..3 loop
     // that does `total = total + i` → 1,3,6, not 1,2,3). Case-insensitive, like VB6 identifiers.
     private readonly HashSet<string> declaredLocals = new(System.StringComparer.OrdinalIgnoreCase);
+
+    // The local names in declaredLocals that are Consts, which a typed-array return's check reads as typed (#986).
+    private readonly HashSet<string> localConsts = new(System.StringComparer.OrdinalIgnoreCase);
 
     // This activation's call depth, CAPTURED when it was pushed onto the activation stack (1 = outermost procedure;
     // 0 = module top-level code, which never runs through RunProcedure). Captured — NOT the live ActivationStack.Count
@@ -1078,6 +1084,81 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         throw new NotImplementedException("Kill not implemented");
     }
 
+    /// <summary>
+    /// A store into the name of a Function or Property Get declared to return an array, `As Integer()` or `As Variant()`,
+    /// takes only an array of exactly that type, whose bounds it keeps (measured, #986, native and p-code). What VB6 can
+    /// see is wrong while compiling is its compile error "Can't assign to array", raised here as the statement runs: an
+    /// array variable declared with another element type, or a scalar whose type the statement itself shows. Anything
+    /// else is 13, and the caller's target is left as it was: a Variant holding the wrong thing, Empty, Null, or a call
+    /// that returns a Variant, such as Array or Split.
+    /// <para>
+    /// The one conversion VB6 makes is a String into a Byte(), which takes the String's bytes (measured: "ab" is
+    /// 97 0 98 0, from a literal, a String variable or a Variant). A Byte() variable converts the same way, and neither is
+    /// implemented, so that store is refused rather than given an error VB6 does not raise (#998).
+    /// </para>
+    /// </summary>
+    private void CheckArrayReturn(Vb6Value.ValueType declared, Vb6Value value, VB6Parser.LetStmtContext context)
+    {
+        if (value.Type == declared)
+            return;
+        if (declared == ByteArray && value.Type == Vb6Value.ValueType.String)
+            throw new NotImplementedException(
+                "A String stored into a Function declared As Byte() is converted into its bytes by VB6, which HexIDE does not do yet (#998)");
+        var seenWhileCompiling = value.Type.IsArray ? IsDeclaredArrayVariable(context.valueStmt()) : IsTypedBySyntax(context.valueStmt());
+        if (seenWhileCompiling)
+            throw new VBCompileErrorException("Can't assign to array");
+        throw new VBRunTimeException(context, VBStandardError.TypeMismatch);
+    }
+
+    private static readonly Vb6Value.ValueType ByteArray = new(Vb6Value.ValueType.Byte, true);
+
+    // Whether the statement shows a value's type, as VB6's compiler sees it: a literal other than Empty, Null or Nothing,
+    // with or without a sign or parentheses, a bare name for a variable declared with a scalar type, or a Const. All
+    // measured as "Can't assign to array" into a typed-array return. Read from the syntax rather than from the value's
+    // fixed flag, which a Variant array element or a Variant field can carry from a literal stored into it (#987); there,
+    // VB6 raises 13. Whatever this misses is 13, which can only be wrong on a program VB6 does not compile, such as
+    // `F = G()` with G declared to return an Integer.
+    private bool IsTypedBySyntax(VB6Parser.ValueStmtContext valueStmt) => valueStmt switch
+    {
+        VB6Parser.VsLiteralContext literal => literal.literal() is { } l && l.NULL() == null && l.EMPTY_() == null && l.NOTHING() == null,
+        VB6Parser.VsNegationContext negation => IsTypedBySyntax(negation.valueStmt()),
+        VB6Parser.VsPlusContext plus => IsTypedBySyntax(plus.valueStmt()),
+        VB6Parser.VsStructContext parenthesised => parenthesised.valueStmt().Length == 1 && IsTypedBySyntax(parenthesised.valueStmt(0)),
+        VB6Parser.VsICSContext ics => ics.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } bare
+            && bare.dictionaryCallStmt() == null && NamesATypedScalarOrConst(bare.ambiguousIdentifier().GetText()),
+        _ => false,
+    };
+
+    private bool NamesATypedScalarOrConst(string name)
+    {
+        if (!IsOwnDeclaration(name, out var location))
+            return false;
+        if (interpreter.ExecutionContext.State.DeclaredTypeOf(location) != null || localConsts.Contains(name))
+            return true;
+        // The module's own Const, unless a local of the same name hides it.
+        return !declaredLocals.Contains(name) && currentModule.PrePass.ModuleConsts.ContainsKey(name);
+    }
+
+    // A bare name for an array variable declared as one (`Dim a(1) As Long`, `Dim a() As Long`), whose type VB6 knows
+    // while compiling, as against a Variant that happens to hold an array.
+    private bool IsDeclaredArrayVariable(VB6Parser.ValueStmtContext valueStmt) =>
+        valueStmt is VB6Parser.VsICSContext ics
+        && ics.implicitCallStmt_InStmt().iCS_S_VariableOrProcedureCall() is { } bare
+        && IsOwnDeclaration(bare.ambiguousIdentifier().GetText(), out var location)
+        && interpreter.ExecutionContext.State.IsDeclaredArray(location);
+
+    // A name this procedure declared itself, or one the module declared, whose slot therefore says how it was declared. A
+    // parameter is neither: a ByRef one reads its caller's slot, whose marks are the caller's declaration. So an untyped
+    // `p` given a declared Integer, or a declared Long(), is 13 here, as in VB6 (measured, #997's review), and a typed
+    // parameter is 13 too, where VB6 refuses to compile: wrong only on a program VB6 does not compile.
+    private bool IsOwnDeclaration(string name, out int location)
+    {
+        if (!currentEnv.TryGetVariableLocation(name, out location) || currentEnv.Parameters.Contains(name))
+            return false;
+        return declaredLocals.Contains(name)
+            || currentModule.ModuleEnv.TryGetVariableLocation(name, out var moduleLocation) && moduleLocation == location;
+    }
+
     public override async Task<ControlFlow> VisitLetStmt(VB6Parser.LetStmtContext context)
     {
         var value = await expressionExecutor.EvaluateValue(context.valueStmt());
@@ -1120,6 +1201,8 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 AllocImplicitVariant(identifier);
                 interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out oldLet);
             }
+            if (checkedArrayReturn is { } declaredReturn && string.Equals(identifier, procName, StringComparison.OrdinalIgnoreCase))
+                CheckArrayReturn(declaredReturn, value, context);
             interpreter.ExecutionContext.TryUpdateVariable(currentEnv, identifier, interpreter.CopyForStore(value));
             // Refcount (Phase 4.2): a Variant slot that held an object and is now overwritten by a scalar drops
             // that reference — release it (no-op unless the old value was an object). The new value is non-object
@@ -2065,6 +2148,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var name = sub.ambiguousIdentifier().GetText();
         if (!declaredLocals.Add(name))
             return;
+        localConsts.Add(name);
         var value = AsDeclared(sub, await expressionExecutor.EvaluateValue(sub.valueStmt()));
         interpreter.ExecutionContext.AllocVariable(currentEnv, name, value);
         if (ownedSlots != null && currentEnv.TryGetVariableLocation(name, out var slot))

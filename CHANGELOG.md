@@ -22,6 +22,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A Function declared to return a typed array takes only an array of its type** (#986). `F = Array(1, 2)` in a
+  Function `As Integer()` returned a Variant array with no error, and `F = 5` in one `As Long()` returned an Integer.
+  A mismatch now raises Type mismatch at the store, as VB6 does, or stops the run with VB6's compile error "Can't assign
+  to array" where VB6 would not have compiled the program. A String stored into a Function declared `As Byte()`, which
+  VB6 converts into its bytes, stops the run as not implemented (#998). Before, it was returned as a String.
 - **Under On Error Resume Next, a block whose condition or header raises now runs, as VB6's does** (#839). HexIDE skipped
   the whole statement, so the program carried on down a path VB6 would not take, with no error. VB6 goes on at the
   first statement inside the block. Measured on vb6.exe, as native code, as p-code and in the IDE:

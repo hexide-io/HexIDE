@@ -836,7 +836,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             if (proc.Body != null)
             {
                 // The callee runs with its OWN per-activation statement-frame stack (re-entrancy isolation).
-                var executor = new StatementExecutor(this, callee, owner, ownedSlots, new Stack<List<Vb6Value>>(), proc.Name);
+                var executor = new StatementExecutor(this, callee, owner, ownedSlots, new Stack<List<Vb6Value>>(), proc.Name,
+                    proc.CheckedArrayReturn);
                 // Debugger call stack + depth: push before running, remove THIS executor after (Remove, not
                 // RemoveAt(Count-1), so overlapping async re-entrancy pops the right frame). Reflects the physical
                 // call stack — matching VB6's Call Stack, which shows a re-entrant handler's frames above the
