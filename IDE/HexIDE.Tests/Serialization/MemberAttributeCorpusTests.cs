@@ -19,10 +19,15 @@ namespace HexIDE.Tests.Serialization;
 /// <c>Get</c> when <c>(Default)</c> was set in the same visit (V6), so each row names the declaration line.
 /// </para>
 /// <para>
-/// <b>What these files cannot check.</b> Every qualifier VB6 writes names the member it sits under, so a reader
-/// that consulted a procedure run's qualifier, or required each variable line to name a name its line declares,
-/// would pass here. Those rules are <see cref="MemberRunsTests"/>' to pin, on the shapes VB6 reads but never
-/// writes; the hand-written ones VB6 was given are kept under <c>corpus/member-attributes/evidence</c>.
+/// <b>What VB6's own files cannot check, and what the evidence beside them does.</b> Every qualifier VB6 writes
+/// names the member it sits under, so a reader that consulted a procedure run's qualifier, or required each
+/// variable line to name a name its line declares, would pass the table and the test over everything VB6 saved.
+/// The first is pinned here all the same, by the hand-written inputs VB6 was given
+/// (<c>corpus/member-attributes/evidence</c>): <c>NamesNothing</c>, <c>NamesOther</c> and <c>LowerCase</c> each
+/// carry a procedure run whose qualifier is not its procedure's name as declared, VB6 kept all three, and so
+/// <see cref="AHandWrittenRunDescribesAMemberExactlyWhereVb6KeptIt"/> reddens on a reader that asks for the name,
+/// with case or without. The second, a rename's leftover, is in no file here, since VB6 re-qualified every one it
+/// carried; that is <see cref="MemberRunsTests"/>' to pin, on shapes VB6 reads but never writes.
 /// </para>
 /// </remarks>
 public class MemberAttributeCorpusTests
@@ -215,14 +220,17 @@ public class MemberAttributeCorpusTests
         files.Should().HaveCountGreaterThan(Expected.Count, "the evidence's saved output is read too");
 
         var runs = 0;
+        var secondRuns = 0;
         foreach (var path in files)
         {
             var text = Vb6TextFile.ReadDocument(File.ReadAllBytes(path)).Text;
+            var ordinals = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (var run in ReadOnlyRegions.MemberRuns(text, 0))
             {
                 var name = Path.GetFileName(path);
+                var under = FirstLineAt(text, run.DescribedStart);
                 run.Kind.Should().BeOneOf([MemberRunKind.Procedure, MemberRunKind.Variable],
-                    $"{name}: the run under '{FirstLineAt(text, run.DescribedStart)}' is one VB6 wrote");
+                    $"{name}: the run under '{under}' is one VB6 wrote");
                 foreach (var line in run.Lines)
                 {
                     line.Qualifier.Should().NotBeNull($"{name}: VB6 writes no dotless line below the header");
@@ -231,10 +239,26 @@ public class MemberAttributeCorpusTests
                     run.Declared.Select(d => d.Name).Should().Contain(line.Qualifier,
                         $"{name}: VB6 qualified the line with a name its declaration spells exactly so");
                 }
+
+                // Which member, and which of its runs, is in the file too, so the key 4.3's expansion and 4.5b's
+                // comparison are filed under is checked without the rule. VB6 qualifies each line it writes with the
+                // member it gave the line to, as declared, so the first line's qualifier is the member: a procedure's
+                // name, and the declarator a variable run is keyed by, the second of a line's two where VB6 wrote the
+                // run for that one (Panel.ctl's B, ConstMulti's C2). The ordinal is the count of runs above with that
+                // name; MoreShapes' BothRuns are the one place VB6 wrote two, under a property's Get and its Let.
+                var member = run.Lines[0].Qualifier!;
+                (run.Member?.Name).Should().Be(member, $"{name}: VB6 gave the run under '{under}' to {member}");
+                ordinals.TryGetValue(member.ToUpperInvariant(), out var ordinal);
+                ordinals[member.ToUpperInvariant()] = ordinal + 1;
+                run.Key.Should().Be(new MemberRunKey(member.ToUpperInvariant(), ordinal),
+                    $"{name}: the run under '{under}' is {member}'s run number {ordinal} from the top");
+                if (ordinal > 0) secondRuns++;
                 runs++;
             }
         }
         runs.Should().Be(90, "58 runs in the round-trip half and 32 in the evidence's saved output");
+        secondRuns.Should().Be(2, "BothRuns and BothRunsGetFirst each give one member a second run, or the ordinal's check "
+            + "would hold at 0 everywhere and decide nothing");
     }
 
     /// <summary>
@@ -272,13 +296,27 @@ public class MemberAttributeCorpusTests
                 foreach (var run in ReadOnlyRegions.MemberRuns(text, 0))
                 {
                     var above = LineAbove(text, run.Region.Start);
-                    var values = run.Lines.Select(l => ValueOf(text[l.Start..l.End])).ToHashSet(StringComparer.Ordinal);
-                    var vb6KeptIt = vb6Runs.Any(b => b.Above == above && b.Values.Overlaps(values));
+                    var values = run.Lines.Select(l => ValueOf(text[l.Start..l.End])).ToList();
+                    var vb6Block = vb6Runs.Where(b => b.Above == above && b.Lines.Any(l => values.Contains(l.Value)))
+                        .Select(b => b.Lines).FirstOrDefault();
+                    var vb6KeptIt = vb6Block is not null;
                     var expected = KnownDivergences.ContainsKey((name, above)) ? !vb6KeptIt : vb6KeptIt;
 
                     run.DescribesMember.Should().Be(expected,
                         $"{name}: VB6 {(vb6KeptIt ? "kept" : "did not keep")} the run under '{above}'"
                         + (KnownDivergences.TryGetValue((name, above), out var why) ? ", and HexIDE diverges: " + why : ""));
+
+                    // And to the member VB6 gave it to. VB6 re-qualifies each line it keeps with that member's name as
+                    // declared, so the name it wrote on the first of the run's lines it kept is the run's member. This
+                    // is what holds a run whose qualifier names nothing, another member, or its member in lower case
+                    // (NamesNothing, NamesOther, LowerCase) to the procedure above it, and the second constant's run
+                    // under a line declaring two to the second (ConstMulti).
+                    if (vb6Block is not null && expected)
+                    {
+                        var firstKept = values.First(v => vb6Block.Any(l => l.Value == v));
+                        var vb6Member = vb6Block.First(l => l.Value == firstKept).Qualifier;
+                        (run.Member?.Name).Should().Be(vb6Member, $"{name}: VB6 gave the run under '{above}' to {vb6Member}");
+                    }
                     compared++;
                     if (vb6KeptIt) kept++;
                 }
@@ -291,20 +329,20 @@ public class MemberAttributeCorpusTests
 
     /// <summary>
     /// Each block of <c>Attribute</c> lines below the header of <paramref name="text"/>, as the physical line above it
-    /// and the values its lines carry: found from the text, not by the reader under test.
+    /// and the name and value each of its lines carries: found from the text, not by the reader under test.
     /// </summary>
-    private static List<(string Above, HashSet<string> Values)> BlocksBelowTheHeader(string text)
+    private static List<(string Above, List<(string? Qualifier, string Value)> Lines)> BlocksBelowTheHeader(string text)
     {
         var lines = text[ReadOnlyRegions.HeaderEnd(text, 0)..].Split("\r\n");
-        var blocks = new List<(string Above, HashSet<string> Values)>();
+        var blocks = new List<(string Above, List<(string? Qualifier, string Value)> Lines)>();
         for (var i = 1; i < lines.Length; i++)
         {
             if (!IsAttributeLine(lines[i]) || IsAttributeLine(lines[i - 1]))
                 continue;
-            var values = new HashSet<string>(StringComparer.Ordinal);
+            var block = new List<(string? Qualifier, string Value)>();
             for (var j = i; j < lines.Length && IsAttributeLine(lines[j]); j++)
-                values.Add(ValueOf(lines[j]));
-            blocks.Add((lines[i - 1], values));
+                block.Add((QualifierOf(lines[j]), ValueOf(lines[j])));
+            blocks.Add((lines[i - 1], block));
         }
         return blocks;
 
@@ -313,6 +351,18 @@ public class MemberAttributeCorpusTests
 
     /// <summary>What an attribute line sets, after its first <c>=</c>, without the spacing around it.</summary>
     private static string ValueOf(string line) => line[(line.IndexOf('=') + 1)..].Trim();
+
+    /// <summary>
+    /// The name an attribute line VB6 wrote sets an attribute of, up to the first <c>.</c> of what follows the word
+    /// <c>Attribute</c>; null for a dotless line. VB6 writes it at column 1, single-spaced, and never continued.
+    /// </summary>
+    private static string? QualifierOf(string line)
+    {
+        var name = line.TrimStart()["Attribute ".Length..];
+        var dot = name.IndexOf('.');
+        var equals = name.IndexOf('=');
+        return dot >= 0 && (equals < 0 || dot < equals) ? name[..dot].Trim() : null;
+    }
 
     /// <summary>The physical line of <paramref name="text"/> that ends just before <paramref name="lineStart"/>.</summary>
     private static string LineAbove(string text, int lineStart)

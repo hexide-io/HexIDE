@@ -317,10 +317,14 @@ public class BundledServerRespectsTheIdesRegionsTests : IAsyncDisposable
         yield return ("inline class with orphans", ClassWithOrphans);
         yield return ("inline form with the reader's shapes", FormWithReaderShapes);
 
-        var roots = new List<string?>
-        {
-            FindUpwards("demo"), FindUpwards(Path.Join("corpus", "designer")), FindUpwards(Path.Join("corpus", "member-attributes")),
-        };
+        // The member-attribute corpus is required, where the other roots are taken if found: it is the only whole-file
+        // source of runs VB6 wrote and of the misplaced ones it loaded, and without it the comparison would go on
+        // passing over the inline files and the demos alone.
+        var memberAttributes = FindUpwards(Path.Join("corpus", "member-attributes"));
+        memberAttributes.Should().NotBeNull("corpus/member-attributes ships with the repository");
+        new[] { "round-trip", "evidence" }.Where(half => !Directory.Exists(Path.Join(memberAttributes!, half)))
+            .Should().BeEmpty("both halves are read: the runs VB6 wrote, and the misplaced ones it loaded");
+        var roots = new List<string?> { FindUpwards("demo"), FindUpwards(Path.Join("corpus", "designer")), memberAttributes };
         var env = Environment.GetEnvironmentVariable("HEXIDE_ROUNDTRIP_CORPUS");
         if (!string.IsNullOrWhiteSpace(env))
             roots.AddRange(env.Split(';', StringSplitOptions.RemoveEmptyEntries).Where(Directory.Exists));

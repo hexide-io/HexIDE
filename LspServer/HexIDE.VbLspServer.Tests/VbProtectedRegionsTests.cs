@@ -279,6 +279,16 @@ public class VbProtectedRegionsTests
             lines.Skip(header).FirstOrDefault(l => l.Trim().Length > 0)?.Trim()
                 .StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase)
                 .Should().NotBe(true, $"{path}: an attribute line was left out of the header");
+
+            // And no line of code inside it. The checks above cannot see a header that runs on past the code into a
+            // member's run, since that ends on an Attribute line too, and the member-attribute corpus is where one
+            // would. VB6 writes the header's own Attribute lines together, after the designer block if there is
+            // one, so from the first of them to the header's end every line is an Attribute line or blank. A demo
+            // form HexIDE wrote has none, and a header that ends on its block's End, so nothing to check here.
+            var firstAttribute = Array.FindIndex(lines, l => l.TrimStart().StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase));
+            lines.Take(header).Skip(firstAttribute < 0 ? header : firstAttribute)
+                .Where(l => l.Trim().Length > 0 && !l.TrimStart().StartsWith("Attribute ", StringComparison.OrdinalIgnoreCase))
+                .Should().BeEmpty($"{path}: the header holds its own Attribute lines and no code");
         }
     }
 
@@ -288,18 +298,31 @@ public class VbProtectedRegionsTests
     private static IEnumerable<string> CorpusFiles()
     {
         string[] extensions = [".frm", ".cls", ".bas", ".ctl", ".pag"];
-        // corpus/member-attributes' round-trip half and not its evidence: the files VB6's IDE wrote, whose headers
-        // are VB6's own, and whose member runs below the header are the ones a header ending a line late would eat.
-        foreach (var root in new[] { "demo", Path.Combine("corpus", "designer"), Path.Combine("corpus", "member-attributes", "round-trip") })
+        foreach (var dir in new[] { FindUpwards("demo"), FindUpwards(Path.Combine("corpus", "designer")) }.OfType<string>()
+                     .Concat(MemberAttributeCorpus()))
         {
-            if (FindUpwards(root) is not { } dir)
-                continue;
             foreach (var file in Directory.EnumerateFiles(dir, "*.*", SearchOption.AllDirectories))
             {
                 if (extensions.Contains(Path.GetExtension(file), StringComparer.OrdinalIgnoreCase))
                     yield return file;
             }
         }
+    }
+
+    /// <summary>
+    /// The files VB6's own IDE wrote members' attribute runs into (#273 task 4.6): <c>corpus/member-attributes</c>'
+    /// round-trip half, and the output VB6 saved for each hand-written project of its evidence half, but not the
+    /// hand-written inputs, which are not VB6's. Their headers are VB6's own, and their member runs below the header
+    /// are what a header running on past its own lines would eat. Required: the folder ships with the repository,
+    /// and without it the check would pass on the demos and the designer corpus alone.
+    /// </summary>
+    private static IEnumerable<string> MemberAttributeCorpus()
+    {
+        var root = FindUpwards(Path.Combine("corpus", "member-attributes"));
+        root.Should().NotBeNull("corpus/member-attributes ships with the repository");
+        yield return Path.Combine(root!, "round-trip");
+        foreach (var saved in Directory.EnumerateDirectories(Path.Combine(root!, "evidence"), "saved*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
+            yield return saved;
     }
 
     private static string? FindUpwards(string relative)

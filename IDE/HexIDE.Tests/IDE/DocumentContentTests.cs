@@ -141,7 +141,11 @@ public class DocumentContentTests : IDisposable
     /// </summary>
     private string Stage(string projectDirectory)
     {
+        // Named after the project's folder, and numbered where two share a name: each of the member-attribute
+        // evidence's four projects keeps VB6's output in a folder called saved.
         var target = Path.Join(dir, Path.GetFileName(projectDirectory));
+        for (var n = 2; Directory.Exists(target); n++)
+            target = Path.Join(dir, Path.GetFileName(projectDirectory) + n);
         Directory.CreateDirectory(target);
         foreach (var file in Directory.EnumerateFiles(projectDirectory))
         {
@@ -153,17 +157,20 @@ public class DocumentContentTests : IDisposable
 
     /// <summary>
     /// Every project the repository carries VB6 source for: the demos, the designer corpus, and the projects VB6's own
-    /// IDE wrote members' attribute lines into (#273 task 4.6), whose evidence half is hand-written shapes VB6 rewrote
-    /// and is left out.
+    /// IDE wrote members' attribute lines into (#273 task 4.6), which are the round-trip half of
+    /// <c>corpus/member-attributes</c> and the project VB6 saved for each hand-written one of its evidence half. Not
+    /// those hand-written inputs, which are not VB6's bytes.
     /// </summary>
     private static IEnumerable<string> RepositoryProjects()
     {
+        var memberAttributes = FindUpwards(Path.Join("corpus", "member-attributes"));
         var roots = new[]
         {
             FindUpwards("demo"), FindUpwards(Path.Join("corpus", "designer")),
-            FindUpwards(Path.Join("corpus", "member-attributes", "round-trip")),
+            memberAttributes is null ? null : Path.Join(memberAttributes, "round-trip"),
         }.OfType<string>().ToList();
         roots.Should().HaveCount(3, "the repository's own VB6 projects are the corpus here, and must be found");
+        roots.AddRange(Directory.EnumerateDirectories(Path.Join(memberAttributes!, "evidence"), "saved*", SearchOption.AllDirectories));
         return roots.SelectMany(root => Directory.EnumerateFiles(root, "*.vbp", SearchOption.AllDirectories))
             .Select(Path.GetDirectoryName).OfType<string>().Distinct().Order(StringComparer.Ordinal);
     }
@@ -250,6 +257,8 @@ public class DocumentContentTests : IDisposable
             "every kind is covered, or the claim above is about fewer kinds than it says");
         checkedDocuments.Should().Contain(["Main.frm", "Panel.ctl", "Helpers.bas", "Ledger.cls"],
             "and every kind again with members' attribute lines in it, as VB6's IDE writes them");
+        checkedDocuments.Should().Contain(["BothRuns.cls", "ConstMulti.bas"],
+            "and what VB6 saved of the evidence's hand-written projects, a property's two runs and a constant's among it");
     }
 
     // ── What the read returns ──────────────────────────────────────────────────────────────────────────

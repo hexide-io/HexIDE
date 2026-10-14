@@ -1828,7 +1828,8 @@
   load-shape projects (B, B2, V5), each `input/` beside the `saved/` VB6 wrote back. Bytes as VB6 wrote them: CRLF,
   ASCII, `/corpus/** -text` already keeping git's hands off, checked with `git ls-files --eol` (every file
   `i/crlf w/crlf`, the README `i/lf`) and a byte comparison of a `checkout-index` against the originals. No `.vbw`,
-  no Template file, nothing identifying; the one relative `Reference=` path is VB6's own rewrite. `*.vbp` is ignored
+  no Template file, nothing identifying; every `.vbp` but the stage-1 copy carries a relative `Reference=` path,
+  VB6's own rewrite in `MemberAttributes.vbp` and written relative, as VB6 writes it, in the rest. `*.vbp` is ignored
   repo-wide, so `.gitignore` gains the corpus's exception beside `corpus/designer`'s: without it CI would have had
   no project to open, and the project lanes would have passed on nothing.
   — **Wired in**, the round-trip half, beside `corpus/designer` wherever that is walked: `SerializationCorpusTests`
@@ -1852,15 +1853,42 @@
   statement of a line, no continuation, `WithEvents` read as a name, no `Property Set`, and `Enum`/`Type` declaring
   names, each caught by `MemberAttributeCorpusTests` (the last by the evidence test alone). A module save and a form
   save dropping every member run from the code, each caught by the module or form round trip and by the unchanged
-  save. Either recorded divergence removed from the evidence test reddens it, so neither entry is dead. The
-  mutations a qualifier-consulting reader would need survive this corpus by construction, since VB6 never writes a
-  qualifier naming anything else; that is `MemberRunsTests`' to pin, and design.md says so.
+  save. Either recorded divergence removed from the evidence test reddens it, so neither entry is dead. A reader
+  that consulted a procedure run's qualifier passes the table and the saved-output test by construction, since VB6
+  never writes a qualifier naming anything else, but not the evidence test: VB6 kept `NamesNothing`'s, `NamesOther`'s
+  and `LowerCase`'s runs, whose qualifiers are not their procedure's name as declared (corrected in review, below).
+  A rename's leftover is in no file here, and stays `MemberRunsTests`' to pin.
   — **Settled**, in design.md under "Settled while building 4.6": which half the lanes walk, six projects rather than
   one, what VB6's files can and cannot decide, and one divergence the section had not recorded (a run giving one
   attribute twice is protected whole, where VB6's save keeps the first line).
   — **Left.** *Don't show in Property Browser* is in no file (the dialog greyed it once Hide was ticked), and nor is
   a PropertyPage's run, a `VB_Description` loaded longer than 254 characters, or a run with a continued attribute
   line, none of which VB6's IDE was seen writing. The edit probes' intermediate states are in the oracle file only.
+  — **Reviewed.** Ten findings, each settled. *Walked*: VB6's saved output, every `evidence/*/saved*` folder, now
+  goes through every lane the round-trip half does, since it is VB6's bytes and carries shapes that half lacks
+  (design.md's first 4.6 bullet, revised). Every lane passed it as it stood, and the code window's unchanged save
+  went from 43 documents to 79; both `Stage` helpers now number a staged folder whose name another has taken, since
+  the evidence's four are all called `saved`. *Fail closed*: every lane that reads `corpus/member-attributes`
+  fails when it, or a half of it, is missing, where five lanes had passed on whatever else they walked. Renaming the
+  folder, then each half, reddens every lane, the parity check's four corpus-reading tests and both grammar lanes
+  among them. *Checked from the files*: the test over everything VB6 saved asserts each run's member and key from
+  VB6's qualifiers (the first line's qualifier, and its count from the top), and that two runs have ordinal 1; the
+  evidence test asserts the member of each run VB6 kept, from the qualifier VB6 wrote back for it. *The server's
+  header check* asserts too that no line but an `Attribute` line or a blank one sits in a header after its first
+  `Attribute` line, which a header running on into a member's run cannot pass; a HexIDE-written demo form with no
+  `Attribute` line is left to the checks before it. *Recorded*: `DoubleDesc` in the oracle's list of what HexIDE
+  departs from, design.md's bullet saying its second line is protected and folded rather than editable, and whether
+  4.4's save should drop it under "Open questions", with three options; `TarV`'s `mExtra` edit in the oracle's V6
+  account and the README; and, in the README, each `.vbp` and `Starter.bas` as it came about (`Acc2`, `Probe2` and
+  `Tar2`'s projects saved again by VB6 byte for byte, `Extras.vbp`, the stage-1 project and every `Starter.bas`
+  never saved by it).
+  — **Mutation, review round, each now reddening a test.** A procedure run required to name its procedure, without
+  case and with it, reddens the evidence test, on `NamesNothing` and on `LowerCase`: measured, and the class remark
+  and the note above say so where they had said it would pass. The key's ordinal held at 0 reddens the saved-output
+  test, on `BothRuns`, where only `MemberRunsTests` had caught it. A variable run given its line's first declarator
+  reddens all three corpus tests, the evidence test on `ConstMulti`'s `C2`, where it had passed. The server's
+  header taken to the file's last `Attribute` line reddens the corpus header check, on `Acc2/GetSetB.cls`, where
+  only inline fixtures had caught it. The whole folder renamed reddens the parity check, which had passed 7/7.
 - [ ] 4.7 Tests, one per scenario in this phase's delta, plus a deletion case for a described procedure.
 - [ ] 4.8 Verify in the running IDE, through the automation tools: a procedure's attributes folded into its
   declaration line, refusing an edit, and surviving a format.

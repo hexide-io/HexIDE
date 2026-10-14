@@ -119,7 +119,11 @@ public sealed class CodeWindowHoldsTheFileTests : IDisposable
     /// <summary>A copy of a repository project in a directory of its own, so a save never writes into the repository.</summary>
     private string Stage(string projectDirectory)
     {
+        // Named after the project's folder, and numbered where two share a name: each of the member-attribute
+        // evidence's four projects keeps VB6's output in a folder called saved.
         var target = Path.Join(dir, Path.GetFileName(projectDirectory));
+        for (var n = 2; Directory.Exists(target); n++)
+            target = Path.Join(dir, Path.GetFileName(projectDirectory) + n);
         Directory.CreateDirectory(target);
         foreach (var file in Directory.EnumerateFiles(projectDirectory))
         {
@@ -133,18 +137,27 @@ public sealed class CodeWindowHoldsTheFileTests : IDisposable
 
     /// <summary>
     /// Every project the repository carries VB6 source for: the demos, the designer corpus, and the projects VB6's own
-    /// IDE wrote members' attribute lines into (#273 task 4.6), whose evidence half is hand-written shapes VB6 rewrote
-    /// and is left out.
+    /// IDE wrote members' attribute lines into (#273 task 4.6).
     /// </summary>
     private static IEnumerable<string> RepositoryProjects()
     {
-        var roots = new[] { FindUpwards("demo"), FindUpwards(Path.Join("corpus", "designer")), MemberAttributeCorpus() }
-            .OfType<string>().ToList();
-        roots.Should().HaveCount(3, "the repository's own VB6 projects are the corpus here, and must be found");
-        return ProjectsUnder(roots);
+        var roots = new[] { FindUpwards("demo"), FindUpwards(Path.Join("corpus", "designer")) }.OfType<string>().ToList();
+        roots.Should().HaveCount(2, "the repository's own VB6 projects are the corpus here, and must be found");
+        return ProjectsUnder(roots.Concat(MemberAttributeCorpus()));
     }
 
-    private static string? MemberAttributeCorpus() => FindUpwards(Path.Join("corpus", "member-attributes", "round-trip"));
+    /// <summary>
+    /// Where VB6's IDE wrote members' attribute lines: <c>corpus/member-attributes</c>' round-trip half, and the
+    /// project VB6 saved for each of its evidence half's hand-written ones, which are VB6's bytes as much as the
+    /// round-trip half's. Not those inputs, which are not.
+    /// </summary>
+    private static IEnumerable<string> MemberAttributeCorpus()
+    {
+        var root = FindUpwards(Path.Join("corpus", "member-attributes"));
+        root.Should().NotBeNull("the corpus is the proof -- without it this passes vacuously");
+        return Directory.EnumerateDirectories(Path.Join(root!, "evidence"), "saved*", SearchOption.AllDirectories)
+            .Prepend(Path.Join(root!, "round-trip")).ToList();
+    }
 
     private static IEnumerable<string> ProjectsUnder(IEnumerable<string> roots) =>
         roots.SelectMany(root => Directory.EnumerateFiles(root, "*.vbp", SearchOption.AllDirectories))
@@ -306,17 +319,16 @@ public sealed class CodeWindowHoldsTheFileTests : IDisposable
     [AvaloniaFact]
     public async Task EveryFileVb6WroteMembersAttributesIntoSavesUnchangedAsTheBytesItWasReadFrom()
     {
-        // #273 task 4.6. The files VB6's IDE wrote through Tools > Procedure Attributes, every kind it writes them
-        // into, opened in a code window and saved through the project service with nothing changed. A member's run
-        // is in the code, not the header, so it reaches the file only through the window's flush and the model's
-        // code: a run the buffer, the split or the render dropped, moved or re-spelled would differ here, and no
-        // other test saves one VB6 wrote. Each file is written, not skipped as clean: the save writes
-        // unconditionally, and the timestamp, put back a day first, has to move.
-        var root = MemberAttributeCorpus();
-        root.Should().NotBeNull("the corpus is the proof -- without it this passes vacuously");
+        // #273 task 4.6. The files VB6's IDE wrote members' runs into, through Tools > Procedure Attributes or by its
+        // save of a hand-written project it loaded, every kind it writes them into, opened in a code window and saved
+        // through the project service with nothing changed. A member's run is in the code, not the header, so it
+        // reaches the file only through the window's flush and the model's code: a run the buffer, the split or the
+        // render dropped, moved or re-spelled would differ here, and no other test saves one VB6 wrote. Each file is
+        // written, not skipped as clean: the save writes unconditionally, and the timestamp, put back a day first,
+        // has to move.
         var saved = new List<string>();
 
-        foreach (var project in ProjectsUnder([root!]))
+        foreach (var project in ProjectsUnder(MemberAttributeCorpus()))
         {
             loaded.Clear();
             var service = MakeService();
@@ -347,6 +359,11 @@ public sealed class CodeWindowHoldsTheFileTests : IDisposable
 
         saved.Should().Contain(["Main.frm", "Gauge.ctl", "Panel.ctl", "Helpers.bas", "Ledger.cls", "TarD.cls", "SetGet6.cls"],
             "a form, both UserControls, a standard module and classes, a Let-first and a Set-first run among them");
-        saved.Should().HaveCount(43, "every module, class, form and UserControl of the six projects");
+        saved.Should().Contain(["BothRuns.cls", "DeclShapes.cls", "ConstMulti.bas", "VarModPriv.bas", "BareWithEvents.cls"],
+            "and what only VB6's saves of the evidence carry: a run under each of a property's accessors, runs under a "
+            + "Declare, a Friend and a Static Function, constants' runs, a module's private variable's, and the help id "
+            + "VB6 gave a bare WithEvents");
+        saved.Should().HaveCount(79, "every module, class, form and UserControl of the six round-trip projects (43) and "
+            + "of the four the evidence's saved output makes up (36)");
     }
 }

@@ -1235,17 +1235,28 @@ The first session's "under the Get, even when the Let comes first" rested on one
 ID `(Default)` in the same visit, which the second session reproduced and which is the only case seen to choose the
 Get. The fixtures live under `corpus/member-attributes/` with a project of their own, and every lane that
 walks the repository's corpora walks it. The hand-written load shapes and VB6's saved output for each are kept beside
-them as the evidence for the orphan rules above, not as round-trip fixtures, since VB6 rewrote them.
+them as the evidence for the orphan rules above, not as round-trip fixtures, since VB6 rewrote them. (That reason
+is the inputs'; what VB6 saved of them is VB6's bytes, and is walked with the fixtures: settled while building 4.6.)
 
 *Settled while building 4.6.*
-- *The lanes walk the round-trip half, and the evidence is read by two tests only.* The paragraph above asks for
-  both, so the fixtures are `corpus/member-attributes/round-trip` and the evidence `corpus/member-attributes/evidence`,
-  and every lane walking `corpus/designer` walks the first: the form, module and project round trips, both
-  whole-file grammars, the server's header check, each designer file's composition, the content read and
-  write-back, and the code window's open and its unchanged save. The evidence is read by the server-parity check,
-  which compares the two copies of the rule and is no round trip, and by a test that reads each input against its
-  saved twin (below). Not extended, because none of them reads the repository's VB6 files: the conformance lanes
-  (JSON snippets), and the lanes over a VB6 install's Template tree or `vb6.exe` itself.
+- *The lanes walk everything VB6 wrote: the round-trip half, and the evidence's saved output.* The paragraph above
+  asks for both halves, so the fixtures are `corpus/member-attributes/round-trip` and the evidence
+  `corpus/member-attributes/evidence`, and every lane walking `corpus/designer` walks the first and each
+  `evidence/*/saved*` folder: the form, module and project round trips, both whole-file grammars, the server's
+  header check, the content read and write-back, and the code window's open and its unchanged save. Each designer
+  file's composition walks the round-trip half's three, the evidence holding none. "Not as round-trip fixtures,
+  since VB6 rewrote them" is true of the hand-written inputs and not of what VB6 wrote back, which is VB6's bytes by
+  the same test that admits the round-trip half, and which carries shapes that half does not: runs under a
+  `Declare`, a `Friend Function`, a `Static Function`, a `Private Sub` and a declaration with a trailing comment,
+  constants' runs, private variables' in a module and a class, a run under each of a property's accessors, the help
+  id VB6 gave a bare `WithEvents`, and a header holding the dotless `VB_Description` VB6 moved into it. The first
+  build walked the round-trip half alone; review found it, and the saved output passed every lane as it stood (the
+  code window's unchanged save went from 43 documents to 79, every one byte for byte). The inputs are read by two
+  tests, neither a round trip: the server-parity check, which compares the two copies of the rule and so reads the
+  whole folder, and the test that reads each input against its saved twin (below). Every lane that reads the folder
+  fails when it is missing, rather than passing on what else it walks. Not extended, because none of them reads the
+  repository's VB6 files: the conformance lanes (JSON snippets), and the lanes over a VB6 install's Template tree or
+  `vb6.exe` itself.
 - *"A project of their own" is six, each as VB6 left it.* Merging them would need a project file written here, not
   by VB6. Besides the dialog's output the corpus carries what VB6 saved after the second session's edits (a
   variable renamed or retyped, a procedure's kind changed, comma lists edited, pasted text reloaded), since a save
@@ -1254,15 +1265,25 @@ them as the evidence for the orphan rules above, not as round-trip fixtures, sin
 - *VB6's own files decide the reader without reading it.* VB6 writes each run directly under its member, qualified
   with the declared name, and never an orphan, so each run's member is known from the file. Measured: all 58 runs
   of the round-trip half and the 32 of the evidence's saved output describe the declaration above them, none is an
-  orphan or a rename's leftover, and every qualifier offset lands on the name. What these files cannot check is any
-  rule about a qualifier that names something else, which VB6 never writes; that stays with the inline rows.
+  orphan or a rename's leftover, and every qualifier offset lands on the name. Their keys are known from the file
+  too, which the first build left unchecked: the first line's qualifier is the member, the second declarator where
+  VB6 wrote the run for that one, and counting equal qualifiers from the top gives the ordinal, which is 1 in one
+  place only, the second of the two runs of each of MoreShapes' `BothRuns` classes. What these files cannot check is
+  any rule about a qualifier that names something else, which VB6 never writes. The evidence's inputs check the
+  procedure half of it: VB6 kept the runs of `NamesNothing`, `NamesOther` and `LowerCase`, whose qualifiers are not
+  their procedure's name as declared, so a reader that asks for that name is refuted there. A rename's leftover
+  stays with the inline rows.
 - *The evidence is executable, and it found one divergence the section did not record.* A hand-written run
   describes a member here exactly when VB6's save kept a line of it under the same line, compared from the two
   texts alone, across all 43 runs of the four projects, except the `Public Const` in a class already recorded above
   (two files). Not recorded until now: a run giving one attribute twice (`DoubleDesc`, two `VB_Description` lines)
   describes the member whole and protects both lines, where VB6's save keeps the first and drops the second (IDE
-  probe B, p05g). HexIDE keeps text VB6 would discard, the same direction as its orphans, and VB6 reads the file
-  the same way at its next load, the first winning.
+  probe B, p05g). HexIDE keeps text VB6 would discard, as it keeps an orphan, and VB6 reads the file the same way
+  at its next load, the first winning. It is not an orphan's case, though, as review found: the reason for keeping
+  an orphan is that it stays visible and editable, and this second line is inside a run that describes a member,
+  so it is protected and folded with the run. It cannot be seen or removed by hand until the Procedure Attributes
+  dialog exists (#62), and the save keeps it for good. Whether 4.4's save should drop it, as VB6's does, is under
+  "Open questions".
 - *"Every option the dialog offers" is every option it left enabled.* *Don't show in Property Browser*
   (`FUNCFLAG_FNONBROWSABLE`, 0x400) was greyed once Hide was ticked (IDE probe E), so no file carries it.
 
@@ -1310,6 +1331,17 @@ Three consequences for this change, none of which move task 2.1:
   AvaloniaEdit throws when a provider returns a segment outside the span it was asked about (3.7). An
   orphaned run, however it arises, is inert text the next save preserves. Neither VB6's behaviour here nor
   the paste side is measured.
+- **A run that gives one attribute twice, for 4.4 to decide** (found reviewing 4.6). `DoubleDesc`'s shape, two
+  `VB_Description` lines under one procedure: HexIDE describes the member and protects and folds both, VB6's save
+  keeps the first and drops the second (p05g, IDE probe B), and VB6 never writes one itself. The options:
+  (a) keep both, as now: nothing VB6 reads is lost, since its next load takes the first, but the dead line is kept
+  hidden and locked for good; (b) have 4.4's save drop every repeat of an attribute name after its first within a
+  run, an owner write in the same step as the re-qualification, which is what VB6's save does, at the cost of
+  removing text the developer never saw; (c) have a repeat end the run, so the second line and any after it are an
+  orphan, visible and editable, which is the orphan rule's own reasoning, but splits a run VB6's compiler reads as
+  the one member's, the first line standing (p05g). The section's reasoning does not settle it: "HexIDE does not
+  rewrite text the developer cannot see" argues for (a), while 4.4's re-qualification already rewrites protected
+  text wherever VB6's save does.
 - **Line endings — measured while building 3.1, and the diagnosis here was incomplete.** This said the
   header is written CRLF while *typed* lines are LF. The larger mechanism was that
   `VbFrmFormatDeserializer` rebuilt the code body line by line with `StringBuilder.AppendLine`, which

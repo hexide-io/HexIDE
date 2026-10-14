@@ -5909,7 +5909,10 @@ Clearing a value removes its line, and a member left with none has no run: `Tota
   together on a property with no run yet put the run under the Get, twice: A's `Tariff` and V6's `TarDD`, both Let
   then Get. `TarD`, the same shape cleared the same way and described without `(Default)`, went under the Let.
   `(Default)` added later to a run already under a Let left the run there (`TarVD`), and so did a dialog edit to a
-  loaded run under a Let (B's `LetFirst`). A Let-only property's run is under the Let (E's `WriteOnly`).
+  loaded run under a Let (B's `LetFirst`), and so did an edit elsewhere in the class and a save: `Private mExtra As
+  Long` typed into `TarV`'s declarations, after its description had gone under the Let, and the project saved
+  (V6, the step between `TarVD`'s `(Default)` and the clearing of `TarDD`). A Let-only property's run is under the
+  Let (E's `WriteOnly`).
 
 `TarDD` and `TarD`, as VB6 saved them:
 
@@ -6298,13 +6301,18 @@ the revised rules on 2026-10-14: a procedure run's qualifiers are not consulted,
 read, a constant takes a `VB_Var` run, and a one-name line takes the run a rename by retyping leaves when the name
 it carries is declared nowhere in the module. The save's re-qualification of a procedure's run and a one-name
 variable's, as VB6 does, is settled in `design.md` and is task 4.4. The files VB6 wrote are the corpus of task
-4.6, `corpus/member-attributes/round-trip`, which every corpus lane walks, and the hand-written load shapes with
-VB6's saved output for each are beside them in `evidence/`, read against each other by a test. Where HexIDE departs from VB6
+4.6, `corpus/member-attributes/round-trip` and the saved output in `evidence/`, which every corpus lane walks; the
+hand-written load shapes VB6 was given are beside that output, and a test reads each against it. Where HexIDE departs from VB6
 it does so on purpose: an orphan stays visible and editable, where VB6 hides it and drops or moves it at its next
 save; Undo restores a run and a cut carries one, where VB6 loses the description to both; a comma list keeps every
 declarator's run that still names a declarator on the line, where VB6 keeps only the first's; and an `Attribute`
 line pasted directly under a declaration is read as a run at once, which is what VB6's next load makes of the same
 bytes. A run mixing the two kinds is left as ordinary text, where VB6 gives each of its lines to its own member
-(p09n): the text stands, so VB6 binds it the same way at its next load. Two go the other way, keeping less than VB6 keeps or protecting what VB6 drops: a comma list's renamed first
-declarator leaves its run naming the old name, an orphan, where VB6 carries it and re-qualifies it; and a run under
-a `Public Const` in a class, form or UserControl is read as describing and protected, where VB6 drops it (V5).
+(p09n): the text stands, so VB6 binds it the same way at its next load. Three go the other way, keeping less than VB6 keeps or protecting what VB6 drops: a comma list's renamed first
+declarator leaves its run naming the old name, an orphan, where VB6 carries it and re-qualifies it; a run under
+a `Public Const` in a class, form or UserControl is read as describing and protected, where VB6 drops it (V5); and
+a run giving one attribute twice describes its member whole, where VB6's save keeps the first line and drops the
+second (p05g, B's `DoubleDesc`). Unlike an orphan, that second line is protected and folded with the run, so it
+cannot be seen or removed by hand until the Procedure Attributes dialog exists (#62), and a save keeps it; VB6
+reads the first at its next load either way. Whether HexIDE's save should drop it, as VB6's does, is an open
+question in `design.md`.
