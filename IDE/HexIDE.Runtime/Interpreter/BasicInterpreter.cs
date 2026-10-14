@@ -47,6 +47,28 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     public Debugging.IDebugController? DebugController { get; set; }
 
     /// <summary>
+    /// The run's event pump, when the program runs in a window: what keeps its handlers one at a time (#766). Null for code
+    /// run with no window, as a module test's is, where nothing can interleave.
+    /// </summary>
+    public EventPump? Events { get; set; }
+
+    /// <summary>
+    /// A built-in call. With a pump, a built-in that waits (MsgBox, InputBox) is a suspension the pump is told of, and
+    /// <c>DoEvents</c> runs what is waiting, as VB6's does (#766). Without one, DoEvents does nothing, as before.
+    /// </summary>
+    internal async Task<Vb6Value?> CallBuiltIn(string name, List<Vb6Value> args)
+    {
+        if (Events is not { } events)
+            return await BuiltIns.EvaluateBuiltInFunction(name, args);
+        if (args.Count == 0 && string.Equals(name, "DoEvents", StringComparison.OrdinalIgnoreCase))
+        {
+            await events.DoEvents();
+            return new Vb6Value(0);
+        }
+        return await events.WhileSuspended(BuiltIns.EvaluateBuiltInFunction(name, args));
+    }
+
+    /// <summary>
     /// Set by <c>End</c>, and never cleared: the program is over. Every walk of this interpreter stops at its next
     /// statement, a procedure started later (a Timer tick or a click already queued) runs none of its own, and no
     /// <c>Class_Terminate</c> runs (#775).
@@ -132,6 +154,18 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     /// </summary>
     public string ProjectName { get; set; } = "Project1";
 
+    /// <summary>
+    /// The names of the project's forms, which a declaration may name as a type (<c>Private mOwner As Form2</c>) though
+    /// only the running form is a module here. Set by the host that knows the project; empty otherwise.
+    /// </summary>
+    public IReadOnlySet<string> ProjectFormNames { get; set; } = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Whether the project references a type library beyond the in-box four, whose types the interpreter can't read:
+    /// an unqualified type name nothing here declares may then be that library's. Set by the host; false otherwise.
+    /// </summary>
+    public bool ReferencesOtherLibraries { get; set; }
+
     public VbUdt NewUdt(string typeName) => NewUdt(typeName, 0);
 
     /// <summary>Instantiate a UDT resolved from a specific module's point of view — so `Module2.Point`
@@ -156,8 +190,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (depth > 64)
             throw new VBCompileErrorException("Recursive Type definition: " + typeName);
         var fields = new Dictionary<string, Vb6Value>(StringComparer.OrdinalIgnoreCase);
+        var typedFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var variantFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var f in def.Fields)
         {
+            // An Enum field is a typed Long, as an Enum variable is (measured, #1005).
+            if (f.ScalarType is { } declared && VbNumeric.IsDeclarableScalar(declared)
+                || f.UdtTypeName is { } enumName && !Types.ContainsKey(enumName) && Enums.ContainsKey(enumName))
+                typedFields.Add(f.Name);
+            else if (f.UdtTypeName is null && (f.ScalarType is null || f.ScalarType == Vb6Value.ValueType.EmptyVariant))
+                variantFields.Add(f.Name);
             if (f.ScalarType is { } scalar)
                 fields[f.Name] = new Vb6Value(scalar);
             else if (f.UdtTypeName is { } nested)
@@ -167,14 +209,39 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             else
                 fields[f.Name] = Vb6Value.Variant;
         }
-        return new VbUdt(typeName, fields);
+        return new VbUdt(typeName, fields, typedFields, variantFields);
     }
 
-    /// <summary>Deep-copy a UDT value (VB6 value semantics); pass everything else through unchanged. Applied at
-    /// the value-assignment boundaries: <c>Let</c>, <c>ByVal</c> param, whole-UDT field write, function return.
-    /// A <c>VbObject</c> is deliberately NOT copied — objects are reference types, so <c>Set b = a</c> shares.</summary>
-    public static Vb6Value CopyIfValueType(Vb6Value v)
-        => v.Value is VbUdt udt ? Vb6Value.NewUdt(udt.DeepClone()) : v;
+    /// <summary>
+    /// The value a store keeps, copied as VB6 copies it: a UDT deeply, an array level by level
+    /// (<see cref="VBArray.CopyForLet"/>), everything else as it is. Applied wherever VB6 copies: a Let into a variable, a
+    /// field or an element, a ByVal argument and a For Each variable, and so a Function's return. A <c>VbObject</c> is
+    /// never copied: objects are references, so <c>Set b = a</c> shares, and a copied array shares its objects with the
+    /// original (measured, #970: <c>b(0) Is a(0)</c>). Each is held once more, so the copy AddRefs it, and every array then
+    /// has exactly one holder, which is what lets <see cref="ReleaseRef"/> descend into one. A ByRef argument never comes
+    /// here: it shares the caller's slot.
+    /// </summary>
+    public Vb6Value CopyForStore(Vb6Value v) => CopyForStore(v, 0);
+
+    private Vb6Value CopyForStore(Vb6Value v, int depth) => v.Value switch
+    {
+        VbUdt udt => Vb6Value.NewUdt(udt.DeepClone()),
+        VBArray array => v.WithArray(array.CopyForLet(element => CopyElement(element, depth + 1))),
+        _ => v,
+    };
+
+    // Arrays nested in arrays are copied recursively. A store into an element copies too, so no array can come to hold
+    // itself; the bound refuses where the alternative would be a stack overflow taking the host down.
+    private const int MaxArrayNesting = 1000;
+
+    private Vb6Value CopyElement(Vb6Value element, int depth)
+    {
+        if (depth > MaxArrayNesting)
+            throw new NotImplementedException(
+                $"An array nested more than {MaxArrayNesting} deep is not copied: HexIDE refuses rather than overflow its stack (#970).");
+        AddRef(element);
+        return CopyForStore(element, depth);
+    }
 
     /// <summary>Instantiate a class (<c>New ClassName</c>): build this instance's OWN field env by cloning the
     /// class template env (so the shared <c>Debug</c>/<c>Err</c>/global slots carry over) then re-running the
@@ -202,16 +269,32 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             await new StatementExecutor(this, instanceEnv, classDef).Execute(block);
         var instance = new VbObject(classDef, instanceEnv);
         if (classDef.PrePass.Procedures.TryGetValue("Class_Initialize", out var init))
-            await RunProcedure(classDef, init, [], instanceEnv, Vb6Value.NewObject(instance));
+        {
+            // The object under construction is held while Class_Initialize runs, as the New expression holds it in
+            // VB6. Without the hold it stood at 0, so a call from Class_Initialize to one of the object's own
+            // methods, which counts Me, took it to 1 and back to 0 on return and fired Class_Terminate before
+            // construction had finished (measured: VB6 runs Initialize, then both siblings, then nothing until the
+            // last reference goes). The hold is dropped without the zero check, so the object is handed back at
+            // whatever Initialize left it: 0 for the caller's Set to count, or more if Initialize stored Me.
+            instance.RefCount++;
+            try
+            {
+                await RunProcedure(classDef, init, [], instanceEnv, Vb6Value.NewObject(instance));
+            }
+            finally
+            {
+                instance.RefCount--;
+            }
+        }
         return instance;
     }
 
     // ---- Class_Terminate reference counting (interpreter-advanced Phase 4.2) ----
     // Real slot-based refcounting: named-storage + transient holders are counted on the VbObject; Terminate fires
     // at zero. Runtime execution machinery (in-bounds), not a scan of ExecutionState (unsound under E2). A `New`
-    // object starts at 0 and is AddRef'd by whatever first stores it (Set / ByVal param); there is no construction
-    // guard because Class_Initialize's Me is NOT counted (a lifecycle hook — see RunProcedure), so the hook can't
-    // terminate the half-built instance.
+    // object is handed back at 0 and is AddRef'd by whatever first stores it (Set / ByVal param). While it is being
+    // built, NewObject holds it, so a method Class_Initialize calls on it cannot take it to 0. Class_Initialize's
+    // own Me is not counted either (a lifecycle hook — see RunProcedure).
 
     /// <summary>Increment the reference count if <paramref name="v"/> is a live class instance (no-op for
     /// Nothing / controls / proxies / value types). Callers do AddRef(new) BEFORE Release(old) at every store, so
@@ -223,7 +306,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     }
 
     /// <summary>Decrement the reference count of a live class instance; fire <c>Class_Terminate</c> the instant it
-    /// reaches zero. Async because the hook runs user code.</summary>
+    /// reaches zero. Async because the hook runs user code. An array releases each object it holds, nested arrays
+    /// included: an array has one holder (<see cref="CopyForStore"/>), so releasing the holder releases its contents. That
+    /// is what terminates a local object array's objects at <c>End Sub</c>, as VB6 does (measured, #970).</summary>
     public async Task ReleaseRef(Vb6Value v)
     {
         if (v.Value is VbObject o && !o.Terminated)
@@ -231,6 +316,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             o.RefCount--;
             if (o.RefCount <= 0)
                 await FireTerminate(o);
+        }
+        else if (v.Value is VBArray array)
+        {
+            foreach (var element in array.EnumerateElements())
+                await ReleaseRef(element);
         }
     }
 
@@ -246,7 +336,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         if (o.Terminated || Ending || DebugController?.IsAborting == true)
             return;
         o.Terminated = true;
-        if (o.ClassDef.PrePass.Procedures.TryGetValue("Class_Terminate", out var term))
+        // A form's hook is its own Form_Terminate, raised once it has unloaded and is released (#973).
+        var hook = o.ClassDef.Kind == InterpreterModuleKind.Form ? "Form_Terminate" : "Class_Terminate";
+        if (o.ClassDef.PrePass.Procedures.TryGetValue(hook, out var term))
             await RunProcedure(o.ClassDef, term, [], o.InstanceEnv, Vb6Value.NewObject(o));
         // Auto-unadvise (Phase 5): a terminating listener drops its `WithEvents` connections from their sources
         // (VB6 releases the connection point on Terminate), so no source retains a sink into a dead instance —
@@ -293,10 +385,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     // Adopt a call's object return into the CALLER's current statement frame — a transfer, no AddRef. Called by
     // RunProcedure with the caller's own frame stack (threaded from the calling executor), so it targets the
     // caller's activation, never a re-entrant one. No-op if the caller has no active frame (return then leaks —
-    // the safe direction).
+    // the safe direction). An array return is adopted too: the return name holds its own copy (#970), so the objects in
+    // it are released at the caller's statement end, after whatever stored the result has copied it.
     private static void AdoptReturn(Vb6Value? ret, Stack<List<Vb6Value>>? callerFrames)
     {
-        if (ret is { Value: VbObject } r && callerFrames is { Count: > 0 })
+        if (ret is { Value: VbObject or VBArray } r && callerFrames is { Count: > 0 })
             callerFrames.Peek().Add(r);
     }
 
@@ -320,7 +413,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         string code,
         string primaryName = "Module1",
         IReadOnlyList<(string Name, string Code)>? additionalModules = null,
-        IReadOnlyList<(string Name, string Code)>? classModules = null)
+        IReadOnlyList<(string Name, string Code)>? classModules = null,
+        InterpreterModuleKind primaryKind = InterpreterModuleKind.Standard)
     {
         ExecutionContext = executionContext;
         BuiltIns = new VB6BuiltIns(stdLib)
@@ -339,7 +433,9 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         // Build the primary (startup) module over the caller-provided rootEnv, then any additional modules —
         // each with its own env, ALL sharing one ExecutionState so slots are program-global (this is why ByRef
         // aliasing across modules works, and why cross-form sharing needs a project-scope hoist — see E1).
-        primaryModule = BuildModule(primaryName, InterpreterModuleKind.Standard, code, rootEnv);
+        // A form's run has the form as its primary module, of kind Form: a template whose running form is an instance of
+        // it (#822). Its env is the template's, which every instance is cloned from.
+        primaryModule = BuildModule(primaryName, primaryKind, code, rootEnv);
         prepass = primaryModule.PrePass;
         Modules.Add(primaryModule);
 
@@ -384,6 +480,11 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         SeedProgramGlobal("Debug", () => new Vb6Value(new DebugProxy(stdLib)));
         SeedProgramGlobal("Err", () => new Vb6Value(Err));
         SeedProgramGlobal("App", () => new Vb6Value(App));
+
+        // Each module sees the other standard modules' Public variables and Consts unqualified, behind its own names
+        // (#880). Set after every module's pre-pass, which is what lists them.
+        foreach (var m in Modules.All)
+            m.ModuleEnv.ProjectNames = ProjectNames.For(m, Modules.All);
     }
 
     /// <summary>The program-global <c>App</c> object, describing the project this program came from.</summary>
@@ -504,6 +605,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
 
     public async Task Execute()
     {
+        declarationsRun = true;
         // Initialise every NON-primary module's module-level declarations first (fills Public Const/Dim values
         // in that module's own env) so a cross-module read sees a value, not Empty. Modules can't have executable
         // top-level statements in real VB6, so this is declaration hoisting; the primary (test/startup) body runs
@@ -514,12 +616,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         {
             foreach (var m in Modules.All)
                 if (!ReferenceEquals(m, primaryModule) && m.Kind == InterpreterModuleKind.Standard)
+                {
                     foreach (var block in m.PrePass.topLevelBlocks)
                         await new StatementExecutor(this, m.ModuleEnv, m).Execute(block);
+                    m.DeclarationsRun = true;
+                }
 
             var statementExecutor = new StatementExecutor(this, rootEnv, primaryModule);
             foreach (var block in primaryModule.PrePass.topLevelBlocks)
                 await statementExecutor.Execute(block);
+            primaryModule.DeclarationsRun = true;
         }
         catch (Debugging.StopExecutionSignal)
         {
@@ -575,16 +681,129 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             // These are declarations, not statements: VB6 refuses an executable statement outside a
             // procedure ("Invalid outside procedure", measured), so nothing here can have an effect
             // beyond seeding values.
-            foreach (var m in Modules.All)
-                if (m.Kind == InterpreterModuleKind.Standard)
-                    foreach (var block in m.PrePass.topLevelBlocks)
-                        await new StatementExecutor(this, m.ModuleEnv, m).Execute(block);
+            await RunModuleDeclarations();
 
             await RunProcedure(startup.Module, startup.Proc, Array.Empty<CallArg>());
         }
         catch (Debugging.StopExecutionSignal)
         {
             // A debugger reset (Stop) unwound the walk cleanly — swallowed exactly as Execute() does.
+        }
+    }
+
+    // Set once the modules' declarations have run, by Execute, RunStartupSubMain or RunModuleDeclarations.
+    private bool declarationsRun;
+
+    /// <summary>
+    /// Run every standard module's module-level declarations, once, in list order: the primary's too when it is a
+    /// standard module. Sub Main's run does this before Main, and a form's run before the form is created (#256): a
+    /// module's Consts are then filled and its arrays sized, so a form reads a module's Public Const as VB6 does, not as
+    /// Empty. A form module's declarations are its instance's, and run when the instance is made
+    /// (<see cref="RunFormDeclarations"/>); a class's run per instance at New.
+    /// </summary>
+    public async Task RunModuleDeclarations()
+    {
+        if (declarationsRun)
+            return;
+        declarationsRun = true;
+        RunningDeclarations = true;
+        try
+        {
+            foreach (var m in Modules.All)
+                if (m.Kind == InterpreterModuleKind.Standard)
+                {
+                    foreach (var block in m.PrePass.topLevelBlocks)
+                        await new StatementExecutor(this, m.ModuleEnv, m).Execute(block);
+                    m.DeclarationsRun = true;
+                }
+        }
+        finally
+        {
+            RunningDeclarations = false;
+        }
+    }
+
+    /// <summary>
+    /// True while the modules' or a form's declarations run (#1010 review). The debugger's gate is skipped then: VB6 never
+    /// stops on a declaration, so F8 from design mode breaks on the first statement of the event that follows, and a
+    /// breakpoint can't be hit there either. A class's field initialisers, run at New, still pass the gate (D13).
+    /// </summary>
+    internal bool RunningDeclarations { get; private set; }
+
+    /// <summary>
+    /// Make the running instance of a form module (#822): its own env, cloned from the module's template env as a
+    /// class's is at New, and the program-wide name the form is reached by, so <c>Form1.Caption</c> works from any
+    /// module (measured). The program holds the instance through that name, so it is not terminated by the Me holds its
+    /// own events take. Its declarations run separately (<see cref="RunFormDeclarations"/>), because the window's controls
+    /// go into the instance env first.
+    /// </summary>
+    /// <remarks>
+    /// In VB6 a form's name is a predeclared variable that creates its instance on first use, and a new one after
+    /// <c>Set Form1 = Nothing</c> (measured, #822). Here the name is bound to the one instance the run starts with; that
+    /// rule belongs to the slices that add Load, Show and a second form.
+    /// </remarks>
+    public VbObject NewFormInstance(ModuleInfo form)
+    {
+        if (form.Kind != InterpreterModuleKind.Form)
+            throw new ArgumentException($"{form.Name} is not a form module", nameof(form));
+        var instance = new VbObject(form, form.ModuleEnv.Clone());
+        var reference = Vb6Value.NewObject(instance);
+        SeedProgramGlobal(form.Name, () => reference);
+        if (form.ModuleEnv.TryGetVariableLocation(form.Name, out var slot))
+            instance.InstanceEnv.DefineVariable(form.Name, slot);
+        AddRef(reference);
+        return instance;
+    }
+
+    /// <summary>
+    /// Run a form instance's module-level declarations into its own env, as <see cref="NewObject"/> does for a class.
+    /// VB6 has them in place, sized and zeroed, before <c>Form_Initialize</c> (measured, #822: an array bounded by the
+    /// form's own Const is <c>1 To 5</c> there).
+    /// </summary>
+    public async Task RunFormDeclarations(VbObject instance)
+    {
+        RunningDeclarations = true;
+        try
+        {
+            foreach (var block in instance.ClassDef.PrePass.topLevelBlocks)
+                await new StatementExecutor(this, instance.InstanceEnv, instance.ClassDef).Execute(block);
+            instance.ClassDef.DeclarationsRun = true;
+        }
+        finally
+        {
+            RunningDeclarations = false;
+        }
+    }
+
+    /// <summary>
+    /// Raise one of a form's events on its instance: run the form module's own procedure of that name with <c>Me</c>
+    /// bound to the instance, as a class's method runs (#822). A form with no handler for the event does nothing. Only
+    /// the form's own procedures are looked at: an event is the form's, never another module's Sub of the same name.
+    /// </summary>
+    public async Task RaiseFormEvent(VbObject instance, string name, IReadOnlyList<Vb6Value>? args = null)
+    {
+        var callArgs = new List<CallArg>();
+        if (args != null)
+            foreach (var value in args)
+                callArgs.Add(new CallArg(value, null));
+        await RaiseFormEvent(instance, name, callArgs);
+    }
+
+    /// <summary>
+    /// Raise a form's event with arguments that may be passed by reference, as QueryUnload's and Unload's Cancel are: an
+    /// argument with a location is that slot, so what the handler stores there is read back (#973).
+    /// </summary>
+    public async Task RaiseFormEvent(VbObject instance, string name, IReadOnlyList<CallArg> callArgs)
+    {
+        if (!instance.ClassDef.PrePass.Procedures.TryGetValue(name, out var proc))
+            return;
+        try
+        {
+            await RunProcedure(instance.ClassDef, proc, callArgs, instance.InstanceEnv, Vb6Value.NewObject(instance));
+        }
+        catch (Debugging.StopExecutionSignal)
+        {
+            // A debugger reset (Stop) during this event handler — swallowed, as ExecuteSub does.
         }
     }
 
@@ -647,6 +866,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 callArgs.Add(new CallArg(value, null));
         try
         {
+            // Entered without Execute, as a test's event does, the modules' declarations have not run yet (#256).
+            await RunModuleDeclarations();
             await CallProcedure(name, callArgs, primaryModule, ignoreMissing);
         }
         catch (Debugging.StopExecutionSignal)
@@ -669,7 +890,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             // A bare call that resolves to a method OWNED by a class module (i.e. a sibling method called from
             // inside the same class — implicit Me) must run on the CURRENT instance, not a clone of the class
             // template. The instance is `Me` in the caller's env.
-            if (owner.Kind == InterpreterModuleKind.Class)
+            if (owner.Kind is InterpreterModuleKind.Class or InterpreterModuleKind.Form)
             {
                 if (callerEnv != null && ExecutionContext.TryGetVariable(callerEnv, "Me", out var me) && me.Value is VbObject self)
                     return await RunProcedure(owner, proc, args, self.InstanceEnv, me, callerFrames);
@@ -681,7 +902,7 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         var flat = new List<Vb6Value>(args.Count);
         foreach (var a in args)
             flat.Add(a.Value);
-        if (await BuiltIns.EvaluateBuiltInFunction(name, flat) is { } result)
+        if (await CallBuiltIn(name, flat) is { } result)
             return result;
         if (!ignoreMissing)
             throw new VBCompileErrorException("Sub or Function not defined (" + name + ')');
@@ -751,7 +972,8 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             if (proc.Body != null)
             {
                 // The callee runs with its OWN per-activation statement-frame stack (re-entrancy isolation).
-                var executor = new StatementExecutor(this, callee, owner, ownedSlots, new Stack<List<Vb6Value>>(), proc.Name);
+                var executor = new StatementExecutor(this, callee, owner, ownedSlots, new Stack<List<Vb6Value>>(), proc.Name,
+                    proc.CheckedArrayReturn);
                 // Debugger call stack + depth: push before running, remove THIS executor after (Remove, not
                 // RemoveAt(Count-1), so overlapping async re-entrancy pops the right frame). Reflects the physical
                 // call stack — matching VB6's Call Stack, which shows a re-entrant handler's frames above the
@@ -763,7 +985,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                 // its Dim line is legal and yields the declared type's zero — where previously the name
                 // resolved to a module-level procedure of the same name, and a watch on it saw a change the
                 // program never made. Inside the try, so a fault while allocating still unwinds normally.
-                try { await executor.HoistDeclaredLocals(proc); await executor.Execute(proc.Body); }
+                try
+                {
+                    await executor.HoistDeclaredLocals(proc);
+                    await executor.Execute(proc.Body);
+                    // A handler the last statement raised finishes inside the call, as it does in VB6, before the caller
+                    // goes on with what the call returned (#766).
+                    if (Events is { } events)
+                        await events.WaitForRaised();
+                }
                 finally { activationStack.Remove(executor); }
             }
             if (proc.IsFunction)
@@ -771,6 +1001,16 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     // Coerce the function's value to its declared return type (banker's round + range-check).
                     ? (proc.Body is { } body && VbNumeric.IsCoreNumeric(proc.ReturnType) ? VbNumeric.Narrow(rv, proc.ReturnType, body) : rv)
                     : SeedReturnValue(proc);
+            // A Function or Property Get declared as a scalar or an Enum returns a typed value, and an untyped, Variant or
+            // Object one a Variant's (measured: #987, `F() * 7000` with `F` As Integer returning 5 is 6, and `FV() * 7000`
+            // is 35000; #1005, `GetColor()` As an Enum is a typed Long, and `GetObj().P` As Object is late-bound). A class,
+            // UDT, array or Collection return is left as it is: a class's members are early-bound and typed already.
+            if (ret is { } returned)
+                ret = proc.ReturnUdtTypeName is null && VbNumeric.IsDeclarableScalar(proc.ReturnType) ? returned.AsFixedType()
+                    : proc.ReturnUdtTypeName is { } named && !named.Contains('.') && !Types.ContainsKey(named)
+                      && TryResolveEnum(named, owner, out _) ? returned.AsFixedType()
+                    : proc.ReturnsVariant ? returned.AsVariant()
+                    : returned;
             completed = true;
         }
         finally
@@ -780,8 +1020,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             // terminates locals (faithful stack teardown). The return object is deliberately NOT released here on
             // the NORMAL path — its hold transfers to the caller. But on an ERROR exit (the body threw, so no
             // caller adopts it), release the return-name slot too, or a `Set F = New T` before a fault leaks.
+            // A procedure's scalar locals, Variants and object references, are released before its arrays, each in
+            // declaration order (measured, #970: `Dim a(0) As Foo, o` terminates o's object first, and two arrays or
+            // two scalars go in the order they were declared).
             foreach (var slot in ownedSlots)
-                await ReleaseRef(ExecutionContext.State[slot]);
+                if (!ExecutionContext.State.IsDeclaredArray(slot))
+                    await ReleaseRef(ExecutionContext.State[slot]);
+            foreach (var slot in ownedSlots)
+                if (ExecutionContext.State.IsDeclaredArray(slot))
+                    await ReleaseRef(ExecutionContext.State[slot]);
             if (countMe && me is { } m2)
                 await ReleaseRef(m2);
             if (!completed && proc.IsFunction && ExecutionContext.TryGetVariable(callee, proc.Name, out var orphan))
@@ -965,6 +1212,12 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
         _ => false,
     };
 
+    // The declared type a parameter's own slot records, as a Dim's does, so that a store into it converts and a For over
+    // it is a typed counter (measured, #839: `Function P(ByVal i As Long)` counts as a Long). Only the numeric types,
+    // whose value is already converted on the way in; a String, Boolean or Date parameter is not converted yet (#874).
+    private static Vb6Value.ValueType? NumericSlotType(ParamInfo p) =>
+        p.DeclaredType is { } dt && VbNumeric.IsCoreNumeric(dt) ? dt : null;
+
     private async Task BindParameters(ProcedureInfo proc, IReadOnlyList<CallArg> args, ExecutionEnvironment callee, ModuleInfo owner, List<int> ownedSlots)
     {
         for (int i = 0; i < proc.Parameters.Count; i++)
@@ -972,6 +1225,15 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             var p = proc.Parameters[i];
             if (p.ParamArray)
                 throw new NotImplementedException("ParamArray parameters are not yet supported");
+            // An Enum parameter is a Long: converted into one, and typed (measured, #1005: `c * m` with `c As MyEnum`
+            // given 5 and `m As Long` 500000000 overflows, and `Select Case c` converts `Case 4.6` into 5). Resolved here,
+            // since the pre-pass that read the declaration had not yet seen every module's Enums.
+            if (p is { DeclaredType: null, IsArray: false, TypeName: { } typeName } && !typeName.Contains('.')
+                && TryResolveEnum(typeName, owner, out _))
+                p = p with { DeclaredType = Vb6Value.ValueType.Long };
+            callee.Parameters.Add(p.Name);
+            if (p.ReadsAsVariant)
+                callee.VariantParameters.Add(p.Name);
 
             // A blank slot at this position (`Foo 1, , 3`) occupies it only so the arguments after it bind
             // correctly. It is NOT a value: fall through to the Optional branch so the parameter takes its
@@ -979,24 +1241,37 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             if (i < args.Count && !args[i].Value.IsMissing)
             {
                 var arg = args[i];
+                // A `v As Variant` shares its argument as an untyped `v` does, whatever the argument holds (measured:
+                // #970 for an array, which is what lets a Variant sort routine sort its caller's array and a ReDim reach
+                // the caller's; #1001 for a scalar, so `v = 5` reaches a caller's Variant, and a caller's `Integer`, which
+                // the store converts into and which stays an Integer). It got a copy of a scalar, so the caller kept 1.
                 bool aliasable = p.ByRef && arg.Location is not null
-                    && (p.DeclaredType is null || p.DeclaredType == arg.Value.Type);
+                    && (p.DeclaredType is null || p.DeclaredType == Vb6Value.ValueType.EmptyVariant
+                        || p.DeclaredType == arg.Value.Type);
                 if (aliasable)
                     callee.DefineVariable(p.Name, arg.Location!.Value);            // ByRef: share the caller's slot
                                                                                    // (NOT counted — the caller's slot already holds the ref)
                 else
                 {
                     // ByVal / rvalue: copy, coerced to the parameter's declared type (banker's round + range-check).
-                    // A UDT arg is deep-copied so the callee's mutations don't touch the caller's value.
+                    // A UDT arg is deep-copied so the callee's mutations don't touch the caller's value. An object
+                    // passed to a declared scalar parameter stands for its default member (ObjectAsValue); a Variant
+                    // or object parameter takes the object itself (measured).
+                    var passed = p.DeclaredType is { } declared && VbNumeric.IsDeclarableScalar(declared)
+                        ? ObjectAsValue.Scalar(arg.Value, proc.Body as Antlr4.Runtime.ParserRuleContext)
+                        : arg.Value;
                     var stored = p.DeclaredType is { } dt && VbNumeric.IsCoreNumeric(dt) && proc.Body is { } body
-                        ? VbNumeric.Narrow(arg.Value, dt, body)
-                        : CopyIfValueType(arg.Value);
-                    ExecutionContext.AllocVariable(callee, p.Name, stored);
+                        ? VbNumeric.Narrow(passed, dt, body)
+                        : CopyForStore(passed);
+                    ExecutionContext.AllocVariable(callee, p.Name, stored, NumericSlotType(p));
+                    MarkParameterSlot(p, callee);
                     // A ByVal object param is a counted hold for the call's duration (so a `New T` passed straight
-                    // into a call terminates right after the call, per the oracle); release it at scope-exit.
-                    if (stored.Value is VbObject && callee.TryGetVariableLocation(p.Name, out var ploc))
+                    // into a call terminates right after the call, per the oracle); release it at scope-exit. A ByVal
+                    // array is the callee's own copy, whose objects the copy holds, so it is released there too.
+                    if (stored.Value is VbObject or VBArray && callee.TryGetVariableLocation(p.Name, out var ploc))
                     {
-                        AddRef(stored);
+                        if (stored.Value is VbObject)
+                            AddRef(stored);
                         ownedSlots.Add(ploc);
                     }
                 }
@@ -1014,13 +1289,30 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
                     ? await new ExpressionExecutor(this, callee, owner, new Stack<Vb6Value>()).EvaluateValue(p.Default.valueStmt())
                     : p.DeclaredType is { } declared ? new Vb6Value(declared)
                     : Vb6Value.Missing;
-                ExecutionContext.AllocVariable(callee, p.Name, value);
+                if (NumericSlotType(p) is { } numeric && proc.Body is { } optionalBody)
+                    value = VbNumeric.Narrow(value, numeric, optionalBody);
+                ExecutionContext.AllocVariable(callee, p.Name, value, NumericSlotType(p));
+                MarkParameterSlot(p, callee);
             }
             else
             {
                 throw new VBCompileErrorException($"Argument not optional: '{p.Name}' in '{proc.Name}'");
             }
         }
+    }
+
+    // A parameter's own slot says what it was declared as, for ReDim: `b()` an array, `v` or `v As Variant` a Variant.
+    // A ByRef parameter that shares its caller's slot keeps the caller's marks. That is right for fixedness (a fixed
+    // array is 10 through it, measured), but not for the inverted-range rule: an untyped `v` sharing a declared `Long()`
+    // takes the Variant rule (measured, #970), which ReDim reads from ExecutionEnvironment.VariantParameters.
+    private void MarkParameterSlot(ParamInfo p, ExecutionEnvironment callee)
+    {
+        if (!callee.TryGetVariableLocation(p.Name, out var location))
+            return;
+        if (p.IsArray)
+            ExecutionContext.State.MarkDeclaredArray(location);
+        else if (p.ReadsAsVariant)
+            ExecutionContext.State.MarkVariant(location);
     }
 
     public void SyntaxError(TextWriter output, IRecognizer recognizer, IToken offendingSymbol, int line, int charPositionInLine,

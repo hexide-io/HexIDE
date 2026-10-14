@@ -362,7 +362,7 @@ HexIDE exposes an embedded MCP server (opt-in via `--server-port <port>`). **The
 | `get_lsp_capture_state()` | What is being recorded: every known connection, whether its bodies are kept, and what it has discarded. Read-only — ask this rather than arming something to find out what is armed. |
 | `answer_next_file_dialog(path?)` | Pre-answers the next file dialog, so a Save As / Open / Export flow can be driven end to end. A native picker is outside the control tree and no other tool can reach it. Omit `path` to answer as cancelled. Single-shot: arm it immediately before the action.  |
 | `clear_file_dialog_answers()` | Discards armed answers, and reports how many there were — which is how you find out a step you thought opened a picker did not. |
-| `interact(target, action, value?)` | Drive a control. Provider actions: `invoke`/`select`/`double_click`/`set_value`/`set_range_value`/`toggle`/`expand`/`collapse`/`scroll`. Reflection actions (DataContext VM): `invoke_command`/`set_property`. `select` also reaches a **DataGrid row**, whose own peer offers no provider — clicking a row is how every master-detail window here is used. The generic substitute for per-interaction tools. |
+| `interact(target, action, value?)` | Drive a control. Provider actions: `invoke`/`select`/`double_click`/`set_value`/`set_range_value`/`toggle`/`expand`/`collapse`/`scroll`. Reflection actions (DataContext VM): `invoke_command`/`set_property`. Pointer action: `click`, which presses and releases a real pointer at a point on the target (`value` is an optional `x,y`, a button and any of shift/ctrl/alt, as in `10,5 right shift`). `click` is the only verb that presses: `invoke` goes through the automation peer and raises a Button's Click with no pointer events, so a running form's MouseDown and MouseUp need `click`. `select` also reaches a **DataGrid row**, whose own peer offers no provider — clicking a row is how every master-detail window here is used. The generic substitute for per-interaction tools. |
 
 **CLI flags** (both `--` and `/` prefixes accepted, aligning with VB6 convention):
 - `--help` — print usage and exit without starting the IDE; also `-h`, `/?`, `-?`
@@ -510,6 +510,11 @@ See [OUT_OF_SCOPE.md](docs/OUT_OF_SCOPE.md) for the full list of VB6 features th
 
 **Verify actual VB6 behaviour against the real compiler — never guess.** Any doubt about what VB6 *actually does* at runtime (a numeric result type, an overflow/error code, a rounding rule, a coercion, a literal's type, a `Format`/intrinsic edge) **must be tested against real `vb6.exe`** — the fidelity oracle — before you pin an interpreter test expectation. Documentation and memory are repeatedly wrong here; the oracle has overturned "obvious" assumptions many times. Record every verified fact (and the reusable `On Error Resume Next` `/make` harness) in [`docs/vb6-fidelity-oracle.md`](docs/vb6-fidelity-oracle.md). `vb6.exe` is at `C:\Program Files (x86)\Microsoft Visual Studio\VB98\VB6.EXE` (or `$VB6_EXE`) — the same toolchain as the "Make/Run with VB6" feature. This is a Windows dev-time check; it never becomes a runtime dependency (HexIDE re-implements VB6's behaviour, it does not call `MSVBVM60`).
 
+**Where native code and p-code differ, HexIDE matches p-code**, the build the VB6 IDE runs (decided 2026-10-14). So
+build a probe both ways wherever the two could disagree, and treat a row measured natively as provisional until
+p-code has answered too. The oracle long built native code only (#842), and that has already overturned a "fact":
+`Byte * Byte` wraps mod 256 natively but raises 6 as p-code and in the IDE, which is what HexIDE does (#233).
+
 **`vb6-fidelity-oracle.md` is a PRIMARY OUTPUT of this project, not a scratchpad.** It ranks with the code,
 and a change that measures something new is not finished until the measurement is written down there.
 
@@ -567,13 +572,17 @@ Collection is *"here is every `Sub` in this module"*, *"here is every `Public` v
 declaration"*, *"this expression has type T"* — which is **binding**, and binding is the AST.
 
 A weaker test — *"could the walk do this itself, just slower?"* — is tempting and wrong: it forbids
-order-independent `Const` evaluation, which no single walk can do and which is plainly not AST-building.
-Necessity is not the line. Relationships are.
+resolving another module's `Public Const` from a module-level declaration, which VB6 does whatever order the
+project lists its modules in (measured), which no single walk in that order can do, and which is plainly not
+AST-building. Necessity is not the line. Relationships are.
 
-The rule also decides **how** to build what it permits. `Const A = B + 1` looks like a symbol relationship,
-so do not topologically sort the constants up front — collect the *expressions* and evaluate lazily and
-memoised, letting the walk resolve the dependency when it reaches it. Same behaviour, and the pre-pass
-stays pure collection.
+The rule also decides **how** to build what it permits. Within one module VB6 evaluates `Const`s strictly in
+source order — `Const A = B + 1` above `Const B = 2` is its compile error "Constant expression required"
+(measured, `docs/vb6-fidelity-oracle.md`) — so there the walk itself is the specification. Across modules, do
+not topologically sort the modules up front: when a module-level declaration reads another module's constant,
+run that module's declarations first, once, and treat re-entering a module still mid-initialisation as VB6's
+own "Circular dependencies between modules" (#893). Same behaviour as VB6, at VB6's granularity, and the
+pre-pass stays pure collection.
 
 What it still refuses, for the same reason rather than a different one: the linearized CFG that `GoSub` /
 `Return` / `On expr GoTo` and nested-granular `Resume` are deferred pending. A control-flow graph relates

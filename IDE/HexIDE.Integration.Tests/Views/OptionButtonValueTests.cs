@@ -276,12 +276,12 @@ public class OptionButtonValueTests
     [AvaloniaFact]
     public async Task ABooleanIntoANumericProperty_IsMinusOne()
     {
-        // The reverse crossing, which VB6 also allows: True widens to -1.
+        // The reverse crossing, which VB6 also allows: True widens to -1, which is -1 twips, laid out in pixels (#933).
         var (canvas, _, ctx, env) = Recorded();
 
         await Run(ctx, env, "Option1.Left = True\r\n");
 
-        Canvas.GetLeft(Option(canvas, "Option1")).Should().Be(-1);
+        Canvas.GetLeft(Option(canvas, "Option1")).Should().BeApproximately(-1.0 / 15, 1e-12);
     }
 
     // ── Appearance, the option button's other unreachable property ───────────────────────────────

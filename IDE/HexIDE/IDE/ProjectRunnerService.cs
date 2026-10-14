@@ -204,9 +204,9 @@ public partial class ProjectRunnerService : IProjectRunnerService
                     // Abort first, as EndProject does. A fault is caught where its own event procedure was
                     // dispatched, so a procedure that raised that event (a Click that set Text1.Text, firing
                     // Text1_Change) would otherwise carry on past the statement, and so would any other walk
-                    // still running. Stopping the controller ends each of them at its next statement. That covers
-                    // the raiser only while it is still waiting on the event: if Text1_Change yielded its time
-                    // slice before faulting, the setter had already returned and the click had run on (#766).
+                    // still running. Stopping the controller ends each of them at its next statement. The raiser is
+                    // still waiting on the event when it faults, however the event yielded on the way, since it waits
+                    // for what it raised before its next statement (#766).
                     debugController.Stop();
                     // Then close the form. Posted, because a fault can arrive while RunForm is still showing the
                     // form, and a window closed before the run-task watches for it closing would leave the run
@@ -234,8 +234,8 @@ public partial class ProjectRunnerService : IProjectRunnerService
                         }
                         else
                         {
-                            task = VBLoader.RunForm(form, tokenSource.Token, out var window, debugController);
-                            window.Show();
+                            // RunForm starts the form and shows it once Load has run (#822).
+                            task = VBLoader.RunForm(form, tokenSource.Token, out _, debugController);
                         }
                     }
                     catch (Exception e)
@@ -383,6 +383,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
                         DebugController = debugController,
                     };
                     interpreter.SetAppInfo(AppInfo.FromProject(projectDefinition));
+                    VBLoader.DescribeProject(interpreter, projectDefinition);
                     // A missing or ambiguous Main is found here, before anything runs, so it too is a start that
                     // never became a run. It used to be raised as the run began, and arrived as a run that ended,
                     // which run_project answered as a success (#759).
@@ -554,33 +555,12 @@ public partial class ProjectRunnerService : IProjectRunnerService
     private Task RunFormInBrowser(FormDefinition element, CancellationToken token, out VBMDIFormRuntime window,
         IDebugController? debugController = null)
     {
-        var form = element.Components.FirstOrDefault(x => x.BaseClass == FormComponentClass.Instance);
-        if (form == null)
-            throw new Exception("No form found");
-
-        window = InstantiateWindow(form);
-        var formName = form.GetPropertyOrDefault(VBProperties.NameProperty)?.ToString();
-        if (formName is not null)
-        {
-            window.Context.ExecutionContext.AllocVariable(window.Context.RootEnv, formName, new Vb6Value(window));
-            window.Context.ExecutionContext.AllocVariable(window.Context.RootEnv, "Me", new Vb6Value(window));
-        }
-
-        window.Content = VBLoader.SpawnComponents(element, window.Context.ExecutionContext, window.Context.RootEnv);
-
-        // Parsed before the window is shown, as VBLoader.RunForm does, so a syntax error fails the start without
-        // leaving a window behind that nothing would close.
-        var (standardModules, classModules) = VBLoader.InterpreterModules(element.Owner);
-        window.Context.SetCode(code: FormCodeText.WholeFile(element), moduleName: formName ?? "Module1", debugController: debugController,
-            appInfo: HexIDE.Runtime.Interpreter.AppInfo.FromProject(element.Owner),
-            additionalModules: standardModules, classModules: classModules);
-        var task = windowManager.ShowManagedWindow(window);
-        token.Register((state, _) =>
-        {
-            (state as MDIWindow)!.CloseCommand.Execute(null);
-        }, window);
-
-        return task;
+        // The same build, start and show as VBLoader.RunForm, in an MDI window (#822). Parsed before anything is shown, so
+        // a syntax error fails the start without leaving a window behind that nothing would close.
+        var shown = window = InstantiateWindow(VBLoader.FormComponentOf(element));
+        VBLoader.PrepareForm(element, shown.Context, content => shown.Content = content, debugController);
+        return VBLoader.StartAndShow(shown.Context, token, close: () => shown.CloseCommand.Execute(null),
+            showUntilClosed: () => windowManager.ShowManagedWindow(shown));
     }
 
     public class VBMDIFormRuntime : MDIWindow, IModuleExecutionRoot
@@ -595,7 +575,7 @@ public partial class ProjectRunnerService : IProjectRunnerService
 
         public VBMDIFormRuntime(IWindowManager windowManager)
         {
-            windowContext = new VBWindowContext(new MDIStandaloneStandardLib(windowManager));
+            windowContext = new VBWindowContext(new MDIStandaloneStandardLib(windowManager)) { Window = this };
             this.GetObservable(BoundsProperty)
                 .Subscribe(new ActionObserver<Rect>(_ =>
                 {
@@ -608,16 +588,21 @@ public partial class ProjectRunnerService : IProjectRunnerService
                 }));
         }
 
-        protected override void OnLoaded(RoutedEventArgs e)
-        {
-            base.OnLoaded(e);
-            windowContext.ExecuteSub("Form_Load");
-        }
+        // Form_Load is not raised here: the program raises Initialize and Load before the window is shown (#822, #994).
 
         public void ExecuteSub(string name, IReadOnlyList<Vb6Value>? args = null)
         {
             windowContext.ExecuteSub(name, args);
         }
+
+        public bool Handles(string name) => windowContext.Handles(name);
+
+        public void ExecuteEvent(string name, Func<IReadOnlyList<Vb6Value>> args, EventCoalescing coalescing = EventCoalescing.None) =>
+            windowContext.ExecuteEvent(name, args, coalescing);
+
+        public void ExecuteTimer(string name, IReadOnlyList<Vb6Value>? args = null) => windowContext.ExecuteTimer(name, args);
+
+        public Task<bool> UnloadAsync(int mode) => windowContext.UnloadAsync(mode);
     }
 
     public class MDIStandaloneStandardLib : IBasicStandardLibrary

@@ -62,7 +62,9 @@ public class InfinityAndNaNTests : BaseVBTestFixture
         // This one was already right, via a guard that read `float.IsInfinity(f) && !double.IsInfinity(res)`.
         // The second half of that condition deliberately let an already-infinite double through, which is the
         // case that needed raising — so the guard was correct only for the operands it had been tried with.
-        (await ErrFrom("a = CSng(3E+38) : v = a * CSng(10)")).Should().Be(6);
+        // Both operands typed, as the oracle row has them. With the first in a Variant, VB6 widens it to Double instead
+        // (measured, #234), so `a = CSng(3E+38) : v = a * CSng(10)` was never this row.
+        (await ErrFrom("v = CSng(3E+38) * CSng(10)")).Should().Be(6);
 
     // ── NaN and domain → Err 5 ───────────────────────────────────────────────────────────────────
 

@@ -29,7 +29,7 @@ public class ImageComponentClass : ComponentBaseClass
         EnabledProperty,
         // Name, Left, Top, Width, Height, Visible and Tag come from ComponentBaseClass — listing any of
         // them here again throws at static-init time, because PropertiesByName is a plain ToDictionary.
-        ToolTipTextProperty])
+        ToolTipTextProperty], [ClickEvent, MouseDownEvent, MouseMoveEvent, MouseUpEvent])
     {
     }
 

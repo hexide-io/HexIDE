@@ -32,8 +32,10 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
                 return ((DateTime)Value!).CompareTo((DateTime)other.Value!);
             if (Type == ValueType.String)
                 return String.Compare((string)Value!, (string)other.Value!, StringComparison.Ordinal);
+            // True is -1 and False 0, so True is the lower: measured, #987, a Boolean True is `Case Is < False`. Select
+            // Case is this comparison's only Boolean caller.
             if (Type == ValueType.Boolean)
-                return ((bool)Value!).CompareTo((bool)other.Value!);
+                return ((bool)Value! ? -1 : 0).CompareTo((bool)other.Value! ? -1 : 0);
             return null;
         }
 
@@ -88,16 +90,34 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     /// sub-expressions — `(a + 0) * 3` with a declared `a` still raises Err 6, which is why this rides on
     /// the value rather than being looked up at the operator.
     ///
-    /// Deliberately NOT part of Equals or GetHashCode: 30000 equals 30000 however it was obtained, and
-    /// nothing outside arithmetic may branch on this.
+    /// Deliberately NOT part of Equals or GetHashCode: 30000 equals 30000 however it was obtained. Arithmetic
+    /// and Select Case are its only observers, with <see cref="HeldAsVariant"/>.
     /// </summary>
     public readonly bool HasFixedType;
+
+    /// <summary>
+    /// True when the value is positively a Variant's: read from a slot, element, field or call VB6 declares a
+    /// Variant, or computed from such a value (#987). A value is typed (<see cref="HasFixedType"/>), a Variant's, or
+    /// neither, never both. Neither means a source nobody has measured, and both observers then do what they did before
+    /// this was tracked, so an unmeasured source cannot flip: arithmetic widens unless both operands are typed, which a
+    /// Variant's value does too, and Select Case compares as it always has.
+    ///
+    /// Select Case is what reads it: a Variant selector compares as VB6 compares Variants (measured: a Variant 5 is
+    /// `Case Is &lt; 5.4`, a declared one is not, and a Variant 5 is not `Case Is &lt; "10"`, compared as text).
+    ///
+    /// Not part of Equals or GetHashCode, for the same reason as HasFixedType.
+    /// </summary>
+    public readonly bool HeldAsVariant;
 
     /// <summary>This value with a fixed type — a declared variable's value, or a literal.</summary>
     public Vb6Value AsFixedType() => new Vb6Value(Type, Value, true, DeclaredAs);
 
-    /// <summary>This value as a Variant subtype — no ceiling, so arithmetic widens rather than overflowing.</summary>
+    /// <summary>This value as neither typed nor a Variant's: no ceiling, so arithmetic widens rather than overflowing,
+    /// and Select Case compares it as before (see <see cref="HeldAsVariant"/>).</summary>
     public Vb6Value AsVariantSubtype() => new Vb6Value(Type, Value, false, DeclaredAs);
+
+    /// <summary>This value as a Variant's (see <see cref="HeldAsVariant"/>).</summary>
+    public Vb6Value AsVariant() => new Vb6Value(Type, Value, false, DeclaredAs, heldAsVariant: true);
 
     /// <summary>
     /// The class or interface name this reference was READ THROUGH, for an object read out of a slot
@@ -118,14 +138,18 @@ public readonly struct Vb6Value : IEquatable<Vb6Value>
     public readonly string? DeclaredAs;
 
     /// <summary>This reference as read through <paramref name="declaredClass"/> (null = through a Variant).</summary>
-    public Vb6Value ViewedAs(string? declaredClass) => new Vb6Value(Type, Value, HasFixedType, declaredClass);
+    public Vb6Value ViewedAs(string? declaredClass) => new Vb6Value(Type, Value, HasFixedType, declaredClass, HeldAsVariant);
 
-    private Vb6Value(ValueType type, object? value, bool hasFixedType = false, string? declaredAs = null)
+    /// <summary>This value with <paramref name="array"/> in place of the array it holds, keeping its type and flags.</summary>
+    internal Vb6Value WithArray(VBArray array) => new Vb6Value(Type, array, HasFixedType, DeclaredAs, HeldAsVariant);
+
+    private Vb6Value(ValueType type, object? value, bool hasFixedType = false, string? declaredAs = null, bool heldAsVariant = false)
     {
         Type = type;
         Value = value;
         HasFixedType = hasFixedType;
         DeclaredAs = declaredAs;
+        HeldAsVariant = heldAsVariant && !hasFixedType;
     }
 
     public Vb6Value(int value)
@@ -378,12 +402,37 @@ public class VBArray
     private object[] array;
     private Vb6Value.ValueType? elementType;   // remembered so Erase can reset a FIXED array's elements to default
 
+    /// <summary>The element type the array was declared with, or null for a Variant array (<c>Dim a()</c>, Array()).</summary>
+    public Vb6Value.ValueType? ElementType => elementType;
+
     // Dynamic (`Dim a()`, ReDim, Array()/Split()/Filter()) vs fixed (`Dim a(N)`). Only Erase distinguishes them:
     // a dynamic array is freed (undimensioned), a fixed one keeps its bounds and resets elements. Default dynamic;
     // the fixed-`Dim` declaration sites flip it to false.
     public bool IsDynamic { get; set; } = true;
 
     public bool IsDefined => bounds.Count > 0;
+
+    /// <summary>
+    /// The copy an assignment makes (#970). VB6 copies an array where HexIDE shared it: on a Let, into a dynamic array or
+    /// a Variant, at a ByVal argument, into an element and into a For Each variable, all measured. The copy is dynamic,
+    /// since only a dynamic array or a Variant can be assigned one, so it can be ReDimmed although the original is fixed
+    /// (measured). <paramref name="copyElement"/> copies each element as a store copies it.
+    /// </summary>
+    public VBArray CopyForLet(Func<Vb6Value, Vb6Value> copyElement) => new()
+    {
+        IsDynamic = true,
+        bounds = new List<(int lbound, int ubound)>(bounds),
+        elementType = elementType,
+        array = CopyLevel(array, copyElement),
+    };
+
+    private static object[] CopyLevel(object[] level, Func<Vb6Value, Vb6Value> copyElement)
+    {
+        var copy = new object[level.Length];
+        for (int i = 0; i < level.Length; i++)
+            copy[i] = level[i] is object[] inner ? CopyLevel(inner, copyElement) : copyElement((Vb6Value)level[i]);
+        return copy;
+    }
 
     public VBArray()
     {
@@ -392,9 +441,30 @@ public class VBArray
 
     public VBArray(Vb6Value.ValueType innerType, IReadOnlyList<(int lowerBound, int upperBound)> bounds)
     {
+        // An array too big to allocate is 7, Out of memory (measured for ReDim b(2147483647) and b(1 To 2147483647), which
+        // is all those rows say: 8 GB fails in a 32-bit process anyway). The count is taken as a long: as an int,
+        // 0 To 2147483647 wrapped negative and raised 9.
+        // VB6's own count wraps too, so its full range, -2147483648 To 2147483647, wraps to no elements and raises
+        // nothing, leaving an array whose bounds claim four billion elements and hold none. That is a defect, not a
+        // behaviour to reproduce, so here it is 7 like the rest.
+        long elements = 1;
+        foreach (var (lowerBound, upperBound) in bounds)
+        {
+            elements *= Math.Max(0L, (long)upperBound - lowerBound + 1);
+            if (elements > Array.MaxLength)
+                throw new VBRunTimeException(VBStandardError.OutOfMemory);
+        }
         this.bounds.AddRange(bounds);
         elementType = innerType;
-        array = CreateArray(innerType, 0);
+        try
+        {
+            array = CreateArray(innerType, 0);
+        }
+        catch (OutOfMemoryException)
+        {
+            // Fewer elements than that can still be more than this process can hold, as 1 To 2147483647 is.
+            throw new VBRunTimeException(VBStandardError.OutOfMemory);
+        }
     }
 
     /// <summary>Erase of a DYNAMIC array: free it → undimensioned. Subsequent LBound/UBound/element access raise
@@ -430,10 +500,10 @@ public class VBArray
         // An inverted/negative range (Dim a(-2), a(2 To 0), ReDim a(5 To 1)) gives a negative element count. VB6
         // raises a trappable Subscript-out-of-range (Err 9); `new object[-1]` would throw an UNCATCHABLE
         // OverflowException. An empty array — bounds (0,-1), size 0 — is valid (used by Split/Filter/Array).
-        int size = bounds[dimension].ubound - bounds[dimension].lbound + 1;
+        long size = (long)bounds[dimension].ubound - bounds[dimension].lbound + 1;
         if (size < 0)
             throw new VBRunTimeException(VBStandardError.SubscriptOutOfRange);
-        var arr = new object[size];
+        var arr = new object[(int)size];
         for (int i = 0; i < arr.Length; ++i)
         {
             if (dimension == bounds.Count - 1)

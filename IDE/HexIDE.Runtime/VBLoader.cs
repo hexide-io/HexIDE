@@ -1,4 +1,5 @@
 using System;
+using HexIDE.Runtime.Utils;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -31,6 +32,13 @@ public class VBLoader
         {
             ClipToBounds = true
         };
+        // The form's ScaleMode is the unit its controls' positions are read and written in (#933). The .frm holds them
+        // in twips whatever it is.
+        VBProps.SetScaleMode(canvas, (VBScaleMode)(element.Scale?.Mode ?? (int)VBScaleMode.Twip));
+        // The form's own mouse events come from its client area, which is hit-tested only where it has a background: a
+        // transparent one shows the form's BackColor through it (#974).
+        canvas.Background = Avalonia.Media.Brushes.Transparent;
+        AttachedEvents.AttachFormMouse(canvas);
         var menu = new Menu();
         DockPanel.SetDock(menu, Avalonia.Controls.Dock.Top);
         var shortcuts = new List<(KeyGesture Gesture, Action Invoke)>();
@@ -340,6 +348,23 @@ public class VBLoader
         target.Children.Add(control);
         onPlaced?.Invoke(component, control, target);
 
+        // A PictureBox's ScaleMode is the unit of the controls inside it (measured: in a pixel PictureBox, a TextBox at 150
+        // twips reads 10), and of its own mouse events' X and Y. HexIDE keeps it as the line the .frm wrote. A Frame has
+        // none, so its children stay in twips.
+        if (componentClass.TryGetChildHost(control, out var ownHost) && DeclaredScaleMode(component) is { } scaleMode)
+            VBProps.SetScaleMode(ownHost, scaleMode);
+        // Where a 3-D bordered TextBox's or ListBox's client area starts, which is where its mouse X and Y count from: 2
+        // pixels in, and at the edge when it is flat or has no border (measured with GetClientRect, #974).
+        if (componentClass is TextBoxComponentClass or ListBoxComponentClass)
+        {
+            var flat = componentClass is ListBoxComponentClass
+                ? component.GetPropertyOrDefault(VBProperties.AppearanceProperty) == VBAppearance.Flat
+                : RawNumber(component, "Appearance") == 0;
+            var borderless = componentClass is TextBoxComponentClass && RawNumber(component, "BorderStyle") == 0;
+            if (!flat && !borderless)
+                VBProps.SetClientInset(control, 2);
+        }
+
         if (component.ContainedControls.Count == 0)
             return;
 
@@ -353,6 +378,26 @@ public class VBLoader
 
         foreach (var child in component.ContainedControls)
             PlaceComponentTree(child, childHost, formCanvas, onPlaced);
+    }
+
+    // The ScaleMode a container's .frm block declares, from the line HexIDE preserves for it: `ScaleMode = 3  'Pixel`.
+    private static VBScaleMode? DeclaredScaleMode(ComponentInstance component) =>
+        RawNumber(component, "ScaleMode") is { } mode && Enum.IsDefined(typeof(VBScaleMode), mode) ? (VBScaleMode)mode : null;
+
+    // The number on a property line HexIDE preserves without modelling it, such as `BorderStyle = 0  'None`.
+    private static int? RawNumber(ComponentInstance component, string name)
+    {
+        foreach (var property in component.UnknownRawProperties)
+        {
+            if (!property.Name.Equals(name, StringComparison.OrdinalIgnoreCase) || property.Lines.Count == 0)
+                continue;
+            var line = property.Lines[0];
+            var value = line[(line.IndexOf('=') + 1)..].TrimStart();
+            var digits = value.Length - value.TrimStart("0123456789".ToCharArray()).Length;
+            if (digits > 0 && int.TryParse(value[..digits], out var number))
+                return number;
+        }
+        return null;
     }
 
     public static Canvas SpawnComponentsForDesigner(
@@ -405,45 +450,125 @@ public class VBLoader
     public static Task RunForm(FormDefinition element, CancellationToken token, out VBFormRuntime window,
         Debugging.IDebugController? debugController = null)
     {
-        var form = element.Components.FirstOrDefault(x => x.BaseClass == FormComponentClass.Instance);
-        if (form == null)
-            throw new Exception("No form found");
+        var form = FormComponentOf(element);
+        var shown = window = ((FormComponentClass)form.BaseClass).InstantiateWindow(form);
+        PrepareForm(element, shown.Context, content => shown.Content = content, debugController);
 
-        window = ((FormComponentClass)form.BaseClass).InstantiateWindow(form);
-        var formName = form.GetPropertyOrDefault(VBProperties.NameProperty)?.ToString();
-        if (formName is not null)
+        return StartAndShow(shown.Context, token, close: shown.Close, closeUnshown: shown.Close, showUntilClosed: () =>
         {
-            window.Context.ExecutionContext.AllocVariable(window.Context.RootEnv, formName, new Vb6Value(window));
-            window.Context.ExecutionContext.AllocVariable(window.Context.RootEnv, "Me", new Vb6Value(window));
-        }
+            // Complete when the form closes. The TaskCompletionSource is captured directly in the handler rather than
+            // parked in window.Tag: Control.Tag backs the VB6 `Tag` property, so stashing runtime state there leaked
+            // "System.Threading.Tasks.TaskCompletionSource" into `Me.Tag` (and the Locals property surface, D7).
+            var closed = new TaskCompletionSource();
+            void OnClosed(object? sender, EventArgs e)
+            {
+                shown.Closed -= OnClosed;
+                closed.TrySetResult();
+            }
+            shown.Closed += OnClosed;
+            shown.Show();
+            return closed.Task;
+        });
+    }
 
-        window.Content = SpawnComponents(element, window.Context.ExecutionContext, window.Context.RootEnv);
-        // The form's own code runs as the primary module named after the form, so the debug gate reports — and
-        // breakpoints are keyed by — the form's real name (matching the editor's vb6://form/{name} document).
+    /// <summary>The form's own component in its definition.</summary>
+    public static ComponentInstance FormComponentOf(FormDefinition element) =>
+        element.Components.FirstOrDefault(x => x.BaseClass == FormComponentClass.Instance)
+        ?? throw new Exception("No form found");
+
+    /// <summary>
+    /// Build a form's program into its window's context (#822). Every module the run loads is parsed here, so a syntax
+    /// error throws before anything is shown. The form's code is the primary module, named after the form, so the debug
+    /// gate reports, and breakpoints are keyed by, the form's real name (matching the editor's vb6://form/{name}
+    /// document). Then the form's instance is made and its controls put into it, held until it loads.
+    /// </summary>
+    public static void PrepareForm(FormDefinition element, VBWindowContext context, Action<Control> setContent,
+        Debugging.IDebugController? debugController)
+    {
+        var formName = FormComponentOf(element).GetPropertyOrDefault(VBProperties.NameProperty)?.ToString();
         var (standardModules, classModules) = InterpreterModules(element.Owner);
-        window.Context.SetCode(code: FormCodeText.WholeFile(element), moduleName: formName ?? "Module1", debugController: debugController,
+        context.SetCode(code: FormCodeText.WholeFile(element), moduleName: formName ?? "Module1", debugController: debugController,
             appInfo: Interpreter.AppInfo.FromProject(element.Owner),
             additionalModules: standardModules, classModules: classModules);
-        window.Show();
+        DescribeProject(context.Interpreter!, element.Owner);
+        setContent(SpawnComponents(element, context.ExecutionContext, context.InstanceEnv));
+        context.HoldControlsUntilLoad();
+    }
 
-        var tcs = new TaskCompletionSource();
+    // OLE Automation, the one in-box library a .vbp lists as a Reference: VBA, VBRUN and VB are implicit.
+    private const string StdoleGuid = "00020430-0000-0000-C000-000000000046";
 
-        token.Register((state, _) =>
+    /// <summary>
+    /// Tell an interpreter what of its project a declaration may name (#822 review): the project's forms, which are
+    /// types though only the running one is a module, and whether the project references a type library beyond the
+    /// in-box four, whose types the interpreter can't read.
+    /// </summary>
+    public static void DescribeProject(BasicInterpreter interpreter, ProjectDefinition? project)
+    {
+        if (project is null)
+            return;
+        interpreter.ProjectFormNames = new HashSet<string>(project.Forms.Select(f => f.Name), StringComparer.OrdinalIgnoreCase);
+        interpreter.ReferencesOtherLibraries = project.References.Any(r =>
+            !string.Equals(r.Guid.Trim('{', '}'), StdoleGuid, StringComparison.OrdinalIgnoreCase));
+    }
+
+    /// <summary>
+    /// Start a prepared form, then show its window, as VB6 shows its startup form: Initialize and Load run before the
+    /// window appears (measured, #822), so a Resize comes after Load. The task completes when the window closes, or when
+    /// the start does not end in a form to show: a fault in Initialize or Load, End, the debugger's Stop, or the run
+    /// cancelled first. Shown or not, a cancellation closes the form.
+    /// </summary>
+    /// <param name="closeUnshown">
+    /// How to close the form before it was ever shown, or null when there is nothing to close. A desktop window must be
+    /// closed even then: a MsgBox or InputBox opened from Initialize or Load waits on its owner's Closed, so a window
+    /// left unclosed left the box standing, and answering it ran the ended run's Load on beside the next one (#820,
+    /// #1010 review).
+    /// </param>
+    public static Task StartAndShow(VBWindowContext context, CancellationToken token, Action close, Func<Task> showUntilClosed,
+        Action? closeUnshown = null)
+    {
+        var run = new TaskCompletionSource();
+        var shown = false;
+        // The way the host closes this form, which is also how an unloaded form's window goes once its Terminate has run.
+        context.CloseWindow = close;
+        // Where the run ends, its event pump closes, so nothing it left waiting can run beside the next one (#766).
+        void Ended()
         {
-            (state as Window)!.Close();
-        }, window);
-
-        // Complete the run-task when the form closes. The TaskCompletionSource is captured directly in the handler
-        // rather than parked in window.Tag: Control.Tag backs the VB6 `Tag` property, so stashing runtime state there
-        // leaked "System.Threading.Tasks.TaskCompletionSource" into `Me.Tag` (and the Locals property surface, D7).
-        // window is an out parameter and can't be captured, so the handler recovers the window from sender.
-        void OnClosed(object? sender, EventArgs e)
-        {
-            (sender as Window)!.Closed -= OnClosed;
-            tcs.TrySetResult();
+            context.Events.Close();
+            run.TrySetResult();
         }
-        window.Closed += OnClosed;
+        token.Register(() =>
+        {
+            if (shown)
+                close();
+            else
+            {
+                closeUnshown?.Invoke();
+                Ended();
+            }
+        });
 
-        return tcs.Task;
+        async Task StartThenShow()
+        {
+            try
+            {
+                // A form whose start was a fault, or that the program ended, is never shown (#1010 review). Nor is one that
+                // unloaded itself in Load, whose Terminate runs here, before the pump closes (measured, #1046 review).
+                if (!await context.StartAsync() || token.IsCancellationRequested || run.Task.IsCompleted)
+                {
+                    if (!token.IsCancellationRequested && !run.Task.IsCompleted)
+                        await context.FinishUnloadAsync(closeUnshown);
+                    return;
+                }
+                shown = true;
+                await showUntilClosed();
+            }
+            finally
+            {
+                Ended();
+            }
+        }
+        StartThenShow().ListenErrors();
+        return run.Task;
     }
 }

@@ -71,6 +71,83 @@ public class ExecutionState
     /// <summary>Whether a slot refuses assignment.</summary>
     public bool IsReadOnly(int location) => readOnlyLocations.Contains(location);
 
+    // A form's control slots before the form has loaded, by slot, naming the form (#822). A read of one is refused
+    // (#1009). Empty unless a form is between creating its instance and raising Load.
+    private readonly Dictionary<int, string> pendingControls = new();
+
+    /// <summary>Hold a form's control slot until the form loads: reading it is refused until then (#1009).</summary>
+    public void MarkPendingControl(int location, string form) => pendingControls[location] = form;
+
+    /// <summary>Release a form's control slots as the form begins to load.</summary>
+    public void ClearPendingControls(string form)
+    {
+        foreach (var (location, owner) in pendingControls.ToList())
+            if (owner == form)
+                pendingControls.Remove(location);
+    }
+
+    // Forms whose controls are held because the form has unloaded, rather than because it has yet to load (#973).
+    private readonly HashSet<string> unloadedForms = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>Note that a form's held controls are held because it unloaded, so their refusal says so.</summary>
+    public void MarkUnloaded(string form) => unloadedForms.Add(form);
+
+    /// <summary>Whether a form's held controls are held because it unloaded.</summary>
+    public bool IsUnloaded(string form) => unloadedForms.Contains(form);
+
+    /// <summary>The form whose not-yet-loaded control this slot is, or null.</summary>
+    public string? PendingControlOf(int location) =>
+        pendingControls.Count > 0 && pendingControls.TryGetValue(location, out var form) ? form : null;
+
+    // A user Const's slot. Not read-only, since the Const statement fills it after the pre-pass makes it, and a class's
+    // top-level declarations run again for each instance. Marked so that an argument naming it is passed by value, and so
+    // that any other store into it is refused (#1003).
+    private readonly HashSet<int> constantLocations = new();
+
+    /// <summary>Mark a slot as a user <c>Const</c>'s (see <see cref="IsConstant"/>).</summary>
+    public void MarkConstant(int location) => constantLocations.Add(location);
+
+    /// <summary>Whether a slot holds a user <c>Const</c>, which VB6 passes to a ByRef parameter by value: a write through
+    /// the parameter leaves the constant as it was (measured, #1001).</summary>
+    public bool IsConstant(int location) => constantLocations.Contains(location);
+
+    private readonly HashSet<int> declaredArrayLocations = new();
+
+    /// <summary>
+    /// Mark a slot as declared an array (<c>Dim b()</c>, <c>Dim b(3) As Long</c>), as against a Variant that holds one.
+    /// ReDim tells them apart: an inverted range erases a declared array, and keeps or empties a Variant (measured).
+    /// </summary>
+    public void MarkDeclaredArray(int location) => declaredArrayLocations.Add(location);
+
+    /// <summary>Whether a slot was declared an array, rather than a Variant that may hold one.</summary>
+    public bool IsDeclaredArray(int location) => declaredArrayLocations.Contains(location);
+
+    private readonly HashSet<int> fixedArrayLocations = new();
+
+    /// <summary>
+    /// Mark a slot as declared a fixed array, <c>Dim b(3)</c>, which ReDim refuses. Fixedness belongs to the
+    /// declaration, not to the array the slot holds: after <c>d = f</c>, <c>d</c> is still dynamic and VB6 ReDims it
+    /// (measured, #873), although HexIDE's Let shares <c>f</c>'s array with it (#970). Keyed by slot, so a ByRef
+    /// parameter that shares the caller's slot reaches the caller's mark.
+    /// </summary>
+    public void MarkFixedArray(int location) => fixedArrayLocations.Add(location);
+
+    /// <summary>Whether a slot was declared a fixed array (<see cref="MarkFixedArray"/>).</summary>
+    public bool IsFixedArray(int location) => fixedArrayLocations.Contains(location);
+
+    private readonly HashSet<int> variantLocations = new();
+
+    /// <summary>
+    /// Mark a slot as known to be a Variant: <c>Dim v</c>, <c>Dim v As Variant</c>, a Variant parameter, a variable VB6
+    /// creates on first use. ReDim treats only these as Variants. A slot that is neither this nor a declared array is
+    /// one whose declared type HexIDE does not carry, such as a <c>b() As Long</c> parameter, and is treated as the
+    /// array it holds rather than guessed to be a Variant (measured: such a parameter keeps its type, #873).
+    /// </summary>
+    public void MarkVariant(int location) => variantLocations.Add(location);
+
+    /// <summary>Whether a slot is known to be a Variant (<see cref="MarkVariant"/>).</summary>
+    public bool IsVariant(int location) => variantLocations.Contains(location);
+
     public Vb6Value this[int location]
     {
         get => memory[location];

@@ -90,7 +90,7 @@ public static class VbNumeric
         if (rt == VT.Single || rt == VT.Double)
         {
             double a = ToDouble(l), b = ToDouble(r);
-            return NarrowDouble(op == '+' ? a + b : op == '-' ? a - b : a * b, rt, ctx);
+            return NarrowDouble(op == '+' ? a + b : op == '-' ? a - b : a * b, rt, ctx, l.HasFixedType && r.HasFixedType);
         }
 
         long la = ToLong(l), lb = ToLong(r);
@@ -103,15 +103,20 @@ public static class VbNumeric
     {
         if (!TryToDouble(l, out var a) || !TryToDouble(r, out var b))
             throw new VBRunTimeException(ctx, VBStandardError.TypeMismatch);
+        // Zero over zero is Overflow, and anything else over zero is Division by zero. A Decimal operand on either side
+        // makes it Decimal's division, which says Division by zero for both (measured, #234: every core type, Boolean,
+        // Empty, String and mixed operands, native, p-code and the IDE alike).
         if (b == 0.0)
-            throw new VBRunTimeException(ctx, VBStandardError.DivisionByZero);
+            throw new VBRunTimeException(ctx, a == 0.0 && l.Type != VT.Decimal && r.Type != VT.Decimal
+                ? VBStandardError.Overflow
+                : VBStandardError.DivisionByZero);
         // Result is Single iff the widest core operand is Single (no Long/Double). int/int -> Double.
         int lr = CoreRank(l.Type), rr = CoreRank(r.Type);
         bool single = lr >= 0 && rr >= 0 && Math.Max(lr, rr) == 3;
         // Through NarrowDouble on BOTH paths. The Single path always went through it; the Double path did
         // not, so `1E+308 / 0.0001` handed back an infinity instead of the Overflow vb6.exe raises.
         double res = a / b;
-        return NarrowDouble(res, single ? VT.Single : VT.Double, ctx);
+        return NarrowDouble(res, single ? VT.Single : VT.Double, ctx, l.HasFixedType && r.HasFixedType);
     }
 
     // ===== \ (integer division) and Mod =====
@@ -209,6 +214,10 @@ public static class VbNumeric
     /// </summary>
     public static Vb6Value CoerceOnStore(Vb6Value v, VT target, ParserRuleContext? ctx)
     {
+        if (v.Type == target)
+            return v;
+        // A declared scalar slot takes an object's default member (ObjectAsValue).
+        v = ObjectAsValue.Scalar(v, ctx);
         if (v.Type == target)
             return v;
         // Before every branch, including String: `Dim s As String : s = Null` is Err 94, not "".
@@ -329,7 +338,13 @@ public static class VbNumeric
     /// exactly the case that needed raising. Both now raise, which is what vb6.exe does either way.
     /// </para>
     /// </summary>
-    private static Vb6Value NarrowDouble(double res, VT target, ParserRuleContext? ctx)
+    /// <para>
+    /// A Single that overflows widens to a Double unless both operands were typed, as an integral result widens
+    /// (<see cref="NarrowLong"/>). Measured, #234: a Variant Single on either side lifts the ceiling for <c>+</c>,
+    /// <c>-</c>, <c>*</c> and <c>/</c>, and two typed Singles raise Err 6. <paramref name="fixedType"/> is that
+    /// condition, and an all-typed Single result stays typed, as an integral one does.
+    /// </para>
+    private static Vb6Value NarrowDouble(double res, VT target, ParserRuleContext? ctx, bool fixedType = true)
     {
         if (double.IsNaN(res))
             throw new VBRunTimeException(ctx, VBStandardError.InvalidProcedureCall);
@@ -339,8 +354,8 @@ public static class VbNumeric
         {
             var f = (float)res;
             if (float.IsInfinity(f))
-                throw new VBRunTimeException(ctx, VBStandardError.Overflow);
-            return new Vb6Value(f);
+                return fixedType ? throw new VBRunTimeException(ctx, VBStandardError.Overflow) : new Vb6Value(res);
+            return fixedType ? new Vb6Value(f).AsFixedType() : new Vb6Value(f);
         }
         return new Vb6Value(res);
     }

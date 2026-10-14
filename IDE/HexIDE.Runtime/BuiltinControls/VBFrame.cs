@@ -34,6 +34,8 @@ public class VBFrame : HeaderedContentControl, IVBContainerControl
 
     static VBFrame()
     {
+        // Before Click, so MouseUp comes first, as VB6 raises them (#974).
+        AttachedEvents.AttachMouse<VBFrame>();
         AttachedEvents.AttachClick<VBFrame>();
     }
 }

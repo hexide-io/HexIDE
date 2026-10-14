@@ -147,6 +147,253 @@ there isn't one yet. Anything may change between 0.x releases.
   warning showing, or stayed typable with no warning. The designer already followed the reload.
   ([#475](https://github.com/hexide-io/HexIDE/issues/475))
 
+- **Two overflow edges now match VB6** (#234). Both were measured as p-code and in vb6.exe's IDE.
+  - **`0 / 0` raises Overflow (6)**, not Division by zero (11), for every operand type except Decimal, which keeps 11.
+  - **A Variant Single that overflows** widens to Double, as a Variant Integer widens to Long, instead of raising
+    Overflow. Two typed Singles still raise.
+- **`Unload Me` unloads the startup form, as in VB6** (#973). It used to stop the run as not implemented. Measured on
+  vb6.exe:
+  - **The events:** `Form_QueryUnload` (UnloadMode 1 from code, 0 from the close box), then `Form_Unload`, each with a
+    Cancel that keeps the form loaded.
+  - **What comes after:** the rest of the handler still runs. Then `Form_Terminate`, the form's fields are released,
+    and the run ends.
+  - **The close box** asks the same way, and a refusal keeps the window open.
+  - **`Unload Me` in `Form_Load`** ends the run without showing the form. A second Unload, or one from inside
+    QueryUnload or Unload, does nothing.
+- **MouseDown, MouseUp and MouseMove are raised** (#974) on the form and on every control that has them in VB6:
+  CommandButton, Label, TextBox, PictureBox, Frame, CheckBox, OptionButton, Image and ListBox. Before, no handler for
+  them ever ran. Measured on vb6.exe:
+  - **Order:** a CommandButton and a CheckBox raise Click between MouseDown and MouseUp, and the others after MouseUp.
+  - **Arguments:** Button is 1, 2 or 4; Shift is 1, 2 and 4 for Shift, Ctrl and Alt; a control array's Index comes first.
+  - **X and Y** are twips from the control's client area, even on a pixel form, and the form's follow its own ScaleMode.
+  - **Image:** an Image takes the mouse, and Click, across its whole rectangle, with or without a picture (#861).
+  - **No passing up:** an event a control doesn't handle is not passed to its container, as in VB6.
+- **A running program's event handlers run one at a time, as in VB6** (#766). Under the debugger, a handler that gave up
+  the thread at its time slice used to let any other event start and finish first, and let the statement that raised
+  it run on. Measured on vb6.exe:
+  - **What waits:** nothing runs inside a handler unless it calls `DoEvents`. An event that comes meanwhile waits its
+    turn.
+  - **Nested events:** a handler a statement raises (`Text1.Text = "x"` raising `Text1_Change`) finishes before the
+    raiser goes on.
+  - **`DoEvents`:** it now runs what is waiting, inside the caller, so a `Do: DoEvents: Loop Until clicked` loop sees
+    the click.
+  - **Timers:** a Timer delivers one tick, not several, once it is free, and never inside its own handler.
+- **A control's Left, Top, Width and Height are twips at run time** (#933), as VB6 has them, measured on vb6.exe:
+  - **What changed:** a program read and wrote them in pixels, as a Double. A .frm Left of 120 read 8, and
+    `Text1.Left = 1200` moved the control 1200 pixels, fifteen times too far. They are now twips, as a Single.
+  - **ScaleMode:** they are read in the container's ScaleMode: the form's, a PictureBox's for the controls inside it,
+    and twips inside a Frame. A form's own Width and Height are twips whatever its ScaleMode.
+  - **Rounding:** an assignment is rounded to whole twips, half to even, so `Left = 1.5` reads back 2 (#791).
+  - **Labels:** a Label is at least a pixel wide and high.
+  - **Not yet:** a User, centimetre or millimetre ScaleMode is refused (#990). The form's own size is its client
+    size, without the frame (#852).
+- **A module's Public variables and Consts are visible bare from every other module** (#880), as VB6 makes them,
+  measured on vb6.exe:
+  - **What changed:** `Debug.Print M`, where Module2 has `Public Const M = 3`, is 3, and `G = 7` stores into Module2's
+    `Public G`, from a module, a class or a form. Before, both made a new variable of their own: a read gave Empty,
+    `For i = 1 To M` ran no times, and under Option Explicit both were "Variable not defined".
+  - **Order:** the module's own names come first, a procedure's local shadows them, and in a form the form's members
+    come first too. They are found before a built-in constant of the same name.
+  - **Clashes:** a name two modules export is "Ambiguous name detected" where it is used bare, and so is one module's
+    variable beside another module's Public Sub or Function of that name.
+  - **Private:** a Private variable, a module-level `Dim` and a `Private Const` stay invisible from other modules.
+  - **Consts:** a module-level Const or array bound reads another module's Public Const bare, where it was refused, and
+    a store into one is "Assignment to constant not permitted".
+- **A bare name in a form's code is the form's member** (#995), as VB6 resolves it, measured on vb6.exe:
+  - **The common case:** `Caption = "Ready"` sets the form's caption, and `If Width > 3000` reads its width. Before,
+    the first made a new variable and the second read Empty, or both were "Variable not defined" under Option
+    Explicit.
+  - **Order:** the form's members come after the procedure's locals and the form's own variables and controls, and
+    before a module's `Public` of the same name.
+  - **Members HexIDE lacks:** one VB6's Form has and HexIDE doesn't, such as `CurrentX`, `ScaleMode` or `Cls`, is
+    refused as not implemented rather than made a variable. `Me.ScaleMode` says the same, where it raised 438.
+  - **Read-only members:** assigning one, such as `hWnd` or `Count`, bare or through `Me`, is VB6's own compile error.
+  - **Calls with arguments:** a property called with arguments is VBA's function only for `Left("abc", 1)`, and is
+    never a project procedure of the same name.
+  - **The member table** is read out of VB6.OLB by a new `scripts/dump-typelib-members.ps1`, not written by hand.
+- **A running form is an object, with a real `Me`** (#822, first slice). A form's code ran as a standard module, with
+  `Me` and the form's name bound to its window. The form is now an instance of its module, as VB6 has it, measured on
+  vb6.exe:
+  - **`Me` is the form:** `TypeName(Me)` is `Form1` and `Me Is Form1` is True. `Me.Caption` and `Me.Hide` still reach the
+    window, after the form's own procedures, variables and controls.
+  - **A module reaches the form through its name:** `Form1.Caption`, `Form1.Score` and `Form1.Text1.Text` work from a
+    standard module.
+  - **A form's Public Subs aren't globals:** called unqualified from a module, one is "Sub or Function not defined", as
+    in VB6, and a module's Sub of the same name is no longer "Ambiguous name detected".
+  - **Declarations and events:** a form's declarations run before `Form_Initialize`, so an array sized by a Const is
+    sized (#256, #760), and a module's Public Const reads its value from `Form_Load`. `Form_Initialize` is raised, and
+    `Form_Load` runs before the window is shown and before `Form_Resize` (#994).
+  - **`WithEvents` in a form** binds, so the form's handlers run (#972).
+- **A store into a Const is refused, as VB6 refuses it** (#1003). `MK = 2` after `Const MK = 1` ran and overwrote the
+  constant, so every later read gave 2. It is now VB6's compile error "Assignment to constant not permitted", raised
+  as the statement runs. VB6 gives other messages for other statements, and so does HexIDE now, for a Const and an
+  Enum member alike: a For counter, a For Each variable or a Mid target is "Variable required - can't assign to this
+  expression", and ReDim or Erase of one is "Expected array". Measured on vb6.exe, native and p-code.
+- **Select Case compares as VB6 does, and arithmetic overflows where VB6's does** (#987). VB6 treats a value as typed or
+  as a Variant by where it came from, and both decide the result. Measured on vb6.exe, native and p-code:
+  - **A typed selector** converts each Case value into its type, so a declared 2 is no longer `Case Is < 2.4`, and a
+    declared Boolean True is `Case 3 To 6`.
+  - **A Variant selector** compares as VB6 compares Variants: a Variant 5 is below `"10"` as text, and a Variant 2 is
+    not `Case 1.7`. True is below False.
+  - **A typed Function's result, a conversion function, a typed array element or Type field, and the typed intrinsics**
+    (`Asc`, `Sgn`, `UBound`, `Len` of a typed argument and others) now overflow past their type's ceiling, as a
+    declared variable does: `F() * 7000` with `F` an Integer returning 5 raises Overflow, where it gave 35000.
+  - **A Variant array element, a Variant Type field, a late-bound member and the Variant intrinsics** (`Hour`, `Day`,
+    `Mid`, `Left` and the rest) widen, as a Variant does: `w(0) * 7000` with `w(0)` holding 5 is 35000, where it
+    raised Overflow.
+  - **A Const, an Enum member, and an Enum parameter, return or Type field** are typed, as in VB6: `K * m` with
+    `Const K = 5` and `m As Integer` 7000 raises Overflow, where it gave 35000. A Const declared `As Variant` is a
+    Variant.
+  - **A parameter or return declared `As Object`** is late-bound, as a Variant is, so its members' results widen.
+- **A ByRef `As Variant` parameter writes back to its caller** (#1001). `Sub S(v As Variant): v = 5` left a caller's
+  Variant, or a caller's `Integer`, as it was, because the parameter got a copy of anything but an array. It now
+  shares the caller's variable, as an untyped parameter does. Along with it, an untyped or Variant parameter given a
+  typed variable is a Variant in arithmetic, as in VB6: `v * 7000` with an `Integer` 5 is 35000, where it overflowed.
+  And a constant passed ByRef goes by value, as VB6 passes it: a Const given to a parameter that writes it is
+  unchanged, where it was overwritten, and an Enum member no longer raises "Assignment to constant not permitted".
+- **An array assignment copies the array** (#970). `d = f` shared one array between the two names, so a write through
+  either reached the other, with no error. Measured on vb6.exe, VB6 copies wherever it stores an array: into a
+  variable, an element, a ByVal parameter and a For Each variable, and so the row-buffer idiom, `rows(i) = row`, keeps
+  each row. Along with it:
+  - **A ByRef `As Variant` parameter given an array shares it**, as an untyped one does, so a `ReDim` through it reaches
+    the caller's array, and is VB6's 10 for a fixed one.
+  - **An untyped or Variant parameter's `ReDim`** follows VB6's Variant rule even when the caller's array is declared:
+    `ReDim v(-1)` raises 9 and keeps the caller's array, where it erased it.
+  - **A copied array shares its objects, and each holder keeps them alive.** A local object array's objects now
+    terminate at `End Sub`, as in VB6; they never terminated at all, and an object could terminate while another array
+    still held it.
+  - **A fixed array can't be assigned an array:** VB6's "Can't assign to array", or 13 through a parameter, where the
+    fixed array was replaced.
+  - **A For Each variable is Empty once the loop runs out**, as in VB6, even when there was nothing to walk; it kept
+    the last element. `Exit For` still leaves it holding the element it reached.
+  - **`End Sub` releases a procedure's scalar locals before its arrays**, each in declaration order, as VB6 does.
+- **A Function declared to return a typed array takes only an array of its type** (#986). `F = Array(1, 2)` in a
+  Function `As Integer()` returned a Variant array with no error, and `F = 5` in one `As Long()` returned an Integer.
+  A mismatch now raises Type mismatch at the store, as VB6 does, or stops the run with VB6's compile error "Can't assign
+  to array" where VB6 would not have compiled the program. A String stored into a Function declared `As Byte()`, which
+  VB6 converts into its bytes, stops the run as not implemented (#998). Before, it was returned as a String.
+- **Under On Error Resume Next, a block whose condition or header raises now runs, as VB6's does** (#839). HexIDE skipped
+  the whole statement, so the program carried on down a path VB6 would not take, with no error. VB6 goes on at the
+  first statement inside the block. Measured on vb6.exe, as native code, as p-code and in the IDE:
+  - an If or ElseIf runs the branch whose condition raised;
+  - a Case test runs its own Case;
+  - Do While, Do Until and While run the body, asking again each time round, and a Loop While or Until ends the loop;
+  - With runs its body with no object;
+  - For and For Each run the body once, and then carry on as the IDE does.
+- **For Each over something it cannot walk raises VB6's error** (#839). An unallocated array ran no passes and said nothing;
+  it now raises 92. Nothing raises 424 and any other non-object value 13. Over an object, which HexIDE cannot walk yet,
+  it now says so rather than raising an error On Error Resume Next stepped over. A For Each whose collection itself
+  raises now stops the run unless the collection is a call of one of the project's own Functions (#969), where before
+  it ran on.
+- **A For converts its start, limit and step into its counter's type** (#839), as VB6 does. A Byte counter's
+  `Step -1` is an Overflow, and so is any bound its type cannot hold, raised at the For statement. A fractional bound
+  rounds half to even into an Integer or Long counter, so `For i = 1 To 2.5` runs to 2. Each was read as a Double, and
+  a fractional one raised a trappable Type mismatch that skipped the loop under On Error Resume Next. A bound still
+  fractional for its counter, a Single, Double, Currency, Date or Variant one, now stops the run as not implemented
+  (#983), where it skipped the loop without a word.
+- **A typed parameter keeps its type** (#839), as a variable declared with it does. `Optional i As Long = 7` holds a
+  Long, a store of 2.5 into a `ByVal i As Long` gives 2, and a store of 300 into a `ByVal b As Byte` raises Overflow.
+  The parameter's slot recorded no type, so each held whatever was stored into it. The parameter is now a ceiling in
+  arithmetic too, as a declared variable is: with a `ByVal i As Integer` holding 5, `i * 7000` raises Overflow, where it
+  widened to 35000. For the numeric types only; a String, Boolean or Date parameter is still not converted (#874).
+- **A Function declared to return an array returns it** (#975). `Function F() As Long()` returned a Long 0 with no
+  error, because its return was read as the element type, so `d = F()` left `d` a scalar and the next `d(1)` stopped
+  the run. It now returns the array, and one that never assigns its name returns an empty one, as VB6 does. A Property
+  Get declared the same way is fixed with it.
+- **Calling a procedure that carries an `Attribute` line no longer stops the run.** VB6 writes these inside a
+  procedure for a default member (`VB_UserMemId`), a description from Tools → Procedure Attributes
+  (`VB_Description`), a property category (`VB_ProcData`) and more, and after a module-level variable for its
+  description. Each stopped the run with "Attribute not implemented". They are metadata, and now run as nothing,
+  as in VB6. The debugger treats them as blank lines: a step passes over them, and Set Next Statement refuses one.
+  A default member they declare is not read yet, so a use of the object as a value is refused naming #174.
+
+- **A member call inside `While...Wend` runs** (#882). `Debug.Print x`, `Err.Clear` or `rs.MoveNext` in a
+  `While` body stopped the run with "Sub or Function not defined", naming the object, so the common
+  `While Not rs.EOF ... rs.MoveNext ... Wend` loop could not run at all. `Do While` was unaffected.
+
+- **A condition is read as VB6 reads it** (#847). A block `If` or `ElseIf` refused anything but a Boolean with an
+  error numbered 0, so under On Error Resume Next it skipped its body with nothing in Err. A one-line `If` raised 13
+  for anything but a Boolean, and the loops raised 13 for a Long, a Double, Empty or most strings. So
+  `If Len(s) Then`, `If InStr(s, "x") Then`, `If flags And 4 Then` and `Do While n` with a Long `n` stopped the run.
+  Every form now reads its condition as `CBool` does: a number holds when it is not 0, a string when it reads as True
+  or as such a number, and Null and Empty do not. An object in a condition raises VB6's 438 and Nothing 91, where
+  each was a trappable 13, or in a block `If` or `ElseIf` the error numbered 0. `If Err Then` reads Err's Number
+  (#840), and a class with a default member and a control are refused until #174 and #790.
+
+- **A subscript, a control-array index or an array bound may be any number** (#849). Only an Integer, a Byte or
+  an integral string was accepted, so `a(i)` with `i` a Long, `a(UBound(a))` and `ReDim b(n)` stopped the run.
+  Each is now coerced as VB6 coerces it. A subscript or a bound is coerced as `CLng` does: `a(2.5)` is `a(2)`, Null
+  raises 94, `"x"` 13, and an omitted `Optional` 13. A control-array index is coerced as `CInt` does, so one outside
+  an Integer raises 6 and a negative one 341, and an omitted `Optional` is 13 there too. `UBound`'s and `LBound`'s
+  dimension is coerced as `CInt` does as well, and an omitted `Optional` one is 13, where it was read as dimension 1.
+- **`ReDim` follows VB6 at its edges** (#849). An upper bound below its lower raises 9 and erases a variable declared
+  an array, or an array parameter, keeping its type. A Variant keeps its array when any dimension's upper bound is
+  one below its lower, and is emptied with 7 otherwise. `ReDim b(2147483647)` raises 7, Out of memory, where it
+  raised 9. A Variant that never held an array can be `ReDim`med at all; it stopped with an internal error.
+- **A typed array parameter shares its caller's array** (#849). `Sub P(b() As Long)` took `b` for a Long, so an array
+  passed to it was copied rather than shared, and narrowed as if it were a scalar.
+- **A fixed array can't be resized through a parameter** (#873). `ReDim b(10)` in a callee given a caller's
+  `Dim buf(3)` raises VB6's 10, "This array is fixed or temporarily locked", and leaves `buf` as it was, whether `b` is
+  an array parameter or an untyped one; named directly, `ReDim` of a fixed array is VB6's "Array already dimensioned".
+
+- **A module-level `Const` is checked as VB6 checks it** (#760). Its value may read only other constants: a Const
+  declared below it or the Const itself, a variable, a user function and any function call are VB6's "Constant
+  expression required", where they ran from whatever HexIDE made of them. Another module's Public Const is read, bare
+  (#880) or qualified, once that module's declarations have run, and refused before (#893), rather than read as
+  Empty. A module naming itself is "Circular dependencies between modules".
+- **A `Const` holds its value as its `As` type** (#873), at module and procedure level: `Const C As Integer = 2.5` is
+  2, and `Const HALF As Long = GRID / 2` rounds as a store into a Long does. A value the type can't hold is VB6's
+  compile error: `Const C As Byte = 300` is "Overflow", `Const C As Integer = "x"` "Type mismatch", and
+  `Const C As Integer = Null` "Invalid use of Null". The As clause was ignored, so a module array sized from such a
+  Const had the wrong bounds. A String given to a `Const … As Date` is refused, until HexIDE reads a date string as
+  VB6 does (#967).
+- **A module-level array sized by a `Const` loads** (#760). `Private mGrid(0 To GRID_MAX)` made the whole module
+  fail to load; so did a typed literal such as `Dim d(2&)`. Its bounds are read where it is allocated, by VB6's
+  rules: a Const or Enum declared below, a variable, a user function, and the built-ins VB6 refuses there are its
+  "Constant expression required". A constant qualified by its library, container, module, Enum or the project is read
+  (`VBA.vbCrLf`, `KeyCodeConstants.vbKeyA`, `Module2.Cols.colMax`), and `Len` sizes only from a String: of a number
+  it is VB6's "Variable required". A dimension with no values, such as `Dim d(-1)` or `Dim d(5 To 2)`, is VB6's
+  "Range has no values", in a module, a class or a procedure, where it built an empty array or raised 9. Another module's Public Const before that module has run
+  (#893), and its Enum member read unqualified (#889) are refused, rather than sized from Empty. A form's run refuses
+  such an array, naming it, because it does not run the module's declarations yet (#256). A procedure's `Const`s are declared before its `Dim`s, so
+  `Dim a(P)` inside a procedure sees `P` too.
+
+- **A method called from `Class_Initialize` no longer terminates the object** (#850). The call fired
+  `Class_Terminate` in the middle of `New`, and the real `Class_Terminate` never ran afterwards.
+
+- **An object used as a value no longer gives a wrong value.** A class with no default member raises VB6's 438
+  wherever a value is wanted, where HexIDE raised 13, printed its CLR type name (`"v=" & k`, `CStr(k)`,
+  `Debug.Print k`), read it as 0 (`Val(k)`, a ByVal Long argument), or matched nothing in `Select Case`. That covers
+  every operator, a Let, a ByVal argument for a typed parameter, every condition, bound and Case, `Randomize`,
+  `Err.Raise`, `Error`, `ChDir`, `ChDrive`, the Mid statement, and every built-in function's value arguments.
+  `TypeName` and `IsObject` still take the object, and `VarType` and the Is functions answer about it. A class
+  with a default member, which VB6 reads in all those places (bar a few, measured, where a Function default member
+  gives 450: `Format`, `Abs` and `Not` through a Variant, and in the IDE a Case value against an Empty selector), stops
+  the run with a message saying class default members are not implemented yet (#174),
+  rather than an error `On Error Resume Next` would step over.
+- **`Err` used as a value is its `Number`**, as in VB6: `"Error " & Err`, `x = Err`, `Err + 1`. It was refused. App
+  used as a value raises VB6's 438, where it printed a .NET type name (VB6 also empties a Variant `v` in `v = App`
+  first, which is #878). A control still gives its .NET type name in `"v=" & Text1`, `CStr(Text1)` and
+  `Debug.Print Text1`, until #790.
+- **`TypeName(Err)` is "ErrObject" and `TypeName(App)` is "App"**, as in VB6. They were HexIDE's own class names.
+- **`Join` and `Filter` of something that is not an array raise 13**, as in VB6, where they raised 5. Of an array
+  never allocated, `Join` gives `""` and `Filter` an unallocated String array, where both stopped the run with an error no
+  `On Error` could trap.
+- **`Filter` always gives a String array**, as in VB6, where it gave a Variant array for any allocated input. A Null
+  match, switch or compare is 94, even for an array never allocated, and even beside something that is not an array.
+  The switch reads as `CBool` does, so an Empty one no longer raises 13. The compare is 0 for binary and 1 for text;
+  2 and negative values raise 5, where every value but 1 was binary; and 3 and above, which VB6's answers are
+  consistent with reading as a Windows locale identifier, are refused (#881). A Nothing compare is 91, where it read as
+  0, a binary compare. `Filter` converts every element first, and checks its compare only when it compares an element
+  with the match: of an array with no element it gives an unallocated String array, and an empty match keeps every
+  element, so `Filter(list, "", True, 2)` is the whole list where it raised 5. An object among its match, switch and
+  compare is read only as its turn comes, so `Filter(d, k, "x")` is the switch's 13 where it was k's 438.
+- **`Join` and `Filter` convert each element as a store into a String does**, as in VB6: a Null element is 94 and an
+  array 13, and Nothing 91, where they read as `""`, the CLR type name and `""`. `Join` of an array with no element
+  gives `""` without reading its delimiter; with one, a Null delimiter is 94 and a Nothing one 91, where both read as
+  `""`. A Nothing match in `Filter` is 91 too.
+- **The Immediate window's `? obj` no longer prints the class's name.** A class with no default member is 438, as
+  `Debug.Print` of one is in VB6, and one with a default member says that reading it is not available in break mode.
 - **A syntax error when a program starts, or a compile error while it runs, is reported like a run-time error.**
   Each was a message box nothing recorded, so a program that never started was reported to automation as having run
   and ended. Both now appear in the run-time error dialog and are kept for `get_last_runtime_error`, and a syntax

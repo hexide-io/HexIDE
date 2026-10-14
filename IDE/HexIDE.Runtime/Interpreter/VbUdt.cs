@@ -45,13 +45,34 @@ public sealed class VbUdt
     public string TypeName { get; }
     private readonly Dictionary<string, Vb6Value> fields;
 
+    // How a read of each field reads (#987, measured): a field declared with a scalar type is typed (`u.n * 7000` with
+    // `n As Integer` holding 5 is 6), and a Variant field a Variant's (`u.x * 7000` is 35000), whatever was stored in it.
+    // A nested Type, an Enum or anything else is in neither set and reads as it was stored.
+    private readonly IReadOnlySet<string> typedFields;
+    private readonly IReadOnlySet<string> variantFields;
+
     public VbUdt(string typeName, Dictionary<string, Vb6Value> fields)
+        : this(typeName, fields, new HashSet<string>(), new HashSet<string>())
     {
+    }
+
+    public VbUdt(string typeName, Dictionary<string, Vb6Value> fields, IReadOnlySet<string> typedFields, IReadOnlySet<string> variantFields)
+    {
+        this.typedFields = typedFields;
+        this.variantFields = variantFields;
         TypeName = typeName;
         this.fields = fields;
     }
 
-    public bool TryGet(string field, out Vb6Value value) => fields.TryGetValue(field, out value);
+    public bool TryGet(string field, out Vb6Value value)
+    {
+        if (!fields.TryGetValue(field, out value))
+            return false;
+        value = typedFields.Contains(field) ? value.AsFixedType()
+            : variantFields.Contains(field) ? value.AsVariant()
+            : value;
+        return true;
+    }
 
     /// <summary>Enumerate the fields (name → value) in declaration order — the dictionary preserves the
     /// typedef's insertion order (fields are never removed). Read-only; used by the debugger's Locals inspector.</summary>
@@ -71,6 +92,6 @@ public sealed class VbUdt
         var copy = new Dictionary<string, Vb6Value>(fields.Comparer);
         foreach (var (name, value) in fields)
             copy[name] = value.Value is VbUdt nested ? Vb6Value.NewUdt(nested.DeepClone()) : value;
-        return new VbUdt(TypeName, copy);
+        return new VbUdt(TypeName, copy, typedFields, variantFields);
     }
 }

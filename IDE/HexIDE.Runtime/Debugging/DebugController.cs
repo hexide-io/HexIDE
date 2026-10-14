@@ -307,10 +307,10 @@ public sealed class DebugController : IDebugController
     /// yields at every statement.
     /// </summary>
     /// <remarks>
-    /// Internal, for tests. Whether a yield lands inside a given procedure depends on how busy the machine is, and
-    /// a yield inside an event procedure that another statement raised lets that statement run on before the
-    /// procedure finishes (#766). So a test that is not about time-slicing turns it off, rather than pass or fail
-    /// with the load. A test about #766 sets -1, which reproduces it deterministically.
+    /// Internal, for tests. Whether a yield lands inside a given procedure depends on how busy the machine is. A yield
+    /// inside an event procedure used to let other events, and the statement that raised it, run on before it finished
+    /// (#766). Since the event pump it lets nothing in, and -1, which yields at every statement, is how a test proves
+    /// that under the worst case rather than whatever load the machine happens to have.
     /// </remarks>
     internal long? TimeSliceMs { get; set; } = YieldIntervalMs;
 

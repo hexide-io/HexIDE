@@ -42,15 +42,49 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     public async Task<Vb6Value?> EvaluateFunction(string name, List<Vb6Value> args)
     {
-        return await interpreter.BuiltIns.EvaluateBuiltInFunction(name, args);
+        return await interpreter.CallBuiltIn(name, args) is { } result ? IntrinsicAsRead(name, args, result) : (Vb6Value?)null;
+    }
+
+    // Which intrinsics VB6 types and which return a Variant, measured one by one (#987, native and p-code: a Select Case
+    // on each result against `Case Is < N.4`, or `Case Is > 9` for text, and its product past an Integer's or a Long's
+    // ceiling). A name not listed was not run and reads as it always has. CSng was measured with #234: two CSng results
+    // whose sum is past a Single's ceiling raise Err 6, where two Variant Singles widen to Double.
+    private static readonly HashSet<string> TypedIntrinsics = new(StringComparer.OrdinalIgnoreCase)
+        { "Sgn", "Asc", "CInt", "CLng", "CByte", "CSng", "CStr", "UBound", "LBound", "Replace", "StrReverse" };
+
+    private static readonly HashSet<string> VariantIntrinsics = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Hour", "Minute", "Second", "Day", "Month", "Year", "Weekday", "IIf", "Choose", "Switch",
+        "Mid", "Left", "Right", "Trim", "LTrim", "LCase", "UCase", "Hex", "Oct", "String", "Format", "Chr",
+    };
+
+    // Typed when given typed arguments, and a Variant's when given a Variant (measured: `Len(v)`, `InStr(v, "5")` and
+    // `Abs(v)` widen, `Len("abcde")`, `Abs(n)` and `InStr("abcd5", "5")` overflow). `Int` and `Fix` of a typed Integer
+    // are typed too; of a Variant they were not run.
+    private static readonly HashSet<string> ArgumentTypedIntrinsics = new(StringComparer.OrdinalIgnoreCase) { "Len", "InStr", "Abs" };
+    private static readonly HashSet<string> TypedArgumentIntrinsics = new(StringComparer.OrdinalIgnoreCase) { "Int", "Fix" };
+
+    private static Vb6Value IntrinsicAsRead(string name, List<Vb6Value> args, Vb6Value result)
+    {
+        if (TypedIntrinsics.Contains(name))
+            return result.AsFixedType();
+        if (VariantIntrinsics.Contains(name))
+            return result.AsVariant();
+        var argumentTyped = ArgumentTypedIntrinsics.Contains(name);
+        if (!argumentTyped && !TypedArgumentIntrinsics.Contains(name) || args.Count == 0)
+            return result;
+        if (args.Exists(a => a.HeldAsVariant))
+            return argumentTyped ? result.AsVariant() : result;
+        return args.TrueForAll(a => a.HasFixedType) ? result.AsFixedType() : result;
     }
 
     public async Task<(Vb6Value, Vb6Value)> GetTwoValues(VB6Parser.ValueStmtContext[] context)
     {
         if (context.Length != 2)
             throw new Exception("This should only be called for two operands instructions");
-        var left = await EvaluateValue(context[0]);
-        var right = await EvaluateValue(context[1]);
+        // Every binary operator's operands come through here: an object stands for its default member (#174).
+        var left = await EvaluateScalar(context[0]);
+        var right = await EvaluateScalar(context[1]);
         return (left, right);
     }
 
@@ -177,6 +211,15 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
     }
 
     /// <summary>
+    /// <see cref="EvaluateValue"/> where a value is wanted, not an object: an operand, a condition, a bound, a Select
+    /// Case. A class instance there stands for its default member (<see cref="ObjectAsValue"/>).
+    /// </summary>
+    public async Task<Vb6Value> EvaluateScalar(IParseTree arg)
+    {
+        return ObjectAsValue.Scalar(await EvaluateValue(arg), arg as Antlr4.Runtime.ParserRuleContext);
+    }
+
+    /// <summary>
     /// The argument slots of a call, blanks included.
     ///
     /// <para>The grammar's <c>argsCall</c> makes each <c>argCall</c> optional, so a blank argument —
@@ -259,12 +302,18 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         return result;
     }
 
+    // A constant, a user Const or an Enum member, has no location to pass: VB6 passes it through a temporary, so a ByRef
+    // parameter's write leaves it as it was, raising nothing (measured, #1001: a module Const, a local one, a typed one
+    // and an Enum member, each through `v As Variant`, an untyped `v` and an `x As Integer`). It was aliased, so the
+    // write overwrote a Const, and was refused for an Enum member.
     private int? TryGetArgLocation(VB6Parser.ValueStmtContext valueStmt)
     {
         if (valueStmt is VB6Parser.VsICSContext ics
             && ics.implicitCallStmt_InStmt()?.iCS_S_VariableOrProcedureCall() is { } vp
             && vp.typeHint() == null && vp.dictionaryCallStmt() == null
-            && env.TryGetVariableLocation(vp.ambiguousIdentifier().GetText(), out var loc))
+            && env.TryGetVariableLocation(vp.ambiguousIdentifier().GetText(), out var loc)
+            && !interpreter.ExecutionContext.State.IsConstant(loc)
+            && !interpreter.ExecutionContext.State.IsReadOnly(loc))
             return loc;
         return null;
     }
@@ -483,6 +532,16 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
             if (!interpreter.ExecutionContext.TryGetVariable(env, identifier, out var variable))
             {
+                // In a form's code, a member of the form: `Caption`, `Width`, `Left` (#995). After the procedure's locals and
+                // the form's own variables and controls, which the lookup above found, and before the project's globals
+                // and VBA, as VB6 resolves it (measured, #822). Its own procedures can't share a name with one.
+                if (FormMembers.TryBare(interpreter.ExecutionContext, env, identifier, out var form, out var formMember))
+                {
+                    if (formMember.CanGet && formMember.RequiredArgs == 0)
+                        return FormMembers.Read(form, identifier);
+                    if (formMember.IsMethod && formMember.RequiredArgs == 0)
+                        return FormMembers.Call(form, identifier, []);
+                }
                 if (interpreter.BuiltIns.TryGetBuiltInConstant(identifier, out var builtInConst))
                     return builtInConst;
                 // A bare name in an expression may be a zero-argument (or all-optional) Function call — this
@@ -588,7 +647,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             var idxArgs = await EvaluateCallArgs(argsCtx);
             if (idxArgs.Count != 1)
                 throw new VBRunTimeException(procOrArrayCall, VBStandardError.SubscriptOutOfRange);
-            if (!group.TryGetElement(AsType<int>(idxArgs[0]), out var element))
+            if (!group.TryGetElement(ControlArrayIndex(idxArgs[0]), out var element))
                 throw new VBRunTimeException(procOrArrayCall, VBStandardError.ControlArrayElementDoesntExist);
             return new Vb6Value(element);
         }
@@ -603,12 +662,25 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             var indices = await EvaluateCallArgs(argsCtx);
             try
             {
-                return array.GetValue(AsType<int>(indices));
+                return ElementAsRead(variable, array, array.GetValue(Subscripts(indices)));
             }
             catch (IndexOutOfRangeException)
             {
                 throw new VBRunTimeException(procOrArrayCall, VBStandardError.SubscriptOutOfRange);
             }
+        }
+        // In a form's own code, a member of the form (#995). A method is called: `TextWidth("abc")`. A property called with
+        // arguments is VBA's function of the name only when the arguments fit it, `Left("abc", 1)`, and never a project
+        // procedure's (measured). Any other is refused: VB6 gives "Wrong number of arguments" where the property's type
+        // takes no index, and reaches a default member where it does (`Controls(0)`), which HexIDE has none of yet.
+        if (FormMembers.TryBare(interpreter.ExecutionContext, env, name, out var form, out var formMember))
+        {
+            var formArgs = await EvaluateCallArgs(argsCtx);
+            if (formMember.IsMethod)
+                return FormMembers.Call(form, name, formArgs);
+            if (FormMembers.CallIsVbas(name, formArgs.Count) && await EvaluateFunction(name, formArgs) is { } vbaResult)
+                return vbaResult;
+            throw new NotImplementedException($"{form.ClassName}'s {name} with arguments is not implemented");
         }
         if (interpreter.TryResolveProcedure(name, currentModule, out _, out _))
         {
@@ -668,6 +740,21 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             }
             if (interpreter.ExecutionContext.TryGetVariable(vobj.InstanceEnv, memberName, out var fieldVal))
                 return fieldVal;
+            // A form's built-in members are its window's: `Me.Caption`, `Form1.Width` (#822). They come after the form's
+            // own members, which VB6 refuses to let clash with them.
+            if (vobj.BuiltInMembersFor(memberName) is { } formWindow)
+            {
+                // A VB6 Form member HexIDE can't read is refused as not implemented: 438 is what VB6 says of a member the
+                // Form doesn't have, which this one does (#995). A method is the window's to call.
+                if (vobj.ClassDef.Kind == InterpreterModuleKind.Form && FormMembers.IsMember(memberName, out var formMember))
+                {
+                    if (formMember.IsMethod)
+                        return FormMembers.Call(vobj, memberName, await EvaluateCallArgs(MemberArgs(member)));
+                    if (MemberArgs(member) == null && !FormMembers.CanRead(formWindow, memberName))
+                        throw new NotImplementedException($"Reading {vobj.ClassName}'s {memberName} is not implemented");
+                }
+                return await ResolveOneMember(new Vb6Value(formWindow), member, ctx);
+            }
             throw new VBMethodOrDataMemberNotFoundException(memberName, variable.Type);
         }
 
@@ -712,7 +799,13 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         {
             if (current.Value is VbUdt)
                 return (Vb6Value)GetUdtField(current, members[i..], ctx)!;
+            // A member reached through a Variant is late-bound, and its result is a Variant's whatever the member is
+            // declared as (measured, #987: `vo.P * 7000` with `Property Get P() As Integer` returning 5 is 35000 through
+            // `Dim vo`, and 6 through `Dim o As Foo`; `With vo: .P` is the same).
+            var lateBound = current.HeldAsVariant;
             current = await ResolveOneMember(current, members[i], ctx);
+            if (lateBound)
+                current = current.AsVariant();
         }
         return current;
     }
@@ -867,6 +960,18 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         throw new VBMethodOrDataMemberNotFoundException(memberName, Vb6Value.ValueType.EmptyVariant);
     }
 
+    /// <summary>
+    /// An array element as it reads (#987, measured): a Variant's when the array holds Variants (`Dim v(1)`, Array()) or
+    /// was reached through a Variant (`va(0)`, with `va = a` and `a` an Integer array), and typed when a declared
+    /// scalar-element array is read through its own name. The element's stored flag does not decide it: a Variant
+    /// element holding the literal 5 is a Variant (`w(0) * 7000` is 35000), and so is anything else a Variant array holds.
+    /// An element of an object or UDT array is left as it is.
+    /// </summary>
+    private static Vb6Value ElementAsRead(Vb6Value holder, VBArray array, Vb6Value element) =>
+        holder.HeldAsVariant || array.ElementType is not { } type || type == Vb6Value.ValueType.EmptyVariant ? element.AsVariant()
+        : VbNumeric.IsDeclarableScalar(type) ? element.AsFixedType()
+        : element;
+
     // Read a UDT field chain (`e.City`, `e.Address.City`) — navigate owned bags, returning the final field's
     // value (a nested-UDT field returns the live reference; the immediate consumer, a Let/ByVal, deep-copies it).
     private static object? GetUdtField(Vb6Value root, VB6Parser.ICS_S_MemberCallContext[] members, Antlr4.Runtime.ParserRuleContext ctx)
@@ -905,10 +1010,19 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return new Vb6Value(AmpString(rightValue));
         if (rightValue.IsNull)
             return new Vb6Value(AmpString(leftValue));
-        return new Vb6Value(AmpString(leftValue) + AmpString(rightValue));
+        // Typed when both sides are, as `"1" & "0"` is, and a Variant's when either is, as `Chr(49) & "0"` is (measured,
+        // #987: a Select Case on each against `Case Is > 9`).
+        var joined = new Vb6Value(AmpString(leftValue) + AmpString(rightValue));
+        return leftValue.HasFixedType && rightValue.HasFixedType ? joined.AsFixedType() : Typed(leftValue, rightValue, joined);
     }
 
     private static string AmpString(Vb6Value v) => VbDisplay.ToText(v);
+
+    /// <summary>An operator's result, a Variant's when either operand is (measured, #987: `v + 1` with `v` holding 4, and
+    /// `i + v` with `i` an Integer, are Variant selectors), and otherwise as the operator produced it, which is typed when
+    /// both operands are (#122).</summary>
+    private static Vb6Value Typed(Vb6Value left, Vb6Value right, Vb6Value result) =>
+        left.HeldAsVariant || right.HeldAsVariant ? result.AsVariant() : result;
 
     public override async Task<object?> VisitVsAdd(VB6Parser.VsAddContext context)
     {
@@ -917,7 +1031,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
             return Vb6Value.Null;
         if (leftValue.Type == Vb6Value.ValueType.String && rightValue.Type == Vb6Value.ValueType.String)
             return new Vb6Value((string)leftValue.Value! + (string)rightValue.Value!);   // VB6: String + String concatenates
-        return VbNumeric.Add(leftValue, rightValue, context);
+        return Typed(leftValue, rightValue, VbNumeric.Add(leftValue, rightValue, context));
     }
 
     public override async Task<object?> VisitVsMinus(VB6Parser.VsMinusContext context)
@@ -925,7 +1039,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
-        return VbNumeric.Sub(leftValue, rightValue, context);
+        return Typed(leftValue, rightValue, VbNumeric.Sub(leftValue, rightValue, context));
     }
 
     public override async Task<object?> VisitVsMult(VB6Parser.VsMultContext context)
@@ -933,7 +1047,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
-        return VbNumeric.Mul(leftValue, rightValue, context);
+        return Typed(leftValue, rightValue, VbNumeric.Mul(leftValue, rightValue, context));
     }
 
     public override async Task<object?> VisitVsMod(VB6Parser.VsModContext context)
@@ -941,7 +1055,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
-        return VbNumeric.Modulo(leftValue, rightValue, context);
+        return Typed(leftValue, rightValue, VbNumeric.Modulo(leftValue, rightValue, context));
     }
 
     public async override Task<object?> VisitVsDiv(VB6Parser.VsDivContext context)
@@ -949,9 +1063,9 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
-        return context.DIV().GetText() == "/"
+        return Typed(leftValue, rightValue, context.DIV().GetText() == "/"
             ? VbNumeric.RealDivide(leftValue, rightValue, context)
-            : VbNumeric.IntDivide(leftValue, rightValue, context);
+            : VbNumeric.IntDivide(leftValue, rightValue, context));
     }
 
     public override async Task<object?> VisitVsPow(VB6Parser.VsPowContext context)
@@ -959,7 +1073,7 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
         var (leftValue, rightValue) = await GetTwoValues(context.valueStmt());
         if (leftValue.Type == Vb6Value.ValueType.Null || rightValue.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
-        return VbNumeric.Power(leftValue, rightValue, context);
+        return Typed(leftValue, rightValue, VbNumeric.Power(leftValue, rightValue, context));
     }
 
     public override async Task<object?> VisitVsEq(VB6Parser.VsEqContext context)
@@ -1084,15 +1198,16 @@ public partial class ExpressionExecutor : VB6Visitor<Task<object?>>
 
     public override async Task<object?> VisitVsNegation(VB6Parser.VsNegationContext context)
     {
-        var value = await EvaluateValue(context.valueStmt());
+        var value = await EvaluateScalar(context.valueStmt());
         if (value.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
-        return VbNumeric.Negate(value, context);
+        var negated = VbNumeric.Negate(value, context);
+        return value.HeldAsVariant ? negated.AsVariant() : negated;
     }
 
     public override async Task<object?> VisitVsNot(VB6Parser.VsNotContext context)
     {
-        var value = await EvaluateValue(context.valueStmt());
+        var value = await EvaluateScalar(context.valueStmt());
         if (value.Type == Vb6Value.ValueType.Null)
             return Vb6Value.Null;
         // Not keeps its operand's OWN width rather than promoting: Not CByte(5) is 250, an eight-bit

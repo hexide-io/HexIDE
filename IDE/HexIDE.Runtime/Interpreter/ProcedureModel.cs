@@ -21,7 +21,15 @@ public sealed record ProcedureInfo(
     // For a Function returning a user-defined Type (`Function F() As Employee`), the type name — so the return
     // slot is seeded with a real zero-initialised UDT (its ReturnType is the generic UDT ValueType, which has
     // no concrete identity). Null for scalar/Enum/no return.
-    string? ReturnUdtTypeName = null)
+    string? ReturnUdtTypeName = null,
+    // For a Function or Property Get declared to return an array of a scalar type or of Variant (`As Integer()`), that
+    // array type, so a store into the return name can be checked against it (#986). Null otherwise, including `As
+    // Object()` and `As Collection()`, whose element type is not modelled.
+    Vb6Value.ValueType? CheckedArrayReturn = null,
+    // Whether the return reads as a Variant's: declared with no As clause, `As Variant`, or `As Object`, which VB6 binds
+    // late as it binds a Variant (measured, #1005: `GetObj().P` with `GetObj() As Object` is a Variant, and `GetFoo().P`
+    // with `GetFoo() As Foo` is typed). A return the map does not type, such as `As Collection`, is neither.
+    bool ReturnsVariant = false)
 {
     private IReadOnlyList<VB6Parser.VariableSubStmtContext>? declaredLocals;
 
@@ -41,6 +49,34 @@ public sealed record ProcedureInfo(
     /// </summary>
     public IReadOnlyList<VB6Parser.VariableSubStmtContext> DeclaredLocals =>
         declaredLocals ??= CollectDeclaredLocals(Body);
+
+    /// <summary>
+    /// Every <c>Const</c> the procedure declares, in declaration order, wherever it sits in the body. Declared at
+    /// entry ahead of the Dims, because a Dim's bounds may name one: <c>Const P = 2.5</c> then <c>Dim a(P)</c> is
+    /// <c>a(0 To 2)</c> (measured), and the hoisted Dim was sized while <c>P</c> was still Empty.
+    /// </summary>
+    public IReadOnlyList<VB6Parser.ConstSubStmtContext> DeclaredConsts =>
+        declaredConsts ??= CollectDeclaredConsts(Body);
+
+    private IReadOnlyList<VB6Parser.ConstSubStmtContext>? declaredConsts;
+
+    private static List<VB6Parser.ConstSubStmtContext> CollectDeclaredConsts(VB6Parser.BlockContext? body)
+    {
+        var found = new List<VB6Parser.ConstSubStmtContext>();
+        if (body != null) Walk(body);
+        return found;
+
+        void Walk(Antlr4.Runtime.Tree.IParseTree node)
+        {
+            if (node is VB6Parser.ConstStmtContext c)
+            {
+                found.AddRange(c.constSubStmt());
+                return;
+            }
+            for (var i = 0; i < node.ChildCount; i++)
+                Walk(node.GetChild(i));
+        }
+    }
 
     private static List<VB6Parser.VariableSubStmtContext> CollectDeclaredLocals(VB6Parser.BlockContext? body)
     {
@@ -88,7 +124,15 @@ public sealed record ParamInfo(
     bool Optional,
     bool ParamArray,
     Vb6Value.ValueType? DeclaredType,
-    VB6Parser.ArgDefaultValueContext? Default);
+    VB6Parser.ArgDefaultValueContext? Default,
+    bool IsArray = false,
+    // Whether the parameter reads as a Variant's: declared with no As clause, `As Variant`, or `As Object`, which VB6
+    // binds late as it binds a Variant (measured, #1005). DeclaredType cannot say this: it is null for a class, an Enum
+    // and a Collection too, which are typed (`s.P` with `s As Foo` overflows, and `c` with `c As MyEnum` is a Long).
+    bool ReadsAsVariant = false,
+    // The type name of an `As Name` clause that is not a base type: a class, a UDT or an Enum. An Enum parameter is a
+    // Long, which BasicInterpreter.BindParameters resolves at the call, once every module's Enums are known.
+    string? TypeName = null);
 
 /// <summary>
 /// An evaluated argument at a call site: its value plus, when the argument is a caller lvalue, the caller

@@ -269,6 +269,8 @@ stays `Byte`. A result outside the result-type's range is `Err 6` — there is n
 > cells, `/` is a third table, `\`/`Mod` a fourth, and `^` a fifth.** `Long + Single` is also `Double`, not
 > Single, which no row here happened to cover. Two exceptions to the "no auto-promotion" sentence were also
 > found: `Byte * Byte` wraps mod 256 silently, and unary minus of a type's minimum returns the minimum.
+> **Corrected 2026-10-14:** the `Byte * Byte` wrap is native code only. P-code and the IDE raise 6, as for `Byte + Byte`;
+> see *Numeric type pairs*.
 > Read that section before implementing from this one.
 
 > **That last sentence is about DECLARED types only.** Every row below was measured through declared
@@ -1020,6 +1022,193 @@ right-button release raises Click.
   to appear). Poll for a non-zero `MainWindowHandle` first, then shoot.
 
 
+## A form as an object: its names, its lifecycle and its predeclared instance (2026-10-14, #822)
+
+**The question.** #822 makes a running form an instance of its module, with a real `Me`, where HexIDE has had a form's
+code run as a standard module with `Me` bound to the window. The design turns on four things nobody had measured: how
+a bare name resolves inside a form, whether a form's members are visible outside it, when a form's declarations exist
+relative to its events, and what the form's own name refers to.
+
+**The probes.** Each is a Standard EXE built with `/make` as native code and as p-code, the two agreeing on every row,
+and run in session 0. Every log line is written by opening, appending and closing the file, as in [`End` itself, from
+three places](#end-itself-from-three-places-2026-10-12-775). Each lookup question is a project of its own, so that a
+compile error in one could not hide another. `Form1` has a TextBox `Text1`, and `Module1` is a standard module.
+
+### Names inside a form module
+
+| Form code | Also declared | VB6 |
+|---|---|---|
+| `Caption = "set by form"`, then `Caption`, `Me.Caption` and `Top = Me.Top` | nothing | sets the form's caption; reads `set by form` twice; `True` |
+| `Caption = "set by form"` | `Public Caption As String` in Module1 | `Me.Caption` is `set by form`; `Module1.Caption` is still empty |
+| `Tag` | `Public Function Tag()` in Module1, returning `module tag` | the form's `Tag`, empty; `Module1.Tag()` is `module tag` |
+| `TypeName(Text1)` | `Public Text1 As String` in Module1 | `TextBox` |
+| `Score = 5` | `Public Score As Long` in the form and in Module1 | `Me.Score` is 5; `Module1.Score` is 0 |
+| `Left("abc", 1)` | nothing | `a`, from VBA's `Left` |
+| `Left` | nothing | the form's `Left`, equal to `Me.Left` |
+| `Dim Tag As String` at form level | nothing | does not compile: "Member already exists in a object module from which this object module derives" |
+| `TypeName(Me)`, `TypeName(Form1)` and `Me Is Form1` | nothing | `Form1`, `Form1`, `True` |
+
+So inside a form, a bare name is the form's own before it is anything a standard module declares: its variables, its
+controls, and its built-in members, which are implicit `Me`. A form may not declare a member its Form base already has.
+VB6 gives no order to settle between the two, because a program that has both doesn't compile.
+
+**One exception, measured for one function only:** `Left("abc", 1)`, called with arguments, is VBA's `Left`, while a bare
+`Left` is the form's property. The form's `Left` takes no arguments. Whether arguments are what decides it was not
+measured beyond this one name, so it is recorded here as a fact about `Left`, not as a rule.
+
+**Measured further for #995, and the guess was wrong.** The obvious reading, that a call with arguments simply skips
+a property that takes none, is not what VB6 does. The fallback is VBA's function, and only when the call fits it: in a
+form `Left(5)` and `Left("abc", 1, 2)` are "Wrong number of arguments or invalid property assignment", where in a
+standard module `Left(5)` is VBA's own "Argument not optional". And a project's Function is never the fallback:
+`Caption(1)` and `Tag(2)` in a form are the same "Wrong number" error though Module1 declares `Function Caption(n)` and
+`Function Tag(n)`. `Left` is the only Form member that is also a VBA function, so this is as far as the rule can be
+measured. See *Bare names in a form, for implicit `Me`* below.
+
+### The form from a standard module
+
+| Module1 code | VB6 |
+|---|---|
+| `Form1.Caption`, `Form1.Score` (a Public of the form) and `Form1.Text1.Text` | `cap`, `5`, `t1` |
+| `Score`, unqualified, where `Score` is a Public of the form | Empty: a new variable, there being no Option Explicit |
+| `Hello`, unqualified, where `Hello` is a Public Sub of the form | does not compile: "Sub or Function not defined" |
+| `Ping`, unqualified, where Module2 and the form each have a Public Sub `Ping` | Module2's runs: `module2 ping` |
+
+A form's Public members are members of the form, not project globals. They are reached through its name, and not
+without it. The `Ping` row is the same rule seen from the other side: a form's Public Sub is not a candidate for an
+unqualified name at all, so it cannot make a module's Sub of the same name ambiguous. The probe was Form1, Module1 and
+Module2 in one Standard EXE, with Form1's Load calling Module1's `CallPing`, whose body is the bare `Ping`. [A form-based game's runtime surface](#a-form-based-games-runtime-surface-2026-10-12) had the same refusal
+for a class calling a form's Public Sub unqualified, and the other direction too: a standard module's Public Const and
+variable are reachable unqualified from a form.
+
+### The form's lifecycle
+
+| Probe | Log |
+|---|---|
+| The startup form declares `Const K = 5`, `Dim a(1 To K) As Integer`, `Dim n As Integer` and `Private o As Class1`, and sets `o` in Load. A Timer does `Unload Me` | `initialize: UBound(a)=5 n=0`, `load`, `class initialize`, `resize`, `activate`, `timer`, `queryunload, mode 1`, `unload`, `terminate`, `class terminate` |
+| `Form_Initialize` sets `Text1.Text` | `initialize start`, `load`, `initialize end`, `resize`, `activate`, `timer`, `queryunload, mode 1`, `unload`, `terminate` |
+| `Sub Main` logs, calls `Form1.Show` and logs again. The form unloads from a Timer | `main start`, `initialize`, `load`, `resize`, `main end`, `activate`, `timer`, `queryunload, mode 1`, `unload`, `terminate` |
+
+What these show:
+- **A form's module-level declarations exist before `Form_Initialize`:** sized, so an array bounded by the form's own
+  Const is `1 To 5`, and zeroed. Initialize can read them.
+- **Touching a control in `Form_Initialize` loads the form there and then.** `Form_Load` runs inside Initialize, before
+  Initialize's next statement.
+- **`Show` returns after Load and Resize, and before Activate**, which comes once `Sub Main` has returned. The run
+  outlives `Sub Main` while a form is loaded.
+- **The form's object variables are released after `Form_Terminate`.** In the first probe, the object `o` held is the
+  last thing to go.
+
+The order on show, and `Unload Me`'s order, agree with [A form-based game's runtime
+surface](#a-form-based-games-runtime-surface-2026-10-12), which measured both first.
+
+### The form's name is a predeclared, auto-instantiating variable
+
+Every `.frm` carries `Attribute VB_PredeclaredId = True`. The probe asks what that means in use: `Sub Main` reaches a
+second form, `Form2`, only through its name, and `Form2` logs its events.
+
+| Step in `Sub Main` | Log |
+|---|---|
+| 1. read `Form2.Score`, a Public of the form | `initialize`, then `0` |
+| 2. `Form2.Score = 5` | nothing |
+| 3. read `Form2.Tag`, a built-in property | `load`, then empty |
+| 4. read `Form2.Text1.Text`, a control | `t1` |
+| 5. `Unload Form2` | `queryunload, mode 1`, `unload` |
+| 6. read `Form2.Score` after the Unload | `5` |
+| 7. read `Form2.Tag` after the Unload | `load`, then empty |
+| 8. `Unload Form2`, then `Set Form2 = Nothing` | `queryunload, mode 1`, `unload`, then `terminate` |
+| 9. read `Form2.Score` after `Nothing` | `initialize`, then `0` |
+| 10. `Form2 Is Nothing` | `False` |
+| 11. the end of `Sub Main` | `terminate` |
+
+So the form's name names an instance that VB6 creates on first use:
+- **Reaching a Public of the form creates the instance** and raises Initialize, but does not load it.
+- **Reaching a built-in member or a control loads it** and raises Load. A Public of the form does not.
+- **`Unload` unloads the form, not the instance.** No Terminate is raised, the form's variables keep their values
+  (`Score` is still 5), and the next built-in member loads the same instance again, with Load and no Initialize.
+- **`Set Form2 = Nothing` ends the instance.** Terminate is raised, and the next use creates a new one, with Initialize
+  and a `Score` of 0. So `Form2 Is Nothing` is never True: naming the form creates it.
+- **At the end of the run,** the instance still alive is terminated.
+
+### A form's declarations, an event from Load, and its name set to Nothing (#1010 review)
+
+The same harness, native and p-code agreeing. The project holds Form1 (with `Text1`), an empty Form2, Module1, and a
+`Reference=` to stdole, as a new Standard EXE has.
+
+| Probe | Log |
+|---|---|
+| Form1 declares `Private` variables `As Form`, `As Object`, `As Collection`, `As StdFont`, `As OLE_COLOR`, `As TextBox`, `As Form2`, `As Form1`, `As IPictureDisp` and `As Control`; Load logs each `TypeName`, and `Is Nothing` for five | `Nothing Nothing Nothing Nothing Long Nothing Nothing Nothing Nothing Nothing`, then `True True True True True` |
+| Load logs, sets `Text1.Text = "x"`, logs again; `Text1_Change` logs | `load start`, `change x`, `load end` |
+| Load sets a form `Public Score` to 5 and calls Module1's `Drop`, which does `Set Form1 = Nothing`; Load then logs `Me.Score` and `TypeName(Me)`, and unloads | `dropped`, `after drop: 5 Form1`, `after unload`, then `terminate` |
+
+What these show:
+- **An object declaration is Nothing whatever its type:** VB's own classes and interfaces, another form, the form
+  itself, and stdole's dispinterface alias `IPictureDisp`. stdole's `OLE_COLOR` is an alias for a Long.
+- **A control event raised from Load runs inside it,** before the statement that raised it returns.
+- **Clearing the name doesn't end a loaded form.** The instance lives on, and Terminate waits for the unload and the
+  end of the procedure that was running in it.
+
+### Bare names in a form, for implicit `Me` (2026-10-14, #995)
+
+The same harness, native and p-code agreeing on every row; one project per row, so a compile error stays its own.
+Form1 holds `Text1`; Module1 holds the logger.
+
+| Form code | VB6 |
+|---|---|
+| `hWnd = 5` (bare, and as `Me.hWnd = 5`) | does not compile: "Function or interface marked as restricted, or the function uses an Automation type not supported in Visual Basic" |
+| `Count = 1`, `Me.Count = 1`, `HasDC = True`, `hDC = 5` | the same message, for each |
+| `Set ActiveControl = Text1` | compiles; the run stops at a modal dialog before logging, which the harness's timeout cut off |
+| `Option Explicit`, then `Caption = "set"` and `Caption & "\|" & Me.Caption` | `set\|set` |
+| `Cls`, then `TextWidth("abc") > 0` and its `TypeName` | `cls ok`, then `True Single` |
+| `Dim Caption As String` in Load, `Caption = "local"`, then `Caption & "\|" & Me.Caption` | `local\|Form1` |
+| `TypeName(ScaleWidth)`, `ScaleWidth > 0`, `TypeName(Controls)`, `Controls.Count` | `Single True`, `Object 1` |
+| `Hide` in Load, then `Visible` | `hidden False` |
+| `Name`, `Left("abc", 2)`, `Left = Me.Left` | `Form1 ab True` |
+| `Caption(1)`, where Module1 has `Public Function Caption(ByVal n As Integer) As String` | does not compile: "Wrong number of arguments or invalid property assignment" |
+| `Tag(2)`, where Module1 has `Public Function Tag(ByVal n As Integer) As String` | the same |
+| `Left(5)` | the same |
+| `Left("abc", 1, 2)` | the same |
+| `Left$("abc", 2)` and `VBA.Left("abc", 1)` | `ab a` |
+| `Left(5)` in Module1, not the form | does not compile: "Argument not optional" |
+
+What these show:
+- **Assigning a member the Form only reads is refused at compile time,** with a message about restricted functions,
+  not one about read-only properties. That held for every read-only member tried, bare and through `Me`.
+- **A bare member is the form's under `Option Explicit` too,** and a local of the same name shadows it.
+- **A bare method runs,** as `Cls` does, and one called for its value returns its value, as `TextWidth` does.
+- **A property called with arguments** is VBA's function when the call fits it, and otherwise refused as the
+  property's, never a project Function of the name.
+
+The Form's members themselves were read out of VB98\VB6.OLB by `scripts/dump-typelib-members.ps1`, into
+`vb6-form-members.json`: 87 names on `_Form`, its default interface, and 31 events on `FormEvents`. `Print`, a method
+of a form in VB6 code, is not in the type library: VB6 compiles it as syntax.
+
+### HexIDE
+
+Read from the code at `upstream/main` c933fbd, not run. A form's code runs as the primary standard module of an
+interpreter of its own, and `Me` and the form's name are bound to the window (`VBLoader.RunForm`). So:
+- **Implicit `Me`:** a bare name is never looked up on the form: `Caption = "x"` makes a new variable (#995).
+- **A form's Public Subs:** the form is a standard module, so they are found unqualified from another module, where VB6
+  refuses (#822). And a name the form shares with another module's Public Sub is "Ambiguous name detected: Ping"
+  (`TryResolveProcedure` counts the form as a second standard module with a `Ping`), where VB6 runs the module's.
+- **The form from outside:** its name is bound in its own module only.
+- **`TypeName(Me)`:** it is the window's .NET class name with `VB` taken off, `FormRuntime`.
+- **The lifecycle:** Initialize and Activate are never raised, and Resize comes before Load (#994). A form's declarations
+  never run (#256). `Unload` stops the run (#973).
+
+#822 carries the design that makes the form an instance. #995 follows it for implicit `Me`, and the predeclared,
+auto-instantiating name belongs to the slices that bring `Load`, `Show` and a second form.
+
+#822's first slice makes the startup form an instance of its module, with `Me` that instance. It brings the rows
+above into line for `Me`, `TypeName(Me)`, the form reached from a module, both of the Public Sub rows, the
+declarations at Initialize, and Initialize and Load before Resize. A control used in Initialize (#1009), Activate, the
+predeclared name and `Unload` remain.
+
+#995 then brings implicit `Me` into line: a bare name in a form's code is the form's member, after its locals, variables,
+controls and procedures and before the project's globals, for reads, assignments and calls. A member VB6's Form has and
+HexIDE does not is refused as not implemented, rather than made a variable. A read-only one assigned is VB6's compile
+error. A property called with arguments is VBA's only for `Left` with its two, and otherwise refused, never a project
+procedure: refused as not implemented, because the error VB6 gives depends on whether the property's type takes an index.
+
 ## Assigning to a control property (2026-10-12, #768)
 
 Measured to decide what `Label1.Caption = 5` stores, and what every other property does with a value of another
@@ -1266,7 +1455,9 @@ reads back `02/01/2003` under en-GB, as measured above. It was refused until the
 - **`Value` on a scroll bar whose Min exceeds its Max** (#787). Avalonia raises Maximum to Minimum, so the value
   would read back clamped.
 - **A control, an array or an object on the right** of a property assignment. For a control, VB6 reads its default
-  property (#790).
+  property (#790). (Superseded for a class instance and the in-box objects by #840, "An object used as a value": a
+  class with no default member raises 438, one with a default member is refused naming #174, and Err stands for its
+  Number. A control and an array are still refused here.)
 - **A colour read from a Timer or a scroll bar** (#801). VB6 gives neither control a colour, but both bind one as
   every templated control does, so the read would give black. Until #795 a Label's and a TextBox's colours were
   refused here too, because neither loaded them where a read could find them; both read back now, as measured
@@ -1276,7 +1467,8 @@ reads back `02/01/2003` under en-GB, as measured above. It was refused until the
 - **`Tag` holds what it is given**, not a String: `Tag = 5` reads back the Integer 5, where VB6 has `"5"`. Making
   it a String waits on #211, because `If Tag = 1` and `Tag + 1` rely on it. An unset `Tag` reads back `""`, and
   Null is 94, as in VB6.
-- **Positions are not rounded to whole twips** (#791). HexIDE checks the Long range but keeps the fraction.
+- ~~**Positions are not rounded to whole twips** (#791).~~ They are since #933, which holds them in twips at the
+  property: see *A control's position at run time*.
 - **A comma in a numeric String** (#770).
 - **A hex String** (#788): `BackColor = "&H8000000F"` is an Overflow, and `"&H8000000F&"` is accepted.
 - **Reading a control as a value** outside a property assignment (`s = Text1`) gives a .NET type name (#790).
@@ -2457,9 +2649,13 @@ fix.
 | a member referencing an **earlier** enum, qualified | legal |
 | a member referencing an earlier member of its **own** enum, qualified | legal |
 
-This matters more than it looks. CLAUDE.md prescribes lazy-memoised evaluation for `Const` precisely
-because `Const` is order-independent, and the obvious move was to reach for the same pattern here. VB6 says
-no: source order **is** the rule, so a plain forward walk is not a shortcut, it is the specification. The
+This matters more than it looks. CLAUDE.md prescribes lazy-memoised evaluation for `Const` on the premise
+that `Const` is order-independent, and the obvious move was to reach for the same pattern here. VB6 says
+no: source order **is** the rule, so a plain forward walk is not a shortcut, it is the specification. **The premise
+is wrong for `Const` too, within a module** (measured later, #873): `Const A = B + 1` above `Const B = 2` is refused
+at every scope probed, as "Constant expression required", except in a procedure under `Option Explicit`, where it is
+"Variable not defined". Only across modules is the order free, and there VB6 refuses a
+cycle (the section "Subscripts, bounds, and a method called from Class_Initialize"). The
 pre-pass stays pure collection and a forward reference simply is not found — the right answer for the right
 reason.
 
@@ -2803,6 +2999,12 @@ could be widened. 30 cases; the result is a single rule with one genuinely surpr
 
 > **VB6 coerces the CASE EXPRESSION to the SELECTOR's runtime type, then compares.**
 
+> **Corrected 2026-10-13, #839's review round two:** for a selector with a FIXED type only, a declared
+> variable, a literal, a typed Function, parameter, field or array element, or an expression of those. Every
+> selector measured here was declared, apart from an unassigned Variant, so the rule was written for every
+> selector. A Variant selector holding a value converts nothing: a Variant 2 does not match `Case 1.7`, and a
+> Variant 1 does not match `Case "1.0"`. See *A typed selector and a Variant one*.
+
 It does *not* compare numerically, and it is not symmetric. Two measurements settle it, and they disagree
 with each other under any numeric reading:
 
@@ -2820,7 +3022,9 @@ Everything else follows from it and was confirmed rather than assumed: a `Long` 
 Integer literal; an `Integer` selector matches `1&`; `Double`, `Currency`, `Date` and `Boolean` selectors all
 participate (`True` matches `Case -1`, a Date of serial 2 matches `Case 2`); an unassigned Variant matches
 `Case 0`; the first of two matching arms wins; and a selector that is an *expression* is judged on its
-runtime type, not its declared one.
+runtime type, not its declared one. (**Corrected 2026-10-13:** an expression's type is fixed when its operands'
+are, as `i + 1` is with a declared `i`, and a Variant when one is a Variant, as `v + 1` is; a Variant one
+converts nothing. See *A typed selector and a Variant one*.)
 
 ### A failed coercion RAISES — it is not a non-match
 
@@ -3891,7 +4095,20 @@ this narrowing is not a checked conversion.
 | `1E30 \ 1`, `1E30 Mod 3` | — | 6 |
 
 **`Byte * Byte` silently wraps mod 256** while `Byte + Byte` and `Byte - Byte` raise. Every value above is the
-true product mod 256. **Unary minus of a type's minimum silently returns the minimum**, while subtracting it
+true product mod 256.
+
+> **Corrected 2026-10-14, #971's review round four: native code only.** These rows were measured with native builds.
+> Built as p-code and run in the IDE, each pair below raises 6, as `Byte + Byte` does; native code still wraps, as
+> above:
+>
+> | `Dim a, c As Byte` | Native | P-code and the IDE |
+> |---|---|---|
+> | `20 * 20`; `16 * 16`; `255 * 255`; `13 * 23`; `200 * 200` | `144`; `0`; `1`; `43`; `64`, Byte, Err 0 | 6, each |
+> | `200 + 200` | 6 | 6 |
+>
+> So multiply is not an exception to Byte's ceiling in the build the IDE runs. It looks like native code omitting
+> one overflow check, though that is a guess, not a measurement. The unary-minus row beside it was measured natively
+> too and has not been re-run as p-code. **Unary minus of a type's minimum silently returns the minimum**, while subtracting it
 from zero raises. Both were disbelieved on first measurement and re-run in independent cases.
 
 ### The Variant path is the typed path plus promotion
@@ -3942,7 +4159,8 @@ is *not* stated as a rule. The falsified hypothesis is kept because the next rea
 side cannot be an unchecked scaled-int64 cast, because (a) rules that out. Two narrowings, two mechanisms,
 one describable and unexplained.
 
-**(c) `Byte * Byte` wraps while `Byte + Byte` and `Byte - Byte` raise.** No rule explains why multiply is the
+**(c) `Byte * Byte` wraps while `Byte + Byte` and `Byte - Byte` raise.** (**Corrected 2026-10-14:** native code only;
+p-code and the IDE raise 6. See the correction above.) No rule explains why multiply is the
 exception. Confirmed across seven value pairs in two independent cases. **This is the most dangerous single
 fact here**, because HexIDE raises where VB6 runs — a false rejection, the top severity class.
 
@@ -3966,7 +4184,8 @@ Recorded because the wrong guess is what the next reader will also make:
 - **`Single / Single` was expected to be Double**, since `/` is "the floating divide". It is Single — and
   `Byte / Byte` is Double. The rule is the opposite shape to the guess.
 - **`Decimal / anything` was expected to be Double**, on the same reasoning. It is Decimal.
-- **`Byte * Byte` was expected to raise like `Byte + Byte`.** It wraps.
+- **`Byte * Byte` was expected to raise like `Byte + Byte`.** It wraps, natively. In p-code and the IDE it raises, as
+  expected (2026-10-14), so the surprise was the native build's.
 - **`-n` at `n = -32768` was expected to raise.** It returns `-32768`.
 - **The Single/Long comparison was expected to narrow to Single**, matching the Single/Double case. It
   escalates to Double instead — so the comparison defect in the interpreter is wrong in *both* directions and
@@ -3983,8 +4202,13 @@ otherwise, and that misreading has already produced one incorrect issue.
   be Decimal), `Lo/Sg`, and `By\By` / `By Mod By` (should be Byte). Filed as #230.
 - **Comparison** uses `ExpressionExecutor.NumericRank` (`:100`) — `By<In<Lo<Sg<Cu<De<Db` — and widens where
   VB6 narrows. **4 of 21 pairs diverge**, in both directions. Filed as #229.
-- **`Byte * Byte`** and **unary minus at a type minimum** raise where VB6 succeeds. Filed as #233, #234.
-- **`0#/0#`** reports 11 where VB6 reports 6, and **Variant Single overflow** raises where VB6 promotes. #234.
+- **`Byte * Byte`** and **unary minus at a type minimum** raise where VB6 succeeds. Filed as #233, #234. (**Corrected
+  2026-10-14:** VB6's native build succeeds at `Byte * Byte`, and its p-code build and the IDE raise, as HexIDE does.
+  Unary minus has since been re-measured, as p-code and in the IDE: it is native code's too, and HexIDE matches the IDE.
+  See *Overflow edges*.)
+- **`0#/0#`** reports 11 where VB6 reports 6, and **Variant Single overflow** raises where VB6 promotes. #234. (**Fixed
+  2026-10-14,** after re-measuring both as p-code and in the IDE, which widened the first and found an exception to it.
+  See *Overflow edges*.)
 
 The shape of the fix these measurements point to: **per-operator arithmetic tables and a separate per-pair
 comparison table, both generated from the rows above rather than from a rank function.** All 49 pairs × 7
@@ -5094,6 +5318,10 @@ the control. A Let of a control or of an in-box object (`Err`, `App`, a control 
 are unaffected. `Label1 = "x"` is still a compile error ("Method or data member not found"). `n = Err` reads
 `Err.Number` in VB6 by the documentation; that was not measured.
 
+**Superseded for the in-box objects by #840**, which measured them ("An object used as a value"): `n = Err` stores
+Err.Number, `s = App` raises 438, and `Debug` and a control array used as values are compile errors. The #790
+refusal now covers controls only.
+
 ## A Label's colours, read back and painted (2026-10-12, #795)
 
 Measured to decide what a Label and a TextBox should read back and paint. Real `vb6.exe` 6.00.8176 (SP6), guest
@@ -5431,7 +5659,8 @@ HexIDE read every one of these as 0, so `RGB(o, 0, 0)` was black and `CInt(o)` w
   - an omitted argument is 448;
   - a UDT raises 13, which is VB6's compile-time error raised at run time.
 - A control, an in-box object, or a class with a `VB_UserMemId = 0` member refuses, untrappably, because HexIDE does not
-  read default members yet: #790 for controls, #174 for classes. A trappable error there would let
+  read default members yet: #790 for controls, #174 for classes. (Superseded for the in-box objects by #840: Err used as a
+  value is its Number and App raises 438, as measured there.) A trappable error there would let
   `On Error Resume Next` carry on without the value VB6 gives.
 - A box hidden with its owner keeps waiting, shown again unowned, and so does a box whose owner was hidden before it
   opened. The waiting statement is abandoned only when the run that opened the box has ended, which survives a
@@ -6497,3 +6726,3029 @@ that writes the module, where VB6's load gives it to no member and its next writ
 cannot tell the two apart from the text, which is all it reads. Unlike an orphan, `DoubleDesc`'s second line is
 protected and folded with the run, so it cannot be seen or removed by hand until the Procedure Attributes dialog
 exists (#62), and a save keeps it, as settled in `design.md`; VB6 reads the first at its next load either way.
+
+## Resume Next into a block (2026-10-12, #839)
+
+**The question.** Under `On Error Resume Next`, what does VB6 do when the condition or header of a block statement
+raises? This covers If, ElseIf, Select Case, Do, While, For, For Each and With. HexIDE skipped the whole statement, so a
+program relying on Resume Next carried on down a path VB6 would not take, with no error.
+
+**The answer, in one line:** VB6 goes on at the next statement, and for a block statement that is the first statement
+inside it. So the block runs.
+
+### A new axis: native code and p-code
+
+Every probe in this file before this one was built as **native code**, and several were also run in the IDE (the App
+section, #174's and #840's, #847's, #874's, #882's and the Join and Filter rounds). What is new here is the p-code
+build. `/make` honours the project's `CompilationType`,
+and a `.vbp` with no `CompilationType` line builds native code with VB6's default optimisations: overflow checks on.
+Five probes here were each built several ways, and for the first time the two compiled forms give different answers.
+
+- **Native code, the harness's default.** No `CompilationType` line, or `CompilationType=0`.
+- **Native code with integer overflow checks removed.** `CompilationType=0` plus `OverflowCheck=-1`.
+- **P-code.** `CompilationType=-1`.
+
+Each probe starts with a tell that proves which build ran: `Dim ov As Integer: ov = 32767: ov = ov + 1` under Resume
+Next.
+- Native code without overflow checks gives -32768 and error 0.
+- Both other builds give 32767 and error 6.
+
+The probes told the two native builds apart with this tell, and the two compiled forms apart with the For evaluation
+order below.
+
+**And the IDE.** `VB6.EXE /runexit probe.vbp` runs a project in the IDE, as F5 does, and closes VB when the program
+ends. It works from PowerShell Direct's session 0, with no window or agent, because the probe writes its own results
+file. Two points about running it that way:
+- VB6.EXE exits with 0xC000041D (`STATUS_FATAL_USER_CALLBACK_EXCEPTION`) as it closes there, after the program has
+  finished.
+- A probe must not raise an unhandled error, which would leave the IDE waiting on a modal no one can see.
+
+**Four of these probes were run in the IDE, and it gave p-code's answer in every row**, including every row where
+native code differs. So in the tables below, the p-code column is also the IDE's, which is what HexIDE emulates. Where
+the compiled forms differ, HexIDE follows p-code.
+
+### The probes
+
+All of them are `Sub Main` programs, built with `vb6.exe /make` on the Win10 guest and run. Each result is written to a
+file.
+- `Boom()` is a Function `As Long` whose body is `Boom = 1 / 0`, so calling it raises 11.
+- `T(label, v)` appends `label` to a trail and returns `v`, which shows what was evaluated and in what order.
+- `s` is a **String** holding `"abc"`, `z` is 0, and `k` is an instance of a class with no default member.
+
+`s` must be a String. A Variant holding `"abc"` does not raise in `s > 1`: VB6 compares it as greater than any number,
+without converting it (recorded on #211).
+
+Every statement ran under `On Error Resume Next` unless a row says otherwise.
+
+Unless a table has a column for each mode, native code, p-code and the IDE all gave the same answer.
+
+**Conditions:**
+
+| Statement | VB6 runs | Err after |
+|---|---|---|
+| `If Boom() > 0 Then ... Else ...` | the Then branch | 11 |
+| `If False Then ... ElseIf Boom() > 0 Then ... Else ...` | the ElseIf branch | 11 |
+| the same, then a later `ElseIf T("e2", True)` | the first ElseIf's branch; `e2` is never evaluated | 11 |
+| `If Boom() > 0 Then c = "Then" Else c = "Else"`, one line | the Then part | 11 |
+| `If Boom() > 0 Then c = "Then": c = c & "+second"` | both statements of the Then part | 11 |
+| `If Boom() > 0 Then GoTo X Else ...` | the jump | 11 |
+| `If s > 1 Then`, a comparison that raises | the Then branch | 13 |
+| `If 1 \ z > 0 Then`, an operator that raises | the Then branch | 11 |
+| `If T("a", 1) = Boom() Then` | the Then branch; trail `a Boom` | 11 |
+| `If k Then`, from #174's probe | the Then branch | 438 |
+
+**Select Case.** A test that raises on a Case line:
+
+| Statement | VB6 runs | Trail |
+|---|---|---|
+| `Select Case 5`, `Case Boom()`, `Case T("next", 5)`, `Case Else` | `Case Boom()`'s body | `Boom`: nothing later is tested |
+| `Select Case 5`, `Case T("a", 1), Boom(), T("b", 5)` | that Case's body | `a Boom`: the rest of the list is not tested |
+| `Select Case 5`, `Case 1 To Boom()` | that Case's body | |
+| `Select Case 5`, `Case Is > Boom()` | that Case's body | |
+| `Select Case 5`, `Case k` | that Case's body, 438 | |
+| `Select Case s`, `Case 1`, `Case T("cabc", "abc")` | `Case "abc"`, error 0 | `Case 1` does not raise: 1 becomes `"1"` (see *Select Case matching*) |
+
+**Select Case.** The selector itself raises. The compiled forms differ here, and native code also depends on the shape
+of the Cases:
+
+| Statement | Native code | P-code and the IDE |
+|---|---|---|
+| `Select Case Boom()`, `Case 1`, `Case 0`, `Case Else`, constant Cases | nothing runs | nothing runs |
+| `Select Case Boom()`, `Case Else` only | nothing runs | nothing runs |
+| `Select Case Boom()`, `Case T("c1", 1)`, `Case T("c0", 0)`, `Case Else` | **`Case 0`**, trail `Boom c1 c0` | nothing runs |
+| the same with a Variant Function, and with `1 \ z` | **`Case 0`** | nothing runs |
+| `Select Case k`, `Case 1` or `Case T("c1", 1)`, `Case Else`; also through a Variant and `CLng(k)` | **`Case Else`** | nothing runs |
+
+Native code with non-constant Cases goes on to test them against a selector it never computed: 0 for a numeric
+selector, Empty for an object's. That is uninitialised state, not a rule.
+
+**Do and While:**
+
+| Statement | VB6 runs |
+|---|---|
+| `Do While Boom() > 0`, `Do Until Boom() > 0`, `While Boom() > 0` | the body, and the condition is asked again each time round: three passes, three calls, until the probe's own `Exit` |
+| `Do ... Loop While Boom() > 0`, `Loop Until` | the body once, then the statement after `Loop`: one call |
+| `Do While s > n`, a comparison that raises | the body each time round, error 13 |
+
+**For.** First, with nothing raising, the three expressions are evaluated in different orders:
+
+| `For i = T("start", 1) To T("limit", 3) Step T("step", 1)` | Native code | P-code and the IDE |
+|---|---|---|
+| trail | **`limit step start`** | `start limit step` |
+
+**That is observable without any error at all:** a For whose bounds have side effects behaves differently built native
+and built as p-code. HexIDE evaluates start, limit, step, which is p-code's order.
+
+**For.** When the start, limit or step raises, the body runs once with the counter never assigned. Then `Next`
+carries on with loop state that was never set. Each case below began with the counter at the stated value, and the
+probe's guard ended the loop after 4 passes:
+
+| Header, counter before | Native code | P-code and the IDE |
+|---|---|---|
+| `1 To Boom()`, i 0 | **for ever**: 0 0 0 0 | 1 pass (0); after, 1 |
+| `1 To Boom()`, i -5 | **for ever**: -5 -5 -5 -5 | -5 -4 -3 -2, counting up to 0 |
+| `1 To Boom()`, i 7 | 1 pass (7); after, 7 | 1 pass (7); after, **8** |
+| `Boom() To 3`, i 7 | 1 pass; after, 8 | 1 pass; after, 8 |
+| `Boom() To 3`, i 0 | 0 1 2 3, counting to 3 | 1 pass (0); after, 1 |
+| `Boom() To 3`, i 2 | 2 3; after, 4 | 1 pass (2); after, 3 |
+| `1 To 3 Step Boom()`, i 7 | 1 pass; after, 7 | 1 pass; after, 7 |
+| `1 To 3 Step Boom()`, i 0 | **for ever** at 0 | **for ever** at 0 |
+| `Boom() To 1 Step -1`, i 7 | 7 6 5 4, counting down to 1 | 1 pass; after, 7 |
+| `Boom() To 1 Step -1`, i 0 | 1 pass; after, -1 | **for ever** at 0 |
+| `T("start", 1) To Boom() Step T("step", 2)`, i 7 | 1 pass; after, 7; trail `Boom` | 1 pass; after, 7; trail `start Boom` |
+
+**The model that reproduces every p-code and IDE row:**
+1. The three are evaluated in order, and one that raises stops the rest.
+2. At `Next`, the counter is read back from the variable and the step added.
+3. The result is tested against the limit: to stay at or below it when the step is 0 or more, at or above it otherwise.
+4. A limit or step that was not evaluated is the value the statement last had in this call, or 0 if it has not run
+   before. So a raised step is a `Step 0`, which loops for ever while the counter is within the limit.
+5. Without a Step clause the step is 1 for an Integer or Long counter. Any other counter's implied step is kept as an
+   evaluated one is, so before the statement has run it is 0 (review round one, below).
+
+Native code fits the same model with two differences. It evaluates the limit and step before the start, and it has no
+implied step: an unevaluated step is 0, with or without a Step clause, for every counter type. So `1 To Boom()` with the
+counter at 0 loops for ever natively, and runs once in p-code.
+
+"Last had in this call" is measured. In each case below, one For statement ran twice in one procedure; the first run
+was normal and the second raised. All three modes agreed:
+
+| Second run | VB6 |
+|---|---|
+| limit raises, i 3, after a run with limit 5 | 3 4 5; after, 6: the limit was **5** |
+| step raises, i 0, after a run with `Step 2` | 0 2; after, 4: the step was **2** |
+| start raises, i 3, after a run `To 5` | 3 4 5; after, 6 |
+| a For in a Sub called twice, limit raising on the second call, i 3 | native: after, 3; p-code and the IDE: after, 4. Each call starts from 0 |
+
+**A Variant counter** does not carry on. `Next` raises **92**, "For loop not initialized", and the loop ends. The
+counter is left as it was, in all builds: `For vi = 1 To Boom()` with `vi` 7 gives one pass, then 7, and error 92.
+
+**Measured with it:** VB6's `Next` reads the counter back, so a body that changes the counter changes the loop. This
+matches the model above, and holds in both builds. HexIDE does not do this, which is #841:
+- `For i = 1 To 10` with `i = i + 1` in the body runs 5 passes: 1 3 5 7 9, ending at 11.
+- `If i = 3 Then i = 0` in `For i = 1 To 3` starts the loop again, for ever.
+
+**For Each.** In each case `x` started as `"pre"`, and the errors were logged in the order raised, under an
+`On Error GoTo` handler that did `Resume Next`:
+
+| Collection | Errors | `x` in the body | `x` after |
+|---|---|---|---|
+| an unallocated `dyn() As Long` | 92, then 92 | `"pre"` | `"pre"` |
+| a Collection variable that is Nothing | **424**, then 92 | `"pre"` | Empty |
+| a Variant holding Nothing | 424, then 92 | `"pre"` | Empty |
+| a Variant that is Empty | 13, then 92 | `"pre"` | Empty |
+| a Variant holding 5 | 13, then 92 | `"pre"` | Empty |
+| Null | 13, then 92 | `"pre"` | Empty |
+| a Variant Function that raises 11 | 11, then 92 | `"pre"` | Empty |
+| a Function `As Long()` that raises 11 | 11, then 92 | `"pre"` | `"pre"` |
+| control: a two-item Collection | none | `a`, `b` | Empty |
+
+The body runs once with the element as it was, then `Next` raises 92 and the loop ends. Whether `Next` empties the
+element depends on whether the collection is an array. A declared array leaves the element alone, and so does a Variant
+holding one (`v = dyn`, then `For Each x In v`, measured by #971's review in both modes). A Variant holding anything
+else, or an object, empties it. Where the collection itself raised, nothing arrived, and its declared type decides: a
+Function `As Long()` keeps the element and a Variant Function empties it.
+
+**Nothing raises 424, "Object required", not 91.** 91 was our expectation.
+
+**With:**
+
+| Statement | VB6 |
+|---|---|
+| `With BoomObj()`, a Function returning a class that raises 11 | the body runs; `Err.Number` there is 11; `.Tag = 5` raises **91** |
+| `With np`, a class variable that is Nothing | the `With` raises nothing; the body runs; `.Tag = 5` raises 91 |
+
+**On Error GoTo, then `Resume Next` in the handler,** gives the same answers as `On Error Resume Next` in every case
+tried:
+- block If: Then;
+- a raising Case test: its body;
+- a raising selector: native `Case 0`, p-code and the IDE nothing;
+- `Do While Boom()`: three passes;
+- `For i = 1 To Boom()`: native after 7, p-code and the IDE after 8.
+
+**What a condition is.** No error handling here: the value was assigned to a Variant `v` and tested by `If v Then` and
+`Do While v`.
+
+| `v` | If | Do While |
+|---|---|---|
+| 5, 0.5, `#1/1/2000#`, -1@ | Then | runs |
+| 0 | Else | does not run |
+| `"True"`, `"1"` | Then | runs |
+| `"abc"`, `""` | error 13 | error 13 |
+| Null, Empty | Else | does not run |
+
+So a condition is read as `CBool` reads it, except that Null is False rather than error 94.
+
+### The tests' own programs, run through vb6.exe
+
+`ResumeNextIntoABlockTests` pins these rows, so its programs were also turned into one probe and run as written: 57
+programs. **In the IDE, all 57 printed exactly what the tests expect.** As native code, exactly the 9 that the tests
+name as p-code's answer differed, each as its name says.
+
+The first such run found three tests wrong. They had declared `s` as a Variant, and so expected an error 13 that VB6
+does not raise. HexIDE raised it anyway (#211), so the tests passed while pinning HexIDE's bug.
+
+### What this overturned
+
+- **That a raised condition skips its block.** HexIDE did exactly that, and #174's probe was the first to show
+  otherwise.
+- **#174's probe said `Select Case k` reaches Case Else.** That is native code's answer only. Its explanation, that
+  each Case raised in turn, was wrong: no Case was tested against `k` at all. P-code and the IDE run nothing.
+- **This file's first #839 probe said a raised selector runs nothing.** True in p-code and the IDE always, and in
+  native code only for a numeric selector with constant Cases: an object selector reaches Case Else there even with
+  constant Cases.
+- **That one oracle build speaks for VB6.** The For evaluation order differs between the compiled forms with no error
+  anywhere. The harness's default, native code, is the one that differs from the IDE.
+- **For Each over Nothing raises 424, not 91.**
+
+### Resisted explanation
+
+Nothing in the p-code columns. The native columns follow from the model above with the native order and a kept step,
+but that was checked row by row, not proved.
+
+### Review round one (2026-10-13)
+
+#971's review measured four more axes, and each was then measured here with `/make`, one project built twice, as native
+code and as p-code (each with the tells above); the p-code projects were then run in the IDE too, which matched p-code on
+every line. The counter ran from 7, or 0, with the trail and a guard of four passes as above. Unless a column says
+otherwise, native code and p-code agree.
+
+**The counter's type decides the implied step.** `For c = 1 To Boom()`, no Step clause:
+
+| Counter | from 7 | from 0 |
+|---|---|---|
+| Integer, Long | p-code `1: 7:8`; native `1: 7:7` | p-code `1: 0:1`; native for ever at 0 |
+| Byte, Single, Double, Date | `1: 7:7` | for ever at 0 |
+| Currency | p-code `1: 7:7`; native **for ever at 7** | for ever at 0 |
+
+`For c = Boom() To 3` gives the same split: Integer and Long step by 1 in p-code, and the other types by 0, so a Byte
+from 0 loops for ever in p-code where native code counts 0 to 3. After a normal run of the same statement in the same
+call, every type keeps that run's limit and step, the implied 1 included: `For c = 1 To Lim(k)`, raising on the second
+run with `c` at 0, counts 0 1 2 3 for a Byte as for a Long, and `For c = 1 To 5 Step St(k)` counts 0 2 4.
+
+**A typed parameter is a typed counter.** `Function P(ByVal i As Long)` with `For i = 1 To Boom()`: `P(7)` is p-code
+`1: 7:8`, native `1: 7:7`; `P(-5)` counts -5 -4 -3 -2 up in p-code and stays at -5 natively. The same for a ByRef `i As
+Long` given a literal and for `Optional i As Long = 7`; a `ByVal b As Byte` is a Byte (`P(0)` loops for ever). The
+parameter keeps its type for a store too: `Optional i As Long = 7` is `Long 7`, `i = 2.5` into `ByVal i As Long` is
+`Long 2`, and `b = 300` into a `ByVal b As Byte` raises 6 and keeps 7.
+
+**The bounds convert into the counter's type, in the header.** Through variables, so nothing is folded:
+
+| Counter, header | VB6 |
+|---|---|
+| Byte, `s0 To l0` with 300 To 400; `1 To l0` with 300; `1 To 3 Step st` with 300 | 6, then the raised header: `1: 7:7`, and from 0 for ever |
+| Byte, `3 To 1 Step st` with -1; `0 To 0 Step st` with -1; `3 To 1 Step -1`, a literal | 6, the same |
+| Integer, `s0 To l0` with 40000; `1 To l0` with 40000 | 6; p-code `1: 7:8` and `1: 0:1`, native `1: 7:7` and for ever |
+| Integer, `1 To 3 Step st` with 40000 | 6; `1: 7:7`, and from 0 for ever |
+| Integer, `1 To 3 Step st` with 0.5 | 1 for ever: 0.5 is 0 |
+| Integer, `Step st` with 1.5; with 2.5 | 1 3 5; 1 3 5 7: 1.5 is 2, and 2.5 is 2 too |
+| Integer, `s0 To 4` with 1.5; with 2.5 | 2 3 4, both |
+| Integer, `1 To l0` with 2.5; with 3.5 | 1 2; 1 2 3 4 |
+| Long, `Step st` with 1.5 | 1 3 5 |
+| Single and Currency, `1 To 2 Step st` with 0.5 | 1 1.5 2, then 2.5 |
+| Integer, `1 To l0` with `"3"`; with `"x"` | 1 2 3; 13, then the raised header |
+
+So each of start, limit and step is converted as a store into the counter would convert it (banker's rounding, 6 on
+overflow, 13 for text that is not a number) as it is evaluated, and a conversion that raises is a raised header. A
+Byte counter cannot step down at all.
+
+**A Case Is or To value converts into the selector's type**, as an equality Case's does (see *Select Case matching*).
+**Corrected in review round two:** into a TYPED selector's type. Each selector below is a literal or a declared variable
+except the Variant in the third row, whose answer the two rules share; a Variant selector converts nothing, and the
+section *A typed selector and a Variant one* has its rules.
+
+| Selector | Case | VB6 |
+|---|---|---|
+| 5 | `Is > "abc"`; `"a" To "z"`; `1 To "x"`; `Is = "abc"`; `Is > v`, `v` a Variant holding `"abc"` | that Case, Err 13 |
+| 5 | `Is > "3"` | that Case |
+| `"abc"`, a String variable or a Variant holding it | `Is > 5` | that Case: 5 becomes `"5"` against the two typed ones, and the Variant is above any number (round two) |
+| `"10"`; a String `"9"` | `Is > 9`; `Is < 10` | Case Else: text against text |
+| 2 | `Is < 2.4`; `Is < 2.6`; `1.6 To 1.9`; `2.6 To 3` | Else; that Case; that Case; Else |
+| a Currency 2 | `Is < 2.00004` | Case Else |
+| 2 | `Is > 40000` | that Case, Err 6 |
+| Null | `Is > "abc"` | Case Else |
+| Empty | `Is > "abc"`; `Is < 1` | Case Else; that Case |
+
+**An empty branch.** `If Boom() > 0 Then` with an empty Then and an Else, and the same for an empty ElseIf after
+`If False`: neither branch runs, Err 11.
+
+**Resisted explanation.** Natively, a Currency counter's `1 To Boom()` from 7 loops for ever at 7, where every other type
+stops after one pass. An unevaluated limit of 0 explains the others; this one behaves as if the limit were at least 7.
+P-code does not do it, and HexIDE follows p-code.
+
+### HexIDE, after #839
+
+**Conditions.** If, ElseIf, one-line If, Do and While read a condition through `ConditionMet`, which wraps main's
+`ConditionHolds` (#847, #840) and adds only what Resume Next needs.
+- A condition that raises under Resume Next is recorded in `Err` and enters its block: the branch, or a pre-tested
+  loop's body, asked again next time round. A post-tested loop ends. An empty branch runs nothing (review round one);
+  it crashed, visiting a block the grammar does not give it.
+- The reading is `ConditionHolds`'s: `CBool`'s rule, Null and Empty False, an object read as an operand is. This branch
+  first wrote the same reading itself, and #847 landed it on main first, so the merge kept main's. An untrappable
+  refusal, such as a class's default member (#174), still stops the run under Resume Next, because it is not a run-time
+  error.
+
+**Select Case.**
+- A Case test that raises runs its own Case's body.
+- A selector that raises skips the statement, which is the IDE's and p-code's answer, and native code's for a numeric
+  selector with constant Cases.
+- How a Case value is compared is main's, unchanged. Review round one converted a `Case Is` or `To` value into the
+  selector's type, round two limited that to a typed selector and compared a Variant one as VB6 compares Variants, and
+  round three took both out of #839, because each round's version regressed programs it did not measure. The
+  measurements are in *A typed selector and a Variant one*, and the work is #987.
+
+**For.**
+- A header that raises runs the body once, then carries on by the p-code model above. A Variant counter raises 92 at
+  `Next` instead.
+- Each call keeps the limit and step each For statement last evaluated, a missing Step clause's 1 included.
+- The infinite loops are reproduced: a raised step is a `Step 0`.
+- Review round one: without a Step clause a raised header steps by 1 only for an Integer or Long counter, and by the
+  kept step for a Byte, Single, Double, Currency or Date one. A String or Boolean counter is refused, since none was
+  measured.
+- Review round one: each bound converts into a numeric counter's type as it is evaluated, through the conversion a
+  store uses, so an overflow or a text that is not a number is a raised header, and a fractional bound rounds into an
+  Integer or Long counter. A typed parameter's slot now records its numeric type, as a Dim's does, so it is a typed
+  counter and a store into it converts. It is also a ceiling in arithmetic, as a
+  declared variable is (#122), where it widened; review round four measured that, below.
+- A start, limit or step still fractional after its conversion into the counter's type is refused as not implemented,
+  and untrappably. That is any counter that keeps a fraction: a Single, Double, Currency or Date one, and a Variant or
+  undeclared one, which is the common `For x = 0 To 1 Step 0.25`. Main raised a trappable 13 for every fractional For,
+  which Resume Next stepped over, skipping the loop without a word. Neither is VB6's answer, and this one says so (#983).
+- A raised header with a String or Boolean counter is refused, since VB6 was not measured there (#984).
+
+**For Each.**
+- An unallocated array raises 92, Nothing 424, and any other non-object value 13, each at the statement. The first used
+  to run no passes and say nothing. The others used to raise 13 with a note that Collections were not implemented.
+- Under Resume Next, the body runs once and `Next` raises 92, emptying the element unless the collection is an array.
+- Where the collection itself raised, HexIDE cannot see its declared type without its value. It answers that only for a
+  call of one of the project's own Functions, from that Function's declaration, and not where a variable in scope
+  shadows the Function's name (review round one). Anything else is refused, naming #969.
+- For Each over an object is refused as not implemented, where it used to raise a trappable 13.
+
+**With.** A target that raises leaves the body with no object, so each leading-dot member raises 91.
+
+**Not changed: On Error GoTo, then `Resume Next` in the handler.** HexIDE resumes after the whole statement at the
+procedure's top level. That is the tree-walk limit for nested-granular `Resume`, recorded in `interpreter-gaps.md`.
+
+
+## A typed selector and a Variant one (2026-10-13, #839 review round two)
+
+**The question.** Review round one made a `Case Is` or `To` value convert into the selector's type, as an equality
+Case's does, and measured it with 20 rows. Every selector in them was a literal or a declared variable except one
+Variant holding a string, whose answer the two rules share. The review of that round ran the same programs on main and
+on the head and found 14 results changed, every one away from VB6: a Variant holding 5 was no longer `Case Is < 5.4`,
+and `Case Is > "a"` against it stopped the run with 13. So: which selectors convert, and how does VB6 compare the ones
+that do not?
+
+**The probe.** Seven Sub Main projects holding 111 Select Case rows. Each row is its own Sub under `On Error Resume Next`,
+writing the arm it took and `Err.Number`, so no row's error reaches the next. The same logs carry three typed-parameter
+rows, eight arithmetic lines and six lines about `Err`, which makes 123 lines across the first six projects. All seven
+were built as native code and as p-code, and the first six p-code projects were run in the IDE too, as described under
+"What a condition is": **every line agrees across all three.** The seventh, six rows pinning Empty as `""` against text,
+was added when a mutant that read it as `" "` survived, and was built as native code and as p-code only, the two agreeing.
+
+### What decides it is the selector's type
+
+A selector with a fixed type converts each Case value into it, as a store would (*Select Case matching*). A Variant
+converts nothing. Against 5, `Case Is < 5.4`:
+
+| Selector, holding 5 | VB6 |
+|---|---|
+| `Dim v As Integer`; the literal `5`; `i + 1`, `Dim i As Integer` holding 4 | Case Else: typed |
+| `F()`, a Function `As Integer`; `CInt(v)`; `ByVal p As Integer` | Case Else: typed |
+| `a(0)`, `Dim a(1) As Integer`; `u.n`, a Type's `n As Integer`; `o.N`, a class's `Public N As Integer` | Case Else: typed |
+| `Dim v`; `v = CLng(5)`; `CVar(5)` | that Case: a Variant |
+| `v + 1`, `v` holding 4; `i + v`, `i` an Integer 4 and `v` a Variant 1 | that Case: a Variant |
+| `v(0)`, `Dim v(1)`; `u.x`, a Type's `x As Variant`; `o.V`, a class's `Public V As Variant` | that Case: a Variant |
+| `FV()`, a Function with no `As` | that Case: a Variant |
+
+The same holds for text. Holding `"10"`, `Select Case "10"`, a Function `As String`, `CStr(v)`, `Mid$("10", 1)` and a
+`ByVal s As String` are not `Case Is > 9`, compared as text; `Mid("10", 1)` is, a Variant. A `ByVal b As Boolean`
+holding False is not `Case Is < 1`.
+
+**Arithmetic agrees**, since it reads the same type (#122): `F() * 7000`, `CInt(v) * 7000`, `a(0) * 7000`,
+`u.n * 7000` and `o.N * 7000` are all 6, Overflow, and `v(0) * 7000`, `u.x * 7000`, `o.V * 7000` and
+`CVar(5) * 7000` are all 35000.
+
+### A Variant selector against a typed Case value
+
+A literal, a declared variable or a typed Function's result. The selector is read as that value's type.
+
+| Selector | Case | VB6 |
+|---|---|---|
+| a Variant 5 | `Is < "10"`; `Is > "a"`; `"a" To "c"`; `Case "abc"` | Case Else, each: text, `"5"` |
+| a Variant 5 | `Is < "a"`; `Is = "5"`; `Is <> "abc"` | that Case, each: text |
+| a Variant 10; 100 | `Is > "9"` | Case Else, both: text |
+| a Variant 1 | `Case "1.0"` | Case Else: text |
+| a Variant 0 | `Is <> "abc"` | that Case |
+| a Variant 5, against `Dim w As String` holding `"10"` | `Is < w` | Case Else: text |
+| a Variant 5, against `FS()`, a Function `As String` returning `"10"` | `Is > FS()` | that Case: text |
+| a Variant True | `Case "True"`; `Case "-1"` | that Case; Case Else: True is written `"True"` |
+| a Variant `"3"`; `"10"`; `"10"` | `Is < 9`; `Is > 9`; `Is < 9` | that Case; that Case; Case Else: a number |
+| a Variant `"3"`, against `Dim k As Integer` holding 9 | `Is > k` | Case Else: a number |
+| a Variant `"2.5"`; `"2.6"`; `"70000"` | `Case 2`; `Is < 3`; `Is > 5` | Case Else; that Case; that Case: not rounded into the Integer, and no Overflow |
+| a Variant `"1.0"`; `"2.5"`; `"5"` | `Case 1`; `Case 2.5`; `Case 5&` | that Case, each |
+| a Variant `"0.5"`; `"1.5"` | `Is < 1`; `Is > 1` | that Case, both |
+| a Variant `"abc"` | `Is > 5`; `Is < 5`; `Case 5` | that Case; Case Else; Case Else: above any number, Err 0 |
+| a Variant `"True"` | `Case -1`; `Is < 0` | Case Else, both: not a number, so above |
+| a Variant `"1/2/1900"` | `Is < 5` | Case Else: not read as a date |
+| a Variant `"True"`; `"-1"`; `"5"` | `Case True` | that Case, each: read as CBool reads it |
+| a Variant `"abc"` | `Case True` | Case Else, Err 0 |
+| a Variant 2 | `Case 1.7`; `Is = 1.7` | Case Else, both: numbers compared as they are |
+| a Variant 5.5; 2.5 | `Is < 6`; `Case 2` and `2 To 2` | that Case; Case Else: not rounded either |
+| a Variant True; False | `Is < 0`; `Is < 1` | that Case, both: -1 and 0 |
+| a Variant True | `Case 1`; `Case -1` | Case Else; that Case |
+| a Variant 5 | `Is > True` | that Case |
+| a Variant Date `#1/2/1900#` | `Is > 2` | that Case: its serial, 3 |
+
+### A Variant selector against a Variant Case value
+
+Any number is below any string, whether or not the string reads as a number. Each `w` here is an undeclared Variant.
+
+| Selector | `w` | Case | VB6 |
+|---|---|---|---|
+| 10 | `"9"` | `Is > w` | Case Else |
+| 5 | `"10"`; `"abc"` | `Is < w` | that Case, both |
+| `"10"`; `"abc"` | 9; 5 | `Is > w` | that Case, both |
+| `"3"` | 9 | `Is < w` | Case Else |
+| 5; `"5"` | `"5"`; 5 | `Case w` | Case Else, both |
+| 5 | 5 | `Case w` | that Case |
+
+A typed selector converts a Variant Case value as it converts a literal: `Dim n As Integer` holding 5 matches `Case w`
+with `w` holding `"5"`, and `Dim s As String` holding `"5"` matches it with `w` holding 5.
+
+### Empty, Null and Booleans
+
+| Selector | Case | VB6 |
+|---|---|---|
+| 5; `"a"` | `Is > w`, `w` Empty | that Case, both: 0 and `""` |
+| 0 | `Case w`, `w` Empty | that Case |
+| 5; `"abc"`; `" "` | `Is > Empty` | that Case, each |
+| `""` | `Is < Empty` | Case Else: `""` is not below `""` |
+| Empty | `Case ""`; `Is < " "` | that Case, both: Empty is `""` |
+| `""`; `" "` | `Case w`; `Is > w`, `w` Empty | that Case, both |
+| Null | `Case Null`; `Is < 1`; `Is <> 1` | Case Else, each: Null is equal to, below, above and different from nothing |
+
+A Boolean is -1 or 0, so **True is below False**:
+
+| `Dim b As Boolean` | Case | VB6 |
+|---|---|---|
+| False | `Is < 1` | Case Else: 1 is True, which is below |
+| True | `Is < 0`; `Is < False` | that Case, both |
+| False | `Is > True` | that Case |
+| True | `3 To 6`; `Is >= 5.6`; `Is <= 4.6`; `4.6 To 5.4`; `Case 5` | that Case, each: each converts to True |
+| True | `Is > "a"` | that Case, Err 13 |
+
+### Err across a procedure (for #877)
+
+Read in passing, since the probe gives each row its own Sub. A Sub under `On Error Resume Next` that raises 11 and then
+returns leaves `Err.Number` at 11 in its caller, and the next Sub still reads 11 until its own `On Error Resume Next`,
+which clears it to 0. A Sub whose `On Error GoTo` handler ran to `End Sub` leaves 0. HexIDE gives 11 in both places.
+
+### What was overturned, and what resisted explanation
+
+**Overturned, both ours.**
+- **The 2026-09-03 rule:** "VB6 coerces the CASE EXPRESSION to the SELECTOR's runtime type". It was measured on declared
+  selectors and one unassigned Variant, and written for every selector.
+- **Round one's extension of it to `Is` and `To`:** measured on literal selectors, its 20 rows agreed with it.
+- **Main's accidental answers:** a String compared with a number matched nothing on main. That happens to be VB6's
+  answer for `Is > "a"` against a Variant 5, so main was right there for the wrong reason. So it was for four rows the
+  Variant rule would have broken had their sources not been marked typed with it: a Function `As String`, `CStr`, and a
+  String and a Boolean parameter. Two more, a Variant array element and a Variant Type field holding 5, main got right
+  because it compared numbers as numbers, and they would have broken had they kept the literal's type.
+- **Round two's own rule, in its review:** a value counted as typed only where its source marked it, so every source
+  nobody had marked flipped. See *Measured in the review of round two*.
+
+**Resisted explanation.** A Variant string against a typed Boolean is read as CBool reads it: `"True"`, `"-1"` and
+`"5"` all equal True. Against a typed number the same string is parsed as a number, so `"True"` does not equal -1. That
+fits every row and is not a mechanism understood. A Variant `"1/2/1900"` is not read as a date against a number;
+against a typed Date it was not run.
+
+### Measured in the review of round two
+
+The supervisor's probes, `/make` as native code, run against main and against round two's code, found three more
+families. Each one round two's rule got wrong, because a value counted as typed only where its source marked it:
+
+| Program | VB6 |
+|---|---|
+| `Const K = 5`, `Select Case K`, `Case 4.6`; `Case "a"` | that Case; 13: a Const is typed |
+| `Const ID_OPEN = 1`, a Variant `cmd` holding `"1"`, `Select Case cmd`, `Case ID_OPEN` | that Case |
+| the same for an Enum member, a `Const KI As Integer`, a Single, Double or Currency result, `/`, `&` and a comparison | typed |
+| `Len`, `Abs`, `Sgn`, `Asc`, `UBound`, `InStr` | typed |
+| `Hour(#5:00:00 AM#) * 7000`; `Day` | 35000, and `Case 4.6` takes Else: a Variant, both |
+| `Dim vo: Set vo = New Foo`, `Property Get P() As Integer` returning 5, `vo.P * 7000`; `vo.M()`; `With vo: .P` | 35000, each: late-bound, so a Variant |
+| `Select Case vo.P`, `Case Is > "a"` | Case Else, Err 0 |
+| `Dim o As Foo`, the same `o.P` | typed: early-bound |
+| `va = a`, with `a(0)` an Integer 5, then `Select Case va(0)`, `Case Is < 5.4` | that Case: an element of a Variant holding a typed array is a Variant |
+| `Function G(p)`, called `G(q)` with `q As Integer` holding 5, `Select Case p`, `Case Is > "a"` | Case Else, Err 0: an untyped ByRef parameter is a Variant |
+
+### A typed parameter in arithmetic (review round four)
+
+#839 gives a numeric parameter a typed slot, so that it is a typed For counter, and a typed slot is a ceiling in
+arithmetic. Measured, native, p-code and in the IDE, each in its own Sub under `On Error Resume Next`:
+
+| Parameter, given | Expression | Native | P-code and the IDE |
+|---|---|---|---|
+| `ByVal i As Integer`, 5 | `i * 7000` | 6 | 6 |
+| `Optional i As Long = 7`, omitted | `i * 400000000` | 6 | 6 |
+| `i As Integer`, ByRef, given a declared Integer 5; given the literal 5 | `i * 7000` | 6, both | 6, both |
+| `ByVal v`, untyped, given 5 | `v * 7000` | 35000, a Long | 35000, a Long |
+| `ByVal b As Byte`, 20 | `b * b` | **144**, a Byte, Err 0 | **6** |
+
+A typed parameter is a ceiling, as a declared variable is. Main widened the first three. The Byte row is the
+`Byte * Byte` split recorded under *Numeric type pairs*: native code wraps, p-code and the IDE raise.
+
+### Which intrinsics are typed (2026-10-14, #987)
+
+**The question.** The review of round two found `Len`, `Abs`, `Sgn`, `Asc`, `UBound` and `InStr` typed and `Hour` and
+`Day` Variants. #987 needs the rest before it can mark a result either way, because a mark that is wrong flips a result
+main got right.
+
+**The probe.** One project, each row its own Sub under `On Error Resume Next`, built as native code and as p-code, the
+two agreeing on every line. A numeric result holding N is tried against `Case Is < N.4`: a typed Integer or Long
+converts N.4 into N, which it is not below, and takes Case Else; a Variant takes the Case. It is then multiplied past
+its ceiling, 7000 for an Integer and 500000000 for a Long: a typed one overflows, a Variant widens. A text result holding
+"10" (or "11") is tried against `Case Is > 9`: a typed String converts 9 into "9" and compares text, Case Else; a Variant
+is read as a number and takes the Case. `v` is a Variant and `n` a `Dim n As Integer`.
+
+| Source | `Case` | Times the multiplier | So |
+|---|---|---|---|
+| `Len("abcde")` | Else | Overflow | typed |
+| `Len(v), v "abcde"` | Case | a Double | a Variant |
+| `InStr("abcd5", "5")` | Else | Overflow | typed |
+| `InStr(v, "5"), v "abcd5"` | Case | a Double | a Variant |
+| `Abs(-5)` | Else | Overflow | typed |
+| `Abs(v), v -5` | Case | a Long | a Variant |
+| `Abs(n), n As Integer -5` | Else | Overflow | typed |
+| `Sgn(5)` | Else | a Integer | typed |
+| `Sgn(v), v 5` | Else | a Integer | typed |
+| `Asc("A")` | Else | Overflow | typed |
+| `Asc(v), v "A"` | Else | Overflow | typed |
+| `UBound(arr), Dim arr(5)` | Else | Overflow | typed |
+| `LBound(arr5), Dim arr5(5 To 6)` | Else | Overflow | typed |
+| `CInt(5.2)` | Else | Overflow | typed |
+| `CInt(v), v 5.2` | Else | Overflow | typed |
+| `CLng(5.2)` | Else | Overflow | typed |
+| `CLng(v), v 5.2` | Else | Overflow | typed |
+| `CByte(5.2)` | Else | Overflow | typed |
+| `Hour(#5:00:00 AM#)` | Case | a Long | a Variant |
+| `Minute(#12:05:00 AM#)` | Case | a Long | a Variant |
+| `Second(#12:00:05 AM#)` | Case | a Long | a Variant |
+| `Day(#1/5/2000#)` | Case | a Long | a Variant |
+| `Month(#5/1/2000#)` | Case | a Long | a Variant |
+| `Year(#1/1/2000#)` | Case | a Long | a Variant |
+| `Weekday(#1/6/2000#)` | Case | a Long | a Variant |
+| `IIf(True, 5, 6)` | Case | a Long | a Variant |
+| `Choose(1, 5, 6)` | Case | a Long | a Variant |
+| `Switch(True, 5)` | Case | a Long | a Variant |
+| `Int(5.7)` | Case | a Double | neither: a Double, which the probe cannot tell |
+| `Fix(5.7)` | Case | a Double | neither: a Double, which the probe cannot tell |
+| `Int(n), n As Integer 5` | Else | Overflow | typed |
+| `Fix(n), n As Integer 5` | Else | Overflow | typed |
+| `Round(5.2)` | Case | a Double | neither: a Double, which the probe cannot tell |
+| `Val("5")` | Case | a Double | neither: a Double, which the probe cannot tell |
+| `Len(n), n As Integer` | Else | a Long | typed |
+| `Mid("10", 1)` | Case | | a Variant |
+| `Mid$("10", 1)` | Else | | typed |
+| `Left("10", 2)` | Case | | a Variant |
+| `Left$("10", 2)` | Else | | typed |
+| `Right("10", 2)` | Case | | a Variant |
+| `Right$("10", 2)` | Else | | typed |
+| `Trim(" 10 ")` | Case | | a Variant |
+| `Trim$(" 10 ")` | Else | | typed |
+| `LCase("10")` | Case | | a Variant |
+| `LCase$("10")` | Else | | typed |
+| `UCase("10")` | Case | | a Variant |
+| `Hex(16)` | Case | | a Variant |
+| `Hex$(16)` | Else | | typed |
+| `Oct(8)` | Case | | a Variant |
+| `String(2, "1")` | Case | | a Variant |
+| `String$(2, "1")` | Else | | typed |
+| `Format(10)` | Case | | a Variant |
+| `Format$(10)` | Else | | typed |
+| `CStr(10)` | Else | | typed |
+| `Replace("1x", "x", "0")` | Else | | typed |
+| `StrReverse("01")` | Else | | typed |
+| `LTrim("10")` | Case | | a Variant |
+| `Chr(49) & "0"` | Case | | a Variant |
+| `"1" & "0"` | Else | | typed |
+
+**What it says.** Three families, not one rule:
+- **Always typed:** `Sgn` and `Asc`, even of a Variant; `CInt`, `CLng`, `CByte` and `CStr`; `UBound` and `LBound`; and
+  `Replace` and `StrReverse`, which have no `$` form.
+- **Always a Variant:** the date parts (`Hour`, `Minute`, `Second`, `Day`, `Month`, `Year`, `Weekday`); `IIf`, `Choose`
+  and `Switch`; and every string function with a `$` form, called without it (`Mid`, `Left`, `Right`, `Trim`, `LTrim`,
+  `LCase`, `UCase`, `Hex`, `Oct`, `String`, `Format`), whose `$` form is typed.
+- **As their argument:** `Len`, `InStr` and `Abs` are typed when given a typed argument and a Variant when given a
+  Variant. `Int` and `Fix` of a typed Integer are typed; of a Variant they were not run.
+- **Concatenation** follows its operands: `"1" & "0"` is typed and `Chr(49) & "0"` a Variant, `Chr` being one.
+
+**Not determined:** `Int(5.7)`, `Fix(5.7)`, `Round(5.2)` and `Val("5")` return Doubles, which convert 5.4 into 5.4 and
+take the Case either way, and do not overflow. The row for `Err.Number` measured nothing (the probe's helper returned
+0) and is left out.
+
+**And one more thing it found:** `Len` of a typed variable is its size, 2 for the Integer holding 5 here, and `Len` of a
+literal or an expression does not compile ("Variable required - can't assign to this expression"). That is #780's.
+
+### What a class, an Enum, an Object and a Const read as (2026-10-14, #1005's review)
+
+**The question.** #1005 first counted a parameter or a return as a Variant's whenever its declared type had no base type,
+which took in a class, an Enum and a Collection as well as an untyped one. Its review asked what each of them is.
+
+**The probe.** As above: one project, each row its own Sub under `On Error Resume Next`, built as native code and as
+p-code, the two agreeing on every line. `Foo` is a class with `Property Get P() As Integer` returning 5, and `MyEnum` has
+`mFive = 5`. A source holding 5 is tried three ways:
+- against `Case 4.6`: typed converts 4.6 into 5 and matches ("eq"); a Variant compares 5 with 4.6 ("ne");
+- against `Case Is < 5.4`: typed converts 5.4 into 5, which it is not below ("ge"); a Variant is below ("lt");
+- times a typed variable past its ceiling (`m As Integer` holding 7000 for an Integer source, `m As Long` holding
+  500000000 for a Long one): typed overflows, a Variant widens. The multiplier is a variable, so nothing folds.
+
+The constants are each in a project of their own, so a compile error in one could not hide the rest. None had one.
+
+| Source | `Case 4.6` | `Case Is < 5.4` | Times the multiplier | So |
+|---|---|---|---|---|
+| `mFive, an Enum member` | eq | ge | Overflow | typed |
+| `K, Const K = 5` | eq | ge | Overflow | typed |
+| `KI, Const KI As Integer = 5` | eq | ge | Overflow | typed |
+| `MK, a module Const MK = 5` | eq | ge | Overflow | typed |
+| `MKL, a module Const MKL As Long = 5` | eq | ge | Overflow | typed |
+| `s.P, Dim s As Foo` | eq | ge | Overflow | typed |
+| `s.P, s As Foo` | eq | ge | Overflow | typed |
+| `s.P, ByVal s As Foo` | eq | ge | Overflow | typed |
+| `GetFoo().P, Function GetFoo() As Foo` | eq | ge | Overflow | typed |
+| `c, c As MyEnum given mFive` | eq | ge | Overflow | typed |
+| `c, ByVal c As MyEnum given mFive` | eq | ge | Overflow | typed |
+| `GetColor(), Function GetColor() As MyEnum` | eq | ge | Overflow | typed |
+| `e, Dim e As MyEnum` | eq | ge | Overflow | typed |
+| `t.c, c As MyEnum in a Type` | eq | ge | Overflow | typed |
+| `f.N, Public N As MyEnum in Foo` | eq | ge | Overflow | typed |
+| `f.Q, Property Get Q() As MyEnum` | eq | ge | Overflow | typed |
+| `o.P, o As Object` | ne | lt | a Long | a Variant |
+| `o.P, ByVal o As Object` | ne | lt | a Long | a Variant |
+| `o.P, Dim o As Object` | ne | lt | a Long | a Variant |
+| `GetObj().P, Function GetObj() As Object` | ne | lt | a Long | a Variant |
+| `o.P, o As Variant holding a Foo` | ne | lt | a Long | a Variant |
+| `k.Count, k As Collection of 5` | eq | ge | Overflow | typed |
+| `k.Count, Dim k As Collection of 5` | eq | ge | Overflow | typed |
+
+Then the Consts that are not Integers or Longs, each in its own project. `Case Is > 9` against a String "10" is text for a
+typed one ("10" is not above "9") and numeric for a Variant; `Case Is > "a"` against a typed Double raises 13, where a
+Variant number is below any string; `Case 3 To 6` against a typed Boolean converts 3 and 6 into True, so True is in range,
+where a Variant True is -1. A Case that raises runs, as #839 measured.
+
+| Source | Result, then `TypeName` |
+|---|---|
+| `KS, Const KS = "10"` | Else err 0 String |
+| `KSS, Const KSS As String = "10"` | Else err 0 String |
+| `KD, Const KD = 5.5` | Case err 13 Double |
+| `KB, Const KB = True` | Case err 0 Boolean |
+| `KV, Const KV As Variant = 5` | Else err 0 Integer |
+| `KV, Const KV As Variant = 5, Is < 5.4` | Case err 0 Integer |
+| `MS, a module Const MS = "10"` | Else err 0 String |
+| `mFive against Is > "a"` | Case err 13 Long |
+
+**What it says.**
+- **A class, `As Foo`**, as a parameter (ByRef or ByVal), a variable or a return: early-bound, so its members read as
+  they are declared. `s.P` is a typed Integer.
+- **An Enum**, wherever it is declared (a parameter, a return, a variable, a Type field, a class field, a Property Get):
+  a typed Long.
+- **`As Collection`** is early-bound too: `k.Count` is a typed Long.
+- **`As Object`**, as a parameter (ByRef or ByVal), a variable or a return: late-bound, as a Variant is, so `o.P` is a
+  Variant whatever `P` is declared as.
+- **A Const** is typed as its value is, whatever that is and wherever it is declared: an Integer, a Long, a String, a
+  Double, a Boolean, and an Enum member, which is a Long. The one exception is a Const declared `As Variant`, which is a
+  Variant: `Const KV As Variant = 5` is "ne" and "lt".
+
+**What #1005 had wrong, and does now.** A class, Enum or Collection parameter was read as a Variant's, and so was a
+member reached through it: `Select Case s.P` with `s As Foo` compared by the Variant rule, so `Case 4.6` stopped
+matching. Main had answered these through its old comparison, which matched there. A declaration now reads as a Variant's
+only when it says so (no As clause, `As Variant` or `As Object`); an Enum parameter, return or Type field is a typed Long,
+and a Const and an Enum member are typed unless the Const is `As Variant`. Main had a Const and an Enum member as neither,
+so `K * m` widened to a Long 35000 where VB6 overflows.
+
+**Not reachable in HexIDE:** `As Collection` and a local `Dim o As Object`, which it does not declare yet, and
+`Property Get Q() As MyEnum`, whose `Q = mFive` reads another module's Enum member unqualified, which is Empty here
+(#889). The other rows are pinned in `SelectCaseMatchingTests`.
+
+### HexIDE
+
+**None of this is implemented by #839.** Round two built it: Case values converted into a typed selector's type, a
+Variant selector compared as VB6 compares Variants, Booleans as -1 and 0, and the typed flag set where a value is read
+from a typed Function, a conversion function, a typed array element or Type field, or a typed parameter. That made 111
+rows right and broke the families above, all of them sources nobody had marked: a Const read as a Variant, a late-bound
+member as typed. Round three took it out, and Select Case and arithmetic are main's again. #987 holds the work, starting
+from these rows, and proposes the other polarity: a value is a Variant only where its source positively is one, so a
+source nobody has looked at keeps main's answer instead of flipping.
+
+What main does with these rows, for #987's reference:
+- **A typed selector:** an equality Case is converted into its type, as VB6 does, but `Is` and `To` compare the value
+  as it is, so a declared 2 matches `Case Is < 2.4`, and `Case Is > "abc"` against 5 matches nothing and raises nothing.
+- **A Variant selector:** an equality Case is converted into whatever it holds, so a Variant 2 matches `Case 1.7`.
+  `Is` and `To` compare numbers as numbers, which is right, and a string with a number not at all, which is right by
+  accident for `Is > "a"` against a Variant 5 and wrong for `"abc"` against `Is > 5`.
+- **A Boolean** orders False below True.
+- **The flag** is unmarked for a typed Function's result and the conversion functions, so `F() * 7000` and
+  `CInt(v) * 7000` widen where VB6 raises 6. A Variant array element or Type field holding a literal keeps the
+  literal's type, so `w(0) * 7000` raises 6 where VB6 widens.
+- **A Type field's store** is not converted (#221), so a typed field read is only as good as its store: `u.b = 200`,
+  `x = u.b + u.b` with `b As Byte` is 400 here, where VB6 raises 6.
+- **Not run here:** `Mid$` (#742), and `CVar`, which HexIDE does not have.
+
+**HexIDE, after #987.** A value is typed, a Variant's, or neither, and *neither* is what main did, in both observers, so a
+source nobody has measured cannot flip:
+- **Arithmetic** keeps #122's rule, a ceiling only when both operands are typed, so only the new typed marks change it:
+  a typed Function's or Property Get's result, a typed array element or Type field, the typed intrinsics, and `Len`,
+  `InStr`, `Abs`, `Int` and `Fix` of typed arguments; and, after #1005's review, a Const, an Enum member, and an Enum
+  parameter, return or Type field. `F() * 7000`, `CInt(v) * 7000` and `K * m` now overflow, as in VB6. A Variant array
+  element or Type field reads as a Variant's whatever it holds, so `w(0) * 7000` widens.
+- **Select Case:** a typed selector converts each Case value into its type, `Is` and `To` as well as equality, and a
+  Variant selector compares as VB6 compares Variants (round two's rules), against a Case value that is typed or a
+  Variant's. A selector or Case value that is neither, such as the result of an intrinsic nobody has run, compares as
+  main did. A Boolean is -1 or 0, so True is below False.
+- **Variant sources:** a slot marked Variant, an untyped, Variant or Object parameter even when it shares a typed
+  variable (#1001's read rule), a Variant array's element or any element read through a Variant, a Variant Type field,
+  an untyped, `As Variant` or `As Object` Function's result, a Const declared `As Variant`, a member reached through a
+  Variant or an Object (late-bound), and the Variant intrinsics. An operator's result is a Variant's when either operand
+  is. A class, Enum or Collection declaration is not one: those are typed or early-bound.
+- **Every measured row is pinned:** round two's 111 and its generated arithmetic rows, the review's families, the
+  intrinsic table above, and #1005's review rows, except `IIf`, `Choose` and `Switch`, which HexIDE does not implement,
+  `Len` of a typed Integer, whose value is #780's, and the three review rows HexIDE cannot reach.
+- **Left as main, by design:** every intrinsic not run here, and the reference itself where a class or Collection
+  declares it: its members are early-bound and read as they are declared.
+
+## Attribute lines inside a procedure (2026-10-12, #832)
+
+**The question.** VB6 writes `Attribute` lines in two places past a module's header. One is inside a procedure,
+right after its first line: a default member (`VB_UserMemId`), a description from Tools → Procedure Attributes
+(`VB_Description`), a property category (`VB_ProcData`), a help context (`VB_HelpID`) and flags (`VB_MemberFlags`).
+The other is after a module-level variable, for its description and help context. Does any of them do anything
+when the procedure is called, or when the module's declarations are run?
+
+**The probe.** A Sub Main project, compiled with `/make` and run, writing each answer to a log file:
+
+- `Module1.bas`: `Function Described() As Long` carrying a `VB_Description` line, returning 7.
+- `Widget.cls`:
+  - `Public Tag As String`, followed by `VB_VarDescription` and `VB_VarHelpID` lines;
+  - `Function Value() As Long` with `VB_UserMemId = 0`, returning 42;
+  - `Property Get Caption` with `VB_Description` and `VB_ProcData.VB_Invoke_Property = ";Appearance"` lines, and
+    `Property Let Caption` with a `VB_Description` line;
+  - `Function Note() As String` with `VB_Description`, `VB_HelpID = 12` and `VB_MemberFlags = "40"` lines.
+
+| Read | Logged |
+|---|---|
+| `Described()` | 7 |
+| `w.Value` | 42 |
+| `w.Caption` | `cap:` |
+| `w.Caption` after `w.Caption = "set"` | `cap:set` |
+| `w.Note` | `noted` |
+| `w` as a value, in `"..." & w` | 42 |
+| `w.Tag` after `w.Tag = "tagged"` | `tagged` |
+
+**Measured again for the review** (`a01`, `a02`, native and in the IDE, identical), each value written with its
+`TypeName`. `Widget` also had `Public Flagged As Long` followed by `Attribute Flagged.VB_VarMemberFlags = "40"`, and
+`a02` was a `.bas` alone:
+
+| Read | VB6 |
+|---|---|
+| `Described()` | 7, Long |
+| `w.Value` | 42, Long |
+| `w.Caption`; after `w.Caption = "set"` | `cap:`; `cap:set`, String |
+| `w.Note` | `noted`, String |
+| `"v=" & w` | `v=42`, String |
+| `x = w`, `x` a Variant | 42, Long |
+| `w + 1` | 43, Long |
+| `Print #f, w` | ` 42 `, as Print writes a number, with Err 0 |
+| `w.Tag` after `w.Tag = "tagged"` | `tagged`, String |
+| `w.Flagged` after `w.Flagged = 5` | 5, Long |
+| `a02`: `Public Counter As Long` then `Attribute Counter.VB_VarDescription = "How many"` in Module1.bas; `Counter = 3` | builds; 3, Long, Err 0 |
+
+**The answer.** Every procedure and variable behaves as if its attribute lines were not there. Of those probed, the
+attribute that does something at run time is `VB_UserMemId = 0`, and what it does is make `Value` the default
+member, so `w` used as a value is 42. The line itself does nothing when `Value` runs. `VB_VarUserMemId = 0` does the
+same for a variable (#820's `k5` row, in "RGB, QBColor and MsgBox's style"); it was not among these probes.
+
+**HexIDE, after #832.** It threw "Attribute not implemented" for each of these lines, so calling the procedure
+stopped the run. An attribute line is now metadata: running it does nothing. The debugger treats it as it treats a
+blank line: a step goes from a procedure's first line to its first statement, and passes over one nested in a block
+too; Set Next Statement onto one is refused; and a breakpoint or Run To Cursor on one is accepted and never
+reached, because neither checks its line. VB6's code window hides these lines, so that has no VB6 counterpart.
+HexIDE's shows them until #273, which makes each run read-only, folds it into the line it describes, and refuses a
+breakpoint on it. The default member is not used as one
+yet: since #840, a use of `w` itself as a value (`"v=" & w`, `x = w`, `w + 1`) is refused, untrappably, naming #174.
+`Print #f, w` stops before it gets there, at `Open`, which HexIDE does not implement yet.
+
+## What a condition is (2026-10-12, #847)
+
+**The question.** What every statement with a condition makes of a value that is not a Boolean. HexIDE accepted only
+a Boolean in a block `If` or `ElseIf`, and raised "IF doesn't contain a bool expression" for anything else, an error
+whose Number was 0. A one-line `If` raised 13 for anything but a Boolean, and the loops accepted a Boolean, an Integer,
+a Byte, a string that reads as an integer, or Null, and raised 13 for anything else, Empty included. So `If Len(s) Then`, `If InStr(s, "x") Then` and `If flags And 4 Then` stopped the run, and under
+`On Error Resume Next` the block form skipped its body with nothing in Err.
+
+**Probe.** A Sub Main project with no `On Error Resume Next`: a function `P(form, v)` traps with `On Error GoTo` and
+tests a Variant `v` in one of eight forms. The loops count their passes up to a limit of their own: 2 for a
+pre-tested loop, 3 for a post-tested one, so a loop that holds shows its limit. Built as native code and also run in
+the IDE; **every line was identical in the two modes**.
+
+**How the IDE runs were made.** `VB6.EXE /runexit probe.vbp` runs a project in the IDE, as F5 does, and closes VB when
+the program ends. It was started in the Win10 guest's session 0 over PowerShell Direct, with the project's files
+copied into a fresh folder first. The program writes its log with `Print #` to a file beside the project, because
+`Debug.Print` output goes to the Immediate window and is gone when VB closes. VB exits with 0xC000041D after the
+program finishes, which is normal. A compile error or an unhandled run-time error leaves a modal dialog nobody can
+answer in session 0, so a run still going after a timeout is killed and its log is missing or incomplete; every use is
+made under `On Error GoTo` for that reason. A `probe.exe` left in the folder means the run was a `/make` build, not an
+IDE run. #842 tracks making this, and the native `/make` harness, part of the tree.
+
+| `v` | one-line If | block If | ElseIf | While | Do While | Do Until | Loop While | Loop Until |
+|---|---|---|---|---|---|---|---|---|
+| 5, 0.5, -1@, `#1/1/2000#`, `CLng(11)` | Then | Then | Then | 2 | 2 | 0 | 3 | 1 |
+| `"True"`, `"1"`, `" 5 "`, `"&H10"` | Then | Then | Then | 2 | 2 | 0 | 3 | 1 |
+| 0, `CByte(0)`, `"False"`, `"0"` | Else | Else | Else | 0 | 0 | 2 | 1 | 3 |
+| **Null, Empty** | Else | Else | Else | 0 | 0 | **2** | 1 | **3** |
+| `"abc"`, `""`, `CVErr(5)` | 13 | 13 | 13 | 13 | 13 | 13 | 13 | 13 |
+
+**Typed values and the idioms,** each in a one-line and a block `If`, which agreed on every row:
+
+| Condition | Holds |
+|---|---|
+| a Long 11, a Double 0.5, a String `"-1"` | yes |
+| an Integer 0, a Variant holding a Long 0 | no |
+| `Len(s)` with `s` "abc"; with `s` "" | yes; no |
+| `InStr("abc", "b")`; `InStr("abc", "x")` | yes; no |
+| `x And 4`, `x And 1`, with `x` a Long 6 | yes; no |
+| `Err` and `Err.Number`, after `Err.Number = 11` | yes, both |
+| `Err` after `Err.Clear` | no |
+| the literal `Null` | no |
+| a String `"abc"` | 13 |
+
+**What it says.** Every form reads its condition as `CBool` reads it, except that Null is False where `CBool` raises
+94 for Null (measured alongside, both modes: `CBool(Null)` raises 94, `CBool(Empty)` is False with no error). The Null row is the one worth a second look: Null is not a third state that makes every
+condition fail. It is plain False, so `Do Until Null` runs and `Loop Until Null` does not end the loop.
+
+**An object in a condition,** measured in a second probe, native and in the IDE, with a one-line `If` and `Do While`:
+
+| `v` | VB6 |
+|---|---|
+| a Variant set to `Nothing`; an `Object` variable never set | 91 |
+| a Variant holding a class with no default member | 438 |
+| a Variant holding a class whose default member, a **Function**, returns 42 | `If` holds; `Do While` loops |
+
+The default member was a Function, `Public Function Value() As Long` with `VB_UserMemId = 0`. That matters because a
+Function default member gives 450 on some paths where a Property Get gives its value (#840's probes: `Format`, `Abs`,
+`Not`). A condition is not one of those paths. `ConditionTests`' `Widget` is the same Function.
+
+So a condition refuses an object as every conversion does. `CBool` alone in HexIDE did not ask: each of these, and a
+class with a default member, a control and `Err`, fell through to a trappable 13.
+
+**HexIDE, after this.** One reading, `ConditionHolds`, used by the block `If`, `ElseIf`, the one-line `If`, `While`,
+and both `Do` forms. `CBool` now refuses what every conversion refuses: Nothing is 91, a class with no default member
+438, and a class with a default member, a control and `Err` are refused, untrappably, naming #174, #790 or #840. An
+error `CBool` raises in a condition names the condition's statement. `If Err Then` follows Err used as a value, which
+#840 makes its Number. `CVErr` does not exist in HexIDE yet.
+
+**After #840 (2026-10-13).** A condition is read as an operand is, through `ObjectAsValue`, so `Err` there is its
+Number and is no longer refused. Measured again for the loops, native and in the IDE (`p25`, a Sub Main project under
+`On Error Resume Next`, identical in both modes):
+
+| Form | VB6 |
+|---|---|
+| `If Err Then`, one-line, block and `ElseIf` | Then after `Err.Raise 53`, Else after `Err.Clear` |
+| `While Err`, `Do While Err` and `Do Until Err = 0`, entered after `Err.Raise 53`, clearing it in the body | one pass |
+| `Do Until Err`, entered with no error, raising 53 in the body | one pass |
+| `Do ... Loop While Err`, with no error | one pass |
+
+A class with a default member and a control are still refused, naming #174 and #790. HexIDE answers every row. The
+`While` one stopped with "Sub or Function not defined (Err)" until #882, which measuring it found: a member call such
+as `Err.Clear` or `Debug.Print` inside `While...Wend` parsed as two statements, and the condition had nothing to do
+with it.
+
+## A typed parameter given a value of another type (2026-10-13, #874)
+
+**The question.** What a parameter declared `As Boolean`, `As String` or `As Date` holds when the caller passes a
+value of another type. Found in #865's review: HexIDE's `BindParameters` coerces a copied argument only into the
+numeric types (`IsCoreNumeric`: Byte, Integer, Long, Single, Double, Currency), so a Boolean, String or Date parameter
+held whatever it was given. That copy branch takes every `ByVal` argument and every `ByRef` argument passed as a
+literal, so both are affected.
+
+**Probe.** A Sub Main project with `On Error Resume Next`. Each procedure writes `TypeName(x)` and `x` with `Print #`.
+The caller clears `Err` before each call and reads `Err.Number` after it, so a 13 is the caller's own reading, and a
+call that raised it shows no line from the procedure, which is how "at the call" is known.
+Built as native code and also run in the IDE, as described under "What a condition is"; **every line was identical in
+the two modes**. The guest's locale is en-GB, which decides how a Date is written and how `"1/2/2000"` is read.
+
+| Call | Parameter | VB6 |
+|---|---|---|
+| `B 5`, `B 0` | `ByVal x As Boolean` | Boolean True, Boolean False |
+| `B "True"` | `ByVal x As Boolean` | Boolean True |
+| `B "abc"` | `ByVal x As Boolean` | 13, at the call: the procedure does not run |
+| `S 5`, `S True`, `S 2.5` | `ByVal x As String` | String "5", "True", "2.5" |
+| `D "1/2/2000"` | `ByVal x As Date` | Date 01/02/2000 |
+| `D 1`, `D 2.5`, `D True` | `ByVal x As Date` | Date 31/12/1899, 01/01/1900 12:00:00, 29/12/1899 |
+| `D "abc"` | `ByVal x As Date` | 13, at the call |
+| `BR 5`, `BR 0`, `BR "True"` | `x As Boolean`, ByRef | Boolean True, False, True |
+| `BR "abc"` | `x As Boolean`, ByRef | 13, at the call |
+| `SR 5`, `SR True`, `SR 2.5` | `x As String`, ByRef | String "5", "True", "2.5" |
+| `DR "1/2/2000"`, `DR 1` | `x As Date`, ByRef | Date 01/02/2000, 31/12/1899 |
+| `DR "abc"` | `x As Date`, ByRef | 13, at the call |
+
+**What it says.** A literal passed to a typed parameter, ByVal or ByRef, is converted into the parameter's type as a
+store into a variable of that type converts it, and a value that will not convert raises 13 before the procedure
+runs. HexIDE passes the ByVal Boolean and String cases through unconverted (run under HexIDE: `S 5` arrives as an
+Integer, and `B "abc"` runs with a String where VB6 raises 13), and its code sends the Date and ByRef cases down the
+same branch. #874 is the fix.
+
+## A member call inside While...Wend (2026-10-13, #882)
+
+**The question.** Whether each shape of member call runs as one statement in a `While...Wend` body. HexIDE parsed
+`k.Bump` there as a call of a procedure named `k` followed by `.Bump`, and stopped with "Sub or Function not defined
+(k)". Nobody doubted VB6 runs these; the probe pins the counts the tests assert.
+
+**Probe** (`p26`). A Sub Main project with a class `Counter` (`Public N As Long`, `Sub Bump()` adds 1, `Sub Add(ByVal
+x As Long)` adds x), and a module Sub `Helper(o As Counter)` that calls `o.Bump`. Each row starts from a new
+`Counter`, `i = 0`, `j = 0`, `c = 0`, and writes the value shown with `Print #`. Built as native code and also run in
+the IDE with `/runexit`; **every row was identical in the two modes**, with Err 0 throughout.
+
+| Body | Written | VB6 |
+|---|---|---|
+| `While i < 2` / `Debug.Print i` / `i = i + 1` / `Wend` | `i` | 2 |
+| `Err.Raise 5` under Resume Next, then `While Err.Number <> 0` / `Err.Clear` / `c = c + 1` / `Wend` | `c` | 1 |
+| `While i < 3` / `k.Bump` / `i = i + 1` / `Wend` | `k.N` | 3 |
+| `While i < 2` / `k.Add 10` / `i = i + 1` / `Wend` | `k.N` | 20 |
+| `While i < 2` / `Call k.Add(10)` / `i = i + 1` / `Wend` | `k.N` | 20 |
+| `While i < 2` / `Call Helper(k)` / `i = i + 1` / `Wend` | `k.N` | 2 |
+| `While i < 2` / `With k` / `.Bump` / `.Add 10` / `End With` / `i = i + 1` / `Wend` | `k.N` | 22 |
+| `While i < 2` / `i = i + 1` / `k.Bump` / `Wend` | `k.N` | 2 |
+| `While False` / `Wend` | a string | written, no error |
+| `While i < 2: k.Bump: i = i + 1: Wend`, one line | `k.N` | 2 |
+| a `While j < 2` holding `k.Bump`, nested in a `While i < 2` | `k.N` | 4 |
+
+**HexIDE, after this.** Every row answers as VB6 does. The grammar rule's body was `block*`, which lets two blocks sit
+side by side with no separator; it is now one optional block followed by a separator, as a `Do` loop's is. The LSP
+server's copy of the rule had the same shape, and is fixed the same way (`docs/vb6-grammar-fixes.md`, fix 8).
+
+## Subscripts, bounds, and a method called from Class_Initialize (2026-10-12, #760, #849, #850)
+
+**The questions.**
+- What VB6 does with a subscript or an array bound that is not an Integer. HexIDE accepted only an Integer, a
+  Byte or an integral string, and stopped the run on anything else with an untrappable "Type mismatch", so `a(i)`
+  with `i` a Long, and `a(UBound(a))`, both died.
+- Whether a call from `Class_Initialize` to one of the object's own methods can terminate it. In HexIDE it did.
+
+**Probe.** A Standard EXE with a form, a module and two classes, built with `vb6.exe /make` on the Win10 guest
+(session 0) and run, logging each value with `TypeName` and `Err.Number` under `On Error Resume Next`. `a` is
+`Dim a(5) As Integer` holding `a(j) = j * 10`.
+
+Each probe was built as native code, the harness's default, and also run in the IDE. The IDE runs used
+`VB6.EXE /runexit probe.vbp`, which runs a project as F5 does and closes VB when the program ends. It was started in
+the guest's session 0 over PowerShell Direct, and the program logged with `Print #` to a file beside the project,
+because `Debug.Print` output is gone once VB closes. #842 tracks making both harnesses part of the tree. Every line
+read in both modes was identical in the two, except where a row says otherwise. A compile error can only be read
+from `/make`, so those rows are native only.
+
+The review's later probes are reproduced at the end of the section. `p22` is the form-startup project behind the
+control-array, Missing, ReDim and `UBound` rows. `p21a` to `p21h` are eight one-module projects, one per answer,
+because a compile error stops the build.
+
+### Subscripts
+
+| Expression | Value | Type | Err |
+|---|---|---|---|
+| `a(CLng(2))`, `a(2&)` | 20 | Integer | |
+| sum of `a(i)` over `i` a Long, 0 to `UBound(a)` | 150 | Integer | |
+| `a(UBound(a))` | 50 | Integer | |
+| `a(1.5)`, `a(2.5)`, `a(2.4)` | 20 | Integer | |
+| `a(2.6)` | 30 | Integer | |
+| `a("3")`, `a(" 3 ")` | 30 | Integer | |
+| `a("2.5")` | 20 | Integer | |
+| `a(Empty)`, `a(False)` | 0 | Integer | |
+| `a(CCur(2.5))`, `a(CDate(2))` | 20 | Integer | |
+| `a(CSng(3.5))` | 40 | Integer | |
+| `a("x")` | | | 13 |
+| `a(Null)` | | | 94 |
+| `a(True)`, `a(-1)`, `a(6)`, `a(40000)` | | | 9 |
+| `a(3000000000#)` | | | 6 |
+| `a(x)`, `x` an omitted `Optional x As Variant` (`p22`) | | | 13 |
+| `a(x) = 99`, the same `x` (`p22`) | `a(0)` unchanged | | 13 |
+| `a(CVErr(5))` (`p22`) | | | 13 |
+| `a(2.5) = 99`, then `a(2)` | 99 | Integer | |
+| `a(3.5) = 77`, then `a(4)` | 77 | Integer | |
+| `m(1.5, 0.5)` and `m(CLng(2), CLng(1))` of a `Dim m(2, 2)` | `m(2, 0)` and `m(2, 1)` | | |
+
+**A subscript is a Long, coerced as `CLng` coerces it**, and only then checked against the bounds:
+- banker's rounding (2.5 and 1.5 are both 2, 3.5 is 4), also through Currency, Single, a Date and a numeric
+  string;
+- `True` is -1, so out of bounds; `Empty` and `False` are 0;
+- `Null` is 94 and a non-numeric string 13;
+- 40000 is out of bounds (9) rather than an overflow, because it is a Long, not an Integer;
+- beyond a Long, 6;
+- **the one exception to CLng:** an omitted `Optional` Variant, and an Error value, are 13. `CLng` reads the omitted
+  argument as 448, the number of the error value VB6 passes for it, and HexIDE's subscript did the same, so `a(x)`
+  was `a(448)`: that element where one exists, and 9 where not. HexIDE has no Error values yet (`CVErr`), so that
+  row is not tested.
+
+A write finds its element the same way, and so does every subscript of a two-dimensional array. So does a `Set` of an
+element (measured later, both modes): with `wa(3) As Widget`, `Set wa(i) = w` with `i` a Long 2, `Set wa(2.5) = Nothing`
+and `Set wa(0.6) = w` reach `wa(2)`, `wa(2)` and `wa(1)`.
+
+### Bounds
+
+| Statement | Then | Err |
+|---|---|---|
+| `ReDim b(CLng(3))` | `UBound(b)` 3 | |
+| `ReDim b(2.5)` | `UBound(b)` 2 | |
+| `ReDim b(3.5)` | `UBound(b)` 4 | |
+| `ReDim b(1.5 To 3.5)` | `LBound(b)` 2, `UBound(b)` 4 | |
+| `ReDim b("4")` | `UBound(b)` 4 | |
+| `ReDim b(i)`, `i` a Long 4 | `UBound(b)` 4 | |
+| `ReDim b(1)`, then `ReDim b("x")` | `UBound(b)` still 1 | 13 |
+| `ReDim b(1)`, then `ReDim b(Null)` | `UBound(b)` still 1 | 94 |
+| `ReDim b(1)`, then `ReDim b(3000000000#)` | `UBound(b)` still 1 | 6 |
+| `ReDim b(1)`, then `ReDim b(-1)`, `ReDim b(5 To 2)` or `ReDim b(0 To -1)` | `UBound(b)` raises 9 | 9 |
+| `Dim d(N)`, with `Const N As Long = 3` | `UBound(d)` 3 | |
+| `Dim d2(-2& To 2&)` | `LBound(d2)` -2 | |
+
+Every bound goes through the same coercion. The two kinds of failure leave the array differently:
+- **A bound that cannot be coerced** raises before anything changes, and `b` keeps its old bounds.
+- **An upper bound below its lower** raises 9 and leaves `b` **erased**, so `UBound(b)` raises 9 too.
+
+**A Variant is not an array variable, and ReDim treats it differently** (`p22`, native and in the IDE). `v` is a
+Variant given `ReDim v(2)` first; `b` is `Dim b() As Long` given `ReDim b(2)` first:
+
+| Statement | Err | Afterwards |
+|---|---|---|
+| `ReDim v(5 To 4)`, `ReDim v(-1)`: the upper bound one below the lower | 9 | `v` still 0 To 2 |
+| `ReDim v(5 To 2)`: further below | 7 | `v` Empty, VarType 0 |
+| `ReDim b(5 To 4)`, `ReDim b(5 To 2)` | 9 | `b` erased |
+
+So the "9 and erased" rule belongs to a variable declared an array. HexIDE erased a Variant too. It also could not
+`ReDim` a Variant that had never held an array: it took the Variant's own type, Empty, which is not an array type,
+and stopped with an internal error.
+
+More of a Variant, in a later probe (`p23`, a Sub Main project, native and in the IDE):
+
+| `v` before | Statement | Err | `v` afterwards |
+|---|---|---|---|
+| Empty, or 5 | `ReDim v(2)` | | `Variant()`, 0 To 2 |
+| a `Long` array | `ReDim v(2)` | | `Long()`, 0 To 2 |
+| Empty, or 5 | `ReDim v(5 To 2)` | 7 | Empty |
+| Empty | `ReDim v(5 To 4)` | 9 | Empty, as it was |
+| `Variant()`, 0 To 2 | `ReDim v(0 To 1, 5 To 2)` | 7 | Empty |
+| `Variant()`, 0 To 2 | `ReDim v(0 To 1, 5 To 4)` | 9 | 0 To 2, as it was |
+| `Variant()`, 0 To 2, or Empty | `ReDim v(2147483647)` | 7 | Empty |
+
+So a Variant's new array keeps the element type of the array it held, and is a Variant array otherwise.
+
+**With several dimensions,** a dimension exactly one below its lower bound wins, wherever it is. Measured in `p30`,
+native and in the IDE, each from `ReDim v(2)`:
+
+| Statement | Err | `v` afterwards |
+|---|---|---|
+| `ReDim v(5 To 4, 5 To 2)`, `v(5 To 2, 5 To 4)`, `v(5 To 2, 0 To 1, 5 To 4)`, `v(0 To 1, 5 To 4, 5 To 2)`, `v(5 To 4, 0 To 1)` | 9 | 0 To 2, as it was |
+| `ReDim v(5 To 2, 5 To 1)`, `v(0 To 1, 5 To 2)` | 7 | Empty |
+
+This section first said "any one dimension decides", and HexIDE checked for one further below first, so the five 9
+rows raised 7 and emptied `v`.
+
+**A parameter is ReDimmed as what it was declared** (`p30`, both modes):
+
+| Parameter | `ReDim b(5 To 2)` | Afterwards |
+|---|---|---|
+| `b() As Long`, passed a `Long()` | 9 | an erased `Long()`; after `ReDim b(1)`, `b(0) = "x"` is 13 |
+| `b()`, passed a `Variant()` | 9 | an erased `Variant()` |
+| `v As Variant`, passed a Variant holding `Variant()` | 7 | Empty |
+
+HexIDE took the `b() As Long` parameter for a Variant, so 7 and Empty, and the next `ReDim` built a `Variant()`
+that took the String with Err 0 (found in review round two). A parameter's slot did not carry its declared type: a
+`b() As Long` parameter was recorded as a Long, so the array was copied rather than shared, then narrowed as if it
+were a scalar.
+
+**The edge of a Long** (`p22`, both modes):
+
+| Statement | Err | Afterwards |
+|---|---|---|
+| `ReDim b(2147483647)`, from undimensioned or from 0 To 2 | 7 | `b` erased |
+| `ReDim b(1 To 2147483647)` | 7 | `b` erased |
+| `ReDim b(-2147483648# To 2147483647)` | none | `LBound` -2147483648, `UBound` 2147483647 |
+
+The first two rows are 7, Out of memory, and that is all they say: `1 To 2147483647` is exactly a Long's maximum
+count, and 8 GB fails to allocate in a 32-bit process anyway, so they do not separate "more than a Long counts" from
+"more than memory holds". The last row is VB6's own count wrapping: 2^32 elements is 0 in 32 bits, so it allocates
+nothing and reports bounds it cannot hold. **That is a defect, not a
+behaviour, and HexIDE does not reproduce it** (the Fidelity Principle): it raises 7 there too. HexIDE counted in an
+int, so 0 To 2147483647 wrapped negative and raised 9, and the full range wrapped to the same zero as VB6's.
+
+**`UBound` and `LBound`'s dimension** coerces as `CInt` does (`p22` and `p30`, both modes), with `b` 1 To 3:
+
+| `UBound(b, d)`, `d` | Err | Value |
+|---|---|---|
+| `"1"` | | 3 |
+| `Null` | 94 | |
+| `"x"`, `CVErr(5)` | 13 | |
+| `x`, an omitted `Optional x As Variant`; `LBound(b, x)` too | 13 | |
+| `3000000000#`, `40000`, `32768`, `70000&`, `-32769`, `"40000"` | 6 | |
+| `32767`, `True` (-1), `Empty` (0), `-1`, `1.5` and `2.5` (each 2) | 9 | |
+
+**This section first said "as a subscript does", that is as `CLng`,** from the `p22` rows alone, every one of which
+fits both. The review's `40000` row separates them: a Long, so 9 as a subscript, but 6 here. An omitted `Optional`
+is 13, not dimension 1: it is passed, not left out. HexIDE read the dimension with its integer helper, which
+disagreed on several of these; after round two it read it as `CLng`, and read an omitted one as dimension 1.
+
+`ReDim b(0 To -1)`, an empty range, is refused. HexIDE keeps such an array internally for `Split` and friends, so
+the refusal belongs to `ReDim` itself, not to the array.
+
+`UBound` and `LBound` are Longs throughout.
+
+**A bound that is a constant expression** is coerced the same way. A third probe declared these on a form, under
+`Private Const N = 2.5`, `M = 3.5` and `GRID_MAX = 9`, and in `Form_Load` under `Const P = 2.5`:
+
+| Declaration | Bounds |
+|---|---|
+| module `Private mA(N)` | 0 To 2 |
+| module `Private mB(M)` | 0 To 4 |
+| module `Private mC(&HA)` | 0 To 10 |
+| module `Private mD(8 + 1)` | 0 To 9 |
+| module `Private mH(N - 1)`, which is 1.5 | 0 To 2 |
+| module `Private mF(0 To GRID_MAX, 0 To GRID_MAX)` | 0 To 9, 0 To 9 |
+| module `Private mG(1.5 To M)` | 2 To 4 |
+| procedure `Dim pA(P)` | 0 To 2 |
+| procedure `Dim pB(P + 1)`, which is 3.5 | 0 To 4 |
+
+Banker's rounding again: 2.5 is 2, and 3.5 and 1.5 round up to 4 and 2.
+
+### What a module-level array's bound may name
+
+The review asked what VB6 allows in a module-level bound beyond literals and same-module Consts above it. `p21a` to
+`p21h`, each built with `/make` and run where it built:
+
+| Module-level declarations | VB6 |
+|---|---|
+| `Dim d(N) As Long`, then `Const N = 3` | compile error, "Constant expression required" |
+| `Dim n As Long`, then `Dim d(n) As Long` | compile error, "Constant expression required" |
+| `Const A = B + 1`, then `Const B = 2`, then `Dim d(A) As Long` | compile error, "Constant expression required", at `Const A` |
+| `Dim d(M)`, `Dim e(Module2.M)`, `Dim g(1 To M + 1)`, with `Public Const M = 3` in Module2 | 0 To 3, 0 To 3, 1 To 4 |
+| `Dim d(eMax)`, with `eMax = 4` in an Enum | 0 To 4 |
+| `Dim b(0 To GRID - 1, 0 To GRID - 1)`, `Dim h(GRID \ 3)`, with `Const GRID = 10` | 0 To 9 each; 0 To 3 |
+| `Dim p(2.5)` | 0 To 2 |
+| `Dim d(Len("abc"))` | 0 To 3 |
+| `Dim d(vbKeyA)` | 0 To 65 |
+
+In a procedure, `Dim a(N)` before `Const N = 3` is a compile error too, "Variable not defined" (`p21f`, under
+`Option Explicit`). **HexIDE runs it,** because a procedure's Consts are declared at its entry, ahead of its Dims
+(#760, below): a missing compile error, recorded. A procedure's Consts are #894, where a forward reference without
+`Option Explicit` also gives a wrong value (`A` is 1).
+
+**VB6 refuses a forward reference between module Consts.** `Const A = B + 1` above `Const B = 2` does not compile.
+That is narrower than CLAUDE.md's pre-pass paragraph implies: it reasons from order-independent Const evaluation, as
+though `Const A = B + 1` before `Const B` were valid VB6. Within one module it is not.
+
+**Across modules, list order does not matter, but the modules' Consts must not form a cycle.** Measured for #873's
+review with `vb6.exe /make` (2026-10-13), by two measurers working independently, identical in every row, except the
+two rows marked as measured once. Each row is one project: the program column is all of each module's declarations,
+Sub Main sits in Module1 and prints each value, and a project that built was run:
+
+| Program | VB6 |
+|---|---|
+| Module1 `Public Const A = Module2.B + 1`, Module2 `Public Const B = 2`, either list order | A = 3 |
+| the same, unqualified, `Public Const A = B + 1`, either list order | A = 3 |
+| Module1 `Public Const A = B + 1`, Module2 `Public Const B = A + 1`, either order | "Circular dependencies between modules", at Module2's Const |
+| Module1 `Public Const A = 1` and `Public Const C = B + 1`, Module2 `Public Const B = A + 1`: no Const depends on itself | "Circular dependencies between modules" |
+| as above, with a module-level `Public arr(A) As Long` in place of a Const | "Circular dependencies between modules": a bound is an edge too |
+| a Const read inside a procedure body, a procedure-level Const in the other module, or a procedure call, as the back edge | builds: procedure bodies are not edges |
+| Module1 `Const A = 2`, `Const A2 = Module1.A + 1` | "Circular dependencies between modules": the module naming itself |
+| `Const A = Module1.B + 1` above `Const B = 2`, in Module1 | "Circular dependencies between modules", not "Constant expression required" |
+| in Module1, `Const C = Module1.n + 1` after `Private n As Long`; `Private d(Module1.n) As Long` after `Public n As Long`; `Const C = Module1.Twice(2)`; `Const C = Module1.Nope + 1`, with nothing named Nope | "Circular dependencies between modules", each: whatever the module's own name qualifies (measured once, for #873, `/make`, one project each) |
+| a class's `Private Const C = Module1.M + 1` and `Private Const D = M + 2`, Module1's `Public Const M = 3` | C = 4, an Integer, and D = 5 (measured once, for #873, native and in the IDE) |
+| `Const A = B + 1` above `Const B = 2`, module level, with or without `Option Explicit` | "Constant expression required" |
+| the same in a class, in a form never loaded, and `Const A = eLater + 1` above the Enum declaring `eLater` | "Constant expression required"; the form's fires because `/make` compiles every module |
+| `Const A = B + 1`, Module2's `Private Const B = 2` | "Variable not defined": invisible |
+| in a procedure, `Const A = B + 1` above `Const B = 2` | "Variable not defined" with `Option Explicit`, "Constant expression required" without |
+| in a procedure, `Dim a(N) As Long` above `Const N = 3`, no `Option Explicit` | "Constant expression required" |
+
+So the cycle check is per module, not per Const. Module-level Consts and array bounds make edges between modules;
+procedure bodies do not. Within a module, every scope probed evaluates strictly in source order: module, class,
+form, procedure and Enum member. And at module level `Option Explicit` still says "Constant expression required",
+where at procedure level it says "Variable not defined": module-level names are known before their values are.
+
+**HexIDE, after this.** Another module's Public Const read qualified, as `Module2.B`, is read when that module's
+declarations have already run; its value is final. Which have run depends on how the run starts. `Execute`, which
+only the tests use, runs the other standard modules in list order and the startup module last, its body doubling as
+its declarations. The IDE's Sub Main run, `RunStartupSubMain`, runs every standard module's declarations in list
+order, the startup module's among them, before Main. Before a module's have run, a read of its Const is refused naming
+#893, which is VB6's on-demand ordering, with its cycle error. Unqualified, it is read the same way since #880
+(*Another module's Public names, bare*, below). The module naming itself is "Circular dependencies between modules", whatever it names.
+
+**Review round three** asked what lies one level down: what a Const above the Dim may itself read, which built-ins
+are allowed, and what a qualified name does. Each case below is its own project, built with `/make` (`p27`, `p28` and
+`p32`), because `/make` stops at the first error; each that built was run. Every module has `Option Explicit` unless
+the row says otherwise.
+
+| Module-level declarations | VB6 |
+|---|---|
+| `Const A = 2`, `Const B = A * 2`, `Dim d(B)` | 0 To 4 |
+| an Enum with `eMax = 4`, `Const C = eMax + 1`, `Dim d(C)`; the same with `Const C = Sizes.eMax + 1` | 0 To 5 |
+| `Const C = vbKeyA - 60`, `Dim d(C)` | 0 To 5 |
+| `Const C = M + 1`, `Dim d(C)`, with Module2's `Public Const M = 3` | 0 To 4 |
+| `Const C = Module2.M + 1`, `Dim d(C)`, the same Module2 | 0 To 4 |
+| `Const C = Twice(2)`, `Dim d(C)`, `Twice` a user function | "Constant expression required" |
+| `Dim d(Twice(2))` | "Constant expression required" |
+| `Dim n As Long`, `Const C = n + 1`, `Dim d(C)` | "Constant expression required" |
+| `Const A = A + 1`, `Dim d(A)` | "Constant expression required" |
+| `Const C = Len("abcd")`, `Const C = Asc("A") - 60`, `Const C = Int(2.5)`, each then `Dim d(C)` | "Constant expression required" |
+| `Dim d(colMax)`, Module2 holding `Public Enum Cols` with `colMax` its third member | 0 To 2 |
+| `Dim d(Cols.colMax)`, the same Module2 | 0 To 2 |
+| `Dim d(colMax)`, Module2's Enum `Private` | "Variable not defined" |
+| an Enum `Sizes` with `eMax = 4`, `Dim d(Sizes.eMax)` | 0 To 4 |
+| `Const N = 3`, `Dim d(Module1.N)`, in Module1 | "Circular dependencies between modules" |
+| the Enum `Sizes`, `Dim d(Module1.eMax)`, in Module1 | "Circular dependencies between modules" |
+| `Dim d(Module2.M)`, Module2's `Public Const M = 3` | 0 To 3 |
+| `Dim d(M)`, Module2's `Private Const M = 3`, or its `Const M = 3` | "Variable not defined" |
+| `Dim d(M)`, Module2's `Public Const M = 3`, no `Option Explicit` | 0 To 3 |
+| `Dim d(n)`, Module2's `Public n As Long` | "Constant expression required" |
+| `Dim d(zz)`, nothing declaring `zz` | "Variable not defined"; without `Option Explicit`, "Constant expression required" |
+| `Dim s As String`, `Dim d(Len(s))`; `Dim n As Long`, `Dim d(Abs(n))` | "Constant expression required" |
+| `Private Const K = "abcd"`, `Dim d(Len(K))` | 0 To 4 |
+| `Dim d(Abs(Int(-2.5)) + Len("ab"))` | 0 To 5 |
+
+So a Const with no visibility is Private, and invisible to another module, and a Const initialiser refuses every
+function call, `Len` and `Int` included, where a bound allows some. **Built-in functions in a bound,** each of
+constants:
+
+| Allowed (the bound built, with the value VB6 sizes) | Refused, "Constant expression required" |
+|---|---|
+| `Abs(-3)` 3, `CBool(1)` (as `-CBool(1) + 1`) 2, `CByte(3)` 3, `CCur(3)` 3, `CDbl(3)` 3, `CInt(2.5)` 2, `CLng(3.5)` 4, `CSng(3)` 3, `Len(CStr(123))` 3, `CVar(3)` 3, `Fix(2.5)` 2, `Int(2.5)` 2, `Len("abc")` 3, `LenB("abc")` 6, `Sgn(5) + 1` 2 | `Asc`, `AscW`, `Atn`, `CDec`, `Choose`, `Chr$`, `Exp`, `Hex`, `IIf`, `InStr`, `LBound`, `Left$`, `Log`, `Mid$`, `Rnd`, `Round`, `Sin`, `Space$`, `Sqr`, `Timer`, `UCase$`, `Val` |
+
+No rule I would defend separates the two columns. The allowed set is the conversions and the arithmetic functions
+VB6 can fold at compile time, but `Round`, `Sqr` and `CDec` are refused while `CCur` and `Sgn` are allowed.
+
+**HexIDE, after round two.** The bound was classified one level deep: a same-module Const above the Dim was accepted
+without looking at what its own initialiser read, any module's Enum member was accepted, and every registered
+built-in was. So `Const C = M + 1`, `Const C = n + 1`, `Const C = Twice(2)` and `Const A = B + 1` above `Const B`
+each sized `d` from what HexIDE's evaluator made of the Const (0 To 1, or 4), another module's Enum member read as
+Empty and sized 0 To 0, and `Dim d(Int(Rnd() * 10))` sized at random.
+
+**HexIDE, after round three.** The pre-pass collects each Const's declaration and visibility, and each Public
+variable. Each module-level Const is checked as it runs, before it is evaluated, and the bound at the Dim, both by
+the rules above. The Consts above ran first, so a Const a bound or another Const names has been checked already, and
+the check is one level deep. So `Const A = B + 1` above `Const B` is refused with no array in sight, as VB6 refuses it.
+A procedure's Consts are not checked yet. What is refused:
+- a Const below, the Const itself, a variable, a user function, a function call inside a Const, a built-in VB6
+  refuses, and another module's Public variable are VB6's compile error;
+- a name the module cannot see is "Variable not defined" under `Option Explicit`, and "Constant expression
+  required" without it;
+- the module's own name as a qualifier is "Circular dependencies between modules";
+- another module's Public Const, bare (since #880) or qualified, is read once that module's declarations have run,
+  and refused naming #893 before; another module's Enum member
+  unqualified is refused naming #889, rather than sized from Empty. Qualified by its Enum's name it is read;
+- a built-in no probe has asked about is refused, rather than guessed either way.
+
+`LenB` and `CVar` are allowed in a bound but not implemented in HexIDE, so a bound using them stops there as any use
+of them does.
+
+**Review round four** found that the check refused qualified constants main had read, and asked what else a bound or
+a Const may read. Measured with `/make`, one project each, on the en-GB guest; each project that built was run, and
+the types (added in round five) are each value's `TypeName` from the same run:
+
+| Declarations | VB6 |
+|---|---|
+| `Private Const C = VBA.vbCrLf`, then `Len(C)` | 2, Long |
+| `Const C = KeyCodeConstants.vbKeyA`; `Const C = VBRUN.KeyCodeConstants.vbKeyA` | 65, Long; 65 |
+| `Dim d(VBRUN.vbKeyA)` | 0 To 65 |
+| `Const C = Module2.colMax + 1`, Module2's `Public Enum Cols` with `colMax = 4` | 5, Long |
+| `Dim d(Module2.Cols.colMax)`, the same Module2 | 0 To 4 |
+| `Const C = Probe.Module2.Cols.colMax`; `Const C = Probe.Module2.M + 1`, the project being `Probe` | 4, Long; 4, Integer |
+| `Const C = Module2.pMax`, Module2's `Private Enum P` | "Method or data member not found" |
+| `Const C = KeyCodeConstants.vbCancel` | "Method or data member not found": another container's member |
+| `Const C = Module1.Sizes.eMax`, in Module1 | "Circular dependencies between modules" |
+| `Const C = Sizes.eMax` above `Enum Sizes` | "Constant expression required" |
+| `Dim d(VBA.Len("ab"))` | "Constant expression required", though `Dim d(Len("ab"))` sizes |
+| `Const S = "abc"`, `Dim d(Len(S))`; `Const S As String = "abcd"`, `Dim d(Len(S))` | 0 To 3; 0 To 4 |
+| `Dim d(LenB("ab"))`; `Const S = "abc"`, `Dim d(LenB(S))`; `Const S = "ab"`, `Dim d(Len(S & "c"))` | 0 To 4; 0 To 6; 0 To 3 |
+| `Dim d(LenB(12345))` | "Variable required - can't assign to this expression" |
+| `Dim d(-1)`; `Const N = 0`, `Dim d(1 To N)`; `Dim d(5, 2 To 1)`, each at module level | "Range has no values" |
+| `Dim d(-1)`; `Const N = 0`, `Dim d(1 To N)`, each in a procedure | "Range has no values" |
+| `Dim d(0 To 0)` | 0 To 0 |
+| `Dim d(n)`, Module2's `Global n As Long`, with and without `Option Explicit` | "Constant expression required" |
+
+The review measured the rest itself, two verifiers each: `Len(12345)`, `Len` of a numeric Const and of a typed,
+fractional or Date Const are "Variable required"; Module2's `Public Const vbKeyA = 3` sizes `Dim d(vbKeyA)` 0 To 3,
+the project beating the library; and `Const A = eLater + 1`, `Dim d(eLater)` and `Dim d(E.eLater)` above the Enum
+declaring `eLater` are "Constant expression required".
+
+So a qualified constant resolves level by level as the evaluator resolves it: the project, a module, an Enum, a
+library, an in-box container. A call through a qualifier is no constant, even of a function a bound allows bare. `Len`
+and `LenB` size only from a String: of a number VB6 asks for a variable. An Enum, like a Const, must be declared above
+what reads it. And a dimension with no values does not compile, at either level.
+
+**HexIDE, after round four.**
+- Every qualified form above is read as VB6 reads it, or refused with VB6's compile error. A shape the evaluator's
+  own levels do not resolve is refused loudly, rather than guessed. The project name in front is stepped over, and
+  what follows it is resolved by the same rules: measured for `Probe.Module2.Cols.colMax` and `Probe.Module2.M + 1`,
+  and an inference for any other shape. (Round five narrowed this. It said a qualified shape no probe had asked about
+  was refused, which the project-name step contradicts.)
+- Another module's Public declaration is looked for before a built-in constant of the same name; its Const is then
+  read, bare as qualified, since #880.
+- `Len` and `LenB` size from a String constant only: a literal, a String Const, a concatenation, or `CStr` of a
+  constant. Of a number or a non-String Const they are "Variable required". Of anything else, such as another
+  function's result, they are refused loudly. HexIDE has no `LenB` to size from yet.
+- The pre-pass records where each Enum is declared, which is collection; an Enum below a Const or bound is "Constant
+  expression required".
+- A `Global` variable counts as Public.
+- A dimension with no values is "Range has no values" at a Dim, at module and procedure level, raised as the Dim runs.
+  It built an array with no elements, so `UBound` read -1 and loops ran no passes. (Only where upper is lower - 1, or a
+  bound is not a literal: a literal range inverted by more was still a run-time 9 until round five, below.)
+
+### A Const's As type
+
+A Const's `As` clause was ignored: the Const held whatever its initialiser gave, and a module array's bounds trusted
+it. Measured with `/make`, one project each, each that built run and its value and `TypeName` written:
+
+| Declaration | VB6 |
+|---|---|
+| `Const C As Integer = 2.5`; at procedure level too | 2, Integer |
+| `Const C As Long = 2.5`; `= 3.5` | 2; 4, Long |
+| `Const C As Single = 1.23456789` | 1.234568, Single |
+| `Const C As Currency = 1.23456`; `= 1.00005` | 1.2346; 1.0001, Currency |
+| `Const C As String = 5`; `= 1.5`; `= #1/2/2003#` | "5"; "1.5"; "02/01/2003", String |
+| `Const C As Date = 1`; `= #1/2/2003#`; `= "1/2/2003"` | 31/12/1899; 02/01/2003; 01/02/2003, Date |
+| `Const C As Integer = "5"`; `= True` | 5; -1, Integer |
+| `Const C As Boolean = "True"` | True, Boolean |
+| `Const C As Variant = 2.5` | 2.5, Double |
+| `Const C As Byte = 300`; `= -1`; `Const C As Integer = 32768`; `Const C As Currency = 922337203685478#`; `Const C As Date = 3000000`; a procedure's `Const P As Byte = 300` | "Overflow" |
+| `Const C As Integer = "x"`; `Const C As Date = "abc"` | "Type mismatch" |
+| `Const C As Integer = 2.5`, `Dim d(C + C)` | 0 To 4 |
+
+The review measured three more: `Const CL As Long = 7 / 2` is 4 and sizes `Dim d(CL * 2)` 0 To 8, and `Const B As
+Boolean = 5` sizes `Dim d(B To 1)` -1 To 1.
+
+So a Const converts into its type as a store into a variable of that type converts, and where that store would raise 6
+or 13 the Const is the compile error of the same name. `1.00005` is not a tie as a Double, so it rounds up, which
+HexIDE's Currency conversion does not do yet (#966): it gives 1, for this Const and for every store and `CCur` of that
+value. The same probe found a store of a date string into a Date raised 13 in HexIDE (`s01`, below), where VB6 reads
+it as `CDate` does.
+
+| Statement (`s01`, both modes) | VB6 |
+|---|---|
+| `c = 1.00005`, `c` a Currency; `CCur(1.00005)` | 1.0001; 1.0001 (HexIDE gives 1 for both, #966) |
+| `CCur(2.00005)`; `CCur(0.00015)` | 2; 0.0001: the Doubles nearest those lie below the midpoint (HexIDE gives 2 and 0.0002, #966) |
+| `dd = "1/2/2003"`, `dd` a Date | 01/02/2003, no error (HexIDE raises 13, #967) |
+| `dd = "abc"` | 13 |
+
+**HexIDE, after this.** A module-level or procedure Const converts into its `As` type through the same conversion a
+store uses, and a conversion that would raise 6 or 13 is "Overflow" or "Type mismatch", raised as the Const runs. A
+store of a String into a Date read as `CDate` reads it, in the program's locale, where every date string was 13;
+round five reverted that, below, because HexIDE's `CDate` has no numeric fallback (#967). A Const of an object or
+fixed-length String type is refused loudly. Currency from a Double still rounds the decimal form
+(#966).
+
+### ReDim of a fixed array through a parameter
+
+Making a `b() As Long` parameter share the caller's array (round three) let a callee's ReDim replace a caller's fixed
+array. Measured, native and in the IDE where marked:
+
+| Program | VB6 |
+|---|---|
+| `Dim buf(3) As Byte` in Sub Main, passed to `Sub Grow(b() As Byte)`, which does `ReDim b(10)` (both modes) | 10, "This array is fixed or temporarily locked"; `buf` still 0 To 3 |
+| the same with a module-level `Private mbuf(3) As Byte` | 10; still 0 To 3 |
+| `ReDim Preserve b(10)` (both modes) | 10 |
+| `Dim buf(3)` passed to an untyped `Sub Grow(b())` (both modes) | 10 |
+| `ReDim b(3)`, the same bounds again (both modes) | 10, and `buf(1)` keeps its value |
+| `ReDim b("x")` | 13: the bound converts first |
+| `ReDim b(5 To 2)` (both modes) | 10, before an inverted range's 9 |
+| `Dim buf() As Byte`, `ReDim buf(3)`, then `Grow` | no error, 0 To 10 in the caller too |
+| `Erase b` in the callee, of the fixed `buf` (both modes) | no error: 0 To 3, and element 1, which held 9, reads 0 |
+| `Dim buf(3) As Byte`, `ReDim buf(10)`, by name, in Sub Main; the same of a module-level one | does not compile: "Array already dimensioned" |
+
+**HexIDE, after this.** ReDim of a fixed array through an array parameter raises 10 and leaves it as it was, after
+converting the bounds and before the inverted-range check; named directly it is "Array already dimensioned", raised
+as the ReDim runs. Each call records its array parameters by name, because a ByRef one shares the caller's slot and
+the slot cannot say so (every parameter, since round five, below). `Erase` already reset a fixed array's elements and kept its bounds. `ReDim Preserve` is not
+implemented at all. (Round six, below, moved the decision from the array to the declaring slot. This round read the
+array object, which HexIDE's Let shares, so `d = f` then `ReDim d(10)` was refused, where main and VB6 run it.)
+
+**Another module's array, qualified, found on the way** (`g01`, both modes): `x = Module2.g(1)` is the element,
+5, a Long, and `Module2.g(2) = 7` writes it. HexIDE reads the whole array, and the write is a trappable 424 (#965).
+
+### Review round five
+
+Round four's guards read the array object, and HexIDE's array Let shared that object, so a dynamic array holding a
+copy of a fixed one could not be ReDimmed; on main, which checked nothing, that ReDim worked. The review measured that
+VB6 copies, and the rest below was measured afterwards with `/make`, one project each, natively. Each project that
+builds was then run in the IDE too, in round six, and every line matched. `fx` is `Dim fx(3) As Long` with
+`fx(1) = 7`:
+
+| Program | VB6 |
+|---|---|
+| `Dim d() As Long`, `d = fx`, `d(1) = 99` | `fx(1)` 7, `d(1)` 99: a copy (the review measured the same program) |
+| then `ReDim d(10)` | 0 To 10, `fx` still 0 To 3 with `fx(1)` 7 |
+| `Dim v`, `v = fx`, `v(1) = 55` | `fx(1)` 7, `v(1)` 55, `TypeName(v)` "Long()" |
+| then `ReDim v(5)` | 0 To 5, `fx` still 0 To 3 |
+| `Dim fx(1, 2) As Long`, `fx(1, 2) = 7`, `d = fx`, `d(1, 2) = 99`; the same into a Variant | `fx(1, 2)` 7 both times |
+| `Dim buf(3) As Byte`, `buf(1) = 9`, `G buf`, `Sub G(v)`, `ReDim v(10)`, the caller under `On Error Resume Next` | 10, "This array is fixed or temporarily locked"; `buf` 0 To 3, `buf(1)` 9 |
+| the same with `ReDim Preserve v(10)` | an error that ends `G`, its number not logged here; `buf` kept. Round six logged it: 10 |
+| `Sub GV(ByVal v)`, `ReDim v(10)` | no error, `v` 0 To 10 inside, `buf` 0 To 3 with `buf(1)` 9 |
+| module-level `Private d(5 To 2)`; `Private d(0 To -5)`; `Private d(1, 5 To 2)` | "Range has no values", each |
+| a class's `Private d(5 To 2)`; a procedure's `Dim d(5 To 2)` | "Range has no values", both |
+| `Private d(Len("ab" + "c"))`; `Const S = "ab" + "c"`, `Private d(Len(S))` | 0 To 3; 0 To 3, `S` a String |
+| `Private d(Len("ab" + 1))` | "Variable required - can't assign to this expression" |
+| `Const C As Integer = Null`; `Const C As String = Null`; a procedure's `Const P As Integer = Null` | "Invalid use of Null", each |
+| `Const C As Variant = Null`; `Const C = Null` | Null, `TypeName` "Null", both |
+| `Dim a(5) As Long`, `a(2) = 7`, `x = a(k)`, `k` a class with no default member | 438, `x` unchanged |
+| `x = a(w)`, `w` a class whose default member returns 2; `a(w) = 5` | 7; writes `a(2)` |
+| `x = a(n)`, `n` a Nothing | 91 |
+
+The review also measured, before this: `d = fx` then `ReDim d(10)` works at module level, from a Variant-returning
+Function's fixed local, and after passing `d` to `Sub Grow(b() As Long)`; and, for #967, `CDate("36526")` is 01/01/2000,
+`"36526.5"` noon that day, `" 2 "` 01/01/1900 and `"-1"` 29/12/1899; and `d = "36526"` into a Date gives the same.
+
+So an assignment copies an array, every dimension, and the copy is dynamic, since only a dynamic array or a Variant
+can be assigned one. A fixed array can then be held only by its own declaration, or reached through a ByRef
+parameter, and a parameter's ReDim of one is 10 whether the parameter is an array or untyped, `Sub G(v)`: VB6 cannot
+know at compile time what a Variant holds. Round six measured the same through `v As Variant`: 10, below. A literal range with no values does not compile wherever it is. `+` of two
+Strings is a String, and with a number it is not. A typed Const cannot hold Null, where a Variant one can.
+
+**HexIDE, after round five.**
+- An array Let copied the array, every level, as a dynamic array (`VBArray.CopyForLet`, through `CopyIfValueType`),
+  where it shared it. Round six took this back out (below), and it is #970's.
+- ReDim through an untyped parameter of a fixed array is 10, where main silently replaced the caller's array and round
+  four gave "Array already dimensioned". Each call records all its parameters by name.
+- A literal range with no values is "Range has no values" from the pre-pass, which built it and raised 9, at module
+  level and in a class.
+- `Len` and `LenB` size from `"ab" + "c"`, and of `"ab" + 1` are "Variable required".
+- A typed Const of Null is "Invalid use of Null", raised as the Const runs.
+- `a(k)` is 438 and `a(Nothing)` 91, as before; `a(w)` is refused naming #174, read or written.
+- **Reverted from round four:** a store of a String into a Date goes through `ToNum` again, as on main. Round four
+  sent it through `CDate`, which has no numeric fallback, so `d = "36526"` became 13, and which accepts a dotted
+  date, so `d = "1.2.2003"` became silently 1 February (#800). So `d = "1/2/2003"` is 13 again, where VB6 gives a
+  date, and a `Const … As Date` given a String is refused loudly. Both are #967.
+- HexIDE's `CCur(0.00015)` is 0.0002, where VB6 gives 0.0001: #966 is wrong in both directions.
+
+**Round six: the copy comes out, and fixedness is the declaration's.** Copying on Let is VB6's rule, but the change
+reaches every Let, argument, element store, For Each and object reference count, and the review found it broke four
+things: a ByRef `v As Variant` parameter given an array got a private copy (so `Sub BubbleSort(arr As Variant)` left
+its array unsorted), the copy did not count the objects it held, `v(1) = v` then a Let overflowed the stack, and an
+element Let and a For Each still shared. All of that, with every row above, is #970. Here:
+- An array Let shares the array again, as on main. The copy rows above are #970's to reproduce.
+- Fixedness is the declaring slot's: `Dim a(N)` marks its slot (`ExecutionState.MarkFixedArray`), at module and
+  procedure level; a class's fields are declared through the procedure path, `DeclareLocal`, for each instance. So
+  `d = fx` then `ReDim d(10)` works again, giving `d` an array of its own, and a ByRef parameter that shares the
+  caller's slot reaches the caller's mark: 10, through `b() As Long` or an untyped `v`.
+- A `v As Variant` parameter has a slot of its own, so its ReDim of a fixed array is not refused yet (#970).
+- `Sub S3(v As Variant): v(0) = 33` writes the caller's array again (33 for each of the review's four shapes), and is
+  pinned, so #970's copy cannot break it unseen.
+
+(**Since #970, 2026-10-14:** the copy is back, with the four things round six found missing, and the HexIDE columns
+below are history. See *Arrays copy wherever VB6 stores one*.)
+
+Round six measured three more programs, five rows here, native and in the IDE alike, with `buf` a `Dim buf(3) As Byte` holding 9 at
+`buf(1)` and the caller under `On Error Resume Next`:
+
+| Program | VB6 | HexIDE |
+|---|---|---|
+| `Sub GP(v)`: `ReDim Preserve v(10)`; `Sub GPA(b() As Byte)`: the same | 10 each, `buf` kept | refused: `ReDim Preserve` is not implemented |
+| `Sub GA(v As Variant)`: `ReDim v(10)`, given `buf` | 10, `buf` kept | no error, `buf` kept: the ReDim replaces the parameter's own slot (#970) |
+| `Sub GW(v As Variant)`: `v(1) = 5`, given `buf` | `buf(1)` 5 | `buf(1)` 5 |
+| `GA dyn`, `dyn` a `Dim dyn() As Byte` ReDimmed to 3 | no error, `dyn` 0 To 10 | no error, `dyn` 0 To 3: silently wrong, by a path this PR does not change (#970) |
+| module-level `Private mdyn() As Byte`: `ReDim mdyn(10)` in a procedure, then `Grow mdyn` with `ReDim b(12)`; `Private mvar`, `ReDim mvar(4)` | 10, then 12; 4 | the same, and pinned: only `Dim a(N)` marks a slot fixed |
+
+So a `v As Variant` parameter shares the caller's array as an untyped one does, for a ReDim too, and HexIDE does not
+share it, for a ReDim. That is #970's alias item.
+
+**And an untyped parameter ReDims by the Variant rule even when it shares a declared array** (measured for #873's
+seventh review, native; the review measured the same, T1 to T7). The caller has `Dim a() As Long`, `ReDim a(3)`,
+`a(1) = 9`, and passes `a` to `Sub G(v)`, which does the ReDim; the caller is under `On Error Resume Next`:
+
+| `ReDim v(…)` in `G` | VB6 | HexIDE, at round six |
+|---|---|---|
+| `-1`; `5 To 4`; `5 To 2, 5 To 4` | 9, and `a` keeps 0 To 3, a `Long()` | 9, and `a` erased |
+| `5 To 2`; `0 To -5`; `0 To 1, 5 To 2` | 7, and `a` erased, still a `Long()` | 9, and `a` erased |
+| `2` | no error, `a` 0 To 2 | the same |
+
+So VB6 applies the rule above for a Variant (9 and kept when any dimension is exactly one below its lower bound, 7 and
+emptied otherwise) to an untyped parameter whatever it shares, emptying a declared array by erasing it. HexIDE's
+parameter shares the caller's slot and its declared-array mark, so it applies the declared-array rule: data VB6 keeps
+is lost in the first row, and the second raises 9 where VB6 raises 7. Main does the same. It is #970's, which owns
+parameter aliasing.
+
+Because declarations run in source order and VB6 refuses a forward reference, a same-module Const above the Dim has
+already run and holds its final value, so reading it then is all the laziness the rule needs.
+
+A form's run does not run declarations at all (#256), so an array whose bounds name a constant is refused there,
+naming the module and the array. Sizing it would not be enough: on that run the module's own Consts read Empty too.
+
+### A control-array index
+
+On a form with `Cmd(0)` and `Cmd(1)`:
+- `Cmd(CLng(1))`, `Cmd(0.6)` and `Cmd("1")` are all `Cmd(1)`;
+- `Cmd(1.5)` raises 340, "Control array element doesn't exist", because 1.5 rounds to 2.
+
+`Load` and `Unload` read theirs the same way, measured later on a form with only `Cmd(0)`: `Load Cmd(i)` with `i` a
+Long 2 loads element 2, `Load Cmd(3.5)` loads element 4, and `Unload Cmd(4.4)` unloads it again, each with no error,
+native and in the IDE.
+
+**But an index is coerced as `CInt`, not as a subscript** (`p22`, on a form with only `Cmd(0)`, native and in the
+IDE). This section first said "exactly as a subscript is", from rows that could not tell the two apart:
+
+| Statement | Err |
+|---|---|
+| `Load Cmd(32768)`, `Load Cmd(40000)`, `Load Cmd(70000&)`, `Load Cmd(3000000000#)`, `Load Cmd("40000")`, `Load Cmd(-32769)` | 6 |
+| `Load Cmd(32767.6)`: it rounds to 32768 first | 6 |
+| `Load Cmd(-1)`, `Load Cmd(True)`, `Load Cmd(-32768)` | 341, "Invalid control array index" |
+| `c = Cmd(40000).Caption`; `c = Cmd(-1).Caption` | 6; 341 |
+| `Unload Cmd(40000)`; `Unload Cmd(-1)` | 6; 341 |
+| `c = Cmd(1).Caption`, with no element 1 | 340, after those checks |
+| `Load Cmd(x)`, `c = Cmd(x).Caption` and `Unload Cmd(x)`, `x` an omitted `Optional x As Variant` (`p31`) | 13, and nothing loads |
+| `Load Cmd(CVErr(5))` (`p31`) | 13 |
+| `Load Cmd(32766.5)` | none: element 32766, banker's rounding |
+
+Coerced as a Long, HexIDE loaded elements 40000, -1 and `True` with no error (found in review). Before #873 each of
+those stopped the run untrappably, because the index had to be an Integer already.
+
+### A method called from Class_Initialize
+
+`Class1`'s `Class_Initialize` calls a `Private Sub` and a `Public Sub` of its own. `Class2`'s stores `Me` in a module
+variable `gKeep`, then calls a method of its own. Logged in order:
+
+```
+-- New Class1
+C1 Initialize: start
+C1 Reset (private sibling)
+C1 Bump (public sibling) 1
+C1 Initialize: end, Count 1
+after New Class1, Count 1
+C1 Terminate, Count 1          <- at Set k = Nothing
+after Set k = Nothing
+-- New Class2
+C2 Initialize: stores Me in gKeep
+C2 Touch (sibling)
+after New Class2
+after Set k2 = Nothing         <- no Terminate: gKeep still holds it
+C2 Terminate                   <- at Set gKeep = Nothing
+after Set gKeep = Nothing
+-- New Class1 inside a Sub, held only by a local
+C1 Initialize: start ... C1 Initialize: end, Count 1
+inside NewAndDrop, Count 1
+C1 Terminate, Count 1          <- at End Sub
+```
+
+Nothing called from `Class_Initialize` terminates the object. It terminates when its last reference goes, and a
+reference `Initialize` makes itself counts.
+
+**HexIDE got this wrong.** The object stood at a count of 0 while `Class_Initialize` ran. A method call counts `Me`
+for its duration, so the first call took the object to 1 and back to 0, and fired `Class_Terminate` before
+construction finished. The object was then marked terminated and never counted again. `New` now holds the object
+while `Class_Initialize` runs, and hands it back at whatever count `Initialize` left.
+
+**Two by-products.**
+- **A Sub can be named `Reset`.** The probe's private sibling is called `Reset`, which is also a VB6 statement.
+  vb6.exe compiled it and called the Sub. HexIDE parses the call as the `Reset` statement, which it does not
+  implement (#851).
+- **`mE` is `Me`.** The constant-bound probe first declared `Private mE(N - 1)`, and vb6.exe refused it: "Expected:
+  identifier". Identifiers are matched without regard to case (#811), and so are reserved words, so `mE` is the
+  reserved word `Me`. The row was renamed `mH`.
+
+**HexIDE, after this.**
+- Every subscript and `Dim`/`ReDim` bound is coerced as `CLng` does, except that an omitted `Optional` is 13. A
+  control-array index is coerced as `CInt` does, an omitted `Optional` is 13 there too, and a negative one is 341.
+  `UBound`'s and `LBound`'s dimension is coerced as `CInt` does, and an omitted `Optional` is 13.
+- `ReDim` with an upper bound below its lower raises 9 and erases a variable declared an array, or an array
+  parameter, keeping its type. A Variant keeps its array if any dimension's upper bound is one below its lower, and
+  is emptied with 7 otherwise. Only a slot known to be a Variant is treated as one. A Variant can be `ReDim`med at
+  all. The measured Out of memory rows are 7, and erase the array.
+- A typed array parameter, `b() As Long`, is a `Long()`: passed ByRef, it shares its caller's array. It was taken for
+  a Long, so the array was copied and then narrowed as if it were a scalar.
+- A module-level `Dim` bounded by anything but a plain integer, such as `Dim d(N)` or `Dim d(2&)`, loads. Its bounds
+  were parsed as integers before the module ran, so either one threw and the module failed to load. They are now
+  read where the array is allocated, under the rules in "What a module-level array's bound may name", and a form's
+  run refuses such an array (#256) rather than leave it unallocated.
+- A procedure's `Const`s are declared at its entry, ahead of its `Dim`s. HexIDE declares a procedure's `Dim`s when
+  the procedure is entered, so `Dim pA(P)` under `Const P = 2.5` was sized while `P` was still Empty, not as VB6's
+  `pA(0 To 2)`. #760's module-level fix needed this too: without it, the same bound inside a procedure was sized
+  from Empty rather than refused.
+- `New` holds the object while `Class_Initialize` runs.
+
+**The review's probes.** `p22`'s `Form1.frm` holds `Cmd(0)` and runs everything from `Form_Load`, logging each line
+with `W`, which appends to `log.txt`. Abridged to one of each kind of row:
+
+```vb
+Private Sub Missing(Optional x As Variant)
+    Dim a(3) As Long, b() As Long, c As Variant
+    On Error Resume Next
+    Err.Clear: c = a(x)
+    W "a(x), x an omitted Optional Variant" & vbTab & "err " & Err.Number
+    Err.Clear: ReDim b(x)
+    W "ReDim b(x)" & vbTab & "err " & Err.Number
+End Sub
+
+Private Sub Form_Load()
+    Dim c As Variant, v As Variant, b() As Long
+    On Error Resume Next
+    Err.Clear: Load Cmd(40000)
+    W "Load Cmd(40000)" & vbTab & "err " & Err.Number & vbTab & "Count " & Cmd.Count
+    Missing
+    v = Empty: ReDim v(2): v(0) = "kept"
+    Err.Clear: ReDim v(5 To 4)
+    W "ReDim v(2) then ReDim v(5 To 4)" & vbTab & "err " & Err.Number & vbTab & Shape(v)
+    ReDim b(2)
+    Err.Clear: ReDim b(2147483647)
+    W "ReDim b(2) then ReDim b(2147483647)" & vbTab & "err " & Err.Number & vbTab & Shape(b)
+    ReDim b(1 To 3)
+    Err.Clear: c = UBound(b, Null)
+    W "UBound(b, Null)" & vbTab & "err " & Err.Number
+    End
+End Sub
+```
+
+`p23` is a Sub Main project of the same shape, logging with `Print #`:
+
+```vb
+Sub Main()
+    Dim f As Integer, v As Variant, l(1) As Long, b() As Long
+    f = FreeFile
+    Open App.Path & "\log.txt" For Output As #f
+    On Error Resume Next
+    Err.Clear
+    v = l: ReDim v(2)
+    Print #f, "v = a Long array, ReDim v(2)" & vbTab & "err " & Err.Number & vbTab & Shape(v)
+    Err.Clear
+    v = Empty: ReDim v(5 To 2)
+    Print #f, "Empty v, ReDim v(5 To 2)" & vbTab & "err " & Err.Number & vbTab & Shape(v)
+    Close #f
+End Sub
+```
+
+`p30` adds the parameters, the mixed dimensions and the dimension rows:
+
+```vb
+Private Sub TypedParam(b() As Long)
+    On Error Resume Next
+    Err.Clear: ReDim b(5 To 2)
+    W "b() As Long param, ReDim b(5 To 2)" & vbTab & "err " & Err.Number & vbTab & Shape(b)
+    Err.Clear: ReDim b(1)
+    Err.Clear: b(0) = "x"
+    W "  then ReDim b(1), b(0) = ""x""" & vbTab & "err " & Err.Number & vbTab & Shape(b)
+End Sub
+
+Sub Main()
+    Dim v As Variant, b() As Long
+    '   ...
+    ReDim b(2): TypedParam b
+    ReDim v(2)
+    Err.Clear: ReDim v(5 To 4, 5 To 2)
+    W "v 0..2, ReDim v(5 To 4, 5 To 2)" & vbTab & "err " & Err.Number & vbTab & Shape(v)
+    ReDim b(1 To 3)
+    Err.Clear: c = Empty: c = UBound(b, 40000)
+    W "UBound(b, 40000)" & vbTab & "err " & Err.Number & vbTab & "[" & c & "]"
+End Sub
+```
+
+`p31` is `p22`'s form, with only `Cmd(0)`, calling `Load Cmd(x)`, `Cmd(x).Caption` and `Unload Cmd(x)` from a Sub
+whose `Optional x As Variant` is omitted. Each `p27`, `p28` and `p32` project is a `Module1.bas`, and a `Module2.bas`
+where the row names one, with the declarations in the table and a `Sub Main` that writes `UBound(d)` as `p21a`'s
+below does.
+
+`Shape` reports `LBound..UBound`, or the 9 that reading them raises. Each `p21` project is a `Module1.bas` with
+`Option Explicit`, the declarations in the table, and a `Sub Main` that writes the bounds. `p21a`, for example:
+
+```vb
+Option Explicit
+Dim d(N) As Long
+Const N = 3
+
+Sub Main()
+    Dim f As Integer
+    f = FreeFile
+    Open App.Path & "\log.txt" For Output As #f
+    On Error Resume Next
+    Print #f, "forward ref" & vbTab & "UBound " & UBound(d) & vbTab & "err " & Err.Number
+    Close #f
+End Sub
+```
+
+## An object used as a value (2026-10-12, #174)
+
+**The question.** What a class instance gives where a value is wanted, with and without a default member. HexIDE
+does not call a class's default member yet. It raised a trappable 438 or 13 in some places and gave a wrong value
+in others, and a trappable error there lets `On Error Resume Next` carry on without VB6's value.
+
+**Probe.** A Sub Main project built with `vb6.exe /make` and run under `On Error Resume Next`, logging each result
+with `TypeName` and `Err.Number`. Every probe ran as native code, and every probe also ran in the IDE, with three
+kinds of row read in one mode only: a compile error can only be read from `/make`, so those rows are native only; a
+native build drops `Debug.Print`, so its rows are IDE only; and a row that would show a box (`MsgBox(w)`) was not run
+and says so. Where a row was read in both modes the two agreed, except where it says otherwise. The first two probes
+were native only until the review's second round, which ran them in the IDE too: identical, except the Select Case and
+For rows under Resume Next (below).
+
+**How the IDE runs were made.** `VB6.EXE /runexit probe.vbp` runs a project in the IDE, as F5 does, and closes VB when
+the program ends. It was started in the Win10 guest's session 0 over PowerShell Direct, with the project's files
+copied into a fresh folder first. The program writes its log with `Print #` to a file beside the project, because
+`Debug.Print` output goes to the Immediate window and is gone when VB closes. Three things to know when repeating it:
+- VB exits with 0xC000041D after the program finishes. That is normal.
+- A compile error or an unhandled run-time error leaves a modal dialog that nobody can answer in session 0, so a run
+  still going after a timeout is killed, and its log is missing or incomplete. Every use is therefore made under
+  `On Error Resume Next` or `On Error GoTo`, and a compile error shows up as a missing log.
+- A `probe.exe` left in the folder means the run was a `/make` build, not an IDE run.
+#842 tracks making this, and the native `/make` harness, part of the tree.
+- `w` is a `Widget`, whose `Value` carries `Attribute Value.VB_UserMemId = 0` and returns 42;
+- `k` is a `Plain`, a class with only `Public Tag As Long` and no default member.
+
+| Use | `w` | `k` |
+|---|---|---|
+| `x = w`, `x` a Long | 42, Long | 438, `x` unchanged |
+| `s = w`, `s` a String | "42", String | 438, `s` unchanged |
+| `d = w`, `d` a Double | 42, Double | 438, `d` unchanged |
+| `b = w`, `b` a Boolean | True | 438, `b` unchanged |
+| `vv = w`, `vv` a Variant, no `Set` | 42, **Long** | 438, `vv` still Empty |
+| `w + 1`, `w * 2`, `-w`, `w \ 5` | 43, 84, -42, 8, all Long | `k + 1`: **438** |
+| `w = 42`, `w > 41`, `w = "42"` | True, True, True | `k = 1`: 438 |
+| `"v=" & w` | "v=42" | **438** |
+| `CStr(w)`, `CDbl(w)`, `CBool(w)`, `CVar(w)`, `Val(w)` | "42", 42 Double, True, 42 Long, 42 Double | `CStr(k)`: 438 |
+| a ByVal Long argument, a ByVal String argument | 42 Long, "42" | 438 |
+| a ByVal **Variant** argument | the object itself: `TypeName` "Widget" | the object |
+| `If w Then` | the Then branch runs | 438, **and the Then branch runs** |
+| `Select Case w` … `Case 42` | matches | 438 at the selector |
+| `For i = 40 To w` | 3 passes | 438 at the bound |
+| `Print #f, w` | ` 42 ` | 438, after the text before it was written |
+
+`Debug.Print`'s output cannot be read this way: it goes to the Immediate window, which neither a built program nor a
+`/runexit` run leaves anywhere to read. Its **error** can be, in the IDE: `Debug.Print k` raises 438 there, and
+`Debug.Print w` raises nothing. A native build removes `Debug.Print` statements altogether, so there both give 0. What
+`Debug.Print w` prints is taken to follow `Print #`, which shares its formatting, and is **inferred**, not measured.
+The Immediate window's `? k` is inferred from `Debug.Print k` the same way.
+
+`Len(w)` does not compile: "Variable required - can't assign to this expression". (Every compile error in this section
+was read from `/make`. An IDE run of a project that does not compile leaves no log, so those rows are native only.)
+
+**A second probe, through a Variant.** `o` is a Variant holding the object (`Set o = w`), so `Len` compiles:
+
+| Use | Widget | Plain |
+|---|---|---|
+| `Left(o, 1)`, `InStr(o, "2")`, `Chr(o)`, `Len(o)`, `UCase(o)` | "4", 2, "*", 2, "42" | 438 each |
+| `IIf(o, "t", "f")` | "t" | 438 |
+| `CDate(o)` | 10/02/1900, a Date | 438 |
+| a ByVal Double argument | 42, Double | 438 |
+| `Format(o)`, `Format(o, "0.0")`, `Abs(o)`, `Not o` | **450** each | 438 each |
+
+The last row resisted explanation until #840's review, which measured the same uses against a class whose default
+member is a **Property Get** rather than a Function:
+
+| Through a Variant | Function default member | Property Get default member |
+|---|---|---|
+| `Format(o)` | 450 | "42" |
+| `Abs(o)` | 450 | 42, Long |
+| `Not o` | 450 | -43, Long |
+| `wp + 1`, `"v=" & wp`, typed | | 43, "v=42" |
+
+So with a Function default member, `Format`, `Abs` and `Not` through a Variant give 450, "Wrong number of arguments or
+invalid property assignment", and a Property Get default member gives 42 and -43 on the same uses. Every other use in
+the two probes above gave the Function's value. The IDE adds one more use that gives 450: a Case value compared with an Empty or Null
+selector (below). The rows say which uses give 450, not why: no rule beyond them was measured. HexIDE refuses every one
+of them, so no answer here can become a wrong value, and a default member that HexIDE later calls (#174) must reproduce
+the 450 for a Function on those uses.
+
+**What it says.**
+- An object used as a value is its default member in every place this probe used one: a Let into any scalar or a
+  Variant, an operator, a conversion, a condition, a bound, a ByVal scalar argument, `Print #`. The exception there
+  is the 450 above, which a Function default member gives on a few paths through a Variant. The rounds below find the
+  places that take the object rather than a value: `TypeName` and `IsObject`, `VarType` and the Is functions, and the
+  array that `LBound`, `UBound`, `Join` and `Filter` take first.
+- An object with no default member raises **438 in every one of those places**. HexIDE raised 13 for `k + 1`,
+  `-k`, a comparison, `CBool(k)`, `If k Then` and a For bound. It gave the CLR type name for `"v=" & k`, `CStr(k)`
+  and `Debug.Print k` (#436), 0 for `Val(k)` and a ByVal Long argument, and no error at all for `Select Case k`.
+- Of the arguments this probe passed, only a ByVal Variant parameter takes the object itself.
+
+**And an overturn about `On Error Resume Next`.** Measured in the second probe for every statement with a condition,
+with `k` a Plain, so each condition raises 438:
+
+| Statement | What ran |
+|---|---|
+| `If k Then ... Else ... End If` | the Then branch |
+| `If False Then ... ElseIf k Then ... Else ...` | the ElseIf branch |
+| `If k Then c = "Then" Else c = "Else"`, one line | the Then part |
+| `Select Case k`, `Case 1`, `Case Else` | native: **Case Else**; the IDE: neither (see below) |
+| `Do While k`, `Do Until k`, `While k` | the body, every pass, until the probe's own `Exit` after 3 |
+| `Do ... Loop While k` | the body once, then out |
+| `For i = 1 To k` | native: the body, every pass, until `Exit For` after 3, `i` still 0 afterwards; the IDE: one pass, `i` 1 afterwards |
+
+So for most of these, Resume Next goes on into the block, at the first statement inside it.
+A bottom-tested loop's next statement is the one after `Loop`. Select Case and For are the exceptions, and differ by
+mode.
+
+The Select Case and For rows are the two where native code and the IDE disagree, and the table gives each answer.
+They are one probe shape apiece (`Case 1` then `Case Else`; `For i = 1 To k`), so nothing more general is claimed
+here. Why they differ, and the other shapes, are #839's.
+
+The earlier reading here, that each Case raised in turn, was wrong.
+
+The first probe's finding, in its own words: `If k Then`, whose condition raises 438, went on into the Then
+branch. Resume Next resumes at the next statement, and the next statement after the `If` line is the first one
+inside the block. The obvious reading, that the failed condition skips the block, is wrong. HexIDE skips it, and
+does the same for every statement in the table except `Do ... Loop While`, where it already runs the body once and
+leaves, as VB6 does. #839 has the rest.
+
+**HexIDE, since #839** (merged after this section was written): every row above gives VB6's answer.
+Where native code and the IDE differ, Select Case and For, HexIDE gives the IDE's answer, because it follows p-code.
+"Resume Next into a block" has the measurements behind that, and what each statement does.
+
+### Found in #840's review (2026-10-12)
+
+The review found routes that still read an object as a value, and measured several; each answer was measured again
+here, native and in the IDE, with `sm` a class whose default member returns 2. `w` and `k` are as above.
+
+**`VarType` and the Is functions read the default member, and `TypeName` and `IsObject` do not.** Classes whose default
+member returns a value the function would answer about:
+
+| Call | Native and IDE |
+|---|---|
+| `VarType(w)`, `IsNumeric(w)` | 3, True |
+| `IsEmpty`, `IsNull`, `IsDate`, `IsNumeric`, `IsArray`, `IsError` of a class whose member returns Empty, Null, a Date, "12", an array, `CVErr(5)` | True for each |
+| `VarType` of those | 0, 1, 7, 8, 8204, 10 |
+| `TypeName(w)`, `IsObject(w)`, `TypeName` of those | "Widget", True, the class's name |
+| `VarType(k)`, and each Is function of `k` | 9, and False, **with no error**: a class with no default member answers about the object |
+
+**Select Case:**
+
+| Statement | Native | IDE |
+|---|---|---|
+| `Select Case 42`, `Case 40 To w`; `Case w To 50` | matches | matches |
+| `Select Case 42`, `Case 40 To k` | 438 | 438 |
+| `Select Case 43`, `Case Is > w`; `Select Case 41`, `Case Is < w` | matches | matches |
+| `Select Case 43`, `Case Is > k` | 438 | 438 |
+| `Select Case Empty` or `Null`, `Case w` | Case Else, no error | **450**, then `Case w`'s body: a Function default member, as above |
+| the same with a Property Get default member | Case Else | Case Else |
+| `Select Case Empty` or `Null`, `Case k` | 438 | 438 |
+
+**Statements:**
+
+| Statement | `w` (42) or `sm` (2) | `k` |
+|---|---|---|
+| `Randomize w` | the same first `Rnd` as `Randomize 42` | 438 |
+| `Err.Raise w`, `Error sm` | error 42, error 2 | 438 |
+| `ChDir w`, `ChDrive w` | 76 and 5: it tried "42" | 438 |
+| `Mid(s, sm, 1) = "X"`, `Mid(s, 2, sm) = "XYZ"` on "abcdef" | "aXcdef", "aXYdef" | 438, `s` unchanged |
+| `Mid(s, w, 1) = "X"` | 5, the start past the end | |
+
+**The array functions.** The array that `LBound`, `UBound`, `Join` and `Filter` take first is not read at all. Any
+object there raises 13, including a class whose default member returns an array, and so does every other value that
+is not an array. Through a Variant `v`, because a typed object variable there does not compile ("Expected array",
+from `/make`):
+
+| First argument | `UBound(v)`, `LBound(v)`, `Join(v, "-")`, `Filter(v, "b")` |
+|---|---|
+| a `Widget`, a `Plain`, an `Arr` whose default member returns `Array("a", "b", "c")` | 13 each |
+| `"abc"`, 5, Empty, Null | 13 each |
+
+HexIDE's `Join` and `Filter` raised 5 for each of those, and now raise 13. **Nothing is 13 here too**, not the 91 every
+conversion gives: `Join(v, "-")`, `Filter(v, "a")` and `UBound(v)` with `v` set to Nothing (round three).
+
+Every other argument reads the member:
+
+| Call | `sm` | `k` |
+|---|---|---|
+| `UBound(m, sm)`, `LBound(m, sm)` of `m(1 To 3, 5 To 9)` | 9, 5 | 438 |
+| `Split("a,b,c", ",", sm)`, `Split(w)` | two elements, `"42"` | 438 |
+| `Join(arrS, sm)`, `Filter(arrS, "a", sm)` | "2" as the delimiter, an include of True | 438 |
+
+**An array never allocated** (`Dim ds() As String`, `Dim dv()`), measured in round three, both modes:
+
+| Call | VB6 |
+|---|---|
+| `Join(ds, "-")`, `Join(dv, "-")`, and through a Variant holding `ds` | `""`, no error |
+| `Filter(ds, "a")`, `Filter(dv, "a")` | no error: an unallocated **String** array (VarType 8200) for both, whose `LBound` and `UBound` raise 9 |
+
+HexIDE indexed a bounds list that was not there, an exception no On Error could trap, and now gives both answers.
+
+**Join and Filter, round four.** Measured as native code and in the IDE, identical on every row. `ds` is
+`Dim ds() As String` never allocated, `d1` is `Dim d1(1) As String` holding "apple" and "pear", `al` is
+`Dim al(1) As Long` holding 1 and 12, and `m` is `Dim m(1, 1) As String`.
+
+An array never allocated answers the same whatever its element type, and so does an erased one:
+
+| Call | VB6 |
+|---|---|
+| `Join(dl, "-")` with `Dim dl() As Long`; `Join(de, "-")` after `ReDim de(1) : Erase de` | `""`, no error |
+| `Filter(dl, "a")`, `Filter(de, "a")` | an unallocated String array, whose `LBound` and `UBound` raise 9 |
+
+Filter reads its match and its switch before it looks at the array, so these raise even where the array alone would
+give no error:
+
+| Call | with `ds` | with `d1` |
+|---|---|---|
+| `Filter(x, "a", "x")` | 13 | 13 |
+| `Filter(x, Null)` | 94 | 94 |
+| `Filter(x, "a", Null)` | 94 | 94 |
+
+Its result is always a String array, VarType 8200 and `TypeName` "String()", whatever went in:
+
+| Call | Bounds of the result |
+|---|---|
+| `Filter(d1, "a")` | 0..1 |
+| `Filter(d1, "zzz")`, no match | 0..-1 |
+| `Filter(Array("apple", "pear"), "a")`, a Variant array | 0..1 |
+| `Filter(Array(1, 12), "1")`, a Variant array of numbers | 0..1 |
+
+HexIDE returned the unallocated result before reading the match and the switch, so all three of the first table gave
+no error for `ds`. Its `Filter(d1, Null)` gave no error either, and its result was a Variant array whenever the input
+was allocated. All three now answer as above.
+
+An allocated array that is not a 1-D String or Variant array. HexIDE still joins and filters the Long array `al` as
+if it held strings, and raises a trappable 9, Subscript out of range, for the 2-D array `m` (#875):
+
+| Call | VB6 |
+|---|---|
+| `Join(al, "-")` | 5 |
+| `Filter(al, "1")` | 13 |
+| `Join(m, "-")` | 5 |
+| `Filter(m, "a")` | 13 |
+| `Join(Array(1, 12), "-")` | "1-12": a Variant array of numbers is fine |
+
+So the allocation check comes before the element-type check: an unallocated Long array joins to `""`, and an allocated
+one raises 5.
+
+**When Join reads its delimiter, round five.** Measured as native code and in the IDE, identical on every row. `d0` is
+`Dim d0(0) As String` holding "x", and `k` and `w` are the classes above:
+
+| Call | VB6 |
+|---|---|
+| `Join(ds, Null)`, and the same for `dv`, `dl` and an erased `de` | `""`, no error |
+| `Join(Array(), Null)`, `Join(Split(""), Null)`: allocated, 0 To -1 | `""`, no error |
+| `Join(Array("a"), Null)`, `Join(d0, Null)`: one element | 94 |
+| `Join(Array("a", "b"), Null)`, `Join(d1, Null)` | 94 |
+| `Join(ds, k)`, `Join(Array(), k)`, `Join(ds, w)` | `""`, no error |
+| `Join(Array("a"), k)`, `Join(d0, k)`, `Join(d1, k)` | 438 |
+| `Join(d1, w)` | "apple42pear" |
+
+So Join reads its delimiter only when the array has an element, even a single one that needs no delimiter. HexIDE
+read a Null delimiter as `""`, and read an object delimiter for an array with no element. Both now answer as above.
+
+**Each element, round five.** Measured as native code and in the IDE, identical on every row. Each element sits in a
+Variant array beside "ab", and the exclude-"zz" filter keeps every element, so the result shows what each became:
+
+| Element `e` | `Join(Array("ab", e), "-")` | `Filter(Array("ab", e), "zz", False)` |
+|---|---|---|
+| Null | 94 | 94 |
+| Empty | "ab-" | "ab", "" |
+| True | "ab-True" | "ab", "True" |
+| 1.5 | not probed | "ab", "1.5" |
+| `#1/2/2000#` | not probed | "ab", "02/01/2000" (an en-GB guest) |
+| `CVErr(5)` | 13 | 13 |
+| a `Collection` | 450 | 450 |
+| `w`, default member 42 | "ab-42" | "ab", "42" |
+| `k`, no default member | 438 | 438 |
+
+Three more: `Filter(Array("ab", Null), "ul")` raises 94, so Null is not matched as the text "Null";
+`Filter(Array("ab", True), "ru")` gives one element, the String "True"; and `Filter(Array("ab", Empty), "")` gives both
+elements. Every element of the result is a String.
+
+An array as an element, measured in a later probe, both modes: `Filter(Array(Array(1, 2), "b"), "b", False)` and
+`Join(Array(Array(1), "b"), "-")` each raise 13.
+
+So each element is converted as a store into a String converts it: Null is 94, an array or an Error value 13, an
+object its default member, and a Collection, whose default member `Item` needs an argument, 450. HexIDE read a Null
+element as `""` with no error, and an array element as the CLR type name; it now raises 94 and 13. It has no Error
+values (`CVErr` is not implemented) and no `Collection`.
+
+**Filter's switch and compare, and the order of its checks, round five.** Measured as native code and in the IDE,
+identical on every row, with `ee` an Empty Variant:
+
+| Call | VB6 |
+|---|---|
+| `Filter(d1, "a", ee)`, `Filter(d1, "a", "False")` | no match kept: bounds 0..-1, since both elements contain "a" |
+| `Filter(d1, "a", "True")`, `Filter(d1, "a", 2)` | both elements |
+| `Filter(ds, "a", ee)`, `Filter(ds, "a", "True")`, `Filter(ds, "a", True, ee)` | no error, an unallocated String array |
+| `Filter(d1, "A", True, ee)` | bounds 0..-1: a binary compare |
+| `Filter(d1, "A", True, 1)`, `"1"`, `5` | both elements: a text compare |
+| `Filter(d1, "A", True, "x")`, `Filter(ds, "a", True, "x")` | 13 |
+| `Filter(d1, "A", True, Null)`, `Filter(ds, "a", True, Null)` | 94 |
+| `Filter("abc", Null)`, `Filter("abc", "a", Null)`, `Filter("abc", "a", True, Null)`, `Filter(Null, Null)` | **94**, not the 13 a non-array gives |
+| `Filter(5, "a", "x")`, `Filter("abc", "a", "x")`, `Filter("abc", "a", True, "x")`, `Filter(Null, "a")` | 13 |
+| `Join("abc", Null)` | 13 |
+
+So the switch reads as `CBool` reads it, and the compare as a number. Round five read the 5 row as "any value but 0 is
+a text compare". **Round six overturned that** (below): 5 is a text compare, and round six's rows are consistent with
+that being because 5 is a valid Windows locale identifier. Filter checks every argument for Null before it looks at the array, so a Null match beside a string is 94;
+Join looks at the array first, so a Null delimiter beside a string is 13. HexIDE read both as plain numbers, so an
+Empty switch or compare raised 13 and only 1 was a text compare; its Null compare was 13, and `Filter("abc", Null)`
+was 13. All now answer as above, except the compare of 5, which HexIDE refuses as it refuses every value from 3 up
+(#881).
+
+**Filter's compare, and the order of its conversions, round six.** Measured as native code and in the IDE (`p24`, a
+Sub Main project), identical on every row. `d1` holds "Apple" and "pear", so a binary compare for "a" keeps only
+"pear" and a text compare keeps both:
+
+| Compare | VB6 |
+|---|---|
+| 0, 0.5, Empty | binary: "pear" |
+| 1, 1.4, "1" | text: both |
+| 2, "2", 1.5 | 5 |
+| -1, `True` | 5 |
+| 3, 4, 5, 1033, 2057 | text: both |
+| 3000, 65535 | 5 |
+| 2, -1, 3000 or 1033, with `ds` never allocated, or with `Array()` | no error, an unallocated String array |
+
+So the compare is read as a Long, with banker's rounding. 0 is binary and 1 text. 2 is `vbDatabaseCompare`, which
+needs an Access database, and is 5, and so is any negative value. From 3 up, the rows are consistent with a Windows
+locale identifier: valid ones compare as text, and invalid ones are 5. Whether a valid one compares in that locale, or
+simply as text, is not measured; nothing here tells the two apart. None of that is checked when the array has no
+element, nor, round seven found, whenever no comparison is made. And `Filter(Array(), "a")`, an allocated array of no elements, gives back an **unallocated**
+String array, not 0 To -1, though a match that keeps nothing from an array that has elements is 0 To -1 (above).
+
+| Call | VB6 |
+|---|---|
+| `Filter(d1, "a", "x", 3000)` | 13: the switch, so the compare's 5 comes later |
+| `Filter(d1, Null, "x")` | 13: the switch before the match |
+| `Filter(d1, "a", "x", Null)` | 94: the compare before the switch |
+| `Filter(d1, Null, True, 3000)`, `Filter(d1, "a", Null, 3000)` | 94 |
+| `Filter("abc", "a", True, 3000)` | 13: the array check before the compare's |
+
+So Filter converts its arguments right to left: the compare, then the switch, then the match, each Null 94 and each
+non-number 13. Then it checks the array. Round six read the rest as "and only after that whether the compare is one it
+accepts"; round seven (below) found that Filter converts every element next, and checks the compare only when it
+compares an element with the match.
+
+**Nothing**, both modes (`p24`): `Filter(Array("ab", Nothing), "zz", False)`, `Join(Array("ab", Nothing), "-")`,
+`Join(d1, o)` and `Filter(d1, o)`, with `o` Nothing, each raise 91. `Join(ds, o)` with `ds` never allocated is `""`.
+
+**HexIDE, after round six.**
+- 0 is binary and 1 text; 2 and negative values are 5.
+- 3 and above are refused loudly, naming #881, because HexIDE can't tell which of those values VB6 accepts,
+  and its text compare uses no locale.
+- Before, every value but 1 was binary.
+- The conversions run right to left, and the compare is checked only for an array that has elements.
+- `Filter(Array(), ...)` gives an unallocated array.
+- Nothing is 91 as an element, a delimiter or a match, where it read as `""`.
+
+**The other functions' compare** (`p24`, both modes): `InStr` and `StrComp` raise 5 for 2, while `Split` and
+`Replace` take 2 as text. All four raise 5 for -1 and 3000, and take 1033 as text. HexIDE reads all of them as
+"1 is text, anything else binary" in `InStr`, `InStrRev`, `Split` and `Replace`; `StrComp` is not implemented. That's
+#881.
+
+**Filter's compare, round seven.** Measured as native code and in the IDE (`p41`, a Sub Main project), identical on
+every row. `s` is `Split("apple pear")`, so a binary compare for "A" keeps nothing and a text compare keeps both:
+
+| Compare | VB6 |
+|---|---|
+| 0.6 | text: it rounds to 1 |
+| 4096, 1033 | text |
+| 4095, 32767, 65536, 3000, -2 | 5 |
+| 3E+10 | 6 |
+| `Array(1)` | 13 |
+
+So 4096 is accepted and 4095 is not, as 1033 is and 3000 is not. That is still consistent with a locale identifier, and
+still not proof of one.
+
+**When the compare is checked, round seven.** Measured as native code and in the IDE (`p40` and `p41`), identical on
+every row:
+
+| Call | VB6 |
+|---|---|
+| `Filter(Array("x", Null), "a", True, 2)` | 94 |
+| `Filter(Array(Array(1)), "a", True, 2)` | 13 |
+| `Filter(Array("x", Null), "")` | 94 |
+| `Filter(Array("x"), "", True, Null)`; with `"zz"` as the compare | 94; 13 |
+| `Filter(Array("x"), "", True, 2)`; with 3000 as the compare | bounds 0..0, no error |
+| `Filter(Array("x", "y"), "", True, -1)` | 0..1 |
+| `Filter(Array("x"), "", False, 2)` | 0..-1 |
+| `Filter(Array(""), "a", True, 2)` | 0..-1 |
+| `Filter(Array(""), "")`; with `True, 2` | 0..0 |
+| `Filter(Array(""), "", False)` | 0..-1 |
+| `Filter(Array("", "x"), "", True, 2)`; with `False, 2` | 0..1; 0..-1 |
+| `Filter(Array("x"), "xyz", True, 2)` | 5 |
+
+So Filter converts every element before it compares any, and checks the compare only when it compares an element
+with the match. An empty match is in every element, an empty one included, and an empty element holds no other match,
+so neither needs a comparison: `Filter(list, "", True, 2)` is the whole list. The compare itself is still converted
+first, so a Null or a non-number there raises whatever else happens.
+
+**Each object argument is read as its turn comes, round seven** (`p41`, both modes). `d1` holds "apple" and "pear",
+`k` and `w` are the classes above, `o` is Nothing and `ds` is never allocated:
+
+| Call | VB6 |
+|---|---|
+| `Filter(d1, k, "x")`, `Filter(d1, "a", k, "x")` | 13 |
+| `Filter(d1, k, Null)`, `Filter(d1, "a", k, Null)` | 94 |
+| `Filter(d1, k, True, o)` | 91 |
+| `Filter(d1, w, "x")` | 13: `w` is never read |
+| `Filter(d1, "a", True, o)`, `Filter(ds, "a", True, o)` | 91 |
+
+**Err as an argument** (`p40`, both modes), with `s` holding "Apple", "pear" and "plum":
+- as the compare, with Err.Number 1, `Filter(s, "a", True, Err)` is a text compare, keeping "Apple" and "pear"; with 0,
+  binary, keeping "pear";
+- as the switch, 5 includes and 0 excludes;
+- as the match, with Err.Number 1, it is "1", which nothing holds.
+
+None raised; Err.Number was unchanged after each.
+
+**Other built-ins show the same order** (`p41`, both modes):
+
+| Call | VB6 |
+|---|---|
+| `Left(k, "x")`, `Mid(k, "x")`, `Replace(k, "a", "b", "x")`, `Split(k, ",", "x")`, `InStr(1, k, "a", "x")`, `Left(w, "x")` | 13 |
+| `Left(k, Null)` | 94 |
+| `Left(k, 1)` | 438 |
+| `Left(w, 1)` | "4" |
+
+So VB6 converts a typed value argument before it reads an object in a Variant or String slot. HexIDE reads every
+object first, so each of the first rows is 438, or the refusal naming #174 for `w` (#959).
+
+**HexIDE, after round seven.**
+- Filter converts every element first, and checks the compare only when it compares: an empty search returns the
+  whole list, where it raised 5.
+- It reads its match, switch and compare itself, each as its turn comes, rather than letting the dispatcher read every
+  object first: `Filter(d1, k, "x")` is 13, where it was 438.
+- A Nothing compare is 91, where it read as 0, a binary compare.
+- Err as the compare or the switch is its Number, where it reached the conversion as an object.
+- The other built-ins still read every object first (#959).
+
+**A default member on a typed variable, round five.** With `w` declared `As Widget`, whose default member is a
+Function returning 42, both modes: `Not w` is -43, a Long, and `CDate(w)` is 10/02/1900 (an en-GB guest). Through a
+Variant, `Not` of the same object raises 450 (above). So the typed `w` answers where the Variant gave 450, and a
+Property Get default member answers through the Variant too (above). In the IDE, a Case value compared with an Empty or
+Null selector gives 450 for the typed `w` as well. The rows say which uses give 450, not why.
+
+**A Let of App into a typed target, round five.** Both modes, under Resume Next, with each target holding a value
+first:
+
+| Target | VB6 after `x = App` |
+|---|---|
+| `Dim k As Plain`, holding an instance | 438, `k` still that instance |
+| `ByVal x As Long`, holding 5 | 438, VarType 3, 5 |
+| a `Function ... As Long`'s own name, holding 7 | 438, and the function returns 7 |
+| a `Function ... As String`'s own name, holding "x" | 438, and the function returns "x" |
+
+So only a Variant is emptied by `v = App`. HexIDE leaves a Variant as it was too (#878): a parameter's and a return
+name's slots carry no declared type, so a Variant cannot yet be told from them, and emptying every slot without one
+emptied all four of these.
+
+**Found on the way, both modes** (#876, #877):
+
+| Statement | VB6 |
+|---|---|
+| `For Each x In Filter(ds, "a")`, over a copy of that result, and over `ds` itself, under Resume Next | 92, and the body runs once |
+| `Err.Raise 5`, then `On Error Resume Next` | `Err.Number` is 0 |
+| a helper whose first line is `On Error Resume Next`, called after `Err.Raise 6` | the helper reads 0, and so does the caller after it returns |
+| `Err.Raise 7`, then `On Error GoTo 0` | 0 |
+
+**An array used as text, found on the way** (#879; `p19`, both modes, and the last row from `p42`, by `/make`):
+
+| Use | VB6 |
+|---|---|
+| `c = "v=" & Array(1)`, `c = CStr(Array(1))`, `c = Len(Array(1))`, `c = UCase(Array(1))`, `Print #f, Array(1)` | 13 |
+| `s = Array(1)`, `s` a String | 13, `s` unchanged |
+| `c = "v=" & a`, with `Dim a(1) As Long` | does not compile: "Type mismatch" |
+
+HexIDE's text conversion has no arm for an array, so the code gives its CLR type name for these, except where #840
+raises 13 for an element of Join or Filter. That HexIDE side is read from the code, not run (#879).
+
+**The in-box objects:**
+
+| Used as a value | VB6 |
+|---|---|
+| `Err` | its `Number`: `"v=" & Err` is "v=0" or "v=11", `If Err Then` takes the Then branch after an error, `x = Err` stores 11, `Err + 1` is 12, `VarType(Err)` is 3, `Print #f, Err` writes 11 |
+| `App`, `Screen`, `Clipboard` | 438: none has a default member. For App, measured: `"v=" & App`; `s = App`, leaving a String `s` as it was; `v = App`, which **empties** a Variant `v` first (VarType 0), where `v = k` for a class with no default member leaves it as it was (HexIDE does not empty it yet, #878); and `Debug.Print App` and `Debug.Print Screen` in the IDE |
+| `Forms` | 450: its default member, `Item`, needs an argument |
+| `Debug` | a compile error, "Syntax error" (`/make` only, as is the next row) |
+| a control array without an index, `"v=" & Cmd` | a compile error, "Argument not optional" |
+
+`TypeName` of each: Err "ErrObject", App "App", Screen "Screen", Clipboard "Clipboard", Printer "Printer", and
+Forms **"Object"**. HexIDE gave "VbErr" and "VbApp", its own class names, and now gives VB6's; it has no Screen,
+Clipboard, Printer or Forms yet. Round three, on a form with a control array `Cmd`: `TypeName(Cmd)` is "Object" and
+`TypeName(Cmd(0))` "CommandButton"; `TypeName` of `Dim wa(1) As Widget`, and of an unallocated `Dim wd() As Widget`, is
+**"Object()"**, not "Widget()", with VarType 8201. `TypeName(Debug)` does not compile ("Syntax error", `/make`).
+
+**The rows the review found unprobed,** measured in the second round:
+
+| Use | `w` (42) | `k` |
+|---|---|---|
+| `If False Then ... ElseIf w Then` | the ElseIf branch | 438, and the ElseIf branch runs (#839) |
+| `For i = w To 45`; `For i = 1 To 100 Step w` | 4 passes, `i` 46; 3 passes, `i` 127 | 438 at the bound or the step |
+| `Do ... Loop While w`; `Loop Until w` | loops; leaves after one pass | 438, and leaves after one pass |
+| `c = MsgBox(k)` | | 438, before any box shows |
+| `Debug.Print k`, `Debug.Print "v=" & k` | | 438 in the IDE |
+
+`MsgBox(w)` would show a box, which session 0 cannot dismiss, so it was not run. That it shows "42" is inferred.
+
+**HexIDE, after #174's refusal (this change).** One rule, `ObjectAsValue`, applied wherever a value is wanted:
+- every binary operator's operands (`GetTwoValues`), negation and `Not`;
+- every text coercion (`VbDisplay.ToText`: concatenation, `CStr`, `Val`, `Str` and the string functions), for a class
+  instance and an in-box object. **Not for a control**: `"v=" & Text1`, `CStr(Text1)` and `Debug.Print Text1` still give
+  the control's .NET type name, which is #790's;
+- a Let, a store into a declared scalar (`CoerceOnStore`), a ByVal argument for a declared scalar parameter;
+- every built-in function's arguments (`EvaluateBuiltInFunction`), once the name is found to be a built-in: an
+  unknown name stays "Sub or Function not defined" whatever it is given. `TypeName`, `IsObject`, `IsMissing` and `Array`
+  take the argument itself, and so does the array that `LBound`, `UBound`, `Join` and `Filter` take first. `Join`'s
+  delimiter and `Filter`'s match, switch and compare are passed on unread, for those functions to read in their own
+  order (round seven). `VarType` and the Is functions refuse a class with a default member and answer about one without;
+- the numeric conversions' own check (`RefuseNonScalar`, in `NarrowNum` and `CBool`), which reads an object wherever
+  the dispatcher has not: Filter's compare and switch, and since #873 every subscript, bound and control-array index.
+  Of those, only the subscript is measured and pinned: `a(k)` is 438, `a(Nothing)` 91, and `a(w)` is 7 in VB6 and
+  refused naming #174 here (#873's round five);
+- the conditions of `If`, `ElseIf`, `While` and `Do`, a For bound and step, `Select Case`, a Case value, a range's
+  bounds and a `Case Is` value;
+- `Debug.Print`, `Randomize`, `Err.Raise`, `Error`, `ChDir`, `ChDrive`, and the Mid statement's start and length;
+- the Immediate window's `? x`: a class with a default member is refused as a call into the program, as `? obj.Prop`
+  is (D15), and one with none is 438. It used to print the class's name.
+
+A class with a default member is refused, untrappably, naming #174. One with none raises 438. Err stands for its
+Number, App raises 438, and `Debug` and a control array used as values are the compile errors VB6 gives.
+
+## The native build's hidden switches, and where `VB6.EXE` finds C2 and LINK (2026-10-13)
+
+Measured for [Building with the real VB6](wip/vb6-native-build.md), which asks whether HexIDE can pass the
+community's undocumented compiler and linker switches, and capture what `C2.EXE` and `LINK.EXE` print, without
+touching the user's installation. `VB6.EXE /make <abs .vbp> /out <abs log>` on the oracle machine's VB6 install,
+a one-module `Sub Main` project built as native code (`CompilationType=0`, `OptimizationType=0`). One run per
+row.
+
+| Probe | Exit | `/out` and result |
+|---|---|---|
+| No `[VBCompiler]` section (control) | 0 | `Build of 'probe.exe' succeeded.` No map file. |
+| `[VBCompiler]` then `LinkSwitches=/MAP:<dir>\probe.map` | 0 | Succeeded, and the map file is written: its first line names the module, the next gives the link timestamp. |
+| `[VBCompiler]` then `C2Switches=/Zzbogus` | 1 | `Unexpected error occurred in code generator or linker.` then `fatal error C1007: unrecognized flag '/Zzbogus' in 'p2'` then `Build of 'probe.exe' failed.` No executable. |
+| `[VBCompiler]` then `LinkSwitches=/BOGUSSWITCH` | 0 | `Build of 'probe.exe' succeeded.` and nothing else. |
+| The whole `VB98` folder copied to another directory, `/make` run with the copy's `VB6.EXE` | 0 | Succeeded. |
+| The same copy with its `C2.EXE` renamed | 1 | `File not found: C2.EXE` then `Build of 'probe.exe' failed.` |
+
+**`C2Switches` is honoured.** The community has used `LinkSwitches` for years. `C2Switches` was claimed in 2013,
+exposed by one add-in, and a VBForums thread reports C2 rejecting `/Ob2` passed through it with the same C1007,
+but no public project was found using it. This run confirms it from a clean `.vbp` under `/make`: a bogus flag
+reaches C2, and the table above is exactly what `/out` says.
+
+**A failing code generator does not block `/make`.** The interactive IDE shows "Unexpected error occurred in
+code generator or linker" and offers to open the errors in Notepad; under `/make` the same text and C2's own
+diagnostic go to `/out`, and the process exits 1.
+
+**A successful link discards whatever LINK printed.** `/out` held only the success line. LINK is expected to
+have warned about the unknown option (LNK4044), but that is inferred, not observed; a wrapper around LINK would
+see it. Not measured: what `/out` holds when LINK fails.
+
+**`VB6.EXE` runs the `C2.EXE` beside itself.** With the copy's `C2.EXE` gone, the build failed rather than
+falling back to the original installation, which was still present. So a private copy of `VB98` runs whatever
+code generator and linker are in the copy.
+
+Not measured: where in the command lines VB6 inserts each value, whether `C2Switches` applies to every module,
+and whether LINK 6 accepts `/DYNAMICBASE`, `/NXCOMPAT` or `/LARGEADDRESSAWARE`.
+
+## A Function that returns an array (2026-10-13, #975)
+
+**The question.** A Function or Property Get declared `As Long()`: what does it return? HexIDE read the declaration as
+its element type, so the array the body stored was narrowed into a Long on the way out: `x = RetFixed()` gave
+`TypeName` "Long", 0, with no error, and `d = RetFixed()` left a `Dim d() As Long` a scalar.
+
+**The probe.** One Sub Main project, built as native code and as p-code, the two agreeing on every row. `modArr` is a
+module-level `Dim modArr(3) As Long` with `modArr(1) = 7`, and `RetFixed = modArr`:
+
+| Program | VB6 |
+|---|---|
+| `x = RetFixed()` | `TypeName` "Long()", `UBound` 3, `x(1)` 7, no error |
+| `TypeName(RetFixed())` | "Long()" |
+| `d = RetFixed()`, `d` a `Dim d() As Long` | `UBound` 3, `d(1)` 7 |
+| `Function RetEmpty() As Long()`, which never assigns its name: `TypeName(RetEmpty())` | "Long()" |
+| `x = RetEmpty()`, then `UBound(x)` | 9 |
+| `Function RetStr() As String()` returning `Split("a,b,c", ",")` | "String()", `UBound` 2, `x(2)` "c" |
+| `Function RetVar() As Variant()` returning a `Variant` array holding "x" and 2 | "Variant()", "x", and `TypeName(x(1))` "Integer" |
+| a standard module's `Property Get PG() As Long()`, `x = PG` | "Long()", `x(1)` 7 |
+| a class's `Public Property Get Items() As Long()`, `x = o.Items` (a second probe) | "Long()", `UBound` 3, `x(1)` 7 |
+
+**HexIDE, after #975.** The pre-pass reads a Function's or Property Get's `As T()` as the array type, so the return slot
+starts as an empty array of it and the array the body stores comes back as it is. Every row is pinned except the
+standard module's Property Get, which HexIDE does not reach by name at all: a bare `PG`, or a scalar `PS`, reads Empty
+with no error, and `PG()` is "Sub or Function not defined" (#977, found here). Whether the caller gets a copy of the
+array is #970's.
+
+### What a typed-array return accepts (2026-10-14, #986)
+
+**The question.** #981 made the return slot an array, and then accepted whatever the body stored in it: `F = Array(1, 2)`
+in a Function `As Integer()` returned a Variant array with no error, and `F = 5` in one `As Long()` returned an
+Integer. The review of #981 measured those two; this measures the rest.
+
+**The probe.** A runtime project, each Function called as `x = F()` under `On Error Resume Next` in its caller, writing
+`Err.Number`, `TypeName(x)` and its bounds. Each case that might not compile is a project of its own, so one refusal
+cannot hide another. A third project repeats two rows through a class's Property Get. All built as native code and as
+p-code, the two agreeing on every row.
+
+| Body of a Function `As Integer()`, unless shown | VB6 |
+|---|---|
+| `F = ia`, `Dim ia(1 To 3) As Integer` | Err 0; `x` is Integer() 1 To 3: the bounds are kept |
+| `F = v`, `v` a Variant holding that Integer(1 To 3) | Err 0; Integer() 1 To 3 |
+| `F = d`, `Dim d() As Integer` never allocated | Err 0; Integer(), its bounds raising 9 |
+| `F = Array(1, 2)`; `F = v` with `v` holding `Array(1, 2)` | 13, and `x` stays Empty |
+| `F = v`, `v` holding a Long(0 To 1); holding 5; Empty | 13, and `x` stays Empty, each |
+| `F = Split("1,2", ",")` | 13 |
+| `As Long()`, `F = Array(1, 2)` | 13 |
+| `As Variant()`, `F = Array(1, 2)` | Err 0; Variant() 0 To 1 |
+| `As Variant()`, `F = v`, `v` holding an Integer(0 To 1) | 13 |
+| `As String()`, `F = Split("a,b", ",")` | Err 0; String() 0 To 1 |
+| `As Long()`, `F = 5` | does not compile: "Can't assign to array" |
+| `F = la`, `Dim la(1) As Long` | does not compile: "Can't assign to array" |
+| `F = va`, `Dim va(1) As Variant` | does not compile: "Can't assign to array" |
+| `As Variant()`, `F = ia`, `Dim ia(1) As Integer` | does not compile: "Can't assign to array" |
+| a class's `Property Get PG() As Integer()`, `PG = Array(1, 2)`, read as `o.PG` | 13 |
+| the same class's `PB`, storing an Integer(1 To 3) | Err 0; Integer() 1 To 3 |
+| `Dim d() As Integer`, `d = F()` with `F` storing an Integer(1 To 3) | Err 0; 1 To 3 |
+
+**What it says.** A typed-array return takes an array of exactly its element type and nothing else, keeping the bounds,
+from a fixed array as readily as a dynamic one. A mismatch VB6 can see while compiling, a scalar or an array variable
+declared with another element type, is the compile error "Can't assign to array". A mismatch it can only find at run
+time is 13, raised at the store, so the caller's target keeps what it had: through a Variant, and through Array and
+Split, which are declared to return a Variant even when what they return is a typed array.
+
+**Measured in #997's review.** A project for each case, native and p-code agreeing on every row:
+
+| Body of a Function `As Integer()`, unless shown | VB6 |
+|---|---|
+| `As Byte()`: `F = "ab"`; `F = s`, `s As String` holding "ab"; `F = v`, `v` a Variant holding "ab" | Err 0; Byte() 0 To 3, holding 97 0 98 0, each |
+| `As Byte()`, `F = ""` | Err 0; Byte() 0 To -1 |
+| `As Byte()`, `F = StrConv("ab", vbFromUnicode)` | Err 0; Byte() 0 To 1, holding 97 98 |
+| `As Byte()`, `F = v`, `v` holding 5 | 13 |
+| `F = w(0)`, `Dim w(1)` with `w(0) = 5`; `F = t.f`, a Variant field of a Type holding 5 | 13, each |
+| `F = Empty`; `F = Null` | 13, each |
+| `Function F(ByVal K)`, called `F(5)`, `F = K`, with a module `Const K = 5` the parameter hides | 13 |
+| `F = "ab"`; `F = -5`; `F = (5)`; `F = True`; `As Byte()`, `F = 5`; `As Variant()`, `F = 5` | does not compile: "Can't assign to array" |
+| `F = n`, `n As Integer`; `F = s`, `s As String`; `As Variant()`, `F = n` | does not compile: "Can't assign to array" |
+| `F = K`, with `Const K = 5`, or `Const K As Integer = 5`, in the Function; or `Const K = 5` in the module | does not compile: "Can't assign to array" |
+| `F = G()`, `G` declared `As Integer` | does not compile: "Can't assign to array" |
+| `Function F(p)`, `F = p`, called `F(k)` with `k As Integer`; called `F(la)` with `Dim la(1) As Long` | 13, each |
+| `Function F(p As Integer)`, `F = p`; `Function F(p() As Long)`, `F = p`, given `la` | does not compile: "Can't assign to array" |
+| `As Object()`, `F = Array(1, 2)`; `As Collection()`, `F = Array(1, 2)` | 13, each |
+| `As Object()`, `F = v`, `v` holding a `Dim oa(1) As Object` | Err 0; Object() 0 To 1 |
+
+The same project measured the variable path, with `Dim b() As Byte`: `b = "ab"`, `b = s` and `b = v` each give
+Byte() 0 To 3 holding 97 0 98 0, and `b = ""` gives Byte() 0 To -1. With `Dim a() As Integer`, `a = Array(1, 2)` is 13 and
+`a` stays unallocated.
+
+**What it adds.** A String into a Byte() is the one conversion: it takes the String's bytes, two per character, and a
+Byte() variable takes them the same way. Otherwise the line between the compile error and 13 is what the statement
+shows. A literal, signed or in parentheses, a variable declared with a scalar type, a Const and a typed Function's call
+are all refused while compiling. A Variant holding a literal is 13, whether it's a variable, an array element or a
+field, and so are Empty and Null. A parameter is what it was declared as: an untyped one is a Variant, whatever its caller
+passed it, and one that hides a module Const is the parameter.
+
+**HexIDE, after #986 and its review.** A store into the name of a Function or Property Get declared `As T()`, for a
+scalar `T` or Variant, checks the value's type against it:
+- **An array variable declared with another element type**, or a scalar whose type the statement shows, is "Can't
+  assign to array", raised as the statement runs. That covers a literal, signed or parenthesised; a bare name for a
+  variable declared with a scalar type; and a Const, local or the module's, unless a local or a parameter hides it. Only
+  the procedure's own declarations and the module's count: a ByRef parameter's name reads its caller's slot, whose
+  marks are the caller's declaration, so every parameter falls to 13.
+- **Anything else** is 13. The decision is read from the statement, not from the value's fixed flag, which a Variant
+  element or field can carry from the literal stored into it (#987's "What main does").
+- **A String into a Byte()** stops the run with a NotImplementedException naming #998, since neither this path nor
+  a Byte() variable converts yet, and raising an error VB6 doesn't would be worse.
+
+Every row is pinned, the typed parameters as HexIDE's answer, except three. The Property Get rows are pinned through the class, since a standard module's
+Property Get is #977's. Not pinned, and known to differ:
+- **`F = G()`**, with `G` declared `As Integer`, is 13 here where VB6 refuses to compile it, because the statement
+  executor doesn't read a callee's declared type. Wrong only on a program VB6 does not compile.
+- **A typed parameter**, `p As Integer` or `p() As Long`, stored into the return is 13 here where VB6 refuses to
+  compile it, for the reason above. Pinned as HexIDE's answer, so that changing it is a decision.
+- **`As Object()` and `As Collection()`** are not checked, because their element type is not modelled, so `F = Array(1,
+  2)` returns the Variant array where VB6 raises 13. That is a missing error on a path that runs: #999.
+- **`StrConv`** isn't implemented, so its row stops the run before the store.
+
+## Arrays copy wherever VB6 stores one (2026-10-14, #970)
+
+**The question.** #873's review found that HexIDE's array Let shares the array where VB6 copies it, and #873's fifth
+round proved out a copy, then took it back out because it broke four things (round six, above). This measures the rest
+of where VB6 copies, and what a copy does to the objects it holds.
+
+**The probe.** Three projects, each built as native code and as p-code and run in the IDE, the three agreeing on every
+row. A module with `Dim modArr(3) As Long` holding 7 at `modArr(1)`, under `On Error Resume Next`:
+
+| Program | VB6 | HexIDE before #970 |
+|---|---|---|
+| `d = RetFixed()`, a Function `As Long()` returning `modArr`, then `d(1) = 99` | `modArr(1)` 7, `d(1)` 99 | "Expected array": the Function returned a Long (#975, since fixed) |
+| `v = RetVariant()`, an untyped Function returning it, `v(1) = 98` | `modArr(1)` 7 | 98 |
+| `Sub ByValV(ByVal v)`: `v(1) = 55`, given `modArr` | `modArr(1)` 7 | 55 |
+| `Sub ByRefV(v As Variant)`: `v(1) = 66` | 66 | 66 |
+| `outer(0) = inner`, then `inner(0) = 50` | `outer(0)(0)` 1 | 50 |
+| `outer(0)(0) = 40` | `inner(0)` 50, `outer(0)(0)` 40 | refused: a store through two subscripts is not implemented (read from the code) |
+| the row buffer: `For i = 0 To 2: row(0) = i: rows(i) = row: Next` | `0\|1\|2` | `2\|2\|2` |
+| `For Each e In nest`, `e(0) = 99`, with `nest(0)` `Array(1, 2)` and `nest(1)` `Array(3, 4)` | `nest(0)(0)` 1, `nest(1)(0)` 3 | 99 |
+| `v = Array(1, 2)`, `v(1) = v`, `w = v` | no error; `UBound(w(1))` 1, `w(1)(1)` 2 | `w(1)` was `v` itself: the element Let stored the array, not a copy |
+| `d = fx`, `fx` a `Dim fx(3) As Long` holding 7, then `Erase d` | `fx(1)` 7, `fx` 0 To 3; `UBound(d)` 9 | `fx(1)` 0: the shared fixed array was reset |
+| `Sub SB(b() As Long)`: `b = gO`, a dynamic 0 To 5, given a fixed `f3(3)` holding 9 | 13; `f3` 0 To 3, `f3(1)` 9 | no error; `f3` became 0 To 5 |
+| `t = a`, `t` a fixed `Dim t(3) As Long` | does not compile: "Can't assign to array" | ran |
+| `w = v`, both Variants, `w(0) = 77` | `v(0)` 1 | 77 |
+
+**Objects in a copied array.** A class `Foo` whose `Class_Terminate` logs its `Name`, each scope a Sub of its own:
+- **After `b = a`:** `b(0) Is a(0)` is True, so a copy shares its objects. `Set b(0) = New Foo` terminates nothing, and A
+  and B both terminate at `End Sub`, A first.
+- **After `v = a`:** `Set a(0) = Nothing` terminates nothing, and C terminates at `End Sub`.
+- **Through `Sub Hold(ByVal v)`:** `Set v(0) = Nothing` terminates nothing, and D terminates at the end of the caller.
+- **HexIDE before #970** terminated A as soon as `b(0)` was set, because there was only one array; and a local object
+  array's objects were never terminated at all, which `interpreter-gaps.md` recorded as a divergence.
+
+**What it says.** VB6 copies an array wherever it stores one: a Let into a dynamic array, a Variant, a Function's own
+name, an element, a ByVal parameter and a For Each variable. A ByRef parameter, `As Variant` included, shares the
+caller's array instead. The copy shares the objects the original holds, and each holder keeps them alive. With the rows
+#873's rounds measured (the copy is dynamic and can be ReDimmed; it copies every dimension; `GA(v As Variant)` reaches
+the caller's array and its fixedness; an untyped parameter ReDims by the Variant rule), that is the whole of #970.
+
+**HexIDE, after #970.** Every row above matches, except the store through two subscripts, which is still refused.
+- **The copy.** `BasicInterpreter.CopyForStore` copies an array level by level, each element as a store copies it, and
+  makes the copy dynamic. It's applied at a Let, a field write, an element Let, a ByVal argument and a For Each
+  variable; a Function's return is a Let into its name. An element Let copying is also what keeps `v(1) = v` from
+  making an array hold itself; a copy nested more than 1000 deep is refused rather than risk the stack.
+- **The objects.** The copy AddRefs each object it holds, so every array has exactly one holder, and `ReleaseRef`
+  descends into an array. A local object array's objects now terminate at `End Sub`, an overwritten element releases
+  what it held, a For Each variable holds its element and is emptied when the loop runs out, and an array a Function
+  returns is released at the end of the caller's statement, after whatever stored it has taken its copy. At `End Sub`
+  the scalar locals go before the arrays, as below.
+- **Where a reference is left uncounted**, the error is towards a late Terminate, never an early one: `Erase` and a
+  `ReDim` without `Preserve` don't release the objects in the array they discard, and a module-level array's objects
+  wait for the end of the program, as before.
+- **A ByRef `v As Variant` given an array** shares the caller's slot, as an untyped `v` does. Given a typed scalar it
+  still gets a copy, because that case is not measured.
+- **An untyped or Variant parameter's ReDim** takes the Variant rule, read from the parameter rather than the shared
+  slot, whose type and fixedness stay the caller's.
+- **A fixed array given an array** is "Can't assign to array" named directly, raised as the statement runs, and 13
+  through a parameter, with the array kept.
+
+### Measured in #1000's review
+
+Four more projects, each built as native code and as p-code, the two agreeing on every line. A class `Foo` whose
+`Class_Terminate` logs its `Name`, each scope a Sub of its own:
+
+| Program | VB6 |
+|---|---|
+| `x = MakeArr("M1")`, a Function returning a local `Dim a(0) As Foo` holding M1, then `x(0).Name` | "M1", then M1 terminates at `End Sub` |
+| `MakeArr "M2"`, called as a statement | M2 terminates before the next statement |
+| `For Each o In a` over F0 and F1, then `TypeName(o)` | "Empty": the variable lets go when the loop runs out |
+| then `Set a(0) = Nothing`; `Set a(1) = Nothing` | F0 terminates at the first, F1 at the second |
+| the same loop left by `Exit For` at X0 | `o` is still X0, so `Set a(0) = Nothing` terminates nothing |
+| `For Each e In Array(1, 2)`; over a `Long()`; over an empty `Split("")` with `e` holding 9 | `TypeName(e)` "Empty" after each |
+| `Set v(0) = New Foo`, `v(0) = 5`, `Dim v(0)`; `Set w = New Foo`, `w = 5`, `Dim w` | the object terminates at the Let, Err 0, and `TypeName` is "Integer": with no default member, the Let replaces it |
+
+**The order of `End Sub`.** Two objects in each scope, the first set first:
+
+| Locals | VB6 terminates |
+|---|---|
+| `Dim a(0) As Foo, o`; `Dim o, a(0) As Foo` | `o`'s, then the array's, both ways round |
+| `Dim p As Foo, a(0) As Foo`; `Dim a(0) As Foo, p As Foo` | `p`'s, then the array's, both ways round |
+| `Dim p As Foo, q As Foo`; `Dim a(0) As Foo, b(0) As Foo` | in declaration order |
+
+So a procedure releases its scalar locals, Variants and object references alike, before its arrays, each group in
+declaration order. Not run: a Variant local holding an array, which HexIDE puts with the scalars, by its slot.
+
+**A ByRef `As Variant` given a scalar is written back.** `Sub S(v As Variant): v = 5` gives 5 to a caller's Variant
+holding 1, and to a caller's `Dim n As Integer` too, which compiles; `Sub U(v): v = 6` gives 6 and leaves `n` an
+Integer. HexIDE copied the scalar into a `v As Variant`, so the caller kept 1: #1001.
+
+**And the parameter is still a Variant** (#1001, measured native and p-code): given a `Dim n As Integer` holding 5,
+`v * 7000` is a Long 35000 in `Sub S(v As Variant)` and in `Sub U(v)` alike, `Select Case v` takes `Case Is < 5.4`, and
+`TypeName(v)` is "Integer". So sharing the caller's typed variable does not make the parameter typed.
+
+**HexIDE, after #1001.** A ByRef `v As Variant` shares its argument's slot whatever the argument holds, as an untyped
+`v` does, and a read of an untyped or Variant parameter is never typed, though the slot it shares may be. Before,
+`U(v)` given a typed Integer read as typed, so `v * 7000` overflowed where VB6 widens; that was older than #970, and
+the copy into `S(v As Variant)` had hidden it there. Every row is pinned.
+
+**A constant passed ByRef goes by value** (#1002's review, measured native and p-code). A module `Const MK = 1`, a local
+`Const LK = 1` and an Enum member `Red = 1`, each passed to `Sub S(v As Variant): v = 5`, are still 1 afterwards, and
+nothing is raised; so is a `Const MKI As Integer = 1` passed to `Sub X(x As Integer): x = 7`, and `MK` passed to an
+untyped `v`. VB6 passes a constant through a temporary. HexIDE aliased its slot, so the write overwrote a Const (main
+did it already for an untyped or matching typed parameter, and #1001 would have opened `As Variant` to it), and an
+Enum member, being read-only, raised "Assignment to constant not permitted". Now an argument naming a Const or an Enum
+member has no location to share. A store into a Const named directly, `MK = 2`, is VB6's compile error "Assignment to
+constant not permitted" (measured), and is #1003.
+
+**HexIDE, after the review.** Every row above is pinned. A For Each that runs out empties its variable and releases
+what it held; `End Sub` releases scalar locals before arrays. The ByRef `As Variant` scalar is #1001's, apart from #970.
+
+## What a store into a Const is (2026-10-14, #1003)
+
+**The question.** #1002 measured `MK = 2` into a Const as VB6's compile error "Assignment to constant not permitted".
+Refusing it needs the message for every statement that can store, and VB6 gives three.
+
+**The probe.** One project per statement, built with `/make` as native code and as p-code, the two agreeing on every
+row. Each statement is in `Sub Main` under `On Error Resume Next`, followed by a line logging `Err` and the constant; none
+of them built, so nothing ran. `MK` is a module `Const MK = 1`, `MS` a module `Const MS = "abc"`, and `eOne` the member
+of `Enum E` whose value is 1.
+
+| Statement | `/make` |
+|---|---|
+| `MK = 2` | Assignment to constant not permitted |
+| `Let MK = 2` | the same |
+| `Const LK = 1` in `Sub Main`, then `LK = 2` | the same |
+| `Set MK = Nothing` | the same |
+| `Module1.MK = 2`, with `Public Const MK = 1` | the same |
+| `MK = MK + 1` | the same |
+| `CK = 2` in a class's method, with `Private Const CK = 1` in the class | the same |
+| `eOne = 2` | the same |
+| `For MK = 1 To 2` ... `Next` | Variable required - can't assign to this expression |
+| `For Each MK In arr` ... `Next`, with `Dim arr(1)` | the same |
+| `Mid(MS, 1, 1) = "x"` | the same |
+| `LSet MS = "x"` | the same |
+| `Line Input #1, MS` | the same |
+| `For eOne = 1 To 2` ... `Next` | the same |
+| `ReDim MK(2)` | Expected array |
+| `Erase MK` | the same |
+| `ReDim eOne(2)` | the same |
+| `Erase eOne` | the same |
+
+**What it says.** A Const and an Enum member are refused alike, and the message is the statement's, not the
+constant's:
+- **A Let or a Set** is "Assignment to constant not permitted", qualified or not, in a class or not.
+- **A statement that stores into a variable its own syntax names**, a For counter, a For Each variable, the target of
+  Mid, LSet or Line Input, is "Variable required - can't assign to this expression".
+- **ReDim and Erase** want an array, so a constant is "Expected array".
+
+**HexIDE, after #1003.**
+- **Let and Set:** `ModuleExecutionContext.TryUpdateVariable` refuses a Const as it already refused an Enum member. The
+  one store it lets through is the Const statement's own fill, which also runs again for each instance of a class.
+- **The other statements:** For, For Each, Mid, ReDim and Erase check their target first, and give their own message, an
+  Enum member's included. Before, `For eOne = 1 To 2` said "Assignment to constant not permitted".
+- **When:** each is raised as the statement runs, which is how a compile-time error is translated here
+  (interpreter-core:40-42).
+- **Pinned:** in `ConstStoreTests`, except three rows. `Module1.MK = 2` is not reachable, because a module-qualified
+  store raises 424 whatever it names (#1006). LSet and Line Input are not implemented.
+
+**And a Const of another module** (#1007's review, native and p-code agreeing). Module1 declares `Const X = 1`, which is
+Private by default, and Module2, without Option Explicit, runs `X = 5` and prints `X`. VB6 prints `5, Integer` from
+Module2 and `1` from Module1: a Private Const is invisible outside its module, so Module2's `X` is a new variable of its
+own. With `Public Const X = 1` instead, Module2 does not compile: "Assignment to constant not permitted". HexIDE gives
+the Private row, pinned, since a store resolves the name in its own module first. It gave the same for the Public row,
+where VB6 refuses, because it did not see another module's Public names unqualified at all. Since #880 it refuses the
+store with VB6's message, pinned too.
+
+## Another module's Public names, bare (2026-10-14, #880)
+
+Can one standard module name another's Public variable or Const without its module's name in front, and where does
+that stop? Each row below is its own project, built with `/make` and run, native and p-code agreeing on every one; a
+row that does not compile is its own project because `/make` stops at the first error. Sub Main in Module1 is the
+startup unless the row says otherwise, and Module1 holds the logger `L`. Module2 holds `Public G As Long`,
+`Public Const M = 3` and `Global G2 As Integer` unless the row gives it something else.
+
+| Module1 does | VB6 |
+|---|---|
+| `Init2` (Module2 sets `G = 5`, `G2 = 6`), then `TypeName(G) & " " & G & " " & TypeName(M) & " " & M & " " & G2` | `Long 5 Integer 3 6` |
+| `G = 7`, then `Module2.G` | `7` |
+| `Bump G`, Module1's `Sub Bump(n As Long)` adding 1, then Module2's `Show2()` returning `CStr(G)` | `8` |
+| `Option Explicit` in Module1, then `M & " " & G & " " & G2` | `3 5 6` |
+| Module2's `Private P As Long`, `Dim D As Long` and `Private Const PC = 9`, set by Module2: `TypeName` of each, bare | `Empty Empty Empty` |
+| `Option Explicit`, then `L P` with Module2's `Private P` | does not compile: "Variable not defined" |
+| `L X`, with `Public X As Long` in both Module2 and Module3 | does not compile: "Ambiguous name detected: X" |
+| the same two `Public X`, set qualified and read `Module2.X & " " & Module3.X`; then Module2's own `L "own " & X` | `1 2`, then `own 1` |
+| Module1's own `Dim X As Long` set to 1, Module2's `Public X` to 2: `X & " " & Module2.X` in Module1 | `1 2` |
+| `L X`, with Module2's `Public X As Long` and Module3's `Public Sub X()` | does not compile: "Ambiguous name detected: X" |
+| `L F`, with Module2's `Public F As Long` and Module3's `Public Function F() As Long` | does not compile: "Ambiguous name detected: F" |
+| `vbCancel & " " & TypeName(vbCancel)`, with Module2's `Public Const vbCancel = 42` | `42 Integer` |
+| Class1's `GetG = G`, then its `G = 11`, then `Module2.G` from Module1 | `5`, then `11` |
+| Form1 as the startup: Load's `L G & " " & M`, then `G = 4` and `L Module2.G` | `0 3`, then `4` |
+| Module1's module-level `Const A = M + 1` and `Dim d(M) As Long`, Module1 listed first: `A & " " & UBound(d)` | `4 3` |
+| Module1's own `Function V() As String` returning "own fn", with Module2's `Public V As String`: `L V` | `own fn` |
+| Module2's `Public A() As Long`: `ReDim A(4)`, `A(2) = 9`, then `UBound(Module2.A) & " " & Module2.A(2) & " " & A(2)` | `4 9 9` |
+| Module2's `Public C As Collection`: `Set C = New Collection`, `C.Add 1`, then `Module2.C.Count & " " & C.Count` | `1 1` |
+| Module2's `Public P As PT`, a Public Type with `X As Long`: `P.X = 3`, then `Module2.P.X & " " & P.X` | `3 3` |
+| `M = 5` with Module2's `Public Const M = 3` | does not compile: "Assignment to constant not permitted" |
+| a procedure's `Dim G As String` set to "local", with Module2's `Public G`: `G & " " & Module2.G` | `local 0` |
+
+What these show:
+- **A standard module's Public names are the project's.** A Public variable, a Public Const and a `Global` are read,
+  written and passed ByRef bare from another module, with or without Option Explicit, and from a class's code and a
+  form's. The obvious alternative, that only procedures cross modules bare, is what HexIDE did; it read each as Empty.
+- **Private stays private.** A `Private` variable, a module-level `Dim` and a `Private Const` are each a new variable
+  bare from another module, and "Variable not defined" under Option Explicit.
+- **The module's own names come first:** its own module-level variable, its own Function, and a procedure's local.
+  In a form, the form's own members come before them too (L2, *A form as an object*).
+- **A clash is an error only where it is used.** Two modules exporting `X` compile, each reads its own, and qualified
+  reads work; only the bare use from a third module is "Ambiguous name detected". A Public variable beside another
+  module's Public Sub or Function of the same name is ambiguous in the same way, so variables and procedures share one
+  namespace here.
+- **The project comes before the library** at run time as in a bound: `vbCancel` is Module2's 42.
+- **A store into another module's Public Const** is refused as one into the module's own is.
+
+### HexIDE
+
+Before #880, a name a module did not declare itself was looked for only among other modules' Public procedures, so
+every row that reads or writes another module's variable or Const bare read Empty, or was "Variable not defined" under
+Option Explicit; the Const store made a new variable; a bound or Const naming one was refused naming #880.
+
+Since #880, each module sees the other standard modules' Public variables and Consts bare, behind its own names. The
+table is collected from the pre-pass's lists of each module's Public names (`ProjectNames`), and a name is resolved to
+its slot only when the walk reads it. Every row above matches, and is pinned in `PublicNamesAcrossModulesTests`,
+`FormInstanceTests`, `ModuleLevelArrayBoundTests` and `ConstStoreTests`, with three rows changed in shape because of
+gaps elsewhere: the probes that stored through a qualifier (`Module2.X = 1`) have each module store its own, because a
+qualified store raises 424 (#1006); `Module2.A(2)` is read through a Function of Module2's, because it reads the whole
+array (#965); and the Collection row uses a class, because HexIDE cannot create a Collection with `New` yet.
+
+What it still does not do: another module's Public Enum member, bare, is #889, and a module-level Const or bound that
+reads a Const of a module whose declarations have not run yet is refused naming #893, where VB6 reads it in either list
+order.
+
+## A control's position at run time (2026-10-14, #933)
+
+What unit does a running program read and write a control's Left, Top, Width and Height in, as what type, and how
+are they rounded? Seven projects, each built with `/make` and run, native and p-code agreeing on every row. Each logs
+`what = value TypeName`, from `Form_Load`. Form1 is ClientWidth 4680 and ClientHeight 3090, and holds a TextBox, a
+Label and a CommandButton unless the table says otherwise.
+
+**A twips form**, the default:
+
+| Form1 does | VB6 |
+|---|---|
+| `Text1.Left`, `.Top`, `.Width`, `.Height` (.frm 120, 120, 1215, 495) | `120`, `120`, `1215`, `495`, each a Single |
+| `Label1.Left` (.frm 240) | `240` Single |
+| `Text1.Left = 1201`; `Label1.Left = 1201` | `1201`; `1201`: no snapping to whole pixels, windowed or not |
+| `Text1.Width = 1001`; `Command1.Left = 7` | `1001`; `7` |
+| `Text1.Left = 1.5`; `= 2.5` | `2`; `2`: whole twips, half to even |
+| `Text1.Top = -30` | `-30` |
+| `Label1.Width = 7`; `= 0`; `Label1.Height = 7` | `15` each |
+| `Label1.Width = 20`; `= 22`; `= 30`; `= 1001` | `20`; `22`; `30`; `1001` |
+| `Text1.Width = 7`; `Text1.Height = 7` | `150`; `285` |
+| `Command1.Width = 7`; `= 0` | `75`; `75` |
+| `Me.Width`, `Me.Height` (ClientWidth 4680, ClientHeight 3090) | `4800`, `3495`: the outer size |
+| `Me.ScaleWidth`, `Me.ScaleHeight` | `4680`, `3090` |
+| `Screen.TwipsPerPixelX` | `15` Single |
+
+**A form whose .frm says `ScaleMode = 3 'Pixel`**, with its TextBox's `.frm` Left 8 and Width 81, and in a second
+project a Frame at `.frm` Left 16 holding a TextBox at 240:
+
+| Form1 does | VB6 |
+|---|---|
+| `Me.ScaleMode` (.frm `ScaleMode = 3`) | `3` Integer |
+| `Text1.Left`, `Text1.Width` (.frm 8, 81) | `0.5333334`, `5.4`: the .frm held twips |
+| `Text1.Left = 10.5`, then read | `10.53333` |
+| then `Me.ScaleMode = 1`: `Text1.Left`, `Text1.Width` | `158`, `150` |
+| `Me.Width`, `Me.Height`; `Me.ScaleWidth`, `Me.ScaleHeight` | `4800`, `3495`; `312`, `206` |
+| `Me.Width = 6000`, then `Me.Width`, `Me.ScaleWidth` | `6000`, `392` |
+| `Frame1.Left` (.frm 16) | `1.066667` |
+| `Text2.Left`, `Text2.Width`, inside Frame1 (.frm 240, 60) | `240`, `60` |
+| then `Me.ScaleMode = 1`: `Frame1.Left`, `Text2.Left` | `16`, `240` |
+
+**A twips form holding a PictureBox whose .frm says `ScaleMode = 3`**, with a TextBox inside:
+
+| Form1 does | VB6 |
+|---|---|
+| `Picture1.ScaleMode`; `Picture1.Left` (.frm 120) | `3` Integer; `120` |
+| `Text3.Left`, `.Top`, `.Width` inside it (.frm 150, 75, 1215) | `10`, `5`, `81` |
+| `Text3.Left = 20`, then `Picture1.ScaleMode = 1` and read | `300` |
+
+**A twips form whose ScaleMode is changed at run time:**
+
+| Form1 does | VB6 |
+|---|---|
+| `Me.ScaleMode = 2`: `Text1.Left`, `Text1.Width` (.frm 120, 1215) | `6`, `60.75` |
+| `Me.ScaleMode = 5`: `Text1.Left` | `8.333334E-02` |
+| `Me.ScaleMode = 7`: `Text1.Left` | `0.2116669` |
+| `Me.ScaleMode = 6`: `Text1.Left` | `2.116669` |
+| `Me.ScaleMode = 4`: `Text1.Left`, `Text1.Top` | `1`, `0.5` |
+| `Me.ScaleMode = 2`, `Text1.Left = 10.3`, then `Me.ScaleMode = 1` and read | `206` |
+
+What these show:
+- **A .frm holds every position in twips, whatever the ScaleMode.** The obvious reading, that a pixel form's file
+  holds pixels, is wrong: its `Left = 8` is 8 twips, which reads 0.5333334 pixels. So a reader that divides every
+  position by 15 is right, and only the run time converts.
+- **A program sees its container's ScaleMode.** A control on the form reads and writes in the form's, one inside a
+  PictureBox in the PictureBox's, and one inside a Frame in twips: a Frame has no ScaleMode, and its children stay
+  in twips even on a pixel form. The form's own Width and Height are twips whatever its ScaleMode, and are the outer
+  size, frame included.
+- **The value is a whole number of twips, read as a Single.** An assignment is rounded to whole twips, half to even,
+  in whatever unit it was given: 10.5 pixels is 158 twips, 10.3 points 206. There is no snapping to whole pixels, for
+  a windowed control or a Label.
+- **The other ScaleModes are divisions of those twips:** 20 a point, 1440 an inch, 120 across and 240 down a
+  character. Centimetres and millimetres resisted that: 120 twips read 0.2116669 cm and 2.116669 mm, where
+  1440 / 2.54 twips a centimetre gives 0.2116667. Measured, and no rule found for it.
+- **A Label is at least a pixel wide and high**, so 7 and 0 read 15, while 20 reads 20: a floor, not a snap. A
+  TextBox and a CommandButton have floors of their own, 150 wide and 285 high for the TextBox and 75 wide for the
+  button, which look like the Win32 controls' minimum sizes. No rule is defended for those.
+
+### HexIDE
+
+Before #933, a running program read a control's position in pixels, as a Double: `Text1.Left` from a .frm Left of
+120 read 8, and `Text1.Left = 1200` moved it 1200 pixels. An assignment kept its fraction (#791).
+
+Since #933 the conversion is at the property (`ControlPositions`). A position is read as whole twips divided by the
+container's ScaleMode, as a Single, and an assignment is rounded to whole twips, half to even, checked against a
+Long, and laid out in pixels at 15 twips a pixel. The container's ScaleMode is the form's from its .frm, a
+PictureBox's from the line HexIDE preserves for it, and twips inside a Frame. A Label's one-pixel floor is applied.
+Every row above that HexIDE can reach is pinned in `ControlPositionTests`, through a .frm read by a program. The
+ScaleMode rows are pinned with the mode declared in the .frm, because HexIDE has no run-time ScaleMode (#990).
+
+What it still does not do:
+- **A run-time ScaleMode, and User scales** (#990). A User, centimetre or millimetre container refuses its controls'
+  positions, naming #990, rather than guess.
+- **The form's own size is the client size**, now in twips: VB6's 4800 is HexIDE's 4680, the frame being #852's, as
+  is the form's own Left and Top.
+- **A TextBox's and CommandButton's floors** (#1029): `Text1.Width = 7` reads 7, where VB6 gives 150.
+- **Mouse X and Y**, `Move`, and the Scale* properties are not converted here: #974, and #990.
+
+## Mouse events (2026-10-14, #974)
+
+Which controls raise MouseDown, MouseUp and MouseMove, in what order against Click, and with what Button, Shift, X and
+Y? The list of controls is read from VB6.OLB's event interfaces with `scripts/dump-typelib-members.ps1`:
+
+| Class | VB6 |
+|---|---|
+| CommandButton, CheckBox, DirListBox | Click, MouseDown, MouseUp, MouseMove |
+| Label, TextBox, PictureBox, Frame, OptionButton, Image, ListBox, FileListBox, Form | Click, DblClick, MouseDown, MouseUp, MouseMove |
+| ComboBox | Click, DblClick |
+| HScrollBar, VScrollBar, Shape, Line, Timer, DriveListBox | none of the five |
+
+The rest was measured by sending each window synthetic messages with `SendMessage`, from a Timer, in compiled
+projects run headless: four projects, each native and p-code, all agreeing. Form1 is a twips form unless the row
+says otherwise, and holds Command1 (Left 240, Top 240), Label1, Text1, Check1 and a Label array `lblCell(0)`. Each
+handler logs its arguments in the order `Button Shift X Y`.
+
+| Sent | VB6 |
+|---|---|
+| `WM_LBUTTONDOWN`, `WM_LBUTTONUP` to Command1 at client (10, 5) | MouseDown `1 0 150 75`, **Click**, MouseUp `1 0 150 75` |
+| the same with the right button, and the middle | MouseDown and MouseUp with Button `2`, and `4`; no Click |
+| the left pair with `MK_SHIFT` in wParam, and with `MK_CONTROL` | Shift `0` both times, and Click as for a plain press |
+| `WM_MOUSEMOVE` to Command1, wParam 0 at (12, 6), then `MK_LBUTTON` at (13, 7) | MouseMove `0 0 180 90`, then `0 0 195 105` |
+| the left pair to Text1 at client (10, 5) | MouseDown, MouseUp, **then** Click |
+| the left pair to Check1 at client (10, 5) | MouseDown, Click, MouseUp; `Value` is then 1 |
+| the left pair to the form at (21, 83), over the windowless Label1 (Left 240, Top 1200) | Label1 MouseDown and MouseUp `1 0 75 45`; no Click, and nothing on the form |
+| the left pair to the form at (300, 10), over no control | Form MouseDown and MouseUp `1 0 4500 150`; no Click |
+| the left pair over `lblCell(0)` | lblCell MouseDown and MouseUp with Index `0` first, then `1 0 75 45` |
+| down, up, `WM_LBUTTONDBLCLK`, up, over Label1 | MouseDown, MouseUp, DblClick, MouseUp: the second press raises no MouseDown |
+| all of the above on a form whose .frm says `ScaleMode = 3` | the same twips for every control (Command1 still `150 75`); the form's own `300 10` |
+
+Where each control's client area starts inside its window, which is the origin of its X and Y, read with
+`GetWindowRect`, `GetClientRect` and `ClientToScreen` after `Show`:
+
+| Control | VB6 |
+|---|---|
+| TextBox, 3-D and bordered (the default) | window 81x33, client 77x29, origin +2,+2 |
+| TextBox, flat; TextBox with no border | client = window, origin +0,+0 |
+| ListBox, 3-D | window 81x43, client 77x39, origin +2,+2 |
+| PictureBox, 3-D | window 81x49, client 77x45, origin +2,+2 |
+| CommandButton, CheckBox, OptionButton, Frame | client = window, origin +0,+0 |
+
+And whether a control with no handlers passes the event to what contains it:
+
+| Sent | VB6 |
+|---|---|
+| the left pair to the form at (94, 74), near the far corner of an Image with no picture (Left 240, Top 240, 1200 x 900) | Image1 MouseDown and MouseUp `1 1170 870`; no Click |
+| the left pair over Label2, which has no handlers | nothing, on the Label or the form |
+| the left pair to Frame1 over Image2, which has no handlers, inside it | nothing, on the Image or the Frame |
+| the left pair to Frame1 at client (140, 60), over no control | Frame1 MouseDown and MouseUp `1 2100 900` |
+
+What these show:
+- **A CommandButton and a CheckBox raise Click between MouseDown and MouseUp.** The obvious order, and the one #974
+  suggested, is MouseDown, MouseUp, then Click. That is what a TextBox does, not a button.
+- **A control's X and Y are twips from its client origin, whatever the ScaleMode around it.** That differs from its
+  Left and Top, which follow the container's ScaleMode (*A control's position at run time*). Only an object with a
+  ScaleMode of its own, the form here, reports in it.
+- **Button is 1, 2 or 4.** On MouseMove it is the buttons held, but VB6 reads those from the mouse, not the message:
+  `MK_LBUTTON` in wParam gave 0. Shift is read from the keyboard the same way, so `MK_SHIFT` gave 0, and the mask itself
+  (VB6.OLB's `vbShiftMask` 1, `vbCtrlMask` 2, `vbAltMask` 4) could not be measured from synthetic messages.
+- **An Image with no picture takes the mouse across its whole rectangle.**
+- **An event a control does not handle is not passed to its container**, for the form and for a Frame alike.
+
+What resisted explanation: synthetic messages raise no Click on a windowless Label, an Image, a PictureBox or the
+form, though each has one, while a TextBox's Click comes. That repeats the PictureBox row under *A form-based game's
+runtime surface*. It is most likely how VB6 synthesises Click for those, from the real cursor or capture, so where
+Click falls among their mouse events is still to be measured with real input on the interactive desktop.
+
+### HexIDE
+
+Before #974, no control raised MouseDown, MouseUp or MouseMove, and the code window did not offer them.
+
+Since #974, the controls HexIDE has that VB6 gives the events raise them: CommandButton, Label, TextBox, PictureBox,
+Frame, CheckBox, OptionButton, Image, ListBox, and the form from its client area. Their order against Click is set
+by registration: MouseUp follows the Click a Button raises on release, and comes before the Click HexIDE raises on
+release for the rest. Under the IDE's debugger that order holds only because the second of two events from one
+release waits for the first (*One handler at a time*, #766); before that, the first yielded its time slice and the
+second overtook it. A move that waits behind a running handler is coalesced into a move at the back of the queue. X and Y are the whole pixel under the pointer, from the client origin (2 pixels in for a 3-D
+TextBox or ListBox, and a PictureBox's inside its border), in twips, or in the form's or PictureBox's own ScaleMode;
+one HexIDE cannot convert (User, centimetres, millimetres) is refused as the run's error, naming #990. An Image is
+hit-tested across its whole rectangle, and gains Click too. A handler that does not exist is skipped before
+dispatch, so MouseMove costs nothing where nobody handles it. Pinned in `MouseEventTests`, with real headless pointer
+input, from every row above that HexIDE can reach.
+
+What it still does not do:
+- **DblClick** is raised by nothing (#1031).
+- **The form's own Click** is raised by nothing, as before.
+- **Shift's mask and MouseMove's buttons** are taken from the pointer event, which is where they live in Avalonia;
+  VB6 takes them from the device, which is the same thing for real input.
+- **A press on a 3-D TextBox's or ListBox's 2-pixel border** reaches the control in HexIDE with a negative X or Y,
+  where VB6 sends the border no mouse message at all.
+
+## One handler at a time (2026-10-14, #766)
+
+Can an event handler start while another is still running, and what does `DoEvents` change? Two `/make` probes, each
+built native and p-code, all four builds agreeing on every line. A Timer at 50 ms drives each run, and handlers keep
+themselves busy with `GetTickCount` loops, with `DoEvents` in the loop or without. GetTickCount's resolution is
+15.6 ms, which is why a 50 ms Timer ticks every 62 ms below.
+
+**1. A nested raise, posted input, and DoEvents.** Timer1's first tick posts `WM_LBUTTONDOWN` and `WM_LBUTTONUP` to
+Command1, sets `Text1.Text = "x"` (its Change handler is busy for 100 ms), then is busy for 300 ms itself. Each handler
+logs a depth: 1 inside the tick, 0 outside every handler.
+
+| | Without DoEvents | With DoEvents in both busy loops |
+|---|---|---|
+| Change | runs inside the setter: `Change begins` and `Change ends` before `after the Text set` | the same |
+| The posted press and release | after the tick ends, at depth 0: MouseDown, Click, MouseUp | inside Change's DoEvents, at depth 1: MouseDown, Click, MouseUp |
+| Timer1 inside its own handler | no | no, not even under DoEvents |
+
+**2. How a Timer catches up, and a second Timer.** Timer1 and Timer2 both run. Timer1's second tick is busy for 400 ms.
+
+| | Without DoEvents | With DoEvents |
+|---|---|---|
+| Timer2 during the 400 ms | silent | ticks inside Timer1's handler, at depth 2, every 62 ms (125, 188, 250 … 500) |
+| Timer2 after it | **one** tick at once (busy done at 531, `T2 tick 2 at 531`), then its 62 ms cadence | its cadence |
+| Timer1's own next tick | one interval after its handler returns (`T1 tick 3 at 593`) | the same (`T1 tick 3 at 610`) |
+
+What these show:
+- **Nothing runs inside a handler unless it calls DoEvents**, neither input nor a Timer. An event that comes while a
+  handler runs waits for it, in the order it came.
+- **A handler a statement raises runs to its end inside that statement.** The raiser's next statement comes after it.
+- **DoEvents runs what is waiting inside the caller**, one level deeper, in the order it came.
+- **A Timer delivers one tick, not several,** however long a handler kept it waiting, and it delivers it at once.
+- **A Timer never runs inside its own handler**, even under DoEvents, while another Timer can. Its next tick comes an
+  interval after the handler returns.
+
+The obvious expectation for the last two rows, a queue that replays every missed tick, and a Timer that re-enters
+itself under DoEvents as any other event does, are both wrong.
+
+Not measured, and why: whether a Timer fires while a MsgBox is up in a compiled program, which needs the interactive
+desktop; and MouseMove coalescing, which synthetic messages cannot drive. Windows synthesises WM_MOUSEMOVE when
+nothing else is queued, so only the latest move is ever delivered. That rule is inferred, not measured here.
+
+### HexIDE
+
+Before #766, `VBWindowContext` started each handler and did not wait for it. While every walk ran synchronously
+that was harmless. Under the IDE's debugger, though, a walk gives up the UI thread whenever 15 ms have passed, so
+Ctrl+Break can land, and at that yield any other event could start and finish first. A raiser ran on past the
+handler it had raised. A CommandButton printed MouseDown, MouseUp, Click, because Click and MouseUp come from one
+release and the first of them yielded. A `Do: DoEvents: Loop Until clicked` loop only worked because the yield let
+the click in.
+
+Since #766 an `EventPump`, one per run, runs handlers one at a time:
+- **A top-level event** (input, a Timer, a window event) runs at once when nothing runs, and otherwise waits its turn.
+- **An event the program's own code raises** runs at once. The raiser waits for it: before its next statement, before
+  the rest of a single-line `If`, at the end of a block (so a loop's condition sees what it set), and before a call
+  returns.
+- **`DoEvents`** gives the dispatcher one turn, then runs what is waiting inside the caller.
+- **A Timer** keeps at most one tick waiting, and none while its own handler runs. A move updates only a move at the
+  back of the queue, of any control, and never reaches past a press, by the inferred rule.
+- **The end of a run** closes the pump: what it left waiting is forgotten, and nothing more is taken.
+- **The time slice stays,** for Ctrl+Break and rendering, and no longer lets an event in.
+- **A MsgBox or InputBox** keeps the gate held, until a Timer under a MsgBox is measured.
+
+Pinned in `EventOrderTests`, with the debugger's time slice off and at -1, where every statement yields. `RunFaultTests`
+now runs at -1 too.
+
+Where HexIDE still differs: VB6 runs a nested handler inside the very call that raised it, so the rest of that
+expression comes after it. HexIDE waits at the next statement, the next part of a single-line `If`, the end of a block,
+or the return of a call. A raise in the middle of an expression, `x = SetIt() + Text1.Text` with SetIt raising Change, can therefore
+see the rest of the expression evaluated first. And `DoEvents` returns 0, not VB6's count of open forms.
+
+## Unload Me (2026-10-14, #973)
+
+What does `Unload Me` raise on the startup form, what does Cancel keep, and what runs after it? Six `/make` probes, each
+built native and p-code, all twelve builds agreeing on every line. A Timer drives each. Form_QueryUnload logs its
+UnloadMode and Cancel on entry, Form_Unload its Cancel, and Form_Terminate itself.
+
+| Probe | Log |
+|---|---|
+| `Unload Me`, then two more statements in the same handler | `queryunload, mode 1, cancel in 0`, `unload, cancel in 0`, **then both statements**, then `terminate` |
+| QueryUnload sets `Cancel = True`; the next tick unloads again | `queryunload` and its refusal, **no Unload**, the handler goes on; the Timer ticks again; then QueryUnload, Unload, `terminate` |
+| Form_Unload sets `Cancel = 1`; the next tick unloads again | QueryUnload, Unload and its refusal; the handler goes on; the Timer ticks again; then QueryUnload, Unload, `terminate` |
+| `SendMessage Me.hWnd, WM_CLOSE`, refused in QueryUnload, then allowed | `queryunload, mode 0` twice; refused, the form stays and ticks; allowed, Unload, the sender's next statement, then `terminate` |
+| `Unload Me`, then `Me.Caption` | QueryUnload, Unload, **`load` again** (no Initialize), the caption, and the run **carries on**: the next tick comes |
+| `Me.Visible` before and after a refused Unload | False both times, in this headless session, where the startup form never reads as visible |
+
+What these show:
+- **The rest of the handler runs after `Unload Me`.** Terminate comes after the handler returns, as the run ends.
+- **QueryUnload's Cancel stops the unload before Form_Unload is raised.** Unload's Cancel keeps the form loaded too.
+  Either way the form goes on running its Timer.
+- **UnloadMode is 1 from code and 0 from a close,** WM_CLOSE being what the window's close box sends.
+- **A use after Unload loads the form again,** raising Load but not Initialize, and the run carries on. The obvious
+  guess, that touching an unloaded form is an error, is wrong.
+
+**An Unload that finds nothing to do.** Three more probes, the same twelve-way agreement, each with `On Error Resume
+Next` so an error would be data:
+
+| Probe | Log |
+|---|---|
+| `Unload Me` twice in a row | QueryUnload and Unload **once**, both statements after, `Err.Number` 0 each time, then `terminate` |
+| `Unload Me` inside Form_QueryUnload | the nested statement returns at once with Err 0, then Unload, the handler's statements, `terminate` |
+| `Unload Me` inside Form_Unload | the same: nothing raised again, Err 0, then the handler's statements, `terminate` |
+
+So a second `Unload Me` does not load the form again, where `Me.Caption` does. An Unload of a form that is already
+unloaded, or is being unloaded, does nothing at all.
+
+**`Unload Me` inside Form_Load** (raised at review, #1046). Five probes, native and p-code, all ten agreeing. Form2's
+Form_Load logs, unloads itself, and logs again.
+
+| Probe | Log |
+|---|---|
+| The startup form, `Unload Me` in its own Load | `load`, QueryUnload mode 1, Unload, **the rest of Load**, `terminate`. No Resize, Activate or Paint, and the exe exits 0 with nothing shown |
+| `Form2.Show` from Form1 | Form2's Initialize, Load, QueryUnload, Unload, the rest of its Load, then at Form1 **Err 364, "Object was unloaded"**. `Forms.Count` is 1 |
+| `Load Form2` | the same, and the same **364** |
+| `Form2.Show vbModal` | the same, and the same **364** |
+| The startup form, QueryUnload refusing the unload made in Load | QueryUnload's refusal, the rest of Load, then **Resize and Activate**: the form is shown and the run goes on |
+
+One more thing these show, which matters for #822. **Form2's Terminate is not raised by its Unload.** Each Form2 probe
+ends with `End`, which raises no Terminate, and none came before it. A form's Terminate goes with its instance's
+release. The startup form's comes as the run ends, which is where the first table sees it.
+
+**In vb6.exe's IDE, the same.** Where the IDE and a compiled program differ, HexIDE matches the IDE (decided
+2026-10-14, recorded on #822). So the probes whose answer could depend on the IDE's host were run again in it, with
+`VB6.EXE /runexit`:
+- **`Unload Me`** and the statements after it;
+- **a WM_CLOSE**, refused and then allowed;
+- **`Unload Me` in the startup form's Load;**
+- **the 364 at `Form2.Show`;**
+- **a refusal in Load.**
+
+All five logs match the compiled builds line for line, Terminate's place at the run's end included. VB6.EXE itself
+exited with 0xC000041D every time, as it did in earlier `/runexit` runs from a PowerShell Direct session. Each log was
+complete before that.
+
+The rest weren't rerun, because they exercise the language engine rather than the host, and native and p-code already
+agree on them:
+- the two Cancel probes, which test a ByRef argument;
+- reload on use;
+- the three no-op shapes;
+- the copies of the 364 under `Load` and `Show vbModal`;
+- the headless `Visible` probe.
+
+### HexIDE
+
+Since #973 (its first slice), `Unload Me`, or `Unload Form1` naming the running startup form, raises Form_QueryUnload
+with UnloadMode 1 and Form_Unload. Each gets a ByRef Cancel, and either keeps the form. They run inside the statement,
+as a call does, so the statements after it run once they have. The window goes at once, and nothing more is delivered
+to it. Once the handler has returned, Form_Terminate runs, the form's fields are released, and the run ends, its last
+form gone. The window's close box raises the same pair with UnloadMode 0, and a refusal keeps the window open. Pinned
+in `UnloadTests`, through the IDE's F5 path, with every statement yielding.
+
+Also pinned there, after the review of #1046:
+- **`Unload Me` in Form_Load** runs the rest of Load and then Terminate. The form is never shown, and the run ends
+  with no report. A refusal there shows the form, as in VB6.
+- **An Unload of a form already unloaded, or from inside its own QueryUnload or Unload,** does nothing.
+- **Two presses of the close box** ask once. A press while an unload is deciding, or after it with Terminate still to
+  come, keeps the window until Terminate has run.
+
+What it still does not do:
+- **Reload on use.** A use of the form after it has unloaded is refused as not implemented, naming #822, where VB6
+  loads it again. Running on would end the run where VB6 carries on.
+- **Another form.** Its Show and Load, and the 364 above, belong to #822's Load slice. So does keeping a form's
+  Terminate for its instance's release. With only the startup form, that release is the run's end, which comes straight
+  after.
+- **`Unload Me` in Form_Initialize** is refused, naming #822. It is not measured.
+- **The SingleView host's close box** still closes without asking. The desktop's asks.
+
+## Overflow edges (2026-10-14, #234)
+
+The three rows of #234 came from the 2026-09-03 type-pair pass, which built native code only. They were measured again
+as native code, as p-code and in vb6.exe's IDE (`/runexit`). Every cell was logged under `On Error Resume Next` as
+TypeName, value and Err.Number. **The IDE matched p-code on all 49 cells**, and native code differed only at unary
+minus.
+
+**Unary minus at a type's minimum: no change.** Native code wraps (`-n` of an Integer -32768 is `Integer: -32768`, Err
+0). P-code and the IDE raise Err 6, as HexIDE already does. The same holds for a Long, and for `-CInt(-32768)`, whose
+operand is typed. A Variant holding the minimum widens in all three: `Long: 32768`, and `Double: 2147483648` for the
+Long.
+
+**0 / 0 is Overflow, unless Decimal's division does it.** The obvious reading of the native row, that a Double's `0# /
+0#` is the odd one out, is wrong in both directions.
+
+| operands | 0 / 0 | 1 / 0 |
+|---|---|---|
+| Byte, Integer, Long, Single, Double, Currency, each typed | **Err 6** | Err 11 |
+| Boolean `False / False`, `Empty / Empty`, a numeric String `"0" / "0"` | **Err 6** | |
+| a Variant Integer or Double, and mixed `Integer / Double` either way | **Err 6** | |
+| **Decimal / Decimal** | **Err 11** | Err 11 |
+| **a Decimal beside Integer, Double or Currency, either side** | **Err 11** | |
+
+`\` and `Mod` by zero are Err 11 whatever the dividend, and `0 ^ -1` is Err 5, as before. A Decimal on either side
+makes the division Decimal's, and `CDec(3) / 2` is a **Decimal** (`Currency / Currency` is a Double). The Decimal
+cells were run native and p-code; the rest were run in the IDE too.
+
+**A Variant Single that overflows widens to Double, as a Variant Integer does.**
+
+| probe | result |
+|---|---|
+| `vs + vs`, `vs = CSng(3E38)` | `Double: 6.00000001099551E+38` |
+| `vs * vt`, `vt = CSng(10)` | `Double: 3.00000000549776E+39` |
+| `vs - vt`, `vs = CSng(-3E38)`, `vt = CSng(3E38)` | `Double: -6.00000001099551E+38` |
+| `vs / vt`, `vt = CSng(0.1)` | `Double: 2.99999996079427E+39` |
+| `vs + s` and `s + vs`, `s As Single = 3E38` | `Double: 6.00000001099551E+38` |
+| `CSng(3E38) + CSng(3E38)`, and `s + s` | **Err 6** |
+| `vs + vi`, `vi = CInt(1)` | `Single: 3E+38`, no overflow |
+
+So a Variant on either side lifts the ceiling, and two typed Singles raise, exactly as for the integral types. Each
+value is the sum computed in Double from the Singles' own values, which is why it isn't `6E+38`. **`CSng` returns a
+typed Single:** its two results raise where two Variant Singles widen. That is the same test #987 applied to the other
+conversions, so `CSng` now sits in HexIDE's list of typed intrinsics.
+
+**Found on the way:** every arithmetic operator refuses a numeric String with Err 13, where VB6 reads it as a Double.
+`"0" / "0"` is Err 6 in VB6 for that reason. Filed as #1047, with its own measurements.
+
+### HexIDE
+
+Since #234:
+- **`/`:** zero over zero raises Err 6 unless an operand is a Decimal, and any other division by zero raises Err 11.
+- **Single overflow:** in `+`, `-`, `*` and `/`, it widens to Double unless both operands are typed. A result that is
+  all typed stays typed, so `(s + 0) * 10` still raises.
+- **`CSng`'s result** is typed.
+
+Pinned in `OverflowEdgeTests`. One older test, `SingleOverflow_IsStillError6`, had put its first operand in a Variant
+where the oracle row it cites has two `CSng` results. With the widening it gave a Double, and it now has the row's own
+form.
+
+What it still does not do: a Decimal division gives back a Double, where VB6 gives a Decimal (#230 has the result-type
+table), and a numeric String operand is refused (#1047).

@@ -309,7 +309,7 @@ public static class UiAutomationDriver
     /// </summary>
     public static readonly IReadOnlyList<string> Verbs =
     [
-        "invoke", "select", "add_to_selection", "remove_from_selection", "double_click", "set_value",
+        "invoke", "select", "add_to_selection", "remove_from_selection", "double_click", "click", "set_value",
         "set_range_value", "toggle", "expand", "collapse", "scroll", "invoke_command", "set_property",
     ];
 
@@ -520,6 +520,10 @@ public static class UiAutomationDriver
 
                 case "doubleclick":
                     return DoDoubleClick(control, peer);
+
+                case "click":
+                    // The press only: the release is still to come, as the outcome's Release (FinishAsync).
+                    return DoClick(control, value);
 
                 case "scroll":
                     return DoScroll(control, value);
@@ -752,6 +756,155 @@ public static class UiAutomationDriver
 
         var note = selected ? " (selected it first, as a real double-click does)" : "";
         return Ok($"double-clicked '{LabelOf(control, peer)}'{note}");
+    }
+
+    /// <summary>What <c>click</c>'s value may hold, quoted in its refusals and in the tool's description.</summary>
+    public const string ClickValue =
+        "a point 'x,y' relative to the target's top-left ('.' for decimals; the centre when omitted), a button, left, "
+        + "right or middle (left when omitted), and any of shift, ctrl and alt to hold, in any order and separated by "
+        + "spaces, as in '10,5 right shift'";
+
+    /// <summary>
+    /// Press and release a pointer at a point on the target (#1033). PointerPressed then PointerReleased are raised on
+    /// the element a real press there would reach, so a control's own press and release handlers run as they do for a
+    /// person: a Button raises Click from its release, and a running form raises MouseDown, Click and MouseUp in the
+    /// order VB6 does (#974). <c>invoke</c> goes through an automation peer, which raises Click and no pointer event, and
+    /// <c>double_click</c> raises DoubleTapped, so this is the only verb that presses.
+    /// </summary>
+    /// <remarks>
+    /// Raised on the element, as <see cref="Hover(Control, double?, double?)"/> raises its events, not through the input
+    /// manager: so the press is not implicitly captured, and nothing sets <c>IsPointerOver</c>. A press, a move with the
+    /// button held and a release somewhere else, which is a drag, is beyond it.
+    ///
+    /// <para>
+    /// Only the press is raised here. The release is the outcome's <see cref="InteractOutcome.Release"/>, which
+    /// <see cref="FinishAsync"/> raises as input of its own, after whatever the press set off has run.
+    /// </para>
+    /// </remarks>
+    private static InteractOutcome DoClick(Control control, string? value)
+    {
+        static InteractOutcome Fail(string error) => new(false, "pointer", null, error);
+
+        if (!TryParseClick(value, out var at, out var button, out var keys, out var problem))
+            return Fail(problem);
+        if (TopLevel.GetTopLevel(control) is not { } topLevel)
+            return Fail("the control is not attached to a window, so it has no coordinates to click at");
+        var local = at ?? new Point(control.Bounds.Width / 2, control.Bounds.Height / 2);
+        if (control.TranslatePoint(local, topLevel) is not { } inWindow)
+            return Fail($"could not translate ({local.X:0.#}, {local.Y:0.#}) on '{Describe(control)}' into window coordinates");
+        var where = $"({local.X:0.#}, {local.Y:0.#}) on '{Describe(control)}', which is ({inWindow.X:0.#}, {inWindow.Y:0.#}) in the window";
+        // What a real press there reaches: the topmost element at that point that takes the pointer.
+        if (topLevel.InputHitTest(inWindow) is not Avalonia.Interactivity.Interactive hit)
+            return Fail($"nothing takes the pointer at {where}, so nothing was pressed: the point is outside the target, "
+                        + "or on a part of it that is not hit-tested");
+
+        var pointer = new Avalonia.Input.Pointer(Avalonia.Input.Pointer.GetNextFreeId(), PointerType.Mouse, isPrimary: true);
+        var (held, pressKind, releaseKind, name) = button switch
+        {
+            MouseButton.Right => (RawInputModifiers.RightMouseButton, PointerUpdateKind.RightButtonPressed,
+                PointerUpdateKind.RightButtonReleased, "right"),
+            MouseButton.Middle => (RawInputModifiers.MiddleMouseButton, PointerUpdateKind.MiddleButtonPressed,
+                PointerUpdateKind.MiddleButtonReleased, "middle"),
+            _ => (RawInputModifiers.LeftMouseButton, PointerUpdateKind.LeftButtonPressed,
+                PointerUpdateKind.LeftButtonReleased, "left"),
+        };
+        var rawKeys = (keys.HasFlag(KeyModifiers.Shift) ? RawInputModifiers.Shift : RawInputModifiers.None)
+                      | (keys.HasFlag(KeyModifiers.Control) ? RawInputModifiers.Control : RawInputModifiers.None)
+                      | (keys.HasFlag(KeyModifiers.Alt) ? RawInputModifiers.Alt : RawInputModifiers.None);
+        hit.RaiseEvent(new PointerPressedEventArgs(hit, pointer, topLevel, inWindow, (ulong)Environment.TickCount64,
+            new PointerPointProperties(held | rawKeys, pressKind), keys));
+
+        var landed = hit as Control;
+        var landing = landed is null || ReferenceEquals(landed, control) ? ""
+            : control.IsVisualAncestorOf(landed) ? $", landing on its part '{Describe(landed)}'"
+            : $"; the press landed on '{Describe(landed)}', which covers the target there";
+        var holding = keys == KeyModifiers.None ? "" : " holding " + string.Join(" and ",
+            new[] { (KeyModifiers.Shift, "shift"), (KeyModifiers.Control, "ctrl"), (KeyModifiers.Alt, "alt") }
+                .Where(k => keys.HasFlag(k.Item1)).Select(k => k.Item2));
+        var pressed = $"the {name} button{holding} at {where}{landing}";
+        return new InteractOutcome(true, "pointer", $"pressed {pressed}; the release is still to come", null, Release: () =>
+        {
+            try
+            {
+                // A control that captured the pointer on its press takes the release, as it would from a real pointer.
+                var releasedOn = pointer.Captured as Avalonia.Interactivity.Interactive ?? hit;
+                releasedOn.RaiseEvent(new PointerReleasedEventArgs(releasedOn, pointer, topLevel, inWindow,
+                    (ulong)Environment.TickCount64, new PointerPointProperties(rawKeys, releaseKind), keys, button));
+                pointer.Capture(null);
+                return new InteractOutcome(true, "pointer", $"clicked {pressed}", null);
+            }
+            catch (Exception ex)
+            {
+                return new InteractOutcome(false, "pointer", null, $"pressed {pressed}, and the release threw: {ex.Message}");
+            }
+        });
+    }
+
+    /// <summary>How long <c>click</c> holds the button down, about as long as a person does.</summary>
+    public const int ClickHoldMs = 50;
+
+    /// <summary>
+    /// Completes an action that comes in two parts, as <c>click</c> does. Its release is raised as input of its own,
+    /// <see cref="ClickHoldMs"/> after the press and at input priority, so whatever the press set off has run first, as it
+    /// has by the time a person lifts a finger. An outcome with nothing still to come is returned as it is.
+    /// </summary>
+    /// <remarks>
+    /// Raising both in one dispatcher job is an order real input cannot produce. It is how <c>click</c> first worked, and
+    /// on a running form it put MouseUp before MouseDown: the MouseDown handler had yielded its time slice (#766), and the
+    /// release ran before the rest of it.
+    /// </remarks>
+    public static async Task<InteractOutcome> FinishAsync(InteractOutcome outcome)
+    {
+        if (outcome.Release is not { } release)
+            return outcome;
+        await Task.Delay(ClickHoldMs);
+        return await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(release, Avalonia.Threading.DispatcherPriority.Input);
+    }
+
+    // `click`'s value: an optional point, a button and the keys held, in any order (ClickValue).
+    private static bool TryParseClick(string? value, out Point? at, out MouseButton button, out KeyModifiers keys, out string problem)
+    {
+        at = null;
+        button = MouseButton.Left;
+        keys = KeyModifiers.None;
+        problem = string.Empty;
+        var buttonGiven = false;
+        foreach (var token in (value ?? string.Empty).Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var word = token.ToLowerInvariant();
+            if (word.Contains(','))
+            {
+                var parts = word.Split(',');
+                if (at is not null || parts.Length != 2
+                    || !double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out var x)
+                    || !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var y))
+                {
+                    problem = $"'{token}' is not a point; click takes {ClickValue}";
+                    return false;
+                }
+                at = new Point(x, y);
+                continue;
+            }
+            MouseButton? named = word switch { "left" => MouseButton.Left, "right" => MouseButton.Right, "middle" => MouseButton.Middle, _ => null };
+            if (named is { } pressed)
+            {
+                if (buttonGiven)
+                {
+                    problem = $"click presses one button, and '{value}' names two; it takes {ClickValue}";
+                    return false;
+                }
+                (button, buttonGiven) = (pressed, true);
+                continue;
+            }
+            KeyModifiers? key = word switch { "shift" => KeyModifiers.Shift, "ctrl" or "control" => KeyModifiers.Control, "alt" => KeyModifiers.Alt, _ => null };
+            if (key is not { } held)
+            {
+                problem = $"'{token}' is not a point, a button or a key; click takes {ClickValue}";
+                return false;
+            }
+            keys |= held;
+        }
+        return true;
     }
 
     private const string ScrollDirections = "up|down|left|right (a page), line_up|line_down|line_left|line_right, home|end";
@@ -2145,9 +2298,14 @@ public record VmMember(string Name, string Kind, string? TypeName, bool CanWrite
 /// A <c>set_value</c> pushed its text to a bound source, so whether the source kept it is still to be asked
 /// (<see cref="UiAutomationDriver.RefusedCommit"/>). Not part of the reply; the detail says it in words.
 /// </param>
+/// <param name="Release">
+/// The second part of an action that comes in two, still to be done: a <c>click</c>'s release, which
+/// <see cref="UiAutomationDriver.FinishAsync"/> raises and whose outcome is the reply. Not part of the reply.
+/// </param>
 public record InteractOutcome(
     bool Success,
     string Mechanism,
     string? Detail,
     string? Error,
-    [property: System.Text.Json.Serialization.JsonIgnore] bool Committed = false);
+    [property: System.Text.Json.Serialization.JsonIgnore] bool Committed = false,
+    [property: System.Text.Json.Serialization.JsonIgnore] Func<InteractOutcome>? Release = null);

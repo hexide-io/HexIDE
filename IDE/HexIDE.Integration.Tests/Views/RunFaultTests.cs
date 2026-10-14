@@ -101,11 +101,11 @@ public class RunFaultTests
         localization.GetString("Str.ProjectRunner.NotImplementedYet").Returns("Not implemented yet: {0}");
 
         var windowManager = Substitute.For<IWindowManager>();
-        // Time-slicing off. None of these tests is about it, and a yield landing inside an event procedure that
-        // another statement raised lets that statement run on before the procedure has finished (#766). Whether
-        // one lands depends on how loaded the machine is, which made the nested-event test below fail on a busy
-        // box and pass on an idle one.
-        var controller = new DebugController { TimeSliceMs = null };
+        // A yield at every statement: the worst case for the time slice. A yield inside an event procedure that another
+        // statement raised used to let that statement run on before the procedure had finished, which made the
+        // nested-event test below fail on a busy box and pass on an idle one. Since #766 the raiser waits, so these run
+        // with the slice at its most disruptive rather than off.
+        var controller = new DebugController { TimeSliceMs = -1 };
         var runner = new ProjectRunnerService(
             Substitute.For<IEventBus>(), windowManager, Substitute.For<IProjectManager>(),
             localization, controller, Substitute.For<IBreakpointService>(), new WatchService(), new RunScope());
@@ -219,9 +219,9 @@ public class RunFaultTests
         // dispatched, not in Command1_Click. Unless the whole run is stopped, the click carries on past a
         // statement whose effects never happened.
         //
-        // That holds only while Text1_Change has not yielded its time slice before faulting. If it has, the
-        // setter returned and the click ran to its end before the fault arrived, so there was nothing left to
-        // stop (#766). Build turns time-slicing off for this class.
+        // That used to hold only while Text1_Change had not yielded its time slice before faulting. If it had, the
+        // setter returned and the click ran to its end before the fault arrived (#766). Now the click waits for the
+        // handler it raised, and Build yields at every statement to prove it.
         var run = FormProject(
             "Private Sub Command1_Click()\r\n"
           + click
@@ -344,17 +344,25 @@ public class RunFaultTests
     public void A_fault_in_Form_Load_ends_the_run_too()
     {
         // Form_Load is where a program's first statements run, so it is where most programs will meet a gap
-        // first. The run must end and its form close, rather than leave an empty form standing.
+        // first. The run must end, rather than leave an empty form standing. Load runs before the form is shown
+        // (#822), so a fault there means the form is never shown at all.
         var run = FormProject(ReachesGoSub("Form_Load"));
         var printed = Printed(out var sink);
         VBDebugConsole.Output += sink;
         try
         {
-            var window = Start(run, printed);
+            VBFormRuntime? window = null;
+            using var opened = Window.WindowOpenedEvent.AddClassHandler<VBFormRuntime>((w, _) =>
+            {
+                if (w.Title == Caption)
+                    window = w;
+            });
+            run.Runner.RunProject(run.Project);
+            Pump();
 
             run.RunFailed.Should().ContainSingle().Which.Should().Contain("GoSub");
             printed.Should().Equal(["before"]);
-            window.IsVisible.Should().BeFalse("the form is closed with the run");
+            window.Should().BeNull("a form whose Load faulted is never shown");
             AssertNothingIsRunning(run);
         }
         finally
@@ -550,7 +558,11 @@ public class RunFaultTests
             }
 
             printed.Should().Equal(["before"]);
-            closed.Should().BeTrue("End closes the program's form, as the End command does");
+            if (procedure == "Form_Load")
+                // Load runs before the form is shown (#822), so a run that ends there never shows it.
+                window.Should().BeNull("End in Form_Load ends the run before the form is shown");
+            else
+                closed.Should().BeTrue("End closes the program's form, as the End command does");
             run.RunFailed.Should().BeEmpty("ending is not an error");
             run.StartFailed.Should().BeEmpty();
             AssertNothingIsRunning(run);

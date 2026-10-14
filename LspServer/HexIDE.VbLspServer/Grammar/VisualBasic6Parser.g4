@@ -730,7 +730,7 @@ variableSubStmt
     ;
 
 whileWendStmt
-    : WHILE WS valueStmt blockSep block* NEWLINE* WEND
+    : WHILE WS valueStmt blockSep (block blockSep)? WEND
     ;
 
 widthStmt

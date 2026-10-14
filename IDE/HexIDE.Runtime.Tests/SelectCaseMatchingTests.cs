@@ -7,8 +7,12 @@ namespace HexIDE.Runtime.Tests;
 /// vb6.exe (see <i>Select Case matching</i> in docs/vb6-fidelity-oracle.md).
 ///
 /// <para>
-/// <b>The rule.</b> VB6 coerces the CASE EXPRESSION to the SELECTOR's runtime type and then compares. It
-/// does not compare numerically, and it is not symmetric. The comparison used to be
+/// <b>The rule.</b> For a selector with a FIXED type, a declared variable, a literal, a typed Function or
+/// parameter, or a typed field or array element, VB6 converts the CASE EXPRESSION into the selector's type and
+/// then compares. It does not compare numerically, and it is not symmetric. A Variant selector is not converted
+/// at all, and compares as VB6 compares Variants; that half was measured in #839's review and is at the end of
+/// this file. These tests' first measurements were all of declared selectors, which is how the rule came to be
+/// written for every selector. The comparison used to be
 /// <c>Vb6Value.Equals</c> — type-identical — so a <c>Long</c> selector never matched a bare Integer
 /// literal, and since a <c>Select Case</c> in which nothing matches legitimately does nothing, the whole
 /// defect was silent. With a <c>Case Else</c> present it read as "the wrong branch was chosen"; without
@@ -184,5 +188,393 @@ public class SelectCaseMatchingTests : BaseVBTestFixture
     {
         await Run("Dim x As Long\nx = 2\nSelect Case x\n\nCase 2\nDebug.Print \"two\"\nEnd Select");
         AssertDebugLog([new Vb6Value("two")]);
+    }
+
+    // Round two of #839's review (2026-10-13). Every row below is a program built as native code and as p-code, the two
+    // agreeing on each, and generated from those probes and their logs rather than written out by hand; the probes are
+    // in docs/vb6-fidelity-oracle.md, "A typed selector and a Variant one". A selector with a fixed type converts the
+    // Case value into its type. A Variant selector does not, and compares as VB6 compares a Variant with a typed or a
+    // Variant value. Round one converted into whatever type the selector's value had, so a Variant 5 was not
+    // `Case Is < 5.4` and a Variant against `Is > "a"` stopped the run with 13.
+    private const string Helpers = """
+        Type T
+            n As Integer
+        End Type
+        Type TV
+            x As Variant
+        End Type
+        Function F() As Integer
+            F = 5
+        End Function
+        Function FV()
+            FV = 5
+        End Function
+        Function FS() As String
+            FS = "10"
+        End Function
+        """;
+
+    private static string CaseProgram(string declarations, string setup, string selector, string test) =>
+        $"S\nSub S()\n    On Error Resume Next\n    {declarations}\n    Dim r As String\n    {setup}\n    r = \"none\"\n"
+        + $"    Select Case {selector}\n    Case {test}\n        r = \"case\"\n    Case Else\n        r = \"else\"\n    End Select\n"
+        + $"    Debug.Print r & \" | \" & Err.Number\nEnd Sub\n" + Helpers;
+
+    [Theory]
+    [InlineData("Dim v As Integer", "v = 5", "v", "Is < 5.4", "else | 0")]
+    [InlineData("Dim v As Double", "v = 5.5", "v", "Is > \"a\"", "case | 13")]
+    [InlineData("Dim b As Boolean", "b = False", "b", "Is < 1", "else | 0")]
+    [InlineData("Dim b As Boolean", "b = True", "b", "Is < 0", "case | 0")]
+    [InlineData("Dim b As Boolean", "b = True", "b", "3 To 6", "case | 0")]
+    [InlineData("Dim b As Boolean", "b = True", "b", "Is >= 5.6", "case | 0")]
+    [InlineData("Dim b As Boolean", "b = True", "b", "Is <= 4.6", "case | 0")]
+    [InlineData("Dim b As Boolean", "b = True", "b", "4.6 To 5.4", "case | 0")]
+    [InlineData("Dim b As Boolean", "b = True", "b", "5", "case | 0")]
+    [InlineData("Dim b As Boolean", "b = True", "b", "Is > \"a\"", "case | 13")]
+    [InlineData("Dim b As Boolean", "b = True", "b", "Is < False", "case | 0")]
+    [InlineData("Dim b As Boolean", "b = False", "b", "Is > True", "case | 0")]
+    [InlineData("Dim d", "", "F()", "Is < 5.4", "else | 0")]
+    [InlineData("Dim a(1) As Integer", "a(0) = 5", "a(0)", "Is < 5.4", "else | 0")]
+    [InlineData("Dim u As T", "u.n = 5", "u.n", "Is < 5.4", "else | 0")]
+    [InlineData("Dim i As Integer", "i = 4", "i + 1", "Is < 5.4", "else | 0")]
+    [InlineData("Dim v", "v = 5", "CInt(v)", "Is < 5.4", "else | 0")]
+    [InlineData("Dim d", "", "5", "Is < 5.4", "else | 0")]
+    [InlineData("Dim d", "", "\"10\"", "Is > 9", "else | 0")]
+    [InlineData("Dim d", "", "FS()", "Is > 9", "else | 0")]
+    [InlineData("Dim v", "v = \"10\"", "CStr(v)", "Is > 9", "else | 0")]
+    [InlineData("Dim n As Integer, w", "n = 5: w = \"5\"", "n", "w", "case | 0")]
+    [InlineData("Dim s As String, w", "s = \"5\": w = 5", "s", "w", "case | 0")]
+    public async Task A_typed_selector_converts_each_Case_value_into_its_type(string declarations, string setup, string selector, string test, string expected)
+    {
+        await Run(CaseProgram(declarations, setup, selector, test));
+
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    [Theory]
+    [InlineData("Dim v", "v = 5", "v", "Is < 5.4", "case | 0")]
+    [InlineData("Dim v", "v = CLng(5)", "v", "Is < 5.4", "case | 0")]
+    [InlineData("Dim v", "v = 0", "v", "Is < 0.5", "case | 0")]
+    [InlineData("Dim v", "v = 5", "v", "Is <= 4.6", "else | 0")]
+    [InlineData("Dim v", "v = 5", "v", "5.4 To 5.6", "else | 0")]
+    [InlineData("Dim v", "v = 5", "v", "Is > \"a\"", "else | 0")]
+    [InlineData("Dim v", "v = 5", "v", "\"a\" To \"c\"", "else | 0")]
+    [InlineData("Dim v", "v = 5.5", "v", "Is > \"a\"", "else | 0")]
+    [InlineData("Dim v", "v = \"10\"", "v", "Is < 9", "else | 0")]
+    [InlineData("Dim v", "v = \"10\"", "v", "Is < 5.4", "else | 0")]
+    [InlineData("Dim v", "v = \"abc\"", "v", "Is > 5", "case | 0")]
+    [InlineData("Dim v", "v = 5", "v", "Is = \"5\"", "case | 0")]
+    [InlineData("Dim v", "v = True", "v", "Is < 0", "case | 0")]
+    [InlineData("Dim v", "v = False", "v", "Is < 1", "case | 0")]
+    [InlineData("Dim v", "v = 5", "v", "Is < \"10\"", "else | 0")]
+    [InlineData("Dim v", "v = 10", "v", "Is > \"9\"", "else | 0")]
+    [InlineData("Dim v, w", "v = 10: w = \"9\"", "v", "Is > w", "else | 0")]
+    [InlineData("Dim v, w", "v = 5: w = \"10\"", "v", "Is < w", "case | 0")]
+    [InlineData("Dim v, w", "v = 5: w = \"abc\"", "v", "Is < w", "case | 0")]
+    [InlineData("Dim v", "v = \"3\"", "v", "Is < 9", "case | 0")]
+    [InlineData("Dim v", "v = \"abc\"", "v", "Is < 5", "else | 0")]
+    [InlineData("Dim v", "v = \"10\"", "v", "Is > 9", "case | 0")]
+    [InlineData("Dim v, w", "v = \"10\": w = 9", "v", "Is > w", "case | 0")]
+    [InlineData("Dim v, w", "v = \"abc\": w = 5", "v", "Is > w", "case | 0")]
+    [InlineData("Dim v", "v = 5", "v", "Is < \"a\"", "case | 0")]
+    [InlineData("Dim v", "v = 100", "v", "Is > \"9\"", "else | 0")]
+    [InlineData("Dim v", "v = 2", "v", "1.7", "else | 0")]
+    [InlineData("Dim v", "v = 1", "v", "\"1.0\"", "else | 0")]
+    [InlineData("Dim v", "v = \"1.0\"", "v", "1", "case | 0")]
+    [InlineData("Dim v", "v = \"abc\"", "v", "5", "else | 0")]
+    [InlineData("Dim v", "v = 5", "v", "\"abc\"", "else | 0")]
+    [InlineData("Dim v", "v = True", "v", "1", "else | 0")]
+    [InlineData("Dim v", "v = True", "v", "-1", "case | 0")]
+    [InlineData("Dim v", "v = True", "v", "\"True\"", "case | 0")]
+    [InlineData("Dim v", "v = 5", "v", "Is <> \"abc\"", "case | 0")]
+    [InlineData("Dim v", "v = 2", "v", "Is = 1.7", "else | 0")]
+    [InlineData("Dim v", "v = 4", "v + 1", "Is < 5.4", "case | 0")]
+    [InlineData("Dim i As Integer, v", "i = 4: v = 1", "i + v", "Is < 5.4", "case | 0")]
+    [InlineData("Dim v(1)", "v(0) = 5", "v(0)", "Is < 5.4", "case | 0")]
+    [InlineData("Dim d", "", "FV()", "Is < 5.4", "case | 0")]
+    [InlineData("Dim v", "v = 5.5", "v", "Is < 6", "case | 0")]
+    [InlineData("Dim v", "v = 2.5", "v", "2", "else | 0")]
+    [InlineData("Dim v", "v = 2.5", "v", "2 To 2", "else | 0")]
+    [InlineData("Dim d", "", "Mid(\"10\", 1)", "Is > 9", "case | 0")]
+    [InlineData("Dim v, w", "v = 5: w = \"5\"", "v", "w", "else | 0")]
+    [InlineData("Dim v, w", "v = \"5\": w = 5", "v", "w", "else | 0")]
+    [InlineData("Dim v, w", "v = 5: w = 5", "v", "w", "case | 0")]
+    [InlineData("Dim v, w", "v = 5: w = Empty", "v", "Is > w", "case | 0")]
+    [InlineData("Dim v, w", "v = \"a\": w = Empty", "v", "Is > w", "case | 0")]
+    [InlineData("Dim v, w", "v = 0: w = Empty", "v", "w", "case | 0")]
+    [InlineData("Dim v", "v = Null", "v", "Null", "else | 0")]
+    [InlineData("Dim v", "v = Null", "v", "Is < 1", "else | 0")]
+    [InlineData("Dim v", "v = 5", "v", "Is > Empty", "case | 0")]
+    [InlineData("Dim v", "v = \"abc\"", "v", "Is > Empty", "case | 0")]
+    [InlineData("Dim v", "v = 5", "v", "Is > True", "case | 0")]
+    [InlineData("Dim v", "v = \"True\"", "v", "True", "case | 0")]
+    [InlineData("Dim v", "v = \"-1\"", "v", "True", "case | 0")]
+    [InlineData("Dim v", "v = #1/2/1900#", "v", "Is > 2", "case | 0")]
+    [InlineData("Dim v", "v = \"2.5\"", "v", "2", "else | 0")]
+    [InlineData("Dim v", "v = \"2.6\"", "v", "Is < 3", "case | 0")]
+    [InlineData("Dim v", "v = \"70000\"", "v", "Is > 5", "case | 0")]
+    [InlineData("Dim v", "v = \"True\"", "v", "-1", "else | 0")]
+    [InlineData("Dim v", "v = \"True\"", "v", "Is < 0", "else | 0")]
+    [InlineData("Dim v", "v = \"abc\"", "v", "True", "else | 0")]
+    [InlineData("Dim v", "v = \"1/2/1900\"", "v", "Is < 5", "else | 0")]
+    [InlineData("Dim v", "v = True", "v", "\"-1\"", "else | 0")]
+    [InlineData("Dim v", "v = \"2.5\"", "v", "2.5", "case | 0")]
+    [InlineData("Dim v", "v = \"5\"", "v", "5&", "case | 0")]
+    [InlineData("Dim v", "v = \"0.5\"", "v", "Is < 1", "case | 0")]
+    [InlineData("Dim v", "v = \"1.5\"", "v", "Is > 1", "case | 0")]
+    [InlineData("Dim v, w As String", "v = 5: w = \"10\"", "v", "Is < w", "else | 0")]
+    [InlineData("Dim v, k As Integer", "v = \"3\": k = 9", "v", "Is > k", "else | 0")]
+    [InlineData("Dim v", "v = 5", "v", "Is > FS()", "case | 0")]
+    [InlineData("Dim v, w", "v = \"3\": w = 9", "v", "Is < w", "else | 0")]
+    [InlineData("Dim u As TV", "u.x = 5", "u.x", "Is < 5.4", "case | 0")]
+    [InlineData("Dim v", "v = Null", "v", "Is <> 1", "else | 0")]
+    [InlineData("Dim v", "v = \"5\"", "v", "True", "case | 0")]
+    [InlineData("Dim v", "v = 0", "v", "Is <> \"abc\"", "case | 0")]
+    [InlineData("Dim v", "", "v", "\"\"", "case | 0")]
+    [InlineData("Dim v", "", "v", "Is < \" \"", "case | 0")]
+    [InlineData("Dim v, w", "v = \"\"", "v", "w", "case | 0")]
+    [InlineData("Dim v, w", "v = \" \"", "v", "Is > w", "case | 0")]
+    [InlineData("Dim v", "v = \"\"", "v", "Is < Empty", "else | 0")]
+    [InlineData("Dim v", "v = \" \"", "v", "Is > Empty", "case | 0")]
+    public async Task A_Variant_selector_takes_each_Case_value_as_it_is(string declarations, string setup, string selector, string test, string expected)
+    {
+        await Run(CaseProgram(declarations, setup, selector, test));
+
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    [Theory]
+    [InlineData("Dim o As Foo", "Set o = New Foo: o.V = 5", "o.V", "Is < 5.4", "case | 0")]
+    [InlineData("Dim o As Foo", "Set o = New Foo: o.N = 5", "o.N", "Is < 5.4", "else | 0")]
+    public async Task A_class_field_selector_is_typed_as_the_field_is_declared(string declarations, string setup, string selector, string test, string expected)
+    {
+        await RunClasses(CaseProgram(declarations, setup, selector, test), ("Foo", "Public V As Variant\nPublic N As Integer\n"));
+
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    [Theory]
+    [InlineData("Integer", "5", "Is < 5.4", "else | 0")]
+    [InlineData("String", "\"10\"", "Is > 9", "else | 0")]
+    [InlineData("Boolean", "False", "Is < 1", "else | 0")]
+    public async Task A_typed_parameter_is_a_typed_selector(string type, string argument, string test, string expected)
+    {
+        await Run($"P {argument}\nSub P(ByVal p As {type})\n    On Error Resume Next\n    Dim r As String\n    r = \"none\"\n"
+            + $"    Select Case p\n    Case {test}\n        r = \"case\"\n    Case Else\n        r = \"else\"\n    End Select\n"
+            + "    Debug.Print r & \" | \" & Err.Number\nEnd Sub\n");
+
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    [Theory]
+    [InlineData("F() * 7000", "6 ")]
+    [InlineData("a(0) * 7000", "6 ")]
+    [InlineData("u.n * 7000", "6 ")]
+    [InlineData("CInt(v) * 7000", "6 ")]
+    [InlineData("v(0) * 7000", "0 35000")]
+    [InlineData("u.x * 7000", "0 35000")]
+    public async Task A_value_is_typed_by_what_holds_it_in_arithmetic_too(string expression, string expected)
+    {
+        // The other observer of the same flag: an Integer overflows at 32767, where a Variant widens (#122). 6 with no
+        // value, or 0 and the widened value.
+        await Run("On Error Resume Next\nDim a(1) As Integer, u As T, v, x, w(1), uv As TV\n"
+            + "a(0) = 5: u.n = 5: v = 5: w(0) = 5: uv.x = 5\n"
+            + $"x = {expression.Replace("v(0)", "w(0)").Replace("u.x", "uv.x")}\nDebug.Print Err.Number & \" \" & x\n" + Helpers);
+
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    [Theory]
+    [InlineData("o.V * 7000", "0 35000")]
+    [InlineData("o.N * 7000", "6 ")]
+    public async Task A_class_field_is_typed_as_declared_in_arithmetic_too(string expression, string expected)
+    {
+        await RunClasses($"On Error Resume Next\nDim o As Foo, x\nSet o = New Foo: o.V = 5: o.N = 5\nx = {expression}\nDebug.Print Err.Number & \" \" & x\n",
+            ("Foo", "Public V As Variant\nPublic N As Integer\n"));
+
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    // #987: which intrinsics VB6 types and which return a Variant, generated from the probe and its log (native and p-code
+    // agreeing; the oracle's "Which intrinsics are typed" has the table). A typed Integer or Long result converts
+    // `Case Is < N.4` into N and takes Case Else, and overflows past its ceiling; a Variant takes the Case and widens.
+    // Not here: `IIf`, `Choose` and `Switch`, measured as Variants and not implemented; `Len` of a typed Integer, measured
+    // typed, whose value HexIDE gets wrong (#780); the `$` forms (#742).
+    private const string IntrinsicSetup =
+        "Dim vs, vi, vn, v5, va, v52, n As Integer, n5 As Integer, arr(5), arr5(5 To 6)\n"
+        + "vs = \"abcde\": vi = \"abcd5\": vn = -5: v5 = 5: va = \"A\": v52 = 5.2: n = -5: n5 = 5\n";
+
+    [Theory]
+    [InlineData("Len(\"abcde\")", "5.4", "500000000", "Else err 0; *500000000: err 6 Empty")]
+    [InlineData("Len(vs)", "5.4", "500000000", "Case err 0; *500000000: err 0 Double")]
+    [InlineData("InStr(\"abcd5\", \"5\")", "5.4", "500000000", "Else err 0; *500000000: err 6 Empty")]
+    [InlineData("InStr(vi, \"5\")", "5.4", "500000000", "Case err 0; *500000000: err 0 Double")]
+    [InlineData("Abs(-5)", "5.4", "7000", "Else err 0; *7000: err 6 Empty")]
+    [InlineData("Abs(vn)", "5.4", "7000", "Case err 0; *7000: err 0 Long")]
+    [InlineData("Abs(n)", "5.4", "7000", "Else err 0; *7000: err 6 Empty")]
+    [InlineData("Sgn(5)", "1.4", "7000", "Else err 0; *7000: err 0 Integer")]
+    [InlineData("Sgn(v5)", "1.4", "7000", "Else err 0; *7000: err 0 Integer")]
+    [InlineData("Asc(\"A\")", "65.4", "7000", "Else err 0; *7000: err 6 Empty")]
+    [InlineData("Asc(va)", "65.4", "7000", "Else err 0; *7000: err 6 Empty")]
+    [InlineData("UBound(arr)", "5.4", "500000000", "Else err 0; *500000000: err 6 Empty")]
+    [InlineData("LBound(arr5)", "5.4", "500000000", "Else err 0; *500000000: err 6 Empty")]
+    [InlineData("CInt(5.2)", "5.4", "7000", "Else err 0; *7000: err 6 Empty")]
+    [InlineData("CInt(v52)", "5.4", "7000", "Else err 0; *7000: err 6 Empty")]
+    [InlineData("CLng(5.2)", "5.4", "500000000", "Else err 0; *500000000: err 6 Empty")]
+    [InlineData("CLng(v52)", "5.4", "500000000", "Else err 0; *500000000: err 6 Empty")]
+    [InlineData("CByte(5.2)", "5.4", "7000", "Else err 0; *7000: err 6 Empty")]
+    [InlineData("Hour(#5:00:00 AM#)", "5.4", "7000", "Case err 0; *7000: err 0 Long")]
+    [InlineData("Minute(#12:05:00 AM#)", "5.4", "7000", "Case err 0; *7000: err 0 Long")]
+    [InlineData("Second(#12:00:05 AM#)", "5.4", "7000", "Case err 0; *7000: err 0 Long")]
+    [InlineData("Day(#1/5/2000#)", "5.4", "7000", "Case err 0; *7000: err 0 Long")]
+    [InlineData("Month(#5/1/2000#)", "5.4", "7000", "Case err 0; *7000: err 0 Long")]
+    [InlineData("Year(#1/1/2000#)", "2000.4", "7000", "Case err 0; *7000: err 0 Long")]
+    [InlineData("Weekday(#1/6/2000#)", "5.4", "7000", "Case err 0; *7000: err 0 Long")]
+    [InlineData("Int(5.7)", "5.4", "7000", "Case err 0; *7000: err 0 Double")]
+    [InlineData("Fix(5.7)", "5.4", "7000", "Case err 0; *7000: err 0 Double")]
+    [InlineData("Int(n5)", "5.4", "7000", "Else err 0; *7000: err 6 Empty")]
+    [InlineData("Fix(n5)", "5.4", "7000", "Else err 0; *7000: err 6 Empty")]
+    [InlineData("Round(5.2)", "5.4", "7000", "Case err 0; *7000: err 0 Double")]
+    [InlineData("Val(\"5\")", "5.4", "7000", "Case err 0; *7000: err 0 Double")]
+    public async Task A_numeric_intrinsic_is_typed_or_a_Variant_as_VB6_returns_it(string expression, string bound, string multiplier, string expected)
+    {
+        await Run(IntrinsicSetup + "P\nSub P()\n    On Error Resume Next\n    Dim r As String, x\n    r = \"?\"\n"
+            + $"    Select Case {expression}\n        Case Is < {bound}\n            r = \"Case\"\n        Case Else\n            r = \"Else\"\n    End Select\n"
+            + "    r = r & \" err \" & Err.Number\n    Err.Clear\n"
+            + $"    x = {expression} * {multiplier}\n    r = r & \"; *{multiplier}: err \" & Err.Number & \" \" & TypeName(x)\n    Debug.Print r\nEnd Sub\n");
+
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    [Theory]
+    [InlineData("Mid(\"10\", 1)", "Case err 0 String")]
+    [InlineData("Left(\"10\", 2)", "Case err 0 String")]
+    [InlineData("Right(\"10\", 2)", "Case err 0 String")]
+    [InlineData("Trim(\" 10 \")", "Case err 0 String")]
+    [InlineData("LCase(\"10\")", "Case err 0 String")]
+    [InlineData("UCase(\"10\")", "Case err 0 String")]
+    [InlineData("Hex(16)", "Case err 0 String")]
+    [InlineData("Oct(8)", "Case err 0 String")]
+    [InlineData("String(2, \"1\")", "Case err 0 String")]
+    [InlineData("Format(10)", "Case err 0 String")]
+    [InlineData("CStr(10)", "Else err 0 String")]
+    [InlineData("Replace(\"1x\", \"x\", \"0\")", "Else err 0 String")]
+    [InlineData("StrReverse(\"01\")", "Else err 0 String")]
+    [InlineData("LTrim(\"10\")", "Case err 0 String")]
+    [InlineData("Chr(49) & \"0\"", "Case err 0 String")]
+    [InlineData("\"1\" & \"0\"", "Else err 0 String")]
+    public async Task A_text_intrinsic_is_typed_or_a_Variant_as_VB6_returns_it(string expression, string expected)
+    {
+        // A typed String converts 9 into "9" and compares text, so "10" is not above it; a Variant is read as a number.
+        await Run("P\nSub P()\n    On Error Resume Next\n    Dim r As String\n    r = \"?\"\n"
+            + $"    Select Case {expression}\n        Case Is > 9\n            r = \"Case\"\n        Case Else\n            r = \"Else\"\n    End Select\n"
+            + $"    r = r & \" err \" & Err.Number & \" \" & TypeName({expression})\n    Debug.Print r\nEnd Sub\n");
+
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    // The round-two review's families, measured by the supervisor on vb6.exe as native code (the oracle's "Measured in the
+    // review of round two"). Each is a source round two's rule got wrong. A Const is typed in Select Case, where it was
+    // already right here; a member reached through a Variant is late-bound and a Variant's; an element of a Variant holding
+    // a typed array is a Variant's; and an untyped ByRef parameter is a Variant, though it shares a typed variable.
+    [Theory]
+    [InlineData("Const K = 5", "", "K", "4.6", "case | 0")]
+    [InlineData("Const K = 5", "", "K", "\"a\"", "case | 13")]
+    [InlineData("Const ID_OPEN = 1\n    Dim cmd", "cmd = \"1\"", "cmd", "ID_OPEN", "case | 0")]
+    [InlineData("Dim a(1) As Integer, va", "a(0) = 5\n    va = a", "va(0)", "Is < 5.4", "case | 0")]
+    public async Task A_round_two_review_row_reads_as_VB6_reads_it(string declarations, string setup, string selector, string test, string expected)
+    {
+        await Run(CaseProgram(declarations, setup, selector, test));
+
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    private const string LateBound = "Public Property Get P() As Integer\n    P = 5\nEnd Property\nPublic Function M() As Integer\n    M = 5\nEnd Function\n";
+
+    [Theory]
+    [InlineData("Dim vo\nSet vo = New Foo\nx = vo.P * 7000", "0 35000")]                // late-bound: a Variant's
+    [InlineData("Dim vo\nSet vo = New Foo\nx = vo.M() * 7000", "0 35000")]
+    [InlineData("Dim vo\nSet vo = New Foo\nWith vo\n    x = .P * 7000\nEnd With", "0 35000")]
+    [InlineData("Dim o As Foo\nSet o = New Foo\nx = o.P * 7000", "6 ")]                // early-bound: typed
+    public async Task A_member_reached_through_a_Variant_is_a_Variant(string program, string expected)
+    {
+        await RunClasses($"On Error Resume Next\nDim x\n{program}\nDebug.Print Err.Number & \" \" & x\n", ("Foo", LateBound));
+
+        AssertDebugLog([new Vb6Value(expected)]);
+    }
+
+    [Fact]
+    public async Task A_late_bound_selector_is_a_Variant_one()
+    {
+        // `Case Is > "a"` against a typed Integer is 13; against the late-bound `vo.P` it is Case Else, Err 0.
+        await RunClasses(CaseProgram("Dim vo", "Set vo = New Foo", "vo.P", "Is > \"a\""), ("Foo", LateBound));
+
+        AssertDebugLog([new Vb6Value("else | 0")]);
+    }
+
+    [Fact]
+    public async Task An_untyped_ByRef_parameter_sharing_a_typed_variable_is_a_Variant_selector()
+    {
+        await Run("Dim q As Integer\nq = 5\nG q\nSub G(p)\n    On Error Resume Next\n    Dim r As String\n    r = \"none\"\n"
+            + "    Select Case p\n    Case Is > \"a\"\n        r = \"case\"\n    Case Else\n        r = \"else\"\n    End Select\n"
+            + "    Debug.Print r & \" | \" & Err.Number\nEnd Sub\n");
+
+        AssertDebugLog([new Vb6Value("else | 0")]);
+    }
+
+    // The review of #1005 (2026-10-14): a parameter, return, variable or field declared as a class, an Enum or a Collection
+    // is typed, and one declared As Object is late-bound, so its members' results are Variants. Generated from the probe
+    // and its log, native and p-code agreeing (the oracle's "What a class, an Enum or an Object declaration reads as").
+    // A source holding 5 is tried against `Case 4.6` (typed converts 4.6 into 5: "eq"), against `Case Is < 5.4` (typed
+    // converts 5.4 into 5: "ge"), and times a typed multiplier past its ceiling (typed overflows: 6). Not pinned: `As
+    // Collection` and a local `Dim o As Object`, which HexIDE does not declare yet, and `Property Get Q() As MyEnum`,
+    // whose `Q = mFive` reads another module's Enum member unqualified, Empty here (#889).
+    private const string DeclaredDeclarations =
+        "Public Enum MyEnum\n    mA = 1\n    mFive = 5\nEnd Enum\nPrivate Type TE\n    c As MyEnum\nEnd Type\n"
+        + "Const MK = 5\nConst MKL As Long = 5\n";
+
+    private const string DeclaredFunctions =
+        "Function NewFoo() As Foo\n    Set NewFoo = New Foo\nEnd Function\n"
+        + "Function GetFoo() As Foo\n    Set GetFoo = New Foo\nEnd Function\n"
+        + "Function GetColor() As MyEnum\n    GetColor = mFive\nEnd Function\n"
+        + "Function GetObj() As Object\n    Set GetObj = New Foo\nEnd Function\n"
+        + "Function Coll5() As Collection\n    Dim k As Collection, i As Integer\n    Set k = New Collection\n"
+        + "    For i = 1 To 5\n        k.Add i\n    Next\n    Set Coll5 = k\nEnd Function\n";
+
+    private const string DeclaredFoo =
+        "Public N As MyEnum\nPublic Property Get P() As Integer\n    P = 5\nEnd Property\n"
+        + "Public Property Get Q() As MyEnum\n    Q = mFive\nEnd Property\n";
+
+    [Theory]
+    [InlineData("", "", "Dim s As Foo\n    Set s = New Foo", "s.P", "int", "eq err 0; ge err 0; *7000: err 6 Empty")]   // s.P, Dim s As Foo
+    [InlineData("s As Foo", "NewFoo()", "", "s.P", "int", "eq err 0; ge err 0; *7000: err 6 Empty")]   // s.P, s As Foo
+    [InlineData("ByVal s As Foo", "NewFoo()", "", "s.P", "int", "eq err 0; ge err 0; *7000: err 6 Empty")]   // s.P, ByVal s As Foo
+    [InlineData("", "", "", "GetFoo().P", "int", "eq err 0; ge err 0; *7000: err 6 Empty")]   // GetFoo().P, Function GetFoo() As Foo
+    [InlineData("c As MyEnum", "mFive", "", "c", "long", "eq err 0; ge err 0; *500000000: err 6 Empty")]   // c, c As MyEnum given mFive
+    [InlineData("ByVal c As MyEnum", "mFive", "", "c", "long", "eq err 0; ge err 0; *500000000: err 6 Empty")]   // c, ByVal c As MyEnum given mFive
+    [InlineData("", "", "", "GetColor()", "long", "eq err 0; ge err 0; *500000000: err 6 Empty")]   // GetColor(), Function GetColor() As MyEnum
+    [InlineData("", "", "Dim e As MyEnum\n    e = mFive", "e", "long", "eq err 0; ge err 0; *500000000: err 6 Empty")]   // e, Dim e As MyEnum
+    [InlineData("", "", "Dim t As TE\n    t.c = mFive", "t.c", "long", "eq err 0; ge err 0; *500000000: err 6 Empty")]   // t.c, c As MyEnum in a Type
+    [InlineData("", "", "Dim f As Foo\n    Set f = New Foo\n    f.N = mFive", "f.N", "long", "eq err 0; ge err 0; *500000000: err 6 Empty")]   // f.N, Public N As MyEnum in Foo
+    [InlineData("o As Object", "NewFoo()", "", "o.P", "int", "ne err 0; lt err 0; *7000: err 0 Long")]   // o.P, o As Object
+    [InlineData("ByVal o As Object", "NewFoo()", "", "o.P", "int", "ne err 0; lt err 0; *7000: err 0 Long")]   // o.P, ByVal o As Object
+    [InlineData("", "", "", "GetObj().P", "int", "ne err 0; lt err 0; *7000: err 0 Long")]   // GetObj().P, Function GetObj() As Object
+    [InlineData("o As Variant", "NewFoo()", "", "o.P", "int", "ne err 0; lt err 0; *7000: err 0 Long")]   // o.P, o As Variant holding a Foo
+    [InlineData("", "", "", "mFive", "long", "eq err 0; ge err 0; *500000000: err 6 Empty")]   // mFive, an Enum member
+    [InlineData("", "", "Const K = 5", "K", "int", "eq err 0; ge err 0; *7000: err 6 Empty")]   // K, Const K = 5
+    [InlineData("", "", "Const KI As Integer = 5", "KI", "int", "eq err 0; ge err 0; *7000: err 6 Empty")]   // KI, Const KI As Integer = 5
+    [InlineData("", "", "", "MK", "int", "eq err 0; ge err 0; *7000: err 6 Empty")]   // MK, a module Const MK = 5
+    [InlineData("", "", "", "MKL", "long", "eq err 0; ge err 0; *500000000: err 6 Empty")]   // MKL, a module Const MKL As Long = 5
+    public async Task A_class_Enum_or_Object_declaration_reads_as_VB6_reads_it(string parameters, string argument, string setup, string expression, string kind, string expected)
+    {
+        var (type, multiplier) = kind == "int" ? ("Integer", "7000") : ("Long", "500000000");
+        await RunClasses(DeclaredDeclarations + $"R {argument}\nSub R({parameters})\n    On Error Resume Next\n    Dim r As String, x, m As {type}\n    m = {multiplier}\n    {setup}\n"
+            + $"    r = \"?\"\n    Select Case {expression}\n        Case 4.6\n            r = \"eq\"\n        Case Else\n            r = \"ne\"\n    End Select\n"
+            + "    r = r & \" err \" & Err.Number\n    Err.Clear\n"
+            + $"    Select Case {expression}\n        Case Is < 5.4\n            r = r & \"; lt\"\n        Case Else\n            r = r & \"; ge\"\n    End Select\n"
+            + "    r = r & \" err \" & Err.Number\n    Err.Clear\n"
+            + $"    x = {expression} * m\n    r = r & \"; *{multiplier}: err \" & Err.Number & \" \" & TypeName(x)\n    Debug.Print r\nEnd Sub\n"
+            + DeclaredFunctions, ("Foo", DeclaredFoo));
+
+        AssertDebugLog([new Vb6Value(expected)]);
     }
 }

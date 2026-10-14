@@ -131,7 +131,7 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   `Me.Tag`-leaked-`TaskCompletionSource` defect this surfaced is FIXED (see interpreter-gaps). The remaining items
   above are separate runtime-model gaps, not a Locals-tree deficiency.
 
-### D8. A form's `Me` root is synthetic (forms are singleton Standard modules)
+### D8. A form's `Me` root is synthetic (forms are singleton Standard modules) — RESOLVED (#822, first slice)
 - **VB6:** a form is a class with a default instance; `Me` in a form event handler is a real object with the form's
   properties + module-level variables under it.
 - **HexIDE:** the interpreter models a form as the **primary Standard module** (a singleton), so a form event
@@ -144,6 +144,11 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   fake object. Ties to D7 (no property/control surface under it).
 - **Status:** **by design** (approximation). Exact VB6 Locals labelling (`Me` vs module name, root ordering) is
   worth confirming against the real VB6 IDE at some point; recorded so it isn't mistaken for a bug.
+- **Resolved by #822's first slice (#1010):** a running form is an instance of its module, so `Me` in its event
+  handlers is a real `VbObject`, as a class method's is. Locals shows it as `Me` with the form's name as its type: the
+  window's VB6 properties first, then the instance's variables and controls (D7's surface, unchanged). The form's name
+  is now seeded into every module, as `Debug` and `Err` are, so it is hidden from a module frame's Locals as well as
+  under `Me`. The labelling question above is still unmeasured.
 
 ### D9. Locals show only already-executed `Dim`s; value formatting is approximate
 - **VB6:** the Locals window lists **every** declared local from procedure entry (unset ones show as `Empty`/0/""),
@@ -221,8 +226,9 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 ### D15. All user-code invocation is rejected in the Immediate window (v1)
 - **VB6:** you can call user procedures (and `New` objects) from the Immediate window, with their side effects.
 - **HexIDE:** any user-code invocation in an Immediate expression is rejected — a bare call, an instance method
-  (`?obj.Method()`), a **Property Get** (`?obj.Prop`), a Module-qualified call (`?Module1.Foo()`), and `New`
-  (`?New Thing`). Intrinsics (`Len`, `Mid`, `UCase`, …) and direct field reads (`?obj.Field`) still work.
+  (`?obj.Method()`), a **Property Get** (`?obj.Prop`), an object's **default member** (`?obj`, #840), a
+  Module-qualified call (`?Module1.Foo()`), and `New` (`?New Thing`). An object with no default member is 438, which
+  VB6's is inferred to be from `Debug.Print k` (measured, 438 in the IDE), and `?Err` is Err.Number. Intrinsics (`Len`, `Mid`, `UCase`, …) and direct field reads (`?obj.Field`) still work.
 - **Why:** the interpreter runs on the UI thread and is parked at the paused statement gate; running any user
   statements would hit that same gate on the same thread — a **deadlock** — and mutate program state mid-debug.
 - **Status:** **by design** (v1). The `SuppressUserProcedureCalls` guard sits at the two sinks EVERY user body flows
@@ -294,6 +300,13 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
   or in how the first statement of a form's load is reached.
 - **Status:** **bug**, [#656](https://github.com/hexide-io/HexIDE/issues/656). What VB6 does on exactly this form is
   still owed to the oracle.
+- **Resolved for a startup form by #1010 (#822's first slice):** the cause, read from the code rather than traced at
+  the time, was that the start was more than one dispatch. Resize was raised first, and the end of its dispatch
+  disarmed the armed step before Load ran. The start
+  is now one dispatch, declarations, Initialize and Load, and the gate is skipped on declarations, as VB6 never stops
+  on one. So Step Into from idle breaks on the first statement of `Form_Initialize`, or of `Form_Load` when there is
+  none, and a step off the end of Initialize goes on into Load (pinned in `FormInstanceTests`). A `Sub Main` start
+  is not re-measured.
 
 ### D20. A step from a function's last statement skips `End Function` — UNMEASURED
 - **VB6:** not measured. Whether F8 stops on `End Function` / `End Sub` before returning to the caller needs the
@@ -305,19 +318,23 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **Status:** **unmeasured**, recorded on [#656](https://github.com/hexide-io/HexIDE/issues/656). Not a
   divergence until the oracle says VB6 stops there.
 
-### D21. The time slice is an implicit `DoEvents` every 15 ms
+### D21. The time slice was an implicit `DoEvents` every 15 ms — FIXED
 - **VB6:** a running program gives up the thread only at `DoEvents`, a modal dialog or the end of an event
   procedure. An event that a statement raises (`Text1.Text = "x"` raising `Text1_Change`) runs to completion
-  before that statement finishes, and no other event procedure runs inside one that has not finished. This is
-  the single-threaded message loop as documented, not yet measured on the oracle.
+  before that statement finishes, and no other event procedure runs inside one that has not finished. Measured
+  since, native and p-code (vb6-fidelity-oracle.md, *One handler at a time*).
 - **HexIDE:** `DebugController` yields the UI thread whenever 15 ms have passed since the last yield, so that
   Ctrl+Break can land. That yield is effectively a `DoEvents`. If it lands at the first statement of a raised
   event's handler, the setter returns and the raiser runs on before the handler has finished. While any walk is
   yielded, a Timer tick or a click can start another event procedure inside it.
 - **Why:** the program and the IDE share one UI thread, and Break has to be able to reach a tight loop.
-- **Status:** **open**, [#766](https://github.com/hexide-io/HexIDE/issues/766). Found in the #762 review, where a
-  test of a fault in a raised event passed on an idle machine and failed on a loaded one.
-  `DebugController.TimeSliceMs` = -1 reproduces it deterministically.
+- **Status:** **fixed** by [#766](https://github.com/hexide-io/HexIDE/issues/766). Found in the #762 review, where a
+  test of a fault in a raised event passed on an idle machine and failed on a loaded one. An `EventPump` now runs one
+  handler at a time: an event that comes while a handler runs waits for it, the raiser of a nested event waits for it,
+  and `DoEvents` runs what is waiting. The time slice still yields, for Ctrl+Break, but lets nothing in.
+  `EventOrderTests` and `RunFaultTests` run with `TimeSliceMs` = -1, which yields at every statement. What remains is
+  the granularity: a nested handler finishes before the raiser's next statement, the end of its block, or the return
+  of a call, rather than inside the very expression that raised it.
 
 ### D22. A compile error met while a program runs is a run-time error dialog, and the run carries on
 - **VB6:** a compile error found while the program runs, such as a call to a Sub that does not exist, is shown in
@@ -334,6 +351,23 @@ some are refinements we may take. Format: **What → VB6 → HexIDE → Why → 
 - **Status:** **open**. The one-dialog route was decided in [#759](https://github.com/hexide-io/HexIDE/issues/759);
   the measurement, and whether to break at the line instead, is
   [#833](https://github.com/hexide-io/HexIDE/issues/833).
+
+### D23. An unhandled run-time error in an event procedure leaves the run going
+- **VB6:** in the IDE, an unhandled run-time error stops the program at the statement and enters break mode, offering
+  End, Debug and Help, and nothing else runs until the developer chooses. A compiled exe shows the message and ends.
+  That is how it is commonly described; it is **not yet measured** on the oracle.
+- **HexIDE:** the error is recorded, so `get_last_runtime_error` returns it, and shown in the run-time error dialog,
+  where End ends the run. The event procedure that met it is abandoned, and the run carries on: a Timer tick or a click
+  still raises its handler, on whatever state the abandoned procedure left. That includes a form's start (#1010): a
+  run-time error in `Form_Initialize` is reported, and `Form_Load` is still raised and the form shown. A fault, a
+  construct HexIDE does not implement or an engine fault, is different: it ends the run, and during the start it stops
+  before the window is shown.
+- **Why:** the error reaches the dialog only after the event-dispatch boundary in `VBWindowContext` has caught it, once
+  the procedure has unwound, so there is no live frame to break into. Breaking at the statement needs the walk to
+  pause where the error is raised.
+- **Status:** **open**, [#1011](https://github.com/hexide-io/HexIDE/issues/1011): the measurement, and whether to end
+  the run (the compiled exe's behaviour) or break at the statement (the IDE's). D22 is the same divergence for a
+  compile error.
 
 ---
 

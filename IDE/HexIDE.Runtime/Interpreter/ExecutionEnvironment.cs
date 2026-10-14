@@ -18,6 +18,7 @@ public class ExecutionEnvironment
     {
         foreach (var (name, loc) in other.variableToLocation)
             variableToLocation[name] = loc;
+        ProjectNames = other.ProjectNames;
     }
 
     public ExecutionEnvironment()
@@ -30,10 +31,36 @@ public class ExecutionEnvironment
         variableToLocation[name] = location;
     }
 
-    public bool TryGetVariableLocation(string name, out int location)
-    {
-        return variableToLocation.TryGetValue(name, out location);
-    }
+    /// <summary>
+    /// The slot a name reads here: one this environment holds, or else another standard module's Public variable or Const
+    /// (#880). Throws VB6's "Ambiguous name detected" for a name two modules export.
+    /// </summary>
+    public bool TryGetVariableLocation(string name, out int location) =>
+        variableToLocation.TryGetValue(name, out location) || ProjectNames?.TryGetLocation(name, out location) == true;
+
+    /// <summary>A name this environment holds itself: a local, a parameter, or the module's own declaration.</summary>
+    public bool TryGetOwnVariableLocation(string name, out int location) =>
+        variableToLocation.TryGetValue(name, out location);
+
+    /// <summary>
+    /// What the module this environment belongs to sees of other modules' Public names, set once every module is loaded.
+    /// A procedure's environment and an instance's are cloned from the module's, and share it.
+    /// </summary>
+    internal ProjectNames? ProjectNames { get; set; }
+
+    /// <summary>
+    /// The parameters of the procedure this environment runs, by name. A ByRef one shares the caller's slot, so the slot
+    /// cannot say it is a parameter; the name can. ReDim of a fixed array through one, an array parameter or an untyped
+    /// one, is a run-time 10, and of a fixed array named directly VB6 does not compile (measured). Not copied by
+    /// <see cref="Clone"/>: each call has its own.
+    /// </summary>
+    public HashSet<string> Parameters { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The parameters declared untyped or <c>As Variant</c>, which ReDim treats by the Variant rule even when they share a
+    /// caller's slot marked as a declared array (measured, #970). Not copied by <see cref="Clone"/>.
+    /// </summary>
+    public HashSet<string> VariantParameters { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     public ExecutionEnvironment Clone()
     {

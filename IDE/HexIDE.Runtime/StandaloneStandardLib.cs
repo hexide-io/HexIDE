@@ -1,3 +1,4 @@
+using System;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using HexIDE.IDE;
@@ -53,7 +54,23 @@ public class StandaloneStandardLib : IBasicStandardLibrary
             CanResize = false
         };
         inputBox.TextRequest += r => { result = r; window.Close(); };
-        await window.ShowDialog(_parent);
+        if (_parent.IsVisible)
+            await window.ShowDialog(_parent);
+        else
+        {
+            // Before the form is shown, as from Form_Load, which now runs first (#822). Avalonia refuses a dialog over a
+            // hidden owner, so the box is a window of its own, as a MsgBox is then (MessageBox.ShowAndWait).
+            window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            var closed = new TaskCompletionSource();
+            window.Closed += (_, _) => closed.TrySetResult();
+            // Closed, unanswered, with its owner, as a MsgBox is: ending the run closes the form, even one never shown,
+            // and a box left open would hand the ended run an answer (#1010 review).
+            void OnOwnerClosed(object? sender, EventArgs e) => window.Close();
+            _parent.Closed += OnOwnerClosed;
+            window.Show();
+            await closed.Task;
+            _parent.Closed -= OnOwnerClosed;
+        }
         return result;
     }
 
