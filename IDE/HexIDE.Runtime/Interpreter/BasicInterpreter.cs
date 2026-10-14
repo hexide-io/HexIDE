@@ -770,33 +770,100 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
     }
 
     /// <summary>
-    /// A read that may meet a form not yet made or not loaded (#822): <paramref name="read"/>, and when it asks for a form's
-    /// default instance or its load, that is done and the read made again. A read has no side effect before the point it
-    /// asks, so making it again is the same read. With no forms to reach, the request stays the refusal it is.
+    /// A variable read, the walk's hottest path, with a form's requests answered (#822): a form's name that holds no
+    /// instance makes one, and a control of a form that isn't loaded loads it, then the read is made again.
     /// </summary>
-    internal async Task<T> Loading<T>(Func<T> read)
+    internal ValueTask<(bool Found, Vb6Value Value)> ReadVariable(ExecutionEnvironment env, string name) =>
+        TryReadNow(env, name, out var found, out var value, out var need)
+            ? new ValueTask<(bool, Vb6Value)>((found, value))
+            : LoadingSlowly((Context: ExecutionContext, Env: env, Name: name),
+                static s => (s.Context.TryGetVariable(s.Env, s.Name, out var v), v), need!);
+
+    /// <summary>
+    /// The variable read without awaiting anything: true with the read's answer, or false with the form request that
+    /// <see cref="ReadVariable"/> must answer first (#822). The walk's hottest sites call this, and await
+    /// <see cref="ReadVariable"/> only when it returns false, so an ordinary read costs what it did before forms could
+    /// be made on use.
+    /// </summary>
+    internal bool TryReadNow(ExecutionEnvironment env, string name, out bool found, out Vb6Value value, out Exception? need)
+    {
+        try
+        {
+            found = ExecutionContext.TryGetVariable(env, name, out value);
+            need = null;
+            return true;
+        }
+        catch (Exception request) when (Forms is not null && request is FormInstanceNeeded or FormLoadNeeded)
+        {
+            found = false;
+            value = default;
+            need = request;
+            return false;
+        }
+    }
+
+    /// <summary>The rest of a read <see cref="TryReadNow"/> could not finish: the form made or loaded, then read again.</summary>
+    internal ValueTask<(bool Found, Vb6Value Value)> ReadVariableAfter(ExecutionEnvironment env, string name, Exception need) =>
+        LoadingSlowly((Context: ExecutionContext, Env: env, Name: name),
+            static s => (s.Context.TryGetVariable(s.Env, s.Name, out var v), v), need);
+
+    /// <summary>
+    /// A read that may meet a form not yet made or not loaded (#822): <paramref name="read"/> of
+    /// <paramref name="state"/>, and when it asks for a form's default instance or its load, that is done and the read
+    /// made again. A read has no side effect before the point it asks, so making it again is the same read. With no forms
+    /// to reach, the request stays the refusal it is.
+    /// </summary>
+    /// <remarks>
+    /// Synchronous until a form is asked for: the read is tried in place and its value returned as a completed
+    /// <see cref="ValueTask{T}"/>, so an ordinary read costs no allocation and no state machine. Only the catch goes
+    /// async. Pass a static lambda with its inputs in <paramref name="state"/>, which keeps the closure off that path too.
+    /// </remarks>
+    internal ValueTask<T> Loading<TState, T>(TState state, Func<TState, T> read)
+    {
+        try
+        {
+            return new ValueTask<T>(read(state));
+        }
+        catch (Exception need) when (Forms is not null && need is FormInstanceNeeded or FormLoadNeeded)
+        {
+            return LoadingSlowly(state, read, need);
+        }
+    }
+
+    private async ValueTask<T> LoadingSlowly<TState, T>(TState state, Func<TState, T> read, Exception need)
     {
         for (var attempt = 0; ; attempt++)
         {
+            if (need is FormInstanceNeeded instance)
+                await Forms!.MakeDefaultInstance(instance.Form);
+            else if (need is FormLoadNeeded load)
+                await Forms!.Load(load.Form);
             try
             {
-                return read();
+                return read(state);
             }
-            catch (FormInstanceNeeded need) when (Forms is { } forms && attempt < 16)
+            catch (Exception again) when (attempt < 16 && again is FormInstanceNeeded or FormLoadNeeded)
             {
-                await forms.MakeDefaultInstance(need.Form);
-            }
-            catch (FormLoadNeeded need) when (Forms is { } forms && attempt < 16)
-            {
-                await forms.Load(need.Form);
+                need = again;
             }
         }
     }
 
-    /// <inheritdoc cref="Loading{T}"/>
-    internal Task Loading(Action read) => Loading(() =>
+    /// <inheritdoc cref="Loading{TState, T}"/>
+    internal ValueTask<bool> Loading<TState>(TState state, Action<TState> write) =>
+        Loading((State: state, Write: write), static s =>
+        {
+            s.Write(s.State);
+            return true;
+        });
+
+    /// <inheritdoc cref="Loading{TState, T}"/>
+    internal ValueTask<T> Loading<T>(Func<T> read) => Loading(read, static r => r());
+
+    /// <inheritdoc cref="Loading{TState, T}"/>
+    internal ValueTask<bool> Loading(Action read) => Loading(read, static r =>
     {
-        read();
+        r();
         return true;
     });
 

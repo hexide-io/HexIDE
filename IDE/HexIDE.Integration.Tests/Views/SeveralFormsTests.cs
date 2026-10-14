@@ -389,6 +389,68 @@ public class SeveralFormsTests
             "after Unload f", "f2 terminate", "after Set f = Nothing");
     }
 
+    // ── Other uses of a form's name (#1056 review) ──────────────────────────────────────────────────────
+
+    [AvaloniaFact]
+    public void With_a_forms_name_makes_its_instance_and_a_built_in_member_inside_loads_it()
+    {
+        using var run = Start("""
+            Private Sub Form_Load()
+                With Form2
+                    Debug.Print "in with"
+                    .Caption = "set in with"
+                End With
+                Debug.Print "caption " & Form2.Caption
+            End Sub
+            """);
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 initialize", "in with", "f2 load", "caption set in with");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("ByVal f As Object")]
+    [InlineData("f As Object")]
+    public void A_forms_name_passed_as_an_argument_makes_its_instance_and_does_not_load_it(string parameter)
+    {
+        using var run = Start($"Private Sub Take({parameter})\n    Debug.Print TypeName(f) & \" \" & (f Is Form2)\nEnd Sub\n"
+            + "Private Sub Form_Load()\n    Take Form2\n    Debug.Print \"after\"\nEnd Sub\n");
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 initialize", "Form2 True", "after");
+    }
+
+    [AvaloniaFact]
+    public void Reading_Visible_loads_the_form_and_reads_False_until_it_is_shown()
+    {
+        // Measured, as `Form2.Visible` after `Load Form2` (the oracle's measurement 2).
+        using var run = Start("""
+            Private Sub Form_Load()
+                If Form2.Visible Then
+                    Debug.Print "visible"
+                Else
+                    Debug.Print "hidden"
+                End If
+            End Sub
+            """);
+
+        run.Errors.Should().BeEmpty();
+        run.Printed.Should().Equal("f2 initialize", "f2 load", "hidden");
+    }
+
+    [AvaloniaTheory]
+    [InlineData("For Each c In Form2.Controls\n        Debug.Print TypeName(c)\n    Next", "Controls")]
+    [InlineData("Form2.Text1.SetFocus", "SetFocus")]
+    public void A_use_HexIDE_lacks_loads_the_form_then_is_refused_as_not_implemented(string use, string named)
+    {
+        // The load is the measured part: a built-in member or a control's loads the form. What follows is HexIDE's gap.
+        using var run = Start($"Private c As Variant\nPrivate Sub Form_Load()\n    {use}\n    Debug.Print \"not reached\"\nEnd Sub\n");
+
+        run.Printed.Should().Equal("f2 initialize", "f2 load");
+        run.Errors.Should().ContainSingle().Which.Should().BeOfType<NotImplementedException>()
+            .Which.Message.Should().Contain(named);
+    }
+
     // ── When the run ends ──────────────────────────────────────────────────────────────────────────────
 
     [AvaloniaFact]
