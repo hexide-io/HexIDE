@@ -46,6 +46,19 @@ public class ConstStoreTests : BaseVBTestFixture
     }
 
     [Fact]
+    public async Task Another_modules_Private_Const_is_not_the_name_a_store_reaches()
+    {
+        // Measured (#1007's review): Module1's `Const X = 1` is Private, so Module2's `X = 5` makes a new variable there,
+        // and both print what they hold. The refusal must not reach across modules: if it did, a valid program would stop.
+        // A `Public Const X = 1` is refused in VB6 ("Assignment to constant not permitted"), but HexIDE does not yet see
+        // another module's Public names unqualified at all (#880), so that row is not pinned.
+        await RunModules("Const X = 1\nRun\nDebug.Print \"Module1's X = \" & X\n",
+            ("Module2", "Sub Run()\n    X = 5\n    Debug.Print \"Module2's X = \" & X & \", \" & TypeName(X)\nEnd Sub\n"));
+
+        AssertDebugLog([new Vb6Value("Module2's X = 5, Integer"), new Vb6Value("Module1's X = 1")]);
+    }
+
+    [Fact]
     public async Task A_class_refuses_a_store_into_its_own_Const()
     {
         var act = async () => await RunClasses("Dim c As Class1\nSet c = New Class1\nDebug.Print c.Bump\n",

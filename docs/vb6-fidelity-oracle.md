@@ -8081,3 +8081,10 @@ constant's:
   (interpreter-core:40-42).
 - **Pinned:** in `ConstStoreTests`, except three rows. `Module1.MK = 2` is not reachable, because a module-qualified
   store raises 424 whatever it names (#1006). LSet and Line Input are not implemented.
+
+**And a Const of another module** (#1007's review, native and p-code agreeing). Module1 declares `Const X = 1`, which is
+Private by default, and Module2, without Option Explicit, runs `X = 5` and prints `X`. VB6 prints `5, Integer` from
+Module2 and `1` from Module1: a Private Const is invisible outside its module, so Module2's `X` is a new variable of its
+own. With `Public Const X = 1` instead, Module2 does not compile: "Assignment to constant not permitted". HexIDE gives
+the Private row, pinned, since a store resolves the name in its own module first. It gives the same for the Public row,
+where VB6 refuses, because it does not see another module's Public names unqualified at all (#880).
