@@ -22,6 +22,10 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A ByRef `As Variant` parameter writes back to its caller** (#1001). `Sub S(v As Variant): v = 5` left a caller's
+  Variant, or a caller's `Integer`, as it was, because the parameter got a copy of anything but an array. It now
+  shares the caller's variable, as an untyped parameter does. Along with it, an untyped or Variant parameter given a
+  typed variable is a Variant in arithmetic, as in VB6: `v * 7000` with an `Integer` 5 is 35000, where it overflowed.
 - **An array assignment copies the array** (#970). `d = f` shared one array between the two names, so a write through
   either reached the other, with no error. Measured on vb6.exe, VB6 copies wherever it stores an array: into a
   variable, an element, a ByVal parameter and a For Each variable, and so the row-buffer idiom, `rows(i) = row`, keeps

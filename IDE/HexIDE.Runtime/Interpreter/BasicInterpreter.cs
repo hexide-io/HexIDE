@@ -1081,13 +1081,13 @@ public partial class BasicInterpreter : IAntlrErrorListener<IToken>, IAntlrError
             if (i < args.Count && !args[i].Value.IsMissing)
             {
                 var arg = args[i];
-                // A `v As Variant` shares an array argument as an untyped `v` does (measured, #970). That is what lets a
-                // Variant sort routine sort its caller's array once a Let copies, and lets a ReDim reach the caller's
-                // array and its fixedness. VB6 shares a scalar argument with it too, a Variant or a typed variable
-                // (measured), which is #1001.
+                // A `v As Variant` shares its argument as an untyped `v` does, whatever the argument holds (measured:
+                // #970 for an array, which is what lets a Variant sort routine sort its caller's array and a ReDim reach
+                // the caller's; #1001 for a scalar, so `v = 5` reaches a caller's Variant, and a caller's `Integer`, which
+                // the store converts into and which stays an Integer). It got a copy of a scalar, so the caller kept 1.
                 bool aliasable = p.ByRef && arg.Location is not null
-                    && (p.DeclaredType is null || p.DeclaredType == arg.Value.Type
-                        || p.DeclaredType == Vb6Value.ValueType.EmptyVariant && arg.Value.Type.IsArray);
+                    && (p.DeclaredType is null || p.DeclaredType == Vb6Value.ValueType.EmptyVariant
+                        || p.DeclaredType == arg.Value.Type);
                 if (aliasable)
                     callee.DefineVariable(p.Name, arg.Location!.Value);            // ByRef: share the caller's slot
                                                                                    // (NOT counted — the caller's slot already holds the ref)

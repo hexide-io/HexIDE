@@ -7817,7 +7817,16 @@ declaration order. Not run: a Variant local holding an array, which HexIDE puts 
 
 **A ByRef `As Variant` given a scalar is written back.** `Sub S(v As Variant): v = 5` gives 5 to a caller's Variant
 holding 1, and to a caller's `Dim n As Integer` too, which compiles; `Sub U(v): v = 6` gives 6 and leaves `n` an
-Integer. HexIDE copies the scalar into a `v As Variant`, so the caller keeps 1: #1001.
+Integer. HexIDE copied the scalar into a `v As Variant`, so the caller kept 1: #1001.
+
+**And the parameter is still a Variant** (#1001, measured native and p-code): given a `Dim n As Integer` holding 5,
+`v * 7000` is a Long 35000 in `Sub S(v As Variant)` and in `Sub U(v)` alike, `Select Case v` takes `Case Is < 5.4`, and
+`TypeName(v)` is "Integer". So sharing the caller's typed variable does not make the parameter typed.
+
+**HexIDE, after #1001.** A ByRef `v As Variant` shares its argument's slot whatever the argument holds, as an untyped
+`v` does, and a read of an untyped or Variant parameter is never typed, though the slot it shares may be. Before,
+`U(v)` given a typed Integer read as typed, so `v * 7000` overflowed where VB6 widens; that was older than #970, and
+the copy into `S(v As Variant)` had hidden it there. Every row is pinned.
 
 **HexIDE, after the review.** Every row above is pinned. A For Each that runs out empties its variable and releases
 what it held; `End Sub` releases scalar locals before arrays. The ByRef `As Variant` scalar is #1001's, apart from #970.
