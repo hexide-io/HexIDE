@@ -15,15 +15,22 @@ public class ModuleExecutionContext
     /// field writes — so the coercion belongs here rather than at each call site. A slot with no declared
     /// type is a Variant and takes the value unchanged, which is exactly the old behaviour.
     /// </summary>
-    public bool TryUpdateVariable(ExecutionEnvironment env, string name, Vb6Value value, ParserRuleContext? ctx = null)
+    /// <param name="fillingConstant">
+    /// Set only by the Const statement, which fills the slot the pre-pass hoisted, and fills it again for each instance
+    /// of a class. Every other store into a Const is refused.
+    /// </param>
+    public bool TryUpdateVariable(ExecutionEnvironment env, string name, Vb6Value value, ParserRuleContext? ctx = null,
+        bool fillingConstant = false)
     {
         if (env.TryGetVariableLocation(name, out var loc))
         {
-            // An Enum member is a constant. VB6 refuses `pTwo = 5` at compile time with "Assignment to
-            // constant not permitted"; the walk can only refuse it here, as the statement runs, which is
-            // the translation interpreter-core:40-42 prescribes. Checked before the coercion, because the
-            // write is not going to happen and a coercion error would name the wrong problem.
-            if (state.IsReadOnly(loc))
+            // An Enum member and a user Const are constants. VB6 refuses `pTwo = 5`, `MK = 2` and `Set MK = Nothing` at
+            // compile time with "Assignment to constant not permitted" (measured, #1003: a module Const, a local one, a
+            // class's, `Module1.MK = 2` and `MK = MK + 1` alike); the walk can only refuse it here, as the statement runs,
+            // which is the translation interpreter-core:40-42 prescribes. Checked before the coercion, because the write
+            // is not going to happen and a coercion error would name the wrong problem. A statement VB6 refuses with
+            // another message checks first (StatementExecutor.RefuseConstantTarget): For, For Each, Mid, ReDim and Erase.
+            if (state.IsReadOnly(loc) || state.IsConstant(loc) && !fillingConstant)
                 throw new VBCompileErrorException($"Assignment to constant not permitted ({name})");
 
             if (state.DeclaredTypeOf(loc) is { } declared)

@@ -22,6 +22,11 @@ there isn't one yet. Anything may change between 0.x releases.
 
 ### Fixed
 
+- **A store into a Const is refused, as VB6 refuses it** (#1003). `MK = 2` after `Const MK = 1` ran and overwrote the
+  constant, so every later read gave 2. It is now VB6's compile error "Assignment to constant not permitted", raised
+  as the statement runs. VB6 gives other messages for other statements, and so does HexIDE now, for a Const and an
+  Enum member alike: a For counter, a For Each variable or a Mid target is "Variable required - can't assign to this
+  expression", and ReDim or Erase of one is "Expected array". Measured on vb6.exe, native and p-code.
 - **Select Case compares as VB6 does, and arithmetic overflows where VB6's does** (#987). VB6 treats a value as typed or
   as a Variant by where it came from, and both decide the result. Measured on vb6.exe, native and p-code:
   - **A typed selector** converts each Case value into its type, so a declared 2 is no longer `Case Is < 2.4`, and a

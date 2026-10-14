@@ -91,7 +91,8 @@ public class ExecutionState
         pendingControls.Count > 0 && pendingControls.TryGetValue(location, out var form) ? form : null;
 
     // A user Const's slot. Not read-only, since the Const statement fills it after the pre-pass makes it, and a class's
-    // top-level declarations run again for each instance; marked so that an argument naming it is passed by value.
+    // top-level declarations run again for each instance. Marked so that an argument naming it is passed by value, and so
+    // that any other store into it is refused (#1003).
     private readonly HashSet<int> constantLocations = new();
 
     /// <summary>Mark a slot as a user <c>Const</c>'s (see <see cref="IsConstant"/>).</summary>
