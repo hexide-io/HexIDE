@@ -262,7 +262,8 @@ public class GuardedEditorInputTests : IDisposable
         UiAutomationDriver.PressKey(editor, "Enter", null).Success.Should().BeFalse();
         UiAutomationDriver.PressKey(editor, "Back", null).Success.Should().BeFalse();
         UiAutomationDriver.PressKey(editor, "Delete", null).Success.Should().BeFalse();
-        UiAutomationDriver.PressKey(editor, "V", "Ctrl").Success.Should().BeFalse();
+        // Paste is Cmd+V on macOS, where the IDE binds it as the platform does (ApplicationCommands).
+        UiAutomationDriver.PressKey(editor, "V", OperatingSystem.IsMacOS() ? "Cmd" : "Ctrl").Success.Should().BeFalse();
 
         vm.Document.Text.Should().Be(before);
     }

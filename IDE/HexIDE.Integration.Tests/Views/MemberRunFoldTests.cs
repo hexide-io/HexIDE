@@ -803,10 +803,16 @@ public class MemberRunFoldTests : IDisposable
         var (_, editor) = Show(vm);
         var declaration = LineWith(editor, "Public Sub Go()");
 
-        // The word step's key is the platform's (Ctrl+Shift+Right, or Alt+Shift+Right on macOS), so it is read from the
-        // binding rather than assumed.
-        var byWord = editor.TextArea.DefaultInputHandler.CaretNavigation.KeyBindings
-            .First(b => b.Command == EditingCommands.SelectRightByWord && b.Gesture?.Key == Key.Right).Gesture!.KeyModifiers;
+        // The word step's key is the platform's (Ctrl+Shift+Right on Windows and Linux, Alt+Shift+Right on macOS), so it
+        // is read from the bindings rather than assumed: one bound to the word step that no earlier binding takes first,
+        // as the library tries them in order. The first word-step binding was not enough: on macOS CI that one was
+        // Ctrl+Shift+Right, which an earlier binding takes, and the press selected nothing.
+        var bindings = editor.TextArea.DefaultInputHandler.CaretNavigation.KeyBindings;
+        var byWord = bindings
+            .Where(b => b.Command == EditingCommands.SelectRightByWord && b.Gesture?.Key == Key.Right)
+            .Select(b => b.Gesture!.KeyModifiers)
+            .First(m => bindings.First(b => b.Gesture?.Matches(new KeyEventArgs { Key = Key.Right, KeyModifiers = m }) == true)
+                .Command == EditingCommands.SelectRightByWord);
         foreach (var modifiers in new[] { KeyModifiers.Shift, byWord })
         {
             editor.TextArea.ClearSelection();
