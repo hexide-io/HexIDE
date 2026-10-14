@@ -11,7 +11,8 @@ namespace HexIDE.Controls;
 /// the editor makes itself, merged into one list a <see cref="FoldingManager"/> accepts.
 /// </summary>
 /// <remarks>
-/// The collapsed label for each fold is the trimmed text of the fold's first line.
+/// The collapsed label for a server's fold and the header's is the trimmed text of the fold's first line. A member's
+/// attribute run has none; see <see cref="MemberRuns"/>.
 /// </remarks>
 public static class Vb6FoldingAdapter
 {
@@ -71,11 +72,50 @@ public static class Vb6FoldingAdapter
     }
 
     /// <summary>
+    /// The fold of each run in <paramref name="runs"/> that describes a member, in order: from the end of the line
+    /// it describes to the end of its last line (hexide-io/HexIDE#273 task 4.3). An orphan has none.
+    /// </summary>
+    /// <param name="runs">A buffer's attribute runs; see <see cref="ReadOnlyRegions.MemberRuns"/>.</param>
+    /// <remarks>
+    /// <para>
+    /// <b>The fold starts at the run's anchor, part-way along a line</b>, because folded, the run is hidden the way
+    /// VB6 hid it: in a marker at the end of the declaration it belongs to. A line-start fold, as a server's and the
+    /// header's are, would fold the run under its first attribute line instead, which is the text being hidden.
+    /// </para>
+    /// <para>
+    /// <b>It ends at the end of the run's last line, before its line break</b>, as the header's does, so the line
+    /// after the run stays a line of its own and the described line folded reads as one line above it.
+    /// </para>
+    /// <para>
+    /// <b>It has no title</b>, so the folding manager draws its own <c>...</c> box, which needs no translating.
+    /// A run's first line in the label, as a server's fold has, would be the attribute text the fold is there to
+    /// hide.
+    /// </para>
+    /// <para>
+    /// <b>A server's fold of the procedure contains it</b>, from the start of the declaration's line to the end of
+    /// <c>End Sub</c>, so <see cref="Merge"/> keeps both and the run's nests inside the procedure's. Two runs' folds
+    /// never meet: the line above a run is never an attribute line, or the two would be one run.
+    /// </para>
+    /// </remarks>
+    public static List<NewFolding> MemberRuns(IReadOnlyList<MemberRun> runs)
+    {
+        var folds = new List<NewFolding>();
+        foreach (var run in runs)
+        {
+            // The length is defensive (#273 task 4.3 review): a run that describes a member ends on a line that holds
+            // `Attribute`, so its fold is never empty, and Merge drops an empty fold anyway.
+            if (run.DescribesMember && run.LastContentEnd > run.Anchor)
+                folds.Add(new NewFolding(run.Anchor, run.LastContentEnd));
+        }
+        return folds;
+    }
+
+    /// <summary>
     /// The editor's own folds and a server's, as one list the folding manager accepts.
     /// </summary>
     /// <param name="own">
-    /// The folds the editor makes itself, which a server's answer never displaces: the header's, and from
-    /// phase 4 of hexide-io/HexIDE#273 each member's attribute run.
+    /// The folds the editor makes itself, which a server's answer never displaces: the header's, and each
+    /// member's attribute run (hexide-io/HexIDE#273 task 4.3).
     /// </param>
     /// <param name="server">A server's folds, possibly none.</param>
     /// <remarks>

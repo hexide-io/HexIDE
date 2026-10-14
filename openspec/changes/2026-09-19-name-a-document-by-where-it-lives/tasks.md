@@ -1802,11 +1802,122 @@
   — **Left.** `CodeWindowReadOnlySections` still reads the physical line above a run as the described line when it
   decides whether a deletion takes the run, rather than `DescribedStart`; whether deleting part of a continued
   declaration takes its run is 4.5a's to decide. No test here shows it disagreeing with `Of`.
-- [ ] 4.2 Read-only and greyed, through the same provider and colour as the header.
+- [x] 4.2 Read-only and greyed, through the same provider and colour as the header.
   — **Both halves exist already:** the runs have been read-only since 3.7, and 3.15 greys every read-only
   region, these included. What is left is checking both once 4.3 folds the runs.
-- [ ] 4.3 Folds from the end of the described line, built with character offsets and nested inside a server's
+  — **Checked, folded and expanded.** `MemberRunFoldTests.AFoldedRunAndAnExpandedOneAreBothReadOnly` asks the
+  section provider and `IsReadOnlyRegion` both ways: the declaration's end takes text, the run's first character,
+  its last line's end and the line break it hangs from do not, and typing, Backspace and Delete in the expanded run
+  change nothing. `ReadOnlyGreyingTests.AFoldedRunIsDrawnAsABoxInTheReadOnlyColourAndAnExpandedOneIsGreyedLineByLine`:
+  folded, all that is drawn of the run is the library's box at the end of the declaration's row, in the fold-label
+  brush 3.15 sets from the theme's read-only colour, with the declaration in syntax colours before it; expanded,
+  each run line is grey and the declaration and body are not. Nothing needed changing. The greying tests that read a
+  run's own lines now open those runs through the view model before the window shows, since a run is folded by
+  default, rather than through the fold afterwards, which would redraw the lines between an edit and its assertion.
+- [x] 4.3 Folds from the end of the described line, built with character offsets and nested inside a server's
   procedure fold.
+  — **Measured first, headlessly, on AvaloniaEdit 12.0.0 (2026-10-14)**, and read in its decompiled source, which
+  agrees on every point; `MidLineFoldBehaviourTests` (17) keeps each measurement the code relies on. A folded run
+  joins the declaration's row and the line after it keeps its own; a fold with no title is the library's `...`
+  box, one caret stop wide. The margin draws one marker per row, for the first fold starting at or after the row's
+  start, so beside a server's procedure fold the marker is the procedure's, expanded or not, and the run has one of
+  its own only with no other fold on its row. The row has two caret stops at the box: before it, the anchor, and
+  after it, the end of the run's last line, inside the run. Right, Ctrl+Right, End, a click past the row's end, Up
+  from a longer line and Left and Ctrl+Left from the line after the run all land on the second; End marks it
+  `IsAtEndOfLine` and a click does not, so the position cannot tell a click from a step. The first reading of the
+  word-start rule, that a word step skips the box, was wrong both ways. Home from after the box goes to the row's
+  start. Shift+Right makes its selection from the caret as it stands after the caret's own synchronous
+  `PositionChanged`, so a caret moved there is where the selection ends. `GetFoldingsContaining` counts both ends
+  of a fold as inside it, while the caret unfolds one only from strictly inside. Text inserted at a fold's start
+  moves the fold along, so typing at the anchor lands before the box. An update pairs by start alone, keeping the
+  section, its state and its tag; one left out is removed and unfolded, and a new one starts expanded.
+  — **Built.** `Vb6FoldingAdapter.MemberRuns` gives each run that describes a member a fold from its anchor to its
+  last line's content end, with no title, and `Merge` nests it in a server's procedure fold and drops one crossing
+  it, as for the header. `CodeEditorViewModel.MemberRunsNow` caches `ReadOnlyRegions.MemberRuns` as
+  `ReadOnlyRegionsNow` caches `Of`, a second whole-buffer scan per version, and `ExpandedMemberRuns` holds the keys
+  the developer expanded in this window. The view's `ApplyFolds` makes the header's fold and every run's in each
+  application; tags run sections as its own, so no fold of its own is carried forward among a server's; keeps a
+  section the manager paired at its live state; and folds a new one unless its key was expanded or the caret is in
+  it or at its end. Expansion is read from the folds at each `Changing`, before each application and as the view
+  detaches, matching each section to the run where it now stands. `OwnFoldsAreCurrent` replaces
+  `HeaderFoldIsCurrent`, so a run that appears, grows, moves or turns into an orphan has its fold re-made on the
+  change. `KeepCaretOffFoldedRunsEnd` moves a caret landing after a collapsed run's box to the anchor, or past the
+  run to the next line when a Right key moved it there from the anchor (design.md, "Settled while building 4.3").
+  — **Tests.** `MemberRunFoldTests` (28), against a rendered editor: the delta's scenario `AProcedureWithADescription`,
+  the fold before any server answers and nested in the server's procedure fold, a server answer keeping both states,
+  a reload, a format and a dock move with one run of a property expanded and the other folded, the Get's expanded
+  run kept by its ordinal, the last choice kept, a new window opening folded, a run turning into an orphan and back
+  with no server, a run growing, a run pasted and a run typed in, a section paired through one edit group that grows
+  the run and renames its member, Undo bringing a deleted run back as it was, and the caret: End from the row's
+  start and from the anchor, Right and Ctrl+Right past the run, Shift+Right, a run ending the file, Left and
+  Ctrl+Left from the line after, Up from a longer line, a click past the row's end from either side, typing at the
+  end of the declaration, F9's line and the status bar, an expanded run and a folded header left alone.
+  `Vb6FoldingAdapterTests` gains six: a procedure's, a variable's and a property's two runs, an orphan's none, a
+  continued declaration, and the merge with a procedure fold and a crossing one.
+  — **Mutation: 19 run, one at a time, 15 caught.** The caret-inside rule, the paired branch, a run's section kept
+  as a server's, the Right key's origin dropped or not consulted, the end-of-file guard, the rule applied to the
+  header's fold or to an expanded run, the count and the offsets in the currency check, the observation at
+  `Changing` and at detach, the runs cache never going stale, and in the adapter orphans folded and a fold to the
+  region's end. Survived, and equivalent: the tag carrying a key and the currency check comparing it, and the
+  observation falling back to it, which only ever applied part-way through an edit group, after the group's first
+  `Changing` had recorded the state; both were removed, so the tag is a marker. `ReadOnlyRegionRedraw` switched off,
+  which no greying test now notices: creating, removing or resizing a fold redraws the lines it spans, so in the
+  code window every change to a run's region already redraws it; it is kept for an editor that folds nothing. And
+  the runs cache's prefix check, which mirrors `ReadOnlyRegionsNow`'s and matters only for a reload that moves the
+  split without changing the text, which no test makes.
+  — **Left.** The margin's one marker per row is to be filed: a run expanded beside a server's procedure fold has
+  no marker to fold it again with, so only closing and reopening the window does. A reload whose body changed can
+  still put the caret's old offset inside a run, which opens it as the caret moving there does, the run's version of
+  what 3.14 fixed for the header. 4.5 owns Enter at the anchor and 4.5a a deletion of the described line; 4.8
+  checks the folds in the running IDE.
+  — **Reviewed.** A review drove the folds headlessly against tests of its own. Recording the folds' state at every
+  `Changing` read the whole buffer once per change, because each change is a new version and the runs are cached per
+  version, so a format of N lines, one change per line in one group, cost N scans: 8000 line edits of a
+  165,230-character module took 99 seconds. The window now records at the first
+  `Changing` of each group, the flag reset on `UpdateStarted`, and `CodeEditorViewModel.MemberRunScans` counts the
+  reads. The step past a run was noted for the Right key with any modifiers, so on macOS, which binds Cmd+Right to
+  the end of the line, End from the anchor went past the run; it is now noted for a key whose binding in the caret
+  navigation steps right (`StepsRight`: by character or word, moving or selecting), and it ends once the key has been
+  handled, by a handler on the editor, so a step that something took before the text area, and that moved nothing,
+  no longer sends the next landing after the box past the run. The remembered expansion only ever gained keys, so
+  a name retyped key by key left every name it passed through expanded, and a run added above another of the same
+  member opened as that one had been left; a key a shown run moves off is now dropped, each before any state is
+  recorded, with the key each section was last seen under kept by the view, which also brings a property's Get back
+  folded when it is deleted alone and undone. design.md's settled points are corrected and say what is still not
+  handled: the Get left expanded comes back folded, and a retype that clears the name first folds the run. The
+  margin's one-marker-per-row is "to be filed" in design.md too now. Select All in a file a run ends leaves the
+  caret at the anchor, off both ends of the selection; fixing it is not cheap, and it is an open question in
+  design.md.
+  — **Tests.** `MemberRunFoldTests`, 28 to 43: a 200-line format reading the runs at most twice, with an expanded
+  run still expanded; Cmd+Right and Cmd+Shift+Right with macOS's two bindings added to the text area as its keymap
+  adds them; Ctrl+Shift+Right beside Shift+Right; a Right some handler takes before the text area, and a placement
+  at the run's end after Right went past it, both landing at the anchor; a dock move after End, and a declaration
+  uncommented with the caret at its end, both folding the run; Undo after deleting a Get alone; a retype key by key
+  and a member later named like a name it passed through; a run pasted for a Let above its Get's; two members
+  trading names in one group; the grown-and-renamed test now also reloading a described `Go`; and the review's
+  four measured-working cases, a continued attribute line under a continued declaration, Down from a longer line,
+  Ctrl+End to a run that ends the file, and a server's fold of the run's own lines. And a reload whose text is the
+  buffer's own and whose split is not: `ReloadFrom` returns before it touches the document, as
+  `ReadOnlySectionProviderTests` already makes it do, so the runs cache's prefix check, which 4.3 called
+  equivalent, is not.
+  — **Mutation: 12 run, one at a time, 10 caught.** Recording at every change (the 200-line format), the group's
+  flag never reset (four tests), the step told by the Right key (the Mac's bindings), the word-select step left out
+  (Ctrl+Shift+Right), the step outliving its key (the taken key and the placement after a step), the caret-inside
+  rule taking the anchor for inside (the dock move and the uncomment), the key a run moves off kept (four tests),
+  the two passes made one (the trade), the runs cache's prefix check (the moved split), and an unmatched section's
+  last key forgotten (the grown-and-renamed reload). A first form of the every-change mutant did not build, the flag
+  left unread (CS0414), and was replaced. Survived, and equivalent: the map of last keys never pruned, which only
+  grows it, since a section the manager removed never returns; and the step's origin unchecked, since a step reaches
+  a folded run's end only from its anchor now that a step is told by its command, under any keymap. It was not
+  equivalent under the Mac's while the key decided, and the comparison stays, marked defensive. Equivalent as the
+  review found, not run again, and marked defensive in comments: the guard on the window's own caret placement, the
+  adapter's empty-fold check, and the caret rule's end-of-section check. The review's other survivor, consuming the
+  step at the first caret move, is gone: the step's life is now the key's, and removing that bound reddens the
+  placement after a step.
+  — **Left.** Select All in a file a run ends, the open question in design.md. To be filed: the margin's one
+  marker per row; `ReadOnlyRegions` reading lines at LF alone, so a buffer of bare CRs has no runs, folds or
+  protection, which is 4.1's reader; and a navigation to a described event handler, which puts the caret at the start
+  of the line after the declaration, inside the folded run, opening it and recording the opening as the developer's.
 - [x] 4.4 A member's rename rewrites its own attribute qualifiers — a procedure, property or module-level
   variable alike, since VB6 writes `VB_Var*` lines after a declaration. A server rename's edits to them are
   permitted; its edits to the header are not.
@@ -1912,12 +2023,149 @@
   not passing the flag, or passing it for a Save alone and not a Save As (four); Save Project, the save of every
   project, or a write to the project's directory passing it (three); `SaveFiles` or `Write` dropping it on the way
   to a form or a module (three); and the old gate, unsaved changes alone.
-- [ ] 4.5 Enter at the end of a described line inserts after the attribute run, not between the line and its
+- [x] 4.5 Enter at the end of a described line inserts after the attribute run, not between the line and its
   attributes.
-- [ ] 4.5a A run follows the line it describes: deleting that line deletes the run with it, and a cut takes
+  — **Measured first, headlessly**, before relying on it: which handler each key reaches in a code window. Delete,
+  Ctrl+X and Ctrl+V are taken by the window's commands before the text area sees them; Enter by its tunnel handler;
+  Backspace, Ctrl+D, Ctrl+Delete and Shift+Enter reach AvaloniaEdit's own bindings, after that handler, and
+  Shift+Enter types its line break through `TextEntering`. And that text written at a run fold's end is left outside
+  the fold, so a line made there is not hidden in the box.
+  — **Built.** `CodeWindowReadOnlySections.PlaceLineBreak` decides where text holding a line break goes when what it
+  replaces ends at a described line's anchor, or before only spaces and tabs there (`RunHangingFrom`): the text
+  before its first line break in place of the span, and the rest after the run's last line, every line break written
+  as the described line's own terminator. As if the run were not there, so a paste of several lines joins its first
+  to the declaration and puts the rest after the run (design.md, "Settled while building 4.5"). A span the provider
+  would carve is left to the library. `CodeEditorViewModel.InsertLineBreakPastRun` writes both parts as one undo
+  step. Enter (`HandleEnterAutoClose`) calls it after its re-casing, in the same update group, reads the declaration
+  from `MemberRun.DescribedStart`, which is 4.1's continuation rule and not `VbAutoCloseProvider.IsContinuationLine`'s,
+  and looks for the closer from the run's last line. Shift+Enter and any other typed line break are taken at
+  `TextEntering`, indented like the declaration; a paste ending at an anchor is the window's own, reading the
+  clipboard and placing the text by the same rule; Insert File and automation's `type_text` use it too, the latter's
+  reply saying where the text went and where the caret is. An add-in's `ApplyEdits` putting a line break there is
+  refused, naming the member, in a refusal of its own. The `type_text` and `press_key` tool descriptions say so.
+  — **Tests.** `MemberRunFollowsItsLineTests` in HexIDE.Tests, the rules: the split, the described line's newline,
+  trailing whitespace, a selection ending at the anchor, where the rule does not apply (no line break, mid-line, an
+  orphan, a span reaching into the header, one crossing another run), one undo step, Insert File, and the add-in's
+  refusal with its control.
+  `MemberRunFollowsItsLineTests` in HexIDE.Integration.Tests, through a rendered editor: Enter with the run folded and
+  expanded, the fold's end left where it was, the closer looked for past the run, a run ending the file getting its
+  closer after it, the re-casing undone with the line break in one step, a declaration ending in a name ending in
+  `_`, the declaration read from where the reader starts it, a continued declaration re-cased and closed whole,
+  Shift+Enter indented, a paste of several lines with a tab undone in one step, a paste of none, `type_text`, and
+  `press_key` Enter.
+  — **Mutation: 22 run, one at a time, 22 caught, after a second round.** In the provider: the anchor taken
+  exactly (trailing whitespace), orphans let in, the whole-span check dropped, the newline left as the text has it,
+  everything put after the run, and a text with no line break placed anyway; in the view model, the two parts written
+  as two undo steps, Insert File and the add-in refusal each dropped, and the refusal for any text; in the window,
+  the paste left to the library, its fallback dropped, its tabs kept, the `TextEntering` hook dropped, Shift+Enter
+  unindented, Enter with no run, the loose continuation rule, the closer looked for under the line, the logical line
+  read past `DescribedStart`, the closer's caret at the end, and the declaration started at the caret's line; and
+  `type_text` without the rule. Three survived the first round, each now reddening a test added for it: the paste's
+  tabs kept, the declaration started at the caret's line (a continued declaration, re-cased and closed), and the
+  whole-span check, whose first form was a precedence slip that left the check of the span's start in place; it is
+  replaced by one removing the check, which a span starting in code and carving another member's run reddens.
+  — **Left.** Enter away from an anchor still writes a bare LF (#530), and Enter on any existing block opener with a
+  body inserts a second closer (#471), past the run as anywhere else. Insert File and `type_text` still write their
+  text verbatim away from an anchor, so a LF file inserted into a CRLF module mixes the two there. Replace and a
+  server's formatting are not asked about a line break at an anchor: a replacement or an edit ending there that holds
+  one would still leave the run under its last line. A drop of dragged text at an anchor is the library's.
+  — **Reviewed**, with 4.5a, by a review that drove every route against probes of its own and found nothing blocking.
+  Two shapes the rule places wrongly, both checked here before being recorded: a line break before a described line's
+  trailing comment splits the line at the caret and leaves the run under the comment, an orphan, which predates 4.5;
+  and a paste over a declaration's whole text whose first line is not the new declaration leaves the run under that
+  line. The ways to fix each disagree with each other and VB6 is unmeasured, so both are open questions in design.md,
+  and the code is unchanged. The settled points now say the rule leaves trailing whitespace on the declaration's row,
+  where with no run Enter carries it to the new line; that Shift+Enter's indent is the declaration's last physical
+  line's, which design.md had called the declaration's; and that a drop is the library's. `type_text`'s reply counted
+  the text as written, so a LF sent into a CRLF module counted twice; it counts what was sent, as its other reply does.
+  — **Tests.** `MemberRunFollowsItsLineTests` in HexIDE.Tests gains four: a LF module's line breaks written LF, a
+  placed replacement's tail where `TailStart` says with the caret after it, an add-in's replacement ending at the
+  anchor refused, and a declaration pasted with its body over the whole declaration keeping the run for the new
+  member. In HexIDE.Integration.Tests, two: Shift+Enter at a continued declaration indented like its last line, and a
+  paste the window leaves to the library's carving still written in the module's newline; and `type_text`'s count.
+  — **Mutation.** Review ran 44 across both tasks, one at a time, and left 15 standing; 4.5 had six. Five are now
+  caught, each by the test added for it, one at a time: the newline hard-coded to CRLF, `TailStart` ignoring the
+  length replaced, the add-in refusal asked at the edit's start, Shift+Enter's indent read from the declaration's
+  first line, and the paste fallback writing the clipboard's newlines; so is the reply's count put back. Equivalent,
+  and marked in a comment: `RunHangingFrom`'s early break, since a later run's anchor lies past a line break, which
+  the blanks test refuses.
+  — **Left.** The two open questions. Enter over a selection inserts at the caret instead of replacing the
+  selection, as it does with no run there, and `type_text` leaves a selection standing; both predate 4.5, and are to
+  be filed.
+- [x] 4.5a A run follows the line it describes: deleting that line deletes the run with it, and a cut takes
   it along. An orphaned run, however it arises, is preserved as inert text. 3.7 already covers a selection
   spanning the line and its run. What is left is the line on its own, which the provider cannot widen to
   (AvaloniaEdit refuses segments outside the requested span), so it needs a guarded write.
+  — **Built**, by widening the request rather than writing it: the window widens the selection before the library
+  asks the provider, and the library deletes it, so a cut copies what it deletes. `CodeWindowReadOnlySections.WidenDeletion`
+  widens a deletion that removes the whole text of a described line, from `DescribedStart` to the anchor and
+  leading and trailing whitespace aside, over its run: to the end of the run's last line's text when the deletion
+  ends at or before the anchor, and past the run's last terminator when it ends after, as Ctrl+D and a whole-line Cut
+  do. `Takes` is the provider's matching rule for not carving a run out, the line's text and the run's text, where
+  it used to want the run's last terminator too. The Cut command widens the selection, or with nothing selected the
+  caret's line; the Delete command widens the selection; Backspace and the word deletes widen it at the tunnel
+  handler, told by the command their key's binding runs (`DeletesTheSelection`), as 4.3 tells a step; and Ctrl+D is
+  the window's when the lines it deletes include a described one (`DeleteLinesWithTheirRuns`), because the library's
+  computes the lines from the selection's ends and would take the line after the run too. One change each, so one
+  undo step, and Undo brings back both, folded as they were left. `press_key` widens a deleting key's span the same
+  way, and a run that span takes whole is not a change (`DeletionChangesARegion`); Ctrl+D's span is now every line
+  the selection touches, as the library deletes. Typing over a selected declaration is a replacement, and keeps the
+  run for whatever the new line declares.
+  — **Decided: the described line is the logical line**, `DescribedStart`, in the provider too, which read the
+  physical line above the run until now. Deleting part of a continued declaration leaves the run where it is: under
+  what remains, still describing it when that still declares the member, and an orphan kept byte for byte when it
+  does not. Only a deletion of every line of the declaration takes the run (design.md, "Settled while building 4.5a").
+  — **Tests.** The delta's scenario, `DeletingADescribedProcedure`, and 4.7's deletion case for a described procedure,
+  `DeletingADescribedProceduresDeclarationLineAloneTakesItsAttributeLinesWithIt` (Ctrl+D, then one Undo bringing both
+  back folded), in HexIDE.Integration.Tests' `MemberRunFollowsItsLineTests`, with the declaration's text deleted by
+  Backspace and by Delete leaving its row, a variable's line, Ctrl+D on a line nothing hangs from left to the library,
+  a whole-line Cut and a selected one putting the run on the clipboard and the first pasted back described, a retype
+  over the selected declaration, a line break typed over it, which replaces and keeps the run, and `press_key`
+  refusing Backspace over part of a run and letting Ctrl+D through, with nothing selected and with a selection from
+  part-way along the declaration into the run. In
+  HexIDE.Tests' `MemberRunFollowsItsLineTests`: how far a deletion reaches, with or without the line's break, from
+  after the indent, before trailing whitespace, not at all when it leaves part of the declaration, for a variable,
+  for two described lines at once and for the line above an orphan; the provider letting a taken run through and
+  still carving one it does not take; `DeletionChangesARegion`; and the three continued-declaration cases the
+  decision turns on.
+  — **Mutation: 23 run, one at a time, 23 caught, after a second round.** In the provider: `Takes` wanting the run's
+  last terminator, never true, or read from the physical line; the indent and the trailing whitespace not skipped;
+  the widening always past the last terminator, always to the text's end, letting orphans in, not checking the
+  start, or never made; and `DeletionChangesARegion` ignoring what is taken, skipping the header, or unwidened. In the
+  window: the Cut, the Delete command and the keys each not widening, a cut with nothing selected not taking its line,
+  Ctrl+D left to the library, or left to it with the widened selection, which deletes the line after the run too, and
+  every key taken for a deleting one. In automation: a deletion judged as a write, Ctrl+D not a deletion, and Ctrl+D
+  judged by its selection. Two survived the first round, each now reddening a test added for it: every key taken for
+  a deleting one (Shift+Enter over a selected declaration, a replacement that keeps the run), and Ctrl+D judged by its
+  selection (a selection from part-way along the declaration into the run). None was equivalent.
+  — **Left.** A drag-move is not widened: its deletion is computed when the drag starts, before anything the window
+  could act on. One that would carve a run stays a copy, as the library makes it, but a drag-move of a declaration's
+  text alone, without its line break, carves nothing, so it moves and leaves the run an orphan (recorded in design.md,
+  not handled). Delete with nothing selected deletes nothing in the code window (#708), so that key reaches a whole
+  line only through a selection. `press_key` still refuses a deletion the provider would carry out in part, which a
+  person's key carries out as far as it can; that was already so.
+  — **Reviewed**, with 4.5, and nothing blocking. Three findings were about what the rules do rather than defects in
+  them, each checked here, and the settled points in design.md now say all three. The widening is the keys' and
+  `press_key`'s alone: an add-in's range edit, Replace and Replace All that delete a declaration's text alone are
+  applied and leave its run an orphan, which the delta's unconditional requirement does not allow. How to close that
+  is an open question in design.md, and the code is unchanged, the add-in range path being 4.5b's. The provider's rule
+  answers a replacement as it does a deletion, so text typed over the line and the run's text, the run expanded,
+  replaces both. And a whole-line cut, which now carries the run, pasted mid-line at another described declaration's
+  anchor makes the two runs one, the other member's. Both widenings also take trailing whitespace that the same
+  deletion with no run would leave, and the settled point says so. Ctrl+D never arming the reset prompt, which review
+  also found, is #1025, already filed with Ctrl+Backspace and Ctrl+Delete, and left to it.
+  — **Tests.** HexIDE.Tests gains the provider letting a deletion from after the indent through whole. In
+  HexIDE.Integration.Tests: Ctrl+Backspace and Ctrl+Delete over a selected declaration taking its run, and `press_key`
+  letting Backspace, Delete and Ctrl+X through over the whole line with its line break; and the line break typed over
+  a selected declaration renamed for what it shows, the run left an orphan, which it now asserts. `MemberRunFollowsItsLineTests`
+  is 29 in HexIDE.Tests and 31 in HexIDE.Integration.Tests, with 4.5's.
+  — **Mutation.** 4.5a had nine of review's survivors. Six are now caught, one at a time, each by the test added for
+  it: `Takes` reading the line from `DescribedStart` rather than after its indent, each word delete left out of the
+  keys that widen, and `press_key` taking Ctrl+X, Backspace or Delete for a write. Equivalent, and marked in comments:
+  `WidenDeletion`'s early break, which only saves work, and the selection kept when nothing is widened, where an equal
+  one would delete and copy the same text. The third, a `Math.Max` that could never bind, since a deletion ending at
+  or before the anchor ends before the run, is removed.
+  — **Left.** The open question; the drag-move, as before; and #1025.
 - [x] 4.5b Whole replacements refuse a change to a member's attribute run: add-in `TrySetContent` and
   `SetContent`, and automation `set_file_content`, as the code-editor requirement "Only the IDE SHALL change a
   read-only region" requires. Until then `GuardedContent.Replace` compares the header alone (design.md, "A whole

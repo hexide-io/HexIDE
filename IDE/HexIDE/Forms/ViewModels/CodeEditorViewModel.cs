@@ -559,6 +559,20 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     internal bool HeaderFoldExpanded { get; set; }
 
     /// <summary>
+    /// The member attribute runs the developer has expanded in this window, by key (#273 task 4.3).
+    /// </summary>
+    /// <remarks>
+    /// For the reason <see cref="HeaderFoldExpanded"/> is held here, and by key rather than by offset, because what
+    /// it has to outlive is the fold itself: a reload, a format that rewrites a run's surroundings, or a dock move
+    /// removes the fold, and the run's fold made again afterwards is folded unless its key is in this set. A key the
+    /// window no longer shows is kept, so a run deleted and brought back by Undo comes back as it was left, unless
+    /// another run of the same member took the key meanwhile, by an ordinal shift; and a key a shown run moves off,
+    /// renamed or renumbered, goes, so a name a retype passes through is not left in the set to open some other
+    /// member's run later (task 4.3 review). The view keeps both rules; design.md, "Settled while building 4.3".
+    /// </remarks>
+    internal HashSet<MemberRunKey> ExpandedMemberRuns { get; } = [];
+
+    /// <summary>
     /// Toggles a breakpoint on the 1-based <paramref name="line"/>, unless it would set one on a read-only line.
     /// </summary>
     /// <returns>False when nothing changed because the line is read-only; the status bar then says why.</returns>
@@ -1278,11 +1292,51 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
     private int regionsCachePrefixLength;
 
     /// <summary>
+    /// Every run of attribute lines below this buffer's header as it stands, those describing a member and the
+    /// orphans alike (<see cref="ReadOnlyRegions.MemberRuns"/>).
+    /// </summary>
+    /// <remarks>
+    /// Cached as <see cref="ReadOnlyRegionsNow"/> is, the prefix's length included: a reload whose text is the
+    /// buffer's own but whose split is not returns before it changes the document, so the version alone would keep
+    /// runs read against the old split. The view reads it once an edit group has changed the text and once as the
+    /// group begins, to keep a fold on each run that describes a member (#273 task 4.3), and when a step to the right
+    /// lands at the end of one; never at every change of a group, which made a format of N lines N whole-buffer
+    /// scans (task 4.3 review, <see cref="MemberRunScans"/>).
+    /// </remarks>
+    internal IReadOnlyList<MemberRun> MemberRunsNow
+    {
+        get
+        {
+            var version = Document.Version;
+            if (runsCache is null || !ReferenceEquals(runsCacheVersion, version)
+                || runsCachePrefixLength != bufferPrefix.Length)
+            {
+                runsCache = ReadOnlyRegions.MemberRuns(Document.Text, bufferPrefix.Length);
+                runsCacheVersion = version;
+                runsCachePrefixLength = bufferPrefix.Length;
+                MemberRunScans++;
+            }
+            return runsCache;
+        }
+    }
+
+    /// <summary>
+    /// How many times <see cref="MemberRunsNow"/> has read the whole buffer, for the tests that hold the code window
+    /// to one read per edit group however many changes the group makes (#273 task 4.3 review).
+    /// </summary>
+    internal int MemberRunScans { get; private set; }
+
+    private IReadOnlyList<MemberRun>? runsCache;
+    private ITextSourceVersion? runsCacheVersion;
+    private int runsCachePrefixLength;
+
+    /// <summary>
     /// The section provider the view installs on its text area (task 3.7): the regions above plus the
     /// whole-document verdict, both read live, so it never needs replacing.
     /// </summary>
     internal CodeWindowReadOnlySections ReadOnlySections =>
-        readOnlySections ??= new CodeWindowReadOnlySections(Document, () => IsReadOnly, () => ReadOnlyRegionsNow);
+        readOnlySections ??= new CodeWindowReadOnlySections(Document, () => IsReadOnly, () => ReadOnlyRegionsNow,
+            () => MemberRunsNow);
 
     private CodeWindowReadOnlySections? readOnlySections;
 
@@ -1351,6 +1405,12 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
             CaretOffset = caret;
             return;
         }
+        // At the end of a described line, the file from its first line break on goes after the run (task 4.5).
+        if (InsertLineBreakPastRun(selectionStart, selectionLength, content) is { } placed)
+        {
+            CaretOffset = placed.End;
+            return;
+        }
         Document.Replace(selectionStart, selectionLength, content);
         CaretOffset = selectionStart + content.Length;
     }
@@ -1381,6 +1441,37 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
 
         Document.Insert(at, content);
         return at + content.Length;
+    }
+
+    /// <summary>
+    /// Writes text holding a line break that would replace <c>[offset, offset + length)</c> at the end of a line a
+    /// member's run describes, with everything from its first line break on after the run, as one undo step
+    /// (#273 task 4.5). The section provider decides where (<see cref="CodeWindowReadOnlySections.PlaceLineBreak"/>).
+    /// </summary>
+    /// <returns>Where the two parts went; or null when the rule does not apply, and nothing was written.</returns>
+    /// <remarks>
+    /// The window's line breaks all come here: Enter and Shift+Enter, a paste, Insert File and automation's
+    /// <c>type_text</c>. Put where the text asked, the line break would leave the run hanging from the last line of
+    /// the text, describing whatever that declares and most often nothing.
+    /// </remarks>
+    internal LineBreakPastRun? InsertLineBreakPastRun(int offset, int length, string text)
+    {
+        if (ReadOnlySections.PlaceLineBreak(offset, length, text) is not { } placed)
+            return null;
+
+        Document.BeginUpdate();
+        try
+        {
+            // The later offset first, so the earlier one still means what it meant.
+            Document.Insert(placed.TailAt, placed.Tail);
+            if (placed.Length > 0 || placed.Head.Length > 0)
+                Document.Replace(placed.Offset, placed.Length, placed.Head);
+        }
+        finally
+        {
+            Document.EndUpdate();
+        }
+        return placed;
     }
 
     /// <summary>
@@ -1603,6 +1694,23 @@ public partial class CodeEditorViewModel : BaseEditorWindowViewModel, ISearchabl
                 var at = Document.GetLocation(edit.Offset);
                 return $"{describe?.Invoke(i) ?? $"The edit at line {at.Line}, column {at.Column}"} would change "
                        + WhatAnEditChanges(regions, edit) + ", which only the IDE changes. Nothing was changed.";
+            }
+        }
+
+        // An edit putting a line break at the end of a described line would leave the member's run hanging from
+        // the edit's last line, which mostly declares nothing (#273 task 4.5). The window moves such a line break
+        // past the run; an add-in's range is the add-in's own choice of place, so it is refused instead.
+        for (var i = 0; i < edits.Count; i++)
+        {
+            var edit = edits[i];
+            if (edit.Text.AsSpan().IndexOfAny('\r', '\n') >= 0
+                && ReadOnlySections.RunHangingFrom(edit.Offset + edit.Length) is { Member: { } member })
+            {
+                var at = Document.GetLocation(edit.Offset);
+                return $"{describe?.Invoke(i) ?? $"The edit at line {at.Line}, column {at.Column}"} would put a line "
+                       + $"break at the end of the declaration of {member.Name}, between it and its Attribute lines, "
+                       + "which follow the line they describe. Put new lines at the start of the line after the "
+                       + "Attribute lines instead. Nothing was changed.";
             }
         }
 
