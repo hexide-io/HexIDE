@@ -339,15 +339,15 @@ join.
 | Formatting (server answer, any server) | The whole-document edit is reduced to the lines it changes, and changes inside a read-only region are dropped. The bundled formatter also leaves the header alone. |
 | Server rename | Refused as a whole if any edit lands in a read-only region, and the developer is told why in a message. Edits to the renamed member's own attribute qualifiers are allowed. Refusing is not rare: the bundled server's rename is lexical and whole-word over the buffer, so with the designer block in it, renaming a local called `Text`, `Top`, `Caption` or `Index` would otherwise reach the header. The bundled server therefore skips those regions itself, using the same rule, so the refusal is reserved for a server that does not. |
 | Replace, Replace All, Find | Match only outside read-only regions, and never a match whose replacement would remove the line break a member run hangs from. VB6 never searched the hidden header. A pattern match refused this way is stepped past by one character, so it cannot hide a match inside it. AvaloniaEdit's own search panel, whose Replace All writes anywhere, is uninstalled from every code window, so the dialog is the only Find surface. |
-| Insert File | Never into a read-only region: when the selection touches one, the file's text goes after the region, on lines of its own, and replaces nothing. Elsewhere the selection is the developer's choice and is replaced as always. |
+| Insert File | Never into a read-only region: when the selection touches one, the file's text goes after the region, on lines of its own, and replaces nothing. Elsewhere the selection is the developer's choice and is replaced as always. At the end of a described line, the file from its first line break on goes after the run (task 4.5). |
 | Completion commit | Not applied inside a read-only region. A completion completes the word at the caret, so there is no "after the region" that would still mean the same thing. |
-| Enter (auto-close, auto-indent) | Writes nothing with the caret inside a read-only region: there is no "after" a line break could sensibly go to. Its keyword re-casing of the lines just committed skips any line inside one, because re-casing rewrites a line and no insert rule covers that. |
+| Enter (auto-close, auto-indent) | Writes nothing with the caret inside a read-only region: there is no "after" a line break could sensibly go to. Its keyword re-casing of the lines just committed skips any line inside one, because re-casing rewrites a line and no insert rule covers that. At the end of a described line the line break goes after the run, and the closer is looked for past it (task 4.5). |
 | Event stubs, Add Procedure | Append at the end of the document, which is never inside a region. Safe by construction. |
-| Paste, cut, delete, backspace, Ctrl+D, text drag-and-drop | Left to the read-only section provider, which the editor library consults on each of these routes itself. Inside a region a paste is therefore refused silently rather than moved after it, and that is accepted rather than replaced with a paste of our own. |
+| Paste, cut, delete, backspace, Ctrl+D, text drag-and-drop | Left to the read-only section provider, which the editor library consults on each of these routes itself. Inside a region a paste is therefore refused silently rather than moved after it, and that is accepted rather than replaced with a paste of our own. Phase 4 adds two exceptions: a paste at the end of a described line is the window's own, so a line break in it goes after the run (task 4.5), and Delete, Backspace, Cut and Ctrl+D widen a deletion of a described line over its run before the library asks the provider (task 4.5a). |
 | Add-in `SetContent` | The same rule as automation: the whole file with its header unchanged, or the body alone with the header kept. Refused only when the header would change. The shipped chat add-in applies a model's fenced block, which is a body. `TrySetContent` gives the add-in the reason (task 3.19); `SetContent` answers false, as it always has. |
 | Add-in `ApplyEdits` | All or nothing: if any edit touches a read-only region, or names a line or column the document does not have, none is applied, because the rest alone would leave the add-in's change half made. `TryApplyEdits` gives the reason, naming the edit by its line and column; `ApplyEdits` answers false. |
 | Automation `set_file_content` | Accepts the whole file (header unchanged) or the body alone (header kept). That settles #338's asymmetry. |
-| Automation `type_text`, `press_key` | Refused inside a read-only region, and the reply says so and gives the offset where editing can resume. `press_key` judges only a key that would change text — Enter, Tab, Backspace, Delete, Ctrl+V, Ctrl+X, Ctrl+D — against what that key would change; a navigation key is never refused. |
+| Automation `type_text`, `press_key` | Refused inside a read-only region, and the reply says so and gives the offset where editing can resume. `press_key` judges only a key that would change text — Enter, Tab, Backspace, Delete, Ctrl+V, Ctrl+X, Ctrl+D — against what that key would change; a navigation key is never refused. A deletion is widened as the window widens it, and a run it takes whole is not a change (task 4.5a); `type_text` at the end of a described line puts its text from the first line break on after the run (task 4.5). |
 | Initial load; reload after an external change | Owner. Replaces the whole buffer. |
 | Edit-and-Continue revert (answering No) | Restores the code as it stood when the prompt opened, under the header the buffer carries **now**, replacing only the span that differs. Not the whole buffer: a designer commit or a save landing while the prompt is open replaces the header and the prefix with it, and restoring a whole-buffer snapshot put the old header back under the new prefix, so the next flush took the code from the wrong offset (measured in both directions, task 3.13). |
 
@@ -1245,6 +1245,40 @@ Insert File and automation's `type_text`. Enter's auto-close looks past the run 
 re-casing of the declaration still applies, all as one undo step. An add-in's range edit that would insert a line
 break at an anchor is refused, like any edit that would separate a run from its line.
 
+*Settled while building 4.5:*
+- *Text holding a line break is split at its first one, as if the run were not there.* What is before it replaces
+  what was asked, on the declaration's line; the rest, from the line break on, goes after the run's last line. So
+  Enter's line break makes a line of its own after the run, and a paste of several lines joins its first to the
+  declaration, where it would land with no run there, and puts the others after the run. "As a line of its own"
+  read as the whole text after the run would have moved a paste's first line off the row it was pasted on. Insert
+  File and `type_text` follow the same rule (`CodeWindowReadOnlySections.PlaceLineBreak`, written as one undo step by
+  `CodeEditorViewModel.InsertLineBreakPastRun`).
+- *The anchor includes the whitespace before it.* Enter treats a caret before trailing whitespace as the end of the
+  line, and a line break there would leave the run under a line of nothing but that whitespace, which declares
+  nothing; so the rule applies wherever only spaces and tabs stand between the span's end and the anchor.
+- *"The document's newline" is the described line's own terminator*, there always being one above a run, and every
+  line break in the placed text is written in it, as the library writes a paste. Insert File and `type_text` write
+  their text verbatim everywhere else, and a LF file inserted into a CRLF module still mixes the two there; Enter
+  away from an anchor still writes a bare LF, which is #530.
+- *A span the provider would carve is left to the library.* Text replacing a selection that reaches into the header
+  or another run is written where the carving leaves it, as before, because no rule this plain places it.
+- *Enter reads the declaration as 4.1's reader does*, from `MemberRun.DescribedStart`, which is 4.1's continuation
+  rule, and so never takes a declaration ending in a name like `Total_` for one continuing into its run.
+  `VbAutoCloseProvider.IsContinuationLine`'s looser rule still decides away from an anchor; changing it there was not
+  this task's. The closer is looked for from the run's last line, which still inserts a second `End Sub` when the
+  body is not empty, as Enter on any existing block opener does (#471).
+- *Shift+Enter* is the library's, and typed text reaches the window at `TextEntering` before the library writes it,
+  so a line break typed there is placed by the window and the library writes nothing. The new line takes the
+  declaration's indent, which is what the library's indentation would give it with no run there.
+- *A paste is the window's own only where it ends at an anchor*; everywhere else the library's paste runs as before.
+  The window cannot know until the clipboard answers whether the text holds a line break, so it reads the clipboard
+  itself there, normalises the text as the library does, and pastes text with no line break where it was asked.
+- *Which handler a key reaches, measured headlessly before relying on it*: Delete, Ctrl+X and Ctrl+V are taken by the
+  code window's commands before the text area sees them; Enter by the window's tunnel handler; Backspace, Ctrl+D,
+  Ctrl+Delete and Shift+Enter reach the library's own bindings, after that handler.
+- *The add-in's refusal names the member and says where new lines may go*, in a refusal of its own rather than the
+  region refusal, whose words ("would change … a member's Attribute lines") do not describe it.
+
 **Deleting the described line (4.5a).** A deletion that removes the whole text of a described line, by Delete,
 Backspace, Cut or Ctrl+D, removes its run with it as one undo step, and a cut puts both on the clipboard. The
 window widens the request before the library asks the provider, because the provider can only narrow. Retyping
@@ -1261,6 +1295,38 @@ not bring the description back either (IDE probe V7). Attribute text pasted into
 red as a syntax error, unseen by the dialog, and written by the save as it stands, so only the next load reads it
 as an attribute, the first of two wins (V4). HexIDE reads a pasted line that lands directly under a declaration as
 a run at once, which is what VB6's next load makes of the same bytes.
+
+*Settled while building 4.5a:*
+- *The described line is the logical line*, from `MemberRun.DescribedStart` to the anchor, for the provider and the
+  widening alike; the provider read the physical line above the run until now. They differ for a continued
+  declaration only, and the difference is what deleting part of one does: the run stays where it is. Deleting the
+  last physical line, even with the run selected too, leaves the run under what remains, which still declares the
+  member (continued into the line the deletion emptied) and so is still described. Deleting the first leaves it
+  under a line declaring nothing, an orphan, kept byte for byte. Only a deletion of every line of the declaration
+  takes the run (not measured in VB6's IDE). A deletion of part of a declaration is the developer rewriting it, and a run left under the rewrite
+  is still there to describe the result, where one deleted with half a declaration is gone.
+- *"The whole text" is the line's text less its leading and trailing whitespace*, since Home puts the caret after the
+  indent, and a line left holding only whitespace declares nothing.
+- *How far the widening reaches depends on whether the line's break was asked for.* A deletion ending at or before
+  the anchor deletes the text and leaves the row: it reaches the end of the run's last line, whose terminator is
+  left to end the emptied line. One ending past the anchor, as Ctrl+D and a whole-line Cut do, deletes the line, and
+  reaches past the run's last terminator. Both leave what the same deletion would leave with no run there.
+- *The provider lets a deletion through whole when it covers the line's text and the run's text*, to the run's last
+  line's text end, which is what the widening produces; it used to want the run's last terminator too, which a
+  deletion of the line's text alone never reaches.
+- *Ctrl+D is the window's when it would leave a run behind.* The library computes the lines from the selection's two
+  ends, so a selection widened to the start of the line after the run would delete that line too; the window deletes
+  the widened span itself, through the library's own deletion of a selection, and otherwise leaves Ctrl+D to it.
+- *The clipboard gets the run in the platform's newline*, as the library writes every copy. A procedure cut and pasted
+  arrives described.
+- *`press_key` widens a deletion as the window does, and a run its deletion takes whole is not a change.* A cut with
+  nothing selected is still judged at the caret, and Ctrl+D by every line the selection touches, as the library
+  deletes. `press_key` still refuses a deletion the provider would carry out only in part, which a person's key
+  carries out as far as it can; that was already so.
+- *A drag-move is not widened.* Its deletion is computed from the selection when the drag starts, before any event
+  the window could act on, and it stays a copy when the provider would carve it. A drag-move of a declaration's text
+  alone, without its line break, carves nothing, so it moves, and the run is left under the emptied line as an orphan.
+  That is recorded, not handled.
 
 **Whole replacements (4.5b).** `GuardedContent.Replace` compares the runs that describe members, keyed by
 member, between the document and the composed result, reading the lines of a run whose qualifiers the save

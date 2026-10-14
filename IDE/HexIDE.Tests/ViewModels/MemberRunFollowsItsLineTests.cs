@@ -350,6 +350,8 @@ public class MemberRunFollowsItsLineTests : IDisposable
             "an orphan is inert text, and a line break above it is the developer's");
         vm.ReadOnlySections.PlaceLineBreak(At(vm, "Option Explicit") - 3, run.Anchor - At(vm, "Option Explicit") + 3, "\r\n")
             .Should().BeNull("a span reaching into the header is carved by the library, and left to it");
+        vm.ReadOnlySections.PlaceLineBreak(At(vm, "Count As Long"), run.Anchor - At(vm, "Count As Long"), "\r\n")
+            .Should().BeNull("and so is one starting where text may go and crossing another member's run, which it carves");
     }
 
     [AvaloniaFact]

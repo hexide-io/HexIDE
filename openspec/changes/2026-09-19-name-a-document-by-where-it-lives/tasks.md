@@ -1921,12 +1921,104 @@
 - [ ] 4.4 A member's rename rewrites its own attribute qualifiers — a procedure, property or module-level
   variable alike, since VB6 writes `VB_Var*` lines after a declaration. A server rename's edits to them are
   permitted; its edits to the header are not.
-- [ ] 4.5 Enter at the end of a described line inserts after the attribute run, not between the line and its
+- [x] 4.5 Enter at the end of a described line inserts after the attribute run, not between the line and its
   attributes.
-- [ ] 4.5a A run follows the line it describes: deleting that line deletes the run with it, and a cut takes
+  — **Measured first, headlessly**, before relying on it: which handler each key reaches in a code window. Delete,
+  Ctrl+X and Ctrl+V are taken by the window's commands before the text area sees them; Enter by its tunnel handler;
+  Backspace, Ctrl+D, Ctrl+Delete and Shift+Enter reach AvaloniaEdit's own bindings, after that handler, and
+  Shift+Enter types its line break through `TextEntering`. And that text written at a run fold's end is left outside
+  the fold, so a line made there is not hidden in the box.
+  — **Built.** `CodeWindowReadOnlySections.PlaceLineBreak` decides where text holding a line break goes when what it
+  replaces ends at a described line's anchor, or before only spaces and tabs there (`RunHangingFrom`): the text
+  before its first line break in place of the span, and the rest after the run's last line, every line break written
+  as the described line's own terminator. As if the run were not there, so a paste of several lines joins its first
+  to the declaration and puts the rest after the run (design.md, "Settled while building 4.5"). A span the provider
+  would carve is left to the library. `CodeEditorViewModel.InsertLineBreakPastRun` writes both parts as one undo
+  step. Enter (`HandleEnterAutoClose`) calls it after its re-casing, in the same update group, reads the declaration
+  from `MemberRun.DescribedStart`, which is 4.1's continuation rule and not `VbAutoCloseProvider.IsContinuationLine`'s,
+  and looks for the closer from the run's last line. Shift+Enter and any other typed line break are taken at
+  `TextEntering`, indented like the declaration; a paste ending at an anchor is the window's own, reading the
+  clipboard and placing the text by the same rule; Insert File and automation's `type_text` use it too, the latter's
+  reply saying where the text went and where the caret is. An add-in's `ApplyEdits` putting a line break there is
+  refused, naming the member, in a refusal of its own. The `type_text` and `press_key` tool descriptions say so.
+  — **Tests.** `MemberRunFollowsItsLineTests` in HexIDE.Tests, the rules: the split, the described line's newline,
+  trailing whitespace, a selection ending at the anchor, where the rule does not apply (no line break, mid-line, an
+  orphan, a span reaching into the header, one crossing another run), one undo step, Insert File, and the add-in's
+  refusal with its control.
+  `MemberRunFollowsItsLineTests` in HexIDE.Integration.Tests, through a rendered editor: Enter with the run folded and
+  expanded, the fold's end left where it was, the closer looked for past the run, a run ending the file getting its
+  closer after it, the re-casing undone with the line break in one step, a declaration ending in a name ending in
+  `_`, the declaration read from where the reader starts it, a continued declaration re-cased and closed whole,
+  Shift+Enter indented, a paste of several lines with a tab undone in one step, a paste of none, `type_text`, and
+  `press_key` Enter.
+  — **Mutation: 22 run, one at a time, 22 caught, after a second round.** In the provider: the anchor taken
+  exactly (trailing whitespace), orphans let in, the whole-span check dropped, the newline left as the text has it,
+  everything put after the run, and a text with no line break placed anyway; in the view model, the two parts written
+  as two undo steps, Insert File and the add-in refusal each dropped, and the refusal for any text; in the window,
+  the paste left to the library, its fallback dropped, its tabs kept, the `TextEntering` hook dropped, Shift+Enter
+  unindented, Enter with no run, the loose continuation rule, the closer looked for under the line, the logical line
+  read past `DescribedStart`, the closer's caret at the end, and the declaration started at the caret's line; and
+  `type_text` without the rule. Three survived the first round, each now reddening a test added for it: the paste's
+  tabs kept, the declaration started at the caret's line (a continued declaration, re-cased and closed), and the
+  whole-span check, whose first form was a precedence slip that left the check of the span's start in place; it is
+  replaced by one removing the check, which a span starting in code and carving another member's run reddens.
+  — **Left.** Enter away from an anchor still writes a bare LF (#530), and Enter on any existing block opener with a
+  body inserts a second closer (#471), past the run as anywhere else. Insert File and `type_text` still write their
+  text verbatim away from an anchor, so a LF file inserted into a CRLF module mixes the two there. Replace and a
+  server's formatting are not asked about a line break at an anchor: a replacement or an edit ending there that holds
+  one would still leave the run under its last line. A drop of dragged text at an anchor is the library's.
+- [x] 4.5a A run follows the line it describes: deleting that line deletes the run with it, and a cut takes
   it along. An orphaned run, however it arises, is preserved as inert text. 3.7 already covers a selection
   spanning the line and its run. What is left is the line on its own, which the provider cannot widen to
   (AvaloniaEdit refuses segments outside the requested span), so it needs a guarded write.
+  — **Built**, by widening the request rather than writing it: the window widens the selection before the library
+  asks the provider, and the library deletes it, so a cut copies what it deletes. `CodeWindowReadOnlySections.WidenDeletion`
+  widens a deletion that removes the whole text of a described line, from `DescribedStart` to the anchor and
+  leading and trailing whitespace aside, over its run: to the end of the run's last line's text when the deletion
+  ends at or before the anchor, and past the run's last terminator when it ends after, as Ctrl+D and a whole-line Cut
+  do. `Takes` is the provider's matching rule for not carving a run out, the line's text and the run's text, where
+  it used to want the run's last terminator too. The Cut command widens the selection, or with nothing selected the
+  caret's line; the Delete command widens the selection; Backspace and the word deletes widen it at the tunnel
+  handler, told by the command their key's binding runs (`DeletesTheSelection`), as 4.3 tells a step; and Ctrl+D is
+  the window's when the lines it deletes include a described one (`DeleteLinesWithTheirRuns`), because the library's
+  computes the lines from the selection's ends and would take the line after the run too. One change each, so one
+  undo step, and Undo brings back both, folded as they were left. `press_key` widens a deleting key's span the same
+  way, and a run that span takes whole is not a change (`DeletionChangesARegion`); Ctrl+D's span is now every line
+  the selection touches, as the library deletes. Typing over a selected declaration is a replacement, and keeps the
+  run for whatever the new line declares.
+  — **Decided: the described line is the logical line**, `DescribedStart`, in the provider too, which read the
+  physical line above the run until now. Deleting part of a continued declaration leaves the run where it is: under
+  what remains, still describing it when that still declares the member, and an orphan kept byte for byte when it
+  does not. Only a deletion of every line of the declaration takes the run (design.md, "Settled while building 4.5a").
+  — **Tests.** The delta's scenario, `DeletingADescribedProcedure`, and 4.7's deletion case for a described procedure,
+  `DeletingADescribedProceduresDeclarationLineAloneTakesItsAttributeLinesWithIt` (Ctrl+D, then one Undo bringing both
+  back folded), in HexIDE.Integration.Tests' `MemberRunFollowsItsLineTests`, with the declaration's text deleted by
+  Backspace and by Delete leaving its row, a variable's line, Ctrl+D on a line nothing hangs from left to the library,
+  a whole-line Cut and a selected one putting the run on the clipboard and the first pasted back described, a retype
+  over the selected declaration, a line break typed over it, which replaces and keeps the run, and `press_key`
+  refusing Backspace over part of a run and letting Ctrl+D through, with nothing selected and with a selection from
+  part-way along the declaration into the run. In
+  HexIDE.Tests' `MemberRunFollowsItsLineTests`: how far a deletion reaches, with or without the line's break, from
+  after the indent, before trailing whitespace, not at all when it leaves part of the declaration, for a variable,
+  for two described lines at once and for the line above an orphan; the provider letting a taken run through and
+  still carving one it does not take; `DeletionChangesARegion`; and the three continued-declaration cases the
+  decision turns on.
+  — **Mutation: 23 run, one at a time, 23 caught, after a second round.** In the provider: `Takes` wanting the run's
+  last terminator, never true, or read from the physical line; the indent and the trailing whitespace not skipped;
+  the widening always past the last terminator, always to the text's end, letting orphans in, not checking the
+  start, or never made; and `DeletionChangesARegion` ignoring what is taken, skipping the header, or unwidened. In the
+  window: the Cut, the Delete command and the keys each not widening, a cut with nothing selected not taking its line,
+  Ctrl+D left to the library, or left to it with the widened selection, which deletes the line after the run too, and
+  every key taken for a deleting one. In automation: a deletion judged as a write, Ctrl+D not a deletion, and Ctrl+D
+  judged by its selection. Two survived the first round, each now reddening a test added for it: every key taken for
+  a deleting one (Shift+Enter over a selected declaration, a replacement that keeps the run), and Ctrl+D judged by its
+  selection (a selection from part-way along the declaration into the run). None was equivalent.
+  — **Left.** A drag-move is not widened: its deletion is computed when the drag starts, before anything the window
+  could act on. One that would carve a run stays a copy, as the library makes it, but a drag-move of a declaration's
+  text alone, without its line break, carves nothing, so it moves and leaves the run an orphan (recorded in design.md,
+  not handled). Delete with nothing selected deletes nothing in the code window (#708), so that key reaches a whole
+  line only through a selection. `press_key` still refuses a deletion the provider would carry out in part, which a
+  person's key carries out as far as it can; that was already so.
 - [ ] 4.5b Whole replacements refuse a change to a member's attribute run: add-in `TrySetContent` and
   `SetContent`, and automation `set_file_content`, as the code-editor requirement "Only the IDE SHALL change a
   read-only region" requires. Until then `GuardedContent.Replace` compares the header alone (design.md, "A whole

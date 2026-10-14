@@ -1129,7 +1129,8 @@ public static class UiAutomationDriver
 
     /// <summary>Types text into the resolved control (or its nearest text surface) by inserting at the
     /// caret via the control's own API — reliable and exact (no synthetic keystrokes, so live
-    /// auto-indent/IntelliSense don't garble it). Multi-line text is inserted verbatim.</summary>
+    /// auto-indent/IntelliSense don't garble it). Multi-line text is inserted verbatim, except at the end of a
+    /// code window's described line, where it is placed as a paste there is (#273 task 4.5).</summary>
     /// <remarks>
     /// The insert is a document edit, not input, so it would go through a read-only editor that a person's
     /// keystrokes could not change. It is refused there instead, and the mechanism is reported as

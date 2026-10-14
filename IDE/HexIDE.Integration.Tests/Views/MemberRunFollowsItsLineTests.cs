@@ -353,7 +353,57 @@ public class MemberRunFollowsItsLineTests : IDisposable
         vm.Document.Text.Should().Be(before.Replace("Public Sub Go()\r\n" + RunText, string.Empty));
     }
 
+    [AvaloniaFact]
+    public void PressKeyCtrlDJudgesTheLinesTheSelectionTouches()
+    {
+        // From part-way along the declaration into the run: what Ctrl+D deletes is both lines, which takes the run
+        // whole, and not the selection, which would carve it.
+        var vm = Open(Procedure);
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        var declaration = LineWith(editor, "Public Sub Go()");
+        var run = RunOf(vm, "Go");
+        editor.Select(declaration.Offset + 7, run.Region.Start + 5 - declaration.Offset - 7);
+
+        var pressed = UiAutomationDriver.PressKey(editor, "D", "Ctrl");
+
+        pressed.Success.Should().BeTrue(pressed.Error);
+        vm.Document.Text.Should().Be(before.Replace("Public Sub Go()\r\n" + RunText, string.Empty));
+    }
+
+    [AvaloniaFact]
+    public void ALineBreakTypedOverASelectedDeclarationIsAReplacementAndKeepsTheRun()
+    {
+        // Only the keys that delete widen the selection. Shift+Enter over the declaration's text replaces it with a line
+        // break, which goes after the run; the run is left under the emptied line, an orphan kept as it was.
+        var vm = Open(Procedure);
+        var editor = Show(vm);
+        var declaration = LineWith(editor, "Public Sub Go()");
+        editor.Select(declaration.Offset, declaration.Length);
+
+        Press(editor, Key.Enter, KeyModifiers.Shift);
+
+        vm.Document.Text.Should().Contain("Option Explicit\r\n\r\n\r\n" + RunText + "\r\n    Debug.Print 1");
+    }
+
     // ── A line break at the end of a described line (4.5) ───────────────────────────────────────────────────
+
+    [AvaloniaFact]
+    public void EnterAtTheEndOfAContinuedDescribedDeclarationRecasesAndReadsAllOfIt()
+    {
+        // Every physical line of the declaration is committed, from DescribedStart, and read for the closer: the last
+        // line alone declares nothing and wants none.
+        var vm = Open("Option Explicit\r\n\r\npublic sub Go( _\r\n    ByVal x As Long)\r\nAttribute Go.VB_Description = \"Goes\"\r\n");
+        var editor = Show(vm);
+        var before = vm.Document.Text;
+        PutCaret(editor, LineWith(editor, "    ByVal x As Long)").EndOffset);
+
+        Press(editor, Key.Enter);
+
+        // The closer's indent is the caret's line's, a continuation line's here, as it is with no run (not pinned).
+        vm.Document.Text.Should().StartWith(before.Replace("public sub Go(", "Public Sub Go("));
+        vm.Document.Text[before.Length..].Should().MatchRegex(@"^ *\r\n *End Sub\r\n$");
+    }
 
     [AvaloniaTheory]
     [InlineData(true)]
@@ -462,11 +512,11 @@ public class MemberRunFollowsItsLineTests : IDisposable
     public async Task APasteOfSeveralLinesAtTheEndOfADescribedDeclarationPutsAllButTheFirstAfterTheRun()
     {
         // As if the run were not there: the first line joins the declaration, the rest follow the run, and every line
-        // break is written in the module's newline.
+        // break is written in the module's newline, and a tab as spaces, as the library's own paste writes them.
         var vm = Open(Procedure);
         var editor = Show(vm);
         var before = vm.Document.Text;
-        await SetClipboard(editor, " ' first\n    Debug.Print 0");
+        await SetClipboard(editor, " ' first\n\tDebug.Print 0");
         PutCaret(editor, LineWith(editor, "Public Sub Go()").EndOffset);
 
         Press(editor, Key.V, KeyModifiers.Control);
