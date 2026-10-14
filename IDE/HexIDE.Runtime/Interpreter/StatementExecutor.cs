@@ -725,8 +725,14 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
         var block = context.block();
         foreach (var element in array.EnumerateElements())
         {
-            // VB6 binds each element as a read-only Variant copy (Vb6Value is a value type, so this is a copy).
-            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, element);
+            // VB6 binds each element as a copy: an element that is an array is copied, so a write through the loop
+            // variable does not reach the array walked (measured, #970). An object element is held by the variable while
+            // it holds it, and what the variable held before is released.
+            interpreter.ExecutionContext.TryGetVariable(currentEnv, varName, out var previous);
+            var bound = interpreter.CopyForStore(element);
+            interpreter.AddRef(bound);
+            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, varName, bound);
+            await interpreter.ReleaseRef(previous);
 
             if (block == null)
                 continue;
@@ -1114,7 +1120,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 AllocImplicitVariant(identifier);
                 interpreter.ExecutionContext.TryGetVariable(currentEnv, identifier, out oldLet);
             }
-            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, identifier, BasicInterpreter.CopyIfValueType(value));
+            interpreter.ExecutionContext.TryUpdateVariable(currentEnv, identifier, interpreter.CopyForStore(value));
             // Refcount (Phase 4.2): a Variant slot that held an object and is now overwritten by a scalar drops
             // that reference — release it (no-op unless the old value was an object). The new value is non-object
             // (guarded above), so no AddRef is needed.
@@ -1153,7 +1159,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // Lifts the single-member restriction for UDT field chains (object chains stay single-dot).
             if (variable.Value is VbUdt)
             {
-                SetUdtField(variable, membersCall.iCS_S_MemberCall(), BasicInterpreter.CopyIfValueType(value), context);
+                SetUdtField(variable, membersCall.iCS_S_MemberCall(), interpreter.CopyForStore(value), context);
                 return default;
             }
 
@@ -1179,7 +1185,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                 }
                 if (!interpreter.ExecutionContext.TryGetVariable(vobj.InstanceEnv, fieldName, out var oldFieldLet))
                     throw new VBRunTimeException(context, VBStandardError.MethodOrDataMemberNotFound, fieldName);
-                interpreter.ExecutionContext.TryUpdateVariable(vobj.InstanceEnv, fieldName, BasicInterpreter.CopyIfValueType(value));
+                interpreter.ExecutionContext.TryUpdateVariable(vobj.InstanceEnv, fieldName, interpreter.CopyForStore(value));
                 // A field that held an object, now overwritten by a scalar via Let, drops that reference.
                 await interpreter.ReleaseRef(oldFieldLet);
                 return default;
@@ -1248,14 +1254,20 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             if (!array.Type.IsArray || array.Value is not VBArray arr)
                 throw new VBCompileErrorException("Expected array");
 
+            // An element takes a copy, as a variable does (measured, #970: the row-buffer idiom, `rows(i) = row`, and
+            // `outer(0) = inner`). That is also what keeps `v(1) = v` from storing an array into itself. What the element
+            // held before is released.
+            Vb6Value oldElement;
             try
             {
-                arr.SetValue(indexesAsInt, value);
+                oldElement = arr.GetValue(indexesAsInt);
+                arr.SetValue(indexesAsInt, interpreter.CopyForStore(value));
             }
             catch (IndexOutOfRangeException)
             {
                 throw new VBRunTimeException(procedureOrArrayCall, VBStandardError.SubscriptOutOfRange);
             }
+            await interpreter.ReleaseRef(oldElement);
 
             return ControlFlow.Nothing;
         }
@@ -1831,7 +1843,10 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // such as a `b() As Long` parameter, is the typed array it holds (measured: it keeps its type).
             var located = currentEnv.TryGetVariableLocation(variableName, out var redimLoc);
             var declaredArray = located && interpreter.ExecutionContext.State.IsDeclaredArray(redimLoc);
-            var variant = located && !declaredArray && interpreter.ExecutionContext.State.IsVariant(redimLoc);
+            // An untyped or Variant parameter takes the Variant rule below although it shares a caller's declared array,
+            // whose type and fixedness stay the slot's (measured, #970).
+            var variant = located && (currentEnv.VariantParameters.Contains(variableName)
+                || !declaredArray && interpreter.ExecutionContext.State.IsVariant(redimLoc));
             Vb6Value.ValueType type = redim.asTypeClause() != null ? ExtractType(redim.asTypeClause(), true)
                 : declaredArray || value.Type.IsArray ? value.Type
                 : new Vb6Value.ValueType(Vb6Value.ValueType.EmptyVariant, true);
@@ -1847,7 +1862,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             // dimensioned" (measured). It was silently replaced. Fixedness is the declaring slot's
             // (ExecutionState.MarkFixedArray), not the array's: a Let into another slot does not carry it (`d = f` then
             // `ReDim d(10)` works, measured), and a ByRef parameter that shares the caller's slot reaches the caller's
-            // mark. A `v As Variant` parameter has its own slot, so its ReDim of a fixed array is not refused yet (#970).
+            // mark, a `v As Variant` given an array included (#970).
             if (located && interpreter.ExecutionContext.State.IsFixedArray(redimLoc))
             {
                 if (currentEnv.Parameters.Contains(variableName))
@@ -1868,7 +1883,9 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
                     interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variableName, new Vb6Value(type));
                 else if (!dimensions.Exists(d => d.Item2 == d.Item1 - 1))
                 {
-                    interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variableName, Vb6Value.Variant);
+                    // Emptied: a Variant to Empty, and a caller's declared array, shared by the parameter, to unallocated.
+                    interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variableName,
+                        declaredArray ? new Vb6Value(type) : Vb6Value.Variant);
                     throw new VBRunTimeException(context, VBStandardError.OutOfMemory);
                 }
                 throw new VBRunTimeException(context, VBStandardError.SubscriptOutOfRange);
@@ -1884,7 +1901,7 @@ public partial class StatementExecutor : VB6Visitor<Task<ControlFlow>>, Debuggin
             catch (VBRunTimeException e) when (e.Error.ErrNo == VBStandardError.OutOfMemory.ErrNo)
             {
                 interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variableName,
-                    variant ? Vb6Value.Variant : new Vb6Value(type));
+                    variant && !declaredArray ? Vb6Value.Variant : new Vb6Value(type));
                 throw new VBRunTimeException(context, VBStandardError.OutOfMemory);
             }
             interpreter.ExecutionContext.TryUpdateVariable(currentEnv, variableName, redimmed);
