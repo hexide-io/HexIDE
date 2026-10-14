@@ -36,4 +36,21 @@ public class ByRefVariantParameterTests : BaseVBTestFixture
 
         Log.Should().Equal("0 35000 Long");
     }
+
+    [Theory]
+    [InlineData("S MK", "MK")]     // a module Const, through `v As Variant`
+    [InlineData("S LK", "LK")]     // a local Const
+    [InlineData("S Red", "Red")]   // an Enum member, which raised "Assignment to constant not permitted"
+    [InlineData("X MKI", "MKI")]   // a Const As Integer, through `x As Integer`
+    [InlineData("U MK", "MK")]     // a module Const, through an untyped `v`
+    public async Task A_constant_passed_ByRef_goes_by_value(string call, string constant)
+    {
+        // Measured, native and p-code: each constant is still 1 afterwards, and nothing is raised. VB6 passes it through
+        // a temporary. HexIDE aliased its slot, so the write overwrote a Const.
+        await Run("Const MK = 1\nConst MKI As Integer = 1\nEnum Colors\n    Red = 1\n    Green = 2\nEnd Enum\n"
+            + $"On Error Resume Next\nConst LK = 1\n{call}\nDebug.Print Err.Number & \" \" & {constant}\n"
+            + Subs + "Sub X(x As Integer)\n    x = 7\nEnd Sub\n");
+
+        Log.Should().Equal("0 1");
+    }
 }

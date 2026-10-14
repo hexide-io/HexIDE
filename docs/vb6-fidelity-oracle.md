@@ -7828,5 +7828,14 @@ Integer. HexIDE copied the scalar into a `v As Variant`, so the caller kept 1: #
 `U(v)` given a typed Integer read as typed, so `v * 7000` overflowed where VB6 widens; that was older than #970, and
 the copy into `S(v As Variant)` had hidden it there. Every row is pinned.
 
+**A constant passed ByRef goes by value** (#1002's review, measured native and p-code). A module `Const MK = 1`, a local
+`Const LK = 1` and an Enum member `Red = 1`, each passed to `Sub S(v As Variant): v = 5`, are still 1 afterwards, and
+nothing is raised; so is a `Const MKI As Integer = 1` passed to `Sub X(x As Integer): x = 7`, and `MK` passed to an
+untyped `v`. VB6 passes a constant through a temporary. HexIDE aliased its slot, so the write overwrote a Const (main
+did it already for an untyped or matching typed parameter, and #1001 would have opened `As Variant` to it), and an
+Enum member, being read-only, raised "Assignment to constant not permitted". Now an argument naming a Const or an Enum
+member has no location to share. A store into a Const named directly, `MK = 2`, is VB6's compile error "Assignment to
+constant not permitted" (measured), and is #1003.
+
 **HexIDE, after the review.** Every row above is pinned. A For Each that runs out empties its variable and releases
 what it held; `End Sub` releases scalar locals before arrays. The ByRef `As Variant` scalar is #1001's, apart from #970.

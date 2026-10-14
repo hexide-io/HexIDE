@@ -247,6 +247,7 @@ public class PrePass : VB6BaseVisitor<object?>
             if (sub.typeHint() != null)
                 throw new NotImplementedException("Const type hints not supported");
             var location = state.Alloc(Vb6Value.Variant);
+            state.MarkConstant(location);
             rootEnv.DefineVariable(sub.ambiguousIdentifier().GetText(), location);
             var isPublic = context.publicPrivateGlobalVisibility() is { } visibility && visibility.PRIVATE() == null;
             ModuleConsts.TryAdd(sub.ambiguousIdentifier().GetText(), (sub, isPublic));
