@@ -40,6 +40,10 @@
         <!-- The types those libraries declare, read by scripts/dump-typelib-types.ps1, and embedded for the same
              reasons: which names after `As` are VB's own object types (#822). -->
         <EmbeddedResource Include="Interpreter\Data\vb6-inbox-types.json" />
+        <!-- The members of VB6's Form class, read out of VB6.OLB by scripts/dump-typelib-members.ps1, and
+             embedded for the same reasons: which bare names in a form are the form's own (#995). -->
+        <EmbeddedResource Include="Interpreter\Data\vb6-form-members.json" />
+
     </ItemGroup>
 
     <ItemGroup>
