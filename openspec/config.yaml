@@ -32,7 +32,11 @@ rules:
     - >-
       Let 'openspec archive' merge the delta into specs/. Never hand-place a change into
       archive/ — the archive is not scanned, so the merge silently does not happen.
-    - Rewrite a spec's Purpose after archiving; the CLI overwrites it with a placeholder.
+    - >-
+      Give a new capability's delta a '## Purpose': the archive seeds the new spec with it, and
+      writes a placeholder only when there is none. An existing spec's Purpose is kept
+      (openspec 1.11 onwards; 1.13 checked). After archiving, still read each touched spec's
+      Purpose and add a note under it for any requirement the code does not yet meet.
     - >-
       A change that intentionally touches no specs needs 'skip_specs: true' alongside
       'schema: spec-driven' in the change's .openspec.yaml.
