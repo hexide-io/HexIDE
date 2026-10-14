@@ -196,15 +196,18 @@ public class ForegroundWindowTests
     }
 
     [AvaloniaFact]
-    public void An_unknown_name_is_refused_with_the_titles_of_the_open_windows()
+    public void An_unknown_name_is_refused_with_the_names_and_titles_of_the_open_windows()
     {
         var main = Shown("HexIDE");
-        var form1 = Form("Form1", "Form1");
+        var form1 = Form("Form1", "Score: 0");
+        var tool = Shown("A plain window");
 
-        var (window, error) = ForegroundWindow.Pick("Form3", main, [main, form1]);
+        var (window, error) = ForegroundWindow.Pick("Form3", main, [main, form1, tool]);
 
         window.Should().BeNull();
-        error.Should().Contain("Unknown window 'Form3'").And.Contain("\"Form1\"").And.NotContain("\"HexIDE\"");
+        // The name first, because a caption can be empty or change; a window that isn't a form by its title alone.
+        error.Should().Contain("Unknown window 'Form3'").And.Contain("Form1 (\"Score: 0\")")
+            .And.Contain("\"A plain window\"").And.Contain("stable handle").And.NotContain("HexIDE");
     }
 
     [AvaloniaFact]

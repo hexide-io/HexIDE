@@ -67,8 +67,8 @@ public static class ForegroundWindow
         if (shown.Count == 1)
             return (shown[0], null);
         if (shown.Count > 1)
-            return (null, $"{shown.Count} open windows answer to '{scope}', as two instances of one form do. "
-                          + $"Their titles: {Titles(shown)}. Name one by a title only it has.");
+            return (null, $"{shown.Count} open windows answer to '{scope}', as two instances of one form do: "
+                          + $"{Titles(shown)}. Name one by a title only it has.");
         if (named.Count > 0)
             return (null, $"'{scope}' is hidden, as a form after Hide is, and a hidden window can't be reached: a "
                           + "person can't click it either.");
@@ -78,12 +78,19 @@ public static class ForegroundWindow
         // than the one asked and look like it worked.
         var open = windows.Where(w => w != mainWindow && w.IsVisible).ToList();
         return (null, $"Unknown window '{scope}'. Use \"auto\" (the frontmost window, the default), "
-                    + "\"ide\" (the IDE window, even while a program is running), or the title of an open window"
-                    + (open.Count == 0 ? ", and none is open beside the IDE." : $": {Titles(open)}."));
+                    + "\"ide\" (the IDE window, even while a program is running), or the name or title of an open "
+                    + (open.Count == 0
+                        ? "window, and none is open beside the IDE."
+                        : $"window: {Titles(open)}. A form's name is the stable handle: its caption can be empty, or change "
+                          + "as the program runs."));
     }
 
+    // Each window as a caller can name it: a running form by its name, then its title in quotes, and any other window
+    // by its title alone.
     private static string Titles(IEnumerable<Window> windows) =>
-        string.Join(", ", windows.Select(w => $"\"{w.Title}\""));
+        string.Join(", ", windows.Select(w => VBProps.GetName(w) is { Length: > 0 } name
+            ? $"{name} (\"{w.Title}\")"
+            : $"\"{w.Title}\""));
 
     /// <summary>
     /// Picks the frontmost visible window, falling back to <paramref name="mainWindow"/> when nothing

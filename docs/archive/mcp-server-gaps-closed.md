@@ -2193,8 +2193,9 @@ compile-time `false`. No setting or flag reaches it, so a live check on the desk
 >   and their titles.
 > - **A hidden match:** refused with "'Form2' is hidden, as a form after Hide is, and a hidden window can't be
 >   reached: a person can't click it either."
-> - **No match:** refused as before, now listing the titles of the open windows, or saying that none is open beside
->   the IDE.
+> - **No match:** refused as before, now listing the open windows, or saying that none is open beside the IDE. A form
+>   is listed by its name, then its title, `Form1 ("Score: 0")`, since the name is the stable handle and a caption
+>   can be empty or change.
 >
 > The parameter stays optional, so no schema's `required` changed. Pinned in `ForegroundWindowTests`.
 >
